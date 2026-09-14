@@ -264,6 +264,26 @@ const KIND_KEYS = {
 
 const KINDS: NoteKind[] = ['note', 'call', 'meeting', 'encounter', 'message', 'email'];
 
+/**
+ * What the follow-up will be. Not stored on the note: the follow-up becomes a
+ * task in "what you owe", and this is that task's title.
+ */
+type FollowUpKind = 'touch' | 'call' | 'email' | 'meet' | 'message';
+const FOLLOW_UP_KINDS: FollowUpKind[] = ['touch', 'call', 'email', 'meet', 'message'];
+const FOLLOW_UP_KIND_KEYS = {
+  touch: 'fu_kind_touch',
+  call: 'fu_kind_call',
+  email: 'fu_kind_email',
+  meet: 'fu_kind_meet',
+  message: 'fu_kind_message',
+} as const;
+
+/** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
+export function localStamp(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
   return KIND_KEYS[kind as NoteKind] ?? KIND_KEYS.note;
 }
@@ -463,8 +483,11 @@ export function Notes({
   const [teamId, setTeamId] = useState<string | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [kind, setKind] = useState<NoteKind>('note');
-  /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
+  /** When it happened: "YYYY-MM-DDTHH:mm" local, stamped at the first keystroke. '' = not yet. */
+  const [startedAt, setStartedAt] = useState('');
+  const [whenOpen, setWhenOpen] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp>('none');
+  const [followUpKind, setFollowUpKind] = useState<FollowUpKind>('touch');
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
   const [followUpExact, setFollowUpExact] = useState('');
   /**
@@ -639,7 +662,10 @@ export function Notes({
       body,
       kind,
       ...(tz ? { happened_tz: tz } : {}),
+      ...(startedAt ? { happened_at: new Date(startedAt).toISOString() } : {}),
       follow_up_at: followUpIso(followUp, followUpExact),
+      // The follow-up becomes a task; this is its title, in the writer's language.
+      follow_up_title: t(locale, FOLLOW_UP_KIND_KEYS[followUpKind]),
       is_draft: isDraft,
       // Only what is on screen right now. The API applies this list rather
       // than re-detecting, so what the person SAW is what gets written —
@@ -735,7 +761,7 @@ export function Notes({
     // `write` is intentionally not a dep: it is recreated every render and
     // the effect already re-runs on everything it reads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body, kind, followUp, followUpExact]);
+  }, [body, kind, startedAt, followUp, followUpKind, followUpExact]);
 
   /** Focus left the composer, or Done was pressed. This is what commits. */
   async function commit() {
@@ -769,7 +795,10 @@ export function Notes({
     firstRender.current = true; // the reset below is not an edit
     setBody('');
     setKind('note');
+    setStartedAt('');
+    setWhenOpen(false);
     setFollowUp('none');
+    setFollowUpKind('touch');
     setFollowUpExact('');
     // Queued on the device: the box resets so the person can move on, but the
     // status keeps saying where the note actually is.
@@ -805,6 +834,45 @@ export function Notes({
         {/* By you, for a team. Only when there IS a team to choose: most
             workspaces never use teams this way, and a picker with one option
             reading "no team" would be noise on every note. */}
+        {/* What happened, and when — at the top, because they describe the
+            note below them. Sjoerd, 2026-09-14: *"at the top there should be a
+            date and time.. make it the moment people fill it in, then they can
+            open and alter it... And a kind is a drop down... at the top too"*.
+            The time is stamped at the first keystroke (not when the popup
+            opened, which can be long before) and shown as text; pressing it
+            opens the date field. */}
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-muted">
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as NoteKind)}
+            aria-label={t(locale, 'kind')}
+            className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink"
+          >
+            {KINDS.map((k) => (
+              <option key={k} value={k}>
+                {t(locale, KIND_KEYS[k])}
+              </option>
+            ))}
+          </select>
+          {whenOpen ? (
+            <span className="min-w-[13rem]" aria-label={t(locale, 'note_when')}>
+              <DateTimeField value={startedAt} onChange={setStartedAt} label={undefined} />
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (!startedAt) setStartedAt(localStamp(new Date()));
+                setWhenOpen(true);
+              }}
+              title={t(locale, 'note_when')}
+              className="rounded-md px-1 py-1 underline decoration-dotted underline-offset-4 hover:text-ink"
+            >
+              {startedAt ? dateTime(new Date(startedAt).toISOString()) : t(locale, 'note_when_now')}
+            </button>
+          )}
+        </div>
+
         {teams.length > 0 && (
           <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
             <span>{t(locale, 'team_by_you')}</span>
@@ -850,6 +918,9 @@ export function Notes({
           onChange={(v) => {
             setBody(v);
             setPickIndex(0);
+            // The moment somebody starts writing is when it happened, unless
+            // they say otherwise.
+            if (!startedAt && v.trim()) setStartedAt(localStamp(new Date()));
           }}
           textareaRef={boxRef}
           onKeyDown={onBoxKey}
@@ -1041,18 +1112,32 @@ export function Notes({
           </div>
         )}
 
-        {/* Follow-up: one control, "nothing planned" already chosen.
-            Sjoerd, 2026-09-13: *"\"No followup\" is default. Dropdown is:
-            week, two weeks, month.. exact date"*. Three chips took a row to
-            themselves in a popup meant to be read at a glance, and asking
-            somebody to press "nothing planned" was asking a question to get
-            the answer it already had. */}
-        {/* ONE row: follow-up (with its calendar icon) and kind. Sjoerd,
-            2026-09-13: *"Follow up [select] | Kind: [select] | Date : [date]
-            can go in 1 row"*; the date of the note itself went on 2026-09-14. */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <label className="flex items-center gap-2">
-            <span className="text-xs text-ink-muted">{t(locale, 'note_followup')}</span>
+        {/* The follow-up, as its own sentence in its own colour: "Follow up:
+            [call] on [tomorrow]". Sjoerd, 2026-09-14: *"Follow up: [kind] on
+            [when]"* and *"Make the follow up in another color expression"* —
+            the note's kind had sat on this row and read as belonging to the
+            follow-up, so the note's kind and time moved to the top of the box
+            and this row is only about what comes next. "Nothing planned" stays
+            the default; the kind is muted until a when is chosen. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <span className="text-xs font-medium text-amber-900 dark:text-amber-200">{t(locale, 'note_followup')}:</span>
+          <select
+            value={followUpKind}
+            onChange={(e) => setFollowUpKind(e.target.value as FollowUpKind)}
+            aria-label={t(locale, 'note_followup_kind')}
+            className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs ${
+              followUp === 'none' ? 'opacity-60' : ''
+            }`}
+          >
+            {FOLLOW_UP_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {t(locale, FOLLOW_UP_KIND_KEYS[k])}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-amber-900 dark:text-amber-200">{t(locale, 'note_followup_on_word')}</span>
+          <label className="flex items-center">
+            <span className="sr-only">{t(locale, 'note_followup')}</span>
             <select
               value={followUp}
               onChange={(e) => setFollowUp(e.target.value as FollowUp)}
@@ -1086,39 +1171,6 @@ export function Notes({
               />
             </div>
           )}
-
-          {/* Always here, not behind a click. Sjoerd, 2026-09-13: *"Kind and
-              when should be next to Follow up (not an extra click)"*.
-
-              They were hidden on the argument that they are DEFAULTED and
-              usually right, so asking would be an interrogation. That argument
-              was sound when each one cost a labelled block of its own; once
-              all three became small controls on the row that was already
-              there, the click was buying nothing and hiding the two answers
-              somebody is most likely to want to correct — a call logged on the
-              wrong day is worse than a control on screen. */}
-          <>
-              <label className="flex items-center gap-2">
-                <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
-                <select
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as NoteKind)}
-                  className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-                >
-                  {KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {t(locale, KIND_KEYS[k])}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* No "when it happened" field. Sjoerd, 2026-09-14: *"The date
-                  field is double.. the one at the bottom can be taken away"* —
-                  beside the follow-up's calendar icon it read as the same date
-                  twice. A note is dated when it is written, which is what the
-                  field defaulted to anyway. */}
-          </>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

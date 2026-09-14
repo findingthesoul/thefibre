@@ -37,6 +37,8 @@ export type SaveNoteInput = {
   happened_tz?: string;
   /** null is a real answer — "nothing planned" — and is never a blocker. */
   follow_up_at?: string | null;
+  /** Title of the task the follow-up becomes ("Call", "Get in touch"). */
+  follow_up_title?: string;
   /** True while the composer is open; false commits it. */
   is_draft: boolean;
   /**

@@ -804,6 +804,70 @@ const CATALOG = {
     de: 'Wann', // MT
     fr: 'Quand', // MT
   },
+  note_when_now: {
+    en: 'now',
+    nl: 'nu',
+    es: 'ahora', // MT
+    pt: 'agora', // MT
+    de: 'jetzt', // MT
+    fr: 'maintenant', // MT
+  },
+  note_followup_on_word: {
+    en: 'on',
+    nl: 'op',
+    es: 'el', // MT
+    pt: 'em', // MT
+    de: 'am', // MT
+    fr: 'le', // MT
+  },
+  note_followup_kind: {
+    en: 'What the follow-up is',
+    nl: 'Wat de opvolging is',
+    es: 'Qué es el seguimiento', // MT
+    pt: 'O que é o seguimento', // MT
+    de: 'Was das Nachfassen ist', // MT
+    fr: 'Ce qu’est la relance', // MT
+  },
+  fu_kind_touch: {
+    en: 'Get in touch',
+    nl: 'Contact opnemen',
+    es: 'Contactar', // MT
+    pt: 'Contactar', // MT
+    de: 'Kontakt aufnehmen', // MT
+    fr: 'Reprendre contact', // MT
+  },
+  fu_kind_call: {
+    en: 'Call',
+    nl: 'Bellen',
+    es: 'Llamar', // MT
+    pt: 'Ligar', // MT
+    de: 'Anrufen', // MT
+    fr: 'Appeler', // MT
+  },
+  fu_kind_email: {
+    en: 'Email',
+    nl: 'Mailen',
+    es: 'Escribir un email', // MT
+    pt: 'Enviar email', // MT
+    de: 'E-Mail schreiben', // MT
+    fr: 'Écrire un email', // MT
+  },
+  fu_kind_meet: {
+    en: 'Meet',
+    nl: 'Afspreken',
+    es: 'Quedar', // MT
+    pt: 'Encontrar', // MT
+    de: 'Treffen', // MT
+    fr: 'Rencontrer', // MT
+  },
+  fu_kind_message: {
+    en: 'Send a message',
+    nl: 'Bericht sturen',
+    es: 'Enviar un mensaje', // MT
+    pt: 'Enviar mensagem', // MT
+    de: 'Nachricht schicken', // MT
+    fr: 'Envoyer un message', // MT
+  },
   note_followup: {
     en: 'Follow up',
     nl: 'Opvolgen',

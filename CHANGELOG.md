@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.74.2] — 2026-09-14 — What happened on top, what comes next below (staging)
+
+**Connections — the note box reads top to bottom.** At the top: what kind of
+contact it was (note, call, meeting…) and when. The time is set the moment you
+start writing; press it to change it. At the bottom, in its own colour, the
+follow-up as a sentence: "Follow up: [Call] on [tomorrow]". The follow-up's
+kind becomes the title of the task in what you owe, so Today says "Call"
+instead of "Follow up". The date field appears only when you choose "on a
+date…".
+
+Also in this release: Connections no longer carries Pulse's cashflow cookie
+names.
+
 ## [0.74.1] — 2026-09-14 — Connections on the shared copies (staging)
 
 **No visible change.** Connections was the last app with its own copies of the

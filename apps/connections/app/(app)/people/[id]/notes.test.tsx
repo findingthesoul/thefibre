@@ -158,6 +158,37 @@ describe('the follow-up date', () => {
     expect(dateFields()).toBe(0);
   });
 
+  it('stamps when it happened at the first keystroke, and sends that time', async () => {
+    // Sjoerd, 2026-09-14: "make it the moment people fill it in". Not the
+    // moment the popup opened, and not the moment Done was pressed.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 14, 10, 5));
+    await type('Met at the market.');
+    vi.setSystemTime(new Date(2026, 8, 14, 11, 40));
+    vi.useRealTimers();
+    saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await pressDone();
+    const sent = saveNote.mock.calls.at(-1)?.[0] as { happened_at?: string };
+    expect(new Date(sent.happened_at!).getHours()).toBe(10);
+    expect(new Date(sent.happened_at!).getMinutes()).toBe(5);
+  });
+
+  it('sends what the follow-up is as the task title', async () => {
+    const kindSelect = container.querySelector<HTMLSelectElement>('select[aria-label="What the follow-up is"]')!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(kindSelect, 'call');
+      kindSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await choose('tomorrow');
+    saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await type('Ring her about the venue.');
+    await pressDone();
+    const sent = saveNote.mock.calls.at(-1)?.[0] as { follow_up_title?: string; follow_up_at?: string | null };
+    expect(sent.follow_up_title).toBe('Call');
+    expect(sent.follow_up_at).not.toBeNull();
+  });
+
   it('shows the date control only once "on a date" is chosen', async () => {
     expect([...followUpSelect().options].map((o) => o.value)).toContain('exact');
     await choose('exact');

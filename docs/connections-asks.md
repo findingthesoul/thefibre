@@ -92,6 +92,8 @@ neither in code nor in a document. That is what this file fixes.
 | 59 | `#` and `@` may run over a space — type the words, press Enter, and it becomes a tag, person or organisation | **Shipped** v0.73.61 — up to three words; `#` offers a new tag; `@` picks existing people and organisations only (a new person is backlog §1.3) |
 | 60 | Tag cleaning: find doubles, find tags unused for a long time, and present a list for a clean-up now and then | **Shipped** v0.73.61 — Settings → Tag cleaning; merge, rename, delete for admins; a nudge on Today at most every 30 days |
 | 61 | The date field is double in the composer — take the bottom one away | **Shipped** v0.73.61 — the note is dated when written; the calendar icon is the follow-up |
+| 62 | The calendar icon should only appear when the follow-up is "on a date" | **Shipped** v0.74.2 — reverses 52: "On a date…" is back in the list and the date field shows only for it |
+| 63 | "Follow up: [kind] on [when]" — the Kind had read as the follow-up's; put the note's kind and time at the TOP (time = the moment you start writing, openable), and give the follow-up its own colour with its own two dropdowns | **Shipped** v0.74.2 — reverses 61: the note's time is back, at the top; the follow-up's kind becomes the title of its task in what you owe |
 
 ### The three that were lost
 
