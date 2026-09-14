@@ -8,7 +8,7 @@ import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
-import { buildAppList } from '@/lib/available-apps';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { APPS, appUrl, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
@@ -98,6 +98,7 @@ export default async function ConnectionsAppLayout({
     currentApp: 'fibre-sales',
     memberships: me.memberships,
     workspaceApps: apps,
+    env: process.env,
     host,
   });
 

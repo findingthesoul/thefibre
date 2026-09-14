@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.74.1] — 2026-09-14 — Connections on the shared copies (staging)
+
+**No visible change.** Connections was the last app with its own copies of the
+app-switcher list, the API client and the language cookie name. It now uses the
+shared ones from @thefibre/shared (available-apps, api-fetch, prefs), like the
+other apps since v0.74.0.
+
 ## [0.74.0] — 2026-09-14 — Every function born closed, and one copy of everything (staging)
 
 A stress-test pass over the whole platform: every scripted layer run twice,
