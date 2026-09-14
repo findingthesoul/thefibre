@@ -172,6 +172,15 @@ default, and the guard. `docs/testing-approach.md` counts what exists today.
 - Security headers, the public-POST brake and Dependabot shipped as v0.75.0;
   `docs/data-protection-approach.md` written.
 
+- **The Thread card path rehearsed end to end on staging** (2026-09-15,
+  00:25): public enrol → €10 Rehearsal ticket → Checkout on the connected
+  test account → webhook (signature verified, session matched) →
+  enrolment `paid`, ledger row `paid` with the platform fee → confirmation
+  message attempted. Meet's and Membership's endpoints received the same
+  event and correctly ignored a session that was not theirs. The only
+  failure was Resend refusing the placeholder `@example.com` address, which
+  says nothing about the payment path.
+
 ## Open for you
 
 1. Push the six migrations to production and deploy the production API
