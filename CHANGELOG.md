@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.0] — 2026-09-14 — Headers on every door, and the approach that names the rest (staging)
+
+**A written approach to protecting data, from attackers and from ourselves.**
+`docs/data-protection-approach.md`: what we hold and who would want it, every
+control that exists and where it lives, the three incidents on record, the
+gaps in priority order, the security gate for each kind of change, and the
+short runbook for when something goes wrong. Sjoerd asked for it after the
+stress-test pass; the first four items on its list ship with it.
+
+**Every surface now sends the baseline security headers** — HSTS, nosniff, a
+referrer policy that keeps paths off other sites, a permissions policy, and a
+framing rule so a signed-in page cannot be put inside someone else's site.
+One list in `@thefibre/shared`, applied by all nine apps and the API; the
+Thread and Membership embed routes are the deliberate exception, because they
+exist to be framed. No surface sent any of these before.
+
+**The contact search could be rewritten by its own search term.** Both the
+people and the organisation searches had put the term straight into a
+PostgREST filter since May; a comma or a parenthesis in the box became part
+of the filter. Bounded by RLS and never exploited, now quoted per the grammar
+and proven against staging with eight hostile terms — including the lesson
+that a single escape reaches Postgres as a bare `%` and matches everything.
+
+**A brake on the public doors.** Enrolments, bookings, sign-up requests,
+coupon checks, portal codes, OAuth token exchange and app registration are
+metered per IP, generously: it stops a script in a loop, not a rush of real
+people.
+
+**Stripe's webhooks, verified honestly and fixed by script.** The verifier had
+read a field Stripe never returns and reported every endpoint as the wrong
+mode. It now reads the Connect application id; a new
+`register-stripe-webhooks.mjs` recreates a wrong endpoint and pushes its
+signing secret to Fly without ever printing it. Staging's three
+connected-account endpoints were recreated and the verifier is green there.
+
+**Dependabot** watches the dependencies weekly, advisories at once.
+
+Also on production today, on Sjoerd's instruction: the six pending
+migrations, the API, and the promotion of staging through v0.74.4.
+
 ## [0.74.6] — 2026-09-14 — Connections uses The Fibre's one form style (staging)
 
 **Connections looks like Thread now.** The note box, "How you know them", the
