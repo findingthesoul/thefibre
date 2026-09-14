@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.12] — 2026-09-14 — One tab bar (staging)
+
+**Connections — the person popup uses The Fibre's tab bar.** "What happened"
+and "How you know them" now look exactly like the tabs in Thread's dialogs
+(the shared `ui/tabs` from v0.75.11) instead of a smaller uppercase bar of
+their own. A note you are halfway through still survives switching tabs.
+
 ## [0.75.11] — 2026-09-14 — the website settings get tabs, and your site is one click away (staging)
 
 Four things Sjoerd asked for while looking at Settings → Website and the
