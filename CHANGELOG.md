@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.19] — 2026-09-15 — The fee gets an invoice, and the receipt says who received the money (staging)
+
+**A monthly statement for the platform fee.** Stripe takes the plan's fee out
+of every card payment on the spot and nobody ever invoiced the organiser for
+it — a taxable service with no invoice. On the 2nd of each month, every
+workspace whose payments carried a fee in the previous month now gets one
+statement: a `fibre-platform` row in the same ledger as every other invoice,
+numbered `PF-YYYYMM-<workspace>`, VAT carved out of the collected amount at
+the home rate (or reverse-charged for an EU workspace with a foreign VAT
+number), marked paid because Stripe already collected it, and emailed from
+The Thread with the platform as seller. It documents; it does not bill.
+Idempotent, so a re-run or a redeploy sends nothing twice; super admins can
+run a month by hand through `POST /admin/fee-statements/run`, dry-run
+included. Rehearsed on staging on September's one fee: €0.20 → €0.17 + €0.03.
+
+Left deliberately outside it, for a decision: fees on invoice-rail sales are
+recorded and never collected; a workspace's country is not stored, so
+non-EU treatment waits for a field; Stripe also generates its own invoice on
+the connected account for each ticket, so a customer can hold two.
+
+**The receipt is from The Thread, and says who received the payment.** When a
+workspace's plan does not let it set its own sender, the receipt and the
+enrolment confirmation now go out as "The Thread" regardless of what the
+`EMAIL_FROM` secret says, and the receipt opens with "Payment received by
+<organiser or workspace>" (Sjoerd, 2026-09-15). A workspace with its own
+branding is unchanged.
+
 ## [0.75.18] — 2026-09-15 — the booking page says how it is paid (Meet 2.9.1, staging)
 
 Found by booking through the real form on staging after 0.75.17.

@@ -78,7 +78,7 @@ async function allSubscriptions(): Promise<SubscriptionRow[]> {
 }
 
 /** Admin recipients — the people who can act on a plan or a bill. */
-async function adminEmails(workspaceId: string): Promise<string[]> {
+export async function adminEmails(workspaceId: string): Promise<string[]> {
   const { data: members } = await adminClient
     .from('workspace_member')
     .select('user_id')
