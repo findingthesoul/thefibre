@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.3] — 2026-09-14 — an organisation answers to every name it has had (staging)
+
+Sjoerd: *"Organisation should have extra fields for tradenames or
+abbreviations. For example: the European Bahá'í Business Forum is now Ethical
+Business Building the Future, or ebbf."*
+
+That one example is three kinds of name — a former name, the current name and
+an abbreviation — and the table could already hold two of them, badly.
+`short_name` has existed since the phase-0 schema, and EBBF's row already said
+"EBBF", but no form could edit it, the API would not accept it, and search did
+not read it. A column that existed and could not be reached.
+
+**Abbreviation** is now in the edit form, beside legal name.
+
+**Also known as** is new: trade names and former names, one per line, in a
+single untyped list. Whether a name is "former" or "trade" is a distinction
+nobody has asked to filter on, and a typed list would ask every person to
+classify a name before they could save it.
+
+**Search finds an organisation by any of them.** The list searched only name
+and domain, so "ebbf" matched EBBF by the accident of its domain being
+ebbf.org. A trigger now keeps one lower-cased search column from the name,
+abbreviation, legal name, other names and domain, and search reads that.
+
+**And it ignores accents and apostrophes**, on both sides. The first version
+failed the very example that prompted it: "European Bahá'í Business Forum"
+has two accents and an apostrophe, nobody types either, and "bahai" found
+nothing. The stored search column now drops them through Postgres `unaccent`,
+and the API strips the search term the same way before asking. Six tests pin
+the term side, including the letters Unicode normalisation leaves alone but
+`unaccent` rewrites, so "søren" still meets "soren". What people typed for
+display keeps every accent; only the machine column loses them.
+
+The header now reads the other names under the title, and the list shows the
+abbreviation beside the name.
+
+Two migrations, applied to **staging only**: `20260914190000` and
+`20260914191000`. Both are additive — new columns with defaults and a plain,
+non-definer trigger function — so production code that does not know about
+them is unaffected until promotion. Verified on staging with a throwaway row
+in the fixtures workspace, since removed: found by abbreviation, by the former
+name, and by the current name after a rename.
+
 ## [0.75.2] — 2026-09-14 — Entries by tag and by place (staging)
 
 **Connections — Entries searches tags and places.** Type a word and the list

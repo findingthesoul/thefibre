@@ -76,7 +76,7 @@ export default async function OrgLayout({
       <Breadcrumb href="/organisations" label={t(locale, 'nav_organisations')} />
       <PageHeader
         title={org.name}
-        description={org.legal_name && org.legal_name !== org.name ? org.legal_name : undefined}
+        description={orgAlsoKnownAs(org, locale)}
         actions={<OrgActions org={org} locale={locale} />}
         leading={<OrgLogo logoUrl={org.logo_url} name={org.name} />}
       />
@@ -84,4 +84,19 @@ export default async function OrgLayout({
       <div className="mt-8">{children}</div>
     </PageContainer>
   );
+}
+
+// "ebbf · formerly European Bahá'í Business Forum" — the header answers "is
+// this the one I was thinking of?" for someone who remembers another name.
+// Legal name stays in the line only when it differs from the display name.
+function orgAlsoKnownAs(
+  org: { name: string; legal_name: string | null; short_name: string | null; other_names: string[] | null },
+  locale: Parameters<typeof t>[0],
+): string | undefined {
+  const parts: string[] = [];
+  if (org.short_name && org.short_name !== org.name) parts.push(org.short_name);
+  const others = (org.other_names ?? []).filter((n) => n && n !== org.name);
+  if (others.length) parts.push(`${t(locale, 'org_also_known_as')} ${others.join(', ')}`);
+  if (org.legal_name && org.legal_name !== org.name) parts.push(org.legal_name);
+  return parts.length ? parts.join(' · ') : undefined;
 }

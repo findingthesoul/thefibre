@@ -10,6 +10,8 @@ type Organisation = {
   id: string;
   name: string;
   domain: string | null;
+  short_name?: string | null;
+  other_names?: string[] | null;
   country: string | null;
   sector: string | null;
   org_type: string | null;
@@ -51,7 +53,7 @@ export default async function OrganisationsPage({
         <input
           name="q"
           defaultValue={q ?? ''}
-          placeholder={t(locale, 'search_name_domain')}
+          placeholder={t(locale, 'search_org_any_name')}
           className="w-full rounded-md border border-line bg-surface-raised pl-9 pr-3 py-2 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
         />
       </form>
@@ -71,7 +73,7 @@ export default async function OrganisationsPage({
             <ListRow
               key={o.id}
               href={`/organisations/${o.id}`}
-              primary={o.name}
+              primary={o.short_name && o.short_name !== o.name ? `${o.name} (${o.short_name})` : o.name}
               secondary={o.domain ?? [o.sector, o.org_type].filter(Boolean).join(' · ') ?? '—'}
               meta={o.country ?? ''}
             />
