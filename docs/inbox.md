@@ -222,6 +222,75 @@ not have that problem.
 Not scoped.
 
 
+### 2026-09-14 — five features for Thread
+
+Sjoerd, in the fibre chat:
+
+> Feautres for Thread:
+>
+> Label printing
+> Names and teams (make couples, teams etc...)
+> Reschedule.. people should be able to unregister (mark conditions as a
+> setting when this is actibvated) or rebook (replacement course should be
+> seleected). Visitor can the do this themselvess.. of set.
+>
+> Further: to do list per thread for the facilitators  (what to do.. team
+> member tasked (if any), date....)
+> To do list template builder... (auto connected to a thread template).
+
+Checked against the code on 2026-09-14 rather than guessed. Not scoped, not
+ranked, and the notes below are what a builder should know before starting,
+not decisions.
+
+**1. Label printing.** Nothing prints labels. Printing exists for certificates
+(`apps/thread/app/certificate/print/`), and the data a badge needs is already
+there: every enrolment carries a unique `checkin_code`, and there is a QR
+scanner at the door (`app/(app)/checkin/`, built 2026-09-10 and used at a real
+door). A printed badge is the physical twin of that scanner. Whether he means
+name badges, address labels or something else is the open question.
+
+**2. Names and teams. Careful: "team" is already taken.** In this repo a team
+is the ORGANISER side, a workspace grouping with its own slug that appears in
+every public URL, and there is a standing gotcha that public organiser-slug
+queries must filter `.is('team_id', null)` or team threads leak into the wrong
+list. What he is asking for is grouping PARTICIPANTS, couples and teams among
+the people enrolled. Same word, different entity. Naming it `team` would
+collide with something load-bearing; the concept needs its own name before it
+needs a table.
+
+**3. Reschedule, unregister, rebook.** Half of the state exists and none of the
+door does. `enrolment.status` already allows `dropped`, so an enrolment can
+end; nothing participant-facing can reach it. The `/my` portal is read-only
+apart from managing a payment method. So this is three things, and they get
+harder in order:
+
+- **unregister** — reach an existing status from the participant side;
+- **conditions as a setting** — a per-thread cancellation policy, which is new
+  and is the part that decides whether the other two are safe to expose;
+- **rebook** — move an enrolment to another thread. This one touches money.
+  Thread already has Reimburse (full, with the fee returned) on the invoices
+  page, so the question is not "can we refund" but whether a rebooking moves
+  the payment, refunds and recharges, or does neither.
+
+**4 and 5. The to-do list, and its template builder. Flow already built this.**
+`flow_step_default_task` is a task TEMPLATE attached to a step: title,
+description, who it is for (`personal` / `team` / `contact`), a default
+assignee role, and a due date expressed as days after entry. `flow_task` is
+the materialised to-do, created from those defaults or by hand. That is items
+4 and 5 almost exactly, one app over: a to-do with an assignee and a date, and
+a template that produces them automatically.
+
+So the real question is not how to build it but whether Thread gets its own
+copy. The components-first rule (CLAUDE.md, binding) says never fork a per-app
+variant, and a second task engine would be exactly that. Three shapes, and
+somebody has to choose:
+
+- Thread runs a Flow behind the scenes, and a thread template carries a flow;
+- the task tables move up to the platform and both apps read them;
+- Thread gets its own, and the repo carries two task engines on purpose.
+
+Not scoped.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._
