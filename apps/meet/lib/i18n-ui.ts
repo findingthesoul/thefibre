@@ -1125,6 +1125,30 @@ const CATALOG = {
     de: 'Willkommen, {name}', // MT
     fr: 'Bienvenue, {name}', // MT
   },
+  your_pages: {
+    en: 'Your pages',
+    nl: 'Jouw pagina’s',
+    es: 'Tus páginas', // MT
+    pt: 'As suas páginas', // MT
+    de: 'Deine Seiten', // MT
+    fr: 'Tes pages', // MT
+  },
+  your_pages_desc: {
+    en: 'Everything people can book with you, on one page each.',
+    nl: 'Alles wat mensen bij je kunnen boeken, per pagina.',
+    es: 'Todo lo que la gente puede reservar contigo, en una página cada uno.', // MT
+    pt: 'Tudo o que as pessoas podem marcar consigo, numa página cada.', // MT
+    de: 'Alles, was man bei dir buchen kann, jeweils auf einer Seite.', // MT
+    fr: 'Tout ce qu’on peut réserver avec toi, sur une page chacun.', // MT
+  },
+  your_personal_page: {
+    en: 'Your personal page',
+    nl: 'Je persoonlijke pagina',
+    es: 'Tu página personal', // MT
+    pt: 'A sua página pessoal', // MT
+    de: 'Deine persönliche Seite', // MT
+    fr: 'Ta page personnelle', // MT
+  },
   quick_links: {
     en: 'Quick links',
     nl: 'Snelle links',

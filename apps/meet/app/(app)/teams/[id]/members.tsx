@@ -4,6 +4,7 @@ import { useActionState, useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField } from '@/components/ui/field';
+import { CARD, ERROR_TEXT } from '@thefibre/shared/ui/recipes';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { addMember, removeMember, resendInvite, type SaveResult } from '../actions';
 
@@ -27,9 +28,13 @@ export function AddMemberForm({ teamId, locale }: { teamId: string; locale: Loca
         await formAction(fd);
         router.refresh();
       }}
-      className="flex flex-wrap items-end gap-3 max-w-3xl"
+      // One card, two aligned rows. It used to be a single wrapping flex
+      // row bottom-aligned on the inputs: the relationship hint pushed that
+      // field up, the button fell onto a line of its own, and every field
+      // had a different width (Sjoerd, 2026-09-14: "Interface is ugly").
+      className={`${CARD} p-5 space-y-4`}
     >
-      <div className="flex-1 min-w-[14rem]">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[3fr_2fr]">
         <TextField
           label={t(locale, 'add_a_member')}
           name="email"
@@ -37,15 +42,13 @@ export function AddMemberForm({ teamId, locale }: { teamId: string; locale: Loca
           placeholder="colleague@example.com"
           required
         />
-      </div>
-      <div className="w-40">
         <TextField
           label={t(locale, 'name_optional')}
           name="name"
           placeholder={t(locale, 'if_new_to_fibre')}
         />
       </div>
-      <div className="w-32">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <SelectField
           label={t(locale, 'role')}
           name="role"
@@ -55,8 +58,6 @@ export function AddMemberForm({ teamId, locale }: { teamId: string; locale: Loca
             { value: 'lead', label: t(locale, 'role_lead') },
           ]}
         />
-      </div>
-      <div className="w-40">
         <SelectField
           label={t(locale, 'relationship')}
           name="relationship_type"
@@ -65,19 +66,15 @@ export function AddMemberForm({ teamId, locale }: { teamId: string; locale: Loca
             { value: 'internal', label: t(locale, 'internal') },
             { value: 'external', label: t(locale, 'external') },
           ]}
-          hint={t(locale, 'relationship_hint')}
         />
+        <Button type="submit" disabled={pending}>
+          {pending ? t(locale, 'adding') : t(locale, 'add')}
+        </Button>
       </div>
-      <Button type="submit" disabled={pending}>
-        {pending ? t(locale, 'adding') : t(locale, 'add')}
-      </Button>
-      {state.error && (
-        <div className="basis-full text-sm text-red-700">{state.error}</div>
-      )}
+      <p className="text-xs text-ink-muted">{t(locale, 'relationship_hint')}</p>
+      {state.error && <div className={ERROR_TEXT}>{state.error}</div>}
       {state.ok && state.invited && (
-        <div className="basis-full text-sm text-emerald-700">
-          {t(locale, 'invite_sent_team')}
-        </div>
+        <div className="text-sm text-ink-subtle">{t(locale, 'invite_sent_team')}</div>
       )}
     </form>
   );
