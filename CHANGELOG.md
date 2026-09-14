@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.11] — 2026-09-14 — the website settings get tabs, and your site is one click away (staging)
+
+Four things Sjoerd asked for while looking at Settings → Website and the
+dashboard.
+
+- **Tabs** — *"Make tabs for different parts of the design."* Design · Name &
+  images · Text · Menu & footer · Contact. One Save still sends everything: the
+  panels stay mounted and are only hidden, because an unmounted tab's fields
+  would be missing from the form and silently cleared.
+- **Display name, prefilled** — *"Fill in site name as workspace… You can do
+  'appearing name'."* The field is now "Display name" and starts as the
+  workspace name. Saving that unchanged name stores nothing, so renaming the
+  workspace later still reaches the site; only a name somebody changed is kept.
+- **Preview** — *"the website page should also have a preview link."* A
+  Preview button in the page header, where it is seen before scrolling. It opens
+  the live public page, so it shows what is saved.
+- **Your site, from the dashboard** — *"Where can I find a link to my
+  homepage?"* It was only reachable by knowing the address. The dashboard header
+  now has a "Your site" button. Both links read one helper,
+  `apps/thread/lib/public-site-url.ts`, so they cannot disagree about where the
+  site is.
+
+**A new shared component, `@thefibre/shared/ui/tabs`.** This was the second
+screen to need a tab bar; the first, Thread's thread-settings dialog, had the
+markup written inline. Per docs/brand-design.md it is now one reference, and
+that dialog renders it with identical classes.
+
+Not visually checked: both screens are behind sign-in.
+
 ## [0.75.10] — 2026-09-14 — the agenda warning becomes a hint, and stays visible where it matters (staging)
 
 Sjoerd asked for the amber "With this off, the public page has no agenda

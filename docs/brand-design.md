@@ -127,6 +127,7 @@ class yourself.
 | An on/off setting | `SwitchField` (`Switch` for the bare control) |
 | A searchable picker | `SearchSelect` |
 | A popup with a form | `Dialog` — footer: Delete · Duplicate left, Cancel · Save right |
+| Sections of one screen or dialog | `Tabs` — keep panels mounted and hidden, so one Save sends every field |
 | "Are you sure?" | `ConfirmDialog`; destructive: `DangerConfirmDialog` |
 | An error line in a dialog footer | `FormError` |
 | A small ⓘ explanation | `InfoHint` |

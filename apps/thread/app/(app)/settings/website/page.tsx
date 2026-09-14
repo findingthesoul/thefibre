@@ -8,7 +8,9 @@
 // touch twice a year, not work.
 
 import { apiFetch, ApiError } from '@/lib/api';
-import { appUrl } from '@thefibre/shared';
+import { publicSite } from '@/lib/public-site-url';
+import { ExternalLink } from 'lucide-react';
+import { buttonClassName } from '@thefibre/shared/ui/button';
 import { PageContainer, PageHeader, Breadcrumb, ErrorBanner } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -26,14 +28,7 @@ export default async function WebsiteSettingsPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
-  // The address to preview. The workspace slug is the canonical owner of a
-  // workspace site (docs/brief-workspace-urls.md D1); falling back to the
-  // organiser's keeps the link useful for a personal workspace.
-  const brand = await apiFetch<{ slug: string | null }>('/api/v1/workspace-brand').catch(
-    () => ({ slug: null }),
-  );
-  const me = await apiFetch<{ slug: string }>('/api/v1/thread/me').catch(() => null);
-  const ownerSlug = brand.slug ?? me?.slug ?? null;
+  const { url: publicUrl, workspaceName } = await publicSite();
 
   return (
     <PageContainer max="3xl">
@@ -41,13 +36,30 @@ export default async function WebsiteSettingsPage() {
       <PageHeader
         title={t(locale, 'settings_website')}
         description={t(locale, 'settings_website_desc')}
+        // Preview in the header, where it is found before scrolling (Sjoerd,
+        // 2026-09-14: "the website page should also have a preview link").
+        // It opens the live public page, so it shows what is SAVED.
+        actions={
+          publicUrl ? (
+            <a
+              href={publicUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonClassName('secondary', 'md')}
+            >
+              <ExternalLink size={14} strokeWidth={1.75} />
+              {t(locale, 'site_preview')}
+            </a>
+          ) : undefined
+        }
       />
       {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
       {settings && (
         <WebsiteForm
           locale={locale}
           settings={settings}
-          publicUrl={ownerSlug ? `${appUrl('the-thread', process.env)}/${ownerSlug}` : null}
+          publicUrl={publicUrl}
+          workspaceName={workspaceName}
         />
       )}
     </PageContainer>

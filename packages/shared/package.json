@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.75.10",
+  "version": "0.75.11",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -249,6 +249,10 @@
     "./ui/recipes": {
       "types": "./dist/ui/recipes.d.ts",
       "default": "./dist/ui/recipes.js"
+    },
+    "./ui/tabs": {
+      "types": "./dist/ui/tabs.d.ts",
+      "default": "./dist/ui/tabs.js"
     }
   },
   "files": [

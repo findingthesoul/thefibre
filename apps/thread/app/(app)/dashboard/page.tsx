@@ -26,7 +26,9 @@
 // to the page holding the full truth.
 
 import Link from 'next/link';
-import { ArrowRight, CalendarRange, Route, ScanLine } from 'lucide-react';
+import { ArrowRight, CalendarRange, ExternalLink, Route, ScanLine } from 'lucide-react';
+import { buttonClassName } from '@thefibre/shared/ui/button';
+import { publicSite } from '@/lib/public-site-url';
 import { apiFetch, ApiError } from '@/lib/api';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { uiLocale } from '@/lib/locale';
@@ -157,6 +159,7 @@ export default async function ThreadDashboard() {
   // the workspace → the dashboard leads with the standard event shapes, and
   // keeps the orientation copy that a full workspace no longer needs.
   const empty = threads.length === 0;
+  const site = await publicSite();
   const library: TemplateLibrary | null = empty
     ? await apiFetch<TemplateLibrary>('/api/v1/thread/template-library').catch(() => null)
     : null;
@@ -200,7 +203,26 @@ export default async function ThreadDashboard() {
 
   return (
     <PageContainer>
-      <PageHeader title={t(locale, 'dash_welcome', { name: firstName })} description={todayLabel} />
+      <PageHeader
+        title={t(locale, 'dash_welcome', { name: firstName })}
+        description={todayLabel}
+        // The way to your own public homepage (Sjoerd, 2026-09-14: "Where can
+        // I find a link to my homepage?"). It was only reachable by knowing
+        // the address. Same helper as Settings → Website's Preview.
+        actions={
+          site.url ? (
+            <a
+              href={site.url}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonClassName('secondary', 'md')}
+            >
+              <ExternalLink size={14} strokeWidth={1.75} />
+              {t(locale, 'dash_your_site')}
+            </a>
+          ) : undefined
+        }
+      />
 
       {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
