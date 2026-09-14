@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.56] — 2026-09-14 — The landscape, browsed like Finder (staging)
+
+**Connections — the landscape is four columns.** Readings, then the steps in the
+one you pick, then the people on a step, then the person. Each choice opens the
+next column and leaves the earlier ones standing, so you can always see how you
+got there and step back one level without starting over — the way macOS shows a
+disk as columns.
+
+The person is shown right there in the last column — how to reach them, how you
+know them, what happened — so you can call somebody and write the line without
+a popup covering the path you walked. Steps carry their count and how many
+moved in or out over the last thirty days. The path is in the address, so a
+view can be bookmarked and shared.
+
+On a phone there is room for one column, so you see one at a time with Back.
+
 ## [0.73.55] — 2026-09-14 — # and @ offer what you mean, and follow-ups for today (staging)
 
 **Connections — type `#f` and your tags that start with it appear; type `@` and

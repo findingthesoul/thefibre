@@ -1,28 +1,12 @@
-import { apiFetch, ApiError } from '@/lib/api';
-import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page';
+import { apiFetch } from '@/lib/api';
+import { PageContainer, PageHeader } from '@thefibre/shared/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-import {
-  Bands,
-  isAxis,
-  visibleAxes,
-  type Axis,
-  type AxisConfig,
-  type Band,
-  type BandLabels,
-  type Moved,
-} from './bands';
-import { AxisPicker } from './axis-picker';
-
-type Landscape = {
-  total: number;
-  since_days: number;
-  axis?: Axis;
-  bands: Band[];
-  arrived: number;
-  moved: Moved[];
-  moved_total: number;
-};
+// From axes, not bands: this is a server component, and values it reads must
+// come from a module with no directive (see the header of axes.ts).
+import { isAxis, visibleAxes, type Axis, type AxisConfig, type BandLabels } from './axes';
+import { LandscapeColumns } from './columns';
+import { loadReading } from './actions';
 
 // The shape of the community, as proportions rather than people. A vast
 // network does not fit on a screen and would not help if it did — see
@@ -36,10 +20,11 @@ type Landscape = {
 export default async function LandscapePage({
   searchParams,
 }: {
-  searchParams: Promise<{ axis?: string }>;
+  searchParams: Promise<{ axis?: string; band?: string; person?: string }>;
 }) {
   const locale = await uiLocale();
-  const raw = (await searchParams).axis;
+  const sp = await searchParams;
+  const raw = sp.axis;
 
   // The vocabulary read comes FIRST, and on purpose, because which axis to
   // show depends on it: a workspace can now switch an axis off, and the
@@ -65,40 +50,31 @@ export default async function LandscapePage({
   // they stopped using, and the first one they DO use is the honest answer.
   const axis: Axis = isAxis(raw) && shown.includes(raw) ? raw : (shown[0] ?? 'maturity');
 
-  let data: Landscape | null = null;
-  let error: string | null = null;
-  try {
-    data = await apiFetch<Landscape>(
-      `/api/v1/connections/landscape?since_days=30&axis=${axis}`,
-    );
-  } catch (e) {
-    error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
-  }
+  // The first reading, with everybody's place on it, so the columns open on
+  // something rather than on a spinner. Further readings load in the browser.
+  const initialReading = await loadReading(axis);
 
   return (
     <PageContainer>
       <PageHeader title={t(locale, 'nav_landscape')} />
       <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'landscape_intro')}</p>
 
-      <AxisPicker axis={axis} locale={locale} axes={shown} config={axisConfig} />
-
-      {error && <ErrorBanner>{error}</ErrorBanner>}
-
-      {data && data.total === 0 && (
+      {/* Columns, the way Finder browses a disk. Sjoerd, 2026-09-13: *"Landscape:
+          would be nice if this works like 'As columns' in OsX."* This replaces
+          the chip picker and the band list rather than sitting beside them:
+          two ways to do the same thing would each be half-used. */}
+      {initialReading.ok && initialReading.total === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">{t(locale, 'landscape_empty')}</p>
-      )}
-
-      {data && data.total > 0 && (
-        <Bands
-          bands={data.bands}
-          total={data.total}
-          arrived={data.arrived}
-          moved={data.moved}
-          movedTotal={data.moved_total}
-          sinceDays={data.since_days}
-          axis={axis}
-          labels={labels}
+      ) : (
+        <LandscapeColumns
           locale={locale}
+          axes={shown}
+          config={axisConfig}
+          labels={labels}
+          initialAxis={axis}
+          initialBand={sp.band?.trim() || null}
+          initialPerson={sp.person?.trim() || null}
+          initialReading={initialReading}
         />
       )}
     </PageContainer>

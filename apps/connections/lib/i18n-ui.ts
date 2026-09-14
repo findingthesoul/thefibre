@@ -948,6 +948,70 @@ const CATALOG = {
     de: 'diese Woche', // MT
     fr: 'cette semaine', // MT
   },
+  landscape_back: {
+    en: 'Back',
+    nl: 'Terug',
+    es: 'Atrás', // MT
+    pt: 'Voltar', // MT
+    de: 'Zurück', // MT
+    fr: 'Retour', // MT
+  },
+  landscape_col_readings: {
+    en: 'Readings',
+    nl: 'Kijken',
+    es: 'Lecturas', // MT
+    pt: 'Leituras', // MT
+    de: 'Sichten', // MT
+    fr: 'Lectures', // MT
+  },
+  landscape_col_steps: {
+    en: 'Steps',
+    nl: 'Stappen',
+    es: 'Pasos', // MT
+    pt: 'Passos', // MT
+    de: 'Stufen', // MT
+    fr: 'Étapes', // MT
+  },
+  landscape_col_people: {
+    en: 'People',
+    nl: 'Mensen',
+    es: 'Personas', // MT
+    pt: 'Pessoas', // MT
+    de: 'Personen', // MT
+    fr: 'Personnes', // MT
+  },
+  landscape_pick_step: {
+    en: 'Choose a step to see who is on it.',
+    nl: 'Kies een stap om te zien wie erop staat.',
+    es: 'Elige un paso para ver quién está en él.', // MT
+    pt: 'Escolhe um passo para ver quem está nele.', // MT
+    de: 'Wähle eine Stufe, um zu sehen, wer darauf steht.', // MT
+    fr: 'Choisissez une étape pour voir qui s’y trouve.', // MT
+  },
+  landscape_pick_person: {
+    en: 'Choose somebody to see them here.',
+    nl: 'Kies iemand om diegene hier te zien.',
+    es: 'Elige a alguien para verle aquí.', // MT
+    pt: 'Escolhe alguém para o ver aqui.', // MT
+    de: 'Wähle jemanden, um die Person hier zu sehen.', // MT
+    fr: 'Choisissez quelqu’un pour le voir ici.', // MT
+  },
+  landscape_none_here: {
+    en: 'Nobody is on this step.',
+    nl: 'Niemand staat op deze stap.',
+    es: 'Nadie está en este paso.', // MT
+    pt: 'Ninguém está neste passo.', // MT
+    de: 'Niemand steht auf dieser Stufe.', // MT
+    fr: 'Personne n’est à cette étape.', // MT
+  },
+  landscape_period: {
+    en: 'Last {days} days: {arrived} arrived, {moved} moved.',
+    nl: 'Laatste {days} dagen: {arrived} nieuw, {moved} verschoven.',
+    es: 'Últimos {days} días: {arrived} llegaron, {moved} se movieron.', // MT
+    pt: 'Últimos {days} dias: {arrived} chegaram, {moved} mudaram.', // MT
+    de: 'Letzte {days} Tage: {arrived} neu, {moved} verschoben.', // MT
+    fr: '{days} derniers jours : {arrived} arrivés, {moved} déplacés.', // MT
+  },
   ac_tags: {
     en: 'Matching tags',
     nl: 'Passende tags',

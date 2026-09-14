@@ -45,7 +45,7 @@ neither in code nor in a document. That is what this file fixes.
 | 17 | A new full backlog | **Shipped** — [connections-backlog.md](connections-backlog.md) |
 | 18 | **Timeline: highlight tags; companies and people as @, highlighted** | **Backlog** — was MISSED, see below |
 | 19 | **Click a name → popup with name, email, phone, LinkedIn** | **Shipped** v0.73.51 — was MISSED, see below |
-| 20 | **Landscape should work like "as columns" in macOS** | **Not started** — was MISSED; asked about again, next to build |
+| 20 | **Landscape should work like "as columns" in macOS** | **Shipped** v0.73.56 |
 | 21 | Where do I change the labels of a reading? | **Answered** — Settings → What you call the steps; per workspace, admin only |
 | 22 | Entries: can I fill in everything? Also tags? | **Answered** + **Backlog** §1.3, §2.6 |
 | 23 | Entries interface error — content under the sidebar | **Shipped** v0.73.46 (hardened; cause not reproduced) |
@@ -79,11 +79,13 @@ neither in code nor in a document. That is what this file fixes.
 | 46 | A longer "what happened" for meetings, plus a copyable prompt to paste a transcript into ChatGPT / Claude / Gemini that returns a short summary with @ and # | **Next** — after the landscape columns |
 | 47 | Typing `#f` shows a dropdown of matching tags; typing `@` shows people and companies | **Shipped** v0.73.55 |
 | 48 | A tag should look like a tag inside the sentence; it need not also be listed at the bottom | **Answered** — it already shows inside the sentence; the chips stay because their X is the only way to take a tag off without deleting the word |
-| 49 | Landscape as macOS columns: person inline in the last column, or the popup? | **Waiting** — asked 2026-09-13, unanswered |
+| 49 | Landscape as macOS columns: person inline in the last column, or the popup? | **Decided** — inline, since it went unanswered; reversible |
 | 50 | Production: three migrations missing after the promotion — go or no-go? | **Waiting** — asked 2026-09-13, unanswered |
 | 51 | "When" appears twice in the composer — remove the label | **Shipped** v0.73.55 |
 | 52 | "On a date" in the follow-up list needs only a calendar icon, not the word | **Shipped** v0.73.55 |
 | 53 | Follow-up list gains today, tomorrow and this week | **Shipped** v0.73.55 |
+| 54 | Landscape: see the movement — the steps as columns next to each other | **In progress** — after the Finder columns land |
+| 55 | Landscape: an extra column to sub-group by tag, location, company… | **In progress** — shape proposed with 54 |
 
 ### The three that were lost
 
