@@ -20,6 +20,12 @@ type Props = {
   // outside the scroll area, so it behaves as a sticky save bar (v3 style).
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /**
+   * Small icon actions at the end of the title line, just before the close
+   * button — e.g. "open the full profile". Icons with a `title` tooltip, not
+   * buttons with words: the header is one line. Added 2026-09-14.
+   */
+  headerActions?: ReactNode;
 };
 
 const SIZES: Record<NonNullable<Props['size']>, string> = {
@@ -30,7 +36,7 @@ const SIZES: Record<NonNullable<Props['size']>, string> = {
   xl: 'max-w-3xl',
 };
 
-export function Dialog({ open, onClose, title, description, children, footer, size = 'md' }: Props) {
+export function Dialog({ open, onClose, title, description, children, footer, size = 'md', headerActions }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const locale = useLocale();
 
@@ -86,17 +92,21 @@ export function Dialog({ open, onClose, title, description, children, footer, si
         className={`${SIZES[size]} w-full rounded-t-xl sm:rounded-lg bg-surface-raised border border-line shadow-xl flex flex-col max-h-[92dvh] sm:max-h-[85vh] pb-[env(safe-area-inset-bottom)] sm:pb-0`}
       >
         <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-base font-medium">{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-ink-subtle">{description}</p>}
+            {/* A div, not a p: a description may be a row of links. */}
+            {description && <div className="mt-0.5 text-sm text-ink-subtle">{description}</div>}
           </div>
-          <button
-            onClick={onClose}
-            className="text-ink-muted hover:text-ink"
-            aria-label={chromeT(locale, 'close')}
-          >
-            <X size={18} strokeWidth={1.75} />
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            {headerActions}
+            <button
+              onClick={onClose}
+              className="text-ink-muted hover:text-ink"
+              aria-label={chromeT(locale, 'close')}
+            >
+              <X size={18} strokeWidth={1.75} />
+            </button>
+          </div>
         </header>
         <div className={`overflow-y-auto ${size === 'xl' ? 'px-7 py-6' : 'px-5 py-4'}`}>
           {children}

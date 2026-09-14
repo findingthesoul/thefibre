@@ -33,6 +33,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Search } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
+import { FIELD_CLASS } from '@thefibre/shared/ui/fields';
+import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { usePersonPopup } from '@/components/person-popup';
 import { loadOrg, connectPerson, type OrgCard, type OrgMember } from '@/app/(app)/organisations/actions';
@@ -327,16 +329,11 @@ function ConnectPerson({
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t(locale, 'org_connect_role')}
             maxLength={200}
-            className="w-full rounded-md border border-line bg-surface py-2 px-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+            className={FIELD_CLASS}
           />
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="inline-flex h-8 items-center rounded-md border border-line bg-surface-raised px-3 text-sm hover:bg-surface-sunken disabled:opacity-50"
-          >
+          <Button type="button" onClick={save} disabled={saving}>
             {saving ? t(locale, 'saving') : t(locale, 'org_connect_do')}
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="mt-2">
@@ -351,7 +348,7 @@ function ConnectPerson({
               onChange={(e) => setTerm(e.target.value)}
               placeholder={t(locale, 'org_connect_search')}
               aria-label={t(locale, 'org_connect_search')}
-              className="w-full rounded-md border border-line bg-surface-raised py-2 pl-9 pr-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+              className={`${FIELD_CLASS} pl-9`}
             />
           </div>
           {/* In the flow, not floating. A floating list opens into the

@@ -6,6 +6,123 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.1] — 2026-09-14 — Every field the same size (staging)
+
+**All apps — one field size.** Text fields, dropdowns and text areas are now
+the same height and font size as the date field (the size asked for on
+2026-07-02: "more spacious, bigger fonts"). Dropdowns draw their own arrow, so
+Safari no longer shows them shorter than everything around them.
+
+**Connections — the person popup.** Email, phone and place sit directly under
+the name; the full profile in The Fibre is an icon beside the close button,
+with "Full profile" on hover. In a note, "When" is a date, today by default,
+and the timeline shows dates. Done is outlined until you have written
+something, then filled. "I reached out" and "They reached out" ask "Why?". The
+AI prompt now also works in a chat that has already been working on the
+transcript.
+
+**Shared:** `Dialog` has `headerActions` (icons before the close button);
+its description is a `div`, so it can hold links.
+
+## [0.75.0] — 2026-09-14 — Headers on every door, and the approach that names the rest (staging)
+
+**A written approach to protecting data, from attackers and from ourselves.**
+`docs/data-protection-approach.md`: what we hold and who would want it, every
+control that exists and where it lives, the three incidents on record, the
+gaps in priority order, the security gate for each kind of change, and the
+short runbook for when something goes wrong. Sjoerd asked for it after the
+stress-test pass; the first four items on its list ship with it.
+
+**Every surface now sends the baseline security headers** — HSTS, nosniff, a
+referrer policy that keeps paths off other sites, a permissions policy, and a
+framing rule so a signed-in page cannot be put inside someone else's site.
+One list in `@thefibre/shared`, applied by all nine apps and the API; the
+Thread and Membership embed routes are the deliberate exception, because they
+exist to be framed. No surface sent any of these before.
+
+**The contact search could be rewritten by its own search term.** Both the
+people and the organisation searches had put the term straight into a
+PostgREST filter since May; a comma or a parenthesis in the box became part
+of the filter. Bounded by RLS and never exploited, now quoted per the grammar
+and proven against staging with eight hostile terms — including the lesson
+that a single escape reaches Postgres as a bare `%` and matches everything.
+
+**A brake on the public doors.** Enrolments, bookings, sign-up requests,
+coupon checks, portal codes, OAuth token exchange and app registration are
+metered per IP, generously: it stops a script in a loop, not a rush of real
+people.
+
+**Stripe's webhooks, verified honestly and fixed by script.** The verifier had
+read a field Stripe never returns and reported every endpoint as the wrong
+mode. It now reads the Connect application id; a new
+`register-stripe-webhooks.mjs` recreates a wrong endpoint and pushes its
+signing secret to Fly without ever printing it. Staging's three
+connected-account endpoints were recreated and the verifier is green there.
+
+**Dependabot** watches the dependencies weekly, advisories at once.
+
+Also on production today, on Sjoerd's instruction: the six pending
+migrations, the API, and the promotion of staging through v0.74.4.
+
+## [0.74.6] — 2026-09-14 — Connections uses The Fibre's one form style (staging)
+
+**Connections looks like Thread now.** The note box, "How you know them", the
+connect-a-person form, the leaving warning, Settings, tag cleaning, Team
+updates and the Movement filters had grown a smaller style of their own. They
+now use the same labelled fields, date field and buttons as Thread's editor:
+kind, when and team with labels above; what happened; then, under a rule, the
+follow-up and when; Done at the bottom right.
+
+**Shared:** the `sm` and `icon` sizes added to `DateTimeField` in v0.74.3–4 are
+removed again — one date field. `@thefibre/shared/ui/fields` exports
+`FIELD_CLASS`, `FIELD_CLASS_INLINE` and `FIELD_LABEL_CLASS` for the rare
+control that cannot be a `TextField`/`SelectField` (a search box with an icon,
+the highlighted note box), so nobody writes the classes by hand again.
+
+## [0.74.5] — 2026-09-14 — the RSVP panel lines up with the form (staging)
+
+Sjoerd, on the engagement dialog: *"The visual interface alignment and
+positioning of the RSVP is not nice."* It was not. The "Who is coming" panel
+carried its own horizontal padding inside a dialog body that already had
+some, so its heading, counts and list all sat indented from every field above
+them, and its divider ran flush under the last input with no space.
+
+It now aligns to the form's left edge, separates from it with real space, and
+shows the three counts as tiles you can read at a glance before the names.
+Each person's answer is a small status pill rather than coloured text at the
+far edge of the row.
+
+## [0.74.4] — 2026-09-14 — A follow-up date is a calendar icon (staging)
+
+**Connections.** Choosing "on a date…" for a follow-up shows a calendar icon,
+not a date field. Pick a date and the icon shows it, short ("15 Sep 09:00").
+
+**Shared:** `DateTimeField` has `size="icon"`.
+
+## [0.74.3] — 2026-09-14 — The note box on two tidy lines (staging)
+
+**Connections — one height, fewer lines.** The top of the note box is one line:
+kind, when, and (if you are in a team) which team — all the same small size;
+the date no longer shows as a big form field. The bottom is one line too: the
+coloured follow-up sentence and Done. "From a meeting transcript…" is now
+called "AI report as input…".
+
+**Shared:** `DateTimeField` has a `size="sm"` option and a `placeholder`, for a
+date that sits in a row of small controls. Nothing changes where it is not used.
+
+## [0.74.2] — 2026-09-14 — What happened on top, what comes next below (staging)
+
+**Connections — the note box reads top to bottom.** At the top: what kind of
+contact it was (note, call, meeting…) and when. The time is set the moment you
+start writing; press it to change it. At the bottom, in its own colour, the
+follow-up as a sentence: "Follow up: [Call] on [tomorrow]". The follow-up's
+kind becomes the title of the task in what you owe, so Today says "Call"
+instead of "Follow up". The date field appears only when you choose "on a
+date…".
+
+Also in this release: Connections no longer carries Pulse's cashflow cookie
+names.
+
 ## [0.74.1] — 2026-09-14 — Connections on the shared copies (staging)
 
 **No visible change.** Connections was the last app with its own copies of the

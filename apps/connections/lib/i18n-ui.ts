@@ -678,6 +678,30 @@ const CATALOG = {
     de: 'Ganze Seite öffnen', // MT
     fr: 'Ouvrir la page complète', // MT
   },
+  rel_why: {
+    en: 'Why?',
+    nl: 'Waarom?',
+    es: '¿Por qué?', // MT
+    pt: 'Porquê?', // MT
+    de: 'Warum?', // MT
+    fr: 'Pourquoi ?', // MT
+  },
+  rel_why_ph: {
+    en: 'What it was about',
+    nl: 'Waar het over ging',
+    es: 'De qué se trataba', // MT
+    pt: 'Sobre o que era', // MT
+    de: 'Worum es ging', // MT
+    fr: 'De quoi il s’agissait', // MT
+  },
+  person_full_profile: {
+    en: 'Full profile',
+    nl: 'Volledig profiel',
+    es: 'Perfil completo', // MT
+    pt: 'Perfil completo', // MT
+    de: 'Vollständiges Profil', // MT
+    fr: 'Profil complet', // MT
+  },
   person_open_in_fibre: {
     en: 'Full profile in The Fibre',
     nl: 'Volledig profiel in The Fibre',
@@ -803,6 +827,78 @@ const CATALOG = {
     pt: 'Quando', // MT
     de: 'Wann', // MT
     fr: 'Quand', // MT
+  },
+  note_body_label: {
+    en: 'What happened',
+    nl: 'Wat er gebeurde',
+    es: 'Qué pasó', // MT
+    pt: 'O que aconteceu', // MT
+    de: 'Was passiert ist', // MT
+    fr: 'Ce qui s’est passé', // MT
+  },
+  team_field: {
+    en: 'Team',
+    nl: 'Team',
+    es: 'Equipo', // MT
+    pt: 'Equipa', // MT
+    de: 'Team', // MT
+    fr: 'Équipe', // MT
+  },
+  note_followup_when: {
+    en: 'When',
+    nl: 'Wanneer',
+    es: 'Cuándo', // MT
+    pt: 'Quando', // MT
+    de: 'Wann', // MT
+    fr: 'Quand', // MT
+  },
+  note_followup_date: {
+    en: 'Date',
+    nl: 'Datum',
+    es: 'Fecha', // MT
+    pt: 'Data', // MT
+    de: 'Datum', // MT
+    fr: 'Date', // MT
+  },
+  fu_kind_touch: {
+    en: 'Get in touch',
+    nl: 'Contact opnemen',
+    es: 'Contactar', // MT
+    pt: 'Contactar', // MT
+    de: 'Kontakt aufnehmen', // MT
+    fr: 'Reprendre contact', // MT
+  },
+  fu_kind_call: {
+    en: 'Call',
+    nl: 'Bellen',
+    es: 'Llamar', // MT
+    pt: 'Ligar', // MT
+    de: 'Anrufen', // MT
+    fr: 'Appeler', // MT
+  },
+  fu_kind_email: {
+    en: 'Email',
+    nl: 'Mailen',
+    es: 'Escribir un email', // MT
+    pt: 'Enviar email', // MT
+    de: 'E-Mail schreiben', // MT
+    fr: 'Écrire un email', // MT
+  },
+  fu_kind_meet: {
+    en: 'Meet',
+    nl: 'Afspreken',
+    es: 'Quedar', // MT
+    pt: 'Encontrar', // MT
+    de: 'Treffen', // MT
+    fr: 'Rencontrer', // MT
+  },
+  fu_kind_message: {
+    en: 'Send a message',
+    nl: 'Bericht sturen',
+    es: 'Enviar un mensaje', // MT
+    pt: 'Enviar mensagem', // MT
+    de: 'Nachricht schicken', // MT
+    fr: 'Envoyer un message', // MT
   },
   note_followup: {
     en: 'Follow up',
@@ -1013,12 +1109,13 @@ const CATALOG = {
     fr: '{days} derniers jours : {arrived} arrivés, {moved} déplacés.', // MT
   },
   meeting_open: {
-    en: 'From a meeting transcript…',
-    nl: 'Uit een vergaderverslag…',
-    es: 'Desde una transcripción…', // MT
-    pt: 'A partir de uma transcrição…', // MT
-    de: 'Aus einem Meeting-Transkript…', // MT
-    fr: 'À partir d’une transcription…', // MT
+    // Sjoerd, 2026-09-14: 'From a meeting transcript… = AI report as input'.
+    en: 'AI report as input…',
+    nl: 'AI-verslag als invoer…',
+    es: 'Informe de IA como entrada…', // MT
+    pt: 'Relatório de IA como entrada…', // MT
+    de: 'KI-Bericht als Eingabe…', // MT
+    fr: 'Rapport d’IA comme saisie…', // MT
   },
   meeting_close: {
     en: 'Close',

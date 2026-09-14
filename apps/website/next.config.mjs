@@ -1,3 +1,4 @@
+import { securityHeaderRoutes } from '@thefibre/shared/security-headers';
 // The Thread door comes from the shared registry (env override first, then
 // production) — the same source every page uses. Needs packages/shared/dist
 // built, which the website already requires for its pages.
@@ -8,6 +9,10 @@ const THREAD_APP_URL = appUrl('the-thread', process.env);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Baseline security headers, one list for every app (packages/shared).
+  async headers() {
+    return securityHeaderRoutes([]);
+  },
   // Pure marketing surface: no personal data, no Supabase, no sessions.
   // The only fetch is the public plan catalogue (no PII) — hard rule §13
   // holds trivially here.

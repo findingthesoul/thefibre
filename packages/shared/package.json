@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.74.1",
+  "version": "0.75.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -137,6 +137,10 @@
     "./upload": {
       "types": "./dist/upload.d.ts",
       "default": "./dist/upload.js"
+    },
+    "./security-headers": {
+      "types": "./dist/security-headers.d.ts",
+      "default": "./dist/security-headers.js"
     },
     "./languages": {
       "types": "./dist/languages.d.ts",

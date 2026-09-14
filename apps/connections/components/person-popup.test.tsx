@@ -189,7 +189,7 @@ describe('the person popup', () => {
   it('asks before it takes you out of Connections', async () => {
     await click(container.querySelector('a.p1')!);
     const out = [...document.querySelectorAll('button')].find((b) =>
-      (b.textContent ?? '').includes('Fibre'),
+      b.getAttribute('aria-label') === 'Full profile',
     )!;
     expect(out, 'the way out to The Fibre').toBeTruthy();
     await click(out);
@@ -201,7 +201,7 @@ describe('the person popup', () => {
 
   it('goes nowhere when the warning is cancelled', async () => {
     await click(container.querySelector('a.p1')!);
-    await click([...document.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Fibre'))!);
+    await click([...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Full profile')!);
     await click([...document.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Cancel')!);
     expect(assigned).toEqual([]);
     expect(document.body.textContent).not.toContain('Leaving Connections');
@@ -209,7 +209,7 @@ describe('the person popup', () => {
 
   it('goes to The Fibre when the warning is accepted', async () => {
     await click(container.querySelector('a.p1')!);
-    await click([...document.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Fibre'))!);
+    await click([...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Full profile')!);
     await click([...document.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Yes'))!);
     expect(assigned).toEqual(['https://example.invalid/contacts/p1']);
   });
@@ -220,7 +220,7 @@ describe('the person popup', () => {
     // change — gets this wrong and nobody would notice until the warning had
     // silently stopped appearing.
     await click(container.querySelector('a.p1')!);
-    await click([...document.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Fibre'))!);
+    await click([...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Full profile')!);
     const box = [...document.querySelectorAll('input[type="checkbox"]')].pop() as HTMLInputElement;
     await act(async () => {
       box.click();

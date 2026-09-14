@@ -30,6 +30,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react';
+import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import { usePersonPopup } from '@/components/person-popup';
@@ -137,7 +138,7 @@ export function MovementBoard({
   }, [reading, groupBy, value, facets, onlyMoved]);
 
   const label = (rung: string) => bandName(locale, labels, axis, rung);
-  const select = 'rounded-md border border-line bg-surface px-2 py-1.5 text-xs';
+  const select = FIELD_CLASS_INLINE;
 
   return (
     <div className="mt-6">

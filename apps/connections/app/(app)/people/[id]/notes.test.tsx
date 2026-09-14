@@ -43,7 +43,13 @@ vi.mock('./actions', () => ({
   loadMyTeams: async () => myTeams,
   setDefaultTeam: async () => ({ ok: true }),
 }));
-vi.mock('@/components/ui/date-field', () => ({ DateTimeField: () => null }));
+vi.mock('@/components/ui/date-field', () => ({
+  DateTimeField: () => <div data-testid="date-field" />,
+  // Clicking it picks 1 September 2026, so a test can change the day.
+  DateField: ({ defaultValue, onValueChange }: { defaultValue?: string; onValueChange?: (v: string) => void }) => (
+    <button type="button" data-testid="day-field" data-value={defaultValue} onClick={() => onValueChange?.('2026-09-01')} />
+  ),
+}));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
 import { Notes } from './notes';
@@ -131,6 +137,84 @@ describe('the composer offline', () => {
     await type('First attempt, offline. Back online now.');
     await pressDone();
     expect(saveNote.mock.calls.length).toBeGreaterThan(before);
+  });
+});
+
+// ── The follow-up date ───────────────────────────────────────────────────────
+//
+// Sjoerd, 2026-09-14: *"Calendar icon should only appear if the option is: on
+// date"*. A date control beside "tomorrow" read as a second date.
+
+describe('the follow-up date', () => {
+  const followUpSelect = () =>
+    [...container.querySelectorAll('select')].find((el) => [...el.options].some((o) => o.value === 'tomorrow'))!;
+  const choose = async (value: string) => {
+    const el = followUpSelect();
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  };
+  const dateFields = () => container.querySelectorAll('[data-testid="date-field"]').length;
+
+  // The note's own time is always one date field at the top; these count the
+  // follow-up's on top of it.
+  it('shows no follow-up date control for a relative follow-up', async () => {
+    const base = dateFields();
+    await choose('tomorrow');
+    expect(dateFields()).toBe(base);
+  });
+
+  // Sjoerd, 2026-09-14: "When" is a date, today by default — "take it out...
+  // just date".
+  it('defaults "when" to today, and leaves the exact moment to the server', async () => {
+    const field = container.querySelector<HTMLElement>('[data-testid="day-field"]')!;
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    expect(field.dataset.value).toBe(today);
+    saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await type('Met at the market.');
+    await pressDone();
+    const sent = saveNote.mock.calls.at(-1)?.[0] as { happened_at?: string };
+    expect(sent.happened_at).toBeUndefined();
+  });
+
+  it('sends another day as that date', async () => {
+    const field = container.querySelector<HTMLElement>('[data-testid="day-field"]')!;
+    await act(async () => field.click()); // the mock picks 2026-09-01
+    saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await type('Met at the market last week.');
+    await pressDone();
+    const sent = saveNote.mock.calls.at(-1)?.[0] as { happened_at?: string };
+    const at = new Date(sent.happened_at!);
+    expect([at.getFullYear(), at.getMonth(), at.getDate()]).toEqual([2026, 8, 1]);
+  });
+
+  it('sends what the follow-up is as the task title', async () => {
+    // The follow-up's list is the one offering "Get in touch" (value 'touch').
+    const kindSelect = [...container.querySelectorAll('select')].find((el) =>
+      [...el.options].some((o) => o.value === 'touch'),
+    )!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(kindSelect, 'call');
+      kindSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await choose('tomorrow');
+    saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await type('Ring her about the venue.');
+    await pressDone();
+    const sent = saveNote.mock.calls.at(-1)?.[0] as { follow_up_title?: string; follow_up_at?: string | null };
+    expect(sent.follow_up_title).toBe('Call');
+    expect(sent.follow_up_at).not.toBeNull();
+  });
+
+  it('shows the date control only once "on a date" is chosen', async () => {
+    expect([...followUpSelect().options].map((o) => o.value)).toContain('exact');
+    const base = dateFields();
+    await choose('exact');
+    expect(dateFields()).toBe(base + 1);
   });
 });
 

@@ -29,6 +29,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import { ContactRow } from '@/components/contact-row';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -220,6 +221,35 @@ export function PersonPopupProvider({
           onClose={close}
           title={name || (error ? t(locale, 'nav_people') : t(locale, 'loading'))}
           size="lg"
+          // How to reach them sits directly under the name, and the full
+          // profile is an icon at the end of the name's line, next to the
+          // close. Sjoerd, 2026-09-14: *"Put the email direct under the name
+          // and make full profile just an icon with link, and a mouse-over
+          // with 'full profile' at the end of the line of the name"*.
+          description={person ? <ContactRow person={person} /> : undefined}
+          headerActions={
+            person ? (
+              // Asks before it goes. Sjoerd, 2026-09-13: *"I just want to have
+              // a warning... that I am leaving connections and going to
+              // detailed personal data (with a YES and CANCEL button)"*.
+              <button
+                type="button"
+                onClick={() => {
+                  const href = `${fibreContactsBase}/${person.id}`;
+                  if (warningSuppressed()) {
+                    window.location.assign(href);
+                    return;
+                  }
+                  setLeavingTo(href);
+                }}
+                title={t(locale, 'person_full_profile')}
+                aria-label={t(locale, 'person_full_profile')}
+                className="text-ink-muted hover:text-ink"
+              >
+                <ExternalLink size={17} strokeWidth={1.75} />
+              </button>
+            ) : undefined
+          }
         >
           {error && <p className="text-sm text-ink">{t(locale, 'person_load_failed')} {error}</p>}
 
@@ -227,39 +257,6 @@ export function PersonPopupProvider({
 
           {person && (
             <div>
-              <ContactRow person={person} />
-              {/* ONE link, not two. Sjoerd, 2026-09-13: *"why two buttons?"*
-                  The other went to /people/:id, which today renders strictly
-                  LESS than the popup you are already looking at — the same
-                  notes without the relationship card. A second button to see
-                  less of the same person is clutter, and it comes back when
-                  that page has something this does not (backlog §1.1). The
-                  page is still a real page and every list still links to it. */}
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                {/* Asks before it goes. Sjoerd, 2026-09-13: *"I just want to
-                    have a warning... that I am leaving connections and going
-                    to detailed personal data (with a YES and CANCEL button)"*.
-                    This REPLACES the new tab that answered the same complaint
-                    earlier the same day — what he wanted was to know he was
-                    leaving, and a new tab bought that by never leaving, at the
-                    cost of a tab every time. */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const href = `${fibreContactsBase}/${person.id}`;
-                    if (warningSuppressed()) {
-                      window.location.assign(href);
-                      return;
-                    }
-                    setLeavingTo(href);
-                  }}
-                  className="inline-flex items-center gap-1 text-ink-muted hover:text-ink"
-                >
-                  {t(locale, 'person_open_in_fibre')}
-                  <ExternalLink size={11} strokeWidth={1.75} />
-                </button>
-              </div>
-
               {/* Tabs, not folds. Sjoerd, 2026-09-13: *"Maybe tabs instead
                   of accordeon.. and the 'how we met' is only open when it is
                   not filled in"*. Two folds meant both headings and neither
@@ -338,37 +335,35 @@ export function PersonPopupProvider({
       {/* Over the person popup, because that is where it was asked for and
           because leaving is a decision about the thing you are looking at. */}
       {leavingTo && (
-        <Dialog open onClose={() => setLeavingTo(null)} title={t(locale, 'leave_title')}>
-          <p className="text-sm text-ink-muted">{t(locale, 'leave_body')}</p>
-          <label className="mt-4 flex items-center gap-2 text-xs text-ink-muted">
-            <input
-              type="checkbox"
-              checked={dontAsk}
-              onChange={(e) => setDontAsk(e.target.checked)}
-            />
+        <Dialog
+          open
+          onClose={() => setLeavingTo(null)}
+          title={t(locale, 'leave_title')}
+          size="sm"
+          // The Fibre's dialog bottom bar: Cancel · confirm on the right.
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setLeavingTo(null)}>
+                {t(locale, 'cancel')}
+              </Button>
+              <Button
+                onClick={() => {
+                  // Remembered only when they actually go. Ticking the box and
+                  // then pressing Cancel is not consent to skip the warning.
+                  if (dontAsk) suppressWarning();
+                  window.location.assign(leavingTo);
+                }}
+              >
+                {t(locale, 'leave_yes')}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-ink-subtle">{t(locale, 'leave_body')}</p>
+          <label className="mt-4 flex items-center gap-2 text-sm text-ink-subtle">
+            <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} />
             {t(locale, 'leave_dont_ask')}
           </label>
-          <div className="mt-5 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setLeavingTo(null)}
-              className="text-sm text-ink-muted hover:text-ink"
-            >
-              {t(locale, 'cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                // Remembered only when they actually go. Ticking the box and
-                // then pressing Cancel is not consent to skip the warning.
-                if (dontAsk) suppressWarning();
-                window.location.assign(leavingTo);
-              }}
-              className="inline-flex h-8 items-center rounded-md border border-ink bg-ink px-3 text-sm text-ink-inverse"
-            >
-              {t(locale, 'leave_yes')}
-            </button>
-          </div>
         </Dialog>
       )}
     </PersonPopupContext.Provider>

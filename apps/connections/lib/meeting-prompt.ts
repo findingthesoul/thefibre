@@ -57,10 +57,16 @@ export function meetingPrompt({
     .slice(0, maxTags)
     .map((t) => `#${hyphenate(t)}`);
 
+  // Works in a fresh chat AND in one that has already been working on the
+  // transcript. Sjoerd, 2026-09-14: *"The prompt should also work in a chat
+  // that has already worked on a transcript"* — so it points at the transcript
+  // wherever it is, and lets earlier corrections in that chat count.
   return [
-    `Below this message is a transcript of a meeting with ${personName}.`,
+    `I need a note about my meeting with ${personName}.`,
     '',
-    `Write a short note about it in ${languageName}, for a relationship log. Plain text, no headings, no markdown, no bullet symbols other than a dash.`,
+    'The transcript is either pasted below this message, or already earlier in this conversation. Use whichever is there. If we have already discussed it here, take what we worked out into account (corrections, names, what matters), but still follow the format below exactly — it replaces any earlier format.',
+    '',
+    `Write a short note about the meeting in ${languageName}, for a relationship log. Plain text, no headings, no markdown, no bullet symbols other than a dash.`,
     '',
     'Structure:',
     '- Two to four sentences on what was discussed and what matters about it.',
@@ -78,7 +84,7 @@ export function meetingPrompt({
     '',
     'Reply with the note only.',
     '',
-    '--- TRANSCRIPT ---',
+    '--- TRANSCRIPT (paste here, or leave empty if it is already in this chat) ---',
     '',
   ].join('\n');
 }

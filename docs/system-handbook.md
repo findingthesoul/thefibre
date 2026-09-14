@@ -1229,6 +1229,7 @@ canvas, timeline editor) are deliberately desktop-first.
 | `docs/i18n-proposal.md` | Locale architecture |
 | `docs/spike-circle-sso.md` | The OAuth-provider spike |
 | `docs/testing-approach.md` | How we test: internal/external testing, the layer stack, release gates, adoption roadmap |
+| `docs/data-protection-approach.md` | How we protect data: assets and threats, the controls that exist and where, the incident record, the gap roadmap, the per-change security gates, the incident runbook |
 | `CLAUDE.md` | LLM session working notes: hard rules, gotcha index, current state |
 
 ## 14. The hard rules (memorise these)

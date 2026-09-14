@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { resolvePerson, normaliseEmail } from '../lib/resolve-person.js';
 import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
+import { orIlike } from '../lib/postgrest-filter.js';
 
 export const personsRoutes = new Hono();
 
@@ -28,7 +29,7 @@ personsRoutes.get('/', async (c) => {
     .limit(limit + 1);
 
   if (after) query = query.gt('id', after);
-  if (q) query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`);
+  if (q) query = query.or(orIlike(['first_name', 'last_name', 'email'], q));
 
   const { data, error } = await query;
   if (error) return c.json({ error: error.message }, 500);

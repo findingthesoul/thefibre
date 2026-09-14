@@ -92,6 +92,20 @@ neither in code nor in a document. That is what this file fixes.
 | 59 | `#` and `@` may run over a space — type the words, press Enter, and it becomes a tag, person or organisation | **Shipped** v0.73.61 — up to three words; `#` offers a new tag; `@` picks existing people and organisations only (a new person is backlog §1.3) |
 | 60 | Tag cleaning: find doubles, find tags unused for a long time, and present a list for a clean-up now and then | **Shipped** v0.73.61 — Settings → Tag cleaning; merge, rename, delete for admins; a nudge on Today at most every 30 days |
 | 61 | The date field is double in the composer — take the bottom one away | **Shipped** v0.73.61 — the note is dated when written; the calendar icon is the follow-up |
+| 62 | The calendar icon should only appear when the follow-up is "on a date" | **Shipped** v0.74.2 — reverses 52: "On a date…" is back in the list and the date field shows only for it |
+| 63 | "Follow up: [kind] on [when]" — the Kind had read as the follow-up's; put the note's kind and time at the TOP (time = the moment you start writing, openable), and give the follow-up its own colour with its own two dropdowns | **Shipped** v0.74.2 — reverses 61: the note's time is back, at the top; the follow-up's kind becomes the title of its task in what you owe |
+| 64 | The note box is inconsistent — small, big, over two lines; put the inputs on one line | **Shipped** v0.74.3 — kind, time and team on one line, every control the same small height (shared DateTimeField gained size="sm") |
+| 65 | "From a meeting transcript…" should say "AI report as input" | **Shipped** v0.74.3 |
+| 66 | Follow up and Done on one line | **Shipped** v0.74.3 — wraps below on a phone |
+| 67 | The follow-up's date field can just be a calendar icon | **Shipped** v0.74.4 — an icon until a date is picked, then the icon and a short date; shared DateTimeField gained size="icon" |
+| 68 | "Why do we have two styles? It should be one single point of truth" — the note box against Thread's editor; "The Thread is way more clear" | **Shipped** v0.74.6 — Connections' forms rebuilt on the shared SelectField / DateTimeField / Button; the extra date sizes (sm, icon) removed from shared; hand-written control classes across Connections replaced by the shared FIELD_CLASS. Supersedes the look of 63, 64, 66 and 67: labelled fields in Thread's style instead of one tinted line |
+| 69 | Make Done clearly ready once somebody has started typing (asked: blue) | **Shipped** v0.75.1 — decided with him: no new colour; Done is outlined until there is text, then The Fibre's filled black |
+| 70 | "Why are the dropdowns another format than the date… bad design" | **Shipped** v0.75.1 — fixed in SHARED, so every app: text fields, dropdowns and textareas now match the date field (h-11, 15px); dropdowns draw their own arrow so Safari keeps the height |
+| 71 | Email directly under the name; full profile as an icon with a "Full profile" hover at the end of the name's line, next to the X | **Shipped** v0.75.1 — shared Dialog gained `headerActions` |
+| 72 | How you know them: "I reached out" and "They reached out" get a comment field, "Why?" | **Shipped** v0.75.1 |
+| 73 | "When" defaults to now | **Shipped** v0.75.1 — as today's date, see 74 |
+| 74 | "Time may not be so relevant… take it out... just date" | **Shipped** v0.75.1 — the note's When is a date (today by default); the timeline shows dates only |
+| 75 | The AI prompt should also work in a chat that has already worked on the transcript | **Shipped** v0.75.1 — it looks below OR earlier in the chat, keeps earlier corrections, and its format wins |
 
 ### The three that were lost
 

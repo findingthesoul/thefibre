@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { promises as dns } from 'node:dns';
 import { userClient, adminClient } from '../db.js';
+import { orIlike } from '../lib/postgrest-filter.js';
 
 export const organisationsRoutes = new Hono();
 
@@ -28,7 +29,7 @@ organisationsRoutes.get('/', async (c) => {
     .limit(limit + 1);
 
   if (after) query = query.gt('id', after);
-  if (q) query = query.or(`name.ilike.%${q}%,domain.ilike.%${q}%`);
+  if (q) query = query.or(orIlike(['name', 'domain'], q));
 
   const { data, error } = await query;
   if (error) return c.json({ error: error.message }, 500);

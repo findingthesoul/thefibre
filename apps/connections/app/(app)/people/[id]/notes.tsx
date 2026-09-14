@@ -23,10 +23,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AtSign, CalendarDays, Check, ClipboardCopy, X } from 'lucide-react';
+import { AtSign, Check, ClipboardCopy, X } from 'lucide-react';
 import { meetingPrompt } from '@/lib/meeting-prompt';
 import { applySuggestion, lookup, type ActiveToken, type Suggestion } from '@/lib/autocomplete';
-import { DateTimeField } from '@/components/ui/date-field';
+import { DateField, DateTimeField } from '@/components/ui/date-field';
+import { Button } from '@/components/ui/button';
+import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
   saveNote,
@@ -149,10 +151,10 @@ function Conversation({
     onChanged();
   }
 
-  const when = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(note.happened_at));
+  // A date, not a time — Sjoerd, 2026-09-14: "Time may not be so relevant".
+  const when = new Intl.DateTimeFormat(INTL_LOCALES[locale], { dateStyle: 'medium' }).format(
+    new Date(note.happened_at),
+  );
 
   const meta = (
     <>
@@ -172,37 +174,30 @@ function Conversation({
           onChange={(e) => setDraft(e.target.value)}
           rows={4}
           autoFocus
-          className="w-full rounded-md border border-line bg-surface p-2 text-sm leading-relaxed focus:border-line-strong focus:outline-none"
+          className={`${FIELD_CLASS} leading-relaxed`}
         />
         <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'note_edit_tags_note')}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <button
+        {/* The Fibre's bottom-bar order: Delete left, Cancel · Save right. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={remove} disabled={busy}>
+            {t(locale, 'delete')}
+          </Button>
+          <Button
             type="button"
-            onClick={save}
-            disabled={busy}
-            className="inline-flex h-8 items-center rounded-md border border-line bg-surface-raised px-3 text-sm hover:bg-surface-sunken disabled:opacity-50"
-          >
-            {busy ? t(locale, 'saving') : t(locale, 'save')}
-          </button>
-          <button
-            type="button"
+            variant="secondary"
+            size="sm"
+            className="ml-auto"
             onClick={() => {
               setDraft(note.body);
               setEditing(false);
               setError(null);
             }}
-            className="text-xs text-ink-muted hover:text-ink"
           >
             {t(locale, 'cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            className="ml-auto text-xs text-ink-muted hover:text-ink disabled:opacity-50"
-          >
-            {t(locale, 'delete')}
-          </button>
+          </Button>
+          <Button type="button" size="sm" onClick={save} disabled={busy}>
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
+          </Button>
         </div>
         {error && <p className="mt-1.5 text-xs text-ink">{error}</p>}
       </TimelineItem>
@@ -263,6 +258,26 @@ const KIND_KEYS = {
 } as const;
 
 const KINDS: NoteKind[] = ['note', 'call', 'meeting', 'encounter', 'message', 'email'];
+
+/**
+ * What the follow-up will be. Not stored on the note: the follow-up becomes a
+ * task in "what you owe", and this is that task's title.
+ */
+type FollowUpKind = 'touch' | 'call' | 'email' | 'meet' | 'message';
+const FOLLOW_UP_KINDS: FollowUpKind[] = ['touch', 'call', 'email', 'meet', 'message'];
+const FOLLOW_UP_KIND_KEYS = {
+  touch: 'fu_kind_touch',
+  call: 'fu_kind_call',
+  email: 'fu_kind_email',
+  meet: 'fu_kind_meet',
+  message: 'fu_kind_message',
+} as const;
+
+/** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
+export function localStamp(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
   return KIND_KEYS[kind as NoteKind] ?? KIND_KEYS.note;
@@ -463,8 +478,18 @@ export function Notes({
   const [teamId, setTeamId] = useState<string | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [kind, setKind] = useState<NoteKind>('note');
-  /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
+  /**
+   * The day it happened, "YYYY-MM-DD", today by default. A date, not a time.
+   * Sjoerd, 2026-09-14: *"with the When: default the now date"*… *"Time may
+   * not be so relevant by the way… take it out... just date"*. Today is sent
+   * as the actual moment of writing (so same-day notes still sort in order);
+   * another day is sent as noon, which lands on that date in any nearby zone.
+   */
+  const [happenedOn, setHappenedOn] = useState(() => localStamp(new Date()).slice(0, 10));
+  /** Remounts the uncontrolled DateField when the composer resets. */
+  const [whenKey, setWhenKey] = useState(0);
   const [followUp, setFollowUp] = useState<FollowUp>('none');
+  const [followUpKind, setFollowUpKind] = useState<FollowUpKind>('touch');
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
   const [followUpExact, setFollowUpExact] = useState('');
   /**
@@ -639,7 +664,12 @@ export function Notes({
       body,
       kind,
       ...(tz ? { happened_tz: tz } : {}),
+      ...(happenedOn && happenedOn !== localStamp(new Date()).slice(0, 10)
+        ? { happened_at: new Date(`${happenedOn}T12:00`).toISOString() }
+        : {}),
       follow_up_at: followUpIso(followUp, followUpExact),
+      // The follow-up becomes a task; this is its title, in the writer's language.
+      follow_up_title: t(locale, FOLLOW_UP_KIND_KEYS[followUpKind]),
       is_draft: isDraft,
       // Only what is on screen right now. The API applies this list rather
       // than re-detecting, so what the person SAW is what gets written —
@@ -735,7 +765,7 @@ export function Notes({
     // `write` is intentionally not a dep: it is recreated every render and
     // the effect already re-runs on everything it reads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body, kind, followUp, followUpExact]);
+  }, [body, kind, happenedOn, followUp, followUpKind, followUpExact]);
 
   /** Focus left the composer, or Done was pressed. This is what commits. */
   async function commit() {
@@ -769,7 +799,10 @@ export function Notes({
     firstRender.current = true; // the reset below is not an edit
     setBody('');
     setKind('note');
+    setHappenedOn(localStamp(new Date()).slice(0, 10));
+    setWhenKey((k) => k + 1);
     setFollowUp('none');
+    setFollowUpKind('touch');
     setFollowUpExact('');
     // Queued on the device: the box resets so the person can move on, but the
     // status keeps saying where the note actually is.
@@ -796,60 +829,84 @@ export function Notes({
           // box, the chips and Done is not "finished".
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) void commit();
         }}
-        className="rounded-lg border border-line bg-surface-raised p-3 sm:p-4"
       >
+        {/* THE SHARED FORM, not a style of its own. Sjoerd, 2026-09-14,
+            comparing this box with Thread's editor: *"Why do we have two
+            styles. It should be - as we agreed - one single point of truth...
+            now we have two"* and *"The Thread is way more clear"*. Labels above,
+            SelectField / DateTimeField / Button from @thefibre/shared — the same
+            controls Thread uses — and no hand-written heights or tints. Where a
+            control cannot be a shared field (the highlighted text box), it
+            takes FIELD_CLASS from the same module rather than its own classes.
+
+            Order, top to bottom: what happened and when, what was said, what
+            comes next. "When" is a date, today by default. */}
+        <div className={`grid gap-4 ${teams.length > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          <SelectField
+            label={t(locale, 'kind')}
+            value={kind}
+            onChange={(e) => setKind(e.target.value as NoteKind)}
+            options={KINDS.map((k) => ({ value: k, label: t(locale, KIND_KEYS[k]) }))}
+          />
+          <DateField
+            key={whenKey}
+            label={t(locale, 'note_when')}
+            name="happened_on"
+            required
+            defaultValue={happenedOn}
+            onValueChange={setHappenedOn}
+          />
+          {/* A team only when there IS a team to choose: most workspaces never
+              use teams this way. */}
+          {teams.length > 0 && (
+            <SelectField
+              label={t(locale, 'team_field')}
+              value={teamId ?? ''}
+              onChange={(e) => setTeamId(e.target.value || null)}
+              options={[
+                { value: '', label: t(locale, 'team_none') },
+                ...teams.map((tm) => ({
+                  value: tm.id,
+                  label: tm.is_default ? `${tm.name} · ${t(locale, 'team_default')}` : tm.name,
+                })),
+              ]}
+              hint={
+                // Offered only when the choice differs from the default.
+                teamId !== (teams.find((tm) => tm.is_default)?.id ?? null) ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const r = await safely(
+                        () => setDefaultTeam(teamId),
+                        (error) => ({ ok: false as const, error }),
+                      );
+                      if (r.ok) setTeams((prev) => prev.map((tm) => ({ ...tm, is_default: tm.id === teamId })));
+                    }}
+                    className="underline-offset-2 hover:text-ink hover:underline"
+                  >
+                    {t(locale, teamId ? 'team_make_default' : 'team_clear_default')}
+                  </button>
+                ) : undefined
+              }
+            />
+          )}
+        </div>
+
         {/* The tags are marked INSIDE the sentence as it is typed. The real
             text box is untouched — the tints are painted behind it — so
             typing, autocorrect and the caret behave exactly as before. See
             TagHighlightBox for why that trade was made. */}
-        {/* By you, for a team. Only when there IS a team to choose: most
-            workspaces never use teams this way, and a picker with one option
-            reading "no team" would be noise on every note. */}
-        {teams.length > 0 && (
-          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-            <span>{t(locale, 'team_by_you')}</span>
-            <label className="flex items-center gap-1.5">
-              <span>{t(locale, 'team_for')}</span>
-              <select
-                value={teamId ?? ''}
-                onChange={(e) => setTeamId(e.target.value || null)}
-                className="rounded-md border border-line bg-surface px-2 py-1 text-xs"
-              >
-                <option value="">{t(locale, 'team_none')}</option>
-                {teams.map((tm) => (
-                  <option key={tm.id} value={tm.id}>
-                    {tm.name}
-                    {tm.is_default ? ` · ${t(locale, 'team_default')}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {/* Offered only when the choice differs from the default, so the
-                control appears exactly when it would do something. */}
-            {teamId !== (teams.find((tm) => tm.is_default)?.id ?? null) && (
-              <button
-                type="button"
-                onClick={async () => {
-                  const r = await safely(
-                    () => setDefaultTeam(teamId),
-                    (error) => ({ ok: false as const, error }),
-                  );
-                  if (r.ok) setTeams((prev) => prev.map((tm) => ({ ...tm, is_default: tm.id === teamId })));
-                }}
-                className="underline-offset-2 hover:text-ink hover:underline"
-              >
-                {t(locale, teamId ? 'team_make_default' : 'team_clear_default')}
-              </button>
-            )}
-          </div>
-        )}
-
+        <div className="mt-4">
+          <span className={FIELD_LABEL_CLASS}>{t(locale, 'note_body_label')}</span>
+          <div className={`mt-1 ${FIELD_CLASS} focus-within:border-line-strong`}>
         <TagHighlightBox
           rows={meeting ? 10 : 3}
           value={body}
           onChange={(v) => {
             setBody(v);
             setPickIndex(0);
+            // The moment somebody starts writing is when it happened, unless
+            // they say otherwise.
           }}
           textareaRef={boxRef}
           onKeyDown={onBoxKey}
@@ -865,6 +922,8 @@ export function Notes({
           placeholder={t(locale, 'note_placeholder')}
           ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
         />
+          </div>
+        </div>
 
         {/* From a meeting. Sjoerd, 2026-09-14: *"a proper prompt that someone
             could paste into their ChatGPT or Claude or Gemini... and that
@@ -1041,103 +1100,36 @@ export function Notes({
           </div>
         )}
 
-        {/* Follow-up: one control, "nothing planned" already chosen.
-            Sjoerd, 2026-09-13: *"\"No followup\" is default. Dropdown is:
-            week, two weeks, month.. exact date"*. Three chips took a row to
-            themselves in a popup meant to be read at a glance, and asking
-            somebody to press "nothing planned" was asking a question to get
-            the answer it already had. */}
-        {/* ONE row: follow-up (with its calendar icon) and kind. Sjoerd,
-            2026-09-13: *"Follow up [select] | Kind: [select] | Date : [date]
-            can go in 1 row"*; the date of the note itself went on 2026-09-14. */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <label className="flex items-center gap-2">
-            <span className="text-xs text-ink-muted">{t(locale, 'note_followup')}</span>
-            <select
+        {/* What comes next, as its own section of the same form: a rule and a
+            heading rather than a colour of its own (the tint was a second
+            style). "Follow up: [Call] [tomorrow]" — Sjoerd, 2026-09-14. The date
+            field appears only for "on a date…"; "nothing planned" is the
+            default. The follow-up's kind becomes the title of its task. */}
+        <div className="mt-5 border-t border-line pt-4">
+          <div className={`grid gap-4 ${followUp === 'exact' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            <SelectField
+              label={t(locale, 'note_followup')}
+              value={followUpKind}
+              onChange={(e) => setFollowUpKind(e.target.value as FollowUpKind)}
+              options={FOLLOW_UP_KINDS.map((k) => ({ value: k, label: t(locale, FOLLOW_UP_KIND_KEYS[k]) }))}
+            />
+            <SelectField
+              label={t(locale, 'note_followup_when')}
               value={followUp}
               onChange={(e) => setFollowUp(e.target.value as FollowUp)}
-              className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-            >
-              {FOLLOW_UPS.map((f) => (
-                <option key={f} value={f}>
-                  {t(locale, FOLLOW_UP_KEYS[f])}
-                </option>
-              ))}
-              {/* Only present while a picked date is the answer, so the list
-                  can show that something is set rather than a wrong option. */}
-              {followUp === 'exact' && (
-                <option value="exact">{t(locale, 'note_followup_exact')}</option>
-              )}
-            </select>
-          </label>
-          {/* A picked date is a calendar icon, not a line in the list. Sjoerd,
-              2026-09-14: *"there is 'on a date'. We just need a date icon"*. */}
-          <button
-            type="button"
-            onClick={() => setFollowUp(followUp === 'exact' ? 'none' : 'exact')}
-            aria-pressed={followUp === 'exact'}
-            aria-label={t(locale, 'note_followup_exact')}
-            title={t(locale, 'note_followup_exact')}
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-              followUp === 'exact'
-                ? 'border-ink bg-ink text-ink-inverse'
-                : 'border-line bg-surface text-ink-muted hover:text-ink'
-            }`}
-          >
-            <CalendarDays size={14} strokeWidth={1.75} />
-          </button>
-
-          {/* The shared date field, not a native input. This app's rule is
-              that dates always go through DateField — it carries the locale's
-              own ordering and the picker people already know. A native
-              `datetime-local` shipped here on 2026-09-13 and was wrong for
-              exactly that reason. */}
-          {followUp === 'exact' && (
-            <div className="min-w-[13rem]">
-              <DateTimeField
-                value={followUpExact}
-                onChange={setFollowUpExact}
-                label={undefined}
-              />
-            </div>
-          )}
-
-          {/* Always here, not behind a click. Sjoerd, 2026-09-13: *"Kind and
-              when should be next to Follow up (not an extra click)"*.
-
-              They were hidden on the argument that they are DEFAULTED and
-              usually right, so asking would be an interrogation. That argument
-              was sound when each one cost a labelled block of its own; once
-              all three became small controls on the row that was already
-              there, the click was buying nothing and hiding the two answers
-              somebody is most likely to want to correct — a call logged on the
-              wrong day is worse than a control on screen. */}
-          <>
-              <label className="flex items-center gap-2">
-                <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
-                <select
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as NoteKind)}
-                  className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-                >
-                  {KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {t(locale, KIND_KEYS[k])}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* No "when it happened" field. Sjoerd, 2026-09-14: *"The date
-                  field is double.. the one at the bottom can be taken away"* —
-                  beside the follow-up's calendar icon it read as the same date
-                  twice. A note is dated when it is written, which is what the
-                  field defaulted to anyway. */}
-          </>
+              options={[
+                ...FOLLOW_UPS.map((f) => ({ value: f, label: t(locale, FOLLOW_UP_KEYS[f]) })),
+                { value: 'exact', label: t(locale, 'note_followup_exact') },
+              ]}
+            />
+            {followUp === 'exact' && (
+              <DateTimeField label={t(locale, 'note_followup_date')} value={followUpExact} onChange={setFollowUpExact} />
+            )}
+          </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+          <div className="mr-auto flex items-center gap-3">
             {/* Honest state. Never "saved" while something is in flight. */}
             <span className="text-xs text-ink-muted" aria-live="polite">
               {status === 'queued' && t(locale, 'note_queued')}
@@ -1161,15 +1153,19 @@ export function Notes({
             </span>
           </div>
 
-          <button
+          {/* Outlined until there is something to keep, filled once there is.
+              Sjoerd, 2026-09-14: make Done clearly ready once somebody has
+              started typing — in The Fibre's black, not a new colour. Both
+              are the shared Button's own variants. */}
+          <Button
             type="button"
+            variant={hasContent ? 'primary' : 'secondary'}
             onClick={() => void commit()}
             disabled={!hasContent}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-ink px-3 text-xs font-medium text-ink-inverse transition-opacity hover:opacity-90 disabled:opacity-40"
+            leading={<Check size={15} strokeWidth={2.25} />}
           >
-            <Check size={13} strokeWidth={2.25} />
             {t(locale, 'done')}
-          </button>
+          </Button>
         </div>
       </div>
 

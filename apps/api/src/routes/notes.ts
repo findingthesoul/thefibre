@@ -61,6 +61,12 @@ const NoteUpsert = z.object({
    *  unvalidated timezone string is a live wound in this codebase already. */
   happened_tz: z.string().max(64).nullable().optional(),
   follow_up_at: z.string().datetime({ offset: true }).nullable().optional(),
+  /**
+   * What the follow-up is — "Call", "Get in touch" — in the writer's language.
+   * Not stored on the note: it becomes the title of the task the follow-up
+   * turns into. Omitted keeps the old title, "Follow up".
+   */
+  follow_up_title: z.string().trim().min(1).max(80).optional(),
   /** True while the composer is open. Derived effects fire on the first
    *  commit (is_draft false), never per keystroke. */
   is_draft: z.boolean().default(true),
@@ -252,7 +258,7 @@ notesRoutes.put('/', async (c) => {
         .from('flow_task')
         .insert({
           workspace_id: ctx.workspaceId,
-          title: 'Follow up',
+          title: d.follow_up_title ?? 'Follow up',
           actor_type: 'personal',
           assignee_user_id: ctx.userId || null,
           contact_id: d.person_id,

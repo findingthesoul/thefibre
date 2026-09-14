@@ -202,21 +202,36 @@ async function call(path, { method = 'GET', body, token, appId } = {}) {
 }
 
 // --- A real user session for the admin steps -------------------------------
+//
+// Minted the supported way: admin.generateLink → verifyOtp, no email. Retried
+// because it has failed once (2026-09-14) with "Email link is invalid or has
+// expired" while the integration pack was running against the same project,
+// and passed alone three times. Cause unproven; a fresh link on the second
+// attempt is the honest response to a one-off, and a real failure still
+// surfaces — with GoTrue's status and code this time, not just its sentence.
 async function adminSession() {
-  const { data: link, error } = await db.auth.admin.generateLink({
-    type: 'magiclink',
-    email: ADMIN_EMAIL,
-  });
-  if (error) throw new Error(`generateLink failed: ${error.message}`);
-  const anon = createClient(SUPABASE_URL, ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error: vErr } = await anon.auth.verifyOtp({
-    type: 'magiclink',
-    token_hash: link.properties.hashed_token,
-  });
-  if (vErr) throw new Error(`verifyOtp failed: ${vErr.message}`);
-  return data.session.access_token;
+  let last;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { data: link, error } = await db.auth.admin.generateLink({
+      type: 'magiclink',
+      email: ADMIN_EMAIL,
+    });
+    if (error) throw new Error(`generateLink failed: ${error.message}`);
+    const anon = createClient(SUPABASE_URL, ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error: vErr } = await anon.auth.verifyOtp({
+      type: 'magiclink',
+      token_hash: link.properties.hashed_token,
+    });
+    if (!vErr && data.session) return data.session.access_token;
+    last = vErr;
+    console.log(
+      `   · sign-in attempt ${attempt} failed: ${vErr?.message} (status ${vErr?.status ?? '?'}, code ${vErr?.code ?? '?'})`,
+    );
+    await new Promise((r) => setTimeout(r, 1500 * attempt));
+  }
+  throw new Error(`verifyOtp failed after 3 attempts: ${last?.message}`);
 }
 
 // --- Cleanup ---------------------------------------------------------------
