@@ -43,7 +43,13 @@ vi.mock('./actions', () => ({
   loadMyTeams: async () => myTeams,
   setDefaultTeam: async () => ({ ok: true }),
 }));
-vi.mock('@/components/ui/date-field', () => ({ DateTimeField: () => <div data-testid="date-field" /> }));
+vi.mock('@/components/ui/date-field', () => ({
+  DateTimeField: () => <div data-testid="date-field" />,
+  // Clicking it picks 1 September 2026, so a test can change the day.
+  DateField: ({ defaultValue, onValueChange }: { defaultValue?: string; onValueChange?: (v: string) => void }) => (
+    <button type="button" data-testid="day-field" data-value={defaultValue} onClick={() => onValueChange?.('2026-09-01')} />
+  ),
+}));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
 import { Notes } from './notes';
@@ -160,19 +166,29 @@ describe('the follow-up date', () => {
     expect(dateFields()).toBe(base);
   });
 
-  it('stamps when it happened at the first keystroke, and sends that time', async () => {
-    // Sjoerd, 2026-09-14: "make it the moment people fill it in". Not the
-    // moment the popup opened, and not the moment Done was pressed.
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2026, 8, 14, 10, 5));
-    await type('Met at the market.');
-    vi.setSystemTime(new Date(2026, 8, 14, 11, 40));
-    vi.useRealTimers();
+  // Sjoerd, 2026-09-14: "When" is a date, today by default — "take it out...
+  // just date".
+  it('defaults "when" to today, and leaves the exact moment to the server', async () => {
+    const field = container.querySelector<HTMLElement>('[data-testid="day-field"]')!;
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    expect(field.dataset.value).toBe(today);
     saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await type('Met at the market.');
     await pressDone();
     const sent = saveNote.mock.calls.at(-1)?.[0] as { happened_at?: string };
-    expect(new Date(sent.happened_at!).getHours()).toBe(10);
-    expect(new Date(sent.happened_at!).getMinutes()).toBe(5);
+    expect(sent.happened_at).toBeUndefined();
+  });
+
+  it('sends another day as that date', async () => {
+    const field = container.querySelector<HTMLElement>('[data-testid="day-field"]')!;
+    await act(async () => field.click()); // the mock picks 2026-09-01
+    saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await type('Met at the market last week.');
+    await pressDone();
+    const sent = saveNote.mock.calls.at(-1)?.[0] as { happened_at?: string };
+    const at = new Date(sent.happened_at!);
+    expect([at.getFullYear(), at.getMonth(), at.getDate()]).toEqual([2026, 8, 1]);
   });
 
   it('sends what the follow-up is as the task title', async () => {

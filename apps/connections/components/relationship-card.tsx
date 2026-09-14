@@ -187,10 +187,12 @@ export function RelationshipCard({
       {/* The rest of the question, when there is one. */}
       {needs === 'text' && (
         <label className="mt-4 block">
-          <span className={FIELD_LABEL_CLASS}>{t(locale, 'rel_at_what')}</span>
+          <span className={FIELD_LABEL_CLASS}>
+            {t(locale, source === 'event_attendee' ? 'rel_at_what' : 'rel_why')}
+          </span>
           <TextDetail
             value={value?.source_detail ?? ''}
-            placeholder={t(locale, 'rel_at_what_ph')}
+            placeholder={t(locale, source === 'event_attendee' ? 'rel_at_what_ph' : 'rel_why_ph')}
             onCommit={(v) => void patch({ source_detail: v || null })}
           />
         </label>

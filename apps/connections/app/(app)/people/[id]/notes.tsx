@@ -26,7 +26,7 @@ import { useRouter } from 'next/navigation';
 import { AtSign, Check, ClipboardCopy, X } from 'lucide-react';
 import { meetingPrompt } from '@/lib/meeting-prompt';
 import { applySuggestion, lookup, type ActiveToken, type Suggestion } from '@/lib/autocomplete';
-import { DateTimeField } from '@/components/ui/date-field';
+import { DateField, DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
@@ -151,10 +151,10 @@ function Conversation({
     onChanged();
   }
 
-  const when = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(note.happened_at));
+  // A date, not a time — Sjoerd, 2026-09-14: "Time may not be so relevant".
+  const when = new Intl.DateTimeFormat(INTL_LOCALES[locale], { dateStyle: 'medium' }).format(
+    new Date(note.happened_at),
+  );
 
   const meta = (
     <>
@@ -478,8 +478,16 @@ export function Notes({
   const [teamId, setTeamId] = useState<string | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [kind, setKind] = useState<NoteKind>('note');
-  /** When it happened: "YYYY-MM-DDTHH:mm" local, stamped at the first keystroke. '' = not yet. */
-  const [startedAt, setStartedAt] = useState('');
+  /**
+   * The day it happened, "YYYY-MM-DD", today by default. A date, not a time.
+   * Sjoerd, 2026-09-14: *"with the When: default the now date"*… *"Time may
+   * not be so relevant by the way… take it out... just date"*. Today is sent
+   * as the actual moment of writing (so same-day notes still sort in order);
+   * another day is sent as noon, which lands on that date in any nearby zone.
+   */
+  const [happenedOn, setHappenedOn] = useState(() => localStamp(new Date()).slice(0, 10));
+  /** Remounts the uncontrolled DateField when the composer resets. */
+  const [whenKey, setWhenKey] = useState(0);
   const [followUp, setFollowUp] = useState<FollowUp>('none');
   const [followUpKind, setFollowUpKind] = useState<FollowUpKind>('touch');
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
@@ -656,7 +664,9 @@ export function Notes({
       body,
       kind,
       ...(tz ? { happened_tz: tz } : {}),
-      ...(startedAt ? { happened_at: new Date(startedAt).toISOString() } : {}),
+      ...(happenedOn && happenedOn !== localStamp(new Date()).slice(0, 10)
+        ? { happened_at: new Date(`${happenedOn}T12:00`).toISOString() }
+        : {}),
       follow_up_at: followUpIso(followUp, followUpExact),
       // The follow-up becomes a task; this is its title, in the writer's language.
       follow_up_title: t(locale, FOLLOW_UP_KIND_KEYS[followUpKind]),
@@ -755,7 +765,7 @@ export function Notes({
     // `write` is intentionally not a dep: it is recreated every render and
     // the effect already re-runs on everything it reads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body, kind, startedAt, followUp, followUpKind, followUpExact]);
+  }, [body, kind, happenedOn, followUp, followUpKind, followUpExact]);
 
   /** Focus left the composer, or Done was pressed. This is what commits. */
   async function commit() {
@@ -789,7 +799,8 @@ export function Notes({
     firstRender.current = true; // the reset below is not an edit
     setBody('');
     setKind('note');
-    setStartedAt('');
+    setHappenedOn(localStamp(new Date()).slice(0, 10));
+    setWhenKey((k) => k + 1);
     setFollowUp('none');
     setFollowUpKind('touch');
     setFollowUpExact('');
@@ -829,8 +840,7 @@ export function Notes({
             takes FIELD_CLASS from the same module rather than its own classes.
 
             Order, top to bottom: what happened and when, what was said, what
-            comes next. The time is stamped at the first keystroke (not when
-            the popup opened) and reads "now" until then. */}
+            comes next. "When" is a date, today by default. */}
         <div className={`grid gap-4 ${teams.length > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
           <SelectField
             label={t(locale, 'kind')}
@@ -838,7 +848,14 @@ export function Notes({
             onChange={(e) => setKind(e.target.value as NoteKind)}
             options={KINDS.map((k) => ({ value: k, label: t(locale, KIND_KEYS[k]) }))}
           />
-          <DateTimeField label={t(locale, 'note_when')} value={startedAt} onChange={setStartedAt} />
+          <DateField
+            key={whenKey}
+            label={t(locale, 'note_when')}
+            name="happened_on"
+            required
+            defaultValue={happenedOn}
+            onValueChange={setHappenedOn}
+          />
           {/* A team only when there IS a team to choose: most workspaces never
               use teams this way. */}
           {teams.length > 0 && (
@@ -890,7 +907,6 @@ export function Notes({
             setPickIndex(0);
             // The moment somebody starts writing is when it happened, unless
             // they say otherwise.
-            if (!startedAt && v.trim()) setStartedAt(localStamp(new Date()));
           }}
           textareaRef={boxRef}
           onKeyDown={onBoxKey}
@@ -1137,8 +1153,13 @@ export function Notes({
             </span>
           </div>
 
+          {/* Outlined until there is something to keep, filled once there is.
+              Sjoerd, 2026-09-14: make Done clearly ready once somebody has
+              started typing — in The Fibre's black, not a new colour. Both
+              are the shared Button's own variants. */}
           <Button
             type="button"
+            variant={hasContent ? 'primary' : 'secondary'}
             onClick={() => void commit()}
             disabled={!hasContent}
             leading={<Check size={15} strokeWidth={2.25} />}

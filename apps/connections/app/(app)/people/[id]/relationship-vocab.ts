@@ -66,9 +66,11 @@ export type SourceDetail = 'text' | 'person' | 'organisation' | null;
 export const SOURCE_NEEDS: Record<Source, SourceDetail> = {
   event_attendee: 'text',
   referral: 'person',
-  cold_outreach: null,
+  // "Why?" — Sjoerd, 2026-09-14: *"with I reached out and they reached out a
+  // comment field with WHY?"*. Same free-text column as "at what".
+  cold_outreach: 'text',
   client_contact: 'organisation',
-  inbound: null,
+  inbound: 'text',
 };
 
 /** Has anybody answered any of this? Decides which tab a popup opens on. */

@@ -99,6 +99,13 @@ neither in code nor in a document. That is what this file fixes.
 | 66 | Follow up and Done on one line | **Shipped** v0.74.3 — wraps below on a phone |
 | 67 | The follow-up's date field can just be a calendar icon | **Shipped** v0.74.4 — an icon until a date is picked, then the icon and a short date; shared DateTimeField gained size="icon" |
 | 68 | "Why do we have two styles? It should be one single point of truth" — the note box against Thread's editor; "The Thread is way more clear" | **Shipped** v0.74.6 — Connections' forms rebuilt on the shared SelectField / DateTimeField / Button; the extra date sizes (sm, icon) removed from shared; hand-written control classes across Connections replaced by the shared FIELD_CLASS. Supersedes the look of 63, 64, 66 and 67: labelled fields in Thread's style instead of one tinted line |
+| 69 | Make Done clearly ready once somebody has started typing (asked: blue) | **Shipped** v0.75.1 — decided with him: no new colour; Done is outlined until there is text, then The Fibre's filled black |
+| 70 | "Why are the dropdowns another format than the date… bad design" | **Shipped** v0.75.1 — fixed in SHARED, so every app: text fields, dropdowns and textareas now match the date field (h-11, 15px); dropdowns draw their own arrow so Safari keeps the height |
+| 71 | Email directly under the name; full profile as an icon with a "Full profile" hover at the end of the name's line, next to the X | **Shipped** v0.75.1 — shared Dialog gained `headerActions` |
+| 72 | How you know them: "I reached out" and "They reached out" get a comment field, "Why?" | **Shipped** v0.75.1 |
+| 73 | "When" defaults to now | **Shipped** v0.75.1 — as today's date, see 74 |
+| 74 | "Time may not be so relevant… take it out... just date" | **Shipped** v0.75.1 — the note's When is a date (today by default); the timeline shows dates only |
+| 75 | The AI prompt should also work in a chat that has already worked on the transcript | **Shipped** v0.75.1 — it looks below OR earlier in the chat, keeps earlier corrections, and its format wins |
 
 ### The three that were lost
 

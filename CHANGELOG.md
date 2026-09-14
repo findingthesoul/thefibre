@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.1] — 2026-09-14 — Every field the same size (staging)
+
+**All apps — one field size.** Text fields, dropdowns and text areas are now
+the same height and font size as the date field (the size asked for on
+2026-07-02: "more spacious, bigger fonts"). Dropdowns draw their own arrow, so
+Safari no longer shows them shorter than everything around them.
+
+**Connections — the person popup.** Email, phone and place sit directly under
+the name; the full profile in The Fibre is an icon beside the close button,
+with "Full profile" on hover. In a note, "When" is a date, today by default,
+and the timeline shows dates. Done is outlined until you have written
+something, then filled. "I reached out" and "They reached out" ask "Why?". The
+AI prompt now also works in a chat that has already been working on the
+transcript.
+
+**Shared:** `Dialog` has `headerActions` (icons before the close button);
+its description is a `div`, so it can hold links.
+
 ## [0.75.0] — 2026-09-14 — Headers on every door, and the approach that names the rest (staging)
 
 **A written approach to protecting data, from attackers and from ourselves.**

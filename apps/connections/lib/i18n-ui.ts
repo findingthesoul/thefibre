@@ -678,6 +678,30 @@ const CATALOG = {
     de: 'Ganze Seite öffnen', // MT
     fr: 'Ouvrir la page complète', // MT
   },
+  rel_why: {
+    en: 'Why?',
+    nl: 'Waarom?',
+    es: '¿Por qué?', // MT
+    pt: 'Porquê?', // MT
+    de: 'Warum?', // MT
+    fr: 'Pourquoi ?', // MT
+  },
+  rel_why_ph: {
+    en: 'What it was about',
+    nl: 'Waar het over ging',
+    es: 'De qué se trataba', // MT
+    pt: 'Sobre o que era', // MT
+    de: 'Worum es ging', // MT
+    fr: 'De quoi il s’agissait', // MT
+  },
+  person_full_profile: {
+    en: 'Full profile',
+    nl: 'Volledig profiel',
+    es: 'Perfil completo', // MT
+    pt: 'Perfil completo', // MT
+    de: 'Vollständiges Profil', // MT
+    fr: 'Profil complet', // MT
+  },
   person_open_in_fibre: {
     en: 'Full profile in The Fibre',
     nl: 'Volledig profiel in The Fibre',

@@ -33,7 +33,16 @@ describe('the meeting prompt', () => {
   });
 
   it('ends ready for the transcript to be pasted straight after it', () => {
-    expect(meetingPrompt(base).trimEnd().endsWith('--- TRANSCRIPT ---')).toBe(true);
+    expect(meetingPrompt(base).trimEnd().endsWith('already in this chat) ---')).toBe(true);
+  });
+
+  it('also works in a chat that has already worked on the transcript', () => {
+    // Sjoerd, 2026-09-14. Pasted into an ongoing conversation, there is no
+    // transcript below it — the prompt has to say to look earlier, and that
+    // its format wins over whatever format was used before.
+    const p = meetingPrompt(base);
+    expect(p).toContain('already earlier in this conversation');
+    expect(p).toContain('it replaces any earlier format');
   });
 });
 
