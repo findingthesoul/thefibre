@@ -50,6 +50,10 @@ every workspace without a foreign EU VAT number as domestic; non-EU needs a
 field first. (3) Stripe's `invoice_creation` on Checkout issues a second
 invoice on the connected account for every ticket, next to ours — decide
 which one the customer should hold.
+(4) The Invoices page counts a `fibre-platform` row — a subscription invoice,
+a fee statement — under "Paid" as if it were the workspace's income; those are
+the workspace's costs and should read as such. Pre-existing for subscription
+rows, visible now that fee statements sit beside ticket sales.
 
 **SECURITY roadmap — `docs/data-protection-approach.md` §5 is the list.** P1
 before the first paid enterprise workspace: CSP report-only, explicit cookie

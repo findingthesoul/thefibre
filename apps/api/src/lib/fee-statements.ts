@@ -176,7 +176,12 @@ export async function issueFeeStatements(opts: {
       payerEmail: to,
       amountCents: g.fee,
       currency: g.currency,
-      platformFeeCents: g.fee,
+      // Zero, on purpose: the fee income is already on each sale's row in
+      // platform_fee_cents. Stamping it here as well made the workspace's
+      // "Platform fees" tile and the admin economics count every fee twice
+      // (seen on staging, 2026-09-15). A statement documents; it is not a
+      // second fee.
+      platformFeeCents: 0,
       vendorShareCents: 0,
       orgShareCents: 0,
       method: 'stripe',

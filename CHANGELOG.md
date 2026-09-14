@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.20] — 2026-09-15 — A fee statement is not a second fee (staging)
+
+The monthly platform-fee statement (v0.75.19) carried the fee amount in the
+same ledger column each sale already does, so a workspace's Invoices page
+counted its fee twice and so would the admin economics. The statement now
+carries none of its own: the income lives on the sale rows, the statement
+documents it. September's rehearsal row on staging corrected in place.
+
 ## [0.75.19] — 2026-09-15 — The fee gets an invoice, and the receipt says who received the money (staging)
 
 **A monthly statement for the platform fee.** Stripe takes the plan's fee out
