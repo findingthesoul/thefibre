@@ -924,6 +924,62 @@ const CATALOG = {
     de: 'Zufällig getroffen', // MT
     fr: 'Croisé par hasard', // MT
   },
+  note_followup_today: {
+    en: 'today',
+    nl: 'vandaag',
+    es: 'hoy', // MT
+    pt: 'hoje', // MT
+    de: 'heute', // MT
+    fr: 'aujourd’hui', // MT
+  },
+  note_followup_tomorrow: {
+    en: 'tomorrow',
+    nl: 'morgen',
+    es: 'mañana', // MT
+    pt: 'amanhã', // MT
+    de: 'morgen', // MT
+    fr: 'demain', // MT
+  },
+  note_followup_this_week: {
+    en: 'this week',
+    nl: 'deze week',
+    es: 'esta semana', // MT
+    pt: 'esta semana', // MT
+    de: 'diese Woche', // MT
+    fr: 'cette semaine', // MT
+  },
+  ac_tags: {
+    en: 'Matching tags',
+    nl: 'Passende tags',
+    es: 'Etiquetas que coinciden', // MT
+    pt: 'Etiquetas correspondentes', // MT
+    de: 'Passende Tags', // MT
+    fr: 'Étiquettes correspondantes', // MT
+  },
+  ac_people: {
+    en: 'Matching people and organisations',
+    nl: 'Passende mensen en organisaties',
+    es: 'Personas y organizaciones que coinciden', // MT
+    pt: 'Pessoas e organizações correspondentes', // MT
+    de: 'Passende Personen und Organisationen', // MT
+    fr: 'Personnes et organisations correspondantes', // MT
+  },
+  ac_kind_person: {
+    en: 'person',
+    nl: 'persoon',
+    es: 'persona', // MT
+    pt: 'pessoa', // MT
+    de: 'Person', // MT
+    fr: 'personne', // MT
+  },
+  ac_kind_org: {
+    en: 'organisation',
+    nl: 'organisatie',
+    es: 'organización', // MT
+    pt: 'organização', // MT
+    de: 'Organisation', // MT
+    fr: 'organisation', // MT
+  },
   note_followup_two_weeks: {
     en: 'in two weeks',
     nl: 'Over twee weken',

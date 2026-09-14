@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.55] — 2026-09-14 — # and @ offer what you mean, and follow-ups for today (staging)
+
+**Connections — type `#f` and your tags that start with it appear; type `@` and
+people and organisations do.** Arrow keys and Enter pick, Escape closes it for
+that word, and the mouse works too. What gets written is exactly what detection
+already recognises, so a picked tag is highlighted the moment it lands — a
+multi-word tag like "deep democracy" becomes `#deep-democracy` and still resolves
+to the same tag. An email address never opens the list.
+
+**Follow up now offers today, tomorrow and this week**, alongside the longer
+horizons. They land at a working hour — today at the end of the day, tomorrow at
+nine, this week on Friday afternoon — and never in the past: a late-evening
+"today" or a weekend "this week" means now.
+
+**A picked date is a calendar icon** beside the list rather than a line in it,
+and the second "When" label is gone.
+
 ## [0.73.54] — 2026-09-13 — Kind and when, without the click (staging)
 
 **Connections — what kind of contact it was and when it happened sit beside

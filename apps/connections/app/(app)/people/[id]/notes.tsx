@@ -24,7 +24,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AtSign, Check, X } from 'lucide-react';
+import { AtSign, CalendarDays, Check, X } from 'lucide-react';
+import {
+  activeToken,
+  applySuggestion,
+  suggest,
+  type ActiveToken,
+  type Suggestion,
+} from '@/lib/autocomplete';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { saveNote, editNote, deleteNote, fetchVocabulary, type NoteKind } from './actions';
@@ -248,7 +255,15 @@ function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
  * action, and making somebody say so was asking a question to get the answer
  * it already had.
  */
-type FollowUp = 'none' | 'week' | 'two_weeks' | 'month' | 'exact';
+export type FollowUp =
+  | 'none'
+  | 'today'
+  | 'tomorrow'
+  | 'this_week'
+  | 'week'
+  | 'two_weeks'
+  | 'month'
+  | 'exact';
 /**
  * `offline` is the note being safe ON THIS DEVICE and not yet on the server —
  * deliberately distinct from `saved`, because telling somebody a note is saved
@@ -259,13 +274,32 @@ type Status = 'idle' | 'queued' | 'saving' | 'saved' | 'error' | 'offline';
 
 const FOLLOW_UP_KEYS = {
   none: 'note_followup_none',
+  today: 'note_followup_today',
+  tomorrow: 'note_followup_tomorrow',
+  this_week: 'note_followup_this_week',
   week: 'note_followup_week',
   two_weeks: 'note_followup_two_weeks',
   month: 'note_followup_month',
   exact: 'note_followup_exact',
 } as const;
 
-const FOLLOW_UPS: FollowUp[] = ['none', 'week', 'two_weeks', 'month', 'exact'];
+/**
+ * The follow-ups the LIST offers. `exact` is deliberately not one of them:
+ * Sjoerd, 2026-09-14 — *"there is 'on a date'. We just need a date icon"* — so a
+ * picked date is reached through the calendar button beside the list, and only
+ * appears in the list while one is chosen (so the list can show what is set).
+ *
+ * Today, tomorrow and this week added the same day, at his ask: the shortest
+ * horizons are the ones somebody reaches for straight after a call.
+ */
+const FOLLOW_UPS: FollowUp[] = ['none', 'today', 'tomorrow', 'this_week', 'week', 'two_weeks', 'month'];
+
+/** Local time at an hour on a given day. */
+function at(day: Date, hour: number): Date {
+  const d = new Date(day);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
 
 /** Adding a month to the 31st must not land in the month after next. */
 function addMonth(from: Date): Date {
@@ -285,7 +319,41 @@ function addMonth(from: Date): Date {
  * `exact` with nothing typed is not a follow-up, because half a date is not
  * an answer.
  */
-function followUpIso(choice: FollowUp | null, exact: string): string | null {
+export function followUpIso(
+  choice: FollowUp | null,
+  exact: string,
+  now = new Date(),
+): string | null {
+  // The short horizons land at a working hour rather than at "now plus a
+  // day", because a follow-up due at 23:14 tomorrow is a follow-up nobody
+  // will see as due until the day after.
+  if (choice === 'today') {
+    // End of the working day — or right now if that has already passed, so a
+    // late-evening "today" is due, not scheduled into the past.
+    const end = at(now, 17);
+    return (end > now ? end : now).toISOString();
+  }
+  if (choice === 'tomorrow') {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    return at(d, 9).toISOString();
+  }
+  if (choice === 'this_week') {
+    // Friday at the end of the day. On a Friday afternoon, a Saturday or a
+    // Sunday "this week" has nowhere left to go, so it means today.
+    const dow = now.getDay(); // 0 Sunday … 6 Saturday
+    // The weekend first, and explicitly. The first version computed "days to
+    // Friday" as `dow <= 5 ? 5 - dow : 0`, which sent a SUNDAY to the
+    // following Friday (0 is <= 5) and a Saturday to 17:00 that Saturday —
+    // both contradicting this comment, and caught by the test before it
+    // shipped.
+    if (dow === 0 || dow === 6) return now.toISOString();
+    const toFriday = 5 - dow;
+    const friday = new Date(now);
+    friday.setDate(friday.getDate() + toFriday);
+    const end = at(friday, 17);
+    return (end > now ? end : now).toISOString();
+  }
   if (choice === 'week') {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -331,6 +399,18 @@ export function Notes({
   const router = useRouter();
 
   const [body, setBody] = useState('');
+  /**
+   * The `#` / `@` word under the caret, and which suggestion is highlighted.
+   * Sjoerd, 2026-09-14: *"if I start with the hashtag... hashtag f, that it
+   * shows in a drop down some of the options... And with the @, the company
+   * or the people"*. The rules for what counts live in lib/autocomplete.ts,
+   * tested on their own.
+   */
+  const [caret, setCaret] = useState(0);
+  const [pickIndex, setPickIndex] = useState(0);
+  /** Escape closes the list for THIS word only; typing on reopens it. */
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const boxRef = useRef<HTMLTextAreaElement | null>(null);
   const [kind, setKind] = useState<NoteKind>('note');
   /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
   const [when, setWhen] = useState('');
@@ -438,6 +518,48 @@ export function Notes({
   // Where each tag and mention sits in the sentence, from the SAME detection
   // results the chips show, so the two can never disagree about a word.
   const ranges = highlightRanges(body, tags, mentions);
+
+  const token: ActiveToken | null = activeToken(body, caret);
+  const suggestions: Suggestion[] =
+    token && dismissedAt !== token.start ? suggest(token, vocabulary, mentionable) : [];
+  const listOpen = suggestions.length > 0;
+
+  function pick(sug: Suggestion) {
+    if (!token) return;
+    const next = applySuggestion(body, token, sug);
+    setBody(next.text);
+    setCaret(next.caret);
+    setPickIndex(0);
+    // Put the caret where the insert ended. The textarea is controlled, so the
+    // new value lands on the next render — the caret has to wait for it.
+    requestAnimationFrame(() => {
+      const el = boxRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(next.caret, next.caret);
+      }
+    });
+  }
+
+  function onBoxKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!listOpen) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPickIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPickIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      // Enter normally makes a new line in the note; while the list is open it
+      // picks instead, which is what every autocomplete people know does.
+      e.preventDefault();
+      const sug = suggestions[Math.min(pickIndex, suggestions.length - 1)];
+      if (sug) pick(sug);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (token) setDismissedAt(token.start);
+    }
+  }
 
   function payload(isDraft: boolean) {
     if (!clientRef.current) clientRef.current = crypto.randomUUID();
@@ -620,12 +742,63 @@ export function Notes({
             TagHighlightBox for why that trade was made. */}
         <TagHighlightBox
           value={body}
-          onChange={setBody}
+          onChange={(v) => {
+            setBody(v);
+            setPickIndex(0);
+          }}
+          textareaRef={boxRef}
+          onKeyDown={onBoxKey}
+          onCaret={(c) => {
+            setCaret(c);
+            // Moving to a different word forgets an Escape on the last one.
+            if (dismissedAt !== null && activeToken(body, c)?.start !== dismissedAt) setDismissedAt(null);
+          }}
           ranges={ranges}
           activeKey={activeKey}
           placeholder={t(locale, 'note_placeholder')}
           ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
         />
+
+        {/* `#` and `@` suggestions for the word under the caret.
+
+            IN THE FLOW, not floating. This composer lives inside a dialog, and
+            a floating list opens into the dialog's bottom edge and is clipped
+            — the exact bug the organisation popup shipped with on 2026-09-13.
+            Pushing the controls down for a moment is the lesser cost.
+
+            `onMouseDown` prevents the textarea losing focus before the click
+            lands, so picking with the mouse keeps the caret in the note. */}
+        {listOpen && (
+          <ul
+            role="listbox"
+            aria-label={t(locale, token?.trigger === '#' ? 'ac_tags' : 'ac_people')}
+            className="mt-1 max-h-48 overflow-y-auto rounded-md border border-line bg-surface py-1"
+          >
+            {suggestions.map((sug, i) => (
+              <li key={`${sug.kind}:${sug.id ?? sug.name}`} role="option" aria-selected={i === pickIndex}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setPickIndex(i)}
+                  onClick={() => pick(sug)}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                    i === pickIndex ? 'bg-surface-sunken' : ''
+                  }`}
+                >
+                  <span className="w-3 text-center text-xs text-ink-subtle">
+                    {sug.kind === 'tag' ? '#' : '@'}
+                  </span>
+                  <span>{sug.name}</span>
+                  {sug.kind !== 'tag' && (
+                    <span className="ml-auto text-xs text-ink-subtle">
+                      {t(locale, sug.kind === 'person' ? 'ac_kind_person' : 'ac_kind_org')}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* Tags found in what was just written.
             
@@ -723,8 +896,29 @@ export function Notes({
                   {t(locale, FOLLOW_UP_KEYS[f])}
                 </option>
               ))}
+              {/* Only present while a picked date is the answer, so the list
+                  can show that something is set rather than a wrong option. */}
+              {followUp === 'exact' && (
+                <option value="exact">{t(locale, 'note_followup_exact')}</option>
+              )}
             </select>
           </label>
+          {/* A picked date is a calendar icon, not a line in the list. Sjoerd,
+              2026-09-14: *"there is 'on a date'. We just need a date icon"*. */}
+          <button
+            type="button"
+            onClick={() => setFollowUp(followUp === 'exact' ? 'none' : 'exact')}
+            aria-pressed={followUp === 'exact'}
+            aria-label={t(locale, 'note_followup_exact')}
+            title={t(locale, 'note_followup_exact')}
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+              followUp === 'exact'
+                ? 'border-ink bg-ink text-ink-inverse'
+                : 'border-line bg-surface text-ink-muted hover:text-ink'
+            }`}
+          >
+            <CalendarDays size={14} strokeWidth={1.75} />
+          </button>
 
           {/* The shared date field, not a native input. This app's rule is
               that dates always go through DateField — it carries the locale's
@@ -767,12 +961,14 @@ export function Notes({
                 </select>
               </label>
 
-              <label className="flex items-center gap-2">
-                <span className="shrink-0 text-xs text-ink-muted">{t(locale, 'note_when')}</span>
-                <span className="min-w-[13rem]">
-                  <DateTimeField value={when} onChange={setWhen} label={undefined} />
-                </span>
-              </label>
+              {/* No "When" label. Sjoerd, 2026-09-14: *"'when' can be taken
+                  away. It is there twice"* — the field's own placeholder already
+                  says pick a date and time, so the label was the same word
+                  printed beside itself. Its accessible name stays, for the
+                  people who cannot see the placeholder. */}
+              <span className="min-w-[13rem]" aria-label={t(locale, 'note_when')}>
+                <DateTimeField value={when} onChange={setWhen} label={undefined} />
+              </span>
           </>
         </div>
 

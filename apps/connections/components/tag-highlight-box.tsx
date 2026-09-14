@@ -55,6 +55,9 @@ export function TagHighlightBox({
   placeholder,
   ariaLabel,
   rows = 3,
+  textareaRef,
+  onKeyDown,
+  onCaret,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -64,6 +67,12 @@ export function TagHighlightBox({
   placeholder: string;
   ariaLabel: string;
   rows?: number;
+  /** For the `#`/`@` suggestions, which need to put the caret back after a pick. */
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+  /** Arrow keys and Enter belong to the suggestion list while it is open. */
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** Where the caret is, on every change, click and arrow key. */
+  onCaret?: (caret: number) => void;
 }) {
   const mirror = useRef<HTMLDivElement>(null);
 
@@ -109,8 +118,16 @@ export function TagHighlightBox({
         {parts}
       </div>
       <textarea
+        ref={textareaRef}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          onCaret?.(e.target.selectionStart);
+        }}
+        // `select` fires for clicks and arrow keys too, which is what lets the
+        // list close when somebody moves the caret away from the word.
+        onSelect={(e) => onCaret?.(e.currentTarget.selectionStart)}
+        onKeyDown={onKeyDown}
         // The mirror has to scroll with the text it sits under, or a long note
         // shows its highlights against the wrong lines.
         onScroll={(e) => {

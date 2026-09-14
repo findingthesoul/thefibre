@@ -70,6 +70,21 @@ neither in code nor in a document. That is what this file fixes.
 | 42 | Kind and when should sit next to Follow up, not behind a click | **Shipped** v0.73.54 |
 | 43 | Peer: is the invoices tab yours? | **Answered** — evidence points at The Fibre contact profile, which already has the tab machinery |
 
+## 2026-09-14
+
+| # | Asked | Status |
+|---|---|---|
+| 44 | Teams as an organising layer: a person in several teams; a note is filed under one of mine, with a default team; I am the author automatically | **Waiting** — platform model, discussing with thefibre-6d first as asked |
+| 45 | An update view: pick a team and a period (last week, two weeks, custom) and see every shift by everyone in it — for update meetings | **Waiting** — depends on 44 |
+| 46 | A longer "what happened" for meetings, plus a copyable prompt to paste a transcript into ChatGPT / Claude / Gemini that returns a short summary with @ and # | **Next** — after the landscape columns |
+| 47 | Typing `#f` shows a dropdown of matching tags; typing `@` shows people and companies | **Shipped** v0.73.55 |
+| 48 | A tag should look like a tag inside the sentence; it need not also be listed at the bottom | **Answered** — it already shows inside the sentence; the chips stay because their X is the only way to take a tag off without deleting the word |
+| 49 | Landscape as macOS columns: person inline in the last column, or the popup? | **Waiting** — asked 2026-09-13, unanswered |
+| 50 | Production: three migrations missing after the promotion — go or no-go? | **Waiting** — asked 2026-09-13, unanswered |
+| 51 | "When" appears twice in the composer — remove the label | **Shipped** v0.73.55 |
+| 52 | "On a date" in the follow-up list needs only a calendar icon, not the word | **Shipped** v0.73.55 |
+| 53 | Follow-up list gains today, tomorrow and this week | **Shipped** v0.73.55 |
+
 ### The three that were lost
 
 **18 — highlighting in the timeline.** Asked while I was mid-release on
