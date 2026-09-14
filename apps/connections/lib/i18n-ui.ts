@@ -1012,6 +1012,78 @@ const CATALOG = {
     de: 'Letzte {days} Tage: {arrived} neu, {moved} verschoben.', // MT
     fr: '{days} derniers jours : {arrived} arrivés, {moved} déplacés.', // MT
   },
+  meeting_open: {
+    en: 'From a meeting transcript…',
+    nl: 'Uit een vergaderverslag…',
+    es: 'Desde una transcripción…', // MT
+    pt: 'A partir de uma transcrição…', // MT
+    de: 'Aus einem Meeting-Transkript…', // MT
+    fr: 'À partir d’une transcription…', // MT
+  },
+  meeting_close: {
+    en: 'Close',
+    nl: 'Sluiten',
+    es: 'Cerrar', // MT
+    pt: 'Fechar', // MT
+    de: 'Schließen', // MT
+    fr: 'Fermer', // MT
+  },
+  meeting_step_copy: {
+    en: 'Copy the prompt below.',
+    nl: 'Kopieer de prompt hieronder.',
+    es: 'Copia el prompt de abajo.', // MT
+    pt: 'Copia o prompt abaixo.', // MT
+    de: 'Kopiere den Prompt unten.', // MT
+    fr: 'Copiez le prompt ci-dessous.', // MT
+  },
+  meeting_step_paste: {
+    en: 'Paste it into ChatGPT, Claude or Gemini, with your transcript after it.',
+    nl: 'Plak hem in ChatGPT, Claude of Gemini, met je transcript erachter.',
+    es: 'Pégalo en ChatGPT, Claude o Gemini, con tu transcripción detrás.', // MT
+    pt: 'Cola-o no ChatGPT, Claude ou Gemini, com a tua transcrição a seguir.', // MT
+    de: 'Füge ihn in ChatGPT, Claude oder Gemini ein, mit deinem Transkript dahinter.', // MT
+    fr: 'Collez-le dans ChatGPT, Claude ou Gemini, suivi de votre transcription.', // MT
+  },
+  meeting_step_back: {
+    en: 'Paste the short note it gives you into the box above.',
+    nl: 'Plak de korte notitie die je terugkrijgt in het vak hierboven.',
+    es: 'Pega la nota breve que te devuelva en el cuadro de arriba.', // MT
+    pt: 'Cola a nota curta que receberes na caixa acima.', // MT
+    de: 'Füge die kurze Notiz, die du bekommst, oben ins Feld ein.', // MT
+    fr: 'Collez la note courte obtenue dans la zone ci-dessus.', // MT
+  },
+  meeting_copy: {
+    en: 'Copy prompt',
+    nl: 'Prompt kopiëren',
+    es: 'Copiar prompt', // MT
+    pt: 'Copiar prompt', // MT
+    de: 'Prompt kopieren', // MT
+    fr: 'Copier le prompt', // MT
+  },
+  meeting_copied: {
+    en: 'Copied',
+    nl: 'Gekopieerd',
+    es: 'Copiado', // MT
+    pt: 'Copiado', // MT
+    de: 'Kopiert', // MT
+    fr: 'Copié', // MT
+  },
+  meeting_copy_failed: {
+    en: 'Your browser would not copy it.',
+    nl: 'Je browser wilde het niet kopiëren.',
+    es: 'Tu navegador no ha permitido copiarlo.', // MT
+    pt: 'O teu navegador não deixou copiar.', // MT
+    de: 'Dein Browser hat das Kopieren verweigert.', // MT
+    fr: 'Votre navigateur a refusé de le copier.', // MT
+  },
+  meeting_privacy: {
+    en: 'The prompt holds this person’s name and your topic tags — no other names from your workspace. The transcript goes only where you paste it.',
+    nl: 'De prompt bevat de naam van deze persoon en jullie onderwerp-tags — geen andere namen uit jullie workspace. Het transcript gaat alleen waar jij het plakt.',
+    es: 'El prompt lleva el nombre de esta persona y vuestras etiquetas de tema, ningún otro nombre del espacio. La transcripción solo va donde tú la pegues.', // MT
+    pt: 'O prompt leva o nome desta pessoa e as vossas etiquetas de tema — nenhum outro nome do espaço. A transcrição só vai onde a colares.', // MT
+    de: 'Der Prompt enthält den Namen dieser Person und eure Themen-Tags — keine anderen Namen aus dem Workspace. Das Transkript geht nur dorthin, wo du es einfügst.', // MT
+    fr: 'Le prompt contient le nom de cette personne et vos étiquettes de sujet — aucun autre nom de l’espace. La transcription ne va que là où vous la collez.', // MT
+  },
   ac_tags: {
     en: 'Matching tags',
     nl: 'Passende tags',

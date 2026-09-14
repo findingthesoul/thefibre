@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.57] — 2026-09-14 — Notes from a meeting, and tags you can see afterwards (staging)
+
+**Connections — turn a meeting transcript into a short note.** Under the note
+box, "From a meeting transcript…" makes the box bigger and gives you a prompt to
+copy. Paste it into ChatGPT, Claude or Gemini with your transcript after it, and
+paste the short note you get back into the box. The prompt asks for a few
+sentences, what was agreed and what happens next, with people and organisations
+written as @names and topics as #tags in the form this app recognises — so the
+tags and names light up the moment you paste.
+
+The Fibre never sends the transcript anywhere; it goes only where you paste it.
+And the prompt carries this person's name and your topic tags, but no other
+names from your workspace, even though that would make the result match better.
+
+**Saved notes now show their tags and @names marked** in the timeline, the same
+way the box marks them while you type.
+
 ## [0.73.56] — 2026-09-14 — The landscape, browsed like Finder (staging)
 
 **Connections — the landscape is four columns.** Readings, then the steps in the

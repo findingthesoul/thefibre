@@ -24,7 +24,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AtSign, CalendarDays, Check, X } from 'lucide-react';
+import { AtSign, CalendarDays, Check, ClipboardCopy, X } from 'lucide-react';
+import { meetingPrompt } from '@/lib/meeting-prompt';
 import {
   activeToken,
   applySuggestion,
@@ -38,7 +39,7 @@ import { saveNote, editNote, deleteNote, fetchVocabulary, type NoteKind } from '
 import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
 import { safely } from '@/lib/safely';
 import { QUEUE_CHANGED, currentWorkspace, queueNote, queuedNotes } from '@/lib/offline-notes';
-import { TagHighlightBox } from '@/components/tag-highlight-box';
+import { HighlightedText, TagHighlightBox } from '@/components/tag-highlight-box';
 import {
   detectMentions,
   detectTags,
@@ -82,12 +83,26 @@ function Conversation({
   personId,
   locale,
   onChanged,
+  vocabulary,
+  mentionable,
 }: {
   note: Note;
   personId: string;
   locale: Locale;
   onChanged: () => void;
+  /** The same words and people the composer detects against. */
+  vocabulary: KnownTag[];
+  mentionable: KnownPerson[];
 }) {
+  // Detection counts a word only once something follows it, so a tag that
+  // ends a saved note would never light up. A trailing space settles that
+  // without moving any range: every index it produces is inside the body.
+  const readBody = `${note.body} `;
+  const noteRanges = highlightRanges(
+    readBody,
+    detectTags(readBody, vocabulary),
+    detectMentions(readBody, mentionable, vocabulary),
+  ).filter((r) => r.end <= note.body.length);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(note.body);
   const [busy, setBusy] = useState(false);
@@ -207,7 +222,9 @@ function Conversation({
         aria-label={t(locale, 'edit')}
       >
         {note.body.trim() ? (
-          <span className="whitespace-pre-wrap break-words leading-relaxed">{note.body}</span>
+          <span className="whitespace-pre-wrap break-words leading-relaxed">
+            <HighlightedText text={note.body} ranges={noteRanges} />
+          </span>
         ) : (
           <span className="text-ink-muted">{t(locale, 'note_no_words')}</span>
         )}
@@ -271,6 +288,16 @@ export type FollowUp =
  * that costs them the note.
  */
 type Status = 'idle' | 'queued' | 'saving' | 'saved' | 'error' | 'offline';
+
+/** The reader's language, named for the assistant the prompt is pasted into. */
+const LANGUAGE_NAMES: Record<Locale, string> = {
+  en: 'English',
+  nl: 'Dutch',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  de: 'German',
+  fr: 'French',
+};
 
 const FOLLOW_UP_KEYS = {
   none: 'note_followup_none',
@@ -411,6 +438,13 @@ export function Notes({
   /** Escape closes the list for THIS word only; typing on reopens it. */
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const boxRef = useRef<HTMLTextAreaElement | null>(null);
+  /**
+   * "From a meeting": a bigger box and a prompt to take to an AI assistant.
+   * Sjoerd, 2026-09-14 — see lib/meeting-prompt.ts for what the prompt
+   * carries and, more to the point, what it deliberately does not.
+   */
+  const [meeting, setMeeting] = useState(false);
+  const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [kind, setKind] = useState<NoteKind>('note');
   /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
   const [when, setWhen] = useState('');
@@ -741,6 +775,7 @@ export function Notes({
             typing, autocorrect and the caret behave exactly as before. See
             TagHighlightBox for why that trade was made. */}
         <TagHighlightBox
+          rows={meeting ? 10 : 3}
           value={body}
           onChange={(v) => {
             setBody(v);
@@ -758,6 +793,65 @@ export function Notes({
           placeholder={t(locale, 'note_placeholder')}
           ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
         />
+
+        {/* From a meeting. Sjoerd, 2026-09-14: *"a proper prompt that someone
+            could paste into their ChatGPT or Claude or Gemini... and that
+            summary could be pasted in the what happened"*.
+
+            This app does not call an AI itself. The person takes the prompt to
+            the assistant THEY already use, with a transcript they already
+            have, and brings back a short note — so no transcript is ever sent
+            anywhere by The Fibre, and nobody has to hand this platform a key to
+            a service it does not run. */}
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setMeeting((m) => !m)}
+            aria-expanded={meeting}
+            className="text-xs text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+          >
+            {t(locale, meeting ? 'meeting_close' : 'meeting_open')}
+          </button>
+          {meeting && (
+            <div className="mt-2 rounded-md border border-line bg-surface px-3 py-2.5 text-xs text-ink-muted">
+              <ol className="list-decimal space-y-0.5 pl-4">
+                <li>{t(locale, 'meeting_step_copy')}</li>
+                <li>{t(locale, 'meeting_step_paste')}</li>
+                <li>{t(locale, 'meeting_step_back')}</li>
+              </ol>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const text = meetingPrompt({
+                      personName,
+                      languageName: LANGUAGE_NAMES[locale],
+                      // Topic tags only. Organisation words are left out on
+                      // purpose — see the header of lib/meeting-prompt.ts.
+                      topicTags: vocabulary.filter((w) => !w.organisationId).map((w) => w.name),
+                    });
+                    try {
+                      await navigator.clipboard.writeText(text);
+                      setCopied('copied');
+                    } catch {
+                      // A browser that refuses the clipboard should not leave
+                      // somebody thinking it worked.
+                      setCopied('failed');
+                    }
+                    setTimeout(() => setCopied('idle'), 2500);
+                  }}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface-raised px-3 text-sm text-ink hover:bg-surface-sunken"
+                >
+                  <ClipboardCopy size={14} strokeWidth={1.75} />
+                  {t(locale, 'meeting_copy')}
+                </button>
+                {copied === 'copied' && <span className="inline-flex items-center gap-1"><Check size={13} /> {t(locale, 'meeting_copied')}</span>}
+                {copied === 'failed' && <span className="text-ink">{t(locale, 'meeting_copy_failed')}</span>}
+              </div>
+              <p className="mt-2 text-ink-subtle">{t(locale, 'meeting_privacy')}</p>
+            </div>
+          )}
+        </div>
 
         {/* `#` and `@` suggestions for the word under the caret.
 
@@ -1030,6 +1124,8 @@ export function Notes({
               note={n}
               personId={personId}
               locale={locale}
+              vocabulary={vocabulary}
+              mentionable={mentionable}
               onChanged={() => (onCommitted ? onCommitted() : router.refresh())}
             />
           ))}

@@ -141,3 +141,45 @@ export function TagHighlightBox({
     </div>
   );
 }
+
+/**
+ * A saved note, with its tags and names marked the same way the box marks
+ * them while typing.
+ *
+ * Sjoerd, 2026-09-13: *"In de timeline, highlight tags. companies or people
+ * should be an @ and also highlighted."* Lost that day (ask 18) and built the
+ * next. The TINT lives in this file once, so a word looks like the same thing
+ * in the box you type it into and in the timeline you read it back from.
+ *
+ * Unlike the mirror above, the text here is the visible text — there is no
+ * textarea on top — so the letters keep their colour and only the ground is
+ * tinted.
+ */
+export function HighlightedText({ text, ranges }: { text: string; ranges: HighlightRange[] }) {
+  const parts: React.ReactNode[] = [];
+  let at = 0;
+  ranges.forEach((r, i) => {
+    if (r.start < at) return; // overlapping ranges: the first one wins
+    if (r.start > at) parts.push(text.slice(at, r.start));
+    parts.push(
+      <mark
+        key={i}
+        data-kind={r.kind}
+        className="text-inherit"
+        style={{
+          background: TINT[r.kind],
+          color: 'inherit',
+          borderRadius: 3,
+          boxShadow: `0 0 0 1.5px ${TINT[r.kind]}`,
+          boxDecorationBreak: 'clone',
+          WebkitBoxDecorationBreak: 'clone',
+        }}
+      >
+        {text.slice(r.start, r.end)}
+      </mark>,
+    );
+    at = r.end;
+  });
+  if (at < text.length) parts.push(text.slice(at));
+  return <>{parts}</>;
+}
