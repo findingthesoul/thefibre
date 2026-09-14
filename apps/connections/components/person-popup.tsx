@@ -221,7 +221,10 @@ export function PersonPopupProvider({
           open
           onClose={close}
           title={name || (error ? t(locale, 'nav_people') : t(locale, 'loading'))}
-          size="lg"
+          // The roomy dialog (Thread's editor width). Sjoerd, 2026-09-14: "Why
+          // is Kind When and Team over two lines? You can also make the popup
+          // a little wider?" At lg the three fields could not sit side by side.
+          size="xl"
           // How to reach them sits directly under the name, and the full
           // profile is an icon at the end of the name's line, next to the
           // close. Sjoerd, 2026-09-14: *"Put the email direct under the name

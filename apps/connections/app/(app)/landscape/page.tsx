@@ -5,9 +5,9 @@ import { t } from '@/lib/i18n-ui';
 // From axes, not bands: this is a server component, and values it reads must
 // come from a module with no directive (see the header of axes.ts).
 import { isAxis, visibleAxes, type Axis, type AxisConfig, type BandLabels } from './axes';
-import Link from 'next/link';
 import { LandscapeColumns } from './columns';
 import { MovementBoard } from './movement';
+import { LandscapeViewTabs } from './view-tabs';
 import { loadReading } from './actions';
 
 // The shape of the community, as proportions rather than people. A vast
@@ -57,7 +57,9 @@ export default async function LandscapePage({
   const initialReading = await loadReading(axis);
 
   return (
-    <PageContainer>
+    // The whole window. Sjoerd, 2026-09-14: "Why is this not full screen?" —
+    // four Finder columns were squeezed into the 5xl reading width.
+    <PageContainer max="full">
       <PageHeader title={t(locale, 'nav_landscape')} />
       <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'landscape_intro')}</p>
 
@@ -70,23 +72,14 @@ export default async function LandscapePage({
           JavaScript arrives. Browse finds somebody; Movement shows who moved
           (Sjoerd, 2026-09-14: "I want to see the movement — like columns next
           to each other"). */}
-      <nav className="mt-6 flex gap-1 border-b border-line text-sm">
-        {(['browse', 'movement'] as const).map((v) => {
-          const on = (sp.view === 'movement' ? 'movement' : 'browse') === v;
-          return (
-            <Link
-              key={v}
-              href={`?view=${v}&axis=${axis}`}
-              aria-current={on ? 'page' : undefined}
-              className={`-mb-px border-b-2 px-3 py-2 ${
-                on ? 'border-ink text-ink' : 'border-transparent text-ink-muted hover:text-ink'
-              }`}
-            >
-              {t(locale, v === 'browse' ? 'landscape_view_browse' : 'landscape_view_movement')}
-            </Link>
-          );
-        })}
-      </nav>
+      <LandscapeViewTabs
+        view={sp.view === 'movement' ? 'movement' : 'browse'}
+        axis={axis}
+        labels={{
+          browse: t(locale, 'landscape_view_browse'),
+          movement: t(locale, 'landscape_view_movement'),
+        }}
+      />
 
       {initialReading.ok && initialReading.total === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">{t(locale, 'landscape_empty')}</p>

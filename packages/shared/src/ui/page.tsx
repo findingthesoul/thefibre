@@ -14,7 +14,9 @@ export function PageContainer({
   align = 'center',
 }: {
   children: ReactNode;
-  max?: 'md' | '3xl' | '4xl' | '5xl';
+  /** `full` for a workspace-like page that uses the whole window — Connections'
+   *  Landscape columns (Sjoerd, 2026-09-14: "Why is this not full screen?"). */
+  max?: 'md' | '3xl' | '4xl' | '5xl' | 'full';
   align?: 'center' | 'left';
 }) {
   const MAX: Record<string, string> = {
@@ -22,6 +24,7 @@ export function PageContainer({
     '3xl': 'max-w-3xl',
     '4xl': 'max-w-4xl',
     '5xl': 'max-w-5xl',
+    full: 'max-w-none',
   };
   return align === 'left' ? (
     <div className={`${MAX[max]} px-10 py-10`}>{children}</div>

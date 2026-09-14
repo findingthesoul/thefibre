@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.15] — 2026-09-14 — The landscape, full width (staging)
+
+**Connections — Landscape.** The page uses the whole window. Browse and
+Movement are The Fibre's tab bar. The people column has a search: press the
+magnifier, type part of a name, and picking somebody opens their step and them.
+The person on the right has the same two tabs as the popup, What happened and
+How you know them, instead of both stacked.
+
+**Connections — the person popup** is wider, so Kind, When and Team sit on one
+line. The person who introduced somebody, and the company you met them through,
+now open when you click them.
+
+**Shared:** `PageContainer max="full"`; `Tabs` items take an `href` and the bar a
+`link` component, for views that live in the URL. Both in docs/brand-design.md.
+
 ## [0.75.14] — 2026-09-14 — a contact's invoices, on the contact (staging)
 
 Sjoerd: *"I should be able to open a contact… with a tab with invoices… see

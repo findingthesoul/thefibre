@@ -273,8 +273,8 @@ const FOLLOW_UP_KIND_KEYS = {
   message: 'fu_kind_message',
 } as const;
 
-/** Fields side by side while each has 12rem, stacked when it has not. */
-const FIELD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]';
+/** Fields side by side while each has 10rem, stacked when it has not. */
+const FIELD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]';
 
 /** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
 export function localStamp(d: Date): string {
@@ -847,7 +847,7 @@ export function Notes({
         {/* Columns by the room the COMPOSER has, not the window: the same box
             sits in a wide page and in a narrow popup, and three columns in the
             narrow one squeezed the date onto four lines (Sjoerd, 2026-09-14,
-            screenshot). A field is at least 12rem or it wraps to the next row. */}
+            screenshot). A field is at least 10rem or it wraps to the next row. */}
         <div className={FIELD_GRID}>
           <SelectField
             label={t(locale, 'kind')}

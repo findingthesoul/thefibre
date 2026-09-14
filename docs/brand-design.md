@@ -118,6 +118,7 @@ class yourself.
 | You need | Use |
 |---|---|
 | A page's frame, title, back link | `PageContainer`, `PageHeader`, `Breadcrumb` |
+| A page that uses the whole window (columns, boards) | `PageContainer max="full"` |
 | A section label | `SectionLabel` |
 | "Nothing here yet" | `EmptyState` |
 | A button | `Button` — `primary`, `secondary`, `ghost`, `danger`, **`save`** |
@@ -128,6 +129,7 @@ class yourself.
 | A searchable picker | `SearchSelect` |
 | A popup with a form | `Dialog` — footer: Delete · Duplicate left, Cancel · Save right |
 | Sections of one screen or dialog | `Tabs` — keep panels mounted and hidden, so one Save sends every field |
+| Views that live in the URL (shareable, work before JS) | `Tabs` with `href` on each item and `link={Link}` — from a client module, since a server page cannot pass `Link` as a prop |
 | "Are you sure?" | `ConfirmDialog`; destructive: `DangerConfirmDialog` |
 | An error line in a dialog footer | `FormError` |
 | A small ⓘ explanation | `InfoHint` |

@@ -112,6 +112,11 @@ neither in code nor in a document. That is what this file fixes.
 | 79 | In a narrow column the note box's date wraps over four lines; "size is great.. datum needs to fit.. write format that works" | **Shipped** v0.75.8 — the composer's fields stack when there is no room (auto-fit grid); shared DateField shows "14 Sep 2026" (no weekday) and never wraps; DateTimeField keeps the weekday and truncates. When loses its asterisk |
 | 80 | "Did you solve my AI report question?" | **Answered** — yes: 75 (v0.75.1), the prompt works in a chat already working on the transcript |
 | 81 | If the transcript is not clear enough, the prompt could ask a few questions to clarify | **Shipped** v0.75.8 — at most three numbered questions, only about who, what was agreed, or the next step; skipped when all is clear |
+| 82 | Landscape: "Why is this not full screen?" | **Shipped** v0.75.15 — the page uses the whole window (shared PageContainer max="full") |
+| 83 | Landscape's person column: "why is How you know them and What happened below each other and not two tabs" | **Shipped** v0.75.15 — the same two tabs as the popup |
+| 84 | "Why is the introduced by not clickable" | **Shipped** v0.75.15 — the introducer opens the person popup; a company under Through work opens the organisation |
+| 85 | Third Landscape column: a magnifier that opens a search which selects people | **Shipped** v0.75.15 — searches everybody in the reading; picking opens their step and them |
+| 86 | "Why is Kind When and Team over two lines? You can also make the popup a little wider?" | **Shipped** v0.75.15 — the person popup is the roomy dialog size and the fields sit side by side down to 10rem |
 
 ### The three that were lost
 
