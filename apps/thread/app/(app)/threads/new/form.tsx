@@ -28,9 +28,7 @@ import { TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
-
-const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
+import { THREAD_HOST } from '@/lib/public-host';
 
 export function NewThreadForm({
   locale,

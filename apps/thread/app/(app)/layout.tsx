@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
@@ -7,7 +8,7 @@ import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
-import { buildAppList } from '@/lib/available-apps';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { APPS, tileArtUrl } from '@thefibre/shared';
 
 // The Thread is the rebuild of thethread-v3, so its user-facing version
@@ -86,6 +87,8 @@ export default async function ThreadAppLayout({
     currentApp: 'the-thread',
     memberships: me.memberships,
     workspaceApps: apps,
+    env: process.env,
+    host: (await headers()).get('host'),
   });
 
   const locale = await uiLocale(me.locale);

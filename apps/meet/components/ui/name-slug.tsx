@@ -20,20 +20,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { TextField } from './field';
 import { t, DEFAULT_LOCALE, type Locale } from '@/lib/i18n-ui';
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining diacritics
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
-}
-
-function randomSuffix(len = 4): string {
-  return Math.random().toString(36).slice(2, 2 + len);
-}
+import { slugify, randomSlugSuffix } from '@thefibre/shared/slug';
 
 export function NameAndSlugFields({
   initialName = '',
@@ -74,7 +61,7 @@ export function NameAndSlugFields({
   function regenerate() {
     setAutoSync(false);
     const base = slugify(name) || 'meeting';
-    setSlug(`${base}-${randomSuffix()}`);
+    setSlug(`${base}-${randomSlugSuffix()}`);
     requestAnimationFrame(() => slugInputRef.current?.focus());
   }
 

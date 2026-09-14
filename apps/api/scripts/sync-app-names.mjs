@@ -28,14 +28,10 @@
 // name, and there is no branding entry to disagree with.
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { loadEnv } from './lib/env.mjs';
 import { APPS } from '../../../packages/shared/dist/branding.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const envFile = process.env.FIBRE_ENV_FILE ?? '.env';
-const envPath = resolve(__dirname, '..', envFile);
 
 // "Could not check" must never read like "drifted" — a refused release that
 // names the wrong cause sends the next person chasing the wrong thing (the
@@ -53,21 +49,12 @@ function cannotCheck(why) {
   process.exit(2);
 }
 
-let raw;
+let env;
 try {
-  raw = readFileSync(envPath, 'utf-8');
+  ({ env } = loadEnv(envFile));
 } catch {
   cannotCheck(`apps/api/${envFile} does not exist here`);
 }
-const env = Object.fromEntries(
-  raw
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#') && l.includes('='))
-    .map((l) => {
-      const i = l.indexOf('=');
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-    }),
-);
 if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
   cannotCheck(`apps/api/${envFile} is missing the database URL or service key`);
 }

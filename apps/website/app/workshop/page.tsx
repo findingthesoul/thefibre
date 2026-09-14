@@ -5,7 +5,7 @@
 // brand SPoT via tileArtUrl, never copied).
 
 import type { Metadata } from 'next';
-import { APPS, tileArtUrl, type AppId } from '@thefibre/shared';
+import { APPS, APP_DISPLAY_ORDER, tileArtUrl, type AppId } from '@thefibre/shared';
 import { Settle } from '@/components/settle';
 import { StartButton } from '@/components/start-dialog';
 
@@ -15,8 +15,12 @@ export const metadata: Metadata = {
     'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Flow.',
 };
 
-const TOOL_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow'];
-
+// The tools shown, in the canonical display order (derived since 2026-09-14;
+// until then a hand list of the same five). Deliberately omitted: the
+// platform (backstage, not a tool), Connections (not on the product page
+// yet) and Learn (unreleased).
+const NOT_SHOWN = new Set<AppId>(['fibre-platform', 'fibre-sales', 'fibre-learn']);
+const TOOL_ORDER: AppId[] = APP_DISPLAY_ORDER.filter((slug) => !NOT_SHOWN.has(slug));
 
 // The recognisable problem each tool answers (Sjoerd, 2026-09-08): the
 // itch a facilitator knows by name, then how we built it away.

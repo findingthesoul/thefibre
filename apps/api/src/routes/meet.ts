@@ -56,7 +56,7 @@ import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js
 import { buildBookingIcal } from '../lib/ical.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
-import { sendEmail } from '../lib/email/client.js';
+import { platformFromAddress, sendEmail } from '../lib/email/client.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { personalStripeAccount } from '../lib/payment-accounts.js';
@@ -1517,6 +1517,8 @@ meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
     : null;
 
   const ics = buildBookingIcal({
+    // Deliberately a literal: the UID is a stable identifier calendars key
+    // on across updates and cancellations. It must never follow branding.
     uid: `meet-${b.id}@thefibre.app`,
     startsAt: new Date(b.starts_at),
     endsAt: new Date(b.ends_at),
@@ -1526,7 +1528,7 @@ meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
       .join('\n\n'),
     location: b.meet_url ?? b.alternative_location ?? mt?.default_location ?? null,
     organizerName: hostUser?.full_name ?? hostRow?.slug ?? 'Host',
-    organizerEmail: hostUser?.email ?? 'noreply@thefibre.app',
+    organizerEmail: hostUser?.email ?? platformFromAddress(),
     attendeeName: b.invitee_name,
     attendeeEmail: b.invitee_email,
     status: b.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED',
@@ -1614,7 +1616,7 @@ meetRoutes.get('/google/auth-callback', async (c) => {
       settingsUrl = `${threadUrl}/settings/connections`;
     }
     if (payload.return_to === 'fibre') {
-      const fibreUrl = process.env.NEXT_PUBLIC_FIBRE_URL ?? 'https://thefibre.app';
+      const fibreUrl = appUrl('fibre-platform', process.env);
       settingsUrl = `${fibreUrl}/settings/connections`;
     }
     if (!userId || !workspaceId) throw new Error('bad state');

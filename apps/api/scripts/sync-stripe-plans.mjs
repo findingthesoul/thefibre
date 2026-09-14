@@ -17,27 +17,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
-const env = Object.fromEntries(
-  readFileSync(envPath, 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split('=', 2))
-    .filter((p) => p.length === 2),
-);
-
-const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-const STRIPE_KEY = env.STRIPE_SECRET_KEY ?? process.env.STRIPE_SECRET_KEY;
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in apps/api/.env');
+let env, SUPABASE_URL, SERVICE_KEY;
+try {
+  ({ env, url: SUPABASE_URL, serviceKey: SERVICE_KEY } = supabaseEnv());
+} catch (e) {
+  console.error(e.message);
   process.exit(1);
 }
+const STRIPE_KEY = env.STRIPE_SECRET_KEY ?? process.env.STRIPE_SECRET_KEY;
 if (!STRIPE_KEY) {
   console.error('Missing STRIPE_SECRET_KEY (apps/api/.env or environment)');
   process.exit(1);

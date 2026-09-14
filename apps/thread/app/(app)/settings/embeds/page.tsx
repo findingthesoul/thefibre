@@ -18,8 +18,7 @@ import {
 // a 'use client' export reaches a Server Component as a proxy, and calling
 // .split on the proxy was exactly the production 500 this page had.
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
-
-const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 export default async function EmbedsSettingsPage() {
   const locale = await uiLocale();
@@ -62,7 +61,7 @@ export default async function EmbedsSettingsPage() {
     {
       title: t(locale, 'snippet_1_title'),
       desc: t(locale, 'snippet_1_desc'),
-      code: `<script src="${HOST}/embed.js" defer></script>`,
+      code: `<script src="${THREAD_ORIGIN}/embed.js" defer></script>`,
     },
     {
       title: t(locale, 'snippet_2_title'),

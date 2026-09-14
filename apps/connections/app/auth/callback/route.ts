@@ -11,4 +11,6 @@ export const GET = createAuthCallback({
   getSupabase: serverSupabase,
   redirect: (u) => NextResponse.redirect(u),
   env: process.env,
+  // Home is the root; there is no /dashboard in this app.
+  defaultNext: '/',
 });

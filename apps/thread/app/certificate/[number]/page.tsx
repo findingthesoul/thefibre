@@ -6,8 +6,7 @@ import { notFound } from 'next/navigation';
 import { Linkedin, Printer } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { CertView, type CertSnapshot } from './cert-view';
-
-const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 type CertPayload = {
   certificate_number: string;
@@ -71,7 +70,7 @@ export default async function CertificatePage({
 
   // LinkedIn: "Add to profile" pre-fills a certification entry; plain share
   // posts the public URL. (v3 parity.)
-  const certUrl = `${THREAD_HOST}/certificate/${encodeURIComponent(cert.certificate_number)}`;
+  const certUrl = `${THREAD_ORIGIN}/certificate/${encodeURIComponent(cert.certificate_number)}`;
   const values = cert.template_snapshot.values ?? {};
   const issuedDate = new Date(cert.issued_at);
   const addToLinkedIn =

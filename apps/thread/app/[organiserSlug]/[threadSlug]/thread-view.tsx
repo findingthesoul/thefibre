@@ -19,8 +19,7 @@ import { t, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { one } from '@/lib/thread-types';
 import { siteOf, type PublicSite } from '@/lib/public-site';
 import { SiteNav, SiteFooter } from '../site-chrome';
-
-const PUBLIC_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 type AgendaItem = {
   id: string;
@@ -160,7 +159,7 @@ export function PublicThreadView({
   // link always names /{canonical_owner_slug}/{thread}. React hoists the
   // <link> into <head>.
   const canonicalHref = thread.canonical_owner_slug
-    ? `${PUBLIC_HOST}/${thread.canonical_owner_slug}/${thread.slug}`
+    ? `${THREAD_ORIGIN}/${thread.canonical_owner_slug}/${thread.slug}`
     : null;
 
   // A thread page wears the same navbar and footer as the listing it was

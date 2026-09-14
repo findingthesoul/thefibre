@@ -46,6 +46,8 @@ export type Suggestion = {
   kind: 'tag' | 'organisation' | 'person';
   id?: string;
   name: string;
+  /** A tag nobody has used yet, made from exactly what was typed. */
+  isNew?: boolean;
 };
 
 const TOKEN_CHAR = /[\p{L}\p{N}_.\-]/u;
@@ -153,4 +155,71 @@ export function applySuggestion(
   const after = text.slice(token.end).replace(/^ /, '');
   const next = text.slice(0, token.start) + insert + after;
   return { text: next, caret: token.start + insert.length };
+}
+
+// ── Over a space, and making a tag that does not exist yet ──────────────────
+//
+// Sjoerd, 2026-09-14: *"type a word... there could be a space... when done
+// with the # or @, then enter and it turns it into a tag, person or
+// organisation."*
+//
+// So a lookup may run over up to THREE words, and `#` always offers to make
+// what was typed into a new tag. Enter (or Tab) is what commits it — a space
+// never does, since a space is also how a sentence carries on.
+//
+// Three rules stop a spaced lookup swallowing ordinary writing:
+//
+//  - If the first word is ALREADY a whole tag, person or organisation, the
+//    words after it are the sentence carrying on, not more of the name:
+//    `#facilitation went well` opens nothing.
+//  - Punctuation ends it. A full stop or comma is where a phrase stops.
+//  - Three words at most. After that the list closes on its own, and Escape
+//    closes it for the rest of that phrase.
+//
+// `@` never offers "new": naming somebody who is not a person in the
+// workspace yet makes a person record, and that is its own decision
+// (backlog §1.3), not a side effect of pressing Enter in a note.
+
+const SPACED = /(^|[\s([{"'“‘])([#@])([\p{L}\p{N}][\p{L}\p{N}_\-]*(?: [\p{L}\p{N}_\-]+){0,3} ?)$/u;
+const MAX_SPACED_WORDS = 3;
+
+/**
+ * The word or short phrase being looked up, and what to offer for it.
+ * `activeToken` alone still answers "is a single word being typed".
+ */
+export function lookup(
+  text: string,
+  caret: number,
+  words: readonly { id?: string; name: string; organisationId?: string }[],
+  people: readonly { id: string; name: string }[],
+  limit = 6,
+): { token: ActiveToken; suggestions: Suggestion[] } | null {
+  if (caret < 0 || caret > text.length) return null;
+  if (caret < text.length && TOKEN_CHAR.test(text[caret]!)) return null;
+
+  let token = activeToken(text, caret);
+  if (!token) {
+    const m = SPACED.exec(text.slice(0, caret));
+    if (!m || !m[3]!.includes(' ')) return null;
+    const query = m[3]!.replace(/ $/, '');
+    if (query.split(' ').length > MAX_SPACED_WORDS) return null;
+    token = { trigger: m[2] as Trigger, query, start: caret - m[3]!.length - 1, end: caret };
+
+    // A finished name followed by more of the sentence is not a lookup.
+    const first = fold(query.split(' ')[0]!);
+    const names =
+      token.trigger === '#'
+        ? words.filter((w) => !w.organisationId).map((w) => w.name)
+        : [...people.map((p) => p.name), ...words.filter((w) => w.organisationId).map((w) => w.name)];
+    if (names.some((n) => fold(n) === first)) return null;
+  }
+
+  const found = suggest(token, words, people, limit);
+  if (token.trigger === '#' && token.query) {
+    const typed = fold(token.query);
+    if (typed && !found.some((f) => fold(f.name) === typed)) {
+      found.push({ kind: 'tag', name: token.query.trim(), isNew: true });
+    }
+  }
+  return found.length ? { token, suggestions: found } : null;
 }

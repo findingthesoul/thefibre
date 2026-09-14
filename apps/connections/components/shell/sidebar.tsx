@@ -67,6 +67,7 @@ export function Sidebar({
       brandName={BRAND.name}
       mode={mode}
       version={version}
+      homeHref="/"
     />
   );
 }

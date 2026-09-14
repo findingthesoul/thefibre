@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { readPrefs } from '@/lib/prefs';
@@ -7,7 +8,7 @@ import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
-import { buildAppList } from '@/lib/available-apps';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { APPS, tileArtUrl } from '@thefibre/shared';
 
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
@@ -87,6 +88,8 @@ export default async function MeetAppLayout({
     currentApp: 'fibre-meet',
     memberships: me.memberships,
     workspaceApps: apps,
+    env: process.env,
+    host: (await headers()).get('host'),
   });
 
   const locale = await uiLocale(me.locale);

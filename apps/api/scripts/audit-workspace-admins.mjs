@@ -17,23 +17,12 @@
  * process still wins, so `--env-file` keeps working.
  */
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { loadEnv, projectRefOf } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const envFile = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
+let envFile = `apps/api/${process.env.FIBRE_ENV_FILE ?? '.env'}`;
 let fileEnv = {};
 try {
-  fileEnv = Object.fromEntries(
-    readFileSync(envFile, 'utf-8')
-      .split('\n')
-      .filter((l) => l && !l.startsWith('#') && l.includes('='))
-      .map((l) => {
-        const i = l.indexOf('=');
-        return [l.slice(0, i), l.slice(i + 1).replace(/^"|"$/g, '')];
-      }),
-  );
+  ({ file: envFile, env: fileEnv } = loadEnv());
 } catch {
   // Not fatal on its own — the values may already be in the environment.
 }
@@ -48,7 +37,7 @@ if (!url || !serviceKey) {
   process.exit(1);
 }
 
-console.log(`Auditing ${url.replace('https://', '').split('.')[0]}\n`);
+console.log(`Auditing ${projectRefOf(url)}\n`);
 
 const db = createClient(url, serviceKey, {
   auth: { persistSession: false },

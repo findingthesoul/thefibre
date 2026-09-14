@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
-import { countryName } from '@/lib/countries';
+import { countryName } from '@thefibre/shared/countries';
 import { AddMemberButton, type PersonOption } from './add-member';
 import { EndMemberButton } from './end-member';
 import {

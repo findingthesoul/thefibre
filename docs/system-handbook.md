@@ -938,6 +938,37 @@ known to be open; the ordering is what makes it trustworthy, and it was
 observed, not assumed. A function whose parameters are all text cannot be
 probed this way — coercion will not stop its body.
 
+**The mirror-image mistake, found 2026-09-14.** `revoke ... from anon` alone
+does not close a function either: a function nobody ever "locked" still holds
+Postgres's implicit grant to PUBLIC, and anon is a member of PUBLIC. The first
+migration of that day revoked anon from every definer function and the probe
+still found four open — the four that had never had a REVOKE of any kind. Both
+revokes are needed; `from public, anon` in one statement is the habit.
+
+**Since 20260914171000 the default is closed.** The default privileges for
+functions the `postgres` role creates in `public` no longer grant EXECUTE to
+PUBLIC or anon, so a function born after that migration is executable by
+`service_role` and `authenticated` and nobody else. Consequences for an author:
+a new RLS helper needs nothing extra; a new service-only function needs one
+line, `revoke execute on function public.f(...) from authenticated`. Every
+definer function that existed before was revoked from PUBLIC and anon by OID,
+and the nine reviewed RLS helpers were granted to `authenticated` explicitly
+(they had been reaching it through PUBLIC).
+
+**The standing guard.** `apps/api/scripts/lib/definer-probe.mjs` reads every
+SECURITY DEFINER function out of `supabase/migrations` (latest definition
+wins, in filename order — the same order Supabase applies) and runs the
+calibrated probe. Two callers: `scripts/audit-definer-functions.mjs` prints the
+table for any project, read-only (`FIBRE_ENV_FILE=.env.staging`, or `.env` for
+production, or `FIBRE_BEARER=<token>` to probe as a signed-in user); and
+`src/integration/definer-functions.int.test.ts` runs in `pnpm test:integration`
+against staging with a throwaway signed-in fixture, asserting anon may execute
+none, authenticated may execute only the allowlist in the probe module, and —
+the success twin — that the allowlisted helpers ARE open to authenticated. A
+function the test names is open to a role the allowlist does not cover; either
+revoke it or add it to the allowlist with a comment saying which caller needs
+it. The allowlist is the review record.
+
 ### 11.3a A refusal test needs a success twin
 
 **A test that asserts a request is refused cannot, on its own, tell a working

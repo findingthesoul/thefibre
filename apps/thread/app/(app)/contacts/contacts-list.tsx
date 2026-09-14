@@ -51,7 +51,16 @@ function contactName(locale: Locale, it: ContactItem): string {
   );
 }
 
-export function ContactsList({ locale, items }: { locale: Locale; items: ContactItem[] }) {
+export function ContactsList({
+  locale,
+  items,
+  fibreUrl,
+}: {
+  locale: Locale;
+  items: ContactItem[];
+  /** The platform's origin, resolved by the server page (env + serving host). */
+  fibreUrl: string;
+}) {
   const [selected, setSelected] = useState<ContactItem | null>(null);
 
   return (
@@ -181,7 +190,7 @@ export function ContactsList({ locale, items }: { locale: Locale; items: Contact
             )}
 
             <a
-              href={`https://thefibre.app/contacts/${selected.person.id}`}
+              href={`${fibreUrl}/contacts/${selected.person.id}`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors h-8 px-3 text-sm border border-line bg-surface-raised text-ink hover:bg-surface-sunken"

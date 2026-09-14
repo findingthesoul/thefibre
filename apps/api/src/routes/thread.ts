@@ -53,11 +53,11 @@ function threadAppUrl(): string {
 }
 
 /** Where the QR/pass images live — the API's own public base.
- *  PUBLIC_API_URL is the canonical var (.env.example, google/client.ts) —
+ *  PUBLIC_API_URL is the canonical var (.env.example, lib/public-url.ts) —
  *  this read API_PUBLIC_URL until the v0.52.0 sweep, so the env override
  *  was dead and the fallback always won. */
 function apiPublicUrl(): string {
-  return process.env.PUBLIC_API_URL ?? 'https://thefibre-api.fly.dev';
+  return publicApiUrl();
 }
 
 /**
@@ -93,6 +93,7 @@ async function emailTicketFor(
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { platformFeeCents } from '../lib/fees.js';
 import { zonedTimeToUtc } from '../lib/availability/timezone.js';
+import { publicApiUrl } from '../lib/public-url.js';
 
 const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? createRemoteJWKSet(

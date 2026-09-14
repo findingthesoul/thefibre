@@ -1,8 +1,9 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { appName, appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
-import { buildAppList } from '@/lib/available-apps';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { uiLocale } from '@/lib/locale';
 import { t, type Locale } from '@/lib/i18n-ui';
 
@@ -59,7 +60,13 @@ export default async function MeetHelpPage() {
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
     const r = await apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps');
-    apps = buildAppList({ currentApp: 'fibre-meet', memberships: me.memberships, workspaceApps: r.items });
+    apps = buildAppList({
+      currentApp: 'fibre-meet',
+      memberships: me.memberships,
+      workspaceApps: r.items,
+      env: process.env,
+      host: (await headers()).get('host'),
+    });
   } catch {
     apps = [];
   }

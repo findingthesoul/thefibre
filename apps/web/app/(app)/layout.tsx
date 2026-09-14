@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { serverSupabase } from '@/lib/supabase/server';
 import { readPrefs } from '@/lib/prefs';
 import { apiFetch } from '@/lib/api';
@@ -7,7 +8,7 @@ import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { ArchivedGate } from '@/components/archived-gate';
-import { buildAppList } from '@/lib/available-apps';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { APPS, tileArtUrl } from '@thefibre/shared';
 import { VERSION } from '@/lib/version';
 
@@ -78,7 +79,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // in the one you are already in.
   }
 
-  const apps = buildAppList({ currentApp: 'fibre-platform', memberships, workspaceApps });
+  const apps = buildAppList({
+    currentApp: 'fibre-platform',
+    memberships,
+    workspaceApps,
+    env: process.env,
+    host: (await headers()).get('host'),
+  });
 
   const locale = await uiLocale(profileLocale);
 

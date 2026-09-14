@@ -1,3 +1,5 @@
+import { headers } from 'next/headers';
+import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
@@ -12,6 +14,7 @@ import { MemberRow, type Member } from './row';
 
 export default async function InternalTeamPage() {
   const locale = await uiLocale();
+  const host = (await headers()).get('host');
   let items: Member[] = [];
   let me: { user: { id: string } } | null = null;
   let error: string | null = null;
@@ -38,7 +41,7 @@ export default async function InternalTeamPage() {
       {/* Transition notice: membership management is moving to the platform
           (docs/platform-spot-members-profile.md). This page is retired next. */}
       <a
-        href="https://thefibre.app/settings/members"
+        href={crossAppHref('fibre-meet', 'fibre-platform', process.env, '/settings/members', host)}
         target="_blank"
         rel="noreferrer"
         className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-ink hover:border-yellow-400 transition-colors"

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { APPS, ENTITY, appUrl } from '@thefibre/shared';
+import { APPS, ENTITY, FOOTER_LINKS, appUrl } from '@thefibre/shared';
 
 // Public documentation for the Zoom integration. Zoom's Marketplace review
 // requires a Documentation URL pointing at a page about the integration
@@ -267,11 +267,11 @@ export default function ZoomDocsPage() {
               {support}
             </a>
             . See also our{' '}
-            <a href="https://thethread.app/privacy-policy" className="underline underline-offset-2">
+            <a href={FOOTER_LINKS.privacy} className="underline underline-offset-2">
               privacy policy
             </a>{' '}
             and{' '}
-            <a href="https://thethread.app/terms" className="underline underline-offset-2">
+            <a href={FOOTER_LINKS.legal} className="underline underline-offset-2">
               terms
             </a>
             .

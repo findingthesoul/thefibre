@@ -19,7 +19,7 @@ import {
   type OrgRelationshipRow,
 } from '../../relationship/edit';
 import { OrgBillingEdit, type OrgBillingRow } from '../../billing/edit';
-import { countryName } from '@/lib/countries';
+import { countryName } from '@thefibre/shared/countries';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 

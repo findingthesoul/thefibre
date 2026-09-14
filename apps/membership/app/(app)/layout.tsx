@@ -7,7 +7,8 @@ import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
-import { buildAppList } from '@/lib/available-apps';
+import { headers } from 'next/headers';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { APPS, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 
@@ -89,6 +90,8 @@ export default async function MembershipAppLayout({
     currentApp: 'membership',
     memberships: me.memberships,
     workspaceApps: apps,
+    env: process.env,
+    host: (await headers()).get('host'),
   });
 
   const locale = await uiLocale(me.locale);

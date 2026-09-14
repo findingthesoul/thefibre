@@ -5,11 +5,12 @@
 
 import './globals.css';
 import type { Metadata } from 'next';
+import { surfaceUrl } from '@thefibre/shared';
 import { SiteNav } from '@/components/site-nav';
 import { SiteFooter } from '@/components/site-footer';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://thethread.app'),
+  metadataBase: new URL(surfaceUrl('website', process.env)),
   title: { default: 'The Thread — for weaving the social fabric', template: '%s · The Thread' },
   description:
     'Every gathering is a beginning. The Thread carries it forward — enrolment, payments, messages, certificates: the whole arc, considered.',

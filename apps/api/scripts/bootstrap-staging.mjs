@@ -12,21 +12,11 @@
 // Refuses to run against prod (checks the URL against the known prod ref).
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
-const env = Object.fromEntries(
-  readFileSync(envPath, 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split('=', 2))
-    .filter((p) => p.length === 2),
-);
+const { url, serviceKey } = supabaseEnv();
 
-if ((env.NEXT_PUBLIC_SUPABASE_URL ?? '').includes('zfsyyokepyycefbxiblc')) {
+if (url.includes('zfsyyokepyycefbxiblc')) {
   console.error('This is the PROD database. Bootstrap is for empty environments only.');
   process.exit(1);
 }
@@ -38,7 +28,7 @@ if (!email || !email.includes('@')) {
   process.exit(1);
 }
 
-const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+const db = createClient(url, serviceKey, {
   auth: { persistSession: false },
 });
 
@@ -148,8 +138,8 @@ for (const app of apps ?? []) {
 // outside the schema), so a fresh project has none and every upload 500s
 // with "Bucket not found" (hit 2026-09-04, profile photo on staging).
 const H = {
-  apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-  Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+  apikey: serviceKey,
+  Authorization: `Bearer ${serviceKey}`,
   'Content-Type': 'application/json',
 };
 for (const bucket of [
@@ -157,7 +147,7 @@ for (const bucket of [
   { id: 'thread-assets', name: 'thread-assets', public: true, file_size_limit: 5242880, allowed_mime_types: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] },
   { id: 'fibre-assets', name: 'fibre-assets', public: true },
 ]) {
-  const r = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/bucket`, {
+  const r = await fetch(`${url}/storage/v1/bucket`, {
     method: 'POST',
     headers: H,
     body: JSON.stringify(bucket),

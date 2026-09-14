@@ -11,8 +11,7 @@ import { t } from '@/lib/i18n-ui';
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
 import { SectionLabel } from '@/components/ui/page';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
-
-const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 export type GeneratorThread = {
   id: string;
@@ -118,7 +117,7 @@ export function EmbedGenerator({
     return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}>${styleBlock}</div>`;
   }, [kind, listOwner, listFormat, listCategory, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
 
-  const scriptTag = `<script src="${HOST}/embed.js" defer></script>`;
+  const scriptTag = `<script src="${THREAD_ORIGIN}/embed.js" defer></script>`;
 
   async function copy(which: 'script' | 'snippet', text: string) {
     try {

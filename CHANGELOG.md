@@ -6,6 +6,98 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.74.1] — 2026-09-14 — Connections on the shared copies (staging)
+
+**No visible change.** Connections was the last app with its own copies of the
+app-switcher list, the API client and the language cookie name. It now uses the
+shared ones from @thefibre/shared (available-apps, api-fetch, prefs), like the
+other apps since v0.74.0.
+
+## [0.74.0] — 2026-09-14 — Every function born closed, and one copy of everything (staging)
+
+A stress-test pass over the whole platform: every scripted layer run twice,
+the one open security item closed with a guard that keeps it closed, and the
+same helper defined in seven apps folded to one. Nothing here is a new
+feature; most of it is what a user does not notice until it is missing.
+
+**No database function answers the public anon key any more.** Nine SECURITY
+DEFINER functions still did — the four RLS helpers the 2026-09-13 sweep had
+named, four claim readers it had not, and the fee lookup. Reviewed one by
+one: all but the last only answer about the caller, so anon got false or
+null, but the door was open. Two migrations close it: revoke from PUBLIC and
+anon on every definer function (the first migration revoked anon alone and
+four stayed open through the grant Postgres gives every new function to
+PUBLIC — handbook §11.3b records the lesson), grant the nine reviewed helpers
+to signed-in users explicitly, and change the default privileges so a function
+written from now on carries no grant to PUBLIC or anon at all. **The guard:**
+a new integration test probes every definer function in the migrations as
+anon and as a real signed-in fixture against a reviewed allowlist, without
+running a single body, and names any function open to a role it should not
+be. The same probe is `scripts/audit-definer-functions.mjs`, read-only, for
+any project. Production shows the same nine until its migrations are pushed.
+
+**The app switcher stays on staging when you are on staging** — in all six
+apps that still sent you to production from the `.tech` menu. Connections had
+the fix since yesterday; the other six were byte-identical copies of the same
+file that never received it. That file, and six other helpers each app owned
+a copy of, now live once in `@thefibre/shared`: the app list, the API client
+and its error message, money formatting (Membership kept cents, Pulse always
+rounded — the difference is an option now), the currency list, slug making
+(Søren reads `soren`, not `s-ren`, everywhere), the product link kinds the API
+and the Membership app both declared, and the browser uploader. Twenty-seven
+files became bindings of a few lines; about 870 lines are gone. Thread's
+fifteen private definitions of its own public host read one file, the way
+Meet already did. The About page lists the live apps in the canonical order.
+
+**The pricing catalogue is held for a minute.** Sixty people opening
+`/pricing` at once each waited 1.3 seconds while the API ran sixty identical
+queries on one pool; a single visitor 140 ms. The rows are now held
+in-process for sixty seconds and dropped by the same call an `/admin/plans`
+edit already makes.
+
+**Every API script reads its environment the same way.** Eighteen scripts
+carried nine variants of the same parser; thirteen cut a value at its second
+`=`, fifteen ignored a key passed on the command line. One reader now,
+`scripts/lib/env.mjs`, and every script says which project it is about to
+touch.
+
+**Found and left for Sjoerd** (details in `docs/stress-test-2026-09-14.md`):
+staging's three connected-account Stripe webhooks are still registered on the
+platform account; production is behind six migrations and an API deploy; the
+external-app contract walk fails at its sign-in step if it runs at the same
+moment as the integration pack, and passes alone.
+
+Verified: typecheck ×13, 502 unit, 73 integration (staging), 16 Playwright
+(staging), both smokes, the published Thread contract on both environments,
+the external-app walk, six audits on both environments.
+
+## [0.73.61] — 2026-09-14 — Tag cleaning, and tags with spaces (staging)
+
+**Connections — tag cleaning.** Settings → Tag cleaning lists what could use
+tidying: tags that are probably the same (`Retreat`, `retreat`, `retreats`, or
+one letter apart), tags nobody carries any more, and tags not used for six
+months. Merge moves everybody onto the tag you keep; rename and delete are
+there too. It only suggests — "Not the same" keeps a pair off the list. Admins
+can change tags; everyone can look. Today shows a short reminder when there is
+something to tidy, at most once a month.
+
+**`#` and `@` with a space.** Type `#spring gathering` or `@Fenna de` — the
+list stays open over up to three words — and press Enter. `#` offers to make
+what you typed into a new tag; `@` picks from people and organisations that
+exist.
+
+**One date in the note box.** The "when it happened" field sat under the
+follow-up's calendar icon and looked like the same date twice. It is gone; a
+note is dated when you write it.
+
+## [0.73.60] — 2026-09-14 — Connections lives at its own address (staging)
+
+**Connections — the home is the root.** `connections.thefibre.tech/dashboard`
+answered "page not found": every other app has a dashboard, Connections never
+did, but signing in, arriving from another app, the logo in the sidebar and
+switching workspace all sent you there. They now go to
+`connections.thefibre.tech`, and the old `/dashboard` address redirects to it.
+
 ## [0.73.59] — 2026-09-14 — Teams organise what people record (staging)
 
 **Connections — file what happened under one of your teams.** If you are in a

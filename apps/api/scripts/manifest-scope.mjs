@@ -30,6 +30,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -41,14 +42,8 @@ const APP_SCOPES = [
     .split('] as const')[0]
     .matchAll(/'([a-z_]+:[a-z_]+)'/g),
 ].map((m) => m[1]);
-const env = Object.fromEntries(
-  readFileSync(resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env'), 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split('=', 2))
-    .filter((p) => p.length === 2),
-);
-const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+const { url, serviceKey } = supabaseEnv();
+const db = createClient(url, serviceKey, {
   auth: { persistSession: false },
 });
 

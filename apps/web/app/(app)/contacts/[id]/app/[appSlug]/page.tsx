@@ -9,7 +9,7 @@ import { LearningEdit, type LearningRow } from '../../learning/edit';
 import { PersonBillingEdit, type PersonBillingRow } from '../../billing/edit';
 import { MeetTab } from '../../meet/tab';
 import { MembershipTab } from '../../membership/tab';
-import { countryName } from '@/lib/countries';
+import { countryName } from '@thefibre/shared/countries';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 

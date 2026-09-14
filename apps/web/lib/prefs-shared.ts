@@ -5,16 +5,14 @@
 export {
   COOKIE_THEME,
   COOKIE_SIDEBAR,
+  COOKIE_LOCALE,
   type Theme,
   type SidebarMode,
   type Prefs,
 } from '@thefibre/shared/prefs';
 
-// UI language (i18n P2, D1) — one user-level setting, domain-wide like the
-// theme. The durable copy is identity_profile.locale (via /api/v1/profile);
-// the cookie exists so every app can read it before any API round-trip.
-// Value is one of the shared LOCALES; '' / absent = no preference.
-export const COOKIE_LOCALE = 'thefibre.locale';
+// COOKIE_LOCALE (the UI language) is re-exported above from the shared
+// module since 2026-09-14; the cookies below are web-only.
 
 // First-login welcome sequence (2026-09-07): the ONLY stored bit of the
 // flow, per the onboarding proposal's rule — everything else is derived

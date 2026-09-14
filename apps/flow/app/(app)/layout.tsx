@@ -7,7 +7,8 @@ import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
-import { buildAppList } from '@/lib/available-apps';
+import { headers } from 'next/headers';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { APPS, tileArtUrl } from '@thefibre/shared';
 
 // Fibre Flow has its own user-facing version, independent of the monorepo
@@ -87,6 +88,8 @@ export default async function FlowAppLayout({
     currentApp: 'fibre-flow',
     memberships: me.memberships,
     workspaceApps: apps,
+    env: process.env,
+    host: (await headers()).get('host'),
   });
 
   const locale = await uiLocale(me.locale);

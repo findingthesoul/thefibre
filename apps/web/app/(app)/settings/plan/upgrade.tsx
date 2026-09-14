@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { eur } from '@/lib/plans';
-import { COUNTRIES } from '@/lib/countries';
+import { COUNTRIES } from '@thefibre/shared/countries';
 // Aliased: the plan-target map below already binds `t` per row.
 import { t as tr, type Locale } from '@/lib/i18n-ui';
 import { startCheckout, openPortal, switchPlan, cancelPlan, resumePlan } from './actions';

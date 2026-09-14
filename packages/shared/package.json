@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.73.59",
+  "version": "0.74.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -109,6 +109,34 @@
     "./countries": {
       "types": "./dist/countries.d.ts",
       "default": "./dist/countries.js"
+    },
+    "./available-apps": {
+      "types": "./dist/available-apps.d.ts",
+      "default": "./dist/available-apps.js"
+    },
+    "./api-fetch": {
+      "types": "./dist/api-fetch.d.ts",
+      "default": "./dist/api-fetch.js"
+    },
+    "./money": {
+      "types": "./dist/money.d.ts",
+      "default": "./dist/money.js"
+    },
+    "./currencies": {
+      "types": "./dist/currencies.d.ts",
+      "default": "./dist/currencies.js"
+    },
+    "./slug": {
+      "types": "./dist/slug.d.ts",
+      "default": "./dist/slug.js"
+    },
+    "./link-kinds": {
+      "types": "./dist/link-kinds.d.ts",
+      "default": "./dist/link-kinds.js"
+    },
+    "./upload": {
+      "types": "./dist/upload.d.ts",
+      "default": "./dist/upload.js"
     },
     "./languages": {
       "types": "./dist/languages.d.ts",

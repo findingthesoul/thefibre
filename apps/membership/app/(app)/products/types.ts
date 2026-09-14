@@ -1,7 +1,9 @@
 // Local shapes for the products surface (GET /api/v1/membership/products).
 
-export const LINK_KINDS = ['thread', 'meet', 'circle_space', 'url'] as const;
-export type LinkKind = (typeof LINK_KINDS)[number];
+// LINK_KINDS is the ONE list the API validates against (@thefibre/shared/link-kinds);
+// re-exported so the dialog keeps its import path.
+export { LINK_KINDS, type LinkKind } from '@thefibre/shared/link-kinds';
+import type { LinkKind } from '@thefibre/shared/link-kinds';
 
 // Link-kind display labels moved into lib/i18n-ui.ts (link_kind_* keys) —
 // UI renders them per locale, so no English map lives here any more.

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BellOff, Sparkles, Tags, Timer } from 'lucide-react';
+import { BellOff, Hash, Sparkles, Tags, Timer } from 'lucide-react';
 import { appName } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from '@thefibre/shared/ui/page';
@@ -28,6 +28,12 @@ export default async function SettingsPage() {
           icon: <Sparkles size={17} strokeWidth={1.75} />,
           title: t(locale, 'hyg_card_title'),
           desc: t(locale, 'hyg_card_desc'),
+        },
+        {
+          href: '/settings/tags',
+          icon: <Hash size={17} strokeWidth={1.75} />,
+          title: t(locale, 'tagclean_card_title'),
+          desc: t(locale, 'tagclean_card_desc'),
         },
         {
           href: '/settings/effort',

@@ -39,24 +39,16 @@
 // same token the browser would carry, custom claims and all.
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 import { randomUUID } from 'node:crypto';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const env = Object.fromEntries(
-  readFileSync(resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env'), 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split('=', 2))
-    .filter((p) => p.length === 2),
-);
-
-const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
-const ANON_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
+let SUPABASE_URL, ANON_KEY, SERVICE_KEY;
+try {
+  ({ url: SUPABASE_URL, anonKey: ANON_KEY, serviceKey: SERVICE_KEY } = supabaseEnv());
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 const API = process.env.FIBRE_API ?? 'http://localhost:8080';
 const ADMIN_EMAIL = process.env.FIBRE_ADMIN_EMAIL ?? 'sjoerd@soul.com';
 
@@ -68,11 +60,6 @@ const FIXTURE_ORGANISER_SLUG = 'verify-external-app-organiser';
 const FIXTURE_THREAD_SLUG = 'verify-external-app-festival';
 const ORG_DOMAIN = 'verify-host.example';
 const FLOW_KEY = 'verify-external-app-flow';
-
-if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
-  console.error('Missing Supabase keys in apps/api/.env');
-  process.exit(1);
-}
 
 if (process.env.FIBRE_VERIFY_CONFIRM !== '1') {
   console.error(

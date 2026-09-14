@@ -27,24 +27,16 @@
 // a real customer's contact base.
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { loadEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const envFile = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env.staging');
-
+// Defaults to .env.staging, not .env: this script creates accounts and
+// should never land on production by a bare run.
 let env;
 try {
-  env = Object.fromEntries(
-    readFileSync(envFile, 'utf-8')
-      .split('\n')
-      .filter((l) => l && !l.startsWith('#') && l.includes('='))
-      .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).replace(/^"|"$/g, '')]),
-  );
-} catch {
-  console.error(`No env file at ${envFile}. Set FIBRE_ENV_FILE, e.g. .env.staging.`);
+  ({ env } = loadEnv(process.env.FIBRE_ENV_FILE ?? '.env.staging'));
+} catch (e) {
+  console.error(e.message);
   process.exit(1);
 }
 
