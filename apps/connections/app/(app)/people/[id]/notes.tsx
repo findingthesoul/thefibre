@@ -273,6 +273,9 @@ const FOLLOW_UP_KIND_KEYS = {
   message: 'fu_kind_message',
 } as const;
 
+/** Fields side by side while each has 12rem, stacked when it has not. */
+const FIELD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]';
+
 /** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
 export function localStamp(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -841,7 +844,11 @@ export function Notes({
 
             Order, top to bottom: what happened and when, what was said, what
             comes next. "When" is a date, today by default. */}
-        <div className={`grid gap-4 ${teams.length > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+        {/* Columns by the room the COMPOSER has, not the window: the same box
+            sits in a wide page and in a narrow popup, and three columns in the
+            narrow one squeezed the date onto four lines (Sjoerd, 2026-09-14,
+            screenshot). A field is at least 12rem or it wraps to the next row. */}
+        <div className={FIELD_GRID}>
           <SelectField
             label={t(locale, 'kind')}
             value={kind}
@@ -852,7 +859,6 @@ export function Notes({
             key={whenKey}
             label={t(locale, 'note_when')}
             name="happened_on"
-            required
             defaultValue={happenedOn}
             onValueChange={setHappenedOn}
           />
@@ -1106,7 +1112,7 @@ export function Notes({
             field appears only for "on a date…"; "nothing planned" is the
             default. The follow-up's kind becomes the title of its task. */}
         <div className="mt-5 border-t border-line pt-4">
-          <div className={`grid gap-4 ${followUp === 'exact' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          <div className={FIELD_GRID}>
             <SelectField
               label={t(locale, 'note_followup')}
               value={followUpKind}
