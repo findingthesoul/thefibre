@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.9] — 2026-09-14 — a blank thread can be created (staging)
+
+Found while chasing Sjoerd's *"templates do not work... nothing shows up"*.
+Reproduced against staging through the real API route with a signed-in
+fixture: all five standard templates and a saved template ("Single event")
+create a thread with its engagements, and the editor loads them. Those paths
+work at the API.
+
+What did not: creating a thread WITHOUT a template. The form sends
+`library_template: null` for a blank thread, and the API's schema said
+`.optional()`, which accepts a missing key but refuses null. So every blank
+thread failed with a 400, shown as a raw JSON dump of the validation error.
+Both lines date from v0.67.1; it went unnoticed because the picker defaults to
+the first template. The schema now accepts null as "no template".
+
+This may not be the problem Sjoerd saw. The template paths themselves are
+verified working at the API, so if he still sees nothing, the fault is in the
+browser and needs one observation from him.
+
 ## [0.75.8] — 2026-09-14 — A date that fits (staging)
 
 **All apps — date fields stay on one line.** A date-only field reads

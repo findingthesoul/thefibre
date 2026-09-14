@@ -517,7 +517,13 @@ const ThreadCreate = z.object({
   public_scope: z.enum(['personal', 'team', 'workspace']).nullable().optional(),
   /** A standard-library template id — the plan's thread_template_limit
    *  slices which are allowed (lib/thread-template-library.ts). */
-  library_template: z.string().max(64).optional(),
+  //
+  // NULLABLE, not only optional (2026-09-14). The create form sends
+  // `library_template: null` for a blank thread, and `.optional()` accepts
+  // undefined but refuses null, so every blank thread failed with a 400 whose
+  // message was a JSON dump of the Zod error. The editor's null means "no
+  // template", exactly like leaving the key out.
+  library_template: z.string().max(64).nullable().optional(),
 });
 
 threadRoutes.post('/threads', async (c) => {
