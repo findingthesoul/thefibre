@@ -1292,6 +1292,238 @@ const CATALOG = {
     de: 'Person', // MT
     fr: 'personne', // MT
   },
+  tagclean_card_title: {
+    en: 'Tag cleaning',
+    nl: 'Tags opruimen',
+    es: 'Limpiar etiquetas', // MT
+    pt: 'Limpar etiquetas', // MT
+    de: 'Tags aufräumen', // MT
+    fr: 'Nettoyer les tags', // MT
+  },
+  tagclean_card_desc: {
+    en: 'Doubles, tags on nobody, and tags nobody uses any more.',
+    nl: 'Dubbele, tags op niemand, en tags die niemand meer gebruikt.',
+    es: 'Duplicadas, etiquetas sin nadie y etiquetas que ya nadie usa.', // MT
+    pt: 'Duplicadas, etiquetas sem ninguém e etiquetas que ninguém usa.', // MT
+    de: 'Doppelte, Tags ohne Personen und Tags, die niemand mehr nutzt.', // MT
+    fr: 'Doublons, tags sans personne et tags que plus personne n’utilise.', // MT
+  },
+  tagclean_intro: {
+    en: 'Suggestions, never automatic. Merging moves everybody to the tag you keep; the words in notes stay as they were written.',
+    nl: 'Voorstellen, nooit automatisch. Samenvoegen zet iedereen op de tag die je houdt; de woorden in notities blijven zoals ze geschreven zijn.',
+    es: 'Sugerencias, nunca automáticas. Fusionar pasa a todos a la etiqueta que conservas; las palabras de las notas quedan como se escribieron.', // MT
+    pt: 'Sugestões, nunca automáticas. Juntar passa todos para a etiqueta que manténs; as palavras nas notas ficam como foram escritas.', // MT
+    de: 'Vorschläge, nie automatisch. Zusammenführen setzt alle auf den behaltenen Tag; die Worte in Notizen bleiben, wie sie geschrieben wurden.', // MT
+    fr: 'Des suggestions, jamais automatiques. Fusionner place tout le monde sur le tag conservé ; les mots des notes restent tels qu’écrits.', // MT
+  },
+  tagclean_load_failed: {
+    en: 'Could not load the tags.',
+    nl: 'De tags konden niet worden geladen.',
+    es: 'No se pudieron cargar las etiquetas.', // MT
+    pt: 'Não foi possível carregar as etiquetas.', // MT
+    de: 'Die Tags konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger les tags.', // MT
+  },
+  tagclean_read_only: {
+    en: 'Only workspace admins can merge, rename or delete tags.',
+    nl: 'Alleen workspace-beheerders kunnen tags samenvoegen, hernoemen of verwijderen.',
+    es: 'Solo los administradores pueden fusionar, renombrar o borrar etiquetas.', // MT
+    pt: 'Só os administradores podem juntar, renomear ou apagar etiquetas.', // MT
+    de: 'Nur Admins können Tags zusammenführen, umbenennen oder löschen.', // MT
+    fr: 'Seuls les administrateurs peuvent fusionner, renommer ou supprimer des tags.', // MT
+  },
+  tagclean_forbidden: {
+    en: 'Only workspace admins can do this.',
+    nl: 'Alleen workspace-beheerders kunnen dit.',
+    es: 'Solo los administradores pueden hacer esto.', // MT
+    pt: 'Só os administradores podem fazer isto.', // MT
+    de: 'Nur Admins können das.', // MT
+    fr: 'Seuls les administrateurs peuvent faire cela.', // MT
+  },
+  tagclean_name_taken: {
+    en: 'Another tag already has that name — merge them instead.',
+    nl: 'Een andere tag heeft die naam al — voeg ze liever samen.',
+    es: 'Otra etiqueta ya tiene ese nombre: mejor fusiónalas.', // MT
+    pt: 'Outra etiqueta já tem esse nome — junta-as antes.', // MT
+    de: 'Ein anderer Tag heißt schon so – führt sie lieber zusammen.', // MT
+    fr: 'Un autre tag porte déjà ce nom — fusionnez-les plutôt.', // MT
+  },
+  tagclean_nothing: {
+    en: 'Nothing to tidy. The tags look clean.',
+    nl: 'Niets op te ruimen. De tags zien er netjes uit.',
+    es: 'Nada que ordenar. Las etiquetas están limpias.', // MT
+    pt: 'Nada para arrumar. As etiquetas estão limpas.', // MT
+    de: 'Nichts aufzuräumen. Die Tags sehen sauber aus.', // MT
+    fr: 'Rien à ranger. Les tags sont propres.', // MT
+  },
+  tagclean_doubles_title: {
+    en: 'Probably the same tag',
+    nl: 'Waarschijnlijk dezelfde tag',
+    es: 'Probablemente la misma etiqueta', // MT
+    pt: 'Provavelmente a mesma etiqueta', // MT
+    de: 'Wahrscheinlich derselbe Tag', // MT
+    fr: 'Probablement le même tag', // MT
+  },
+  tagclean_doubles_hint: {
+    en: 'The number is how many people carry each one.',
+    nl: 'Het getal is hoeveel mensen elke tag hebben.',
+    es: 'El número es cuántas personas la llevan.', // MT
+    pt: 'O número é quantas pessoas a têm.', // MT
+    de: 'Die Zahl ist, wie viele Personen ihn tragen.', // MT
+    fr: 'Le nombre indique combien de personnes le portent.', // MT
+  },
+  tagclean_reason_spelling: {
+    en: 'same word, written differently',
+    nl: 'zelfde woord, anders geschreven',
+    es: 'misma palabra, escrita distinto', // MT
+    pt: 'mesma palavra, escrita de outra forma', // MT
+    de: 'gleiches Wort, anders geschrieben', // MT
+    fr: 'même mot, écrit autrement', // MT
+  },
+  tagclean_reason_plural: {
+    en: 'singular and plural',
+    nl: 'enkelvoud en meervoud',
+    es: 'singular y plural', // MT
+    pt: 'singular e plural', // MT
+    de: 'Singular und Plural', // MT
+    fr: 'singulier et pluriel', // MT
+  },
+  tagclean_reason_typo: {
+    en: 'one letter apart',
+    nl: 'één letter verschil',
+    es: 'una letra de diferencia', // MT
+    pt: 'uma letra de diferença', // MT
+    de: 'ein Buchstabe Unterschied', // MT
+    fr: 'une lettre d’écart', // MT
+  },
+  tagclean_keep: {
+    en: 'Keep',
+    nl: 'Houd',
+    es: 'Conservar', // MT
+    pt: 'Manter', // MT
+    de: 'Behalten', // MT
+    fr: 'Garder', // MT
+  },
+  tagclean_merge: {
+    en: 'Merge',
+    nl: 'Samenvoegen',
+    es: 'Fusionar', // MT
+    pt: 'Juntar', // MT
+    de: 'Zusammenführen', // MT
+    fr: 'Fusionner', // MT
+  },
+  tagclean_not_same: {
+    en: 'Not the same',
+    nl: 'Niet hetzelfde',
+    es: 'No es lo mismo', // MT
+    pt: 'Não é o mesmo', // MT
+    de: 'Nicht dasselbe', // MT
+    fr: 'Pas pareil', // MT
+  },
+  tagclean_unused_title: {
+    en: 'Tags on nobody',
+    nl: 'Tags op niemand',
+    es: 'Etiquetas sin nadie', // MT
+    pt: 'Etiquetas sem ninguém', // MT
+    de: 'Tags ohne Personen', // MT
+    fr: 'Tags sans personne', // MT
+  },
+  tagclean_unused_hint: {
+    en: 'Nobody carries these any more. Deleting them changes nothing for anybody.',
+    nl: 'Niemand heeft deze nog. Verwijderen verandert voor niemand iets.',
+    es: 'Ya nadie las lleva. Borrarlas no cambia nada para nadie.', // MT
+    pt: 'Já ninguém as tem. Apagá-las não muda nada para ninguém.', // MT
+    de: 'Niemand trägt sie mehr. Löschen ändert für niemanden etwas.', // MT
+    fr: 'Plus personne ne les porte. Les supprimer ne change rien pour personne.', // MT
+  },
+  tagclean_delete_all: {
+    en: 'Delete all {n}',
+    nl: 'Alle {n} verwijderen',
+    es: 'Borrar las {n}', // MT
+    pt: 'Apagar as {n}', // MT
+    de: 'Alle {n} löschen', // MT
+    fr: 'Supprimer les {n}', // MT
+  },
+  tagclean_stale_title: {
+    en: 'Not used for {n} months',
+    nl: '{n} maanden niet gebruikt',
+    es: 'Sin usar desde hace {n} meses', // MT
+    pt: 'Sem uso há {n} meses', // MT
+    de: 'Seit {n} Monaten nicht benutzt', // MT
+    fr: 'Pas utilisés depuis {n} mois', // MT
+  },
+  tagclean_stale_hint: {
+    en: 'Still on people, but nobody has tagged anyone with them or written them in a note since. Keep what still means something.',
+    nl: 'Nog op mensen, maar sindsdien heeft niemand ze gegeven of in een notitie geschreven. Houd wat nog iets betekent.',
+    es: 'Aún en personas, pero nadie las ha usado ni escrito en una nota desde entonces. Conserva lo que aún signifique algo.', // MT
+    pt: 'Ainda em pessoas, mas ninguém as usou nem escreveu numa nota desde então. Mantém o que ainda significa algo.', // MT
+    de: 'Noch an Personen, aber seitdem hat sie niemand vergeben oder in einer Notiz geschrieben. Behaltet, was noch etwas bedeutet.', // MT
+    fr: 'Toujours sur des personnes, mais personne ne les a utilisés ni écrits dans une note depuis. Gardez ce qui a encore du sens.', // MT
+  },
+  tagclean_last_used: {
+    en: 'last used {date}',
+    nl: 'laatst gebruikt {date}',
+    es: 'último uso {date}', // MT
+    pt: 'último uso {date}', // MT
+    de: 'zuletzt benutzt {date}', // MT
+    fr: 'dernière utilisation {date}', // MT
+  },
+  tagclean_rename: {
+    en: 'Rename',
+    nl: 'Hernoemen',
+    es: 'Renombrar', // MT
+    pt: 'Renomear', // MT
+    de: 'Umbenennen', // MT
+    fr: 'Renommer', // MT
+  },
+  tagclean_confirm_title: {
+    en: 'Delete tag?',
+    nl: 'Tag verwijderen?',
+    es: '¿Borrar etiqueta?', // MT
+    pt: 'Apagar etiqueta?', // MT
+    de: 'Tag löschen?', // MT
+    fr: 'Supprimer le tag ?', // MT
+  },
+  tagclean_confirm_one: {
+    en: '#{name} will be taken off {n} people. Notes keep their words.',
+    nl: '#{name} wordt van {n} mensen gehaald. Notities houden hun woorden.',
+    es: '#{name} se quitará de {n} personas. Las notas conservan sus palabras.', // MT
+    pt: '#{name} será retirada de {n} pessoas. As notas mantêm as palavras.', // MT
+    de: '#{name} wird von {n} Personen entfernt. Notizen behalten ihre Worte.', // MT
+    fr: '#{name} sera retiré de {n} personnes. Les notes gardent leurs mots.', // MT
+  },
+  tagclean_confirm_unused: {
+    en: '{n} tags that nobody carries will be deleted.',
+    nl: '{n} tags die niemand heeft worden verwijderd.',
+    es: 'Se borrarán {n} etiquetas que nadie lleva.', // MT
+    pt: 'Serão apagadas {n} etiquetas que ninguém tem.', // MT
+    de: '{n} Tags, die niemand trägt, werden gelöscht.', // MT
+    fr: '{n} tags que personne ne porte seront supprimés.', // MT
+  },
+  tagclean_nudge: {
+    en: '{n} things in your tags could use tidying.',
+    nl: '{n} dingen in jullie tags kunnen opgeruimd worden.',
+    es: '{n} cosas en vuestras etiquetas podrían ordenarse.', // MT
+    pt: '{n} coisas nas vossas etiquetas podiam ser arrumadas.', // MT
+    de: '{n} Dinge in euren Tags könnten aufgeräumt werden.', // MT
+    fr: '{n} éléments de vos tags mériteraient un rangement.', // MT
+  },
+  tagclean_later: {
+    en: 'Not now',
+    nl: 'Niet nu',
+    es: 'Ahora no', // MT
+    pt: 'Agora não', // MT
+    de: 'Nicht jetzt', // MT
+    fr: 'Pas maintenant', // MT
+  },
+  tagclean_open: {
+    en: 'Tidy up',
+    nl: 'Opruimen',
+    es: 'Ordenar', // MT
+    pt: 'Arrumar', // MT
+    de: 'Aufräumen', // MT
+    fr: 'Ranger', // MT
+  },
   ac_new_tag: {
     en: 'new tag',
     nl: 'nieuwe tag',

@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.61] — 2026-09-14 — Tag cleaning, and tags with spaces (staging)
+
+**Connections — tag cleaning.** Settings → Tag cleaning lists what could use
+tidying: tags that are probably the same (`Retreat`, `retreat`, `retreats`, or
+one letter apart), tags nobody carries any more, and tags not used for six
+months. Merge moves everybody onto the tag you keep; rename and delete are
+there too. It only suggests — "Not the same" keeps a pair off the list. Admins
+can change tags; everyone can look. Today shows a short reminder when there is
+something to tidy, at most once a month.
+
+**`#` and `@` with a space.** Type `#spring gathering` or `@Fenna de` — the
+list stays open over up to three words — and press Enter. `#` offers to make
+what you typed into a new tag; `@` picks from people and organisations that
+exist.
+
+**One date in the note box.** The "when it happened" field sat under the
+follow-up's calendar icon and looked like the same date twice. It is gone; a
+note is dated when you write it.
+
 ## [0.73.60] — 2026-09-14 — Connections lives at its own address (staging)
 
 **Connections — the home is the root.** `connections.thefibre.tech/dashboard`
