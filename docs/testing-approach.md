@@ -17,7 +17,7 @@ reading the previous count:
 
 | Layer | Files | Assertions |
 |---|---|---|
-| Unit (vitest) | 45 | 480 |
+| Unit (vitest) | 42 | 502 |
 | Integration, real Postgres + RLS on staging | 11 | 73 |
 | End-to-end (Playwright, staging) | 2 | 16 |
 
