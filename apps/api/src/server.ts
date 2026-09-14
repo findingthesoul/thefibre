@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { APP_IDS, appUrl, SURFACES, surfaceUrl} from '@thefibre/shared';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
+import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { hit, clientIp } from './lib/rate-limit.js';
 import { appContext } from './middleware/app-context.js';
@@ -59,6 +60,22 @@ import { ensureStripeTaxRates } from './lib/vat-stripe.js';
 const app = new Hono();
 
 app.use('*', logger());
+// Baseline response headers (docs/data-protection-approach.md). The API
+// serves JSON to scripts and to our own apps; it is never framed and never
+// sniffed. Cross-origin isolation headers are left off: they change how
+// browsers treat cross-origin fetches and the embeds fetch from here.
+app.use(
+  '*',
+  secureHeaders({
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    originAgentCluster: false,
+  }),
+);
 
 // CORS allowlist.
 //
@@ -195,6 +212,49 @@ for (const path of PUBLISHED_READ_PATHS) {
     return next();
   });
 }
+
+// A brake on the public POSTs: enrolments, bookings, sign-up requests,
+// coupon checks, portal codes, OAuth token exchange, app registration. These
+// are the routes a script can hit with no credential at all, and a coupon or
+// a portal code is guessable in principle. The browser-side ones (the enrol
+// form, the booking page) arrive with the visitor's own IP; the server-side
+// ones (sign-up requests through a Next action) arrive from Vercel's egress,
+// which is why the limit is generous: it stops a naive loop, not a rush of
+// real people, and it keys on path family so one busy form cannot starve
+// another. An in-memory, per-machine window, like the read limiter above —
+// an abuse brake, not a security control.
+const PUBLIC_POST_LIMIT = 120; // requests
+const PUBLIC_POST_WINDOW_MS = 60_000; // per minute, per IP, per family
+const PUBLIC_POST_FAMILIES = [
+  '/api/v1/thread/public/',
+  '/api/v1/meet/public/',
+  '/api/v1/membership/public/',
+  '/api/v1/membership/portal/',
+  '/api/v1/oauth/',
+  '/api/v1/me/',
+  '/api/v1/signup-requests',
+  '/api/v1/apps/register',
+  '/api/v1/auth/login',
+];
+
+app.use('/api/v1/*', async (c, next) => {
+  if (c.req.method !== 'POST') return next();
+  const family = PUBLIC_POST_FAMILIES.find((f) => c.req.path.startsWith(f));
+  if (!family) return next();
+  const r = hit(
+    `public-post:${family}:${clientIp(c.req.raw.headers)}`,
+    PUBLIC_POST_LIMIT,
+    PUBLIC_POST_WINDOW_MS,
+  );
+  if (!r.allowed) {
+    c.header('Retry-After', String(r.resetSeconds));
+    return c.json(
+      { error: 'rate limit exceeded', detail: `max ${r.limit} requests per minute` },
+      429,
+    );
+  }
+  return next();
+});
 
 // The workspace allowlist, for everything else. It must not run on the three
 // published paths: its origin function returns '' for a stranger, which would

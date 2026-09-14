@@ -1,0 +1,29 @@
+# Dependency updates as pull requests, weekly, grouped — so a vulnerable
+# package is noticed by a bot on Monday rather than by a person in an
+# incident. Added 2026-09-14 (docs/data-protection-approach.md): until then
+# every update was manual and nothing watched the advisories.
+#
+# Grouped so the inbox is one PR per ecosystem per week, not forty. Security
+# advisories still open their own PR immediately regardless of the schedule.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 5
+    groups:
+      all-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Majors are deliberate work (Next, React, Supabase clients) — a bot
+      # PR for one is noise; the advisories still come through.
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

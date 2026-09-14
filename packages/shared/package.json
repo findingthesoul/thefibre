@@ -138,6 +138,10 @@
       "types": "./dist/upload.d.ts",
       "default": "./dist/upload.js"
     },
+    "./security-headers": {
+      "types": "./dist/security-headers.d.ts",
+      "default": "./dist/security-headers.js"
+    },
     "./languages": {
       "types": "./dist/languages.d.ts",
       "default": "./dist/languages.js"

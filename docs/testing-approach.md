@@ -198,6 +198,10 @@ Phased so each step pays for itself; groomed like everything else via
 
 Per release, today (Phase 0 discipline):
 
+(The security gates per change — a new table, definer function, public route,
+filter or secret — live in `docs/data-protection-approach.md` §6 and are part
+of this checklist.)
+
 1. `pnpm -r typecheck` — always.
 2. The verify script for any touched contract area (`/api/v1/apps/*` →
    verify-external-app; Thread public/CORS/rate-limit → verify-public-api;

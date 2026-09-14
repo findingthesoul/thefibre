@@ -20,7 +20,14 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-13 (v0.73.25). Done items get removed, not ticked._
+_Last groomed 2026-09-14 (v0.75.0). Done items get removed, not ticked._
+
+**SECURITY roadmap — `docs/data-protection-approach.md` §5 is the list.** P1
+before the first paid enterprise workspace: CSP report-only, explicit cookie
+flags, MFA for super admins, log redaction, an admin-action audit table, a
+Stripe event replay guard, an app-key handler lint, target-keyed brakes,
+upload sniffing, a rehearsed restore, a rotation runbook exercised once. Not
+repeated here so there is one list.
 
 **Meet: "Bookable up to" above 60 days does nothing.** Found 2026-09-13
 (v0.73.53) while checking every meeting-type field. The editor offers 90, 180

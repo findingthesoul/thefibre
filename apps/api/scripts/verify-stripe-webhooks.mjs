@@ -28,6 +28,7 @@
 // Point it at the test-mode key to audit the staging endpoints.
 
 import { loadEnv } from './lib/env.mjs';
+import { EXPECTED, OUR_HOSTS, isConnectEndpoint, stripeClient, modeOf } from './lib/stripe-webhooks.mjs';
 
 // The env file is optional here: a key in the environment is enough.
 function dotenv() {
@@ -54,63 +55,7 @@ const arg = (name) => {
 const ACCOUNT = arg('account');
 const SESSION = arg('session');
 
-async function stripe(path, account) {
-  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
-    headers: {
-      Authorization: `Bearer ${KEY}`,
-      ...(account ? { 'Stripe-Account': account } : {}),
-    },
-  });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body?.error?.message ?? `Stripe ${res.status} on ${path}`);
-  return body;
-}
-
-// Every webhook this API answers, and what it needs to be sent. `connect`
-// is the one that bites: an endpoint in the wrong mode receives events that
-// the route then ignores, so nothing errors anywhere.
-const EXPECTED = [
-  {
-    path: '/api/v1/membership/stripe-webhook',
-    connect: true,
-    why: 'membership charges run on the workspace’s connected account',
-    events: [
-      'checkout.session.completed',
-      'invoice.paid',
-      'invoice.payment_failed',
-      'customer.subscription.updated',
-      'customer.subscription.deleted',
-    ],
-  },
-  {
-    path: '/api/v1/thread/stripe-webhook',
-    connect: true,
-    why: 'thread enrolments are paid to the organiser’s connected account',
-    events: ['checkout.session.completed', 'checkout.session.expired'],
-  },
-  {
-    path: '/api/v1/meet/stripe-webhook',
-    connect: true,
-    why: 'meet bookings are paid to the host’s connected account',
-    events: [
-      'checkout.session.completed',
-      'checkout.session.expired',
-      'payment_intent.payment_failed',
-    ],
-  },
-  {
-    path: '/api/v1/billing/stripe-webhook',
-    connect: false,
-    why: 'Fibre’s own subscriptions are charged on the platform account',
-    events: [
-      'checkout.session.completed',
-      'customer.subscription.updated',
-      'customer.subscription.deleted',
-      'invoice.paid',
-      'invoice.payment_failed',
-    ],
-  },
-];
+const stripe = (path, account) => stripeClient(KEY)(path, { account });
 
 let failures = 0;
 const ok = (m, d) => console.log(`   ✓ ${m}${d ? ` — ${d}` : ''}`);
@@ -120,7 +65,7 @@ const bad = (m, d) => {
 };
 
 const { data: endpoints } = await stripe('webhook_endpoints?limit=100');
-const mode = KEY.includes('_test_') ? 'TEST' : 'LIVE';
+const mode = modeOf(KEY);
 console.log(`\nStripe ${mode} mode — ${endpoints.length} webhook endpoint(s) registered\n`);
 
 console.log('1. Every webhook the API answers is registered, in the right mode');
@@ -136,10 +81,7 @@ for (const want of EXPECTED) {
       bad(`${want.path} @ ${host}`, `endpoint is ${e.status}`);
       continue;
     }
-    // Stripe returns `connect: true` for endpoints that listen on connected
-    // accounts. It cannot be changed after creation — a wrong one is
-    // deleted and made again.
-    const isConnect = e.connect === true;
+    const isConnect = isConnectEndpoint(e);
     if (isConnect !== want.connect) {
       bad(
         `${want.path} @ ${host}`,
@@ -160,7 +102,7 @@ for (const want of EXPECTED) {
 console.log('\n2. Nothing else is pointed at this API');
 const known = EXPECTED.map((e) => e.path);
 const strays = endpoints.filter(
-  (e) => /thefibre-api|thefibre\.app|thethread\.app/.test(e.url ?? '') && !known.some((p) => e.url.endsWith(p)),
+  (e) => OUR_HOSTS.test(e.url ?? '') && !known.some((p) => e.url.endsWith(p)),
 );
 if (strays.length === 0) ok('no unrecognised endpoints on our hosts');
 else for (const e of strays) bad('unrecognised endpoint', `${e.url} (${e.status})`);
