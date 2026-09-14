@@ -27,21 +27,12 @@
 // The key comes from apps/api/.env (STRIPE_SECRET_KEY) or the environment.
 // Point it at the test-mode key to audit the staging endpoints.
 
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { loadEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
+// The env file is optional here: a key in the environment is enough.
 function dotenv() {
   try {
-    return Object.fromEntries(
-      readFileSync(resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env'), 'utf-8')
-        .split('\n')
-        .filter((l) => l && !l.startsWith('#'))
-        .map((l) => l.split('=', 2))
-        .filter((p) => p.length === 2),
-    );
+    return loadEnv().env;
   } catch {
     return {};
   }

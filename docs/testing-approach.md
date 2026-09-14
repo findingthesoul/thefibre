@@ -12,19 +12,21 @@ strict type system, a handful of executable contract checks, a full staging
 twin and a disciplined manual loop bought more correctness per hour than a
 test suite would have while the product was still being discovered.
 
-**Where it actually stands (2026-09-12).** That trade has already been made
-good on, and this paragraph was five days out of date:
+**Where it actually stands (2026-09-14).** Counted by running them, not by
+reading the previous count:
 
 | Layer | Files | Assertions |
 |---|---|---|
-| Unit (vitest) | 21 | 185 |
-| Integration, real Postgres + RLS on staging | 7 | 40 |
+| Unit (vitest) | 45 | 480 |
+| Integration, real Postgres + RLS on staging | 11 | 73 |
 | End-to-end (Playwright, staging) | 2 | 16 |
 
 Plus the executable contract checks, which are not counted above because they
 assert against deployed environments rather than a test runner: the two smoke
 scripts, the published Thread read API, the external-app walk, the Stripe
-webhook registration check, and three data audits.
+webhook registration check, and four data audits — root slugs, workspace
+admins, app names, and (since 2026-09-14) which SECURITY DEFINER functions
+each database role may execute.
 
 **What that green does NOT mean.** Coverage attaches to contracts, money,
 sign-in and tenancy, and deliberately not to interface plumbing. A fully green
@@ -177,7 +179,7 @@ Phased so each step pays for itself; groomed like everything else via
 - **Phase 2 — Vitest on the money/tenancy logic. STARTED v0.53.0** (sso-hop, branding, i18n, pricing; next: fee/proration extraction, scheduler transitions, vercel-ignore). Fees, VAT, plan
   gating, sso-hop, pricing rules. Small, fast, no DB. Wire into `pnpm -r
   test` and CI.
-- **Phase 3 — integration pack on staging. STARTED v0.55.0** (RLS anon-floor ×14 tables, recordPurchase idempotency, sso_handoff race; remaining: the two-user cross-workspace RLS matrix via an auth-fixture harness, scheduler transitions). The RLS matrix, webhook
+- **Phase 3 — integration pack on staging. STARTED v0.55.0** (RLS anon-floor ×14 tables, recordPurchase idempotency, sso_handoff race, the two-user cross-workspace RLS matrix, thread tenancy, person merge, and since 2026-09-14 the SECURITY DEFINER guard: every definer function in the migrations probed as anon and as a signed-in fixture against a reviewed allowlist, handbook §11.3b; remaining: scheduler transitions). The RLS matrix, webhook
   idempotency, handoff race. Runs post-staging-deploy, before promoting
   the same commit's confidence to prod.
 - **Phase 4 — Playwright golden paths on staging. STARTED v0.56.0** —

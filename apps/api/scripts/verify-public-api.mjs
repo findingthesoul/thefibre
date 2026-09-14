@@ -26,32 +26,20 @@
 //   FIBRE_API=https://thefibre-api.fly.dev node scripts/verify-public-api.mjs
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const env = Object.fromEntries(
-  readFileSync(resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env'), 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split('=', 2))
-    .filter((p) => p.length === 2),
-);
-
-const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
+let SUPABASE_URL, SERVICE_KEY;
+try {
+  ({ url: SUPABASE_URL, serviceKey: SERVICE_KEY } = supabaseEnv());
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 const API = process.env.FIBRE_API ?? 'http://localhost:8080';
 
 // A stranger's website. Nothing here is ours.
 const THIRD_PARTY = 'https://festivaloftrust.example';
 const OUR_ORIGIN = 'https://app.thethread.app';
-
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('Missing Supabase keys in apps/api/.env');
-  process.exit(1);
-}
 
 let failures = 0;
 

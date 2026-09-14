@@ -21,21 +21,11 @@
 // "solidarity" and refuses if that finds anything but exactly one.
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
-const env = Object.fromEntries(
-  readFileSync(envPath, 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split('=', 2))
-    .filter((p) => p.length === 2),
-);
+const { url, serviceKey } = supabaseEnv();
 
-const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+const db = createClient(url, serviceKey, {
   auth: { persistSession: false },
 });
 

@@ -14,26 +14,13 @@
 // Requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in apps/api/.env
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Load env from apps/api/.env (simple parser — just URL + service key).
-const envPath = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
-const env = Object.fromEntries(
-  readFileSync(envPath, 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split('=', 2))
-    .filter((p) => p.length === 2),
-);
-
-const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in apps/api/.env');
+let SUPABASE_URL, SERVICE_KEY;
+try {
+  ({ url: SUPABASE_URL, serviceKey: SERVICE_KEY } = supabaseEnv());
+} catch (e) {
+  console.error(e.message);
   process.exit(1);
 }
 

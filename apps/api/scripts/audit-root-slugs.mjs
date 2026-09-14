@@ -15,21 +15,10 @@
 //   FIBRE_ENV_FILE=.env.staging node scripts/audit-root-slugs.mjs
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { supabaseEnv } from './lib/env.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const env = Object.fromEntries(
-  readFileSync(resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env'), 'utf-8')
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => {
-      const i = l.indexOf('=');
-      return [l.slice(0, i), l.slice(i + 1).replace(/^"|"$/g, '')];
-    }),
-);
-const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+const { url, serviceKey } = supabaseEnv();
+const db = createClient(url, serviceKey, {
   auth: { persistSession: false },
 });
 
