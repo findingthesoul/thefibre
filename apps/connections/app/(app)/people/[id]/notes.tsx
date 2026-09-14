@@ -13,8 +13,7 @@
 //     is_draft:false, and that transition — server-side — is what files the
 //     activity row. Never per keystroke.
 //   - DEFAULT EVERYTHING, ASK NOTHING. One text box and a name. `kind` is a
-//     note and `happened_at` is now until somebody opens the small control
-//     and says otherwise. Nothing is asked up front.
+//     note and `happened_at` is now. Nothing is asked up front.
 //   - OFFER THE NEXT ACTION, DO NOT BLOCK ON IT. Three follow-up chips, none
 //     preselected. Walking away without choosing is a legitimate answer and
 //     produces no warning, no modal, no held-open dialog.
@@ -465,7 +464,6 @@ export function Notes({
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [kind, setKind] = useState<NoteKind>('note');
   /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
-  const [when, setWhen] = useState('');
   const [followUp, setFollowUp] = useState<FollowUp>('none');
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
   const [followUpExact, setFollowUpExact] = useState('');
@@ -640,7 +638,6 @@ export function Notes({
       team_id: teamId,
       body,
       kind,
-      ...(when ? { happened_at: new Date(when).toISOString() } : {}),
       ...(tz ? { happened_tz: tz } : {}),
       follow_up_at: followUpIso(followUp, followUpExact),
       is_draft: isDraft,
@@ -738,7 +735,7 @@ export function Notes({
     // `write` is intentionally not a dep: it is recreated every render and
     // the effect already re-runs on everything it reads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body, kind, when, followUp, followUpExact]);
+  }, [body, kind, followUp, followUpExact]);
 
   /** Focus left the composer, or Done was pressed. This is what commits. */
   async function commit() {
@@ -772,7 +769,6 @@ export function Notes({
     firstRender.current = true; // the reset below is not an edit
     setBody('');
     setKind('note');
-    setWhen('');
     setFollowUp('none');
     setFollowUpExact('');
     // Queued on the device: the box resets so the person can move on, but the
@@ -1051,17 +1047,9 @@ export function Notes({
             themselves in a popup meant to be read at a glance, and asking
             somebody to press "nothing planned" was asking a question to get
             the answer it already had. */}
-        {/* ONE row: follow-up always, kind and when when you open them.
-            Sjoerd, 2026-09-13: *"Follow up [select] | Kind: [select] | Date :
-            [date] can go in 1 row and open..."*. They had been three stacked
-            blocks with a rule between them, which is a lot of vertical space
-            for three small answers in a popup meant to be read at a glance.
-
-            Kind and when stay behind the disclosure rather than becoming
-            always-visible: they are DEFAULTED, and putting three controls on
-            screen before somebody has typed a word is the interrogation this
-            composer was built to avoid. Opening them now widens the row that
-            is already there instead of adding two more. */}
+        {/* ONE row: follow-up (with its calendar icon) and kind. Sjoerd,
+            2026-09-13: *"Follow up [select] | Kind: [select] | Date : [date]
+            can go in 1 row"*; the date of the note itself went on 2026-09-14. */}
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <label className="flex items-center gap-2">
             <span className="text-xs text-ink-muted">{t(locale, 'note_followup')}</span>
@@ -1140,14 +1128,11 @@ export function Notes({
                 </select>
               </label>
 
-              {/* No "When" label. Sjoerd, 2026-09-14: *"'when' can be taken
-                  away. It is there twice"* — the field's own placeholder already
-                  says pick a date and time, so the label was the same word
-                  printed beside itself. Its accessible name stays, for the
-                  people who cannot see the placeholder. */}
-              <span className="min-w-[13rem]" aria-label={t(locale, 'note_when')}>
-                <DateTimeField value={when} onChange={setWhen} label={undefined} />
-              </span>
+              {/* No "when it happened" field. Sjoerd, 2026-09-14: *"The date
+                  field is double.. the one at the bottom can be taken away"* —
+                  beside the follow-up's calendar icon it read as the same date
+                  twice. A note is dated when it is written, which is what the
+                  field defaulted to anyway. */}
           </>
         </div>
 
