@@ -44,6 +44,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import {
@@ -185,7 +186,7 @@ export function LandscapeColumns({
             <select
               value={axis}
               onChange={(e) => void openReading(e.target.value as Axis)}
-              className="rounded-md border border-line bg-surface px-1.5 py-1 text-xs md:hidden"
+              className={`${FIELD_CLASS_INLINE} md:hidden`}
               aria-label={t(locale, 'landscape_col_readings')}
             >
               {axes.map((a) => (

@@ -27,6 +27,8 @@ import { AtSign, Check, ClipboardCopy, X } from 'lucide-react';
 import { meetingPrompt } from '@/lib/meeting-prompt';
 import { applySuggestion, lookup, type ActiveToken, type Suggestion } from '@/lib/autocomplete';
 import { DateTimeField } from '@/components/ui/date-field';
+import { Button } from '@/components/ui/button';
+import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
   saveNote,
@@ -172,37 +174,30 @@ function Conversation({
           onChange={(e) => setDraft(e.target.value)}
           rows={4}
           autoFocus
-          className="w-full rounded-md border border-line bg-surface p-2 text-sm leading-relaxed focus:border-line-strong focus:outline-none"
+          className={`${FIELD_CLASS} leading-relaxed`}
         />
         <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'note_edit_tags_note')}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <button
+        {/* The Fibre's bottom-bar order: Delete left, Cancel · Save right. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={remove} disabled={busy}>
+            {t(locale, 'delete')}
+          </Button>
+          <Button
             type="button"
-            onClick={save}
-            disabled={busy}
-            className="inline-flex h-8 items-center rounded-md border border-line bg-surface-raised px-3 text-sm hover:bg-surface-sunken disabled:opacity-50"
-          >
-            {busy ? t(locale, 'saving') : t(locale, 'save')}
-          </button>
-          <button
-            type="button"
+            variant="secondary"
+            size="sm"
+            className="ml-auto"
             onClick={() => {
               setDraft(note.body);
               setEditing(false);
               setError(null);
             }}
-            className="text-xs text-ink-muted hover:text-ink"
           >
             {t(locale, 'cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            className="ml-auto text-xs text-ink-muted hover:text-ink disabled:opacity-50"
-          >
-            {t(locale, 'delete')}
-          </button>
+          </Button>
+          <Button type="button" size="sm" onClick={save} disabled={busy}>
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
+          </Button>
         </div>
         {error && <p className="mt-1.5 text-xs text-ink">{error}</p>}
       </TimelineItem>
@@ -277,9 +272,6 @@ const FOLLOW_UP_KIND_KEYS = {
   meet: 'fu_kind_meet',
   message: 'fu_kind_message',
 } as const;
-
-/** Every small control in the note box: one height, so a row of them lines up. */
-const CONTROL = 'h-7 rounded-md border border-line bg-surface px-2 text-xs text-ink';
 
 /** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
 export function localStamp(d: Date): string {
@@ -826,90 +818,70 @@ export function Notes({
           // box, the chips and Done is not "finished".
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) void commit();
         }}
-        className="rounded-lg border border-line bg-surface-raised p-3 sm:p-4"
       >
+        {/* THE SHARED FORM, not a style of its own. Sjoerd, 2026-09-14,
+            comparing this box with Thread's editor: *"Why do we have two
+            styles. It should be - as we agreed - one single point of truth...
+            now we have two"* and *"The Thread is way more clear"*. Labels above,
+            SelectField / DateTimeField / Button from @thefibre/shared — the same
+            controls Thread uses — and no hand-written heights or tints. Where a
+            control cannot be a shared field (the highlighted text box), it
+            takes FIELD_CLASS from the same module rather than its own classes.
+
+            Order, top to bottom: what happened and when, what was said, what
+            comes next. The time is stamped at the first keystroke (not when
+            the popup opened) and reads "now" until then. */}
+        <div className={`grid gap-4 ${teams.length > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          <SelectField
+            label={t(locale, 'kind')}
+            value={kind}
+            onChange={(e) => setKind(e.target.value as NoteKind)}
+            options={KINDS.map((k) => ({ value: k, label: t(locale, KIND_KEYS[k]) }))}
+          />
+          <DateTimeField label={t(locale, 'note_when')} value={startedAt} onChange={setStartedAt} />
+          {/* A team only when there IS a team to choose: most workspaces never
+              use teams this way. */}
+          {teams.length > 0 && (
+            <SelectField
+              label={t(locale, 'team_field')}
+              value={teamId ?? ''}
+              onChange={(e) => setTeamId(e.target.value || null)}
+              options={[
+                { value: '', label: t(locale, 'team_none') },
+                ...teams.map((tm) => ({
+                  value: tm.id,
+                  label: tm.is_default ? `${tm.name} · ${t(locale, 'team_default')}` : tm.name,
+                })),
+              ]}
+              hint={
+                // Offered only when the choice differs from the default.
+                teamId !== (teams.find((tm) => tm.is_default)?.id ?? null) ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const r = await safely(
+                        () => setDefaultTeam(teamId),
+                        (error) => ({ ok: false as const, error }),
+                      );
+                      if (r.ok) setTeams((prev) => prev.map((tm) => ({ ...tm, is_default: tm.id === teamId })));
+                    }}
+                    className="underline-offset-2 hover:text-ink hover:underline"
+                  >
+                    {t(locale, teamId ? 'team_make_default' : 'team_clear_default')}
+                  </button>
+                ) : undefined
+              }
+            />
+          )}
+        </div>
+
         {/* The tags are marked INSIDE the sentence as it is typed. The real
             text box is untouched — the tints are painted behind it — so
             typing, autocorrect and the caret behave exactly as before. See
             TagHighlightBox for why that trade was made. */}
-        {/* By you, for a team. Only when there IS a team to choose: most
-            workspaces never use teams this way, and a picker with one option
-            reading "no team" would be noise on every note. */}
-        {/* What happened, and when — at the top, because they describe the
-            note below them. Sjoerd, 2026-09-14: *"at the top there should be a
-            date and time.. make it the moment people fill it in, then they can
-            open and alter it... And a kind is a drop down... at the top too"*.
-            The time is stamped at the first keystroke (not when the popup
-            opened, which can be long before) and says "now" until then.
-
-            ONE line, every control the same small height. Sjoerd, same day:
-            *"It is so inconsistent with small, big and over two lines... Make
-            the input on one line"* — the date field was the form-size one,
-            twice the height of the selects, and the team picker sat on a line
-            of its own. */}
-        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-ink-muted">
-          <select
-            value={kind}
-            onChange={(e) => setKind(e.target.value as NoteKind)}
-            aria-label={t(locale, 'kind')}
-            className={CONTROL}
-          >
-            {KINDS.map((k) => (
-              <option key={k} value={k}>
-                {t(locale, KIND_KEYS[k])}
-              </option>
-            ))}
-          </select>
-          <span className="w-[12.5rem]" aria-label={t(locale, 'note_when')}>
-            <DateTimeField
-              size="sm"
-              value={startedAt}
-              onChange={setStartedAt}
-              placeholder={t(locale, 'note_when_now')}
-              label={undefined}
-            />
-          </span>
-
-        {teams.length > 0 && (
-          <>
-            <span className="ml-2">{t(locale, 'team_by_you')}</span>
-            <label className="flex items-center gap-1.5">
-              <span>{t(locale, 'team_for')}</span>
-              <select
-                value={teamId ?? ''}
-                onChange={(e) => setTeamId(e.target.value || null)}
-                className={CONTROL}
-              >
-                <option value="">{t(locale, 'team_none')}</option>
-                {teams.map((tm) => (
-                  <option key={tm.id} value={tm.id}>
-                    {tm.name}
-                    {tm.is_default ? ` · ${t(locale, 'team_default')}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {/* Offered only when the choice differs from the default, so the
-                control appears exactly when it would do something. */}
-            {teamId !== (teams.find((tm) => tm.is_default)?.id ?? null) && (
-              <button
-                type="button"
-                onClick={async () => {
-                  const r = await safely(
-                    () => setDefaultTeam(teamId),
-                    (error) => ({ ok: false as const, error }),
-                  );
-                  if (r.ok) setTeams((prev) => prev.map((tm) => ({ ...tm, is_default: tm.id === teamId })));
-                }}
-                className="underline-offset-2 hover:text-ink hover:underline"
-              >
-                {t(locale, teamId ? 'team_make_default' : 'team_clear_default')}
-              </button>
-            )}
-          </>
-        )}
-        </div>
-
+        <div className="mt-4">
+          <span className={FIELD_LABEL_CLASS}>{t(locale, 'note_body_label')}</span>
+          <div className={`mt-1 ${FIELD_CLASS} focus-within:border-line-strong`}>
         <TagHighlightBox
           rows={meeting ? 10 : 3}
           value={body}
@@ -934,6 +906,8 @@ export function Notes({
           placeholder={t(locale, 'note_placeholder')}
           ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
         />
+          </div>
+        </div>
 
         {/* From a meeting. Sjoerd, 2026-09-14: *"a proper prompt that someone
             could paste into their ChatGPT or Claude or Gemini... and that
@@ -1110,70 +1084,36 @@ export function Notes({
           </div>
         )}
 
-        {/* The follow-up, as its own sentence in its own colour: "Follow up:
-            [call] on [tomorrow]". Sjoerd, 2026-09-14: *"Follow up: [kind] on
-            [when]"* and *"Make the follow up in another color expression"* —
-            the note's kind had sat on this row and read as belonging to the
-            follow-up, so the note's kind and time moved to the top of the box
-            and this row is only about what comes next. "Nothing planned" stays
-            the default; the kind is muted until a when is chosen.
-
-            Follow-up and Done share one line (Sjoerd, same day: *"Follow up and
-            Done on one line"*); on a phone the row wraps and Done drops below. */}
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-amber-300/70 bg-amber-50 px-2.5 py-1.5 dark:border-amber-500/30 dark:bg-amber-500/10">
-          <span className="text-xs font-medium text-amber-900 dark:text-amber-200">{t(locale, 'note_followup')}:</span>
-          <select
-            value={followUpKind}
-            onChange={(e) => setFollowUpKind(e.target.value as FollowUpKind)}
-            aria-label={t(locale, 'note_followup_kind')}
-            className={`${CONTROL} ${followUp === 'none' ? 'opacity-60' : ''}`}
-          >
-            {FOLLOW_UP_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {t(locale, FOLLOW_UP_KIND_KEYS[k])}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-amber-900 dark:text-amber-200">{t(locale, 'note_followup_on_word')}</span>
-          <label className="flex items-center">
-            <span className="sr-only">{t(locale, 'note_followup')}</span>
-            <select
+        {/* What comes next, as its own section of the same form: a rule and a
+            heading rather than a colour of its own (the tint was a second
+            style). "Follow up: [Call] [tomorrow]" — Sjoerd, 2026-09-14. The date
+            field appears only for "on a date…"; "nothing planned" is the
+            default. The follow-up's kind becomes the title of its task. */}
+        <div className="mt-5 border-t border-line pt-4">
+          <div className={`grid gap-4 ${followUp === 'exact' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            <SelectField
+              label={t(locale, 'note_followup')}
+              value={followUpKind}
+              onChange={(e) => setFollowUpKind(e.target.value as FollowUpKind)}
+              options={FOLLOW_UP_KINDS.map((k) => ({ value: k, label: t(locale, FOLLOW_UP_KIND_KEYS[k]) }))}
+            />
+            <SelectField
+              label={t(locale, 'note_followup_when')}
               value={followUp}
               onChange={(e) => setFollowUp(e.target.value as FollowUp)}
-              className={CONTROL}
-            >
-              {FOLLOW_UPS.map((f) => (
-                <option key={f} value={f}>
-                  {t(locale, FOLLOW_UP_KEYS[f])}
-                </option>
-              ))}
-              {/* "On a date…" is the last line of the list, and the date
-                  field appears only when it is chosen. Sjoerd, 2026-09-14:
-                  *"Calendar icon should only appear if the option is: on
-                  date"* — a standalone icon beside the list read as a second
-                  date control even when a follow-up like "tomorrow" was set. */}
-              <option value="exact">{t(locale, 'note_followup_exact')}</option>
-            </select>
-          </label>
-
-          {/* The shared date field, not a native input. This app's rule is
-              that dates always go through DateField — it carries the locale's
-              own ordering and the picker people already know. A native
-              `datetime-local` shipped here on 2026-09-13 and was wrong for
-              exactly that reason. */}
-          {followUp === 'exact' && (
-            <DateTimeField
-              size="icon"
-              value={followUpExact}
-              onChange={setFollowUpExact}
-              placeholder={t(locale, 'note_followup_exact')}
-              label={undefined}
+              options={[
+                ...FOLLOW_UPS.map((f) => ({ value: f, label: t(locale, FOLLOW_UP_KEYS[f]) })),
+                { value: 'exact', label: t(locale, 'note_followup_exact') },
+              ]}
             />
-          )}
+            {followUp === 'exact' && (
+              <DateTimeField label={t(locale, 'note_followup_date')} value={followUpExact} onChange={setFollowUpExact} />
+            )}
+          </div>
         </div>
 
-          <div className="ml-auto flex items-center gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+          <div className="mr-auto flex items-center gap-3">
             {/* Honest state. Never "saved" while something is in flight. */}
             <span className="text-xs text-ink-muted" aria-live="polite">
               {status === 'queued' && t(locale, 'note_queued')}
@@ -1197,15 +1137,14 @@ export function Notes({
             </span>
           </div>
 
-          <button
+          <Button
             type="button"
             onClick={() => void commit()}
             disabled={!hasContent}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-ink px-3 text-xs font-medium text-ink-inverse transition-opacity hover:opacity-90 disabled:opacity-40"
+            leading={<Check size={15} strokeWidth={2.25} />}
           >
-            <Check size={13} strokeWidth={2.25} />
             {t(locale, 'done')}
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { PersonLink } from '@/components/person-popup';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { FIELD_CLASS } from '@thefibre/shared/ui/fields';
+import { ButtonLink } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 // Band labels for whichever axis the landscape sent us in on. Imported
 // rather than redeclared: this file used to carry its own maturity-only
@@ -124,7 +126,7 @@ export function PeopleList({
           onChange={(e) => setTerm(e.target.value)}
           placeholder={t(locale, 'people_search_ph')}
           aria-label={t(locale, 'search')}
-          className="w-full rounded-md border border-line bg-surface-raised py-2 pl-9 pr-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+          className={`${FIELD_CLASS} pl-9`}
         />
       </div>
 
@@ -224,13 +226,9 @@ export function PeopleList({
 
       {hasMore && (
         <div className="mt-4">
-          <Link
-            href={moreHref}
-            scroll={false}
-            className="inline-flex h-8 items-center rounded-md border border-line bg-surface-raised px-3 text-sm hover:bg-surface-sunken"
-          >
+          <ButtonLink href={moreHref} scroll={false} variant="secondary" size="sm">
             {t(locale, 'load_more')}
-          </Link>
+          </ButtonLink>
         </div>
       )}
     </div>

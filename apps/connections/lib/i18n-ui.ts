@@ -804,29 +804,37 @@ const CATALOG = {
     de: 'Wann', // MT
     fr: 'Quand', // MT
   },
-  note_when_now: {
-    en: 'now',
-    nl: 'nu',
-    es: 'ahora', // MT
-    pt: 'agora', // MT
-    de: 'jetzt', // MT
-    fr: 'maintenant', // MT
+  note_body_label: {
+    en: 'What happened',
+    nl: 'Wat er gebeurde',
+    es: 'Qué pasó', // MT
+    pt: 'O que aconteceu', // MT
+    de: 'Was passiert ist', // MT
+    fr: 'Ce qui s’est passé', // MT
   },
-  note_followup_on_word: {
-    en: 'on',
-    nl: 'op',
-    es: 'el', // MT
-    pt: 'em', // MT
-    de: 'am', // MT
-    fr: 'le', // MT
+  team_field: {
+    en: 'Team',
+    nl: 'Team',
+    es: 'Equipo', // MT
+    pt: 'Equipa', // MT
+    de: 'Team', // MT
+    fr: 'Équipe', // MT
   },
-  note_followup_kind: {
-    en: 'What the follow-up is',
-    nl: 'Wat de opvolging is',
-    es: 'Qué es el seguimiento', // MT
-    pt: 'O que é o seguimento', // MT
-    de: 'Was das Nachfassen ist', // MT
-    fr: 'Ce qu’est la relance', // MT
+  note_followup_when: {
+    en: 'When',
+    nl: 'Wanneer',
+    es: 'Cuándo', // MT
+    pt: 'Quando', // MT
+    de: 'Wann', // MT
+    fr: 'Quand', // MT
+  },
+  note_followup_date: {
+    en: 'Date',
+    nl: 'Datum',
+    es: 'Fecha', // MT
+    pt: 'Data', // MT
+    de: 'Datum', // MT
+    fr: 'Date', // MT
   },
   fu_kind_touch: {
     en: 'Get in touch',

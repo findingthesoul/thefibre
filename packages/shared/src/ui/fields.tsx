@@ -4,6 +4,21 @@ import { chromeT, useLocale } from './i18n-ui.js';
 const INPUT_CLASS =
   'mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
 
+/**
+ * The look of every text input, select and textarea, for the rare control that
+ * cannot be a TextField/SelectField — a search box with an icon inside, or a
+ * textarea with highlights painted behind it. Use the fields when you can;
+ * use this instead of writing the classes again. Exported 2026-09-14 after
+ * Connections grew a second, smaller form style next to this one.
+ */
+export const FIELD_CLASS = INPUT_CLASS.replace('mt-1 ', '');
+
+/** The same, without `w-full` — for a control in a row (a filter bar) that sizes to its content. */
+export const FIELD_CLASS_INLINE = FIELD_CLASS.replace('w-full ', '');
+
+/** The label above a field, for the same rare controls. */
+export const FIELD_LABEL_CLASS = 'text-sm text-ink-subtle';
+
 type FieldShellProps = {
   label: ReactNode;
   required?: boolean | undefined;
