@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.16] — 2026-09-14 — promotion stops for migrations (staging)
+
+**`scripts/promote.sh` no longer promotes past a migration it has only
+mentioned.** It used to print "apply them to production first" and then push
+to main in the same breath, so the warning scrolled past after it could change
+anything. v0.75.3 made the cost concrete: two migrations organisation search
+depends on, applied to staging only, one promotion away from shipping the code
+without them.
+
+A range that adds migrations now stops, pushes nothing, and says what to do:
+
+    ./scripts/db-push-prod.sh
+    MIGRATIONS_ON_PROD=yes ./scripts/promote.sh
+
+A range without migrations promotes exactly as before.
+
+**And it says when the API still needs deploying.** The push to main deploys
+the web apps, because Vercel builds main, but not the API, which runs on Fly
+and deploys only when told. So after promoting a range that touches the API
+or the shared package, it prints `fly deploy --remote-only`. Code and
+database drift apart per environment exactly this way; staging's API was once
+three hours behind its own database. Suggested by the stress-test session.
+
+It is a deliberate confirmation rather than a check against the production
+database. A check would need production database credentials wherever promote
+runs, and would parse CLI table output that changes between versions; a guard
+that fails for the wrong reason blocks promotions, and this one cannot. Tested
+on a copy with the push swapped for an echo — never the real script —
+refusing without the flag and continuing with it. Against today's staging it
+lists exactly the two organisation-name migrations.
+
+Also: `e2e/contact-invoices.spec.ts`, the signed-in check for v0.75.14's
+Invoices tab — a contact with a purchase gets the tab and it lists the row; a
+contact without gets no tab. Resend is not clicked, because it emails the
+payer and staging's ledger carries real addresses.
+
 ## [0.75.15] — 2026-09-14 — The landscape, full width (staging)
 
 **Connections — Landscape.** The page uses the whole window. Browse and
