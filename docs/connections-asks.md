@@ -94,6 +94,9 @@ neither in code nor in a document. That is what this file fixes.
 | 61 | The date field is double in the composer — take the bottom one away | **Shipped** v0.73.61 — the note is dated when written; the calendar icon is the follow-up |
 | 62 | The calendar icon should only appear when the follow-up is "on a date" | **Shipped** v0.74.2 — reverses 52: "On a date…" is back in the list and the date field shows only for it |
 | 63 | "Follow up: [kind] on [when]" — the Kind had read as the follow-up's; put the note's kind and time at the TOP (time = the moment you start writing, openable), and give the follow-up its own colour with its own two dropdowns | **Shipped** v0.74.2 — reverses 61: the note's time is back, at the top; the follow-up's kind becomes the title of its task in what you owe |
+| 64 | The note box is inconsistent — small, big, over two lines; put the inputs on one line | **Shipped** v0.74.3 — kind, time and team on one line, every control the same small height (shared DateTimeField gained size="sm") |
+| 65 | "From a meeting transcript…" should say "AI report as input" | **Shipped** v0.74.3 |
+| 66 | Follow up and Done on one line | **Shipped** v0.74.3 — wraps below on a phone |
 
 ### The three that were lost
 

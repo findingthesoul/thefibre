@@ -1077,12 +1077,13 @@ const CATALOG = {
     fr: '{days} derniers jours : {arrived} arrivés, {moved} déplacés.', // MT
   },
   meeting_open: {
-    en: 'From a meeting transcript…',
-    nl: 'Uit een vergaderverslag…',
-    es: 'Desde una transcripción…', // MT
-    pt: 'A partir de uma transcrição…', // MT
-    de: 'Aus einem Meeting-Transkript…', // MT
-    fr: 'À partir d’une transcription…', // MT
+    // Sjoerd, 2026-09-14: 'From a meeting transcript… = AI report as input'.
+    en: 'AI report as input…',
+    nl: 'AI-verslag als invoer…',
+    es: 'Informe de IA como entrada…', // MT
+    pt: 'Relatório de IA como entrada…', // MT
+    de: 'KI-Bericht als Eingabe…', // MT
+    fr: 'Rapport d’IA comme saisie…', // MT
   },
   meeting_close: {
     en: 'Close',

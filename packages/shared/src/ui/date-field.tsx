@@ -513,6 +513,8 @@ export function DateTimeField({
   hint,
   min,
   max,
+  size = 'md',
+  placeholder,
 }: {
   label?: React.ReactNode;
   name?: string;
@@ -525,6 +527,15 @@ export function DateTimeField({
   hint?: React.ReactNode;
   min?: string | null;
   max?: string | null;
+  /**
+   * 'sm' matches a small inline select (h-7, text-xs), for a control that sits
+   * in a row of them rather than in a form column. Added 2026-09-14 for the
+   * Connections note box, where the md field was twice the height of its
+   * neighbours.
+   */
+  size?: 'md' | 'sm';
+  /** Shown when empty, instead of "Pick date & time". */
+  placeholder?: string;
 }) {
   const locale: Locale = useLocale();
   const isControlled = controlledValue !== undefined;
@@ -583,9 +594,9 @@ export function DateTimeField({
         ref={btnRef}
         type="button"
         onClick={toggle}
-        className={`w-full h-11 rounded-md border border-line bg-surface-raised px-3.5 text-[15px] text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
-          label !== undefined ? 'mt-1' : ''
-        }`}
+        className={`w-full rounded-md border border-line text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
+          size === 'sm' ? 'h-7 bg-surface px-2 text-xs' : 'h-11 bg-surface-raised px-3.5 text-[15px]'
+        } ${label !== undefined ? 'mt-1' : ''}`}
       >
         <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>
           {selected ? (
@@ -595,13 +606,13 @@ export function DateTimeField({
               <span className="tabular-nums">{time}</span>
             </>
           ) : (
-            chromeT(locale, 'pick_datetime')
+            (placeholder ?? chromeT(locale, 'pick_datetime'))
           )}
         </span>
         <span className="flex items-center gap-1.5 text-ink-muted shrink-0">
           {hasValue && !required && (
             <X
-              size={15}
+              size={size === 'sm' ? 12 : 15}
               strokeWidth={1.75}
               className="hover:text-ink"
               onClick={(e) => {
@@ -610,7 +621,7 @@ export function DateTimeField({
               }}
             />
           )}
-          <CalendarDays size={17} strokeWidth={1.75} />
+          <CalendarDays size={size === 'sm' ? 13 : 17} strokeWidth={1.75} />
         </span>
       </button>
       {hint && <span className="mt-1 block text-xs text-ink-muted">{hint}</span>}

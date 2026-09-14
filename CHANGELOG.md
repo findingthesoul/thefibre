@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.74.3] — 2026-09-14 — The note box on two tidy lines (staging)
+
+**Connections — one height, fewer lines.** The top of the note box is one line:
+kind, when, and (if you are in a team) which team — all the same small size;
+the date no longer shows as a big form field. The bottom is one line too: the
+coloured follow-up sentence and Done. "From a meeting transcript…" is now
+called "AI report as input…".
+
+**Shared:** `DateTimeField` has a `size="sm"` option and a `placeholder`, for a
+date that sits in a row of small controls. Nothing changes where it is not used.
+
 ## [0.74.2] — 2026-09-14 — What happened on top, what comes next below (staging)
 
 **Connections — the note box reads top to bottom.** At the top: what kind of

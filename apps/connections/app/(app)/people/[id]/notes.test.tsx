@@ -152,10 +152,12 @@ describe('the follow-up date', () => {
   };
   const dateFields = () => container.querySelectorAll('[data-testid="date-field"]').length;
 
-  it('shows no date control for a relative follow-up', async () => {
-    expect(dateFields()).toBe(0);
+  // The note's own time is always one date field at the top; these count the
+  // follow-up's on top of it.
+  it('shows no follow-up date control for a relative follow-up', async () => {
+    const base = dateFields();
     await choose('tomorrow');
-    expect(dateFields()).toBe(0);
+    expect(dateFields()).toBe(base);
   });
 
   it('stamps when it happened at the first keystroke, and sends that time', async () => {
@@ -191,8 +193,9 @@ describe('the follow-up date', () => {
 
   it('shows the date control only once "on a date" is chosen', async () => {
     expect([...followUpSelect().options].map((o) => o.value)).toContain('exact');
+    const base = dateFields();
     await choose('exact');
-    expect(dateFields()).toBe(1);
+    expect(dateFields()).toBe(base + 1);
   });
 });
 

@@ -278,6 +278,9 @@ const FOLLOW_UP_KIND_KEYS = {
   message: 'fu_kind_message',
 } as const;
 
+/** Every small control in the note box: one height, so a row of them lines up. */
+const CONTROL = 'h-7 rounded-md border border-line bg-surface px-2 text-xs text-ink';
+
 /** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
 export function localStamp(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -485,7 +488,6 @@ export function Notes({
   const [kind, setKind] = useState<NoteKind>('note');
   /** When it happened: "YYYY-MM-DDTHH:mm" local, stamped at the first keystroke. '' = not yet. */
   const [startedAt, setStartedAt] = useState('');
-  const [whenOpen, setWhenOpen] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp>('none');
   const [followUpKind, setFollowUpKind] = useState<FollowUpKind>('touch');
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
@@ -796,7 +798,6 @@ export function Notes({
     setBody('');
     setKind('note');
     setStartedAt('');
-    setWhenOpen(false);
     setFollowUp('none');
     setFollowUpKind('touch');
     setFollowUpExact('');
@@ -839,14 +840,19 @@ export function Notes({
             date and time.. make it the moment people fill it in, then they can
             open and alter it... And a kind is a drop down... at the top too"*.
             The time is stamped at the first keystroke (not when the popup
-            opened, which can be long before) and shown as text; pressing it
-            opens the date field. */}
-        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-muted">
+            opened, which can be long before) and says "now" until then.
+
+            ONE line, every control the same small height. Sjoerd, same day:
+            *"It is so inconsistent with small, big and over two lines... Make
+            the input on one line"* — the date field was the form-size one,
+            twice the height of the selects, and the team picker sat on a line
+            of its own. */}
+        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-ink-muted">
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as NoteKind)}
             aria-label={t(locale, 'kind')}
-            className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink"
+            className={CONTROL}
           >
             {KINDS.map((k) => (
               <option key={k} value={k}>
@@ -854,34 +860,25 @@ export function Notes({
               </option>
             ))}
           </select>
-          {whenOpen ? (
-            <span className="min-w-[13rem]" aria-label={t(locale, 'note_when')}>
-              <DateTimeField value={startedAt} onChange={setStartedAt} label={undefined} />
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                if (!startedAt) setStartedAt(localStamp(new Date()));
-                setWhenOpen(true);
-              }}
-              title={t(locale, 'note_when')}
-              className="rounded-md px-1 py-1 underline decoration-dotted underline-offset-4 hover:text-ink"
-            >
-              {startedAt ? dateTime(new Date(startedAt).toISOString()) : t(locale, 'note_when_now')}
-            </button>
-          )}
-        </div>
+          <span className="w-[12.5rem]" aria-label={t(locale, 'note_when')}>
+            <DateTimeField
+              size="sm"
+              value={startedAt}
+              onChange={setStartedAt}
+              placeholder={t(locale, 'note_when_now')}
+              label={undefined}
+            />
+          </span>
 
         {teams.length > 0 && (
-          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-            <span>{t(locale, 'team_by_you')}</span>
+          <>
+            <span className="ml-2">{t(locale, 'team_by_you')}</span>
             <label className="flex items-center gap-1.5">
               <span>{t(locale, 'team_for')}</span>
               <select
                 value={teamId ?? ''}
                 onChange={(e) => setTeamId(e.target.value || null)}
-                className="rounded-md border border-line bg-surface px-2 py-1 text-xs"
+                className={CONTROL}
               >
                 <option value="">{t(locale, 'team_none')}</option>
                 {teams.map((tm) => (
@@ -909,8 +906,9 @@ export function Notes({
                 {t(locale, teamId ? 'team_make_default' : 'team_clear_default')}
               </button>
             )}
-          </div>
+          </>
         )}
+        </div>
 
         <TagHighlightBox
           rows={meeting ? 10 : 3}
@@ -1118,16 +1116,18 @@ export function Notes({
             the note's kind had sat on this row and read as belonging to the
             follow-up, so the note's kind and time moved to the top of the box
             and this row is only about what comes next. "Nothing planned" stays
-            the default; the kind is muted until a when is chosen. */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/10">
+            the default; the kind is muted until a when is chosen.
+
+            Follow-up and Done share one line (Sjoerd, same day: *"Follow up and
+            Done on one line"*); on a phone the row wraps and Done drops below. */}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-amber-300/70 bg-amber-50 px-2.5 py-1.5 dark:border-amber-500/30 dark:bg-amber-500/10">
           <span className="text-xs font-medium text-amber-900 dark:text-amber-200">{t(locale, 'note_followup')}:</span>
           <select
             value={followUpKind}
             onChange={(e) => setFollowUpKind(e.target.value as FollowUpKind)}
             aria-label={t(locale, 'note_followup_kind')}
-            className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs ${
-              followUp === 'none' ? 'opacity-60' : ''
-            }`}
+            className={`${CONTROL} ${followUp === 'none' ? 'opacity-60' : ''}`}
           >
             {FOLLOW_UP_KINDS.map((k) => (
               <option key={k} value={k}>
@@ -1141,7 +1141,7 @@ export function Notes({
             <select
               value={followUp}
               onChange={(e) => setFollowUp(e.target.value as FollowUp)}
-              className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+              className={CONTROL}
             >
               {FOLLOW_UPS.map((f) => (
                 <option key={f} value={f}>
@@ -1163,18 +1163,13 @@ export function Notes({
               `datetime-local` shipped here on 2026-09-13 and was wrong for
               exactly that reason. */}
           {followUp === 'exact' && (
-            <div className="min-w-[13rem]">
-              <DateTimeField
-                value={followUpExact}
-                onChange={setFollowUpExact}
-                label={undefined}
-              />
-            </div>
+            <span className="w-[12.5rem]">
+              <DateTimeField size="sm" value={followUpExact} onChange={setFollowUpExact} label={undefined} />
+            </span>
           )}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-3">
             {/* Honest state. Never "saved" while something is in flight. */}
             <span className="text-xs text-ink-muted" aria-live="polite">
               {status === 'queued' && t(locale, 'note_queued')}
