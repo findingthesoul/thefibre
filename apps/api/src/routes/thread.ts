@@ -296,22 +296,6 @@ const OrganiserUpdate = z.object({
     })
     .nullable()
     .optional(),
-  // The public site (2026-09-11). The theme is a closed set because each
-  // value names a renderer that has to exist; everything else is content.
-  site_theme: z.enum(['plain', 'festival', 'corporate', 'community']).optional(),
-  site_name: z.string().max(120).nullable().optional(),
-  site_logo_url: z.string().url().max(500).nullable().optional(),
-  site_hero_url: z.string().url().max(500).nullable().optional(),
-  site_headline: z.string().max(200).nullable().optional(),
-  site_intro: z.string().max(8000).nullable().optional(),
-  site_footer_note: z.string().max(1000).nullable().optional(),
-  site_links: z
-    .array(z.object({ label: z.string().max(60), href: z.string().max(500) }))
-    .max(8)
-    .optional(),
-  site_contact_enabled: z.boolean().optional(),
-  site_contact_email: z.string().email().max(200).nullable().optional(),
-  site_contact_intro: z.string().max(1000).nullable().optional(),
 });
 
 threadRoutes.patch('/me', async (c) => {
@@ -397,6 +381,32 @@ const SettingsUpdate = z.object({
     })
     .nullable()
     .optional(),
+  // The public site (2026-09-11). The theme is a closed set because each
+  // value names a renderer that has to exist; everything else is content.
+  //
+  // THESE LIVED ON THE WRONG SCHEMA until 2026-09-14. The first version put
+  // them on OrganiserUpdate (PATCH /me) — a text replacement matched the
+  // identical invoice_details block there first — so PATCH /settings, which
+  // Settings → Website actually calls, answered 200 while Zod silently
+  // stripped every site field. Nothing a workspace chose ever saved. Sjoerd:
+  // "The website stuff does not show up in the front end." The staging check
+  // at the time wrote the fixture straight into the database, so it proved the
+  // renderer and never the save. src/integration/site-settings.int.test.ts now
+  // saves through this route and reads the public page back.
+  site_theme: z.enum(['plain', 'festival', 'corporate', 'community']).optional(),
+  site_name: z.string().max(120).nullable().optional(),
+  site_logo_url: z.string().url().max(500).nullable().optional(),
+  site_hero_url: z.string().url().max(500).nullable().optional(),
+  site_headline: z.string().max(200).nullable().optional(),
+  site_intro: z.string().max(8000).nullable().optional(),
+  site_footer_note: z.string().max(1000).nullable().optional(),
+  site_links: z
+    .array(z.object({ label: z.string().max(60), href: z.string().max(500) }))
+    .max(8)
+    .optional(),
+  site_contact_enabled: z.boolean().optional(),
+  site_contact_email: z.string().email().max(200).nullable().optional(),
+  site_contact_intro: z.string().max(1000).nullable().optional(),
 });
 
 threadRoutes.patch('/settings', async (c) => {

@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.13] — 2026-09-14 — Settings → Website saves (staging)
+
+**Nothing chosen in Settings → Website has ever been saved.** Sjoerd picked the
+Festival design and uploaded a logo on production, and his public page stayed
+plain: *"The website stuff does not show up in the front end."*
+
+The cause was mine, in v0.69.4. The site fields were added to the wrong Zod
+schema — `OrganiserUpdate`, behind `PATCH /me` — because a text replacement
+matched an identical `invoice_details` block there before the one in
+`SettingsUpdate`. The Website screen calls `PATCH /settings`. That route
+answered 200, and Zod silently removed every field it did not know. Production
+confirms it: soul.com's settings row was written minutes before the report,
+and still says `plain` with no logo.
+
+It went unnoticed for three days because the only check at the time wrote the
+design straight into the database and then looked at the public page. That
+proved the themes render and skipped the one step a real user takes.
+
+**The fix** moves the fields onto the settings schema. **The test that
+should have existed**, `src/integration/site-settings.int.test.ts`, sends the
+exact payload the Website form sends through the real middleware and route,
+reads the row back, and reads the public page a visitor gets. It passes on the
+fix and fails on the old code.
+
+**On production after promotion.** The fix is on staging; promoting it also
+carries everything else waiting on staging. Once promoted, the design has to be
+saved once more — nothing from the earlier attempts was stored.
+
 ## [0.75.12] — 2026-09-14 — One tab bar (staging)
 
 **Connections — the person popup uses The Fibre's tab bar.** "What happened"
