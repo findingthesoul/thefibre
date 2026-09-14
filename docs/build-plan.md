@@ -32,6 +32,11 @@ text, one checkbox on Thread enrolment and Meet booking, the accepted version
 stored on the enrolment or booking. The generic text needs a lawyer's read,
 like the other legal pages.
 
+**Meet confirmation page shows the time in the server's zone.** Seen
+2026-09-15 on staging: a booking at 09:00 Europe/Amsterdam read "07:00 AM" on
+`/[host]/[mt]/confirmed/[id]`. The page formats on the server (UTC) with no
+time zone. Format in the host's or invitee's zone, as the booking step does.
+
 **Meet invoice bookings: Send payment link.** Shipped v0.75.17 without it.
 `purchases.ts` send-payment-link still refuses non-Thread, non-Membership
 purchases. Meet needs a checkout session against the host account that

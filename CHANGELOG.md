@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.18] — 2026-09-15 — the booking page says how it is paid (Meet 2.9.1, staging)
+
+Found by booking through the real form on staging after 0.75.17.
+
+- **The price line said "paid at checkout" for an invoice-only meeting
+  type.** It now says "paid by invoice", or "pay online or by invoice" when
+  both are offered.
+- **The billing labels were a size smaller** than "Your name" and "Email"
+  above them. `InvoiceBillingFields` takes the label class of the form it sits
+  in; Thread keeps its own.
+
+Checked on meet.thefibre.tech with a throwaway paid meeting type, deleted
+afterwards: an invoice booking confirms, stores the billing details on the
+booking and a pending invoice row on the ledger, and the confirmation page
+says an invoice will follow. Offering only invoice refuses an online-payment
+request.
+
 ## [0.75.17] — 2026-09-14 — Meet takes payment by invoice (Meet 2.9.0, staging)
 
 Sjoerd: "Meet on thethread has different payment options than in Suite. In
