@@ -1181,47 +1181,62 @@ function RsvpPanel({
   const name = (p: { first_name: string | null; last_name: string | null; email: string | null }) =>
     [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || '—';
 
+  // Laid out on the dialog's own grid (2026-09-14). It used to carry its own
+  // horizontal padding INSIDE a dialog body that already had some, so the
+  // heading, the counts and the list all sat indented from every field
+  // above them, and its divider sat flush under the last input with no room
+  // to breathe. Now it aligns to the same left edge as the form, separates
+  // with real space, and reads as three numbers you can take in at a glance
+  // before the names.
+  const stats: { key: 'coming' | 'not_coming' | 'no_answer'; label: string; tone: string }[] =
+    state.status === 'ready'
+      ? [
+          { key: 'coming', label: t(locale, 'rsvp_coming'), tone: 'text-emerald-700 dark:text-emerald-400' },
+          { key: 'not_coming', label: t(locale, 'rsvp_not_coming'), tone: 'text-ink' },
+          { key: 'no_answer', label: t(locale, 'rsvp_no_answer'), tone: 'text-ink-muted' },
+        ]
+      : [];
+
   return (
-    <div className="border-t border-line px-5 py-4 sm:px-6">
-      <div className="text-sm font-medium">{t(locale, 'rsvp_responses')}</div>
+    <section className="mt-8 border-t border-line pt-6">
+      <h3 className="text-sm font-medium">{t(locale, 'rsvp_responses')}</h3>
 
       {state.status === 'loading' && (
-        <p className="mt-2 text-sm text-ink-muted">{t(locale, 'loading')}</p>
+        <p className="mt-3 text-sm text-ink-muted">{t(locale, 'loading')}</p>
       )}
-      {state.status === 'error' && <p className="mt-2 text-sm text-red-700">{state.error}</p>}
+      {state.status === 'error' && <p className="mt-3 text-sm text-red-700">{state.error}</p>}
 
       {state.status === 'ready' && (
         <>
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-            <span>
-              <span className="font-medium tabular-nums">{state.counts.coming}</span>{' '}
-              <span className="text-ink-subtle">{t(locale, 'rsvp_coming')}</span>
-            </span>
-            <span>
-              <span className="font-medium tabular-nums">{state.counts.not_coming}</span>{' '}
-              <span className="text-ink-subtle">{t(locale, 'rsvp_not_coming')}</span>
-            </span>
-            <span>
-              <span className="font-medium tabular-nums">{state.counts.no_answer}</span>{' '}
-              <span className="text-ink-subtle">{t(locale, 'rsvp_no_answer')}</span>
-            </span>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            {stats.map((st) => (
+              <div
+                key={st.key}
+                className="rounded-lg border border-line bg-surface-sunken/50 px-4 py-3"
+              >
+                <div className={`text-2xl font-medium tabular-nums leading-none ${st.tone}`}>
+                  {state.counts[st.key]}
+                </div>
+                <div className="mt-1.5 text-xs text-ink-subtle">{st.label}</div>
+              </div>
+            ))}
           </div>
 
           {state.items.length === 0 ? (
-            <p className="mt-3 text-sm text-ink-muted">{t(locale, 'rsvp_nobody_enrolled')}</p>
+            <p className="mt-4 text-sm text-ink-muted">{t(locale, 'rsvp_nobody_enrolled')}</p>
           ) : (
-            <ul className="mt-3 max-h-64 overflow-y-auto divide-y divide-line rounded-md border border-line">
+            <ul className="mt-4 max-h-64 overflow-y-auto divide-y divide-line rounded-lg border border-line">
               {state.items.map((r) => (
-                <li key={r.person.id} className="flex items-baseline gap-3 px-3 py-2 text-sm">
+                <li key={r.person.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                   <span className="min-w-0 flex-1 truncate">{name(r.person)}</span>
                   <span
-                    className={
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ring-1 ${
                       r.response === 'coming'
-                        ? 'shrink-0 text-emerald-700'
+                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-900/40'
                         : r.response === 'not_coming'
-                          ? 'shrink-0 text-ink-subtle'
-                          : 'shrink-0 text-ink-muted'
-                    }
+                          ? 'bg-surface-sunken text-ink-subtle ring-line'
+                          : 'bg-transparent text-ink-muted ring-line'
+                    }`}
                   >
                     {r.response === 'coming'
                       ? t(locale, 'rsvp_coming')
@@ -1235,6 +1250,6 @@ function RsvpPanel({
           )}
         </>
       )}
-    </div>
+    </section>
   );
 }

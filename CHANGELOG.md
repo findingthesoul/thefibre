@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.74.5] — 2026-09-14 — the RSVP panel lines up with the form (staging)
+
+Sjoerd, on the engagement dialog: *"The visual interface alignment and
+positioning of the RSVP is not nice."* It was not. The "Who is coming" panel
+carried its own horizontal padding inside a dialog body that already had
+some, so its heading, counts and list all sat indented from every field above
+them, and its divider ran flush under the last input with no space.
+
+It now aligns to the form's left edge, separates from it with real space, and
+shows the three counts as tiles you can read at a glance before the names.
+Each person's answer is a small status pill rather than coloured text at the
+far edge of the row.
+
 ## [0.74.4] — 2026-09-14 — A follow-up date is a calendar icon (staging)
 
 **Connections.** Choosing "on a date…" for a follow-up shows a calendar icon,
