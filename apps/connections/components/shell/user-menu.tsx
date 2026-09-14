@@ -58,7 +58,7 @@ export function UserMenu(props: {
         await browserSupabase().auth.refreshSession();
         // Home, not here: whatever is on screen belongs to the workspace being
         // left, and a record id from one tenant is nothing in another.
-        router.replace('/dashboard');
+        router.replace('/');
         router.refresh();
         return {};
       }}

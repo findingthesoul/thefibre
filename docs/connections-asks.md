@@ -87,6 +87,8 @@ neither in code nor in a document. That is what this file fixes.
 | 54 | Landscape: see the movement — the steps as columns next to each other | **Shipped** v0.73.58 — a Movement tab beside Browse |
 | 55 | Landscape: an extra column to sub-group by tag, location, company… | **Shipped** v0.73.58 — group by tag, location or company |
 | 56 | "Make it all work" — everything open: production, movement board, sub-groups, prompt, highlighting, teams | **Done except production** — v0.73.57–59; the production push was refused by the permission classifier |
+| 57 | connections.thefibre.tech/dashboard should be connections.thefibre.tech | **Shipped** v0.73.60 — /dashboard never existed here (404); sign-in, SSO, the logo and workspace switch now go to the root, and /dashboard redirects there |
+| 58 | (found while fixing 57) The Help link in the Connections sidebar also answers 404 — there is no help page | **Backlog** — needs content, not a redirect |
 
 ### The three that were lost
 

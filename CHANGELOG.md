@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.60] — 2026-09-14 — Connections lives at its own address (staging)
+
+**Connections — the home is the root.** `connections.thefibre.tech/dashboard`
+answered "page not found": every other app has a dashboard, Connections never
+did, but signing in, arriving from another app, the logo in the sidebar and
+switching workspace all sent you there. They now go to
+`connections.thefibre.tech`, and the old `/dashboard` address redirects to it.
+
 ## [0.73.59] — 2026-09-14 — Teams organise what people record (staging)
 
 **Connections — file what happened under one of your teams.** If you are in a
