@@ -62,9 +62,7 @@ import { PricingPanel } from './pricing-panel';
 import { AppearancePanel } from './appearance-panel';
 import { CertificatePanel } from './certificate-panel';
 import { ThreadEmbedPanel } from './embed-panel';
-
-const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 const STATUS_META: Record<string, { labelKey: UiKey; cls: string }> = {
   draft: { labelKey: 'status_draft', cls: 'bg-surface-sunken text-ink-subtle ring-line' },
@@ -364,7 +362,7 @@ export function ThreadTimeline({
     thread.public_scope === 'workspace'
       ? workspaceSlug ?? team?.slug ?? organiser?.slug
       : team?.slug ?? organiser?.slug;
-  const publicUrl = `${THREAD_HOST}/${publicOwnerSlug}/${thread.slug}`;
+  const publicUrl = `${THREAD_ORIGIN}/${publicOwnerSlug}/${thread.slug}`;
 
   function setStatus(next: string) {
     startTransition(async () => {

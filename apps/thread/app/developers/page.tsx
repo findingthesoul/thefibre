@@ -8,6 +8,7 @@
 // a field here, that script should have failed first.
 
 import type { Metadata } from 'next';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 export const metadata: Metadata = {
   title: 'Developers — Thread',
@@ -16,7 +17,6 @@ export const metadata: Metadata = {
 };
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://thefibre-api.fly.dev';
-const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 type Field = { name: string; type: string; note?: string };
 
@@ -289,7 +289,7 @@ export default function DevelopersPage() {
             something. Each widget is an auto-sizing frame; the enrol one is a button that opens
             the registration form in an overlay.
           </p>
-          <Code>{`<script src="${HOST}/embed.js" defer></script>
+          <Code>{`<script src="${THREAD_ORIGIN}/embed.js" defer></script>
 
 <!-- an organiser's public threads -->
 <div data-thread-embed="list" data-organiser="your-slug"></div>

@@ -19,7 +19,7 @@ export function createAssetUploader({
   /** The upload route, e.g. '/api/v1/uploads' or '/api/v1/thread/uploads'. */
   path: string;
   /** Defaults to the local API; pass NEXT_PUBLIC_API_BASE_URL from the app. */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** The browser session's JWT, or nothing when signed out. */
   getAccessToken: () => Promise<string | null | undefined>;
 }): (file: File) => Promise<string> {

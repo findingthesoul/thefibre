@@ -5,6 +5,7 @@
 export {
   COOKIE_THEME,
   COOKIE_SIDEBAR,
+  COOKIE_LOCALE,
   type Theme,
   type SidebarMode,
   type Prefs,

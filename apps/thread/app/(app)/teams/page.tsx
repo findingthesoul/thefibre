@@ -10,9 +10,7 @@ import {
 import { ButtonLink } from '@/components/ui/button';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-
-const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
+import { THREAD_HOST } from '@/lib/public-host';
 
 type TeamListItem = { id: string; name: string; slug: string };
 

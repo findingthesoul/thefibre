@@ -15,9 +15,7 @@ import { uploadAsset } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
 import { SwitchField } from '@/components/ui/switch';
 import { SectionLabel } from '@/components/ui/page';
-
-const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
+import { THREAD_HOST } from '@/lib/public-host';
 
 type PublishScope = 'personal' | 'team' | 'workspace';
 

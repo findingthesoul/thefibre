@@ -1,8 +1,9 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
-import { buildAppList } from '@/lib/available-apps';
+import { buildAppList } from '@thefibre/shared/available-apps';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import type { Locale } from '@thefibre/shared';
@@ -41,7 +42,13 @@ export default async function ThreadHelpPage() {
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
     const r = await apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps');
-    apps = buildAppList({ currentApp: 'the-thread', memberships: me.memberships, workspaceApps: r.items });
+    apps = buildAppList({
+      currentApp: 'the-thread',
+      memberships: me.memberships,
+      workspaceApps: r.items,
+      env: process.env,
+      host: (await headers()).get('host'),
+    });
   } catch {
     apps = [];
   }

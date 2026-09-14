@@ -21,6 +21,7 @@ import {
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
 import { appUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
+import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
 import { runThreadAccessSync } from '../lib/thread-access.js';
@@ -69,7 +70,7 @@ const PatchTier = CreateTier.partial().extend({
   archived: z.boolean().optional(),
 });
 
-const LinkKind = z.enum(['thread', 'meet', 'circle_space', 'url']);
+const LinkKind = z.enum(LINK_KINDS);
 const CreateProduct = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(4000).optional().nullable(),

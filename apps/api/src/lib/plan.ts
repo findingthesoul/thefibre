@@ -101,6 +101,33 @@ export function forgetPlan(workspaceId: string): void {
  */
 export function forgetAllPlans(): void {
   cache.clear();
+  catalogue = null;
+}
+
+// The public catalogue: the rows /pricing renders, signed out. Read on every
+// visit to the marketing page and identical for every visitor, so it is held
+// once per process for the same sixty seconds as a workspace's plan — and
+// dropped by the same forgetAllPlans() an /admin/plans edit calls. Measured
+// 2026-09-14 on staging: 60 concurrent requests took 1.3 s each uncached
+// (one machine, one pool, sixty identical queries); a single request 140 ms.
+const CATALOGUE_SELECT =
+  'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features';
+export type CataloguePlan = Record<string, unknown> & { id: string; price_cents_month?: number | null };
+let catalogue: { at: number; plans: CataloguePlan[] } | null = null;
+
+export async function publicCatalogue(): Promise<CataloguePlan[]> {
+  if (catalogue && Date.now() - catalogue.at < TTL_MS) return catalogue.plans;
+  const { data, error } = await adminClient
+    .from('billing_plan')
+    .select(CATALOGUE_SELECT)
+    // Invite-only tiers are not on the price list (20260912090000). Beta is
+    // something you get asked into, not something you can pick.
+    .eq('is_public', true)
+    .order('price_cents_month');
+  if (error) throw error;
+  const plans = sortPlans((data ?? []) as CataloguePlan[]);
+  catalogue = { at: Date.now(), plans };
+  return plans;
 }
 
 /**

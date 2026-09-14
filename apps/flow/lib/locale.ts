@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { isLocale, toLocale, type Locale } from '@thefibre/shared';
+import { COOKIE_LOCALE } from '@thefibre/shared/prefs';
 
 // The signed-in interface language (i18n P3). ONE user-level setting,
 // app-wide (D1): the thefibre.locale cookie written by savePref from
@@ -7,8 +8,8 @@ import { isLocale, toLocale, type Locale } from '@thefibre/shared';
 // The cookie is PER-BROWSER — pass /auth/me's `locale` as the fallback so
 // the setting follows the user to every device (Sjoerd's phone stayed
 // English while his desktop went NL, 2026-09-07). No cookie, no fallback
-// (or unknown values) → English.
-const COOKIE_LOCALE = 'thefibre.locale';
+// (or unknown values) → English. The cookie name is COOKIE_LOCALE from
+// @thefibre/shared/prefs — one declaration for every app.
 
 export async function uiLocale(fallback?: string | null): Promise<Locale> {
   const store = await cookies();

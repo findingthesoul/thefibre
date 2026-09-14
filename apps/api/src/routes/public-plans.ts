@@ -7,31 +7,25 @@
 // only). The web app fetches it server-side, so CORS stays untouched.
 
 import { Hono } from 'hono';
-import { adminClient } from '../db.js';
-import { sortPlans } from '../lib/plan.js';
+import { publicCatalogue } from '../lib/plan.js';
 import { autoApproveSignups } from '../lib/platform-settings.js';
 
 export const publicPlansRoutes = new Hono();
 
 publicPlansRoutes.get('/', async (c) => {
-  const { data, error } = await adminClient
-    .from('billing_plan')
-    .select(
-      'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features',
-    )
-    // Invite-only tiers are not on the price list (20260912090000). Beta is
-    // something you get asked into, not something you can pick.
-    .eq('is_public', true)
-    .order('price_cents_month');
-  if (error) {
-    console.error('[public-plans GET]', error);
+  let plans;
+  try {
+    plans = await publicCatalogue();
+  } catch (e) {
+    console.error('[public-plans GET]', e);
     return c.json({ error: 'unavailable' }, 500);
   }
   // Cache at the edge for a few minutes — prices change rarely and this is
-  // unauthenticated read traffic on the marketing page.
+  // unauthenticated read traffic on the marketing page. (The API holds the
+  // rows in-process for a minute as well; see publicCatalogue.)
   c.header('Cache-Control', 'public, max-age=300');
   return c.json({
-    plans: sortPlans(data ?? []),
+    plans,
     // The marketing pages read this to choose their story: 'open' = sign up
     // now (auto-approve on, the default); 'invited' = request-access copy.
     signup_mode: (await autoApproveSignups()) ? 'open' : 'invited',

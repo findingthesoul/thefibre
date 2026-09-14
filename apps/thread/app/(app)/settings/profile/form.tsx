@@ -8,9 +8,7 @@ import type { OrganiserRow } from '@/lib/thread-types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n-ui';
 import { updateOrganiser } from '../actions';
-
-const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
+import { THREAD_HOST } from '@/lib/public-host';
 
 /**
  * The address, and a window onto the profile that fills the page.

@@ -15,8 +15,7 @@ import {
 } from '../threads/actions';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-
-const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 export function IssueCertButton({
   locale,
@@ -36,7 +35,7 @@ export function IssueCertButton({
     return (
       <span className="inline-flex items-center gap-1 shrink-0">
         <a
-          href={`${THREAD_HOST}/certificate/${certificateNumber}`}
+          href={`${THREAD_ORIGIN}/certificate/${certificateNumber}`}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-emerald-200 bg-emerald-50 text-emerald-700 hover:ring-emerald-300"

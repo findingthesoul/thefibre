@@ -12,6 +12,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, enrolStatusLabel } from '@/lib/i18n-ui';
 import type { Billing } from '@/lib/thread-types';
+import { THREAD_ORIGIN } from '@/lib/public-host';
 
 export type EnrolmentDetail = {
   answers: Record<string, unknown> | null;
@@ -47,8 +48,6 @@ export type ParticipantRow = {
   status: string;
   detail: EnrolmentDetail;
 };
-
-const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 function fmtMoney(locale: Locale, cents: number | null, currency: string | null): string {
   if (cents == null) return '—';
@@ -168,7 +167,7 @@ export function ParticipantDialog({
           {row.certNumber && (
             <DetailRow label={t(locale, 'certificate')}>
               <a
-                href={`${THREAD_HOST}/certificate/${row.certNumber}`}
+                href={`${THREAD_ORIGIN}/certificate/${row.certNumber}`}
                 target="_blank"
                 rel="noreferrer"
                 className="underline underline-offset-2 hover:text-ink"

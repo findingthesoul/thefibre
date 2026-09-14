@@ -15,6 +15,7 @@ import { DateField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
 import { EmptyState } from '@/components/ui/page';
 import type { Locale } from '@thefibre/shared';
+import { slugify } from '@thefibre/shared/slug';
 import { t, engagementTypeLabel } from '@/lib/i18n-ui';
 import { metaFor } from '@/lib/engagement-meta';
 import type { EngagementType, TeamOption } from '@/lib/thread-types';
@@ -43,16 +44,6 @@ function scopeLabel(locale: Locale, scope: TemplateScope): string {
     : scope === 'team'
       ? t(locale, 'team')
       : t(locale, 'workspace');
-}
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)+/g, '')
-    .slice(0, 60);
 }
 
 export function TemplatesClient({

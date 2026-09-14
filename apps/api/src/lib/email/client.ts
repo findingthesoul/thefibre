@@ -28,17 +28,24 @@ function fromAddress(): string {
 }
 
 /**
+ * The platform's bare sender address — `noreply@thefibre.app` out of
+ * "The Thread <noreply@thefibre.app>" (or EMAIL_FROM, whichever form it
+ * takes). For fields that want an address and nothing else: iCal ORGANIZER,
+ * envelope senders. Email headers keep the display-name form via composeFrom.
+ */
+export function platformFromAddress(): string {
+  const from = fromAddress();
+  return from.match(/<([^>]+)>/)?.[1] || from;
+}
+
+/**
  * "Name <address>", from whichever halves we have. A workspace that has only
  * set a name borrows the platform's address, which is the point: it reads as
  * theirs in the inbox with no DNS work at all.
  */
 function composeFrom(msg: EmailMessage): string {
   const fallback = fromAddress();
-  const address =
-    msg.fromAddress?.trim() ||
-    // the bare address out of "The Fibre <noreply@thefibre.app>"
-    fallback.match(/<([^>]+)>/)?.[1] ||
-    fallback;
+  const address = msg.fromAddress?.trim() || platformFromAddress();
   const name = msg.fromName?.trim();
   return name ? `${name.replace(/[<>"]/g, '')} <${address}>` : (msg.fromAddress ? address : fallback);
 }

@@ -3,6 +3,7 @@
 // calendar. Heavy lifting via googleapis (handles token refresh internally).
 
 import { google, type calendar_v3 } from 'googleapis';
+import { publicApiUrl } from '../public-url.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
@@ -22,8 +23,7 @@ function clientCreds() {
 /** Where Google POSTs back after the user consents. Must match the URI
  * registered in Google Cloud Console exactly. */
 export function googleRedirectUri(): string {
-  const apiBase = process.env.PUBLIC_API_URL ?? 'https://thefibre-api.fly.dev';
-  return `${apiBase}/api/v1/meet/google/auth-callback`;
+  return `${publicApiUrl()}/api/v1/meet/google/auth-callback`;
 }
 
 /** Build the consent URL the user is redirected to. `state` carries the

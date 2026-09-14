@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
-import { countryName } from '@/lib/countries';
+import { countryName } from '@thefibre/shared/countries';
 import { uiLocale } from '@/lib/locale';
 import { t, type UiKey } from '@/lib/i18n-ui';
 import {

@@ -1,3 +1,5 @@
+import { headers } from 'next/headers';
+import { appUrl } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
@@ -11,6 +13,9 @@ import { ContactsList, type ContactItem } from './contacts-list';
 
 export default async function ContactsPage() {
   const locale = await uiLocale();
+  // Where "Open in Fibre" points: the registry's platform URL, on this
+  // deployment's apex (staging stays on staging).
+  const fibreUrl = appUrl('fibre-platform', process.env, (await headers()).get('host'));
   let items: ContactItem[] = [];
   let error: string | null = null;
   try {
@@ -28,7 +33,7 @@ export default async function ContactsPage() {
 
       {!error && items.length === 0 && <EmptyState>{t(locale, 'contacts_empty')}</EmptyState>}
 
-      {items.length > 0 && <ContactsList locale={locale} items={items} />}
+      {items.length > 0 && <ContactsList locale={locale} items={items} fibreUrl={fibreUrl} />}
     </PageContainer>
   );
 }

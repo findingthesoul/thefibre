@@ -13,9 +13,7 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { AddMemberRow, RemoveMemberButton } from './members';
 import { TeamSettings } from './team-settings';
-
-const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
+import { THREAD_HOST } from '@/lib/public-host';
 
 type TeamMember = {
   user_id: string;

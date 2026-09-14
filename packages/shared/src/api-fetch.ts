@@ -47,7 +47,7 @@ export function createApiFetch({
   /** The slug this app announces in X-App-ID; RLS gates curator rows on it. */
   appId: string;
   /** Defaults to the local API; pass NEXT_PUBLIC_API_BASE_URL from the app. */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** The current session's JWT, or nothing when signed out. */
   getAccessToken: () => Promise<string | null | undefined>;
 }): ApiFetch {

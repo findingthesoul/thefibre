@@ -8,9 +8,7 @@ import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextAreaField } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n-ui';
-
-const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
+import { THREAD_HOST } from '@/lib/public-host';
 
 export function NewTeamForm({ locale }: { locale: Locale }) {
   const router = useRouter();

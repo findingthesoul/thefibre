@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { APPS, ENTITY } from '@thefibre/shared';
+import { APPS, APP_DISPLAY_ORDER, ENTITY } from '@thefibre/shared';
 import { DocHeader, H2, P, List, Item, Rows, Row } from '../prose';
 
 export const metadata = {
@@ -7,7 +7,17 @@ export const metadata = {
   description: 'Who builds The Fibre, and what it is for.',
 };
 
-const LIVE = ['fibre-meet', 'the-thread', 'fibre-flow', 'fibre-pulse'] as const;
+// The apps this page lists: the registry's available ones, in the canonical
+// display order, minus the platform (it is the subject of the page, not an
+// app around it). Derived since 2026-09-14 — until then a hand list of four.
+//
+// Members and Connections are marked available in the registry but were NOT
+// on the hand list, which was written before either shipped. Kept out here
+// explicitly rather than appearing silently: whether this page should name
+// them is a copy decision, not a refactor's. Drop a slug from NOT_LISTED to
+// show it.
+const NOT_LISTED = new Set<string>(['fibre-platform', 'membership', 'fibre-sales']);
+const LIVE = APP_DISPLAY_ORDER.filter((slug) => APPS[slug].available && !NOT_LISTED.has(slug));
 
 export default function AboutPage() {
   return (

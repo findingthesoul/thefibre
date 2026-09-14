@@ -4,7 +4,7 @@ import { Building2, Crown, Star } from 'lucide-react';
 import { appName, type AppId } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
-import { countryName } from '@/lib/countries';
+import { countryName } from '@thefibre/shared/countries';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';

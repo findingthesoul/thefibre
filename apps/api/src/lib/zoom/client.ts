@@ -13,6 +13,8 @@
 //   meeting:write:meeting, meeting:update:meeting, meeting:delete:meeting,
 //   user:read:user
 
+import { publicApiUrl } from '../public-url.js';
+
 export interface ZoomTokens {
   accessToken: string;
   refreshToken: string;
@@ -20,8 +22,7 @@ export interface ZoomTokens {
 }
 
 export function zoomRedirectUri(): string {
-  const apiBase = process.env.PUBLIC_API_URL ?? 'https://thefibre-api.fly.dev';
-  return `${apiBase}/api/v1/meet/zoom/auth-callback`;
+  return `${publicApiUrl()}/api/v1/meet/zoom/auth-callback`;
 }
 
 export function isZoomConfigured(): boolean {
