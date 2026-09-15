@@ -443,6 +443,71 @@ labelled contact points to.
 Not scoped. The MCP half of his message was a general question, answered in
 chat, not an item.
 
+### 2026-09-15 — what an MCP server could do for The Fibre
+
+Sjoerd, after asking what an MCP is:
+
+> What could and MCP do for us?
+
+Checked against `lib/app-keys.ts` and `middleware/app-context.ts` on
+2026-09-15 rather than answered in the abstract.
+
+**The finding that makes this worth an item: the permission model is already
+built, and it was already reasoned about the right problem.** An MCP server
+over `/api/v1/apps/*` would need no new authority design, because the app-key
+scope vocabulary already encodes the judgement "what may a non-human actor
+do here". Read the comments in `app-keys.ts`: `write:messages` is split out of
+`write:programs` precisely because a credential that can publish a
+message-family engagement *"can email everyone enrolled in a programme, from
+the platform's domain, on a five-minute timer."* That was written about
+external apps. It applies harder to an assistant.
+
+**What it could reach**, with scopes that exist today: activity across every
+app (`read:activities`), persons and organisations through the app-facing
+routes that filter workspace explicitly, programmes and who enrolled
+(`read:programs`, `read:enrolments`), flows (`read:flows`), curator data,
+and the two decision-shaped ones, `write:activities` and `review:enrolments`.
+
+**What it could not reach, by existing design, and this is the better half:**
+
+- The general `/persons` and `/organisations` routes are deliberately absent
+  from the allow-list: they run on a real user's RLS identity and an app key
+  has no user. A broad person query is structurally impossible.
+- There is no `write:enrolments` at all. An assistant cannot enrol anybody;
+  registration comes from the public form only, which protects the whole
+  certificate and payout chain.
+- Default deny on the route table, so widening the surface is a deliberate
+  edit rather than a side effect of granting a scope.
+
+**Three things it would actually buy:**
+
+1. **Questions answered without building the screen.**
+   `connections-market.md` §4 boasts that no CRM at this price can answer
+   "which of last year's participants have gone quiet", and Fibre can from
+   tables that already exist. Today that still needs somebody to build the
+   surface. Through MCP it needs a sentence.
+2. **Drafting with the record in view** — a newsletter, a follow-up, a
+   session summary — by something that can read the activity trail and still
+   cannot read note bodies. The wall holds without extra work.
+3. **The genuinely novel one: ship it as a platform feature.** `fot-planner`
+   already runs against the published contract. An MCP server for that
+   contract gives every external app builder assistant access to their own
+   workspace data, with scopes already enforced. That is a product, not an
+   internal convenience.
+
+**The objection worth holding, and it is about writes.** `actorUserId()`
+returns `null` for an app-key context: every write through an app key is
+attributed to nobody, on purpose. Fine for reads. Not fine for
+`review:enrolments`, where admitting or declining somebody is a decision
+about a real person and the record would say no one made it. If an assistant
+ever writes here, an assistant's writes need to be marked as such, and a
+decision needs a human attached.
+
+**And the plain caution:** an MCP server is plumbing, not a product. If
+nobody is asking these questions today, building it answers nothing.
+
+Not scoped.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._
