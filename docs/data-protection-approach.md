@@ -372,7 +372,12 @@ The short runbook, until the incident has taught us a longer one.
    - the anon key or JWT secret → rotate the JWT secret in Supabase, which
      invalidates every session on the platform, then redeploy;
    - `SSO_INTERNAL_SECRET` → `openssl rand -hex 32`, set on Fly and on every
-     Vercel project, redeploy all;
+     Vercel project, redeploy all. **Since v0.78.0 this secret also derives
+     the key that encrypts workspace-supplied assistant keys**
+     (`workspace_assistant`, lib/assistant/secret.ts): rotating it makes every
+     stored assistant key unreadable, so tell the workspaces that set one to
+     enter it again, or re-encrypt under the new secret before the old one
+     is gone;
    - the service-role key → rotate in Supabase, update Fly and
      `apps/api/.env*` on every machine;
    - a Stripe key or webhook secret → roll in the Stripe dashboard;
