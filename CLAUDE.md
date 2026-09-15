@@ -424,9 +424,11 @@ prefer pointing at the thing that cannot lie.
 
 **The shape, as of this date.** Nine Next.js apps plus the Hono API. Live on
 `thethread.app` subdomains, with the platform itself still on `thefibre.app`;
-staging is the `thefibre.tech` twin. `fibre-sales` and `fibre-learn` are
-registered in the catalogue but unreleased. `connections` exists as an app
-directory on port 3008 and is **not** registered in the catalogue yet.
+staging is the `thefibre.tech` twin. `fibre-learn` is registered in the
+catalogue but unreleased. `connections` is the app directory (port 3008)
+behind the catalogue slug `fibre-sales`, approved and live since 2026-09-13.
+Two packages sit beside the apps: `packages/shared` and, since v0.76.0,
+`packages/mcp` (the app-key contract as MCP tools, `docs/mcp.md`).
 `fot-planner` is a real external app running against the published contract in
 production — which is why `/api/v1/apps/*` stays additive-only in practice and
 not just in principle.

@@ -178,6 +178,25 @@ export type PlatformSettingKey =
   | 'about'
   | 'privacy';
 
+/** Every key, as a value — so a test can prove each has its strings in the
+ *  server chrome catalog. A `as ServerChromeKey` cast in platformSettings()
+ *  hid a missing pair once (v0.78.0: 'assistant' crashed /settings on staging
+ *  in every locale). */
+export const PLATFORM_SETTING_KEYS = [
+  'profile',
+  'connections',
+  'payments',
+  'workspace',
+  'members',
+  'teams',
+  'apps',
+  'currencies',
+  'assistant',
+  'plan',
+  'about',
+  'privacy',
+] as const satisfies readonly PlatformSettingKey[];
+
 const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
 const CANON: Record<

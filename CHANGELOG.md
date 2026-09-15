@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.7] — 2026-09-15 — Settings opens again (staging)
+
+Since v0.78.0 the Fibre's Settings page threw a server-side exception for
+every signed-in user, in every language, on staging. The assistant's entry
+had been added to the shared settings component but not to the server chrome
+catalog it reads its title and description from, and the lookup is written
+through a type cast, so the typecheck could not see the missing pair. Found
+by the closing sweep's Playwright run and reproduced in a browser.
+
+The two strings now exist in all six languages, and a test asserts that every
+settings key has both in every language, so the cast cannot hide the next one.
+
 ## [0.78.6] — 2026-09-15 — Let go, and it really drifts home (staging)
 
 **Connections — the map.** A name you pull out of the cloud slides back slowly

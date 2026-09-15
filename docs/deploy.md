@@ -110,7 +110,7 @@ fly secrets set \
   GOOGLE_CLIENT_ID="<paste from Supabase Auth → Google provider>" \
   GOOGLE_CLIENT_SECRET="<paste from Supabase Auth → Google provider>" \
   RESEND_API_KEY="<paste from Resend dashboard>" \
-  EMAIL_FROM="The Fibre <noreply@thefibre.app>" \
+  EMAIL_FROM="The Thread <noreply@thefibre.app>" \   # the public name; receipts and enrolment mail no longer read it (v0.75.19)
   SSO_INTERNAL_SECRET="$(openssl rand -hex 32)"
 
 # First deploy
