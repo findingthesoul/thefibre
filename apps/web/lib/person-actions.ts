@@ -47,6 +47,8 @@ export async function createPersonFromPicker(input: {
   email: string;
   phone?: string;
   country?: string;
+  email_label?: string;
+  phone_label?: string;
 }): Promise<CreatePersonResult> {
   const body = Object.fromEntries(
     Object.entries(input)

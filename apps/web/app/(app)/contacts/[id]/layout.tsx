@@ -25,6 +25,19 @@ export default async function ContactLayout({
     throw e;
   }
 
+  // The person's organisations, so a work address can say which one it is for.
+  let organisations: { id: string; name: string }[] = [];
+  try {
+    const m = await apiFetch<{ org_memberships: { ended_at: string | null; organisation: { id: string; name: string } | null }[] }>(
+      `/api/v1/persons/${id}/memberships`,
+    );
+    organisations = m.org_memberships
+      .filter((x) => !x.ended_at && x.organisation)
+      .map((x) => x.organisation!);
+  } catch {
+    // Non-fatal: the editor just offers no organisation.
+  }
+
   let appSlugs: string[] = [];
   try {
     const r = await apiFetch<{ apps: string[] }>(`/api/v1/persons/${id}/apps`);
@@ -70,7 +83,7 @@ export default async function ContactLayout({
             ? t(locale, 'goes_by', { name: person.preferred_name })
             : undefined
         }
-        actions={<ContactActions person={person} locale={locale} />}
+        actions={<ContactActions person={person} organisations={organisations} locale={locale} />}
       />
       <TabNav tabs={tabs} />
       <div className="mt-8">{children}</div>

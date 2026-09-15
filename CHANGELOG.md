@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.23] — 2026-09-15 — One person, labelled addresses; same person or two? (staging)
+
+docs/people-in-two-capacities-proposal.md §A and §D, built.
+
+**A person has every address they use, labelled.** `person_contact_point`
+(migration 20260915090000) holds each email and phone with a label (work ·
+private · other), the organisation a work address is for, a primary per kind
+and when it was verified. `person.email` / `person.phone` stay the primary
+copies: a trigger keeps the table in step with every existing writer (a typo
+fix renames an unlabelled address; replacing a labelled one keeps it as a
+secondary), and the API sets them from the primaries. Backfilled from the four
+old columns; an address somebody signed in with is marked verified.
+Merging carries the addresses to the kept person (merge_person repoints every
+FK) and an undo takes them back, with primaries re-derived afterwards.
+
+**Found by any address.** `resolvePerson` matches an incoming email against
+every address on a person, so enrolling with your private address finds you
+instead of creating a second record. Phones compare as digits, `0031…` = `+31…`.
+
+**The contact card and editor.** Every address with its label and
+organisation; the edit dialog is the new shared `ContactPointsEditor` (label,
+make primary, organisation for a work address, + add email/phone), phones via
+the shared `PhoneInput` — a searchable country code and the number. The Add
+person popup in Add member gets labels (work by default) and the phone field.
+
+**Same person, or two different people?** The duplicates review shows each
+pair side by side with every labelled address, organisations and place, and
+asks the question. *Same person, different roles* → pick the record to keep,
+everything merges onto it. *Different people, same name* → remembered on the
+shared review queue (`hygiene_finding`, dismissed) and never proposed again;
+the nightly sweep reads the same rows. A merge marks the pair answered, an
+undo reopens it. New reason: two people who share any address. Admins see
+"N possible duplicates — review" on Contacts.
+
 ## [0.75.22] — 2026-09-15 — Adding a person hides the member form (staging)
 
 In Add member → "Add … as a new person", the member fields stayed visible

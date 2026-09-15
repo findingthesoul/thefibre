@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { CountryCombobox } from '@/components/ui/country-combobox';
 import { createPersonFromPicker } from '@/lib/person-actions';
+import { PhoneInput } from '@thefibre/shared/ui/contact-points';
 import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -151,9 +152,19 @@ export function AddMemberButton({
             <TextField label={t(locale, 'email_label')} type="email" value={draft.email} required
               onChange={(e) => setDraft({ ...draft, email: e.target.value })}
               errors={draftErrors.fieldErrors?.email} />
-            <TextField label={t(locale, 'phone')} type="tel" value={draft.phone}
-              onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-              errors={draftErrors.fieldErrors?.phone} />
+            <SelectField label={t(locale, 'contact_label')} value={draft.email_label}
+              onChange={(e) => setDraft({ ...draft, email_label: e.target.value })}
+              options={labelOptions(locale)} />
+            <div className="block">
+              <span className="text-sm text-ink-subtle">{t(locale, 'phone')}</span>
+              <div className="mt-1">
+                <PhoneInput value={draft.phone} defaultCountry={draft.country || 'NL'}
+                  onChange={(v) => setDraft((d) => (d ? { ...d, phone: v } : d))} />
+              </div>
+            </div>
+            <SelectField label={t(locale, 'contact_label')} value={draft.phone_label}
+              onChange={(e) => setDraft({ ...draft, phone_label: e.target.value })}
+              options={labelOptions(locale)} />
             <CountryCombobox label={t(locale, 'country')}
               onChange={(code) => setDraft((d) => (d ? { ...d, country: code } : d))}
               errors={draftErrors.fieldErrors?.country} />
@@ -219,13 +230,25 @@ type NewPersonDraft = {
   email: string;
   phone: string;
   country: string;
+  email_label: string;
+  phone_label: string;
 };
+
+// Added to a member of an organisation, so their address is most likely
+// the work one — the default, easy to change.
+const labelOptions = (locale: Locale) => [
+  { value: '', label: '—' },
+  { value: 'work', label: t(locale, 'label_work') },
+  { value: 'private', label: t(locale, 'label_private') },
+  { value: 'other', label: t(locale, 'label_other') },
+];
 
 /** What was typed becomes a head start: an address fills the email, a name
  *  splits on its first space ("Marja van den Berg" → Marja / van den Berg). */
 function draftFromTyped(typed: string): NewPersonDraft {
   const v = typed.trim();
-  if (v.includes('@')) return { first_name: '', last_name: '', email: v, phone: '', country: '' };
+  const labels = { email_label: 'work', phone_label: 'work' };
+  if (v.includes('@')) return { first_name: '', last_name: '', email: v, phone: '', country: '', ...labels };
   const i = v.indexOf(' ');
   return {
     first_name: i < 0 ? v : v.slice(0, i),
@@ -233,5 +256,6 @@ function draftFromTyped(typed: string): NewPersonDraft {
     email: '',
     phone: '',
     country: '',
+    ...labels,
   };
 }

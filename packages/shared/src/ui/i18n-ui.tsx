@@ -986,6 +986,119 @@ const CHROME = {
     de: ' — bald verfügbar', // MT
     fr: ' — bientôt', // MT
   },
+  // ── contact points (20260915090000) ──
+  cp_email: {
+    en: 'Email',
+    nl: 'E-mail',
+    es: 'Email', // MT
+    pt: 'Email', // MT
+    de: 'E-Mail', // MT
+    fr: 'E-mail', // MT
+  },
+  cp_phone: {
+    en: 'Phone',
+    nl: 'Telefoon',
+    es: 'Teléfono', // MT
+    pt: 'Telefone', // MT
+    de: 'Telefon', // MT
+    fr: 'Téléphone', // MT
+  },
+  cp_label_none: {
+    en: 'No label',
+    nl: 'Geen label',
+    es: 'Sin etiqueta', // MT
+    pt: 'Sem rótulo', // MT
+    de: 'Ohne Label', // MT
+    fr: 'Sans libellé', // MT
+  },
+  cp_label_work: {
+    en: 'Work',
+    nl: 'Werk',
+    es: 'Trabajo', // MT
+    pt: 'Trabalho', // MT
+    de: 'Arbeit', // MT
+    fr: 'Travail', // MT
+  },
+  cp_label_private: {
+    en: 'Private',
+    nl: 'Privé',
+    es: 'Personal', // MT
+    pt: 'Pessoal', // MT
+    de: 'Privat', // MT
+    fr: 'Privé', // MT
+  },
+  cp_label_other: {
+    en: 'Other',
+    nl: 'Anders',
+    es: 'Otro', // MT
+    pt: 'Outro', // MT
+    de: 'Andere', // MT
+    fr: 'Autre', // MT
+  },
+  cp_primary: {
+    en: 'Primary',
+    nl: 'Primair',
+    es: 'Principal', // MT
+    pt: 'Principal', // MT
+    de: 'Primär', // MT
+    fr: 'Principal', // MT
+  },
+  cp_make_primary: {
+    en: 'Make primary',
+    nl: 'Maak primair',
+    es: 'Hacer principal', // MT
+    pt: 'Tornar principal', // MT
+    de: 'Als primär festlegen', // MT
+    fr: 'Rendre principal', // MT
+  },
+  cp_add_email: {
+    en: '+ Add email',
+    nl: '+ E-mailadres toevoegen',
+    es: '+ Añadir email', // MT
+    pt: '+ Adicionar email', // MT
+    de: '+ E-Mail hinzufügen', // MT
+    fr: '+ Ajouter un e-mail', // MT
+  },
+  cp_add_phone: {
+    en: '+ Add phone',
+    nl: '+ Telefoonnummer toevoegen',
+    es: '+ Añadir teléfono', // MT
+    pt: '+ Adicionar telefone', // MT
+    de: '+ Telefon hinzufügen', // MT
+    fr: '+ Ajouter un téléphone', // MT
+  },
+  cp_for_org: {
+    en: 'For organisation',
+    nl: 'Voor organisatie',
+    es: 'Para la organización', // MT
+    pt: 'Para a organização', // MT
+    de: 'Für Organisation', // MT
+    fr: 'Pour l’organisation', // MT
+  },
+  cp_no_org: {
+    en: '— No organisation —',
+    nl: '— Geen organisatie —',
+    es: '— Sin organización —', // MT
+    pt: '— Sem organização —', // MT
+    de: '— Keine Organisation —', // MT
+    fr: '— Aucune organisation —', // MT
+  },
+  cp_verified: {
+    en: 'Verified',
+    nl: 'Geverifieerd',
+    es: 'Verificado', // MT
+    pt: 'Verificado', // MT
+    de: 'Verifiziert', // MT
+    fr: 'Vérifié', // MT
+  },
+  cp_prefix: {
+    en: 'Country code',
+    nl: 'Landcode',
+    es: 'Prefijo', // MT
+    pt: 'Código do país', // MT
+    de: 'Ländervorwahl', // MT
+    fr: 'Indicatif', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const chromeT = makeT(CHROME);

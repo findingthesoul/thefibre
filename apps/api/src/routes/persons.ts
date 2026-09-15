@@ -4,6 +4,7 @@ import { userClient, adminClient } from '../db.js';
 import { resolvePerson, normaliseEmail } from '../lib/resolve-person.js';
 import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
 import { orIlike } from '../lib/postgrest-filter.js';
+import { ContactPointInput, cleanContactPoints, pairOrder, normaliseContactValue, CONTACT_LABELS } from '../lib/contact-points.js';
 
 export const personsRoutes = new Hono();
 
@@ -55,6 +56,10 @@ const PersonCreate = z.object({
   street: z.string().max(200).optional(),
   postal_code: z.string().max(20).optional(),
   city: z.string().max(100).optional(),
+  // Labels for the two addresses given at creation (20260915090000). Not
+  // person columns — they land on the synced contact points below.
+  email_label: z.enum(CONTACT_LABELS).optional(),
+  phone_label: z.enum(CONTACT_LABELS).optional(),
 });
 
 personsRoutes.post('/', async (c) => {
@@ -90,10 +95,11 @@ personsRoutes.post('/', async (c) => {
     }
   }
 
+  const { email_label: emailLabel, phone_label: phoneLabel, ...personFields } = body.data;
   const { data, error } = await adminClient
     .from('person')
     .insert({
-      ...body.data,
+      ...personFields,
       ...(normalisedEmail ? { email: normalisedEmail } : {}),
       workspace_id: ctx.workspaceId,
       created_via: 'manual',
@@ -109,6 +115,21 @@ personsRoutes.post('/', async (c) => {
       hint: error.hint,
     });
     return c.json({ error: error.message, code: error.code }, 500);
+  }
+
+  // The sync trigger made the contact points; give them their labels.
+  for (const [kind, label, raw] of [
+    ['email', emailLabel, data.email],
+    ['phone', phoneLabel, personFields.phone],
+  ] as const) {
+    const value = normaliseContactValue(kind, raw as string | null | undefined);
+    if (!label || !value) continue;
+    await adminClient
+      .from('person_contact_point')
+      .update({ label })
+      .eq('person_id', data.id)
+      .eq('kind', kind)
+      .eq('value', value);
   }
 
   // ---------------------------------------------------------------------
@@ -255,15 +276,50 @@ personsRoutes.get('/duplicates', async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  const pairs = (data ?? []) as { person_a: string; person_b: string; reason: string; score: number }[];
+  // A pair somebody already answered is not asked again: "different people"
+  // is a dismissed finding, "same person" an accepted one. The nightly sweep
+  // and this page read the same rows (proposal §D).
+  const { data: answered } = await adminClient
+    .from('hygiene_finding')
+    .select('subject_id, related_id')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('kind', 'duplicate_person')
+    .in('status', ['dismissed', 'accepted']);
+  const done = new Set((answered ?? []).map((r) => pairOrder(r.subject_id as string, r.related_id as string).join(':')));
+
+  const pairs = ((data ?? []) as { person_a: string; person_b: string; reason: string; score: number }[])
+    .filter((p) => !done.has(pairOrder(p.person_a, p.person_b).join(':')));
   const ids = [...new Set(pairs.flatMap((p) => [p.person_a, p.person_b]))];
-  const { data: people } = ids.length
-    ? await adminClient
-        .from('person')
-        .select('id, first_name, last_name, email, created_at, created_via')
-        .in('id', ids)
-    : { data: [] as Record<string, unknown>[] };
-  const byId = new Map((people ?? []).map((p) => [p.id as string, p]));
+  const [{ data: people }, { data: points }, { data: orgs }] = ids.length
+    ? await Promise.all([
+        adminClient
+          .from('person')
+          .select('id, first_name, last_name, email, city, country, created_at, created_via')
+          .in('id', ids),
+        adminClient
+          .from('person_contact_point')
+          .select('person_id, kind, value, label, is_primary')
+          .in('person_id', ids),
+        adminClient
+          .from('org_membership')
+          .select('person_id, ended_at, organisation:org_id (name)')
+          .in('person_id', ids)
+          .is('ended_at', null),
+      ])
+    : [{ data: [] as Record<string, unknown>[] }, { data: [] as Record<string, unknown>[] }, { data: [] as Record<string, unknown>[] }];
+  const byId = new Map(
+    (people ?? []).map((p) => [
+      p.id as string,
+      {
+        ...p,
+        contact_points: (points ?? []).filter((x) => x.person_id === p.id),
+        organisations: (orgs ?? [])
+          .filter((x) => x.person_id === p.id)
+          .map((x) => (x.organisation as unknown as { name: string } | null)?.name)
+          .filter(Boolean),
+      },
+    ]),
+  );
 
   return c.json({
     items: pairs.map((p) => ({
@@ -273,6 +329,53 @@ personsRoutes.get('/duplicates', async (c) => {
       b: byId.get(p.person_b) ?? { id: p.person_b },
     })),
   });
+});
+
+const PairBody = z.object({
+  a_id: z.string().uuid(),
+  b_id: z.string().uuid(),
+});
+
+/** Record the answer to "same person, or two?" on the shared review queue. */
+async function answerPair(
+  ctx: { userId: string; workspaceId: string },
+  a: string,
+  b: string,
+  status: 'dismissed' | 'accepted',
+) {
+  const [subject, related] = pairOrder(a, b);
+  return adminClient.from('hygiene_finding').upsert(
+    {
+      workspace_id: ctx.workspaceId,
+      kind: 'duplicate_person',
+      subject_table: 'person',
+      subject_id: subject,
+      related_id: related,
+      status,
+      evidence: { answer: status === 'dismissed' ? 'different_people' : 'same_person' },
+      resolved_at: new Date().toISOString(),
+      resolved_by: ctx.userId || null,
+    },
+    { onConflict: 'workspace_id,kind,subject_id,related_id' },
+  );
+}
+
+// POST /persons/duplicates/distinct — "No, these are different people with
+// the same name." Remembered; the pair is never proposed again.
+personsRoutes.post('/duplicates/distinct', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+  const body = PairBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const { count } = await adminClient
+    .from('person')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', ctx.workspaceId)
+    .in('id', [body.data.a_id, body.data.b_id]);
+  if (count !== 2) return c.json({ error: 'person not found' }, 404);
+  const { error } = await answerPair(ctx, body.data.a_id, body.data.b_id, 'dismissed');
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ ok: true });
 });
 
 const MergeBody = z.object({
@@ -305,6 +408,9 @@ personsRoutes.post('/merge', async (c) => {
     // wording through rather than flattening them all to 500.
     return c.json({ error: error.message }, 400);
   }
+  // The merged person's addresses arrived still flagged primary.
+  await adminClient.rpc('person_contact_point_remark', { p_person: body.data.keep_id });
+  await answerPair(ctx, body.data.keep_id, body.data.merge_id, 'accepted');
   return c.json({ merge_id: data as string }, 201);
 });
 
@@ -320,6 +426,27 @@ personsRoutes.post('/merges/:id/undo', async (c) => {
   if (error) {
     console.error('[persons/merges/undo] failed', error);
     return c.json({ error: error.message }, 400);
+  }
+  const { data: m } = await adminClient
+    .from('person_merge')
+    .select('kept_person_id, merged_person_id')
+    .eq('id', c.req.param('id'))
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (m) {
+    await Promise.all([
+      adminClient.rpc('person_contact_point_remark', { p_person: m.kept_person_id }),
+      adminClient.rpc('person_contact_point_remark', { p_person: m.merged_person_id }),
+    ]);
+    // Undone means unanswered again: back into the queue.
+    const [subject, related] = pairOrder(m.kept_person_id as string, m.merged_person_id as string);
+    await adminClient
+      .from('hygiene_finding')
+      .update({ status: 'open', resolved_at: null, resolved_by: null })
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('kind', 'duplicate_person')
+      .eq('subject_id', subject)
+      .eq('related_id', related);
   }
   return c.json({ ok: true });
 });
@@ -367,7 +494,90 @@ personsRoutes.get('/:id', async (c) => {
     .is('deleted_at', null)
     .single();
   if (error) return c.json({ error: error.message }, 404);
-  return c.json(data);
+  const { data: points } = await db
+    .from('person_contact_point')
+    .select('id, kind, value, label, org_id, is_primary, verified_at, organisation:org_id (id, name)')
+    .eq('person_id', data.id)
+    .order('kind')
+    .order('is_primary', { ascending: false })
+    .order('created_at');
+  return c.json({ ...data, contact_points: points ?? [] });
+});
+
+// PUT /persons/:id/contact-points — the whole list, as the editor holds it.
+// Rows not in the list are removed, the rest upserted, and person.email /
+// person.phone set to the primaries so every older reader stays right.
+personsRoutes.put('/:id/contact-points', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const personId = c.req.param('id');
+
+  const body = z.object({ items: z.array(ContactPointInput).max(20) }).safeParse(
+    await c.req.json().catch(() => null),
+  );
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const cleaned = cleanContactPoints(body.data.items);
+  if (!cleaned.ok) return c.json({ error: cleaned.error }, 400);
+
+  // Visible to the caller (RLS), in this workspace, not deleted.
+  const { data: person } = await db
+    .from('person')
+    .select('id, workspace_id')
+    .eq('id', personId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!person) return c.json({ error: 'person not found' }, 404);
+
+  const orgIds = [...new Set(cleaned.points.map((p) => p.org_id).filter(Boolean))] as string[];
+  if (orgIds.length) {
+    const { count } = await adminClient
+      .from('organisation')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', person.workspace_id)
+      .in('id', orgIds);
+    if (count !== orgIds.length) return c.json({ error: 'unknown organisation' }, 400);
+  }
+
+  const { data: existing } = await adminClient
+    .from('person_contact_point')
+    .select('id, kind, value')
+    .eq('person_id', personId);
+  const keep = new Set(cleaned.points.map((p) => `${p.kind}:${p.value}`));
+  const gone = (existing ?? []).filter((r) => !keep.has(`${r.kind}:${r.value}`)).map((r) => r.id as string);
+
+  const { error: upErr } = await adminClient.from('person_contact_point').upsert(
+    cleaned.points.map((p) => ({ ...p, person_id: personId, workspace_id: person.workspace_id })),
+    { onConflict: 'person_id,kind,value' },
+  );
+  if (upErr) return c.json({ error: upErr.message }, 500);
+  if (gone.length) {
+    const { error: delErr } = await adminClient.from('person_contact_point').delete().in('id', gone);
+    if (delErr) return c.json({ error: delErr.message }, 500);
+  }
+
+  // Primaries onto the person; the trigger would re-add a removed address if
+  // it were still in email_secondary/phone_secondary, so those clear — the
+  // table is where secondary addresses live now.
+  const { error: pErr } = await adminClient
+    .from('person')
+    .update({
+      email: cleaned.primaryEmail,
+      phone: cleaned.primaryPhone,
+      email_secondary: null,
+      phone_secondary: null,
+    })
+    .eq('id', personId);
+  if (pErr) return c.json({ error: pErr.message }, 500);
+  await adminClient.rpc('person_contact_point_remark', { p_person: personId });
+
+  const { data: points } = await db
+    .from('person_contact_point')
+    .select('id, kind, value, label, org_id, is_primary, verified_at, organisation:org_id (id, name)')
+    .eq('person_id', personId)
+    .order('kind')
+    .order('is_primary', { ascending: false })
+    .order('created_at');
+  return c.json({ items: points ?? [] });
 });
 
 // GET /api/v1/persons/:id/memberships

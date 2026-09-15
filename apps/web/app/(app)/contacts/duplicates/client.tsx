@@ -4,7 +4,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Undo2, ArrowRight } from 'lucide-react';
-import { mergePeople, undoMerge } from './actions';
+import { ContactPointsView, type ContactPointValue } from '@thefibre/shared/ui/contact-points';
+import { countryName } from '@thefibre/shared/countries';
+import { mergePeople, undoMerge, markDistinct } from './actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
 export type DupPerson = {
@@ -14,6 +16,10 @@ export type DupPerson = {
   email?: string | null;
   created_at?: string | null;
   created_via?: string | null;
+  city?: string | null;
+  country?: string | null;
+  contact_points?: ContactPointValue[];
+  organisations?: string[];
 };
 
 export type DupPair = {
@@ -42,6 +48,7 @@ function displayName(p: DupPerson) {
 // computed key throws that guarantee away exactly where it is most useful.
 const REASON_KEYS = {
   same_email: 'dup_reason_same_email',
+  shared_address: 'dup_reason_shared_address',
   same_name: 'dup_reason_same_name',
   similar_name: 'dup_reason_similar_name',
 } as const;
@@ -81,10 +88,13 @@ function PersonCard({
 }: {
   person: DupPerson;
   locale: Locale;
-  onKeep: () => void;
+  /** Only once "Same person" was answered: keep this record. */
+  onKeep: (() => void) | null;
   busy: boolean;
   intlLocale: string;
 }) {
+  const points = person.contact_points ?? [];
+  const place = [person.city, countryName(person.country)].filter(Boolean).join(', ');
   return (
     <div className="flex-1 rounded-md border border-line bg-surface-raised p-3">
       <Link
@@ -93,7 +103,20 @@ function PersonCard({
       >
         {displayName(person)}
       </Link>
-      <div className="mt-1 text-xs text-ink-muted break-all">{person.email ?? '—'}</div>
+      {/* Everything that helps a person decide: every address with its
+          label, where they work, where they live. */}
+      <div className="mt-2 space-y-2 text-xs text-ink-subtle">
+        {points.length ? (
+          <>
+            <ContactPointsView points={points} kind="email" />
+            {points.some((p) => p.kind === 'phone') && <ContactPointsView points={points} kind="phone" />}
+          </>
+        ) : (
+          <div className="break-all">{person.email ?? '—'}</div>
+        )}
+        {!!person.organisations?.length && <div>{person.organisations.join(' · ')}</div>}
+        {place && <div>{place}</div>}
+      </div>
       <div className="mt-2 text-xs text-ink-muted">
         {person.created_at
           ? new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' }).format(
@@ -103,14 +126,16 @@ function PersonCard({
         {' · '}
         {sourceLabel(locale, person.created_via)}
       </div>
-      <button
-        type="button"
-        onClick={onKeep}
-        disabled={busy}
-        className="mt-3 w-full rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-line-strong disabled:opacity-50"
-      >
-        {t(locale, 'dup_keep_this')}
-      </button>
+      {onKeep && (
+        <button
+          type="button"
+          onClick={onKeep}
+          disabled={busy}
+          className="mt-3 w-full rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-line-strong disabled:opacity-50"
+        >
+          {t(locale, 'dup_keep_this')}
+        </button>
+      )}
     </div>
   );
 }
@@ -133,6 +158,21 @@ export function DuplicatesClient({
   // the database on reload; this only stops a merged pair flashing back
   // before the refresh lands.
   const [done, setDone] = useState<Set<string>>(new Set());
+  // The pair whose answer was "same person" — now choosing which to keep.
+  const [choosing, setChoosing] = useState<string | null>(null);
+
+  function doDistinct(pair: DupPair) {
+    setError(null);
+    startTransition(async () => {
+      const res = await markDistinct(pair.a.id, pair.b.id);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      setDone((s) => new Set(s).add(key(pair)));
+      router.refresh();
+    });
+  }
 
   const key = (p: DupPair) => `${p.a.id}|${p.b.id}|${p.reason}`;
 
@@ -192,18 +232,54 @@ export function DuplicatesClient({
               locale={locale}
               intlLocale={intlLocale}
               busy={pending}
-              onKeep={() => doMerge(pair, pair.a, pair.b)}
+              onKeep={choosing === key(pair) ? () => doMerge(pair, pair.a, pair.b) : null}
             />
             <PersonCard
               person={pair.b}
               locale={locale}
               intlLocale={intlLocale}
               busy={pending}
-              onKeep={() => doMerge(pair, pair.b, pair.a)}
+              onKeep={choosing === key(pair) ? () => doMerge(pair, pair.b, pair.a) : null}
             />
           </div>
 
-          <p className="mt-3 text-xs text-ink-muted">{t(locale, 'dup_keep_explainer')}</p>
+          {/* The question (Sjoerd, 2026-09-15): same person with different
+              roles, or different people with the same name? */}
+          {choosing === key(pair) ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <p className="text-xs text-ink-muted flex-1">{t(locale, 'dup_pick_keep')}</p>
+              <button
+                type="button"
+                onClick={() => setChoosing(null)}
+                disabled={pending}
+                className="text-xs text-ink-subtle underline"
+              >
+                {t(locale, 'dup_back')}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <p className="text-sm font-medium">{t(locale, 'dup_question')}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChoosing(key(pair))}
+                  disabled={pending}
+                  className="rounded-md border border-line-strong px-3 py-1.5 text-xs font-medium hover:bg-surface-sunken disabled:opacity-50"
+                >
+                  {t(locale, 'dup_same_person')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => doDistinct(pair)}
+                  disabled={pending}
+                  className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-line-strong disabled:opacity-50"
+                >
+                  {t(locale, 'dup_different_people')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ))}
 

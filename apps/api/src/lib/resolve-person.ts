@@ -170,6 +170,24 @@ export async function resolvePerson(input: ResolvePersonInput): Promise<ResolveP
     return { ok: false, reason: 'not_found' };
   }
 
+  // Not a primary address anywhere — but it may be one of somebody's other
+  // addresses (a private email next to their work one, 20260915090000).
+  // Checked second so the long-standing primary match keeps its precedence.
+  if (!rows?.length) {
+    const { data: points } = await adminClient
+      .from('person_contact_point')
+      .select('person:person_id (id, first_name, created_at, deleted_at)')
+      .eq('workspace_id', input.workspaceId)
+      .eq('kind', 'email')
+      .eq('value', email)
+      .limit(25);
+    const alive = (points ?? [])
+      .map((r) => r.person as unknown as { id: string; first_name: string | null; created_at: string; deleted_at: string | null } | null)
+      .filter((x): x is { id: string; first_name: string | null; created_at: string; deleted_at: string | null } => !!x && !x.deleted_at)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    if (alive.length) rows?.push(...alive.map(({ id, first_name }) => ({ id, first_name })));
+  }
+
   const matches = rows?.length ?? 0;
   if (matches > 0) {
     const first = rows![0]!;

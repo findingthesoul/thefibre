@@ -476,6 +476,70 @@ const CATALOG = {
     de: 'Diesen behalten', // MT
     fr: 'Garder celui-ci', // MT
   },
+  dup_reason_shared_address: {
+    en: 'Share an address',
+    nl: 'Delen een adres',
+    es: 'Comparten una dirección', // MT
+    pt: 'Partilham um endereço', // MT
+    de: 'Teilen eine Adresse', // MT
+    fr: 'Partagent une adresse', // MT
+  },
+  dup_question: {
+    en: 'Same person, or two different people?',
+    nl: 'Dezelfde persoon, of twee verschillende mensen?',
+    es: '¿La misma persona o dos personas distintas?', // MT
+    pt: 'A mesma pessoa ou duas pessoas diferentes?', // MT
+    de: 'Dieselbe Person oder zwei verschiedene Menschen?', // MT
+    fr: 'La même personne, ou deux personnes différentes ?', // MT
+  },
+  dup_same_person: {
+    en: 'Same person, different roles',
+    nl: 'Dezelfde persoon, andere rollen',
+    es: 'Misma persona, otros roles', // MT
+    pt: 'A mesma pessoa, papéis diferentes', // MT
+    de: 'Dieselbe Person, andere Rollen', // MT
+    fr: 'Même personne, rôles différents', // MT
+  },
+  dup_different_people: {
+    en: 'Different people, same name',
+    nl: 'Verschillende mensen, zelfde naam',
+    es: 'Personas distintas, mismo nombre', // MT
+    pt: 'Pessoas diferentes, mesmo nome', // MT
+    de: 'Verschiedene Menschen, gleicher Name', // MT
+    fr: 'Personnes différentes, même nom', // MT
+  },
+  dup_pick_keep: {
+    en: 'Which record do you keep? The other one’s addresses, organisations, enrolments and invoices move onto it.',
+    nl: 'Welk record houd je? De adressen, organisaties, inschrijvingen en facturen van de ander verhuizen mee.',
+    es: '¿Qué registro conservas? Las direcciones, organizaciones, inscripciones y facturas del otro pasan a este.', // MT
+    pt: 'Que registo manténs? Os endereços, organizações, inscrições e faturas do outro passam para este.', // MT
+    de: 'Welchen Eintrag behältst du? Adressen, Organisationen, Anmeldungen und Rechnungen des anderen wandern mit.', // MT
+    fr: 'Quelle fiche gardes-tu ? Les adresses, organisations, inscriptions et factures de l’autre y sont transférées.', // MT
+  },
+  dup_back: {
+    en: 'Back',
+    nl: 'Terug',
+    es: 'Volver', // MT
+    pt: 'Voltar', // MT
+    de: 'Zurück', // MT
+    fr: 'Retour', // MT
+  },
+  dup_nudge: {
+    en: '{n} possible duplicates: same person, or different people? Review',
+    nl: '{n} mogelijke dubbelen: dezelfde persoon, of verschillende mensen? Bekijken',
+    es: '{n} posibles duplicados: ¿misma persona o personas distintas? Revisar', // MT
+    pt: '{n} possíveis duplicados: a mesma pessoa ou pessoas diferentes? Rever', // MT
+    de: '{n} mögliche Dubletten: dieselbe Person oder verschiedene Menschen? Prüfen', // MT
+    fr: '{n} doublons possibles : même personne ou personnes différentes ? Vérifier', // MT
+  },
+  dup_nudge_one: {
+    en: '1 possible duplicate: same person, or different people? Review',
+    nl: '1 mogelijke dubbele: dezelfde persoon, of verschillende mensen? Bekijken',
+    es: '1 posible duplicado: ¿misma persona o personas distintas? Revisar', // MT
+    pt: '1 possível duplicado: a mesma pessoa ou pessoas diferentes? Rever', // MT
+    de: '1 mögliche Dublette: dieselbe Person oder verschiedene Menschen? Prüfen', // MT
+    fr: '1 doublon possible : même personne ou personnes différentes ? Vérifier', // MT
+  },
   dup_keep_explainer: {
     en: 'The other record is kept, soft-deleted, and everything attached to it moves across. Its past activity stays where it is and still shows on the timeline.',
     nl: 'Het andere record blijft bestaan, zacht verwijderd, en alles wat eraan hangt verhuist mee. De activiteit blijft staan en is nog steeds zichtbaar in de tijdlijn.',
@@ -4520,6 +4584,38 @@ const CATALOG = {
     pt: 'Ainda não há membros vinculados. Clique em Adicionar membro para vincular um contato.', // MT
     de: 'Noch keine Mitglieder verknüpft. Klicke auf Mitglied hinzufügen, um einen Kontakt zu verknüpfen.', // MT
     fr: 'Aucun membre lié pour le moment. Clique sur Ajouter un membre pour lier un contact.', // MT
+  },
+  contact_label: {
+    en: 'Label',
+    nl: 'Label',
+    es: 'Etiqueta', // MT
+    pt: 'Rótulo', // MT
+    de: 'Label', // MT
+    fr: 'Libellé', // MT
+  },
+  label_work: {
+    en: 'Work',
+    nl: 'Werk',
+    es: 'Trabajo', // MT
+    pt: 'Trabalho', // MT
+    de: 'Arbeit', // MT
+    fr: 'Travail', // MT
+  },
+  label_private: {
+    en: 'Private',
+    nl: 'Privé',
+    es: 'Personal', // MT
+    pt: 'Pessoal', // MT
+    de: 'Privat', // MT
+    fr: 'Privé', // MT
+  },
+  label_other: {
+    en: 'Other',
+    nl: 'Anders',
+    es: 'Otro', // MT
+    pt: 'Outro', // MT
+    de: 'Andere', // MT
+    fr: 'Autre', // MT
   },
   org_this_workspace: {
     en: 'This workspace',

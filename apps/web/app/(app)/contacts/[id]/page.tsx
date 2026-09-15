@@ -8,10 +8,12 @@ import { countryName } from '@thefibre/shared/countries';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
+import { ContactPointsView, type ContactPointValue } from '@thefibre/shared/ui/contact-points';
 
 type Person = {
   email: string | null;
   phone: string | null;
+  contact_points?: ContactPointValue[];
   linkedin_url: string | null;
   street: string | null;
   postal_code: string | null;
@@ -100,8 +102,19 @@ export default async function ContactOverview({
   return (
     <>
       <section className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
-        <Field label={t(locale, 'email_label')} value={person.email} />
-        <Field label={t(locale, 'phone')} value={person.phone} />
+        {/* Every address, labelled (work · private), 20260915090000. */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">{t(locale, 'email_label')}</div>
+          <div className="mt-1">
+            <ContactPointsView points={person.contact_points ?? []} kind="email" />
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">{t(locale, 'phone')}</div>
+          <div className="mt-1">
+            <ContactPointsView points={person.contact_points ?? []} kind="phone" />
+          </div>
+        </div>
         <Field label="LinkedIn" value={person.linkedin_url} link />
         <Field label={t(locale, 'address_label')} value={addressLine || null} />
         <Field label={t(locale, 'location')} value={location || null} />

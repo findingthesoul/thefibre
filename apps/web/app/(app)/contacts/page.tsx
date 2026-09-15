@@ -5,6 +5,7 @@ import { PageContainer, PageHeader, EmptyState, ErrorBanner } from '@/components
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
+import { NOTICE } from '@thefibre/shared/ui/recipes';
 
 type Person = {
   id: string;
@@ -34,6 +35,18 @@ export default async function ContactsPage({
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
+  // The maintenance question, where people look (proposal §D). Admin-only in
+  // the API; anyone else gets a 403 and simply no notice.
+  let possibleDuplicates = 0;
+  if (!q) {
+    try {
+      const d = await apiFetch<{ items: unknown[] }>('/api/v1/persons/duplicates?limit=50');
+      possibleDuplicates = d.items.length;
+    } catch {
+      // Not an admin, or the queue is unavailable: no notice.
+    }
+  }
+
   return (
     <PageContainer>
       <PageHeader
@@ -55,6 +68,14 @@ export default async function ContactsPage({
           </div>
         }
       />
+
+      {possibleDuplicates > 0 && (
+        <a href="/contacts/duplicates" className={`mt-6 block hover:underline ${NOTICE.info}`}>
+          {possibleDuplicates === 1
+            ? t(locale, 'dup_nudge_one')
+            : t(locale, 'dup_nudge', { n: possibleDuplicates >= 50 ? '50+' : possibleDuplicates })}
+        </a>
+      )}
 
       <form className="mt-6 relative" action="/contacts">
         <Search size={15} strokeWidth={1.75} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
