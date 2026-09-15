@@ -291,6 +291,75 @@ somebody has to choose:
 
 Not scoped.
 
+### 2026-09-15 — Element and Matrix: how could we work with it
+
+Sjoerd, in the fibre chat, with a link to element.io:
+
+> How can we work with: https://element.io/en
+
+An open question rather than an ask, so nothing is decided here. Checked
+2026-09-15: **nothing in this repo touches Matrix today.** No homeserver, no
+`matrix-js-sdk`, no mention in any doc. The grep hits for "matrix" are all
+"test matrix", "RLS matrix", "env matrix" and the plans matrix.
+
+**What it is.** Element is the company and client around **Matrix**, an open
+federated protocol for end-to-end encrypted messaging. Synapse is the
+reference homeserver. Element Server Suite comes in Community and Pro for
+running your own, hosted or on premise, and the pitch is explicitly digital
+sovereignty: every EU state running its own stack and federating across
+borders.
+
+**Why it is worth a real look, not a polite one.** The sovereignty argument is
+the same argument this platform already makes. EU data, minimisation, "the app
+justifies the field", a database that declines to hold what it cannot stand
+behind. A self-hosted EU homeserver is coherent with that in a way Slack and
+WhatsApp are not. That is a values fit, not a feature fit, and it is the
+strongest thing going for it.
+
+**Three places it could land, and they are not equal:**
+
+1. **A room per thread.** A thread is already a cohort moving through time,
+   with a start, an enrolment list and a completion. A room created on
+   publish, joined on enrolment, archived on completion, maps onto a lifecycle
+   that exists. This is the only one of the three that uses something The
+   Fibre has and nothing else does.
+2. **A second delivery channel** beside the Resend email the scheduler sends.
+   Cheap in principle, but it needs every participant to hold a Matrix
+   account, and the audience is people enrolling in a course.
+3. **Internal team chat.** Generic. Nothing to do with The Fibre, and a
+   hundred products already do it.
+
+**Three objections, in the order they bite:**
+
+- **The data wall.** Hard rule: apps cross it only via the activity log, type
+  and subject, never body. A chat room is nothing but body, and the most
+  sensitive text in the system, which is exactly the argument
+  `detect-tags.ts` makes about note bodies. So the question is whether Fibre
+  HOSTS conversation or merely POINTS at it. Pointing holds nothing.
+  Hosting is a new category of personal data, with a retention and erasure
+  obligation, and retention-policy admin is still listed as not shipped.
+- **Identity.** Matrix IDs are their own namespace. `resolvePerson()` matches
+  on email, exactly, and the handbook's exactness rule exists because a wrong
+  match attaches a claim to a real person. Mapping `@someone:server` to a
+  person is a new matching problem with the same failure mode.
+- **Weight.** Synapse is a stateful service with its own Postgres, media
+  storage, federation and upgrade cadence. Today the platform is one Hono API
+  on Fly plus Supabase. A homeserver roughly doubles what has to be operated,
+  three weeks after a €300 Vercel fortnight forced the staging/promote split.
+
+**The cheap first step, if he wants one.** A workspace points at a room it
+already runs. Fibre stores its address on a thread, links to it, writes an
+activity row when somebody joins. No homeserver operated, no content held,
+and it answers whether anyone actually uses it before a line of the hard
+version is written.
+
+**The question back to him is which problem this solves**, because the ask is
+technology first: participants who cannot reach each other between sessions,
+or a sovereign replacement for something the team uses now. Those are
+different builds.
+
+Not scoped.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._
