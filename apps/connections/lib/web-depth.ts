@@ -57,9 +57,16 @@ export function targetDepth(n: DepthInput, focus: Focus): number {
   else if (n.junction) d = 0.55;
   else d = 0.3 + 0.6 * clamp01(n.strength) + (n.full ? 0.1 : -0.1);
   d = clamp01(d);
-  // Something else is being looked at: step back, but stay legible.
-  return focus === 'other' ? d * 0.45 : d;
+  // Something else is being looked at: step back a little, never out of view.
+  return focus === 'other' ? d * 0.8 : d;
 }
+
+// SUBTLE, on purpose. Sjoerd, 2026-09-15, on the first version: *"the
+// contrast are way too heavy. It is about subtle changes. Not big changes."*
+// It had scaled names from 0.62x to 1.22x, dimmed far ones to 38%, blurred
+// them, and swung them with the pointer — every one of those was a statement.
+// The numbers below are a hint of depth: a few percent of size and light, a
+// whisper of parallax, no blur on names at all.
 
 /** Ease a depth toward its target. `rate` is the fraction closed per frame. */
 export function easeDepth(current: number | undefined, target: number, rate = 0.14): number {
@@ -72,11 +79,12 @@ export function easeDepth(current: number | undefined, target: number, rate = 0.
 export function depthStyle(depth: number, centre = false): { scale: number; opacity: number; blur: number } {
   const z = clamp01(depth);
   return {
-    // 0.62x far to 1.22x near; the middle is drawn at its own large size already.
-    scale: centre ? 0.9 + 0.1 * z : 0.62 + 0.6 * z,
-    opacity: 0.38 + 0.62 * z,
-    // Only the far third goes soft, and never much: a blurred NAME is unreadable.
-    blur: z < 0.34 ? Math.round((0.34 - z) * 3.2 * 100) / 100 : 0,
+    // 0.9x far to 1.06x near; the middle is drawn at its own large size already.
+    scale: centre ? 0.97 + 0.03 * z : 0.9 + 0.16 * z,
+    // 72% far to full near: fainter, never faded out.
+    opacity: 0.72 + 0.28 * z,
+    // Only the very farthest, and only just.
+    blur: z < 0.15 ? Math.round((0.15 - z) * 2 * 100) / 100 : 0,
   };
 }
 
@@ -85,7 +93,7 @@ export function depthStyle(depth: number, centre = false): { scale: number; opac
  * far things against it, the middle distance stays put — which is what reads
  * as depth when the picture moves.
  */
-export function parallax(depth: number, pointer: { x: number; y: number } | null, strength = 0.07): { dx: number; dy: number } {
+export function parallax(depth: number, pointer: { x: number; y: number } | null, strength = 0.025): { dx: number; dy: number } {
   if (!pointer) return { dx: 0, dy: 0 };
   const k = (clamp01(depth) - 0.5) * strength;
   return { dx: pointer.x * k, dy: pointer.y * k };

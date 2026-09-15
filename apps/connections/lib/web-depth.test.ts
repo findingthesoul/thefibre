@@ -41,6 +41,20 @@ describe('how a depth looks', () => {
     expect(near.opacity).toBeGreaterThan(far.opacity);
   });
 
+  it('stays subtle: a few percent of size and light, never a statement', () => {
+    // Sjoerd, 2026-09-15: "the contrast are way too heavy. It is about subtle
+    // changes. Not big changes." The first version went 0.62x-1.22x and down
+    // to 38% light. These bounds are his answer; widen them only if he asks.
+    for (const z of [0, 0.25, 0.5, 0.75, 1]) {
+      const st = depthStyle(z);
+      expect(st.scale).toBeGreaterThanOrEqual(0.88);
+      expect(st.scale).toBeLessThanOrEqual(1.08);
+      expect(st.opacity).toBeGreaterThanOrEqual(0.7);
+      expect(st.blur).toBeLessThanOrEqual(0.3);
+    }
+    expect(Math.abs(parallax(1, { x: 300, y: 0 }).dx)).toBeLessThanOrEqual(4);
+  });
+
   it('softens only far things, and only a little', () => {
     expect(depthStyle(0.8).blur).toBe(0);
     expect(depthStyle(0).blur).toBeGreaterThan(0);

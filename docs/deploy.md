@@ -110,7 +110,7 @@ fly secrets set \
   GOOGLE_CLIENT_ID="<paste from Supabase Auth → Google provider>" \
   GOOGLE_CLIENT_SECRET="<paste from Supabase Auth → Google provider>" \
   RESEND_API_KEY="<paste from Resend dashboard>" \
-  EMAIL_FROM="The Fibre <noreply@thefibre.app>" \
+  EMAIL_FROM="The Thread <noreply@thefibre.app>" \   # the public name; receipts and enrolment mail no longer read it (v0.75.19)
   SSO_INTERNAL_SECRET="$(openssl rand -hex 32)"
 
 # First deploy
@@ -190,6 +190,40 @@ Until those secrets exist, Settings → Integrations shows Zoom as "not set up
 on this server" and the Zoom option in the meeting-type form stays
 unselectable — nothing breaks, the feature is simply off. Each host then
 connects their own Zoom account once, at Settings → Integrations.
+
+## The in-app assistant (`ANTHROPIC_API_KEY`)
+
+`docs/assistant-in-app.md`. One secret switches it on per environment:
+
+```bash
+fly secrets set ANTHROPIC_API_KEY="sk-ant-…" -c fly.staging.toml   # staging
+```
+
+Without it `GET /api/v1/assistant/status` answers `enabled: false` and The
+Thread renders no Ask button — the feature does not exist on that deployment.
+**Do not set it on production** until the sub-processor entry in the privacy
+statement, the DPA and the inference-region decision in that doc's §6 are
+done. The key is the platform's; every token is billed to it (the assistant
+logs `[assistant] … key= in= cached= out=` per turn so the cost per workspace
+can be read off the API log, and `assistant_usage` keeps the daily totals).
+**Set a hard monthly spend limit on the key in the Anthropic Console** — that
+limit is the last line of defence and lives outside this repo.
+
+Two more things this feature leans on (since v0.78.0):
+
+- **`ASSISTANT_KEY_SECRET`** (since v0.78.1) is the root of the key that
+  encrypts a workspace's OWN Anthropic key at rest
+  (`lib/assistant/secret.ts`). Set it on every API deployment:
+  `fly secrets set ASSISTANT_KEY_SECRET="$(openssl rand -hex 32)"` (and
+  `-c fly.staging.toml`). Until it exists the API falls back to
+  `SSO_INTERNAL_SECRET`, and each stored value records which one it was
+  written under (a key-id byte), so the two rotations stay separate and a
+  future rotation can re-encrypt row by row. Rotating a secret that rows
+  still depend on makes those rows unreadable: the assistant falls back to
+  the platform key and Settings → Assistant asks the admin to connect the
+  key again. Say so in the rotation runbook for BOTH secrets.
+- Migration `20260915120000_assistant_access.sql` (two tables + the plan
+  feature seed) goes with the release; `scripts/db-push-staging.sh` first.
 
 ---
 

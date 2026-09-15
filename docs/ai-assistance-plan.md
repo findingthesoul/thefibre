@@ -26,6 +26,25 @@ They are not exclusive, and B becomes much cheaper once A exists, because the
 tools are the same. But A first: it costs least, proves demand fastest, and
 the permission model is already built.
 
+**Both shipped, in that order, within two days.** A is `packages/mcp`
+(v0.76.0). B is the in-app assistant in The Thread (v0.77.0,
+`docs/assistant-in-app.md`): a panel that answers about the organiser's own
+threads and sets one up from a template behind an approve/decline card. The
+model runs in the EU API, what reaches it is an allow-list of titles, dates,
+statuses and counts and never participant data, and writes run as the
+signed-in user through the API's own routes, only after approval. It is dark
+without an `ANTHROPIC_API_KEY`.
+
+So the sequencing argument held: A first, then B, and B was cheaper for it.
+**What did not happen is the deciding.** This section said the fork was a
+decision to take before anything else, because the two are different
+businesses. Both now exist, and the business question — who pays, and which
+one is the product — is live rather than answered. v0.78.0 ("Who pays for the
+assistant") is where that is being worked out.
+
+**Open for Sjoerd before B reaches production**, per its own commit: a
+sub-processor entry, a DPA, and the inference region. Those are not code.
+
 ---
 
 ## 2. How it works, once

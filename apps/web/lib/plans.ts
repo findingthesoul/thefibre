@@ -71,6 +71,21 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     rows: [{ key: 'pulse', label: 'Pulse', kind: 'flag' }],
   },
   {
+    // The in-app assistant on the platform's model key (docs/assistant-in-app.md
+    // §1.4). Free: unticked — no assistant. A workspace's OWN key bypasses both
+    // rows; that is Settings → Assistant, not a plan feature.
+    app: 'Assistant',
+    rows: [
+      { key: 'assistant', label: 'Assistant in the apps', kind: 'flag' },
+      {
+        key: 'assistant_tokens_day',
+        label: 'Assistant tokens per day',
+        kind: 'limit',
+        note: 'Empty = 200,000. Counts in + out on our key; a workspace on its own key is not counted.',
+      },
+    ],
+  },
+  {
     // Ships unticked on every tier. Connections is in beta, and while
     // app.beta_at is set with released_at still null the beta_apps feature
     // is what actually lets a workspace activate it — this row is the switch

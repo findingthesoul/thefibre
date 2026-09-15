@@ -169,7 +169,7 @@ export function Agenda({
                   return (
                     <li
                       key={p.email}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-line px-3 text-xs text-ink-subtle"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dotted border-line-strong px-3 text-xs text-ink-subtle"
                       title={p.email}
                     >
                       <UserPlus size={12} />

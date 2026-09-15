@@ -6,6 +6,144 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.7] — 2026-09-15 — Settings opens again (staging)
+
+Since v0.78.0 the Fibre's Settings page threw a server-side exception for
+every signed-in user, in every language, on staging. The assistant's entry
+had been added to the shared settings component but not to the server chrome
+catalog it reads its title and description from, and the lookup is written
+through a type cast, so the typecheck could not see the missing pair. Found
+by the closing sweep's Playwright run and reproduced in a browser.
+
+The two strings now exist in all six languages, and a test asserts that every
+settings key has both in every language, so the cast cannot hide the next one.
+
+## [0.78.6] — 2026-09-15 — Let go, and it really drifts home (staging)
+
+**Connections — the map.** A name you pull out of the cloud slides back slowly
+the whole way home; it no longer creeps for a moment and then snaps back.
+
+**The note box.** The "Picked up" row of tag chips is gone — tags and names are
+already marked inside the sentence you write.
+
+## [0.78.5] — 2026-09-15 — Let go, and it drifts home (staging)
+
+**Connections — the map.** Pull a name out of the cloud and let go: it now
+slides back gradually over a couple of seconds instead of springing back.
+
+## [0.78.4] — 2026-09-15 — Organisations, centred and quiet (staging)
+
+**Connections — the map.** An organisation's name sits centred in its box, and
+the box is a light grey ground instead of an outlined frame. The one dashed
+chip left on Today is dotted, like the map.
+
+## [0.78.3] — 2026-09-15 — Names that fit their box (staging)
+
+**Connections — the map.** A long name no longer runs out of its box. Long
+organisation names are drawn as their initials ("European Bahá'í Business
+Forum" becomes "EBBF"); other long names are shortened at a word with "…".
+Point at a name to see it in full.
+
+## [0.78.2] — 2026-09-15 — A quieter depth (staging)
+
+**Connections — the map's depth is a hint, not a statement.** Near and far now
+differ by a few percent of size and light, the farthest names are barely soft,
+names drift only slightly with the mouse, and pointing at something lifts it
+gently instead of fading everything else. The "full" dots are softer. Ties that
+are not a stated relationship are drawn dotted instead of dashed.
+
+## [0.78.1] — 2026-09-15 — A secret of its own for stored assistant keys (staging)
+
+Review finding, fixed while no workspace has stored a key yet. A workspace's
+own Anthropic key is now encrypted under **`ASSISTANT_KEY_SECRET`**, a Fly
+secret of its own, instead of a key derived from `SSO_INTERNAL_SECRET` —
+coupling the two meant rotating the SSO secret silently locked every
+workspace out of its assistant, and a leak of either was a leak of both.
+Each stored value carries a key-id byte saying which secret it was written
+under, so a future rotation can re-encrypt row by row instead of asking every
+workspace to reconnect; `SSO_INTERNAL_SECRET` stays as the fallback until the
+new secret is set (`docs/deploy.md`). Five tests on `secret.ts`.
+
+## [0.78.0] — 2026-09-15 — Who pays for the assistant (staging)
+
+docs/assistant-in-app.md §1.4 and §6, decided by Sjoerd the same day the
+assistant landed: **Free has no assistant. Starter and Pro have it on the
+platform's key, within a daily budget. Any workspace may bring its own key.**
+
+**A plan gate and a daily budget.** Two new feature keys on `/admin/plans`:
+`assistant` (flag) and `assistant_tokens_day` (limit, default 200,000 in + out
+per workspace per UTC day). Seeded on for Starter and Pro, off for Free.
+Usage lands in the new `assistant_usage` table per workspace, day and paying
+key; the API reads today's row before every turn. Over budget is a pause
+until midnight UTC, not a cut-off, and every refusal says why.
+
+**Bring your own key — Settings → Assistant** in The Fibre. A workspace
+admin pastes an Anthropic API key; the API checks it against Anthropic,
+encrypts it (AES-256-GCM under a key derived from `SSO_INTERNAL_SECRET`) and
+keeps a four-character hint. From then on Anthropic bills the workspace, the
+plan gate and budget no longer apply, and the admin sets their own spend
+limit in Anthropic's console. Stored in `workspace_assistant`, service-role
+only, never logged. The same page shows the last 30 days of use as counts.
+The decision order is code: own key → plan + budget → off
+(`lib/assistant/access.ts`, 12 tests).
+
+**What may leave for a model — decided: "Thread data only."** Threads,
+templates and counts; no participant names, notes or Connections data until
+a DPA and an EU endpoint exist. That is the allow-list already built, so
+nothing changed there; the doc's §6 now records it as decided.
+
+Migration `20260915120000_assistant_access.sql`, applied to staging.
+
+## [0.77.1] — 2026-09-15 — A build can be forced (staging)
+
+Retiring the legacy Supabase keys meant putting the new publishable key into
+the eight production Vercel apps. Only an environment value changed, so every
+diff was empty and `scripts/vercel-ignore.mjs` cancelled every rebuild — even
+an API redeploy with a project-settings override, because `vercel.json`'s
+`ignoreCommand` wins. The old key stayed baked into the bundles.
+
+`FIBRE_FORCE_BUILD=1` on a Vercel project now makes the ignored-build step
+build regardless (exact value `1` only; tested). Set it, push, and remove it
+afterwards, or the build-skip's savings are gone.
+
+## [0.77.0] — 2026-09-15 — An assistant inside The Thread, switched off until a key exists (Thread 3.51.0, staging)
+
+docs/assistant-in-app.md — version 1 built, version 2 written down.
+
+**Ask, in The Thread.** A panel bottom-right that answers about the
+organiser's threads and sets them up: "make a thread from a template" lists
+the templates, asks which, confirms title and start date, then proposes the
+creation on a card with **Yes, do it** / **No**. "How is registration going?"
+answers in counts. The model runs in the EU API (`claude-opus-5`, pinned in
+one place); the browser only ever talks to a server action.
+
+**What may reach the model is code, not a promise.** Every tool result is
+built field by field (`lib/assistant/tools.ts`): titles, slugs, dates,
+statuses, counts, ids. Never a participant's name, email, answers or billing;
+never a note; never the activity log. Tests feed the tools rows full of
+personal data and assert none of it survives. Registration reaches the model
+as counts only.
+
+**Nothing happens without a person.** Reads run at once; the first write
+stops the turn and is parked on the API for fifteen minutes. Only an approve
+from the same signed-in person runs it, with the parked arguments — a
+tampered transcript cannot change what was approved. Every write runs as the
+user through the API's own Thread routes, so RLS and the validators apply as
+they do to a click. App keys cannot reach the route.
+
+**Bounded.** 40 turns per person per 10 minutes, 8 model calls per turn, the
+system prompt cached, token counts logged per workspace — never content.
+
+**Dark until switched on.** Without `ANTHROPIC_API_KEY` on the API the status
+route says off and The Thread renders no button: this release changes nothing
+visible on any deployment. Staging first (`docs/build-plan.md`, Outstanding);
+production waits for the sub-processor decision in the doc's §6. The panel's
+signed-in render check is still open for the same reason — there is nothing
+to look at until a key exists on staging.
+
+`AssistantPanel` is born in `@thefibre/shared` (`ui/assistant`), Thread mounts
+it first. Thread's sidebar reads 3.51.0.
+
 ## [0.76.2] — 2026-09-15 — two comments that described the wrong model (staging)
 
 Comments only; no behaviour changes.

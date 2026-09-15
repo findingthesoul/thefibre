@@ -12,6 +12,7 @@ import {
   easeInOut,
   fontSize,
   labelWidth,
+  shortLabel,
   panTo,
   seedPosition,
   settle,
@@ -615,5 +616,96 @@ describe('names slide past each other', () => {
     const stray = node('Zed', 300);
     driftBearings([stray], 5_000);
     expect(stray.bearing).toBeUndefined();
+  });
+});
+
+// Sjoerd, 2026-09-15: "When pulling someone away from the cloud... don't let
+// them quickly flip back.. but let them gradually slide back".
+describe('a name let go of far from the cloud', () => {
+  const pulledOut = (returning?: number) => {
+    const centre = node('c', 0, true);
+    const far = node('far', 250, false, { x: 900, y: 0 });
+    far.hubX = 0;
+    far.hubY = 0;
+    if (returning !== undefined) far.returning = returning;
+    return [centre, far];
+  };
+  const distanceAfter = (nodes: WebNode[], frames: number) => {
+    for (let i = 0; i < frames; i++) step(nodes);
+    return Math.hypot(nodes[1]!.x, nodes[1]!.y);
+  };
+
+  it('slides home slowly instead of springing back', () => {
+    const springs = distanceAfter(pulledOut(), 15);
+    const slides = distanceAfter(pulledOut(0), 15);
+    // A quarter of a second in, the sliding one has covered far less ground.
+    expect(900 - slides).toBeLessThan((900 - springs) / 3);
+  });
+
+  it('still gets home in the end', () => {
+    const d = distanceAfter(pulledOut(0), 900);
+    expect(d).toBeLessThan(450);
+  });
+
+  it('never jumps at any point on the way back, even pulled by a strong tie', () => {
+    // "It still jumps back way too quick": the first version crept for two
+    // seconds, then lifted its speed limit while still far away and snapped.
+    // Watch every frame of the whole return, with a linked neighbour pulling.
+    const centre = node('c', 0, true);
+    const far = node('far', 250, false, { x: 900, y: 300 });
+    far.hubX = 0;
+    far.hubY = 0;
+    far.returning = 0;
+    const friend = node('friend', 250, false, { x: -250, y: 0 });
+    friend.hubX = 0;
+    friend.hubY = 0;
+    const nodes = [centre, far, friend];
+    const links = [{ a: 'far', b: 'friend', weight: 1 }];
+    let fastestReturning = 0;
+    let fastestEver = 0;
+    let returnedFor = 0;
+    for (let i = 0; i < 1200; i++) {
+      const bx = far.x;
+      const by = far.y;
+      const wasReturning = far.returning !== undefined;
+      step(nodes, links);
+      const moved = Math.hypot(far.x - bx, far.y - by);
+      fastestEver = Math.max(fastestEver, moved);
+      if (wasReturning) {
+        returnedFor += 1;
+        fastestReturning = Math.max(fastestReturning, moved);
+      }
+    }
+    // Slow the whole way home — the limit is never lifted early...
+    expect(fastestReturning).toBeLessThanOrEqual(2.5);
+    // ...it really did travel a long way under that limit, not a few frames...
+    expect(returnedFor).toBeGreaterThan(240);
+    // ...and once home nothing snaps either.
+    expect(fastestEver).toBeLessThan(4);
+    expect(Math.hypot(far.x, far.y)).toBeLessThan(600);
+  });
+});
+
+// Sjoerd, 2026-09-15: "Some names go beyond the box... if possible -
+// abbreviations here."
+describe('a name that does not fit', () => {
+  it('draws a short name in full', () => {
+    expect(shortLabel('Anker Gilde')).toBe('Anker Gilde');
+  });
+
+  it('turns a long organisation name into its initials', () => {
+    expect(shortLabel("European Bahá'í Business Forum")).toBe('EBBF');
+  });
+
+  it('cuts any other long name at a word, with an ellipsis', () => {
+    const s = shortLabel('Wilhelmina van der heijden-doornbos');
+    expect(s.endsWith('…')).toBe(true);
+    expect(s.length).toBeLessThanOrEqual(24);
+  });
+
+  it('sizes the box to what is drawn, so the drawn name always fits', () => {
+    // The long name is drawn as "EBBF", so its box is smaller than a short full name's.
+    expect(labelWidth("European Bahá'í Business Forum", false, 1)).toBeLessThan(labelWidth('Anker Gilde', false, 1));
+    expect(labelWidth('Anker Gilde', false, 1)).toBeGreaterThan('Anker Gilde'.length * 17 * 0.55);
   });
 });

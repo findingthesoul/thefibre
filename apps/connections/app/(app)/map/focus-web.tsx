@@ -16,10 +16,10 @@
 //   * Back is the browser's Back. The focus lives in the URL, so it also
 //     works from the keyboard, a swipe, or a shared link.
 //
-// ── Solid and dashed, as everywhere on the map ─────────────────────────────
+// ── Solid and dotted, as everywhere on the map ─────────────────────────────
 //
 // A solid line is RECORDED: a stated relationship, or somebody's current
-// organisation. A dashed line is only something two people share — a tag, an
+// organisation. A dotted line is only something two people share — a tag, an
 // organisation, being named in the same note — and says so underneath the
 // name. Sharing a word is not knowing someone (system-handbook §12).
 
@@ -34,6 +34,7 @@ import {
   R_MAX,
   fontSize,
   labelWidth,
+  shortLabel,
   panTo,
   panning,
   assignBearings,
@@ -771,7 +772,7 @@ export function FocusWeb({
   /** A line between two things you are looking at is lit; others dim with the rest. */
   const lineLit = (a: Shown | undefined, b: Shown | undefined) => {
     if (!hovered) return 1;
-    return a && b && related.has(a.id) && related.has(b.id) ? 2.2 : 0.35;
+    return a && b && related.has(a.id) && related.has(b.id) ? 1.5 : 0.75;
   };
   const junctionFull = (j: Shown) =>
     Boolean(j.topicOrg) || Boolean(j.topicTag && tagIds.has(j.topicTag.toLowerCase()));
@@ -959,6 +960,10 @@ export function FocusWeb({
                   node.homeX = node.x;
                   node.homeY = node.y;
                 }
+                // Any other name pulled out of the cloud SLIDES home, its pull
+                // building back up over two seconds, rather than springing back
+                // (Sjoerd, 2026-09-15). See `returning` in lib/web-layout.ts.
+                if (!node.centre && d.moved) node.returning = 0;
               }
               // Only a name that really moved swallows the click that follows.
               // A press that merely lasted a while is still a click.
@@ -972,7 +977,10 @@ export function FocusWeb({
               if (d) {
                 if (d.timer) clearTimeout(d.timer);
                 const node = nodes.current.get(d.id);
-                if (node) node.held = false;
+                if (node) {
+                  node.held = false;
+                  if (!node.centre && d.moved) node.returning = 0;
+                }
               }
               drag.current = null;
             }}
@@ -1009,8 +1017,9 @@ export function FocusWeb({
                     1,
                     (0.1 + 0.18 * Math.min(1, l.weight)) * Math.min(l.a.opacity ?? 1, l.b.opacity ?? 1) * lit,
                   )}
-                  strokeWidth={(0.8 + 1.2 * Math.min(1, l.weight)) * (lit > 1 ? 1.5 : 1)}
-                  strokeDasharray={l.solid ? undefined : '4 5'}
+                  strokeWidth={(0.8 + 1.2 * Math.min(1, l.weight)) * (lit > 1 ? 1.2 : 1)}
+                  strokeDasharray={l.solid ? undefined : DOTTED}
+                  strokeLinecap={l.solid ? undefined : 'round'}
                 >
                   <title>{l.why}</title>
                 </line>
@@ -1034,7 +1043,7 @@ export function FocusWeb({
                     className="text-ink"
                     stroke="currentColor"
                     strokeOpacity={Math.min(1, 0.3 * (j.opacity ?? 1) * lit)}
-                    strokeWidth={lit > 1 ? 2.2 : 1.4}
+                    strokeWidth={lit > 1 ? 1.7 : 1.4}
                   />
                 );
               })}
@@ -1059,8 +1068,9 @@ export function FocusWeb({
                       1,
                       (0.18 + 0.4 * n.strength) * Math.min(n.opacity ?? 1, from?.opacity ?? 1) * lit,
                     )}
-                    strokeWidth={(1 + 2 * n.strength) * (lit > 1 ? 1.4 : 1)}
-                    strokeDasharray={n.solid ? undefined : '5 5'}
+                    strokeWidth={(1 + 2 * n.strength) * (lit > 1 ? 1.15 : 1)}
+                    strokeDasharray={n.solid ? undefined : DOTTED}
+                    strokeLinecap={n.solid ? undefined : 'round'}
                   />
                 );
               })}
@@ -1090,7 +1100,7 @@ export function FocusWeb({
                 >
                   <circle r={11} fill="transparent" />
                   {jFull ? (
-                    <circle r={5.5} className="fill-ink stroke-surface-raised" strokeWidth={1.5} />
+                    <circle r={4.5} className="fill-ink-muted stroke-surface-raised" strokeWidth={1.2} />
                   ) : (
                     <circle r={3.5} className="fill-surface-raised stroke-ink-muted" strokeWidth={1.2} />
                   )}
@@ -1110,7 +1120,7 @@ export function FocusWeb({
             ).map((n) => {
               const q = at(n);
               const st = depthStyle(n.z ?? 1, n.centre);
-              const blurStep = st.blur ? Math.min(BLUR_STEPS.length - 1, Math.floor(st.blur / 0.4)) : -1;
+              const blurStep = st.blur ? Math.min(BLUR_STEPS.length - 1, Math.floor(st.blur / 0.15)) : -1;
               const marker = !n.centre && n.kind === 'person';
               return (
                 <g
@@ -1164,16 +1174,21 @@ export function FocusWeb({
                   aria-label={n.label}
                 >
                   {/* A label needs a ground, or a line drawn behind it strikes
-                      the name through. Organisations get a visible outline, so a
-                      company never reads as a person. */}
+                      the name through. An organisation's ground is light grey
+                      with squarer corners, so a company never reads as a person
+                      — no frame. Sjoerd, 2026-09-15: *"Maybe instead of a
+                      frame... a light grey background"*. One height for every
+                      name, centred on the node: the box used to grow for a
+                      second line (the title) that is never drawn, which left
+                      the name sitting high in it. */}
                   <rect
                     x={-n.width / 2}
-                    y={n.centre ? -20 : n.sub ? -14 : -13}
+                    y={n.centre ? -20 : -13}
                     width={n.width}
-                    height={n.centre ? 40 : n.sub ? 34 : 26}
-                    rx={n.kind === 'org' ? 4 : 13}
-                    className={n.kind === 'org' ? 'fill-surface stroke-line-strong' : 'fill-surface-raised'}
-                    strokeWidth={n.kind === 'org' ? 1.2 : 0}
+                    height={n.centre ? 40 : 26}
+                    rx={n.kind === 'org' ? 6 : 13}
+                    className={n.kind === 'org' ? 'fill-surface-sunken' : 'fill-surface-raised'}
+                    strokeWidth={0}
                   />
                   {/* Full or empty: a filled dot when something is written on
                       this person, a hollow one when they are only here for the
@@ -1181,9 +1196,9 @@ export function FocusWeb({
                   {marker && (
                     <circle
                       cx={-n.width / 2 + 11}
-                      cy={n.sub ? -4 : 0}
-                      r={3.4}
-                      className={n.full ? 'fill-ink' : 'fill-transparent stroke-ink-muted'}
+                      cy={0}
+                      r={3}
+                      className={n.full ? 'fill-ink-muted' : 'fill-transparent stroke-ink-subtle'}
                       strokeWidth={n.full ? 0 : 1.2}
                     />
                   )}
@@ -1192,13 +1207,15 @@ export function FocusWeb({
                   <text
                     textAnchor="middle"
                     x={marker ? MARKER_ROOM / 2 : 0}
-                    y={n.centre ? 7 : n.sub ? 1 : 5}
+                    y={n.centre ? 7 : 5}
                     fontSize={fontSize(n.strength, n.centre)}
                     className={`${marker && !n.full ? 'fill-ink-muted' : 'fill-ink'} ${
                       n.centre ? 'font-semibold' : 'font-medium hover:underline'
                     }`}
                   >
-                    {n.label || '…'}
+                    {shortLabel(n.label, n.centre) || '…'}
+                    {/* The full name, whenever the drawn one is shortened. */}
+                    {shortLabel(n.label, n.centre) !== n.label && <title>{n.label}</title>}
                   </text>
                 </g>
               );
@@ -1345,7 +1362,14 @@ const HOLD_MS = 180;
 /** Room beside a person's name for the full/empty marker. */
 const MARKER_ROOM = 12;
 /** Soft-focus steps for far names, in SVG blur units. */
-const BLUR_STEPS = [0.35, 0.7, 1.0];
+const BLUR_STEPS = [0.15, 0.3];
+/**
+ * A tie that is NOT a stated relationship (a shared tag, a workspace word) is
+ * dotted: round dots, gaps a little wider than the line. Sjoerd, 2026-09-15:
+ * *"You use dashed lines... maybe better to use dotted lines"* — dashes read as
+ * a technical diagram, dots as a softer, looser tie.
+ */
+const DOTTED = '0.1 4.5';
 const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
 /** Only what the simulation needs from a link. */

@@ -164,6 +164,15 @@ to extend rather than the place to fork.
   check, portal code, OAuth token, app registration) is metered per IP at
   120/minute. In-memory, per machine — an abuse brake, not a security
   control; the honest version keys on the target and is §5 P1.
+- **The in-app assistant** (`/api/v1/assistant`, since v0.77.0,
+  `docs/assistant-in-app.md`): the one route that sends workspace content to
+  a model provider. User sessions only; per-user brake (40 turns / 10 min);
+  every tool runs as the user through this API's own routes; what reaches the
+  model is an allow-list built field by field — titles, dates, statuses,
+  counts — with participant names, emails, answers, notes and the activity
+  log excluded by construction and by test. *Switched off until
+  `ANTHROPIC_API_KEY` exists; the sub-processor entry, DPA and region
+  decision are open (§6 of that doc) and gate production.*
 
 ### 3.4 The database
 
@@ -363,7 +372,17 @@ The short runbook, until the incident has taught us a longer one.
    - the anon key or JWT secret → rotate the JWT secret in Supabase, which
      invalidates every session on the platform, then redeploy;
    - `SSO_INTERNAL_SECRET` → `openssl rand -hex 32`, set on Fly and on every
-     Vercel project, redeploy all;
+     Vercel project, redeploy all. Since v0.78.1 it is only the FALLBACK
+     root for encrypting workspace-supplied assistant keys — set
+     `ASSISTANT_KEY_SECRET` and the two no longer touch;
+   - `ASSISTANT_KEY_SECRET` (v0.78.1; `openssl rand -hex 32`, Fly only) →
+     the root that encrypts workspace-supplied assistant keys
+     (`workspace_assistant`, lib/assistant/secret.ts). Each stored value
+     carries a key-id byte, so rotate by adding the new secret, re-encrypting
+     row by row under it, then retiring the old one. Rotating without that
+     pass makes every stored assistant key unreadable: the assistant falls
+     back to the platform key and the workspaces that set one are asked to
+     enter it again;
    - the service-role key → rotate in Supabase, update Fly and
      `apps/api/.env*` on every machine;
    - a Stripe key or webhook secret → roll in the Stripe dashboard;

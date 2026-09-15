@@ -150,6 +150,22 @@ const SERVER_CHROME = {
     de: 'Welche Apps dieser Workspace nutzt, und die Schlüssel für deine eigene Software.', // MT
     fr: 'Quelles apps cet espace utilise, et les clés qui laissent entrer ton propre logiciel.', // MT
   },
+  st_assistant_title: {
+    en: 'Assistant',
+    nl: 'Assistent',
+    es: 'Asistente', // MT
+    pt: 'Assistente', // MT
+    de: 'Assistent', // MT
+    fr: 'Assistant', // MT
+  },
+  st_assistant_desc: {
+    en: 'The assistant inside the apps: whether this workspace has it, on whose key, and how much it has used.',
+    nl: 'De assistent in de apps: of deze werkruimte hem heeft, op wiens sleutel, en hoeveel er is gebruikt.',
+    es: 'El asistente dentro de las apps: si este espacio lo tiene, con qué clave y cuánto ha usado.', // MT
+    pt: 'O assistente dentro das apps: se este espaço o tem, com que chave e quanto já usou.', // MT
+    de: 'Der Assistent in den Apps: ob dieser Workspace ihn hat, mit wessen Schlüssel, und wie viel er genutzt hat.', // MT
+    fr: 'L’assistant dans les apps : si cet espace l’a, avec quelle clé, et combien il a utilisé.', // MT
+  },
   st_currencies_title: {
     en: 'Currencies',
     nl: 'Valuta’s',

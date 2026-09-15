@@ -6127,6 +6127,159 @@ const CATALOG = {
     de: 'Nach jedem Namen, jeder Abkürzung oder Domain suchen', // MT
     fr: 'Rechercher par nom, abréviation ou domaine', // MT
   },
+  // ── Settings → Assistant (docs/assistant-in-app.md §1.4, 2026-09-15) ────
+  assistant_title: {
+    en: 'Assistant',
+    nl: 'Assistent',
+    es: 'Asistente', // MT
+    pt: 'Assistente', // MT
+    de: 'Assistent', // MT
+    fr: 'Assistant', // MT
+  },
+  assistant_lead: {
+    en: 'The assistant inside the apps answers about your threads and sets them up for you. Every change is shown to the person first. It reads titles, dates, statuses and counts — never who registered.',
+    nl: 'De assistent in de apps beantwoordt vragen over je threads en zet ze voor je op. Elke wijziging wordt eerst aan de persoon getoond. Hij leest titels, data, statussen en aantallen — nooit wie zich inschreef.',
+    es: 'El asistente dentro de las apps responde sobre tus threads y los prepara por ti. Cada cambio se muestra primero a la persona. Lee títulos, fechas, estados y recuentos — nunca quién se inscribió.', // MT
+    pt: 'O assistente dentro das apps responde sobre os seus threads e prepara-os por si. Cada alteração é mostrada primeiro à pessoa. Lê títulos, datas, estados e contagens — nunca quem se inscreveu.', // MT
+    de: 'Der Assistent in den Apps beantwortet Fragen zu deinen Threads und richtet sie für dich ein. Jede Änderung wird der Person zuerst gezeigt. Er liest Titel, Daten, Status und Zahlen — nie, wer sich angemeldet hat.', // MT
+    fr: 'L’assistant dans les apps répond sur tes threads et les prépare pour toi. Chaque changement est d’abord montré à la personne. Il lit titres, dates, statuts et comptes — jamais qui s’est inscrit.', // MT
+  },
+  assistant_status_workspace_key: {
+    en: 'On, using this workspace’s own key (…{hint}). Anthropic bills the workspace directly; the platform allowance does not apply.',
+    nl: 'Aan, met de eigen sleutel van deze workspace (…{hint}). Anthropic factureert de workspace rechtstreeks; de platformbundel geldt niet.',
+    es: 'Activado, con la clave propia de este espacio (…{hint}). Anthropic factura al espacio directamente; la asignación de la plataforma no aplica.', // MT
+    pt: 'Ligado, com a chave própria deste espaço (…{hint}). A Anthropic fatura o espaço diretamente; a franquia da plataforma não se aplica.', // MT
+    de: 'An, mit dem eigenen Schlüssel dieses Workspaces (…{hint}). Anthropic rechnet direkt mit dem Workspace ab; das Plattform-Kontingent gilt nicht.', // MT
+    fr: 'Activé, avec la clé propre de cet espace (…{hint}). Anthropic facture l’espace directement ; l’allocation de la plateforme ne s’applique pas.', // MT
+  },
+  assistant_status_platform: {
+    en: 'On, included in the {plan} plan. Today: {used} of {limit} tokens used. Resets at midnight UTC.',
+    nl: 'Aan, onderdeel van het {plan}-abonnement. Vandaag: {used} van {limit} tokens gebruikt. Reset om middernacht UTC.',
+    es: 'Activado, incluido en el plan {plan}. Hoy: {used} de {limit} tokens usados. Se reinicia a medianoche UTC.', // MT
+    pt: 'Ligado, incluído no plano {plan}. Hoje: {used} de {limit} tokens usados. Reinicia à meia-noite UTC.', // MT
+    de: 'An, im {plan}-Plan enthalten. Heute: {used} von {limit} Tokens verbraucht. Zurücksetzung um Mitternacht UTC.', // MT
+    fr: 'Activé, inclus dans l’offre {plan}. Aujourd’hui : {used} sur {limit} tokens utilisés. Remise à zéro à minuit UTC.', // MT
+  },
+  assistant_status_budget: {
+    en: 'Paused for today: this workspace has used its {limit}-token allowance. It resets at midnight UTC. Connecting your own key lifts the allowance.',
+    nl: 'Vandaag gepauzeerd: deze workspace heeft zijn bundel van {limit} tokens gebruikt. Reset om middernacht UTC. Een eigen sleutel koppelen heft de bundel op.',
+    es: 'En pausa por hoy: este espacio ha usado su asignación de {limit} tokens. Se reinicia a medianoche UTC. Conectar una clave propia elimina el límite.', // MT
+    pt: 'Em pausa por hoje: este espaço usou a sua franquia de {limit} tokens. Reinicia à meia-noite UTC. Ligar uma chave própria remove o limite.', // MT
+    de: 'Heute pausiert: dieser Workspace hat sein Kontingent von {limit} Tokens verbraucht. Zurücksetzung um Mitternacht UTC. Ein eigener Schlüssel hebt das Kontingent auf.', // MT
+    fr: 'En pause pour aujourd’hui : cet espace a utilisé son allocation de {limit} tokens. Remise à zéro à minuit UTC. Connecter votre propre clé lève la limite.', // MT
+  },
+  assistant_status_plan: {
+    en: 'Not part of the {plan} plan. Starter and Pro include it; or connect this workspace’s own Anthropic key below.',
+    nl: 'Geen onderdeel van het {plan}-abonnement. Starter en Pro hebben het; of koppel hieronder de eigen Anthropic-sleutel van deze workspace.',
+    es: 'No incluido en el plan {plan}. Starter y Pro lo incluyen; o conecta abajo la clave de Anthropic propia de este espacio.', // MT
+    pt: 'Não incluído no plano {plan}. Starter e Pro incluem-no; ou ligue abaixo a chave Anthropic própria deste espaço.', // MT
+    de: 'Nicht im {plan}-Plan enthalten. Starter und Pro enthalten ihn; oder verbinde unten den eigenen Anthropic-Schlüssel dieses Workspaces.', // MT
+    fr: 'Non inclus dans l’offre {plan}. Starter et Pro l’incluent ; ou connectez ci-dessous la clé Anthropic propre à cet espace.', // MT
+  },
+  assistant_status_off: {
+    en: 'Not switched on for this deployment.',
+    nl: 'Niet ingeschakeld op deze omgeving.',
+    es: 'No activado en esta instalación.', // MT
+    pt: 'Não ativado nesta instalação.', // MT
+    de: 'Auf dieser Umgebung nicht eingeschaltet.', // MT
+    fr: 'Non activé sur ce déploiement.', // MT
+  },
+  assistant_own_key_title: {
+    en: 'Your own key',
+    nl: 'Eigen sleutel',
+    es: 'Tu propia clave', // MT
+    pt: 'A sua própria chave', // MT
+    de: 'Eigener Schlüssel', // MT
+    fr: 'Votre propre clé', // MT
+  },
+  assistant_own_key_body: {
+    en: 'Paste an API key from your own Anthropic account and the assistant runs on it: Anthropic bills you, the platform allowance no longer applies, and you set your own spend limit in the Anthropic console. The key is stored encrypted and shown here only by its last four characters. Whichever key is used, what the assistant sends to Anthropic stays the same: thread titles, dates, statuses and counts, plus what people type.',
+    nl: 'Plak een API-sleutel van je eigen Anthropic-account en de assistent draait daarop: Anthropic factureert jou, de platformbundel geldt niet meer en je stelt je eigen bestedingslimiet in de Anthropic-console in. De sleutel wordt versleuteld opgeslagen en hier alleen met de laatste vier tekens getoond. Welke sleutel ook wordt gebruikt, wat de assistent naar Anthropic stuurt blijft gelijk: titels, data, statussen en aantallen van threads, plus wat mensen typen.',
+    es: 'Pega una clave API de tu propia cuenta de Anthropic y el asistente funcionará con ella: Anthropic te factura, la asignación de la plataforma deja de aplicar y fijas tu propio límite de gasto en la consola de Anthropic. La clave se guarda cifrada y aquí solo se muestran sus últimos cuatro caracteres. Sea cual sea la clave, lo que el asistente envía a Anthropic es lo mismo: títulos, fechas, estados y recuentos de threads, más lo que la gente escribe.', // MT
+    pt: 'Cole uma chave API da sua própria conta Anthropic e o assistente passa a usá-la: a Anthropic fatura-o a si, a franquia da plataforma deixa de se aplicar e define o seu próprio limite de gastos na consola da Anthropic. A chave é guardada cifrada e aqui só se mostram os últimos quatro caracteres. Qualquer que seja a chave, o que o assistente envia à Anthropic é o mesmo: títulos, datas, estados e contagens de threads, mais o que as pessoas escrevem.', // MT
+    de: 'Füge einen API-Schlüssel aus deinem eigenen Anthropic-Konto ein, und der Assistent läuft damit: Anthropic rechnet mit dir ab, das Plattform-Kontingent gilt nicht mehr, und du setzt dein eigenes Ausgabenlimit in der Anthropic-Konsole. Der Schlüssel wird verschlüsselt gespeichert und hier nur mit den letzten vier Zeichen angezeigt. Egal welcher Schlüssel: was der Assistent an Anthropic sendet, bleibt gleich — Titel, Daten, Status und Zahlen von Threads sowie das, was Menschen eingeben.', // MT
+    fr: 'Collez une clé API de votre propre compte Anthropic et l’assistant fonctionne avec elle : Anthropic vous facture, l’allocation de la plateforme ne s’applique plus et vous fixez votre propre plafond de dépenses dans la console Anthropic. La clé est stockée chiffrée et n’apparaît ici que par ses quatre derniers caractères. Quelle que soit la clé, ce que l’assistant envoie à Anthropic reste identique : titres, dates, statuts et comptes des threads, plus ce que les gens tapent.', // MT
+  },
+  assistant_key_placeholder: {
+    en: 'sk-ant-…',
+    nl: 'sk-ant-…',
+    es: 'sk-ant-…', // MT
+    pt: 'sk-ant-…', // MT
+    de: 'sk-ant-…', // MT
+    fr: 'sk-ant-…', // MT
+  },
+  assistant_key_connect: {
+    en: 'Connect key',
+    nl: 'Sleutel koppelen',
+    es: 'Conectar clave', // MT
+    pt: 'Ligar chave', // MT
+    de: 'Schlüssel verbinden', // MT
+    fr: 'Connecter la clé', // MT
+  },
+  assistant_key_connected: {
+    en: 'Connected: a key ending in …{hint}.',
+    nl: 'Gekoppeld: een sleutel die eindigt op …{hint}.',
+    es: 'Conectada: una clave que termina en …{hint}.', // MT
+    pt: 'Ligada: uma chave que termina em …{hint}.', // MT
+    de: 'Verbunden: ein Schlüssel mit der Endung …{hint}.', // MT
+    fr: 'Connectée : une clé se terminant par …{hint}.', // MT
+  },
+  assistant_key_remove: {
+    en: 'Disconnect',
+    nl: 'Ontkoppelen',
+    es: 'Desconectar', // MT
+    pt: 'Desligar', // MT
+    de: 'Trennen', // MT
+    fr: 'Déconnecter', // MT
+  },
+  assistant_key_admin_only: {
+    en: 'A workspace admin connects or removes the key.',
+    nl: 'Een workspace-beheerder koppelt of verwijdert de sleutel.',
+    es: 'Un administrador del espacio conecta o elimina la clave.', // MT
+    pt: 'Um administrador do espaço liga ou remove a chave.', // MT
+    de: 'Ein Workspace-Admin verbindet oder entfernt den Schlüssel.', // MT
+    fr: 'Un administrateur de l’espace connecte ou retire la clé.', // MT
+  },
+  assistant_usage_title: {
+    en: 'Use, last 30 days',
+    nl: 'Gebruik, laatste 30 dagen',
+    es: 'Uso, últimos 30 días', // MT
+    pt: 'Utilização, últimos 30 dias', // MT
+    de: 'Nutzung, letzte 30 Tage', // MT
+    fr: 'Utilisation, 30 derniers jours', // MT
+  },
+  assistant_usage_none: {
+    en: 'Nobody has used the assistant here yet.',
+    nl: 'Nog niemand heeft de assistent hier gebruikt.',
+    es: 'Nadie ha usado el asistente aquí todavía.', // MT
+    pt: 'Ninguém usou ainda o assistente aqui.', // MT
+    de: 'Hier hat noch niemand den Assistenten benutzt.', // MT
+    fr: 'Personne n’a encore utilisé l’assistant ici.', // MT
+  },
+  assistant_usage_cols: {
+    en: 'Day · turns · tokens in · tokens out · key',
+    nl: 'Dag · beurten · tokens in · tokens uit · sleutel',
+    es: 'Día · turnos · tokens entrada · tokens salida · clave', // MT
+    pt: 'Dia · turnos · tokens entrada · tokens saída · chave', // MT
+    de: 'Tag · Runden · Tokens ein · Tokens aus · Schlüssel', // MT
+    fr: 'Jour · tours · tokens entrée · tokens sortie · clé', // MT
+  },
+  assistant_source_platform: {
+    en: 'The Fibre',
+    nl: 'The Fibre',
+    es: 'The Fibre', // MT
+    pt: 'The Fibre', // MT
+    de: 'The Fibre', // MT
+    fr: 'The Fibre', // MT
+  },
+  assistant_source_workspace: {
+    en: 'own key',
+    nl: 'eigen sleutel',
+    es: 'clave propia', // MT
+    pt: 'chave própria', // MT
+    de: 'eigener Schlüssel', // MT
+    fr: 'clé propre', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

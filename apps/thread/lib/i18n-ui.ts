@@ -6955,6 +6955,127 @@ const CATALOG = {
     de: 'Geld', // MT
     fr: 'Argent', // MT
   },
+  // ── the in-app assistant (docs/assistant-in-app.md, 2026-09-15) ────────
+  assistant_open: {
+    en: 'Ask',
+    nl: 'Vraag',
+    es: 'Preguntar', // MT
+    pt: 'Perguntar', // MT
+    de: 'Fragen', // MT
+    fr: 'Demander', // MT
+  },
+  assistant_title: {
+    en: 'Assistant',
+    nl: 'Assistent',
+    es: 'Asistente', // MT
+    pt: 'Assistente', // MT
+    de: 'Assistent', // MT
+    fr: 'Assistant', // MT
+  },
+  assistant_intro: {
+    en: 'Ask about your threads, or say what you want to set up. Anything that changes something is shown to you first.',
+    nl: 'Vraag iets over je threads, of zeg wat je wilt opzetten. Alles wat iets verandert krijg je eerst te zien.',
+    es: 'Pregunta sobre tus threads o di qué quieres preparar. Todo lo que cambie algo se te muestra primero.', // MT
+    pt: 'Pergunte sobre os seus threads ou diga o que quer preparar. Tudo o que altera algo é mostrado primeiro.', // MT
+    de: 'Frag nach deinen Threads oder sag, was du einrichten willst. Alles, was etwas ändert, siehst du zuerst.', // MT
+    fr: 'Pose une question sur tes threads ou dis ce que tu veux mettre en place. Tout ce qui change quelque chose t’est montré d’abord.', // MT
+  },
+  assistant_placeholder: {
+    en: 'Make a thread from a template…',
+    nl: 'Maak een thread van een sjabloon…',
+    es: 'Crear un thread a partir de una plantilla…', // MT
+    pt: 'Criar um thread a partir de um modelo…', // MT
+    de: 'Einen Thread aus einer Vorlage erstellen…', // MT
+    fr: 'Créer un thread à partir d’un modèle…', // MT
+  },
+  assistant_send: {
+    en: 'Send',
+    nl: 'Stuur',
+    es: 'Enviar', // MT
+    pt: 'Enviar', // MT
+    de: 'Senden', // MT
+    fr: 'Envoyer', // MT
+  },
+  assistant_thinking: {
+    en: 'Thinking…',
+    nl: 'Denkt na…',
+    es: 'Pensando…', // MT
+    pt: 'A pensar…', // MT
+    de: 'Denkt nach…', // MT
+    fr: 'Réfléchit…', // MT
+  },
+  assistant_proposal: {
+    en: 'Shall I do this?',
+    nl: 'Zal ik dit doen?',
+    es: '¿Lo hago?', // MT
+    pt: 'Faço isto?', // MT
+    de: 'Soll ich das tun?', // MT
+    fr: 'Je fais ça ?', // MT
+  },
+  assistant_approve: {
+    en: 'Yes, do it',
+    nl: 'Ja, doe maar',
+    es: 'Sí, hazlo', // MT
+    pt: 'Sim, faz', // MT
+    de: 'Ja, mach das', // MT
+    fr: 'Oui, vas-y', // MT
+  },
+  assistant_decline: {
+    en: 'No',
+    nl: 'Nee',
+    es: 'No', // MT
+    pt: 'Não', // MT
+    de: 'Nein', // MT
+    fr: 'Non', // MT
+  },
+  assistant_new_chat: {
+    en: 'New conversation',
+    nl: 'Nieuw gesprek',
+    es: 'Nueva conversación', // MT
+    pt: 'Nova conversa', // MT
+    de: 'Neues Gespräch', // MT
+    fr: 'Nouvelle conversation', // MT
+  },
+  assistant_close: {
+    en: 'Close',
+    nl: 'Sluiten',
+    es: 'Cerrar', // MT
+    pt: 'Fechar', // MT
+    de: 'Schließen', // MT
+    fr: 'Fermer', // MT
+  },
+  assistant_failed: {
+    en: 'The assistant could not answer. Try again.',
+    nl: 'De assistent kon niet antwoorden. Probeer het nog eens.',
+    es: 'El asistente no pudo responder. Inténtalo de nuevo.', // MT
+    pt: 'O assistente não conseguiu responder. Tenta outra vez.', // MT
+    de: 'Der Assistent konnte nicht antworten. Versuch es noch einmal.', // MT
+    fr: 'L’assistant n’a pas pu répondre. Réessaie.', // MT
+  },
+  assistant_open_thread: {
+    en: 'Open the thread',
+    nl: 'Open de thread',
+    es: 'Abrir el thread', // MT
+    pt: 'Abrir o thread', // MT
+    de: 'Thread öffnen', // MT
+    fr: 'Ouvrir le thread', // MT
+  },
+  assistant_suggest_template: {
+    en: 'Make a thread from a template',
+    nl: 'Maak een thread van een sjabloon',
+    es: 'Crear un thread a partir de una plantilla', // MT
+    pt: 'Criar um thread a partir de um modelo', // MT
+    de: 'Einen Thread aus einer Vorlage erstellen', // MT
+    fr: 'Créer un thread à partir d’un modèle', // MT
+  },
+  assistant_suggest_status: {
+    en: 'How is registration going?',
+    nl: 'Hoe loopt de inschrijving?',
+    es: '¿Cómo va la inscripción?', // MT
+    pt: 'Como vão as inscrições?', // MT
+    de: 'Wie läuft die Anmeldung?', // MT
+    fr: 'Où en sont les inscriptions ?', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type UiKey = keyof typeof CATALOG;

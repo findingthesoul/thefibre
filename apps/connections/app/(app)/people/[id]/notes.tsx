@@ -1040,16 +1040,6 @@ export function Notes({
           </ul>
         )}
 
-        {/* Tags found in what was just written.
-            
-            They appear ON, not as a suggestion to accept, because the whole
-            request was that this happen "without you having to do it" — a row
-            of things to confirm would be another form. The X is the decision
-            that matters, and it takes the TAG off while leaving the WORD in
-            the sentence, which is the distinction Sjoerd drew.
-            
-            Nothing here blocks: a note with every tag removed saves exactly
-            like a note with none found. */}
         {/* People named with @. Separate from the tags, because they are a
             different thing: a tag is a characteristic somebody carries, a
             mention is that they were in this conversation. */}
@@ -1082,29 +1072,9 @@ export function Notes({
           </div>
         )}
 
-        {tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-ink-muted">{t(locale, 'note_tags')}</span>
-            {tags.map((tag) => (
-              <button
-                key={tag.name}
-                type="button"
-                onClick={() =>
-                  setDismissed((d) => new Set(d).add(tag.name.toLowerCase()))
-                }
-                onMouseEnter={() => setActiveKey(foldKey(tag.name))}
-                onMouseLeave={() => setActiveKey(null)}
-                onFocus={() => setActiveKey(foldKey(tag.name))}
-                onBlur={() => setActiveKey(null)}
-                title={t(locale, tag.via === 'organisation' ? 'note_tag_org' : 'note_tag_remove')}
-                className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-ink bg-ink px-3 text-xs text-ink-inverse"
-              >
-                {tag.name}
-                <X size={12} className="opacity-60 group-hover:opacity-100" />
-              </button>
-            ))}
-          </div>
-        )}
+        {/* No "Picked up" row of tag chips. Sjoerd, 2026-09-15, pointing at
+            it: "This is not needed" — the tags are already marked inside the
+            sentence. Removing a tag is removing its # (or the word). */}
 
         {/* What comes next, as its own section of the same form: a rule and a
             heading rather than a colour of its own (the tint was a second

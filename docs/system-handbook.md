@@ -609,13 +609,13 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 ## 10. Version management & release procedure
 
-- **One monorepo version** stamped in the `package.json` of **every workspace
-  package** (root, every `apps/*` incl. api, and `packages/shared`) **plus**
-  `apps/web/lib/version.ts` (`VERSION` constant — shown in the Fibre sidebar
-  footer and Settings → How The Fibre works). Never count them by hand:
-  `release.sh` derives the list, and the hand-written counts in this file and
-  in CLAUDE.md were both wrong within days. SemVer-ish: features bump minor,
-  fixes bump patch.
+- **One monorepo version** stamped in the `package.json` of **every
+  workspace package** — root, every `apps/*`, every `packages/*` (shared and,
+  since v0.76.0, mcp) — **plus** `apps/web/lib/version.ts` (`VERSION`
+  constant — shown in the Fibre sidebar footer and Settings → How The
+  Fibre works). `scripts/release.sh` derives that list and refuses a
+  half-bumped release; this sentence used to say "nine" and was wrong twice.
+  SemVer-ish: features bump minor, fixes bump patch.
 - **Per-app user-facing versions are decoupled**: Meet shows `v2.x`
   (`apps/meet/app/(app)/layout.tsx`), Thread `v3.x`, Flow / Pulse / Membership
   their own constants in their layouts. Bump those only when app-specific

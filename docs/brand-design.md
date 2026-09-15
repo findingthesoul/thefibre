@@ -136,6 +136,7 @@ class yourself.
 | A list of rows | `ListGroup` + the app's `ListRow` |
 | Rich text display | `RichText` |
 | A photo | `PhotoField` |
+| An assistant conversation with an approve/decline card | `AssistantPanel` (`ui/assistant`) — the app supplies `send` and translated `labels` |
 
 **Buttons, precisely.** A primary button that submits a form is automatically
 `save` — yellow — so nobody has to remember. Primary buttons that do not save

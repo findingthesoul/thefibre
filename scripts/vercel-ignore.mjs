@@ -31,6 +31,19 @@ import { execSync } from 'node:child_process';
 // git/env; behavior is identical to the pre-extraction script.
 // ---------------------------------------------------------------------------
 
+/**
+ * A deliberate "build regardless" switch, read from the project's env
+ * (`FIBRE_FORCE_BUILD=1`). Born 2026-09-15 swapping the Supabase anon key for
+ * a publishable key: only an env value changed, so every diff was empty and
+ * every rebuild — even an API redeploy with a project-settings override —
+ * was cancelled by this script, leaving the old key baked into the bundles.
+ * Set it on the projects, push, then REMOVE it, or every build forever
+ * ignores the skip and the costs this script exists for come back.
+ */
+export function forced(env) {
+  return env?.FIBRE_FORCE_BUILD === '1';
+}
+
 /** Is the arg a plausible app folder name? Anything else → build to be safe. */
 export function validApp(app) {
   return typeof app === 'string' && /^[a-z-]+$/.test(app);
@@ -110,6 +123,10 @@ if (!invokedDirectly) {
 }
 
 function main() {
+if (forced(process.env)) {
+  console.log('[vercel-ignore] FIBRE_FORCE_BUILD=1 — building (remove the variable afterwards)');
+  process.exit(1);
+}
 const app = process.argv[2];
 if (!validApp(app)) {
   console.log(`[vercel-ignore] no/invalid app arg (${app}) — building to be safe`);

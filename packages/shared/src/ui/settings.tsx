@@ -161,6 +161,7 @@ import {
   Receipt,
   BookOpen,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 
 export type PlatformSettingKey =
@@ -172,9 +173,29 @@ export type PlatformSettingKey =
   | 'teams'
   | 'apps'
   | 'currencies'
+  | 'assistant'
   | 'plan'
   | 'about'
   | 'privacy';
+
+/** Every key, as a value — so a test can prove each has its strings in the
+ *  server chrome catalog. A `as ServerChromeKey` cast in platformSettings()
+ *  hid a missing pair once (v0.78.0: 'assistant' crashed /settings on staging
+ *  in every locale). */
+export const PLATFORM_SETTING_KEYS = [
+  'profile',
+  'connections',
+  'payments',
+  'workspace',
+  'members',
+  'teams',
+  'apps',
+  'currencies',
+  'assistant',
+  'plan',
+  'about',
+  'privacy',
+] as const satisfies readonly PlatformSettingKey[];
 
 const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
@@ -237,6 +258,13 @@ const CANON: Record<
     desc: 'Which currencies this workspace sells in, and the default — one list for everything priced.',
     icon: <Coins {...ICON} />,
     path: '/settings/currencies',
+  },
+  assistant: {
+    section: 'workspace',
+    title: 'Assistant',
+    desc: 'The assistant inside the apps: whether this workspace has it, on whose key, and how much it has used.',
+    icon: <Sparkles {...ICON} />,
+    path: '/settings/assistant',
   },
   plan: {
     section: 'workspace',

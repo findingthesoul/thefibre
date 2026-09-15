@@ -7,6 +7,8 @@ import { Sidebar, MobileNav } from '@/components/shell/sidebar';
 import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
+import { ThreadAssistant } from '@/components/shell/assistant';
+import { assistantEnabled } from '@/lib/assistant-actions';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { APPS, tileArtUrl } from '@thefibre/shared';
@@ -14,7 +16,7 @@ import { APPS, tileArtUrl } from '@thefibre/shared';
 // The Thread is the rebuild of thethread-v3, so its user-facing version
 // starts at 3.0.0 — independent of the monorepo cadence in package.json,
 // same rule as Meet's v2.x. See CLAUDE.md "Version bumps".
-const VERSION = '3.50.1';
+const VERSION = '3.51.0';
 
 type Me = {
   /** Additive: the signed-in interface language (identity_profile.locale). */
@@ -92,6 +94,9 @@ export default async function ThreadAppLayout({
   });
 
   const locale = await uiLocale(me.locale);
+  // The in-app assistant (docs/assistant-in-app.md) is on only where the API
+  // holds a model key; without it there is no button, not a broken one.
+  const showAssistant = await assistantEnabled();
 
   return (
     <LocaleProvider locale={locale}>
@@ -114,6 +119,7 @@ export default async function ThreadAppLayout({
           workspaces={workspaces}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>
+        {showAssistant && <ThreadAssistant locale={locale} />}
         <MobileNav version={VERSION} />
       </div>
     </div>
