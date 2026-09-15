@@ -508,6 +508,105 @@ nobody is asking these questions today, building it answers nothing.
 
 Not scoped.
 
+### 2026-09-15 — what an MCP could unleash, for people facilitating change
+
+Sjoerd:
+
+> What products could we unleash with it? What work would make it easier?
+> Think about some of the features we have discussed? Think about people
+> facilitating change. What could an MCP unleash, make easier, speed up or
+> make possible.
+
+Exploration, in the facilitator's frame rather than the developer's. Reasoning
+recorded so it is not re-derived.
+
+#### The reframe that does most of the work
+
+**Today, every question a facilitator can ask costs a screen.** "Which of last
+year's participants have gone quiet" is answerable from tables that already
+exist — `connections-market.md` §4 says so proudly — but somebody has to build
+the surface first, decide its filters, and ship it. The question and the
+feature are the same object.
+
+**An MCP server separates them.** The question becomes a sentence; the
+capability stays in the scopes. That changes the economics of the whole
+product: the long tail of questions nobody would fund a screen for becomes
+free, and the roadmap stops being a list of reports.
+
+#### The work it would actually take off a facilitator
+
+Their week, and where the hours go:
+
+- **Before a session.** Who is coming, what happened with each of them last
+  time, who is new, who has gone quiet, who is carrying a lot. Five screens
+  today. One question through MCP, over activity, enrolments and the landscape.
+- **Between sessions.** The follow-up nobody has time for, which is where
+  cohorts quietly die. Drafting a message per person, with the trail in view.
+- **After a thread ends.** The retrospective that currently happens in
+  somebody's head or not at all: who moved, who did not, what would you change.
+- **At the year's end.** The report to a board or a funder. Numbers that all
+  exist — enrolments, activity, the purchase ledger — and are assembled by hand
+  in a spreadsheet every time.
+
+#### Where it meets things already on the list
+
+- **The per-thread to-do list and its template builder** (his Thread asks,
+  2026-09-14). The finding there was that `flow_step_default_task` already
+  does this for Flow. With MCP the builder changes shape: instead of a
+  drag-and-drop form, a facilitator says what usually needs doing for this kind
+  of thread and an assistant drafts the template from threads that already ran.
+  **The builder becomes a conversation instead of a screen**, which makes the
+  feature cheaper rather than more expensive.
+- **Capture, which is the product's central risk.** `connections-overview.md`
+  says it plainly: capture feeds act feeds see, the value runs the other way,
+  and that circularity is the central risk. `connections-data-integrity.md`
+  adds the number: over 60% of CRM failures are adoption, and the complaint is
+  always the cost of entry. **This is the strongest argument in the whole
+  exploration**, because it aims at the risk the docs already name. A
+  facilitator talks loosely after a session; the assistant writes the notes,
+  the follow-ups and the activity rows through scoped endpoints. The cost of
+  entry drops toward zero.
+- **Cohort rooms** (the Element exploration). If those exist, "what happened in
+  the room while I was not looking" is a question with an answer.
+
+#### Four products, honestly ranked
+
+1. **The preparation brief.** Before each session: who is coming, what is live
+   for each, who to watch. Composes entirely from existing tables. Real today.
+2. **The year in review.** Board and funder reporting assembled from what
+   actually happened. Differentiating precisely because delivery and money sit
+   in one system, which is the §4 moat. Real today, and the most sellable.
+3. **A workspace-scoped assistant.** App keys are already (app × workspace), so
+   a workspace's assistant structurally cannot see another workspace. That is a
+   property worth selling, not just a safeguard.
+4. **Design intelligence across cohorts** — which thread designs produce
+   completion and return. Needs many threads first. The long game.
+
+#### Why this is different coming from Fibre
+
+An assistant is only as good as what the system honestly knows. Every refusal
+in this codebase — closeness reporting `unrated` rather than guessing,
+co-occurrence not becoming an edge, activity carrying type and subject and
+never body — means **an assistant here answers from stated facts.** Elsewhere
+it summarises inferences drawn from somebody's mailbox and returns them as
+confident sentences. "Nobody has rated this relationship" is a less impressive
+answer and a more useful one.
+
+#### Two counter-readings worth holding
+
+**The capture argument cuts both ways.** If the assistant writes the notes,
+the notes stop being what a human observed. `detect-tags.ts` refuses to send
+note bodies to a model for exactly this reason. The line that keeps it honest:
+**the human states, the machine formats.** Never: the machine observes.
+
+**And facilitation is relational work.** A facilitator who arrives knowing
+everything from a briefing, rather than from having paid attention, has
+traded something real for something efficient. The brief should sharpen
+attention, not stand in for it. Worth deciding on purpose, because the whole
+posture of this platform is accompanying rather than processing.
+
+Not scoped.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._
