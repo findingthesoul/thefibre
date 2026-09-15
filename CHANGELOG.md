@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.29] — 2026-09-15 — The Fibre installs as a phone app; headers fit a phone (staging)
+
+**The Fibre is installable** (Sjoerd: "make a PWA for the whole app, and one
+specific for Connections" — Connections has been one since 2026-09-12).
+`apps/web/app/manifest.ts` (standalone, opens on the dashboard, long-press
+shortcuts to Contacts, Add person and Organisations), the iOS tags
+(appleWebApp, apple-touch-icon) and icons cut from the brand tile the way
+Connections' were. No service worker on purpose: every page is personal data
+rendered for one person, and none of it should stay on a phone.
+
+**Page headers wrap on a phone.** A contact's name with Edit and Delete did
+not fit 375px and Delete slid off the screen; the shared `PageHeader` now
+wraps its actions under the title when there is no room.
+
 ## [0.75.28] — 2026-09-15 — Addresses stack on a phone (staging)
 
 Sjoerd, on his phone: "can't read the phone nr, maybe below each other." The
