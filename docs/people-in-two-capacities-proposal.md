@@ -98,6 +98,41 @@ for sellers. Membership's organisation billing email moves onto it.
 - An address only becomes a sign-in route once it is verified (code or Google).
   An address a curator typed in is never enough to sign in with.
 
+### D. Maintenance asks: same person, or two people?
+
+Sjoerd, 2026-09-15: *"in the maintenance there could be a matching exercise
+and propose to the user to merge when there are two… yes, these are the same
+people with different roles; or no, these are different persons with the
+same name."*
+
+**Most of it exists.** The nightly hygiene sweep (`lib/hygiene.ts`) already
+runs `person_duplicate_candidates()` and raises `duplicate_person` findings
+with a reason in words (`same_email`, `same_name`, `similar_name`) into the
+review queue, where a dismissal is kept and never raised again. Contacts →
+Find duplicates merges a pair. What is missing is the question itself, asked
+where people will see it:
+
+- **A nudge, not a hidden page.** The Contacts page shows "2 people may be
+  the same person — review", linking to Find duplicates. Shown to admins
+  only, because a merge moves payments and certificates.
+- **Each pair is shown side by side**: names, every address with its label,
+  organisations, last activity. Then one question with two answers:
+  - **"Same person, different roles"** → merge. The kept record receives the
+    other record's addresses as contact points (work stays work, private
+    stays private), its organisation memberships, enrolments and invoices.
+    The merge is logged in activity and stays visible in merge history.
+  - **"Different people, same name"** → the pair is remembered as distinct
+    (the queue's `dismissed` status) and never proposed again, not even if a
+    third similar record turns up for one of them.
+  - *Not sure* → leave it; it stays in the queue.
+- **The sweep gets smarter with contact points.** It proposes a pair when two
+  records share *any* address, and a same-name pair ranks higher when an
+  organisation, phone or city also matches. It still only *proposes*: the
+  hygiene rule "a review queue, never a silent repair" stands.
+- **One queue for the whole platform.** The Connections review queue and The
+  Fibre's Find duplicates read the same `hygiene_finding` rows, so an answer
+  given in one place counts everywhere.
+
 ## Privacy check
 
 Joining someone's work and private identity is a real act under GDPR (it
@@ -109,6 +144,9 @@ the person every address held on them (Article 15 export includes contact points
 
 1. **Contact points**: table, sync trigger, backfill from the four columns,
    matching on all emails, merge moves addresses, card + popup UI.
+1b. **Same person or two?**: the nudge, the side-by-side pair, the two
+   answers, one shared queue. Depends on 1 only for moving the addresses on
+   merge; "different people" can ship first.
 2. **Organisation billing details**: fields + one reader; Membership reads it.
 3. **Who pays**: `payer_org_id`, the checkout choice in Thread, Meet and
    Membership, organisation Invoices tab.
