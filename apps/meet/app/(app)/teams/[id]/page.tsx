@@ -14,7 +14,12 @@ import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { TeamForm } from '../form';
-import { AddMemberForm, RemoveMemberButton, PendingInviteRow } from './members';
+import {
+  AddMemberForm,
+  RemoveMemberButton,
+  PendingInviteRow,
+  type MemberCandidate,
+} from './members';
 import { VisibilityCard } from './visibility';
 import { TeamHoursButton } from './hours';
 import { MEET_HOST } from '@/lib/public-host';
@@ -64,6 +69,24 @@ export default async function TeamDetailPage({
   }
 
   const isLead = team.my_role === 'lead';
+
+  // Who a lead can add: the workspace's members, minus anyone already on (or
+  // invited to) this team. Non-fatal — without it the search is empty and
+  // "invite someone new" still works.
+  let candidates: MemberCandidate[] = [];
+  if (isLead) {
+    try {
+      const r = await apiFetch<{ items: MemberCandidate[] }>('/api/v1/members');
+      const onTeam = new Set(
+        team.members
+          .map((m) => (Array.isArray(m.user) ? m.user[0] : m.user)?.id)
+          .filter(Boolean),
+      );
+      candidates = r.items.filter((c) => c.email && !onTeam.has(c.user_id));
+    } catch {
+      candidates = [];
+    }
+  }
 
   // Per-team availability overrides, keyed by user. Non-fatal: an older
   // workspace (or a member who can't read them) just sees no override.
@@ -154,7 +177,7 @@ export default async function TeamDetailPage({
         </ListGroup>
         {isLead && (
           <div className="mt-6">
-            <AddMemberForm teamId={team.id} locale={locale} />
+            <AddMemberForm teamId={team.id} candidates={candidates} locale={locale} />
           </div>
         )}
       </section>

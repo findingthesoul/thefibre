@@ -2899,6 +2899,46 @@ const CATALOG = {
     de: 'Team konnte nicht geladen werden.', // MT
     fr: 'Impossible de charger l’équipe.', // MT
   },
+  member_search_placeholder: {
+    en: 'Search people in your workspace…',
+    nl: 'Zoek mensen in je werkruimte…',
+    es: 'Busca personas en tu espacio de trabajo…', // MT
+    pt: 'Procure pessoas no seu espaço de trabalho…', // MT
+    de: 'Personen in deinem Workspace suchen…', // MT
+    fr: 'Cherche des personnes dans ton espace…', // MT
+  },
+  member_search_hint: {
+    en: 'Not in the list? Type their name and invite them as someone new.',
+    nl: 'Staat iemand er niet bij? Typ de naam en nodig diegene uit.',
+    es: '¿No está en la lista? Escribe su nombre e invítalo como alguien nuevo.', // MT
+    pt: 'Não está na lista? Escreva o nome e convide como alguém novo.', // MT
+    de: 'Nicht in der Liste? Namen eintippen und als neue Person einladen.', // MT
+    fr: 'Pas dans la liste ? Tape son nom et invite-le comme nouvelle personne.', // MT
+  },
+  member_create_row: {
+    en: 'Invite “{name}” as someone new',
+    nl: '“{name}” uitnodigen als nieuw persoon',
+    es: 'Invitar a «{name}» como alguien nuevo', // MT
+    pt: 'Convidar “{name}” como alguém novo', // MT
+    de: '„{name}“ als neue Person einladen', // MT
+    fr: 'Inviter « {name} » comme nouvelle personne', // MT
+  },
+  member_create_title: {
+    en: 'Invite someone new',
+    nl: 'Iemand nieuws uitnodigen',
+    es: 'Invitar a alguien nuevo', // MT
+    pt: 'Convidar alguém novo', // MT
+    de: 'Neue Person einladen', // MT
+    fr: 'Inviter une nouvelle personne', // MT
+  },
+  member_create_desc: {
+    en: 'They are not in your workspace yet. They get an invite by email and join the team when they accept.',
+    nl: 'Diegene zit nog niet in je werkruimte. Er gaat een uitnodiging per e-mail en na accepteren zit diegene in het team.',
+    es: 'Aún no está en tu espacio de trabajo. Recibe una invitación por correo y se une al equipo al aceptarla.', // MT
+    pt: 'Ainda não está no seu espaço de trabalho. Recebe um convite por email e entra na equipa ao aceitar.', // MT
+    de: 'Die Person ist noch nicht in deinem Workspace. Sie bekommt eine Einladung per E-Mail und ist nach dem Annehmen im Team.', // MT
+    fr: 'Cette personne n’est pas encore dans ton espace. Elle reçoit une invitation par e-mail et rejoint l’équipe en l’acceptant.', // MT
+  },
   add_a_member: {
     en: 'Add a member',
     nl: 'Lid toevoegen',
