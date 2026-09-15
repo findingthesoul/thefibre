@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.26] — 2026-09-15 — A phone's country code can be chosen before the number (staging)
+
+Sjoerd: "Although Martijn lives in Curaçao, he has a NL phone number. I can't
+change the prefix." With no number typed yet, the shared `PhoneInput` derived
+the country from the (empty) value and fell back to the person's country on
+every render, so a chosen code snapped straight back. The chosen code is now
+kept by the field; a number that carries its own country still decides.
+
 ## [0.75.25] — 2026-09-15 — Add an organisation from the person (staging)
 
 Sjoerd: "Why can't I add an organisation from a person?" A contact's

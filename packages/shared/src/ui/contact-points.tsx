@@ -13,6 +13,7 @@
 //   PhoneInput           country code (searchable) + number → "+31 612345678"
 //   ContactPointsView    the read-only rendering for a contact card
 
+import { useState } from 'react';
 import { X, BadgeCheck } from 'lucide-react';
 import { getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import { COUNTRIES } from '../countries.js';
@@ -77,13 +78,24 @@ export function PhoneInput({
   ariaLabel?: string;
 }) {
   const locale = useLocale();
-  const { country, national } = splitPhone(value, defaultCountry);
+  const parsed = splitPhone(value, defaultCountry);
+  // The chosen code is kept here, not re-derived from the value alone: with
+  // no number typed yet the value is empty, and deriving from it snapped the
+  // picker back to the default country on every choice — Martijn lives on
+  // Curaçao but has a Dutch number, and the prefix could not be changed
+  // (Sjoerd, 2026-09-15). A number that carries its own country still wins.
+  const [picked, setPicked] = useState(parsed.country);
+  const country = value && parsed.country ? parsed.country : picked;
+  const national = parsed.national;
   return (
     <div className="flex gap-2 min-w-0 flex-1">
       <div className="w-28 shrink-0">
         <SearchSelect
           value={country}
-          onChange={(c) => onChange(joinPhone(c, national))}
+          onChange={(c) => {
+            setPicked(c);
+            onChange(joinPhone(c, national));
+          }}
           options={PREFIXES}
           placeholder={chromeT(locale, 'cp_prefix')}
         />
