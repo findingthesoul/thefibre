@@ -621,14 +621,27 @@ exactly two credential kinds (`middleware/app-context.ts`):
   own data. Wrong for a member, whose assistant would see the whole workspace
   rather than their own corner of it.
 
-So the workspace case ships on what exists; **the member case needs a third
-thing: person-scoped, narrow, long-lived, revocable.** The reasoning for why
-the two obvious shortcuts are wrong is already written in `app-keys.ts` — it
-should be read before anyone designs it, not after.
+So the workspace case ships on what exists; the other case needs a third
+thing: person-scoped, narrow, long-lived, revocable.
 
-Worth separating in any write-up, because they are different products with
-different risk: an organisation pointing an assistant at its own data, versus
-a platform handing every member a key.
+**Refined the same day, and the refinement makes it much smaller.** Sjoerd
+corrected "member" to **seat**: a person who is part of the workspace, like
+Shuri Tang at soul.com. That changes the problem. A seat is already a `user`
+with a `workspace_role`, so the authority model exists and is RLS. What is
+missing is not a permission design — it is a **durable token carrying an
+identity the platform already understands**, plus the consent screen that
+mints it. The natural shape is an OAuth-style connect flow: the seat approves
+scopes in Fibre, the assistant receives a token bound to her user id and
+workspace.
+
+The elegant consequence: **her assistant can see exactly what she can see and
+nothing more**, because the same policies run. No new boundary to design, and
+no way for a careless tool to widen it.
+
+So the two products are: an organisation pointing an assistant at its own data
+(app key, exists today), and a seat connecting their own assistant (needs the
+token and the consent flow, inherits every boundary). The second is the one
+Sjoerd means.
 
 Not scoped.
 
