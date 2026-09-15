@@ -445,6 +445,9 @@ chat, not an item.
 
 ### 2026-09-15 — what an MCP server could do for The Fibre
 
+**→ Assigned 2026-09-15** to the *Fable 5.1: MCP integration* session, phase 1
+only. See the Moved out note at the foot of this file.
+
 Sjoerd, after asking what an MCP is:
 
 > What could and MCP do for us?
@@ -509,6 +512,9 @@ nobody is asking these questions today, building it answers nothing.
 Not scoped.
 
 ### 2026-09-15 — what an MCP could unleash, for people facilitating change
+
+**→ Assigned 2026-09-15** to the *Fable 5.1: MCP integration* session, phase 1
+only. See the Moved out note at the foot of this file.
 
 Sjoerd:
 
@@ -698,6 +704,27 @@ Not scoped.
 ## Moved out
 
 _Items that graduated, with the date and destination._
+
+### 2026-09-15 → the *Fable 5.1: MCP integration* session
+
+Sjoerd: *"Transfer the assignment of the MCP integration into the Fable 5.1:
+MCP integration chat. It can start building. I want to understand it better
+before we do it."*
+
+A session was created (`session_01QGzPpZxHNaMgoimQNqPw2P`, Fable 5.1) and owns
+the work from here. Its brief resolves the tension in those two sentences
+rather than picking one: **build phase 1 only** — the read-only server, one
+seat, local, against staging, on the app key that already exists — **lead with
+explanation**, and **do not start phase 2 without asking him.** Phase 2 is the
+seat token and consent flow, which is the real commitment.
+
+The design lives in [`ai-assistance-plan.md`](ai-assistance-plan.md). **It is
+on this unmerged branch, not on main**, so the brief tells that session to
+fetch `origin/claude/fibre-backlog-o5ta23` to read its own assignment. That
+friction is an argument for merging PR #1, now that something depends on it.
+
+The two MCP entries stay in Open above, marked as assigned, because only
+phase 1 was handed over. Everything past it is still unranked.
 
 ### 2026-09-13 → `docs/connections-backlog.md` §1.1
 
