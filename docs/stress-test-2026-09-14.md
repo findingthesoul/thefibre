@@ -181,6 +181,42 @@ default, and the guard. `docs/testing-approach.md` counts what exists today.
   failure was Resend refusing the placeholder `@example.com` address, which
   says nothing about the payment path.
 
+## The closing sweep (2026-09-15, evening)
+
+Sjoerd: "close the day with a full sweep test and debug, optimize and debug,
+also documentation." Run on staging at v0.78.6, after twenty-odd releases by
+four sessions in one day.
+
+| Layer | Result |
+|---|---|
+| Typecheck, 14 projects (mcp joined) | pass |
+| Unit tests | 679 pass |
+| Integration, staging | 93 pass |
+| External-app contract, staging (incl. the new MCP step) | pass |
+| Smoke, prod and staging | pass |
+| Published Thread contract, prod and staging | pass |
+| Stripe webhooks, staging | all green (prod verified by hand earlier) |
+| Definer audit, prod and staging | closed or allowlisted |
+| Root-slug, admin, app-name audits, both | pass (one transient slug finding was an integration fixture mid-run) |
+| Playwright, staging | **3 of 24 red** |
+| Load, 60-way on the public catalogue | p50 240 ms (was 1274 before the cache) |
+| Assistant route without a session | 401, as it should |
+
+**One real regression, fixed.** `thefibre.tech/settings` threw a server-side
+exception for every signed-in user in every language since v0.78.0 that
+morning: the assistant's settings entry was added to the shared component but
+not to the server chrome catalog it reads titles from, through a cast the
+typecheck cannot see past. Found by the Playwright "Settings lists Teams"
+spec, reproduced in a browser, fixed as v0.78.7 with a test that every
+settings key has its strings in every language. The other two red specs were
+the organisations session's own (a data case and a sign-in race between spec
+files) and it fixed them in v0.78.8.
+
+**Documentation groomed:** the handbook's "nine package.json files" (it is
+every workspace package, derived), CLAUDE.md's claim that Connections was not
+in the catalogue (it is `fibre-sales`, approved), the deploy guide's
+`EMAIL_FROM` example, the test counts above, and this section.
+
 ## Open for you
 
 1. Push the six migrations to production and deploy the production API

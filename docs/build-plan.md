@@ -20,7 +20,7 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-14 (v0.75.0). Done items get removed, not ticked._
+_Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
 
 **Booking terms: a generic set, replaceable per workspace.** Sjoerd asked
 2026-09-14: "Is there a conditions and terms? Maybe a generic one, that could
