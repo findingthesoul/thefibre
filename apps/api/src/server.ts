@@ -50,6 +50,8 @@ import { billingRoutes } from './routes/billing.js';
 import { adminEconomicsRoutes } from './routes/admin-economics.js';
 import { adminSettingsRoutes } from './routes/admin-settings.js';
 import { adminVatRoutes } from './routes/admin-vat.js';
+import { adminFeeStatementsRoutes } from './routes/admin-fee-statements.js';
+import { runFeeStatementTick } from './lib/fee-statements.js';
 import { uploadRoutes } from './routes/uploads.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
@@ -327,6 +329,7 @@ v1.route('/billing', billingRoutes);
 v1.route('/admin/economics', adminEconomicsRoutes);
 v1.route('/admin/settings', adminSettingsRoutes);
 v1.route('/admin/vat', adminVatRoutes);
+v1.route('/admin/fee-statements', adminFeeStatementsRoutes);
 v1.route('/uploads', uploadRoutes);
 v1.route('/profile', profileRoutes);
 v1.route('/apps', appsRoutes);
@@ -379,4 +382,7 @@ setInterval(() => {
     console.error('[billing/meters] run failed', e),
   );
   void runHygieneSweep().catch((e) => console.error('[hygiene] run failed', e));
+  // Monthly platform-fee statements: the previous month, from the 2nd on;
+  // idempotent on the ledger (lib/fee-statements.ts).
+  void runFeeStatementTick().catch((e) => console.error('[fee-statements] run failed', e));
 }, SCHEDULER_INTERVAL_MS);

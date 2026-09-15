@@ -44,7 +44,7 @@ import {
   enrolmentPending,
   engagementMessage,
 } from '../lib/email/thread-templates.js';
-import { appUrl, LOCALES, INTL_LOCALES, toLocale } from '@thefibre/shared';
+import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
 import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
 
@@ -3471,7 +3471,9 @@ async function threadEmailIdentity(thread: {
     note: noteFor(own, brand),
     brand: { logoUrl: brand.logoUrl, name: brand.fromName },
     sender: {
-      ...(brand.fromName ? { fromName: brand.fromName } : {}),
+      // The workspace's name when it may set one, else The Thread — never
+      // whatever EMAIL_FROM happens to say (Sjoerd, 2026-09-15).
+      fromName: brand.fromName ?? ENTITY.publicName,
       ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
       ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
     },

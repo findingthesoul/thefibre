@@ -45,10 +45,28 @@ text, one checkbox on Thread enrolment and Meet booking, the accepted version
 stored on the enrolment or booking. The generic text needs a lawyer's read,
 like the other legal pages.
 
+**Meet confirmation page shows the time in the server's zone.** Seen
+2026-09-15 on staging: a booking at 09:00 Europe/Amsterdam read "07:00 AM" on
+`/[host]/[mt]/confirmed/[id]`. The page formats on the server (UTC) with no
+time zone. Format in the host's or invitee's zone, as the booking step does.
+
 **Meet invoice bookings: Send payment link.** Shipped v0.75.17 without it.
 `purchases.ts` send-payment-link still refuses non-Thread, non-Membership
 purchases. Meet needs a checkout session against the host account that
 settles the booking through the existing Meet webhook.
+
+**Platform-fee statements — three decisions left open (v0.75.19).** (1) Fees
+on invoice-rail sales are recorded (`platform_fee_cents`) and never collected;
+the monthly statement excludes them because including them turns a document
+into a bill. (2) A workspace has no country field, so the statement treats
+every workspace without a foreign EU VAT number as domestic; non-EU needs a
+field first. (3) Stripe's `invoice_creation` on Checkout issues a second
+invoice on the connected account for every ticket, next to ours — decide
+which one the customer should hold.
+(4) The Invoices page counts a `fibre-platform` row — a subscription invoice,
+a fee statement — under "Paid" as if it were the workspace's income; those are
+the workspace's costs and should read as such. Pre-existing for subscription
+rows, visible now that fee statements sit beside ticket sales.
 
 **SECURITY roadmap — `docs/data-protection-approach.md` §5 is the list.** P1
 before the first paid enterprise workspace: CSP report-only, explicit cookie

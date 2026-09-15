@@ -321,9 +321,16 @@ function receiptHtml(
 
   return shell(
     m.kind === 'receipt' ? 'Receipt' : 'Invoice',
-    `<p style="font-size:15px;line-height:1.6;margin:0 0 20px;">Hi ${escapeHtml(
+    `<p style="font-size:15px;line-height:1.6;margin:0 0 6px;">Hi ${escapeHtml(
       p.payer_name.split(/\s+/)[0] ?? '',
     )},</p>
+     ${
+       m.seller.name
+         ? `<p style="font-size:13px;line-height:1.6;color:#6b7280;margin:0 0 20px;">${
+             m.kind === 'receipt' ? 'Payment received by' : 'Invoice from'
+           } <span style="color:#171717;">${escapeHtml(m.seller.name)}</span></p>`
+         : '<div style="height:14px;"></div>'
+     }
      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
             style="border:1px solid #e5e5e2;border-radius:10px;border-collapse:separate;padding:20px 24px;">
        <tr>
@@ -405,7 +412,12 @@ export async function sendReceipt(
       subject: `${p.status === 'pending' ? 'Invoice' : 'Your receipt'} — ${p.item_label}`,
       html: receiptHtml(purchase as unknown as ReceiptPurchase, extraButtonHtml ?? '', seller, brand ?? undefined),
       text: `Your ${p.status === 'pending' ? 'invoice' : 'receipt'} for ${p.item_label} is attached.`,
-      ...(brand?.fromName ? { fromName: brand.fromName } : {}),
+      // Sender: the workspace's own name when its plan lets it set one;
+      // otherwise The Thread, with the actual receiver named in the body
+      // (Sjoerd, 2026-09-15: "The Thread is the sender, with the name of the
+      // actual receiver — organiser, workspace — below it"). Never whatever
+      // EMAIL_FROM happens to say.
+      fromName: brand?.fromName ?? ENTITY.publicName,
       ...(brand?.fromAddress ? { fromAddress: brand.fromAddress } : {}),
       ...(brand?.replyTo ? { replyTo: brand.replyTo } : {}),
       ...(attachments ? { attachments } : {}),
