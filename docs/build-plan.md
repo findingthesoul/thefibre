@@ -989,6 +989,13 @@ purchase machinery so grants ride the existing journal).
   contract job will stay red until it is done (found 2026-09-12, following an
   enrolled participant to their own page).
 
+- **Switch the in-app assistant on, staging first.**
+  `fly secrets set ANTHROPIC_API_KEY=sk-ant-… -c fly.staging.toml`, then open
+  The Thread on staging and try "make a thread from a template". Before
+  production: decide what may leave for a model (structure only, as built, or
+  names with a DPA), add Anthropic to the privacy statement's sub-processor
+  list, and decide on an EU inference region — `docs/assistant-in-app.md` §6.
+
 _(Resend rotated; Stripe Connect onboarded.)_
 
 ---
@@ -1239,6 +1246,21 @@ middleware source. Stdio (Claude Desktop / Claude Code) and a stateless
   chaining Flow + Thread tools). No user asking yet.
 - [ ] Curator-data write tool — the day the API grows that surface (app
   contract §8).
+
+## In-app assistant — version 1 built, off until a key exists (2026-09-15, v0.77.0)
+
+`docs/assistant-in-app.md`. A panel in The Thread that answers about the
+organiser's threads and sets them up (from a template, or blank) behind an
+approve/decline card. Model runs in the EU API; what reaches it is an
+allow-list of structure and counts, never participant data; every write runs
+as the signed-in user through the API's own routes. Hidden until
+`ANTHROPIC_API_KEY` is set on Fly.
+
+**Version 2, in order** (the doc's §5 has the reasoning): streaming · knows
+which page you are on · engagements behind the same gate · participants once
+the sub-processor decision is made · voice dictation · every app mounts the
+panel · per-person memory · metering + plan gate · proactive counts ·
+converge with the MCP tool catalogue.
 
 ## Operational & infra
 

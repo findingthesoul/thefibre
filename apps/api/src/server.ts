@@ -56,6 +56,7 @@ import { uploadRoutes } from './routes/uploads.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
 import { authHookRoutes } from './routes/auth-hook.js';
+import { assistantRoutes } from './routes/assistant.js';
 import { maybeSyncVatRates } from './lib/vat-sync.js';
 import { ensureStripeTaxRates } from './lib/vat-stripe.js';
 
@@ -310,6 +311,9 @@ v1.route('/connections', connectionsEffortRoutes);
 v1.route('/membership', membershipRoutes);
 v1.route('/currencies', currenciesRoutes);
 v1.route('/membership/portal', membershipPortalRoutes);
+// The in-app assistant (docs/assistant-in-app.md). User sessions only; the
+// app-key allow-list in middleware/app-context.ts keeps keys out of it.
+v1.route('/assistant', assistantRoutes);
 // The visitor's own place, across every app (docs/visitor-portal-proposal.md).
 v1.route('/me', portalRoutes);
 v1.route('/oauth', oauthProviderRoutes);

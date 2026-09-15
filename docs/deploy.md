@@ -191,6 +191,22 @@ on this server" and the Zoom option in the meeting-type form stays
 unselectable — nothing breaks, the feature is simply off. Each host then
 connects their own Zoom account once, at Settings → Integrations.
 
+## The in-app assistant (`ANTHROPIC_API_KEY`)
+
+`docs/assistant-in-app.md`. One secret switches it on per environment:
+
+```bash
+fly secrets set ANTHROPIC_API_KEY="sk-ant-…" -c fly.staging.toml   # staging
+```
+
+Without it `GET /api/v1/assistant/status` answers `enabled: false` and The
+Thread renders no Ask button — the feature does not exist on that deployment.
+**Do not set it on production** until the sub-processor entry in the privacy
+statement, the DPA and the inference-region decision in that doc's §6 are
+done. The key is the platform's; every token is billed to it (the assistant
+logs `[assistant] … in= cached= out=` per turn so the cost per workspace can
+be read off the API log).
+
 ---
 
 `STRIPE_SECRET_KEY` is the platform key. Connected accounts are pasted per

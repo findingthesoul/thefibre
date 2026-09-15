@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.77.0] — 2026-09-15 — An assistant inside The Thread, switched off until a key exists (Thread 3.51.0, staging)
+
+docs/assistant-in-app.md — version 1 built, version 2 written down.
+
+**Ask, in The Thread.** A panel bottom-right that answers about the
+organiser's threads and sets them up: "make a thread from a template" lists
+the templates, asks which, confirms title and start date, then proposes the
+creation on a card with **Yes, do it** / **No**. "How is registration going?"
+answers in counts. The model runs in the EU API (`claude-opus-5`, pinned in
+one place); the browser only ever talks to a server action.
+
+**What may reach the model is code, not a promise.** Every tool result is
+built field by field (`lib/assistant/tools.ts`): titles, slugs, dates,
+statuses, counts, ids. Never a participant's name, email, answers or billing;
+never a note; never the activity log. Tests feed the tools rows full of
+personal data and assert none of it survives. Registration reaches the model
+as counts only.
+
+**Nothing happens without a person.** Reads run at once; the first write
+stops the turn and is parked on the API for fifteen minutes. Only an approve
+from the same signed-in person runs it, with the parked arguments — a
+tampered transcript cannot change what was approved. Every write runs as the
+user through the API's own Thread routes, so RLS and the validators apply as
+they do to a click. App keys cannot reach the route.
+
+**Bounded.** 40 turns per person per 10 minutes, 8 model calls per turn, the
+system prompt cached, token counts logged per workspace — never content.
+
+**Dark until switched on.** Without `ANTHROPIC_API_KEY` on the API the status
+route says off and The Thread renders no button: this release changes nothing
+visible on any deployment. Staging first (`docs/build-plan.md`, Outstanding);
+production waits for the sub-processor decision in the doc's §6. The panel's
+signed-in render check is still open for the same reason — there is nothing
+to look at until a key exists on staging.
+
+`AssistantPanel` is born in `@thefibre/shared` (`ui/assistant`), Thread mounts
+it first. Thread's sidebar reads 3.51.0.
+
 ## [0.76.2] — 2026-09-15 — two comments that described the wrong model (staging)
 
 Comments only; no behaviour changes.

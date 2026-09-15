@@ -164,6 +164,15 @@ to extend rather than the place to fork.
   check, portal code, OAuth token, app registration) is metered per IP at
   120/minute. In-memory, per machine — an abuse brake, not a security
   control; the honest version keys on the target and is §5 P1.
+- **The in-app assistant** (`/api/v1/assistant`, since v0.77.0,
+  `docs/assistant-in-app.md`): the one route that sends workspace content to
+  a model provider. User sessions only; per-user brake (40 turns / 10 min);
+  every tool runs as the user through this API's own routes; what reaches the
+  model is an allow-list built field by field — titles, dates, statuses,
+  counts — with participant names, emails, answers, notes and the activity
+  log excluded by construction and by test. *Switched off until
+  `ANTHROPIC_API_KEY` exists; the sub-processor entry, DPA and region
+  decision are open (§6 of that doc) and gate production.*
 
 ### 3.4 The database
 
