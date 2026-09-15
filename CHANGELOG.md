@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.28] — 2026-09-15 — Addresses stack on a phone (staging)
+
+Sjoerd, on his phone: "can't read the phone nr, maybe below each other." The
+shared `ContactPointsEditor` put label, country code, number and remove on one
+row; on a narrow screen the row outgrew the dialog, the number shrank to three
+digits and Save slid off the edge. Below `sm` each address now stacks — label
+and remove on top, the email or phone (code + number) across the full width,
+then Primary and the organisation — and from `sm` up it is one row as before.
+
 ## [0.75.27] — 2026-09-15 — add a team member by name (Meet 2.9.2, staging)
 
 Sjoerd, looking at the team page: "Why not a name type: select... and if it
