@@ -52,13 +52,36 @@ What saves this is the switch, not the process. `assistantClient()` returns
 false`, and Thread renders no button. So production holds the code and not the
 feature, and no personal data has reached a model through it.
 
-But the distance between those two states is one `fly secrets set`, and
-nothing in the repo refuses it. A precondition that lives only in a commit
-message is not a gate. **If the three items are to hold, the honest place for
-them is the deploy procedure** (`docs/deploy.md`), as a line saying the
-production key is not set until the sub-processor entry, the DPA and the
-inference region exist. That is a one-line change and it is not this
-document's to make.
+And the precondition is written where it belongs. `docs/deploy.md` §The
+in-app assistant says *"Do not set it on production until the sub-processor
+entry in the privacy statement, the DPA and the inference-region decision in
+that doc's §6 are done."* It is an instruction rather than a mechanism, but it
+sits in the procedure somebody actually follows to set the secret.
+
+**What that gate stops covering is the next promotion.** The platform key is
+no longer the only way in. On staging, `lib/assistant/access.ts` resolves a
+workspace's OWN Anthropic key first:
+
+```
+if (own) return { ...base, enabled: true, source: 'workspace', ... };
+const platform = assistantClient();
+```
+
+A workspace that pastes its own key is enabled before the platform key is
+consulted at all, and before the plan check and the daily budget too. That is
+a defensible design for who pays. But it means **"do not set
+`ANTHROPIC_API_KEY` on production" will no longer keep the feature off
+production** once v0.78.x promotes, and the deploy note reads as though it
+does.
+
+Two things follow, and neither is this document's to settle:
+
+1. The deploy gate needs to name the workspace-key path, or the connect
+   screen needs to refuse while the three items are open.
+2. The three items themselves may split. With a workspace's own key, the
+   workspace is contracting the model provider and Fibre is transmitting to
+   it; with the platform key, Fibre is the one contracting. The sub-processor
+   entry and the DPA do not obviously read the same way in both cases.
 
 ---
 
