@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.27] — 2026-09-15 — add a team member by name (Meet 2.9.2, staging)
+
+Sjoerd, looking at the team page: "Why not a name type: select... and if it
+not yet exist a popup with a user creation... which is default set as
+external... right? Otherwise they would probably be already part of the
+search field."
+
+**Add a member is one search now.** It lists the workspace's members, minus
+anyone already on or invited to the team, with their email and an External
+tag where it applies. Pick a person, choose the role, press Add. They join
+with the workspace relationship they already have.
+
+**Nobody in the list?** Keep typing, and the last row offers "Invite …
+as someone new". It opens a dialog prefilled from what you typed: text with an
+@ becomes the email, anything else the name. It asks for email, role and
+relationship, **defaulting to External**. Anyone you have to create is not
+in the workspace yet, so internal is the exception you choose on purpose. The
+invite then works as before: a pending account, an email, and membership once
+they accept.
+
+Built on the shared `SearchSelect` create row, the same pattern as The Fibre's
+organisation add-member. The Fibre's person picker searches contacts, while a
+team needs workspace users, so it is not reused here. No API change: the
+member endpoint already ignored relationship for existing members.
+
+Not looked at in a browser: signing in locally against staging was blocked.
+Typecheck only.
+
 ## [0.75.26] — 2026-09-15 — A phone's country code can be chosen before the number (staging)
 
 Sjoerd: "Although Martijn lives in Curaçao, he has a NL phone number. I can't
