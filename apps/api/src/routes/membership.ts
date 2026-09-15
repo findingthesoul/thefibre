@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
+import { organisationBilling, organisationBillingSnapshot } from '../lib/org-billing.js';
 import { resolvePerson } from '../lib/resolve-person.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
@@ -795,19 +796,8 @@ membershipRoutes.post('/members', async (c) => {
     if (billing === 'invoice') {
       const base = interval === 'year' ? tier?.price_cents_year : tier?.price_cents_month;
       const seatCount = data.seat_allowance ?? 1;
-      const [{ data: org }, { data: ob }] = await Promise.all([
-        adminClient
-          .from('organisation')
-          .select('name, legal_name, street, postal_code, city, country')
-          .eq('id', data.organisation_id)
-          .maybeSingle(),
-        adminClient
-          .from('org_billing')
-          .select('legal_name, tax_id, billing_email, billing_street, billing_postal_code, billing_city, billing_country')
-          .eq('org_id', data.organisation_id)
-          .maybeSingle(),
-      ]);
-      const payerEmail = ob?.billing_email ?? null;
+      const orgBilling = await organisationBilling(data.organisation_id as string);
+      const payerEmail = orgBilling?.billing_email ?? null;
       if (base == null || base <= 0) {
         invoiceError = `The tier has no ${interval}ly price — membership created without an invoice.`;
       } else if (!payerEmail) {
@@ -824,8 +814,9 @@ membershipRoutes.post('/members', async (c) => {
           workspaceId: ctx.workspaceId,
           itemRef,
           organiserUserId: ctx.userId || null,
-          payerName: ob?.legal_name ?? org?.legal_name ?? org?.name ?? 'Organisation',
+          payerName: orgBilling?.legal_name ?? orgBilling?.name ?? 'Organisation',
           payerEmail,
+          payerOrgId: data.organisation_id as string,
           itemLabel: `${(await adminClient.from('workspace').select('name').eq('id', ctx.workspaceId).maybeSingle()).data?.name ?? 'Community'} membership — ${tier?.name ?? ''} (${seatCount} seat${seatCount === 1 ? '' : 's'}, ${interval}ly)`,
           amountCents: amount,
           currency: tier?.currency ?? 'EUR',
@@ -833,12 +824,7 @@ membershipRoutes.post('/members', async (c) => {
           status: 'pending',
           billing: {
             membership_interval: interval,
-            company: ob?.legal_name ?? org?.legal_name ?? org?.name ?? null,
-            address: ob?.billing_street ?? org?.street ?? null,
-            postal_code: ob?.billing_postal_code ?? org?.postal_code ?? null,
-            city: ob?.billing_city ?? org?.city ?? null,
-            country: ob?.billing_country ?? org?.country ?? null,
-            ...(ob?.tax_id ? { tax_no: ob.tax_id } : {}),
+            ...(orgBilling ? organisationBillingSnapshot(orgBilling) : {}),
           },
         });
         const { data: saved } = await adminClient

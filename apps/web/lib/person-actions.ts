@@ -34,3 +34,40 @@ export async function searchPeople(q: string): Promise<PersonOption[]> {
     return [];
   }
 }
+
+export type CreatePersonResult =
+  | { ok: true; person: PersonOption }
+  | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/** A new contact from inside a picker ("not in the list — add them"). The
+ *  caller selects the returned person; nothing navigates away. */
+export async function createPersonFromPicker(input: {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  country?: string;
+  email_label?: string;
+  phone_label?: string;
+}): Promise<CreatePersonResult> {
+  const body = Object.fromEntries(
+    Object.entries(input)
+      .map(([k, v]) => [k, (v ?? '').trim()])
+      .filter(([, v]) => v),
+  );
+  try {
+    const created = await apiFetch<PersonOption>('/api/v1/persons', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return { ok: true, person: created };
+  } catch (e) {
+    const err = e as { status?: number; body?: { error?: { fieldErrors?: Record<string, string[]> } | string } };
+    const fe = typeof err.body?.error === 'object' ? err.body.error.fieldErrors : undefined;
+    return {
+      ok: false,
+      error: typeof err.body?.error === 'string' ? err.body.error : `API ${err.status ?? ''}`.trim(),
+      ...(fe ? { fieldErrors: fe } : {}),
+    };
+  }
+}

@@ -14,7 +14,10 @@ type CreatedPerson = { id: string };
 
 function unwrapApiError(e: unknown): ActionResult {
   if (e instanceof ApiError) {
-    const apiBody = e.body as { error?: { fieldErrors?: Record<string, string[]> } } | undefined;
+    const apiBody = e.body as { error?: { fieldErrors?: Record<string, string[]> } | string } | undefined;
+    // A sentence from the API ("A person needs at least one email address.")
+    // is shown as it is; a validation object keeps its per-field errors.
+    if (typeof apiBody?.error === 'string') return { error: apiBody.error };
     return { error: `API ${e.status}`, fieldErrors: apiBody?.error?.fieldErrors };
   }
   return { error: 'Unknown error' };
@@ -64,8 +67,6 @@ export async function updatePerson(
     last_name: strOrNull(formData.get('last_name')) ?? undefined,
     preferred_name: strOrNull(formData.get('preferred_name')),
     pronouns: strOrNull(formData.get('pronouns')),
-    email: strOrNull(formData.get('email')) ?? undefined,
-    phone: strOrNull(formData.get('phone')),
     linkedin_url: strOrNull(formData.get('linkedin_url')),
     street: strOrNull(formData.get('street')),
     postal_code: strOrNull(formData.get('postal_code')),
@@ -80,6 +81,15 @@ export async function updatePerson(
       method: 'PATCH',
       body: JSON.stringify(body),
     });
+    // Addresses are their own list (20260915090000); the API keeps
+    // person.email / person.phone on the primaries.
+    const raw = formData.get('contact_points');
+    if (typeof raw === 'string' && raw) {
+      await apiFetch(`/api/v1/persons/${id}/contact-points`, {
+        method: 'PUT',
+        body: JSON.stringify({ items: JSON.parse(raw) }),
+      });
+    }
   } catch (e) {
     return unwrapApiError(e);
   }

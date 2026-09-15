@@ -8,6 +8,7 @@ import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField } from '@/components/ui/field';
 import { CountryCombobox } from '@/components/ui/country-combobox';
 import { LanguageCombobox } from '@/components/ui/language-combobox';
+import { ContactPointsEditor, type ContactPointValue } from '@thefibre/shared/ui/contact-points';
 import { updatePerson, deletePerson, type ActionResult } from '../actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
@@ -26,9 +27,20 @@ export type EditablePerson = {
   region: string | null;
   country: string | null;
   preferred_language: string | null;
+  contact_points?: ContactPointValue[];
 };
 
-export function ContactActions({ person, locale }: { person: EditablePerson; locale: Locale }) {
+type OrgOption = { id: string; name: string };
+
+export function ContactActions({
+  person,
+  organisations = [],
+  locale,
+}: {
+  person: EditablePerson;
+  organisations?: OrgOption[];
+  locale: Locale;
+}) {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
@@ -59,7 +71,7 @@ export function ContactActions({ person, locale }: { person: EditablePerson; loc
         {t(locale, 'delete')}
       </Button>
 
-      <EditDialog open={editOpen} onClose={() => setEditOpen(false)} person={person} locale={locale} />
+      <EditDialog open={editOpen} onClose={() => setEditOpen(false)} person={person} organisations={organisations} locale={locale} />
       <ConfirmDialog
         open={confirmOpen}
         title={t(locale, 'delete_contact')}
@@ -80,16 +92,26 @@ function EditDialog({
   open,
   onClose,
   person,
+  organisations,
   locale,
 }: {
   open: boolean;
   onClose: () => void;
   person: EditablePerson;
+  organisations: OrgOption[];
   locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
+  const [points, setPoints] = useState<ContactPointValue[]>(() =>
+    person.contact_points?.length
+      ? person.contact_points
+      : [
+          ...(person.email ? [{ kind: 'email' as const, value: person.email, label: null, org_id: null, is_primary: true }] : []),
+          ...(person.phone ? [{ kind: 'phone' as const, value: person.phone, label: null, org_id: null, is_primary: true }] : []),
+        ],
+  );
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -126,8 +148,15 @@ function EditDialog({
         <TextField label={t(locale, 'last_name')} name="last_name" defaultValue={person.last_name ?? ''} required errors={state.fieldErrors?.last_name} />
         <TextField label={t(locale, 'preferred_name')} name="preferred_name" defaultValue={person.preferred_name ?? ''} errors={state.fieldErrors?.preferred_name} />
         <TextField label={t(locale, 'pronouns')} name="pronouns" defaultValue={person.pronouns ?? ''} placeholder="she/her, they/them, …" errors={state.fieldErrors?.pronouns} />
-        <TextField label={t(locale, 'email_label')} name="email" type="email" defaultValue={person.email ?? ''} required errors={state.fieldErrors?.email} />
-        <TextField label={t(locale, 'phone')} name="phone" defaultValue={person.phone ?? ''} errors={state.fieldErrors?.phone} />
+        <div className="md:col-span-2">
+          <input type="hidden" name="contact_points" value={JSON.stringify(points)} />
+          <ContactPointsEditor
+            value={points}
+            onChange={setPoints}
+            organisations={organisations}
+            {...(person.country ? { defaultCountry: person.country } : {})}
+          />
+        </div>
         <TextField label="LinkedIn" name="linkedin_url" defaultValue={person.linkedin_url ?? ''} placeholder="linkedin.com/in/…" errors={state.fieldErrors?.linkedin_url} />
         <TextField label={t(locale, 'street')} name="street" defaultValue={person.street ?? ''} errors={state.fieldErrors?.street} />
         <TextField label={t(locale, 'postal_code')} name="postal_code" defaultValue={person.postal_code ?? ''} errors={state.fieldErrors?.postal_code} />

@@ -274,6 +274,30 @@ const CATALOG = {
     de: 'Deine Anfrage ist eingegangen. Die Organisation prüft sie — du erhältst eine Bestätigungsmail, sobald du zugelassen bist.',
     fr: "Ta demande a bien été reçue. L'organisateur va l'examiner — tu recevras un e-mail de confirmation dès que tu seras accepté·e.", // MT
   },
+  who_pays: {
+    en: 'Who pays?',
+    nl: 'Wie betaalt?',
+    es: '¿Quién paga?', // MT
+    pt: 'Quem paga?', // MT
+    de: 'Wer zahlt?', // MT
+    fr: 'Qui paie ?', // MT
+  },
+  who_pays_myself: {
+    en: 'Myself',
+    nl: 'Ikzelf',
+    es: 'Yo', // MT
+    pt: 'Eu', // MT
+    de: 'Ich selbst', // MT
+    fr: 'Moi-même', // MT
+  },
+  who_pays_organisation: {
+    en: 'An organisation',
+    nl: 'Een organisatie',
+    es: 'Una organización', // MT
+    pt: 'Uma organização', // MT
+    de: 'Eine Organisation', // MT
+    fr: 'Une organisation', // MT
+  },
   company_name: {
     en: 'Company / organisation (for the invoice)',
     nl: 'Bedrijf / organisatie (voor de factuur)',

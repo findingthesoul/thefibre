@@ -5,7 +5,8 @@
 // The same thin wrappers over the platform purchases API that Thread, Meet
 // and Membership use for their Invoices pages — the app-bound half of THE
 // shared invoices area (@thefibre/shared/ui/invoices). They add one thing:
-// `personId`, which narrows every list to this person's rows. Resend, email,
+// `personId` (a contact's tab) or `orgId` (an organisation's tab, which uses
+// these same actions), narrowing every list to those rows. Resend, email,
 // mark-paid, refund and payment links are the same calls as everywhere, so a
 // resend from a contact is the resend, not a second one.
 
@@ -21,6 +22,7 @@ export async function listPurchases(params: ListPurchasesArgs) {
   if (params.app) qs.set('app', params.app);
   if (params.cursor) qs.set('cursor', params.cursor);
   if (params.personId) qs.set('person_id', params.personId);
+  if (params.orgId) qs.set('org_id', params.orgId);
   try {
     const data = await apiFetch<PurchaseList>(`/api/v1/purchases?${qs.toString()}`);
     return { ok: true as const, data };

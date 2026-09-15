@@ -6,6 +6,108 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.24] — 2026-09-15 — Who pays? (staging)
+
+docs/people-in-two-capacities-proposal.md §B, built.
+
+**An invoice knows the organisation that paid.** `purchase.payer_org_id`
+(migration 20260915100000). Checkout is anonymous, so a buyer is never shown a
+list of organisations; they type the company as before, and the server links
+it to an EXISTING organisation only on one unambiguous match — the VAT/tax
+number compared as letters and digits, else the name against name, legal
+name, abbreviation and other names. No match or several: the snapshot stays,
+no link; nothing is created from a public form. Existing invoices naming a
+company were matched once. A membership held by an organisation sets the link
+directly.
+
+**"Who pays? Myself / An organisation"** on the shared invoice billing fields
+— Thread's public enrol form (all locales) and Meet's booking. Company and
+tax number are asked only for an organisation; the answer is kept on the
+billing snapshot (`payer`), and "Myself" is never matched to an organisation.
+
+**An organisation has an Invoices tab** — the shared invoices area narrowed to
+what it paid, offered when there is something to show; the contact tab's
+actions, narrowed by `org_id`.
+
+**One reader for an organisation's billing details** — `lib/org-billing.ts`:
+the billing record (billing email, tax id, billing address) first, the
+organisation row as fallback. Membership's organisation invoices read it.
+
+## [0.75.23] — 2026-09-15 — One person, labelled addresses; same person or two? (staging)
+
+docs/people-in-two-capacities-proposal.md §A and §D, built.
+
+**A person has every address they use, labelled.** `person_contact_point`
+(migration 20260915090000) holds each email and phone with a label (work ·
+private · other), the organisation a work address is for, a primary per kind
+and when it was verified. `person.email` / `person.phone` stay the primary
+copies: a trigger keeps the table in step with every existing writer (a typo
+fix renames an unlabelled address; replacing a labelled one keeps it as a
+secondary), and the API sets them from the primaries. Backfilled from the four
+old columns; an address somebody signed in with is marked verified.
+Merging carries the addresses to the kept person (merge_person repoints every
+FK) and an undo takes them back, with primaries re-derived afterwards.
+
+**Found by any address.** `resolvePerson` matches an incoming email against
+every address on a person, so enrolling with your private address finds you
+instead of creating a second record. Phones compare as digits, `0031…` = `+31…`.
+
+**The contact card and editor.** Every address with its label and
+organisation; the edit dialog is the new shared `ContactPointsEditor` (label,
+make primary, organisation for a work address, + add email/phone), phones via
+the shared `PhoneInput` — a searchable country code and the number. The Add
+person popup in Add member gets labels (work by default) and the phone field.
+
+**Same person, or two different people?** The duplicates review shows each
+pair side by side with every labelled address, organisations and place, and
+asks the question. *Same person, different roles* → pick the record to keep,
+everything merges onto it. *Different people, same name* → remembered on the
+shared review queue (`hygiene_finding`, dismissed) and never proposed again;
+the nightly sweep reads the same rows. A merge marks the pair answered, an
+undo reopens it. New reason: two people who share any address. Admins see
+"N possible duplicates — review" on Contacts.
+
+## [0.75.22] — 2026-09-15 — Adding a person hides the member form (staging)
+
+In Add member → "Add … as a new person", the member fields stayed visible
+under the new person's: Tailwind's `grid` class outranks the `hidden`
+attribute. The class decides now; the form stays mounted, so what was typed
+survives the detour. Caught by the staging walkthrough screenshot.
+
+## [0.75.21] — 2026-09-15 — A workspace is an organisation too (staging)
+
+Found while Sjoerd set up soul.com in production.
+
+**Every workspace has its own organisation.** `workspace.organisation_id`
+(migration 20260915060000) points at the organisation the workspace IS:
+created with every new workspace by a trigger, named after it (domain filled
+when the name is one, like soul.com; legal name from the invoice details),
+linked instead of duplicated when an organisation with exactly that name
+already exists, and backfilled once for every existing workspace. Internal
+members become its members, their contact matched by platform user OR email.
+It is pinned first in the list as "This workspace" and cannot be deleted
+(409; the Delete button is hidden) — rename it instead.
+
+**Domain verification never worked.** Both `org_domain_verification` policies
+compared `workspace_member.user_id` with `auth.uid()`, the auth id, so Start
+DNS verification always hit a row-level security error. Now the workspace
+claim, and the challenge must belong to an organisation in that workspace.
+
+**A contact's organisations were always empty.** `GET /persons/:id` selected
+`organisation.slug`, a column that does not exist; the error was discarded,
+so every contact read "No organisations linked yet" even when the
+organisation listed them as a member.
+
+**Add organisation asks for everything.** Country is the searchable picker,
+address and website are there, and saving opens the organisation with Add
+member already open.
+
+**Add member: search, or add someone new.** Type a name or email; pick a
+match, or choose "Add “…” as a new person" — the dialog asks for their
+details (pre-filled from what you typed), creates the contact and comes back
+with them selected. The row is a new `onCreate` on the shared `SearchSelect`,
+so any picker can offer it. New-contact form uses the country picker too.
+
 ## [0.75.20] — 2026-09-15 — A fee statement is not a second fee (staging)
 
 The monthly platform-fee statement (v0.75.19) carried the fee amount in the

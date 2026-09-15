@@ -89,6 +89,8 @@ export type ListPurchasesArgs = {
    *  The API matches the ledger's two identity keys, person_id OR
    *  payer_email. Apps whose actions ignore it simply show everything. */
   personId?: string | undefined;
+  /** One organisation's money — its Invoices tab (purchase.payer_org_id). */
+  orgId?: string | undefined;
 };
 
 type ListResult = { ok: true; data: PurchaseList } | { ok: false; error: string };
@@ -186,6 +188,7 @@ export function InvoicesArea({
   appOptions = DEFAULT_APP_OPTIONS,
   actions,
   personId,
+  orgId,
 }: {
   teams: { id: string; name: string }[];
   /** Which app's sales to show first — the current app, typically. */
@@ -199,6 +202,8 @@ export function InvoicesArea({
    *  Search, app chips, the detail dialog and resend all keep working;
    *  they just act inside that person's rows. */
   personId?: string;
+  /** Narrow the area to what one organisation paid. */
+  orgId?: string;
 }) {
   const locale: Locale = useLocale();
   const intl = INTL_LOCALES[locale];
@@ -228,6 +233,7 @@ export function InvoicesArea({
         app: app === 'all' ? undefined : app,
         cursor,
         personId,
+        orgId,
       });
       if (!r.ok) {
         // A non-admin landing on a workspace default (Membership opens
@@ -242,7 +248,7 @@ export function InvoicesArea({
       setError(null);
       return r.data;
     },
-    [scope, teamId, q, app, actions, personId],
+    [scope, teamId, q, app, actions, personId, orgId],
   );
 
   useEffect(() => {

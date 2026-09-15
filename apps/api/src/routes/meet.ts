@@ -422,6 +422,8 @@ const InvoiceBilling = z.object({
   city: z.string().max(120).optional(),
   country: z.string().max(120).optional(),
   tax_no: z.string().max(60).optional(),
+  // Who pays: the booker, or an organisation (20260915100000).
+  payer: z.enum(['self', 'organisation']).optional(),
 });
 
 // POST /api/v1/meet/public/bookings

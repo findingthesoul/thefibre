@@ -44,3 +44,18 @@ export async function undoMerge(mergeId: string): Promise<MergeResult> {
   revalidatePath('/contacts');
   return { ok: true };
 }
+
+/** "Different people, same name" — remembered, never proposed again. */
+export async function markDistinct(aId: string, bId: string): Promise<MergeResult> {
+  try {
+    await apiFetch('/api/v1/persons/duplicates/distinct', {
+      method: 'POST',
+      body: JSON.stringify({ a_id: aId, b_id: bId }),
+    });
+  } catch (e) {
+    return unwrap(e);
+  }
+  revalidatePath('/contacts/duplicates');
+  revalidatePath('/contacts');
+  return { ok: true };
+}

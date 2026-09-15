@@ -42,6 +42,10 @@ export type PurchaseWrite = {
   billing?: Record<string, unknown> | null;
   /** The connected account the charge runs on — stored for refunds. */
   stripeAccountId?: string | null;
+  /** The organisation that pays, when the caller knows it (a membership held
+   *  by an organisation). Left undefined, it is matched from the billing
+   *  company / tax number — 20260915100000. */
+  payerOrgId?: string | null;
 };
 
 export async function recordPurchase(w: PurchaseWrite): Promise<void> {
@@ -75,6 +79,19 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   if (w.stripeInvoiceUrl !== undefined) row.stripe_invoice_url = w.stripeInvoiceUrl;
   if (w.billing !== undefined) row.billing = w.billing;
   if (w.stripeAccountId !== undefined) row.stripe_account_id = w.stripeAccountId;
+  if (w.payerOrgId !== undefined) {
+    row.payer_org_id = w.payerOrgId;
+  } else if (w.billing && w.billing.payer !== 'self' && (w.billing.company || w.billing.tax_no)) {
+    // The buyer typed a company on the invoice form. Link it to an EXISTING
+    // organisation only on one unambiguous match; never create one.
+    const { data: match, error: matchErr } = await adminClient.rpc('organisation_match_payer', {
+      p_workspace: w.workspaceId,
+      p_company: (w.billing.company as string | undefined) ?? null,
+      p_tax: (w.billing.tax_no as string | undefined) ?? null,
+    });
+    if (matchErr) console.warn('[purchases] payer organisation match failed', matchErr.message);
+    else if (match) row.payer_org_id = match;
+  }
   if (w.status === 'paid') row.paid_at = now;
   if (w.status === 'refunded') row.refunded_at = now;
 

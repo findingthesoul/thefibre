@@ -105,6 +105,7 @@ function PaymentSection({
         >
           <InvoiceBillingFields
             labelClassName="text-sm text-ink-subtle"
+            whoPays={{ label: 'Who pays?', myself: 'Myself', organisation: 'An organisation' }}
             labels={{
               company: 'Company / organisation (for the invoice)',
               address: 'Billing address',

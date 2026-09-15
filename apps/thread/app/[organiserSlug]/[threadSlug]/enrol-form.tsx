@@ -392,6 +392,11 @@ export function EnrolCard({
           {(activePriceCents ?? 0) > 0 && effectiveMethod === 'invoice' && (
             <InvoiceBillingFields
               inputClassName={INPUT}
+              whoPays={{
+                label: t(locale, 'who_pays'),
+                myself: t(locale, 'who_pays_myself'),
+                organisation: t(locale, 'who_pays_organisation'),
+              }}
               labels={{
                 company: t(locale, 'company_name'),
                 address: t(locale, 'billing_address'),

@@ -12,7 +12,9 @@ import { COUNTRIES } from '@thefibre/shared/countries';
 
 type Props = {
   label: string;
-  name: string;
+  /** Omit when the caller keeps the code in its own state (onChange). */
+  name?: string;
+  onChange?: (code: string) => void;
   defaultValue?: string | null | undefined;
   required?: boolean | undefined;
   errors?: string[] | undefined;
@@ -28,6 +30,7 @@ export function CountryCombobox({
   required,
   errors,
   placeholder = 'Pick a country…',
+  onChange,
 }: Props) {
   const [code, setCode] = useState((defaultValue ?? '').toUpperCase());
 
@@ -39,9 +42,12 @@ export function CountryCombobox({
       </span>
       <SearchSelect
         className="mt-1"
-        name={name}
+        {...(name ? { name } : {})}
         value={code}
-        onChange={setCode}
+        onChange={(c) => {
+          setCode(c);
+          onChange?.(c);
+        }}
         options={COUNTRY_OPTIONS}
         placeholder={placeholder}
         searchPlaceholder="Search countries…"

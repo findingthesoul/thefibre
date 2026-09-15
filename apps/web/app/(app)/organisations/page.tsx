@@ -27,12 +27,15 @@ export default async function OrganisationsPage({
   const locale = await uiLocale();
 
   let items: Organisation[] = [];
+  let ownId: string | null = null;
   let error: string | null = null;
   try {
-    const data = await apiFetch<{ items: Organisation[] }>(
+    const data = await apiFetch<{ items: Organisation[]; workspace_organisation_id?: string | null }>(
       `/api/v1/organisations?limit=100${q ? `&q=${encodeURIComponent(q)}` : ''}`,
     );
-    items = data.items;
+    ownId = data.workspace_organisation_id ?? null;
+    // The organisation this workspace is comes first (Sjoerd, 2026-09-15).
+    items = [...data.items].sort((a, b) => Number(b.id === ownId) - Number(a.id === ownId));
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -75,7 +78,7 @@ export default async function OrganisationsPage({
               href={`/organisations/${o.id}`}
               primary={o.short_name && o.short_name !== o.name ? `${o.name} (${o.short_name})` : o.name}
               secondary={o.domain ?? [o.sector, o.org_type].filter(Boolean).join(' · ') ?? '—'}
-              meta={o.country ?? ''}
+              meta={o.id === ownId ? t(locale, 'org_this_workspace') : o.country ?? ''}
             />
           ))}
         </ListGroup>

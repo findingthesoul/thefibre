@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.75.20",
+  "version": "0.75.24",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -85,6 +85,10 @@
     "./ui/currency-editor": {
       "types": "./dist/ui/currency-editor.d.ts",
       "default": "./dist/ui/currency-editor.js"
+    },
+    "./ui/contact-points": {
+      "types": "./dist/ui/contact-points.d.ts",
+      "default": "./dist/ui/contact-points.js"
     },
     "./ui/search-select": {
       "types": "./dist/ui/search-select.d.ts",
@@ -277,5 +281,8 @@
     "react": "^19.0.0",
     "typescript": "^5.6.0",
     "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "libphonenumber-js": "^1.13.13"
   }
 }
