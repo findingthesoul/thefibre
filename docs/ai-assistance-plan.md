@@ -42,8 +42,23 @@ businesses. Both now exist, and the business question — who pays, and which
 one is the product — is live rather than answered. v0.78.0 ("Who pays for the
 assistant") is where that is being worked out.
 
-**Open for Sjoerd before B reaches production**, per its own commit: a
-sub-processor entry, a DPA, and the inference region. Those are not code.
+**B reached production on 2026-09-15, with those three still open.** The
+v0.77.0 commit says in as many words: *"Sub-processor entry, DPA and inference
+region are open for Sjoerd before production."* It was promoted to `main` the
+same day, in the batch ending at v0.77.1.
+
+What saves this is the switch, not the process. `assistantClient()` returns
+`null` without `ANTHROPIC_API_KEY`, `/assistant/status` reports `enabled:
+false`, and Thread renders no button. So production holds the code and not the
+feature, and no personal data has reached a model through it.
+
+But the distance between those two states is one `fly secrets set`, and
+nothing in the repo refuses it. A precondition that lives only in a commit
+message is not a gate. **If the three items are to hold, the honest place for
+them is the deploy procedure** (`docs/deploy.md`), as a line saying the
+production key is not set until the sub-processor entry, the DPA and the
+inference region exist. That is a one-line change and it is not this
+document's to make.
 
 ---
 
