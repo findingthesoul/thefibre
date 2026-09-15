@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.77.1] — 2026-09-15 — A build can be forced (staging)
+
+Retiring the legacy Supabase keys meant putting the new publishable key into
+the eight production Vercel apps. Only an environment value changed, so every
+diff was empty and `scripts/vercel-ignore.mjs` cancelled every rebuild — even
+an API redeploy with a project-settings override, because `vercel.json`'s
+`ignoreCommand` wins. The old key stayed baked into the bundles.
+
+`FIBRE_FORCE_BUILD=1` on a Vercel project now makes the ignored-build step
+build regardless (exact value `1` only; tested). Set it, push, and remove it
+afterwards, or the build-skip's savings are gone.
+
 ## [0.77.0] — 2026-09-15 — An assistant inside The Thread, switched off until a key exists (Thread 3.51.0, staging)
 
 docs/assistant-in-app.md — version 1 built, version 2 written down.

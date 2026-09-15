@@ -3,7 +3,7 @@
 // multi-commit push. The safety posture is: any doubt → build.
 
 import { describe, expect, it } from 'vitest';
-import { changePaths, pickBase, validApp } from './vercel-ignore.mjs';
+import { changePaths, forced, pickBase, validApp } from './vercel-ignore.mjs';
 
 describe('validApp', () => {
   it('accepts plain app folder names, rejects everything else', () => {
@@ -77,5 +77,15 @@ describe('changePaths', () => {
   it('includes the lockfile — real dependency changes always rebuild', () => {
     expect(paths).toContain('pnpm-lock.yaml');
     expect(paths).toContain('pnpm-workspace.yaml');
+  });
+});
+
+describe('forced', () => {
+  it('builds only on the exact value 1', () => {
+    expect(forced({ FIBRE_FORCE_BUILD: '1' })).toBe(true);
+    expect(forced({ FIBRE_FORCE_BUILD: 'true' })).toBe(false);
+    expect(forced({ FIBRE_FORCE_BUILD: '' })).toBe(false);
+    expect(forced({})).toBe(false);
+    expect(forced(undefined)).toBe(false);
   });
 });
