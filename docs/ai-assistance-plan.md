@@ -58,7 +58,7 @@ policies run. A careless tool cannot widen it.
 
 | # | What | Why this order | Needs |
 |---|---|---|---|
-| **1** | Read-only server, one seat (Sjoerd), run locally against staging | Proves people actually ask questions before any consent UI exists | An MCP server + the existing workspace app key. Days, not weeks |
+| **1** | ~~Read-only server, one seat, run locally against staging~~ **SHIPPED 2026-09-15, v0.76.0** — `packages/mcp`, on staging | Proves people actually ask questions before any consent UI exists | Done. See the note below |
 | **2** | The connect flow: seat token, consent screen, revocation, audit | This is the product. Everything else rides on it | OAuth-style flow; the token is the only genuinely new thing |
 | **3** | Writes, narrowly: notes and follow-ups | Aims at capture, which `connections-overview.md` calls the central risk | Phase 2 + a rule that assistant writes are marked as such |
 | **4** | Steering: ask for a screen, get taken to it | Only worth it once reading and writing are proven | Phase 2 + a command surface (see §4.3) |
@@ -66,6 +66,27 @@ policies run. A careless tool cannot widen it.
 
 **Stop after phase 1 if nobody asks anything.** That is the point of doing it
 first.
+
+**Phase 1 shipped the same day this plan was written, and in two respects it
+is better than what is written above.** `packages/mcp` (v0.76.0, staging)
+serves one tool per row of the app-key allow-list, and:
+
+- **The read/write boundary is the KEY, not the code.** This plan said
+  "read-only server". What shipped filters tools by the scopes the presented
+  key actually holds, so a read-only key yields a read-only assistant and the
+  boundary is the one the platform already enforces. That is the better
+  design: nothing new to keep in step.
+- **A test reads `middleware/app-context.ts` from source** and holds every
+  tool to it, so the catalogue cannot drift from the allow-list. The kind of
+  guarantee this plan asked for and did not specify how to get.
+
+It also went to staging rather than staying local, which is simply how
+everything is built in this repo; "run locally" was the wrong frame.
+
+**What this does not settle.** Phase 1 was meant to answer whether anybody
+asks these questions. Shipping it does not answer that. The question is still
+open and it is still the one that decides whether phases 2 to 5 are worth
+anything.
 
 ---
 
