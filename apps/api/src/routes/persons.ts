@@ -399,7 +399,7 @@ personsRoutes.get('/:id/memberships', async (c) => {
   const { data: orgRows } = await db
     .from('org_membership')
     .select(
-      'id, title, department, seniority_level, employment_type, is_primary, is_decision_maker, is_budget_holder, is_champion, started_at, ended_at, organisation:org_id (id, name, slug, domain)',
+      'id, title, department, seniority_level, employment_type, is_primary, is_decision_maker, is_budget_holder, is_champion, started_at, ended_at, organisation:org_id (id, name, short_name, domain)',
     )
     .eq('person_id', personId)
     .order('is_primary', { ascending: false })

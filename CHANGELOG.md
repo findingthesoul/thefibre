@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.21] — 2026-09-15 — A workspace is an organisation too (staging)
+
+Found while Sjoerd set up soul.com in production.
+
+**Every workspace has its own organisation.** `workspace.organisation_id`
+(migration 20260915060000) points at the organisation the workspace IS:
+created with every new workspace by a trigger, named after it (domain filled
+when the name is one, like soul.com; legal name from the invoice details),
+linked instead of duplicated when an organisation with exactly that name
+already exists, and backfilled once for every existing workspace. Internal
+members become its members, their contact matched by platform user OR email.
+It is pinned first in the list as "This workspace" and cannot be deleted
+(409; the Delete button is hidden) — rename it instead.
+
+**Domain verification never worked.** Both `org_domain_verification` policies
+compared `workspace_member.user_id` with `auth.uid()`, the auth id, so Start
+DNS verification always hit a row-level security error. Now the workspace
+claim, and the challenge must belong to an organisation in that workspace.
+
+**A contact's organisations were always empty.** `GET /persons/:id` selected
+`organisation.slug`, a column that does not exist; the error was discarded,
+so every contact read "No organisations linked yet" even when the
+organisation listed them as a member.
+
+**Add organisation asks for everything.** Country is the searchable picker,
+address and website are there, and saving opens the organisation with Add
+member already open.
+
+**Add member: search, or add someone new.** Type a name or email; pick a
+match, or choose "Add “…” as a new person" — the dialog asks for their
+details (pre-filled from what you typed), creates the contact and comes back
+with them selected. The row is a new `onCreate` on the shared `SearchSelect`,
+so any picker can offer it. New-contact form uses the country picker too.
+
 ## [0.75.20] — 2026-09-15 — A fee statement is not a second fee (staging)
 
 The monthly platform-fee statement (v0.75.19) carried the fee amount in the

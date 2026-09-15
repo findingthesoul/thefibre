@@ -36,6 +36,11 @@ export async function createOrganisation(
     sector: String(formData.get('sector') ?? '').trim() || undefined,
     org_type: (String(formData.get('org_type') ?? '').trim() || undefined) as
       | 'private' | 'public' | 'ngo' | 'cooperative' | 'government' | 'education' | undefined,
+    website: strOrNull(formData.get('website')) ?? undefined,
+    street: strOrNull(formData.get('street')) ?? undefined,
+    postal_code: strOrNull(formData.get('postal_code')) ?? undefined,
+    city: strOrNull(formData.get('city')) ?? undefined,
+    region: strOrNull(formData.get('region')) ?? undefined,
   };
 
   if (!body.name) {
@@ -53,7 +58,7 @@ export async function createOrganisation(
   }
 
   revalidatePath('/organisations');
-  redirect(`/organisations/${created.id}`);
+  redirect(`/organisations/${created.id}?add=member`);
 }
 
 export async function updateOrganisation(

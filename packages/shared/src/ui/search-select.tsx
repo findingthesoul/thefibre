@@ -55,6 +55,8 @@ export function SearchSelect({
   className = '',
   name,
   clearLabel,
+  onCreate,
+  createLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -75,6 +77,14 @@ export function SearchSelect({
   /** Offer a "clear" row at the top of the list (e.g. '—') that sets the
    *  value to '' — for optional fields where empty is a legitimate answer. */
   clearLabel?: string;
+  /** "Not in the list? Add it." Renders a last row while something is typed;
+   *  the caller opens its own create dialog with the typed text and sets
+   *  `value` to the new id afterwards (Sjoerd, 2026-09-15: "start typing…
+   *  select, or continue and add person… then a popup"). Seed the created
+   *  option through `options` so its label shows. */
+  onCreate?: (query: string) => void;
+  /** Label of that row, given the typed text — e.g. t => `Add "${t}"`. */
+  createLabel?: (query: string) => string;
 }) {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
@@ -244,6 +254,20 @@ export function SearchSelect({
                 </button>
               </li>
             ))}
+            {onCreate && needle && (
+              <li className="border-t border-line mt-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onCreate(q.trim());
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-sunken"
+                >
+                  {createLabel ? createLabel(q.trim()) : `+ ${q.trim()}`}
+                </button>
+              </li>
+            )}
             {filtered.length > 0 && loading && (
               <li className="px-3 py-1.5 text-xs text-ink-muted">{chromeT(locale, 'searching')}</li>
             )}

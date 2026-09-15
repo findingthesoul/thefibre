@@ -13,6 +13,8 @@ import { t, type Locale } from '@/lib/i18n-ui';
 export type EditableOrg = {
   id: string;
   name: string;
+  /** The organisation the workspace itself is — renamed, never deleted. */
+  is_workspace_organisation?: boolean;
   legal_name: string | null;
   /** The abbreviation — "ebbf". */
   short_name: string | null;
@@ -67,14 +69,16 @@ export function OrgActions({ org, locale }: { org: EditableOrg; locale: Locale }
       >
         {t(locale, 'edit')}
       </Button>
-      <Button
-        variant="danger"
-        size="sm"
-        leading={<Trash2 size={14} strokeWidth={1.75} />}
-        onClick={() => setConfirmOpen(true)}
-      >
-        {t(locale, 'delete')}
-      </Button>
+      {!org.is_workspace_organisation && (
+        <Button
+          variant="danger"
+          size="sm"
+          leading={<Trash2 size={14} strokeWidth={1.75} />}
+          onClick={() => setConfirmOpen(true)}
+        >
+          {t(locale, 'delete')}
+        </Button>
+      )}
 
       <EditDialog open={editOpen} onClose={() => setEditOpen(false)} org={org} locale={locale} />
       <ConfirmDialog

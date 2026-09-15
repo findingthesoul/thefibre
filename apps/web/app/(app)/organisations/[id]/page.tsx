@@ -43,10 +43,14 @@ type Member = {
 
 export default async function OrganisationOverview({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ add?: string }>;
 }) {
   const { id } = await params;
+  // Straight from Add organisation: the people come next (Sjoerd, 2026-09-15).
+  const openAddMember = (await searchParams).add === 'member';
   const locale = await uiLocale();
 
   let org: Organisation;
@@ -119,7 +123,7 @@ export default async function OrganisationOverview({
       <section className="mt-12">
         <div className="flex items-center justify-between">
           <SectionLabel>{t(locale, 'members_title')}</SectionLabel>
-          <AddMemberButton orgId={org.id} people={people} exclude={members.map((m) => m.person.id)} locale={locale} />
+          <AddMemberButton orgId={org.id} people={people} exclude={members.map((m) => m.person.id)} locale={locale} defaultOpen={openAddMember} />
         </div>
         {members.length === 0 ? (
           <EmptyState>{t(locale, 'no_members_linked')}</EmptyState>

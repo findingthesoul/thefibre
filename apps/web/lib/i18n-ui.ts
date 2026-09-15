@@ -4521,6 +4521,38 @@ const CATALOG = {
     de: 'Noch keine Mitglieder verknüpft. Klicke auf Mitglied hinzufügen, um einen Kontakt zu verknüpfen.', // MT
     fr: 'Aucun membre lié pour le moment. Clique sur Ajouter un membre pour lier un contact.', // MT
   },
+  org_this_workspace: {
+    en: 'This workspace',
+    nl: 'Deze werkruimte',
+    es: 'Este espacio de trabajo', // MT
+    pt: 'Este espaço de trabalho', // MT
+    de: 'Dieser Arbeitsbereich', // MT
+    fr: 'Cet espace de travail', // MT
+  },
+  add_as_new_person: {
+    en: 'Add “{name}” as a new person',
+    nl: '“{name}” toevoegen als nieuwe persoon',
+    es: 'Añadir “{name}” como persona nueva', // MT
+    pt: 'Adicionar “{name}” como nova pessoa', // MT
+    de: '„{name}“ als neue Person hinzufügen', // MT
+    fr: 'Ajouter « {name} » comme nouvelle personne', // MT
+  },
+  new_person_blurb: {
+    en: 'Their details. They become a contact in this workspace and are selected as the member.',
+    nl: 'Hun gegevens. Ze worden een contact in deze werkruimte en direct als lid gekozen.',
+    es: 'Sus datos. Se convierte en contacto de este espacio y queda seleccionado como miembro.', // MT
+    pt: 'Os dados da pessoa. Ela vira um contato deste espaço e fica selecionada como membro.', // MT
+    de: 'Die Angaben. Die Person wird Kontakt in diesem Arbeitsbereich und als Mitglied ausgewählt.', // MT
+    fr: 'Ses coordonnées. La personne devient un contact de cet espace et est choisie comme membre.', // MT
+  },
+  search_or_add_person: {
+    en: 'Start typing a name or email…',
+    nl: 'Typ een naam of e-mailadres…',
+    es: 'Escribe un nombre o email…', // MT
+    pt: 'Digite um nome ou email…', // MT
+    de: 'Name oder E-Mail eingeben…', // MT
+    fr: 'Tape un nom ou un e-mail…', // MT
+  },
   add_member_blurb: {
     en: 'Link a person to this organisation with their role and dates.',
     nl: 'Koppel een persoon aan deze organisatie met rol en data.',

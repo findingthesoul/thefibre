@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { CountryCombobox } from '@/components/ui/country-combobox';
+import { createPersonFromPicker } from '@/lib/person-actions';
 import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,17 +41,52 @@ export function AddMemberButton({
   people,
   exclude = [],
   locale,
+  defaultOpen = false,
 }: {
+  /** Open on arrival — the step after Add organisation. */
+  defaultOpen?: boolean;
   orgId: string;
   people: PersonOption[];
   /** Already members — not offered again, seeded or searched. */
   exclude?: string[];
   locale: Locale;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const router = useRouter();
   const [pending, start] = useTransition();
   const [state, setState] = useState<ActionResult>({});
+  // Search → pick, or keep typing → "Add … as a new person" → the same dialog
+  // asks for their details, creates the contact, and comes back with them
+  // selected (Sjoerd, 2026-09-15).
+  const [personId, setPersonId] = useState('');
+  const [created, setCreated] = useState<PersonOption[]>([]);
+  const [draft, setDraft] = useState<NewPersonDraft | null>(null);
+  const [draftErrors, setDraftErrors] = useState<ActionResult>({});
+
+  function close() {
+    if (pending) return;
+    setOpen(false);
+    setDraft(null);
+    setDraftErrors({});
+    // Drop ?add=member so a refresh does not reopen it.
+    if (defaultOpen) router.replace(`/organisations/${orgId}`, { scroll: false });
+  }
+
+  function saveDraft(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!draft) return;
+    start(async () => {
+      const res = await createPersonFromPicker(draft);
+      if (!res.ok) {
+        setDraftErrors({ error: res.error, fieldErrors: res.fieldErrors });
+        return;
+      }
+      setCreated((list) => [res.person, ...list]);
+      setPersonId(res.person.id);
+      setDraft(null);
+      setDraftErrors({});
+    });
+  }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,9 +95,10 @@ export function AddMemberButton({
       const res = await addMember(orgId, {}, fd);
       setState(res);
       if (res.ok) {
-        router.refresh();
-        setOpen(false);
         setState({});
+        setPersonId('');
+        close();
+        router.refresh();
       }
     });
   }
@@ -76,29 +114,69 @@ export function AddMemberButton({
       </Button>
       <Dialog
         open={open}
-        onClose={() => !pending && setOpen(false)}
-        title={t(locale, 'add_member')}
-        description={t(locale, 'add_member_blurb')}
+        onClose={close}
+        title={draft ? t(locale, 'add_person') : t(locale, 'add_member')}
+        description={draft ? t(locale, 'new_person_blurb') : t(locale, 'add_member_blurb')}
         size="lg"
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
-              {t(locale, 'cancel')}
-            </Button>
-            <Button type="submit" form="add-member-form" disabled={pending}>
-              {pending ? t(locale, 'adding') : t(locale, 'add_member')}
-            </Button>
-          </>
+          draft ? (
+            <>
+              <Button variant="secondary" onClick={() => setDraft(null)} disabled={pending}>
+                {t(locale, 'cancel')}
+              </Button>
+              <Button type="submit" form="new-person-form" disabled={pending}>
+                {pending ? t(locale, 'saving') : t(locale, 'add_person')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={close} disabled={pending}>
+                {t(locale, 'cancel')}
+              </Button>
+              <Button type="submit" form="add-member-form" disabled={pending}>
+                {pending ? t(locale, 'adding') : t(locale, 'add_member')}
+              </Button>
+            </>
+          )
         }
       >
-        <form id="add-member-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {draft && (
+          <form id="new-person-form" onSubmit={saveDraft} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TextField label={t(locale, 'first_name')} value={draft.first_name} required autoFocus
+              onChange={(e) => setDraft({ ...draft, first_name: e.target.value })}
+              errors={draftErrors.fieldErrors?.first_name} />
+            <TextField label={t(locale, 'last_name')} value={draft.last_name} required
+              onChange={(e) => setDraft({ ...draft, last_name: e.target.value })}
+              errors={draftErrors.fieldErrors?.last_name} />
+            <TextField label={t(locale, 'email_label')} type="email" value={draft.email} required
+              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+              errors={draftErrors.fieldErrors?.email} />
+            <TextField label={t(locale, 'phone')} type="tel" value={draft.phone}
+              onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+              errors={draftErrors.fieldErrors?.phone} />
+            <CountryCombobox label={t(locale, 'country')}
+              onChange={(code) => setDraft((d) => (d ? { ...d, country: code } : d))}
+              errors={draftErrors.fieldErrors?.country} />
+            {draftErrors.error && (
+              <div className="md:col-span-2 rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">
+                {draftErrors.error}
+              </div>
+            )}
+          </form>
+        )}
+        <form id="add-member-form" onSubmit={onSubmit} hidden={!!draft} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <PersonCombobox
               label={t(locale, 'person')}
               name="person_id"
               required
-              people={people}
+              people={[...created, ...people]}
               exclude={exclude}
+              value={personId}
+              onChange={setPersonId}
+              placeholder={t(locale, 'search_or_add_person')}
+              onCreate={(typed) => setDraft(draftFromTyped(typed))}
+              createLabel={(typed) => t(locale, 'add_as_new_person', { name: typed })}
               errors={state.fieldErrors?.person_id}
             />
           </div>
@@ -133,4 +211,27 @@ function Checkbox({ name, label }: { name: string; label: string }) {
       <span>{label}</span>
     </label>
   );
+}
+
+type NewPersonDraft = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  country: string;
+};
+
+/** What was typed becomes a head start: an address fills the email, a name
+ *  splits on its first space ("Marja van den Berg" → Marja / van den Berg). */
+function draftFromTyped(typed: string): NewPersonDraft {
+  const v = typed.trim();
+  if (v.includes('@')) return { first_name: '', last_name: '', email: v, phone: '', country: '' };
+  const i = v.indexOf(' ');
+  return {
+    first_name: i < 0 ? v : v.slice(0, i),
+    last_name: i < 0 ? '' : v.slice(i + 1).trim(),
+    email: '',
+    phone: '',
+    country: '',
+  };
 }

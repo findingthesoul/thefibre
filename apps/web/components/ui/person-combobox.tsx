@@ -27,6 +27,9 @@ type Props = {
   required?: boolean | undefined;
   errors?: string[] | undefined;
   placeholder?: string | undefined;
+  /** Offer "add as a new person" for the typed text (SearchSelect onCreate). */
+  onCreate?: (typed: string) => void;
+  createLabel?: (typed: string) => string;
 };
 
 export function personLabel(p: PersonOption): string {
@@ -49,6 +52,8 @@ export function PersonCombobox({
   required,
   errors,
   placeholder = 'Pick a person…',
+  onCreate,
+  createLabel,
 }: Props) {
   // Controlled when the caller keeps the id in state (the enrol dialog),
   // uncontrolled with the hidden input for the ones that submit a form.
@@ -86,6 +91,8 @@ export function PersonCombobox({
         loadOptions={load}
         placeholder={placeholder}
         searchPlaceholder="Search by name or email…"
+        {...(onCreate ? { onCreate } : {})}
+        {...(createLabel ? { createLabel } : {})}
       />
       {errors?.map((e) => (
         <span key={e} className="mt-1 block text-xs text-red-700">

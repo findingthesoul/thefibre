@@ -63,14 +63,30 @@ organisationsRoutes.get('/', async (c) => {
     if (term) query = query.or(orIlike(['search_names'], term));
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, ownId] = await Promise.all([query, workspaceOrganisationId(ctx.workspaceId)]);
   if (error) return c.json({ error: error.message }, 500);
 
   const rows = data ?? [];
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
-  return c.json({ items, next: hasMore ? items[items.length - 1]?.id : null });
+  return c.json({
+    items,
+    next: hasMore ? items[items.length - 1]?.id : null,
+    // The organisation this workspace IS (20260915060000). The list pins it
+    // first; it is not reordered here because the cursor runs on id.
+    workspace_organisation_id: ownId,
+  });
 });
+
+/** The organisation the workspace itself is — null only before 20260915060000. */
+async function workspaceOrganisationId(workspaceId: string): Promise<string | null> {
+  const { data } = await adminClient
+    .from('workspace')
+    .select('organisation_id')
+    .eq('id', workspaceId)
+    .maybeSingle();
+  return (data?.organisation_id as string | null | undefined) ?? null;
+}
 
 
 // Trade names and former names (20260914190000). Trimmed, blanks dropped,
@@ -100,6 +116,12 @@ const OrgCreate = z.object({
   country: z.string().length(2).optional(),
   sector: z.string().max(100).optional(),
   org_type: z.enum(['private', 'public', 'ngo', 'cooperative', 'government', 'education']).optional(),
+  // Address + website at creation (Sjoerd, 2026-09-15: "No address").
+  website: z.string().max(500).optional(),
+  street: z.string().max(200).optional(),
+  postal_code: z.string().max(20).optional(),
+  city: z.string().max(100).optional(),
+  region: z.string().max(100).optional(),
 });
 
 organisationsRoutes.post('/', async (c) => {
@@ -138,7 +160,8 @@ organisationsRoutes.get('/:id', async (c) => {
     .is('deleted_at', null)
     .single();
   if (error) return c.json({ error: error.message }, 404);
-  return c.json(data);
+  const ownId = await workspaceOrganisationId(ctx.workspaceId);
+  return c.json({ ...data, is_workspace_organisation: ownId === data.id });
 });
 
 const OrgUpdate = z.object({
@@ -187,6 +210,12 @@ organisationsRoutes.patch('/:id', async (c) => {
 organisationsRoutes.delete('/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+
+  // The workspace's own organisation stays: every internal member belongs to
+  // it and a new one would only be recreated empty. Rename it instead.
+  if ((await workspaceOrganisationId(ctx.workspaceId)) === c.req.param('id')) {
+    return c.json({ error: 'This is the workspace\'s own organisation. Rename it; it cannot be deleted.' }, 409);
+  }
 
   // Soft delete — brief §13.3.
   const { error } = await db
