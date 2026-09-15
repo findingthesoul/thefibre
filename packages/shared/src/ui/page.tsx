@@ -46,7 +46,9 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex items-start justify-between gap-4">
+    // Wraps on a phone: a long name and two buttons do not fit one row at
+    // 375px, and the Delete button slid off the screen (2026-09-15).
+    <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
       <div className="flex items-start gap-4 min-w-0">
         {leading && <div className="shrink-0">{leading}</div>}
         <div className="min-w-0">
@@ -54,7 +56,7 @@ export function PageHeader({
           {description && <p className="mt-1 text-sm text-ink-subtle">{description}</p>}
         </div>
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
     </header>
   );
 }

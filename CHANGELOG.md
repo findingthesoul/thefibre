@@ -6,6 +6,91 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.30] — 2026-09-15 — A map with depth (staging)
+
+**Connections — the map of relations says more.** Every name carries a small
+dot: filled when something is written on that person (a note, or how you know
+them), hollow when they are only there for the overview. The dots between
+people are filled and named when they stand for a tag or a company you can
+open — click to go there — and small and hollow when they only group.
+
+**And it has depth.** The middle is nearest; strong connections and people with
+content come forward, weak and empty ones sit further back — smaller, fainter,
+a little soft. Near things move more with your mouse than far ones. Point at
+anything and it comes forward with everything it is connected to, its lines
+lit, while the rest steps back.
+
+## [0.75.29] — 2026-09-15 — The Fibre installs as a phone app; headers fit a phone (staging)
+
+**The Fibre is installable** (Sjoerd: "make a PWA for the whole app, and one
+specific for Connections" — Connections has been one since 2026-09-12).
+`apps/web/app/manifest.ts` (standalone, opens on the dashboard, long-press
+shortcuts to Contacts, Add person and Organisations), the iOS tags
+(appleWebApp, apple-touch-icon) and icons cut from the brand tile the way
+Connections' were. No service worker on purpose: every page is personal data
+rendered for one person, and none of it should stay on a phone.
+
+**Page headers wrap on a phone.** A contact's name with Edit and Delete did
+not fit 375px and Delete slid off the screen; the shared `PageHeader` now
+wraps its actions under the title when there is no room.
+
+## [0.75.28] — 2026-09-15 — Addresses stack on a phone (staging)
+
+Sjoerd, on his phone: "can't read the phone nr, maybe below each other." The
+shared `ContactPointsEditor` put label, country code, number and remove on one
+row; on a narrow screen the row outgrew the dialog, the number shrank to three
+digits and Save slid off the edge. Below `sm` each address now stacks — label
+and remove on top, the email or phone (code + number) across the full width,
+then Primary and the organisation — and from `sm` up it is one row as before.
+
+## [0.75.27] — 2026-09-15 — add a team member by name (Meet 2.9.2, staging)
+
+Sjoerd, looking at the team page: "Why not a name type: select... and if it
+not yet exist a popup with a user creation... which is default set as
+external... right? Otherwise they would probably be already part of the
+search field."
+
+**Add a member is one search now.** It lists the workspace's members, minus
+anyone already on or invited to the team, with their email and an External
+tag where it applies. Pick a person, choose the role, press Add. They join
+with the workspace relationship they already have.
+
+**Nobody in the list?** Keep typing, and the last row offers "Invite …
+as someone new". It opens a dialog prefilled from what you typed: text with an
+@ becomes the email, anything else the name. It asks for email, role and
+relationship, **defaulting to External**. Anyone you have to create is not
+in the workspace yet, so internal is the exception you choose on purpose. The
+invite then works as before: a pending account, an email, and membership once
+they accept.
+
+Built on the shared `SearchSelect` create row, the same pattern as The Fibre's
+organisation add-member. The Fibre's person picker searches contacts, while a
+team needs workspace users, so it is not reused here. No API change: the
+member endpoint already ignored relationship for existing members.
+
+Not looked at in a browser: signing in locally against staging was blocked.
+Typecheck only.
+
+## [0.75.26] — 2026-09-15 — A phone's country code can be chosen before the number (staging)
+
+Sjoerd: "Although Martijn lives in Curaçao, he has a NL phone number. I can't
+change the prefix." With no number typed yet, the shared `PhoneInput` derived
+the country from the (empty) value and fell back to the person's country on
+every render, so a chosen code snapped straight back. The chosen code is now
+kept by the field; a number that carries its own country still decides.
+
+## [0.75.25] — 2026-09-15 — Add an organisation from the person (staging)
+
+Sjoerd: "Why can't I add an organisation from a person?" A contact's
+Organisations section gets **Add organisation** — the mirror of Add member:
+type to search any name, abbreviation or domain; pick one, or choose "Add
+“…” as a new organisation" and give its name, domain and country in the same
+dialog; then the same role fields (title, department, employment, influence,
+start date, primary/decision maker/budget holder/champion). Saved by the same
+action as Add member, and the role fields are one component
+(`MembershipRoleFields`) used by both dialogs. Organisations the person
+already belongs to are not offered again.
+
 ## [0.75.24] — 2026-09-15 — Who pays? (staging)
 
 docs/people-in-two-capacities-proposal.md §B, built.

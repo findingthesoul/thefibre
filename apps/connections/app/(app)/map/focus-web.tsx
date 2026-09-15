@@ -49,6 +49,14 @@ import {
   type WebNode,
 } from '@/lib/web-layout';
 import { thin } from '@/lib/map-layout';
+import {
+  byDepth,
+  depthStyle,
+  easeDepth,
+  parallax,
+  targetDepth,
+  type Focus as DepthFocus,
+} from '@/lib/web-depth';
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
 import { onGraphChanged } from '@/lib/graph-changed';
 import {
@@ -114,6 +122,17 @@ type Shown = WebNode & {
   trail?: boolean;
   /** On a junction: the tag it stands for, when it stands for one. */
   topicTag?: string;
+  /** On a junction: the organisation it stands for, when it stands for one. */
+  topicOrg?: string;
+  /**
+   * Has content: a note, how you know them — or, for a company, always. Drawn
+   * full; an empty name is drawn hollow. Sjoerd, 2026-09-14: *"nodes are full
+   * (means: have content) or empty (they are unclear or there for overview
+   * purposes)"*.
+   */
+  full?: boolean;
+  /** Depth, 0 far to 1 near, eased every frame toward lib/web-depth's target. */
+  z?: number;
 };
 
 type Around = {
@@ -125,6 +144,7 @@ type Around = {
   strength: number;
   reasons: Reason[];
   trail?: boolean;
+  full?: boolean;
 };
 
 /**
@@ -151,6 +171,7 @@ function aroundFrom(
       solid: true,
       strength: 0.6,
       reasons: [],
+      full: Boolean(m.has_content),
     }));
   }
   const max = Math.max(1, ...data.neighbours.map((n) => n.weight));
@@ -164,6 +185,8 @@ function aroundFrom(
       solid: true,
       strength: 1,
       reasons: [] as Reason[],
+      // A company can always be opened, so it is never an empty node.
+      full: true,
     })),
     ...data.neighbours.slice(0, Math.max(1, density - orgs.length)).map((n) => ({
       id: n.id,
@@ -173,6 +196,7 @@ function aroundFrom(
       solid: n.reasons.some((x) => x.kind === 'stated'),
       strength: n.weight / max,
       reasons: n.reasons,
+      full: Boolean(n.has_content),
     })),
   ];
 }
@@ -252,7 +276,8 @@ export function FocusWeb({
   const trailId = useRef<string | null>(null);
   /** Which junction each name hangs from: nothing joins the middle directly. */
   const joinedBy = useRef<Map<string, string>>(new Map());
-  const [hoverJunction, setHoverJunction] = useState<string | null>(null);
+  /** What the pointer is on — a name or a dot. It comes forward with what it connects to. */
+  const [hoverNode, setHoverNode] = useState<string | null>(null);
   /** The direction it must keep: exactly opposite the name that was clicked. */
   const backBearing = useRef<number | null>(null);
   const [density, setDensity] = useState(DENSITY_DEFAULT);
@@ -488,14 +513,14 @@ export function FocusWeb({
           Object.assign(existing, {
             trail: false, ...a, targetR, centre: false,
             leaving: false,
-            width: labelWidth(a.label, false, a.strength),
+            width: labelWidth(a.label, false, a.strength) + MARKER_ROOM,
           });
         } else {
           map.set(a.id, {
             ...a, ...seedPosition(a.id, centre), vx: 0, vy: 0, targetR, centre: false,
             // Arrives invisible, next to whoever brought it in, and fades up.
             opacity: 0,
-            width: labelWidth(a.label, false, a.strength),
+            width: labelWidth(a.label, false, a.strength) + MARKER_ROOM,
           });
         }
       }
@@ -505,13 +530,13 @@ export function FocusWeb({
       // names that share one sit in one wedge of the circle, which is what
       // lets their junction sit in the mouth of that wedge instead of
       // averaging out to somewhere across the cloud.
-      const grouped = new Map<string, { label: string; tag?: string; members: Shown[] }>();
+      const grouped = new Map<string, { label: string; tag?: string; org?: string; members: Shown[] }>();
       const previousJoins = joinedBy.current;
       joinedBy.current = new Map();
       for (const n of map.values()) {
         if (n.centre || n.junction || n.leaving) continue;
-        const { key, label, tag } = topicOf(n, locale);
-        const group = grouped.get(key) ?? { label, ...(tag ? { tag } : {}), members: [] };
+        const { key, label, tag, org } = topicOf(n, locale);
+        const group = grouped.get(key) ?? { label, ...(tag ? { tag } : {}), ...(org ? { org } : {}), members: [] };
         group.members.push(n);
         grouped.set(key, group);
         joinedBy.current.set(n.id, `junction:${key}`);
@@ -557,6 +582,7 @@ export function FocusWeb({
         junction.leaving = false;
         junction.label = group.label;
         junction.topicTag = group.tag;
+        junction.topicOrg = group.org;
         junction.targetR = junctionRadius(group.members.map((m) => m.targetR));
         return { junction, members: group.members };
       });
@@ -698,6 +724,58 @@ export function FocusWeb({
     }];
   });
 
+  // ── Depth (lib/web-depth.ts) ────────────────────────────────────────────
+  //
+  // Sjoerd, 2026-09-14: *"the 3D effect can also be more strong. Smaller and
+  // bigger. Bringing pieces to the foreground"*. Every node carries a depth
+  // that eases toward what it means — the middle nearest, strong and full
+  // names nearer than weak and empty ones — and whatever the pointer is on
+  // comes forward with everything it is connected to while the rest steps
+  // back. Size, light, focus, parallax and paint order all read that one
+  // number.
+  const related = new Set<string>();
+  const hovered = hoverNode ? nodes.current.get(hoverNode) : undefined;
+  if (hovered && !hovered.leaving) {
+    related.add(hovered.id);
+    if (centre) related.add(centre.id);
+    if (hovered.junction) {
+      for (const [nameId, jid] of joinedBy.current) if (jid === hovered.id) related.add(nameId);
+    } else if (hovered.centre) {
+      for (const n of shown) if (n.junction) related.add(n.id);
+    } else {
+      const j = joinedBy.current.get(hovered.id);
+      if (j) related.add(j);
+      for (const l of links.current) {
+        if (l.a === hovered.id) related.add(l.b);
+        if (l.b === hovered.id) related.add(l.a);
+      }
+    }
+  }
+  const lookingAt = (n: Shown): DepthFocus =>
+    !hovered || hovered.leaving ? null : n.id === hovered.id ? 'self' : related.has(n.id) ? 'related' : 'other';
+  const still = prefersReducedMotion();
+  for (const n of shown) {
+    const want = targetDepth(
+      { centre: n.centre, junction: n.junction, strength: n.strength, full: n.full, trail: n.trail },
+      lookingAt(n),
+    );
+    n.z = still ? want : easeDepth(n.z, want);
+  }
+  const lean = still ? null : pointer.current;
+  /** Where a node is DRAWN: its place plus a little parallax for its depth. */
+  const at = (n: Shown | undefined) => {
+    if (!n) return { x: 0, y: 0 };
+    const p = parallax(n.z ?? 1, lean);
+    return { x: n.x + p.dx, y: n.y + p.dy };
+  };
+  /** A line between two things you are looking at is lit; others dim with the rest. */
+  const lineLit = (a: Shown | undefined, b: Shown | undefined) => {
+    if (!hovered) return 1;
+    return a && b && related.has(a.id) && related.has(b.id) ? 2.2 : 0.35;
+  };
+  const junctionFull = (j: Shown) =>
+    Boolean(j.topicOrg) || Boolean(j.topicTag && tagIds.has(j.topicTag.toLowerCase()));
+
   const go = (n: Shown) => {
     if (n.junction || n.kind === 'junction') {
       // A junction IS a topic, and since 2026-09-13 a topic is somewhere you
@@ -706,6 +784,8 @@ export function FocusWeb({
       // has its own popup) or the way back, and neither is a word.
       const tagId = n.topicTag ? tagIds.get(n.topicTag.toLowerCase()) : undefined;
       if (tagId) router.push(focusHref({ kind: 'tag', id: tagId }, pathname));
+      // A company's dot opens the company — a full node is one you can open.
+      else if (n.topicOrg) openOrg(n.topicOrg);
       return;
     }
     if (n.centre) {
@@ -897,190 +977,256 @@ export function FocusWeb({
               drag.current = null;
             }}
           >
+            {/* Soft focus for what is far away (lib/web-depth.ts). Three
+                steps, not one per node: a filter per name would be one filter
+                per frame per name. */}
+            <defs>
+              {BLUR_STEPS.map((sd, i) => (
+                <filter key={sd} id={`web-far-${i}`} x="-20%" y="-50%" width="140%" height="200%">
+                  <feGaussianBlur stdDeviation={sd} />
+                </filter>
+              ))}
+            </defs>
             {/* Between the people around the centre. Drawn first and faintest:
                 they are the shape of the group, not the answer to "who is near
                 this person", which is the star below. A shared tag is dashed —
-                sharing a word is not knowing someone (handbook §12). */}
-            {crossLines.map((l) => (
-              <line
-                key={`x-${l.a.id}-${l.b.id}`}
-                x1={round(l.a.x)}
-                y1={round(l.a.y)}
-                x2={round(l.b.x)}
-                y2={round(l.b.y)}
-                className="text-ink"
-                stroke="currentColor"
-                strokeOpacity={
-                  (0.1 + 0.18 * Math.min(1, l.weight)) *
-                  Math.min(l.a.opacity ?? 1, l.b.opacity ?? 1)
-                }
-                strokeWidth={0.8 + 1.2 * Math.min(1, l.weight)}
-                strokeDasharray={l.solid ? undefined : '4 5'}
-              >
-                <title>{l.why}</title>
-              </line>
-            ))}
+                sharing a word is not knowing someone (handbook §12). Lines to
+                what you point at come forward with it. */}
+            {crossLines.map((l) => {
+              const a = at(l.a);
+              const b = at(l.b);
+              const lit = lineLit(l.a, l.b);
+              return (
+                <line
+                  key={`x-${l.a.id}-${l.b.id}`}
+                  x1={round(a.x)}
+                  y1={round(a.y)}
+                  x2={round(b.x)}
+                  y2={round(b.y)}
+                  className="text-ink"
+                  stroke="currentColor"
+                  strokeOpacity={Math.min(
+                    1,
+                    (0.1 + 0.18 * Math.min(1, l.weight)) * Math.min(l.a.opacity ?? 1, l.b.opacity ?? 1) * lit,
+                  )}
+                  strokeWidth={(0.8 + 1.2 * Math.min(1, l.weight)) * (lit > 1 ? 1.5 : 1)}
+                  strokeDasharray={l.solid ? undefined : '4 5'}
+                >
+                  <title>{l.why}</title>
+                </line>
+              );
+            })}
             {/* The middle joins each junction, and the junction joins the
                 names that share it. Never the middle straight to a name. */}
             {around
               .filter((n) => n.junction)
-              .map((j) => (
-                <line
-                  key={`j-${j.id}`}
-                  x1={round(centre?.x ?? 0)}
-                  y1={round(centre?.y ?? 0)}
-                  x2={round(j.x)}
-                  y2={round(j.y)}
-                  className="text-ink"
-                  stroke="currentColor"
-                  strokeOpacity={0.3 * (j.opacity ?? 1)}
-                  strokeWidth={1.4}
-                />
-              ))}
+              .map((j) => {
+                const c = at(centre);
+                const q = at(j);
+                const lit = lineLit(centre, j);
+                return (
+                  <line
+                    key={`j-${j.id}`}
+                    x1={round(c.x)}
+                    y1={round(c.y)}
+                    x2={round(q.x)}
+                    y2={round(q.y)}
+                    className="text-ink"
+                    stroke="currentColor"
+                    strokeOpacity={Math.min(1, 0.3 * (j.opacity ?? 1) * lit)}
+                    strokeWidth={lit > 1 ? 2.2 : 1.4}
+                  />
+                );
+              })}
             {around
               .filter((n) => !n.junction)
               .map((n) => {
                 const j = nodes.current.get(joinedBy.current.get(n.id) ?? '');
                 const from = j ?? centre;
+                const f = at(from);
+                const q = at(n);
+                const lit = lineLit(from, n);
                 return (
                   <line
                     key={`l-${n.id}`}
-                    x1={round(from?.x ?? 0)}
-                    y1={round(from?.y ?? 0)}
-                    x2={round(n.x)}
-                    y2={round(n.y)}
+                    x1={round(f.x)}
+                    y1={round(f.y)}
+                    x2={round(q.x)}
+                    y2={round(q.y)}
                     className="text-ink"
                     stroke="currentColor"
-                    strokeOpacity={
-                      (0.18 + 0.4 * n.strength) *
-                      Math.min(n.opacity ?? 1, from?.opacity ?? 1)
-                    }
-                    strokeWidth={1 + 2 * n.strength}
+                    strokeOpacity={Math.min(
+                      1,
+                      (0.18 + 0.4 * n.strength) * Math.min(n.opacity ?? 1, from?.opacity ?? 1) * lit,
+                    )}
+                    strokeWidth={(1 + 2 * n.strength) * (lit > 1 ? 1.4 : 1)}
                     strokeDasharray={n.solid ? undefined : '5 5'}
                   />
                 );
               })}
-            {/* The junctions themselves: a dot, no label until you hover it.
-                The topic is in the shape of the thing, not written on it. */}
-            {around
-              .filter((n) => n.junction)
-              .map((j) => (
+            {/* The junctions: what connects people. FULL when it is a real
+                thing you can open — a tag you can stand on, a company — drawn
+                solid and named. EMPTY when it only groups (the way back, named
+                in the same note): a small hollow ring, named on hover.
+                Sjoerd, 2026-09-14: *"this nodes, should be more useful. Like
+                see the connections"*. */}
+            {byDepth(
+              around.filter((n) => n.junction),
+              (n) => n.z ?? 0.55,
+            ).map((j) => {
+              const q = at(j);
+              const st = depthStyle(j.z ?? 0.55);
+              const jFull = junctionFull(j);
+              return (
                 <g
                   key={j.id}
-                  opacity={j.opacity ?? 1}
-                  transform={`translate(${round(j.x)} ${round(j.y)})`}
-                  className={
-                    j.topicTag && tagIds.has(j.topicTag.toLowerCase())
-                      ? 'cursor-pointer'
-                      : undefined
-                  }
-                  onMouseEnter={() => setHoverJunction(j.id)}
-                  onMouseLeave={() => setHoverJunction((h) => (h === j.id ? null : h))}
+                  data-junction={jFull ? 'full' : 'empty'}
+                  opacity={(j.opacity ?? 1) * st.opacity}
+                  transform={`translate(${round(q.x)} ${round(q.y)}) scale(${round3(st.scale)})`}
+                  className={jFull ? 'cursor-pointer' : undefined}
+                  onMouseEnter={() => setHoverNode(j.id)}
+                  onMouseLeave={() => setHoverNode((h) => (h === j.id ? null : h))}
                   onClick={() => go(j)}
                 >
-                  <circle r={9} fill="transparent" />
-                  <circle r={4} className="fill-surface stroke-ink-muted" strokeWidth={1.2} />
+                  <circle r={11} fill="transparent" />
+                  {jFull ? (
+                    <circle r={5.5} className="fill-ink stroke-surface-raised" strokeWidth={1.5} />
+                  ) : (
+                    <circle r={3.5} className="fill-surface-raised stroke-ink-muted" strokeWidth={1.2} />
+                  )}
+                  {jFull && hoverNode !== j.id && (
+                    <text y={-10} textAnchor="middle" fontSize={10.5} className="pointer-events-none fill-ink-muted">
+                      {truncate(j.label, 24)}
+                    </text>
+                  )}
                   <title>{j.label}</title>
                 </g>
-              ))}
-            {shown
-              .filter((n) => !n.junction)
-              .map((n) => (
-              <g
-                key={n.id}
-                transform={`translate(${round(n.x)} ${round(n.y)})`}
-                className={n.held ? 'cursor-grabbing' : 'cursor-pointer'}
-                opacity={(n.opacity ?? 1) * (n.trail ? 0.55 : 1)}
-                onPointerDown={(e) => {
-                  // Dragging a name shakes the others out of its way, which is
-                  // how you uncover one hidden behind another.
-                  (e.target as Element).releasePointerCapture?.(e.pointerId);
-                  const svg = svgRef.current;
-                  const ctm = svg?.getScreenCTM();
-                  const at = ctm
-                    ? new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse())
-                    : null;
-                  if (drag.current?.timer) clearTimeout(drag.current.timer);
-                  const d = {
-                    id: n.id,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    offsetX: at ? n.x - at.x : 0,
-                    offsetY: at ? n.y - at.y : 0,
-                    held: false,
-                    moved: false,
-                    timer: null as ReturnType<typeof setTimeout> | null,
-                  };
-                  // Hold still and you still pick it up. Without this a drag
-                  // could only ever start with a flick.
-                  d.timer = setTimeout(() => {
-                    if (drag.current === d) d.held = true;
-                  }, HOLD_MS);
-                  drag.current = d;
-                }}
-                onClick={() => {
-                  // A drag is not a click. Without this, letting go of a name
-                  // you dragged navigates away from the cloud you were just
-                  // rearranging — and the guard has to live outside `drag`,
-                  // which pointerup has already cleared by the time this runs.
-                  if (suppressClick.current) {
-                    suppressClick.current = false;
-                    return;
-                  }
-                  go(n);
-                }}
-                role="button"
-                aria-label={n.label}
-              >
-                {/* A label needs a ground, or a line drawn behind it strikes
-                    the name through. Organisations get a visible outline, so a
-                    company never reads as a person. */}
-                <rect
-                  x={-n.width / 2}
-                  y={n.centre ? -20 : n.sub ? -14 : -13}
-                  width={n.width}
-                  height={n.centre ? 40 : n.sub ? 34 : 26}
-                  rx={n.kind === 'org' ? 4 : 13}
-                  className={n.kind === 'org' ? 'fill-surface stroke-line-strong' : 'fill-surface-raised'}
-                  strokeWidth={n.kind === 'org' ? 1.2 : 0}
-                />
-                {/* Bigger name, stronger connection (Sjoerd: "Some words are
-                    bigger and some are smaller"). */}
-                <text
-                  textAnchor="middle"
-                  y={n.centre ? 7 : n.sub ? 1 : 5}
-                  fontSize={fontSize(n.strength, n.centre)}
-                  className={`fill-ink ${n.centre ? 'font-semibold' : 'font-medium hover:underline'}`}
+              );
+            })}
+            {/* The names, far first so near ones are painted over them. */}
+            {byDepth(
+              shown.filter((n) => !n.junction),
+              (n) => n.z ?? 1,
+            ).map((n) => {
+              const q = at(n);
+              const st = depthStyle(n.z ?? 1, n.centre);
+              const blurStep = st.blur ? Math.min(BLUR_STEPS.length - 1, Math.floor(st.blur / 0.4)) : -1;
+              const marker = !n.centre && n.kind === 'person';
+              return (
+                <g
+                  key={n.id}
+                  transform={`translate(${round(q.x)} ${round(q.y)}) scale(${round3(st.scale)})`}
+                  className={n.held ? 'cursor-grabbing' : 'cursor-pointer'}
+                  opacity={(n.opacity ?? 1) * (n.trail ? 0.55 : 1) * st.opacity}
+                  filter={blurStep >= 0 ? `url(#web-far-${blurStep})` : undefined}
+                  data-full={marker ? String(Boolean(n.full)) : undefined}
+                  onMouseEnter={() => setHoverNode(n.id)}
+                  onMouseLeave={() => setHoverNode((h) => (h === n.id ? null : h))}
+                  onPointerDown={(e) => {
+                    // Dragging a name shakes the others out of its way, which is
+                    // how you uncover one hidden behind another.
+                    (e.target as Element).releasePointerCapture?.(e.pointerId);
+                    const svg = svgRef.current;
+                    const ctm = svg?.getScreenCTM();
+                    const pt = ctm
+                      ? new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse())
+                      : null;
+                    if (drag.current?.timer) clearTimeout(drag.current.timer);
+                    const d = {
+                      id: n.id,
+                      startX: e.clientX,
+                      startY: e.clientY,
+                      offsetX: pt ? n.x - pt.x : 0,
+                      offsetY: pt ? n.y - pt.y : 0,
+                      held: false,
+                      moved: false,
+                      timer: null as ReturnType<typeof setTimeout> | null,
+                    };
+                    // Hold still and you still pick it up. Without this a drag
+                    // could only ever start with a flick.
+                    d.timer = setTimeout(() => {
+                      if (drag.current === d) d.held = true;
+                    }, HOLD_MS);
+                    drag.current = d;
+                  }}
+                  onClick={() => {
+                    // A drag is not a click. Without this, letting go of a name
+                    // you dragged navigates away from the cloud you were just
+                    // rearranging — and the guard has to live outside `drag`,
+                    // which pointerup has already cleared by the time this runs.
+                    if (suppressClick.current) {
+                      suppressClick.current = false;
+                      return;
+                    }
+                    go(n);
+                  }}
+                  role="button"
+                  aria-label={n.label}
                 >
-                  {n.label || '…'}
-                </text>
-              </g>
-            ))}
-            {/* The hovered topic, painted last so it is on top of everything.
-                Sjoerd, 2026-09-13: *"nodes behind a name, the hover shows
-                behind it"* — it used to be drawn inside the junction's own
-                group, and SVG paints in document order, so a name lying over
-                the dot covered the very label you asked for. */}
+                  {/* A label needs a ground, or a line drawn behind it strikes
+                      the name through. Organisations get a visible outline, so a
+                      company never reads as a person. */}
+                  <rect
+                    x={-n.width / 2}
+                    y={n.centre ? -20 : n.sub ? -14 : -13}
+                    width={n.width}
+                    height={n.centre ? 40 : n.sub ? 34 : 26}
+                    rx={n.kind === 'org' ? 4 : 13}
+                    className={n.kind === 'org' ? 'fill-surface stroke-line-strong' : 'fill-surface-raised'}
+                    strokeWidth={n.kind === 'org' ? 1.2 : 0}
+                  />
+                  {/* Full or empty: a filled dot when something is written on
+                      this person, a hollow one when they are only here for the
+                      overview. */}
+                  {marker && (
+                    <circle
+                      cx={-n.width / 2 + 11}
+                      cy={n.sub ? -4 : 0}
+                      r={3.4}
+                      className={n.full ? 'fill-ink' : 'fill-transparent stroke-ink-muted'}
+                      strokeWidth={n.full ? 0 : 1.2}
+                    />
+                  )}
+                  {/* Bigger name, stronger connection (Sjoerd: "Some words are
+                      bigger and some are smaller"). */}
+                  <text
+                    textAnchor="middle"
+                    x={marker ? MARKER_ROOM / 2 : 0}
+                    y={n.centre ? 7 : n.sub ? 1 : 5}
+                    fontSize={fontSize(n.strength, n.centre)}
+                    className={`${marker && !n.full ? 'fill-ink-muted' : 'fill-ink'} ${
+                      n.centre ? 'font-semibold' : 'font-medium hover:underline'
+                    }`}
+                  >
+                    {n.label || '…'}
+                  </text>
+                </g>
+              );
+            })}
+            {/* The hovered dot's name, painted last so it is on top of
+                everything. Sjoerd, 2026-09-13: *"nodes behind a name, the
+                hover shows behind it"*. */}
             {(() => {
-              const j = hoverJunction ? nodes.current.get(hoverJunction) : null;
-              if (!j || j.leaving) return null;
+              const j = hoverNode ? nodes.current.get(hoverNode) : null;
+              if (!j || !j.junction || j.leaving) return null;
+              const q = at(j);
               const w = j.label.length * 6.4 + 14;
               return (
                 <g
-                  transform={`translate(${round(j.x)} ${round(j.y)})`}
+                  transform={`translate(${round(q.x)} ${round(q.y)})`}
                   className="pointer-events-none"
                   opacity={j.opacity ?? 1}
                 >
                   <rect
                     x={-w / 2}
-                    y={-26}
+                    y={-30}
                     width={w}
                     height={19}
                     rx={9}
                     className="fill-surface stroke-line"
                     strokeWidth={1}
                   />
-                  <text textAnchor="middle" y={-12} fontSize={12} className="fill-ink-muted">
+                  <text textAnchor="middle" y={-16} fontSize={12} className="fill-ink-muted">
                     {j.label}
                   </text>
                 </g>
@@ -1148,9 +1294,9 @@ export function FocusWeb({
  * The KEY groups people — everyone carrying #retreat shares one junction — and
  * the LABEL is what the junction says when you hover it.
  */
-function topicOf(n: Shown, locale: Locale): { key: string; label: string; tag?: string } {
+function topicOf(n: Shown, locale: Locale): { key: string; label: string; tag?: string; org?: string } {
   if (n.trail) return { key: 'back', label: t(locale, 'map_back') };
-  if (n.kind === 'org') return { key: `at:${n.id}`, label: n.sub || n.label };
+  if (n.kind === 'org') return { key: `at:${n.id}`, label: n.sub || n.label, org: n.id };
   const r = n.reasons[0];
   if (!r) return { key: 'near', label: t(locale, 'map_near_title') };
   if (r.kind === 'mentioned') return { key: 'mentioned', label: t(locale, 'map_reason_mentioned') };
@@ -1196,6 +1342,11 @@ const DRAG_SLOP_PX = 5;
 const FADE = 0.05;
 /** Hold this long without moving and the name is picked up anyway. */
 const HOLD_MS = 180;
+/** Room beside a person's name for the full/empty marker. */
+const MARKER_ROOM = 12;
+/** Soft-focus steps for far names, in SVG blur units. */
+const BLUR_STEPS = [0.35, 0.7, 1.0];
+const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
 /** Only what the simulation needs from a link. */
 function webLinks(links: Link[]): WebLink[] {

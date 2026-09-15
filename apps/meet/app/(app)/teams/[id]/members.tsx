@@ -1,82 +1,228 @@
 'use client';
 
-import { useActionState, useTransition, useState } from 'react';
+import { useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField } from '@/components/ui/field';
 import { CARD, ERROR_TEXT } from '@thefibre/shared/ui/recipes';
+import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/search-select';
+import { Dialog } from '@/components/ui/dialog';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { addMember, removeMember, resendInvite, type SaveResult } from '../actions';
 
-export function AddMemberForm({ teamId, locale }: { teamId: string; locale: Locale }) {
+export type MemberCandidate = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  relationship_type: 'internal' | 'external' | null;
+};
+
+// One person search (Sjoerd, 2026-09-15: "a name type: select... and if it
+// not yet exist a popup with a user creation... default set as external").
+// Everyone already in the workspace is in the list, so picking adds them with
+// the relationship they already have. Somebody you have to create is by
+// definition not in the workspace yet, so the create dialog starts at
+// External. The API ignores relationship for existing members anyway.
+export function AddMemberForm({
+  teamId,
+  candidates,
+  locale,
+}: {
+  teamId: string;
+  candidates: MemberCandidate[];
+  locale: Locale;
+}) {
   const router = useRouter();
-  const action = addMember.bind(null, teamId);
-  const [state, formAction, pending] = useActionState<
-    SaveResult & { invited?: boolean },
-    FormData
-  >(
-    action as (
-      prev: SaveResult & { invited?: boolean },
-      fd: FormData,
-    ) => Promise<SaveResult & { invited?: boolean }>,
-    {},
-  );
+  const [pending, startTransition] = useTransition();
+  const [picked, setPicked] = useState('');
+  const [role, setRole] = useState<'member' | 'lead'>('member');
+  const [draft, setDraft] = useState<{ name: string; email: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const options: SearchSelectOption[] = candidates.map((c) => ({
+    value: c.user_id,
+    label: c.full_name || c.email || c.user_id.slice(0, 8),
+    hint: [c.email, c.relationship_type === 'external' ? t(locale, 'external') : null]
+      .filter(Boolean)
+      .join(' · '),
+  }));
+
+  function submit(fields: {
+    email: string;
+    name?: string;
+    role: 'member' | 'lead';
+    relationship_type: 'internal' | 'external';
+  }, after: () => void) {
+    setError(null);
+    setNotice(null);
+    const fd = new FormData();
+    fd.set('email', fields.email);
+    if (fields.name) fd.set('name', fields.name);
+    fd.set('role', fields.role);
+    fd.set('relationship_type', fields.relationship_type);
+    startTransition(async () => {
+      const r = await addMember(teamId, {}, fd);
+      if (r.error) {
+        setError(r.error);
+        return;
+      }
+      if (r.invited) setNotice(t(locale, 'invite_sent_team'));
+      after();
+      router.refresh();
+    });
+  }
+
+  function addPicked() {
+    const c = candidates.find((x) => x.user_id === picked);
+    if (!c?.email) return;
+    submit(
+      { email: c.email, role, relationship_type: c.relationship_type ?? 'internal' },
+      () => setPicked(''),
+    );
+  }
 
   return (
-    <form
-      action={async (fd) => {
-        await formAction(fd);
-        router.refresh();
-      }}
-      // One card, two aligned rows. It used to be a single wrapping flex
-      // row bottom-aligned on the inputs: the relationship hint pushed that
-      // field up, the button fell onto a line of its own, and every field
-      // had a different width (Sjoerd, 2026-09-14: "Interface is ugly").
-      className={`${CARD} p-5 space-y-4`}
-    >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[3fr_2fr]">
-        <TextField
-          label={t(locale, 'add_a_member')}
-          name="email"
-          type="email"
-          placeholder="colleague@example.com"
-          required
-        />
-        <TextField
-          label={t(locale, 'name_optional')}
-          name="name"
-          placeholder={t(locale, 'if_new_to_fibre')}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+    <div className={`${CARD} p-5 space-y-3`}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_12rem_auto] sm:items-end">
+        <div>
+          <span className="text-sm text-ink-subtle">{t(locale, 'add_a_member')}</span>
+          <SearchSelect
+            className="mt-1"
+            value={picked}
+            onChange={setPicked}
+            options={options}
+            placeholder={t(locale, 'member_search_placeholder')}
+            onCreate={(typed) =>
+              setDraft(
+                typed.includes('@') ? { name: '', email: typed } : { name: typed, email: '' },
+              )
+            }
+            createLabel={(typed) => t(locale, 'member_create_row', { name: typed })}
+          />
+        </div>
         <SelectField
           label={t(locale, 'role')}
-          name="role"
-          defaultValue="member"
+          value={role}
+          onChange={(e) => setRole(e.target.value as 'member' | 'lead')}
           options={[
             { value: 'member', label: t(locale, 'role_member') },
             { value: 'lead', label: t(locale, 'role_lead') },
           ]}
         />
-        <SelectField
-          label={t(locale, 'relationship')}
-          name="relationship_type"
-          defaultValue="internal"
-          options={[
-            { value: 'internal', label: t(locale, 'internal') },
-            { value: 'external', label: t(locale, 'external') },
-          ]}
-        />
-        <Button type="submit" disabled={pending}>
-          {pending ? t(locale, 'adding') : t(locale, 'add')}
+        <Button type="button" variant="save" onClick={addPicked} disabled={pending || !picked}>
+          {pending && !draft ? t(locale, 'adding') : t(locale, 'add')}
         </Button>
       </div>
-      <p className="text-xs text-ink-muted">{t(locale, 'relationship_hint')}</p>
-      {state.error && <div className={ERROR_TEXT}>{state.error}</div>}
-      {state.ok && state.invited && (
-        <div className="text-sm text-ink-subtle">{t(locale, 'invite_sent_team')}</div>
+      <p className="text-xs text-ink-muted">{t(locale, 'member_search_hint')}</p>
+      {error && !draft && <div className={ERROR_TEXT}>{error}</div>}
+      {notice && <div className="text-sm text-ink-subtle">{notice}</div>}
+
+      <NewMemberDialog
+        draft={draft}
+        pending={pending}
+        error={draft ? error : null}
+        locale={locale}
+        onClose={() => {
+          setDraft(null);
+          setError(null);
+        }}
+        onSubmit={(fields) => submit(fields, () => setDraft(null))}
+      />
+    </div>
+  );
+}
+
+function NewMemberDialog({
+  draft,
+  pending,
+  error,
+  locale,
+  onClose,
+  onSubmit,
+}: {
+  draft: { name: string; email: string } | null;
+  pending: boolean;
+  error: string | null;
+  locale: Locale;
+  onClose: () => void;
+  onSubmit: (fields: {
+    email: string;
+    name?: string;
+    role: 'member' | 'lead';
+    relationship_type: 'internal' | 'external';
+  }) => void;
+}) {
+  return (
+    <Dialog
+      open={!!draft}
+      onClose={onClose}
+      title={t(locale, 'member_create_title')}
+      description={t(locale, 'member_create_desc')}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
+            {t(locale, 'cancel')}
+          </Button>
+          <Button type="submit" form="new-team-member" disabled={pending}>
+            {pending ? t(locale, 'adding') : t(locale, 'invite_member')}
+          </Button>
+        </>
+      }
+    >
+      {draft && (
+        <form
+          id="new-team-member"
+          // key: a second "Invite …" starts from the new typed text.
+          key={`${draft.name}|${draft.email}`}
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            const name = String(fd.get('name') ?? '').trim();
+            onSubmit({
+              email: String(fd.get('email') ?? '').trim().toLowerCase(),
+              ...(name ? { name } : {}),
+              role: fd.get('role') === 'lead' ? 'lead' : 'member',
+              relationship_type: fd.get('relationship_type') === 'internal' ? 'internal' : 'external',
+            });
+          }}
+        >
+          <TextField label={t(locale, 'name')} name="name" defaultValue={draft.name} autoFocus={!draft.name} />
+          <TextField
+            label={t(locale, 'email')}
+            name="email"
+            type="email"
+            defaultValue={draft.email}
+            placeholder="colleague@example.com"
+            required
+            autoFocus={!!draft.name}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <SelectField
+              label={t(locale, 'role')}
+              name="role"
+              defaultValue="member"
+              options={[
+                { value: 'member', label: t(locale, 'role_member') },
+                { value: 'lead', label: t(locale, 'role_lead') },
+              ]}
+            />
+            <SelectField
+              label={t(locale, 'relationship')}
+              name="relationship_type"
+              defaultValue="external"
+              options={[
+                { value: 'external', label: t(locale, 'external') },
+                { value: 'internal', label: t(locale, 'internal') },
+              ]}
+            />
+          </div>
+          <p className="text-xs text-ink-muted">{t(locale, 'relationship_hint')}</p>
+          {error && <div className={ERROR_TEXT}>{error}</div>}
+        </form>
       )}
-    </form>
+    </Dialog>
   );
 }
 

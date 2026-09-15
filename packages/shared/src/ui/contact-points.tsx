@@ -13,6 +13,7 @@
 //   PhoneInput           country code (searchable) + number → "+31 612345678"
 //   ContactPointsView    the read-only rendering for a contact card
 
+import { useState } from 'react';
 import { X, BadgeCheck } from 'lucide-react';
 import { getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import { COUNTRIES } from '../countries.js';
@@ -77,13 +78,24 @@ export function PhoneInput({
   ariaLabel?: string;
 }) {
   const locale = useLocale();
-  const { country, national } = splitPhone(value, defaultCountry);
+  const parsed = splitPhone(value, defaultCountry);
+  // The chosen code is kept here, not re-derived from the value alone: with
+  // no number typed yet the value is empty, and deriving from it snapped the
+  // picker back to the default country on every choice — Martijn lives on
+  // Curaçao but has a Dutch number, and the prefix could not be changed
+  // (Sjoerd, 2026-09-15). A number that carries its own country still wins.
+  const [picked, setPicked] = useState(parsed.country);
+  const country = value && parsed.country ? parsed.country : picked;
+  const national = parsed.national;
   return (
     <div className="flex gap-2 min-w-0 flex-1">
       <div className="w-28 shrink-0">
         <SearchSelect
           value={country}
-          onChange={(c) => onChange(joinPhone(c, national))}
+          onChange={(c) => {
+            setPicked(c);
+            onChange(joinPhone(c, national));
+          }}
           options={PREFIXES}
           placeholder={chromeT(locale, 'cp_prefix')}
         />
@@ -148,8 +160,12 @@ export function ContactPointsEditor({
       {value.map((p, i) =>
         p.kind !== kind ? null : (
           <div key={i} className="rounded-md border border-line p-2 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="w-32 shrink-0">
+            {/* On a phone the row stacks — label and remove on top, the
+                address across the full width below — so a number stays
+                readable (Sjoerd, 2026-09-15: "can't read the phone nr,
+                maybe below each other"). From sm up it is one row. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[8rem_minmax(0,1fr)_auto] items-center gap-2">
+              <div className="min-w-0">
                 <FieldSelect
                   aria-label="Label"
                   value={p.label ?? ''}
@@ -162,26 +178,28 @@ export function ContactPointsEditor({
                   options={labelOptions}
                 />
               </div>
-              {kind === 'email' ? (
-                <input
-                  type="email"
-                  aria-label={chromeT(locale, 'cp_email')}
-                  className={`${FIELD_INPUT_CLASS} min-w-0 flex-1`}
-                  value={p.value}
-                  onChange={(e) => update(i, { value: e.target.value })}
-                />
-              ) : (
-                <PhoneInput
-                  value={p.value}
-                  onChange={(v) => update(i, { value: v })}
-                  {...(defaultCountry ? { defaultCountry } : {})}
-                />
-              )}
+              <div className="col-span-2 row-start-2 sm:col-span-1 sm:row-start-1 sm:col-start-2 min-w-0 flex">
+                {kind === 'email' ? (
+                  <input
+                    type="email"
+                    aria-label={chromeT(locale, 'cp_email')}
+                    className={`${FIELD_INPUT_CLASS} min-w-0 flex-1`}
+                    value={p.value}
+                    onChange={(e) => update(i, { value: e.target.value })}
+                  />
+                ) : (
+                  <PhoneInput
+                    value={p.value}
+                    onChange={(v) => update(i, { value: v })}
+                    {...(defaultCountry ? { defaultCountry } : {})}
+                  />
+                )}
+              </div>
               <button
                 type="button"
                 aria-label={chromeT(locale, 'remove')}
                 onClick={() => remove(i)}
-                className="p-1.5 text-ink-muted hover:text-ink"
+                className="p-1.5 text-ink-muted hover:text-ink col-start-2 row-start-1 sm:col-start-3"
               >
                 <X size={16} />
               </button>
@@ -200,7 +218,7 @@ export function ContactPointsEditor({
                 </span>
               )}
               {p.label === 'work' && organisations.length > 0 && (
-                <div className="w-56">
+                <div className="w-full sm:w-56">
                   <FieldSelect
                     aria-label={chromeT(locale, 'cp_for_org')}
                     value={p.org_id ?? ''}

@@ -142,6 +142,7 @@ connectionsMapRoutes.get('/map/:personId/neighbourhood', async (c) => {
       .in('id', ids);
     for (const p of (people ?? []) as PersonRow[]) names.set(p.id, nameOf(p));
   }
+  const full = await withContent(ids, ctx.workspaceId);
 
   return c.json({
     organisations,
@@ -155,6 +156,7 @@ connectionsMapRoutes.get('/map/:personId/neighbourhood', async (c) => {
         name: names.get(r.person_id)!,
         weight: r.weight,
         reasons: r.reasons,
+        has_content: full.has(r.person_id),
       })),
   });
 });
@@ -222,6 +224,7 @@ connectionsMapRoutes.get('/map/org/:orgId', async (c) => {
     memberships.filter((m) => names.has(m.person_id)).map((m) => m.person_id),
     ctx.workspaceId,
   );
+  const full = await withContent([...names.keys()], ctx.workspaceId);
 
   return c.json({
     organisation: org,
@@ -231,7 +234,12 @@ connectionsMapRoutes.get('/map/org/:orgId', async (c) => {
       // Decision makers and people for whom this is their main organisation
       // first: when a web can show only a dozen names, those are the ones.
       .sort((a, b) => Number(b.is_decision_maker) - Number(a.is_decision_maker) || Number(b.is_primary) - Number(a.is_primary))
-      .map((m) => ({ id: m.person_id, name: names.get(m.person_id)!, title: m.title })),
+      .map((m) => ({
+        id: m.person_id,
+        name: names.get(m.person_id)!,
+        title: m.title,
+        has_content: full.has(m.person_id),
+      })),
   });
 });
 
@@ -300,6 +308,7 @@ connectionsMapRoutes.get('/map/tag/:tagId', async (c) => {
 
   const present = carriers.filter((x) => names.has(x.person_id));
   const memberLinks = await linksAmong(present.map((x) => x.person_id), ctx.workspaceId);
+  const full = await withContent(present.map((x) => x.person_id), ctx.workspaceId);
 
   return c.json({
     tag: { id: tag.id as string, name: tag.name as string, people: present.length },
@@ -315,9 +324,46 @@ connectionsMapRoutes.get('/map/tag/:tagId', async (c) => {
         // Where the tag came from, so the surface can say "found in a note"
         // rather than presenting a guess and a decision as the same thing.
         title: x.created_via === 'note' ? 'note' : null,
+        has_content: full.has(x.person_id),
       })),
   });
 });
+
+/**
+ * Which of these people somebody has actually written something about: a
+ * committed note, or an answer to how you know them.
+ *
+ * Sjoerd, 2026-09-14, after showing the map to somebody: *"nodes are full
+ * (means: have content) or empty (they are unclear or there for overview
+ * purposes)"*. A name you can open and read something on is drawn full; a
+ * name that is only on the map because of a tag or an employer is drawn empty.
+ * Only a yes/no leaves this function — never what the note says.
+ *
+ * Never throws: a map without the marker is still the map.
+ */
+async function withContent(personIds: string[], workspaceId: string): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (personIds.length === 0) return out;
+  const [notes, rel] = await Promise.all([
+    adminClient
+      .from('flow_run_note')
+      .select('person_id')
+      .eq('workspace_id', workspaceId)
+      .eq('is_draft', false)
+      .is('deleted_at', null)
+      .in('person_id', personIds)
+      .limit(5000),
+    adminClient
+      .from('person_relationship_context')
+      .select('person_id, relationship_strength, source')
+      .in('person_id', personIds),
+  ]);
+  for (const r of notes.data ?? []) out.add(r.person_id as string);
+  for (const r of rel.data ?? []) {
+    if (r.relationship_strength || r.source) out.add(r.person_id as string);
+  }
+  return out;
+}
 
 type LinkRow = { a_person_id: string; b_person_id: string; weight: number; reasons: { kind: string; label: string }[] };
 

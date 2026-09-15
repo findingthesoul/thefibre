@@ -117,6 +117,9 @@ neither in code nor in a document. That is what this file fixes.
 | 84 | "Why is the introduced by not clickable" | **Shipped** v0.75.15 — the introducer opens the person popup; a company under Through work opens the organisation |
 | 85 | Third Landscape column: a magnifier that opens a search which selects people | **Shipped** v0.75.15 — searches everybody in the reading; picking opens their step and them |
 | 86 | "Why is Kind When and Team over two lines? You can also make the popup a little wider?" | **Shipped** v0.75.15 — the person popup is the roomy dialog size and the fields sit side by side down to 10rem |
+| 87 | After showing the map to somebody: nodes should be more useful, "see the connections"; full (have content) or empty (unclear, for overview) — both the dots and the names, he chose | **Shipped** v0.75.30 — names carry a filled or hollow marker (a note or how you know them = full); dots are filled and named when they are a tag or company you can open, hollow when they only group; pointing at anything lights its connections and dims the rest |
+| 88 | A stronger 3D effect: smaller and bigger, bringing pieces to the foreground | **Shipped** v0.75.30 — every node has a depth from what it means (middle, strength, content): size, light, a little soft focus when far, parallax with the pointer, near painted over far; what you point at comes forward |
+| 89 | Once refined: open-source the map as code others can use, crediting The Thread as its designer | **Waiting** — needs his decisions: licence, where it is published, and the name; nothing published |
 
 ### The three that were lost
 

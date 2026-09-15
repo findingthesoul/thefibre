@@ -7,11 +7,12 @@
 import { apiFetch } from '@/lib/api';
 
 export type Reason = { kind: 'stated' | 'tag' | 'organisation' | 'mentioned'; label: string };
-export type Neighbour = { id: string; name: string; weight: number; reasons: Reason[] };
+/** `has_content`: somebody wrote a note on them or said how they know them. */
+export type Neighbour = { id: string; name: string; weight: number; reasons: Reason[]; has_content?: boolean };
 /** How two people ALREADY on screen are tied to each other. */
 export type Link = { a: string; b: string; weight: number; reasons: Reason[] };
 export type OrgRef = { id: string; name: string; title: string | null };
-export type Member = { id: string; name: string; title: string | null };
+export type Member = { id: string; name: string; title: string | null; has_content?: boolean };
 
 export async function loadNeighbourhood(
   personId: string,
