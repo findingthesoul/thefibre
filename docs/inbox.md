@@ -291,74 +291,102 @@ somebody has to choose:
 
 Not scoped.
 
-### 2026-09-15 — Element and Matrix: how could we work with it
+### 2026-09-15 — Element and Matrix: an exploration, not a build
 
 Sjoerd, in the fibre chat, with a link to element.io:
 
 > How can we work with: https://element.io/en
 
-An open question rather than an ask, so nothing is decided here. Checked
-2026-09-15: **nothing in this repo touches Matrix today.** No homeserver, no
-`matrix-js-sdk`, no mention in any doc. The grep hits for "matrix" are all
-"test matrix", "RLS matrix", "env matrix" and the plans matrix.
+and, asked what problem it solves:
+
+> Wah an explo to see if it is meaningful. And if so.. how.. and what is
+> possible and what is the limit. Backlog conversation.
+
+So this is an **exploration**, and it sits in the backlog as a conversation
+rather than a build. What follows is the shape of that exploration, not a
+proposal. Checked 2026-09-15: **nothing in this repo touches Matrix today.**
+No homeserver, no `matrix-js-sdk`, no mention in any doc. Every "matrix" hit
+is a test matrix, an RLS matrix or the plans matrix.
 
 **What it is.** Element is the company and client around **Matrix**, an open
 federated protocol for end-to-end encrypted messaging. Synapse is the
-reference homeserver. Element Server Suite comes in Community and Pro for
-running your own, hosted or on premise, and the pitch is explicitly digital
-sovereignty: every EU state running its own stack and federating across
-borders.
+reference homeserver. Element Server Suite comes in Community and Pro, hosted
+or on premise, pitched explicitly at digital sovereignty: every EU state
+running its own stack and federating across borders.
 
-**Why it is worth a real look, not a polite one.** The sovereignty argument is
-the same argument this platform already makes. EU data, minimisation, "the app
-justifies the field", a database that declines to hold what it cannot stand
-behind. A self-hosted EU homeserver is coherent with that in a way Slack and
-WhatsApp are not. That is a values fit, not a feature fit, and it is the
-strongest thing going for it.
+---
 
-**Three places it could land, and they are not equal:**
+#### 1. Is it meaningful
 
-1. **A room per thread.** A thread is already a cohort moving through time,
-   with a start, an enrolment list and a completion. A room created on
-   publish, joined on enrolment, archived on completion, maps onto a lifecycle
-   that exists. This is the only one of the three that uses something The
-   Fibre has and nothing else does.
-2. **A second delivery channel** beside the Resend email the scheduler sends.
-   Cheap in principle, but it needs every participant to hold a Matrix
-   account, and the audience is people enrolling in a course.
-3. **Internal team chat.** Generic. Nothing to do with The Fibre, and a
-   hundred products already do it.
+An exploration needs a question it can fail, or it is a survey. There are two
+claims inside "meaningful" and they fail differently.
 
-**Three objections, in the order they bite:**
+**The relational claim: a cohort wants to reach each other between sessions.**
+This is testable **without touching Matrix at all.** If participants already
+spin up WhatsApp groups around a thread, the demand is proven and the only
+open question is where it should live. If they do not, no protocol fixes that,
+and the exploration ends here for free. Ask a facilitator before reading
+another spec.
 
-- **The data wall.** Hard rule: apps cross it only via the activity log, type
-  and subject, never body. A chat room is nothing but body, and the most
-  sensitive text in the system, which is exactly the argument
-  `detect-tags.ts` makes about note bodies. So the question is whether Fibre
-  HOSTS conversation or merely POINTS at it. Pointing holds nothing.
-  Hosting is a new category of personal data, with a retention and erasure
-  obligation, and retention-policy admin is still listed as not shipped.
-- **Identity.** Matrix IDs are their own namespace. `resolvePerson()` matches
-  on email, exactly, and the handbook's exactness rule exists because a wrong
-  match attaches a claim to a real person. Mapping `@someone:server` to a
-  person is a new matching problem with the same failure mode.
-- **Weight.** Synapse is a stateful service with its own Postgres, media
-  storage, federation and upgrade cadence. Today the platform is one Hono API
-  on Fly plus Supabase. A homeserver roughly doubles what has to be operated,
-  three weeks after a €300 Vercel fortnight forced the staging/promote split.
+**The sovereignty claim: it matters to somebody that the channel is EU and
+open.** This is a positioning question, not a technical one, and the person
+who can answer it is a customer, not a developer. It is also the claim most
+likely to be true, since it is the argument this platform already makes.
 
-**The cheap first step, if he wants one.** A workspace points at a room it
-already runs. Fibre stores its address on a thread, links to it, writes an
-activity row when somebody joins. No homeserver operated, no content held,
-and it answers whether anyone actually uses it before a line of the hard
-version is written.
+Those two can be answered in a week of conversations and neither needs code.
 
-**The question back to him is which problem this solves**, because the ask is
-technology first: participants who cannot reach each other between sessions,
-or a sovereign replacement for something the team uses now. Those are
-different builds.
+#### 2. If so, how — four rungs, each with its own cost
 
-Not scoped.
+1. **Point at a room somebody else runs.** Fibre stores an address on a
+   thread and links to it. Holds nothing, operates nothing.
+2. **Create the room and invite on enrolment.** Needs a server token and an
+   application service. Fibre now acts on the homeserver.
+3. **Read membership back as activity.** "Joined the room" as type and
+   subject. Still no body, so still inside the wall.
+4. **Embed the client, or hold content.** Crosses the wall.
+
+Rungs 1 to 3 are additive and each is useful alone. Rung 4 is a different
+product with a different legal posture.
+
+#### 3. What is the limit
+
+**The one that decides everything: federation versus erasure.** Matrix
+redaction removes an event's content, and on a federated room the copies that
+already reached other homeservers are *asked* to redact, not made to. Article
+17 against servers nobody here controls is not a promise this platform can
+keep. So the exploration's real deliverable is a decision on whether to
+federate at all. A closed homeserver keeps the promise and loses the
+cross-border story that is half the appeal. **Verify the current redaction
+and federation semantics before trusting this paragraph** — it is stated from
+knowledge, not from a source read on the day.
+
+**The one that is secretly an argument for it.** If the rooms are properly
+end-to-end encrypted, Fibre *cannot* read them, even holding the database.
+That is not a limitation to work around. It is the data wall enforced by
+cryptography instead of by discipline, which is stronger than any rule in
+CLAUDE.md. Worth putting at the front of any write-up rather than the back.
+
+**Identity.** Matrix IDs are their own namespace. `resolvePerson()` matches
+on exact email because the handbook's exactness rule exists: a wrong match
+attaches a claim to a real person. Mapping `@someone:server` to a person is
+that same problem again.
+
+**Weight.** Synapse is stateful: its own Postgres, media storage, federation,
+an upgrade cadence. Today the platform is one Hono API on Fly plus Supabase.
+A homeserver roughly doubles what has to be operated, three weeks after a
+€300 Vercel fortnight forced the staging and promote split. Rung 1 avoids
+this entirely, which is most of the argument for starting there.
+
+#### 4. Where it would land, if it landed
+
+A **room per thread** is the only candidate that uses something The Fibre has
+and nothing else does: a thread is already a cohort with a start, an enrolment
+list and a completion, so a room can be created on publish, joined on
+enrolment and archived on completion. A second delivery channel beside the
+Resend email is high friction, since every participant needs an account. Team
+chat is generic and a hundred products do it.
+
+Not scoped, not ranked.
 
 ## Moved out
 
