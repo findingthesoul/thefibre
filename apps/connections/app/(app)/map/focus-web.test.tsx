@@ -80,6 +80,8 @@ const loaders = {
       name: n.toUpperCase(),
       weight: 3 - i,
       reasons: [{ kind: 'tag' as const, label: id === 'ann' ? 'athens' : 'retreat' }],
+      // Somebody wrote something on BEA; nobody on the rest.
+      has_content: n === 'bea',
     })),
     organisations: [],
     links: [],
@@ -215,7 +217,7 @@ describe('moving from one person to the next', () => {
     const lines = [...cloud().querySelectorAll('line')];
     const names = namesOnScreen();
     // Every junction is a dot, and every dot is joined to the middle.
-    const junctions = cloud().querySelectorAll('circle[r="4"]').length;
+    const junctions = cloud().querySelectorAll('g[data-junction]').length;
     expect(names.size, 'both sets are on screen at once').toBeGreaterThan(4);
     // One line per name that is not the centre, plus one per junction. The
     // count alone is what an earlier version of this test checked, and it
@@ -230,5 +232,30 @@ describe('moving from one person to the next', () => {
       return o > 0 && o < 0.35;
     });
     expect(faint.length, 'some lines are part-way through a fade').toBeGreaterThan(0);
+  });
+});
+
+// Sjoerd, 2026-09-14, after showing the map to somebody: nodes are full (have
+// content) or empty, and pointing at something brings it forward.
+describe('full and empty, near and far', () => {
+  const name = (label: string) => cloud().querySelector<SVGGElement>(`g[aria-label="${label}"]`)!;
+  const scaleOf = (label: string) => Number(/scale\(([\d.]+)\)/.exec(name(label).getAttribute('transform') ?? '')?.[1]);
+
+  it('draws a person with something written on them as full, and one without as empty', async () => {
+    await show('ann');
+    expect(name('BEA').getAttribute('data-full')).toBe('true');
+    expect(name('CAL').getAttribute('data-full')).toBe('false');
+  });
+
+  it('brings what you point at forward and sends the rest back', async () => {
+    await show('ann');
+    const calBefore = scaleOf('CAL');
+    const dovBefore = scaleOf('DOV');
+    await act(async () => {
+      name('CAL').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    await run(60);
+    expect(scaleOf('CAL'), 'the name pointed at grows').toBeGreaterThan(calBefore);
+    expect(scaleOf('DOV'), 'an unrelated name shrinks').toBeLessThan(dovBefore);
   });
 });

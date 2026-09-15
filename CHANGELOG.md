@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.30] — 2026-09-15 — A map with depth (staging)
+
+**Connections — the map of relations says more.** Every name carries a small
+dot: filled when something is written on that person (a note, or how you know
+them), hollow when they are only there for the overview. The dots between
+people are filled and named when they stand for a tag or a company you can
+open — click to go there — and small and hollow when they only group.
+
+**And it has depth.** The middle is nearest; strong connections and people with
+content come forward, weak and empty ones sit further back — smaller, fainter,
+a little soft. Near things move more with your mouse than far ones. Point at
+anything and it comes forward with everything it is connected to, its lines
+lit, while the rest steps back.
+
 ## [0.75.29] — 2026-09-15 — The Fibre installs as a phone app; headers fit a phone (staging)
 
 **The Fibre is installable** (Sjoerd: "make a PWA for the whole app, and one
