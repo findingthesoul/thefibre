@@ -332,10 +332,25 @@ const GLIDE_SPRING = 0.15;
 /** A link's pull, and how close it wants its two ends. */
 const LINK_PULL = 0.012;
 const LINK_REST = 150;
-/** Frames for a dropped name's pull home to build back up: about two seconds. */
-export const RETURN_FRAMES = 120;
-/** While returning, a name cannot move faster than this per frame. */
-const RETURN_SPEED_MAX = 2.2;
+/** Frames for a dropped name's pull home to build back up: about four seconds. */
+export const RETURN_FRAMES = 240;
+/**
+ * A returning name's speed limit, per frame: it starts at the first number and
+ * grows to the second as the pull builds. The limit holds until the name is
+ * back near its ring — NOT until a timer runs out. The first version lifted it
+ * after two seconds while the name was still far away, so it crept, then
+ * snapped (Sjoerd, 2026-09-15: "It still jumps back way too quick").
+ */
+const RETURN_SPEED_START = 0.5;
+const RETURN_SPEED_END = 2.4;
+/** Within this distance of its ring, a returning name is home and moves freely again. */
+const RETURN_HOME = 24;
+
+/** How much of its pull a returning name feels right now: 0 just dropped, 1 home. */
+function homewardOf(n: WebNode): number {
+  if (n.returning === undefined) return 1;
+  return n.returning * n.returning;
+}
 
 /** A tie between two people already on screen. */
 export type WebLink = { a: string; b: string; weight: number };
@@ -449,11 +464,12 @@ export function step(
     }
     // A name just let go of feels only part of the pull, growing back
     // smoothly — an ease-in, so it starts moving gently and gathers pace.
-    let homeward = 1;
-    if (n.returning !== undefined && n.returning < 1) {
+    if (n.returning !== undefined) {
       n.returning = Math.min(1, n.returning + 1 / RETURN_FRAMES);
-      homeward = n.returning * n.returning;
+      // Home: back near its ring. Only then does it move freely again.
+      if (n.returning >= 1 && Math.abs(n.targetR - d) < RETURN_HOME) n.returning = undefined;
     }
+    const homeward = homewardOf(n);
     const pull = (n.targetR - d) * RADIAL * springs * homeward;
     n.vx += (ex / d) * pull * ASPECT;
     n.vy += (ey / d) * pull;
@@ -512,13 +528,15 @@ export function step(
       const dy = b.y - a.y;
       const d = Math.hypot(dx, dy) || 1;
       const f = (d - LINK_REST) * LINK_PULL * Math.min(1, l.weight) * springs;
+      // A name sliding home is not yanked by the people it is tied to either:
+      // the tie pulls it as gently as its own ring does.
       if (!a.held) {
-        a.vx += (dx / d) * f;
-        a.vy += (dy / d) * f;
+        a.vx += (dx / d) * f * homewardOf(a);
+        a.vy += (dy / d) * f * homewardOf(a);
       }
       if (!b.held) {
-        b.vx -= (dx / d) * f;
-        b.vy -= (dy / d) * f;
+        b.vx -= (dx / d) * f * homewardOf(b);
+        b.vy -= (dy / d) * f * homewardOf(b);
       }
     }
   }
@@ -528,11 +546,12 @@ export function step(
     if (n.held) continue; // the pointer owns this one
     n.vx *= DAMPING;
     n.vy *= DAMPING;
-    if (n.returning !== undefined && n.returning < 1) {
+    if (n.returning !== undefined) {
+      const limit = RETURN_SPEED_START + (RETURN_SPEED_END - RETURN_SPEED_START) * n.returning;
       const v = Math.hypot(n.vx, n.vy);
-      if (v > RETURN_SPEED_MAX) {
-        n.vx *= RETURN_SPEED_MAX / v;
-        n.vy *= RETURN_SPEED_MAX / v;
+      if (v > limit) {
+        n.vx *= limit / v;
+        n.vy *= limit / v;
       }
     }
     n.x += n.vx;

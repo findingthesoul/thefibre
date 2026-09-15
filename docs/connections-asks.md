@@ -129,6 +129,9 @@ neither in code nor in a document. That is what this file fixes.
 | 96 | "Maybe instead of a frame... a light grey background" | **Shipped** v0.78.4 — organisations have a light grey ground, no outline; Today's outlined chip dotted too |
 | 97 | "When pulling someone away from the cloud... don't let them quickly flip back.. but let them gradually slide back" | **Shipped** v0.78.5 — a dropped name's pull home builds back over about two seconds, eased in, with a speed limit |
 | 98 | "Dots are better by the way" | **Answered** — kept; dots since v0.78.2 |
+| 99 | "It still jumps back way too quick" | **Shipped** v0.78.6 — the speed limit now holds until the name is back at its ring (v0.78.5 lifted it on a two-second timer while still far away, so it crept and then snapped); ties to other people pull gently too; the pull builds over about four seconds from a crawl |
+| 100 | The "Picked up" tag chips under the note: "This is not needed" | **Shipped** v0.78.6 — the row is gone; tags show inside the sentence |
+| 101 | "Perfect: Constellation to GitHub and give me the link to share" | **In progress** — publishing under github.com/thefibre |
 
 ### The three that were lost
 

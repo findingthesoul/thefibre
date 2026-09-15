@@ -643,8 +643,46 @@ describe('a name let go of far from the cloud', () => {
   });
 
   it('still gets home in the end', () => {
-    const d = distanceAfter(pulledOut(0), 600);
+    const d = distanceAfter(pulledOut(0), 900);
     expect(d).toBeLessThan(450);
+  });
+
+  it('never jumps at any point on the way back, even pulled by a strong tie', () => {
+    // "It still jumps back way too quick": the first version crept for two
+    // seconds, then lifted its speed limit while still far away and snapped.
+    // Watch every frame of the whole return, with a linked neighbour pulling.
+    const centre = node('c', 0, true);
+    const far = node('far', 250, false, { x: 900, y: 300 });
+    far.hubX = 0;
+    far.hubY = 0;
+    far.returning = 0;
+    const friend = node('friend', 250, false, { x: -250, y: 0 });
+    friend.hubX = 0;
+    friend.hubY = 0;
+    const nodes = [centre, far, friend];
+    const links = [{ a: 'far', b: 'friend', weight: 1 }];
+    let fastestReturning = 0;
+    let fastestEver = 0;
+    let returnedFor = 0;
+    for (let i = 0; i < 1200; i++) {
+      const bx = far.x;
+      const by = far.y;
+      const wasReturning = far.returning !== undefined;
+      step(nodes, links);
+      const moved = Math.hypot(far.x - bx, far.y - by);
+      fastestEver = Math.max(fastestEver, moved);
+      if (wasReturning) {
+        returnedFor += 1;
+        fastestReturning = Math.max(fastestReturning, moved);
+      }
+    }
+    // Slow the whole way home — the limit is never lifted early...
+    expect(fastestReturning).toBeLessThanOrEqual(2.5);
+    // ...it really did travel a long way under that limit, not a few frames...
+    expect(returnedFor).toBeGreaterThan(240);
+    // ...and once home nothing snaps either.
+    expect(fastestEver).toBeLessThan(4);
+    expect(Math.hypot(far.x, far.y)).toBeLessThan(600);
   });
 });
 

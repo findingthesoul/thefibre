@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.6] — 2026-09-15 — Let go, and it really drifts home (staging)
+
+**Connections — the map.** A name you pull out of the cloud slides back slowly
+the whole way home; it no longer creeps for a moment and then snaps back.
+
+**The note box.** The "Picked up" row of tag chips is gone — tags and names are
+already marked inside the sentence you write.
+
 ## [0.78.5] — 2026-09-15 — Let go, and it drifts home (staging)
 
 **Connections — the map.** Pull a name out of the cloud and let go: it now
