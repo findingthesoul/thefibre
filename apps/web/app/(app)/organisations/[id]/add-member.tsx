@@ -164,7 +164,7 @@ export function AddMemberButton({
             )}
           </form>
         )}
-        <form id="add-member-form" onSubmit={onSubmit} hidden={!!draft} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form id="add-member-form" onSubmit={onSubmit} className={`${draft ? 'hidden' : 'grid'} grid-cols-1 md:grid-cols-2 gap-4`}>
           <div className="md:col-span-2">
             <PersonCombobox
               label={t(locale, 'person')}

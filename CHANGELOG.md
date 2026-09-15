@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.22] — 2026-09-15 — Adding a person hides the member form (staging)
+
+In Add member → "Add … as a new person", the member fields stayed visible
+under the new person's: Tailwind's `grid` class outranks the `hidden`
+attribute. The class decides now; the form stays mounted, so what was typed
+survives the detour. Caught by the staging walkthrough screenshot.
+
 ## [0.75.21] — 2026-09-15 — A workspace is an organisation too (staging)
 
 Found while Sjoerd set up soul.com in production.
