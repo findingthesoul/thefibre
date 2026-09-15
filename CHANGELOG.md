@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.0] — 2026-09-15 — Who pays for the assistant (staging)
+
+docs/assistant-in-app.md §1.4 and §6, decided by Sjoerd the same day the
+assistant landed: **Free has no assistant. Starter and Pro have it on the
+platform's key, within a daily budget. Any workspace may bring its own key.**
+
+**A plan gate and a daily budget.** Two new feature keys on `/admin/plans`:
+`assistant` (flag) and `assistant_tokens_day` (limit, default 200,000 in + out
+per workspace per UTC day). Seeded on for Starter and Pro, off for Free.
+Usage lands in the new `assistant_usage` table per workspace, day and paying
+key; the API reads today's row before every turn. Over budget is a pause
+until midnight UTC, not a cut-off, and every refusal says why.
+
+**Bring your own key — Settings → Assistant** in The Fibre. A workspace
+admin pastes an Anthropic API key; the API checks it against Anthropic,
+encrypts it (AES-256-GCM under a key derived from `SSO_INTERNAL_SECRET`) and
+keeps a four-character hint. From then on Anthropic bills the workspace, the
+plan gate and budget no longer apply, and the admin sets their own spend
+limit in Anthropic's console. Stored in `workspace_assistant`, service-role
+only, never logged. The same page shows the last 30 days of use as counts.
+The decision order is code: own key → plan + budget → off
+(`lib/assistant/access.ts`, 12 tests).
+
+**What may leave for a model — decided: "Thread data only."** Threads,
+templates and counts; no participant names, notes or Connections data until
+a DPA and an EU endpoint exist. That is the allow-list already built, so
+nothing changed there; the doc's §6 now records it as decided.
+
+Migration `20260915120000_assistant_access.sql`, applied to staging.
+
 ## [0.77.1] — 2026-09-15 — A build can be forced (staging)
 
 Retiring the legacy Supabase keys meant putting the new publishable key into

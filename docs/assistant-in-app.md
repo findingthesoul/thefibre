@@ -1,8 +1,9 @@
 # The assistant inside the app
 
-*Written 2026-09-15 with v0.77.0 (Thread 3.51.0). Version 1 is built and
-switched off until a key exists; §5 is the version 2 that makes it worth
-having; §6 is what only Sjoerd can decide.*
+*Written 2026-09-15 with v0.77.0 (Thread 3.51.0); §1.4 and §6 updated the
+same day with v0.78.0. Version 1 is built and switched off until a key
+exists; §5 is the version 2 that makes it worth having; §6 records what
+Sjoerd decided and what is still his to do before production.*
 
 Sjoerd, 2026-09-15: "From a user XP version 2 is way more useful." Agreed.
 Version 1 exists so that version 2 has something to stand on: the model call,
@@ -87,21 +88,47 @@ own Thread routes with the person's JWT, so RLS, the zod validators and the
 slug uniqueness check apply exactly as they do to a click. The assistant has
 no authority the person lacks, and an app key cannot reach the route at all.
 
-### 1.4 Cost and brakes
+### 1.4 Cost, and who pays — decided 2026-09-15
 
-The platform pays per token here, which is the thing MCP avoided. Version 1
-keeps it bounded rather than metered:
+Anthropic bills per token, in and out, with no volume tiers. A three-call turn
+("make Athens from the Festival template") costs a few cents; a five-turn
+conversation 15–30 cents; an organiser who uses it a few times a week well
+under a euro a month. The exposure is the worst case: someone holding Enter,
+or a loop that keeps hitting its ceilings, is on the order of a dollar a turn.
+So the rule, in Sjoerd's words and then in code (`lib/assistant/access.ts`,
+tested in `access.test.ts`; migration `20260915120000_assistant_access.sql`):
 
-- 40 turns per person per 10 minutes (`lib/rate-limit.ts`), 8 model calls per
-  turn, 4096 output tokens per call, 400 KB per request.
-- The system prompt is cached (`cache_control`), so a conversation's repeated
-  prefix is billed at the cache-read rate.
-- Every turn logs `in / cached / out` tokens per workspace and user to the
-  API log, so what a workspace costs can be read off the log today and
-  metered tomorrow.
+| Plan | Assistant |
+|---|---|
+| **Free** | none |
+| **Starter, Pro** | on the platform's key, within a daily token budget (`assistant_tokens_day`, default 200,000 in + out per workspace per UTC day; editable per plan on /admin/plans) |
+| **Any workspace** | may connect its **own Anthropic key** at Settings → Assistant. That lifts both the plan gate and the budget: Anthropic bills them, and they set their own spend limit in Anthropic's console |
 
-An idle organiser costs nothing; a busy one costs cents per turn. There is no
-plan gate yet — see §6.
+The decision order is own key → plan + budget → off, and every refusal says
+why: "not part of the Free plan", "used today's allowance, resets at midnight
+UTC, or connect your own key", "not switched on here". Over budget is a
+pause, never a cut-off.
+
+The own key is stored in `workspace_assistant`, service-role only, encrypted
+with AES-256-GCM under a key derived from `SSO_INTERNAL_SECRET`
+(`lib/assistant/secret.ts`). It cannot be hashed like an app key — the API
+must send it — so it is shown once, kept as a four-character hint, verified
+against Anthropic before it is saved, and never logged. Rotating
+`SSO_INTERNAL_SECRET` makes stored keys unreadable, which surfaces as
+"connect your key again"; the assistant falls back to the platform key
+meanwhile rather than failing.
+
+Usage lands in `assistant_usage` per workspace per day per paying key (turns,
+tokens in, tokens out). Members see their own workspace's rows at Settings →
+Assistant; the API reads today's platform row before every turn. The brakes
+from version 1 stay underneath: 40 turns per person per 10 minutes, 8 model
+calls per turn, 4,096 output tokens per call, cached system prompt, and a
+usage line per turn in the API log that names the paying key.
+
+**Still to do on the platform side:** a hard monthly spend limit on the
+platform key in the Anthropic Console, with an alert at half. That is a
+console setting, not code, and the one protection that holds if everything
+above fails. Do it when the key is created.
 
 ### 1.5 Where the code is
 
@@ -118,10 +145,16 @@ plan gate yet — see §6.
 
 ## 2. Switching it on (staging first)
 
-1. `fly secrets set ANTHROPIC_API_KEY=sk-ant-… -c fly.staging.toml`
-2. Open The Thread on staging. The Ask button appears bottom-right.
-3. Try the two conversations in §1. Watch the API log for `[assistant]` lines.
-4. Before production: §6.1 and §6.2 are decided and written down.
+1. In the Anthropic Console: create the key, set a hard monthly spend limit
+   and an alert at half.
+2. `fly secrets set ANTHROPIC_API_KEY=sk-ant-… -c fly.staging.toml`
+3. The workspace must be on Starter or Pro (Free has no assistant), or have
+   connected its own key at Settings → Assistant. On /admin/plans the
+   Assistant rows show which tiers have it and the daily budget.
+4. Open The Thread on staging. The Ask button appears bottom-right.
+5. Try the two conversations in §1. Watch the API log for `[assistant]` lines
+   and Settings → Assistant for the day's count.
+6. Before production: the privacy statement names Anthropic (§6.1).
 
 ## 3. Verifying
 
@@ -139,8 +172,9 @@ plan gate yet — see §6.
 - **No streaming.** A turn answers when it is done. Two to eight seconds.
 - **No participant data, no notes, no Connections, no other apps.**
 - **No voice.** Claude's own apps dictate; this panel types.
-- **No plan gate, no per-workspace switch.** On for everyone the moment the
-  key exists, off for everyone without it.
+- **No per-workspace OFF switch for a plan that includes it.** A Starter or
+  Pro workspace that wants no model near its data has no toggle yet; the
+  admin can only refrain from using it. Small; §6.2.
 - **No writes beyond the thread itself**: no engagements, tickets, prices'
   destinations, certificates, emails to participants.
 
@@ -177,10 +211,10 @@ order each one earns its cost.
 7. **Memory.** A per-person preference note ("I always start on Mondays",
    "my events are in Dutch") the assistant reads at the start of a turn.
    Small table, person-scoped, deletable in Settings → Privacy.
-8. **Metering and the plan.** A `assistant_usage` table written per turn,
-   shown in Settings → Plan, gated by `billing_plan` feature keys, with the
-   Free tier getting a monthly allowance. Reuses the seat/metering shape from
-   v0.46.0.
+8. **Metering and the plan — done in v0.78.0**, see §1.4: `assistant_usage`,
+   `assistant` + `assistant_tokens_day` feature keys, Settings → Assistant,
+   own key per workspace. Left for later: billing overage on the platform key
+   (today it pauses instead), and a monthly view on Settings → Plan.
 9. **Proactive nudges, carefully.** "Three applications have waited two
    days." A scheduled read of counts, surfaced in the panel's intro, never a
    message sent anywhere.
@@ -189,28 +223,33 @@ order each one earns its cost.
     doors onto one tool catalogue. The allow-list should be shared code by
     then, not two copies.
 
-## 6. Open — for Sjoerd
+## 6. Decisions — Sjoerd, 2026-09-15
 
-**6.1 Anthropic as a sub-processor.** The moment the key is set, the
-organiser's typed messages and the shaped thread data go to Anthropic's API.
-Version 1 sends no participant data, but the typed text can contain anything.
-Three things follow, and none of them is a technical detail:
+**6.1 What may leave for the model: "Not now — Thread data only."** Decided
+by Sjoerd (answered in the Connections session, relayed 2026-09-15; to be
+confirmed first-hand): the assistant stays with threads, templates and
+counts. No participant names, notes or Connections data go to a model until
+a DPA with the provider and an EU endpoint are in place. That is exactly the
+allow-list in §1.2, so nothing changes in code; v2 item 4 stays parked behind
+those two conditions.
 
-- a decision on *what may leave*: structure only (v1), or names with a DPA
-  (v2 item 4);
+What still has to happen **before the key goes on production**:
+
 - a line in the privacy statement's sub-processor list
   (`packages/shared/src/ui/legal-docs.tsx`) and in
-  `data-protection-approach.md` §3, naming Anthropic, the purpose and the
-  region;
-- a DPA with Anthropic, and whether to pin inference to an EU region
-  (`inference_geo` on the request) — the API supports it; the account has to.
+  `data-protection-approach.md` §3, naming Anthropic, the purpose (the in-app
+  assistant), what is sent (thread structure, counts, and what the person
+  types) and the region;
+- a DPA with Anthropic for the platform key, and a decision on pinning
+  inference to an EU region (`inference_geo` — the API supports it, the
+  account has to). A workspace on its own key has its own relationship with
+  Anthropic; the statement should say that too.
 
-Until this is written down, staging yes, production no.
-
-**6.2 Per-workspace switch and a plan gate.** Today the key is the switch.
-Should a workspace admin be able to turn the assistant off for their
-workspace (some organisations will want that)? Should it be a Pro feature?
-Both are small; both are product calls.
+**6.2 Who pays — decided, built in v0.78.0.** Free: none. Starter and Pro: an
+allowance on the platform key with a daily budget. Any workspace may bring its
+own key. See §1.4. Left open, small: a per-workspace OFF switch for a plan
+that includes it, and whether over-budget use on the platform key should
+ever be billed as overage instead of paused.
 
 **6.3 Model and effort.** `claude-opus-5` at medium effort is the default for
 quality. Sonnet 5 would cost about 40 % of it per token. Decide after a week

@@ -34,3 +34,30 @@ export function setAssistantClientForTests(client: Anthropic | null | undefined)
 export function assistantEnabled(): boolean {
   return assistantClient() !== null;
 }
+
+// A client per workspace key. Keyed by the key itself (it never leaves this
+// map, which never leaves the process); bounded so a churn of keys cannot
+// grow it without end.
+const byKey = new Map<string, Anthropic>();
+export function clientForKey(apiKey: string): Anthropic {
+  let c = byKey.get(apiKey);
+  if (!c) {
+    if (byKey.size > 200) byKey.clear();
+    c = new Anthropic({ apiKey, maxRetries: 2, timeout: 120_000 });
+    byKey.set(apiKey, c);
+  }
+  return c;
+}
+
+/** Prove a key works before storing it: the cheapest authenticated call. */
+export async function verifyKey(apiKey: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+  try {
+    await new Anthropic({ apiKey, maxRetries: 0, timeout: 15_000 }).models.list({ limit: 1 });
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError) return { ok: false, reason: 'Anthropic did not accept this key.' };
+    if (e instanceof Anthropic.PermissionDeniedError) return { ok: false, reason: 'This key is not allowed to use the API.' };
+    if (e instanceof Anthropic.APIError) return { ok: false, reason: `Anthropic answered ${e.status}.` };
+    return { ok: false, reason: 'Could not reach Anthropic to check the key.' };
+  }
+}

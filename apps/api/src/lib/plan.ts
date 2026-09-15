@@ -31,7 +31,11 @@ export type PlanFeature =
   | 'third_party_apps'
   | 'sso'
   | 'audit_log'
-  | 'retention_controls';
+  | 'retention_controls'
+  // The in-app assistant on the platform's model key (docs/assistant-in-app.md
+  // §1.4). Free has no key → can() is false there. A workspace's OWN key
+  // bypasses this gate — see lib/assistant/access.ts.
+  | 'assistant';
 
 export type Plan = {
   id: string;

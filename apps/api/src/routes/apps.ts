@@ -212,7 +212,7 @@ appsRoutes.patch('/:slug', async (c) => {
 // §2 — App keys. Minted by a workspace admin, scoped to (app × workspace).
 // ===========================================================================
 
-async function requireWorkspaceAdmin(ctx: { auth: string; userId: string; workspaceId: string }) {
+export async function requireWorkspaceAdmin(ctx: { auth: string; userId: string; workspaceId: string }) {
   if (ctx.auth !== 'user') return 'user session required';
   const { data } = await adminClient
     .from('workspace_member')
