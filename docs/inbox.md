@@ -388,6 +388,61 @@ chat is generic and a hundred products do it.
 
 Not scoped, not ranked.
 
+### 2026-09-15 — Dex compared, and a gap in the market doc
+
+Sjoerd, in the fibre chat:
+
+> Can you check Dex CRM and see how it compares to our approach? And what is
+> an MCP?
+
+**Dex is a personal CRM** (getdex.com). One user, one price, roughly $12 a
+month billed annually, $20 for the professional tier. Unlimited contacts,
+keep-in-touch reminders on a Kanban board, LinkedIn sync that flags job
+changes every few days, WhatsApp and iMessage and Gmail and calendar sync, AI
+follow-up suggestions, custom fields.
+
+**The finding worth acting on: it fits none of the four archetypes in
+`connections-market.md` §2.** Pipeline-first, contact-first, auto-filling,
+stewardship. Dex is a fifth shape the doc does not have: the unit of account
+is one individual's own network, with no organisation anywhere in it. That is
+not a smaller folk. It is a different theory of who a CRM is for. If the
+comparison matters, §2 wants a fifth row, and that doc belongs to whoever
+owns the Connections series rather than to this inbox.
+
+**Three differences that are real, not just maturity:**
+
+1. **The unit.** Dex is one person. Connections is a workspace with RLS, app
+   membership and a shared relational field. A team cannot use Dex together,
+   and a single freelancer does not need a workspace.
+2. **Where the knowledge comes from.** Dex ingests your messages to infer
+   relationship state. Connections refuses that by construction:
+   `detect-tags.ts` declines to send note bodies to a model at all, and the
+   handbook says co-occurrence is not a relationship. Dex knows more about you
+   because it holds more of you. That is the trade, stated plainly, and it is
+   the same trade `connections-data-integrity.md` was written about.
+3. **What it optimises.** Dex is a cadence machine: it nudges you toward
+   consistent outreach. Connections optimises for honest reporting, which is
+   why the closeness axis says `unrated` instead of guessing.
+
+**The honest concession.** For one person trying to stop forgetting to follow
+up, Dex wins today. It is shipped, polished and cheap, and Connections is days
+old. If that is the actual need, buying it beats building it.
+
+**Where Connections is different rather than younger.** Market doc §4 already
+says it: Pipedrive knows you won and does not know the workshop happened, who
+came, whether they paid, whether they came back. Dex knows less still, because
+it is attached to an inbox rather than to delivery. That is the moat and it is
+already written down.
+
+**One thing Dex does that is worth stealing.** LinkedIn job-change detection.
+Somebody changing employer is a dated, stated fact about a person, not an
+inference from co-occurrence, so it passes the exactness rule that keeps most
+enrichment out. It would feed the organisation side that v0.75.23 just gave
+labelled contact points to.
+
+Not scoped. The MCP half of his message was a general question, answered in
+chat, not an item.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._
