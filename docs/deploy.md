@@ -211,11 +211,17 @@ limit is the last line of defence and lives outside this repo.
 
 Two more things this feature leans on (since v0.78.0):
 
-- `SSO_INTERNAL_SECRET` is also the root of the key that encrypts a
-  workspace's OWN Anthropic key at rest (`lib/assistant/secret.ts`). Rotating
-  it makes those stored keys unreadable: the assistant falls back to the
-  platform key and Settings → Assistant asks the admin to connect the key
-  again. Say so in the rotation runbook.
+- **`ASSISTANT_KEY_SECRET`** (since v0.78.1) is the root of the key that
+  encrypts a workspace's OWN Anthropic key at rest
+  (`lib/assistant/secret.ts`). Set it on every API deployment:
+  `fly secrets set ASSISTANT_KEY_SECRET="$(openssl rand -hex 32)"` (and
+  `-c fly.staging.toml`). Until it exists the API falls back to
+  `SSO_INTERNAL_SECRET`, and each stored value records which one it was
+  written under (a key-id byte), so the two rotations stay separate and a
+  future rotation can re-encrypt row by row. Rotating a secret that rows
+  still depend on makes those rows unreadable: the assistant falls back to
+  the platform key and Settings → Assistant asks the admin to connect the
+  key again. Say so in the rotation runbook for BOTH secrets.
 - Migration `20260915120000_assistant_access.sql` (two tables + the plan
   feature seed) goes with the release; `scripts/db-push-staging.sh` first.
 

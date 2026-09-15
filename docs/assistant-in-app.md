@@ -110,13 +110,16 @@ UTC, or connect your own key", "not switched on here". Over budget is a
 pause, never a cut-off.
 
 The own key is stored in `workspace_assistant`, service-role only, encrypted
-with AES-256-GCM under a key derived from `SSO_INTERNAL_SECRET`
-(`lib/assistant/secret.ts`). It cannot be hashed like an app key — the API
-must send it — so it is shown once, kept as a four-character hint, verified
-against Anthropic before it is saved, and never logged. Rotating
-`SSO_INTERNAL_SECRET` makes stored keys unreadable, which surfaces as
-"connect your key again"; the assistant falls back to the platform key
-meanwhile rather than failing.
+with AES-256-GCM under a key derived from `ASSISTANT_KEY_SECRET` — a Fly
+secret of its own since v0.78.1, with `SSO_INTERNAL_SECRET` as the fallback
+until it exists; each stored value records which one it was written under so
+the two rotations stay separate and a later rotation can re-encrypt instead of
+asking every workspace to reconnect (`lib/assistant/secret.ts`). It cannot be
+hashed like an app key — the API must send it — so it is shown once, kept as
+a four-character hint, verified against Anthropic before it is saved, and
+never logged. Rotating a secret that rows depend on makes them unreadable,
+which surfaces as "connect your key again"; the assistant falls back to the
+platform key meanwhile rather than failing.
 
 Usage lands in `assistant_usage` per workspace per day per paying key (turns,
 tokens in, tokens out). Members see their own workspace's rows at Settings →

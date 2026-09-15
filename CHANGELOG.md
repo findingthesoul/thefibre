@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.1] — 2026-09-15 — A secret of its own for stored assistant keys (staging)
+
+Review finding, fixed while no workspace has stored a key yet. A workspace's
+own Anthropic key is now encrypted under **`ASSISTANT_KEY_SECRET`**, a Fly
+secret of its own, instead of a key derived from `SSO_INTERNAL_SECRET` —
+coupling the two meant rotating the SSO secret silently locked every
+workspace out of its assistant, and a leak of either was a leak of both.
+Each stored value carries a key-id byte saying which secret it was written
+under, so a future rotation can re-encrypt row by row instead of asking every
+workspace to reconnect; `SSO_INTERNAL_SECRET` stays as the fallback until the
+new secret is set (`docs/deploy.md`). Five tests on `secret.ts`.
+
 ## [0.78.0] — 2026-09-15 — Who pays for the assistant (staging)
 
 docs/assistant-in-app.md §1.4 and §6, decided by Sjoerd the same day the

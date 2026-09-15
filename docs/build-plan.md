@@ -989,6 +989,10 @@ purchase machinery so grants ride the existing journal).
   contract job will stay red until it is done (found 2026-09-12, following an
   enrolled participant to their own page).
 
+- **Set `ASSISTANT_KEY_SECRET` on both Fly apps** (`openssl rand -hex 32`),
+  before any workspace connects its own Anthropic key. Without it the API
+  encrypts under `SSO_INTERNAL_SECRET`, which couples two rotations —
+  docs/deploy.md § The in-app assistant.
 - **Switch the in-app assistant on, staging first.** In the Anthropic
   Console create the key with a HARD monthly spend limit and an alert at
   half, then `fly secrets set ANTHROPIC_API_KEY=sk-ant-… -c fly.staging.toml`.
