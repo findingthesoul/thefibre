@@ -6,6 +6,76 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.76.2] — 2026-09-15 — two comments that described the wrong model (staging)
+
+Comments only; no behaviour changes.
+
+Two explanations written into the v0.73.19 tenancy fix assumed one account has
+one `public."user"` row shared across workspaces. The model
+(20260830100000) is one row PER workspace. The Meet session checked the data —
+every `workspace_member` row's user sits in that same workspace, on production
+and on staging — when a warning built on the same wrong model reached it.
+
+The co-organiser lookup in `routes/thread.ts` claimed a person in two
+workspaces shares one organiser row; `isWorkspaceMember` in
+`lib/workspace-refs.ts` claimed `user.workspace_id` would give the wrong
+answer. Both code paths were correct, for a wrong reason, and the comments now
+say why they are right.
+
+## [0.76.1] — 2026-09-15 — adding a colleague who is in more than one workspace (Meet 2.9.3, staging)
+
+Sjoerd, on production: Meet team page, Add a member, picked Tahirih Michot,
+got "API 500". Diagnosed read-only by the organisations session.
+
+**Cause.** One person holds a user row per workspace (since v0.19.1), and
+Tahirih has three. The team add-member route looked the user up by email with
+no workspace filter. `maybeSingle()` treats three rows as an error, the code
+read that as "nobody", tried to create a new user, and the insert failed. The
+same lookup made the old "already belongs to another Fibre workspace" refusal
+wrong for anyone in several workspaces.
+
+**Fix.** Both Meet invite routes, team add-member and internal team, now look
+the user up in this workspace only. That is the lookup the platform's own
+member invite has used since v0.19.1. Someone who was removed from the
+workspace gets a clear 409 pointing to Members in The Fibre, because reviving
+them there runs the seat check and Meet's route does not. The Meet page now
+shows the API's error sentence instead of "API 500".
+
+Checked read-only on production: that email has three live user rows, and the
+workspace-scoped query returns exactly one. The route itself was not called
+on staging or production, because that needs a signed-in team lead.
+
+## [0.76.0] — 2026-09-15 — The Fibre over MCP (staging)
+
+docs/mcp.md.
+
+**An AI assistant can act as an app on The Fibre.** New workspace package
+`packages/mcp` (`fibre-mcp`), a Model Context Protocol server. It connects
+with an app key — never a user session — and offers one tool per row of the
+app-key allow-list, gated on the same scope and filtered to the scopes the key
+actually holds: link records to persons and organisations, log activity,
+publish and edit a programme on The Thread, see who registered, admit and
+decline applications, work the door, start and move runs on Flow. Thirty-five
+tools; nothing beyond what curl with the same key reaches. The server's
+instructions tell the assistant which app and workspace it acts as and the
+rules that hold (no search beyond its own links, activity is append-only and
+public to the workspace, registration comes from the public form). Stdio for
+Claude Desktop and Claude Code; `--http` is a stateless Streamable HTTP mode
+that takes the key per request — the shape a hosted server would take.
+
+**Held to the contract by a test that reads the API.** `mcp.test.ts` parses
+`APP_KEY_ROUTES` out of `middleware/app-context.ts` at test time and fails on
+any tool that maps outside it or offers itself at a looser scope; a tool
+without sample arguments fails coverage. `verify-external-app.mjs` gained
+step 6b: the built server driven over raw JSON-RPC on stdio against a live
+API with the keys the script mints — tool list follows scopes, a call returns
+the link curl got, a refusal reads as a tool error, an activity lands. Passed
+in full against staging.
+
+**`scripts/release.sh` derives `packages/*`** instead of naming
+`packages/shared`. Every `packages/*/package.json` now carries the version;
+a hand-rolled bump that names only shared is refused.
+
 ## [0.75.30] — 2026-09-15 — A map with depth (staging)
 
 **Connections — the map of relations says more.** Every name carries a small

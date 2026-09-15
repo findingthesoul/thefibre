@@ -498,6 +498,15 @@ public form. There is still no way for an app to conjure an enrolment.
 Scopes: `read:programs`, `write:programs`, `read:enrolments`,
 `review:enrolments`.
 
+### 5.6 Use it from an AI assistant
+
+Everything in §5 is also available as MCP tools — one per route above, gated
+on the same scope — through `packages/mcp` (`fibre-mcp`). An assistant such as
+Claude connects with an app key and sees exactly the tools that key's scopes
+allow; the API still checks every call. Nothing in it reaches further than
+curl with the same key would. Setup, the scope → tool table and the design
+are in [`mcp.md`](mcp.md).
+
 ## 6. The stability contract
 
 This is the part that decides whether your integration survives the platform
@@ -634,3 +643,5 @@ executable version of the same claims.
   integration attempt that produced most of §4.
 - [`brief-flow-as-planner-engine.md`](brief-flow-as-planner-engine.md) — why
   Flow is consumable rather than copied.
+- [`mcp.md`](mcp.md) — the same contract offered to an AI assistant as MCP
+  tools, and why it offers nothing beyond it.

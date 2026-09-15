@@ -1990,15 +1990,16 @@ threadRoutes.post('/threads/:id/members', async (c) => {
 
   // The invited user needs a thread_organiser row — auto-provision like /me.
   //
-  // NOT filtered by workspace, deliberately. thread_organiser.user_id is
-  // UNIQUE across the whole platform (20260701090000, never relaxed; checked
-  // in production 2026-09-13: nine rows, no user with two). A person who
-  // belongs to two workspaces has ONE organiser row, living in whichever they
-  // were provisioned in first. A workspace filter here would miss that row,
-  // provisioning would then insert a second one, the unique constraint would
-  // refuse it, and inviting any multi-workspace member as a co-organiser
-  // would 500. The check that matters is the membership check above; this
-  // lookup only finds the row that person already has.
+  // No workspace filter, and none is needed. The model (20260830100000) gives
+  // an account one public."user" row PER workspace, so body.data.user_id
+  // already names a row in exactly one workspace — the membership check above
+  // has just confirmed it is this one — and thread_organiser.user_id is
+  // unique, so there is at most one organiser row to find.
+  //
+  // (Corrected 2026-09-15. This comment first claimed a person in two
+  // workspaces shares ONE organiser row. That misread the model; the Meet
+  // session checked the data — every workspace_member row's user sits in that
+  // same workspace — and caught it. The code was right for a wrong reason.)
   let { data: organiser } = await adminClient
     .from('thread_organiser')
     .select('id')

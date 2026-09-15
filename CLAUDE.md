@@ -65,7 +65,7 @@ pnpm dev          # every app's dev script, in parallel (`pnpm -r --parallel run
 ```
 
 ### Version bumps
-Every shipped change updates the `package.json` file of **every workspace package** plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit. Don't count the packages by hand — `scripts/release.sh` derives the list from `apps/*/package.json` + root + `packages/shared` (since v0.68.20), so a new app is covered the moment it exists. The hand-written count in this file said "ten" and was already wrong once.
+Every shipped change updates the `package.json` file of **every workspace package** plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit. Don't count the packages by hand — `scripts/release.sh` derives the list from `apps/*/package.json` + `packages/*/package.json` + root (apps since v0.68.20, packages since v0.76.0 when `packages/mcp` joined `packages/shared`), so a new app or package is covered the moment it exists. **Bump every `packages/*/package.json`, not just shared** — a hand-rolled bump loop that names `packages/shared` gets refused. The hand-written count in this file said "ten" and was already wrong once.
 
 **Per-app user-facing versions are decoupled** from the monorepo cadence.
 Each lives in `apps/<app>/app/(app)/layout.tsx` and is bumped when that app's
@@ -234,6 +234,7 @@ second, drifting copy.
 - Shared UI lives in `@thefibre/shared` too: `DateField`/`DateTimeField` (`src/ui/date-field.tsx`, subpath export `./ui/date-field`) - the app-local `components/ui/date-field.tsx` files are re-export shims. Edit the shared copy; per-app copies drifted once already (v0.13.104).
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - **After pulling a commit that ADDS a shared subpath export, build shared before believing a typecheck failure.** A stale `dist/` makes an unrelated app fail with e.g. `apps/membership/lib/i18n.ts(17,34): error TS2307: Cannot find module '@thefibre/shared/participant-auth-i18n' or its corresponding type declarations.` The error names the consuming app and a module path and points nowhere near the stale artefact in another package. Fix: `pnpm --filter @thefibre/shared build`.
+- **After pulling a commit that ADDS a workspace package, run `pnpm install` before `pnpm verify`.** A checkout (worktree especially) has no `node_modules` for a package it has never installed, so `pnpm -r typecheck` fails inside that package with missing modules. Hit on 2026-09-15, first release after `packages/mcp` landed.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
 ## Where we left off — 2026-09-01 (v0.21.0)

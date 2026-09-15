@@ -1229,6 +1229,30 @@ policies.
 
 ---
 
+## MCP — The Fibre as tools for an AI assistant (shipped 2026-09-15, v0.76.0)
+
+`packages/mcp` (`fibre-mcp`), design and setup in `docs/mcp.md`. A thin
+client of the app-key contract: one tool per `APP_KEY_ROUTES` row, same
+scope, filtered to the key's scopes, held there by a test that reads the
+middleware source. Stdio (Claude Desktop / Claude Code) and a stateless
+`--http` mode. Verified end-to-end by `verify-external-app.mjs` step 6b.
+
+**Open, in the order they earn their place**
+
+- [ ] **Hosted server with OAuth 2.1** so a Claude.ai user adds The Fibre by
+  URL and signs in, instead of pasting a minted key into a config file. The
+  OAuth provider exists (`routes/oauth-provider.ts`); the missing decision is
+  what app-scoped credential a user's consent should mint. Product call.
+- [ ] **A first-party assistant app in the catalogue** — switched on per
+  workspace at Settings → Apps, with a manifest that declares its activity
+  types, so a workspace need not register an app to use this.
+- [ ] **Publish `@thefibre/mcp` to npm** — config becomes `npx`, not an
+  absolute path into a checkout.
+- [ ] Resources (manifest, whoami) and prompts (e.g. "prepare a festival"
+  chaining Flow + Thread tools). No user asking yet.
+- [ ] Curator-data write tool — the day the API grows that surface (app
+  contract §8).
+
 ## Operational & infra
 
 - [ ] **Custom email domain** — Resend with `@thefibre.app`, SPF / DKIM / DMARC

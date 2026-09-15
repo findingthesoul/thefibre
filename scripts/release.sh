@@ -22,10 +22,12 @@ git fetch origin
 # The list is DERIVED, not written out: apps/my (2026-09-08) was the eighth
 # app, and a hand-kept list is how membership.thefibre.tech went missing from
 # CORS and how three other "new thing forgotten in a list" bugs happened. A
-# new app under apps/* is now covered the moment it exists.
+# new app under apps/* is now covered the moment it exists. Same for
+# packages/*: `packages/shared` was written out by name until packages/mcp
+# arrived (2026-09-15) and the name became the next stale list.
 # (Portable to macOS's bash 3.2 — no mapfile, no arrays needed.)
-VERSION_FILES="package.json packages/shared/package.json"
-for d in apps/*/; do
+VERSION_FILES="package.json"
+for d in apps/*/ packages/*/; do
   [ -f "$d/package.json" ] && VERSION_FILES="$VERSION_FILES ${d}package.json"
 done
 for f in $VERSION_FILES; do
