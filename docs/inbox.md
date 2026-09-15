@@ -645,6 +645,56 @@ Sjoerd means.
 
 Not scoped.
 
+### 2026-09-15 — Connections as the input tool, and two products hiding in one sentence
+
+Sjoerd, thinking aloud:
+
+> And then on top of it, uh, we might make a special separation for
+> connections. So like the input tool. I think we already tried to work towards
+> it by creating this prompt that you can throw into your AI tool to extricate
+> or to extract from a conversation that has been transcribed or anything else.
+> Some information that you could put in here. But like maybe there's something
+> like uh, you could talk to because you have an AI system that could become
+> input. I'm just thinking of some things.
+
+**He is right that the work is started, and further along than "a prompt".**
+`apps/connections/lib/meeting-prompt.ts` already decides what leaves the
+building (the person's name, the workspace's topic tags), what deliberately
+does not (organisation tags, anybody else's name, because *"an organisation
+word can be a sole trader's name, and a list of other people would be this
+workspace's contact graph handed to a third party because it was
+convenient"*), and the shape that comes back, hyphenated so detection resolves
+it. Inputs, outputs, and a data-minimisation policy. **That is an MCP tool
+definition written in prose.** The medium is wrong, not the thinking.
+
+**What MCP changes, precisely.** It fixes the return trip: the assistant writes
+the note, the tags and the follow-ups through scoped endpoints instead of the
+seat pasting text back. It does **not** change the outbound exposure, because
+the seat's assistant still reads the transcript. The protocol does not make
+the privacy question disappear, it moves the clipboard.
+
+**The sharp bit: two different products are in his last sentence.**
+
+1. **You talk to your assistant about what happened.** You are the author, it
+   formats, the note is your observation written faster. Clean, and the direct
+   descendant of the prompt that exists.
+2. **You record the meeting and it extracts.** The meeting is the author and
+   the assistant infers. Materially heavier: an inference about Marja drawn
+   from her own recorded words, landing in a record she can request under
+   Article 15, and a recording involves everybody present in a way a note
+   about them does not.
+
+They are not the same risk and should not be the same feature. Worth deciding
+which one is meant before either is scoped.
+
+**And a mechanism the principle needs.** "The human states, the machine
+formats" holds today because a person reads the summary and chooses to paste
+it. If the assistant writes directly, that editorial step vanishes unless
+something replaces it — a draft state the seat confirms, which the notes
+composer already has the shape for.
+
+Not scoped.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._

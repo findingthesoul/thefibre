@@ -117,6 +117,22 @@ the complaint is always the cost of entry.
 Never: the machine observes. `detect-tags.ts` already refuses to send note
 bodies to a model, and that refusal is load-bearing.
 
+**And the tool is already specified, in the wrong medium.**
+`apps/connections/lib/meeting-prompt.ts` (v0.75.x) generates a prompt a seat
+pastes into their own assistant with a transcript. Read its header: it decides
+what leaves the building (the person's name, the workspace's topic tags), what
+deliberately does not (organisation tags, anybody else's name — *"this
+workspace's contact graph handed to a third party because it was
+convenient"*), and the output shape, hyphenated so detection resolves it. That
+is inputs, outputs and a minimisation policy: everything an MCP tool
+definition needs. Converting it is mostly mechanical.
+
+**One thing MCP does not fix here.** The prompt is careful because the text
+goes to a service the platform does not control. MCP changes the RETURN trip —
+structured writes instead of a clipboard round trip — and leaves the OUTBOUND
+exposure exactly where it was, because the seat's assistant still reads the
+transcript. Do not assume the protocol makes the privacy question go away.
+
 ### 4.5 The to-do template, as a conversation
 Sjoerd's Thread ask of 2026-09-14. `flow_step_default_task` already does this
 for Flow. Rather than build a drag-and-drop builder, a facilitator says what
