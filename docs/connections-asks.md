@@ -131,7 +131,7 @@ neither in code nor in a document. That is what this file fixes.
 | 98 | "Dots are better by the way" | **Answered** — kept; dots since v0.78.2 |
 | 99 | "It still jumps back way too quick" | **Shipped** v0.78.6 — the speed limit now holds until the name is back at its ring (v0.78.5 lifted it on a two-second timer while still far away, so it crept and then snapped); ties to other people pull gently too; the pull builds over about four seconds from a crawl |
 | 100 | The "Picked up" tag chips under the note: "This is not needed" | **Shipped** v0.78.6 — the row is gone; tags show inside the sentence |
-| 101 | "Perfect: Constellation to GitHub and give me the link to share" | **In progress** — publishing under github.com/thefibre |
+| 101 | "Perfect: Constellation to GitHub and give me the link to share" | **Shipped** 2026-09-15 — code at github.com/thefibre/constellation, live demo at thefibre.github.io/constellation (checked in a browser: renders, clicking glides); install from GitHub, npm package not yet published |
 
 ### The three that were lost
 
