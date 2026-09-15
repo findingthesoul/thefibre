@@ -9,6 +9,7 @@ import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
 import { ContactPointsView, type ContactPointValue } from '@thefibre/shared/ui/contact-points';
+import { AddOrganisationButton } from './add-organisation';
 
 type Person = {
   email: string | null;
@@ -125,7 +126,16 @@ export default async function ContactOverview({
       {/* Organisation memberships — platform-owned contact-graph edges
           per brief §2. Shows current + historical positions. */}
       <section className="mt-14">
-        <SectionLabel>{t(locale, 'nav_organisations')}</SectionLabel>
+        <div className="flex items-center justify-between">
+          <SectionLabel>{t(locale, 'nav_organisations')}</SectionLabel>
+          <AddOrganisationButton
+            personId={id}
+            exclude={memberships.org_memberships
+              .filter((m) => !m.ended_at && m.organisation)
+              .map((m) => m.organisation!.id)}
+            locale={locale}
+          />
+        </div>
         {memberships.org_memberships.length === 0 ? (
           <div className="mt-4">
             <EmptyState>{t(locale, 'no_orgs_linked')}</EmptyState>

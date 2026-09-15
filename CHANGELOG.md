@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.25] — 2026-09-15 — Add an organisation from the person (staging)
+
+Sjoerd: "Why can't I add an organisation from a person?" A contact's
+Organisations section gets **Add organisation** — the mirror of Add member:
+type to search any name, abbreviation or domain; pick one, or choose "Add
+“…” as a new organisation" and give its name, domain and country in the same
+dialog; then the same role fields (title, department, employment, influence,
+start date, primary/decision maker/budget holder/champion). Saved by the same
+action as Add member, and the role fields are one component
+(`MembershipRoleFields`) used by both dialogs. Organisations the person
+already belongs to are not offered again.
+
 ## [0.75.24] — 2026-09-15 — Who pays? (staging)
 
 docs/people-in-two-capacities-proposal.md §B, built.

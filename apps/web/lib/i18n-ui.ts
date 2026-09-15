@@ -4617,6 +4617,62 @@ const CATALOG = {
     de: 'Andere', // MT
     fr: 'Autre', // MT
   },
+  pick_organisation_first: {
+    en: 'Pick an organisation first, or add a new one.',
+    nl: 'Kies eerst een organisatie, of voeg een nieuwe toe.',
+    es: 'Elige primero una organización o añade una nueva.', // MT
+    pt: 'Escolha primeiro uma organização ou adicione uma nova.', // MT
+    de: 'Wähle zuerst eine Organisation oder füge eine neue hinzu.', // MT
+    fr: 'Choisis d’abord une organisation, ou ajoutes-en une nouvelle.', // MT
+  },
+  add_organisation_to_person: {
+    en: 'Add organisation',
+    nl: 'Organisatie toevoegen',
+    es: 'Añadir organización', // MT
+    pt: 'Adicionar organização', // MT
+    de: 'Organisation hinzufügen', // MT
+    fr: 'Ajouter une organisation', // MT
+  },
+  add_organisation_to_person_blurb: {
+    en: 'Where this person works or belongs, with their role and dates.',
+    nl: 'Waar deze persoon werkt of bij hoort, met rol en data.',
+    es: 'Dónde trabaja o participa esta persona, con su rol y fechas.', // MT
+    pt: 'Onde esta pessoa trabalha ou participa, com papel e datas.', // MT
+    de: 'Wo diese Person arbeitet oder dazugehört, mit Rolle und Daten.', // MT
+    fr: 'Où cette personne travaille ou s’engage, avec son rôle et ses dates.', // MT
+  },
+  search_or_add_organisation: {
+    en: 'Start typing an organisation…',
+    nl: 'Typ een organisatie…',
+    es: 'Escribe una organización…', // MT
+    pt: 'Digite uma organização…', // MT
+    de: 'Organisation eingeben…', // MT
+    fr: 'Tape une organisation…', // MT
+  },
+  add_as_new_organisation: {
+    en: 'Add “{name}” as a new organisation',
+    nl: '“{name}” toevoegen als nieuwe organisatie',
+    es: 'Añadir “{name}” como organización nueva', // MT
+    pt: 'Adicionar “{name}” como nova organização', // MT
+    de: '„{name}“ als neue Organisation hinzufügen', // MT
+    fr: 'Ajouter « {name} » comme nouvelle organisation', // MT
+  },
+  new_org_blurb: {
+    en: 'The organisation is added to this workspace and selected.',
+    nl: 'De organisatie wordt aan deze werkruimte toegevoegd en gekozen.',
+    es: 'La organización se añade a este espacio y queda seleccionada.', // MT
+    pt: 'A organização é adicionada a este espaço e fica selecionada.', // MT
+    de: 'Die Organisation wird diesem Arbeitsbereich hinzugefügt und ausgewählt.', // MT
+    fr: 'L’organisation est ajoutée à cet espace et sélectionnée.', // MT
+  },
+  organisation: {
+    en: 'Organisation',
+    nl: 'Organisatie',
+    es: 'Organización', // MT
+    pt: 'Organização', // MT
+    de: 'Organisation', // MT
+    fr: 'Organisation', // MT
+  },
   org_this_workspace: {
     en: 'This workspace',
     nl: 'Deze werkruimte',

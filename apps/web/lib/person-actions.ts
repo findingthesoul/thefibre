@@ -71,3 +71,41 @@ export async function createPersonFromPicker(input: {
     };
   }
 }
+
+export type OrganisationOption = { id: string; name: string; domain: string | null };
+
+/** The organisation picker on a person: the API matches any name,
+ *  abbreviation or domain (search_names), under the caller's RLS. */
+export async function searchOrganisations(q: string): Promise<OrganisationOption[]> {
+  const params = new URLSearchParams({ limit: '20' });
+  if (q.trim()) params.set('q', q.trim());
+  try {
+    const data = await apiFetch<{ items: OrganisationOption[] }>(`/api/v1/organisations?${params}`);
+    return data.items;
+  } catch {
+    return [];
+  }
+}
+
+/** "Not in the list — add it", from inside the picker. Nothing navigates. */
+export async function createOrganisationFromPicker(input: {
+  name: string;
+  domain?: string;
+  country?: string;
+}): Promise<{ ok: true; organisation: OrganisationOption } | { ok: false; error: string }> {
+  const body = Object.fromEntries(
+    Object.entries(input)
+      .map(([k, v]) => [k, (v ?? '').trim()])
+      .filter(([, v]) => v),
+  );
+  try {
+    const created = await apiFetch<OrganisationOption>('/api/v1/organisations', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return { ok: true, organisation: created };
+  } catch (e) {
+    const err = e as { status?: number; body?: { error?: unknown } };
+    return { ok: false, error: typeof err.body?.error === 'string' ? err.body.error : `API ${err.status ?? ''}`.trim() };
+  }
+}

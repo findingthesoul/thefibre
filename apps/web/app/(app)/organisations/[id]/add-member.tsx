@@ -191,18 +191,7 @@ export function AddMemberButton({
               errors={state.fieldErrors?.person_id}
             />
           </div>
-          <TextField label={t(locale, 'title_label')} name="title" placeholder="Head of Programmes" />
-          <TextField label={t(locale, 'department')} name="department" />
-          <SelectField label={t(locale, 'employment_type')} name="employment_type" options={employmentTypeOptions(locale)} />
-          <SelectField label={t(locale, 'influence')} name="influence_level" options={influenceOptions(locale)} />
-          <DateField label={t(locale, 'started')} name="started_at" />
-
-          <fieldset className="md:col-span-2 mt-2 space-y-2 text-sm">
-            <Checkbox name="is_primary" label={t(locale, 'primary_contact_org')} />
-            <Checkbox name="is_decision_maker" label={t(locale, 'decision_maker')} />
-            <Checkbox name="is_budget_holder" label={t(locale, 'budget_holder')} />
-            <Checkbox name="is_champion" label={t(locale, 'champion')} />
-          </fieldset>
+          <MembershipRoleFields locale={locale} />
 
           {state.error && (
             <div className="md:col-span-2 rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">
@@ -211,6 +200,27 @@ export function AddMemberButton({
           )}
         </form>
       </Dialog>
+    </>
+  );
+}
+
+/** The role half of a membership — the same fields whether it is added from
+ *  the organisation (Add member) or from the person (Add organisation). */
+export function MembershipRoleFields({ locale }: { locale: Locale }) {
+  return (
+    <>
+      <TextField label={t(locale, 'title_label')} name="title" placeholder="Head of Programmes" />
+      <TextField label={t(locale, 'department')} name="department" />
+      <SelectField label={t(locale, 'employment_type')} name="employment_type" options={employmentTypeOptions(locale)} />
+      <SelectField label={t(locale, 'influence')} name="influence_level" options={influenceOptions(locale)} />
+      <DateField label={t(locale, 'started')} name="started_at" />
+
+      <fieldset className="md:col-span-2 mt-2 space-y-2 text-sm">
+        <Checkbox name="is_primary" label={t(locale, 'primary_contact_org')} />
+        <Checkbox name="is_decision_maker" label={t(locale, 'decision_maker')} />
+        <Checkbox name="is_budget_holder" label={t(locale, 'budget_holder')} />
+        <Checkbox name="is_champion" label={t(locale, 'champion')} />
+      </fieldset>
     </>
   );
 }
