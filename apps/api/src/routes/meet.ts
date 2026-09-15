@@ -2099,6 +2099,49 @@ const InviteInternalBody = z.object({
   relationship_type: z.enum(['internal', 'external']).optional(),
 });
 
+/** The live user row for this email IN THIS WORKSPACE.
+ *
+ *  One person holds a user row per workspace (since v0.19.1), so an unscoped
+ *  `.eq('email', …).maybeSingle()` sees several rows, returns an ERROR, and
+ *  the caller read that as "nobody" — then tried to create a duplicate and
+ *  failed with a 500 (production, 2026-09-15: adding a colleague who is also
+ *  in two other workspaces, diagnosed by the organisations session). The old
+ *  409 "already belongs to another workspace" was wrong for the same person.
+ *  `unique (workspace_id, email)` makes maybeSingle() safe once scoped.
+ *
+ *  `removed` = a soft-deleted row exists here. Creating a new row would
+ *  collide with it on that unique key, and reviving it belongs to the
+ *  platform's member invite (routes/members.ts), which runs the seat gate —
+ *  so Meet refuses with a pointer rather than bypassing that. */
+async function workspaceUserByEmail(
+  workspaceId: string,
+  email: string,
+): Promise<
+  | { id: string; email: string; full_name: string | null; workspace_id: string }
+  | { removed: true }
+  | null
+> {
+  const { data: live } = await adminClient
+    .from('user')
+    .select('id, email, full_name, workspace_id')
+    .eq('email', email)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (live) return live;
+  const { data: removed } = await adminClient
+    .from('user')
+    .select('id')
+    .eq('email', email)
+    .eq('workspace_id', workspaceId)
+    .not('deleted_at', 'is', null)
+    .limit(1);
+  return removed?.length ? { removed: true } : null;
+}
+
+const REMOVED_MEMBER_ERROR =
+  'this person was removed from the workspace — invite them again from Members in The Fibre first';
+
 // POST /api/v1/meet/internal-team — invite a workspace-level Meet user.
 // Mirrors the team-member invite flow but only grants fibre-meet; it does
 // not add them to any team.
@@ -2107,19 +2150,10 @@ meetRoutes.post('/internal-team', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
 
-  // Existing user in this workspace?
-  let { data: u } = await adminClient
-    .from('user')
-    .select('id, email, full_name, workspace_id')
-    .eq('email', body.data.email)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (u && u.workspace_id !== ctx.workspaceId) {
-    return c.json(
-      { error: 'that email already belongs to another Fibre workspace' },
-      409,
-    );
-  }
+  // Existing user in this workspace? (Scoped — see workspaceUserByEmail.)
+  const found = await workspaceUserByEmail(ctx.workspaceId, body.data.email);
+  if (found && 'removed' in found) return c.json({ error: REMOVED_MEMBER_ERROR }, 409);
+  let u = found;
   let invited = false;
   if (!u) {
     invited = true;
@@ -3762,22 +3796,11 @@ meetRoutes.post('/teams/:id/members', async (c) => {
     return c.json({ error: 'leads only' }, 403);
   }
 
-  // 1. User already in this workspace?
-  let { data: u } = await adminClient
-    .from('user')
-    .select('id, email, full_name, workspace_id')
-    .eq('email', body.data.email)
-    .is('deleted_at', null)
-    .maybeSingle();
-
+  // 1. User already in this workspace? (Scoped — see workspaceUserByEmail.)
+  const found = await workspaceUserByEmail(ctx.workspaceId, body.data.email);
+  if (found && 'removed' in found) return c.json({ error: REMOVED_MEMBER_ERROR }, 409);
+  let u = found;
   let invited = false;
-  if (u && u.workspace_id !== ctx.workspaceId) {
-    return c.json(
-      { error: 'that email already belongs to another Fibre workspace' },
-      409,
-    );
-  }
-
   if (!u) {
     // 2. Create a pending user + matching person in this workspace, and
     //    link them. Everybody in the workspace shows up in the platform

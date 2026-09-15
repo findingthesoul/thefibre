@@ -82,7 +82,13 @@ export async function addMember(
       },
     );
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    // Show the API's own sentence (e.g. "was removed from the workspace"),
+    // not a bare status — "API 500" told Sjoerd nothing on 2026-09-15.
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: unknown } | undefined)?.error;
+      return { error: typeof msg === 'string' ? msg : `API ${e.status}` };
+    }
+    return { error: 'unknown error' };
   }
   revalidatePath(`/teams/${teamId}`);
   return { ok: true, invited: result.invited };
