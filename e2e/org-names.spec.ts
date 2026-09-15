@@ -28,7 +28,9 @@ test.describe('organisation search answers to every name (v0.75.3)', () => {
   test('the list shows the abbreviation beside the name', async ({ page }) => {
     await page.goto(await signedInLandUrl(HOSTS.fibre, 'fibre-platform', '/organisations?q=ebbf'));
     await page.waitForURL(/\/organisations/, { timeout: 30_000 });
-    await expect(page.getByText(/Business Forum \(EBBF\)/).first()).toBeVisible();
+    // Case-insensitive: the abbreviation is data, and staging's was retyped as
+    // "ebbf" on 2026-09-15. What this proves is that it sits beside the name.
+    await expect(page.getByText(/Business Forum \(EBBF\)/i).first()).toBeVisible();
   });
 
   test('a term that matches nothing shows nothing, not everything', async ({ page }) => {

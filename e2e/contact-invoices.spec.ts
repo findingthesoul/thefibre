@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HOSTS, signedInLandUrl, stagingService } from './helpers.js';
+import { HOSTS, landSignedIn, stagingService } from './helpers.js';
 
 // A contact's Invoices tab (v0.75.14), through the real signed-in screen on
 // STAGING. The filter was proven against PostgREST; this is the layer above
@@ -55,10 +55,7 @@ test.describe("a contact's invoices (v0.75.14)", () => {
     const { withInvoice } = await fixtureWorkspacePeople();
     expect(withInvoice, 'staging fixture workspace has no purchase with a person').toBeTruthy();
 
-    await page.goto(
-      await signedInLandUrl(HOSTS.fibre, 'fibre-platform', `/contacts/${withInvoice!.person_id}`),
-    );
-    await page.waitForURL(/\/contacts\//, { timeout: 30_000 });
+    await landSignedIn(page, HOSTS.fibre, 'fibre-platform', `/contacts/${withInvoice!.person_id}`, /\/contacts\//);
     const tab = page.locator(`a[href="/contacts/${withInvoice!.person_id}/invoices"]`);
     await expect(tab).toHaveCount(1);
 
@@ -72,10 +69,7 @@ test.describe("a contact's invoices (v0.75.14)", () => {
     const { withoutInvoiceId } = await fixtureWorkspacePeople();
     expect(withoutInvoiceId, 'staging fixture workspace has no person without a purchase').toBeTruthy();
 
-    await page.goto(
-      await signedInLandUrl(HOSTS.fibre, 'fibre-platform', `/contacts/${withoutInvoiceId}`),
-    );
-    await page.waitForURL(/\/contacts\//, { timeout: 30_000 });
+    await landSignedIn(page, HOSTS.fibre, 'fibre-platform', `/contacts/${withoutInvoiceId}`, /\/contacts\//);
     await expect(page.locator(`a[href="/contacts/${withoutInvoiceId}/invoices"]`)).toHaveCount(0);
   });
 });
