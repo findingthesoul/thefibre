@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.76.1] — 2026-09-15 — adding a colleague who is in more than one workspace (Meet 2.9.3, staging)
+
+Sjoerd, on production: Meet team page, Add a member, picked Tahirih Michot,
+got "API 500". Diagnosed read-only by the organisations session.
+
+**Cause.** One person holds a user row per workspace (since v0.19.1), and
+Tahirih has three. The team add-member route looked the user up by email with
+no workspace filter. `maybeSingle()` treats three rows as an error, the code
+read that as "nobody", tried to create a new user, and the insert failed. The
+same lookup made the old "already belongs to another Fibre workspace" refusal
+wrong for anyone in several workspaces.
+
+**Fix.** Both Meet invite routes, team add-member and internal team, now look
+the user up in this workspace only. That is the lookup the platform's own
+member invite has used since v0.19.1. Someone who was removed from the
+workspace gets a clear 409 pointing to Members in The Fibre, because reviving
+them there runs the seat check and Meet's route does not. The Meet page now
+shows the API's error sentence instead of "API 500".
+
+Checked read-only on production: that email has three live user rows, and the
+workspace-scoped query returns exactly one. The route itself was not called
+on staging or production, because that needs a signed-in team lead.
+
 ## [0.76.0] — 2026-09-15 — The Fibre over MCP (staging)
 
 docs/mcp.md.
