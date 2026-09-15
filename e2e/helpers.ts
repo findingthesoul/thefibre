@@ -83,6 +83,32 @@ export async function signedInLandUrl(
   return `${host}/sso/land?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`;
 }
 
+/**
+ * Sign in and arrive at `next`, retrying ONCE when the landing did not take.
+ * Found 2026-09-15: with two spec files signing the same fixture user in at
+ * the same moment, one land occasionally ended signed out on the marketing
+ * page — alone, the same spec passed three runs out of three. The retry is
+ * logged, so a land that fails for a real reason still fails, loudly, twice.
+ */
+export async function landSignedIn(
+  page: import('@playwright/test').Page,
+  host: string,
+  targetApp: string,
+  next: string,
+  arrived: RegExp,
+): Promise<void> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    await page.goto(await signedInLandUrl(host, targetApp, next));
+    try {
+      await page.waitForURL(arrived, { timeout: 30_000 });
+      return;
+    } catch (e) {
+      if (attempt === 2) throw e;
+      console.warn(`e2e: sign-in landed on ${page.url()} instead of ${next}; retrying once`);
+    }
+  }
+}
+
 /** Like signedInLandUrl, but for a SPECIFIC auth user (e.g. a participant
  *  the enrol flow just auto-created). */
 export async function signedInLandUrlFor(

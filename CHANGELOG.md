@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.8] — 2026-09-15 — Two red specs, explained (staging)
+
+Reported red by the closing sweep on staging.
+
+- **org-names "the list shows the abbreviation beside the name"**: not a markup
+  change. Staging's EBBF abbreviation was retyped as "ebbf"; the list rightly
+  shows "European Bahá'í Business Forum (ebbf)" and the assertion looked for
+  upper case. It is case-insensitive now: what it proves is the placement.
+- **contact-invoices "a person with an invoice gets the tab"**: the sign-in
+  sometimes ended signed out on the marketing page — only when two spec files
+  signed the same fixture user in at once; alone it passed three runs of three.
+   gains , which retries the land once and says
+  so in the log. After the change four of five paired runs were fully green; one
+  run still had a failure that was not captured, so this is mitigated, not
+  proven solved.
+
 ## [0.78.7] — 2026-09-15 — Settings opens again (staging)
 
 Since v0.78.0 the Fibre's Settings page threw a server-side exception for
