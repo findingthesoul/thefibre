@@ -17,7 +17,7 @@ Reported red by the closing sweep on staging.
 - **contact-invoices "a person with an invoice gets the tab"**: the sign-in
   sometimes ended signed out on the marketing page — only when two spec files
   signed the same fixture user in at once; alone it passed three runs of three.
-   gains , which retries the land once and says
+  `e2e/helpers.ts` gains `landSignedIn()`, which retries the land once and says
   so in the log. After the change four of five paired runs were fully green; one
   run still had a failure that was not captured, so this is mitigated, not
   proven solved.
