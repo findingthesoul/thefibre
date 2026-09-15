@@ -960,6 +960,10 @@ export function FocusWeb({
                   node.homeX = node.x;
                   node.homeY = node.y;
                 }
+                // Any other name pulled out of the cloud SLIDES home, its pull
+                // building back up over two seconds, rather than springing back
+                // (Sjoerd, 2026-09-15). See `returning` in lib/web-layout.ts.
+                if (!node.centre && d.moved) node.returning = 0;
               }
               // Only a name that really moved swallows the click that follows.
               // A press that merely lasted a while is still a click.
@@ -973,7 +977,10 @@ export function FocusWeb({
               if (d) {
                 if (d.timer) clearTimeout(d.timer);
                 const node = nodes.current.get(d.id);
-                if (node) node.held = false;
+                if (node) {
+                  node.held = false;
+                  if (!node.centre && d.moved) node.returning = 0;
+                }
               }
               drag.current = null;
             }}

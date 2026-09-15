@@ -6,6 +6,11 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.5] — 2026-09-15 — Let go, and it drifts home (staging)
+
+**Connections — the map.** Pull a name out of the cloud and let go: it now
+slides back gradually over a couple of seconds instead of springing back.
+
 ## [0.78.4] — 2026-09-15 — Organisations, centred and quiet (staging)
 
 **Connections — the map.** An organisation's name sits centred in its box, and

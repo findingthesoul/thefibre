@@ -207,6 +207,14 @@ export type WebNode = {
    * show.
    */
   bearingSwing?: number;
+  /**
+   * 0 to 1, how much of the pull home a name that was just let go of feels.
+   * Set to 0 when a dragged name is dropped and grown back to 1 over
+   * RETURN_FRAMES, so it SLIDES home instead of springing back. Sjoerd,
+   * 2026-09-15: *"When pulling someone away from the cloud... don't let them
+   * quickly flip back.. but let them gradually slide back"*. Undefined = 1.
+   */
+  returning?: number;
 };
 
 export const R_MIN = 250;
@@ -324,6 +332,10 @@ const GLIDE_SPRING = 0.15;
 /** A link's pull, and how close it wants its two ends. */
 const LINK_PULL = 0.012;
 const LINK_REST = 150;
+/** Frames for a dropped name's pull home to build back up: about two seconds. */
+export const RETURN_FRAMES = 120;
+/** While returning, a name cannot move faster than this per frame. */
+const RETURN_SPEED_MAX = 2.2;
 
 /** A tie between two people already on screen. */
 export type WebLink = { a: string; b: string; weight: number };
@@ -435,7 +447,14 @@ export function step(
       n.y = hy + Math.sin(a);
       d = 1;
     }
-    const pull = (n.targetR - d) * RADIAL * springs;
+    // A name just let go of feels only part of the pull, growing back
+    // smoothly — an ease-in, so it starts moving gently and gathers pace.
+    let homeward = 1;
+    if (n.returning !== undefined && n.returning < 1) {
+      n.returning = Math.min(1, n.returning + 1 / RETURN_FRAMES);
+      homeward = n.returning * n.returning;
+    }
+    const pull = (n.targetR - d) * RADIAL * springs * homeward;
     n.vx += (ex / d) * pull * ASPECT;
     n.vy += (ey / d) * pull;
 
@@ -444,8 +463,8 @@ export function step(
     if (n.bearing !== undefined) {
       const want = { x: Math.cos(n.bearing), y: Math.sin(n.bearing) };
       const off = { x: want.x * d - ex, y: want.y * d - ey };
-      n.vx += off.x * BEARING_PULL * springs * ASPECT;
-      n.vy += off.y * BEARING_PULL * springs;
+      n.vx += off.x * BEARING_PULL * springs * homeward * ASPECT;
+      n.vy += off.y * BEARING_PULL * springs * homeward;
     }
   }
 
@@ -509,6 +528,13 @@ export function step(
     if (n.held) continue; // the pointer owns this one
     n.vx *= DAMPING;
     n.vy *= DAMPING;
+    if (n.returning !== undefined && n.returning < 1) {
+      const v = Math.hypot(n.vx, n.vy);
+      if (v > RETURN_SPEED_MAX) {
+        n.vx *= RETURN_SPEED_MAX / v;
+        n.vy *= RETURN_SPEED_MAX / v;
+      }
+    }
     n.x += n.vx;
     n.y += n.vy;
     energy += n.vx * n.vx + n.vy * n.vy;

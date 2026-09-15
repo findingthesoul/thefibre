@@ -619,6 +619,35 @@ describe('names slide past each other', () => {
   });
 });
 
+// Sjoerd, 2026-09-15: "When pulling someone away from the cloud... don't let
+// them quickly flip back.. but let them gradually slide back".
+describe('a name let go of far from the cloud', () => {
+  const pulledOut = (returning?: number) => {
+    const centre = node('c', 0, true);
+    const far = node('far', 250, false, { x: 900, y: 0 });
+    far.hubX = 0;
+    far.hubY = 0;
+    if (returning !== undefined) far.returning = returning;
+    return [centre, far];
+  };
+  const distanceAfter = (nodes: WebNode[], frames: number) => {
+    for (let i = 0; i < frames; i++) step(nodes);
+    return Math.hypot(nodes[1]!.x, nodes[1]!.y);
+  };
+
+  it('slides home slowly instead of springing back', () => {
+    const springs = distanceAfter(pulledOut(), 15);
+    const slides = distanceAfter(pulledOut(0), 15);
+    // A quarter of a second in, the sliding one has covered far less ground.
+    expect(900 - slides).toBeLessThan((900 - springs) / 3);
+  });
+
+  it('still gets home in the end', () => {
+    const d = distanceAfter(pulledOut(0), 600);
+    expect(d).toBeLessThan(450);
+  });
+});
+
 // Sjoerd, 2026-09-15: "Some names go beyond the box... if possible -
 // abbreviations here."
 describe('a name that does not fit', () => {

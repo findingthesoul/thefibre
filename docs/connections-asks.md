@@ -127,6 +127,8 @@ neither in code nor in a document. That is what this file fixes.
 | 94 | "What were the initial names of Maturity?" / "Maybe I did not understand the concepts" | **Answered** — the six shipped steps and what earns each, explained in chat |
 | 95 | "Positioning of ORGs is not centered" (screenshot) | **Shipped** v0.78.4 — every name's box is one height, centred on its node; the box had grown for a title line that is never drawn |
 | 96 | "Maybe instead of a frame... a light grey background" | **Shipped** v0.78.4 — organisations have a light grey ground, no outline; Today's outlined chip dotted too |
+| 97 | "When pulling someone away from the cloud... don't let them quickly flip back.. but let them gradually slide back" | **Shipped** v0.78.5 — a dropped name's pull home builds back over about two seconds, eased in, with a speed limit |
+| 98 | "Dots are better by the way" | **Answered** — kept; dots since v0.78.2 |
 
 ### The three that were lost
 
