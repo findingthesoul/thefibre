@@ -1,0 +1,26 @@
+{
+  "name": "@thefibre/mcp",
+  "version": "0.75.30",
+  "private": true,
+  "type": "module",
+  "description": "A read-only MCP server over The Fibre API, for one seat, run locally. Phase 1 of docs/ai-assistance-plan.md.",
+  "bin": {
+    "fibre-mcp": "./dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.0"
+  }
+}
