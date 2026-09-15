@@ -41,6 +41,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabaseEnv } from './lib/env.mjs';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 let SUPABASE_URL, ANON_KEY, SERVICE_KEY;
 try {
@@ -199,6 +203,92 @@ async function call(path, { method = 'GET', body, token, appId } = {}) {
     json = { raw: text };
   }
   return { status: res.status, body: json };
+}
+
+// --- The MCP server, driven over stdio -------------------------------------
+//
+// packages/mcp wraps this same contract for an AI assistant. Step 6b proves it
+// is a faithful client: the tools it offers follow the key's scopes, and a
+// call lands on the API exactly as curl would. Spoken as raw newline-delimited
+// JSON-RPC so this script gains no dependency; the server is the one under
+// test, not a client library.
+const MCP_CLI = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '..', '..', '..', 'packages', 'mcp', 'dist', 'cli.js',
+);
+
+function mcpSession(appKey) {
+  const child = spawn(process.execPath, [MCP_CLI], {
+    env: { ...process.env, FIBRE_APP_KEY: appKey, FIBRE_API: API },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  let stderr = '';
+  child.stderr.on('data', (d) => (stderr += d));
+  const pending = new Map();
+  let buf = '';
+  child.stdout.on('data', (d) => {
+    buf += d;
+    let nl;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let msg;
+      try {
+        msg = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (msg.id !== undefined && pending.has(msg.id)) {
+        pending.get(msg.id)(msg);
+        pending.delete(msg.id);
+      }
+    }
+  });
+  let nextId = 1;
+  const send = (msg) => child.stdin.write(JSON.stringify(msg) + '\n');
+  const request = (method, params = {}) =>
+    new Promise((resolveReq, reject) => {
+      const id = nextId++;
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`MCP ${method} timed out\n${stderr}`));
+      }, 20_000);
+      pending.set(id, (msg) => {
+        clearTimeout(timer);
+        resolveReq(msg);
+      });
+      send({ jsonrpc: '2.0', id, method, params });
+    });
+  const exited = new Promise((r) => child.on('exit', (code) => r(code)));
+  return {
+    async init() {
+      const res = await request('initialize', {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'verify-external-app', version: '0' },
+      });
+      send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+      return res;
+    },
+    request,
+    stderr: () => stderr,
+    async close() {
+      child.stdin.end();
+      child.kill();
+      await exited;
+    },
+  };
+}
+
+/** tools/call answers text content; the tools JSON-encode the API body. */
+function mcpJson(res) {
+  const text = res?.result?.content?.find((c) => c.type === 'text')?.text;
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return { raw: text };
+  }
 }
 
 // --- A real user session for the admin steps -------------------------------
@@ -637,6 +727,80 @@ async function main() {
     'a key cannot act as another app',
     `HTTP ${wrongApp.status}`,
   );
+
+  // ---- 6b. The same contract, through the MCP server -----------------------
+  step('6b', 'Reach the same contract through the MCP server (packages/mcp)');
+
+  if (!existsSync(MCP_CLI)) {
+    check(false, 'the MCP server is built', `missing ${MCP_CLI} — run: pnpm --filter @thefibre/mcp build`);
+  } else {
+    // The read/write-persons key. Tools follow its scopes.
+    const reader = mcpSession(KEY);
+    try {
+      const init = await reader.init();
+      check(
+        init.result?.serverInfo?.name === 'thefibre' && /app "verify-external-app"/.test(init.result?.instructions ?? ''),
+        'the server starts on the key alone and says which app it acts as',
+        init.result?.serverInfo?.version,
+      );
+      const list = await reader.request('tools/list');
+      const names = (list.result?.tools ?? []).map((t) => t.name);
+      check(
+        names.includes('fibre_get_link') && names.includes('fibre_link_record') && names.includes('fibre_whoami'),
+        'offers the tools the key\'s scopes allow',
+        `${names.length} tools`,
+      );
+      check(
+        !names.includes('fibre_log_activity') && !names.includes('fibre_flow_list') && !names.includes('fibre_thread_list'),
+        'and none the key could not use (no write:activities, read:flows, read:programs)',
+      );
+      const viaMcp = await reader.request('tools/call', {
+        name: 'fibre_get_link',
+        arguments: { app_entity: 'planner_organiser', app_record_id: 'organiser-1' },
+      });
+      check(
+        !viaMcp.result?.isError && mcpJson(viaMcp)?.platform_id === personId,
+        'a tool call reaches the API and returns the same link curl got',
+        mcpJson(viaMcp)?.platform_id ?? JSON.stringify(viaMcp.error ?? viaMcp.result),
+      );
+      const unknown = await reader.request('tools/call', {
+        name: 'fibre_log_activity',
+        arguments: { person_id: personId, type: 'fot_planner_plan_created', subject: 'Via MCP' },
+      });
+      check(
+        !!unknown.error || unknown.result?.isError === true,
+        'a tool outside the key\'s scopes is not callable',
+        unknown.error?.message ?? 'isError',
+      );
+    } finally {
+      await reader.close();
+    }
+
+    // The activity-writer key: a write crosses the wall exactly as curl did.
+    const writer = mcpSession(WRITER);
+    try {
+      await writer.init();
+      const bad = await writer.request('tools/call', {
+        name: 'fibre_log_activity',
+        arguments: { person_id: personId, type: 'fot_planner_plan_creatd', subject: 'Typo via MCP' },
+      });
+      check(
+        bad.result?.isError === true && /400/.test(bad.result?.content?.[0]?.text ?? ''),
+        'the API\'s refusal of a typo\'d type comes back as a readable tool error',
+      );
+      const good = await writer.request('tools/call', {
+        name: 'fibre_log_activity',
+        arguments: { person_id: personId, type: 'fot_planner_plan_created', subject: 'Plan created via MCP' },
+      });
+      check(
+        !good.result?.isError && !!mcpJson(good)?.id,
+        'an activity written through MCP lands on the timeline',
+        mcpJson(good)?.id ?? good.result?.content?.[0]?.text,
+      );
+    } finally {
+      await writer.close();
+    }
+  }
 
   // ---- 7. Run a flow it does not own -------------------------------------
   step(7, 'Own runs on a Flow it did not author');

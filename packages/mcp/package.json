@@ -1,0 +1,30 @@
+{
+  "name": "@thefibre/mcp",
+  "version": "0.76.0",
+  "private": true,
+  "description": "The Fibre as an MCP server — an AI assistant acting as an app on the platform, through an app key",
+  "type": "module",
+  "bin": {
+    "fibre-mcp": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.0"
+  }
+}

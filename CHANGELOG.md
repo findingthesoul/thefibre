@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.76.0] — 2026-09-15 — The Fibre over MCP (staging)
+
+docs/mcp.md.
+
+**An AI assistant can act as an app on The Fibre.** New workspace package
+`packages/mcp` (`fibre-mcp`), a Model Context Protocol server. It connects
+with an app key — never a user session — and offers one tool per row of the
+app-key allow-list, gated on the same scope and filtered to the scopes the key
+actually holds: link records to persons and organisations, log activity,
+publish and edit a programme on The Thread, see who registered, admit and
+decline applications, work the door, start and move runs on Flow. Thirty-five
+tools; nothing beyond what curl with the same key reaches. The server's
+instructions tell the assistant which app and workspace it acts as and the
+rules that hold (no search beyond its own links, activity is append-only and
+public to the workspace, registration comes from the public form). Stdio for
+Claude Desktop and Claude Code; `--http` is a stateless Streamable HTTP mode
+that takes the key per request — the shape a hosted server would take.
+
+**Held to the contract by a test that reads the API.** `mcp.test.ts` parses
+`APP_KEY_ROUTES` out of `middleware/app-context.ts` at test time and fails on
+any tool that maps outside it or offers itself at a looser scope; a tool
+without sample arguments fails coverage. `verify-external-app.mjs` gained
+step 6b: the built server driven over raw JSON-RPC on stdio against a live
+API with the keys the script mints — tool list follows scopes, a call returns
+the link curl got, a refusal reads as a tool error, an activity lands. Passed
+in full against staging.
+
+**`scripts/release.sh` derives `packages/*`** instead of naming
+`packages/shared`. Every `packages/*/package.json` now carries the version;
+a hand-rolled bump that names only shared is refused.
+
 ## [0.75.30] — 2026-09-15 — A map with depth (staging)
 
 **Connections — the map of relations says more.** Every name carries a small

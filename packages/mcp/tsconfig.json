@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["node"],
+    // The MCP SDK's own types declare optional properties without `| undefined`
+    // (transport.onclose, sessionIdGenerator), which the monorepo's
+    // exactOptionalPropertyTypes rejects at the call site. Relaxed here only:
+    // this package has no shared consumers, and the alternative is casting
+    // every SDK call.
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

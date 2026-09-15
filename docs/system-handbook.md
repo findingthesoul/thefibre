@@ -1198,6 +1198,7 @@ canvas, timeline editor) are deliberately desktop-first.
 | `docs/fibre-technical-brief-v0.4.md` | The canonical vision + data-model spec (v0.3 kept for traceability) |
 | `docs/building-on-the-fibre.md` | The app contract — everything an in-family or external app must obey |
 | `docs/brief-external-apps.md` | How third-party apps integrate (app keys, scopes, links) |
+| `docs/mcp.md` | The app-key contract as MCP tools for an AI assistant (`packages/mcp`) |
 | `docs/build-plan.md` | **The** Open queue (to-do), groomed every ship |
 | `CHANGELOG.md` | The shipped record, narrative per release |
 | `docs/deploy.md` / `docs/environments.md` | Prod / staging runbooks incl. every env var and hard-won gotcha |

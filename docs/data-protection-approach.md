@@ -144,7 +144,11 @@ to extend rather than the place to fork.
   step 8). *An app-key request has no user and RLS does not scope it; each
   handler filters `workspace_id` itself — the one place the "database
   enforces" principle is carried by the handler. Reviewed on every touch
-  of `/api/v1/apps/*`; a lint for it is §5 P1.*
+  of `/api/v1/apps/*`; a lint for it is §5 P1.* An AI assistant connected
+  over MCP (`packages/mcp`, since v0.76.0) is one more holder of an app key:
+  it reaches the same `APP_KEY_ROUTES`, filtered to the key's scopes, and
+  carries no other credential — a test reads the route table from source
+  and fails on any tool outside it (`docs/mcp.md` §1).
 - **Archived workspaces** are read-only except billing, profile, privacy
   and sign-out (`archivedGate`).
 - **Input**: zod on the routes that take bodies (178 schemas); rich text
