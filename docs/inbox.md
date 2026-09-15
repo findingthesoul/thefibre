@@ -701,6 +701,42 @@ composer already has the shape for.
 
 Not scoped.
 
+### 2026-09-15 — the assistant reached production, and its gate expires at the next promotion
+
+Not Sjoerd's words. A finding from the check-in on the MCP thread above, put
+here because it is a decision he has to take and it has a deadline.
+
+**v0.77.0 was promoted to `main`** on 2026-09-15, in the batch ending at
+v0.77.1. So the in-app Thread assistant is in production. It is off there:
+without `ANTHROPIC_API_KEY` the client is `null`, `/assistant/status` reports
+`enabled: false` and Thread renders no button. `docs/deploy.md` says not to
+set that secret on production until the sub-processor entry, the DPA and the
+inference region are done. That gate is correct and it is in the right place.
+
+**It stops being sufficient when v0.78.x promotes.**
+`apps/api/src/lib/assistant/access.ts` resolves a workspace's own Anthropic
+key before it looks at the platform key, and before the plan check and the
+daily budget:
+
+```
+if (own) return { ...base, enabled: true, source: 'workspace', ... };
+const platform = assistantClient();
+```
+
+A workspace that pastes its own key is on, whatever production's secrets say.
+So the sentence in `deploy.md` will read as a gate while no longer being one.
+
+Two things to decide, neither of them code:
+
+1. Does the connect screen refuse a workspace key while the three items are
+   open, or does the deploy note simply name the second path?
+2. Do the three items read the same for both paths? With a workspace's own
+   key the workspace contracts the model provider and Fibre transmits to it.
+   With the platform key Fibre contracts. Sub-processor and DPA may not be
+   the same answer.
+
+Longer version in `ai-assistance-plan.md` §1.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._
