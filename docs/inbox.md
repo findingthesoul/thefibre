@@ -605,6 +605,31 @@ traded something real for something efficient. The brief should sharpen
 attention, not stand in for it. Worth deciding on purpose, because the whole
 posture of this platform is accompanying rather than processing.
 
+#### The member case needs a credential that does not exist (added, same day)
+
+Sjoerd's reading back: a member connects *their own* assistant, and it supports
+them inside clear boundaries. Right in shape, and it runs straight into the
+thing that makes app keys safe for apps and wrong for people. The API knows
+exactly two credential kinds (`middleware/app-context.ts`):
+
+- **`user`** — a real person, bounded by RLS. Exactly the boundary a member
+  needs, and it is a browser-session JWT: no background work, and the reason
+  `app-keys.ts` was written was to stop handing an app that user's full
+  authority everywhere.
+- **`app_key`** — workspace-wide within its scopes, with `actorUserId()`
+  returning `null`. Right for an organisation connecting an assistant to its
+  own data. Wrong for a member, whose assistant would see the whole workspace
+  rather than their own corner of it.
+
+So the workspace case ships on what exists; **the member case needs a third
+thing: person-scoped, narrow, long-lived, revocable.** The reasoning for why
+the two obvious shortcuts are wrong is already written in `app-keys.ts` — it
+should be read before anyone designs it, not after.
+
+Worth separating in any write-up, because they are different products with
+different risk: an organisation pointing an assistant at its own data, versus
+a platform handing every member a key.
+
 Not scoped.
 
 ## Moved out
