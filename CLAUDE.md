@@ -9,6 +9,7 @@ Read this before doing anything. Orientation document for whoever picks up this 
 - **Previous brief:** [`docs/fibre-technical-brief-v0.3.md`](docs/fibre-technical-brief-v0.3.md) — kept in repo for traceability. **v0.4 supersedes for new work.**
 - **Operational plan:** [`docs/build-plan.md`](docs/build-plan.md) — what's queued, what's parked, gotchas.
 - **Inbox:** [`docs/inbox.md`](docs/inbox.md) — Sjoerd's gathering box for raw items from any chat. Append them there verbatim, unranked; the build-plan queue is where they go once he ranks them.
+- **Comparisons:** [`docs/comparisons.md`](docs/comparisons.md) — what we looked at, what we took, and why them or why us. Add a row when a comparison actually happens; point at the doc that holds the argument rather than restating it.
 - **Shipped record:** [`CHANGELOG.md`](CHANGELOG.md).
 - **Deploy procedure:** [`docs/deploy.md`](docs/deploy.md).
 - **App contract:** [`docs/building-on-the-fibre.md`](docs/building-on-the-fibre.md) — what every app, in-family or external, has to know and obey. Read §6 before touching anything under `/api/v1/apps/*`.
