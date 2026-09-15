@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.76.2] — 2026-09-15 — two comments that described the wrong model (staging)
+
+Comments only; no behaviour changes.
+
+Two explanations written into the v0.73.19 tenancy fix assumed one account has
+one `public."user"` row shared across workspaces. The model
+(20260830100000) is one row PER workspace. The Meet session checked the data —
+every `workspace_member` row's user sits in that same workspace, on production
+and on staging — when a warning built on the same wrong model reached it.
+
+The co-organiser lookup in `routes/thread.ts` claimed a person in two
+workspaces shares one organiser row; `isWorkspaceMember` in
+`lib/workspace-refs.ts` claimed `user.workspace_id` would give the wrong
+answer. Both code paths were correct, for a wrong reason, and the comments now
+say why they are right.
+
 ## [0.76.1] — 2026-09-15 — adding a colleague who is in more than one workspace (Meet 2.9.3, staging)
 
 Sjoerd, on production: Meet team page, Add a member, picked Tahirih Michot,

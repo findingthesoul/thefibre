@@ -126,10 +126,11 @@ export async function rowInWorkspace(
   return (await workspaceOfRow(table, id)) === workspaceId;
 }
 
-/** Is this user a member of this workspace? Membership lives in
- *  workspace_member, not on user.workspace_id, because one account can belong
- *  to several workspaces — so the question is "a member HERE", not "whose
- *  workspace is this user's home". */
+/** Is this user a member of this workspace? Asked of workspace_member, the
+ *  table that grants membership and carries the role. An account has one
+ *  public."user" row per workspace (20260830100000), so user.workspace_id
+ *  would give the same answer today; workspace_member is still the table that
+ *  says so, and the one a revoked membership is removed from. */
 export async function isWorkspaceMember(workspaceId: string, userId: string): Promise<boolean> {
   const { data } = await adminClient
     .from('workspace_member')
