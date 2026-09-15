@@ -16,10 +16,10 @@
 //   * Back is the browser's Back. The focus lives in the URL, so it also
 //     works from the keyboard, a swipe, or a shared link.
 //
-// ── Solid and dashed, as everywhere on the map ─────────────────────────────
+// ── Solid and dotted, as everywhere on the map ─────────────────────────────
 //
 // A solid line is RECORDED: a stated relationship, or somebody's current
-// organisation. A dashed line is only something two people share — a tag, an
+// organisation. A dotted line is only something two people share — a tag, an
 // organisation, being named in the same note — and says so underneath the
 // name. Sharing a word is not knowing someone (system-handbook §12).
 
@@ -1167,16 +1167,21 @@ export function FocusWeb({
                   aria-label={n.label}
                 >
                   {/* A label needs a ground, or a line drawn behind it strikes
-                      the name through. Organisations get a visible outline, so a
-                      company never reads as a person. */}
+                      the name through. An organisation's ground is light grey
+                      with squarer corners, so a company never reads as a person
+                      — no frame. Sjoerd, 2026-09-15: *"Maybe instead of a
+                      frame... a light grey background"*. One height for every
+                      name, centred on the node: the box used to grow for a
+                      second line (the title) that is never drawn, which left
+                      the name sitting high in it. */}
                   <rect
                     x={-n.width / 2}
-                    y={n.centre ? -20 : n.sub ? -14 : -13}
+                    y={n.centre ? -20 : -13}
                     width={n.width}
-                    height={n.centre ? 40 : n.sub ? 34 : 26}
-                    rx={n.kind === 'org' ? 4 : 13}
-                    className={n.kind === 'org' ? 'fill-surface stroke-line-strong' : 'fill-surface-raised'}
-                    strokeWidth={n.kind === 'org' ? 1.2 : 0}
+                    height={n.centre ? 40 : 26}
+                    rx={n.kind === 'org' ? 6 : 13}
+                    className={n.kind === 'org' ? 'fill-surface-sunken' : 'fill-surface-raised'}
+                    strokeWidth={0}
                   />
                   {/* Full or empty: a filled dot when something is written on
                       this person, a hollow one when they are only here for the
@@ -1184,7 +1189,7 @@ export function FocusWeb({
                   {marker && (
                     <circle
                       cx={-n.width / 2 + 11}
-                      cy={n.sub ? -4 : 0}
+                      cy={0}
                       r={3}
                       className={n.full ? 'fill-ink-muted' : 'fill-transparent stroke-ink-subtle'}
                       strokeWidth={n.full ? 0 : 1.2}
@@ -1195,7 +1200,7 @@ export function FocusWeb({
                   <text
                     textAnchor="middle"
                     x={marker ? MARKER_ROOM / 2 : 0}
-                    y={n.centre ? 7 : n.sub ? 1 : 5}
+                    y={n.centre ? 7 : 5}
                     fontSize={fontSize(n.strength, n.centre)}
                     className={`${marker && !n.full ? 'fill-ink-muted' : 'fill-ink'} ${
                       n.centre ? 'font-semibold' : 'font-medium hover:underline'

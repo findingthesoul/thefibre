@@ -125,6 +125,8 @@ neither in code nor in a document. That is what this file fixes.
 | 92 | "You use dashed lines... maybe better to use dotted lines" | **Shipped** v0.78.2 — ties that are not a stated relationship are round-dotted |
 | 93 | "Some names go beyond the box... if possible - abbreviations here" | **Shipped** v0.78.3 — a name over 24 characters is drawn as the initials of its capitalised words (EBBF) or cut at a word with …; the box is sized to what is drawn; the full name is the tooltip |
 | 94 | "What were the initial names of Maturity?" / "Maybe I did not understand the concepts" | **Answered** — the six shipped steps and what earns each, explained in chat |
+| 95 | "Positioning of ORGs is not centered" (screenshot) | **Shipped** v0.78.4 — every name's box is one height, centred on its node; the box had grown for a title line that is never drawn |
+| 96 | "Maybe instead of a frame... a light grey background" | **Shipped** v0.78.4 — organisations have a light grey ground, no outline; Today's outlined chip dotted too |
 
 ### The three that were lost
 

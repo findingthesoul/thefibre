@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.4] — 2026-09-15 — Organisations, centred and quiet (staging)
+
+**Connections — the map.** An organisation's name sits centred in its box, and
+the box is a light grey ground instead of an outlined frame. The one dashed
+chip left on Today is dotted, like the map.
+
 ## [0.78.3] — 2026-09-15 — Names that fit their box (staging)
 
 **Connections — the map.** A long name no longer runs out of its box. Long
