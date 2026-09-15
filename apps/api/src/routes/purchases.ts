@@ -42,7 +42,7 @@ const SEARCH_COLUMNS = ['payer_name', 'payer_email', 'item_label'] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const PURCHASE_SELECT =
-  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, stripe_account_id, stripe_session_id, billing, paid_at, refunded_at, created_at';
+  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, stripe_account_id, stripe_session_id, billing, payer_org_id, paid_at, refunded_at, created_at';
 
 async function workspaceRole(userId: string, workspaceId: string): Promise<string> {
   const { data } = await adminClient
@@ -101,6 +101,24 @@ purchasesRoutes.get('/', async (c) => {
       personFilter = orEq(pairs);
     }
 
+    // One organisation's money — its Invoices tab (20260915100000). The
+    // organisation is read through RLS like the person above.
+    let orgId: string | null = null;
+    const orgParam = c.req.query('org_id');
+    if (orgParam) {
+      if (!UUID.test(orgParam)) return c.json({ error: 'org_id must be a uuid' }, 400);
+      const { data: org } = await db
+        .from('organisation')
+        .select('id')
+        .eq('id', orgParam)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!org) {
+        return c.json({ items: [], next_cursor: null, totals: { count: 0, currencies: [] }, role });
+      }
+      orgId = org.id as string;
+    }
+
     let query = db
       .from('purchase')
       .select(PURCHASE_SELECT)
@@ -121,6 +139,7 @@ purchasesRoutes.get('/', async (c) => {
     }
     if (q) query = query.or(orIlike(SEARCH_COLUMNS, q));
     if (personFilter) query = query.or(personFilter);
+    if (orgId) query = query.eq('payer_org_id', orgId);
     if (cursor) query = query.lt('created_at', cursor); // keyset pagination (rule #6)
 
     const { data, error } = await query;
@@ -146,6 +165,7 @@ purchasesRoutes.get('/', async (c) => {
     }
     if (q) totalsQuery = totalsQuery.or(orIlike(SEARCH_COLUMNS, q));
     if (personFilter) totalsQuery = totalsQuery.or(personFilter);
+    if (orgId) totalsQuery = totalsQuery.eq('payer_org_id', orgId);
     const { data: totalRows } = await totalsQuery;
     // Per-currency totals — mixed currencies must never be summed together.
     const byCurrency = new Map<

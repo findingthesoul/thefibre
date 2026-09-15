@@ -9,7 +9,7 @@
 // The apps own the semantics and the words: persistence, what a null list
 // inherits from, the labels in their own catalogues. These own the look.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { FIELD_INPUT_CLASS } from './fields.js';
 
 export type PayMethod = 'stripe' | 'invoice';
@@ -127,9 +127,15 @@ export function PayMethodSwitch({
  *  billing_company … billing_tax_no; read them with `readBillingFields`. */
 export function InvoiceBillingFields({
   labels,
+  whoPays,
   inputClassName = `mt-1 ${FIELD_INPUT_CLASS}`,
   labelClassName = 'text-xs text-ink-subtle',
 }: {
+  /** "Who pays? Myself / An organisation" (docs/people-in-two-capacities-
+   *  proposal.md §B). Given, the company and tax number are asked only for an
+   *  organisation, and the answer rides along as billing_payer. Omitted, the
+   *  form is as it always was. */
+  whoPays?: { label: ReactNode; myself: ReactNode; organisation: ReactNode };
   labels: {
     company: ReactNode;
     address: ReactNode;
@@ -150,16 +156,41 @@ export function InvoiceBillingFields({
       <input name={`billing_${key}`} className={inputClassName} autoComplete={autoComplete} />
     </label>
   );
+  const [payer, setPayer] = useState<'self' | 'organisation'>('self');
+  const forOrganisation = !whoPays || payer === 'organisation';
   return (
     <>
-      {field('company', labels.company, 'organization')}
+      {whoPays && (
+        <div>
+          <span className={labelClassName}>{whoPays.label}</span>
+          <input type="hidden" name="billing_payer" value={payer} />
+          <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
+            {(['self', 'organisation'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPayer(p)}
+                aria-pressed={payer === p}
+                className={
+                  payer === p
+                    ? 'bg-surface-sunken text-ink font-medium'
+                    : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
+                }
+              >
+                {p === 'self' ? whoPays.myself : whoPays.organisation}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {forOrganisation && field('company', labels.company, 'organization')}
       {field('address', labels.address, 'street-address')}
       <div className="grid grid-cols-2 gap-3">
         {field('postal_code', labels.postalCode, 'postal-code')}
         {field('city', labels.city, 'address-level2')}
       </div>
       {field('country', labels.country, 'country-name')}
-      {field('tax_no', labels.taxNo, 'off')}
+      {forOrganisation && field('tax_no', labels.taxNo, 'off')}
     </>
   );
 }
@@ -171,6 +202,8 @@ export type InvoiceBilling = {
   city?: string;
   country?: string;
   tax_no?: string;
+  /** Who pays — present only when the form asked (whoPays). */
+  payer?: 'self' | 'organisation';
 };
 
 /** The billing object the Thread and Meet APIs accept, from a FormData. */
@@ -180,5 +213,7 @@ export function readBillingFields(fd: FormData): InvoiceBilling {
     const v = String(fd.get(`billing_${k}`) ?? '').trim();
     if (v) out[k] = v;
   }
+  const payer = String(fd.get('billing_payer') ?? '');
+  if (payer === 'self' || payer === 'organisation') out.payer = payer;
   return out;
 }

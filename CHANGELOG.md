@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.24] — 2026-09-15 — Who pays? (staging)
+
+docs/people-in-two-capacities-proposal.md §B, built.
+
+**An invoice knows the organisation that paid.** `purchase.payer_org_id`
+(migration 20260915100000). Checkout is anonymous, so a buyer is never shown a
+list of organisations; they type the company as before, and the server links
+it to an EXISTING organisation only on one unambiguous match — the VAT/tax
+number compared as letters and digits, else the name against name, legal
+name, abbreviation and other names. No match or several: the snapshot stays,
+no link; nothing is created from a public form. Existing invoices naming a
+company were matched once. A membership held by an organisation sets the link
+directly.
+
+**"Who pays? Myself / An organisation"** on the shared invoice billing fields
+— Thread's public enrol form (all locales) and Meet's booking. Company and
+tax number are asked only for an organisation; the answer is kept on the
+billing snapshot (`payer`), and "Myself" is never matched to an organisation.
+
+**An organisation has an Invoices tab** — the shared invoices area narrowed to
+what it paid, offered when there is something to show; the contact tab's
+actions, narrowed by `org_id`.
+
+**One reader for an organisation's billing details** — `lib/org-billing.ts`:
+the billing record (billing email, tax id, billing address) first, the
+organisation row as fallback. Membership's organisation invoices read it.
+
 ## [0.75.23] — 2026-09-15 — One person, labelled addresses; same person or two? (staging)
 
 docs/people-in-two-capacities-proposal.md §A and §D, built.

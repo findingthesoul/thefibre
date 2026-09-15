@@ -5777,6 +5777,8 @@ const PublicEnrol = z.object({
       city: z.string().max(120).optional(),
       country: z.string().max(120).optional(),
       tax_no: z.string().max(60).optional(),
+      // Who pays: the buyer, or an organisation (20260915100000).
+      payer: z.enum(['self', 'organisation']).optional(),
     })
     .optional(),
   marketing_opt_in: z.boolean().optional(),

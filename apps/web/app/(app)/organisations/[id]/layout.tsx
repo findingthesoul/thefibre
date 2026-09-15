@@ -56,6 +56,8 @@ export default async function OrgLayout({
     // Non-fatal — no app tabs if endpoint fails.
   }
 
+  const hasInvoices = await organisationHasVisibleInvoices(id);
+
   const orderedApps = APP_ORDER.filter(
     (slug) => appSlugs.includes(slug) && isAppSlug(slug),
   );
@@ -63,6 +65,7 @@ export default async function OrgLayout({
   const tabs = [
     { href: `/organisations/${id}`, label: t(locale, 'overview') },
     { href: `/organisations/${id}/profile`, label: t(locale, 'profile_title') },
+    ...(hasInvoices ? [{ href: `/organisations/${id}/invoices`, label: t(locale, 'nav_invoices') }] : []),
     ...orderedApps
       .filter((slug) => slug !== 'fibre-platform')
       .map((slug) => ({
@@ -99,4 +102,21 @@ function orgAlsoKnownAs(
   if (others.length) parts.push(`${t(locale, 'org_also_known_as')} ${others.join(', ')}`);
   if (org.legal_name && org.legal_name !== org.name) parts.push(org.legal_name);
   return parts.length ? parts.join(' · ') : undefined;
+}
+
+/** The Invoices tab appears only when this organisation paid something the
+ *  viewer may see — same rule as a contact's tab. */
+async function organisationHasVisibleInvoices(orgId: string): Promise<boolean> {
+  for (const scope of ['workspace', 'me'] as const) {
+    try {
+      const r = await apiFetch<{ totals?: { count?: number } }>(
+        `/api/v1/purchases?scope=${scope}&org_id=${encodeURIComponent(orgId)}`,
+      );
+      return (r.totals?.count ?? 0) > 0;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403 && scope === 'workspace') continue;
+      return false;
+    }
+  }
+  return false;
 }
