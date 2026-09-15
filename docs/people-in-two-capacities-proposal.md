@@ -1,6 +1,11 @@
 # One person, two capacities — proposal
 
-**Status:** proposal, 2026-09-15. Nothing built. Decisions at the end.
+**Status:** built on staging 2026-09-15 — §A + §D in v0.75.23, §B in v0.75.24.
+Not yet on production. Built with the defaults below (labels work · private ·
+other; phones with a country code; "Who pays?" in Thread and Meet). Still open:
+offering a *signed-in* buyer their own organisations at checkout, VIES-checking
+a buyer's VAT number, and Membership's public join/buy forms (no billing fields
+there yet — Stripe collects them).
 **Asked by Sjoerd:** "How do we deal with the difference between a private
 person and a business person?" and "Sjoerd Luteyn is a business owner
 (sjoerd@soul.com) but also a private person… Should it be there twice? Or
