@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.3] — 2026-09-15 — Names that fit their box (staging)
+
+**Connections — the map.** A long name no longer runs out of its box. Long
+organisation names are drawn as their initials ("European Bahá'í Business
+Forum" becomes "EBBF"); other long names are shortened at a word with "…".
+Point at a name to see it in full.
+
 ## [0.78.2] — 2026-09-15 — A quieter depth (staging)
 
 **Connections — the map's depth is a hint, not a statement.** Near and far now

@@ -12,6 +12,7 @@ import {
   easeInOut,
   fontSize,
   labelWidth,
+  shortLabel,
   panTo,
   seedPosition,
   settle,
@@ -615,5 +616,29 @@ describe('names slide past each other', () => {
     const stray = node('Zed', 300);
     driftBearings([stray], 5_000);
     expect(stray.bearing).toBeUndefined();
+  });
+});
+
+// Sjoerd, 2026-09-15: "Some names go beyond the box... if possible -
+// abbreviations here."
+describe('a name that does not fit', () => {
+  it('draws a short name in full', () => {
+    expect(shortLabel('Anker Gilde')).toBe('Anker Gilde');
+  });
+
+  it('turns a long organisation name into its initials', () => {
+    expect(shortLabel("European Bahá'í Business Forum")).toBe('EBBF');
+  });
+
+  it('cuts any other long name at a word, with an ellipsis', () => {
+    const s = shortLabel('Wilhelmina van der heijden-doornbos');
+    expect(s.endsWith('…')).toBe(true);
+    expect(s.length).toBeLessThanOrEqual(24);
+  });
+
+  it('sizes the box to what is drawn, so the drawn name always fits', () => {
+    // The long name is drawn as "EBBF", so its box is smaller than a short full name's.
+    expect(labelWidth("European Bahá'í Business Forum", false, 1)).toBeLessThan(labelWidth('Anker Gilde', false, 1));
+    expect(labelWidth('Anker Gilde', false, 1)).toBeGreaterThan('Anker Gilde'.length * 17 * 0.55);
   });
 });

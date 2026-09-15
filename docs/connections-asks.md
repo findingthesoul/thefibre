@@ -123,6 +123,8 @@ neither in code nor in a document. That is what this file fixes.
 | 90 | The in-app assistant (Thread): may it ever process personal data via the AI provider? | **Decided** — not now: Thread data only; revisit after a DPA and an EU endpoint. Relayed to the assistant's session |
 | 91 | The map's depth: "the contrast are way too heavy. It is about subtle changes. Not big changes." | **Shipped** v0.78.2 — size 0.9-1.06x (was 0.62-1.22x), light 72-100% (was 38-100%), blur only on the very farthest, parallax a third, hover dims to 80% not 45%, softer full dots; a test pins the bounds |
 | 92 | "You use dashed lines... maybe better to use dotted lines" | **Shipped** v0.78.2 — ties that are not a stated relationship are round-dotted |
+| 93 | "Some names go beyond the box... if possible - abbreviations here" | **Shipped** v0.78.3 — a name over 24 characters is drawn as the initials of its capitalised words (EBBF) or cut at a word with …; the box is sized to what is drawn; the full name is the tooltip |
+| 94 | "What were the initial names of Maturity?" / "Maybe I did not understand the concepts" | **Answered** — the six shipped steps and what earns each, explained in chat |
 
 ### The three that were lost
 

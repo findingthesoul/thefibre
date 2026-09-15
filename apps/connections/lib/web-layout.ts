@@ -221,8 +221,41 @@ export function targetRadius(weight: number, maxWeight: number): number {
 /** A label's rough width in the SVG's units. Not measured: measuring text
  *  needs the DOM, and a layout that waits for fonts jitters on first paint. */
 export function labelWidth(name: string, centre: boolean, strength = 0.5): number {
-  const per = centre ? 11 : fontSize(strength, false) * 0.53;
-  return Math.min(220, name.length * per + 16);
+  // Measured against what is DRAWN, which is the short form. The width used to
+  // be capped at 220 while the name was not, so a long company name ran out of
+  // both ends of its box (Sjoerd, 2026-09-15, screenshot). 0.58 per character
+  // covers a medium-weight sans; the old 0.53 undercounted wide letters.
+  const shown = shortLabel(name, centre);
+  const per = centre ? 11.5 : fontSize(strength, false) * 0.58;
+  return shown.length * per + 18;
+}
+
+/** Longest name drawn in full, in characters. */
+export const LABEL_MAX = 24;
+export const CENTRE_LABEL_MAX = 34;
+
+/**
+ * The name as drawn: in full when it fits, otherwise abbreviated.
+ *
+ * Sjoerd, 2026-09-15: *"Some names go beyond the box... if possible -
+ * abbreviations here."* A name of three or more capitalised words becomes its
+ * initials — "European Bahá'í Business Forum" → "EBBF", the way organisations
+ * are spoken of anyway. Anything else long is cut at a word with an ellipsis.
+ * The full name stays in the node's tooltip and accessible label.
+ */
+export function shortLabel(name: string, centre = false): string {
+  const max = centre ? CENTRE_LABEL_MAX : LABEL_MAX;
+  const s = name.trim();
+  if (s.length <= max) return s;
+  const words = s.split(/\s+/).filter(Boolean);
+  const initials = words.filter((w) => /^\p{Lu}/u.test(w));
+  if (words.length >= 3 && initials.length >= 3) {
+    return initials.map((w) => w[0]).join('');
+  }
+  let cut = s.slice(0, max - 1);
+  const space = cut.lastIndexOf(' ');
+  if (space > max * 0.6) cut = cut.slice(0, space);
+  return `${cut.replace(/[\s,.;:–-]+$/u, '')}…`;
 }
 
 /**

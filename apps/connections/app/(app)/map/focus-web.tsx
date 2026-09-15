@@ -34,6 +34,7 @@ import {
   R_MAX,
   fontSize,
   labelWidth,
+  shortLabel,
   panTo,
   panning,
   assignBearings,
@@ -1200,7 +1201,9 @@ export function FocusWeb({
                       n.centre ? 'font-semibold' : 'font-medium hover:underline'
                     }`}
                   >
-                    {n.label || '…'}
+                    {shortLabel(n.label, n.centre) || '…'}
+                    {/* The full name, whenever the drawn one is shortened. */}
+                    {shortLabel(n.label, n.centre) !== n.label && <title>{n.label}</title>}
                   </text>
                 </g>
               );
