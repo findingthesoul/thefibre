@@ -121,6 +121,8 @@ neither in code nor in a document. That is what this file fixes.
 | 88 | A stronger 3D effect: smaller and bigger, bringing pieces to the foreground | **Shipped** v0.75.30 — every node has a depth from what it means (middle, strength, content): size, light, a little soft focus when far, parallax with the pointer, near painted over far; what you point at comes forward |
 | 89 | Once refined: open-source the map as code others can use, crediting The Thread as its designer | **Decided, not built** (2026-09-15): MIT; own public GitHub repo + npm package; named Constellation (plain `constellation` is taken on npm, so a scope is needed); credit to The Thread in README and licence notice. Built only after the map is refined; nothing is published without his final go |
 | 90 | The in-app assistant (Thread): may it ever process personal data via the AI provider? | **Decided** — not now: Thread data only; revisit after a DPA and an EU endpoint. Relayed to the assistant's session |
+| 91 | The map's depth: "the contrast are way too heavy. It is about subtle changes. Not big changes." | **Shipped** v0.78.2 — size 0.9-1.06x (was 0.62-1.22x), light 72-100% (was 38-100%), blur only on the very farthest, parallax a third, hover dims to 80% not 45%, softer full dots; a test pins the bounds |
+| 92 | "You use dashed lines... maybe better to use dotted lines" | **Shipped** v0.78.2 — ties that are not a stated relationship are round-dotted |
 
 ### The three that were lost
 

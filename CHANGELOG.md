@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.2] — 2026-09-15 — A quieter depth (staging)
+
+**Connections — the map's depth is a hint, not a statement.** Near and far now
+differ by a few percent of size and light, the farthest names are barely soft,
+names drift only slightly with the mouse, and pointing at something lifts it
+gently instead of fading everything else. The "full" dots are softer. Ties that
+are not a stated relationship are drawn dotted instead of dashed.
+
 ## [0.78.1] — 2026-09-15 — A secret of its own for stored assistant keys (staging)
 
 Review finding, fixed while no workspace has stored a key yet. A workspace's

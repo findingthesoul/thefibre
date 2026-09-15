@@ -771,7 +771,7 @@ export function FocusWeb({
   /** A line between two things you are looking at is lit; others dim with the rest. */
   const lineLit = (a: Shown | undefined, b: Shown | undefined) => {
     if (!hovered) return 1;
-    return a && b && related.has(a.id) && related.has(b.id) ? 2.2 : 0.35;
+    return a && b && related.has(a.id) && related.has(b.id) ? 1.5 : 0.75;
   };
   const junctionFull = (j: Shown) =>
     Boolean(j.topicOrg) || Boolean(j.topicTag && tagIds.has(j.topicTag.toLowerCase()));
@@ -1009,8 +1009,9 @@ export function FocusWeb({
                     1,
                     (0.1 + 0.18 * Math.min(1, l.weight)) * Math.min(l.a.opacity ?? 1, l.b.opacity ?? 1) * lit,
                   )}
-                  strokeWidth={(0.8 + 1.2 * Math.min(1, l.weight)) * (lit > 1 ? 1.5 : 1)}
-                  strokeDasharray={l.solid ? undefined : '4 5'}
+                  strokeWidth={(0.8 + 1.2 * Math.min(1, l.weight)) * (lit > 1 ? 1.2 : 1)}
+                  strokeDasharray={l.solid ? undefined : DOTTED}
+                  strokeLinecap={l.solid ? undefined : 'round'}
                 >
                   <title>{l.why}</title>
                 </line>
@@ -1034,7 +1035,7 @@ export function FocusWeb({
                     className="text-ink"
                     stroke="currentColor"
                     strokeOpacity={Math.min(1, 0.3 * (j.opacity ?? 1) * lit)}
-                    strokeWidth={lit > 1 ? 2.2 : 1.4}
+                    strokeWidth={lit > 1 ? 1.7 : 1.4}
                   />
                 );
               })}
@@ -1059,8 +1060,9 @@ export function FocusWeb({
                       1,
                       (0.18 + 0.4 * n.strength) * Math.min(n.opacity ?? 1, from?.opacity ?? 1) * lit,
                     )}
-                    strokeWidth={(1 + 2 * n.strength) * (lit > 1 ? 1.4 : 1)}
-                    strokeDasharray={n.solid ? undefined : '5 5'}
+                    strokeWidth={(1 + 2 * n.strength) * (lit > 1 ? 1.15 : 1)}
+                    strokeDasharray={n.solid ? undefined : DOTTED}
+                    strokeLinecap={n.solid ? undefined : 'round'}
                   />
                 );
               })}
@@ -1090,7 +1092,7 @@ export function FocusWeb({
                 >
                   <circle r={11} fill="transparent" />
                   {jFull ? (
-                    <circle r={5.5} className="fill-ink stroke-surface-raised" strokeWidth={1.5} />
+                    <circle r={4.5} className="fill-ink-muted stroke-surface-raised" strokeWidth={1.2} />
                   ) : (
                     <circle r={3.5} className="fill-surface-raised stroke-ink-muted" strokeWidth={1.2} />
                   )}
@@ -1110,7 +1112,7 @@ export function FocusWeb({
             ).map((n) => {
               const q = at(n);
               const st = depthStyle(n.z ?? 1, n.centre);
-              const blurStep = st.blur ? Math.min(BLUR_STEPS.length - 1, Math.floor(st.blur / 0.4)) : -1;
+              const blurStep = st.blur ? Math.min(BLUR_STEPS.length - 1, Math.floor(st.blur / 0.15)) : -1;
               const marker = !n.centre && n.kind === 'person';
               return (
                 <g
@@ -1182,8 +1184,8 @@ export function FocusWeb({
                     <circle
                       cx={-n.width / 2 + 11}
                       cy={n.sub ? -4 : 0}
-                      r={3.4}
-                      className={n.full ? 'fill-ink' : 'fill-transparent stroke-ink-muted'}
+                      r={3}
+                      className={n.full ? 'fill-ink-muted' : 'fill-transparent stroke-ink-subtle'}
                       strokeWidth={n.full ? 0 : 1.2}
                     />
                   )}
@@ -1345,7 +1347,14 @@ const HOLD_MS = 180;
 /** Room beside a person's name for the full/empty marker. */
 const MARKER_ROOM = 12;
 /** Soft-focus steps for far names, in SVG blur units. */
-const BLUR_STEPS = [0.35, 0.7, 1.0];
+const BLUR_STEPS = [0.15, 0.3];
+/**
+ * A tie that is NOT a stated relationship (a shared tag, a workspace word) is
+ * dotted: round dots, gaps a little wider than the line. Sjoerd, 2026-09-15:
+ * *"You use dashed lines... maybe better to use dotted lines"* — dashes read as
+ * a technical diagram, dots as a softer, looser tie.
+ */
+const DOTTED = '0.1 4.5';
 const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
 /** Only what the simulation needs from a link. */
