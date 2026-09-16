@@ -195,7 +195,7 @@ describe('a turn', () => {
     expect(listed).toContain('\\"engagement_count\\":2');
     expect(listed).not.toContain('\\"structure\\"');
     // The system prompt pins model + brake-friendly settings.
-    expect(requests[0]).toMatchObject({ model: 'claude-opus-5', fallbacks: 'default', output_config: { effort: 'medium' } });
+    expect(requests[0]).toMatchObject({ model: 'claude-opus-5', fallbacks: 'default', output_config: { effort: 'low' } });
   });
 
   it('approving runs the PARKED arguments even if the client edited its copy', async () => {

@@ -116,9 +116,13 @@ export async function runTurn(input: TurnInput): Promise<TurnOutput> {
     const res = await client.beta.messages.create({
       model: ASSISTANT_MODEL,
       max_tokens: ASSISTANT_MAX_TOKENS,
-      // A chat turn with a handful of tools does not need deep reasoning;
-      // medium keeps the reply fast. Thinking stays adaptive (Opus 5 default).
-      output_config: { effort: 'medium' },
+      // A chat turn with a handful of tools does not need deep reasoning.
+      // Measured on staging 2026-09-16 at `medium`: 42 s of thinking before
+      // the first tool call on "make a thread from a template". `low` is the
+      // documented setting for chat and latency-sensitive routes; thinking
+      // stays adaptive (Opus 5 default), just shallower. Re-tune from the
+      // `[assistant] … ms=` log lines, not from taste.
+      output_config: { effort: 'low' },
       // If a safety classifier declines, re-run on the default fallback chain
       // inside the same call rather than answering nothing.
       betas: ['server-side-fallback-2026-07-01'],

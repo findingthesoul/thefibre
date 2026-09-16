@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.10] — 2026-09-16 — The assistant thinks less before it looks (staging)
+
+The first live turn that worked took 46 seconds, 42 of them before the model
+asked for the templates. That is `effort: medium` on a request that needs no
+depth. Chat and latency-sensitive routes are documented for `low`; the
+assistant now runs there. Same model, shallower adaptive thinking, cheaper
+per turn. The `[assistant] … ms=` log line is what to re-tune from.
+
 ## [0.78.9] — 2026-09-16 — The assistant's first live turn (staging)
 
 Sjoerd connected a key on staging and asked the assistant its first question;

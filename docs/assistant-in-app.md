@@ -42,8 +42,9 @@ the transcript and sends it back each turn, the API logs token counts and
 never content.
 
 The model is pinned in one place (`lib/assistant/model.ts`): `claude-opus-5`,
-adaptive thinking, effort `medium`, 4096 output tokens per step, at most 8
-steps per turn. The server-side refusal fallback is on (`fallbacks:
+adaptive thinking, effort `low` (was `medium` until the first live turn on
+staging spent 42 s thinking before its first tool call — v0.78.10), 4096
+output tokens per step, at most 8 steps per turn. The server-side refusal fallback is on (`fallbacks:
 "default"`), so a safety classifier declining a request re-runs it on the
 default chain instead of answering nothing. The key is `ANTHROPIC_API_KEY` on
 Fly. **Without it the feature does not exist**: the status route says
