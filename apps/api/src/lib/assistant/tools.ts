@@ -165,18 +165,26 @@ function count<T>(rows: T[], key: (r: T) => string | null): Record<string, numbe
 // The tools.
 // ---------------------------------------------------------------------------
 const uuid = { type: 'string', description: 'A uuid' } as const;
-const dateOnly = { type: ['string', 'null'], description: 'YYYY-MM-DD, or null' } as const;
+const dateOnly = { type: 'string', description: 'YYYY-MM-DD' } as const;
 
+// Strict mode needs every property in `required`, so "optional" has to be
+// spelled as a string-or-null union — and Anthropic caps a request at 16 such
+// unions across ALL tools (found on staging 2026-09-16 with 34: "exponential
+// compilation cost"). So: strict only where every field is genuinely
+// required; a tool with optional fields is non-strict, lists only the
+// mandatory ones in `required`, and the route's zod schema is the validator
+// that matters. A malformed call comes back as a 400 the model can read.
 function def(
   name: string,
   description: string,
   properties: Record<string, unknown>,
   required: string[] = [],
+  strict = true,
 ): Anthropic.Beta.BetaTool {
   return {
     name,
     description,
-    strict: true,
+    strict,
     input_schema: { type: 'object', properties, required, additionalProperties: false },
   };
 }
@@ -261,7 +269,8 @@ export const THREAD_TOOLS: AssistantTool[] = [
         slug: { type: 'string', description: 'lowercase-kebab-case, 2–80 characters' },
         starts_on: dateOnly,
       },
-      ['template_id', 'title', 'slug', 'starts_on'],
+      ['template_id', 'title', 'slug'],
+      false,
     ),
     run: async (auth, input) => {
       const id = encodeURIComponent(String(input.template_id));
@@ -286,9 +295,10 @@ export const THREAD_TOOLS: AssistantTool[] = [
         slug: { type: 'string', description: 'lowercase-kebab-case, 2–80 characters' },
         starts_on: dateOnly,
         ends_on: dateOnly,
-        intention: { type: ['string', 'null'], description: 'A short intention in plain words, or null' },
+        intention: { type: 'string', description: 'A short intention in plain words' },
       },
-      ['title', 'format', 'slug', 'starts_on', 'ends_on', 'intention'],
+      ['title', 'format', 'slug'],
+      false,
     ),
     run: async (auth, input) => {
       const t = await callApi<Row>(auth, 'POST', '/api/v1/thread/threads', {
@@ -311,30 +321,28 @@ export const THREAD_TOOLS: AssistantTool[] = [
     },
     definition: def(
       'update_thread',
-      'Change a thread: title, dates, status (draft → active makes the page live AND opens registration; completed; archived), public listing, approval requirement, capacity, price. Pass null for fields you are not changing. Money destinations, tickets, certificates and registration fields cannot be changed from here.',
+      'Change a thread: title, dates, status (draft → active makes the page live AND opens registration; completed; archived), public listing, approval requirement, capacity, price. Send only the fields you are changing. Money destinations, tickets, certificates and registration fields cannot be changed from here.',
       {
         thread_id: uuid,
-        title: { type: ['string', 'null'] },
+        title: { type: 'string' },
         // No `enum` next to a two-type array: Anthropic's strict validator
         // rejects "Enum value 'draft' does not match declared type
         // ['string','null']" (found on staging 2026-09-16, first live turn).
         // The values are in the description; the route's zod enum is the
         // check that matters, and a wrong one comes back as a 400 the model
         // can read.
-        status: { type: ['string', 'null'], description: 'draft | active | completed | archived, or null to leave it' },
+        status: { type: 'string', description: 'draft | active | completed | archived, or null to leave it' },
         starts_on: dateOnly,
         ends_on: dateOnly,
-        is_public_listed: { type: ['boolean', 'null'] },
-        requires_approval: { type: ['boolean', 'null'] },
-        capacity: { type: ['integer', 'null'], description: 'A positive number, or null for no limit' },
-        price_cents: { type: ['integer', 'null'], description: 'Whole cents; null = free' },
-        price_currency: { type: ['string', 'null'], description: 'Three-letter code, e.g. EUR' },
-        intention: { type: ['string', 'null'] },
+        is_public_listed: { type: 'boolean' },
+        requires_approval: { type: 'boolean' },
+        capacity: { type: 'integer', description: 'A positive number, or null for no limit' },
+        price_cents: { type: 'integer', description: 'Whole cents; null = free' },
+        price_currency: { type: 'string', description: 'Three-letter code, e.g. EUR' },
+        intention: { type: 'string' },
       },
-      [
-        'thread_id', 'title', 'status', 'starts_on', 'ends_on', 'is_public_listed',
-        'requires_approval', 'capacity', 'price_cents', 'price_currency', 'intention',
-      ],
+      ['thread_id'],
+      false,
     ),
     run: async (auth, input) => {
       const { thread_id, ...rest } = input;
@@ -379,22 +387,23 @@ export const THREAD_TOOLS: AssistantTool[] = [
     label: (i) => `Add “${String(i.title ?? '')}” to the timeline`,
     definition: def(
       'add_engagement',
-      'Add one engagement to a thread. Agenda types (event, conversation, workshop) need starts_at/ends_at inside the thread dates. Message types (reflection, practice, message, document, inspiration) are emails to everyone enrolled, sent on a trigger: on_enrolment, on_approval, on_completion, fixed (scheduled_at) or relative (trigger_anchor start|end plus trigger_offset_days and trigger_time). Say what will be sent and when before proposing a message. Pass null for fields that do not apply. The message text itself is written in the editor, not here.',
+      'Add one engagement to a thread. Agenda types (event, conversation, workshop) need starts_at/ends_at inside the thread dates. Message types (reflection, practice, message, document, inspiration) are emails to everyone enrolled, sent on a trigger: on_enrolment, on_approval, on_completion, fixed (scheduled_at) or relative (trigger_anchor start|end plus trigger_offset_days and trigger_time). Say what will be sent and when before proposing a message. Send only the fields that apply. The message text itself is written in the editor, not here.',
       {
         thread_id: uuid,
         title: { type: 'string', description: '1–200 characters' },
         type: { type: 'string', enum: ['event', 'conversation', 'workshop', 'reflection', 'practice', 'message', 'document', 'inspiration'] },
-        description: { type: ['string', 'null'], description: 'Short plain text, or null' },
-        starts_at: { type: ['string', 'null'], description: 'ISO 8601 with offset, agenda items only' },
-        ends_at: { type: ['string', 'null'], description: 'ISO 8601 with offset, agenda items only' },
-        location: { type: ['string', 'null'] },
-        trigger_kind: { type: ['string', 'null'], description: 'fixed | on_enrolment | on_approval | on_completion | relative — messages only' },
-        trigger_anchor: { type: ['string', 'null'], description: 'start | end — with trigger_kind relative' },
-        trigger_offset_days: { type: ['integer', 'null'], description: 'Days before (negative) or after (positive) the anchor' },
-        trigger_time: { type: ['string', 'null'], description: 'HH:MM' },
-        scheduled_at: { type: ['string', 'null'], description: 'ISO 8601 with offset — with trigger_kind fixed' },
+        description: { type: 'string', description: 'Short plain text, or null' },
+        starts_at: { type: 'string', description: 'ISO 8601 with offset, agenda items only' },
+        ends_at: { type: 'string', description: 'ISO 8601 with offset, agenda items only' },
+        location: { type: 'string' },
+        trigger_kind: { type: 'string', description: 'fixed | on_enrolment | on_approval | on_completion | relative — messages only' },
+        trigger_anchor: { type: 'string', description: 'start | end — with trigger_kind relative' },
+        trigger_offset_days: { type: 'integer', description: 'Days before (negative) or after (positive) the anchor' },
+        trigger_time: { type: 'string', description: 'HH:MM' },
+        scheduled_at: { type: 'string', description: 'ISO 8601 with offset — with trigger_kind fixed' },
       },
-      ['thread_id', 'title', 'type', 'description', 'starts_at', 'ends_at', 'location', 'trigger_kind', 'trigger_anchor', 'trigger_offset_days', 'trigger_time', 'scheduled_at'],
+      ['thread_id', 'title', 'type'],
+      false,
     ),
     run: async (auth, input) => {
       const { thread_id, ...rest } = input;
@@ -413,22 +422,23 @@ export const THREAD_TOOLS: AssistantTool[] = [
     },
     definition: def(
       'update_engagement',
-      'Change an engagement: title, timing, place, trigger, or publish/unpublish it (status draft|published). Pass null for fields you are not changing. Use list_engagements first to get the id.',
+      'Change an engagement: title, timing, place, trigger, or publish/unpublish it (status draft|published). Send only the fields you are changing. Use list_engagements first to get the id.',
       {
         engagement_id: uuid,
-        title: { type: ['string', 'null'] },
-        status: { type: ['string', 'null'], description: 'draft | published' },
-        description: { type: ['string', 'null'] },
-        starts_at: { type: ['string', 'null'] },
-        ends_at: { type: ['string', 'null'] },
-        location: { type: ['string', 'null'] },
-        trigger_kind: { type: ['string', 'null'], description: 'fixed | on_enrolment | on_approval | on_completion | relative' },
-        trigger_anchor: { type: ['string', 'null'], description: 'start | end' },
-        trigger_offset_days: { type: ['integer', 'null'] },
-        trigger_time: { type: ['string', 'null'], description: 'HH:MM' },
-        scheduled_at: { type: ['string', 'null'] },
+        title: { type: 'string' },
+        status: { type: 'string', description: 'draft | published' },
+        description: { type: 'string' },
+        starts_at: { type: 'string' },
+        ends_at: { type: 'string' },
+        location: { type: 'string' },
+        trigger_kind: { type: 'string', description: 'fixed | on_enrolment | on_approval | on_completion | relative' },
+        trigger_anchor: { type: 'string', description: 'start | end' },
+        trigger_offset_days: { type: 'integer' },
+        trigger_time: { type: 'string', description: 'HH:MM' },
+        scheduled_at: { type: 'string' },
       },
-      ['engagement_id', 'title', 'status', 'description', 'starts_at', 'ends_at', 'location', 'trigger_kind', 'trigger_anchor', 'trigger_offset_days', 'trigger_time', 'scheduled_at'],
+      ['engagement_id'],
+      false,
     ),
     run: async (auth, input) => {
       const { engagement_id, ...rest } = input;

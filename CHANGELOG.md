@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.79.1] — 2026-09-17 — Sixteen unions (staging)
+
+The second live limit in one evening: Anthropic caps a request at 16
+nullable or union-typed tool parameters across ALL tools, and v0.79.0's four
+engagement tools took the catalogue to 34 — every turn died with
+"exponential compilation cost". Optional fields are now plainly optional:
+tools with optional fields are non-strict, list only their mandatory fields
+in `required`, and the route's zod schema stays the validator that matters.
+A test counts the unions and fails above 16.
+
 ## [0.79.0] — 2026-09-16 — The assistant reaches the timeline, and offers a pick (Thread 3.52.0, staging)
 
 Sjoerd, first evening with the assistant on staging: "Can you delete the
