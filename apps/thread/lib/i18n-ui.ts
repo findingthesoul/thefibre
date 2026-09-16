@@ -7076,6 +7076,22 @@ const CATALOG = {
     de: 'Wie läuft die Anmeldung?', // MT
     fr: 'Où en sont les inscriptions ?', // MT
   },
+  assistant_use_template: {
+    en: 'Use the template “{title}”',
+    nl: 'Gebruik het sjabloon “{title}”',
+    es: 'Usa la plantilla “{title}”', // MT
+    pt: 'Usa o modelo “{title}”', // MT
+    de: 'Nimm die Vorlage „{title}“', // MT
+    fr: 'Utilise le modèle « {title} »', // MT
+  },
+  assistant_use_thread: {
+    en: 'Work on “{title}”',
+    nl: 'Werk aan “{title}”',
+    es: 'Trabaja en “{title}”', // MT
+    pt: 'Trabalha em “{title}”', // MT
+    de: 'Arbeite an „{title}“', // MT
+    fr: 'Travaille sur « {title} »', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type UiKey = keyof typeof CATALOG;

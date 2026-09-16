@@ -347,7 +347,133 @@ export const THREAD_TOOLS: AssistantTool[] = [
       return { updated: Object.keys(patch), ...shapeThread(t, false) };
     },
   },
+
+  // -------------------------------------------------------------------------
+  // The timeline — engagements on a thread (Sjoerd, 2026-09-16: "expand the
+  // reach"). Agenda items (event, conversation, workshop) and messages
+  // (reflection, practice, message, document, inspiration) plus certificate.
+  // A message-family item EMAILS everyone enrolled once the thread is active,
+  // which is why every write here still goes through the approval card. What
+  // reaches the model is the item's shape — type, title, timing, trigger —
+  // never the message body.
+  // -------------------------------------------------------------------------
+  {
+    name: 'list_engagements',
+    kind: 'read',
+    label: () => 'Looked at the timeline',
+    definition: def(
+      'list_engagements',
+      "The engagements on one thread, in timeline order: agenda items with their timing and place, messages with their send trigger. Type, title, status and timing only — not the message text.",
+      { thread_id: uuid },
+      ['thread_id'],
+    ),
+    run: async (auth, input) => {
+      const t = await callApi<Row>(auth, 'GET', `/api/v1/thread/threads/${encodeURIComponent(String(input.thread_id))}`);
+      const rows = Array.isArray(t.engagements) ? (t.engagements as Row[]) : [];
+      return { thread_id: input.thread_id, engagements: rows.map(shapeEngagement) };
+    },
+  },
+  {
+    name: 'add_engagement',
+    kind: 'write',
+    label: (i) => `Add “${String(i.title ?? '')}” to the timeline`,
+    definition: def(
+      'add_engagement',
+      'Add one engagement to a thread. Agenda types (event, conversation, workshop) need starts_at/ends_at inside the thread dates. Message types (reflection, practice, message, document, inspiration) are emails to everyone enrolled, sent on a trigger: on_enrolment, on_approval, on_completion, fixed (scheduled_at) or relative (trigger_anchor start|end plus trigger_offset_days and trigger_time). Say what will be sent and when before proposing a message. Pass null for fields that do not apply. The message text itself is written in the editor, not here.',
+      {
+        thread_id: uuid,
+        title: { type: 'string', description: '1–200 characters' },
+        type: { type: 'string', enum: ['event', 'conversation', 'workshop', 'reflection', 'practice', 'message', 'document', 'inspiration'] },
+        description: { type: ['string', 'null'], description: 'Short plain text, or null' },
+        starts_at: { type: ['string', 'null'], description: 'ISO 8601 with offset, agenda items only' },
+        ends_at: { type: ['string', 'null'], description: 'ISO 8601 with offset, agenda items only' },
+        location: { type: ['string', 'null'] },
+        trigger_kind: { type: ['string', 'null'], description: 'fixed | on_enrolment | on_approval | on_completion | relative — messages only' },
+        trigger_anchor: { type: ['string', 'null'], description: 'start | end — with trigger_kind relative' },
+        trigger_offset_days: { type: ['integer', 'null'], description: 'Days before (negative) or after (positive) the anchor' },
+        trigger_time: { type: ['string', 'null'], description: 'HH:MM' },
+        scheduled_at: { type: ['string', 'null'], description: 'ISO 8601 with offset — with trigger_kind fixed' },
+      },
+      ['thread_id', 'title', 'type', 'description', 'starts_at', 'ends_at', 'location', 'trigger_kind', 'trigger_anchor', 'trigger_offset_days', 'trigger_time', 'scheduled_at'],
+    ),
+    run: async (auth, input) => {
+      const { thread_id, ...rest } = input;
+      const body: Row = {};
+      for (const [k, v] of Object.entries(rest)) if (v !== null && v !== undefined) body[k] = v;
+      const e = await callApi<Row>(auth, 'POST', `/api/v1/thread/threads/${encodeURIComponent(String(thread_id))}/engagements`, body);
+      return { created: true, ...shapeEngagement(e) };
+    },
+  },
+  {
+    name: 'update_engagement',
+    kind: 'write',
+    label: (i) => {
+      const keys = Object.keys(i).filter((k) => k !== 'engagement_id' && i[k] !== null && i[k] !== undefined);
+      return `Change ${keys.join(', ') || 'an engagement'} on the timeline`;
+    },
+    definition: def(
+      'update_engagement',
+      'Change an engagement: title, timing, place, trigger, or publish/unpublish it (status draft|published). Pass null for fields you are not changing. Use list_engagements first to get the id.',
+      {
+        engagement_id: uuid,
+        title: { type: ['string', 'null'] },
+        status: { type: ['string', 'null'], description: 'draft | published' },
+        description: { type: ['string', 'null'] },
+        starts_at: { type: ['string', 'null'] },
+        ends_at: { type: ['string', 'null'] },
+        location: { type: ['string', 'null'] },
+        trigger_kind: { type: ['string', 'null'], description: 'fixed | on_enrolment | on_approval | on_completion | relative' },
+        trigger_anchor: { type: ['string', 'null'], description: 'start | end' },
+        trigger_offset_days: { type: ['integer', 'null'] },
+        trigger_time: { type: ['string', 'null'], description: 'HH:MM' },
+        scheduled_at: { type: ['string', 'null'] },
+      },
+      ['engagement_id', 'title', 'status', 'description', 'starts_at', 'ends_at', 'location', 'trigger_kind', 'trigger_anchor', 'trigger_offset_days', 'trigger_time', 'scheduled_at'],
+    ),
+    run: async (auth, input) => {
+      const { engagement_id, ...rest } = input;
+      const patch: Row = {};
+      for (const [k, v] of Object.entries(rest)) if (v !== null && v !== undefined) patch[k] = v;
+      const e = await callApi<Row>(auth, 'PATCH', `/api/v1/thread/engagements/${encodeURIComponent(String(engagement_id))}`, patch);
+      return { updated: Object.keys(patch), ...shapeEngagement(e) };
+    },
+  },
+  {
+    name: 'delete_engagement',
+    kind: 'write',
+    label: (i) => `Delete “${String(i.title ?? 'an engagement')}” from the timeline`,
+    definition: def(
+      'delete_engagement',
+      'Remove an engagement from a thread. Pass its title too, so the person sees what they are approving. A message that has already gone out cannot be unsent; a draft thread has sent nothing.',
+      { engagement_id: uuid, title: { type: 'string', description: 'The engagement title, for the confirmation card' } },
+      ['engagement_id', 'title'],
+    ),
+    run: async (auth, input) => {
+      await callApi(auth, 'DELETE', `/api/v1/thread/engagements/${encodeURIComponent(String(input.engagement_id))}`);
+      return { deleted: true, engagement_id: input.engagement_id, title: input.title };
+    },
+  },
 ];
+
+function shapeEngagement(e: Row): Row {
+  return {
+    id: e.id,
+    type: str(e.type),
+    title: str(e.title),
+    status: str(e.status),
+    position: num(e.position),
+    starts_at: str(e.starts_at),
+    ends_at: str(e.ends_at),
+    location: str(e.location),
+    show_in_agenda: bool(e.show_in_agenda),
+    trigger_kind: str(e.trigger_kind),
+    trigger_anchor: str(e.trigger_anchor),
+    trigger_offset_days: num(e.trigger_offset_days),
+    trigger_time: str(e.trigger_time),
+    scheduled_at: str(e.scheduled_at),
+    description_excerpt: excerpt(e.description, 160),
+  };
+}
 
 export const TOOLS_BY_NAME = new Map(THREAD_TOOLS.map((t) => [t.name, t]));
 

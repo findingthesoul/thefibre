@@ -103,6 +103,31 @@ describe('the allow-list: what a tool result may contain', () => {
     expect(r.content).not.toContain('sjoerd');
   });
 
+  it('the timeline reaches the model as shape — type, title, timing, trigger — never the message body', async () => {
+    routes['GET /api/v1/thread/threads/t1'] = () => ({
+      body: {
+        id: 't1',
+        program: { title: 'Athens 2026' },
+        engagements: [
+          { id: 'e1', type: 'message', title: "You're enrolled", status: 'draft', position: 0, trigger_kind: 'on_enrolment', content: { html: '<p>Dear {first_name}, welcome…</p>' }, description: '<p>Long <b>welcome</b> text that should be cut to an excerpt only</p>' },
+          { id: 'e2', type: 'event', title: 'Opening', status: 'published', position: 1, starts_at: '2026-11-02T09:00:00+00:00', ends_at: '2026-11-02T10:00:00+00:00', location: 'Main hall', content: { html: 'secret agenda notes' } },
+        ],
+      },
+    });
+    const r = await runTool(TOOLS_BY_NAME.get('list_engagements')!, auth, { thread_id: 't1' });
+    const out = JSON.parse(r.content);
+    expect(out.engagements).toHaveLength(2);
+    expect(out.engagements[0]).toMatchObject({ id: 'e1', type: 'message', title: "You're enrolled", trigger_kind: 'on_enrolment', description_excerpt: 'Long welcome text that should be cut to an excerpt only' });
+    expect(out.engagements[1]).toMatchObject({ id: 'e2', type: 'event', location: 'Main hall' });
+    for (const leak of ['Dear', 'first_name', 'secret agenda', '<p>']) expect(r.content, leak).not.toContain(leak);
+  });
+
+  it('a delete proposal carries the title so the card can say what goes', () => {
+    const del = TOOLS_BY_NAME.get('delete_engagement')!;
+    expect(del.kind).toBe('write');
+    expect(del.label({ engagement_id: U, title: "You're enrolled" })).toBe('Delete “You\'re enrolled” from the timeline');
+  });
+
   it('every tool calls the API as the user, as The Thread, and nothing else', async () => {
     routes['GET /api/v1/thread/threads'] = () => ({ body: { items: [] } });
     await runTool(TOOLS_BY_NAME.get('list_threads')!, auth, {});

@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.79.0] — 2026-09-16 — The assistant reaches the timeline, and offers a pick (Thread 3.52.0, staging)
+
+Sjoerd, first evening with the assistant on staging: "Can you delete the
+first enrolment email?" — "I can't." — "Can you expand the reach?"
+
+**The timeline is in reach.** Four tools: list the engagements on a thread
+(type, title, status, timing, trigger — never the message text), add one,
+change one, delete one. Every write still goes through the approval card, and
+the delete proposal carries the engagement's title so the card says what
+goes. The system prompt tells the model that a message-family item emails
+everyone enrolled once the thread is active, and to say so before proposing
+one. The route's own plan gates (`thread_custom_templates` for adding and
+removing items) apply as they do to a click.
+
+**A pick instead of a sentence.** When the assistant has just listed
+templates or threads, they appear as chips under its answer; a click sends
+the plain sentence the person would have typed ("Use the template
+'Festival'"), so the model sees nothing a keyboard could not have produced.
+The chips vanish once one is picked or a proposal is open.
+
+Not in reach, on purpose and unchanged: participants, message text, payments,
+tickets, certificates, and anything in Connections — see
+`docs/assistant-in-app.md` §6.
+
 ## [0.78.10] — 2026-09-16 — The assistant thinks less before it looks (staging)
 
 The first live turn that worked took 46 seconds, 42 of them before the model
