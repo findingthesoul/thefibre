@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.78.9] — 2026-09-16 — The assistant's first live turn (staging)
+
+Sjoerd connected a key on staging and asked the assistant its first question;
+every turn answered "the assistant could not answer". The API log had it in
+one line: Anthropic's strict schema validator rejects an `enum` declared
+beside a two-type `type` (`['string','null']`), which the `update_thread`
+tool's `status` did. The values moved into the description — the route's own
+zod enum is the check that matters — and a test now forbids the pattern, so
+the scripted-model tests cannot pass it again. Also asserted: every strict
+tool lists all its properties in `required`.
+
 ## [0.78.8] — 2026-09-15 — Two red specs, explained (staging)
 
 Reported red by the closing sweep on staging.

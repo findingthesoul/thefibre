@@ -116,6 +116,23 @@ describe('the allow-list: what a tool result may contain', () => {
     for (const t of THREAD_TOOLS) {
       expect(t.definition.strict, t.name).toBe(true);
       expect(t.definition.input_schema.additionalProperties, t.name).toBe(false);
+      // Strict mode requires every property to be listed in `required`.
+      const props = Object.keys((t.definition.input_schema.properties ?? {}) as object);
+      expect([...(t.definition.input_schema.required ?? [])].sort(), t.name).toEqual([...props].sort());
+    }
+  });
+
+  it('never pairs `enum` with a multi-type `type` — the strict validator rejects it', () => {
+    // Found on staging 2026-09-16: the first live turn died with
+    // "Enum value 'draft' does not match declared type ['string','null']".
+    // The scripted model in these tests cannot see Anthropic's validator, so
+    // this is the rule it enforces, written down.
+    for (const t of THREAD_TOOLS) {
+      const props = (t.definition.input_schema.properties ?? {}) as Record<string, { type?: unknown; enum?: unknown[] }>;
+      for (const [name, p] of Object.entries(props)) {
+        if (Array.isArray(p.type)) expect(p.enum, `${t.name}.${name}`).toBeUndefined();
+        if (p.enum) expect(p.enum.includes(null), `${t.name}.${name} has null in enum`).toBe(false);
+      }
     }
   });
 });

@@ -315,7 +315,13 @@ export const THREAD_TOOLS: AssistantTool[] = [
       {
         thread_id: uuid,
         title: { type: ['string', 'null'] },
-        status: { type: ['string', 'null'], enum: ['draft', 'active', 'completed', 'archived', null] },
+        // No `enum` next to a two-type array: Anthropic's strict validator
+        // rejects "Enum value 'draft' does not match declared type
+        // ['string','null']" (found on staging 2026-09-16, first live turn).
+        // The values are in the description; the route's zod enum is the
+        // check that matters, and a wrong one comes back as a 400 the model
+        // can read.
+        status: { type: ['string', 'null'], description: 'draft | active | completed | archived, or null to leave it' },
         starts_on: dateOnly,
         ends_on: dateOnly,
         is_public_listed: { type: ['boolean', 'null'] },
