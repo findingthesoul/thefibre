@@ -48,6 +48,7 @@ than one; the table names the one that decided it.
 | **Visual Thesaurus** | UX | Taken outright | The moving web: click a name, it centres, the cloud rebuilds, lines run via junctions | [`connections-desktop.md`](connections-desktop.md), v0.73.24–33 |
 | **macOS Finder** | UX | Taken outright | The landscape browsed as columns | v0.75.x, `connections-asks.md` ask 20 |
 | **Element / Matrix** | Architecture | Open exploration | Sovereign messaging; the limit is federation against erasure | [`inbox.md`](inbox.md), 2026-09-15 |
+| **Roseman Labs** | Architecture | Parked; partner, not build | Multi-party computation: several organisations compute a joint answer without pooling records. A different unit, and the only shape that pays for it is cross-workspace | this file, below |
 | **HubSpot, Mailchimp** | Architecture | Not competitors, worked examples | Used in the docs to show how a third-party app's entities map across the wall | [`fibre-vs-app-data.md`](fibre-vs-app-data.md) |
 | **Thread** (internal) | UX | Design-leading | When two apps disagree on a shared surface, Thread is right | CLAUDE.md, Components first |
 
@@ -89,6 +90,58 @@ need, buying beats building.
 **What to steal.** LinkedIn job-change detection. Somebody changing employer
 is a dated, stated fact about a person, not an inference from co-occurrence,
 so it passes the exactness rule that keeps most enrichment out of this system.
+
+---
+
+### Roseman Labs — 2026-09-17
+
+*Read from search results and their docs, not their own site: the network
+policy in the build environment blocks `rosemanlabs.com`. Anyone with a
+browser should check the claims below against the source.*
+
+**What it is.** A Dutch deep-tech company, founded 2020 by Toon Segers,
+Roderick Rodenburg and Niek Bouman. Secure multi-party computation: several
+organisations each encrypt their own data at source, link it, and run analyses
+on the combined set while no party sees an individual record. The developer
+surface is `crandas`, a Python package with pandas-like syntax that pushes the
+computation to MPC nodes. Named customers include the NCSC, UMC Utrecht, the
+Dutch government, over 100 childcare organisations, and insurers.
+
+**The shared refusal.** Both they and this platform say you can get value from
+data without one party holding it in the clear. That is real common ground,
+and it is where most conversations about them stop.
+
+**The different unit, which is the whole thing.** The Fibre's data wall runs
+INSIDE one workspace: RLS scopes rows, apps cross only through `activity`, and
+the boundary is a tenant. MPC solves a problem we do not have today — several
+organisations who each hold data and want a joint answer without pooling it.
+Between organisations, not within one.
+
+**The one shape where it would earn its cost.** A cross-workspace question:
+how many people across a whole network completed something, or a benchmark
+between social enterprises, where the workspaces will not hand each other
+person rows. That shape is coming. It is also the only one worth the price,
+because MPC is expensive three ways — compute, engineering, and an operating
+model needing multiple non-colluding nodes run by genuinely separate parties.
+That is a partnership or nothing. Never a bolt-on.
+
+**The tension to keep in view.** MPC protects data DURING COMPUTATION. It says
+nothing about erasure, purpose limitation, or brief §5's rule that the app
+justifies the field. There is a live risk that the cryptography reads as a
+licence to collect more, because it "makes it safe". Our discipline is
+minimisation by construction; theirs is computation on data that could not
+otherwise be pooled. Those point in opposite directions, and adopting the
+second without noticing would quietly undo the first.
+
+**What to steal regardless.** The `crandas` design choice: keep the familiar
+API, change the backend underneath. Make the safe path the one people already
+know how to type — the same move as the shared `apiFetch` and the components
+rule. Their disclosure-risk vocabulary is also sharper than most, and would
+improve how the brief talks about what a report may reveal.
+
+**Why them, why us.** Not a competitor. A credible partner and reference
+point, and the obvious place to look first if a cross-workspace question ever
+becomes a product rather than a hypothetical.
 
 ---
 
