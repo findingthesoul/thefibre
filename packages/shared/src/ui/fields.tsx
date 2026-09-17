@@ -21,13 +21,23 @@ import { chromeT, useLocale } from './i18n-ui.js';
 // segmented control, which sits beside these fields in the engagement dialog.
 // DateField and DateTimeField use the same box (date-field.tsx). If you change
 // one, change FIELD_BOX and those two triggers in the same commit.
-export const FIELD_BOX = 'h-[38px] px-3 text-sm';
+//
+// 16px ON PHONES, 14px FROM `sm` UP (Sjoerd, 2026-09-17, on his phone: "when I
+// start to use the text field, the screen zooms in. It does not zoom out
+// again"). iOS Safari zooms the page into any input, textarea or select whose
+// text is smaller than 16px, and never zooms back out. The alternative, a
+// viewport maximum-scale, switches pinch zoom off on Android for everyone, so
+// the size is the honest fix. The date-field triggers and the Connections note
+// box (tag-highlight-box.tsx) carry the same pair so a row of fields stays one
+// size on every width.
+export const FIELD_TEXT = 'text-base sm:text-sm';
+export const FIELD_BOX = `h-[38px] px-3 ${FIELD_TEXT}`;
 const SURFACE =
   'w-full rounded-md border border-line bg-surface-raised focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
 const INPUT_CLASS = `mt-1 ${FIELD_BOX} ${SURFACE}`;
 // appearance-none so Safari honours the height; the arrow is drawn instead.
 const SELECT_CLASS = `mt-1 ${FIELD_BOX} appearance-none pr-9 ${SURFACE}`;
-const TEXTAREA_CLASS = `mt-1 px-3 py-2 text-sm ${SURFACE}`;
+const TEXTAREA_CLASS = `mt-1 px-3 py-2 ${FIELD_TEXT} ${SURFACE}`;
 
 /**
  * For controls that cannot be a TextField/SelectField/TextAreaField — use the
@@ -39,7 +49,7 @@ const TEXTAREA_CLASS = `mt-1 px-3 py-2 text-sm ${SURFACE}`;
  *   <FieldSelect>           a select without a label (filter bar)
  *   FIELD_LABEL_CLASS       the label above any of them
  */
-export const FIELD_CLASS = `px-3 py-2 text-sm ${SURFACE}`;
+export const FIELD_CLASS = `px-3 py-2 ${FIELD_TEXT} ${SURFACE}`;
 
 /**
  * A single-line `<input>` that is not a TextField (a search box with an icon

@@ -187,7 +187,7 @@ export function SearchSelect({
           setQ('');
           setOpen((o) => !o);
         }}
-        className="w-full flex items-center justify-between gap-2 rounded-md border border-line bg-surface-raised px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-50"
+        className="w-full flex items-center justify-between gap-2 rounded-md border border-line bg-surface-raised px-3 py-2 text-base sm:text-sm text-left focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-50"
       >
         <span className={selected ? 'text-ink truncate' : 'text-ink-muted truncate'}>
           {selected?.label ?? placeholder ?? chromeT(locale, 'pick')}
@@ -212,7 +212,7 @@ export function SearchSelect({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={searchPlaceholder ?? chromeT(locale, 'search')}
-              className="w-full bg-transparent pl-8 pr-3 py-2 text-sm focus:outline-none placeholder:text-ink-muted"
+              className="w-full bg-transparent pl-8 pr-3 py-2 text-base sm:text-sm focus:outline-none placeholder:text-ink-muted"
             />
           </div>
           <ul className="max-h-56 overflow-y-auto py-1">
