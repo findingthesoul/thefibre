@@ -9,6 +9,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
+import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
 import { APPS, appUrl, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
@@ -21,18 +22,12 @@ import { UnfiledNotes } from '@/components/unfiled-notes';
 // rebuild of an existing one). See CLAUDE.md "Version bumps".
 const VERSION = '0.2.0';
 
-type Me = {
-  /** Additive: the signed-in interface language (identity_profile.locale). */
-  locale?: string | null;
+// A strict subtype of ShellMe: what this layout actually reads. Extend here,
+// never loosen the shared shape.
+type Me = ShellMe & {
   user: { id: string; email: string; full_name: string | null };
   workspace: { id: string; name: string } | null;
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
-};
-
-type WorkspaceApp = {
-  id: string;
-  deactivated_at: string | null;
-  app: { slug: string } | { slug: string }[] | null;
 };
 
 export default async function ConnectionsAppLayout({
@@ -40,34 +35,28 @@ export default async function ConnectionsAppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // getClaims verifies the session JWT locally against the project's cached
+  // JWKS — no round trip to Supabase Auth on every server render (getUser
+  // made one). The API still validates the token on every call it receives.
   const supabase = await serverSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/');
+  const { data: claims } = await supabase.auth.getClaims();
+  if (!claims) redirect('/');
 
-  // Gate: fibre-sales membership AND the workspace has Connections switched on.
-  let me: Me;
-  let apps: WorkspaceApp[] = [];
-  try {
-    me = await apiFetch<Me>('/api/v1/auth/me');
-    const r = await apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps');
-    apps = r.items;
-  } catch {
-    redirect('/no-access');
-  }
-
-  const hasMembership = me.memberships.some((m) => {
-    const a = Array.isArray(m.app) ? m.app[0] : m.app;
-    return a?.slug === 'fibre-sales';
+  // Gate: fibre-sales membership AND the workspace has Connections switched
+  // on. Who you are, which apps the workspace runs, which workspaces you may
+  // switch to — plus the prefs cookie — in ONE Promise.all
+  // (packages/shared/src/app-shell.ts explains the measured cost of the old
+  // sequential chain).
+  const shell = await loadAppShell<Me, { prefs: typeof readPrefs }>({
+    apiFetch,
+    appSlug: 'fibre-sales',
+    extras: { prefs: () => readPrefs() },
   });
-  const activated = apps.some((w) => {
-    const a = Array.isArray(w.app) ? w.app[0] : w.app;
-    return a?.slug === 'fibre-sales' && !w.deactivated_at;
-  });
-  if (!hasMembership || !activated) redirect('/no-access');
+  if (!shell.ok) redirect(shell.reason === 'no-session' ? '/' : '/no-access');
+  if (!shell.hasAccess) redirect('/no-access');
 
-  const prefs = await readPrefs();
+  const { me, apps, extras } = shell;
+  const prefs = extras.prefs;
   const email = me.user.email;
   const fullName = me.user.full_name ?? email;
   // The workspaces this person belongs to, narrowed to the ones where this app
@@ -77,17 +66,10 @@ export default async function ConnectionsAppLayout({
   // The narrowing is the point. The check above redirects to /no-access
   // without both, so a switcher listing every workspace would be a menu of
   // dead ends. What is left is nothing to choose between for almost everybody,
-  // and the menu hides the section in that case.
-  let workspaces: WorkspaceChoice[] = [];
-  try {
-    const r = await apiFetch<{ workspaces: (WorkspaceChoice & { has_app: boolean })[] }>(
-      '/api/v1/auth/workspaces',
-    );
-    workspaces = r.workspaces.filter((w) => w.has_app);
-  } catch {
-    // Never fatal: not being able to list them must not stop the app rendering
-    // in the one you are already in.
-  }
+  // and the menu hides the section in that case. loadAppShell already applied
+  // the has_app filter and swallowed a failed list (never fatal: not being
+  // able to list them must not stop the app rendering in the one you are in).
+  const workspaces: WorkspaceChoice[] = shell.workspaces;
 
   // Which stack we are actually on. Every link OUT of this app is resolved
   // against it, so a page served from the .tech twin never sends you to the

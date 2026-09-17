@@ -9,85 +9,64 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { ArchivedGate } from '@/components/archived-gate';
 import { buildAppList } from '@thefibre/shared/available-apps';
+import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
 import { APPS, tileArtUrl } from '@thefibre/shared';
 import { VERSION } from '@/lib/version';
 
-type Me = {
-  /** Additive: the signed-in interface language (identity_profile.locale). */
-  locale?: string | null;
-  user: { is_super_admin?: boolean };
-  workspace_archived?: boolean;
-  memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
-};
-
-type WorkspaceChoiceRow = { id: string; name: string | null; is_active: boolean };
-
-type WorkspaceApp = {
-  deactivated_at: string | null;
-  app: { slug: string } | { slug: string }[] | null;
-};
+// /auth/me as the shell reads it. ShellMe already carries everything this
+// layout looks at (locale, is_super_admin, workspace_archived, memberships
+// with role); the alias is the place to add platform-only additive fields.
+type Me = ShellMe;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // getClaims verifies the JWT locally against the cached JWKS — no round
+  // trip to Supabase Auth on every server render (getUser made one).
   const supabase = await serverSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/');
+  const { data: claims } = await supabase.auth.getClaims();
+  if (!claims) redirect('/');
 
-  const prefs = await readPrefs();
-  const email = user.email ?? '';
+  // Who you are, which apps run here, which workspaces you may switch to,
+  // plus this layout's own per-request reads — all started at once.
+  const shell = await loadAppShell<Me, {
+    prefs: typeof readPrefs;
+    host: () => Promise<string | null>;
+  }>({
+    apiFetch,
+    appSlug: 'fibre-platform',
+    extras: {
+      prefs: () => readPrefs(),
+      host: async () => (await headers()).get('host'),
+    },
+  });
+  if (!shell.ok) redirect(shell.reason === 'no-session' ? '/' : '/no-access');
+
+  const { me, workspaces } = shell;
+  const { prefs, host } = shell.extras;
+
+  const email = claims.claims.email ?? '';
   const fullName =
-    (user.user_metadata?.full_name as string | undefined) ??
-    (user.user_metadata?.name as string | undefined) ??
+    (claims.claims.user_metadata?.full_name as string | undefined) ??
+    (claims.claims.user_metadata?.name as string | undefined) ??
     email;
 
-  // Cheap admin check for nav-rendering + app-switcher data. Best-effort.
-  let isSuperAdmin = false;
-  let isWorkspaceAdmin = false;
-  let workspaceArchived = false;
-  let memberships: Me['memberships'] = [];
-  let profileLocale: string | null = null;
-  let workspaceApps: WorkspaceApp[] = [];
-  try {
-    const me = await apiFetch<Me>('/api/v1/auth/me');
-    memberships = me.memberships;
-    profileLocale = me.locale ?? null;
-    isSuperAdmin = !!me.user.is_super_admin;
-    workspaceArchived = !!me.workspace_archived;
-    const explicitWorkspaceAdmin = me.memberships.some((m) => {
-      const app = Array.isArray(m.app) ? m.app[0] : m.app;
-      return app?.slug === 'fibre-platform' && m.role === 'admin';
-    });
-    isWorkspaceAdmin = explicitWorkspaceAdmin || isSuperAdmin;
-  } catch {
-    // ignore — admin pages still gate themselves
-  }
-  try {
-    const r = await apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps');
-    workspaceApps = r.items;
-  } catch {
-    // ignore — empty list means only The Fibre shows in the switcher
-  }
-
-  // The workspaces this person belongs to. Almost everybody has one, and the
-  // menu hides the section when there is nothing to choose between — so this
-  // costs a request and changes nothing until somebody has two.
-  let workspaces: WorkspaceChoiceRow[] = [];
-  try {
-    const r = await apiFetch<{ workspaces: WorkspaceChoiceRow[] }>('/api/v1/auth/workspaces');
-    workspaces = r.workspaces;
-  } catch {
-    // Never fatal: not being able to list them must not stop the app rendering
-    // in the one you are already in.
-  }
+  // Admin flags for nav-rendering. Admin pages still gate themselves.
+  const isSuperAdmin = !!me.user.is_super_admin;
+  const workspaceArchived = !!me.workspace_archived;
+  const explicitWorkspaceAdmin = me.memberships.some((m) => {
+    const app = Array.isArray(m.app) ? m.app[0] : m.app;
+    return app?.slug === 'fibre-platform' && m.role === 'admin';
+  });
+  const isWorkspaceAdmin = explicitWorkspaceAdmin || isSuperAdmin;
 
   const apps = buildAppList({
     currentApp: 'fibre-platform',
-    memberships,
-    workspaceApps,
+    memberships: me.memberships,
+    workspaceApps: shell.apps,
     env: process.env,
-    host: (await headers()).get('host'),
+    host,
   });
 
-  const locale = await uiLocale(profileLocale);
+  const locale = await uiLocale(me.locale);
 
   return (
     <LocaleProvider locale={locale}>

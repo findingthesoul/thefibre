@@ -6,8 +6,10 @@ import { AppLanding } from '@thefibre/shared/ui/app-landing';
 
 export default async function ConnectionsLanding() {
   const supabase = await serverSupabase();
-  const { data } = await supabase.auth.getUser();
-  if (data.user) redirect('/landscape');
+  // Local JWT verification against cached JWKS — no round trip to Supabase
+  // Auth just to decide whether to bounce a signed-in visitor to /landscape.
+  const { data: claims } = await supabase.auth.getClaims();
+  if (claims) redirect('/landscape');
 
   return (
     <AppLanding

@@ -9,6 +9,7 @@ export {
   PLATFORM_APP_ID,
   appUrl,
   appName,
+  appHomePath,
   APP_DISPLAY_ORDER,
   TILE_FILES,
   tileArtUrl,

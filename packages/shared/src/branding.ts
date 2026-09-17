@@ -352,6 +352,18 @@ export function emailSignoff(): string {
 
 /** App display name by slug. Drop-in for the duplicated `APP_NAMES` maps
  *  scattered across the web app. */
+/**
+ * Where a signed-in person lands inside an app. Every app but Connections
+ * lives under /dashboard; Connections moved its home to / (v0.73.60). The
+ * switcher and the launcher link HERE, not to the app's root: the root is the
+ * public landing page, which only checks the session and redirects — on a
+ * cold function that redirect alone cost two seconds on staging (2026-09-17).
+ */
+const APP_HOME: Partial<Record<AppId, string>> = { 'fibre-sales': '/' };
+export function appHomePath(slug: AppId): string {
+  return APP_HOME[slug] ?? '/dashboard';
+}
+
 export function appName(slug: AppId): string {
   return APPS[slug]?.name ?? slug;
 }

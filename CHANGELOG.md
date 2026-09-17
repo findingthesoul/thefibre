@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.80.0] — 2026-09-17 — Pages arrive faster, and say so at once (staging)
+
+Sjoerd: "switching between apps takes a lot of time, moving between menu
+options takes a lot of loading time." Measured on staging before this: about
+0.8 s per menu click with nothing on screen to show it was working, and
+about 5 s to switch apps. Four causes, four changes.
+
+**Every page render was a queue.** Each app's layout asked Supabase Auth
+whether you were signed in (a network round trip), then the API who you are,
+then which apps the workspace runs, then which workspaces you may switch to —
+one after the other, on every server render, close to a second before the
+page's own data was even requested. The layouts now verify the session
+locally (the API verifies it again on every call anyway) and load the shell
+through one shared `loadAppShell`, which fires all of those calls at the same
+moment, together with whatever else the layout needs. Seven copies of that
+queue became seven bindings of one function.
+
+**The slowest of those calls was itself a queue.** `/auth/me` made four
+database round trips in a row; it now makes two.
+
+**A click showed nothing until the page was ready.** No app had a loading
+boundary. Every app now paints a skeleton the instant you click, and the
+page streams in behind it. A page you visited in the last half minute comes
+back at once on Back or a repeat click instead of re-rendering.
+
+**Switching apps went through the front door.** The switcher and the
+launcher linked to each app's public root, which only checked the session
+and redirected to the dashboard — on a cold function that redirect alone
+took two seconds. They now link straight to each app's home.
+
+Not changed here, and worth knowing: on production the hop between the two
+apexes (thefibre.app ↔ thethread.app) still costs its own round trips, and a
+Vercel function that has been idle starts cold. Both are the reason to
+enable Fluid Compute on the Vercel projects, a dashboard setting.
+
 ## [0.79.1] — 2026-09-17 — Sixteen unions (staging)
 
 The second live limit in one evening: Anthropic caps a request at 16

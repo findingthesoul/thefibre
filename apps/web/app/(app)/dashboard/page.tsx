@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
-import { APPS, APP_IDS, APP_DISPLAY_ORDER, TILE_FILES, appName, type AppId } from '@thefibre/shared';
+import { APPS, APP_IDS, APP_DISPLAY_ORDER, TILE_FILES, appName, appHomePath, type AppId } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
@@ -24,7 +24,10 @@ import { AppsSection } from './apps-section';
 const APP_DOMAINS: Record<string, string> = Object.fromEntries(
   APP_IDS.filter((s) => s !== 'fibre-platform').map((s) => [
     s,
-    crossAppHref('fibre-platform', s, process.env),
+    // Straight to the app's home (appHomePath), never its public root: the
+    // root only checks the session and redirects, and on a cold function that
+    // redirect alone cost two seconds on staging (2026-09-17).
+    crossAppHref('fibre-platform', s, process.env, appHomePath(s)),
   ]),
 );
 

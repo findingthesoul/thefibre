@@ -19,7 +19,7 @@
 // target on the other apex becomes a relative /sso/hop link that carries the
 // session across. `currentApp` is the slug of the app the caller runs in.
 
-import { APPS, APP_DISPLAY_ORDER, APP_IDS, type AppId } from './index.js';
+import { APPS, APP_DISPLAY_ORDER, APP_IDS, appHomePath, type AppId } from './index.js';
 import { crossAppHref } from './sso-hop.js';
 import type { AppEntry } from './ui/app-switcher.js';
 
@@ -69,7 +69,8 @@ export function buildAppList({
     const meta = APPS[slug];
     if (!meta.available) continue;
     if (slug !== 'fibre-platform' && !(activatedSlugs.has(slug) && memberSlugs.has(slug))) continue;
-    out.push({ slug, name: meta.name, url: crossAppHref(currentApp, slug, env, undefined, host) });
+    // Straight to the app's home, never its public root (see appHomePath).
+    out.push({ slug, name: meta.name, url: crossAppHref(currentApp, slug, env, appHomePath(slug), host) });
   }
 
   const rank = (s: string) => {

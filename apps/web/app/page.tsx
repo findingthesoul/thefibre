@@ -31,11 +31,10 @@ export default async function LandingPage() {
   // Without this, an authenticated user returning to thefibre.app/ sees the
   // public marketing page and assumes they've been logged out (the session is
   // actually intact — shared across .thefibre.app subdomains).
+  // getClaims verifies the JWT locally (cached JWKS) — no Auth round trip.
   const supabase = await serverSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) redirect('/dashboard');
+  const { data: claims } = await supabase.auth.getClaims();
+  if (claims) redirect('/dashboard');
 
   const mode = await signupMode();
 

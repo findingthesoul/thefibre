@@ -7,8 +7,9 @@ import { AppLanding } from '@thefibre/shared/ui/app-landing';
 export default async function FlowLanding() {
   // If already signed in, jump straight to the dashboard.
   const supabase = await serverSupabase();
-  const { data } = await supabase.auth.getUser();
-  if (data.user) redirect('/dashboard');
+  // Local JWT check (no Auth round trip); the API verifies on every call.
+  const { data } = await supabase.auth.getClaims();
+  if (data?.claims) redirect('/dashboard');
 
   return (
     <AppLanding
