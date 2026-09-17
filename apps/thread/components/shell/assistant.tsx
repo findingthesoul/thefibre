@@ -31,6 +31,10 @@ export function ThreadAssistant({ locale }: { locale: Locale }) {
         close: t(locale, 'assistant_close'),
         failed: t(locale, 'assistant_failed'),
         openThread: t(locale, 'assistant_open_thread'),
+        // The chips substitute {title} themselves; t() leaves an unknown
+        // placeholder untouched when no vars are passed.
+        useTemplate: t(locale, 'assistant_use_template'),
+        useThread: t(locale, 'assistant_use_thread'),
       }}
     />
   );

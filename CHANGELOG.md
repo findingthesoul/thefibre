@@ -6,6 +6,94 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.80.0] — 2026-09-17 — Pages arrive faster, and say so at once (staging)
+
+Sjoerd: "switching between apps takes a lot of time, moving between menu
+options takes a lot of loading time." Measured on staging before this: about
+0.8 s per menu click with nothing on screen to show it was working, and
+about 5 s to switch apps. Four causes, four changes.
+
+**Every page render was a queue.** Each app's layout asked Supabase Auth
+whether you were signed in (a network round trip), then the API who you are,
+then which apps the workspace runs, then which workspaces you may switch to —
+one after the other, on every server render, close to a second before the
+page's own data was even requested. The layouts now verify the session
+locally (the API verifies it again on every call anyway) and load the shell
+through one shared `loadAppShell`, which fires all of those calls at the same
+moment, together with whatever else the layout needs. Seven copies of that
+queue became seven bindings of one function.
+
+**The slowest of those calls was itself a queue.** `/auth/me` made four
+database round trips in a row; it now makes two.
+
+**A click showed nothing until the page was ready.** No app had a loading
+boundary. Every app now paints a skeleton the instant you click, and the
+page streams in behind it. A page you visited in the last half minute comes
+back at once on Back or a repeat click instead of re-rendering.
+
+**Switching apps went through the front door.** The switcher and the
+launcher linked to each app's public root, which only checked the session
+and redirected to the dashboard — on a cold function that redirect alone
+took two seconds. They now link straight to each app's home.
+
+Not changed here, and worth knowing: on production the hop between the two
+apexes (thefibre.app ↔ thethread.app) still costs its own round trips, and a
+Vercel function that has been idle starts cold. Both are the reason to
+enable Fluid Compute on the Vercel projects, a dashboard setting.
+
+## [0.79.1] — 2026-09-17 — Sixteen unions (staging)
+
+The second live limit in one evening: Anthropic caps a request at 16
+nullable or union-typed tool parameters across ALL tools, and v0.79.0's four
+engagement tools took the catalogue to 34 — every turn died with
+"exponential compilation cost". Optional fields are now plainly optional:
+tools with optional fields are non-strict, list only their mandatory fields
+in `required`, and the route's zod schema stays the validator that matters.
+A test counts the unions and fails above 16.
+
+## [0.79.0] — 2026-09-16 — The assistant reaches the timeline, and offers a pick (Thread 3.52.0, staging)
+
+Sjoerd, first evening with the assistant on staging: "Can you delete the
+first enrolment email?" — "I can't." — "Can you expand the reach?"
+
+**The timeline is in reach.** Four tools: list the engagements on a thread
+(type, title, status, timing, trigger — never the message text), add one,
+change one, delete one. Every write still goes through the approval card, and
+the delete proposal carries the engagement's title so the card says what
+goes. The system prompt tells the model that a message-family item emails
+everyone enrolled once the thread is active, and to say so before proposing
+one. The route's own plan gates (`thread_custom_templates` for adding and
+removing items) apply as they do to a click.
+
+**A pick instead of a sentence.** When the assistant has just listed
+templates or threads, they appear as chips under its answer; a click sends
+the plain sentence the person would have typed ("Use the template
+'Festival'"), so the model sees nothing a keyboard could not have produced.
+The chips vanish once one is picked or a proposal is open.
+
+Not in reach, on purpose and unchanged: participants, message text, payments,
+tickets, certificates, and anything in Connections — see
+`docs/assistant-in-app.md` §6.
+
+## [0.78.10] — 2026-09-16 — The assistant thinks less before it looks (staging)
+
+The first live turn that worked took 46 seconds, 42 of them before the model
+asked for the templates. That is `effort: medium` on a request that needs no
+depth. Chat and latency-sensitive routes are documented for `low`; the
+assistant now runs there. Same model, shallower adaptive thinking, cheaper
+per turn. The `[assistant] … ms=` log line is what to re-tune from.
+
+## [0.78.9] — 2026-09-16 — The assistant's first live turn (staging)
+
+Sjoerd connected a key on staging and asked the assistant its first question;
+every turn answered "the assistant could not answer". The API log had it in
+one line: Anthropic's strict schema validator rejects an `enum` declared
+beside a two-type `type` (`['string','null']`), which the `update_thread`
+tool's `status` did. The values moved into the description — the route's own
+zod enum is the check that matters — and a test now forbids the pattern, so
+the scripted-model tests cannot pass it again. Also asserted: every strict
+tool lists all its properties in `required`.
+
 ## [0.78.8] — 2026-09-15 — Two red specs, explained (staging)
 
 Reported red by the closing sweep on staging.

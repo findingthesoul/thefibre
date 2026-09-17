@@ -6,10 +6,12 @@ import { appUrl } from '@thefibre/shared';
 import { AppLanding } from '@thefibre/shared/ui/app-landing';
 
 export default async function MembershipLanding() {
-  // If already signed in, jump straight to the dashboard.
+  // If already signed in, jump straight to the dashboard. Local JWT
+  // verification against cached JWKS — no round trip to Supabase Auth just
+  // to decide whether to bounce a signed-in visitor.
   const supabase = await serverSupabase();
-  const { data } = await supabase.auth.getUser();
-  if (data.user) redirect('/dashboard');
+  const { data: claims } = await supabase.auth.getClaims();
+  if (claims) redirect('/dashboard');
 
   // This page carried Pulse's landing copy wholesale ("the heartbeat of the
   // business") since the app was scaffolded — caught 2026-09-06.

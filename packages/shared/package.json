@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.78.8",
+  "version": "0.80.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -121,6 +121,14 @@
     "./available-apps": {
       "types": "./dist/available-apps.d.ts",
       "default": "./dist/available-apps.js"
+    },
+    "./app-shell": {
+      "types": "./dist/app-shell.d.ts",
+      "default": "./dist/app-shell.js"
+    },
+    "./ui/page-loading": {
+      "types": "./dist/ui/page-loading.d.ts",
+      "default": "./dist/ui/page-loading.js"
     },
     "./api-fetch": {
       "types": "./dist/api-fetch.d.ts",

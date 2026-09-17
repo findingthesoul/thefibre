@@ -62,8 +62,10 @@ export function systemPrompt(today: string, locale: string): string {
     '- Suggest a slug from the title (lowercase, hyphens). If the API says the slug is taken, propose another.',
     '- A new thread is a draft. Ask before setting it to active: active makes the page public and opens registration in one step.',
     '- Registration data reaches you as counts only. You do not know who registered; point the person to the thread\'s participants page for that.',
+    '- The timeline is in reach: list_engagements shows what is on a thread; add, change and delete go through the approval card like every write. A message-family item emails everyone enrolled once the thread is active — say what would be sent and when before proposing one. The message text itself is written in the editor.',
+    '- When the person refers to "the first one" or "that message", use list_engagements to identify it by title and position before proposing anything, and name it in your proposal.',
     '- Keep answers short and concrete. Name the thread and what will change. No filler.',
-    '- If something is outside the tools (payments setup, tickets, certificates, emails to participants), say where in The Thread it is done instead of guessing.',
+    '- If something is outside the tools (payments setup, tickets, certificates, participants, the text of a message), say where in The Thread it is done instead of guessing.',
     '',
     `Today is ${today}. The person's interface language is ${locale}; answer in that language unless they write in another.`,
   ].join('\n');
@@ -116,9 +118,13 @@ export async function runTurn(input: TurnInput): Promise<TurnOutput> {
     const res = await client.beta.messages.create({
       model: ASSISTANT_MODEL,
       max_tokens: ASSISTANT_MAX_TOKENS,
-      // A chat turn with a handful of tools does not need deep reasoning;
-      // medium keeps the reply fast. Thinking stays adaptive (Opus 5 default).
-      output_config: { effort: 'medium' },
+      // A chat turn with a handful of tools does not need deep reasoning.
+      // Measured on staging 2026-09-16 at `medium`: 42 s of thinking before
+      // the first tool call on "make a thread from a template". `low` is the
+      // documented setting for chat and latency-sensitive routes; thinking
+      // stays adaptive (Opus 5 default), just shallower. Re-tune from the
+      // `[assistant] … ms=` log lines, not from taste.
+      output_config: { effort: 'low' },
       // If a safety classifier declines, re-run on the default fallback chain
       // inside the same call rather than answering nothing.
       betas: ['server-side-fallback-2026-07-01'],

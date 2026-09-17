@@ -42,8 +42,9 @@ the transcript and sends it back each turn, the API logs token counts and
 never content.
 
 The model is pinned in one place (`lib/assistant/model.ts`): `claude-opus-5`,
-adaptive thinking, effort `medium`, 4096 output tokens per step, at most 8
-steps per turn. The server-side refusal fallback is on (`fallbacks:
+adaptive thinking, effort `low` (was `medium` until the first live turn on
+staging spent 42 s thinking before its first tool call — v0.78.10), 4096
+output tokens per step, at most 8 steps per turn. The server-side refusal fallback is on (`fallbacks:
 "default"`), so a safety classifier declining a request re-runs it on the
 default chain instead of answering nothing. The key is `ANTHROPIC_API_KEY` on
 Fly. **Without it the feature does not exist**: the status route says
@@ -61,7 +62,8 @@ is built field by field before it goes to the model:
 | `list_threads`, `get_thread` | title, slug, format, status, dates, listing, approval flag, capacity, price, team name, category names, a 400-character plain-text excerpt of the intention |
 | `list_templates` | title, scope, format, duration, how many engagements and of which types |
 | `enrolment_summary` | **counts only**: total, by status, by payment state, checked in, waiting for approval, completed |
-| the three writes | the same thread fields, plus a path to open |
+| `list_engagements` (v0.79.0) | per item: type, title, status, position, timing, place, trigger, a 160-character excerpt of the description — never the message text (`content`) |
+| the writes (thread ×3, engagement ×3) | the same shapes back, plus a path to open |
 
 What never reaches it: a participant's name, email, phone, city, answers or
 billing; the organiser's own profile row; registration fields; notes of any
@@ -178,8 +180,18 @@ above fails. Do it when the key is created.
 - **No per-workspace OFF switch for a plan that includes it.** A Starter or
   Pro workspace that wants no model near its data has no toggle yet; the
   admin can only refrain from using it. Small; §6.2.
-- **No writes beyond the thread itself**: no engagements, tickets, prices'
-  destinations, certificates, emails to participants.
+- **No writes beyond the thread and its timeline**: no tickets, payment
+  destinations, certificates, participants, and never the text of a message
+  (engagements themselves arrived in v0.79.0).
+- **No @-mentions of people.** Sjoerd asked for `@person` and `#thread`
+  pickers the first evening. `#thread` is the chips (v0.79.0) plus, later, a
+  picker that fetches the thread list. `@person` is different in kind: it
+  would put a name in the prompt, which "Thread data only" (§6.1) forbids.
+  The design that respects it: the panel resolves `@name` to a person id
+  CLIENT-side through the existing search, and sends only `@[person:uuid]`;
+  the model never sees the name, and the participant tool acts on the id.
+  Worth building — after the participants surface itself (v2 item 4) is
+  allowed to exist.
 
 ## 5. Version 2 — notes
 
@@ -194,10 +206,12 @@ order each one earns its cost.
    know which thread. Pass `thread_id` + page kind from the mount into the
    system prompt as context. Turns "how is registration going on Athens" into
    "how is registration going".
-3. **Engagements.** Lay down a session, a reminder, a welcome message on the
-   thread being edited — the message family behind the same approval gate,
-   with the email consequence spelled out in the proposal card. This is where
-   a template-then-tweak workflow becomes conversational.
+3. **Engagements — done in v0.79.0**, the first evening on staging, because
+   the first thing Sjoerd asked after creating a thread was to delete one of
+   its two enrolment emails. List, add, change, delete, behind the card; the
+   message text stays in the editor. Also v0.79.0: templates and threads the
+   assistant just listed appear as chips under its answer ("a select box,
+   like in Claude").
 4. **Participants, once §6.1 is decided.** "Who has not paid?", "approve the
    three waiting", "check in Marja" need names. With a DPA, an EU inference
    region and the privacy statement updated, the allow-list widens to name +

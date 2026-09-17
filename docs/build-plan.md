@@ -68,6 +68,18 @@ a fee statement — under "Paid" as if it were the workspace's income; those are
 the workspace's costs and should read as such. Pre-existing for subscription
 rows, visible now that fee statements sit beside ticket sales.
 
+**SPEED follow-ups (v0.80.0 measured on staging, 2026-09-17).** Menu click
+0.8 s → 0.3–0.55 s with a skeleton at once; app switch 4.9 s → 0.84 s warm;
+but: (1) a COLD Vercel function still adds 1–3 s to the first hit of an app
+after idle — Sjoerd: enable Fluid Compute on every Vercel project (Settings
+→ Functions), a dashboard toggle, no code. (2) A hard page load is still
+~1.2 s: the contacts page makes its two API calls one after the other
+(persons, then duplicates count) — sweep every page for sequential
+apiFetch pairs and Promise.all them. (3) On production the cross-apex hop
+(thefibre.app ↔ thethread.app) costs ~5 legs that staging cannot show; a
+single apex would remove it, which is the domain decision in
+docs/naming-brief.md, not a code fix.
+
 **SECURITY roadmap — `docs/data-protection-approach.md` §5 is the list.** P1
 before the first paid enterprise workspace: CSP report-only, explicit cookie
 flags, MFA for super admins, log redaction, an admin-action audit table, a

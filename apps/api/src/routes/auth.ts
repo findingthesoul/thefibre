@@ -174,17 +174,34 @@ authRoutes.get('/me', async (c) => {
   // for an app that's currently off is dormant, not access — and showing
   // it on /settings made the page contradict /settings/apps (v0.13.10
   // fixed the same bug on the contact-profile endpoint).
-  const [{ data: rawMemberships }, { data: activeApps }] = await Promise.all([
-    db
-      .from('app_membership')
-      .select('app_id, role, permissions, app:app_id (slug, name)')
-      .eq('user_id', ctx.userId),
-    db
-      .from('workspace_app')
-      .select('app_id')
-      .eq('workspace_id', user.workspace_id)
-      .is('deactivated_at', null),
-  ]);
+  // One round trip for everything that needs only the user row: memberships,
+  // the workspace's active apps, the workspace itself, the profile's locale.
+  // Sequential until 2026-09-17, this was the slowest call every layout makes
+  // (~500 ms measured), and every app made it on every server render.
+  //
+  // The locale is the interface language's durable copy (identity_profile);
+  // the thefibre.locale cookie is per-browser — Sjoerd picked NL on his
+  // desktop and his phone stayed English (2026-09-07) — so layouts resolve
+  // cookie-first, THIS as the fallback. Non-fatal: /me must never fail over a
+  // nicety, hence the catch to null.
+  const [{ data: rawMemberships }, { data: activeApps }, { data: workspace }, profile] =
+    await Promise.all([
+      db
+        .from('app_membership')
+        .select('app_id, role, permissions, app:app_id (slug, name)')
+        .eq('user_id', ctx.userId),
+      db
+        .from('workspace_app')
+        .select('app_id')
+        .eq('workspace_id', user.workspace_id)
+        .is('deactivated_at', null),
+      db
+        .from('workspace')
+        .select('id, slug, name, plan, created_at, archived_at')
+        .eq('id', user.workspace_id)
+        .single(),
+      profileFor(ctx.userId).catch(() => null),
+    ]);
   const activeAppIds = new Set((activeApps ?? []).map((r) => r.app_id as string));
   // fibre-platform is The Fibre itself — there's no workspace_app row for it
   // because you can't deactivate the platform from itself. Always include
@@ -194,24 +211,7 @@ authRoutes.get('/me', async (c) => {
     if (appRow?.slug === 'fibre-platform') return true;
     return activeAppIds.has(m.app_id as string);
   });
-
-  const { data: workspace } = await db
-    .from('workspace')
-    .select('id, slug, name, plan, created_at, archived_at')
-    .eq('id', user.workspace_id)
-    .single();
-
-  // The interface language's durable copy (identity_profile.locale). The
-  // thefibre.locale cookie is per-browser — Sjoerd picked NL on his desktop
-  // and his phone stayed English (2026-09-07) — so layouts resolve
-  // cookie-first, THIS as the fallback. Non-fatal: /me must never fail
-  // over a nicety.
-  let locale: string | null = null;
-  try {
-    locale = (await profileFor(ctx.userId)).locale ?? null;
-  } catch {
-    /* stays null → English */
-  }
+  const locale: string | null = profile?.locale ?? null;
 
   return c.json({
     user,

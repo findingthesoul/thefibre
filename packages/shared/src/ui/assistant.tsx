@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Button } from './button.js';
-import { CARD, INSET, NOTICE, SECTION_LABEL } from './recipes.js';
+import { CARD, CHIP, CHIP_STATE, INSET, NOTICE, SECTION_LABEL } from './recipes.js';
 import { FIELD_CLASS } from './fields.js';
 
 /** A model message as the server returns it. Opaque to the UI. */
@@ -60,6 +60,10 @@ export interface AssistantLabels {
   close: string;
   failed: string;
   openThread: string;
+  /** Sent as the person's message when they click a template chip. {title} substituted. */
+  useTemplate: string;
+  /** Sent when they click a thread chip. {title} substituted. */
+  useThread: string;
 }
 
 export const ASSISTANT_LABELS_EN: AssistantLabels = {
@@ -76,7 +80,17 @@ export const ASSISTANT_LABELS_EN: AssistantLabels = {
   close: 'Close',
   failed: 'The assistant could not answer. Try again.',
   openThread: 'Open the thread',
+  useTemplate: 'Use the template “{title}”',
+  useThread: 'Work on “{title}”',
 };
+
+/** A pick-one offered under an answer: the templates or threads a tool just listed. */
+export interface AssistantChoice {
+  kind: 'template' | 'thread';
+  id: string;
+  title: string;
+  meta?: string | undefined;
+}
 
 /** What the person sees: their own lines and the assistant's text. */
 interface Line {
@@ -84,6 +98,50 @@ interface Line {
   text: string;
   steps?: AssistantStep[];
   openPath?: string | null;
+  choices?: AssistantChoice[];
+}
+
+/**
+ * Sjoerd, 2026-09-16: "a select box for which template, like in Claude". When
+ * the last tool the assistant ran listed templates or threads, offer them as
+ * chips under the answer; a click sends a plain sentence naming the choice, so
+ * the model sees exactly what the person would have typed.
+ */
+function choicesOf(messages: AssistantMessage[]): AssistantChoice[] {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m) continue;
+    if (m.role === 'user' && typeof m.content === 'string') return []; // past the last turn
+    if (m.role !== 'user' || !Array.isArray(m.content)) continue;
+    for (const b of m.content as { type?: string; content?: unknown }[]) {
+      if (b.type !== 'tool_result' || typeof b.content !== 'string') continue;
+      try {
+        const parsed = JSON.parse(b.content) as {
+          templates?: { id: string; title: string; duration_days?: number | null; format?: string | null }[];
+          threads?: { id: string; title: string | null; status?: string | null; starts_on?: string | null }[];
+        };
+        if (Array.isArray(parsed.templates) && parsed.templates.length) {
+          return parsed.templates.slice(0, 12).map((t) => ({
+            kind: 'template',
+            id: t.id,
+            title: t.title,
+            meta: [t.format, t.duration_days ? `${t.duration_days}d` : null].filter(Boolean).join(' · ') || undefined,
+          }));
+        }
+        if (Array.isArray(parsed.threads) && parsed.threads.length) {
+          return parsed.threads.slice(0, 12).map((t) => ({
+            kind: 'thread',
+            id: t.id,
+            title: t.title ?? t.id,
+            meta: [t.status, t.starts_on].filter(Boolean).join(' · ') || undefined,
+          }));
+        }
+      } catch {
+        /* not JSON */
+      }
+    }
+  }
+  return [];
 }
 
 export interface AssistantPanelProps {
@@ -153,8 +211,11 @@ export function AssistantPanel({
       setMessages(res.messages);
       setPending(res.pending);
       const openPath = openPathOf(res.messages);
+      // Offer chips only when nothing is waiting for approval — a proposal
+      // card is the one thing on screen then.
+      const choices = res.pending ? [] : choicesOf(res.messages);
       if (res.reply || res.steps.length) {
-        setLines((l) => [...l, { role: 'assistant', text: res.reply, steps: res.steps, openPath }]);
+        setLines((l) => [...l, { role: 'assistant', text: res.reply, steps: res.steps, openPath, choices }]);
       }
     } catch {
       setError(L.failed);
@@ -163,12 +224,21 @@ export function AssistantPanel({
     }
   }
 
-  function submit(e?: FormEvent) {
-    e?.preventDefault();
-    const text = draft.trim();
+  function say(text: string) {
     if (!text || busy || pending) return;
     setDraft('');
     void turn({ messages: [...messages, { role: 'user', content: text }] }, text);
+  }
+
+  function submit(e?: FormEvent) {
+    e?.preventDefault();
+    say(draft.trim());
+  }
+
+  function choose(c: AssistantChoice, lineIndex: number) {
+    // The chips belong to one answer; once picked they go, like a menu.
+    setLines((l) => l.map((line, i) => (i === lineIndex ? { ...line, choices: [] } : line)));
+    say((c.kind === 'template' ? L.useTemplate : L.useThread).replace('{title}', c.title));
   }
 
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -268,6 +338,22 @@ export function AssistantPanel({
                   )}
                   {line.text && (
                     <p className={line.role === 'user' ? '' : 'text-sm text-ink whitespace-pre-wrap'}>{line.text}</p>
+                  )}
+                  {line.choices && line.choices.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {line.choices.map((c) => (
+                        <button
+                          key={`${c.kind}-${c.id}`}
+                          type="button"
+                          disabled={busy || !!pending}
+                          onClick={() => choose(c, i)}
+                          className={`${CHIP} ${CHIP_STATE.off} disabled:opacity-50`}
+                        >
+                          {c.title}
+                          {c.meta && <span className="ml-1.5 text-ink-muted">{c.meta}</span>}
+                        </button>
+                      ))}
+                    </div>
                   )}
                   {line.openPath && onNavigate && (
                     <Button variant="secondary" size="sm" onClick={() => onNavigate(line.openPath!)}>
