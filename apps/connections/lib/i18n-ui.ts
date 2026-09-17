@@ -1052,6 +1052,17 @@ const CATALOG = {
     de: 'Nicht gesagt', // MT
     fr: 'Non précisé', // MT
   },
+  // The label over the kind picker in the composer. Sjoerd, 2026-09-17: "kind
+  // is: encounter" — the field names what the entry IS, not a "kind" of
+  // something. The generic `kind` key stays for anything else that needs it.
+  encounter_field: {
+    en: 'Encounter',
+    nl: 'Ontmoeting',
+    es: 'Encuentro', // MT
+    pt: 'Encontro', // MT
+    de: 'Begegnung', // MT
+    fr: 'Rencontre', // MT
+  },
   note_kind_encounter: {
     en: 'Ran into them',
     nl: 'Tegengekomen',

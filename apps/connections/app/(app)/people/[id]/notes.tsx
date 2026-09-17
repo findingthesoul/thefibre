@@ -275,6 +275,16 @@ const FOLLOW_UP_KIND_KEYS = {
 
 /** Fields side by side while each has 10rem, stacked when it has not. */
 const FIELD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]';
+/**
+ * The first row is different: ALWAYS one line, however narrow. Sjoerd,
+ * 2026-09-17, on his phone: "Put the three drop downs smaller, next to each
+ * other, so they all fit in one line." Two or three fields share the width
+ * equally (flex-1), each may shrink below its content (min-w-0) so a long
+ * team name truncates instead of pushing the row to wrap, and the gap closes
+ * up on a phone. The date field is `compact`, so its year and inline clear
+ * step aside below `sm`.
+ */
+const FIELD_ROW = 'flex gap-2 sm:gap-4 [&>*]:min-w-0 [&>*]:flex-1';
 
 /** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
 export function localStamp(d: Date): string {
@@ -844,13 +854,14 @@ export function Notes({
 
             Order, top to bottom: what happened and when, what was said, what
             comes next. "When" is a date, today by default. */}
-        {/* Columns by the room the COMPOSER has, not the window: the same box
-            sits in a wide page and in a narrow popup, and three columns in the
-            narrow one squeezed the date onto four lines (Sjoerd, 2026-09-14,
-            screenshot). A field is at least 10rem or it wraps to the next row. */}
-        <div className={FIELD_GRID}>
+        {/* One row, always (FIELD_ROW). This row used to wrap like the
+            follow-up row below when the composer was narrow, after three
+            columns squeezed the date onto four lines (Sjoerd, 2026-09-14).
+            The date now truncates and has a compact form, so the row can stay
+            a row on a phone as he asked on 2026-09-17. */}
+        <div className={FIELD_ROW}>
           <SelectField
-            label={t(locale, 'kind')}
+            label={t(locale, 'encounter_field')}
             value={kind}
             onChange={(e) => setKind(e.target.value as NoteKind)}
             options={KINDS.map((k) => ({ value: k, label: t(locale, KIND_KEYS[k]) }))}
@@ -861,6 +872,7 @@ export function Notes({
             name="happened_on"
             defaultValue={happenedOn}
             onValueChange={setHappenedOn}
+            compact
           />
           {/* A team only when there IS a team to choose: most workspaces never
               use teams this way. */}

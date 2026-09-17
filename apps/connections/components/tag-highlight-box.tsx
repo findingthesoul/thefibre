@@ -45,7 +45,9 @@ const TINT: Record<HighlightRange['kind'], string> = {
 };
 
 /** Shared by both layers so they cannot drift apart. */
-const METRICS = 'w-full text-sm leading-relaxed tracking-normal whitespace-pre-wrap break-words';
+// text-base sm:text-sm is FIELD_TEXT from @thefibre/shared/ui/fields, spelled
+// out because both layers must carry the identical string (see above).
+const METRICS = 'w-full text-base sm:text-sm leading-relaxed tracking-normal whitespace-pre-wrap break-words';
 
 export function TagHighlightBox({
   value,
