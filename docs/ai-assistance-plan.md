@@ -289,6 +289,19 @@ Could be built. Should not be, and the reasoning is already in the code.
   enrolled in a programme, from the platform's domain, on a five-minute
   timer"* (`app-keys.ts`). If an assistant ever gets it, it gets it explicitly
   and separately.
+
+  **That holds for an app key. It no longer describes the in-app assistant.**
+  v0.79.0 gave it `add_engagement`, whose own description says the message
+  types *"are emails to everyone enrolled, sent on a trigger"*. So the
+  capability exists on that path. What stands between a proposal and an inbox
+  is the approval card and the person who clicks it, not a missing scope, and
+  the tool is told to say what will be sent and when before proposing.
+
+  That is a defensible place to put the brake, and it is a different brake
+  from the one this section described. **The two paths have diverged and this
+  document should stop describing them as one.** An app key is bounded by
+  scopes the platform enforces. The in-app assistant is bounded by a human
+  reading a card. Both are real; only the first is structural.
 - **Author a flow.** `read:flows` exists; there is no `write:flows`. Editing
   steps, transitions and gates stays with humans.
 - **Decide anything on its own.** Admitting or declining an application is a
