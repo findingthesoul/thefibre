@@ -183,13 +183,12 @@ revoked key stops working within a minute (whoami is cached per key hash for
 
 ## 6. Not built yet
 
-- **A hosted server with OAuth.** Today a person mints a key and pastes it
-  into a config file. The MCP specification's remote flow (OAuth 2.1 with
-  dynamic client registration) would let someone add The Fibre to Claude.ai
-  by URL and sign in. The platform already has an OAuth provider
-  (`routes/oauth-provider.ts`); the piece missing is issuing an app-scoped
-  credential from a user's consent — which is a product decision about what
-  "the assistant acting for me" should be allowed to be.
+- **A hosted server with OAuth, acting as the person.** Today a person mints
+  a key and pastes it into a config file, and the server acts as an APP.
+  The planned next step is different in kind: sign in from Claude.ai or
+  ChatGPT, and the server acts as YOU — which is what Connections needs,
+  since a person's network is not an app's records. Planned in full in
+  [`mcp-personal-access-plan.md`](mcp-personal-access-plan.md).
 - **A first-party assistant app in the catalogue**, so a workspace can switch
   the capability on at Settings → Apps like any other app, with a manifest that
   declares sensible activity types (`assistant_noted`, …).

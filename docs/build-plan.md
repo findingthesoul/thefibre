@@ -1251,10 +1251,13 @@ middleware source. Stdio (Claude Desktop / Claude Code) and a stateless
 
 **Open, in the order they earn their place**
 
-- [ ] **Hosted server with OAuth 2.1** so a Claude.ai user adds The Fibre by
-  URL and signs in, instead of pasting a minted key into a config file. The
-  OAuth provider exists (`routes/oauth-provider.ts`); the missing decision is
-  what app-scoped credential a user's consent should mint. Product call.
+- [ ] **Hosted server with OAuth 2.1, acting as the PERSON** — planned in
+  full in `docs/mcp-personal-access-plan.md` (2026-09-18, for Sjoerd's "I
+  want to do something with Connections"). The credential question is
+  answered there: the grant holds the person's own Supabase refresh token,
+  so every route runs under their RLS unchanged. Four phases, three to four
+  sessions: sign-in → server + Connections read tools → first live turns →
+  writes + ChatGPT. Awaiting Sjoerd's go and the five decisions in its §6.
 - [ ] **A first-party assistant app in the catalogue** — switched on per
   workspace at Settings → Apps, with a manifest that declares its activity
   types, so a workspace need not register an app to use this.
