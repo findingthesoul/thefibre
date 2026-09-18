@@ -60,6 +60,11 @@ function fmtDisplay(d: Date, intl: string): string {
 function fmtDateOnly(d: Date, intl: string): string {
   return new Intl.DateTimeFormat(intl, { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
 }
+/** "14 Sep" — for `compact` DateFields on a phone, where three fields share
+ *  one row and the year does not fit. The year is one tap away in the popover. */
+function fmtDateShort(d: Date, intl: string): string {
+  return new Intl.DateTimeFormat(intl, { day: 'numeric', month: 'short' }).format(d);
+}
 function sameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -414,6 +419,7 @@ export function DateField({
   max,
   placeholder,
   onValueChange,
+  compact = false,
 }: {
   label: React.ReactNode;
   name: string;
@@ -424,6 +430,14 @@ export function DateField({
   max?: string | null;
   placeholder?: string;
   onValueChange?: (v: string) => void;
+  /**
+   * For a field that shares one row with two others on a phone (the
+   * Connections composer: Sjoerd, 2026-09-17, "put the three drop downs
+   * smaller, next to each other, so they all fit in one line"). Below `sm`
+   * the trigger shows "14 Sep" instead of "14 Sep 2026" and drops the inline
+   * clear, which the popover still offers. From `sm` up nothing changes.
+   */
+  compact?: boolean;
 }) {
   const locale: Locale = useLocale();
   const [value, setValue] = useState<string>(defaultValue?.slice(0, 10) ?? '');
@@ -460,7 +474,7 @@ export function DateField({
         ref={btnRef}
         type="button"
         onClick={toggle}
-        className="mt-1 w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none"
+        className="mt-1 w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-base sm:text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none"
       >
         {/* One line, always: "14 Sep 2026", no weekday, and truncated rather
             than wrapped. Sjoerd, 2026-09-14, a date in a third-width column
@@ -468,16 +482,25 @@ export function DateField({
             write format that works". DateTimeField keeps the weekday — for
             scheduling a session it is the fact an organiser checks. */}
         <span className={`min-w-0 truncate whitespace-nowrap ${selected ? 'text-ink' : 'text-ink-muted'}`}>
-          {selected
-            ? fmtDateOnly(selected, INTL_LOCALES[locale])
-            : placeholder ?? chromeT(locale, 'pick_date')}
+          {selected ? (
+            compact ? (
+              <>
+                <span className="sm:hidden">{fmtDateShort(selected, INTL_LOCALES[locale])}</span>
+                <span className="hidden sm:inline">{fmtDateOnly(selected, INTL_LOCALES[locale])}</span>
+              </>
+            ) : (
+              fmtDateOnly(selected, INTL_LOCALES[locale])
+            )
+          ) : (
+            placeholder ?? chromeT(locale, 'pick_date')
+          )}
         </span>
         <span className="flex shrink-0 items-center gap-1.5 text-ink-muted">
           {value && (
             <X
               size={15}
               strokeWidth={1.75}
-              className="hover:text-ink"
+              className={compact ? 'hidden sm:block hover:text-ink' : 'hover:text-ink'}
               onClick={(e) => {
                 e.stopPropagation();
                 clear();
@@ -592,7 +615,7 @@ export function DateTimeField({
         ref={btnRef}
         type="button"
         onClick={toggle}
-        className={`w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
+        className={`w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-base sm:text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
           label !== undefined ? 'mt-1' : ''
         }`}
       >
