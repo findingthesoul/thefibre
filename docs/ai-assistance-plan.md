@@ -97,6 +97,14 @@ the database understands, and RLS already decides what they may see.
 4. From then on her assistant can call the MCP server, and **every call runs as
    her**.
 
+**The design that got chosen is better than step 3 as written here.** Rather
+than mint a Fibre-specific seat token, `mcp-personal-access-plan.md` §3.1
+keeps the person's own encrypted Supabase refresh token as an `mcp_grant`, the
+way Google refresh tokens already live in `user_connection`. So there is no
+new identity to reason about: every Connections route works unchanged, RLS and
+all. Read that section rather than this one for how it actually works; the
+consequence below is the same either way.
+
 The consequence worth repeating: her assistant sees exactly what she sees in
 her browser. Not because the server is written carefully, but because the same
 policies run. A careless tool cannot widen it.
@@ -116,7 +124,7 @@ policies run. A careless tool cannot widen it.
 | # | What | Why this order | Needs |
 |---|---|---|---|
 | **1** | ~~Read-only server, one seat, run locally against staging~~ **SHIPPED 2026-09-15, v0.76.0** — `packages/mcp`, on staging | Proves people actually ask questions before any consent UI exists | Done. See the note below |
-| **2** | The connect flow: seat token, consent screen, revocation, audit | This is the product. Everything else rides on it | OAuth-style flow; the token is the only genuinely new thing |
+| **2** | The connect flow: consent screen, grant, revocation, audit | This is the product. Everything else rides on it | **Planned in full 2026-09-18: [`mcp-personal-access-plan.md`](mcp-personal-access-plan.md).** Three to four sessions, not the "one genuinely new thing" guessed here |
 | **3** | Writes, narrowly: notes and follow-ups | Aims at capture, which `connections-overview.md` calls the central risk | Phase 2 + a rule that assistant writes are marked as such |
 | **4** | Steering: ask for a screen, get taken to it | Only worth it once reading and writing are proven | Phase 2 + a command surface (see §4.3) |
 | **5** | Compositions: the preparation brief, the year in review | These are products, not plumbing | Phases 1 to 3 |
@@ -332,6 +340,14 @@ No permission would help. The information does not exist.
 ---
 
 ## 7. Open decisions
+
+**The ones with a date on them have moved.**
+[`mcp-personal-access-plan.md`](mcp-personal-access-plan.md) §6 holds the five
+live decisions for route (2): go or no go on a read-only v1, the disclosure
+line in the privacy statement, grant lifetime, where the consent page lives,
+and which address it prints. Decide them there. What follows is what this
+document still owns.
+
 
 1. **A or B in §1**, or A now and B later.
 2. **Are assistant writes marked as such?** Recommendation: yes, visibly, and
