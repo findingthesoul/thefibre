@@ -1221,6 +1221,7 @@ canvas, timeline editor) are deliberately desktop-first.
 | `docs/building-on-the-fibre.md` | The app contract — everything an in-family or external app must obey |
 | `docs/brief-external-apps.md` | How third-party apps integrate (app keys, scopes, links) |
 | `docs/mcp.md` | The app-key contract as MCP tools for an AI assistant (`packages/mcp`) |
+| `docs/mcp-personal-access-plan.md` | Plan: The Fibre reached from a person's own Claude/ChatGPT, acting as that person (Connections first) |
 | `docs/build-plan.md` | **The** Open queue (to-do), groomed every ship |
 | `CHANGELOG.md` | The shipped record, narrative per release |
 | `docs/deploy.md` / `docs/environments.md` | Prod / staging runbooks incl. every env var and hard-won gotcha |
