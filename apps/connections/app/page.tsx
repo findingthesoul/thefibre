@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { SignInButton } from './sign-in-button';
-import { appUrl } from '@thefibre/shared';
+import { APPS, appUrl } from '@thefibre/shared';
 import { AppLanding } from '@thefibre/shared/ui/app-landing';
 
 export default async function ConnectionsLanding() {
@@ -17,10 +17,15 @@ export default async function ConnectionsLanding() {
       fibreUrl={appUrl('fibre-platform', process.env)}
       signIn={<SignInButton />}
       headline="Where everybody stands."
-      intro="A community is too big to hold in your head and too important to
-          guess at. Connections works out where each person is from what has
-          actually happened — who came, who came back, who contributes, who
-          holds space — and tells you who has gone quiet."
+      // The app's own name comes from branding, never typed here. This line
+      // still said "Connections" for an hour after the rename to Connect
+      // (2026-09-21) — on the sign-in page, which is the first thing a new
+      // person reads. brand-names.test.ts now fails the release if the
+      // interpolation below is replaced by a literal again.
+      intro={`A community is too big to hold in your head and too important to
+          guess at. ${APPS['fibre-sales'].name} works out where each person is
+          from what has actually happened — who came, who came back, who
+          contributes, who holds space — and tells you who has gone quiet.`}
       features={[
         {
           title: 'Nothing to fill in',

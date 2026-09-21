@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.87.1] — 2026-09-21 — The sign-in page learned the new name too (staging)
+
+One line the rename missed, and the worst one to miss: the sign-in page's own
+description still said "Connections works out where each person is…". That is
+the first sentence a person who has never used the app reads.
+
+It was typed out rather than read from branding, which is the exact thing the
+rename's new test was written to prevent — and the test did not cover this
+file. It does now, and it checks the interpolation is still there rather than
+the words, so replacing it with a literal fails the release whatever that
+literal says.
+
 ## [0.87.0] — 2026-09-21 — Connections is Connect, at a new address (staging)
 
 Sjoerd: *"I want to rename connections to connect."*

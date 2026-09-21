@@ -60,6 +60,22 @@ describe('the name of an app is written once', () => {
       .toBe(true);
   });
 
+  it('is not typed out on the sign-in page, which is read before anything else', () => {
+    // This one was missed by the rename and shipped saying the old name on
+    // the page a new person meets first. The fix was to interpolate from
+    // branding; the guard is that the interpolation is still there.
+    const src = read('apps/connections/app/page.tsx');
+    const intro = src.slice(src.indexOf('intro='), src.indexOf('features='));
+    expect(intro).toContain("${APPS['fibre-sales'].name}");
+    // And no retired name survives anywhere in the prose on that page. Each
+    // rename adds a line here; they are historical facts, not a list that
+    // can go stale.
+    for (const retired of ['Fibre Sales', 'Connections']) {
+      const prose = src.slice(src.indexOf('<AppLanding'));
+      expect(prose.includes(`. ${retired} `) || prose.includes(`>${retired}<`)).toBe(false);
+    }
+  });
+
   it('keeps the slug and the directory whatever the name is', () => {
     // The two things a rename may not touch, asserted so a future rename
     // reads this line before reaching for them.
