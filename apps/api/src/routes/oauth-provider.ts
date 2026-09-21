@@ -3,6 +3,28 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
 import { appUrl } from '@thefibre/shared';
 import { adminClient } from '../db.js';
+import { clientIp, hit } from '../lib/rate-limit.js';
+import { pkceMatches, redirectUriAcceptable } from '../lib/mcp/pkce.js';
+import {
+  ACCESS_TOKEN_TTL_S,
+  grantFromRefreshToken,
+  issueRefreshToken,
+  loadGrant,
+  revokeGrant,
+  signAccessToken,
+} from '../lib/mcp/grants.js';
+import { MCP_RESOURCE_PATH, MCP_SCOPES, publicOrigin } from './mcp-discovery.js';
+
+// ---------------------------------------------------------------------------
+// Since v0.83.0 this provider serves TWO kinds of client
+// (docs/mcp-personal-access-plan.md §3.2):
+//   'sso' — the Circle flow below, unchanged: a secret, one workspace, /me.
+//   'mcp' — a person's own assistant (Claude, ChatGPT…). Self-registered
+//           (POST /register), public (no secret), PKCE, consent in The Fibre
+//           web at /connect, refresh tokens, and the token it gets carries a
+//           GRANT id — lib/mcp/grants.ts — never a person's identity outright.
+// The branches are marked; the sso path is byte-for-byte what shipped.
+// ---------------------------------------------------------------------------
 
 // ===========================================================================
 // The Fibre as OAuth2 provider — Circle SSO SPIKE (2026-09-05).
@@ -84,17 +106,21 @@ function secretMatches(secret: string, storedHash: string): boolean {
 
 type OAuthClient = {
   id: string;
-  workspace_id: string;
+  /** Null for an MCP client: the workspace is chosen per grant, at consent. */
+  workspace_id: string | null;
   name: string;
   client_id: string;
-  client_secret_hash: string;
+  /** Null for a public (MCP) client. */
+  client_secret_hash: string | null;
   redirect_uris: string[];
+  kind: 'sso' | 'mcp';
+  metadata: Record<string, unknown>;
 };
 
-async function loadClient(clientId: string): Promise<OAuthClient | null> {
+export async function loadClient(clientId: string): Promise<OAuthClient | null> {
   const { data, error } = await adminClient
     .from('oauth_client')
-    .select('id, workspace_id, name, client_id, client_secret_hash, redirect_uris')
+    .select('id, workspace_id, name, client_id, client_secret_hash, redirect_uris, kind, metadata')
     .eq('client_id', clientId)
     .maybeSingle();
   if (error) {
@@ -104,8 +130,20 @@ async function loadClient(clientId: string): Promise<OAuthClient | null> {
   return (data as OAuthClient | null) ?? null;
 }
 
-function redirectUriAllowed(client: OAuthClient, uri: string): boolean {
+export function redirectUriAllowed(client: OAuthClient, uri: string): boolean {
   return client.redirect_uris.includes(uri);
+}
+
+/** The Fibre web app, where the MCP consent page lives. */
+function fibreWebUrl(host: string | null): string {
+  return (process.env.FIBRE_WEB_URL ?? appUrl('fibre-platform', process.env, host)).replace(/\/+$/, '');
+}
+
+/** Scopes a client asked for, narrowed to what a person can grant (reads only in phase 1). */
+export function narrowScopes(requested: string | null | undefined): string[] {
+  const asked = (requested ?? '').split(/[\s,]+/).filter(Boolean);
+  const allowed = asked.filter((s): s is (typeof MCP_SCOPES)[number] => (MCP_SCOPES as readonly string[]).includes(s));
+  return allowed.length ? [...new Set(allowed)] : [...MCP_SCOPES];
 }
 
 type MemberIdentity = {
@@ -223,7 +261,30 @@ oauthProviderRoutes.get('/authorize', async (c) => {
     return c.html(errorPage('Unsupported response type', 'Only response_type=code is supported.'), 400);
   }
 
-  // Hand the browser to the membership app, which owns the sign-in UI.
+  // --- mcp: PKCE is mandatory, and consent happens in The Fibre web. -------
+  if (client.kind === 'mcp') {
+    const challenge = c.req.query('code_challenge');
+    const method = c.req.query('code_challenge_method') ?? 'plain';
+    if (!challenge || method !== 'S256') {
+      return c.html(
+        errorPage('PKCE required', 'Connecting an assistant needs code_challenge with code_challenge_method=S256.'),
+        400,
+      );
+    }
+    const next = new URL(`${fibreWebUrl(c.req.header('x-forwarded-host') ?? c.req.header('host') ?? null)}/connect`);
+    next.searchParams.set('client_id', clientId);
+    next.searchParams.set('redirect_uri', redirectUri);
+    next.searchParams.set('code_challenge', challenge);
+    next.searchParams.set('code_challenge_method', 'S256');
+    if (state) next.searchParams.set('state', state);
+    const scope = c.req.query('scope');
+    if (scope) next.searchParams.set('scope', scope);
+    const resource = c.req.query('resource');
+    if (resource) next.searchParams.set('resource', resource);
+    return c.redirect(next.toString(), 302);
+  }
+
+  // --- sso: hand the browser to the membership app, which owns the sign-in UI.
   const next = new URL(`${MEMBERSHIP_APP_URL}/oauth-continue`);
   next.searchParams.set('client_id', clientId);
   next.searchParams.set('redirect_uri', redirectUri);
@@ -253,6 +314,8 @@ oauthProviderRoutes.post('/continue', async (c) => {
   if (!client || !redirectUriAllowed(client, body.redirect_uri)) {
     return c.json({ error: 'unknown client or redirect_uri' }, 400);
   }
+  // An MCP client never comes through here: its consent lives at /connect.
+  if (client.kind !== 'sso' || !client.workspace_id) return c.json({ error: 'unknown client or redirect_uri' }, 400);
 
   const member = await activeMemberByEmail(client.workspace_id, email);
   if (!member) {
@@ -330,15 +393,65 @@ oauthProviderRoutes.post('/token', async (c) => {
   }
 
   const { grant_type, code, client_id, client_secret, redirect_uri } = params;
+
+  // --- mcp: a refresh. The grant is found by the token; the client is checked
+  // against the grant, not the other way round.
+  if (grant_type === 'refresh_token') {
+    if (!params.refresh_token) return c.json({ error: 'invalid_request' }, 400);
+    const grant = await grantFromRefreshToken(params.refresh_token);
+    if (!grant || (client_id && client_id !== grant.client_id)) {
+      return c.json({ error: 'invalid_grant' }, 400);
+    }
+    const resource = `${publicOrigin(c.req.raw.headers)}${MCP_RESOURCE_PATH}`;
+    const [access_token, refresh_token] = await Promise.all([signAccessToken(grant, resource), issueRefreshToken(grant)]);
+    return c.json({ access_token, token_type: 'Bearer', expires_in: ACCESS_TOKEN_TTL_S, refresh_token, scope: grant.scopes.join(' ') });
+  }
+
   if (grant_type !== 'authorization_code') {
     return c.json({ error: 'unsupported_grant_type' }, 400);
   }
-  if (!code || !client_id || !client_secret) {
+  if (!code || !client_id) {
     return c.json({ error: 'invalid_request' }, 400);
   }
 
   const client = await loadClient(client_id);
-  if (!client || !secretMatches(client_secret, client.client_secret_hash)) {
+  if (!client) return c.json({ error: 'invalid_client' }, 401);
+
+  // --- mcp: public client, PKCE instead of a secret, and the code carries the grant.
+  if (client.kind === 'mcp') {
+    const { data: codeRow } = await adminClient
+      .from('oauth_code')
+      .select('code, client_id, redirect_uri, expires_at, used_at, grant_id, code_challenge, code_challenge_method')
+      .eq('code', code)
+      .eq('client_id', client_id)
+      .maybeSingle();
+    if (
+      !codeRow ||
+      codeRow.used_at ||
+      new Date(codeRow.expires_at as string).getTime() < Date.now() ||
+      (redirect_uri && redirect_uri !== codeRow.redirect_uri) ||
+      !pkceMatches(params.code_verifier, codeRow.code_challenge as string | null, codeRow.code_challenge_method as string | null)
+    ) {
+      return c.json({ error: 'invalid_grant' }, 400);
+    }
+    const { data: claimed } = await adminClient
+      .from('oauth_code')
+      .update({ used_at: new Date().toISOString() })
+      .eq('code', code)
+      .is('used_at', null)
+      .select('code');
+    if (!claimed || claimed.length === 0) return c.json({ error: 'invalid_grant' }, 400);
+
+    const grant = codeRow.grant_id ? await loadGrant(codeRow.grant_id as string) : null;
+    if (!grant || grant.revoked_at) return c.json({ error: 'invalid_grant' }, 400);
+    const resource = `${publicOrigin(c.req.raw.headers)}${MCP_RESOURCE_PATH}`;
+    const [access_token, refresh_token] = await Promise.all([signAccessToken(grant, resource), issueRefreshToken(grant)]);
+    return c.json({ access_token, token_type: 'Bearer', expires_in: ACCESS_TOKEN_TTL_S, refresh_token, scope: grant.scopes.join(' ') });
+  }
+
+  // --- sso: the Circle path, as shipped.
+  if (!client_secret) return c.json({ error: 'invalid_request' }, 400);
+  if (!client.client_secret_hash || !secretMatches(client_secret, client.client_secret_hash)) {
     return c.json({ error: 'invalid_client' }, 401);
   }
 
@@ -396,6 +509,102 @@ oauthProviderRoutes.post('/token', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /register — dynamic client registration (RFC 7591) for MCP clients.
+// Unauthenticated by nature: Claude.ai or ChatGPT calls it once, the first
+// time a person points it at The Fibre. So: braked per IP (on top of the
+// public-POST family brake), redirect URIs must be https or loopback, and a
+// registration grants NOTHING — a client is only a name until a signed-in
+// person consents at /connect, and its scopes are narrowed to what that
+// person may grant. Public clients only: no secret is minted or accepted.
+// ---------------------------------------------------------------------------
+
+const REGISTRATIONS_PER_DAY = 20;
+
+oauthProviderRoutes.post('/register', async (c) => {
+  const brake = hit(`oauth-register:${clientIp(c.req.raw.headers)}`, REGISTRATIONS_PER_DAY, 86_400_000);
+  if (!brake.allowed) {
+    c.header('Retry-After', String(brake.resetSeconds));
+    return c.json({ error: 'invalid_client_metadata', error_description: 'too many registrations from this address today' }, 429);
+  }
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body) return c.json({ error: 'invalid_client_metadata', error_description: 'JSON body required' }, 400);
+
+  const redirectUris = Array.isArray(body.redirect_uris)
+    ? (body.redirect_uris as unknown[]).filter((u): u is string => typeof u === 'string').slice(0, 10)
+    : [];
+  if (redirectUris.length === 0 || !redirectUris.every(redirectUriAcceptable)) {
+    return c.json(
+      { error: 'invalid_redirect_uri', error_description: 'redirect_uris must be https, or http on localhost' },
+      400,
+    );
+  }
+  const authMethod = typeof body.token_endpoint_auth_method === 'string' ? body.token_endpoint_auth_method : 'none';
+  if (authMethod !== 'none') {
+    return c.json(
+      { error: 'invalid_client_metadata', error_description: 'only public clients (token_endpoint_auth_method=none) are registered here' },
+      400,
+    );
+  }
+  const name = (typeof body.client_name === 'string' && body.client_name.trim().slice(0, 120)) || 'An assistant';
+  const metadata: Record<string, unknown> = {};
+  for (const k of ['client_name', 'client_uri', 'logo_uri', 'software_id', 'software_version', 'contacts']) {
+    if (body[k] !== undefined) metadata[k] = body[k];
+  }
+
+  const clientId = `mcp_${randomBytes(16).toString('base64url')}`;
+  const { error } = await adminClient.from('oauth_client').insert({
+    name,
+    client_id: clientId,
+    client_secret_hash: null,
+    workspace_id: null,
+    redirect_uris: redirectUris,
+    kind: 'mcp',
+    metadata,
+  });
+  if (error) {
+    console.error('[oauth] client registration failed', error);
+    return c.json({ error: 'server_error' }, 500);
+  }
+  return c.json(
+    {
+      client_id: clientId,
+      client_id_issued_at: Math.floor(Date.now() / 1000),
+      client_name: name,
+      redirect_uris: redirectUris,
+      token_endpoint_auth_method: 'none',
+      grant_types: ['authorization_code', 'refresh_token'],
+      response_types: ['code'],
+      scope: MCP_SCOPES.join(' '),
+    },
+    201,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// POST /revoke — RFC 7009. A client (or a person, through it) hands back a
+// refresh token; the grant behind it is disconnected. Always 200: the RFC
+// says a revocation of an unknown token is not an error, and answering
+// differently would let a caller probe which tokens exist.
+// ---------------------------------------------------------------------------
+
+oauthProviderRoutes.post('/revoke', async (c) => {
+  let token: string | undefined;
+  const ct = c.req.header('content-type') ?? '';
+  if (ct.includes('application/json')) {
+    const body = (await c.req.json().catch(() => null)) as { token?: string } | null;
+    token = body?.token;
+  } else {
+    const body = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+    token = typeof body.token === 'string' ? body.token : undefined;
+  }
+  if (token) {
+    const grant = await grantFromRefreshToken(token);
+    if (grant) await revokeGrant(grant.id);
+  }
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
 // GET /me — user info. WP-OAuth's client sends ?access_token=…; Bearer
 // header accepted too. Answers the WP user shape UNION generic OIDC-ish
 // claims, and re-checks the membership is still active on every call.
@@ -424,7 +633,7 @@ oauthProviderRoutes.on(['GET', 'POST'], '/me', async (c) => {
   }
 
   const client = await loadClient(clientId);
-  if (!client) return c.json({ error: 'invalid_token' }, 401);
+  if (!client || client.kind !== 'sso' || !client.workspace_id) return c.json({ error: 'invalid_token' }, 401);
 
   const member = await activeMemberByEmail(client.workspace_id, email);
   if (!member) {

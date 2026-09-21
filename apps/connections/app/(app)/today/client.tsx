@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CalendarClock, CheckSquare, Receipt, UserRound } from 'lucide-react';
+import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { formatMinutes } from '@/lib/effort-format';
 
@@ -215,7 +216,12 @@ export function Today({
           <p className="mt-3 text-sm text-ink-muted">{t(locale, 'today_prepare_none')}</p>
         )}
 
-        <ul className="mt-3 space-y-1.5">
+        {/* The same list shape as the agenda above and the people list:
+            rows to the screen edges with a hairline between them, which is
+            what Sjoerd pointed at on 2026-09-21 comparing this page with iOS
+            Recents and Gmail. A card per row is what made it read as
+            something other than a list. */}
+        <ul className={`mt-3 ${ROW_LIST}`}>
           {data.prepare.map((r) => {
             const Icon = SIGNAL_ICONS[r.signal];
             // Exactly ONE destination per row, never a menu (§4.4). A person
@@ -254,16 +260,14 @@ export function Today({
             );
 
             return (
-              <li
-                key={r.id}
-                className="rounded-md border border-line bg-surface-raised px-3 py-2.5"
-              >
+              <li key={r.id}>
                 {href ? (
-                  <Link href={href} className="block">
+                  // The whole row is the target, as in every list app.
+                  <Link href={href} className="block px-4 py-3 hover:bg-surface-sunken sm:px-5">
                     {body}
                   </Link>
                 ) : (
-                  body
+                  <div className="px-4 py-3 sm:px-5">{body}</div>
                 )}
               </li>
             );
@@ -282,7 +286,7 @@ export function Today({
           <p className="mt-3 text-sm text-ink-muted">{t(locale, 'today_owed_none')}</p>
         )}
 
-        <ul className="mt-3 space-y-1.5">
+        <ul className={`mt-3 ${ROW_LIST}`}>
           {data.owed.map((o) => {
             const days = Math.round((new Date(o.due_at).getTime() - now) / DAY);
             const subject = o.person
@@ -309,16 +313,16 @@ export function Today({
               </>
             );
             return (
-              <li
-                key={o.id}
-                className="rounded-md border border-line bg-surface-raised px-3 py-2.5"
-              >
+              <li key={o.id}>
                 {o.person ? (
-                  <Link href={`${personBase}/${o.person.id}`} className="block">
+                  <Link
+                    href={`${personBase}/${o.person.id}`}
+                    className="block px-4 py-3 hover:bg-surface-sunken sm:px-5"
+                  >
                     {body}
                   </Link>
                 ) : (
-                  body
+                  <div className="px-4 py-3 sm:px-5">{body}</div>
                 )}
               </li>
             );

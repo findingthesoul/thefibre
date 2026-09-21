@@ -16,6 +16,7 @@ import { connectionsLabelsRoutes } from './routes/connections-labels.js';
 import { connectionsTagsRoutes } from './routes/connections-tags.js';
 import { connectionsTeamsRoutes } from './routes/connections-teams.js';
 import { connectionsAgendaRoutes } from './routes/connections-agenda.js';
+import { connectionsCalendarsRoutes } from './routes/connections-calendars.js';
 import { connectionsHygieneRoutes } from './routes/connections-hygiene.js';
 import { connectionsMapRoutes } from './routes/connections-map.js';
 import { connectionsEffortRoutes } from './routes/connections-effort.js';
@@ -56,6 +57,9 @@ import { uploadRoutes } from './routes/uploads.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
 import { authHookRoutes } from './routes/auth-hook.js';
+import { mcpDiscoveryRoutes } from './routes/mcp-discovery.js';
+import { mcpAuthRoutes } from './routes/mcp-auth.js';
+import { mcpRoutes } from './routes/mcp.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { maybeSyncVatRates } from './lib/vat-sync.js';
 import { ensureStripeTaxRates } from './lib/vat-stripe.js';
@@ -275,10 +279,24 @@ const allowlistCors = cors({
   credentials: true,
 });
 
+// The OAuth surface an MCP client talks to from wherever it runs — a
+// desktop app, Anthropic's or OpenAI's servers, a browser-based inspector.
+// Discovery documents are public by definition; register/token/revoke are
+// protected by PKCE and the per-IP brakes, not by origin. So these answer
+// any origin, and the workspace allowlist below skips them.
+const OPEN_OAUTH_PATHS = new Set(['/api/v1/oauth/register', '/api/v1/oauth/token', '/api/v1/oauth/revoke', '/api/v1/mcp']);
+const openCors = cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Mcp-Session-Id', 'Mcp-Protocol-Version'], allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'], exposeHeaders: ['Mcp-Session-Id', 'WWW-Authenticate'] });
+app.use('/.well-known/*', openCors);
+for (const p of OPEN_OAUTH_PATHS) app.use(p, openCors);
+
 app.use('*', async (c, next) => {
-  if (isPublishedReadPath(c.req.path)) return next();
+  if (isPublishedReadPath(c.req.path) || c.req.path.startsWith('/.well-known/') || OPEN_OAUTH_PATHS.has(c.req.path)) return next();
   return allowlistCors(c, next);
 });
+
+// OAuth discovery for MCP clients (routes/mcp-discovery.ts) — at the origin
+// root, where RFC 8414 / 9728 say they live; outside /api/v1 so no auth runs.
+app.route('/', mcpDiscoveryRoutes);
 
 app.get('/health', (c) => c.json({ ok: true, service: 'thefibre-api' }));
 
@@ -305,6 +323,7 @@ v1.route('/connections', connectionsLabelsRoutes);
 v1.route('/connections', connectionsTagsRoutes);
 v1.route('/connections', connectionsTeamsRoutes);
 v1.route('/connections', connectionsAgendaRoutes);
+v1.route('/connections', connectionsCalendarsRoutes);
 v1.route('/connections', connectionsHygieneRoutes);
 v1.route('/connections', connectionsMapRoutes);
 v1.route('/connections', connectionsEffortRoutes);
@@ -314,6 +333,11 @@ v1.route('/membership/portal', membershipPortalRoutes);
 // The in-app assistant (docs/assistant-in-app.md). User sessions only; the
 // app-key allow-list in middleware/app-context.ts keeps keys out of it.
 v1.route('/assistant', assistantRoutes);
+// A person's own assistant, acting as them (docs/mcp-personal-access-plan.md):
+// consent + grants under the user session; the MCP endpoint carries its own
+// bearer (a public path in middleware/app-context.ts, verified in the handler).
+v1.route('/mcp-auth', mcpAuthRoutes);
+v1.route('/mcp', mcpRoutes);
 // The visitor's own place, across every app (docs/visitor-portal-proposal.md).
 v1.route('/me', portalRoutes);
 v1.route('/oauth', oauthProviderRoutes);

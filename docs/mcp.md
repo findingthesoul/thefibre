@@ -183,11 +183,11 @@ revoked key stops working within a minute (whoami is cached per key hash for
 
 ## 6. Not built yet
 
-- **A hosted server with OAuth, acting as the person.** Today a person mints
-  a key and pastes it into a config file, and the server acts as an APP.
-  The planned next step is different in kind: sign in from Claude.ai or
-  ChatGPT, and the server acts as YOU — which is what Connections needs,
-  since a person's network is not an app's records. Planned in full in
+- ~~A hosted server with OAuth, acting as the person.~~ **Built, v0.85.0.**
+  `/api/v1/mcp` on the API: sign in from Claude Desktop, Claude.ai or
+  Claude Code, and the server acts as YOU, under your own RLS — Connections
+  and Thread reads. This stdio server stays for the APP-shaped case (an app
+  key, no person). Design, setup and what is next in
   [`mcp-personal-access-plan.md`](mcp-personal-access-plan.md).
 - **A first-party assistant app in the catalogue**, so a workspace can switch
   the capability on at Settings → Apps like any other app, with a manifest that

@@ -29,6 +29,7 @@ import { applySuggestion, lookup, type ActiveToken, type Suggestion } from '@/li
 import { DateField, DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { FIELD_ROW, localStamp } from '@/lib/note-fields';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
   saveNote,
@@ -275,12 +276,12 @@ const FOLLOW_UP_KIND_KEYS = {
 
 /** Fields side by side while each has 10rem, stacked when it has not. */
 const FIELD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]';
-
-/** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
-export function localStamp(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+// FIELD_ROW (the composer's first row) and localStamp live in
+// lib/note-fields.ts, imported at the top of this file: Today's meeting
+// write-up uses both, and importing them FROM here would pull this whole
+// module into that page's bundle. localStamp is re-exported because other
+// callers already take it from here.
+export { localStamp };
 
 function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
   return KIND_KEYS[kind as NoteKind] ?? KIND_KEYS.note;
@@ -844,13 +845,14 @@ export function Notes({
 
             Order, top to bottom: what happened and when, what was said, what
             comes next. "When" is a date, today by default. */}
-        {/* Columns by the room the COMPOSER has, not the window: the same box
-            sits in a wide page and in a narrow popup, and three columns in the
-            narrow one squeezed the date onto four lines (Sjoerd, 2026-09-14,
-            screenshot). A field is at least 10rem or it wraps to the next row. */}
-        <div className={FIELD_GRID}>
+        {/* One row, always (FIELD_ROW). This row used to wrap like the
+            follow-up row below when the composer was narrow, after three
+            columns squeezed the date onto four lines (Sjoerd, 2026-09-14).
+            The date now truncates and has a compact form, so the row can stay
+            a row on a phone as he asked on 2026-09-17. */}
+        <div className={FIELD_ROW}>
           <SelectField
-            label={t(locale, 'kind')}
+            label={t(locale, 'encounter_field')}
             value={kind}
             onChange={(e) => setKind(e.target.value as NoteKind)}
             options={KINDS.map((k) => ({ value: k, label: t(locale, KIND_KEYS[k]) }))}
@@ -861,6 +863,7 @@ export function Notes({
             name="happened_on"
             defaultValue={happenedOn}
             onValueChange={setHappenedOn}
+            compact
           />
           {/* A team only when there IS a team to choose: most workspaces never
               use teams this way. */}

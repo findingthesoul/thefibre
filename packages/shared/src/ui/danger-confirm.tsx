@@ -10,6 +10,7 @@ import { TriangleAlert } from 'lucide-react';
 import { Dialog } from './dialog.js';
 import { Button } from './button.js';
 import { chromeT, useLocale } from './i18n-ui.js';
+import { FIELD_TEXT } from './fields.js';
 
 export function DangerConfirmDialog({
   open,
@@ -84,7 +85,7 @@ export function DangerConfirmDialog({
             autoFocus
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm font-mono tracking-widest focus:border-red-400 focus:outline-none"
+            className={`mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 ${FIELD_TEXT} font-mono tracking-widest focus:border-red-400 focus:outline-none`}
             placeholder="DELETE"
           />
         </label>

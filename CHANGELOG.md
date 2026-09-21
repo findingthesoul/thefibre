@@ -6,6 +6,252 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.86.0] — 2026-09-21 — A phone's own margin, and timestamps that are true (staging)
+
+**"The landscape interface: full width."** Every page had 32px of margin down
+each side whatever the screen, which on a 375px phone is a sixth of the width
+spent on nothing — and the pages that run columns or a map across the screen
+lose the most. It is 16px on a phone now, which is what iOS uses, and 32px
+again from a tablet up.
+
+The full-bleed row list from v0.81.0 moves with it, and a test now fails the
+release if the two ever disagree: bleed by less than the margin and a list
+stops short of the edge, bleed by more and the whole page scrolls sideways.
+Neither shows up in a typecheck, a build, or any test of behaviour, and the
+second one is invisible on a desktop browser.
+
+**And a timestamp that has been lying since the first migration.** Chasing
+Sjoerd's "can it be that How you know them is not saving?", the first thing to
+check was when his row last changed. It said five days ago — hours after three
+writes had come through the log. Not because they failed: because nothing has
+ever set `updated_at` on the curator tables after the insert. The column
+carries `default now()`, the API's upsert does not send it, and there was no
+trigger. `person_professional`, `person_relationship_context`,
+`person_change_context`, `person_learning`, `org_identity` and
+`org_system_context` all have one now.
+
+It is a trigger rather than a column the API sets, because the API is not the
+only writer — a migration, a backfill and a support fix all write these tables
+— and a timestamp that is only true when one caller remembers to set it is the
+thing being fixed. `person_billing` has no such column at all and is left
+alone; adding one is a separate decision.
+
+Migration `20260921160000_curator_updated_at.sql`.
+
+## [0.85.2] — 2026-09-21 — The API image knows about packages/mcp (staging)
+
+v0.85.0's staging API deploy failed to build: the Dockerfile copies the
+workspace packages the API depends on by name, and `packages/mcp` — which
+the API imports since v0.85.0 for the MCP endpoint — was not on the list, so
+`tsc` could not find `@thefibre/mcp/person`. Two COPY lines. Nothing else
+changes; the v0.85.0 release notes describe what this deploy brings live.
+
+## [0.85.1] — 2026-09-21 — The tab shows the tile (staging)
+
+Sjoerd: "the icon at the top is wrong." The marketing site's browser-tab icon
+was a hand-drawn yellow figure nobody had chosen, and the apps declared no
+icon at all. Every app's tab and home-screen icon is now its own Matisse
+tile — the same image the launcher and the switcher show — served from the
+one brand-asset place, so a new app gets its icon the day it has a tile.
+thethread.app shows The Thread's tile; the drawing is gone.
+
+Also noticed: the weekly Dependabot bundle (21 minor and patch bumps) fails
+its preview build. Nothing is merged from it and production is untouched;
+the two bumps most likely to be the cause are named in the build plan.
+
+## [0.85.0] — 2026-09-21 — The Fibre in your own assistant, as you (staging)
+
+docs/mcp-personal-access-plan.md, phases 1 and 2. Sjoerd: "I want to do
+something with Connections." — "go."
+
+**Connect Claude to your account, and it reads as you.** Give Claude Desktop,
+Claude.ai or Claude Code the URL `…/api/v1/mcp`. It discovers The Fibre's
+OAuth endpoints, registers itself, and sends you to a new page,
+`thefibre.app/connect`, that says in plain words who is asking and what it
+would be able to read. **Allow** or **Don't allow**. From then on the
+assistant's questions run as you, in the workspace you were in, under your
+own row-level rules — it reaches nothing you could not see in the app, and
+nothing goes anywhere the platform's own key could send it: your Claude does
+the thinking on your account. Eleven read-only tools: who is waiting for you,
+who needs attention, your agenda, your landscape, one person and your notes
+on them, who can get you in, find a person; and your threads, one thread with
+its timeline, your templates, registration as counts.
+
+**How it holds.** A connection is a *grant*: one person, one workspace, one
+client, read-only scopes. It carries a dedicated sign-in session for you —
+minted at consent, never shared with a browser tab, encrypted at rest under
+`ASSISTANT_KEY_SECRET` with the key-id byte — so every call becomes a fresh
+JWT of yours and every existing route runs unchanged. If you switch workspace
+in The Fibre, the assistant is told and asks you to switch back or connect
+again. The OAuth provider built for Circle grew what a remote MCP client
+needs: discovery documents at `/.well-known/…`, self-registration (public
+clients only, https or loopback redirects, 20 per address per day), PKCE,
+refresh tokens that rotate and expire after 90 idle days, and a revoke
+endpoint. The Circle flow is untouched.
+
+**Disconnect in one click.** Settings → Connections gained "Assistants
+connected to your account": each one with what it reads and when it was last
+used. Disconnect takes effect on the assistant's next call. The privacy
+statement gained a paragraph saying what a connected assistant can read and
+that its provider is your processor, not our sub-processor.
+
+**Verified the way a client would do it.** `verify-mcp-personal.mjs` walks
+discovery → registration → consent as a signed-in person → PKCE exchange →
+initialize → tools/list → a real Connections read → refresh rotation →
+disconnect: 32 checks, green against the staging database. Two of them only
+a live run could catch, and it did. Migration
+`20260921150000_mcp_grants.sql`, applied to staging.
+
+## [0.84.0] — 2026-09-21 — Today reads like a list, and a meeting appears once (staging)
+
+Sjoerd sent three photographs: Connections' Today page, the iPhone's Recents
+screen, and Gmail. *"On photo 1 you see what it is... but on 2 and 3 you see
+what is regular on apps. The later is more intuitive."*
+
+He is right, and the two references agree with each other. A list in a phone
+app is rows against the screen edges with a hairline between them, a bold line
+and a quiet line on the left, and the time on the right. Today was a stack of
+separate cards floating inside the page's own margins — which reads as a set
+of objects rather than as a list of things, and spends about seventy pixels
+of a narrow screen on the frames.
+
+Today's three lists — the agenda, what to prepare, and what you owe — are now
+that shape, sharing the recipe the people list took in v0.81.0. The whole row
+is the target, as it is in both references. The meeting's time moved to the
+right-hand end, where Recents and Gmail put theirs.
+
+Two smaller things from the same picture:
+
+**A meeting was listed twice.** A call he is invited to sits both on his own
+calendar and on the shared one it was created in, and reading both listed it
+twice. Google gives both copies the same event id, so the second is dropped.
+
+**"Tahirih Michot Contributes nothing written down"** was three facts run
+together into one phrase. They are separated by a middle dot now, the way a
+name and its detail are separated everywhere else.
+
+## [0.82.1] — 2026-09-21 — You can see which tab you are on (staging)
+
+Sjoerd, on his phone: "I can't really clearly see which icon I am on... maybe
+give it clear pushed button design." The mobile tab bar marked the current tab
+with darker text and a slightly thicker icon stroke, which on a small screen in
+daylight is nearly nothing.
+
+The current tab is now a button: it lifts out of the bar in `surface-raised`
+with the standard line and a small shadow, keeps the heavier icon, and carries
+`aria-current="page"` for anyone not going by looks. The More button uses the
+same treatment while its sheet is open or when the page you are on lives inside
+it. Role tokens only, so light and dark both follow (docs/brand-design.md), and
+it lands in every app at once through the shared bar.
+
+## [0.82.0] — 2026-09-21 — The agenda gets you into the meeting, and writes it up after (staging)
+
+Two more asks from the same phone, both about the meetings on Today.
+
+**The location and the link do what they look like they should.** "If
+locations of meetings in the agenda are filled in: location → maps... zoom /
+teams: link opens app. Possible?" It is, and it needs no integration with
+anybody: a phone decides which app opens a link from the link itself. A
+meeting with a way in gets a button saying Meet, Zoom or Teams, which opens
+that app; a meeting with a place gets one that opens Maps.
+
+The work was telling those two apart, because the location field is one box
+and people put both kinds of thing in it — Zoom in particular writes its join
+URL straight into the location, and sending that to a maps search produces a
+map of nowhere. So a location that is a link is a way in and never a place; a
+location that is a room AND a link is both; a location two characters long is
+a desk number and gets nothing. The calendar's own conferencing entry wins
+over the location, because Google keeps the real entry point there even when
+the location says something else.
+
+**Clicking a meeting opens its write-up, already filled in.** "When click on
+the meeting, it should open and select the people present and potentially add
+info immediately — online meeting, date filled in, and fill in basic content
+in the description field, like the title of the meeting."
+
+The title of a meeting is now a button. It opens the note box with the kind
+set to meeting, the date set to the day it happened, the meeting's title at
+the top of the text, and everyone from the invitation who is already in your
+people ticked. All of it is a suggestion: untick somebody who did not turn up,
+change the date, rewrite the line. Nothing is written until you press save.
+
+It saves one note per person you ticked, each naming the others — because a
+note hangs off one person, and six months from now the question is "what
+happened with her", asked on her page. Naming the others is how the app
+already records that people were in the same room without inventing a
+relationship out of co-occurrence.
+
+The same fields, from the same module, as the composer on a person's page:
+`FIELD_ROW` and `localStamp` moved into `lib/note-fields.ts` rather than being
+copied, so the two boxes cannot drift apart.
+
+**Not built, and asked for in the same breath:** "maybe the meeting is
+connected to a project or a company." Nothing here files a meeting under an
+organisation — the agenda does not know which organisations the people in the
+room belong to, and guessing from a shared email domain is exactly the kind of
+inference this app does not make. It is ask 107 in `docs/connections-asks.md`
+and wants a decision about what "connected to" should mean before it is code.
+
+## [0.81.0] — 2026-09-21 — Connections on a phone: a full-width list, no more zoom trap, and the agenda you choose (staging)
+
+Four things Sjoerd asked for from his phone, all in Connections.
+
+**The people list runs to the edge of the screen.** "People list — full
+width (so like a list on the iPhone itself)." It was a card inside 32px of
+page padding, so a list of names — the one thing on that page that wants the
+whole width — lost about 70px of it to nothing. On a phone the rows now reach
+the glass, the way a plain iOS list does; from a tablet up it is the card
+again, because a list touching a wide window's edge reads as broken. The look
+is a recipe (`ROW_LIST` in `@thefibre/shared/ui/recipes`), not a class typed
+into one file, and it cancels `PAGE_PX` — which is now named in the same file
+so the two cannot drift apart.
+
+**Tapping a text field no longer zooms the page in for good.** "My iOS zooms
+in; it does not restore, which makes the interface disfunctional. We solved
+this earlier no?" It had been solved, on 2026-09-17 — and that work sat on a
+branch that was never released, so he was still hitting it four days later.
+It is released now: every field is 16px on a phone and 14px from `sm` up,
+which is the size Safari stops zooming at. (A viewport `maximum-scale` would
+also work and would switch pinch zoom off on Android for everyone, so it is
+not what we do.) The fix missed the fields written out by hand rather than
+through the shared components; the map's search box, the sign-in form, the
+band-name settings and four shared components are now on the same size.
+
+**And a test now fails when a small field is written.** Twice reported, once
+fixed and lost — `packages/shared/src/ui/fields.test.ts` reads every
+input, textarea and select in Connections and in the shared package and
+fails the release on one under 16px, naming the file and line. The other
+apps carry 86 more; those are a backlog entry, not silence.
+
+**Somebody in your agenda can be added by pressing their name.** "In the
+overview page I see my agenda: there I see people who are not yet in my
+contact list. Would be great if I could just click on their name and add
+people from this agenda." Today already found the people in your meetings and
+showed the ones it did not know, greyed out and inert. That chip is now a
+button; pressing it adds them and turns into the ordinary person chip, so the
+next tap opens them and writes the note.
+
+Nothing is created by the calendar sync itself, which stays the rule — one
+address, pressed on purpose, one at a time. The name is taken from Google's
+attendee list on the server rather than from the browser, and the address has
+to be in a meeting currently on your agenda, so the button cannot be used to
+write a name onto an arbitrary address.
+
+**You choose which calendars the agenda reads.** "Select agenda's available
+to me. And select one or more. Maybe popup. And then put agenda's on and
+off." A popup beside the agenda heading — which is where you are standing
+when you notice the wrong meetings — lists every calendar you can read,
+your own first, then the ones you follow, each with a switch.
+
+The default is exactly what happened before: on for a calendar you own, off
+for one you merely subscribe to. So no agenda changes on the day this ships,
+a calendar you make next month appears by itself, and a holiday feed stays
+out until you ask for it. The choice is per person and not readable by a
+colleague or an admin — "who is in my day" is not a workspace-level fact,
+which is the same rule the agenda route already followed.
+
+Migration `20260921120000_connections_agenda_calendar.sql`.
+
 ## [0.80.0] — 2026-09-17 — Pages arrive faster, and say so at once (staging)
 
 Sjoerd: "switching between apps takes a lot of time, moving between menu

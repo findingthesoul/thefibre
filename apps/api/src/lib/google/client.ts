@@ -155,6 +155,10 @@ export type AgendaEvent = {
   /** True for an all-day entry, which has a date and no time. */
   allDay: boolean;
   location: string | null;
+  /** The calendar's own way in — a Meet link, or whatever conferencing the
+   *  organiser attached. Separate from `location` because Google keeps the
+   *  real entry point here even when the location says something else. */
+  conferenceUrl: string | null;
   attendees: { email: string; name: string | null; self: boolean; organiser: boolean }[];
   /** Marked "free" in Calendar, so it does not take time out of the day. */
   transparent: boolean;
@@ -167,10 +171,21 @@ export async function listEvents(
   from: Date,
   to: Date,
   max = 50,
+  /** Read exactly these calendars. Omit for the caller's OWN calendars, which
+   *  is what every caller wanted before the agenda let people choose (see
+   *  lib/agenda-calendars.ts). An EMPTY array is a real answer — somebody who
+   *  switched every calendar off gets no events, not all of them. */
+  calendarIds?: string[] | null,
 ): Promise<AgendaEvent[]> {
   const cal = calendarFor(refreshToken);
-  const list = await cal.calendarList.list({ minAccessRole: 'owner' });
-  const ids = (list.data.items ?? []).map((c) => c.id).filter(Boolean) as string[];
+  let ids: string[];
+  if (calendarIds) {
+    ids = calendarIds;
+    if (ids.length === 0) return [];
+  } else {
+    const list = await cal.calendarList.list({ minAccessRole: 'owner' });
+    ids = (list.data.items ?? []).map((c) => c.id).filter(Boolean) as string[];
+  }
 
   const perCalendar = await Promise.all(
     ids.map(async (id) => {
@@ -193,10 +208,19 @@ export async function listEvents(
   );
 
   const out: AgendaEvent[] = [];
+  // One meeting, once. An event you are invited to sits on YOUR calendar and
+  // on the shared calendar it was created in, and reading both gave the same
+  // meeting twice — visible on Sjoerd's phone on 2026-09-21, the same Zoom
+  // call listed twice under Today. Google gives both copies the same event
+  // id (a recurring meeting's instances each get their own), so the id is
+  // the right key: two genuinely different meetings never share one.
+  const seen = new Set<string>();
   for (const item of perCalendar.flat()) {
     const startRaw = item.start?.dateTime ?? item.start?.date;
     const endRaw = item.end?.dateTime ?? item.end?.date;
     if (!startRaw || !endRaw || !item.id) continue;
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
     out.push({
       id: item.id,
       summary: item.summary ?? '',
@@ -204,6 +228,14 @@ export async function listEvents(
       end: new Date(endRaw),
       allDay: !item.start?.dateTime,
       location: item.location ?? null,
+      // hangoutLink is the old field and is still filled for Meet;
+      // conferenceData covers Meet, Zoom and anything else added through
+      // Calendar's own conferencing. Video entry points only: a dial-in
+      // number in an href would be a phone link nobody asked for.
+      conferenceUrl:
+        item.hangoutLink ??
+        (item.conferenceData?.entryPoints ?? []).find((e) => e.entryPointType === 'video')?.uri ??
+        null,
       transparent: item.transparency === 'transparent',
       declined: (item.attendees ?? []).some((a) => a.self && a.responseStatus === 'declined'),
       attendees: (item.attendees ?? [])

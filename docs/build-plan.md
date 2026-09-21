@@ -35,6 +35,17 @@ them. Do not append raw captures here: this list promises priority order._
 
 _Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
 
+**86 hand-rolled fields are still under 16px on a phone.** Found 2026-09-21
+while fixing the same bug in Connections for the second time: Safari zooms
+the page into any input, textarea or select whose text is under 16px and
+never zooms back, and the shared components are 16px on a phone but fields
+written out by hand next to them are not. `packages/shared/src/ui/fields.test.ts`
+already fails on one in Connections or in `packages/shared`; it lists the
+other apps (flow, meet, membership, pulse, thread, web) as out of scope
+precisely so this entry exists. The fix per site is one line — import
+`FIELD_TEXT` and interpolate it where the `text-sm` is, or use
+`FIELD_INPUT_CLASS` for the whole box — then widen `SCANNED` in that test.
+
 **Booking terms: a generic set, replaceable per workspace.** Sjoerd asked
 2026-09-14: "Is there a conditions and terms? Maybe a generic one, that could
 be replaced by a workspace one." Today there are none for invitees or
@@ -67,6 +78,14 @@ which one the customer should hold.
 a fee statement — under "Paid" as if it were the workspace's income; those are
 the workspace's costs and should read as such. Pre-existing for subscription
 rows, visible now that fee statements sit beside ticket sales.
+
+**Dependabot's grouped PR fails its preview build (2026-09-21).** Branch
+`dependabot/npm_and_yarn/all-minor-and-patch-6d70ec062d`, 21 minor/patch
+bumps, Vercel build error. Nothing merged; production untouched. The two most
+likely causes: `@supabase/ssr` 0.5 → 0.12 (cookie API moved across those
+minors) and `lucide-react` 0.460 → 0.577 (icons get renamed). Take the group
+apart: bump the two suspects one at a time on a branch, build, then the rest.
+Never merge a group blind — Dependabot cannot tell a build from a bundle.
 
 **SPEED follow-ups (v0.80.0 measured on staging, 2026-09-17).** Menu click
 0.8 s → 0.3–0.55 s with a skeleton at once; app switch 4.9 s → 0.84 s warm;
@@ -1264,13 +1283,20 @@ middleware source. Stdio (Claude Desktop / Claude Code) and a stateless
 
 **Open, in the order they earn their place**
 
-- [ ] **Hosted server with OAuth 2.1, acting as the PERSON** — planned in
-  full in `docs/mcp-personal-access-plan.md` (2026-09-18, for Sjoerd's "I
-  want to do something with Connections"). The credential question is
-  answered there: the grant holds the person's own Supabase refresh token,
-  so every route runs under their RLS unchanged. Four phases, three to four
-  sessions: sign-in → server + Connections read tools → first live turns →
-  writes + ChatGPT. Awaiting Sjoerd's go and the five decisions in its §6.
+- [x] **Hosted server with OAuth 2.1, acting as the PERSON — built, v0.85.0
+  (2026-09-21).** `/api/v1/mcp` + `/connect` + Settings → Connections →
+  Assistants connected. Eleven read tools (Connections ×7, Thread ×4).
+  `verify-mcp-personal.mjs` walks the whole flow, 32 checks green on staging.
+  `docs/mcp-personal-access-plan.md` has the design and status.
+- [ ] **P3 — Sjoerd connects a real client** (plan §8): Claude Desktop or
+  Claude.ai → `https://thefibre-api-staging.fly.dev/api/v1/mcp`, press Allow
+  on `/connect`, ask "who should I follow up with this week?". Whatever a
+  real client does differently from the script gets fixed then.
+- [ ] **P4 — writes and ChatGPT**: `connections_add_note` and a follow-up
+  setter behind the client's own confirmation, with `source='mcp'`
+  provenance; then the ChatGPT connector, whose OAuth client behaves
+  differently enough to be its own check. Also `api.thefibre.app`, so the
+  printed URL stops being a fly.dev address.
 - [ ] **A first-party assistant app in the catalogue** — switched on per
   workspace at Settings → Apps, with a manifest that declares its activity
   types, so a workspace need not register an app to use this.

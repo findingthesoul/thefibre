@@ -1052,6 +1052,17 @@ const CATALOG = {
     de: 'Nicht gesagt', // MT
     fr: 'Non précisé', // MT
   },
+  // The label over the kind picker in the composer. Sjoerd, 2026-09-17: "kind
+  // is: encounter" — the field names what the entry IS, not a "kind" of
+  // something. The generic `kind` key stays for anything else that needs it.
+  encounter_field: {
+    en: 'Encounter',
+    nl: 'Ontmoeting',
+    es: 'Encuentro', // MT
+    pt: 'Encontro', // MT
+    de: 'Begegnung', // MT
+    fr: 'Rencontre', // MT
+  },
   note_kind_encounter: {
     en: 'Ran into them',
     nl: 'Tegengekomen',
@@ -7251,6 +7262,195 @@ const CATALOG = {
     pt: 'não está nas tuas pessoas', // MT
     de: 'nicht bei deinen Leuten', // MT
     fr: 'pas parmi vos personnes', // MT
+  },
+
+  // Adding somebody from the agenda. The chip used to name the state ("not in
+  // your people"); it now names what pressing it does — Sjoerd, 2026-09-21:
+  // "would be great if I could just click on their name and add people from
+  // this agenda". `agenda_not_yours` is kept: it is still the honest label for
+  // an attendee shown where nothing can be pressed.
+  agenda_add: {
+    en: 'add',
+    nl: 'toevoegen',
+    es: 'añadir', // MT
+    pt: 'adicionar', // MT
+    de: 'hinzufügen', // MT
+    fr: 'ajouter', // MT
+  },
+  agenda_add_person: {
+    en: 'Add {name} to your people',
+    nl: '{name} toevoegen aan je mensen',
+    es: 'Añadir a {name} a tus personas', // MT
+    pt: 'Adicionar {name} às tuas pessoas', // MT
+    de: '{name} zu deinen Leuten hinzufügen', // MT
+    fr: 'Ajouter {name} à vos personnes', // MT
+  },
+  agenda_add_gone: {
+    en: 'no longer in your agenda',
+    nl: 'staat niet meer in je agenda',
+    es: 'ya no está en tu agenda', // MT
+    pt: 'já não está na tua agenda', // MT
+    de: 'nicht mehr in deinem Kalender', // MT
+    fr: "n'est plus dans votre agenda", // MT
+  },
+  agenda_add_failed: {
+    en: 'could not add',
+    nl: 'toevoegen mislukt',
+    es: 'no se pudo añadir', // MT
+    pt: 'não foi possível adicionar', // MT
+    de: 'konnte nicht hinzugefügt werden', // MT
+    fr: "impossible d'ajouter", // MT
+  },
+
+  // ── Which calendars the agenda reads ─────────────────────────────────────
+  agenda_calendars: {
+    en: 'Calendars',
+    nl: 'Agenda’s',
+    es: 'Calendarios', // MT
+    pt: 'Calendários', // MT
+    de: 'Kalender', // MT
+    fr: 'Agendas', // MT
+  },
+  agenda_calendars_intro: {
+    en: 'Which calendars this page reads. Only you can see this choice.',
+    nl: 'Welke agenda’s deze pagina leest. Alleen jij ziet deze keuze.',
+    es: 'Qué calendarios lee esta página. Solo tú ves esta elección.', // MT
+    pt: 'Que calendários esta página lê. Só tu vês esta escolha.', // MT
+    de: 'Welche Kalender diese Seite liest. Nur du siehst diese Wahl.', // MT
+    fr: 'Quels agendas cette page lit. Vous seul voyez ce choix.', // MT
+  },
+  agenda_calendars_mine: {
+    en: 'Mine',
+    nl: 'Van mij',
+    es: 'Míos', // MT
+    pt: 'Meus', // MT
+    de: 'Meine', // MT
+    fr: 'Les miens', // MT
+  },
+  agenda_calendars_followed: {
+    en: 'I follow',
+    nl: 'Ik volg',
+    es: 'Sigo', // MT
+    pt: 'Sigo', // MT
+    de: 'Ich folge', // MT
+    fr: 'Je suis', // MT
+  },
+  agenda_calendars_primary: {
+    en: 'your main calendar',
+    nl: 'je hoofdagenda',
+    es: 'tu calendario principal', // MT
+    pt: 'o teu calendário principal', // MT
+    de: 'dein Hauptkalender', // MT
+    fr: 'votre agenda principal', // MT
+  },
+  agenda_calendars_none: {
+    en: 'No calendars found.',
+    nl: 'Geen agenda’s gevonden.',
+    es: 'No se han encontrado calendarios.', // MT
+    pt: 'Não foram encontrados calendários.', // MT
+    de: 'Keine Kalender gefunden.', // MT
+    fr: 'Aucun agenda trouvé.', // MT
+  },
+
+  // ── Getting to the meeting ───────────────────────────────────────────────
+  // The word on the button; the phone decides which app opens the link.
+  agenda_join: {
+    en: 'Join',
+    nl: 'Deelnemen',
+    es: 'Unirse', // MT
+    pt: 'Entrar', // MT
+    de: 'Beitreten', // MT
+    fr: 'Rejoindre', // MT
+  },
+  agenda_join_meet: {
+    en: 'Meet',
+    nl: 'Meet',
+    es: 'Meet',
+    pt: 'Meet',
+    de: 'Meet',
+    fr: 'Meet',
+  },
+  agenda_join_zoom: {
+    en: 'Zoom',
+    nl: 'Zoom',
+    es: 'Zoom',
+    pt: 'Zoom',
+    de: 'Zoom',
+    fr: 'Zoom',
+  },
+  agenda_join_teams: {
+    en: 'Teams',
+    nl: 'Teams',
+    es: 'Teams',
+    pt: 'Teams',
+    de: 'Teams',
+    fr: 'Teams',
+  },
+
+  // ── Writing up a meeting from the agenda ─────────────────────────────────
+  meeting_note_intro: {
+    en: 'Filled in from your calendar. Change anything before you save.',
+    nl: 'Ingevuld vanuit je agenda. Pas aan wat je wilt voor je opslaat.',
+    es: 'Rellenado desde tu calendario. Cambia lo que quieras antes de guardar.', // MT
+    pt: 'Preenchido a partir do teu calendário. Muda o que quiseres antes de guardar.', // MT
+    de: 'Aus deinem Kalender ausgefüllt. Ändere alles, bevor du speicherst.', // MT
+    fr: 'Rempli depuis votre agenda. Modifiez ce que vous voulez avant d’enregistrer.', // MT
+  },
+  meeting_note_body: {
+    en: 'What was said',
+    nl: 'Wat is er gezegd',
+    es: 'Qué se dijo', // MT
+    pt: 'O que foi dito', // MT
+    de: 'Was gesagt wurde', // MT
+    fr: 'Ce qui a été dit', // MT
+  },
+  meeting_note_body_ph: {
+    en: 'What came up, what was decided, what you noticed.',
+    nl: 'Wat er speelde, wat er besloten is, wat je opviel.',
+    es: 'Qué surgió, qué se decidió, qué notaste.', // MT
+    pt: 'O que surgiu, o que foi decidido, o que notaste.', // MT
+    de: 'Was aufkam, was entschieden wurde, was dir auffiel.', // MT
+    fr: 'Ce qui est ressorti, ce qui a été décidé, ce que vous avez remarqué.', // MT
+  },
+  meeting_note_who: {
+    en: 'Who was there',
+    nl: 'Wie erbij waren',
+    es: 'Quién estuvo', // MT
+    pt: 'Quem esteve', // MT
+    de: 'Wer dabei war', // MT
+    fr: 'Qui était là', // MT
+  },
+  meeting_note_each: {
+    en: 'Saved to each of the {count} people below, and they are named in each other’s note.',
+    nl: 'Wordt bij elk van de {count} mensen hieronder opgeslagen, en ze staan in elkaars notitie.',
+    es: 'Se guarda en cada una de las {count} personas de abajo, y se nombran entre sí.', // MT
+    pt: 'Guardado em cada uma das {count} pessoas abaixo, e são nomeadas na nota uma da outra.', // MT
+    de: 'Wird bei jeder der {count} Personen unten gespeichert, und sie werden in der Notiz der anderen genannt.', // MT
+    fr: 'Enregistré chez chacune des {count} personnes ci-dessous, qui sont nommées dans la note des autres.', // MT
+  },
+  meeting_note_nobody: {
+    en: 'Nobody in this meeting is in your people yet. Add them from the row behind this box first.',
+    nl: 'Niemand uit deze afspraak staat al bij je mensen. Voeg ze eerst toe vanaf de regel achter dit venster.',
+    es: 'Nadie de esta reunión está aún entre tus personas. Añádelos primero desde la fila detrás de esta ventana.', // MT
+    pt: 'Ninguém desta reunião está ainda nas tuas pessoas. Adiciona-os primeiro a partir da linha atrás desta janela.', // MT
+    de: 'Niemand aus diesem Termin ist schon bei deinen Leuten. Füge sie zuerst über die Zeile hinter diesem Fenster hinzu.', // MT
+    fr: 'Personne de cette réunion n’est encore parmi vos personnes. Ajoutez-les d’abord depuis la ligne derrière cette fenêtre.', // MT
+  },
+  meeting_note_unknown: {
+    en: 'Others in this meeting are not in your people. Add them from the row behind this box.',
+    nl: 'Anderen uit deze afspraak staan niet bij je mensen. Voeg ze toe vanaf de regel achter dit venster.',
+    es: 'Otros de esta reunión no están entre tus personas. Añádelos desde la fila detrás de esta ventana.', // MT
+    pt: 'Outros desta reunião não estão nas tuas pessoas. Adiciona-os a partir da linha atrás desta janela.', // MT
+    de: 'Andere aus diesem Termin sind nicht bei deinen Leuten. Füge sie über die Zeile hinter diesem Fenster hinzu.', // MT
+    fr: 'D’autres participants ne sont pas parmi vos personnes. Ajoutez-les depuis la ligne derrière cette fenêtre.', // MT
+  },
+  meeting_note_partly_failed: {
+    en: 'Saved, except for {count}. Press save again — the ones that worked are not written twice.',
+    nl: 'Opgeslagen, behalve bij {count}. Druk nogmaals op opslaan — wat gelukt is, wordt niet dubbel geschreven.',
+    es: 'Guardado, salvo {count}. Pulsa guardar otra vez: lo que funcionó no se escribe dos veces.', // MT
+    pt: 'Guardado, exceto {count}. Carrega em guardar de novo — o que resultou não é escrito duas vezes.', // MT
+    de: 'Gespeichert, außer bei {count}. Nochmals speichern — was geklappt hat, wird nicht doppelt geschrieben.', // MT
+    fr: 'Enregistré, sauf pour {count}. Appuyez de nouveau sur enregistrer : ce qui a fonctionné n’est pas écrit deux fois.', // MT
   },
 
   // ── Tags found in what you just wrote ────────────────────────────────────

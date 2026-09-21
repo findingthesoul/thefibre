@@ -46,6 +46,7 @@ export type PersonSource =
   | 'member_invite' // invited into the workspace
   | 'membership_join' // public membership signup
   | 'membership_purchase' // bought a membership product
+  | 'calendar_attendee' // somebody in your agenda, added on purpose from it
   | 'app_link'; // an external app claimed/created via /apps links
 
 const SOURCES: readonly PersonSource[] = [
@@ -57,6 +58,7 @@ const SOURCES: readonly PersonSource[] = [
   'member_invite',
   'membership_join',
   'membership_purchase',
+  'calendar_attendee',
   'app_link',
 ];
 

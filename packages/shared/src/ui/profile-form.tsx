@@ -22,7 +22,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { PhotoField } from './photo-field.js';
-import { TextField, TextAreaField, SelectField } from './fields.js';
+import { TextField, TextAreaField, SelectField, FIELD_TEXT } from './fields.js';
 import { SearchSelect } from './search-select.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
@@ -124,7 +124,7 @@ export function ProfileForm({
               {slug.prefix}
             </span>
             <input
-              className="w-full rounded-r-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
+              className={`w-full rounded-r-md border border-line bg-surface-raised px-3 py-2 ${FIELD_TEXT} focus:border-line-strong focus:outline-none`}
               value={slugValue}
               onChange={(e) => touched(setSlugValue)(e.target.value)}
             />
