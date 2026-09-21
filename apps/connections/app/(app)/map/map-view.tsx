@@ -36,6 +36,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 import { defaultStartPerson, layout, type MapPerson } from '@/lib/map-layout';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { FocusWeb, focusHref, type Focus } from './focus-web';
@@ -282,7 +283,9 @@ function PersonSearch({
         }}
         placeholder={t(locale, 'map_start_from')}
         aria-label={t(locale, 'map_start_from')}
-        className="w-full rounded-md border border-line bg-surface-raised py-2 pl-9 pr-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+        // The shared field, not a hand-rolled one: it carries the 16px
+        // phone size that keeps iOS from zooming into the page on focus.
+        className={`${FIELD_INPUT_CLASS} pl-9`}
       />
       {open && term.trim() ? (
         <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-lg">

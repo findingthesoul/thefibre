@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { browserSupabase } from '@/lib/supabase/client';
+import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 
 type Stage = 'idle' | 'enter-email' | 'enter-code';
 
@@ -106,7 +107,7 @@ export function SignInButton() {
             placeholder="you@example.com"
             required
             autoFocus
-            className="w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
+            className={FIELD_INPUT_CLASS}
           />
           <button
             type="submit"

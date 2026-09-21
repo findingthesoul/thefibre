@@ -6,6 +6,7 @@ import { PersonLink } from '@/components/person-popup';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
+import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { ButtonLink } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 // Band labels for whichever axis the landscape sent us in on. Imported
@@ -189,15 +190,16 @@ export function PeopleList({
 
       {items.length > 0 && (
         // Rows, not a table: at 375px a table either scrolls sideways or
-        // drops the column that mattered.
-        <ul className="mt-4 divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface-raised">
+        // drops the column that mattered. ROW_LIST takes the rows to the
+        // screen edges on a phone and gives them the card back from `sm` up.
+        <ul className={`mt-4 ${ROW_LIST}`}>
           {items.map((p) => {
             const rung = rungById[p.id];
             return (
               <li key={p.id}>
                 <PersonLink
                   personId={p.id}
-                  className="flex items-baseline justify-between gap-3 px-4 py-3 hover:bg-surface-sunken"
+                  className="flex items-baseline justify-between gap-3 px-4 py-3 hover:bg-surface-sunken sm:px-5"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{displayName(p)}</span>

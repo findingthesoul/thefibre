@@ -22,6 +22,17 @@ the queue.
 
 _Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
 
+**86 hand-rolled fields are still under 16px on a phone.** Found 2026-09-21
+while fixing the same bug in Connections for the second time: Safari zooms
+the page into any input, textarea or select whose text is under 16px and
+never zooms back, and the shared components are 16px on a phone but fields
+written out by hand next to them are not. `packages/shared/src/ui/fields.test.ts`
+already fails on one in Connections or in `packages/shared`; it lists the
+other apps (flow, meet, membership, pulse, thread, web) as out of scope
+precisely so this entry exists. The fix per site is one line — import
+`FIELD_TEXT` and interpolate it where the `text-sm` is, or use
+`FIELD_INPUT_CLASS` for the whole box — then widen `SCANNED` in that test.
+
 **Booking terms: a generic set, replaceable per workspace.** Sjoerd asked
 2026-09-14: "Is there a conditions and terms? Maybe a generic one, that could
 be replaced by a workspace one." Today there are none for invitees or

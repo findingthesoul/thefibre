@@ -19,6 +19,7 @@ import {
   type InvoiceSeller,
 } from '../invoice-model.js';
 import { chromeT, useLocale, type ChromeKey } from './i18n-ui.js';
+import { FIELD_TEXT } from './fields.js';
 
 // The shape and the composition are decided once, in ../invoice-model.js,
 // and shared with the PDF and the invoice email. Re-exported here because
@@ -193,7 +194,7 @@ export function InvoiceDialog({
                 value={emailTo}
                 onChange={(e) => setEmailTo(e.target.value)}
                 placeholder="bookkeeper@example.org"
-                className="h-8 w-full rounded-md border border-line bg-surface px-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-line-strong"
+                className={`h-8 w-full rounded-md border border-line bg-surface px-2.5 ${FIELD_TEXT} text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-line-strong`}
               />
               <button
                 type="button"

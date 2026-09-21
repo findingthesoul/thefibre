@@ -1,7 +1,9 @@
 import { PersonLink } from '@/components/person-popup';
-import { Clock, MapPin, UserPlus } from 'lucide-react';
+import { Clock, MapPin } from 'lucide-react';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { BAND_KEYS } from '../landscape/axes';
+import { AddAttendee } from './agenda-add';
+import { CalendarPicker } from './calendar-picker';
 
 // Today's calendar, with the people already found.
 //
@@ -18,7 +20,10 @@ import { BAND_KEYS } from '../landscape/axes';
 // is deliberate: an unmatched attendee is the most useful thing on this
 // screen, because it is somebody you are about to meet who is not in your
 // people yet. Nothing is created automatically (see the route header); the
-// row offers it.
+// chip offers it, and since 2026-09-21 pressing it adds them (agenda-add.tsx).
+//
+// Which calendars this reads is the reader's own choice (calendar-picker.tsx),
+// defaulting to the ones they own.
 
 export type AgendaPerson = {
   email: string;
@@ -93,7 +98,7 @@ export function Agenda({
   if (data.unavailable) {
     return (
       <section className="mt-8">
-        <h2 className="text-sm font-medium">{t(locale, 'agenda_heading')}</h2>
+        <AgendaHeading locale={locale} />
         <p className="mt-2 text-sm text-ink-muted">{t(locale, 'agenda_unavailable')}</p>
       </section>
     );
@@ -102,7 +107,9 @@ export function Agenda({
   if (data.events.length === 0) {
     return (
       <section className="mt-8">
-        <h2 className="text-sm font-medium">{t(locale, 'agenda_heading')}</h2>
+        <AgendaHeading locale={locale} />
+        {/* An empty day is the likeliest moment to discover the agenda is
+            reading the wrong calendar, so the picker is on this screen too. */}
         <p className="mt-2 text-sm text-ink-muted">{t(locale, 'agenda_empty')}</p>
       </section>
     );
@@ -117,7 +124,7 @@ export function Agenda({
 
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-medium">{t(locale, 'agenda_heading')}</h2>
+      <AgendaHeading locale={locale} />
 
       <ul className="mt-3 space-y-2">
         {data.events.map((ev) => (
@@ -167,16 +174,8 @@ export function Agenda({
                     );
                   }
                   return (
-                    <li
-                      key={p.email}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dotted border-line-strong px-3 text-xs text-ink-subtle"
-                      title={p.email}
-                    >
-                      <UserPlus size={12} />
-                      <span className="max-w-[14rem] truncate">
-                        {p.calendar_name || p.email}
-                      </span>
-                      <span>{t(locale, 'agenda_not_yours')}</span>
+                    <li key={p.email}>
+                      <AddAttendee email={p.email} name={p.calendar_name} locale={locale} />
                     </li>
                   );
                 })}
@@ -186,5 +185,17 @@ export function Agenda({
         ))}
       </ul>
     </section>
+  );
+}
+
+/** The heading, with the way to change what it reads. One component because
+ *  all three states of this section carry it — including the empty day, which
+ *  is when somebody is most likely to want it. */
+function AgendaHeading({ locale }: { locale: Locale }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-sm font-medium">{t(locale, 'agenda_heading')}</h2>
+      <CalendarPicker locale={locale} />
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { ChevronLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { INSET, SECTION_LABEL } from './recipes.js';
+import { INSET, PAGE_PX, SECTION_LABEL } from './recipes.js';
 
 // The page-chrome kit (extraction phase 2, docs/component-inventory.md).
 // Superset of the four app copies: `align` (meet/membership sit left of the
@@ -29,7 +29,7 @@ export function PageContainer({
   return align === 'left' ? (
     <div className={`${MAX[max]} px-10 py-10`}>{children}</div>
   ) : (
-    <div className={`mx-auto ${MAX[max]} px-8 py-10`}>{children}</div>
+    <div className={`mx-auto ${MAX[max]} ${PAGE_PX} py-10`}>{children}</div>
   );
 }
 

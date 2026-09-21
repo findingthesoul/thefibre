@@ -25,9 +25,10 @@
 //
 // ── Whose meetings ─────────────────────────────────────────────────────────
 //
-// Only calendars the signed-in person owns, filtered in listEvents(). And
-// only their OWN token: this route never reads another user's calendar, even
-// for an admin, because "who is in your day" is not a workspace-level fact.
+// The calendars this person picked (lib/agenda-calendars.ts), which default
+// to the ones they own. And only their OWN token: this route never reads
+// another user's calendar, even for an admin, because "who is in your day" is
+// not a workspace-level fact.
 //
 // MOUNT AT `/connections`:
 //     v1.route('/connections', connectionsAgendaRoutes);
@@ -37,7 +38,8 @@ import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { userGoogleToken } from '../lib/connections.js';
 import { listEvents } from '../lib/google/client.js';
-import { normaliseEmail } from '../lib/resolve-person.js';
+import { normaliseEmail, resolvePerson } from '../lib/resolve-person.js';
+import { enabledCalendarIds } from '../lib/agenda-calendars.js';
 
 export const connectionsAgendaRoutes = new Hono();
 
@@ -80,7 +82,10 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
 
   let events;
   try {
-    events = await listEvents(token, from, to);
+    // Only the calendars this person chose. Resolving the choice costs the
+    // calendarList call listEvents would have made anyway, and passing the
+    // ids means it does not make it twice.
+    events = await listEvents(token, from, to, 50, await enabledCalendarIds(token, ctx.workspaceId, ctx.userId));
   } catch (e) {
     // A revoked token, a Google outage, a quota. Say so rather than pretending
     // the day is empty — an empty agenda and an unreachable one look identical
@@ -184,4 +189,87 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
   });
 
   return c.json({ connected: true, events: out });
+});
+
+// ── Adding one of them ─────────────────────────────────────────────────────
+//
+// Sjoerd, 2026-09-21: *"there I see people who are not yet in my contact
+// list... Would be great if I could just click on their name and add people
+// from this agenda."*
+//
+// This is the "interface offers it" half of the rule at the top of this file.
+// Nothing is created by the sync; this is created by a person pressing a name
+// they recognise, one at a time. `resolvePerson` stays the one way a person is
+// made, so a second press — or two people pressing the same name in the same
+// minute — returns the existing row rather than making a twin.
+//
+// The name comes from GOOGLE's attendee list, not from the client: the client
+// sends the address it was shown and the server looks the display name up
+// again. Otherwise this route would be a way to write any name onto any
+// address in the workspace by pressing a button with a forged body.
+
+const AddAttendee = z.object({
+  email: z.string().email().max(320),
+  /** How far ahead the agenda being looked at reaches — the same window, so
+   *  the address is checked against the meetings actually on screen. */
+  days: z.coerce.number().int().min(1).max(14).default(1),
+});
+
+connectionsAgendaRoutes.post('/agenda/person', async (c) => {
+  const ctx = c.get('ctx');
+  if (ctx.auth !== 'user') return c.json({ error: 'user session required' }, 401);
+
+  const body = AddAttendee.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const email = normaliseEmail(body.data.email);
+  if (!email) return c.json({ error: 'invalid email' }, 400);
+
+  const token = await userGoogleToken(ctx.userId);
+  if (!token) return c.json({ error: 'no calendar connected' }, 400);
+
+  const from = new Date();
+  const to = new Date(from.getTime() + body.data.days * DAY);
+
+  let events;
+  try {
+    events = await listEvents(token, from, to, 50, await enabledCalendarIds(token, ctx.workspaceId, ctx.userId));
+  } catch (e) {
+    console.warn('[connections/agenda] calendar read failed on add', e);
+    return c.json({ error: 'calendar unavailable' }, 502);
+  }
+
+  // The address has to be in the agenda on screen. This is the whole
+  // authorisation for the write: the person pressing it is being shown this
+  // address because they are in a meeting with it.
+  let name: string | null = null;
+  let found = false;
+  for (const ev of events) {
+    for (const a of ev.attendees) {
+      if (a.self) continue;
+      if (normaliseEmail(a.email) !== email) continue;
+      found = true;
+      if (a.name && !name) name = a.name;
+    }
+  }
+  if (!found) return c.json({ error: 'not in your agenda' }, 404);
+
+  const resolved = await resolvePerson({
+    workspaceId: ctx.workspaceId,
+    email,
+    name,
+    source: 'calendar_attendee',
+    create: true,
+  });
+  if (!resolved.ok) {
+    console.error('[connections/agenda] add failed', resolved);
+    return c.json({ error: resolved.reason, message: resolved.message }, 500);
+  }
+
+  return c.json({
+    person_id: resolved.personId,
+    /** False when they were already on file under a name you did not
+     *  recognise — the interface says "already here" rather than "added". */
+    created: resolved.created,
+  });
 });

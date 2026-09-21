@@ -33,6 +33,7 @@ import { effortFor, taskKind, type EffortKind } from '../lib/effort.js';
 import { loadEffortOverrides } from './connections-effort.js';
 import { userGoogleToken } from '../lib/connections.js';
 import { listEvents, type AgendaEvent } from '../lib/google/client.js';
+import { enabledCalendarIds } from '../lib/agenda-calendars.js';
 import { profileFor } from '../lib/identity-profile.js';
 import { freeMinutes, safeTimeZone } from '../lib/free-time.js';
 
@@ -245,7 +246,11 @@ connectionsTodayRoutes.get('/today', async (c) => {
       const [events, profile] = await Promise.all([
         // Two weeks of meetings; the per-calendar cap is raised from the
         // agenda's 50, which a busy fortnight exceeds.
-        listEvents(token, w.now, w.nextWeekEnd, 250),
+        // Only the calendars this person picked, resolved the same way the
+        // agenda resolves them (lib/agenda-calendars.ts).
+        enabledCalendarIds(token, ctx.workspaceId, meUserId).then((ids) =>
+          listEvents(token, w.now, w.nextWeekEnd, 250, ids),
+        ),
         profileFor(meUserId),
       ]);
       return { status: 'ok' as const, events, tz: safeTimeZone(profile.timezone) };

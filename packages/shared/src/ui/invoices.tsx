@@ -27,6 +27,7 @@ import { InvoiceDialog } from './invoice-dialog.js';
 import { RefundConfirm } from './refund-confirm.js';
 import { INTL_LOCALES, type Locale } from '../i18n.js';
 import { chromeT, useLocale, type ChromeKey } from './i18n-ui.js';
+import { FIELD_TEXT } from './fields.js';
 
 // ---------------------------------------------------------------------------
 // The ledger row shapes — single source of truth; app actions import these.
@@ -350,7 +351,7 @@ export function InvoicesArea({
           <select
             value={teamId}
             onChange={(e) => setTeamId(e.target.value)}
-            className="h-9 rounded-md border border-line bg-surface-raised px-2.5 text-sm focus:border-line-strong focus:outline-none"
+            className={`h-9 rounded-md border border-line bg-surface-raised px-2.5 ${FIELD_TEXT} focus:border-line-strong focus:outline-none`}
           >
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -384,7 +385,7 @@ export function InvoicesArea({
             defaultValue=""
             onChange={(e) => onSearchInput(e.target.value)}
             placeholder={chromeT(locale, 'search_invoices')}
-            className="w-full h-9 rounded-md border border-line bg-surface-raised pl-9 pr-3 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
+            className={`w-full h-9 rounded-md border border-line bg-surface-raised pl-9 pr-3 ${FIELD_TEXT} focus:border-line-strong focus:outline-none placeholder:text-ink-muted`}
           />
         </div>
       </div>

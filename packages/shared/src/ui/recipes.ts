@@ -84,3 +84,24 @@ export const CHIP_STATE = {
   on: 'bg-ink text-ink-inverse ring-ink',
   off: 'bg-surface-raised text-ink-subtle ring-line hover:text-ink',
 } as const;
+
+/** The side padding PageContainer puts on a centred page. Named because
+ *  ROW_LIST below cancels exactly it — change one, change the other. */
+export const PAGE_PX = 'px-8';
+
+/** A row list. Edge to edge on a phone, a raised card from `sm` up.
+ *
+ *  Sjoerd, 2026-09-21, on his phone: *"people list - full width (so like a
+ *  list on the iPhone itself)"*. A list of names is the one thing on a page
+ *  that wants the whole width: every row is a truncated name, and 32px of
+ *  page padding either side plus a card border is 70px of nothing, taken from
+ *  the part that carries the meaning. iOS puts a plain list against the
+ *  screen edges for the same reason.
+ *
+ *  This is the one recipe that carries a margin, and it is not a layout
+ *  choice: `-mx-8` cancels PAGE_PX so the rows reach the glass. From `sm` up
+ *  it becomes the ordinary CARD again, because on a wide screen a list that
+ *  touches the window edge reads as a broken container rather than as a list.
+ *  Rows inside want `px-4 sm:px-5` so their text keeps a phone's own margin. */
+export const ROW_LIST =
+  '-mx-8 divide-y divide-line border-y border-line bg-surface-raised sm:mx-0 sm:overflow-hidden sm:rounded-lg sm:border';

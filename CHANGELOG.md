@@ -6,6 +6,66 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.81.0] — 2026-09-21 — Connections on a phone: a full-width list, no more zoom trap, and the agenda you choose (staging)
+
+Four things Sjoerd asked for from his phone, all in Connections.
+
+**The people list runs to the edge of the screen.** "People list — full
+width (so like a list on the iPhone itself)." It was a card inside 32px of
+page padding, so a list of names — the one thing on that page that wants the
+whole width — lost about 70px of it to nothing. On a phone the rows now reach
+the glass, the way a plain iOS list does; from a tablet up it is the card
+again, because a list touching a wide window's edge reads as broken. The look
+is a recipe (`ROW_LIST` in `@thefibre/shared/ui/recipes`), not a class typed
+into one file, and it cancels `PAGE_PX` — which is now named in the same file
+so the two cannot drift apart.
+
+**Tapping a text field no longer zooms the page in for good.** "My iOS zooms
+in; it does not restore, which makes the interface disfunctional. We solved
+this earlier no?" It had been solved, on 2026-09-17 — and that work sat on a
+branch that was never released, so he was still hitting it four days later.
+It is released now: every field is 16px on a phone and 14px from `sm` up,
+which is the size Safari stops zooming at. (A viewport `maximum-scale` would
+also work and would switch pinch zoom off on Android for everyone, so it is
+not what we do.) The fix missed the fields written out by hand rather than
+through the shared components; the map's search box, the sign-in form, the
+band-name settings and four shared components are now on the same size.
+
+**And a test now fails when a small field is written.** Twice reported, once
+fixed and lost — `packages/shared/src/ui/fields.test.ts` reads every
+input, textarea and select in Connections and in the shared package and
+fails the release on one under 16px, naming the file and line. The other
+apps carry 86 more; those are a backlog entry, not silence.
+
+**Somebody in your agenda can be added by pressing their name.** "In the
+overview page I see my agenda: there I see people who are not yet in my
+contact list. Would be great if I could just click on their name and add
+people from this agenda." Today already found the people in your meetings and
+showed the ones it did not know, greyed out and inert. That chip is now a
+button; pressing it adds them and turns into the ordinary person chip, so the
+next tap opens them and writes the note.
+
+Nothing is created by the calendar sync itself, which stays the rule — one
+address, pressed on purpose, one at a time. The name is taken from Google's
+attendee list on the server rather than from the browser, and the address has
+to be in a meeting currently on your agenda, so the button cannot be used to
+write a name onto an arbitrary address.
+
+**You choose which calendars the agenda reads.** "Select agenda's available
+to me. And select one or more. Maybe popup. And then put agenda's on and
+off." A popup beside the agenda heading — which is where you are standing
+when you notice the wrong meetings — lists every calendar you can read,
+your own first, then the ones you follow, each with a switch.
+
+The default is exactly what happened before: on for a calendar you own, off
+for one you merely subscribe to. So no agenda changes on the day this ships,
+a calendar you make next month appears by itself, and a holiday feed stays
+out until you ask for it. The choice is per person and not readable by a
+colleague or an admin — "who is in my day" is not a workspace-level fact,
+which is the same rule the agenda route already followed.
+
+Migration `20260921120000_connections_agenda_calendar.sql`.
+
 ## [0.80.0] — 2026-09-17 — Pages arrive faster, and say so at once (staging)
 
 Sjoerd: "switching between apps takes a lot of time, moving between menu

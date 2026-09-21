@@ -32,7 +32,7 @@
 
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
-import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
+import { FIELD_INPUT_CLASS, FIELD_TEXT } from '@thefibre/shared/ui/fields';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import {
@@ -223,7 +223,7 @@ function AxisNames({
                 aria-label={shipped}
                 disabled={!canEdit}
                 maxLength={80}
-                className="w-full shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none disabled:opacity-60 sm:w-52"
+                className={`w-full shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 ${FIELD_TEXT} placeholder:text-ink-muted focus:border-line-strong focus:outline-none disabled:opacity-60 sm:w-52`}
               />
               <span className="text-xs text-ink-subtle">{note ? t(locale, note) : null}</span>
             </li>

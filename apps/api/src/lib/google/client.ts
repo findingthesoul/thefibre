@@ -167,10 +167,21 @@ export async function listEvents(
   from: Date,
   to: Date,
   max = 50,
+  /** Read exactly these calendars. Omit for the caller's OWN calendars, which
+   *  is what every caller wanted before the agenda let people choose (see
+   *  lib/agenda-calendars.ts). An EMPTY array is a real answer — somebody who
+   *  switched every calendar off gets no events, not all of them. */
+  calendarIds?: string[] | null,
 ): Promise<AgendaEvent[]> {
   const cal = calendarFor(refreshToken);
-  const list = await cal.calendarList.list({ minAccessRole: 'owner' });
-  const ids = (list.data.items ?? []).map((c) => c.id).filter(Boolean) as string[];
+  let ids: string[];
+  if (calendarIds) {
+    ids = calendarIds;
+    if (ids.length === 0) return [];
+  } else {
+    const list = await cal.calendarList.list({ minAccessRole: 'owner' });
+    ids = (list.data.items ?? []).map((c) => c.id).filter(Boolean) as string[];
+  }
 
   const perCalendar = await Promise.all(
     ids.map(async (id) => {
