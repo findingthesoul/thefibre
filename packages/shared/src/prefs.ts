@@ -10,10 +10,24 @@ export type SidebarMode = 'expanded' | 'collapsed' | 'hover';
 export type Prefs = {
   theme: Theme;
   sidebar: SidebarMode;
+  /** Whether a page's explanatory intro is shown. OPTIONAL, and absent means
+   *  'on': the other eight apps' readPrefs do not set it, and this type is
+   *  additive on purpose so adopting the toggle stays a per-app decision. */
+  intro?: IntroMode;
 };
+
+/** Whether the paragraph under a page title is shown. Sjoerd, 2026-09-21,
+ *  about Today's: *"should have a toggle button (on and off... reduce info on
+ *  interface when not really needed)"*. Off is a real answer and has to
+ *  persist, so it is a cookie rather than component state: the text explains
+ *  a page the first few times and is furniture for ever after. */
+export type IntroMode = 'on' | 'off';
 
 export const COOKIE_THEME = 'thefibre.theme';
 export const COOKIE_SIDEBAR = 'thefibre.sidebar';
+// Domain-wide like the other two: somebody who does not want the explanation
+// on Today does not want it on the landscape either.
+export const COOKIE_INTRO = 'thefibre.intro';
 
 // UI language (i18n P2, D1) — one user-level setting, domain-wide like the
 // theme. The durable copy is identity_profile.locale (via /api/v1/profile);

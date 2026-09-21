@@ -10,6 +10,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./ui/page-intro": {
+      "types": "./dist/ui/page-intro.d.ts",
+      "default": "./dist/ui/page-intro.js"
+    },
     "./ui/timeline": {
       "types": "./dist/ui/timeline.d.ts",
       "default": "./dist/ui/timeline.js"

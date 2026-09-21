@@ -6,7 +6,9 @@
 export {
   COOKIE_THEME,
   COOKIE_SIDEBAR,
+  COOKIE_INTRO,
   type Theme,
   type SidebarMode,
+  type IntroMode,
   type Prefs,
 } from '@thefibre/shared/prefs';

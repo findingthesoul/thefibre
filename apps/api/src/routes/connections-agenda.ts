@@ -39,6 +39,8 @@ import { adminClient } from '../db.js';
 import { userGoogleToken } from '../lib/connections.js';
 import { listEvents } from '../lib/google/client.js';
 import { normaliseEmail, resolvePerson } from '../lib/resolve-person.js';
+import { profileFor } from '../lib/identity-profile.js';
+import { safeTimeZone, zonedDayStart } from '../lib/free-time.js';
 import { enabledCalendarIds } from '../lib/agenda-calendars.js';
 
 export const connectionsAgendaRoutes = new Hono();
@@ -46,8 +48,18 @@ export const connectionsAgendaRoutes = new Hono();
 const DAY = 86_400_000;
 
 const AgendaQuery = z.object({
-  /** How many days forward. 1 = the rest of today. */
+  /** How many days forward. 1 = today. */
   days: z.coerce.number().int().min(1).max(14).default(1),
+  /**
+   * Start at the viewer's own midnight rather than at this moment, so the
+   * WHOLE day comes back and the interface can show what has already
+   * happened, greyed out but still there (Sjoerd, 2026-09-21).
+   *
+   * Opt-in rather than the default because the other caller of this shape —
+   * a reminder, a count of what is left — means "from now", and silently
+   * changing what `days=1` covers would change their answer too.
+   */
+  whole_day: z.coerce.boolean().default(false),
 });
 
 type Matched = {
@@ -77,8 +89,14 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
   // broken over an optional integration.
   if (!token) return c.json({ connected: false, events: [] });
 
-  const from = new Date();
-  const to = new Date(from.getTime() + parsed.data.days * DAY);
+  // The viewer's own midnight, in the viewer's own zone — not the server's,
+  // which is UTC and two hours into an Amsterdam summer day.
+  const now = new Date();
+  const tz = parsed.data.whole_day
+    ? safeTimeZone((await profileFor(ctx.userId)).timezone)
+    : null;
+  const from = tz ? zonedDayStart(now, tz) : now;
+  const to = new Date((tz ? from.getTime() : now.getTime()) + parsed.data.days * DAY);
 
   let events;
   try {

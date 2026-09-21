@@ -155,12 +155,18 @@ export function Today({
   locale,
   personBase,
   threadBase,
+  agenda,
 }: {
   data: TodayPayload;
   horizon: Horizon;
   locale: Locale;
   personBase: string;
   threadBase: string;
+  /** Today's calendar, rendered by the page and handed in so it can sit
+   *  BELOW the day selector. Sjoerd, 2026-09-21: *"I like that the day
+   *  selection at the top"*. It was under the agenda, which put the control
+   *  that changes the page halfway down it. */
+  agenda?: React.ReactNode;
 }) {
   const now = new Date(data.now).getTime();
   const empty = data.owed.length === 0 && data.prepare.length === 0;
@@ -177,6 +183,8 @@ export function Today({
   return (
     <div>
       <Segments segments={data.segments} active={horizon} locale={locale} />
+
+      {agenda}
 
       {empty && <p className="mt-8 text-sm text-ink-muted">{t(locale, 'today_all_clear')}</p>}
 

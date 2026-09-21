@@ -7387,6 +7387,33 @@ const CATALOG = {
     fr: 'Teams',
   },
 
+  // Read out where the line across the day is. Nothing on screen says it —
+  // the line IS the statement — but a screen reader needs the words.
+  agenda_now: {
+    en: 'Now',
+    nl: 'Nu',
+    es: 'Ahora', // MT
+    pt: 'Agora', // MT
+    de: 'Jetzt', // MT
+    fr: 'Maintenant', // MT
+  },
+  today_intro_hide: {
+    en: 'Hide this explanation',
+    nl: 'Verberg deze uitleg',
+    es: 'Ocultar esta explicación', // MT
+    pt: 'Ocultar esta explicação', // MT
+    de: 'Diese Erklärung ausblenden', // MT
+    fr: 'Masquer cette explication', // MT
+  },
+  today_intro_show: {
+    en: 'What is this page?',
+    nl: 'Wat is deze pagina?',
+    es: '¿Qué es esta página?', // MT
+    pt: 'O que é esta página?', // MT
+    de: 'Was ist diese Seite?', // MT
+    fr: 'Qu’est-ce que cette page ?', // MT
+  },
+
   // ── Writing up a meeting from the agenda ─────────────────────────────────
   meeting_note_intro: {
     en: 'Filled in from your calendar. Change anything before you save.',

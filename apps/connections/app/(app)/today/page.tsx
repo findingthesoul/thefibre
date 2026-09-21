@@ -1,5 +1,8 @@
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page';
+import { PageIntro } from '@thefibre/shared/ui/page-intro';
+import { readPrefs } from '@/lib/prefs';
+import { savePref } from '@/lib/prefs-actions';
 import { uiLocale } from '@/lib/locale';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { appUrl } from '@thefibre/shared';
@@ -32,6 +35,9 @@ export default async function TodayPage({
 }) {
   const locale = (await uiLocale()) as Locale;
   const horizon = toHorizon((await searchParams).horizon);
+  // Read on the server so a page whose explanation is switched off never
+  // draws it and takes it away a frame later.
+  const { intro } = await readPrefs();
 
   let data: TodayPayload | null = null;
   let error: string | null = null;
@@ -46,7 +52,7 @@ export default async function TodayPage({
   // says today would be answering a question nobody asked.
   const agendaPromise: Promise<AgendaPayload> =
     horizon === 'today'
-      ? apiFetch<AgendaPayload>('/api/v1/connections/agenda?days=1').catch(() => ({
+      ? apiFetch<AgendaPayload>('/api/v1/connections/agenda?days=1&whole_day=1').catch(() => ({
           connected: false,
           events: [],
         }))
@@ -74,22 +80,39 @@ export default async function TodayPage({
   return (
     <PageContainer>
       <PageHeader title={t(locale, 'nav_today')} />
-      <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'today_intro')}</p>
+      {/* Sjoerd, 2026-09-21: the explanation "should have a toggle button
+          (on and off... reduce info on interface when not really needed)".
+          Off is remembered, domain-wide, like the theme. */}
+      <PageIntro
+        shown={intro !== 'off'}
+        onChange={savePref}
+        showLabel={t(locale, 'today_intro_show')}
+        hideLabel={t(locale, 'today_intro_hide')}
+      >
+        {t(locale, 'today_intro')}
+      </PageIntro>
 
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      {/* Above what you owe, because it is the thing that is about to happen.
-          A meeting in an hour outranks a task due on Friday. */}
-      <Agenda data={agenda} locale={locale} intl={INTL_LOCALES[locale]} labels={labels} />
-
-      {data && (
+      {/* The agenda sits INSIDE Today, directly under the day selector —
+          Sjoerd, 2026-09-21: "I like that the day selection at the top". It
+          is still above what you owe, because a meeting in an hour outranks
+          a task due on Friday; only the control moved above both. When the
+          rest of the page fails to load it is rendered on its own, so a
+          broken read of the tasks does not take the calendar with it. */}
+      {data ? (
         <Today
           data={data}
           horizon={horizon}
           locale={locale}
           personBase={personBase}
           threadBase={threadBase}
+          agenda={
+            <Agenda data={agenda} locale={locale} intl={INTL_LOCALES[locale]} labels={labels} />
+          }
         />
+      ) : (
+        <Agenda data={agenda} locale={locale} intl={INTL_LOCALES[locale]} labels={labels} />
       )}
 
       {/* A team's updates over a period, for an update meeting — renders

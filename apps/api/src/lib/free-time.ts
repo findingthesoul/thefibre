@@ -88,6 +88,21 @@ export function zonedInstant(year: number, month: number, day: number, hour: num
   return guess - offsetAt(first, tz);
 }
 
+/**
+ * Midnight at the start of the day `at` falls in, for somebody in `tz`.
+ *
+ * Sjoerd, 2026-09-21: *"I like to see the whole day... greyed out what has
+ * passed, but still clickable"*. The agenda used to read from NOW, so a
+ * meeting that had already happened was simply absent — which is fine for
+ * "what is left of today" and wrong for "the day". Reading from the viewer's
+ * own midnight is the only correct start: the server's midnight is UTC, and
+ * in Amsterdam in summer that is two hours into the day.
+ */
+export function zonedDayStart(at: Date, tz: string): Date {
+  const p = partsIn(at.getTime(), tz);
+  return new Date(zonedInstant(p.year, p.month, p.day, 0, tz));
+}
+
 /** Working-hour intervals that overlap [from, to), clipped to it. */
 export function workingIntervals(
   from: Date,
