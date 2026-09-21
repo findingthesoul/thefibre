@@ -24,6 +24,10 @@ type LinkLike = (props: {
   href: string;
   className?: string;
   title?: string;
+  /** Marks the tab you are on for screen readers. Hyphenated, because React
+   *  passes it to the <a> verbatim; the camelCase spelling would land as an
+   *  unknown attribute. */
+  'aria-current'?: 'page' | undefined;
   children?: ReactNode;
 }) => ReactNode;
 type UsePathname = () => string;
@@ -35,6 +39,17 @@ function activeHrefIn(hrefs: string[], pathname: string): string | undefined {
     .filter((h) => pathname === h || pathname.startsWith(`${h}/`))
     .sort((a, b) => b.length - a.length)[0];
 }
+
+// The tab you are ON is a button that looks pressed in, not merely darker
+// text (Sjoerd, 2026-09-21: "I can't really clearly see which icon I am on…
+// maybe give it clear pushed button design"). Role tokens only, per
+// docs/brand-design.md: the bar is `surface-sunken`, so the current tab lifts
+// out of it in `surface-raised` with the standard line and a shadow, and
+// carries aria-current for anyone not going by looks.
+const TAB_INNER =
+  'flex-1 flex flex-col items-center justify-center gap-0.5 rounded-lg py-1 min-w-0 transition-colors';
+const TAB_ACTIVE = 'bg-surface-raised text-ink ring-1 ring-line shadow-sm';
+const TAB_IDLE = 'text-ink-subtle';
 
 export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathname) {
   function Tab({
@@ -52,12 +67,13 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
       <LinkComponent
         href={href}
         title={label}
-        className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 min-w-0 ${
-          active ? 'text-ink' : 'text-ink-subtle'
-        }`}
+        aria-current={active ? 'page' : undefined}
+        className="flex-1 flex items-stretch min-w-0 p-1"
       >
-        <Icon size={20} strokeWidth={active ? 2 : 1.75} className="shrink-0" />
-        <span className="text-[10px] leading-tight truncate max-w-full px-1">{label}</span>
+        <span className={`${TAB_INNER} ${active ? TAB_ACTIVE : TAB_IDLE}`}>
+          <Icon size={20} strokeWidth={active ? 2 : 1.75} className="shrink-0" />
+          <span className="text-[10px] leading-tight truncate max-w-full px-1">{label}</span>
+        </span>
       </LinkComponent>
     );
   }
@@ -177,12 +193,17 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
             <button
               type="button"
               onClick={() => setMoreOpen((v) => !v)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 min-w-0 ${
-                moreOpen || (!activeInPrimary && activeHref) ? 'text-ink' : 'text-ink-subtle'
-              }`}
+              aria-expanded={moreOpen}
+              className="flex-1 flex items-stretch min-w-0 p-1"
             >
-              <Menu size={20} strokeWidth={1.75} className="shrink-0" />
-              <span className="text-[10px] leading-tight">{chromeT(locale, 'more')}</span>
+              <span
+                className={`${TAB_INNER} ${
+                  moreOpen || (!activeInPrimary && activeHref) ? TAB_ACTIVE : TAB_IDLE
+                }`}
+              >
+                <Menu size={20} strokeWidth={moreOpen || (!activeInPrimary && activeHref) ? 2 : 1.75} className="shrink-0" />
+                <span className="text-[10px] leading-tight">{chromeT(locale, 'more')}</span>
+              </span>
             </button>
           )}
         </nav>

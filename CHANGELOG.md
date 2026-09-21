@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.82.1] — 2026-09-21 — You can see which tab you are on (staging)
+
+Sjoerd, on his phone: "I can't really clearly see which icon I am on... maybe
+give it clear pushed button design." The mobile tab bar marked the current tab
+with darker text and a slightly thicker icon stroke, which on a small screen in
+daylight is nearly nothing.
+
+The current tab is now a button: it lifts out of the bar in `surface-raised`
+with the standard line and a small shadow, keeps the heavier icon, and carries
+`aria-current="page"` for anyone not going by looks. The More button uses the
+same treatment while its sheet is open or when the page you are on lives inside
+it. Role tokens only, so light and dark both follow (docs/brand-design.md), and
+it lands in every app at once through the shared bar.
+
 ## [0.82.0] — 2026-09-21 — The agenda gets you into the meeting, and writes it up after (staging)
 
 Two more asks from the same phone, both about the meetings on Today.
