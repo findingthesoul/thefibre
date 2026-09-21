@@ -180,6 +180,9 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
       end: ev.end.toISOString(),
       all_day: ev.allDay,
       location: ev.location,
+      /** The way in, when there is one. The interface turns it into a link
+       *  the phone hands to Zoom, Teams or Meet (lib/meeting-links.ts). */
+      conference_url: ev.conferenceUrl,
       people,
       /** How many of the room this workspace already knows. The number that
        *  tells you at a glance whether this meeting is with your community or

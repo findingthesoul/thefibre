@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.82.0] — 2026-09-21 — The agenda gets you into the meeting, and writes it up after (staging)
+
+Two more asks from the same phone, both about the meetings on Today.
+
+**The location and the link do what they look like they should.** "If
+locations of meetings in the agenda are filled in: location → maps... zoom /
+teams: link opens app. Possible?" It is, and it needs no integration with
+anybody: a phone decides which app opens a link from the link itself. A
+meeting with a way in gets a button saying Meet, Zoom or Teams, which opens
+that app; a meeting with a place gets one that opens Maps.
+
+The work was telling those two apart, because the location field is one box
+and people put both kinds of thing in it — Zoom in particular writes its join
+URL straight into the location, and sending that to a maps search produces a
+map of nowhere. So a location that is a link is a way in and never a place; a
+location that is a room AND a link is both; a location two characters long is
+a desk number and gets nothing. The calendar's own conferencing entry wins
+over the location, because Google keeps the real entry point there even when
+the location says something else.
+
+**Clicking a meeting opens its write-up, already filled in.** "When click on
+the meeting, it should open and select the people present and potentially add
+info immediately — online meeting, date filled in, and fill in basic content
+in the description field, like the title of the meeting."
+
+The title of a meeting is now a button. It opens the note box with the kind
+set to meeting, the date set to the day it happened, the meeting's title at
+the top of the text, and everyone from the invitation who is already in your
+people ticked. All of it is a suggestion: untick somebody who did not turn up,
+change the date, rewrite the line. Nothing is written until you press save.
+
+It saves one note per person you ticked, each naming the others — because a
+note hangs off one person, and six months from now the question is "what
+happened with her", asked on her page. Naming the others is how the app
+already records that people were in the same room without inventing a
+relationship out of co-occurrence.
+
+The same fields, from the same module, as the composer on a person's page:
+`FIELD_ROW` and `localStamp` moved into `lib/note-fields.ts` rather than being
+copied, so the two boxes cannot drift apart.
+
+**Not built, and asked for in the same breath:** "maybe the meeting is
+connected to a project or a company." Nothing here files a meeting under an
+organisation — the agenda does not know which organisations the people in the
+room belong to, and guessing from a shared email domain is exactly the kind of
+inference this app does not make. It is ask 107 in `docs/connections-asks.md`
+and wants a decision about what "connected to" should mean before it is code.
+
 ## [0.81.0] — 2026-09-21 — Connections on a phone: a full-width list, no more zoom trap, and the agenda you choose (staging)
 
 Four things Sjoerd asked for from his phone, all in Connections.

@@ -155,6 +155,10 @@ export type AgendaEvent = {
   /** True for an all-day entry, which has a date and no time. */
   allDay: boolean;
   location: string | null;
+  /** The calendar's own way in — a Meet link, or whatever conferencing the
+   *  organiser attached. Separate from `location` because Google keeps the
+   *  real entry point here even when the location says something else. */
+  conferenceUrl: string | null;
   attendees: { email: string; name: string | null; self: boolean; organiser: boolean }[];
   /** Marked "free" in Calendar, so it does not take time out of the day. */
   transparent: boolean;
@@ -215,6 +219,14 @@ export async function listEvents(
       end: new Date(endRaw),
       allDay: !item.start?.dateTime,
       location: item.location ?? null,
+      // hangoutLink is the old field and is still filled for Meet;
+      // conferenceData covers Meet, Zoom and anything else added through
+      // Calendar's own conferencing. Video entry points only: a dial-in
+      // number in an href would be a phone link nobody asked for.
+      conferenceUrl:
+        item.hangoutLink ??
+        (item.conferenceData?.entryPoints ?? []).find((e) => e.entryPointType === 'video')?.uri ??
+        null,
       transparent: item.transparency === 'transparent',
       declined: (item.attendees ?? []).some((a) => a.self && a.responseStatus === 'declined'),
       attendees: (item.attendees ?? [])

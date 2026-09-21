@@ -1,8 +1,10 @@
 import { PersonLink } from '@/components/person-popup';
-import { Clock, MapPin } from 'lucide-react';
+import { Clock, MapPin, Video } from 'lucide-react';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { BAND_KEYS } from '../landscape/axes';
 import { AddAttendee } from './agenda-add';
+import { MeetingWriteUp } from './meeting-note';
+import { joinLink, placeLink, type JoinKind } from '@/lib/meeting-links';
 import { CalendarPicker } from './calendar-picker';
 
 // Today's calendar, with the people already found.
@@ -41,6 +43,8 @@ export type AgendaEvent = {
   end: string;
   all_day: boolean;
   location: string | null;
+  /** The calendar's own conferencing entry, when the meeting has one. */
+  conference_url: string | null;
   people: AgendaPerson[];
   known: number;
 };
@@ -134,15 +138,18 @@ export function Agenda({
                 <Clock size={13} />
                 {ev.all_day ? t(locale, 'agenda_all_day') : clock(ev.start, locale, intl)}
               </span>
-              <span className="text-sm font-medium">
+              {/* The title opens the write-up, already filled in with who
+                  was there, when it was and what it was called. Sjoerd,
+                  2026-09-21: "when click on the meeting, it should open and
+                  select the people present". */}
+              <MeetingWriteUp
+                event={ev}
+                locale={locale}
+                className="rounded text-left text-sm font-medium underline decoration-transparent underline-offset-4 transition-colors hover:decoration-line-strong"
+              >
                 {ev.summary || t(locale, 'agenda_untitled')}
-              </span>
-              {ev.location && (
-                <span className="inline-flex min-w-0 items-center gap-1 text-xs text-ink-subtle">
-                  <MapPin size={12} className="shrink-0" />
-                  <span className="truncate">{ev.location}</span>
-                </span>
-              )}
+              </MeetingWriteUp>
+              <MeetingWhere ev={ev} locale={locale} />
             </div>
 
             {ev.people.length > 0 && (
@@ -197,5 +204,56 @@ function AgendaHeading({ locale }: { locale: Locale }) {
       <h2 className="text-sm font-medium">{t(locale, 'agenda_heading')}</h2>
       <CalendarPicker locale={locale} />
     </div>
+  );
+}
+
+/** How to get to the meeting: the way in, the place, or both.
+ *
+ *  Sjoerd, 2026-09-21: *"if locations of meetings in the agenda are filled
+ *  in: location -> maps or any mobile app using, zoom/teams: link opens
+ *  app."* Nothing here integrates with anybody — a phone decides which app
+ *  opens a link from the link itself. What this needs is only to tell a place
+ *  from a way in, which lib/meeting-links.ts does, because the location field
+ *  is one box that people put both kinds of thing in. */
+const JOIN_KEYS: Record<JoinKind, UiKey> = {
+  meet: 'agenda_join_meet',
+  zoom: 'agenda_join_zoom',
+  teams: 'agenda_join_teams',
+  video: 'agenda_join',
+};
+
+function MeetingWhere({ ev, locale }: { ev: AgendaEvent; locale: Locale }) {
+  const join = joinLink(ev.location, ev.conference_url);
+  const place = placeLink(ev.location);
+  if (!join && !place) return null;
+
+  return (
+    <>
+      {join && (
+        <a
+          href={join.url}
+          target="_blank"
+          // noreferrer as well as noopener: a meeting link goes to somebody
+          // else's site, and where it was opened from is not their business.
+          rel="noopener noreferrer"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-line px-2.5 text-xs text-ink-subtle transition-colors hover:border-ink hover:text-ink"
+        >
+          <Video size={12} className="shrink-0" />
+          {t(locale, JOIN_KEYS[join.kind])}
+        </a>
+      )}
+      {place && (
+        <a
+          href={place.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={place.label}
+          className="inline-flex h-7 min-w-0 items-center gap-1 rounded-full border border-line px-2.5 text-xs text-ink-subtle transition-colors hover:border-ink hover:text-ink"
+        >
+          <MapPin size={12} className="shrink-0" />
+          <span className="max-w-[12rem] truncate">{place.label}</span>
+        </a>
+      )}
+    </>
   );
 }

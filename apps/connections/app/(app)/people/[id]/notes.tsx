@@ -29,6 +29,7 @@ import { applySuggestion, lookup, type ActiveToken, type Suggestion } from '@/li
 import { DateField, DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { FIELD_ROW, localStamp } from '@/lib/note-fields';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
   saveNote,
@@ -275,22 +276,12 @@ const FOLLOW_UP_KIND_KEYS = {
 
 /** Fields side by side while each has 10rem, stacked when it has not. */
 const FIELD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]';
-/**
- * The first row is different: ALWAYS one line, however narrow. Sjoerd,
- * 2026-09-17, on his phone: "Put the three drop downs smaller, next to each
- * other, so they all fit in one line." Two or three fields share the width
- * equally (flex-1), each may shrink below its content (min-w-0) so a long
- * team name truncates instead of pushing the row to wrap, and the gap closes
- * up on a phone. The date field is `compact`, so its year and inline clear
- * step aside below `sm`.
- */
-const FIELD_ROW = 'flex gap-2 sm:gap-4 [&>*]:min-w-0 [&>*]:flex-1';
-
-/** "YYYY-MM-DDTHH:mm" in local time — the shape DateTimeField holds. */
-export function localStamp(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+// FIELD_ROW (the composer's first row) and localStamp live in
+// lib/note-fields.ts, imported at the top of this file: Today's meeting
+// write-up uses both, and importing them FROM here would pull this whole
+// module into that page's bundle. localStamp is re-exported because other
+// callers already take it from here.
+export { localStamp };
 
 function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
   return KIND_KEYS[kind as NoteKind] ?? KIND_KEYS.note;
