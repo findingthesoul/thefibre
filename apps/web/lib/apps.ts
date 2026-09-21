@@ -80,7 +80,7 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
     // moves. This one titles the profile tab holding the relationship
     // record — source, who introduced them, relationship strength — which
     // is why "Sales" was wrong there. docs/connections-naming.md, D53.
-    label: 'Connections',
+    label: 'Connect',
     personSubResources: ['relationship', 'billing'],
     orgSubResources: ['relationship', 'billing'],
   },

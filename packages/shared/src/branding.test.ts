@@ -117,10 +117,10 @@ describe('which stack an app link points at', () => {
     // Sjoerd, 2026-09-13, on the .tech stack: "The menu brings me from .tech
     // to .app". A staging project that was never given its siblings' URLs sent
     // you to PRODUCTION from a menu while you thought you were still testing.
-    expect(appUrl('fibre-meet', {}, 'connections.thefibre.tech')).toBe('https://meet.thefibre.tech');
-    expect(appUrl('the-thread', {}, 'connections.thefibre.tech')).toBe('https://thread.thefibre.tech');
-    expect(appUrl('fibre-platform', {}, 'connections.thefibre.tech')).toBe('https://thefibre.tech');
-    expect(appUrl('fibre-sales', {}, 'thefibre.tech')).toBe('https://connections.thefibre.tech');
+    expect(appUrl('fibre-meet', {}, 'connect.thefibre.tech')).toBe('https://meet.thefibre.tech');
+    expect(appUrl('the-thread', {}, 'connect.thefibre.tech')).toBe('https://thread.thefibre.tech');
+    expect(appUrl('fibre-platform', {}, 'connect.thefibre.tech')).toBe('https://thefibre.tech');
+    expect(appUrl('fibre-sales', {}, 'thefibre.tech')).toBe('https://connect.thefibre.tech');
   });
 
   it('still goes to production from production', () => {

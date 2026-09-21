@@ -19,7 +19,35 @@ const nextConfig = {
   // platform links still default to /dashboard (every other app has one), so
   // that address is caught here rather than answering 404. Sjoerd, 2026-09-14.
   async redirects() {
-    return [{ source: '/dashboard', destination: '/', permanent: false }];
+    return [
+      { source: '/dashboard', destination: '/', permanent: false },
+      // The old address, kept alive. The app was renamed Connections →
+      // Connect on 2026-09-21 and its host moved with it; this carries every
+      // bookmark, every link in a sent email, and — the one that would
+      // actually hurt — an installed home-screen app, whose start_url is
+      // whatever host it was installed from.
+      //
+      // Both stacks, matched on host rather than written out twice, and the
+      // path and query are carried across so a link to one person still
+      // lands on that person.
+      //
+      // NOT `permanent`. A 308 is cached by browsers effectively for ever,
+      // which is the right answer only once nobody can imagine wanting the
+      // old name back. Upgrade it in a month; the cost of being wrong the
+      // other way is a redirect nobody can clear from a phone.
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'connections.thethread.app' }],
+        destination: 'https://connect.thethread.app/:path*',
+        permanent: false,
+      },
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'connections.thefibre.tech' }],
+        destination: 'https://connect.thefibre.tech/:path*',
+        permanent: false,
+      },
+    ];
   },
 };
 export default nextConfig;

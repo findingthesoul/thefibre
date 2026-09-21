@@ -68,7 +68,9 @@ const MATRIX = {
     NEXT_PUBLIC_PULSE_URL: T('pulse.thefibre.tech'),
     NEXT_PUBLIC_MEMBERSHIP_URL: T('membership.thefibre.tech'),
     NEXT_PUBLIC_MY_URL: T('my.thefibre.tech'),
-    NEXT_PUBLIC_CONNECTIONS_URL: T('connections.thefibre.tech'),
+    // The KEY keeps the old word (it is set across projects on two stacks);
+    // the host moved with the rename to Connect on 2026-09-21.
+    NEXT_PUBLIC_CONNECTIONS_URL: T('connect.thefibre.tech'),
   },
 };
 

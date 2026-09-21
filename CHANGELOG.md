@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.87.0] — 2026-09-21 — Connections is Connect, at a new address (staging)
+
+Sjoerd: *"I want to rename connections to connect."*
+
+The app is **Connect** everywhere a person reads it — the sidebar, the app
+switcher, the home-screen icon, the tab on a person's profile in The Fibre,
+the plan matrix, the published manifest an external app reads, and the app
+catalogue itself. The rename also ends a collision the old name had:
+"Connections" is *also* the settings page for your calendar and personal
+meeting room, in every app. Two different things called one word, one of them
+inside the other. The settings page keeps the noun; the app takes the verb.
+
+**What did not move, and never will.** The slug stays `fibre-sales`. It tags
+every curator row on `person_relationship_context` and `org_relationship`, it
+is what the RLS policies name, and it is in the published `/api/v1/apps/*`
+contract that an app outside this repo is written against. The directory stays
+`apps/connections` for the same reason, and so does the `NEXT_PUBLIC_CONNECTIONS_URL`
+env key, which is set across nine projects on two stacks and means nothing to
+anybody reading the screen.
+
+**The address moved too**, which is the half that had to be done in order.
+Sjoerd added the DNS record; both domains were attached to the Vercel project;
+the certificates issued; both hosts were seen to answer; and only then did the
+URL in `branding.ts` change. That field drives the app switcher, the Fibre
+dashboard, the SSO hop's target check and the API's CORS allowlist, so
+pointing it at a host that does not serve breaks four things at once.
+
+  Connect  →  connect.thethread.app   (connect.thefibre.tech on staging)
+
+`connections.*` still serves on both stacks and redirects, carrying the path
+and the query, so a bookmark, a link in a sent email and — the one that would
+actually hurt — an installed home-screen app all keep working. The redirect is
+deliberately temporary: a permanent one is cached by browsers effectively for
+ever and cannot be cleared from a phone. Making it permanent is a build-plan
+entry for a month's time.
+
+**Two things this rename fixed on the way past.** A test now fails the release
+if a rename leaves any of the five places that spell the name out behind —
+this is the second time this app has been renamed, so it is clearly a thing
+that happens here. And the staging stack's CORS origins are now derived from
+the app registry instead of riding a hand-written Fly secret, which could not
+follow the rename and cannot even be read back to check; it is gated on the
+Fly app name so production's allowlist is not widened.
+
+Migration `20260921170000_connect_rename.sql` renames the catalogue row.
+
+**Still on Sjoerd:** the new hosts have to be added to Supabase Auth's
+redirect allow-list in both projects, or Google sign-in bounces.
+
 ## [0.86.0] — 2026-09-21 — A phone's own margin, and timestamps that are true (staging)
 
 **"The landscape interface: full width."** Every page had 32px of margin down

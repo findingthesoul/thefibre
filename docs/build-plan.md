@@ -22,6 +22,14 @@ the queue.
 
 _Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
 
+**Make the Connections → Connect redirect permanent.** Set 2026-09-21. The old
+hosts (`connections.thethread.app`, `connections.thefibre.tech`) redirect to
+the new ones with a TEMPORARY redirect, on purpose: a 308 is cached by
+browsers effectively for ever and cannot be cleared from a phone. Once the new
+name has stood for a month and nothing still links to the old one, flip
+`permanent: true` in `apps/connections/next.config.mjs`. Check the API logs for
+requests still arriving at the old host before you do.
+
 **86 hand-rolled fields are still under 16px on a phone.** Found 2026-09-21
 while fixing the same bug in Connections for the second time: Safari zooms
 the page into any input, textarea or select whose text is under 16px and

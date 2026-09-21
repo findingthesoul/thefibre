@@ -91,8 +91,10 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     // is what actually lets a workspace activate it — this row is the switch
     // for when it is released generally, so the tiers can be decided here
     // rather than in a migration.
-    app: 'Connections',
-    rows: [{ key: 'connections', label: 'Connections', kind: 'flag' }],
+    app: 'Connect',
+    // `key` is the feature flag a workspace is gated on — it stays whatever
+    // it has always been. Only the label moved (2026-09-21).
+    rows: [{ key: 'connections', label: 'Connect', kind: 'flag' }],
   },
   {
     app: 'Platform',

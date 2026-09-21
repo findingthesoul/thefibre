@@ -160,7 +160,7 @@ describe('the person popup', () => {
     expect(document.body.textContent).not.toMatch(/Loading/);
   });
 
-  // ── Leaving Connections ──────────────────────────────────────────────────
+  // ── Leaving Connect ──────────────────────────────────────────────────────
   //
   // Two decisions by the same person on the same day, and the second replaced
   // the first. Both tests are rewritten rather than deleted, because the
@@ -186,7 +186,7 @@ describe('the person popup', () => {
     expect(inside.some((a) => a.getAttribute('href') === '/people/p1')).toBe(false);
   });
 
-  it('asks before it takes you out of Connections', async () => {
+  it('asks before it takes you out of Connect', async () => {
     await click(container.querySelector('a.p1')!);
     const out = [...document.querySelectorAll('button')].find((b) =>
       b.getAttribute('aria-label') === 'Full profile',
@@ -195,7 +195,7 @@ describe('the person popup', () => {
     await click(out);
     // The warning names what is on the other side, rather than asking "are
     // you sure" about nothing in particular.
-    expect(document.body.textContent).toContain('Leaving Connections');
+    expect(document.body.textContent).toContain('Leaving Connect');
     expect(assigned).toEqual([]);
   });
 
@@ -204,7 +204,7 @@ describe('the person popup', () => {
     await click([...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Full profile')!);
     await click([...document.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Cancel')!);
     expect(assigned).toEqual([]);
-    expect(document.body.textContent).not.toContain('Leaving Connections');
+    expect(document.body.textContent).not.toContain('Leaving Connect');
   });
 
   it('goes to The Fibre when the warning is accepted', async () => {

@@ -1013,12 +1013,12 @@ const CATALOG = {
     fr: 'Me redemander', // MT
   },
   leave_title: {
-    en: 'Leaving Connections',
-    nl: 'Je verlaat Connections',
-    es: 'Vas a salir de Connections', // MT
-    pt: 'Vais sair do Connections', // MT
-    de: 'Du verlässt Connections', // MT
-    fr: 'Vous quittez Connections', // MT
+    en: 'Leaving Connect',
+    nl: 'Je verlaat Connect',
+    es: 'Vas a salir de Connect', // MT
+    pt: 'Vais sair do Connect', // MT
+    de: 'Du verlässt Connect', // MT
+    fr: 'Vous quittez Connect', // MT
   },
   leave_body: {
     en: 'The Fibre holds the detailed personal data — addresses, phone numbers, everything recorded about this person. You will land there and leave this map behind.',

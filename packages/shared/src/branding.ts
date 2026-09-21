@@ -159,12 +159,37 @@ export const APPS: Record<AppId, AppBrand> = {
   // (same rule as membership / Hyve). Only the display name moves. "Sales"
   // named one axis of five and titled the tab holding the relationship
   // record; see docs/connections-naming.md.
+  //
+  // CONNECT since 2026-09-21, on Sjoerd's proposal — the second display name
+  // this slug has carried, and the directory apps/connections stays as it is
+  // for the same reason the slug does. The rename also ends a collision the
+  // old name had with itself: "Connections" is ALSO the settings page for
+  // your calendar and personal meeting room (SETTINGS_ITEMS.connections,
+  // st_connections_title), in every app. Two different things called the
+  // same word, one of them inside the other. "Connect" leaves that page its
+  // name and takes a verb — which is what the app is for.
   'fibre-sales': {
-    name: 'Connections',
-    shortName: 'Connections',
-    brandLetters: 'cn',
+    name: 'Connect',
+    shortName: 'Connect',
+    brandLetters: 'co',
     tagline: 'Where everybody stands, and who needs you.',
-    url: 'https://connections.thethread.app',
+    // connect.thethread.app since 2026-09-21, and moved only AFTER the host
+    // was seen to answer: the DNS record went in at TransIP, the domain was
+    // attached to the Vercel project, the certificate issued, and both
+    // `https://connect.thethread.app` and `https://connect.thefibre.tech`
+    // returned 200. This field is read by the app switcher, the Fibre
+    // dashboard, the SSO hop's target check and the API's CORS allowlist, so
+    // pointing it at a host that does not serve breaks four things at once —
+    // the same lesson as the `available` note below. The field describes the
+    // world; it does not create it.
+    //
+    // connections.thethread.app still serves and redirects here (see
+    // apps/connections/next.config.mjs), so installed home-screen apps and
+    // every link anybody has kept on working.
+    url: 'https://connect.thethread.app',
+    // The env KEY keeps the old word on purpose: it is set on nine Vercel
+    // projects across two stacks, and renaming it is a coordinated change
+    // with no user-visible effect. Same reasoning as the slug.
     urlEnv: 'NEXT_PUBLIC_CONNECTIONS_URL',
     // True since 2026-09-12: both domains serve. `available` means "you can
     // go there" — it gates every app switcher, the Fibre dashboard, the SSO
@@ -215,7 +240,9 @@ const STAGING_LABEL: Record<AppId, string | null> = {
   'fibre-flow': 'flow',
   'fibre-pulse': 'pulse',
   membership: 'membership',
-  'fibre-sales': 'connections',
+  // Renamed with the app (2026-09-21). This drives every staging URL, which
+  // is derived from the host rather than configured per app.
+  'fibre-sales': 'connect',
   'fibre-learn': 'learn',
 };
 

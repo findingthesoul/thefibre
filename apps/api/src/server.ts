@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { APP_IDS, appUrl, SURFACES, surfaceUrl} from '@thefibre/shared';
+import { APP_IDS, appUrl, stagingAppUrl, SURFACES, surfaceUrl} from '@thefibre/shared';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
@@ -106,6 +106,22 @@ const PROD_ORIGINS = new Set<string>([
   // Platform surfaces (branding.ts SURFACES) — same derived-never-listed rule.
   ...(Object.keys(SURFACES) as (keyof typeof SURFACES)[]).map((k) => surfaceUrl(k)),
 ]);
+
+// The staging stack's own origins, derived the same way and added ONLY on the
+// staging API. They used to ride the hand-written CORS_ORIGINS secret, which
+// is the shape of the bug the comment above describes — and it bit again on
+// 2026-09-21, when Connections was renamed Connect and its host moved: a
+// hand-written list cannot follow a rename, and the secret cannot even be
+// read back to check. Derived, it follows by itself.
+//
+// Gated on the app name so production's allowlist is not widened: a staging
+// page has no business making a credentialed call to the production API.
+// FLY_APP_NAME is injected by Fly; off Fly this is empty and the set is too.
+const STAGING_ORIGINS = new Set<string>(
+  process.env.FLY_APP_NAME === 'thefibre-api-staging'
+    ? APP_IDS.map((slug) => stagingAppUrl(slug))
+    : [],
+);
 const DEV_ORIGINS = new Set<string>([
   'http://localhost:3000', // apps/web dev
   'http://localhost:3001', // apps/meet dev
@@ -132,6 +148,7 @@ const VERCEL_PREVIEW_RE =
 
 function isAllowedOrigin(origin: string): boolean {
   if (PROD_ORIGINS.has(origin)) return true;
+  if (STAGING_ORIGINS.has(origin)) return true;
   if (DEV_ORIGINS.has(origin)) return true;
   if (EXTRA_ORIGINS.has(origin)) return true;
   if (VERCEL_PREVIEW_RE.test(origin)) return true;

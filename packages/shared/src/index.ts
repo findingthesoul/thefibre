@@ -8,6 +8,7 @@ export {
   BRAND_ASSETS,
   PLATFORM_APP_ID,
   appUrl,
+  stagingAppUrl,
   appName,
   appHomePath,
   APP_DISPLAY_ORDER,

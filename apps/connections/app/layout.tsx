@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { APPS } from '@thefibre/shared';
 import './globals.css';
 import { appMetadata, createRootLayout } from '@thefibre/shared/root-layout';
 
@@ -14,10 +15,14 @@ import { appMetadata, createRootLayout } from '@thefibre/shared/root-layout';
 // opens a browser tab, which is the thing this exists to avoid.
 export const metadata: Metadata = {
   ...appMetadata('fibre-sales', process.env),
-  applicationName: 'Connections',
+  // From branding, not typed here: this is the name on the home-screen icon,
+  // and a second copy of it is how the icon and the sidebar end up disagreeing
+  // after a rename. (They nearly did on 2026-09-21, when the app became
+  // Connect.)
+  applicationName: APPS['fibre-sales'].name,
   appleWebApp: {
     capable: true,
-    title: 'Connections',
+    title: APPS['fibre-sales'].name,
     // `default` keeps the status bar legible against the white top bar.
     // `black-translucent` would draw the app under it and needs safe-area
     // padding the shell does not have.
