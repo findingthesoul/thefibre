@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.85.2] — 2026-09-21 — The API image knows about packages/mcp (staging)
+
+v0.85.0's staging API deploy failed to build: the Dockerfile copies the
+workspace packages the API depends on by name, and `packages/mcp` — which
+the API imports since v0.85.0 for the MCP endpoint — was not on the list, so
+`tsc` could not find `@thefibre/mcp/person`. Two COPY lines. Nothing else
+changes; the v0.85.0 release notes describe what this deploy brings live.
+
 ## [0.85.1] — 2026-09-21 — The tab shows the tile (staging)
 
 Sjoerd: "the icon at the top is wrong." The marketing site's browser-tab icon

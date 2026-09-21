@@ -13,6 +13,12 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY apps/api/package.json apps/api/tsconfig.json apps/api/
 COPY packages/shared/package.json packages/shared/tsconfig.json packages/shared/
 COPY packages/shared/src/ packages/shared/src/
+# Since v0.85.0 the API imports @thefibre/mcp/person (the MCP endpoint). A
+# workspace dep that is not copied in is a build that fails at `tsc` with
+# "cannot find module" — which is exactly how the v0.85.0 staging deploy
+# died. Every packages/* the API depends on has to be listed here.
+COPY packages/mcp/package.json packages/mcp/tsconfig.json packages/mcp/
+COPY packages/mcp/src/ packages/mcp/src/
 
 # Install all deps (workspace)
 RUN pnpm install --frozen-lockfile
