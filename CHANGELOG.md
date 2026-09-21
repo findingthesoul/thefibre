@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.89.0] — 2026-09-21 — Today shows the whole day, and says less while doing it (staging)
+
+Four asks from Sjoerd, all about the Today page in Connect.
+
+**The whole day, not the rest of it.** *"I like to see the whole day... greyed
+out what has passed, but still clickable."* The agenda read the calendar from
+this moment, so a meeting at nine was simply gone by ten — fine for "what is
+left of today", wrong for "the day". It reads from the viewer's own midnight
+now. That is a real distinction, not a detail: the server's midnight is UTC,
+which in Amsterdam in summer is two hours into the morning, so the arithmetic
+has its own test.
+
+A finished meeting is dimmed and still opens — it is the one you most want to
+write up, since turning a meeting into a note is what this page is for.
+
+**A line where now is.** Drawn between the rows, the way a calendar draws it,
+moving once a minute. It is the only thing on the page that answers "what
+now" without being read. It appears after the page loads rather than in the
+server's HTML, because the only clock that can place it correctly is the
+viewer's.
+
+**The whole row opens the write-up**, not just the title — which is why
+clicking a meeting had been doing nothing. The links for Zoom or Maps stay
+their own targets.
+
+**The day selector moved above the agenda.** *"I like that the day selection
+at the top."* It had been halfway down the page, under a calendar it does not
+control.
+
+**And the explanation under the title can be switched off.** *"Should have a
+toggle button (on and off... reduce info on interface when not really
+needed)."* The paragraph earns its place the first few times and is furniture
+ever after, but removing it for everyone would cost whoever arrives next
+week. So it is a choice, and it persists as a domain-wide cookie like the
+theme — somebody who does not want the explanation on Today does not want it
+on the landscape either. Off is read on the server, so a page whose
+explanation is off never draws it and snatches it back a frame later.
+
+`PageIntro` lives in `@thefibre/shared/ui/page-intro` and takes the app's own
+`savePref` as a prop, so the package still holds no server action. The `intro`
+preference is optional on the shared `Prefs` type: adopting the toggle stays a
+per-app decision.
+
 ## [0.88.0] — 2026-09-21 — The painted icon set (staging)
 
 Sjoerd's new icons (branding/icons, "PNG 2"): a painted shape with the app's
