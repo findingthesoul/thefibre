@@ -46,7 +46,7 @@ export function AddAttendee({
         className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-xs transition-colors hover:border-ink/40"
       >
         <span className="font-medium">{name || email}</span>
-        <span className="text-ink-subtle">{t(locale, 'agenda_never_written')}</span>
+        <span className="text-ink-subtle">· {t(locale, 'agenda_never_written')}</span>
       </PersonLink>
     );
   }
@@ -77,7 +77,7 @@ export function AddAttendee({
       <span className="max-w-[14rem] truncate">{name || email}</span>
       {/* The chip says what pressing it does. "Not yours" only named the
           state; this names the action, which is what he asked for. */}
-      <span>{failed ?? t(locale, 'agenda_add')}</span>
+      <span>· {failed ?? t(locale, 'agenda_add')}</span>
     </button>
   );
 }

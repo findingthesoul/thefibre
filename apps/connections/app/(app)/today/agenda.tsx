@@ -1,7 +1,8 @@
 import { PersonLink } from '@/components/person-popup';
-import { Clock, MapPin, Video } from 'lucide-react';
+import { MapPin, Video } from 'lucide-react';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { BAND_KEYS } from '../landscape/axes';
+import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { AddAttendee } from './agenda-add';
 import { MeetingWriteUp } from './meeting-note';
 import { joinLink, placeLink, type JoinKind } from '@/lib/meeting-links';
@@ -130,14 +131,18 @@ export function Agenda({
     <section className="mt-8">
       <AgendaHeading locale={locale} />
 
-      <ul className="mt-3 space-y-2">
+      {/* A LIST, not a stack of cards. Sjoerd, 2026-09-21, holding this page
+          next to iOS Recents and Gmail: *"on photo 1 you see what it is...
+          but on 2 and 3 you see what is regular on apps. The later is more
+          intuitive."* Both references are the same shape — rows to the screen
+          edges, a hairline between them, a bold line and a quiet line on the
+          left, the time on the right — and a card per row is the thing that
+          made this read as something else. ROW_LIST is that shape, shared
+          with the people list. */}
+      <ul className={`mt-3 ${ROW_LIST}`}>
         {data.events.map((ev) => (
-          <li key={ev.id} className="rounded-lg border border-line bg-surface-raised p-3">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted tabular-nums">
-                <Clock size={13} />
-                {ev.all_day ? t(locale, 'agenda_all_day') : clock(ev.start, locale, intl)}
-              </span>
+          <li key={ev.id} className="px-4 py-3 sm:px-5">
+            <div className="flex items-baseline justify-between gap-3">
               {/* The title opens the write-up, already filled in with who
                   was there, when it was and what it was called. Sjoerd,
                   2026-09-21: "when click on the meeting, it should open and
@@ -145,15 +150,22 @@ export function Agenda({
               <MeetingWriteUp
                 event={ev}
                 locale={locale}
-                className="rounded text-left text-sm font-medium underline decoration-transparent underline-offset-4 transition-colors hover:decoration-line-strong"
+                className="min-w-0 flex-1 text-left text-sm font-medium"
               >
-                {ev.summary || t(locale, 'agenda_untitled')}
+                <span className="block truncate">
+                  {ev.summary || t(locale, 'agenda_untitled')}
+                </span>
               </MeetingWriteUp>
-              <MeetingWhere ev={ev} locale={locale} />
+              {/* On the right, where every list app puts the time. */}
+              <span className="shrink-0 text-xs text-ink-muted tabular-nums">
+                {ev.all_day ? t(locale, 'agenda_all_day') : clock(ev.start, locale, intl)}
+              </span>
             </div>
 
+            <MeetingWhere ev={ev} locale={locale} />
+
             {ev.people.length > 0 && (
-              <ul className="mt-2.5 flex flex-wrap gap-1.5">
+              <ul className="mt-2 flex flex-wrap gap-1.5">
                 {ev.people.map((p) => {
                   const ago = since(p.last_note_at, locale, intl);
                   if (p.person_id) {
@@ -166,15 +178,20 @@ export function Agenda({
                           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-xs transition-colors hover:border-ink/40"
                         >
                           <span className="font-medium">{p.person_name}</span>
+                          {/* Separated. Three facts run together read as one
+                              long phrase — "Tahirih Michot Contributes
+                              nothing written down" was on Sjoerd's screen on
+                              2026-09-21. A middle dot is what every list app
+                              puts between a name and its detail. */}
                           {p.rung && (
-                            <span className="text-ink-subtle">{bandLabel(p.rung)}</span>
+                            <span className="text-ink-subtle">· {bandLabel(p.rung)}</span>
                           )}
                           {/* Whether you have written anything down about
                               them, and how long ago. This is the nudge: an
                               old date next to somebody you are meeting in an
                               hour is the whole reason to look at this page. */}
                           <span className="text-ink-subtle">
-                            {ago ?? t(locale, 'agenda_never_written')}
+                            · {ago ?? t(locale, 'agenda_never_written')}
                           </span>
                         </PersonLink>
                       </li>
@@ -228,7 +245,7 @@ function MeetingWhere({ ev, locale }: { ev: AgendaEvent; locale: Locale }) {
   if (!join && !place) return null;
 
   return (
-    <>
+    <div className="mt-1 flex flex-wrap items-center gap-1.5">
       {join && (
         <a
           href={join.url}
@@ -254,6 +271,6 @@ function MeetingWhere({ ev, locale }: { ev: AgendaEvent; locale: Locale }) {
           <span className="max-w-[12rem] truncate">{place.label}</span>
         </a>
       )}
-    </>
+    </div>
   );
 }

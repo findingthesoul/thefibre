@@ -208,10 +208,19 @@ export async function listEvents(
   );
 
   const out: AgendaEvent[] = [];
+  // One meeting, once. An event you are invited to sits on YOUR calendar and
+  // on the shared calendar it was created in, and reading both gave the same
+  // meeting twice — visible on Sjoerd's phone on 2026-09-21, the same Zoom
+  // call listed twice under Today. Google gives both copies the same event
+  // id (a recurring meeting's instances each get their own), so the id is
+  // the right key: two genuinely different meetings never share one.
+  const seen = new Set<string>();
   for (const item of perCalendar.flat()) {
     const startRaw = item.start?.dateTime ?? item.start?.date;
     const endRaw = item.end?.dateTime ?? item.end?.date;
     if (!startRaw || !endRaw || !item.id) continue;
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
     out.push({
       id: item.id,
       summary: item.summary ?? '',

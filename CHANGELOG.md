@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.84.0] — 2026-09-21 — Today reads like a list, and a meeting appears once (staging)
+
+Sjoerd sent three photographs: Connections' Today page, the iPhone's Recents
+screen, and Gmail. *"On photo 1 you see what it is... but on 2 and 3 you see
+what is regular on apps. The later is more intuitive."*
+
+He is right, and the two references agree with each other. A list in a phone
+app is rows against the screen edges with a hairline between them, a bold line
+and a quiet line on the left, and the time on the right. Today was a stack of
+separate cards floating inside the page's own margins — which reads as a set
+of objects rather than as a list of things, and spends about seventy pixels
+of a narrow screen on the frames.
+
+Today's three lists — the agenda, what to prepare, and what you owe — are now
+that shape, sharing the recipe the people list took in v0.81.0. The whole row
+is the target, as it is in both references. The meeting's time moved to the
+right-hand end, where Recents and Gmail put theirs.
+
+Two smaller things from the same picture:
+
+**A meeting was listed twice.** A call he is invited to sits both on his own
+calendar and on the shared one it was created in, and reading both listed it
+twice. Google gives both copies the same event id, so the second is dropped.
+
+**"Tahirih Michot Contributes nothing written down"** was three facts run
+together into one phrase. They are separated by a middle dot now, the way a
+name and its detail are separated everywhere else.
+
 ## [0.82.1] — 2026-09-21 — You can see which tab you are on (staging)
 
 Sjoerd, on his phone: "I can't really clearly see which icon I am on... maybe
