@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.86.0] — 2026-09-21 — A phone's own margin, and timestamps that are true (staging)
+
+**"The landscape interface: full width."** Every page had 32px of margin down
+each side whatever the screen, which on a 375px phone is a sixth of the width
+spent on nothing — and the pages that run columns or a map across the screen
+lose the most. It is 16px on a phone now, which is what iOS uses, and 32px
+again from a tablet up.
+
+The full-bleed row list from v0.81.0 moves with it, and a test now fails the
+release if the two ever disagree: bleed by less than the margin and a list
+stops short of the edge, bleed by more and the whole page scrolls sideways.
+Neither shows up in a typecheck, a build, or any test of behaviour, and the
+second one is invisible on a desktop browser.
+
+**And a timestamp that has been lying since the first migration.** Chasing
+Sjoerd's "can it be that How you know them is not saving?", the first thing to
+check was when his row last changed. It said five days ago — hours after three
+writes had come through the log. Not because they failed: because nothing has
+ever set `updated_at` on the curator tables after the insert. The column
+carries `default now()`, the API's upsert does not send it, and there was no
+trigger. `person_professional`, `person_relationship_context`,
+`person_change_context`, `person_learning`, `org_identity` and
+`org_system_context` all have one now.
+
+It is a trigger rather than a column the API sets, because the API is not the
+only writer — a migration, a backfill and a support fix all write these tables
+— and a timestamp that is only true when one caller remembers to set it is the
+thing being fixed. `person_billing` has no such column at all and is left
+alone; adding one is a separate decision.
+
+Migration `20260921160000_curator_updated_at.sql`.
+
 ## [0.85.2] — 2026-09-21 — The API image knows about packages/mcp (staging)
 
 v0.85.0's staging API deploy failed to build: the Dockerfile copies the
