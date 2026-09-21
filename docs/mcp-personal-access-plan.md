@@ -236,6 +236,15 @@ Marja?" — `connections_search`, then `connections_person`.
 **To disconnect**: Settings → Connections → Assistants connected → Disconnect.
 The next call from the assistant is refused and it will offer to sign in again.
 
+**Known gap, found probing staging unsigned (2026-09-21):** `/connect`
+without a session redirects to the sign-in page and the query string is
+lost, so a person who was NOT already signed in lands on the home page after
+signing in instead of back on the consent page, and the assistant's request
+stalls. Sjoerd is normally signed in, so the first walk will not hit it; a
+real first-time user will. Fix for P3: carry a `next=` through the sign-in
+redirect in the web app's `(app)` layout, or have `/connect` live outside
+the shell and do its own sign-in with a return.
+
 **Two things to know on staging**: the API answers on the fly.dev address
 (§6.5 — `api.thefibre.app` would make the printed URL permanent), and the
 grant follows the workspace you had active in The Fibre when you pressed
