@@ -713,6 +713,16 @@ without `ANTHROPIC_API_KEY` the client is `null`, `/assistant/status` reports
 set that secret on production until the sub-processor entry, the DPA and the
 inference region are done. That gate is correct and it is in the right place.
 
+**UPDATE 2026-09-21: it promoted, and the gate did expire.** Main went
+33b5116 (v0.77.1) → cf2aa17 (v0.82.0), so everything below is now true of
+production, not staging. Verified on `origin/main`: `access.ts` still resolves
+the workspace key first; `deploy.md` still says only "do not set it on
+production"; `PUT /api/v1/assistant/workspace-key` has no guard beyond admin;
+and the sub-processor list in `packages/shared/src/ui/legal-docs.tsx` names
+Supabase, Fly.io, Vercel, Resend, Stripe and Google, with no Anthropic row.
+Any workspace admin can switch the assistant on for themselves today. Told
+Sjoerd the same day. The two decisions below are now live, not hypothetical.
+
 **It stops being sufficient when v0.78.x promotes.**
 `apps/api/src/lib/assistant/access.ts` resolves a workspace's own Anthropic
 key before it looks at the platform key, and before the plan check and the

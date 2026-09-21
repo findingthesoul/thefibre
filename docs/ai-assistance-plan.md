@@ -58,9 +58,10 @@ entry in the privacy statement, the DPA and the inference-region decision in
 that doc's §6 are done."* It is an instruction rather than a mechanism, but it
 sits in the procedure somebody actually follows to set the secret.
 
-**What that gate stops covering is the next promotion.** The platform key is
-no longer the only way in. On staging, `lib/assistant/access.ts` resolves a
-workspace's OWN Anthropic key first:
+**That gate stopped covering production on 2026-09-21**, when main went from
+v0.77.1 to v0.82.0. The platform key is no longer the only way in. On
+production, `lib/assistant/access.ts` resolves a workspace's OWN Anthropic key
+first:
 
 ```
 if (own) return { ...base, enabled: true, source: 'workspace', ... };
@@ -74,14 +75,19 @@ a defensible design for who pays. But it means **"do not set
 production** once v0.78.x promotes, and the deploy note reads as though it
 does.
 
-Two things follow, and neither is this document's to settle:
+Two things follow, and neither is this document's to settle. **Both are now
+live rather than anticipated:**
 
 1. The deploy gate needs to name the workspace-key path, or the connect
-   screen needs to refuse while the three items are open.
+   screen needs to refuse while the three items are open. Today
+   `PUT /api/v1/assistant/workspace-key` checks only that the caller is an
+   admin.
 2. The three items themselves may split. With a workspace's own key, the
    workspace is contracting the model provider and Fibre is transmitting to
    it; with the platform key, Fibre is the one contracting. The sub-processor
-   entry and the DPA do not obviously read the same way in both cases.
+   entry and the DPA do not obviously read the same way in both cases. As of
+   2026-09-21 the published list in `packages/shared/src/ui/legal-docs.tsx`
+   carries no model-provider row under either reading.
 
 ---
 
