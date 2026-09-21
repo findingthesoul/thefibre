@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.88.0] — 2026-09-21 — The painted icon set (staging)
+
+Sjoerd's new icons (branding/icons, "PNG 2"): a painted shape with the app's
+name under it, seven of them — the fibre, the thread, meet, members, connect,
+flow, pulse. Learn has none, because Learn does not exist yet.
+
+**Two cuts of the same art, for two jobs.** The launcher tiles and each app's
+own tile in the sidebar take the SHAPE alone, cropped above the wordmark
+(a name is unreadable at 28 pixels); the home-screen icons for The Fibre and
+Connect take the same crop, with a smaller centred version for Android's
+maskable icon. The FULL lockup, name and all, goes where there is room to read
+it: the landing page and the sign-in page of fibre web, from the new
+`brand/lockups/`.
+
+File names are unchanged, so `tileArtUrl()` and every consumer keep working —
+the names are the contract, the pictures are not. The tile README says where
+the art comes from now.
+
 ## [0.87.1] — 2026-09-21 — The sign-in page learned the new name too (staging)
 
 One line the rename missed, and the worst one to miss: the sign-in page's own

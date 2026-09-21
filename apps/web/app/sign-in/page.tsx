@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { SignInButton } from '../sign-in-button';
 import { APPS } from '@thefibre/shared';
@@ -12,9 +13,14 @@ export default function SignInPage() {
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-md px-6 py-20">
-        <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-          {FIBRE.name}
-        </div>
+        <Image
+          src="/brand/lockups/the-fibre.png"
+          alt={FIBRE.name}
+          width={900}
+          height={900}
+          priority
+          className="h-24 w-auto"
+        />
         <h1 className="mt-3 text-3xl font-medium tracking-tight leading-tight">
           Sign in
         </h1>

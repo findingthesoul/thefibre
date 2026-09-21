@@ -42,13 +42,15 @@ export default async function LandingPage() {
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
         <header>
+          {/* The 2026-09-21 lockup: the shape with the name under it. Square
+              art, so it is sized by height and keeps its own proportions. */}
           <Image
-            src="/brand/the-fibre.png"
+            src="/brand/lockups/the-fibre.png"
             alt={BRAND_ASSETS.logoAlt}
-            width={BRAND_ASSETS.logoNativeWidth}
-            height={BRAND_ASSETS.logoNativeHeight}
+            width={900}
+            height={900}
             priority
-            className="h-12 w-auto"
+            className="h-28 w-auto"
           />
           <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
             <span

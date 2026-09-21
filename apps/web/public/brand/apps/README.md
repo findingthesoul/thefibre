@@ -1,7 +1,16 @@
-# The launcher tapestry (Matisse cut-out crops)
+# App tiles
 
-One poster, all eight apps, Sjoerd's order: fibre, thethread, meet,
-members / pulse, flow, sales, learn (.png each, square ~600x600).
-Sales + Learn render as quiet coming-soon tiles until the apps exist.
-The same art is each app's home tile (sidebar, top-left). Picked up by
-file existence — swap art by swapping files; the composition is Sjoerd's.
+One square per app, used by the dashboard launcher and as each app's own tile
+at the top left of its sidebar. Served from fibre web — the brand-asset single
+point of truth — and resolved by `tileArtUrl()` in packages/shared/branding.ts,
+which maps slug → file name. Swap the art by swapping the file; the names are
+the contract, the pictures are not.
+
+**Since 2026-09-21** these are Sjoerd's painted icon set (branding/icons,
+"PNG 2"): the shape alone, cropped above the wordmark, on its own white
+ground. The full lockups — shape WITH the name under it — live in
+`../lockups/` and are for surfaces with room to read: the landing page, the
+sign-in page.
+
+`learn.png` is still the older Matisse crop: Fibre Learn does not exist yet
+(Sjoerd, 2026-09-21), so there is no new icon for it.
