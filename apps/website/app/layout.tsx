@@ -1,3 +1,4 @@
+import { appIcons } from '@thefibre/shared/root-layout';
 // The Thread marketing site — its own root layout, deliberately NOT the
 // shared createRootLayout(): no ThemeScript (light-only is the brand), a
 // real metadataBase, and a proper title template (the P5 favicon/OG gap
@@ -11,6 +12,9 @@ import { SiteFooter } from '@/components/site-footer';
 
 export const metadata: Metadata = {
   metadataBase: new URL(surfaceUrl('website', process.env)),
+  // The Thread's tile, the same image the apps and the launcher use — one
+  // brand asset, not a drawing of its own (Sjoerd, 2026-09-21).
+  icons: appIcons('the-thread', process.env) ?? undefined,
   title: { default: 'The Thread — for weaving the social fabric', template: '%s · The Thread' },
   description:
     'Every gathering is a beginning. The Thread carries it forward — enrolment, payments, messages, certificates: the whole arc, considered.',

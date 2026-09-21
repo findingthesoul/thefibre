@@ -13,7 +13,7 @@
 
 import type { ReactNode } from 'react';
 import { ThemeScript } from './ui/theme-script.js';
-import { APPS, appUrl } from './branding.js';
+import { APPS, appUrl, tileArtUrl } from './branding.js';
 import type { AppId } from './index.js';
 
 /**
@@ -36,12 +36,32 @@ export function appMetadata(
   title: string;
   description: string;
   metadataBase: URL;
+  icons?: AppIcons;
 } {
+  const icons = appIcons(slug, env);
   return {
     title: APPS[slug].name,
     description: APPS[slug].tagline,
     metadataBase: new URL(appUrl(slug, env)),
+    ...(icons ? { icons } : {}),
   };
+}
+
+export type AppIcons = { icon: string; apple: string };
+
+/**
+ * The browser-tab and home-screen icon: the app's own Matisse tile, the same
+ * image the launcher and the switcher show, served from the brand-asset
+ * SPoT (tileArtUrl). Until 2026-09-21 no app declared an icon at all and the
+ * marketing site carried a hand-drawn figure nobody had chosen (Sjoerd: "the
+ * icon at the top is wrong"). Null for a slug without a tile.
+ */
+export function appIcons(
+  slug: AppId,
+  env?: Record<string, string | undefined>,
+): AppIcons | null {
+  const tile = tileArtUrl(slug, env);
+  return tile ? { icon: tile, apple: tile } : null;
 }
 
 export function createRootLayout() {

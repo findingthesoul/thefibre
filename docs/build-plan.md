@@ -66,6 +66,14 @@ a fee statement — under "Paid" as if it were the workspace's income; those are
 the workspace's costs and should read as such. Pre-existing for subscription
 rows, visible now that fee statements sit beside ticket sales.
 
+**Dependabot's grouped PR fails its preview build (2026-09-21).** Branch
+`dependabot/npm_and_yarn/all-minor-and-patch-6d70ec062d`, 21 minor/patch
+bumps, Vercel build error. Nothing merged; production untouched. The two most
+likely causes: `@supabase/ssr` 0.5 → 0.12 (cookie API moved across those
+minors) and `lucide-react` 0.460 → 0.577 (icons get renamed). Take the group
+apart: bump the two suspects one at a time on a branch, build, then the rest.
+Never merge a group blind — Dependabot cannot tell a build from a bundle.
+
 **SPEED follow-ups (v0.80.0 measured on staging, 2026-09-17).** Menu click
 0.8 s → 0.3–0.55 s with a skeleton at once; app switch 4.9 s → 0.84 s warm;
 but: (1) a COLD Vercel function still adds 1–3 s to the first hit of an app

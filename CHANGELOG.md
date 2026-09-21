@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.85.1] — 2026-09-21 — The tab shows the tile (staging)
+
+Sjoerd: "the icon at the top is wrong." The marketing site's browser-tab icon
+was a hand-drawn yellow figure nobody had chosen, and the apps declared no
+icon at all. Every app's tab and home-screen icon is now its own Matisse
+tile — the same image the launcher and the switcher show — served from the
+one brand-asset place, so a new app gets its icon the day it has a tile.
+thethread.app shows The Thread's tile; the drawing is gone.
+
+Also noticed: the weekly Dependabot bundle (21 minor and patch bumps) fails
+its preview build. Nothing is merged from it and production is untouched;
+the two bumps most likely to be the cause are named in the build plan.
+
 ## [0.85.0] — 2026-09-21 — The Fibre in your own assistant, as you (staging)
 
 docs/mcp-personal-access-plan.md, phases 1 and 2. Sjoerd: "I want to do
