@@ -1262,13 +1262,20 @@ middleware source. Stdio (Claude Desktop / Claude Code) and a stateless
 
 **Open, in the order they earn their place**
 
-- [ ] **Hosted server with OAuth 2.1, acting as the PERSON** — planned in
-  full in `docs/mcp-personal-access-plan.md` (2026-09-18, for Sjoerd's "I
-  want to do something with Connections"). The credential question is
-  answered there: the grant holds the person's own Supabase refresh token,
-  so every route runs under their RLS unchanged. Four phases, three to four
-  sessions: sign-in → server + Connections read tools → first live turns →
-  writes + ChatGPT. Awaiting Sjoerd's go and the five decisions in its §6.
+- [x] **Hosted server with OAuth 2.1, acting as the PERSON — built, v0.85.0
+  (2026-09-21).** `/api/v1/mcp` + `/connect` + Settings → Connections →
+  Assistants connected. Eleven read tools (Connections ×7, Thread ×4).
+  `verify-mcp-personal.mjs` walks the whole flow, 32 checks green on staging.
+  `docs/mcp-personal-access-plan.md` has the design and status.
+- [ ] **P3 — Sjoerd connects a real client** (plan §8): Claude Desktop or
+  Claude.ai → `https://thefibre-api-staging.fly.dev/api/v1/mcp`, press Allow
+  on `/connect`, ask "who should I follow up with this week?". Whatever a
+  real client does differently from the script gets fixed then.
+- [ ] **P4 — writes and ChatGPT**: `connections_add_note` and a follow-up
+  setter behind the client's own confirmation, with `source='mcp'`
+  provenance; then the ChatGPT connector, whose OAuth client behaves
+  differently enough to be its own check. Also `api.thefibre.app`, so the
+  printed URL stops being a fly.dev address.
 - [ ] **A first-party assistant app in the catalogue** — switched on per
   workspace at Settings → Apps, with a manifest that declares its activity
   types, so a workspace need not register an app to use this.

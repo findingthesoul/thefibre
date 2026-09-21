@@ -6280,6 +6280,168 @@ const CATALOG = {
     de: 'eigener Schlüssel', // MT
     fr: 'clé propre', // MT
   },
+  // ── /connect — consent for a person's own assistant (mcp-personal-access-plan.md) ──
+  connect_title: {
+    en: 'Connect an assistant',
+    nl: 'Een assistent koppelen',
+    es: 'Conectar un asistente', // MT
+    pt: 'Ligar um assistente', // MT
+    de: 'Einen Assistenten verbinden', // MT
+    fr: 'Connecter un assistant', // MT
+  },
+  connect_lead: {
+    en: 'An assistant you use — Claude, ChatGPT or another — is asking to read your Fibre data on your behalf. It will only ever see what you can see, and only when you ask it something. You can disconnect it at any time under Settings → Connections.',
+    nl: 'Een assistent die je gebruikt — Claude, ChatGPT of een andere — vraagt om namens jou je Fibre-gegevens te lezen. Hij ziet alleen wat jij kunt zien, en alleen als je hem iets vraagt. Je kunt hem altijd ontkoppelen bij Instellingen → Koppelingen.',
+    es: 'Un asistente que usas — Claude, ChatGPT u otro — pide leer tus datos de Fibre en tu nombre. Solo verá lo que tú puedes ver, y solo cuando le preguntes algo. Puedes desconectarlo en cualquier momento en Ajustes → Conexiones.', // MT
+    pt: 'Um assistente que usa — Claude, ChatGPT ou outro — pede para ler os seus dados do Fibre em seu nome. Só verá o que você pode ver, e só quando lhe perguntar algo. Pode desligá-lo a qualquer momento em Definições → Ligações.', // MT
+    de: 'Ein Assistent, den du nutzt — Claude, ChatGPT oder ein anderer — möchte deine Fibre-Daten in deinem Namen lesen. Er sieht nur, was du sehen kannst, und nur, wenn du ihn etwas fragst. Du kannst ihn jederzeit unter Einstellungen → Verbindungen trennen.', // MT
+    fr: 'Un assistant que vous utilisez — Claude, ChatGPT ou un autre — demande à lire vos données Fibre en votre nom. Il ne verra que ce que vous voyez, et seulement quand vous lui demandez quelque chose. Vous pouvez le déconnecter à tout moment dans Paramètres → Connexions.', // MT
+  },
+  connect_asks_for: {
+    en: 'wants to act as you in the workspace {workspace}.',
+    nl: 'wil namens jou handelen in de workspace {workspace}.',
+    es: 'quiere actuar como tú en el espacio {workspace}.', // MT
+    pt: 'quer agir como você no espaço {workspace}.', // MT
+    de: 'möchte in deinem Namen im Workspace {workspace} handeln.', // MT
+    fr: 'veut agir en votre nom dans l’espace {workspace}.', // MT
+  },
+  connect_returns_to: {
+    en: 'After you decide, you return to',
+    nl: 'Na je keuze ga je terug naar',
+    es: 'Tras decidir, volverás a', // MT
+    pt: 'Depois de decidir, volta a', // MT
+    de: 'Nach deiner Entscheidung geht es zurück zu', // MT
+    fr: 'Après votre choix, vous revenez sur', // MT
+  },
+  connect_may_read: {
+    en: 'It may read',
+    nl: 'Het mag lezen',
+    es: 'Podrá leer', // MT
+    pt: 'Poderá ler', // MT
+    de: 'Es darf lesen', // MT
+    fr: 'Il pourra lire', // MT
+  },
+  connect_fine_print: {
+    en: 'Nothing here can write or change anything. What the assistant reads is sent to its provider on your instruction, the same as anything you type into it.',
+    nl: 'Niets hiervan kan iets schrijven of veranderen. Wat de assistent leest gaat op jouw verzoek naar zijn aanbieder, net als alles wat je er zelf intypt.',
+    es: 'Nada de esto puede escribir ni cambiar nada. Lo que el asistente lee se envía a su proveedor por tu instrucción, igual que todo lo que tú escribes en él.', // MT
+    pt: 'Nada aqui pode escrever ou alterar nada. O que o assistente lê é enviado ao seu fornecedor por sua instrução, tal como tudo o que você lá escreve.', // MT
+    de: 'Nichts hiervon kann etwas schreiben oder ändern. Was der Assistent liest, geht auf deine Anweisung an seinen Anbieter, wie alles, was du selbst eintippst.', // MT
+    fr: 'Rien ici ne peut écrire ni modifier quoi que ce soit. Ce que l’assistant lit est envoyé à son fournisseur sur votre instruction, comme tout ce que vous y tapez.', // MT
+  },
+  connect_approve: {
+    en: 'Allow',
+    nl: 'Toestaan',
+    es: 'Permitir', // MT
+    pt: 'Permitir', // MT
+    de: 'Erlauben', // MT
+    fr: 'Autoriser', // MT
+  },
+  connect_deny: {
+    en: 'Don’t allow',
+    nl: 'Niet toestaan',
+    es: 'No permitir', // MT
+    pt: 'Não permitir', // MT
+    de: 'Nicht erlauben', // MT
+    fr: 'Refuser', // MT
+  },
+  connect_failed: {
+    en: 'That did not work. Try again from the assistant.',
+    nl: 'Dat is niet gelukt. Probeer het opnieuw vanuit de assistent.',
+    es: 'No ha funcionado. Inténtalo de nuevo desde el asistente.', // MT
+    pt: 'Não funcionou. Tente novamente a partir do assistente.', // MT
+    de: 'Das hat nicht geklappt. Versuch es noch einmal vom Assistenten aus.', // MT
+    fr: 'Cela n’a pas fonctionné. Réessayez depuis l’assistant.', // MT
+  },
+  connect_incomplete: {
+    en: 'This page is opened by an assistant asking to connect. Start from the assistant, not from here.',
+    nl: 'Deze pagina wordt geopend door een assistent die wil koppelen. Begin vanuit de assistent, niet hier.',
+    es: 'Esta página la abre un asistente que pide conectarse. Empieza desde el asistente, no desde aquí.', // MT
+    pt: 'Esta página é aberta por um assistente que pede para ligar. Comece a partir do assistente, não daqui.', // MT
+    de: 'Diese Seite wird von einem Assistenten geöffnet, der sich verbinden möchte. Beginne beim Assistenten, nicht hier.', // MT
+    fr: 'Cette page est ouverte par un assistant qui demande à se connecter. Commencez depuis l’assistant, pas d’ici.', // MT
+  },
+  connect_unknown_client: {
+    en: 'The Fibre does not know this assistant. Ask it to connect again.',
+    nl: 'The Fibre kent deze assistent niet. Laat hem opnieuw koppelen.',
+    es: 'The Fibre no conoce a este asistente. Pídele que se conecte de nuevo.', // MT
+    pt: 'The Fibre não conhece este assistente. Peça-lhe para ligar de novo.', // MT
+    de: 'The Fibre kennt diesen Assistenten nicht. Lass ihn erneut verbinden.', // MT
+    fr: 'The Fibre ne connaît pas cet assistant. Demandez-lui de se reconnecter.', // MT
+  },
+  // ── Settings → Connections → assistants ───────────────────────────────
+  assistants_title: {
+    en: 'Assistants connected to your account',
+    nl: 'Assistenten gekoppeld aan je account',
+    es: 'Asistentes conectados a tu cuenta', // MT
+    pt: 'Assistentes ligados à sua conta', // MT
+    de: 'Mit deinem Konto verbundene Assistenten', // MT
+    fr: 'Assistants connectés à votre compte', // MT
+  },
+  assistants_blurb: {
+    en: 'Your own Claude, ChatGPT or another assistant that you allowed to read your Fibre data. Each one sees only what you see, only when you ask it, and only in the workspace it was connected in. Disconnecting takes effect on its next request.',
+    nl: 'Je eigen Claude, ChatGPT of een andere assistent die je toestemming gaf om je Fibre-gegevens te lezen. Elk ziet alleen wat jij ziet, alleen als je iets vraagt, en alleen in de workspace waarin hij is gekoppeld. Ontkoppelen geldt vanaf zijn volgende verzoek.',
+    es: 'Tu propio Claude, ChatGPT u otro asistente al que permitiste leer tus datos de Fibre. Cada uno ve solo lo que tú ves, solo cuando le preguntas, y solo en el espacio donde se conectó. Desconectar surte efecto en su siguiente petición.', // MT
+    pt: 'O seu próprio Claude, ChatGPT ou outro assistente a que permitiu ler os seus dados do Fibre. Cada um vê só o que você vê, só quando pergunta, e só no espaço em que foi ligado. Desligar tem efeito no pedido seguinte.', // MT
+    de: 'Dein eigener Claude, ChatGPT oder ein anderer Assistent, dem du erlaubt hast, deine Fibre-Daten zu lesen. Jeder sieht nur, was du siehst, nur wenn du fragst, und nur im Workspace, in dem er verbunden wurde. Trennen gilt ab seiner nächsten Anfrage.', // MT
+    fr: 'Votre propre Claude, ChatGPT ou un autre assistant que vous avez autorisé à lire vos données Fibre. Chacun ne voit que ce que vous voyez, seulement quand vous demandez, et seulement dans l’espace où il a été connecté. La déconnexion prend effet à sa prochaine requête.', // MT
+  },
+  assistants_none: {
+    en: 'No assistant is connected. Add The Fibre to your assistant and it will send you here to allow it.',
+    nl: 'Er is geen assistent gekoppeld. Voeg The Fibre toe aan je assistent; die stuurt je dan hierheen om toestemming te geven.',
+    es: 'No hay ningún asistente conectado. Añade The Fibre a tu asistente y te enviará aquí para permitirlo.', // MT
+    pt: 'Nenhum assistente está ligado. Adicione o The Fibre ao seu assistente e ele envia-o para aqui para permitir.', // MT
+    de: 'Kein Assistent ist verbunden. Füge The Fibre deinem Assistenten hinzu; er schickt dich dann hierher, um es zu erlauben.', // MT
+    fr: 'Aucun assistant n’est connecté. Ajoutez The Fibre à votre assistant et il vous enverra ici pour l’autoriser.', // MT
+  },
+  assistants_pending: {
+    en: 'not finished',
+    nl: 'niet afgerond',
+    es: 'sin terminar', // MT
+    pt: 'por concluir', // MT
+    de: 'nicht abgeschlossen', // MT
+    fr: 'non terminé', // MT
+  },
+  assistants_scope_connections: {
+    en: 'reads Connections',
+    nl: 'leest Connections',
+    es: 'lee Connections', // MT
+    pt: 'lê Connections', // MT
+    de: 'liest Connections', // MT
+    fr: 'lit Connections', // MT
+  },
+  assistants_scope_thread: {
+    en: 'reads your threads',
+    nl: 'leest je threads',
+    es: 'lee tus threads', // MT
+    pt: 'lê os seus threads', // MT
+    de: 'liest deine Threads', // MT
+    fr: 'lit vos threads', // MT
+  },
+  assistants_connected_on: {
+    en: 'Connected {date}',
+    nl: 'Gekoppeld op {date}',
+    es: 'Conectado el {date}', // MT
+    pt: 'Ligado em {date}', // MT
+    de: 'Verbunden am {date}', // MT
+    fr: 'Connecté le {date}', // MT
+  },
+  assistants_last_used: {
+    en: 'last used {date}',
+    nl: 'laatst gebruikt {date}',
+    es: 'último uso {date}', // MT
+    pt: 'última utilização {date}', // MT
+    de: 'zuletzt genutzt {date}', // MT
+    fr: 'dernière utilisation {date}', // MT
+  },
+  assistants_disconnect: {
+    en: 'Disconnect',
+    nl: 'Ontkoppelen',
+    es: 'Desconectar', // MT
+    pt: 'Desligar', // MT
+    de: 'Trennen', // MT
+    fr: 'Déconnecter', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

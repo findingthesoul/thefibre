@@ -7,6 +7,23 @@ as that person. Route (1), the assistant inside the apps, is
 [`assistant-in-app.md`](assistant-in-app.md); what exists today for route (2)
 is [`mcp.md`](mcp.md).*
 
+## Status — 2026-09-21, v0.85.0 on staging
+
+Sjoerd said go on 2026-09-21. **P1 and P2 are built and on staging** in one
+release: the sign-in (§3.2), the grant (§3.1), the endpoint (§3.3) and the
+eleven read tools (§3.4). `apps/api/scripts/verify-mcp-personal.mjs` walks
+the whole flow the way a client would — discovery, registration, consent as
+a signed-in person, PKCE exchange, initialize, tools/list, a real
+Connections read, refresh rotation, disconnect — 32 checks, all green
+against the staging database. Two things it found on the first live run
+and that the unit tests could not: the endpoint path had to be in the
+middleware's public list, and the SDK's default SSE reply was being cut
+off by the per-request close (fixed with `enableJsonResponse`).
+
+**P3 is next and needs Sjoerd**: connect Claude Desktop or Claude.ai to
+`https://thefibre-api-staging.fly.dev/api/v1/mcp` and walk the consent page
+once for real. §8 has the steps. P4 (writes, ChatGPT) waits on that.
+
 ## 0. The estimate, corrected
 
 I said "a session or two" in chat. Written out, it is **three to four
@@ -148,9 +165,9 @@ and the client id, per §4.3 of the integrity doc.
 
 | Phase | Deliverable | Effort |
 |---|---|---|
-| **P1 — sign-in** | Discovery documents, dynamic registration, PKCE, refresh tokens, `mcp_grant` table + migration, consent page in The Fibre web, revoke list on Settings → Connections ("Assistants connected to your account"), `auth: 'delegated'` in `app-context.ts` that resolves a grant to a user session. Tests: the token dance end to end against a fixture client; a revoked grant fails closed. | 1 session |
-| **P2 — the server and the read tools** | `/api/v1/mcp` on the API, `person-tools.ts` in `packages/mcp`, the seven Connections reads + the Thread reads, brakes (per-grant rate limit, same `hit()`), one log line per call (grant, tool, ms — never content). Tests: every tool maps to a route that exists and is called with the person's JWT; the allow-list style test from `mcp.test.ts`. | 1 session |
-| **P3 — first live turns** | Connect Claude Desktop and Claude.ai to staging, walk the flow, hit whatever the real validator finds (we learned on 2026-09-16 that a tool catalogue is not verified until one live request has gone through), fix, redeploy the API. | ½ session |
+| **P1 — sign-in** ✅ v0.85.0 | Discovery documents, dynamic registration, PKCE, refresh tokens, `mcp_grant` table + migration, consent page in The Fibre web (`/connect`), revoke list on Settings → Connections ("Assistants connected to your account"). The grant is resolved in the MCP handler itself rather than a new auth kind in `app-context.ts`: the tools call the API's own routes with the person's JWT, so the middleware never needed to learn a third credential. Tests: `lib/mcp/mcp.test.ts` (PKCE, discovery, our tokens) + the live walk in `verify-mcp-personal.mjs`. | done |
+| **P2 — the server and the read tools** ✅ v0.85.0 | `/api/v1/mcp` on the API (stateless, JSON responses), `person.ts` in `packages/mcp` — seven Connections reads + four Thread reads, per-grant brake, one log line per call (grant, workspace, status, ms — never content). Tests: `packages/mcp/src/person.test.ts` — every tool is a GET as the person with the owning app's `X-App-ID`; the list follows the scopes; a real MCP client over an in-memory transport. | done |
+| **P3 — first live turns** | Sjoerd connects Claude Desktop and Claude.ai to staging (§8), walks the consent page once for real, and we fix whatever a real client does differently from the script. | ½ session, needs Sjoerd |
 | **P4 — writes + ChatGPT** | Add note, set follow-up, provenance; then connect ChatGPT (its OAuth client behaves differently enough to count as its own check). | ½–1 session |
 | **P5 — later** | `api.thefibre.app`; a Thread-as-person catalogue that replaces the app-key one for people (the two MCP doors converge); metering per grant if use grows. | — |
 
@@ -188,6 +205,42 @@ Total: **three to four sessions**, P1 and P2 sequential, P3 and P4 short.
 5. **Address.** `thefibre-api.fly.dev/api/v1/mcp` for staging and first
    production use, or do the `api.thefibre.app` CNAME first so the printed
    address never changes.
+
+## 8. Connecting for real (P3) — for Sjoerd
+
+The staging API is the server; nothing needs to be installed.
+
+**Claude Desktop** (or Claude.ai → Settings → Connectors → Add custom
+connector): give it the URL
+
+```
+https://thefibre-api-staging.fly.dev/api/v1/mcp
+```
+
+It reads the discovery documents, registers itself, and opens a browser
+tab on `thefibre.tech/connect`. Sign in if asked, read what it will be able
+to read, press **Allow**. The tab returns to Claude; the tools appear.
+
+**Claude Code**, one line:
+
+```bash
+claude mcp add --transport http thefibre-staging https://thefibre-api-staging.fly.dev/api/v1/mcp
+```
+
+then `/mcp` inside a session to sign in the same way.
+
+**Then ask**: "Who should I follow up with this week?" — it should call
+`connections_today`, then `connections_attention`. "What do I have on
+Marja?" — `connections_search`, then `connections_person`.
+
+**To disconnect**: Settings → Connections → Assistants connected → Disconnect.
+The next call from the assistant is refused and it will offer to sign in again.
+
+**Two things to know on staging**: the API answers on the fly.dev address
+(§6.5 — `api.thefibre.app` would make the printed URL permanent), and the
+grant follows the workspace you had active in The Fibre when you pressed
+Allow. If you switch workspace in the browser afterwards, the assistant is
+told so and asks you to switch back or connect again.
 
 ## 7. What this does not do
 

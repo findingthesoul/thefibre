@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.85.0] — 2026-09-21 — The Fibre in your own assistant, as you (staging)
+
+docs/mcp-personal-access-plan.md, phases 1 and 2. Sjoerd: "I want to do
+something with Connections." — "go."
+
+**Connect Claude to your account, and it reads as you.** Give Claude Desktop,
+Claude.ai or Claude Code the URL `…/api/v1/mcp`. It discovers The Fibre's
+OAuth endpoints, registers itself, and sends you to a new page,
+`thefibre.app/connect`, that says in plain words who is asking and what it
+would be able to read. **Allow** or **Don't allow**. From then on the
+assistant's questions run as you, in the workspace you were in, under your
+own row-level rules — it reaches nothing you could not see in the app, and
+nothing goes anywhere the platform's own key could send it: your Claude does
+the thinking on your account. Eleven read-only tools: who is waiting for you,
+who needs attention, your agenda, your landscape, one person and your notes
+on them, who can get you in, find a person; and your threads, one thread with
+its timeline, your templates, registration as counts.
+
+**How it holds.** A connection is a *grant*: one person, one workspace, one
+client, read-only scopes. It carries a dedicated sign-in session for you —
+minted at consent, never shared with a browser tab, encrypted at rest under
+`ASSISTANT_KEY_SECRET` with the key-id byte — so every call becomes a fresh
+JWT of yours and every existing route runs unchanged. If you switch workspace
+in The Fibre, the assistant is told and asks you to switch back or connect
+again. The OAuth provider built for Circle grew what a remote MCP client
+needs: discovery documents at `/.well-known/…`, self-registration (public
+clients only, https or loopback redirects, 20 per address per day), PKCE,
+refresh tokens that rotate and expire after 90 idle days, and a revoke
+endpoint. The Circle flow is untouched.
+
+**Disconnect in one click.** Settings → Connections gained "Assistants
+connected to your account": each one with what it reads and when it was last
+used. Disconnect takes effect on the assistant's next call. The privacy
+statement gained a paragraph saying what a connected assistant can read and
+that its provider is your processor, not our sub-processor.
+
+**Verified the way a client would do it.** `verify-mcp-personal.mjs` walks
+discovery → registration → consent as a signed-in person → PKCE exchange →
+initialize → tools/list → a real Connections read → refresh rotation →
+disconnect: 32 checks, green against the staging database. Two of them only
+a live run could catch, and it did. Migration
+`20260921150000_mcp_grants.sql`, applied to staging.
+
 ## [0.84.0] — 2026-09-21 — Today reads like a list, and a meeting appears once (staging)
 
 Sjoerd sent three photographs: Connections' Today page, the iPhone's Recents

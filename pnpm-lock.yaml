@@ -26,9 +26,15 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.0
         version: 1.19.14(hono@4.12.18)
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.30.0
+        version: 1.30.0(zod@3.25.76)
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.105.4
+      '@thefibre/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@thefibre/shared':
         specifier: workspace:*
         version: link:../../packages/shared

@@ -105,6 +105,7 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/auth-hook/email', // Supabase Send Email Hook; HMAC-verified
   '/api/v1/apps/register', // POST only — an app registering itself has no credential yet
   '/api/v1/public/plans', // GET only — the catalogue for the public /pricing page; no PII
+  '/api/v1/mcp', // GET/POST/DELETE — bearer is our own OAuth access token for a grant; verified in routes/mcp.ts
 ]);
 
 const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
@@ -112,6 +113,11 @@ const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
   ['/api/v1/auth-hook/email', new Set(['POST'])],
   ['/api/v1/apps/register', new Set(['POST'])],
   ['/api/v1/public/plans', new Set(['GET'])],
+  // The MCP endpoint (routes/mcp.ts): its bearer is an OAuth access token
+  // minted by our own provider for a GRANT, not a Supabase JWT or an app
+  // key. Verified in the handler; a bad or missing one answers 401 with the
+  // WWW-Authenticate challenge that points a client at the discovery docs.
+  ['/api/v1/mcp', new Set(['GET', 'POST', 'DELETE'])],
 ]);
 
 // Path prefixes that bypass auth entirely. /meet/public/* serves the

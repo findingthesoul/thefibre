@@ -225,6 +225,23 @@ Two more things this feature leans on (since v0.78.0):
 - Migration `20260915120000_assistant_access.sql` (two tables + the plan
   feature seed) goes with the release; `scripts/db-push-staging.sh` first.
 
+## A person's own assistant over MCP (`/api/v1/mcp`, since v0.85.0)
+
+`docs/mcp-personal-access-plan.md`. Nothing to switch on: the endpoint,
+the OAuth discovery documents at `/.well-known/…` and the consent page at
+`/connect` ship dark-safe — without a signed-in person pressing Allow, no
+grant exists and the endpoint only ever answers 401. Two optional env vars
+on the API, both defaulting sensibly:
+
+| Var | Default | Why you would set it |
+|---|---|---|
+| `API_PUBLIC_URL` | derived from the `Host` header | if the API is ever fronted by a proxy that rewrites Host, or when `api.thefibre.app` exists — the URL in the discovery documents and the token audience must be the one clients dial |
+| `FIBRE_WEB_URL` | `appUrl('fibre-platform')` (thefibre.app / .tech) | if the consent page moves |
+
+`ASSISTANT_KEY_SECRET` (above) now also encrypts the dedicated session
+behind each grant; the same rotation rule applies. Migration
+`20260921150000_mcp_grants.sql` goes with the release.
+
 ---
 
 `STRIPE_SECRET_KEY` is the platform key. Connected accounts are pasted per

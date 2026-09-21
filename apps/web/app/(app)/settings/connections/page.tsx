@@ -10,6 +10,7 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { GoogleConnect } from './google-connect';
 import { PersonalRoomForm } from './personal-room';
+import { AssistantsConnected, type AssistantGrant } from './assistants';
 
 // Connections are a user-level SPoT: one Google Calendar link + one personal
 // meeting room per person, shared across the Fibre apps. The data lives
@@ -29,9 +30,13 @@ export default async function ConnectionsPage({
   const { google: googleStatus, reason } = await searchParams;
   const locale = await uiLocale();
   let conn: Connections | null = null;
+  let grants: AssistantGrant[] = [];
   let error: string | null = null;
   try {
-    conn = await apiFetch<Connections>('/api/v1/meet/connections');
+    [conn, grants] = await Promise.all([
+      apiFetch<Connections>('/api/v1/meet/connections'),
+      apiFetch<{ items: AssistantGrant[] }>('/api/v1/mcp-auth/grants').then((r) => r.items),
+    ]);
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -65,6 +70,14 @@ export default async function ConnectionsPage({
             </p>
             <div className="mt-4">
               <PersonalRoomForm initial={conn.personal_room_url ?? ''} locale={locale} />
+            </div>
+          </section>
+
+          <section className="mt-12">
+            <SectionLabel>{t(locale, 'assistants_title')}</SectionLabel>
+            <p className="mt-1 text-sm text-ink-subtle max-w-2xl">{t(locale, 'assistants_blurb')}</p>
+            <div className="mt-4">
+              <AssistantsConnected grants={grants} locale={locale} />
             </div>
           </section>
         </>
