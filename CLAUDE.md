@@ -8,6 +8,9 @@ Read this before doing anything. Orientation document for whoever picks up this 
 - **Vision (current):** [`docs/fibre-technical-brief-v0.4.md`](docs/fibre-technical-brief-v0.4.md) — the canonical spec. Read §1 (vision), §2 (data wall + profile structure), §5 (data model with app-owned curator extensions), §6 (data ownership + minimisation), §13 (developer rules), §15 (principles).
 - **Previous brief:** [`docs/fibre-technical-brief-v0.3.md`](docs/fibre-technical-brief-v0.3.md) — kept in repo for traceability. **v0.4 supersedes for new work.**
 - **Operational plan:** [`docs/build-plan.md`](docs/build-plan.md) — what's queued, what's parked, gotchas.
+- **Inbox:** [`docs/inbox.md`](docs/inbox.md) — Sjoerd's gathering box for raw items from any chat. Append them there verbatim, unranked; the build-plan queue is where they go once he ranks them.
+- **Comparisons:** [`docs/comparisons.md`](docs/comparisons.md) — what we looked at, what we took, and why them or why us. Add a row when a comparison actually happens; point at the doc that holds the argument rather than restating it.
+- **AI assistance plan:** [`docs/ai-assistance-plan.md`](docs/ai-assistance-plan.md) — the MCP layer: phases, what a seat could ask, and an explicit list of what it cannot do and why. A plan, not a decision.
 - **Shipped record:** [`CHANGELOG.md`](CHANGELOG.md).
 - **Deploy procedure:** [`docs/deploy.md`](docs/deploy.md).
 - **App contract:** [`docs/building-on-the-fibre.md`](docs/building-on-the-fibre.md) — what every app, in-family or external, has to know and obey. Read §6 before touching anything under `/api/v1/apps/*`.
@@ -64,7 +67,15 @@ pnpm dev          # every app's dev script, in parallel (`pnpm -r --parallel run
 ### Version bumps
 Every shipped change updates the `package.json` file of **every workspace package** plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit. Don't count the packages by hand — `scripts/release.sh` derives the list from `apps/*/package.json` + `packages/*/package.json` + root (apps since v0.68.20, packages since v0.76.0 when `packages/mcp` joined `packages/shared`), so a new app or package is covered the moment it exists. **Bump every `packages/*/package.json`, not just shared** — a hand-rolled bump loop that names `packages/shared` gets refused. The hand-written count in this file said "ten" and was already wrong once.
 
-**Meet has its own user-facing version** in `apps/meet/app/(app)/layout.tsx` — **decoupled from the monorepo cadence**. Meet is the rebuild of Suite v1, so its sidebar shows `v2.x`. Bump Meet's VERSION constant independently when Meet-specific surfaces ship, not in lockstep with platform-wide work. **Pulse likewise** has its own `VERSION` in `apps/pulse/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-07-07). **Membership likewise** — its own `VERSION` in `apps/membership/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-09-04; display name may become "Hyve" — the slug `membership` never changes, only branding.ts does).
+**Per-app user-facing versions are decoupled** from the monorepo cadence.
+Each lives in `apps/<app>/app/(app)/layout.tsx` and is bumped when that app's
+own surfaces ship, not in lockstep with platform work: Meet shows `2.x` (it
+is the rebuild of Suite v1), Thread `3.x`, Flow `1.x`, Pulse `0.x` (started
+0.1.0 on 2026-07-07), Membership `0.x` (started 0.1.0 on 2026-09-04; display
+name may become "Hyve" — the slug `membership` never changes, only
+branding.ts does), Connections `0.x` (started 0.1.0 on 2026-09-12, v0.71.0).
+`apps/website` carries no such constant: no signed-in chrome to show one in.
+`apps/my` keeps its own outside that pattern, in its portal chrome.
 
 ### Seed realistic data
 
@@ -88,7 +99,7 @@ Yellow (`save`) means saving and nothing else.
 ### Components first (Sjoerd, 2026-09-05 — binding)
 
 Before building ANY UI surface: check `packages/shared/src/ui` and the
-other five apps. If it exists anywhere, use the shared component — or
+other apps. If it exists anywhere, use the shared component — or
 extract it to `packages/shared` and port the copies. **Never fork a new
 per-app variant.** New recurring surfaces are BORN in `@thefibre/shared`
 with the app-bound pieces (apiFetch, server actions) injected as props
@@ -427,7 +438,8 @@ prefer pointing at the thing that cannot lie.
 `thethread.app` subdomains, with the platform itself still on `thefibre.app`;
 staging is the `thefibre.tech` twin. `fibre-learn` is registered in the
 catalogue but unreleased. `connections` is the app directory (port 3008)
-behind the catalogue slug `fibre-sales`, approved and live since 2026-09-13.
+behind the catalogue slug `fibre-sales`, approved and live since 2026-09-13
+(the slug never changes: slugs tag curator data — `docs/connections-naming.md`).
 Two packages sit beside the apps: `packages/shared` and, since v0.76.0,
 `packages/mcp` (the app-key contract as MCP tools, `docs/mcp.md`).
 `fot-planner` is a real external app running against the published contract in
