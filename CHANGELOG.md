@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.90.0] — 2026-09-22 — The icons, inverted (staging)
+
+Sjoerd, after seeing yesterday's set in place: "for the left top (the small
+icons) I put -dia positives in the same folder. It maybe stands out better."
+He is right — at 28 pixels a shape on white is a smudge, a coloured tile is a
+landmark.
+
+So the launcher tiles, each app's own tile in the sidebar, and the home-screen
+icons for The Fibre and Connect now use his inverted cut: the shape in white
+on the app's own colour, filling the square. The phone icons sit on that same
+colour, so a rounded mask cannot show a white notch. The landing and sign-in
+pages keep the full lockup with the name. File names are unchanged again, so
+nothing in the code moved; the earlier cut stays in git history.
+
 ## [0.89.0] — 2026-09-21 — Today shows the whole day, and says less while doing it (staging)
 
 Four asks from Sjoerd, all about the Today page in Connect.
