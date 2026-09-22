@@ -64,9 +64,17 @@ export function TodoPanelButton({ actions }: { actions: TodoActions }) {
   const [title, setTitle] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // The caller almost always builds `actions` inline, so its identity changes
+  // on every render. Holding it in a ref keeps `load` stable: depending on the
+  // object itself made the effect refire forever, and the panel never settled
+  // long enough to be clicked (caught on staging, 2026-09-23). Same reason
+  // ui/search-select.tsx keeps loadOptions in a ref.
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+
   const load = useCallback(
     async (which: 'open' | 'archive') => {
-      const data = await actions.list(which);
+      const data = await actionsRef.current.list(which);
       if (!data) return;
       if (which === 'archive') setArchive(data.items);
       else {
@@ -76,7 +84,7 @@ export function TodoPanelButton({ actions }: { actions: TodoActions }) {
         setCount((data.groups.overdue?.length ?? 0) + (data.groups.today?.length ?? 0));
       }
     },
-    [actions],
+    [],
   );
 
   useEffect(() => {

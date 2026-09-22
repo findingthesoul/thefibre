@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.98.1] — 2026-09-23 — The To do panel settles (staging)
+
+The panel never stopped re-rendering: an app builds its `actions` inline, so
+that object is new on every render, and the load effect depended on it — load,
+render, new object, load again. Visible as a button that could not be clicked
+(Playwright waited fifteen minutes for "visible, enabled and stable") and as a
+request to the list on a loop. The actions now live in a ref and the effect
+depends on nothing, the way `ui/search-select.tsx` already holds `loadOptions`.
+Fixed in the shared component, so no app can trip over it by wiring the panel
+the obvious way.
+
 ## [0.98.0] — 2026-09-23 — To do (staging)
 
 Sjoerd: *"Can a personal to do list be created over the whole app… to do's
