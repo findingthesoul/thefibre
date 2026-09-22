@@ -27,6 +27,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { MapPin, Video } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { DateField } from '@/components/ui/date-field';
@@ -38,6 +39,8 @@ import { saveNote, loadMyTeams, type NoteKind, type MyTeam } from '../people/[id
 // same module, so the two boxes stay one design (Sjoerd, 2026-09-14: "one
 // single point of truth").
 import { FIELD_ROW, localStamp } from '@/lib/note-fields';
+import { joinLink, placeLink } from '@/lib/meeting-links';
+import { AddAttendee } from './agenda-add';
 import type { AgendaEvent } from './agenda';
 
 const KIND_KEYS = {
@@ -202,6 +205,11 @@ export function MeetingWriteUp({
           </div>
         }
       >
+        {/* The way in and the place, as real links — a grid block is a
+            button and cannot contain one, so this is where they live now
+            (2026-09-22). */}
+        <MeetingLinks event={event} locale={locale} />
+
         <div className={FIELD_ROW}>
           <SelectField
             label={t(locale, 'encounter_field')}
@@ -280,8 +288,24 @@ export function MeetingWriteUp({
               somebody is its own decision and it has its own button on the
               row behind this dialog — burying it inside a save would create
               people as a side effect of writing a sentence. */}
-          {event?.people.some((p) => !p.person_id) && (
-            <p className="mt-2 text-xs text-ink-muted">{t(locale, 'meeting_note_unknown')}</p>
+          {/* The people in the room who are not on file. Offered HERE as
+              well as on the page, because the grid's blocks have no room for
+              them and burying them would lose the most useful thing this
+              page knows. Still a press each: adding somebody stays a
+              decision, never a side effect of saving a sentence. */}
+          {event && event.people.some((p) => !p.person_id) && (
+            <>
+              <p className="mt-3 text-xs text-ink-muted">{t(locale, 'meeting_note_unknown')}</p>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                {event.people
+                  .filter((p) => !p.person_id)
+                  .map((p) => (
+                    <li key={p.email}>
+                      <AddAttendee email={p.email} name={p.calendar_name} locale={locale} />
+                    </li>
+                  ))}
+              </ul>
+            </>
           )}
         </fieldset>
 
@@ -289,3 +313,45 @@ export function MeetingWriteUp({
     </Dialog>
   );
 }
+
+/** The meeting's way in and its place, as links. */
+function MeetingLinks({ event, locale }: { event: AgendaEvent | null; locale: Locale }) {
+  if (!event) return null;
+  const join = joinLink(event.location, event.conference_url);
+  const place = placeLink(event.location);
+  if (!join && !place) return null;
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-1.5">
+      {join && (
+        <a
+          href={join.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-line px-2.5 text-xs text-ink-subtle transition-colors hover:border-ink hover:text-ink"
+        >
+          <Video size={12} className="shrink-0" />
+          {t(locale, JOIN_KEYS[join.kind])}
+        </a>
+      )}
+      {place && (
+        <a
+          href={place.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={place.label}
+          className="inline-flex h-7 min-w-0 items-center gap-1 rounded-full border border-line px-2.5 text-xs text-ink-subtle transition-colors hover:border-ink hover:text-ink"
+        >
+          <MapPin size={12} className="shrink-0" />
+          <span className="max-w-[12rem] truncate">{place.label}</span>
+        </a>
+      )}
+    </div>
+  );
+}
+
+const JOIN_KEYS = {
+  meet: 'agenda_join_meet',
+  zoom: 'agenda_join_zoom',
+  teams: 'agenda_join_teams',
+  video: 'agenda_join',
+} as const;

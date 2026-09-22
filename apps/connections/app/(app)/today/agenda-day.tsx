@@ -1,65 +1,42 @@
 'use client';
 
-// The day, whole: what has already happened as well as what has not.
+// The day as a day: hours down the left, meetings drawn over the time they
+// take.
 //
-// Sjoerd, 2026-09-21: *"I like to see the whole day... greyed out what has
-// passed, but still clickable... a line of the time."*
+// Sjoerd, 2026-09-22, with a screenshot of his own calendar: *"Make the
+// agenda look like this (time on the left... appointments over the time they
+// take)."* Before this it was a list, and a list cannot say the thing a grid
+// says without being read: that there is an hour free between two meetings,
+// or that the afternoon is solid.
 //
-// Three things follow from that sentence, and the third is the one that is
-// easy to miss.
+// What the shape costs, said plainly because it is a real loss: the list
+// carried every attendee as a chip under each meeting, and a half-hour block
+// is thirty pixels tall. The names are now a single quiet line inside the
+// block when it is tall enough, and the full list — with the people who are
+// not on file yet, and a way to add them — is in the write-up the block
+// opens. That keeps them one press away rather than on the surface.
 //
-//  1. WHOLE. The route reads from the viewer's own midnight now (whole_day),
-//     not from this moment, so a meeting at nine is still on the page at four.
-//  2. GREYED BUT CLICKABLE. A finished meeting is the one you most want to
-//     write up — this page exists to turn a meeting into a note — so past
-//     rows are quietened, never disabled. Opacity, not a colour: it dims the
-//     name, the chips and the links together and cannot invent a meaning.
-//  3. A LINE OF THE TIME. Where you are in the day, drawn between the rows,
-//     the way a calendar draws it. It is the only thing on this page that
-//     answers "what now" without being read.
+// ── Time is the viewer's ───────────────────────────────────────────────────
 //
-// CLIENT, and the clock only starts after mount. The server's clock is UTC
-// and the viewer's is not, so a "now" rendered on the server would put the
-// line in the wrong place and React would then correct it — a visible jump.
-// Before mount there is no line and nothing is dimmed, which is a correct,
-// quiet first frame rather than a wrong one.
+// Every minute here is read off a Date in the browser, so it is the reader's
+// clock and the reader's zone. The server's is UTC and would put an Amsterdam
+// afternoon two hours out. Nothing is positioned until after mount for the
+// same reason: a grid rendered on the server would be drawn wrong and then
+// corrected, visibly.
 
-import { useEffect, useState } from 'react';
-import { MapPin, Video } from 'lucide-react';
-import { PersonLink } from '@/components/person-popup';
-import { ROW_LIST } from '@thefibre/shared/ui/recipes';
+import { useEffect, useMemo, useState } from 'react';
+import { MapPin, Users, Video } from 'lucide-react';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { joinLink, placeLink, type JoinKind } from '@/lib/meeting-links';
-import { BAND_KEYS } from '../landscape/axes';
+import { hourRange, layoutDay, minutesOfDay, MIN_BLOCK_MIN, type Block } from '@/lib/day-grid';
 import { AddAttendee } from './agenda-add';
 import { MeetingWriteUp } from './meeting-note';
 import type { AgendaEvent } from './agenda';
 
-function clock(iso: string, intl: string): string {
-  try {
-    return new Intl.DateTimeFormat(intl, { hour: '2-digit', minute: '2-digit' }).format(
-      new Date(iso),
-    );
-  } catch {
-    return iso.slice(11, 16);
-  }
-}
-
-/** "3 weeks ago" is more use here than a date: the question this answers is
- *  how long it has been, not when exactly. */
-function since(iso: string | null, intl: string): string | null {
-  if (!iso) return null;
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (days < 0) return null;
-  try {
-    const rtf = new Intl.RelativeTimeFormat(intl, { numeric: 'auto' });
-    if (days < 31) return rtf.format(-days, 'day');
-    if (days < 365) return rtf.format(-Math.round(days / 30), 'month');
-    return rtf.format(-Math.round(days / 365), 'year');
-  } catch {
-    return null;
-  }
-}
+/** One hour, in pixels. The whole grid is this times the hours drawn. */
+const HOUR = 52;
+/** The time column. Wide enough for "07:00" and no wider. */
+const GUTTER = 'pl-12';
 
 const JOIN_KEYS: Record<JoinKind, UiKey> = {
   meet: 'agenda_join_meet',
@@ -68,180 +45,215 @@ const JOIN_KEYS: Record<JoinKind, UiKey> = {
   video: 'agenda_join',
 };
 
+/** Minutes from midnight as a clock time, in the reader's own convention —
+ *  24-hour here, 2:30 PM in a locale that expects it. Built from a real Date
+ *  because Intl formats instants, not durations; the date part is discarded. */
+function hhmm(min: number, intl: string): string {
+  const d = new Date();
+  d.setHours(Math.floor(min / 60), min % 60, 0, 0);
+  try {
+    return new Intl.DateTimeFormat(intl, { hour: '2-digit', minute: '2-digit' }).format(d);
+  } catch {
+    return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+  }
+}
+
 export function AgendaDay({
   events,
   locale,
   intl,
-  labels,
 }: {
   events: AgendaEvent[];
   locale: Locale;
   intl: string;
-  labels?: Record<string, Record<string, string>>;
 }) {
-  // ONE dialog for the list, not one per row. A dialog rendered inside a row
-  // would sit inside that row's `opacity` (see meeting-note.tsx) and come up
-  // translucent and mispositioned — which it did, on 2026-09-21.
   const [writing, setWriting] = useState<AgendaEvent | null>(null);
   const [now, setNow] = useState<number | null>(null);
+
   useEffect(() => {
-    setNow(Date.now());
-    // Once a minute is as often as a line between rows can usefully move.
-    const id = setInterval(() => setNow(Date.now()), 60_000);
+    const tick = () => setNow(minutesOfDay(new Date()));
+    tick();
+    const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, []);
 
-  const bandLabel = (band: string) => {
-    const own = labels?.maturity?.[band];
-    if (own) return own;
-    const k: UiKey | undefined = BAND_KEYS.maturity[band];
-    return k ? t(locale, k) : band;
-  };
-
-  // All-day entries first and never dimmed: they have no place on a clock,
-  // and "Home" is not over at eleven.
   const allDay = events.filter((e) => e.all_day);
-  const timed = events.filter((e) => !e.all_day);
+  const timed = useMemo(() => events.filter((e) => !e.all_day), [events]);
 
-  // Where the line goes: before the first meeting still to come. All of them
-  // past puts it at the end, which is a true and quietly useful statement.
-  const lineAt =
-    now === null ? -1 : (() => {
-      const i = timed.findIndex((e) => new Date(e.start).getTime() > now);
-      return i === -1 ? timed.length : i;
-    })();
+  const blocks: Block[] = useMemo(
+    () =>
+      timed.map((e) => ({
+        id: e.id,
+        startMin: minutesOfDay(new Date(e.start)),
+        endMin: minutesOfDay(new Date(e.end)),
+      })),
+    [timed],
+  );
 
-  const row = (ev: AgendaEvent) => {
-    const past = now !== null && new Date(ev.end).getTime() <= now;
-    return (
-      <li
-        key={ev.id}
-        // Dimmed, not disabled — see the header. `transition` so the row
-        // fades as the meeting ends rather than blinking.
-        className={`px-4 py-3 transition-opacity sm:px-5 ${past ? 'opacity-55' : ''}`}
-      >
-        {/* The whole line opens the write-up, already filled in with who was
-            there, when it was and what it was called. Sjoerd, 2026-09-21:
-            "when clicking the item... I like to see the popup of What
-            happened". It was only the title until now, which is why he was
-            clicking and getting nothing. The links below stay their own
-            targets — a button cannot contain a link. */}
-        <button
-          type="button"
-          onClick={() => setWriting(ev)}
-          className="flex w-full items-baseline justify-between gap-3 text-left"
-        >
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">
-            {ev.summary || t(locale, 'agenda_untitled')}
-          </span>
-          <span className="shrink-0 text-xs text-ink-muted tabular-nums">
-            {ev.all_day ? t(locale, 'agenda_all_day') : clock(ev.start, intl)}
-          </span>
-        </button>
+  const placed = useMemo(() => layoutDay(blocks), [blocks]);
+  const { from, to } = useMemo(() => hourRange(blocks, now), [blocks, now]);
+  const byId = new Map(timed.map((e) => [e.id, e]));
 
-        <MeetingWhere ev={ev} locale={locale} />
-
-        {ev.people.length > 0 && (
-          <ul className="mt-2 flex flex-wrap gap-1.5">
-            {ev.people.map((p) => {
-              const ago = since(p.last_note_at, intl);
-              if (p.person_id) {
-                return (
-                  <li key={p.email}>
-                    <PersonLink
-                      personId={p.person_id}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-xs transition-colors hover:border-ink/40"
-                    >
-                      <span className="font-medium">{p.person_name}</span>
-                      {p.rung && <span className="text-ink-subtle">· {bandLabel(p.rung)}</span>}
-                      <span className="text-ink-subtle">
-                        · {ago ?? t(locale, 'agenda_never_written')}
-                      </span>
-                    </PersonLink>
-                  </li>
-                );
-              }
-              return (
-                <li key={p.email}>
-                  <AddAttendee email={p.email} name={p.calendar_name} locale={locale} />
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </li>
-    );
-  };
+  const top = (min: number) => ((min - from * 60) / 60) * HOUR;
 
   return (
     <>
-      <ul className={`mt-3 ${ROW_LIST}`}>
-      {allDay.map(row)}
-      {timed.map((ev, i) => (
-        <Fragmentish key={ev.id}>
-          {i === lineAt && <NowLine now={now!} intl={intl} locale={locale} />}
-          {row(ev)}
-        </Fragmentish>
-      ))}
-      {lineAt === timed.length && timed.length > 0 && (
-          <NowLine now={now!} intl={intl} locale={locale} />
-        )}
-      </ul>
+      {/* All-day first, as a strip. It has no place on a clock and "Home" is
+          not over at eleven. */}
+      {allDay.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {allDay.map((ev) => (
+            <li key={ev.id}>
+              <button
+                type="button"
+                onClick={() => setWriting(ev)}
+                className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-raised px-3 text-xs transition-colors hover:border-ink/40"
+              >
+                <span className="truncate">{ev.summary || t(locale, 'agenda_untitled')}</span>
+                <span className="shrink-0 text-ink-subtle">{t(locale, 'agenda_all_day')}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      {/* Outside the list, and therefore outside any row's opacity. */}
+      <div className={`relative mt-3 ${GUTTER}`} style={{ height: (to - from) * HOUR }}>
+        {/* The hours. A line and a label each, drawn behind everything. */}
+        {Array.from({ length: to - from + 1 }, (_, i) => from + i).map((h) => (
+          <div
+            key={h}
+            className="pointer-events-none absolute inset-x-0 flex items-center"
+            style={{ top: (h - from) * HOUR }}
+          >
+            <span className="absolute -left-12 -translate-y-1/2 text-[11px] tabular-nums text-ink-muted">
+              {hhmm(h * 60, intl)}
+            </span>
+            <span className="h-px w-full bg-line" />
+          </div>
+        ))}
+
+        {/* The meetings. */}
+        {placed.map((p) => {
+          const ev = byId.get(p.id);
+          if (!ev) return null;
+          const height = (Math.max(p.endMin - p.startMin, MIN_BLOCK_MIN) / 60) * HOUR;
+          const past = now !== null && p.endMin <= now;
+          const names = ev.people
+            .map((x) => x.person_name || x.calendar_name || x.email)
+            .filter(Boolean);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setWriting(ev)}
+              // Past is quieter, never disabled: a finished meeting is the
+              // one you most want to write up. A border tint rather than
+              // `opacity`, which would make this the containing block for
+              // any fixed-position child — the v0.89.0 bug.
+              className={`absolute overflow-hidden rounded-md border-l-2 px-2 py-1 text-left transition-colors ${
+                past
+                  ? 'border-l-line-strong bg-surface-sunken text-ink-muted hover:bg-surface-raised'
+                  : 'border-l-ink bg-surface-raised text-ink hover:bg-surface-sunken'
+              }`}
+              style={{
+                top: top(p.startMin),
+                height: Math.max(height - 2, 18),
+                left: `${(p.lane / p.lanes) * 100}%`,
+                width: `calc(${100 / p.lanes}% - 2px)`,
+              }}
+            >
+              <span className="block truncate text-xs font-medium leading-tight">
+                {ev.summary || t(locale, 'agenda_untitled')}
+              </span>
+              {height >= 34 && (
+                <span className="block truncate text-[11px] tabular-nums leading-tight text-ink-muted">
+                  {hhmm(p.startMin, intl)}–{hhmm(p.endMin, intl)}
+                </span>
+              )}
+              {height >= 50 && names.length > 0 && (
+                <span className="mt-0.5 flex items-center gap-1 truncate text-[11px] leading-tight text-ink-subtle">
+                  <Users size={11} className="shrink-0" />
+                  <span className="truncate">{names.join(', ')}</span>
+                </span>
+              )}
+              {height >= 66 && <Where ev={ev} locale={locale} />}
+            </button>
+          );
+        })}
+
+        {/* Where you are in the day. */}
+        {now !== null && now >= from * 60 && now <= to * 60 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 flex items-center"
+            style={{ top: top(now) }}
+          >
+            <span className="absolute -left-12 -translate-y-1/2 rounded bg-ink px-1 text-[11px] font-medium tabular-nums text-ink-inverse">
+              {hhmm(now, intl)}
+            </span>
+            <span className="h-px w-full bg-ink/40" />
+          </div>
+        )}
+      </div>
+
+      {/* Anybody in today's meetings who is not on file. Out of the blocks,
+          which have no room, and kept on the surface rather than buried —
+          somebody you are about to meet and do not have is the most useful
+          thing this page knows (ask 104). */}
+      <Strangers events={events} locale={locale} />
+
+      {/* Outside every block, and therefore outside anything that could
+          become its containing block. */}
       <MeetingWriteUp event={writing} locale={locale} onClose={() => setWriting(null)} />
     </>
   );
 }
 
-/** A <li> may not be wrapped in a <div>, and two siblings need a key. */
-function Fragmentish({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
-
-/** Where you are in the day. Not a row — it carries no content and no target,
- *  so it is hidden from a screen reader, which gets the times on the rows. */
-function NowLine({ now, intl, locale }: { now: number; intl: string; locale: Locale }) {
+function Strangers({ events, locale }: { events: AgendaEvent[]; locale: Locale }) {
+  // One entry per address, however many meetings it is in today.
+  const seen = new Map<string, { email: string; name: string | null }>();
+  for (const ev of events) {
+    for (const p of ev.people) {
+      if (p.person_id || seen.has(p.email)) continue;
+      seen.set(p.email, { email: p.email, name: p.calendar_name });
+    }
+  }
+  if (seen.size === 0) return null;
   return (
-    <li aria-hidden className="flex items-center gap-2 px-4 py-1 sm:px-5">
-      <span className="text-[11px] font-medium tabular-nums text-ink" suppressHydrationWarning>
-        {clock(new Date(now).toISOString(), intl)}
-      </span>
-      <span className="h-px flex-1 bg-ink/30" />
-      <span className="sr-only">{t(locale, 'agenda_now')}</span>
-    </li>
+    <div className="mt-3">
+      <p className="text-xs text-ink-muted">{t(locale, 'agenda_strangers')}</p>
+      <ul className="mt-1.5 flex flex-wrap gap-1.5">
+        {[...seen.values()].map((p) => (
+          <li key={p.email}>
+            <AddAttendee email={p.email} name={p.name} locale={locale} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
-function MeetingWhere({ ev, locale }: { ev: AgendaEvent; locale: Locale }) {
+/** The way in and the place, inside a block tall enough to hold them. Not
+ *  links: a button may not contain one, and the block is the button. The
+ *  write-up it opens carries them as real links. */
+function Where({ ev, locale }: { ev: AgendaEvent; locale: Locale }) {
   const join = joinLink(ev.location, ev.conference_url);
   const place = placeLink(ev.location);
   if (!join && !place) return null;
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+    <span className="mt-0.5 flex items-center gap-2 truncate text-[11px] leading-tight text-ink-subtle">
       {join && (
-        <a
-          href={join.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-line px-2.5 text-xs text-ink-subtle transition-colors hover:border-ink hover:text-ink"
-        >
-          <Video size={12} className="shrink-0" />
+        <span className="inline-flex shrink-0 items-center gap-1">
+          <Video size={11} />
           {t(locale, JOIN_KEYS[join.kind])}
-        </a>
+        </span>
       )}
       {place && (
-        <a
-          href={place.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={place.label}
-          className="inline-flex h-7 min-w-0 items-center gap-1 rounded-full border border-line px-2.5 text-xs text-ink-subtle transition-colors hover:border-ink hover:text-ink"
-        >
-          <MapPin size={12} className="shrink-0" />
-          <span className="max-w-[12rem] truncate">{place.label}</span>
-        </a>
+        <span className="inline-flex min-w-0 items-center gap-1">
+          <MapPin size={11} className="shrink-0" />
+          <span className="truncate">{place.label}</span>
+        </span>
       )}
-    </div>
+    </span>
   );
 }

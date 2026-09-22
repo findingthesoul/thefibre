@@ -7389,6 +7389,14 @@ const CATALOG = {
 
   // Read out where the line across the day is. Nothing on screen says it —
   // the line IS the statement — but a screen reader needs the words.
+  agenda_strangers: {
+    en: 'In your day, not in your people:',
+    nl: 'In je dag, nog niet bij je mensen:',
+    es: 'En tu día, aún no entre tus personas:', // MT
+    pt: 'No teu dia, ainda não nas tuas pessoas:', // MT
+    de: 'In deinem Tag, noch nicht bei deinen Leuten:', // MT
+    fr: 'Dans votre journée, pas encore parmi vos personnes :', // MT
+  },
   agenda_now: {
     en: 'Now',
     nl: 'Nu',

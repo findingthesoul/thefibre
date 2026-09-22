@@ -65,8 +65,10 @@ export function Agenda({
   data: AgendaPayload;
   locale: Locale;
   intl: string;
-  /** What this workspace calls its bands, so a standing next to a name reads
-   *  the same here as it does on the landscape. */
+  /** What this workspace calls its bands. Unused since the day grid replaced
+   *  the list (2026-09-22): a block has no room for a standing next to a
+   *  name. Kept on the prop so the page does not have to change back when the
+   *  write-up starts showing them. */
   labels?: Record<string, Record<string, string>>;
 }) {
   // Not connected is not a failure and gets no banner — most people will
@@ -89,7 +91,7 @@ export function Agenda({
       ) : data.events.length === 0 ? (
         <p className="mt-2 text-sm text-ink-muted">{t(locale, 'agenda_empty')}</p>
       ) : (
-        <AgendaDay events={data.events} locale={locale} intl={intl} labels={labels} />
+        <AgendaDay events={data.events} locale={locale} intl={intl} />
       )}
     </section>
   );

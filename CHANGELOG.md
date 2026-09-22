@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.92.0] — 2026-09-22 — Today's agenda is a day, not a list (staging)
+
+Sjoerd, with a screenshot of his own calendar: *"Make the agenda look like
+this (time on the left... appointments over the time they take)."*
+
+So it does. Hours down the left, each meeting drawn over the time it actually
+takes, two that clash side by side, and the line marking now across the whole
+width. A list can say what is on; only a grid says what the day IS — that
+there is an hour free after lunch, or that the afternoon is solid. That is
+something you see rather than read, which is the entire reason to draw it.
+
+The geometry is a pure module with its own tests — where a block starts, how
+tall it is, and which column it takes when meetings overlap, including the
+case where a five-minute meeting is DRAWN half an hour tall and would
+otherwise sit on top of the next one. A second test renders the component and
+checks the pixels, because an inverted formula or an hour height applied twice
+is invisible: everything still draws, just wrongly.
+
+**What the shape costs, said plainly.** The list carried every attendee as a
+chip under each meeting, and a half-hour block is under thirty pixels tall.
+So: the names are one quiet line inside a block tall enough to hold them, the
+full list is in the write-up the block opens, and the people in your day who
+are NOT on file yet keep a strip of their own under the grid — that is the
+most useful thing this page knows and it was not going to be buried.
+
+The write-up dialog gained the Zoom and Maps links with them (a block is a
+button, and a button may not contain a link) and an Add button for each person
+in the room who is not on file. Still a press each: adding somebody stays a
+decision, never a side effect of saving a sentence.
+
 ## [0.91.0] — 2026-09-22 — The write-up dialog is a dialog again (staging)
 
 A regression from v0.89.0, caught by Sjoerd within the hour and live on

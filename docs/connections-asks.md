@@ -150,7 +150,8 @@ neither in code nor in a document. That is what this file fixes.
 | 117 | The page intro paragraph "should have a toggle button (on and off... reduce info on interface when not really needed)" | **Shipped** v0.89.0 — a show/hide toggle, remembered domain-wide like the theme and read on the server so it never flashes. The component is shared; other apps adopt it by allow-listing one cookie |
 | 118 | Screenshot of the write-up dialog rendering translucent over the list | **Shipped** — my own regression from v0.89.0: dimming a past row with `opacity` makes every `position: fixed` descendant both translucent AND positioned inside that row, and the shared Dialog is fixed with no portal. One dialog for the whole list now, rendered outside it |
 | 119 | "The auto fill — if it is a person, use the @ with a real reference. If a # is used, use the hash tag (mouse over also shows the X to turn the # into a word again)" | **Open** |
-| 120 | "For the print screen: remove the lines between agenda's" (the Calendars popup) | **Open** |
+| 120 | "For the print screen: remove the lines between agenda's" (the Calendars popup) | **Shipped** v0.91.0 — no rules between the calendar rows; a short named group with a switch each is already a list |
+| 121 | Screenshot of his own calendar: "Make the agenda look like this (time on the left... appointments over the time they take" | **Shipped** v0.92.0 — a day grid: hours down the left, meetings drawn over the time they take, clashes side by side, the now line across it. What it cost: a block has no room for the attendee chips, so the names are a quiet line inside taller blocks, the full list is in the write-up the block opens, and the people who are NOT on file keep a strip of their own under the grid |
 
 ### The three that were lost
 
