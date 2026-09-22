@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.90.1] — 2026-09-22 — The icons, at a sane weight (staging)
+
+The inverted tiles shipped at 5.4 MB for fifteen files — painted texture is
+noise to a PNG encoder, and every one of them is fetched by every dashboard.
+Palette-encoded they are 1.6 MB, with no visible difference at any size they
+are used. Same pictures, same file names.
+
 ## [0.90.0] — 2026-09-22 — The icons, inverted (staging)
 
 Sjoerd, after seeing yesterday's set in place: "for the left top (the small
