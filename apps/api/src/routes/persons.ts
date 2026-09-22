@@ -46,8 +46,25 @@ personsRoutes.get('/', async (c) => {
 
 const PersonCreate = z.object({
   first_name: z.string().min(1).max(100),
-  last_name: z.string().min(1).max(100),
-  email: z.string().email(),
+  // OPTIONAL since 2026-09-22, both of them. A person you met at a festival
+  // has a name and no address, and until now this route refused to record
+  // them at all — so Connect could not answer "who was in the room" for any
+  // meeting whose people are not already on file. Sjoerd: *"when typing...,
+  // can I add people if they are not there?"*
+  //
+  // The table has allowed it since the first migration; every column on
+  // `person` is nullable. This was the API being stricter than the domain.
+  //
+  // WIDENING, never narrowing: a caller sending all three is unaffected, and
+  // /api/v1/apps/* is additive-only (hard rule 8). The duplicate check below
+  // already skips when there is no address to check.
+  //
+  // What it costs, stated: an address is the only thing two records can be
+  // matched on, so a person with none cannot be deduplicated. That is why the
+  // interface searches before it offers to create, and why this is a
+  // deliberate press rather than anything automatic.
+  last_name: z.string().min(1).max(100).optional(),
+  email: z.string().email().optional(),
   preferred_name: z.string().max(100).optional(),
   country: z.string().length(2).optional(),
   // Full intake from moment one (Sjoerd, 2026-09-05: invoiced members need

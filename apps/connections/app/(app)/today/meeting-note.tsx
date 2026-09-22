@@ -27,14 +27,20 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Search, Video } from 'lucide-react';
+import { MapPin, Video } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
-import { FIELD_CLASS, FIELD_INPUT_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
-import { saveNote, loadMyTeams, fetchVocabulary, type NoteKind, type MyTeam } from '../people/[id]/actions';
+import { saveNote, loadMyTeams, type NoteKind, type MyTeam } from '../people/[id]/actions';
+// THE person picker, not a second one. Sjoerd, 2026-09-22: "There should be
+// a Single Point of truth. It is existing somewhere else." It was: apps/web
+// had it, wrapping the shared SearchSelect. It now lives in the package and
+// both apps bind their own search to it.
+import { PersonCombobox, personLabel } from '@thefibre/shared/ui/person-combobox';
+import { searchPeople, createPersonNamed } from '@/lib/person-picker';
 // The same row and the same stamp the person-page composer uses, from the
 // same module, so the two boxes stay one design (Sjoerd, 2026-09-14: "one
 // single point of truth").
@@ -136,6 +142,13 @@ export function MeetingWriteUp({
     ...known.map((p) => ({ id: p.person_id!, name: p.person_name || p.email })),
     ...extra.filter((e) => !known.some((p) => p.person_id === e.id)),
   ];
+
+  /** Put somebody on the roster and tick them. Used by the picker for an
+   *  existing person and for one just created. */
+  const add = (id: string, name?: string) => {
+    setExtra((cur) => (cur.some((e) => e.id === id) ? cur : [...cur, { id, name: name ?? id }]));
+    setPicked((cur) => new Set(cur).add(id));
+  };
 
   const toggle = (id: string) =>
     setPicked((cur) => {
@@ -314,14 +327,29 @@ export function MeetingWriteUp({
               nobody on its invitation, and until now this box could only
               offer what Google knew — Sjoerd, 2026-09-22: "Nobody was there...
               an add button, so I can list people who were present." */}
-          <AddPresent
-            locale={locale}
-            exclude={roster.map((p) => p.id)}
-            onAdd={(person) => {
-              setExtra((cur) => (cur.some((e) => e.id === person.id) ? cur : [...cur, person]));
-              setPicked((cur) => new Set(cur).add(person.id));
-            }}
-          />
+          {/* Anybody else who was in the room. A meeting in a building has
+              nobody on its invitation, and the typed text can become a person
+              who is not on file yet — Sjoerd, 2026-09-22: "can I add people
+              if they are not there?" */}
+          <div className="mt-3">
+            <PersonCombobox
+              label={t(locale, 'meeting_note_add_present')}
+              search={searchPeople}
+              exclude={roster.map((p) => p.id)}
+              value=""
+              onChange={(id) => {
+                if (!id) return;
+                add(id);
+              }}
+              placeholder={t(locale, 'meeting_note_add_present')}
+              onCreate={(typed) => {
+                void createPersonNamed(typed).then((r) => {
+                  if (r.ok) add(r.person.id, personLabel(r.person));
+                });
+              }}
+              createLabel={(typed) => t(locale, 'meeting_note_add_new', { name: typed })}
+            />
+          </div>
 
           {/* The people in the room who are not on file. Offered HERE as
               well as on the page, because the grid's blocks have no room for
@@ -390,86 +418,3 @@ const JOIN_KEYS = {
   teams: 'agenda_join_teams',
   video: 'agenda_join',
 } as const;
-
-/**
- * Name somebody who was there.
- *
- * The same list the `@` picker reads, so there is one answer to "who does this
- * workspace know". An id, never a typed name — attaching by identifier is the
- * rule (handbook §12), and here it matters twice over: a note filed against a
- * guess at a name is a claim about the wrong person.
- *
- * The results sit in the flow rather than floating, for the reason the
- * relationship card's picker records: this is inside a dialog, and a floating
- * list opens into the dialog's bottom edge.
- */
-function AddPresent({
-  locale,
-  exclude,
-  onAdd,
-}: {
-  locale: Locale;
-  exclude: string[];
-  onAdd: (p: { id: string; name: string }) => void;
-}) {
-  const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
-  const [term, setTerm] = useState('');
-
-  useEffect(() => {
-    let alive = true;
-    void fetchVocabulary().then((v) => {
-      if (alive) setPeople(v.people);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const q = term.trim().toLowerCase();
-  const skip = new Set(exclude);
-  const matches = q
-    ? people.filter((p) => !skip.has(p.id) && p.name.toLowerCase().includes(q)).slice(0, 6)
-    : [];
-
-  return (
-    <div className="mt-3">
-      <div className="relative">
-        <Search
-          size={15}
-          strokeWidth={1.75}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-        />
-        <input
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          placeholder={t(locale, 'meeting_note_add_present')}
-          aria-label={t(locale, 'meeting_note_add_present')}
-          className={`${FIELD_INPUT_CLASS} pl-9`}
-        />
-      </div>
-      {q && (
-        <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-line bg-surface py-1">
-          {matches.length === 0 ? (
-            <li className="px-3 py-1.5 text-sm text-ink-muted">{t(locale, 'people_none')}</li>
-          ) : (
-            matches.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    onAdd(p);
-                    setTerm('');
-                  }}
-                  className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-sunken"
-                >
-                  {p.name}
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      )}
-    </div>
-  );
-}

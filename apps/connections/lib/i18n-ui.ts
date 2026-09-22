@@ -7405,6 +7405,30 @@ const CATALOG = {
     de: 'Morgen nichts in deinem Kalender.', // MT
     fr: 'Rien dans votre agenda demain.', // MT
   },
+  rel_add_person: {
+    en: 'Add {name} as a new person',
+    nl: '{name} toevoegen als nieuw persoon',
+    es: 'Añadir a {name} como persona nueva', // MT
+    pt: 'Adicionar {name} como nova pessoa', // MT
+    de: '{name} als neue Person hinzufügen', // MT
+    fr: 'Ajouter {name} comme nouvelle personne', // MT
+  },
+  rel_add_company: {
+    en: 'Add {name} as a new company',
+    nl: '{name} toevoegen als nieuw bedrijf',
+    es: 'Añadir {name} como empresa nueva', // MT
+    pt: 'Adicionar {name} como nova empresa', // MT
+    de: '{name} als neues Unternehmen hinzufügen', // MT
+    fr: 'Ajouter {name} comme nouvelle entreprise', // MT
+  },
+  meeting_note_add_new: {
+    en: 'Add {name} as a new person',
+    nl: '{name} toevoegen als nieuw persoon',
+    es: 'Añadir a {name} como persona nueva', // MT
+    pt: 'Adicionar {name} como nova pessoa', // MT
+    de: '{name} als neue Person hinzufügen', // MT
+    fr: 'Ajouter {name} comme nouvelle personne', // MT
+  },
   meeting_note_add_present: {
     en: 'Somebody else who was there…',
     nl: 'Wie was er nog meer…',

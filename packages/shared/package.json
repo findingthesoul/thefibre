@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.94.0",
+  "version": "0.95.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -9,6 +9,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./ui/organisation-combobox": {
+      "types": "./dist/ui/organisation-combobox.d.ts",
+      "default": "./dist/ui/organisation-combobox.js"
+    },
+    "./ui/person-combobox": {
+      "types": "./dist/ui/person-combobox.d.ts",
+      "default": "./dist/ui/person-combobox.js"
     },
     "./ui/page-intro": {
       "types": "./dist/ui/page-intro.d.ts",

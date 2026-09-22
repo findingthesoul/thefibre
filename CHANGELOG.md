@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.95.0] — 2026-09-22 — One picker, and it can add what is not there (staging)
+
+Sjoerd, typing a name into the write-up and being told nobody matched:
+*"When typing..., can I add people if they are not there?"* Then, while I was
+building one: *"There should be a Single Point of truth — it is existing
+somewhere else."* And a minute later, about the company field: *"Add company -
+also a single point of truth."*
+
+He was right on all three counts. The picker did exist — apps/web had it,
+wrapping the shared SearchSelect, which has had an "add what you typed" row
+all along. Connect had **four** hand-rolled copies of the same idea: the
+relationship card's, the organisation popup's, the one I had just written,
+and the note composer's.
+
+`PersonCombobox` and `OrganisationCombobox` now live in `@thefibre/shared/ui`,
+each bound per app to that app's own search — a server action belongs to one
+app's session, so every result passes that reader's own RLS. Connect's four
+are gone. A test fails the release if a fifth is written, and it earned its
+keep on the first run by finding the organisation popup's, which I had missed.
+
+**And both can create what you typed.** Type a name nobody matches and the
+list offers to add them.
+
+For that, `POST /persons` stopped insisting on an email and a last name. The
+`person` table has allowed both to be empty since the first migration; this
+was the API being stricter than the domain, and the cost was real — a person
+you met at a festival could not be recorded at all, so Connect could not
+answer "who was in the room" for any meeting whose people were not already on
+file. Widening only: a caller sending all three is unaffected.
+
+What it costs, said plainly: an address is the only thing two records can be
+matched on, so a person created this way cannot be deduplicated later. That is
+why the picker searches first and only then offers to create, and why it is a
+press rather than anything automatic.
+
 ## [0.94.0] — 2026-09-22 — A meeting you can see (staging)
 
 Sjoerd, looking at today's grid: *"BG color: contrast higher between BG and

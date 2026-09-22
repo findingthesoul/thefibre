@@ -22,6 +22,16 @@ the queue.
 
 _Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
 
+**Port the remaining hand-rolled pickers onto the shared comboboxes.** Set
+2026-09-22, when Connect's four were replaced by
+`@thefibre/shared/ui/{person,organisation}-combobox`. Still their own:
+apps/web's `add-organisation.tsx` (SearchSelect plus a full draft form — the
+form is the part worth keeping, so this is a wrapper change, not a deletion),
+and whatever meet/thread/membership use to pick a person. The guard
+`packages/shared/src/ui/combobox-single-source.test.ts` scans
+`apps/connections` only; widen `SCANNED` one app at a time as each is ported,
+never before, or the release fails for work nobody has done.
+
 **Consider putting the shared Dialog in a portal.** Set 2026-09-21 after it
 bit: `packages/shared/src/ui/dialog.tsx` is `fixed inset-0` with no portal, so
 any ancestor carrying `opacity`, `transform` or `filter` becomes its

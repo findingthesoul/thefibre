@@ -34,6 +34,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Check, Search } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
+import { PersonCombobox, personLabel } from '@thefibre/shared/ui/person-combobox';
+import { searchPeople, createPersonNamed } from '@/lib/person-picker';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { usePersonPopup } from '@/components/person-popup';
@@ -246,23 +248,11 @@ function ConnectPerson({
   onAdded: (personId: string, name: string, title: string) => void;
   existing: OrgMember[];
 }) {
-  const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
-  const [term, setTerm] = useState('');
   const [chosen, setChosen] = useState<{ id: string; name: string } | null>(null);
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    void fetchVocabulary().then((v) => {
-      if (alive) setPeople(v.people);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // Anybody already on the list is not offered again. Adding a second live
   // membership for the same pair is not an error the API refuses, so the only
@@ -271,14 +261,6 @@ function ConnectPerson({
     () => new Set(existing.map((m) => m.person?.id).filter(Boolean) as string[]),
     [existing],
   );
-
-  const matches = useMemo(() => {
-    const q = term.trim().toLowerCase();
-    if (!q) return [];
-    return people
-      .filter((p) => !alreadyHere.has(p.id) && p.name.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [term, people, alreadyHere]);
 
   async function save() {
     if (!chosen) return;
@@ -298,7 +280,6 @@ function ConnectPerson({
     // idea a membership was just written. It re-reads itself on this.
     graphChanged();
     setChosen(null);
-    setTerm('');
     setTitle('');
     setDone(true);
     setTimeout(() => setDone(false), 2500);
@@ -337,47 +318,33 @@ function ConnectPerson({
         </div>
       ) : (
         <div className="mt-2">
-          <div className="relative">
-            <Search
-              size={15}
-              strokeWidth={1.75}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-            />
-            <input
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder={t(locale, 'org_connect_search')}
-              aria-label={t(locale, 'org_connect_search')}
-              className={`${FIELD_INPUT_CLASS} pl-9`}
-            />
-          </div>
-          {/* In the flow, not floating. A floating list opens into the
-              bottom edge of the dialog and is clipped — which is exactly what
-              happened the first time this shipped. Letting it take space
-              instead makes the dialog grow, and the dialog already scrolls. */}
-          {term.trim() && (
-            <ul className="mt-1 max-h-56 overflow-y-auto rounded-md border border-line bg-surface py-1">
-              {matches.length === 0 ? (
-                <li className="px-3 py-1.5 text-xs text-ink-muted">{t(locale, 'people_none')}</li>
-              ) : (
-                matches.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setChosen(p);
-                        setTerm('');
-                      }}
-                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-sunken"
-                    >
-                      {p.name}
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-          )}
+          {/* THE person picker (@thefibre/shared/ui/person-combobox), bound to
+              Connect's own search. This was a hand-rolled type-ahead over the
+              tag vocabulary until 2026-09-22, which meant it could only offer
+              people that vocabulary happened to carry and could not add
+              somebody who was not on file at all. Sjoerd: "There should be a
+              Single Point of truth. It is existing somewhere else." */}
+          <PersonCombobox
+            label={t(locale, 'org_connect_search')}
+            search={searchPeople}
+            exclude={[...alreadyHere]}
+            value=""
+            onChange={(id) => {
+              if (!id) return;
+              void searchPeople('').then((rows) => {
+                const hit = rows.find((r) => r.id === id);
+                setChosen({ id, name: hit ? personLabel(hit) : id.slice(0, 8) });
+              });
+            }}
+            placeholder={t(locale, 'org_connect_search')}
+            searchPlaceholder={t(locale, 'org_connect_search')}
+            onCreate={(typed) => {
+              void createPersonNamed(typed).then((r) => {
+                if (r.ok) setChosen({ id: r.person.id, name: personLabel(r.person) });
+              });
+            }}
+            createLabel={(typed) => t(locale, 'rel_add_person', { name: typed })}
+          />
         </div>
       )}
 

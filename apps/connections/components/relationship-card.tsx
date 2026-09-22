@@ -51,6 +51,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { FIELD_INPUT_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { PersonCombobox } from '@thefibre/shared/ui/person-combobox';
+import { OrganisationCombobox } from '@thefibre/shared/ui/organisation-combobox';
+import {
+  searchPeople,
+  searchOrganisations,
+  createPersonNamed,
+  createOrganisationNamed,
+} from '@/lib/person-picker';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import { loadRelationship, saveRelationship } from '@/app/(app)/people/[id]/relationship';
@@ -200,28 +208,49 @@ export function RelationshipCard({
         </label>
       )}
 
+      {/* THE pickers, not a third pair. Sjoerd, 2026-09-22: "There should be
+          a Single Point of truth — it is existing somewhere else", and then
+          "Add company - also a single point of truth". Both components live
+          in @thefibre/shared and are bound here to Connect's own search, so
+          every result passes this reader's RLS. Both can create what you
+          typed when it is not there yet. */}
       {needs === 'person' && (
-        <PickOne
-          label={t(locale, 'rel_introduced_by')}
-          placeholder={t(locale, 'rel_introduced_search')}
-          locale={locale}
-          kind="people"
-          current={value?.introduced_by ?? null}
-          exclude={[personId]}
-          onPick={(id) => void patch({ introduced_by: id })}
-        />
+        <div className="mt-4">
+          <PersonCombobox
+            label={t(locale, 'rel_introduced_by')}
+            search={searchPeople}
+            exclude={[personId]}
+            value={value?.introduced_by ?? ''}
+            onChange={(id) => void patch({ introduced_by: id || null })}
+            placeholder={t(locale, 'rel_introduced_search')}
+            searchPlaceholder={t(locale, 'rel_introduced_search')}
+            onCreate={(typed) => {
+              void createPersonNamed(typed).then((r) => {
+                if (r.ok) void patch({ introduced_by: r.person.id });
+              });
+            }}
+            createLabel={(typed) => t(locale, 'rel_add_person', { name: typed })}
+          />
+        </div>
       )}
 
       {needs === 'organisation' && (
-        <PickOne
-          label={t(locale, 'rel_via_company')}
-          placeholder={t(locale, 'rel_via_company_search')}
-          locale={locale}
-          kind="organisations"
-          current={value?.via_organisation_id ?? null}
-          exclude={[]}
-          onPick={(id) => void patch({ via_organisation_id: id })}
-        />
+        <div className="mt-4">
+          <OrganisationCombobox
+            label={t(locale, 'rel_via_company')}
+            search={searchOrganisations}
+            value={value?.via_organisation_id ?? ''}
+            onChange={(id) => void patch({ via_organisation_id: id || null })}
+            placeholder={t(locale, 'rel_via_company_search')}
+            searchPlaceholder={t(locale, 'rel_via_company_search')}
+            onCreate={(typed) => {
+              void createOrganisationNamed(typed).then((r) => {
+                if (r.ok) void patch({ via_organisation_id: r.organisation.id });
+              });
+            }}
+            createLabel={(typed) => t(locale, 'rel_add_company', { name: typed })}
+          />
+        </div>
       )}
 
       {error && <p className="mt-2 text-xs text-ink">{error}</p>}
@@ -267,131 +296,3 @@ function TextDetail({
   );
 }
 
-/**
- * Pick one person, or one company.
- *
- * Always an id, never a typed name (handbook §12: attach by identifier). Both
- * lists come from the vocabulary the `@` picker already reads, so there is one
- * answer to "who and what does this workspace know" rather than two that can
- * disagree.
- *
- * The results sit IN THE FLOW rather than floating: this card lives inside a
- * dialog, and a floating list opens into the dialog's bottom edge — the exact
- * bug the organisation popup shipped with on 2026-09-13.
- */
-function PickOne({
-  label,
-  placeholder,
-  locale,
-  kind,
-  current,
-  exclude,
-  onPick,
-}: {
-  label: string;
-  placeholder: string;
-  locale: Locale;
-  kind: 'people' | 'organisations';
-  current: string | null;
-  exclude: string[];
-  onPick: (id: string | null) => void;
-}) {
-  const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
-  const [term, setTerm] = useState('');
-  const { openPerson } = usePersonPopup();
-  const { openOrg } = useOrgPopup();
-
-  useEffect(() => {
-    let alive = true;
-    void fetchVocabulary().then((v) => {
-      if (!alive) return;
-      setOptions(
-        kind === 'people'
-          ? v.people
-          : // A word that names an organisation carries its id; a word that is
-            // only a tag does not, which is exactly how the two are told apart.
-            v.words
-              .filter((w) => w.organisationId)
-              .map((w) => ({ id: w.organisationId!, name: w.name })),
-      );
-    });
-    return () => {
-      alive = false;
-    };
-  }, [kind]);
-
-  const chosen = useMemo(() => options.find((o) => o.id === current) ?? null, [options, current]);
-
-  const matches = useMemo(() => {
-    const q = term.trim().toLowerCase();
-    if (!q) return [];
-    const skip = new Set(exclude);
-    return options.filter((o) => !skip.has(o.id) && o.name.toLowerCase().includes(q)).slice(0, 6);
-  }, [term, options, exclude]);
-
-  return (
-    <div className="mt-4">
-      <span className={FIELD_LABEL_CLASS}>{label}</span>
-
-      {current ? (
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-          {/* Opens who or what it names. Sjoerd, 2026-09-14: "why is the
-              'introduced by' not clickable". A person opens the person popup
-              over this one; a company opens the organisation popup. */}
-          <button
-            type="button"
-            onClick={() => (kind === 'people' ? openPerson(current) : openOrg(current))}
-            className="rounded-full border border-line bg-surface px-3 py-1 hover:border-line-strong hover:underline"
-          >
-            {/* Before the vocabulary arrives the id is all there is. Showing
-                it beats showing nothing, which would read as "not set". */}
-            {chosen?.name ?? `${current.slice(0, 8)}…`}
-          </button>
-          <button type="button" onClick={() => onPick(null)} className="text-ink-muted hover:text-ink">
-            {t(locale, 'rel_clear')}
-          </button>
-        </div>
-      ) : (
-        <div className="mt-1">
-          <div className="relative">
-            <Search
-              size={15}
-              strokeWidth={1.75}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-            />
-            <input
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder={placeholder}
-              aria-label={placeholder}
-              className={`${FIELD_INPUT_CLASS} pl-9`}
-            />
-          </div>
-          {term.trim() && (
-            <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-line bg-surface py-1">
-              {matches.length === 0 ? (
-                <li className="px-3 py-1.5 text-sm text-ink-muted">{t(locale, 'people_none')}</li>
-              ) : (
-                matches.map((o) => (
-                  <li key={o.id}>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        onPick(o.id);
-                        setTerm('');
-                      }}
-                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-sunken"
-                    >
-                      {o.name}
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
