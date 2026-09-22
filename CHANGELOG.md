@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.97.0] — 2026-09-23 — A test that was reading a clock nobody had set (staging)
+
+The day-grid test blocked every release from this checkout for part of the
+night, including another session's. It was mine.
+
+thefibre-0f found it was zone-dependent — green under `TZ=UTC`, red under
+`TZ=Europe/Amsterdam`. The cause is one step past that. The grid opens at the
+earliest of 07:00, the first meeting, and NOW, because the line marking now
+has to have somewhere to be. At ten past midnight, now IS the earliest, so the
+grid opens at 00:00 and every block moves seven hours down the page. The
+failure read `expected '468px' to be '104px'` — 9×52 instead of 2×52, a nine
+o'clock meeting nine hours below a midnight top instead of two below a seven
+o'clock one. Under UTC the same instant reads 22:10, the floor stays at 07:00,
+and it passes.
+
+So it was time-of-day dependent, surfacing as zone-dependent. The component
+was right both times; the test had been written at four in the afternoon and
+was reading a clock nobody had set. CI runs UTC, which is exactly why it was
+green everywhere except on the machine the work is done on, after midnight.
+
+The clock is pinned now (`toFake: ['Date']`, so React's own scheduling is left
+alone) and the fixtures are built from the same instant. Then the whole of
+Connect (313 tests), the API (263) and shared (128) were run under five zones
+that put "now" at 00:12, 22:12, 18:12, 10:12 and 03:42 local — no other test
+reads the wall clock.
+
 ## [0.96.0] — 2026-09-22 — It was saving; the field could not say so (staging)
 
 *"When I connect an org in How do you know them... it does not save that field

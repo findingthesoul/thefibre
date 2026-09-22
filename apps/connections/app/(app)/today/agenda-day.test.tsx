@@ -7,6 +7,19 @@
 // into the right pixels. An inverted formula, an hour height applied twice or
 // a lane width off by one column are all silent — everything still renders,
 // and only an eye on the page would notice. This is the eye.
+//
+// ── THE CLOCK IS PINNED, and it has to be ──────────────────────────────────
+//
+// The grid opens at the earliest of 07:00, the first meeting, and NOW — the
+// line marking now must have somewhere to be. So running this at ten past
+// midnight opens the grid at 00:00 and every block moves seven hours down the
+// page. The assertions were written at four in the afternoon and passed all
+// day; thefibre-0f hit them at 00:10 CEST and they blocked every release from
+// this checkout, his included.
+//
+// Not flakiness to retry: the component was right both times and the test was
+// reading a clock nobody had set. `toFake: ['Date']` freezes Date and leaves
+// setTimeout alone, so React's own scheduling is untouched.
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -19,10 +32,20 @@ vi.mock('./agenda-add', () => ({ AddAttendee: () => null }));
 import { AgendaDay } from './agenda-day';
 import type { AgendaEvent } from './agenda';
 
-/** An event on TODAY, given local wall-clock times. */
+/** Midday on a fixed date, in whatever zone the machine is in. Midday
+ *  because it is comfortably after the grid's 07:00 floor, so the floor is
+ *  what decides the top of the grid in every test below — which is the thing
+ *  being asserted. */
+const NOON = (() => {
+  const d = new Date(2026, 8, 23); // 23 September 2026, local
+  d.setHours(12, 0, 0, 0);
+  return d;
+})();
+
+/** An event on the pinned day, given local wall-clock times. */
 const ev = (id: string, from: string, to: string, over: Partial<AgendaEvent> = {}): AgendaEvent => {
   const at = (hhmm: string) => {
-    const d = new Date();
+    const d = new Date(NOON);
     d.setHours(Number(hhmm.slice(0, 2)), Number(hhmm.slice(3)), 0, 0);
     return d.toISOString();
   };
@@ -45,6 +68,8 @@ let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOON);
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -52,6 +77,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
 });
 
 const render = (events: AgendaEvent[]) =>
