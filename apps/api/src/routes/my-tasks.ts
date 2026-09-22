@@ -1,7 +1,11 @@
 // ===========================================================================
-// "To do" — GET/POST/PATCH /api/v1/me/tasks
+// "To do" — GET/POST/PATCH /api/v1/tasks
 //
 // One person's own list, across the apps (docs/personal-todo-proposal.md).
+//
+// Mounted at /api/v1/tasks, NOT under /me: that prefix is a PUBLIC_PREFIX in
+// middleware/app-context.ts for the visitor portal, where the participant JWT
+// is checked inside the handler. A staff route under it never receives ctx.
 //
 // ---------------------------------------------------------------------------
 // THE DATA WALL (brief §2) — read this before adding a source
@@ -75,7 +79,7 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(200);
   if (error) {
-    console.warn('[me/tasks] flow tasks', error.message);
+    console.warn('[tasks] flow tasks', error.message);
     return [];
   }
   return (data ?? [])
@@ -340,7 +344,7 @@ export async function cleanFinishedTasks(): Promise<number> {
     .lt('done_at', cutoff)
     .select('id');
   if (error) {
-    console.warn('[me/tasks] archive cleanup', error.message);
+    console.warn('[tasks] archive cleanup', error.message);
     return 0;
   }
   return (data ?? []).length;

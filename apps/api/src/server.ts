@@ -357,8 +357,11 @@ v1.route('/assistant', assistantRoutes);
 v1.route('/mcp-auth', mcpAuthRoutes);
 v1.route('/mcp', mcpRoutes);
 // The visitor's own place, across every app (docs/visitor-portal-proposal.md).
-v1.route('/me/tasks', myTasksRoutes);
 v1.route('/me', portalRoutes);
+// NOT under /me: that prefix is the visitor portal, where a participant JWT is
+// verified inside the handler and no workspace context exists. A staff route
+// mounted there gets no ctx at all (500s on staging, 2026-09-23).
+v1.route('/tasks', myTasksRoutes);
 v1.route('/oauth', oauthProviderRoutes);
 v1.route('/teams', teamsRoutes);
 v1.route('/thread', threadRoutes);

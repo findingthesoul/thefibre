@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.98.2] — 2026-09-23 — To do lives at /api/v1/tasks (staging)
+
+The list answered 500 to everything: `Cannot read properties of undefined
+(reading 'jwt')`. It was mounted at `/api/v1/me/tasks`, and `/api/v1/me/` is a
+PUBLIC_PREFIX — the visitor portal, where a participant JWT is verified inside
+the handler and there is no workspace context. A staff route under that prefix
+is handed no `ctx` at all, so the first line that reads `ctx.jwt` throws.
+
+Moved to `/api/v1/tasks`, with the reason written at both ends (the mount in
+server.ts and the header of routes/my-tasks.ts) so the next person does not
+put a signed-in route under /me for tidiness.
+
 ## [0.98.1] — 2026-09-23 — The To do panel settles (staging)
 
 The panel never stopped re-rendering: an app builds its `actions` inline, so

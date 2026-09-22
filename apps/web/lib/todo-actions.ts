@@ -1,7 +1,7 @@
 'use server';
 
 // The app-bound half of the shared To do panel: the calls to the platform
-// list (/api/v1/me/tasks). The panel itself is
+// list (/api/v1/tasks). The panel itself is
 // @thefibre/shared/ui/todo-panel — same arrangement as the invoices area.
 
 import { apiFetch } from './api';
@@ -12,7 +12,7 @@ export async function listTasks(
 ): Promise<{ items: TodoItem[]; groups: TodoGroups } | null> {
   try {
     const data = await apiFetch<{ items: TodoItem[]; groups?: TodoGroups }>(
-      `/api/v1/me/tasks?view=${view}`,
+      `/api/v1/tasks?view=${view}`,
     );
     return { items: data.items, groups: data.groups ?? {} };
   } catch {
@@ -22,7 +22,7 @@ export async function listTasks(
 }
 
 export async function addTask(title: string, dueOn: string | null): Promise<void> {
-  await apiFetch('/api/v1/me/tasks', {
+  await apiFetch('/api/v1/tasks', {
     method: 'POST',
     body: JSON.stringify({ title, due_on: dueOn }),
   });
@@ -35,14 +35,14 @@ export async function setTaskState(
   snoozedUntil?: string | null,
 ): Promise<void> {
   if (item.id) {
-    await apiFetch(`/api/v1/me/tasks/${item.id}`, {
+    await apiFetch(`/api/v1/tasks/${item.id}`, {
       method: 'PATCH',
       body: JSON.stringify({ state, snoozed_until: snoozedUntil ?? null }),
     });
     return;
   }
   if (!item.source) return;
-  await apiFetch('/api/v1/me/tasks/answer', {
+  await apiFetch('/api/v1/tasks/answer', {
     method: 'POST',
     body: JSON.stringify({
       source_app: item.source.app,
@@ -59,5 +59,5 @@ export async function setTaskState(
 
 export async function removeTask(item: TodoItem): Promise<void> {
   if (!item.id) return;
-  await apiFetch(`/api/v1/me/tasks/${item.id}`, { method: 'DELETE' });
+  await apiFetch(`/api/v1/tasks/${item.id}`, { method: 'DELETE' });
 }
