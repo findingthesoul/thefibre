@@ -103,6 +103,25 @@ describe('a meeting is drawn over the time it takes', () => {
   });
 });
 
+describe('a block is visible against the page', () => {
+  // The page's ground in Connect is `surface-sunken` (a cool slate, set in
+  // globals.css). A block painted the same colour disappears — which a past
+  // block did until Sjoerd said so on 2026-09-22. This is the rule, not the
+  // shade: whatever the palette does, a block must not be the ground.
+  it('is never painted the page’s own background', () => {
+    render([ev('past', '01:00', '02:00'), ev('later', '23:00', '23:30')]);
+    for (const id of ['past', 'later']) {
+      expect(block(id)!.className).toContain('bg-surface-raised');
+      expect(block(id)!.className).not.toContain('bg-surface-sunken');
+    }
+  });
+
+  it('keeps an edge of its own', () => {
+    render([ev('a', '09:00', '10:00')]);
+    expect(block('a')!.className).toContain('border-line');
+  });
+});
+
 describe('an all-day entry', () => {
   it('is a chip above the grid, not a block on it', () => {
     render([ev('a', '00:00', '23:59', { all_day: true })]);

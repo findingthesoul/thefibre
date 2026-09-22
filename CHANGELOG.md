@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.94.0] — 2026-09-22 — A meeting you can see (staging)
+
+Sjoerd, looking at today's grid: *"BG color: contrast higher between BG and
+calendar items."*
+
+He was looking at a meeting that had already finished, and it was invisible —
+because a past block was painted `surface-sunken`, and in Connect that token
+IS the page's ground (a cool slate, set in its globals.css). The block was the
+same colour as the thing behind it.
+
+Every block is a white card now, with an edge and a little lift, on the slate.
+Past is quieter through its text and its left accent, never through its
+background — and never through `opacity`, which is what caused the dialog bug
+three releases ago. A test fails the release if a block is ever painted the
+ground again: the rule is "a block is not the page", whatever the palette
+does later.
+
+**Also:** an address typed over several lines in a calendar arrived with its
+line breaks collapsed into nothing, so "Paasheuvelgroep / 30 Het Frussel /
+8076 RE Vierhouten" read as one run-on. Whitespace is normalised before the
+chip and its tooltip get it.
+
 ## [0.93.0] — 2026-09-22 — Tomorrow, and a write-up you can actually fill in (staging)
 
 **Tomorrow gets a grid.** *"Can you also show tomorrow (maybe even as the

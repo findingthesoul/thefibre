@@ -76,7 +76,11 @@ export function placeLink(location: string | null): { url: string; label: string
   // Strip a link out of a mixed location: "Room 2, https://zoom.us/j/1" is a
   // room AND a way in, and the room half is still worth a map.
   const withoutUrl = raw.replace(/https?:\/\/[^\s<>"')]+/gi, '').trim();
-  const label = withoutUrl.replace(/^[\s,;:/|-]+|[\s,;:/|-]+$/g, '');
+  // Google's location is free text and often arrives with line breaks in it
+  // (a postal address typed over three lines). Rendered in a one-line chip
+  // those collapse into whatever they collapse into; normalising here makes
+  // the chip and its tooltip say the same readable thing.
+  const label = withoutUrl.replace(/\s+/g, ' ').replace(/^[\s,;:/|-]+|[\s,;:/|-]+$/g, '');
   // One or two characters is a desk number, not somewhere to navigate to.
   if (label.length < 3) return null;
   // google.com/maps rather than an app scheme: a scheme fails silently on a

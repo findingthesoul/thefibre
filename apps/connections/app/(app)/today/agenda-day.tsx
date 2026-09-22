@@ -107,7 +107,7 @@ export function AgendaDay({
               <button
                 type="button"
                 onClick={() => setWriting(ev)}
-                className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-raised px-3 text-xs transition-colors hover:border-ink/40"
+                className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-raised px-3 text-xs shadow-sm transition-colors hover:border-ink/40"
               >
                 <span className="truncate">{ev.summary || t(locale, 'agenda_untitled')}</span>
                 <span className="shrink-0 text-ink-subtle">{t(locale, 'agenda_all_day')}</span>
@@ -146,14 +146,21 @@ export function AgendaDay({
               key={p.id}
               type="button"
               onClick={() => setWriting(ev)}
-              // Past is quieter, never disabled: a finished meeting is the
-              // one you most want to write up. A border tint rather than
-              // `opacity`, which would make this the containing block for
-              // any fixed-position child — the v0.89.0 bug.
-              className={`absolute overflow-hidden rounded-md border-l-2 px-2 py-1 text-left transition-colors ${
+              // A block is a CARD on the page's ground, and the ground here
+              // is the cool slate `surface-sunken` (globals.css). So a block
+              // is `surface-raised` — white — whether it has happened or
+              // not. Sjoerd, 2026-09-22: *"BG color: contrast higher between
+              // BG and calendar items"*. A past block used to be
+              // surface-sunken, which is the page itself: it vanished.
+              //
+              // Past is quieter through its TEXT and its accent, never
+              // through its background and never through `opacity` — opacity
+              // would make this the containing block for any fixed-position
+              // child, which is the v0.89.0 bug.
+              className={`absolute overflow-hidden rounded-md border border-line border-l-[3px] bg-surface-raised px-2 py-1 text-left shadow-sm transition-colors ${
                 past
-                  ? 'border-l-line-strong bg-surface-sunken text-ink-muted hover:bg-surface-raised'
-                  : 'border-l-ink bg-surface-raised text-ink hover:bg-surface-sunken'
+                  ? 'border-l-line-strong text-ink-muted hover:border-ink/40 hover:text-ink'
+                  : 'border-l-ink text-ink hover:border-ink/40'
               }`}
               style={{
                 top: top(p.startMin),

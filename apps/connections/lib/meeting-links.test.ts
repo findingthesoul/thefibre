@@ -62,6 +62,12 @@ describe('the place', () => {
     expect(placeLink('Room 2, https://zoom.us/j/1')!.label).toBe('Room 2');
   });
 
+  it('flattens an address typed over several lines', () => {
+    expect(placeLink('Paasheuvelgroep\n30 Het Frussel\n8076 RE Vierhouten')!.label).toBe(
+      'Paasheuvelgroep 30 Het Frussel 8076 RE Vierhouten',
+    );
+  });
+
   it('is null for a desk number, an empty string and nothing', () => {
     expect(placeLink('2')).toBeNull();
     expect(placeLink('   ')).toBeNull();
