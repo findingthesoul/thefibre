@@ -986,6 +986,43 @@ Unit tests can satisfy the rule by accident — `workspace-refs.test.ts` pairs
 another" — which is the argument for stating it: a rule followed by accident
 is not followed by the next test.
 
+### 11.3b Before a PROMOTE: check for migrations an earlier promote left behind
+
+`scripts/promote.sh` refuses when the range it is promoting **adds** a
+migration, unless `MIGRATIONS_ON_PROD=yes` says the push has been done. That
+guard is correct and it is not enough, because it only looks at its own range.
+
+**A migration that an EARLIER promote failed to apply is invisible to every
+later one.** The range no longer adds it — the file was already on main — so
+promote.sh sees nothing to warn about, and production goes on running code
+against a table that is not there.
+
+That happened on 2026-09-21. The promote to v0.87.1 shipped three migrations'
+worth of code without pushing them:
+
+  20260921150000_mcp_grants.sql        the assistant grant table
+  20260921160000_curator_updated_at.sql the updated_at triggers
+  20260921170000_connect_rename.sql     the catalogue rename
+
+For the hours in between, `/connect → Allow` on production would have failed
+on a missing table. Nobody pressed it. That is luck, not a gate.
+
+**So, before every promote:**
+
+```bash
+supabase migration list        # the CLI is linked to prod by db-push-prod.sh
+```
+
+Any row with a LOCAL version and an EMPTY remote column is a migration
+production does not have. Push before you promote:
+
+```bash
+./scripts/db-push-prod.sh
+```
+
+The same check is worth running after any promote somebody else made, for the
+same reason: nothing in the flow notices the gap on its own.
+
 ### 11.4 Release gates (run per release)
 
 0. `./scripts/release-guard.sh <intended-version>` — refuses a release
