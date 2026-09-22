@@ -50,22 +50,37 @@ const KIND_KEYS = {
 } as const;
 const KINDS: NoteKind[] = ['note', 'call', 'meeting', 'encounter', 'message', 'email'];
 
+// CONTROLLED, and the dialog is rendered by the LIST rather than by a row.
+//
+// It used to render its own trigger and hold its own `open`, which put the
+// dialog inside the row's <li>. That was fine until past rows were dimmed on
+// 2026-09-21: `opacity` below 1 creates a containing block for `position:
+// fixed` descendants AND applies to them, so the dialog stopped being
+// full-screen and came up translucent, laid over the list. (Screenshot from
+// Sjoerd the same evening.) The shared Dialog is `fixed inset-0` with no
+// portal, so ANY ancestor with opacity, a transform or a filter does this —
+// which is why the answer is to keep the dialog out of such a subtree rather
+// than to pick a different way of dimming.
+//
+// One dialog for the whole list is also simply less: a day with eight
+// meetings held eight prepared dialogs.
 export function MeetingWriteUp({
   event,
   locale,
-  children,
-  className,
+  onClose,
 }: {
-  event: AgendaEvent;
+  /** The meeting being written up, or null when the dialog is closed. */
+  event: AgendaEvent | null;
   locale: Locale;
-  /** The meeting's own title, rendered as the button that opens this. */
-  children: React.ReactNode;
-  className?: string;
+  onClose: () => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const open = event !== null;
+  const setOpen = (v: boolean) => {
+    if (!v) onClose();
+  };
 
-  const known = event.people.filter((p) => p.person_id);
+  const known = event ? event.people.filter((p) => p.person_id) : [];
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [kind, setKind] = useState<NoteKind>('meeting');
   const [body, setBody] = useState('');
@@ -82,7 +97,7 @@ export function MeetingWriteUp({
   // otherwise hold six prepared forms, and re-opening one after cancelling
   // should start from the calendar again rather than from what was abandoned.
   useEffect(() => {
-    if (!open) return;
+    if (!event) return;
     setPicked(new Set(known.map((p) => p.person_id!)));
     setKind('meeting');
     setBody(event.summary ? `${event.summary}\n\n` : '');
@@ -96,7 +111,7 @@ export function MeetingWriteUp({
     // `known` is derived from `event` on every render; depending on it would
     // re-run this on each keystroke and wipe what is being typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, event]);
+  }, [event]);
 
   const toggle = (id: string) =>
     setPicked((cur) => {
@@ -108,7 +123,7 @@ export function MeetingWriteUp({
 
   async function save() {
     const ids = [...picked];
-    if (ids.length === 0) return;
+    if (ids.length === 0 || !event) return;
     setSaving(true);
     setError(null);
 
@@ -165,15 +180,10 @@ export function MeetingWriteUp({
   }
 
   return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className={className}>
-        {children}
-      </button>
-
-      <Dialog
+    <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title={event.summary || t(locale, 'agenda_untitled')}
+        title={event?.summary || t(locale, 'agenda_untitled')}
         description={t(locale, 'meeting_note_intro')}
         size="lg"
         footer={
@@ -270,13 +280,12 @@ export function MeetingWriteUp({
               somebody is its own decision and it has its own button on the
               row behind this dialog — burying it inside a save would create
               people as a side effect of writing a sentence. */}
-          {event.people.some((p) => !p.person_id) && (
+          {event?.people.some((p) => !p.person_id) && (
             <p className="mt-2 text-xs text-ink-muted">{t(locale, 'meeting_note_unknown')}</p>
           )}
         </fieldset>
 
         {error && <p className="mt-3 text-sm text-ink">{error}</p>}
-      </Dialog>
-    </>
+    </Dialog>
   );
 }

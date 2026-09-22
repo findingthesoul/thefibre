@@ -148,6 +148,9 @@ neither in code nor in a document. That is what this file fixes.
 | 115 | "I also don't see the agenda thing, that I do see in the production" | **Answered** — staging has no Google calendar connected (zero rows with a refresh token, checked); the whole agenda section renders nothing without one. Same cause as ask 111 |
 | 116 | "I like that the day selection at the top" | **Shipped** v0.89.0 — the day selector sits above the agenda instead of halfway down the page |
 | 117 | The page intro paragraph "should have a toggle button (on and off... reduce info on interface when not really needed)" | **Shipped** v0.89.0 — a show/hide toggle, remembered domain-wide like the theme and read on the server so it never flashes. The component is shared; other apps adopt it by allow-listing one cookie |
+| 118 | Screenshot of the write-up dialog rendering translucent over the list | **Shipped** — my own regression from v0.89.0: dimming a past row with `opacity` makes every `position: fixed` descendant both translucent AND positioned inside that row, and the shared Dialog is fixed with no portal. One dialog for the whole list now, rendered outside it |
+| 119 | "The auto fill — if it is a person, use the @ with a real reference. If a # is used, use the hash tag (mouse over also shows the X to turn the # into a word again)" | **Open** |
+| 120 | "For the print screen: remove the lines between agenda's" (the Calendars popup) | **Open** |
 
 ### The three that were lost
 

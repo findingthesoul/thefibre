@@ -80,6 +80,20 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     <div
       role="dialog"
       aria-modal="true"
+      // `fixed`, and NOT in a portal — which is a live footgun worth knowing
+      // about before you place a dialog. An ancestor with `opacity` below 1,
+      // a `transform` or a `filter` becomes the containing block for a fixed
+      // descendant, so the dialog stops covering the viewport and starts
+      // covering that ancestor; opacity also fades it. It happened on
+      // 2026-09-21: Connect dimmed a past agenda row with `opacity-55` and
+      // this dialog came up translucent, laid over the list.
+      //
+      // The fix at the call site is to render the dialog OUTSIDE the faded
+      // subtree — one dialog for a list rather than one per row — which is
+      // better anyway. Moving this into a portal would fix the class of bug
+      // for every app and is a bigger change than it looks (focus, event
+      // bubbling, the app's CSS scope); it is in docs/build-plan.md.
+      //
       // Mobile: a bottom sheet (full width, rounded top, safe-area padding).
       // ≥sm: the centred card it always was.
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/40"

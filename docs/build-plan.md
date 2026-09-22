@@ -22,6 +22,18 @@ the queue.
 
 _Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
 
+**Consider putting the shared Dialog in a portal.** Set 2026-09-21 after it
+bit: `packages/shared/src/ui/dialog.tsx` is `fixed inset-0` with no portal, so
+any ancestor carrying `opacity`, `transform` or `filter` becomes its
+containing block — the dialog then covers that element instead of the screen,
+and fades with it. Connect hit this by dimming past agenda rows. The call-site
+fix (render the dialog outside the faded subtree) is done and is the better
+shape regardless, but every app is one `transform` away from the same bug.
+`createPortal(node, document.body)` is the fix; the care needed is focus
+handling, event bubbling out of the portal, and any CSS scoped to an app's
+subtree. Not urgent, and not to be done without looking at a dialog in each
+app afterwards.
+
 **Make the Connections → Connect redirect permanent.** Set 2026-09-21. The old
 hosts (`connections.thethread.app`, `connections.thefibre.tech`) redirect to
 the new ones with a TEMPORARY redirect, on purpose: a 308 is cached by

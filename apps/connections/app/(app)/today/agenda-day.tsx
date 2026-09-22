@@ -79,6 +79,10 @@ export function AgendaDay({
   intl: string;
   labels?: Record<string, Record<string, string>>;
 }) {
+  // ONE dialog for the list, not one per row. A dialog rendered inside a row
+  // would sit inside that row's `opacity` (see meeting-note.tsx) and come up
+  // translucent and mispositioned — which it did, on 2026-09-21.
+  const [writing, setWriting] = useState<AgendaEvent | null>(null);
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
@@ -122,9 +126,9 @@ export function AgendaDay({
             happened". It was only the title until now, which is why he was
             clicking and getting nothing. The links below stay their own
             targets — a button cannot contain a link. */}
-        <MeetingWriteUp
-          event={ev}
-          locale={locale}
+        <button
+          type="button"
+          onClick={() => setWriting(ev)}
           className="flex w-full items-baseline justify-between gap-3 text-left"
         >
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
@@ -133,7 +137,7 @@ export function AgendaDay({
           <span className="shrink-0 text-xs text-ink-muted tabular-nums">
             {ev.all_day ? t(locale, 'agenda_all_day') : clock(ev.start, intl)}
           </span>
-        </MeetingWriteUp>
+        </button>
 
         <MeetingWhere ev={ev} locale={locale} />
 
@@ -170,7 +174,8 @@ export function AgendaDay({
   };
 
   return (
-    <ul className={`mt-3 ${ROW_LIST}`}>
+    <>
+      <ul className={`mt-3 ${ROW_LIST}`}>
       {allDay.map(row)}
       {timed.map((ev, i) => (
         <Fragmentish key={ev.id}>
@@ -179,9 +184,13 @@ export function AgendaDay({
         </Fragmentish>
       ))}
       {lineAt === timed.length && timed.length > 0 && (
-        <NowLine now={now!} intl={intl} locale={locale} />
-      )}
-    </ul>
+          <NowLine now={now!} intl={intl} locale={locale} />
+        )}
+      </ul>
+
+      {/* Outside the list, and therefore outside any row's opacity. */}
+      <MeetingWriteUp event={writing} locale={locale} onClose={() => setWriting(null)} />
+    </>
   );
 }
 

@@ -108,7 +108,13 @@ export function CalendarPicker({ locale }: { locale: Locale }) {
                   own are on unless you say otherwise, a calendar you only
                   follow is off unless you ask for it. */}
               <h3 className="text-[10px] uppercase tracking-wider text-ink-muted">{g.label}</h3>
-              <ul className="mt-1.5 divide-y divide-line">
+              {/* No rules between the rows. Sjoerd, 2026-09-21, looking at
+                  this popup: "remove the lines between agenda's". A short
+                  named group with a switch on each row is already legible as
+                  a list; a hairline per row turns four calendars into a
+                  table. The row list on Today keeps its lines because it is
+                  long and every row is a different kind of thing. */}
+              <ul className="mt-1.5">
                 {g.rows.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-4 py-2.5">
                     <span className="min-w-0">

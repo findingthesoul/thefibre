@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.91.0] — 2026-09-22 — The write-up dialog is a dialog again (staging)
+
+A regression from v0.89.0, caught by Sjoerd within the hour and live on
+production in between: opening a meeting's write-up drew it translucent and
+half over the agenda instead of over the screen.
+
+The cause is worth writing down because it will happen again somewhere else.
+Dimming a past row used `opacity`, and an element with opacity below 1 becomes
+the **containing block** for any `position: fixed` descendant — as do
+`transform` and `filter`. The shared Dialog is `fixed inset-0` with no portal,
+so it stopped covering the viewport and started covering the row, and faded
+with it.
+
+The fix is at the call site and is the better shape anyway: one dialog for the
+whole list, rendered outside it, instead of one prepared dialog per row. A day
+with eight meetings had eight of them. `ui/dialog.tsx` now carries the warning
+where somebody placing a dialog will read it, and moving it into a portal —
+which would fix the class of bug for every app — is written up in the build
+plan rather than done late at night without looking at nine apps.
+
+**Also:** the Calendars popup lost the rules between its rows. Sjoerd: *"remove
+the lines between agenda's."* Four named calendars with a switch each are
+already a list; a hairline per row turned them into a table. Today's own row
+list keeps its lines — it is long, and every row is a different kind of thing.
+
 ## [0.90.1] — 2026-09-22 — The icons, at a sane weight (staging)
 
 The inverted tiles shipped at 5.4 MB for fifteen files — painted texture is
