@@ -6656,12 +6656,12 @@ const CATALOG = {
     fr: 'La suite', // MT
   },
   today_owed_sub: {
-    en: 'What you owe.',
-    nl: 'Wat jij nog moet doen.',
-    es: 'Lo que debes hacer.', // MT
-    pt: 'O que você deve fazer.', // MT
-    de: 'Was du schuldest.', // MT
-    fr: 'Ce que tu dois.', // MT
+    en: 'Follow-ups you set when writing a note, now due.',
+    nl: 'Opvolging die je bij een notitie instelde, nu aan de beurt.',
+    es: 'Seguimientos que fijaste al escribir una nota, ya vencidos.', // MT
+    pt: 'Seguimentos que definiste ao escrever uma nota, agora devidos.', // MT
+    de: 'Nachfassen, das du beim Schreiben einer Notiz gesetzt hast — jetzt fällig.', // MT
+    fr: 'Les relances fixées en écrivant une note, maintenant dues.', // MT
   },
   today_prepare_heading: {
     en: 'To prepare',

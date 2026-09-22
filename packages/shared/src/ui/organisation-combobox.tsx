@@ -14,7 +14,7 @@
 // there is a query — including when nothing matched, which is exactly when it
 // is wanted.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SearchSelect, type SearchSelectOption } from './search-select.js';
 
 export type OrganisationOption = {
@@ -42,6 +42,16 @@ export type OrganisationComboboxProps = {
   searchPlaceholder?: string | undefined;
   onCreate?: (typed: string) => void;
   createLabel?: (typed: string) => string;
+  /**
+   * Look ONE up by id, for a value the picker was not given.
+   *
+   * Without it a saved value shows as the placeholder, which reads exactly
+   * like nothing having been saved — Sjoerd, 2026-09-22: *"when I connect an
+   * org in How do you know them... it does not save that field"*. It had
+   * saved. The field could not say so, because the label of a value lives in
+   * the search results and a page that has just loaded has run no search.
+   */
+  resolve?: (id: string) => Promise<OrganisationOption | null>;
 };
 
 export function OrganisationCombobox({
@@ -58,14 +68,41 @@ export function OrganisationCombobox({
   searchPlaceholder = 'Search by name or domain…',
   onCreate,
   createLabel,
+  resolve,
 }: OrganisationComboboxProps) {
   const [inner, setInner] = useState(value ?? '');
   useEffect(() => {
     if (value !== undefined) setInner(value);
   }, [value]);
 
+  // A ref, not a dependency: a caller defining `resolve` inline would change
+  // its identity every render and re-fetch for ever (the same reason
+  // SearchSelect keeps loadOptions in one).
+  const resolveRef = useRef(resolve);
+  resolveRef.current = resolve;
+  const [resolved, setResolved] = useState<OrganisationOption | null>(null);
+
   const hidden = new Set(exclude);
   const seed = organisations.filter((o) => !hidden.has(o.id)).map(toOption);
+
+  useEffect(() => {
+    const id = value ?? inner;
+    const lookUp = resolveRef.current;
+    if (!id || !lookUp || organisations.some((x) => x.id === id)) {
+      setResolved(null);
+      return;
+    }
+    let alive = true;
+    void lookUp(id).then((row) => {
+      if (alive) setResolved(row);
+    });
+    return () => {
+      alive = false;
+    };
+    // `inner` is deliberately absent: a value picked in this session is
+    // already labelled by SearchSelect's own memory of what was picked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   async function load(term: string): Promise<SearchSelectOption[]> {
     const rows = await search(term);
@@ -87,7 +124,9 @@ export function OrganisationCombobox({
           setInner(id);
           onChange?.(id);
         }}
-        options={seed}
+        // The resolved row first, so a value loaded from the database has a
+        // name on it before any search has run.
+        options={resolved ? [toOption(resolved), ...seed.filter((o) => o.value !== resolved.id)] : seed}
         loadOptions={load}
         placeholder={placeholder}
         searchPlaceholder={searchPlaceholder}

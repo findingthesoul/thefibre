@@ -110,3 +110,29 @@ export async function createOrganisationNamed(typed: string): Promise<CreateOrga
     };
   }
 }
+
+// ── Looking ONE up, by id ──────────────────────────────────────────────────
+//
+// A saved value arrives as an id and nothing else, and the picker labels
+// values from search RESULTS — so a freshly loaded page had no name for one
+// and showed the placeholder, which reads exactly like nothing having been
+// saved. Sjoerd, 2026-09-22: *"when I connect an org in How do you know
+// them... it does not save that field."* It did save. It could not say so.
+
+export async function getPerson(id: string): Promise<PersonOption | null> {
+  try {
+    return await apiFetch<PersonOption>(`/api/v1/persons/${id}`);
+  } catch {
+    // Deleted, or not visible to this reader. The picker then shows its
+    // placeholder, which is honest: there is nothing to name.
+    return null;
+  }
+}
+
+export async function getOrganisation(id: string): Promise<OrganisationOption | null> {
+  try {
+    return await apiFetch<OrganisationOption>(`/api/v1/organisations/${id}`);
+  } catch {
+    return null;
+  }
+}

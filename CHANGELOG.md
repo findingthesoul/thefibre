@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.96.0] — 2026-09-22 — It was saving; the field could not say so (staging)
+
+*"When I connect an org in How do you know them... it does not save that field
+for organisations."*
+
+It saved. Every time. The API was storing it — proven end to end against
+staging before anything was changed. What failed was the field's ability to
+say so: a picker takes the NAME of a value from its search results, and a page
+that has just loaded has run no search. So a saved company had an id and no
+name, the box fell back to its placeholder, and that is indistinguishable from
+nothing having been saved.
+
+Both shared comboboxes take a `resolve` now — look one up by id — and Connect
+binds it to the person and organisation endpoints. This is the worst kind of
+bug to leave: the data is right and the screen says it is not, so the next
+thing somebody does is type it again.
+
+**Connect opens where you left it.** *"When I open connect - save the last page
+used.... first timer is TODAY."* The section is remembered; Today the first
+time, or any time the remembered value is not one of the sidebar's own
+sections. That matching is not fussiness — a redirect built from a cookie is a
+redirect anybody can aim, so the value is checked against a list and never
+used as a path.
+
+**And What's next stays in Connect.** *"When I click on an item... I am
+redirected to the fibre."* It did: a person's details live on the platform, so
+that is where the row pointed. But what you want after clicking something you
+owe somebody is to write down what you did about it, and that is here. Both
+lists open the person in Connect's own popup; the full profile is still one
+press away inside it. A thread still opens in Thread, which is genuinely
+elsewhere.
+
+Those rows also now say what they are — *"Follow-ups you set when writing a
+note, now due"* — after two rounds of, fairly, not knowing what they were.
+
 ## [0.95.0] — 2026-09-22 — One picker, and it can add what is not there (staging)
 
 Sjoerd, typing a name into the write-up and being told nobody matched:

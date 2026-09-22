@@ -58,6 +58,8 @@ import {
   searchOrganisations,
   createPersonNamed,
   createOrganisationNamed,
+  getPerson,
+  getOrganisation,
 } from '@/lib/person-picker';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
@@ -219,6 +221,7 @@ export function RelationshipCard({
           <PersonCombobox
             label={t(locale, 'rel_introduced_by')}
             search={searchPeople}
+            resolve={getPerson}
             exclude={[personId]}
             value={value?.introduced_by ?? ''}
             onChange={(id) => void patch({ introduced_by: id || null })}
@@ -239,6 +242,7 @@ export function RelationshipCard({
           <OrganisationCombobox
             label={t(locale, 'rel_via_company')}
             search={searchOrganisations}
+            resolve={getOrganisation}
             value={value?.via_organisation_id ?? ''}
             onChange={(id) => void patch({ via_organisation_id: id || null })}
             placeholder={t(locale, 'rel_via_company_search')}

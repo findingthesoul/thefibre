@@ -1,15 +1,24 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { SignInButton } from './sign-in-button';
 import { APPS, appUrl } from '@thefibre/shared';
 import { AppLanding } from '@thefibre/shared/ui/app-landing';
+import { COOKIE_LAST, landingPath } from '@/lib/last-page';
 
 export default async function ConnectionsLanding() {
   const supabase = await serverSupabase();
   // Local JWT verification against cached JWKS — no round trip to Supabase
   // Auth just to decide whether to bounce a signed-in visitor to /landscape.
   const { data: claims } = await supabase.auth.getClaims();
-  if (claims) redirect('/landscape');
+  if (claims) {
+    // Where they were last, or Today the first time — Sjoerd, 2026-09-22.
+    // The cookie is matched against the sidebar's own sections and never
+    // used as a path, because a redirect built from a cookie is a redirect
+    // anybody can aim (lib/last-page.ts).
+    const last = (await cookies()).get(COOKIE_LAST)?.value;
+    redirect(landingPath(last));
+  }
 
   return (
     <AppLanding

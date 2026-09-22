@@ -4,6 +4,7 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { readPrefs } from '@/lib/prefs';
 import { Sidebar, MobileNav } from '@/components/shell/sidebar';
+import { RememberPage } from '@/components/shell/remember-page';
 import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
@@ -89,6 +90,9 @@ export default async function ConnectionsAppLayout({
   return (
     <LocaleProvider locale={locale}>
     <div className="h-dvh flex bg-surface">
+      {/* Records the section you are in, so opening Connect brings you back
+          to it (Sjoerd, 2026-09-22). Renders nothing. */}
+      <RememberPage />
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
         <Sidebar

@@ -15,6 +15,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CalendarClock, CheckSquare, Receipt, UserRound } from 'lucide-react';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
+import { PersonLink } from '@/components/person-popup';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { formatMinutes } from '@/lib/effort-format';
 
@@ -283,8 +284,16 @@ export function Today({
 
             return (
               <li key={r.id}>
-                {href ? (
-                  // The whole row is the target, as in every list app.
+                {r.link?.kind === 'person' ? (
+                  // Same as What's next: a person opens in the popup here.
+                  <PersonLink
+                    personId={r.link.id}
+                    className="block px-4 py-3 hover:bg-surface-sunken sm:px-5"
+                  >
+                    {body}
+                  </PersonLink>
+                ) : href ? (
+                  // A thread really does live in another app.
                   <Link href={href} className="block px-4 py-3 hover:bg-surface-sunken sm:px-5">
                     {body}
                   </Link>
@@ -342,12 +351,19 @@ export function Today({
             return (
               <li key={o.id}>
                 {o.person ? (
-                  <Link
-                    href={`${personBase}/${o.person.id}`}
+                  // The POPUP, not The Fibre. Sjoerd, 2026-09-22: "when I
+                  // click on an item... I am redirected to the fibre". It
+                  // went to the platform's contact page because that is
+                  // where a person's details live — but what you want after
+                  // clicking something you owe somebody is to write down
+                  // what you did about it, and that is here. The full
+                  // profile is still one press away inside the popup.
+                  <PersonLink
+                    personId={o.person.id}
                     className="block px-4 py-3 hover:bg-surface-sunken sm:px-5"
                   >
                     {body}
-                  </Link>
+                  </PersonLink>
                 ) : (
                   <div className="px-4 py-3 sm:px-5">{body}</div>
                 )}
