@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.97.0",
+  "version": "0.98.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -105,6 +105,10 @@
     "./ui/contact-points": {
       "types": "./dist/ui/contact-points.d.ts",
       "default": "./dist/ui/contact-points.js"
+    },
+    "./ui/todo-panel": {
+      "types": "./dist/ui/todo-panel.d.ts",
+      "default": "./dist/ui/todo-panel.js"
     },
     "./ui/search-select": {
       "types": "./dist/ui/search-select.d.ts",

@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.98.0] — 2026-09-23 — To do (staging)
+
+Sjoerd: *"Can a personal to do list be created over the whole app… to do's
+from connect and from the thread… per date/app/project."*
+docs/personal-todo-proposal.md holds the thinking and his five decisions;
+this is step one of five.
+
+**A list that is yours and remembers.** `user_task` (20260923060000) holds the
+to-dos somebody typed, and — for items the apps own — only the ANSWER: ticked,
+snoozed, dragged. Never a copy of an app's content, which would go stale and
+would put another app's data in a platform table. RLS is the `user_profile`
+pattern narrowed to the person themselves: not even a workspace admin reads
+this list, because it answers "what should I do", it is not a report.
+
+**`GET /api/v1/me/tasks` composes.** Typed items plus your Flow tasks (the one
+real task table; a Connect follow-up already becomes one). The route carries
+the three rules a new source must obey — per seat, reference-and-label never
+content, yours only — beside the same data-wall argument that was accepted for
+`/me/portal`. Ticking a Flow task passes through to Flow: one truth, not two.
+
+**The panel sits beside your own icon**, per Sjoerd. Shared
+`ui/todo-panel.tsx`, so every app's topbar can have it; The Fibre has it now.
+Grouped by the day an item belongs to, overdue first; the badge counts only
+overdue and today, because a list of "later" should not nag. Tick moves it to
+the archive, where it can be put back for seven days; then the scheduler drops
+it (a fifth job, one idempotent DELETE). Snooze offers tomorrow, next week and
+someday.
+
+Next: the other sources one at a time (Thread, Meet, Pulse, Membership), Today
+reading this list, and the overdue/daily digest with its off switch in Profile.
+
 ## [0.97.0] — 2026-09-23 — A test that was reading a clock nobody had set (staging)
 
 The day-grid test blocked every release from this checkout for part of the

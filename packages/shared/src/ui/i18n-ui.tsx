@@ -1099,6 +1099,143 @@ const CHROME = {
     de: 'Ländervorwahl', // MT
     fr: 'Indicatif', // MT
   },
+  // ── to do (20260923060000) ──
+  todo: {
+    en: 'To do',
+    nl: 'Te doen',
+    es: 'Tareas', // MT
+    pt: 'A fazer', // MT
+    de: 'To-do', // MT
+    fr: 'À faire', // MT
+  },
+  todo_add: {
+    en: 'Add something to do…',
+    nl: 'Iets toevoegen…',
+    es: 'Añadir algo…', // MT
+    pt: 'Adicionar algo…', // MT
+    de: 'Etwas hinzufügen…', // MT
+    fr: 'Ajouter quelque chose…', // MT
+  },
+  todo_empty: {
+    en: 'Nothing to do. Enjoy it.',
+    nl: 'Niets te doen. Geniet ervan.',
+    es: 'Nada que hacer. Disfrútalo.', // MT
+    pt: 'Nada a fazer. Aproveite.', // MT
+    de: 'Nichts zu tun. Genieß es.', // MT
+    fr: 'Rien à faire. Profites-en.', // MT
+  },
+  todo_archive: {
+    en: 'Archive',
+    nl: 'Archief',
+    es: 'Archivo', // MT
+    pt: 'Arquivo', // MT
+    de: 'Archiv', // MT
+    fr: 'Archives', // MT
+  },
+  todo_archive_empty: {
+    en: 'Nothing finished in the last seven days.',
+    nl: 'Niets afgerond in de afgelopen zeven dagen.',
+    es: 'Nada terminado en los últimos siete días.', // MT
+    pt: 'Nada concluído nos últimos sete dias.', // MT
+    de: 'Nichts in den letzten sieben Tagen erledigt.', // MT
+    fr: 'Rien de terminé ces sept derniers jours.', // MT
+  },
+  todo_back_to_list: {
+    en: 'Back to the list',
+    nl: 'Terug naar de lijst',
+    es: 'Volver a la lista', // MT
+    pt: 'Voltar à lista', // MT
+    de: 'Zurück zur Liste', // MT
+    fr: 'Retour à la liste', // MT
+  },
+  todo_done: {
+    en: 'Done',
+    nl: 'Klaar',
+    es: 'Hecho', // MT
+    pt: 'Feito', // MT
+    de: 'Erledigt', // MT
+    fr: 'Fait', // MT
+  },
+  todo_undo: {
+    en: 'Put it back',
+    nl: 'Terugzetten',
+    es: 'Devolver', // MT
+    pt: 'Repor', // MT
+    de: 'Zurückholen', // MT
+    fr: 'Remettre', // MT
+  },
+  todo_snooze: {
+    en: 'Later',
+    nl: 'Later',
+    es: 'Más tarde', // MT
+    pt: 'Mais tarde', // MT
+    de: 'Später', // MT
+    fr: 'Plus tard', // MT
+  },
+  todo_overdue: {
+    en: 'Overdue',
+    nl: 'Te laat',
+    es: 'Atrasado', // MT
+    pt: 'Em atraso', // MT
+    de: 'Überfällig', // MT
+    fr: 'En retard', // MT
+  },
+  todo_today: {
+    en: 'Today',
+    nl: 'Vandaag',
+    es: 'Hoy', // MT
+    pt: 'Hoje', // MT
+    de: 'Heute', // MT
+    fr: 'Aujourd’hui', // MT
+  },
+  todo_tomorrow: {
+    en: 'Tomorrow',
+    nl: 'Morgen',
+    es: 'Mañana', // MT
+    pt: 'Amanhã', // MT
+    de: 'Morgen', // MT
+    fr: 'Demain', // MT
+  },
+  todo_this_week: {
+    en: 'This week',
+    nl: 'Deze week',
+    es: 'Esta semana', // MT
+    pt: 'Esta semana', // MT
+    de: 'Diese Woche', // MT
+    fr: 'Cette semaine', // MT
+  },
+  todo_later: {
+    en: 'Later',
+    nl: 'Later',
+    es: 'Más adelante', // MT
+    pt: 'Mais tarde', // MT
+    de: 'Später', // MT
+    fr: 'Plus tard', // MT
+  },
+  todo_no_date: {
+    en: 'No date',
+    nl: 'Zonder datum',
+    es: 'Sin fecha', // MT
+    pt: 'Sem data', // MT
+    de: 'Ohne Datum', // MT
+    fr: 'Sans date', // MT
+  },
+  todo_next_week: {
+    en: 'Next week',
+    nl: 'Volgende week',
+    es: 'La próxima semana', // MT
+    pt: 'Próxima semana', // MT
+    de: 'Nächste Woche', // MT
+    fr: 'La semaine prochaine', // MT
+  },
+  todo_someday: {
+    en: 'Someday',
+    nl: 'Ooit',
+    es: 'Algún día', // MT
+    pt: 'Algum dia', // MT
+    de: 'Irgendwann', // MT
+    fr: 'Un jour', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const chromeT = makeT(CHROME);

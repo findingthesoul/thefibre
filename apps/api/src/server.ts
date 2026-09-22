@@ -37,6 +37,7 @@ import { runHygieneSweep } from './lib/hygiene.js';
 import { currenciesRoutes } from './routes/currencies.js';
 import { membershipPortalRoutes } from './routes/membership-portal.js';
 import { portalRoutes } from './routes/portal.js';
+import { myTasksRoutes, cleanFinishedTasks } from './routes/my-tasks.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
@@ -356,6 +357,7 @@ v1.route('/assistant', assistantRoutes);
 v1.route('/mcp-auth', mcpAuthRoutes);
 v1.route('/mcp', mcpRoutes);
 // The visitor's own place, across every app (docs/visitor-portal-proposal.md).
+v1.route('/me/tasks', myTasksRoutes);
 v1.route('/me', portalRoutes);
 v1.route('/oauth', oauthProviderRoutes);
 v1.route('/teams', teamsRoutes);
@@ -430,4 +432,8 @@ setInterval(() => {
   // Monthly platform-fee statements: the previous month, from the 2nd on;
   // idempotent on the ledger (lib/fee-statements.ts).
   void runFeeStatementTick().catch((e) => console.error('[fee-statements] run failed', e));
+  // To-do archive: ticked items are kept seven days, then dropped. Idempotent
+  // and a single DELETE, so it rides the five-minute tick rather than needing
+  // a guard of its own.
+  void cleanFinishedTasks().catch((e) => console.error('[me/tasks] cleanup failed', e));
 }, SCHEDULER_INTERVAL_MS);
