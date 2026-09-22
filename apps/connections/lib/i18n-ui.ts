@@ -7389,6 +7389,30 @@ const CATALOG = {
 
   // Read out where the line across the day is. Nothing on screen says it —
   // the line IS the statement — but a screen reader needs the words.
+  agenda_heading_tomorrow: {
+    en: 'Who you are seeing tomorrow',
+    nl: 'Wie je morgen ziet',
+    es: 'A quién ves mañana', // MT
+    pt: 'Quem vais ver amanhã', // MT
+    de: 'Wen du morgen siehst', // MT
+    fr: 'Qui vous voyez demain', // MT
+  },
+  agenda_empty_tomorrow: {
+    en: 'Nothing in your calendar tomorrow.',
+    nl: 'Niets in je agenda morgen.',
+    es: 'Nada en tu calendario mañana.', // MT
+    pt: 'Nada no teu calendário amanhã.', // MT
+    de: 'Morgen nichts in deinem Kalender.', // MT
+    fr: 'Rien dans votre agenda demain.', // MT
+  },
+  meeting_note_add_present: {
+    en: 'Somebody else who was there…',
+    nl: 'Wie was er nog meer…',
+    es: 'Alguien más que estuvo…', // MT
+    pt: 'Mais alguém que esteve…', // MT
+    de: 'Wer war noch dabei…', // MT
+    fr: 'Quelqu’un d’autre qui était là…', // MT
+  },
   agenda_strangers: {
     en: 'In your day, not in your people:',
     nl: 'In je dag, nog niet bij je mensen:',
@@ -7463,13 +7487,16 @@ const CATALOG = {
     de: 'Wird bei jeder der {count} Personen unten gespeichert, und sie werden in der Notiz der anderen genannt.', // MT
     fr: 'Enregistré chez chacune des {count} personnes ci-dessous, qui sont nommées dans la note des autres.', // MT
   },
+  // The invitation named nobody the app knows — which is normal for anything
+  // that is not a video call. Since 2026-09-22 the box can be told, so this
+  // says what to do rather than what is missing.
   meeting_note_nobody: {
-    en: 'Nobody in this meeting is in your people yet. Add them from the row behind this box first.',
-    nl: 'Niemand uit deze afspraak staat al bij je mensen. Voeg ze eerst toe vanaf de regel achter dit venster.',
-    es: 'Nadie de esta reunión está aún entre tus personas. Añádelos primero desde la fila detrás de esta ventana.', // MT
-    pt: 'Ninguém desta reunião está ainda nas tuas pessoas. Adiciona-os primeiro a partir da linha atrás desta janela.', // MT
-    de: 'Niemand aus diesem Termin ist schon bei deinen Leuten. Füge sie zuerst über die Zeile hinter diesem Fenster hinzu.', // MT
-    fr: 'Personne de cette réunion n’est encore parmi vos personnes. Ajoutez-les d’abord depuis la ligne derrière cette fenêtre.', // MT
+    en: 'Nobody from the invitation is in your people. Name whoever was there below.',
+    nl: 'Niemand uit de uitnodiging staat bij je mensen. Noem hieronder wie erbij waren.',
+    es: 'Nadie de la invitación está entre tus personas. Nombra abajo a quien estuvo.', // MT
+    pt: 'Ninguém do convite está nas tuas pessoas. Indica abaixo quem esteve.', // MT
+    de: 'Niemand aus der Einladung ist bei deinen Leuten. Nenne unten, wer dabei war.', // MT
+    fr: 'Personne de l’invitation n’est parmi vos personnes. Nommez ci-dessous qui était là.', // MT
   },
   meeting_note_unknown: {
     en: 'Others in this meeting are not in your people. Add them from the row behind this box.',

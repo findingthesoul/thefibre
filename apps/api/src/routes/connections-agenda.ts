@@ -47,6 +47,19 @@ export const connectionsAgendaRoutes = new Hono();
 
 const DAY = 86_400_000;
 
+/**
+ * The same clock time, `n` days later, safely across a daylight-saving change.
+ *
+ * Adding n×24h to an instant lands an hour early or late on the two days a
+ * year the clocks move, which would make "tomorrow" start at 23:00 or 01:00.
+ * Landing at MIDDAY first absorbs that — a one-hour shift cannot move noon
+ * into another date — and the caller then takes the day start of it.
+ */
+function offsetDays(from: Date, n: number, tz: string): Date {
+  if (n === 0) return from;
+  return new Date(zonedDayStart(from, tz).getTime() + n * DAY + 12 * 3_600_000);
+}
+
 const AgendaQuery = z.object({
   /** How many days forward. 1 = today. */
   days: z.coerce.number().int().min(1).max(14).default(1),
@@ -60,6 +73,15 @@ const AgendaQuery = z.object({
    * changing what `days=1` covers would change their answer too.
    */
   whole_day: z.coerce.boolean().default(false),
+  /**
+   * Which day to start on, counted from today in the viewer's own zone.
+   * 0 = today, 1 = tomorrow. Only meaningful with `whole_day`, which is what
+   * establishes where a day begins.
+   *
+   * Sjoerd, 2026-09-22: *"can you also show tomorrow (maybe even as the
+   * calendar view...)"*.
+   */
+  offset_days: z.coerce.number().int().min(0).max(13).default(0),
 });
 
 type Matched = {
@@ -95,7 +117,7 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
   const tz = parsed.data.whole_day
     ? safeTimeZone((await profileFor(ctx.userId)).timezone)
     : null;
-  const from = tz ? zonedDayStart(now, tz) : now;
+  const from = tz ? zonedDayStart(offsetDays(now, parsed.data.offset_days, tz), tz) : now;
   const to = new Date((tz ? from.getTime() : now.getTime()) + parsed.data.days * DAY);
 
   let events;

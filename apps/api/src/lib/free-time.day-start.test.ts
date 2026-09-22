@@ -21,6 +21,35 @@ const wall = (d: Date, tz: string) =>
     minute: '2-digit',
   }).format(d);
 
+/** The route's own "same clock time, n days later" — copied here rather than
+ *  exported, because what is under test is the RULE (a DST day must not move
+ *  tomorrow's start) and a copy that drifts from the route would show up as
+ *  this test passing while the route is wrong. Kept identical on purpose;
+ *  connections-agenda.ts carries the same comment. */
+const offsetDays = (from: Date, n: number, tz: string) =>
+  n === 0 ? from : new Date(zonedDayStart(from, tz).getTime() + n * 86_400_000 + 12 * 3_600_000);
+
+describe('tomorrow, across a clock change', () => {
+  it('starts at midnight the next day when the clocks go back', () => {
+    // 25 October 2026 is the day before Europe's autumn change; the 26th has
+    // 25 hours. Naive +24h from the 25th's midnight lands at 23:00 on the
+    // 25th, which would draw yesterday.
+    const start = zonedDayStart(offsetDays(new Date('2026-10-25T09:00:00Z'), 1, 'Europe/Amsterdam'), 'Europe/Amsterdam');
+    expect(wall(start, 'Europe/Amsterdam')).toBe('26/10/2026, 00:00');
+  });
+
+  it('starts at midnight the next day when the clocks go forward', () => {
+    // 29 March 2026 has 23 hours.
+    const start = zonedDayStart(offsetDays(new Date('2026-03-28T09:00:00Z'), 1, 'Europe/Amsterdam'), 'Europe/Amsterdam');
+    expect(wall(start, 'Europe/Amsterdam')).toBe('29/03/2026, 00:00');
+  });
+
+  it('is today when the offset is zero', () => {
+    const at = new Date('2026-09-22T09:00:00Z');
+    expect(offsetDays(at, 0, 'Europe/Amsterdam')).toBe(at);
+  });
+});
+
 describe('the start of the viewer’s day', () => {
   it('is midnight where they are, not where the server is', () => {
     // 00:30 UTC on 21 September is already 02:30 in Amsterdam — the same day

@@ -61,6 +61,7 @@ export function Agenda({
   locale,
   intl,
   labels,
+  day = 'today',
 }: {
   data: AgendaPayload;
   locale: Locale;
@@ -70,6 +71,9 @@ export function Agenda({
    *  name. Kept on the prop so the page does not have to change back when the
    *  write-up starts showing them. */
   labels?: Record<string, Record<string, string>>;
+  /** Which day is drawn, so the heading says so. The grid itself does not
+   *  care — it is given events and reads their times. */
+  day?: 'today' | 'tomorrow';
 }) {
   // Not connected is not a failure and gets no banner — most people will
   // never connect a calendar, and a permanent notice about an optional
@@ -82,14 +86,18 @@ export function Agenda({
           states — an empty day is the likeliest moment to discover the agenda
           is reading the wrong calendar. */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium">{t(locale, 'agenda_heading')}</h2>
+        <h2 className="text-sm font-medium">
+          {t(locale, day === 'tomorrow' ? 'agenda_heading_tomorrow' : 'agenda_heading')}
+        </h2>
         <CalendarPicker locale={locale} />
       </div>
 
       {data.unavailable ? (
         <p className="mt-2 text-sm text-ink-muted">{t(locale, 'agenda_unavailable')}</p>
       ) : data.events.length === 0 ? (
-        <p className="mt-2 text-sm text-ink-muted">{t(locale, 'agenda_empty')}</p>
+        <p className="mt-2 text-sm text-ink-muted">
+          {t(locale, day === 'tomorrow' ? 'agenda_empty_tomorrow' : 'agenda_empty')}
+        </p>
       ) : (
         <AgendaDay events={data.events} locale={locale} intl={intl} />
       )}

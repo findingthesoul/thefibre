@@ -54,11 +54,25 @@ function personName(p: PersonRef | null, fallback: string) {
 
 /** "today" / "tomorrow" / "in 9 days" / "3 days ago". Day counts come from
  *  the server so the phrasing cannot disagree with the segment the row is in. */
+/**
+ * "yesterday", "in 3 days", "2 weken geleden".
+ *
+ * Intl, not four hand-written strings with {n} in them: those read "1 days
+ * ago", which is what Sjoerd saw on 2026-09-22, and they would have to be
+ * right about plural rules in six languages to say otherwise. `numeric:
+ * 'auto'` is what turns -1 into "yesterday" rather than "1 day ago".
+ */
 function relative(days: number, locale: Locale) {
-  if (days < 0) return t(locale, 'today_when_days_ago', { n: -days });
   if (days === 0) return t(locale, 'today_when_now');
-  if (days === 1) return t(locale, 'today_when_tomorrow');
-  return t(locale, 'today_when_in_days', { n: days });
+  try {
+    const rtf = new Intl.RelativeTimeFormat(INTL_LOCALES[locale], { numeric: 'auto' });
+    return Math.abs(days) >= 14 ? rtf.format(Math.round(days / 7), 'week') : rtf.format(days, 'day');
+  } catch {
+    // A locale Intl does not know is not a reason to render nothing.
+    return days < 0
+      ? t(locale, 'today_when_days_ago', { n: -days })
+      : t(locale, 'today_when_in_days', { n: days });
+  }
 }
 
 /** The fact that produced the row, phrased. Never a score — the same rule the
@@ -303,13 +317,18 @@ export function Today({
             const body = (
               <>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  {/* WHO first, what second. Sjoerd, 2026-09-22, looking at
+                      two rows that both said only "Call" over the same
+                      address: "don't really understand what's at the bottom".
+                      A list of what you owe is owed to people; the kind of
+                      thing you owe them is the detail. */}
                   <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
                     {o.overdue ? (
                       <AlertCircle size={14} className="shrink-0 text-ink" />
                     ) : (
                       <CheckSquare size={14} className="shrink-0 text-ink-muted" />
                     )}
-                    <span className="truncate">{o.title}</span>
+                    <span className="truncate">{subject || o.title}</span>
                   </span>
                   <span className="shrink-0 text-xs text-ink-muted tabular-nums">
                     {o.minutes > 0 && <span className="mr-2 text-ink-subtle">~{formatMinutes(o.minutes, locale)}</span>}
@@ -317,7 +336,7 @@ export function Today({
                     {relative(days, locale)}
                   </span>
                 </div>
-                {subject && <p className="mt-1 text-xs text-ink-muted">{subject}</p>}
+                <p className="mt-1 text-xs text-ink-muted">{subject ? o.title : ''}</p>
               </>
             );
             return (

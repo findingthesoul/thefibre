@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.93.0] — 2026-09-22 — Tomorrow, and a write-up you can actually fill in (staging)
+
+**Tomorrow gets a grid.** *"Can you also show tomorrow (maybe even as the
+calendar view...)."* Picking Tomorrow at the top of Today now draws tomorrow's
+day, read from the viewer's own midnight. Two days a year that is not
+midnight-plus-24-hours — the clocks move — so the offset lands at midday first
+and takes the day start of that, with a test for both the short day and the
+long one. The week horizons still show no grid: seven days is a different
+screen, not a taller one.
+
+**Three things wrong with the write-up box**, all found by Sjoerd opening it.
+
+The date was empty. The field is uncontrolled, and when the dialog stopped
+being mounted per row in v0.91.0 it kept the empty value it first mounted
+with. It is keyed per meeting now, so it arrives filled.
+
+The team said "no team" to somebody who belongs to exactly one. It now takes
+your default team, or your only team when you have not set one. "No team" is a
+real answer; it is not one to hand somebody who has never been asked.
+
+And a meeting whose invitation named nobody could not be written up at all —
+which is most meetings that are not video calls. The box has a person search
+now: name whoever was actually in the room. Still one press each, still by
+identifier rather than by typed name, and the people from the invitation who
+are not on file keep their own Add button beside it.
+
+**And the bottom of Today reads as something.** Two rows saying only "Call"
+and "Get in touch" over the same address were, fairly, *"don't really
+understand what's at the bottom"*. A list of what you owe is owed to PEOPLE,
+so the person is the line you read and the kind of thing you owe them is
+underneath. "overdue 1 days ago" is gone with them: relative dates go through
+Intl, which knows that -1 day is "yesterday" and how six languages pluralise
+the rest.
+
+Still missing there, and worth naming: a row does not say what the follow-up
+was about. The note it came from is not in the payload yet.
+
 ## [0.92.0] — 2026-09-22 — Today's agenda is a day, not a list (staging)
 
 Sjoerd, with a screenshot of his own calendar: *"Make the agenda look like

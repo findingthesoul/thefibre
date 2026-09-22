@@ -27,14 +27,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Video } from 'lucide-react';
+import { MapPin, Search, Video } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
-import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { FIELD_CLASS, FIELD_INPUT_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
-import { saveNote, loadMyTeams, type NoteKind, type MyTeam } from '../people/[id]/actions';
+import { saveNote, loadMyTeams, fetchVocabulary, type NoteKind, type MyTeam } from '../people/[id]/actions';
 // The same row and the same stamp the person-page composer uses, from the
 // same module, so the two boxes stay one design (Sjoerd, 2026-09-14: "one
 // single point of truth").
@@ -85,11 +85,19 @@ export function MeetingWriteUp({
 
   const known = event ? event.people.filter((p) => p.person_id) : [];
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  /** People added by hand, who were in the room but not on the invitation —
+   *  which is most of them, for anything that is not a video call. */
+  const [extra, setExtra] = useState<{ id: string; name: string }[]>([]);
   const [kind, setKind] = useState<NoteKind>('meeting');
   const [body, setBody] = useState('');
   const [happenedOn, setHappenedOn] = useState('');
   const [teams, setTeams] = useState<MyTeam[]>([]);
   const [teamId, setTeamId] = useState<string | null>(null);
+  /** Remounts the uncontrolled DateField when another meeting is opened.
+   *  Without it the field keeps whatever it mounted with — which, since the
+   *  dialog became always-mounted (v0.91.0), is empty. Sjoerd, 2026-09-22:
+   *  "Date should be filled for today". */
+  const [whenKey, setWhenKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Minted per attempt, not per render: a retry after a failure must reuse
@@ -102,19 +110,32 @@ export function MeetingWriteUp({
   useEffect(() => {
     if (!event) return;
     setPicked(new Set(known.map((p) => p.person_id!)));
+    setExtra([]);
     setKind('meeting');
     setBody(event.summary ? `${event.summary}\n\n` : '');
     setHappenedOn(localStamp(new Date(event.start)).slice(0, 10));
+    setWhenKey((k) => k + 1);
     setError(null);
     refs.current = new Map();
     loadMyTeams().then((ts) => {
       setTeams(ts);
-      setTeamId(ts.find((tm) => tm.is_default)?.id ?? null);
+      // The default if there is one; otherwise the only team there is.
+      // Sjoerd, 2026-09-22: "Team: again, which team is expected?" — "no
+      // team" is a real answer, but not one to hand somebody who belongs to
+      // exactly one team and has never been asked.
+      setTeamId(ts.find((tm) => tm.is_default)?.id ?? (ts.length === 1 ? ts[0]!.id : null));
     });
     // `known` is derived from `event` on every render; depending on it would
     // re-run this on each keystroke and wipe what is being typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
+
+  /** Everyone offerable as present: the invitation's known people, then the
+   *  ones named by hand. One entry per person. */
+  const roster = [
+    ...known.map((p) => ({ id: p.person_id!, name: p.person_name || p.email })),
+    ...extra.filter((e) => !known.some((p) => p.person_id === e.id)),
+  ];
 
   const toggle = (id: string) =>
     setPicked((cur) => {
@@ -218,6 +239,7 @@ export function MeetingWriteUp({
             options={KINDS.map((k) => ({ value: k, label: t(locale, KIND_KEYS[k]) }))}
           />
           <DateField
+            key={whenKey}
             label={t(locale, 'note_when')}
             name="happened_on"
             defaultValue={happenedOn}
@@ -259,14 +281,14 @@ export function MeetingWriteUp({
 
         <fieldset className="mt-4">
           <legend className={FIELD_LABEL_CLASS}>{t(locale, 'meeting_note_who')}</legend>
-          {known.length === 0 && (
+          {roster.length === 0 && (
             <p className="mt-1 text-sm text-ink-muted">{t(locale, 'meeting_note_nobody')}</p>
           )}
           <ul className="mt-1 flex flex-wrap gap-1.5">
-            {known.map((p) => {
-              const on = picked.has(p.person_id!);
+            {roster.map((p) => {
+              const on = picked.has(p.id);
               return (
-                <li key={p.email}>
+                <li key={p.id}>
                   <label
                     className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs transition-colors ${
                       on ? 'border-ink bg-ink text-ink-inverse' : 'border-line text-ink-subtle'
@@ -275,10 +297,10 @@ export function MeetingWriteUp({
                     <input
                       type="checkbox"
                       checked={on}
-                      onChange={() => toggle(p.person_id!)}
+                      onChange={() => toggle(p.id)}
                       className="sr-only"
                     />
-                    {p.person_name}
+                    {p.name}
                   </label>
                 </li>
               );
@@ -288,6 +310,19 @@ export function MeetingWriteUp({
               somebody is its own decision and it has its own button on the
               row behind this dialog — burying it inside a save would create
               people as a side effect of writing a sentence. */}
+          {/* Anybody else who was in the room. A meeting in a building has
+              nobody on its invitation, and until now this box could only
+              offer what Google knew — Sjoerd, 2026-09-22: "Nobody was there...
+              an add button, so I can list people who were present." */}
+          <AddPresent
+            locale={locale}
+            exclude={roster.map((p) => p.id)}
+            onAdd={(person) => {
+              setExtra((cur) => (cur.some((e) => e.id === person.id) ? cur : [...cur, person]));
+              setPicked((cur) => new Set(cur).add(person.id));
+            }}
+          />
+
           {/* The people in the room who are not on file. Offered HERE as
               well as on the page, because the grid's blocks have no room for
               them and burying them would lose the most useful thing this
@@ -355,3 +390,86 @@ const JOIN_KEYS = {
   teams: 'agenda_join_teams',
   video: 'agenda_join',
 } as const;
+
+/**
+ * Name somebody who was there.
+ *
+ * The same list the `@` picker reads, so there is one answer to "who does this
+ * workspace know". An id, never a typed name — attaching by identifier is the
+ * rule (handbook §12), and here it matters twice over: a note filed against a
+ * guess at a name is a claim about the wrong person.
+ *
+ * The results sit in the flow rather than floating, for the reason the
+ * relationship card's picker records: this is inside a dialog, and a floating
+ * list opens into the dialog's bottom edge.
+ */
+function AddPresent({
+  locale,
+  exclude,
+  onAdd,
+}: {
+  locale: Locale;
+  exclude: string[];
+  onAdd: (p: { id: string; name: string }) => void;
+}) {
+  const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
+  const [term, setTerm] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    void fetchVocabulary().then((v) => {
+      if (alive) setPeople(v.people);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const q = term.trim().toLowerCase();
+  const skip = new Set(exclude);
+  const matches = q
+    ? people.filter((p) => !skip.has(p.id) && p.name.toLowerCase().includes(q)).slice(0, 6)
+    : [];
+
+  return (
+    <div className="mt-3">
+      <div className="relative">
+        <Search
+          size={15}
+          strokeWidth={1.75}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+        />
+        <input
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder={t(locale, 'meeting_note_add_present')}
+          aria-label={t(locale, 'meeting_note_add_present')}
+          className={`${FIELD_INPUT_CLASS} pl-9`}
+        />
+      </div>
+      {q && (
+        <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-line bg-surface py-1">
+          {matches.length === 0 ? (
+            <li className="px-3 py-1.5 text-sm text-ink-muted">{t(locale, 'people_none')}</li>
+          ) : (
+            matches.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onAdd(p);
+                    setTerm('');
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-sunken"
+                >
+                  {p.name}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}

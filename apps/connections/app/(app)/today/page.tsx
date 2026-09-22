@@ -50,13 +50,18 @@ export default async function TodayPage({
   // The agenda is only asked for on the TODAY horizon. "Who am I seeing" is a
   // question about today; rendering next week's calendar under a heading that
   // says today would be answering a question nobody asked.
+  //
+  // Since 2026-09-22 tomorrow gets one too — Sjoerd: *"can you also show
+  // tomorrow (maybe even as the calendar view...)"*. The week horizons still
+  // get none: a grid can draw one day, and "this week" as seven of them is a
+  // different screen, not a taller one.
+  const agendaOffset = horizon === 'today' ? 0 : horizon === 'tomorrow' ? 1 : null;
   const agendaPromise: Promise<AgendaPayload> =
-    horizon === 'today'
-      ? apiFetch<AgendaPayload>('/api/v1/connections/agenda?days=1&whole_day=1').catch(() => ({
-          connected: false,
-          events: [],
-        }))
-      : Promise.resolve({ connected: false, events: [] });
+    agendaOffset === null
+      ? Promise.resolve({ connected: false, events: [] })
+      : apiFetch<AgendaPayload>(
+          `/api/v1/connections/agenda?days=1&whole_day=1&offset_days=${agendaOffset}`,
+        ).catch(() => ({ connected: false, events: [] }));
   const labelsPromise = apiFetch<{ labels: BandLabels }>('/api/v1/connections/labels')
     .then((r) => r.labels)
     .catch(() => undefined);
@@ -108,11 +113,23 @@ export default async function TodayPage({
           personBase={personBase}
           threadBase={threadBase}
           agenda={
-            <Agenda data={agenda} locale={locale} intl={INTL_LOCALES[locale]} labels={labels} />
+            <Agenda
+              data={agenda}
+              locale={locale}
+              intl={INTL_LOCALES[locale]}
+              labels={labels}
+              day={horizon === 'tomorrow' ? 'tomorrow' : 'today'}
+            />
           }
         />
       ) : (
-        <Agenda data={agenda} locale={locale} intl={INTL_LOCALES[locale]} labels={labels} />
+        <Agenda
+          data={agenda}
+          locale={locale}
+          intl={INTL_LOCALES[locale]}
+          labels={labels}
+          day={horizon === 'tomorrow' ? 'tomorrow' : 'today'}
+        />
       )}
 
       {/* A team's updates over a period, for an update meeting — renders
