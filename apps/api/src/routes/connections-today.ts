@@ -30,6 +30,7 @@ import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { effortFor, taskKind, type EffortKind } from '../lib/effort.js';
+import { dayInstant, daysBetween as sharedDaysBetween } from '../lib/day-instant.js';
 import { loadEffortOverrides } from './connections-effort.js';
 import { userGoogleToken } from '../lib/connections.js';
 import { listEvents, type AgendaEvent } from '../lib/google/client.js';
@@ -255,7 +256,7 @@ function one<T>(v: T | T[] | null | undefined): T | null {
   return v ?? null;
 }
 
-const daysBetween = (a: Date, b: Date) => Math.round((a.getTime() - b.getTime()) / DAY);
+const daysBetween = sharedDaysBetween;
 
 // ---------------------------------------------------------------------------
 // GET /connections/today
@@ -426,24 +427,11 @@ connectionsTodayRoutes.get('/today', async (c) => {
       const today = dayString(w.dayStart);
       for (const t of rows) {
         const dueOn = t.due_on as string;
-        // MIDDAY, not midnight — and the difference is visible.
-        //
-        // `due_on` is a day, and the client turns a row's timestamp into a
-        // number of days with
-        //   Math.round((new Date(due_at) - now) / DAY).
-        // Against midnight that rounds DOWN for most of the working day: a
-        // to-do due today read "yesterday" from 12:00 UTC onwards, and one
-        // due two days ago read "3 days ago". Seen on the screen; nothing
-        // threw and the row was otherwise perfect. Midday is the only point
-        // in the day where that rounding gives the right answer whatever
-        // time it is read at.
-        //
-        // Segmentation is unaffected: `today` is "before tomorrow starts",
-        // which midday today satisfies as well as midnight did.
-        //
-        // OVERDUE stays a comparison of DATES, never of this timestamp — a
-        // day is late when the day has passed, not when a clock inside it has.
-        const at = new Date(`${dueOn}T12:00:00.000Z`);
+        // Midday, not midnight, and the reason is worth reading once:
+        // lib/day-instant.ts. OVERDUE below stays a comparison of DATES,
+        // never of this timestamp — a day is late when the day has passed,
+        // not when a clock inside it has.
+        const at = dayInstant(dueOn);
         owed.push({
           id: `thread-task:${t.id}`,
           title: (t.title as string) ?? '',
@@ -791,7 +779,7 @@ connectionsTodayRoutes.get('/today', async (c) => {
       for (const l of (lineRows ?? []) as Record<string, string | number | null>[]) {
         const commitment = commitments.get(l.commitment_id as string);
         if (!commitment) continue;
-        const happensAt = new Date(`${l.expected_date as string}T00:00:00.000Z`);
+        const happensAt = dayInstant(l.expected_date as string);
         const prepareAt = new Date(
           happensAt.getTime() - LEAD_DAYS.money_uninvoiced * DAY,
         );

@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.119.0] — 2026-09-23
+
+### Fixed
+- **Today's money rows were a day out for most of the working day.**
+  `pulse_commitment_line.expected_date` is a date, and the route turned it into
+  midnight UTC before rounding it to a number of days. Against midnight that
+  rounds DOWN once the clock passes noon: money expected TODAY read as one day
+  overdue from 12:00Z — 14:00 in Amsterdam in summer — and money two days out
+  read as one. Nothing threw, the row was otherwise correct, and it looks right
+  every morning, which is why it survived. Rows were never dropped: the window
+  filter compares dates, so only the label lied.
+
+### Changed
+- **One home for turning a date-only column into an instant** —
+  `apps/api/src/lib/day-instant.ts`. Both callers use it: the money branch and
+  the thread-to-do branch, the latter of which had the same fix written inline
+  an hour earlier. `daysBetween` moved there too and now takes `now` as an
+  argument instead of reading the clock, so the rule can be tested at any hour.
+  Tests assert the day count at all 24 hours, mutation-checked by reverting to
+  midnight. An assertion written for Pacific/Auckland failed and stayed in:
+  midday UTC IS local midnight at UTC+12, so "midday is never on a boundary" is
+  false in general — the segments are a total partition (`< tomorrowStart` /
+  `>= tomorrowStart`), so a tie has a defined answer either way.
+
 ## [0.118.0] — 2026-09-23 — a thread's to-dos reach Connect's Today (staging)
 
 Sjoerd, on the per-thread to-do lists: *"when do you get connections - can it
