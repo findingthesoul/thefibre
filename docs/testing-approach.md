@@ -102,6 +102,18 @@ why §1.5's render-check rule is a rule and not a nicety.
    pattern that encodes your guess about the formatting answers a different
    question from the one you asked, and answers it confidently. Same family as
    9: the tool returns emptiness and emptiness reads as fact.
+12. **A migration's filename states its intent, not the objects it touches.**
+   Verifying a freshly promoted production, a session queried for a `todo`
+   TABLE because the file was called `…_todo_is_an_org_feature.sql`, got
+   `PGRST205 table not found`, and was one step from reporting a failed
+   migration on live. There is no such table: the file only sets
+   `billing_plan.features`. Open the migration.
+
+   Entries 7 and 9–12 are five faces of one move — **inferring where you could
+   check** — hit by three different sessions inside one day, twice by the
+   session that had just written the entry above. Frequency is the finding.
+   When a tool answers with nothing, nothing is the least trustworthy answer
+   it can give, and the cost of confirming is a single command.
 
 ---
 
