@@ -45,6 +45,7 @@ import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
 import { safely } from '@/lib/safely';
 import { QUEUE_CHANGED, currentWorkspace, queueNote, queuedNotes } from '@/lib/offline-notes';
 import { HighlightedText, TagHighlightBox } from '@/components/tag-highlight-box';
+import { useNoteTags } from '@/components/use-note-tags';
 import {
   detectMentions,
   detectTags,
@@ -497,31 +498,21 @@ export function Notes({
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
   const [followUpExact, setFollowUpExact] = useState('');
   /**
-   * Words this workspace already uses — its tags and the names of the
-   * organisations it holds. Fetched once per composer and held here, because
-   * detection runs on every keystroke and a round trip per keystroke would be
-   * both slow and a way to send a half-written sentence to a server.
-   */
-  const [vocabulary, setVocabulary] = useState<KnownTag[]>([]);
-  /**
-   * People this workspace knows, for `@` only.
-   *
-   * Held in its own state rather than merged into `vocabulary`, and that is
-   * the guarantee rather than a preference: detectTags takes `vocabulary` and
-   * has no parameter these could reach. Matching a name in prose is a guess;
-   * `@` is somebody choosing from a list.
-   */
-  const [mentionable, setMentionable] = useState<KnownPerson[]>([]);
-  /**
    * Tags the person has taken off. Sjoerd, 2026-09-12: *"clicking it can also
    * X the tag and keep it as a word"* — removing a tag must not remove the
    * word from the sentence, and re-typing the word must not bring the tag
    * back, or the X would not be a decision, only a delay. Keyed by folded
    * name so a different capitalisation is the same refusal.
    */
-  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
-  /** The chip being pointed at, so its word lights up in the sentence. */
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  /**
+   * Which words in what was typed are tags or people — extracted to one hook
+   * on 2026-09-23 so the meeting write-up could use the same answer instead
+   * of growing a second copy. `dismissed`, `activeKey` and the vocabulary
+   * fetch live in there now; everything about this composer's autocomplete
+   * still lives here.
+   */
+  const noteTags = useNoteTags(body);
+  const { activeKey, setActiveKey, vocabulary, mentionable } = noteTags;
   const [status, setStatus] = useState<Status>('idle');
   /** Notes on this device waiting to reach the server, across every person. */
   const [waiting, setWaiting] = useState(0);
@@ -576,43 +567,11 @@ export function Notes({
     };
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    fetchVocabulary()
-      .then((v) => {
-        if (!alive) return;
-        setVocabulary(v.words);
-        setMentionable(v.people);
-      })
-      // Silent: without the vocabulary nothing is detected and the composer
-      // is exactly the composer it was before this feature. A banner would
-      // make a working note-taking box look broken over a missing garnish.
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
 
-  const tags: DetectedTag[] = detectTags(body, vocabulary).filter(
-    // foldKey, not toLowerCase: a highlight range is keyed by fold()
-    // (lowercase, punctuation to spaces), so "Deep-Democracy" is "deep
-    // democracy" there and was "deep-democracy" here. The X would have
-    // added a key this filter never looked for, and done nothing at all.
-    (t) => !dismissed.has(foldKey(t.name)),
-  );
-
-  // `@` — people and organisations, resolved from what was typed. An
-  // organisation mention is already a tag (an organisation IS a
-  // characteristic of the people in it), so only PEOPLE need their own list;
-  // the organisation ones are folded in with the tags below.
-  const mentions: DetectedMention[] = detectMentions(body, mentionable, vocabulary).filter(
-    (m) => !dismissed.has(`@${foldKey(m.name)}`),
-  );
-  const peopleMentioned = mentions.filter((m) => m.kind === 'person');
-  const orgsMentioned = mentions.filter((m) => m.kind === 'organisation');
-  // Where each tag and mention sits in the sentence, from the SAME detection
-  // results the chips show, so the two can never disagree about a word.
-  const ranges = highlightRanges(body, tags, mentions);
+  // Detection, from the one hook both boxes use. The comments that used to
+  // sit here — why foldKey rather than toLowerCase, why an organisation
+  // mention is a tag — are in use-note-tags.ts with the code they explain.
+  const { tags, mentions, peopleMentioned, orgsMentioned, ranges } = noteTags;
 
   // A word or a short phrase (spaces allowed, up to three words) — see lookup().
   const looked = lookup(body, caret, vocabulary, mentionable);
@@ -941,11 +900,7 @@ export function Notes({
           // his own instruction, which left the decision with nowhere to be
           // made. A person and a tag are keyed differently because they are
           // different things and the filters below read them apart.
-          onUnmake={(r) =>
-            setDismissed((d) =>
-              new Set(d).add(r.kind === 'person' ? `@${r.key}` : r.key),
-            )
-          }
+          onUnmake={noteTags.unmake}
           unmakeLabel={t(locale, 'note_unmake')}
           placeholder={t(locale, 'note_placeholder')}
           ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
@@ -1072,7 +1027,7 @@ export function Notes({
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setDismissed((d) => new Set(d).add(`@${foldKey(m.name)}`))}
+                onClick={() => noteTags.unmake({ kind: 'person', key: foldKey(m.name) })}
                 // Pointing at a chip lights its word in the sentence, so the
                 // chip and the highlight read as the same thing. Focus too,
                 // not only hover, for keyboards and for touch screens that

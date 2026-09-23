@@ -29,7 +29,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Video } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
-import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { TagHighlightBox } from '@/components/tag-highlight-box';
+import { useNoteTags } from '@/components/use-note-tags';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -96,6 +98,12 @@ export function MeetingWriteUp({
   const [extra, setExtra] = useState<{ id: string; name: string }[]>([]);
   const [kind, setKind] = useState<NoteKind>('meeting');
   const [body, setBody] = useState('');
+  /** Where the caret is, so the X can show for the word it sits in — hover's
+   *  stand-in on a touch screen. */
+  const [caret, setCaret] = useState(0);
+  /** Which words in what was typed are tags or people. One hook, shared with
+   *  the person page, so the two boxes cannot disagree about a word. */
+  const noteTags = useNoteTags(body);
   const [happenedOn, setHappenedOn] = useState('');
   const [teams, setTeams] = useState<MyTeam[]>([]);
   const [teamId, setTeamId] = useState<string | null>(null);
@@ -275,15 +283,28 @@ export function MeetingWriteUp({
           )}
         </div>
 
+        {/* The same box as a person's page, not a plain textarea.
+            Sjoerd, 2026-09-23: *"Also: # is not working here."* — a hashtag
+            typed here was always DETECTED and saved (the server reads the
+            text), but nothing lit up while he typed and there was no way to
+            take a tag back off a word. The detection is one hook now
+            (use-note-tags.ts) so the two boxes cannot drift about which
+            words are tags. The `#`/`@` autocomplete stays on the person
+            page for now; this is highlighting and the X. */}
         <label className="mt-4 block">
           <span className={FIELD_LABEL_CLASS}>{t(locale, 'meeting_note_body')}</span>
-          <textarea
+          <TagHighlightBox
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={setBody}
+            ranges={noteTags.ranges}
+            activeKey={noteTags.activeKey}
+            caret={caret}
+            onCaret={setCaret}
+            onUnmake={(r) => noteTags.unmake(r)}
+            unmakeLabel={t(locale, 'note_unmake')}
             rows={6}
-            autoFocus
             placeholder={t(locale, 'meeting_note_body_ph')}
-            className={`mt-1 ${FIELD_CLASS} leading-relaxed`}
+            ariaLabel={t(locale, 'meeting_note_body')}
           />
         </label>
         {/* Named, because the difference between this box and the one on a

@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-09-23
+
+### Fixed
+- **`#` now works in the meeting write-up.** Sjoerd: *"Also: # is not working
+  here."* The write-up box was a plain `<textarea>` while the person page had
+  the highlighting one, so a hashtag typed into a meeting note was still
+  DETECTED and saved — the server reads the text — but nothing lit up as you
+  typed and there was no way to take a tag back off a word. It is the same box
+  now, with the X.
+
+### Changed
+- **One home for "which words in this sentence are tags".** The detection,
+  the vocabulary fetch and the dismissals moved out of the person page's
+  1200-line composer into `components/use-note-tags.ts`, which both boxes call.
+  A second copy would have drifted the moment one of them learned something,
+  and silently, because each copy is valid alone — the shape behind most of
+  this codebase's inert features. Six tests on the hook, including the
+  `foldKey` case that once made the X do nothing for any tag with punctuation
+  in it (`Deep-Democracy`); mutation-checked by restoring `toLowerCase()` and
+  watching that one fail.
+  The `#`/`@` autocomplete deliberately stays on the person page: it owns
+  caret position, a selection index and an insert that must restore the caret
+  after a controlled re-render. Half of it in a second place would be worse
+  than none.
+- `deploy-api.sh` prints a short sha in its summary line, so it can be eyed
+  against `git log --oneline`. The full one is still in the deploy output.
+
 ## [1.5.1] — 2026-09-23
 
 ### Changed

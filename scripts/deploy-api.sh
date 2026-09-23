@@ -154,6 +154,7 @@ fi
 
 # ── 3. The commit that will be uploaded ─────────────────────────────────────
 HEAD_SHA="$(git rev-parse HEAD)"
+SHORT_SHA="$(git rev-parse --short HEAD)"
 WANT_SHA="$(git rev-parse "$BRANCH")"
 if [ "$HEAD_SHA" != "$WANT_SHA" ]; then
   echo "REFUSED: HEAD is not $BRANCH — a clean tree at the wrong commit is the second failure this guards." >&2
@@ -199,9 +200,9 @@ else
     ANSWER="$PROBE passed"
     echo
     if [ "$DRY" = "1" ]; then
-      echo "would deploy $HEAD_SHA, probe: $ANSWER"
+      echo "would deploy $SHORT_SHA, probe: $ANSWER"
     else
-      echo "deployed $HEAD_SHA as $RELEASE, probe: $ANSWER"
+      echo "deployed $SHORT_SHA as $RELEASE, probe: $ANSWER"
     fi
     exit 0
   fi
@@ -245,9 +246,9 @@ else
       ANSWER="$URL answers $CODE_WANT"
       echo
       if [ "$DRY" = "1" ]; then
-        echo "would deploy $HEAD_SHA, probe: $ANSWER"
+        echo "would deploy $SHORT_SHA, probe: $ANSWER"
       else
-        echo "deployed $HEAD_SHA as $RELEASE, probe: $ANSWER"
+        echo "deployed $SHORT_SHA as $RELEASE, probe: $ANSWER"
       fi
       exit 0 ;;
   esac
@@ -269,9 +270,9 @@ fi
 
 echo
 if [ "$DRY" = "1" ]; then
-  echo "would deploy $HEAD_SHA, probe: $ANSWER"
+  echo "would deploy $SHORT_SHA, probe: $ANSWER"
 else
   # The line a later session can read instead of re-deriving what a release
   # was meant to change.
-  echo "deployed $HEAD_SHA as $RELEASE, probe: $ANSWER"
+  echo "deployed $SHORT_SHA as $RELEASE, probe: $ANSWER"
 fi
