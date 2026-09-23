@@ -1,4 +1,4 @@
-import { appIcons } from '@thefibre/shared/root-layout';
+import { appIcons, APP_VIEWPORT } from '@thefibre/shared/root-layout';
 // The Thread marketing site — its own root layout, deliberately NOT the
 // shared createRootLayout(): no ThemeScript (light-only is the brand), a
 // real metadataBase, and a proper title template (the P5 favicon/OG gap
@@ -36,3 +36,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+
+export const viewport = APP_VIEWPORT;

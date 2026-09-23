@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { appMetadata, createRootLayout } from '@thefibre/shared/root-layout';
+import { appMetadata, createRootLayout, APP_VIEWPORT } from '@thefibre/shared/root-layout';
 
 // The shared metadata, plus what makes The Fibre installable as a phone app
 // (see app/manifest.ts). iOS reads little of the manifest: the home-screen
@@ -24,8 +24,6 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  themeColor: '#ffffff',
-};
+export const viewport: Viewport = APP_VIEWPORT;
 
 export default createRootLayout();

@@ -1,3 +1,4 @@
+import { APP_VIEWPORT } from '@thefibre/shared/root-layout';
 import type { Metadata } from 'next';
 import './globals.css';
 import { SURFACES } from '@thefibre/shared';
@@ -41,3 +42,5 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
+export const viewport = APP_VIEWPORT;

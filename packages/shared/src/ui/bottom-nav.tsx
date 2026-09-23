@@ -118,7 +118,7 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
               if (e.target === e.currentTarget) setMoreOpen(false);
             }}
           >
-            <div className="w-full max-h-[80dvh] overflow-y-auto rounded-t-xl bg-surface-raised border-t border-line pb-[env(safe-area-inset-bottom)]">
+            <div className="w-full max-h-[80dvh] overflow-y-auto rounded-t-xl bg-surface-raised border-t border-line pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <span className="text-sm font-medium">{chromeT(locale, 'menu')}</span>
                 <button
@@ -179,7 +179,13 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
           </div>
         )}
 
-        <nav className="flex items-stretch bg-surface-sunken border-t border-line pb-[env(safe-area-inset-bottom)]">
+        {/* The inset alone is not enough: on a phone with no home indicator it
+            is zero, and on one with an indicator it is exactly the indicator,
+            leaving the labels flush against it. `max()` keeps a real gap
+            either way (Sjoerd, 2026-09-23: "Today and More are almost out of
+            the screen"). The inset only has a value at all because the apps
+            now set viewportFit: cover — see APP_VIEWPORT. */}
+        <nav className="flex items-stretch bg-surface-sunken border-t border-line pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {primary.map((item) => (
             <Tab
               key={item.href}

@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.102.0] — 2026-09-23 — the tab bar was never getting its safe area, and the dependency bump that failed
+
+Two things Sjoerd raised, both about something that was silently zero.
+
+**The bottom tab bar sat against the edge of the phone.** *"Today and More (in
+connections) are almost out of the screen."* The bar has carried
+`pb-[env(safe-area-inset-bottom)]` since it was built — but that value resolves
+to **zero** unless the page has opted into drawing under the system furniture,
+and **no app set `viewportFit: 'cover'`**. So it was padding of nothing, on
+every phone, since v0.45.0.
+
+Every app now exports the same `APP_VIEWPORT` from `@thefibre/shared`, which
+carries `viewportFit: 'cover'` beside the Android theme colour — seven of the
+nine had no `viewport` export at all. And the bar asks for
+`max(0.5rem, env(safe-area-inset-bottom))`, because the inset alone is either
+nothing (no home indicator) or exactly the indicator (labels flush against it).
+The More sheet gets the same.
+
+**The Vercel "Preview deployment failed" emails** were a Dependabot branch
+bumping 22 packages, and the failure is real: newer `@supabase/ssr` types say
+`cookieOptions` may be ABSENT but never `undefined`, and all sixteen
+`lib/supabase/{client,server}.ts` passed `: undefined` explicitly. Under
+`exactOptionalPropertyTypes` those are not the same thing. They now omit the
+key instead, which says the same thing to every version — so the bump can land
+and the emails stop. Nothing was wrong with staging or production.
+
 ## [0.101.0] — 2026-09-23 — double-click a to-do to edit it
 
 Sjoerd: *"In to do's: double click for edit"*. Double-click the text, type,

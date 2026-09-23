@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { APPS } from '@thefibre/shared';
 import './globals.css';
-import { appMetadata, createRootLayout } from '@thefibre/shared/root-layout';
+import { appMetadata, createRootLayout, APP_VIEWPORT } from '@thefibre/shared/root-layout';
 
 // The shared metadata every app gets, plus what makes Connections installable
 // as a phone app. Extended HERE rather than in `appMetadata`, because the
@@ -39,8 +39,6 @@ export const metadata: Metadata = {
 
 // The status bar colour on Android. Kept in step with the manifest's
 // theme_color, which is read from `--surface` in globals.css.
-export const viewport: Viewport = {
-  themeColor: '#ffffff',
-};
+export const viewport: Viewport = APP_VIEWPORT;
 
 export default createRootLayout();

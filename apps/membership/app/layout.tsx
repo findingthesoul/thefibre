@@ -1,3 +1,4 @@
+import { APP_VIEWPORT } from '@thefibre/shared/root-layout';
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeScript } from '@/components/shell/theme-script';
@@ -18,3 +19,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+
+export const viewport = APP_VIEWPORT;

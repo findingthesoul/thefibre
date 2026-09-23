@@ -76,3 +76,25 @@ export function createRootLayout() {
     );
   };
 }
+
+/**
+ * The viewport every app exports.
+ *
+ * `viewportFit: 'cover'` is the half everybody forgets, and it is why the
+ * bottom tab bar sat against the very edge of a phone: `env(safe-area-inset-*)`
+ * resolves to ZERO unless the page has opted into drawing under the system
+ * furniture. The bar had carried `pb-[env(safe-area-inset-bottom)]` since it
+ * was built — padding of nothing, every time (Sjoerd, 2026-09-23: *"the bottom
+ * buttons needs more space from the bottom part. Today and More (in
+ * connections) are almost out of the screen"*).
+ *
+ * `themeColor` is the Android status-bar colour, kept in step with the
+ * manifest's, which reads `--surface` in globals.css.
+ *
+ * Structural, not Next's `Viewport` — shared has no next dependency; the shape
+ * is a subset Next accepts.
+ */
+export const APP_VIEWPORT = {
+  themeColor: '#ffffff',
+  viewportFit: 'cover' as const,
+};
