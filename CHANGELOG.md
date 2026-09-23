@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.103.1] — 2026-09-23 — the team picker asked for a column that does not exist
+
+v0.103.0's `myTeams()` selected `team.archived_at`. The `team` table has
+`is_active`; there is no `archived_at`. PostgREST answers a select naming an
+unknown column with a 400 **at runtime**, and TypeScript never reads that
+string — so the function caught the error, logged a warning nobody was
+watching, and returned an empty list. The picker would never have appeared,
+and every attempt to file a to-do under a team would have been refused as "not
+a member of that team".
+
+Caught by running the query against staging before saying the feature worked,
+which is the only thing that catches this class. Same shape as the three latent
+400s of 2026-09-15 — and this one was an hour from production.
+
 ## [0.103.0] — 2026-09-23 — a to-do says which team it is for
 
 Sjoerd: *"Do to do's: from which team.. (not workspace)"*. The correction is

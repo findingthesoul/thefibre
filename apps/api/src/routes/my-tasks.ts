@@ -70,20 +70,24 @@ function teamOf(v: unknown): { id: string; name: string } | null {
  *  may file a to-do under: tagging it with a team you are not in would be
  *  claiming a place you do not hold. */
 async function myTeams(userId: string, workspaceId: string): Promise<{ id: string; name: string }[]> {
+  // `team` has is_active, NOT archived_at — and a select naming a column that
+  // does not exist is a 400 PostgREST answers at RUNTIME, which TypeScript
+  // never reads. Asking for archived_at here emptied the picker silently and
+  // made every filed to-do a 403 (caught on staging before it shipped,
+  // 2026-09-23; the same class of bug as the three latent 400s of 2026-09-15).
   const { data, error } = await adminClient
     .from('team_member')
-    .select('team:team_id (id, name, workspace_id, archived_at)')
+    .select('team:team_id (id, name, workspace_id, is_active)')
     .eq('user_id', userId)
     .eq('status', 'active');
   if (error) {
     console.warn('[tasks] my teams', error.message);
     return [];
   }
+  type TeamRow = { id: string; name: string; workspace_id: string; is_active: boolean | null };
   return (data ?? [])
-    .map((r) => (Array.isArray(r.team) ? r.team[0] : r.team) as
-      { id: string; name: string; workspace_id: string; archived_at: string | null } | null)
-    .filter((t): t is { id: string; name: string; workspace_id: string; archived_at: string | null } =>
-      !!t && t.workspace_id === workspaceId && !t.archived_at)
+    .map((r) => (Array.isArray(r.team) ? r.team[0] : r.team) as TeamRow | null)
+    .filter((t): t is TeamRow => !!t && t.workspace_id === workspaceId && t.is_active !== false)
     .map((t) => ({ id: t.id, name: t.name }));
 }
 
