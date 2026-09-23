@@ -801,6 +801,39 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     an API running unpushed code is invisible from outside. Putting the
     version in that payload would turn "is production what main says" from a
     guess into a curl.
+    **The same pipe swallows git's refusals, and that is the second
+    instance.** `git merge --ff-only origin/staging | tail -1` prints
+    "Updating <a>..<b>" and then ABORTS if anything is staged — and `tail -1`
+    cuts the abort line, so the merge looks done. The connections session
+    committed onto the wrong base believing it had rebased, and nothing
+    disagreed until release-guard did (2026-09-23). The reliable check is a
+    number rather than prose, because a number cannot be truncated into
+    looking like success:
+
+    ```bash
+    git rev-list --count HEAD..origin/staging   # 0 = you are on top of staging
+    ```
+
+    The general rule both instances share: **do not pipe a command whose
+    FAILURE you care about into something that reformats its output.** Read
+    it whole, or ask a question that answers in a value.
+  - **An untracked file in the shared checkout ships on the next `fly
+    deploy`, whoever runs it.** Fly uploads the working TREE, not the branch,
+    so a stray script belongs to every session's deploy the moment it exists.
+    On 2026-09-23 a throwaway that compared `SSO_INTERNAL_SECRET` across the
+    Vercel projects sat untracked in `apps/api/scripts/` for hours; the
+    Dockerfile's narrow COPY list would have kept it out of the image, but
+    the context still crosses the wire to Fly's remote builder. That is the
+    same distinction this repo already learned for `.env` (see the comment
+    inside `.dockerignore`, 2026-09-11) — out of the image is not out of the
+    upload.
+    **Check before assuming you are covered:** `.dockerignore` names
+    `apps/api/**` under "do NOT ignore", so nothing under it is excluded,
+    scripts included. And `apps/api/.dockerignore` is decorative — BuildKit
+    never reads it.
+    **So:** delete a credential-reading throwaway in the same turn you finish
+    with it, and treat `git status` showing an untracked file you did not
+    create as somebody's live exposure rather than clutter.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
