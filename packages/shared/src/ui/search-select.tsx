@@ -95,6 +95,8 @@ export function SearchSelect({
   // Async results come and go with the query, so the current value's label
   // may not be in the latest batch — remember the picked option itself.
   const [picked, setPicked] = useState<SearchSelectOption | null>(null);
+  /** The last search could not be made. Not the same as finding nothing. */
+  const [failed, setFailed] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Ref, not a dep: a caller defining loadOptions inline would otherwise
@@ -146,6 +148,15 @@ export function SearchSelect({
         const rows = await load(q.trim());
         if (!live) return;
         setAsyncOptions(rows);
+        setFailed(false);
+      } catch {
+        // A FAILED search is not an empty one, and the difference matters
+        // more here than almost anywhere: an empty list next to "add what you
+        // typed" invites somebody to create a person who already exists.
+        // Found 2026-09-23 while fixing exactly that duplicate. So the last
+        // good results are kept and the panel says it could not look, rather
+        // than showing nothing and offering to create.
+        if (live) setFailed(true);
       } finally {
         if (live) setLoading(false);
       }
@@ -254,7 +265,12 @@ export function SearchSelect({
                 </button>
               </li>
             ))}
-            {onCreate && needle && (
+            {failed && (
+              <li className="px-3 py-1.5 text-xs text-ink-muted">
+                {chromeT(locale, 'search_failed')}
+              </li>
+            )}
+            {onCreate && needle && !failed && (
               <li className="border-t border-line mt-1 pt-1">
                 <button
                   type="button"

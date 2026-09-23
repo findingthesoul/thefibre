@@ -174,6 +174,16 @@ const CHROME = {
     de: 'Suchen…', // MT
     fr: 'Rechercher…', // MT
   },
+  // A search that could not be MADE, said differently from one that found
+  // nothing — an empty list next to "add what you typed" invites a duplicate.
+  search_failed: {
+    en: 'Could not search just now.',
+    nl: 'Zoeken lukte even niet.',
+    es: 'No se pudo buscar ahora mismo.', // MT
+    pt: 'Não foi possível pesquisar agora.', // MT
+    de: 'Suche gerade nicht möglich.', // MT
+    fr: 'Recherche impossible pour l’instant.', // MT
+  },
   searching: {
     en: 'Searching…',
     nl: 'Zoeken…',

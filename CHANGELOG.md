@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.107.0] — 2026-09-23 — A search that failed is not a search that found nothing (staging)
+
+The same root cause as three bugs before it today, found by applying the
+lesson to my own code an hour after writing it down.
+
+Connect's person and organisation pickers answered a failed request with an
+empty list. That is not a small lie: an empty list sits directly above *"add
+what you typed"*, so a dropped request invites somebody to create a person who
+already exists — inside the very picker that had just been built to stop
+duplicates. The comment above it even claimed the picker "keeps whatever it
+already had", which it did not.
+
+Both now throw, and `SearchSelect` tells the two apart: the last good results
+stay on screen, the panel says it could not look, and the create row is
+withheld. Finding nothing still offers to create, because that is a real
+answer.
+
+Every one of today's four had the same shape — `catch { return [] }` or
+`?? []` turning a failure into a plausible answer. An inert team picker, a
+tag X that did nothing, a list of to-dos quietly missing a group, and this.
+None of them errored; each looked like a correct empty result.
+
 ## [0.106.0] — 2026-09-23 — The person who was already there (staging)
 
 Sjoerd, looking at somebody Today offered him as a stranger: *"in fibre this

@@ -19,10 +19,14 @@ export async function searchPeople(q: string): Promise<PersonOption[]> {
   try {
     const data = await apiFetch<{ items: PersonOption[] }>(`/api/v1/persons?${params}`);
     return data.items;
-  } catch {
-    // The picker keeps whatever it already had rather than emptying itself
-    // because one keystroke's request failed.
-    return [];
+  } catch (e) {
+    // THROW, never `return []`. An empty list is an answer — "nobody matches"
+    // — and this is not that, it is "I could not look". The picker keeps its
+    // last good results and says so; returning [] here would show an empty
+    // list with "add what you typed" under it, which is how a transient
+    // failure talks somebody into creating a person who already exists.
+    // 2026-09-23, found while fixing exactly that duplicate.
+    throw e;
   }
 }
 
@@ -98,8 +102,8 @@ export async function searchOrganisations(q: string): Promise<OrganisationOption
       `/api/v1/organisations?${params}`,
     );
     return data.items;
-  } catch {
-    return [];
+  } catch (e) {
+    throw e; // same reason as searchPeople above
   }
 }
 
