@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-09-23 — emails come from The Thread, or from the workspace (Meet 2.11.0, staging)
+
+Four of Sjoerd's notes on the same inbox, and one from the launch-test session.
+
+- **The sender leaves the backstage domain.** `noreply@thethread.app`,
+  `hello@thethread.app`, `support@thethread.app`. Mail from a product called
+  The Thread was arriving from thefibre.app. **This changes the default only**
+  — the live sender is the `EMAIL_FROM` secret on Fly, which wins, and the
+  domain must be verified in Resend first. Both are Sjoerd's to do; until then
+  nothing changes and nothing breaks.
+- **Meet's fifteen sends use the workspace's own sender** when it has set one
+  (name, address, reply-to), the resolution Thread has used since v0.x. "Or
+  the reply from the workspace", as he put it.
+- **The footer loses the town.** "The Thread · The Netherlands · Hosted in the
+  EU". A home town is not a business address; the postal one belongs on
+  invoices, where the law wants it.
+- **The host's booking email can be acted on.** It carried the details and no
+  links; it now has Add to calendar, Reschedule and Cancel — the same three
+  the invitee gets. "I dont see a reschedule button in the confirmation email."
+- **The approval mail said when.** It printed a raw ISO timestamp in its text
+  and no time at all in its HTML, beside a sibling email formatting the same
+  moment as "15:00 CEST". Found by the launch-test session on a real booking;
+  `formatWhen` is now shared rather than reimplemented.
+
+One test updated rather than added: `branding.test.ts` pinned the old sender,
+which is exactly what changed — the pin did its job.
+
 ## [1.6.0] — 2026-09-23
 
 ### Fixed
