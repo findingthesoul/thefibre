@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.116.0] — 2026-09-23 — a page exports a page (Meet 2.10.1, staging)
+
+v0.111.0 put `WorkspaceLine` in `apps/meet/app/[hostSlug]/page.tsx` and
+exported it for the meeting-type page next door. Next generates a type for
+every page module that permits only the exports it knows —
+`satisfies {[x:string]: never}` — so an extra export is a build error by
+construction.
+
+It reached staging because **a release from a worktree has no `.next/`**, so
+the generated checker does not exist and `tsc` never compares against it. The
+Connections session hit it in the shared checkout, where that artifact does
+exist, and flagged it rather than deleting the stale file that was reporting
+it — which is the only reason it was diagnosed instead of cleared.
+
+The component and its type now live in
+`apps/meet/app/[hostSlug]/workspace-line.tsx`, which is where a thing two
+routes render belonged anyway. Verified with a real `next build` of Meet, not
+only a typecheck.
+
 ## [0.115.0] — 2026-09-23 — five things the tests could not see (staging)
 
 A signed-in render check of the to-do work from v0.112.0, against a throwaway
