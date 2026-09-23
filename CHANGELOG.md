@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.19.0] — 2026-09-23 — the wordmark is legible on a phone (Portal 0.10.2)
+
+Sjoerd, on production: *"on mobile my logo is still super small."* It was.
+The phone header took `h-6` — 24px tall, which on a wordmark this wide is
+about 90px across and reads as a smudge at arm's length. Now `h-9`, the same
+height it has on the sign-in screen, which is the size he did not complain
+about. The desktop rail goes `h-6` → `h-7`, where a 224px column gives less
+room and the mark is beside four labels rather than alone.
+
+A reminder that a size chosen against a desktop screenshot is a guess about a
+phone. This one was.
+
 ## [1.18.0] — 2026-09-23 — the portal uses the width it is given (Portal 0.10.1)
 
 Sjoerd, looking at it on staging: *"full width please"*.

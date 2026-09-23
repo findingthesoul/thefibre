@@ -61,8 +61,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* Phone only — the rail already carries the mark on desktop.
                   Small and quiet: the page's own title does the work, this
                   just says whose app you are in. */}
+              {/* h-9, not h-6. The first cut was 24px tall, which on a wide
+                  hand-drawn wordmark is ~90px across and reads as a smudge on
+                  a phone — Sjoerd: "on mobile my logo is still super small".
+                  This is the same height it has on the sign-in screen, which
+                  is the size he did not complain about. */}
               <header className="flex shrink-0 items-center border-b border-line px-5 py-3 md:hidden">
-                <Wordmark className="h-6" />
+                <Wordmark className="h-9" />
               </header>
               <main className="flex-1 overflow-y-auto">{children}</main>
               <MemberTabs version={VERSION} />
