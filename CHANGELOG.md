@@ -78,6 +78,31 @@ shipping.
 
 ## [Unreleased]
 
+## [1.27.3] — 2026-09-24 — the Connect callback works on staging too (staging)
+
+Sjoerd, about to register the platform in Stripe: *"I do this in thefibre.tech
+right?"* Checking the answer found the bug in the question.
+
+`redirectUri()` read `process.env.PUBLIC_API_URL` and fell back to the
+production host. That variable is set on NEITHER Fly app — verified with
+`fly secrets list` on both — so every environment built a production callback
+URL. On staging the admin would have been handed to production's callback,
+where the signed `state` fails against a different `SSO_INTERNAL_SECRET` and
+the workspace id belongs to a different database. It would have looked like a
+Stripe misconfiguration rather than ours.
+
+Now derived from the REQUEST via `publicOrigin()` — the helper
+`mcp-discovery.ts` already uses, already unit-tested against the staging
+host. The authorize leg and the token exchange run on the same host, so the
+two strings match, which Stripe requires.
+
+**What this means for registering the platform:** Stripe keeps separate test
+and live Connect configurations, so it is two registrations, not one. Test
+mode's redirect URI is the staging callback and its client id belongs on the
+staging API; live mode's is the production pair.
+
+Caught before anyone tried it, by a question rather than a test.
+
 ## [1.27.1] — 2026-09-24 — the Connect callback stops reviving a legacy column (staging)
 
 The OAuth callback in v1.27.0 wrote the connected account to BOTH

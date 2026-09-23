@@ -4,6 +4,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { appUrl } from '@thefibre/shared';
+import { publicOrigin } from './mcp-discovery.js';
 import { adminClient } from '../db.js';
 import {
   accountStatus,
@@ -112,10 +113,18 @@ workspaceBillingRoutes.patch('/', async (c) => {
 // should have been all along.
 
 /** Where Stripe sends the admin back. Must match the redirect URI registered
- *  in Stripe → Connect → Settings, character for character. */
-function redirectUri(): string {
-  const base = process.env.PUBLIC_API_URL ?? 'https://thefibre-api.fly.dev';
-  return `${base}/api/v1/workspace-billing/stripe/callback`;
+ *  in Stripe → Connect → Settings, character for character, AND must be the
+ *  same string in the authorize request and the token exchange.
+ *
+ *  Derived from the REQUEST, via the same helper mcp-discovery uses, because
+ *  the first version read a `PUBLIC_API_URL` that is set on neither Fly app
+ *  and fell back to the production host. On staging that would have sent the
+ *  admin to production's callback, where the signed state fails to verify
+ *  against a different SSO_INTERNAL_SECRET and the workspace id belongs to a
+ *  different database. Caught before anyone tried it, by Sjoerd asking
+ *  whether to register the platform on the .tech stack. */
+function redirectUri(headers: Headers): string {
+  return `${publicOrigin(headers)}/api/v1/workspace-billing/stripe/callback`;
 }
 
 /** GET /stripe/connect — hand the admin to Stripe to approve. */
@@ -131,7 +140,7 @@ workspaceBillingRoutes.get('/stripe/connect', async (c) => {
     return c.json({ error: 'this platform is not registered with Stripe Connect yet' }, 503);
   }
   return c.json({
-    url: authorizeUrl(clientId, signState(ctx.workspaceId), redirectUri()),
+    url: authorizeUrl(clientId, signState(ctx.workspaceId), redirectUri(c.req.raw.headers)),
   });
 });
 
@@ -155,7 +164,7 @@ workspaceBillingRoutes.get('/stripe/callback', async (c) => {
   const verified = verifyState(state);
   if (!verified) return fail('that link has expired — start again from settings');
 
-  const result = await exchangeCode(code, redirectUri());
+  const result = await exchangeCode(code, redirectUri(c.req.raw.headers));
   if ('error' in result) return fail(result.error);
 
   const { error } = await adminClient
