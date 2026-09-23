@@ -43,6 +43,7 @@ import { loadOrg, connectPerson, type OrgCard, type OrgMember } from '@/app/(app
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
 import { graphChanged } from '@/lib/graph-changed';
 import { safely } from '@/lib/safely';
+import { OpenInFibre } from '@/components/open-in-fibre';
 
 type Ctx = { openOrg: (id: string) => void };
 
@@ -65,9 +66,14 @@ const memberName = (m: OrgMember): string => {
 export function OrgPopupProvider({
   children,
   locale,
+  fibreOrgsBase,
 }: {
   children: React.ReactNode;
   locale: Locale;
+  /** Where this organisation's record lives in The Fibre, for the edit
+   *  control beside the title. Resolved on the server: `appUrl` reads the env
+   *  map, and in a client component process.env is not an object. */
+  fibreOrgsBase: string;
 }) {
   const [id, setId] = useState<string | null>(null);
   const [org, setOrg] = useState<OrgCard | null>(null);
@@ -173,6 +179,19 @@ export function OrgPopupProvider({
           onClose={close}
           title={org?.name || (error ? t(locale, 'map_org_title') : t(locale, 'loading'))}
           size="lg"
+          // Sjoerd, 2026-09-23: *"the title should have a small thing behind
+          // it (edit)... so you can edit the contact (Organisation or
+          // Person)."* A person's popup had one; an organisation's had no way
+          // through to its record at all.
+          headerActions={
+            org ? (
+              <OpenInFibre
+                href={`${fibreOrgsBase}/${org.id}`}
+                locale={locale}
+                label={t(locale, 'org_edit_in_fibre')}
+              />
+            ) : undefined
+          }
         >
           {error && (
             <p className="text-sm text-ink">

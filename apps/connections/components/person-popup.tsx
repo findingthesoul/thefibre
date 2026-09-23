@@ -36,7 +36,7 @@ import { ContactRow } from '@/components/contact-row';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { Notes, type Note } from '@/app/(app)/people/[id]/notes';
 import { loadPerson, type PersonCard } from '@/app/(app)/people/[id]/load';
-import { suppressWarning, warningSuppressed } from '@/lib/leaving-warning';
+import { OpenInFibre } from '@/components/open-in-fibre';
 import { loadRelationship } from '@/app/(app)/people/[id]/relationship';
 import {
   relationshipAnswered,
@@ -77,8 +77,6 @@ export function PersonPopupProvider({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   /** Where we are about to go, while the warning is on screen. */
-  const [leavingTo, setLeavingTo] = useState<string | null>(null);
-  const [dontAsk, setDontAsk] = useState(false);
   /**
    * Loaded HERE rather than inside the card, because which tab opens depends
    * on it and a tab that switched itself a moment after appearing would be
@@ -233,25 +231,17 @@ export function PersonPopupProvider({
           description={person ? <ContactRow person={person} /> : undefined}
           headerActions={
             person ? (
-              // Asks before it goes. Sjoerd, 2026-09-13: *"I just want to have
-              // a warning... that I am leaving connections and going to
-              // detailed personal data (with a YES and CANCEL button)"*.
-              <button
-                type="button"
-                onClick={() => {
-                  const href = `${fibreContactsBase}/${person.id}`;
-                  if (warningSuppressed()) {
-                    window.location.assign(href);
-                    return;
-                  }
-                  setLeavingTo(href);
-                }}
-                title={t(locale, 'person_full_profile')}
-                aria-label={t(locale, 'person_full_profile')}
-                className="text-ink-muted hover:text-ink"
-              >
-                <ExternalLink size={17} strokeWidth={1.75} />
-              </button>
+              // One control, shared with the organisation popup since
+              // 2026-09-23 — the button, the warning before leaving and the
+              // remembered "don't ask again" were about to exist twice. It
+              // still asks before it goes, for the reason Sjoerd gave on
+              // 2026-09-13: *"I just want to have a warning... that I am
+              // leaving connections and going to detailed personal data"*.
+              <OpenInFibre
+                href={`${fibreContactsBase}/${person.id}`}
+                locale={locale}
+                label={t(locale, 'person_edit_in_fibre')}
+              />
             ) : undefined
           }
         >
@@ -327,40 +317,10 @@ export function PersonPopupProvider({
         </Dialog>
       )}
 
-      {/* Over the person popup, because that is where it was asked for and
-          because leaving is a decision about the thing you are looking at. */}
-      {leavingTo && (
-        <Dialog
-          open
-          onClose={() => setLeavingTo(null)}
-          title={t(locale, 'leave_title')}
-          size="sm"
-          // The Fibre's dialog bottom bar: Cancel · confirm on the right.
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setLeavingTo(null)}>
-                {t(locale, 'cancel')}
-              </Button>
-              <Button
-                onClick={() => {
-                  // Remembered only when they actually go. Ticking the box and
-                  // then pressing Cancel is not consent to skip the warning.
-                  if (dontAsk) suppressWarning();
-                  window.location.assign(leavingTo);
-                }}
-              >
-                {t(locale, 'leave_yes')}
-              </Button>
-            </>
-          }
-        >
-          <p className="text-sm text-ink-subtle">{t(locale, 'leave_body')}</p>
-          <label className="mt-4 flex items-center gap-2 text-sm text-ink-subtle">
-            <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} />
-            {t(locale, 'leave_dont_ask')}
-          </label>
-        </Dialog>
-      )}
+      {/* The leaving warning moved into components/open-in-fibre.tsx on
+          2026-09-23, with the control that raises it — it was about to be
+          written a second time for the organisation popup. Nothing else in
+          this file opened it. */}
     </PersonPopupContext.Provider>
   );
 }

@@ -734,6 +734,24 @@ const CATALOG = {
     de: 'Worum es ging', // MT
     fr: 'De quoi il s’agissait', // MT
   },
+  // The edit control beside a popup's title. Sjoerd, 2026-09-23: "the title
+  // should have a small thing behind it (edit)".
+  org_edit_in_fibre: {
+    en: 'Edit this organisation in The Fibre',
+    nl: 'Deze organisatie bewerken in The Fibre',
+    es: 'Editar esta organización en The Fibre', // MT
+    pt: 'Editar esta organização no The Fibre', // MT
+    de: 'Diese Organisation in The Fibre bearbeiten', // MT
+    fr: 'Modifier cette organisation dans The Fibre', // MT
+  },
+  person_edit_in_fibre: {
+    en: 'Edit this contact in The Fibre',
+    nl: 'Dit contact bewerken in The Fibre',
+    es: 'Editar este contacto en The Fibre', // MT
+    pt: 'Editar este contacto no The Fibre', // MT
+    de: 'Diesen Kontakt in The Fibre bearbeiten', // MT
+    fr: 'Modifier ce contact dans The Fibre', // MT
+  },
   person_full_profile: {
     en: 'Full profile',
     nl: 'Volledig profiel',

@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.109.0] — 2026-09-23 — A way out of the map, for a company too (staging)
+
+Sjoerd, looking at an organisation in the Map: *"the title should have a small
+thing behind it (edit)... so you can edit the contact (Organisation or
+Person)."*
+
+A person's popup has had one since 2026-09-14. An organisation's had nothing —
+so if the map showed you a company, that was the end of the road: no way
+through to its record, nothing to press. Both titles now carry a pencil.
+
+It is ONE control, not two. The button, the warning before leaving Connect,
+the remembered "don't ask again" and the Fibre address were all about to be
+written a second time, and a second copy is how two warnings start saying
+different things. `components/open-in-fibre.tsx` holds it; the person popup
+was moved onto it in the same change, and the four tests that pin the warning
+— it asks, Cancel goes nowhere, Yes goes, and "don't ask again" is remembered
+only if you actually go — were kept through the move rather than rewritten,
+which is what makes them worth having.
+
+A pencil rather than the arrow that was there, because he asked for edit and
+editing is what is on the other side. That it happens to be another app is
+what the warning is for.
+
 ## [0.108.0] — 2026-09-23 — To do is an Organisation feature, and Flow is a building block
 
 Two decisions from Sjoerd, and the second one changes a gate that was already

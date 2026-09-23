@@ -153,7 +153,12 @@ export default async function ConnectionsAppLayout({
             <div className="px-4 pt-4 empty:hidden sm:px-6">
               <UnfiledNotes workspaceId={me.workspace?.id ?? null} locale={locale} />
             </div>
-            <OrgPopupProvider locale={locale}>{children}</OrgPopupProvider>
+            <OrgPopupProvider
+              locale={locale}
+              fibreOrgsBase={`${appUrl('fibre-platform', process.env, host)}/organisations`}
+            >
+              {children}
+            </OrgPopupProvider>
           </PersonPopupProvider>
           {/* Records the active workspace, sends notes queued offline when the
               signal returns, and registers the service worker — on every
