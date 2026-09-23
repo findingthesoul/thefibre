@@ -21,6 +21,34 @@ The label now carries the path:
 
 Proven with a real clash planted in another worktree, not only in a unit
 test: exit 1 with both paths named, exit 0 once removed.
+## [0.125.0] — 2026-09-23 — the organisation never appeared, and an absent label reads as an absent fact
+
+`peopleLabels` asked for `organisation:organisation_id (name)`. The column on
+`org_membership` is **`org_id`**. PostgREST answers that at runtime —
+`PGRST200`, with the hint naming the fix — so the read failed, the error went
+to a log nobody watches, and the labels came back without an organisation. On
+every row, for everyone, on both stacks, from the moment v0.121.0 shipped.
+
+The design that hides it is deliberate and I would keep it: a label lookup must
+never break the list. The cost is that a failed lookup is indistinguishable
+from a person who has no organisation.
+
+**It was visible in my own verification and I read it as success.** I reported
+"Tahirih Michot's follow-up shows her name plus festivaloftrust / reminder /
+Solidarity Lab" — that is a name and three tags and *no organisation*, and I
+wrote it as proof the feature worked. `Solidarity Lab` appearing there as a TAG
+made the absent organisation easier still to read as present. My assertions
+covered the name and the tags; the field that was broken was the one I had not
+asserted.
+
+Same family as §1.9 in `docs/testing-approach.md`, one layer up: not "an empty
+list looks like a working one" but **an empty FIELD looks like an empty fact.**
+Assert the fields you added, by name, against a fixture you know has them.
+
+Now `organisation:org_id (name)`, ordered `is_primary` first so somebody with
+two memberships shows the one they would name themselves. Verified against
+production before shipping: "soul.com - Solidarity Lab", "European Bahá'í
+Business Forum", "soul.com".
 
 ## [0.123.0] — 2026-09-23 — the tier for a thread's to-do list is a checkbox (staging)
 

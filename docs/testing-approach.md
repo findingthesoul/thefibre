@@ -102,7 +102,15 @@ why §1.5's render-check rule is a rule and not a nicety.
    pattern that encodes your guess about the formatting answers a different
    question from the one you asked, and answers it confidently. Same family as
    9: the tool returns emptiness and emptiness reads as fact.
-12. **A migration's filename states its intent, not the objects it touches.**
+12. **An empty FIELD reads as an empty fact.** One layer up from 9. A label
+   lookup that fails and returns nothing is indistinguishable from a person
+   who genuinely has no organisation — so the row looks right. 2026-09-23: an
+   org read named the wrong column, failed on every row for everyone, and the
+   author's own verification quoted the broken row as proof it worked, because
+   the assertions covered the name and the tags and not the field that was
+   broken. **Assert the fields you added, by name, against a fixture you know
+   has them.**
+13. **A migration's filename states its intent, not the objects it touches.**
    Verifying a freshly promoted production, a session queried for a `todo`
    TABLE because the file was called `…_todo_is_an_org_feature.sql`, got
    `PGRST205 table not found`, and was one step from reporting a failed

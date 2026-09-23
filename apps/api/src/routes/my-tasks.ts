@@ -331,10 +331,16 @@ async function peopleLabels(
       .in('id', ids)
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null),
+    // org_membership's column is `org_id`, NOT `organisation_id`. Named
+    // wrongly in v0.121.0, which PostgREST answers at runtime — "could not
+    // find a relationship" — so the organisation silently never appeared.
+    // `is_primary` first, so somebody with two memberships shows the one
+    // they would name themselves.
     adminClient
       .from('org_membership')
-      .select('person_id, organisation:organisation_id (name)')
-      .in('person_id', ids),
+      .select('person_id, is_primary, organisation:org_id (name)')
+      .in('person_id', ids)
+      .order('is_primary', { ascending: false }),
     adminClient.from('person_tag').select('person_id, tag:tag_id (name)').in('person_id', ids),
   ]);
   if (people.error) console.error('[tasks] people labels', people.error.message);
