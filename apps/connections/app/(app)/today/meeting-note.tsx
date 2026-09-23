@@ -289,7 +289,9 @@ export function MeetingWriteUp({
         {/* Named, because the difference between this box and the one on a
             person's page is the thing that could surprise somebody. */}
         <p className="mt-1.5 text-xs text-ink-subtle">
-          {t(locale, 'meeting_note_each', { count: picked.size })}
+          {picked.size === 0
+            ? t(locale, 'meeting_note_need_person')
+            : t(locale, 'meeting_note_each', { count: picked.size })}
         </p>
 
         <fieldset className="mt-4">

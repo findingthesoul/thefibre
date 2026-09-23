@@ -7548,6 +7548,19 @@ const CATALOG = {
     de: 'Wer dabei war', // MT
     fr: 'Qui était là', // MT
   },
+  // A note in Connect belongs to a person — it is saved to each of them. So
+  // with nobody named there is nowhere to put it, and Save is off. Said out
+  // loud, because a yellow button that does nothing when pressed reads as
+  // broken rather than as waiting. Sjoerd, 2026-09-23: *"when I try to save,
+  // I can't click that button. Even if I changed the text."*
+  meeting_note_need_person: {
+    en: 'Name at least one person above — a note is saved to the people who were there.',
+    nl: 'Noem hierboven minstens één persoon — een notitie wordt opgeslagen bij de mensen die erbij waren.',
+    es: 'Nombra al menos a una persona arriba: la nota se guarda en las personas que estuvieron. // MT',
+    pt: 'Nomeia pelo menos uma pessoa acima — a nota é guardada nas pessoas que estiveram presentes. // MT',
+    de: 'Nenne oben mindestens eine Person — eine Notiz wird bei den Anwesenden gespeichert. // MT',
+    fr: 'Nommez au moins une personne ci-dessus — une note est enregistrée chez les personnes présentes. // MT',
+  },
   meeting_note_each: {
     en: 'Saved to each of the {count} people below, and they are named in each other’s note.',
     nl: 'Wordt bij elk van de {count} mensen hieronder opgeslagen, en ze staan in elkaars notitie.',

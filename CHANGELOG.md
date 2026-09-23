@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.131.0] — 2026-09-23
+
+### Fixed
+- **"No longer in your agenda", about a meeting that had simply already
+  happened.** Sjoerd: *"What does: no longer in your agenda means? I select
+  them, but nothing happens"*. Today shows the WHOLE day — what has passed is
+  greyed out but still there (ask 113) — and the list's window starts at the
+  day start. The add endpoint's window started at `new Date()`. So every
+  attendee of a meeting earlier today was on screen with an add button that
+  answered 404, and the row then reported it as the person having left the
+  invitation. Nothing errored; each side was correct alone. The two now share
+  one `agendaWindow()`, whose comment says why it must stay one, and the add
+  spans today and tomorrow because that is everything Today can show. Six
+  tests on the window, five of which fail against the old from-now version.
+- **Save looked broken when nobody was named.** A note in Connect is saved to
+  each person who was there, so with nobody picked there is nowhere to put it
+  and Save is disabled — but the button just sat there, yellow and dead, after
+  the text had been typed. It now says what it is waiting for. The reason it
+  was reachable at all was the bug above: the attendees could not be added.
+
 ## [0.128.0] — 2026-09-23 — three notes on the booking page (Meet 2.10.2, staging)
 
 Sjoerd, reading his own page after the workspace line landed.

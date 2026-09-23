@@ -60,6 +60,36 @@ function offsetDays(from: Date, n: number, tz: string): Date {
   return new Date(zonedDayStart(from, tz).getTime() + n * DAY + 12 * 3_600_000);
 }
 
+/**
+ * The window the agenda is read through — ONE definition, because two
+ * endpoints depend on it meaning the same thing.
+ *
+ * The list shows the meetings. The add endpoint's ENTIRE authorisation is
+ * "this address is on a meeting you are being shown", so if its window is not
+ * the list's window the button lies: it offers somebody the interface is
+ * displaying and then refuses them.
+ *
+ * That is exactly what happened. The list started at the DAY START (so Today
+ * shows the whole day, ask 113 — what has passed is greyed out but still
+ * there), and the add started at `new Date()`. So every meeting earlier today
+ * was on screen and unaddable: pressing the chip returned 404 and the row
+ * said "no longer in your agenda" about a meeting that had simply already
+ * happened. Sjoerd, 2026-09-23: *"What does: no longer in your agenda means?
+ * I select them, but nothing happens"*.
+ *
+ * `tz` null keeps the old behaviour of a window that starts now, which is
+ * what a caller asking for the next N hours rather than a day wants.
+ */
+export function agendaWindow(
+  now: Date,
+  tz: string | null,
+  offset: number,
+  days: number,
+): { from: Date; to: Date } {
+  const from = tz ? zonedDayStart(offsetDays(now, offset, tz), tz) : now;
+  return { from, to: new Date(from.getTime() + days * DAY) };
+}
+
 const AgendaQuery = z.object({
   /** How many days forward. 1 = today. */
   days: z.coerce.number().int().min(1).max(14).default(1),
@@ -143,8 +173,7 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
   const tz = parsed.data.whole_day
     ? safeTimeZone((await profileFor(ctx.userId)).timezone)
     : null;
-  const from = tz ? zonedDayStart(offsetDays(now, parsed.data.offset_days, tz), tz) : now;
-  const to = new Date((tz ? from.getTime() : now.getTime()) + parsed.data.days * DAY);
+  const { from, to } = agendaWindow(now, tz, parsed.data.offset_days, parsed.data.days);
 
   let events;
   try {
@@ -318,9 +347,11 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
 
 const AddAttendee = z.object({
   email: z.string().email().max(320),
-  /** How far ahead the agenda being looked at reaches — the same window, so
-   *  the address is checked against the meetings actually on screen. */
-  days: z.coerce.number().int().min(1).max(14).default(1),
+  /** How many days from the start of today the agenda being looked at
+   *  reaches. Default 2 = today and tomorrow, which is everything Today can
+   *  show (`horizon` is 'today' or 'tomorrow'). It is a span from the DAY
+   *  START, not from now — see agendaWindow. */
+  days: z.coerce.number().int().min(1).max(14).default(2),
 });
 
 connectionsAgendaRoutes.post('/agenda/person', async (c) => {
@@ -336,8 +367,11 @@ connectionsAgendaRoutes.post('/agenda/person', async (c) => {
   const token = await userGoogleToken(ctx.userId);
   if (!token) return c.json({ error: 'no calendar connected' }, 400);
 
-  const from = new Date();
-  const to = new Date(from.getTime() + body.data.days * DAY);
+  // The SAME window the list uses, from the start of today rather than from
+  // this instant. A meeting that has already finished is still on screen —
+  // Today shows the whole day — so its attendees must still be addable.
+  const tz = safeTimeZone((await profileFor(ctx.userId)).timezone);
+  const { from, to } = agendaWindow(new Date(), tz, 0, body.data.days);
 
   let events;
   try {
