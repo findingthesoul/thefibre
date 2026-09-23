@@ -650,9 +650,12 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   Both halves are fine on their own — this is the seam between them. Pass the
   sha whenever a range has been stated out loud: `./scripts/promote.sh <sha>`.
   And if you are pushing docs while somebody has announced a promotion, say so;
-  they cannot see your commit coming. (2026-09-23: exactly this, caught by the
-  session that had pushed the docs commits, after the promote had already
-  taken them.)
+  they cannot see your commit coming — though note that telling them is not
+  the fix. (2026-09-23: exactly this. The session that pushed the docs commits
+  flagged it BEFORE the promote ran, and the two commits shipped unnamed
+  anyway: the warning lost the race to the push, which is rule 5 from the
+  other side. Passing the sha works whether or not anybody's message arrives
+  in time; a message does not.)
 
   **Track `origin/staging`.** This is the one new habit and it bites
   immediately: main lags by design, so the reflex pull leaves a session
