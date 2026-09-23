@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.118.0] — 2026-09-23 — a thread's to-dos reach Connect's Today (staging)
+
+Sjoerd, on the per-thread to-do lists: *"when do you get connections - can it
+then become integrated automatically?"*
+
+**Half of it already was.** The shared To do panel sits in every app's topbar,
+Connect included, so a thread to-do assigned to you has appeared there since
+v0.112.0 — one platform list, every app, no work. **Today** did not, because
+its OWED half reads its own sources and `thread_task` was not one of them.
+
+It is now, under the rules that route already had:
+
+- **Per seat.** No Thread seat, no rows. A cross-app view that showed another
+  app's content to somebody never given that app is the side door that rule 1
+  of the platform list exists to prevent.
+- **The same rule for which ones** — mine, plus anything nobody has picked up
+  — word for word from the `flow_task` branch above it, so one list does not
+  contain two rules that look alike and are not.
+- **Reusing the `task` effort kind** rather than adding one. A new kind is
+  `EFFORT_KINDS` + `DEFAULT_MINUTES` + Connect's `EFFORT_KIND_KEYS` + six
+  locales: four places to disagree, and a kind half-added is the
+  two-sides-must-agree failure that has bitten three times this week. `task`
+  already means "anything written down by hand" and is already tunable in
+  Settings → Effort.
+
+`OwedRow` gains `link` and `subject_label`. An owed row with no person
+rendered as a plain div with **nothing to press** — invisible while every
+owed row was a flow task about a contact, wrong for a thread to-do, which has
+a thread to go to. `link` reuses `PrepareRow`'s shape rather than inventing a
+second spelling of one idea. `subject_label` is the last fallback in the
+who-first row (person, then organisation, then the thread's name), named for
+the subject on purpose: it is **not** "why this row exists", which is a
+separate question about whether note content belongs in this payload at all.
+
+**Midday, not midnight — and it is the reason to open the page.** `due_on` is
+a day, and Today's client renders a row's age as
+`Math.round((due_at − now) / DAY)`. Against midnight that expression rounds
+down for most of the working day, so a to-do due **today** read "yesterday"
+from 12:00 UTC onwards, and one due two days ago read "3 days ago". Every
+assertion about the row's content passed and the row was otherwise perfect.
+Midday is the only point in the day where that rounding is right whatever
+hour it is read at; a test pins it.
+
+Verified on a staging fixture through a local API and a planted session: both
+to-dos on the page, the thread naming each row, the estimate shown, the dates
+right, and both rows linking to the thread. Six integration tests cover the
+arrival, the unassigned rule, a colleague's row staying off, undated work
+staying off, horizon segmentation, and the seat gate — each asserting a
+**non-empty** result, because a 200 with an empty list is exactly what an
+inert integration returns.
+
+Two process notes, same family as the rest of the day. A probe aimed at an
+arbitrary workspace returned 0 rows from every query, which proves the columns
+exist and nothing else — re-aimed at a workspace that has threads, the
+`program:program_id (title)` embed yields titles on 3/3 rows. And `pnpm
+verify` failed nine public-contract checks afterwards for a reason that was
+not the code: `apps/api/.env` had been overwritten with staging credentials to
+run a local API, and that check runs against production. A gitignored file
+never shows in `git status`, so it silently changed what a check was checking.
+
+
 ## [0.117.0] — 2026-09-23
 
 ### Added
