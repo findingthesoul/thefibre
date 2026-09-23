@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/mcp",
-  "version": "1.27.0",
+  "version": "1.27.1",
   "private": true,
   "description": "The Fibre as an MCP server — an AI assistant acting as an app on the platform, through an app key",
   "type": "module",

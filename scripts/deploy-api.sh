@@ -228,10 +228,29 @@ else
   # anything. Reported by the session that had run four API deploys today,
   # against its own route rather than against this description.
   #
-  # "401, not 404" is not a weaker check than a body match. The old image
-  # answers 404 because the route does not exist; the new one answers 401
-  # because it exists and wants a session. It separates the two images exactly
-  # and needs no credentials.
+  # ── A WARNING about what 401 does and does not prove here ────────────────
+  #
+  # The reasoning this form shipped with was WRONG, and measured wrong the
+  # first time anybody pointed a probe at a made-up path:
+  #
+  #   /api/v1/connections/today            401   (exists, wants a session)
+  #   /api/v1/this-has-never-existed       401   (does not exist at all)
+  #
+  # Auth runs BEFORE routing on `/api/v1/*`, so every path under it answers
+  # 401 whether or not it is served. "401, not 404" therefore does NOT prove a
+  # new route is there — the old image answers 401 for it too. A probe like
+  # that passes on the wrong image, which is worse than no probe.
+  #
+  # So use `status:` for a code the NEW code genuinely produces and the old one
+  # does not: a public path that starts answering 200, a status that changed
+  # from 402 to 200 when a plan gate moved, a redirect that appeared.
+  # Unauthenticated paths that tell the truth about existence are the ones
+  # OUTSIDE the auth wall — `/health`, `/api/v1/public/*` (a real one is 200, a
+  # made-up one is 401).
+  #
+  # If a release only adds an authenticated route, there is no honest
+  # unauthenticated probe for it: say `--no-visible-change` rather than shipping
+  # a check that cannot fail.
   case "$WANT" in
     status:*)
       CODE_WANT="${WANT#status:}"
@@ -258,9 +277,26 @@ else
   esac
 
   echo "Probing $URL for: $WANT"
-  BODY="$(curl -fsS -m 30 "$URL" || true)"
+  # Status AND body, because a miss has two very different causes and they
+  # looked identical: a 404 (wrong URL) and a 200 that simply lacks the string
+  # (wrong expectation) both printed the same line. Reported by the session
+  # whose probe named a field on the wrong payload — the deploy was fine, the
+  # claim was not, and the output did not say which.
+  #
+  # No `-f` here: it suppresses the body on any non-2xx, so an error response
+  # that explains itself would be thrown away exactly when it is most useful.
+  PROBE_BODY="$(mktemp)"
+  CODE="$(curl -s -o "$PROBE_BODY" -m 30 -w '%{http_code}' "$URL" || echo 000)"
+  BODY="$(cat "$PROBE_BODY")"
+  rm -f "$PROBE_BODY"
   if ! printf '%s' "$BODY" | grep -qF -- "$WANT"; then
-    echo "PROBE MISSED: $URL did not contain \"$WANT\"." >&2
+    echo "PROBE MISSED: $URL answered $CODE and did not contain \"$WANT\"." >&2
+    case "$CODE" in
+      000) echo "  No answer at all — check the URL and that the app is up." >&2 ;;
+      404) echo "  404: that path is not served. A wrong URL, not a wrong image." >&2 ;;
+      2*)  echo "  It answered fine, so the string is the thing in doubt: is it on THIS payload?" >&2 ;;
+      *)   echo "  Not a 2xx, so the body above is probably an error rather than your payload." >&2 ;;
+    esac
     if [ "$DRY" = "1" ]; then
       echo "  Nothing was deployed — this is the CURRENT image answering." >&2
     else
@@ -269,7 +305,7 @@ else
     fi
     exit 1
   fi
-  ANSWER="$URL contains \"$WANT\""
+  ANSWER="$URL contains \"$WANT\" ($CODE)"
 fi
 
 echo

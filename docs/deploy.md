@@ -133,13 +133,35 @@ After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl htt
 `--probe` takes one of three things:
 
 - `"<url> | expected text"` — for a public endpoint;
-- `"<url> | status:401"` — for an **authenticated** route, which is most of
-  them. A body probe cannot work there at all: `curl -f` fails on any non-2xx,
-  so the body is empty and the match never hits. "401, not 404" is the real
-  discriminator anyway — the old image has no such route, the new one has it
-  and wants a session;
+- `"<url> | status:200"` — match the STATUS instead of the body, for a
+  response whose body a probe cannot read (`curl -f` empties it on any
+  non-2xx). **But not `status:401` as a test that a new route exists:** auth
+  runs before routing on `/api/v1/*`, so a path that has never existed answers
+  401 exactly like one that does, and such a probe passes on the wrong image.
+  Measured:
+
+  ```
+  /api/v1/connections/today          401   (exists)
+  /api/v1/this-has-never-existed     401   (does not)
+  /api/v1/public/plans               200   (public, real)
+  /api/v1/public/nope                401   (public, made up)
+  ```
+
+  Use a code the NEW code produces and the old one does not — a public path
+  that starts answering 200, a gate that moved from 402 to 200. If a release
+  only adds an authenticated route, there is no honest unauthenticated probe:
+  say `--no-visible-change`;
 - a script path (exit 0 passes) — for a check a single request cannot make,
   like the several ordered calls a payment path needs.
+
+**Probe your own change, not the routes.** "Is this route there" is nearly
+always unanswerable without a session, and it is the weaker claim anyway — it
+proves something is listening, not that the new code ran. "Does this public
+payload now say X" is usually answerable and proves the code itself. The
+clearest example so far: a release made `enrolment_open` able to be false on a
+published thread, where the old code could only ever return true, so a single
+unauthenticated read of a closed thread separates the two images exactly. A
+check that CAN fail is the whole point.
 
 If none of them fits, `--no-visible-change` is the honest answer. Email
 rendering is the clearest case: no request shows what an inbox renders, so any

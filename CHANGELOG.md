@@ -4,6 +4,48 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.27.1] — 2026-09-24 — a probe that cannot fail, and a guard that let a version go backwards
+
+### Fixed
+- **`deploy-api.sh --probe "… | status:401"` proved nothing.** It shipped on
+  the reasoning that 401 separates the images — the old one 404s because the
+  route does not exist, the new one 401s because it does. Measured, it does
+  not: auth runs BEFORE routing on `/api/v1/*`, so a path that has never
+  existed answers 401 exactly like one that does.
+
+  ```
+  /api/v1/connections/today        401   (exists)
+  /api/v1/this-has-never-existed   401   (never existed)
+  /api/v1/public/plans             200   (public, real)
+  /api/v1/public/nope              401   (public, made up)
+  ```
+
+  So it passed on the OLD image — a check that cannot fail, built into the
+  gate that exists to prevent exactly that, and two staging deploys had
+  already logged it as though it were verification. Both sessions involved had
+  independently observed the 401-before-routing behaviour hours earlier and
+  neither connected it when the claim came up, which argues for measuring at
+  the moment of the claim rather than for any rule about who checks what.
+- **`release-guard.sh` approved a version LOWER than the last release.** It
+  read the topmost CHANGELOG heading as "last released". Two sessions inserted
+  entries concurrently and left 1.26.0 sitting above 1.27.0, so the guard read
+  1.26.0 and cleared 1.26.1 — waving through the collision it exists to stop.
+  Both it and `next-version.mjs` now take the HIGHEST of the manifest on the
+  release branch and every CHANGELOG heading: two sources, each catching the
+  other's failure, neither sensitive to the order entries happen to land in.
+- **A probe miss now prints the status code.** A 404 (wrong URL) and a 200
+  without the string (wrong expectation) printed the same line and cost a
+  session a debugging round. It also stops using `curl -f`, which discarded the
+  body of an error response exactly when it explained the most.
+
+### Changed
+- **Probe the release's own change, not its routes.** "Is this route there" is
+  usually unanswerable without a session and is the weaker claim; "does this
+  public payload now say X" proves the new CODE ran. The worked example is the
+  release that let `enrolment_open` be false on a published thread, where the
+  old code could only ever return true — one unauthenticated read separates
+  the images.
+
 ## [1.26.0] — 2026-09-24 — the confirmation page tells you the time in YOUR zone
 
 A booking made for 09:00 in Amsterdam read "07:00 AM" on the page that
@@ -24,6 +66,25 @@ make that fallback possible. The select was run against production before
 shipping.
 
 ## [Unreleased]
+
+## [1.27.1] — 2026-09-24 — the Connect callback stops reviving a legacy column (staging)
+
+The OAuth callback in v1.27.0 wrote the connected account to BOTH
+`workspace.stripe_account_id` and `thread_settings.stripe_account_id`, copied
+from the PATCH handler beside it. Only one of those is right.
+
+`thread_settings.stripe_account_id` is a READ FALLBACK — `lib/payment-accounts.ts`
+returns the workspace column and consults it only when that is null. So
+writing it on CONNECT achieves nothing and revives a second source of truth
+for the same fact, which is what the payments SPoT exists to end.
+
+Clearing it on DISCONNECT is the opposite case and stays: an uncleared
+fallback keeps answering with a stale account after the primary goes null,
+which is why the PATCH handler does it.
+
+Caught by the connections session reading v1.27.0 rather than by any test —
+nothing here is wrong until a workspace disconnects and reconnects elsewhere,
+and then the wrong column decides.
 
 ## [1.27.0] — 2026-09-24 — a client can connect their own Stripe (staging)
 

@@ -166,10 +166,16 @@ workspaceBillingRoutes.get('/stripe/callback', async (c) => {
     console.error('[workspace-billing] could not store the connected account', error);
     return fail('connected, but we could not save it — try again');
   }
-  await adminClient
-    .from('thread_settings')
-    .update({ stripe_account_id: result.accountId })
-    .eq('workspace_id', verified.workspaceId);
+  // Deliberately NOT written to `thread_settings.stripe_account_id`.
+  //
+  // That column is a READ FALLBACK only (lib/payment-accounts.ts:
+  // `workspaceStripeAccount` returns `workspace.stripe_account_id` and
+  // consults thread_settings only when it is null). Writing it on CONNECT
+  // would revive a second source of truth for the same fact — the thing the
+  // payments SPoT exists to end. The PATCH handler above still CLEARS it on
+  // disconnect, which is the opposite case and is necessary: an uncleared
+  // fallback would keep answering with a stale account after the primary
+  // went null. Flagged by the connections session, 2026-09-24.
 
   return c.redirect(`${settingsUrl}?stripe=connected`);
 });
