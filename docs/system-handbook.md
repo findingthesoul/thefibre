@@ -853,6 +853,40 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     **So:** delete a credential-reading throwaway in the same turn you finish
     with it, and treat `git status` showing an untracked file you did not
     create as somebody's live exposure rather than clutter.
+  - **A duplicate migration VERSION does not sort — it disappears.** Supabase
+    keys the migration history on the 14-digit version, NOT the full filename
+    (`supabase migration repair [version]` takes the digits, and nothing else
+    identifies a row). CLAUDE.md's gotcha says "tracks applied migrations by
+    filename, not checksum", which means *not by content hash* and reads as
+    *by the whole name* — that reading is wrong, and it is what produced this
+    entry.
+
+    2026-09-23, two sessions in disjoint lanes: one released
+    `20260923140000_meet_host_busy_includes_free`, the other was holding
+    `20260923140000_thread_task`. The second was pushed AFTER the first had
+    been applied, so `supabase db push` considered that version already
+    applied and **skipped it silently** — log listing only the sibling
+    migration, exit 0, table simply absent. Caught only by probing the
+    database for the table afterwards instead of believing the push log
+    (the same "failure prints something that looks like success" family as
+    the piped-`--ff-only` trap above). It then left the repo in a state where
+    the next push refused with "Remote migration versions not found in local
+    migrations directory" and suggested
+    `supabase migration repair --status reverted 20260923140000` — which
+    would have marked a PEER's genuinely-applied migration as reverted. Do
+    not run a repair the CLI suggests against a version you did not write.
+
+    **So:** before choosing a timestamp, look at every worktree's
+    `supabase/migrations`, not just your own repo view — a peer's unpushed
+    file is invisible to `ls` in the main checkout and claims the number
+    anyway. And after any `db push`, verify the OBJECT exists rather than
+    reading the log.
+
+    Third of its kind: this, the machine-global `supabase link` (which is why
+    `db-push-staging.sh` restores the prod link in a trap), and the shared
+    stash stack. All three are sessions in disjoint lanes, touching no common
+    file, colliding through state the directory-lane protocol cannot see.
+
   - **A conclusion is scoped to what produced it, and a grep is shaped by
     what you expected.** Three instances inside one exchange on 2026-09-23,
     all the same move, two of them one message away from reaching a third
