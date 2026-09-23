@@ -23,6 +23,8 @@ import { COOKIE_LAUNCHER } from '@/lib/prefs-shared';
 export const metadata = { title: 'Profile · The Fibre' };
 
 type Me = {
+  /** Whether the workspace's plan includes To do (Organisation). */
+  todo_available?: boolean;
   user: {
     email: string;
     full_name: string | null;
@@ -91,7 +93,11 @@ export default async function ProfileSettingsPage() {
           />
           <LanguagePicker initial={profile?.locale ?? null} locale={locale} />
           <LauncherPref initialShow={launcherShow} locale={locale} />
-          <TodoPref initial={profile?.todo_enabled !== false} locale={locale} />
+          {/* Only where the plan has it: a switch for something you cannot
+              have is a worse answer than no switch. */}
+          {me.todo_available !== false && (
+            <TodoPref initial={profile?.todo_enabled !== false} locale={locale} />
+          )}
           <section className="mt-12 border-t border-line pt-8">
             <div className="text-[10px] uppercase tracking-wider text-ink-muted">
               {t(locale, 'signing_in')}

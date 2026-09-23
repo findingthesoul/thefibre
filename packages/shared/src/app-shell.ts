@@ -29,6 +29,11 @@ export type ShellMe = {
    *  Absent means yes: an older API that does not send it must not take the
    *  panel away. */
   todo_enabled?: boolean;
+  /** Whether the WORKSPACE's plan includes To do at all (Organisation). A
+   *  different question from todo_enabled, which is the person's own switch;
+   *  the button needs both. Absent means yes, so an older API does not take
+   *  the panel away. */
+  todo_available?: boolean;
   workspace_archived?: boolean;
 };
 

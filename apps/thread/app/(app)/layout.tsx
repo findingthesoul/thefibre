@@ -93,7 +93,7 @@ export default async function ThreadAppLayout({
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
-          todoEnabled={me.todo_enabled !== false}
+          todoEnabled={me.todo_enabled !== false && me.todo_available !== false}
           email={email}
           fullName={fullName}
           prefs={prefs}

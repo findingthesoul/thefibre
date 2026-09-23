@@ -33,6 +33,7 @@
 // ===========================================================================
 
 import { Hono } from 'hono';
+import { can, needsPlan } from '../lib/plan.js';
 import { emptyTodoGroups, type TodoGroupKey } from '@thefibre/shared/todo-groups';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
@@ -107,7 +108,17 @@ async function hasAppMembership(userId: string, slug: string): Promise<boolean> 
   return (count ?? 0) > 0;
 }
 
-/** Flow tasks assigned to this user — the one real task table in the system. */
+/**
+ * Tasks assigned to this user, from the one real task table in the system —
+ * and WHICH APP EACH CAME FROM.
+ *
+ * `flow_task` is storage, not ownership. A follow-up set while writing a note
+ * in Connect lands here too, pointed at by `flow_run_note.follow_up_task_id`,
+ * and it is a Connect item: that is what the reader sees, what its link should
+ * open, and which seat should gate it. Flow is the building block underneath
+ * (Sjoerd, 2026-09-23), so the app a row belongs to is a question about where
+ * it was MADE, answered by that pointer and never by the title.
+ */
 async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[]> {
   const { data, error } = await adminClient
     .from('flow_task')
@@ -121,22 +132,47 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
     console.warn('[tasks] flow tasks', error.message);
     return [];
   }
+  // Which of these a Connect note created, and about whom. One query for the
+  // whole page rather than one per row.
+  const fromConnect = new Map<string, string | null>();
+  const ids = (data ?? []).map((t) => t.id as string);
+  if (ids.length) {
+    const { data: notes, error: ne } = await adminClient
+      .from('flow_run_note')
+      .select('follow_up_task_id, person_id')
+      .in('follow_up_task_id', ids);
+    if (ne) console.warn('[tasks] note follow-ups', ne.message);
+    for (const n of notes ?? []) {
+      fromConnect.set(n.follow_up_task_id as string, (n.person_id as string | null) ?? null);
+    }
+  }
   return (data ?? [])
     .filter((t) => (t.run as { workspace_id?: string } | null)?.workspace_id === workspaceId)
-    .map((t) => ({
+    .map((t) => {
+      const id = t.id as string;
+      const connectPerson = fromConnect.has(id) ? fromConnect.get(id) ?? null : undefined;
+      const isConnect = connectPerson !== undefined;
+      const label = (t.run as { subject_label?: string } | null)?.subject_label ?? null;
+      return {
       id: null,
-      source: { app: 'fibre-flow', ref: t.id as string },
+      source: { app: 'fibre-flow', ref: id },
       title: (t.title as string) ?? 'Task',
       due_on: t.due_at ? isoDay(new Date(t.due_at as string)) : null,
-      app: 'fibre-flow',
-      subject: t.flow_run_id
+      // The app it BELONGS to, which is where it was made.
+      app: isConnect ? 'fibre-sales' : 'fibre-flow',
+      subject: isConnect
+        ? { kind: 'person', id: connectPerson, label }
+        : t.flow_run_id
         ? {
             kind: 'flow_run',
             id: t.flow_run_id as string,
-            label: ((t.run as { subject_label?: string } | null)?.subject_label ?? null),
+            label,
           }
         : null,
-      href: t.flow_run_id ? `/runs/${t.flow_run_id}` : '/tasks',
+      // A Connect follow-up opens the person you owe it to, not a Flow run.
+      href: isConnect
+        ? (connectPerson ? `/people/${connectPerson}` : '/today')
+        : t.flow_run_id ? `/runs/${t.flow_run_id}` : '/tasks',
       state: 'open' as const,
       snoozed_until: null,
       done_at: null,
@@ -144,7 +180,8 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
       // rather than one we inferred.
       team: null,
       sort: 0,
-    }));
+      };
+    });
 }
 
 /** Group by the day it belongs to — what the panel renders. Derived from
@@ -175,6 +212,18 @@ export function groupByDay(items: TaskItem[], now = new Date()): TaskGroups {
 }
 
 // GET /api/v1/me/tasks?view=open|archive&app=<slug>
+// To do is an Organisation-plan feature (Sjoerd, 2026-09-23). One gate, at
+// the top of every route, so a workspace without it cannot read, write or
+// have a sweep act on a list it does not have. The button is hidden too (the
+// flag rides /auth/me) — this is the half that holds when it is not.
+myTasksRoutes.use('*', async (c, next) => {
+  const ctx = c.get('ctx');
+  if (!(await can(ctx.workspaceId, 'todo'))) {
+    return c.json({ error: needsPlan('The To do list', 'Organisation') }, 402);
+  }
+  await next();
+});
+
 myTasksRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   const view = c.req.query('view') === 'archive' ? 'archive' : 'open';
@@ -221,8 +270,26 @@ myTasksRoutes.get('/', async (c) => {
 
   const answered = new Map(mine.filter((i) => i.source).map((i) => [`${i.source!.app}:${i.source!.ref}`, i]));
   const composed: TaskItem[] = [];
-  if (await hasAppMembership(ctx.userId, 'fibre-flow')) {
+  // Gate by WHERE THE ITEM CAME FROM, not by which table it lives in.
+  //
+  // Sjoerd, 2026-09-23: *"Flows as a tech should be available in all apps -
+  // but not as an app people can select (more as a building block for
+  // apps)."* So a Flow seat is not a thing to ask about. A follow-up you set
+  // on a note in Connect is a CONNECT item that happens to be stored as a
+  // flow_task; it needs a Connect seat. A task made inside Flow itself needs
+  // the Flow seat while that app still exists.
+  //
+  // Before this, every one of these was hidden behind `fibre-flow` — so
+  // somebody who uses Connect and not Flow never saw their own follow-ups,
+  // which looks exactly like the feature not working.
+  const seats = {
+    connect: await hasAppMembership(ctx.userId, 'fibre-sales'),
+    flow: await hasAppMembership(ctx.userId, 'fibre-flow'),
+  };
+  if (seats.connect || seats.flow) {
     for (const item of await flowTasks(ctx.userId, ctx.workspaceId)) {
+      const from = item.app === 'fibre-sales' ? 'connect' : 'flow';
+      if (!seats[from]) continue;
       const state = answered.get(`${item.source!.app}:${item.source!.ref}`);
       if (state?.state === 'done') continue;              // ticked off my list
       composed.push(state ? { ...item, ...state, title: item.title, href: item.href } : item);

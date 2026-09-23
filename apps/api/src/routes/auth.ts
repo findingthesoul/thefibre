@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { can } from '../lib/plan.js';
 import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
 import { profileFor } from '../lib/identity-profile.js';
@@ -217,6 +218,10 @@ authRoutes.get('/me', async (c) => {
   // one round trip each layout makes. Missing profile → true, so a failure
   // here shows the panel rather than silently taking it away.
   const todoEnabled: boolean = profile?.todo_enabled ?? true;
+  // And whether the WORKSPACE has To do at all — an Organisation-plan
+  // feature (Sjoerd, 2026-09-23). Two different questions: this one is about
+  // the plan, todo_enabled is the person's own switch. The button needs both.
+  const todoAvailable: boolean = await can(user.workspace_id as string, 'todo').catch(() => false);
 
   return c.json({
     user,
@@ -226,6 +231,8 @@ authRoutes.get('/me', async (c) => {
     locale,
     // Additive (rule 8): the To do panel's per-person on/off.
     todo_enabled: todoEnabled,
+    // Additive (rule 8): whether the plan includes To do at all.
+    todo_available: todoAvailable,
     app_id: ctx.appId,
     // Additive (rule 8): the 13-month Free archive — layouts steer archived
     // workspaces to Settings → Plan, where the reactivation banner lives.

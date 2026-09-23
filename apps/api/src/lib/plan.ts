@@ -35,7 +35,11 @@ export type PlanFeature =
   // The in-app assistant on the platform's model key (docs/assistant-in-app.md
   // §1.4). Free has no key → can() is false there. A workspace's OWN key
   // bypasses this gate — see lib/assistant/access.ts.
-  | 'assistant';
+  | 'assistant'
+  // The personal To do list across the app family (Sjoerd, 2026-09-23: "TO
+  // do's is only from org level plan"). Set on the plan ROWS by
+  // 20260923130000; declared here because a new feature key is a deploy.
+  | 'todo';
 
 export type Plan = {
   id: string;

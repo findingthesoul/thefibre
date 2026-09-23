@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.108.0] — 2026-09-23 — To do is an Organisation feature, and Flow is a building block
+
+Two decisions from Sjoerd, and the second one changes a gate that was already
+wrong.
+
+**"TO do's is only from org level plan."** A new `todo` plan feature, true on
+`org` and `beta`, false on free / starter / pro. Every `/api/v1/tasks` route
+refuses with 402 without it — one gate at the top, so a workspace that does not
+have the feature cannot read, write, or have the sweep act on a list it does
+not have. The button is hidden too (the flag rides `/auth/me` beside the
+personal switch, and needs BOTH), and Settings → Profile stops offering a
+switch for something the workspace cannot have. Checked against production
+before shipping: all three of his workspaces keep it — Festival of Trust is
+`org`, soul.com and The Thread B.V. are comped `beta` with no expiry.
+
+**"Flows as a tech should be available in all apps — but not as an app people
+can select (more as a building block for apps)."** The immediate consequence,
+applied here: items are gated by WHERE THEY WERE MADE, not by which table they
+live in.
+
+A follow-up you set while writing a note in Connect is stored as a `flow_task`,
+but it is a **Connect** item. It now says so — it needs a Connect seat, it is
+labelled Connect, and it links to the person you owe it to rather than to a
+Flow run. Recognised by `flow_run_note.follow_up_task_id`, never by the title.
+
+Before this, every such item sat behind a **Flow seat**. Somebody who uses
+Connect and not Flow never saw their own follow-ups — indistinguishable from
+the feature not working. On production today that affects real rows: of the
+open items assigned to Sjoerd, two of two in soul.com and one of three in The
+Thread B.V. are Connect follow-ups.
+
+The rest of that decision — Flow ceasing to be a selectable app at all — is an
+architecture change across the catalogue, the launcher, seats and billing. It
+is not in this release and should not be done by inference; it needs writing up
+first.
+
+Migration `20260923130000_todo_is_an_org_feature.sql`.
+
 ## [0.107.0] — 2026-09-23 — A search that failed is not a search that found nothing (staging)
 
 The same root cause as three bugs before it today, found by applying the
