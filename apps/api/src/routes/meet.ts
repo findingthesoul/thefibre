@@ -68,6 +68,7 @@ import {
   bookingCancellation,
   bookingRescheduled,
   escapeHtml,
+  formatWhen,
   shell,
   type EmailCommon,
 } from '../lib/email/templates.js';
@@ -75,6 +76,7 @@ import {
   APPS,
   appUrl,
   emailSignoff,
+  ENTITY,
 } from '@thefibre/shared';
 import { platformFeeCents } from '../lib/fees.js';
 
@@ -99,6 +101,24 @@ async function meetBrand(
   if (!workspaceId) return undefined;
   const b = await getWorkspaceBrand(workspaceId);
   return b.logoUrl ? { logoUrl: b.logoUrl, name: b.fromName } : undefined;
+}
+
+/** Who a Meet email comes FROM: the workspace's own sender when it has set
+ *  one, else The Thread — never whatever EMAIL_FROM happens to say. The same
+ *  resolution Thread's emails have used since v0.x (routes/thread.ts), asked
+ *  for on Meet by Sjoerd 2026-09-23: "the from address ... should be
+ *  noreply@thethread.app or the reply from the workspace". A fromAddress only
+ *  sends if its domain is verified, which is why it is set only when present. */
+async function meetSender(
+  workspaceId: string | null | undefined,
+): Promise<{ fromName: string; fromAddress?: string; replyTo?: string }> {
+  if (!workspaceId) return { fromName: ENTITY.publicName };
+  const b = await getWorkspaceBrand(workspaceId);
+  return {
+    fromName: b.fromName ?? ENTITY.publicName,
+    ...(b.fromAddress ? { fromAddress: b.fromAddress } : {}),
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
+  };
 }
 
 async function meetEmailHtml(
@@ -952,7 +972,9 @@ meetRoutes.post('/public/bookings', async (c) => {
     const inviteeEmail = data.invitee_email;
     const hostName = hostUser?.full_name ?? hostRow?.slug ?? 'your host';
     try {
+      const sender0 = await meetSender(mt.workspace_id);
       await sendEmail({
+        ...sender0,
         to: inviteeEmail,
         subject: `Request received: ${mt.name}`,
         text: `Hi ${inviteeName.split(' ')[0] ?? ''},\n\nYour booking request has been sent to ${hostName}. You'll get a confirmation email once it's approved.\n\n${emailSignoff()}`,
@@ -968,14 +990,16 @@ meetRoutes.post('/public/bookings', async (c) => {
     }
     if (hostEmail) {
       try {
+        const sender1 = await meetSender(mt.workspace_id);
         await sendEmail({
+          ...sender1,
           to: hostEmail,
           subject: `Approval needed: ${mt.name} — ${inviteeName}`,
-          text: `${inviteeName} (${inviteeEmail}) requested ${mt.name} for ${starts.toISOString()}.\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
+          text: `${inviteeName} (${inviteeEmail}) requested ${mt.name} for ${formatWhen(starts, hostRow?.timezone ?? 'UTC')}.\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
           html: await meetEmailHtml(
             mt.workspace_id,
             'Approval needed',
-            `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
+            `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p>${escapeHtml(formatWhen(starts, hostRow?.timezone ?? 'UTC'))}</p><p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
           ),
           replyTo: inviteeEmail,
         });
@@ -1115,7 +1139,9 @@ meetRoutes.post('/public/bookings', async (c) => {
     };
     try {
       const invitee = bookingConfirmationInvitee(common);
+      const sender2 = await meetSender(mt.workspace_id);
       await sendEmail({
+        ...sender2,
         to: data.invitee_email,
         subject: invitee.subject,
         text: invitee.text,
@@ -1128,7 +1154,9 @@ meetRoutes.post('/public/bookings', async (c) => {
     if (common.hostEmail) {
       try {
         const host = bookingNotificationHost(common);
+        const sender3 = await meetSender(mt.workspace_id);
         await sendEmail({
+          ...sender3,
           to: common.hostEmail,
           subject: host.subject,
           text: host.text,
@@ -1149,7 +1177,9 @@ meetRoutes.post('/public/bookings', async (c) => {
         if (!u.email || u.email === common.hostEmail) continue;
         try {
           const m = bookingNotificationHost(common);
+          const sender4 = await meetSender(mt.workspace_id);
           await sendEmail({
+            ...sender4,
             to: u.email,
             subject: m.subject,
             text: m.text,
@@ -1438,7 +1468,9 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
     };
     try {
       const m = bookingCancellation(common, 'invitee');
+      const sender5 = await meetSender(booking.workspace_id);
       await sendEmail({
+        ...sender5,
         to: booking.invitee_email,
         subject: m.subject,
         text: m.text,
@@ -1451,7 +1483,9 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
     if (common.hostEmail) {
       try {
         const m = bookingCancellation(common, 'host');
+        const sender6 = await meetSender(booking.workspace_id);
         await sendEmail({
+          ...sender6,
           to: common.hostEmail,
           subject: m.subject,
           text: m.text,
@@ -1619,7 +1653,9 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
     };
     try {
       const m = bookingRescheduled(common, 'invitee', previousStartsAt);
+      const sender7 = await meetSender(booking.workspace_id);
       await sendEmail({
+        ...sender7,
         to: booking.invitee_email,
         subject: m.subject,
         text: m.text,
@@ -1632,7 +1668,9 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
     if (common.hostEmail) {
       try {
         const m = bookingRescheduled(common, 'host', previousStartsAt);
+        const sender8 = await meetSender(booking.workspace_id);
         await sendEmail({
+          ...sender8,
           to: common.hostEmail,
           subject: m.subject,
           text: m.text,
@@ -2303,7 +2341,9 @@ meetRoutes.post('/internal-team', async (c) => {
         .single();
       const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
       const signInUrl = appUrl('fibre-platform', process.env);
+      const sender9 = await meetSender(ctx.workspaceId);
       await sendEmail({
+        ...sender9,
         to: u.email,
         subject: `${inviterName} invited you to ${MEET.name}`,
         text: `${inviterName} added you to their ${PLATFORM.name} workspace and granted you access to ${MEET.name}.\n\nSign in at ${signInUrl} (using ${u.email}) to start using ${MEET.shortName}.\n\n${emailSignoff()}`,
@@ -3262,7 +3302,9 @@ async function runConfirmationSideEffects(
   };
   try {
     const m = bookingConfirmationInvitee(common);
+    const sender10 = await meetSender(booking.workspace_id);
     await sendEmail({
+      ...sender10,
       to: booking.invitee_email,
       subject: m.subject,
       text: m.text,
@@ -3275,7 +3317,9 @@ async function runConfirmationSideEffects(
   if (common.hostEmail) {
     try {
       const m = bookingNotificationHost(common);
+      const sender11 = await meetSender(booking.workspace_id);
       await sendEmail({
+        ...sender11,
         to: common.hostEmail,
         subject: m.subject,
         text: m.text,
@@ -3594,7 +3638,9 @@ meetRoutes.post('/bookings/:id/reject', async (c) => {
       ? `\n\nNote from ${hostName}: ${body.data.reason}\n`
       : '';
     try {
+      const sender12 = await meetSender(ctx.workspaceId);
       await sendEmail({
+        ...sender12,
         to: booking.invitee_email,
         subject: `Declined: ${mt.name}`,
         text: `Hi ${booking.invitee_name.split(' ')[0] ?? ''},\n\n${hostName} was unable to confirm your booking request for ${mt.name}.${reasonLine}\n${emailSignoff()}`,
@@ -4002,7 +4048,9 @@ meetRoutes.post('/teams/:id/members', async (c) => {
       const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
       const acceptUrl = `${meetAppUrl()}/invite/${inviteToken}`;
       const signInUrl = appUrl('fibre-platform', process.env);
+      const sender13 = await meetSender(ctx.workspaceId);
       await sendEmail({
+        ...sender13,
         to: u.email,
         subject: `${inviterName} invited you to ${teamName} on ${PLATFORM.name}`,
         text: `${inviterName} invited you to the team "${teamName}" on ${MEET.name}.
@@ -4181,7 +4229,9 @@ meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
         .select('name')
         .eq('id', id)
         .single();
+      const sender14 = await meetSender(ctx.workspaceId);
       await sendEmail({
+        ...sender14,
         to: u.email,
         subject: `Reminder: accept your invite to ${team?.name ?? 'a team'}`,
         text: `Accept the invite: ${acceptUrl}\n\n${emailSignoff()}`,

@@ -33,16 +33,24 @@ export const ENTITY = {
   /** Registered business name (handelsnaam) of the entity — the name the
    *  public sees. */
   publicName: 'The Thread',
-  /** Postal address for the footer line of public emails. */
-  address: 'Zierikzee, The Netherlands',
+  /** Country line for the footer of public emails. The town was in it until
+   *  2026-09-23 ("The Thread · The Netherlands · Hosted in the EU — no
+   *  Zierikzee"); a home town is not a business address. The full postal
+   *  address, where the law wants one, belongs on invoices. */
+  address: 'The Netherlands',
   /** Footer line for public surfaces. */
   hostedLine: 'Hosted in the EU',
-  /** Default transactional "from" address. Override via EMAIL_FROM env. */
-  emailFromAddress: 'noreply@thefibre.app',
+  /** Default transactional "from" address. Override via EMAIL_FROM env.
+   *  On the public brand's domain since 2026-09-23: mail from a product
+   *  called The Thread arriving from thefibre.app is the backstage name
+   *  leaking into the inbox. NOTE: the live sender is the EMAIL_FROM secret
+   *  on Fly, which wins over this — and the domain must be verified in
+   *  Resend or nothing sends at all. */
+  emailFromAddress: 'noreply@thethread.app',
   /** Address recipients should add to their address book to avoid spam filters. */
-  whitelistEmail: 'hello@thefibre.app',
+  whitelistEmail: 'hello@thethread.app',
   /** Default reply-to / support address. */
-  supportEmail: 'support@thefibre.app',
+  supportEmail: 'support@thethread.app',
 };
 
 /** URLs surfaced in the footer of public emails, and by the policy list a

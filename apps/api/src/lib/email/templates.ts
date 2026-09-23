@@ -38,6 +38,14 @@ type Common = {
   brand?: EmailBrand | undefined;
 };
 
+/** A time a person can read, in a given zone — "Monday, 28 September 2026 at
+ *  15:00 CEST". Exported because Meet's hand-written approval mail printed a
+ *  raw ISO stamp beside a sibling email that formatted the same moment
+ *  (reported from a real booking, 2026-09-23). */
+export function formatWhen(d: Date, tz: string): string {
+  return fmt(d, tz);
+}
+
 function fmt(d: Date, tz: string): string {
   try {
     return new Intl.DateTimeFormat('en-GB', {
@@ -209,16 +217,27 @@ export function bookingNotificationHost(c: Common): {
   html: string;
 } {
   const subject = `New booking: ${c.meetingName} — ${c.inviteeName}`;
+  // The host gets the same three actions as the invitee (Sjoerd, 2026-09-23:
+  // "I dont see a reschedule button in the confirmation email" / "Also not:
+  // add to calendar... file"). The host's copy had the details and no way to
+  // act on them — and it is the host, more often than the invitee, who needs
+  // to move a meeting. The links are the same public ones; they identify the
+  // booking, not the person clicking.
   const text = `${c.inviteeName} (${c.inviteeEmail}) booked ${c.meetingName}.
 
 ${detailsText(c)}
+
+Add to your calendar: ${icsUrl(c)}
+Need a different time? ${rescheduleUrl(c)}
+Need to cancel? ${cancelUrl(c)}
 
 ${emailSignoff()}`;
   const html = shell(
     'New booking',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(c.inviteeName)} booked ${escapeHtml(c.meetingName)}.</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(c.inviteeEmail)}</div>
-${detailsHtml(c)}`,
+${detailsHtml(c)}
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
     c.brand,
   );
   return { subject, text, html };

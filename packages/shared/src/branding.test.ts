@@ -57,7 +57,9 @@ describe('the production topology (v0.52.0 domain migration)', () => {
 describe('defaultEmailFrom', () => {
   it('EMAIL_FROM env wins; otherwise the public-brand default (The Thread — branding pivot 2026-09-08)', () => {
     expect(defaultEmailFrom({ EMAIL_FROM: 'X <x@example.org>' })).toBe('X <x@example.org>');
-    expect(defaultEmailFrom({})).toBe('The Thread <noreply@thefibre.app>');
+    // On the public brand's domain since 2026-09-23 — mail from a product
+    // called The Thread must not arrive from the backstage domain.
+    expect(defaultEmailFrom({})).toBe('The Thread <noreply@thethread.app>');
   });
 });
 
