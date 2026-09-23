@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.100.1] — 2026-09-23 — every switch in the product was unnamed
+
+`SwitchField` renders its label beside the control rather than inside it, and
+the `<button role="switch">` carried no `aria-labelledby`. So a screen reader
+announced "switch, on" and never said of what — on every toggle in every app,
+since the component was extracted on 2026-09-05.
+
+Found by a test that could not find the new To do toggle by its visible label,
+which is precisely what a person using a screen reader cannot do either. The
+test was right and the component was wrong.
+
+The label and the hint now get ids, and the switch points at them with
+`aria-labelledby` / `aria-describedby`. Nothing visible changes.
+
 ## [0.100.0] — 2026-09-23 — To do is something you can switch off
 
 Sjoerd asked for an ON/OFF for the To do panel and, asked where it should

@@ -3,7 +3,7 @@
 // THE canonical Switch — extracted 2026-09-05 (component-inventory Phase 1)
 // from the byte-identical thread/pulse/membership copies.
 
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 // iOS-style toggle in the Fibre accent (Sjoerd 2026-07-07: "a button like
 // img 1") — label on the left, yellow track when on. The whole row is one
@@ -13,17 +13,30 @@ export function Switch({
   onChange,
   label,
   disabled,
+  labelledBy,
+  describedBy,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: ReactNode;
   disabled?: boolean | undefined;
+  /** Id of the text that names this switch, when the label is rendered
+   *  OUTSIDE the button (SwitchField does that). Without it the control has
+   *  no accessible name at all: a screen reader says "switch, on" and never
+   *  says of what. Found 2026-09-23, when a test could not find a toggle by
+   *  its visible label — which is exactly the thing a person cannot do
+   *  either. */
+  labelledBy?: string | undefined;
+  /** Id of the hint under the label, if there is one. */
+  describedBy?: string | undefined;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`inline-flex items-center gap-3 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -65,6 +78,8 @@ export function SwitchField({
   onChange?: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  const labelId = useId();
+  const hintId = useId();
   const isControlled = checked !== undefined;
   const [internal, setInternal] = useState(!!defaultChecked);
   const on = isControlled ? checked : internal;
@@ -75,11 +90,21 @@ export function SwitchField({
   return (
     <div className="flex items-start justify-between gap-4">
       <span className="text-sm text-ink-subtle">
-        {label}
-        {hint && <span className="mt-0.5 block text-xs text-ink-muted">{hint}</span>}
+        <span id={labelId}>{label}</span>
+        {hint && (
+          <span id={hintId} className="mt-0.5 block text-xs text-ink-muted">
+            {hint}
+          </span>
+        )}
       </span>
       {name && <input type="hidden" name={name} value={on ? 'on' : ''} />}
-      <Switch checked={on} onChange={set} disabled={disabled} />
+      <Switch
+        checked={on}
+        onChange={set}
+        disabled={disabled}
+        labelledBy={labelId}
+        describedBy={hint ? hintId : undefined}
+      />
     </div>
   );
 }
