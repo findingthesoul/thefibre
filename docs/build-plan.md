@@ -318,6 +318,39 @@ above 60 from the editor.
    `location` in the LOCATION property today, and practical notes belong in
    DESCRIPTION rather than appended to the address.
 
+**0. Stripe Connect — the client connects their own account (v1.27.0-1.27.3,
+   staging). BLOCKED ON SJOERD, and it is the only thing between soul.com and
+   taking money.**
+
+   It never existed. The only mechanism was a text field where an admin typed
+   an `acct_…` id, which grants no permission — Connect is something the
+   account holder gives the platform. It survived because it works for
+   accounts under the SAME Stripe user as the platform, and every test before
+   soul.com was on Sjoerd's own. soul.com's LIVE join page answered "could not
+   start checkout" for two weeks while Settings showed green, because that
+   badge meant only that the text box was not empty.
+
+   Built: `lib/stripe/connect.ts` + three routes on `workspace-billing`
+   (connect / callback / status), an HMAC-signed `state`, deauthorize on
+   disconnect, and a badge with the state it was missing — **saved, not
+   connected**. The payments form was extracted to
+   `@thefibre/shared/ui/payments-form` and all four apps ported, at Sjoerd's
+   explicit ask, because otherwise Connect would have been written four times.
+
+   **REMAINING (Sjoerd, not code):** register The Thread as a Connect platform
+   in Stripe. **TWO registrations — Stripe keeps test and live Connect
+   settings separately:**
+
+     test → https://thefibre-api-staging.fly.dev/api/v1/workspace-billing/stripe/callback
+     live → https://thefibre-api.fly.dev/api/v1/workspace-billing/stripe/callback
+
+   Each yields a `ca_…` client id (not secret) → `STRIPE_CONNECT_CLIENT_ID` on
+   the matching Fly app. Set on NEITHER today, so the button is deliberately
+   dark rather than half-working.
+
+   **Known gap:** the button is on the WORKSPACE section only; the personal
+   account still has just the paste field.
+
 **0. Public root slugs — the one that is now guarded, and the one that is
    not.** `public_root_slug` (v0.68.37) makes the app.thethread.app/{owner}
    namespace unique across workspaces, teams and organisers, so the second
