@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-09-23 — Meet's emails wear the brand (Meet 2.10.4, staging)
+
+Sjoerd, forwarding an approval request that arrived as naked HTML: "Emails
+are unbranded."
+
+Meet's booking confirmations have always gone through `templates.ts` and
+looked like the rest of the platform. Six others never did — they were
+hand-written `<p>` tags passed straight to the sender: approval needed,
+request received, booking declined, the team invite, its reminder, and the
+internal-team invite. One of them was a styled card with its own footer and
+no logo, which is the same problem wearing a suit.
+
+All six now go through `shell()`, with the workspace's logo when it has one
+and the platform's otherwise — the rule the Thread emails already follow,
+read through `getWorkspaceBrand` rather than any new source. The sender name
+and reply-to were already right; only the body was bare.
+
 ## [1.0.0] — 2026-09-23 — soul.com launches (Members 1.0.0 · The Thread 4.0.0)
 
 The launch test of 2026-09-23 (`docs/launch-test-2026-09-23.md`) proved the
