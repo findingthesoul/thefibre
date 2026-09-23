@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.115.0] — 2026-09-23 — five things the tests could not see (staging)
+
+A signed-in render check of the to-do work from v0.112.0, against a throwaway
+staging fixture. Everything below passed `pnpm verify` and 108 integration
+tests, and was wrong on the screen.
+
+1. **Every assignee chip was blank.** `namesFor()` selected `name` from
+   `public."user"`, which has `full_name`. PostgREST answers that with a 400
+   at RUNTIME — a select string TypeScript never reads — and the catch around
+   it turned the failure into an empty map. So the list rendered a perfectly
+   healthy 200 with no names on it. Found because a FIXTURE tried to insert a
+   name and the insert failed; the tests had only ever asserted that rows came
+   back. There is now one that asserts the name.
+2. **Applying a template interleaved it** with the to-dos already on the
+   thread. The insert wrote the template's stored position (0,1,2…) straight
+   onto the row, colliding with positions already in use, so dates jumped up
+   and down the list while the API correctly reported five rows added. A
+   template's positions only ever meant "the order within this list": they now
+   order the insert and do not survive it, and new rows append after the last
+   existing position.
+3. **Due dates rendered as raw ISO** (`2026-10-31`) in a product that formats
+   dates everywhere else — an internal format shown to a person, the same
+   thing v0.110.0 fixed when a to-do read "fibre-sales". Now `Sat 31 Oct`, via
+   the locale, with the invalid-date guard the timeline learned on 2026-09-08.
+4. **In the template editor every title field was a sliver** and the
+   day-offset boxes filled the row. `FIELD_INPUT_CLASS` already carries
+   `w-full`, so `flex-1` or `w-24` beside it in the same class string is two
+   width utilities of equal specificity, and stylesheet order picks the
+   winner. Widths moved onto wrappers, here and in the panel's add row.
+5. The Templates page still described two groups, and a saved list read
+   "Workspace · 5" — a number with no noun. Both fixed, in all six locales.
+
+Nothing here was visible to a check that passes without a human looking:
+typecheck-clean is not render-correct, and a green test proves only what it
+asserted.
+
+**A sixth, in the throwaway teardown script rather than the product**, noted
+because it is the same shape: it printed "fixture removed" unconditionally
+while both staging workspaces were still there, because it ignored every
+delete error. The real blocker was `organisation_workspace_id_fkey` — a
+workspace now carries its own organisation row. Staging was cleaned and then
+re-queried to prove it, rather than trusted.
+
+
 ## [0.114.0] — 2026-09-23 — the To do list was dropping every task that had no run
 
 `flowTasks` took the workspace from the task's RUN — `run.workspace_id ===
