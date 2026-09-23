@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Circle, Clock, ListTodo, Loader2, Plus, RotateCcw, Users, X } from 'lucide-react';
 import { FIELD_INPUT_CLASS } from './fields.js';
+import { TODO_GROUPS } from '../todo-groups.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
 export type TodoItem = {
@@ -54,7 +55,8 @@ export type TodoActions = {
   rename?: (item: TodoItem, title: string) => Promise<void>;
 };
 
-const GROUP_ORDER = ['overdue', 'today', 'tomorrow', 'this_week', 'later', 'no_date'] as const;
+// The one list, shared with the API's groupByDay — see ../todo-groups.js.
+const GROUP_ORDER = TODO_GROUPS;
 const GROUP_KEY = {
   overdue: 'todo_overdue', today: 'todo_today', tomorrow: 'todo_tomorrow',
   this_week: 'todo_this_week', later: 'todo_later', no_date: 'todo_no_date',

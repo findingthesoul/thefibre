@@ -33,6 +33,7 @@
 // ===========================================================================
 
 import { Hono } from 'hono';
+import { emptyTodoGroups, type TodoGroupKey } from '@thefibre/shared/todo-groups';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 
@@ -146,17 +147,18 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
     }));
 }
 
-/** Group by the day it belongs to — what the panel renders. */
-export type TaskGroups = {
-  overdue: TaskItem[]; today: TaskItem[]; tomorrow: TaskItem[];
-  this_week: TaskItem[]; later: TaskItem[]; no_date: TaskItem[];
-};
+/** Group by the day it belongs to — what the panel renders. Derived from
+ *  @thefibre/shared/todo-groups so the two sides cannot name them
+ *  differently: a bucket the panel does not know is one it silently drops. */
+export type TaskGroups = Record<TodoGroupKey, TaskItem[]>;
 
 export function groupByDay(items: TaskItem[], now = new Date()): TaskGroups {
   const today = isoDay(now);
   const tomorrow = isoDay(new Date(now.getTime() + DAY));
   const weekEnd = isoDay(new Date(now.getTime() + 7 * DAY));
-  const out: TaskGroups = { overdue: [], today: [], tomorrow: [], this_week: [], later: [], no_date: [] };
+  // The bucket names live in @thefibre/shared/todo-groups, which the panel
+  // also reads — see that file for why they are not typed twice.
+  const out = emptyTodoGroups<TaskItem>();
   for (const i of items) {
     // A snoozed item belongs to the day it was pushed to, not its due date.
     const day = i.state === 'snoozed' ? i.snoozed_until : i.due_on;

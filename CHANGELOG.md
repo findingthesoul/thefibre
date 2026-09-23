@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.105.0] — 2026-09-23 — the To do groups are named once, not twice
+
+The API built `{ overdue, today, tomorrow, this_week, later, no_date }` and the
+panel carried its own copy of the same six words. The panel renders only the
+keys it knows — so renaming a bucket on one side, or adding one, would not
+break anything. It would silently DROP that whole group of somebody's to-dos.
+Nothing fails; the items just are not there.
+
+Both now import `TODO_GROUPS` from `@thefibre/shared/todo-groups`, and
+`apps/api/src/routes/my-tasks.test.ts` pins the API's actual output to that
+list: same names, same order, every bucket reachable. Renaming one bucket in
+the shared file fails three tests — checked by doing it.
+
+**Why this and not more tests.** Two features shipped inert today, both past a
+green happy path: a team picker whose query named a column that does not exist,
+and Connect's tag × keyed with `toLowerCase()` against ranges keyed with
+`fold()`. The other session put the lesson better than "test more" — *when two
+pieces of code have to agree on a STRING, the test should be that they agree,
+not that each works.* This is that, applied to the one remaining place in To do
+where two sides were typing the same words at each other.
+
 ## [0.104.0] — 2026-09-23 — The X is back, on the word this time (staging)
 
 Sjoerd, 2026-09-22: *"mouse over also shows the X to turn the # into a word

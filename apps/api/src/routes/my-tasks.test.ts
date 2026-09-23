@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { TODO_GROUPS } from '@thefibre/shared/todo-groups';
 import { groupByDay, type TaskItem } from './my-tasks.js';
 
 const at = (due: string | null, extra: Partial<TaskItem> = {}): TaskItem => ({
   id: 'x', source: null, title: 't', due_on: due, app: null, subject: null, href: null,
-  state: 'open', snoozed_until: null, done_at: null, sort: 0, ...extra,
+  state: 'open', snoozed_until: null, done_at: null, team: null, sort: 0, ...extra,
 });
 
 describe('groupByDay', () => {
@@ -37,5 +38,30 @@ describe('groupByDay', () => {
     const g = groupByDay([at('2026-09-30'), at('2026-10-01')], now);
     expect(g.this_week).toHaveLength(1);
     expect(g.later).toHaveLength(1);
+  });
+});
+
+// ── The two sides must AGREE on the bucket names ──────────────────────────
+//
+// Not "groupByDay works" and separately "the panel renders" — that is how a
+// feature ships inert. The panel only draws the keys it knows, so a bucket it
+// has never heard of is one it silently DROPS, with no error anywhere. This
+// pins the API's output to the single list both import.
+describe('the group names the panel draws and the API emits', () => {
+  it('are exactly the same set, in the same order', () => {
+    const emitted = Object.keys(groupByDay([], new Date('2026-09-23T12:00:00Z')));
+    expect(emitted).toEqual([...TODO_GROUPS]);
+  });
+
+  it('covers every item — nothing lands in a bucket that does not exist', () => {
+    const now = new Date('2026-09-23T12:00:00Z');
+    const days = [null, '2026-09-01', '2026-09-23', '2026-09-24', '2026-09-27', '2027-01-01'];
+    const items = days.map((d) => at(d));
+    const groups = groupByDay(items, now);
+    const placed = Object.values(groups).reduce((n, list) => n + list.length, 0);
+    expect(placed).toBe(items.length);
+    // And each of the six buckets is reachable, so none is dead code the
+    // panel renders a heading for and never fills.
+    for (const key of TODO_GROUPS) expect(groups[key].length).toBeGreaterThan(0);
   });
 });
