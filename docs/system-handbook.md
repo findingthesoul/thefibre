@@ -834,6 +834,30 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     **So:** delete a credential-reading throwaway in the same turn you finish
     with it, and treat `git status` showing an untracked file you did not
     create as somebody's live exposure rather than clutter.
+  - **A conclusion is scoped to what produced it, and a grep is shaped by
+    what you expected.** Three instances inside one exchange on 2026-09-23,
+    all the same move, two of them one message away from reaching a third
+    session as fact.
+    1. `verify-sso-hop.mjs`'s rule — "POST 403 → the app's
+       `SSO_INTERNAL_SECRET` differs from the API's" — is real, and belongs
+       to `POST /api/v1/sso/redeem`, the cross-apex hop. It was carried to
+       `/oauth/me`, which presents no secret at all, and would have had
+       somebody hunting config while the membership gate worked correctly.
+    2. Corrected to "it belongs to the token POST" — also wrong. At
+       `/oauth/token` a bad `client_secret` fails `secretMatches` and returns
+       `invalid_client` **401**.
+    3. Enumerating the 403s by grepping `", 403)"` returned ZERO hits, on a
+       file with two of them, because both are multi-line
+       `c.json({ … },\n  403,\n)`. That nearly became "the file contains no
+       403 at all".
+    **The settled rule for the OAuth provider**, which is what the endpoints
+    actually do: `403` = membership not active (the only 403 in the file);
+    `401` = credential or token wrong; `400` = request or grant wrong.
+    **The habit:** a status-code-to-cause mapping belongs to the endpoint it
+    was measured on and travels nowhere on family resemblance. And a grep
+    that finds a shared symbol says nothing about the role that symbol plays
+    where it was found — so when a pattern returns zero on a file you expect
+    hits in, doubt the pattern before the file.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
