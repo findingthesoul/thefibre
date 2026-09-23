@@ -35,6 +35,32 @@ permanent cost. Suspension stays the right action; what is missing is a
 surface that shows suspended accounts and an explicit, human "delete and stop
 the charge".
 
+## [1.21.0] — 2026-09-24 — the offline ticket opens full size (Portal 0.10.4)
+
+Sjoerd, in aeroplane mode on his phone, with the QR on screen: *"Works. But I
+can't enlarge it. Nothing happens when I click on it."*
+
+It was a plain image. The signed-in sheet has had tap-to-enlarge since
+v0.68.51 — for a door, held at arm's length, half-turned toward someone else,
+sometimes in sun — and the offline page, which is the version that matters
+MOST at a door, did not. The whole row opens it now, not just the image: you
+are aiming at a moving target with one hand. Tap anywhere or press Escape to
+close.
+
+**`VERSION` bumped to `v3`.** A precached file changed, so the worker has to
+change with it or every installed phone keeps serving the old page out of
+`my-shell-v2`. That is the exact failure `VERSION` exists for, the one that
+hit Connect's icon on 2026-09-22, and the one `check-sw-freshness.mjs` now
+refuses to release.
+
+**Verified in a browser:** the row carries the tap class, clicking it opens
+the layer with the right title and the right image source, the code goes from
+96px to 320px, and both a tap and Escape close it.
+
+**The offline ticket itself is confirmed working on a real phone** — his
+screenshot is aeroplane mode on production, showing the QR, the title and the
+date from the device alone.
+
 ## [1.20.0] — 2026-09-23 — a title you can read (Portal 0.10.3)
 
 From Sjoerd's phone screenshot: every card read *"Soul.com's The theory of

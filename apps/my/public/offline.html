@@ -34,6 +34,19 @@
         padding: 14px; display: flex; gap: 14px; align-items: center;
       }
       li img { width: 96px; height: 96px; flex: 0 0 96px; background: #fff; border-radius: 8px; }
+      /* The whole row opens the code, not just the image — at a door you are
+         aiming at a moving target with one hand. */
+      li.tap { cursor: pointer; }
+      #zoom {
+        position: fixed; inset: 0; z-index: 50; display: none;
+        background: #fff; padding: 24px;
+        flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+      }
+      #zoom.on { display: flex; }
+      #zoom img { width: 100%; max-width: 20rem; height: auto; }
+      #zoom p { margin: 0; text-align: center; }
+      #zoom .name { font-size: 1.125rem; font-weight: 500; color: #111418; }
+      #zoom .hint { font-size: 0.875rem; color: #6b7280; }
       .t { min-width: 0; }
       .t strong { display: block; font-weight: 500; }
       .t span { display: block; color: #6b7280; font-size: 0.875rem; }
@@ -66,6 +79,15 @@
       <button type="button" onclick="location.reload()">Try again</button>
     </main>
 
+    <!-- Full size, white, nothing else on screen — the same treatment the app
+         gives a ticket, for the same reason: held at arm's length, half-turned
+         toward someone else, sometimes in sun. -->
+    <div id="zoom" role="dialog" aria-modal="true" aria-label="Check-in code">
+      <img id="zoom-img" alt="" />
+      <p class="name" id="zoom-name"></p>
+      <p class="hint">Tap anywhere to close</p>
+    </div>
+
     <script>
       // The four facts per ticket, written by the app while it was online
       // (apps/my/lib/kept-tickets.ts). The QR images are held by the service
@@ -73,6 +95,15 @@
       //
       // Deliberately tiny and defensive: this page runs at the worst moment,
       // and anything it throws leaves a blank screen at a door.
+      var zoom = document.getElementById('zoom');
+      var zoomImg = document.getElementById('zoom-img');
+      var zoomName = document.getElementById('zoom-name');
+      function closeZoom() { zoom.classList.remove('on'); }
+      zoom.addEventListener('click', closeZoom);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeZoom();
+      });
+
       try {
         var raw = localStorage.getItem('my.tickets.v1');
         var kept = raw ? JSON.parse(raw) : [];
@@ -101,6 +132,17 @@
             if (when.textContent) box.appendChild(when);
             li.appendChild(img);
             li.appendChild(box);
+            // Sjoerd, 2026-09-24, offline on a phone: "I can't enlarge it.
+            // Nothing happens when I click on it." It was a plain image. A
+            // code that cannot be made bigger is the one thing this page is
+            // for.
+            li.className = 'tap';
+            li.addEventListener('click', function () {
+              zoomImg.src = img.src;
+              zoomImg.alt = img.alt;
+              zoomName.textContent = t.title || 'Your ticket';
+              zoom.classList.add('on');
+            });
             list.appendChild(li);
           });
           document.getElementById('tickets').hidden = false;
