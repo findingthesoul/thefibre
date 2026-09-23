@@ -130,6 +130,11 @@ function windowsFor(now: Date): Windows {
   };
 }
 
+/** A Date as 'YYYY-MM-DD', for comparing against date-only columns. */
+function dayString(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Which segments an item falls into, given the moment it becomes work.
  *
@@ -145,6 +150,25 @@ function segmentsFor(at: Date, w: Windows): Record<Horizon, boolean> {
     week: at < w.nextMonday,
     next_week: at >= w.nextMonday && at < w.nextWeekEnd,
   };
+}
+
+/** Does this person hold a seat in The Thread? Rule 1 of the platform list
+ *  (routes/my-tasks.ts): no seat, no rows from that app — otherwise a
+ *  cross-app view becomes a way to read an app you were never given. */
+async function holdsThreadSeat(userId: string): Promise<boolean> {
+  const { data: app } = await adminClient.from('app').select('id').eq('slug', 'the-thread').maybeSingle();
+  if (!app) return false;
+  const { count, error } = await adminClient
+    .from('app_membership')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('app_id', app.id);
+  // An error is NOT "no seat" quietly — say so, then fail closed.
+  if (error) {
+    console.error('[today] thread seat', error.message);
+    return false;
+  }
+  return (count ?? 0) > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +196,24 @@ type OwedRow = {
   /** Estimated minutes. Never asked for: the kind's default, or the
    *  workspace's own number for that kind. */
   minutes: number;
+  /** Where the row taps to, when it is not about a person. Added 2026-09-23
+   *  with thread to-dos: an owed row with no contact used to render as a
+   *  plain div with NO destination, which was invisible while every owed row
+   *  was a flow task about somebody. Same shape as PrepareRow.link rather
+   *  than a second spelling of the same idea. */
+  link: { kind: 'person' | 'thread'; id: string } | null;
+  /** The WHO, when the who is not a person or an organisation — a thread's
+   *  title. The row reads who first, what second (Sjoerd, 2026-09-22, looking
+   *  at two rows that both said only "Call"), and the client already falls
+   *  back from person to organisation; this is the next fallback, not a new
+   *  kind of information.
+   *
+   *  Deliberately NOT "why this row exists" — a flow task's note text would
+   *  be that, and it is a separate piece of work with a separate question
+   *  (whether note content belongs in this payload at all). Naming this slot
+   *  for the subject keeps the two apart, so a row without it is a row whose
+   *  who is already named, not a row missing an explanation. */
+  subject_label: string | null;
   in: Record<Horizon, boolean>;
 };
 
@@ -322,8 +364,108 @@ connectionsTodayRoutes.get('/today', async (c) => {
         ),
         // Filled in once the overrides are read, below.
         minutes: 0,
+        // The client still prefers `person` for these, so this changes
+        // nothing about how a flow task renders; it is here so every owed
+        // row answers "where does this go" the same way.
+        link: t.contact_id ? { kind: 'person', id: t.contact_id } : null,
+        // A flow task's who is its contact or organisation, which the client
+        // already reads off `person` / `organisation`. Nothing to fall back to.
+        subject_label: null,
         in: segmentsFor(due, w),
       });
+    }
+
+    // ── OWED: a thread's to-dos ────────────────────────────────────────────
+    // Sjoerd, 2026-09-23, on the per-thread to-do lists: "when do you get
+    // connections - can it then become integrated automatically?"
+    //
+    // The shared To do panel in Connect's topbar already showed these, being
+    // one platform list in every app. Today did not: it reads its own
+    // sources, and `thread_task` was not one of them.
+    //
+    // PER SEAT, like the platform list: without a Thread seat these rows do
+    // not exist for this reader. Unassigned thread to-dos reaching a
+    // Connect-only user would be a side door into another app's content.
+    //
+    // The rule for WHICH ones is the flow_task rule above, word for word —
+    // mine, plus anything nobody has picked up — so the list does not
+    // contain two rules that look alike and are not.
+    if (meUserId && (await holdsThreadSeat(meUserId))) {
+      const { data: threadTasks, error: ttErr } = await adminClient
+        .from('thread_task')
+        .select('id, title, due_on, assignee_user_id, thread_id')
+        .eq('workspace_id', ws)
+        .eq('status', 'open')
+        .is('deleted_at', null)
+        .not('due_on', 'is', null)
+        .lt('due_on', dayString(w.nextWeekEnd))
+        .order('due_on', { ascending: true })
+        .limit(MAX_TASKS);
+      if (ttErr) throw new Error(`thread_task: ${ttErr.message}`);
+
+      const rows = ((threadTasks ?? []) as Record<string, string | null>[]).filter(
+        (t) => !t.assignee_user_id || t.assignee_user_id === meUserId,
+      );
+
+      // The thread's name, for the WHO line. One query for the page.
+      const threadTitles = new Map<string, string>();
+      const threadIds = [...new Set(rows.map((t) => t.thread_id as string))];
+      if (threadIds.length) {
+        const { data: threads, error: thErr } = await adminClient
+          .from('thread_thread')
+          .select('id, program:program_id (title)')
+          .eq('workspace_id', ws)
+          .in('id', threadIds);
+        if (thErr) throw new Error(`thread_thread: ${thErr.message}`);
+        for (const th of threads ?? []) {
+          const prog = one(th.program as { title?: string } | { title?: string }[] | null);
+          threadTitles.set(th.id as string, prog?.title ?? '');
+        }
+      }
+
+      const today = dayString(w.dayStart);
+      for (const t of rows) {
+        const dueOn = t.due_on as string;
+        // MIDDAY, not midnight — and the difference is visible.
+        //
+        // `due_on` is a day, and the client turns a row's timestamp into a
+        // number of days with
+        //   Math.round((new Date(due_at) - now) / DAY).
+        // Against midnight that rounds DOWN for most of the working day: a
+        // to-do due today read "yesterday" from 12:00 UTC onwards, and one
+        // due two days ago read "3 days ago". Seen on the screen; nothing
+        // threw and the row was otherwise perfect. Midday is the only point
+        // in the day where that rounding gives the right answer whatever
+        // time it is read at.
+        //
+        // Segmentation is unaffected: `today` is "before tomorrow starts",
+        // which midday today satisfies as well as midnight did.
+        //
+        // OVERDUE stays a comparison of DATES, never of this timestamp — a
+        // day is late when the day has passed, not when a clock inside it has.
+        const at = new Date(`${dueOn}T12:00:00.000Z`);
+        owed.push({
+          id: `thread-task:${t.id}`,
+          title: (t.title as string) ?? '',
+          due_at: at.toISOString(),
+          overdue: dueOn < today,
+          person_id: null,
+          organisation_id: null,
+          person: null,
+          organisation: null,
+          // Reusing `task` — "anything written down by hand" — rather than
+          // adding an effort kind. A new kind is EFFORT_KINDS plus
+          // DEFAULT_MINUTES plus Connect's EFFORT_KIND_KEYS plus six
+          // locales, and a kind half-added is the two-sides-must-agree
+          // failure. Worth doing properly if these ever need their own
+          // estimate; not worth doing by halves now.
+          kind: 'task',
+          minutes: 0,
+          link: { kind: 'thread', id: t.thread_id as string },
+          subject_label: threadTitles.get(t.thread_id as string) || null,
+          in: segmentsFor(at, w),
+        });
+      }
     }
 
     // ── PREPARE 1 + 2: upcoming sessions, and the state of who is enrolled ──

@@ -320,9 +320,11 @@ export function Today({
         <ul className={`mt-3 ${ROW_LIST}`}>
           {data.owed.map((o) => {
             const days = Math.round((new Date(o.due_at).getTime() - now) / DAY);
+            // Who first, what second. Person, then organisation, then — for
+            // a thread to-do, which is owed to neither — the thread's name.
             const subject = o.person
               ? personName(o.person, '')
-              : (o.organisation?.name ?? '');
+              : (o.organisation?.name ?? o.subject_label ?? '');
             const body = (
               <>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -364,6 +366,17 @@ export function Today({
                   >
                     {body}
                   </PersonLink>
+                ) : o.link?.kind === 'thread' ? (
+                  // A thread to-do is owed on a thread, and the thread lives
+                  // in another app. Before this, an owed row with no person
+                  // rendered as a plain div — nothing to press, which reads
+                  // as a broken row rather than a deliberate one.
+                  <Link
+                    href={`${threadBase}/${o.link.id}`}
+                    className="block px-4 py-3 hover:bg-surface-sunken sm:px-5"
+                  >
+                    {body}
+                  </Link>
                 ) : (
                   <div className="px-4 py-3 sm:px-5">{body}</div>
                 )}

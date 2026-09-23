@@ -30,6 +30,13 @@ export type OwedRow = {
   organisation: { id: string; name: string } | null;
   /** Estimated minutes — the kind's default, never asked for. */
   minutes: number;
+  /** Where the row taps to when it is not about a person. Exactly one
+   *  destination, never a menu (§4.4). */
+  link?: { kind: 'person' | 'thread'; id: string } | null;
+  /** The who, when the who is neither a person nor an organisation — a
+   *  thread's title. The last fallback in the who-first row, not a new kind
+   *  of information. */
+  subject_label?: string | null;
 };
 
 export type PrepareSignal =
