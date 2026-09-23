@@ -4,6 +4,25 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.26.0] — 2026-09-24 — the confirmation page tells you the time in YOUR zone
+
+A booking made for 09:00 in Amsterdam read "07:00 AM" on the page that
+confirmed it (Sjoerd, 2026-09-23). The page is server-rendered and used
+`toLocaleString(undefined, …)`, and on a server "undefined" means the
+server's zone — UTC on Fly. The booking step itself was always right, because
+it runs in the browser; only the page afterwards was not, which is the worst
+half to get wrong: it is the receipt.
+
+Now the browser formats it, in the reader's own zone, **with the zone named**
+— "15:00 CEST" rather than a bare 15:00, since an unlabelled time is the
+ambiguity underneath this. The server still renders the same moment in the
+HOST's zone as a fallback, so the page is never blank and a reader without
+JavaScript sees a true time rather than none.
+
+`GET /meet/public/bookings/:id` gained the host's `timezone` (additive) to
+make that fallback possible. The select was run against production before
+shipping.
+
 ## [Unreleased]
 
 ## [1.25.0] — 2026-09-24 — the release number is allocated, not chosen

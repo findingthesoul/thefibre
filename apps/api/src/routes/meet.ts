@@ -1766,7 +1766,7 @@ meetRoutes.get('/public/bookings/:id', async (c) => {
   const { data, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, conferencing_provider, alternative_location, payment_status, stripe_invoice_url, meeting_type:meeting_type_id (name, duration_minutes, host:host_id (slug, user:user_id (full_name)))',
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, conferencing_provider, alternative_location, payment_status, stripe_invoice_url, meeting_type:meeting_type_id (name, duration_minutes, host:host_id (slug, timezone, user:user_id (full_name)))',
     )
     .eq('id', id)
     .single();

@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { When } from './when';
 
 type Confirmation = {
   id: string;
@@ -16,7 +18,11 @@ type Confirmation = {
   meeting_type: {
     name: string;
     duration_minutes: number;
-    host: { slug: string; user: { full_name: string | null } | { full_name: string | null }[] | null } | null;
+    host: {
+      slug: string;
+      timezone: string | null;
+      user: { full_name: string | null } | { full_name: string | null }[] | null;
+    } | null;
   } | null;
 };
 
@@ -44,6 +50,19 @@ export default async function ConfirmedPage({
     : null;
   const hostName = hostUser?.full_name ?? mt?.host?.slug ?? null;
   const starts = new Date(booking.starts_at);
+  // Server-side fallback: the HOST's zone, named. The browser replaces it
+  // with the reader's own — see ./when.tsx for why this is not one string.
+  const hostZone = mt?.host?.timezone ?? 'UTC';
+  const whenInHostZone = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: hostZone,
+    timeZoneName: 'short',
+  }).format(starts);
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -69,14 +88,7 @@ export default async function ConfirmedPage({
               <Row label="What" value={mt?.name ?? '—'} />
               <Row
                 label="When"
-                value={starts.toLocaleString(undefined, {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                value={<When iso={booking.starts_at} fallback={whenInHostZone} />}
               />
               <Row
                 label="Duration"
@@ -162,7 +174,7 @@ export default async function ConfirmedPage({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="grid grid-cols-[120px_1fr] gap-4">
       <dt className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">
