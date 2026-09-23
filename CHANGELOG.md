@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-23
+
+### Fixed
+- **A name from a calendar arrived with the first and last the wrong way
+  round.** Sjoerd: *"When you add people from calendar to fibre, you twist
+  first and last name often..."*. A calendar display name is whatever the
+  other organisation's directory emits, not "First Last", and two shapes put
+  the surname first — `Jimenez R.G.M. (Raquel)`, the Dutch directory form
+  (surname, official initials, the name the person goes by), and
+  `Verweij, Martine`. `splitPersonName` took the first word, so both became
+  somebody whose first name was their surname. Both are now read correctly,
+  the official initials are dropped rather than glued to the surname, and
+  every other name takes the unchanged path.
+  The bracket rule is deliberately narrow — one word, Capitalised, not an
+  acronym — so `(SDL)`, `(Solidarity Lab)` and `(test)` stay qualifiers. That
+  last guard exists because production really holds "Sjoerd Luteyn (test)",
+  found by reading the rows before shipping; an earlier draft made "test" his
+  first name, which would have been worse than the bug being fixed.
+  Mutation-checked: removing both branches fails the two behaviour tests while
+  the four regression tests keep passing.
+
 ## [1.0.1] — 2026-09-23 — Meet's emails wear the brand (Meet 2.10.4, staging)
 
 Sjoerd, forwarding an approval request that arrived as naked HTML: "Emails

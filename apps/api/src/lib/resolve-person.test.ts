@@ -98,3 +98,85 @@ describe('isPersonSource', () => {
     expect(isPersonSource(42)).toBe(false);
   });
 });
+
+// ── Names that arrive backwards from a calendar ─────────────────────────────
+//
+// Sjoerd, 2026-09-23: *"When you add people from calendar to fibre, you twist
+// first and last name often..."* Real examples from his own invitations.
+describe('splitPersonName — directory forms', () => {
+  it('reads the Dutch directory form: surname, initials, given name', () => {
+    // The case on screen when he reported it.
+    expect(splitPersonName('Jimenez R.G.M. (Raquel)')).toEqual({
+      first: 'Raquel',
+      last: 'Jimenez',
+    });
+    // The initials go: they are a formality the person does not use, and
+    // gluing them to the surname makes "Jimenez R.G.M." a name nobody has.
+    expect(splitPersonName('Bakker J.W. (Jan)')).toEqual({ first: 'Jan', last: 'Bakker' });
+    // A surname with a particle survives whole.
+    expect(splitPersonName('van der Waal W. (Wilkemieke)')).toEqual({
+      first: 'Wilkemieke',
+      last: 'van der Waal',
+    });
+  });
+
+  it('reads "Last, First"', () => {
+    expect(splitPersonName('Verweij, Martine')).toEqual({ first: 'Martine', last: 'Verweij' });
+    expect(splitPersonName('van der Berg, Daniel')).toEqual({
+      first: 'Daniel',
+      last: 'van der Berg',
+    });
+    expect(splitPersonName('Jimenez R.G.M., Raquel')).toEqual({
+      first: 'Raquel',
+      last: 'Jimenez',
+    });
+  });
+
+  it('does NOT treat a bracketed acronym or place as a first name', () => {
+    // The dangerous direction: putting "SDL" in somebody's first-name field
+    // is worse than the bug this fixes, so the bracket rule is narrow.
+    expect(splitPersonName('Martine Verweij (SDL)')).toEqual({
+      first: 'Martine',
+      last: 'Verweij (SDL)',
+    });
+    expect(splitPersonName('Sjoerd (Solidarity Lab)')).toEqual({
+      first: 'Sjoerd',
+      last: '(Solidarity Lab)',
+    });
+    expect(splitPersonName('Calender (OS)')).toEqual({ first: 'Calender', last: '(OS)' });
+    // Lowercase: a note on the row, not a name. Production really holds this
+    // one, which is how the guard got its third clause.
+    expect(splitPersonName('Sjoerd Luteyn (test)')).toEqual({
+      first: 'Sjoerd',
+      last: 'Luteyn (test)',
+    });
+    expect(splitPersonName('Bakker J.W. (extern)')).toEqual({
+      first: 'Bakker',
+      last: 'J.W. (extern)',
+    });
+  });
+
+  it('leaves an ordinary name exactly as it was', () => {
+    // The regression that matters: most names are not a directory form, and
+    // nothing above may touch them.
+    expect(splitPersonName('Rense Bos')).toEqual({ first: 'Rense', last: 'Bos' });
+    expect(splitPersonName('Richard Rozemeijer')).toEqual({
+      first: 'Richard',
+      last: 'Rozemeijer',
+    });
+    expect(splitPersonName('Daniel van der Berg')).toEqual({
+      first: 'Daniel',
+      last: 'van der Berg',
+    });
+    expect(splitPersonName('Marja')).toEqual({ first: 'Marja', last: null });
+  });
+
+  it('never invents a name from a broken form', () => {
+    // A trailing comma, an empty bracket: fall through rather than produce
+    // an empty string, which is the thing this function exists to prevent.
+    expect(splitPersonName('Verweij,')).toEqual({ first: 'Verweij,', last: null });
+    expect(splitPersonName('(Raquel)')).toEqual({ first: '(Raquel)', last: null });
+    expect(splitPersonName('R.G.M. (Raquel)')).toEqual({ first: 'R.G.M.', last: '(Raquel)' });
+  });
+});
+

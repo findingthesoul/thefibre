@@ -85,12 +85,76 @@ export function normaliseEmail(raw: string | null | undefined): string | null {
  * first_name:'Marja', last_name:'' in one table and last_name:null in
  * another. Empty string is never written — absent is null.
  */
+/** "R.G.M." — official initials, which a directory carries and a person does
+ *  not use. Dropped from the surname rather than glued onto it. */
+const INITIALS = /^(?:\p{L}\.){1,4}$/u;
+
+/** Tidy a surname pulled out of a directory form: no stray initials, no
+ *  leftover punctuation, and never an empty string. */
+function surname(raw: string): string | null {
+  const kept = raw
+    .split(/\s+/)
+    .filter((w) => w && !INITIALS.test(w))
+    .join(' ')
+    .replace(/[,\s]+$/, '')
+    .trim();
+  return kept || null;
+}
+
 export function splitPersonName(full: string | null | undefined): {
   first: string | null;
   last: string | null;
 } {
   const t = (full ?? '').trim();
   if (!t) return { first: null, last: null };
+
+  // ── The two shapes that arrive BACKWARDS ─────────────────────────────────
+  //
+  // Sjoerd, 2026-09-23: *"When you add people from calendar to fibre, you
+  // twist first and last name often..."* — and he is right, because a
+  // calendar display name is whatever the other organisation's directory
+  // emits, not "First Last". Two forms are common in his invitations and both
+  // put the surname first, so taking the first word gave everybody a surname
+  // for a first name.
+  //
+  //   "Jimenez R.G.M. (Raquel)"  → Raquel Jimenez   (Dutch directories: the
+  //                                 surname, the official initials, then the
+  //                                 name the person actually goes by)
+  //   "Verweij, Martine"         → Martine Verweij
+  //
+  // Everything else is left exactly as it was. These two are recognised by
+  // shape and nothing is GUESSED: a name with no comma and no brackets takes
+  // the old path unchanged.
+
+  // "Last, First" — one comma, something either side.
+  const comma = t.match(/^([^,]+),\s*([^,]+)$/);
+  if (comma?.[1] && comma[2]) {
+    const last = surname(comma[1]);
+    const first = comma[2].trim() || null;
+    if (first && last) return { first, last };
+  }
+
+  // "Last Initials (First)" — the bracket holds the given name.
+  const bracket = t.match(/^(.+?)\s*\(([^()]+)\)$/);
+  if (bracket?.[1] && bracket[2]) {
+    const inside = bracket[2].trim();
+    // A given name in this form is ONE word and Capitalised. Everything else
+    // in a bracket is a qualifier, not a name:
+    //   "(SDL)" "(OS)"           an acronym — a team, a building
+    //   "(Solidarity Lab)"       more than one word — a company
+    //   "(test)" "(extern)"      lowercase — a note about the row
+    // The last one is not hypothetical: production holds "Sjoerd Luteyn
+    // (test)", and an earlier draft of this rule made "test" his first name.
+    // Found by reading the real rows before shipping, which is the only
+    // reason the guard is this shape.
+    const looksGiven =
+      !/\s/.test(inside) &&
+      /^\p{Lu}/u.test(inside) &&
+      !(inside.length > 1 && inside === inside.toUpperCase());
+    const last = surname(bracket[1]);
+    if (looksGiven && last) return { first: inside, last };
+  }
+
   const parts = t.split(/\s+/);
   const first = parts[0] ?? null;
   const last = parts.length > 1 ? parts.slice(1).join(' ') : null;
