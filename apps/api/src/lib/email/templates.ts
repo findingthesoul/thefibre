@@ -10,7 +10,7 @@
 import {
   emailSignoff,
   legalFooterLine,
-  BRAND_ASSETS,
+  EMAIL_BRAND,
   ENTITY,
   FOOTER_LINKS,
 } from '@thefibre/shared';
@@ -34,6 +34,8 @@ type Common = {
   /** Pay-by-invoice bookings: e.g. "€60.00 — the host will send you an
    *  invoice." Shown on the invitee's confirmation only. */
   paymentNote?: string | null;
+  /** The workspace's mark, when it has one. Absent = The Thread's. */
+  brand?: EmailBrand | undefined;
 };
 
 function fmt(d: Date, tz: string): string {
@@ -94,8 +96,15 @@ function rescheduleUrl(c: Common): string {
 export type EmailBrand = { logoUrl?: string | null; name?: string | null };
 
 export function shell(title: string, bodyHtml: string, brand?: EmailBrand): string {
-  const logoUrl = brand?.logoUrl || BRAND_ASSETS.logoUrl;
-  const logoAlt = brand?.logoUrl ? brand.name || '' : BRAND_ASSETS.logoAlt;
+  // The workspace's own mark when it has one; otherwise THE THREAD, not The
+  // Fibre (Sjoerd, 2026-09-23, on a booking email wearing the fibre wordmark:
+  // "Should this not be THE THREAD? and WORKSPACE in this specific case?").
+  // The branding pivot of 2026-09-08 made The Thread the public face and The
+  // Fibre backstage; the auth and platform emails moved then, and these did
+  // not. BRAND_ASSETS stays what it is — the Fibre wordmark, for Fibre's own
+  // surfaces — rather than being redefined underneath its other readers.
+  const logoUrl = brand?.logoUrl || EMAIL_BRAND.logoUrl;
+  const logoAlt = brand?.logoUrl ? brand.name || '' : EMAIL_BRAND.logoAlt;
   return `<!doctype html>
 <html lang="en">
 <body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #171717;">
@@ -189,6 +198,7 @@ ${emailSignoff()}`;
 ${detailsHtml(c)}
 ${c.paymentNote ? `<p style="margin-top:20px;font-size:14px;color:#171717;">${escapeHtml(c.paymentNote)}</p>` : ''}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">Cancel</a></div>`,
+    c.brand,
   );
   return { subject, text, html };
 }
@@ -209,6 +219,7 @@ ${emailSignoff()}`;
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(c.inviteeName)} booked ${escapeHtml(c.meetingName)}.</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(c.inviteeEmail)}</div>
 ${detailsHtml(c)}`,
+    c.brand,
   );
   return { subject, text, html };
 }
@@ -233,6 +244,7 @@ export function bookingCancellation(
     'Booking cancelled',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
 ${detailsHtml(c)}`,
+    c.brand,
   );
   return { subject, text, html };
 }
@@ -271,6 +283,7 @@ ${emailSignoff()}`;
 <div style="margin-top:6px;font-size:14px;color:#525252;">Was: <s>${escapeHtml(was)}</s></div>
 ${detailsHtml(c)}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
+    c.brand,
   );
   return { subject, text, html };
 }

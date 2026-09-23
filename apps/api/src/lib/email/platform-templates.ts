@@ -12,7 +12,6 @@
 
 import {
   APPS,
-  BRAND_ASSETS,
   ENTITY,
   FOOTER_LINKS,
   PLATFORM_APP_ID,

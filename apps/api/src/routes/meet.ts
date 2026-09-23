@@ -91,6 +91,16 @@ function meetAppUrl(): string {
  *  `templates.ts` and looked right; these five were hand-written <p> tags
  *  and arrived as naked HTML. Workspace logo when the workspace has one,
  *  the platform's otherwise — the same rule the Thread emails follow. */
+/** The mark a Meet email wears: the workspace's own when it has one, else
+ *  undefined so the shell falls back to The Thread's (2026-09-23). */
+async function meetBrand(
+  workspaceId: string | null | undefined,
+): Promise<{ logoUrl: string | null; name: string | null } | undefined> {
+  if (!workspaceId) return undefined;
+  const b = await getWorkspaceBrand(workspaceId);
+  return b.logoUrl ? { logoUrl: b.logoUrl, name: b.fromName } : undefined;
+}
+
 async function meetEmailHtml(
   workspaceId: string | null | undefined,
   title: string,
@@ -1082,7 +1092,9 @@ meetRoutes.post('/public/bookings', async (c) => {
   // ICS invite via sendUpdates:'all', but we send our own branded note too so
   // the cancel link surfaces clearly.
   if (booking && hostRow) {
+    const bookingBrand = await meetBrand(mt.workspace_id);
     const common: EmailCommon = {
+      brand: bookingBrand,
       inviteeName: data.invitee_name,
       inviteeEmail: data.invitee_email,
       hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
@@ -1406,7 +1418,9 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
 
   // Cancellation emails.
   if (mt && hostRow) {
+    const emailBrand = await meetBrand(booking.workspace_id);
     const common: EmailCommon = {
+      brand: emailBrand,
       inviteeName: booking.invitee_name,
       inviteeEmail: booking.invitee_email,
       hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
@@ -1585,7 +1599,9 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
 
   // Tell both sides, with the old time struck through.
   if (hostRow) {
+    const emailBrand = await meetBrand(booking.workspace_id);
     const common: EmailCommon = {
+      brand: emailBrand,
       inviteeName: booking.invitee_name,
       inviteeEmail: booking.invitee_email,
       hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
@@ -3226,7 +3242,9 @@ async function runConfirmationSideEffects(
   }
 
   // Confirmation email — branded shell, same as the auto-confirm path.
+  const emailBrand = await meetBrand(booking.workspace_id);
   const common: EmailCommon = {
+    brand: emailBrand,
     inviteeName: booking.invitee_name,
     inviteeEmail: booking.invitee_email,
     hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',

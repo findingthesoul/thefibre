@@ -8,7 +8,7 @@
 // participants. Fold into platform-i18n.ts with the // MT burn-down when the
 // admin surfaces get their i18n pass.
 
-import { APPS, ENTITY, PLATFORM_APP_ID, legalFooterLine, BRAND_ASSETS } from '@thefibre/shared';
+import { APPS, ENTITY, PLATFORM_APP_ID, legalFooterLine, EMAIL_BRAND } from '@thefibre/shared';
 import { escapeHtml } from './templates.js';
 import type { RenderedEmail } from './auth-templates.js';
 
@@ -23,7 +23,7 @@ function shell(headline: string, bodyHtml: string, cta?: { label: string; url: s
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; padding: 48px 32px;">
         <tr><td align="center">
-          <img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
+          <img src="${EMAIL_BRAND.logoUrl}" alt="${escapeHtml(EMAIL_BRAND.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
           <h1 style="margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.01em; color: #171717;">
             ${escapeHtml(headline)}
           </h1>
