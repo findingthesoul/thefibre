@@ -30,6 +30,10 @@ export type TodoItem = {
   href: string | null;
   /** Which team it is for. A label on your own row — never a share. */
   team?: { id: string; name: string } | null;
+  /** The organisation the subject belongs to. A label. */
+  org?: string | null;
+  /** The subject's tags — labels, never the note that produced them. */
+  tags?: string[];
   state: 'open' | 'done' | 'snoozed';
   snoozed_until: string | null;
   done_at: string | null;
@@ -467,9 +471,30 @@ function Row({
             {item.title}
           </span>
         )}
-        {(item.subject?.label || item.app || item.team) && (
-          <span className="block truncate text-xs text-ink-muted">
-            {[item.team?.name, item.subject?.label, appName(item.app)].filter(Boolean).join(' · ')}
+        {(item.subject?.label || item.app || item.team || item.org) && (
+          // Who it is about, then where they sit, then which app it came from.
+          // "Follow up" on its own said nothing (Sjoerd, 2026-09-23).
+          <span
+            className="block truncate text-xs text-ink-muted"
+            title={[item.subject?.label, item.org, ...(item.tags ?? []).map((t) => `#${t}`)]
+              .filter(Boolean)
+              .join(' · ')}
+          >
+            {[item.team?.name, item.subject?.label, item.org, appName(item.app)]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        )}
+        {!!item.tags?.length && (
+          <span className="mt-0.5 flex flex-wrap gap-1">
+            {item.tags.map((t) => (
+              <span
+                key={t}
+                className="rounded bg-surface-sunken px-1 text-[10px] leading-4 text-ink-muted"
+              >
+                #{t}
+              </span>
+            ))}
           </span>
         )}
       </span>

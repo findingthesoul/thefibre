@@ -54,6 +54,10 @@ export type TaskItem = {
   done_at: string | null;
   /** Which team this is for — a label on your own row, never a share. */
   team: { id: string; name: string } | null;
+  /** The organisation the subject belongs to, when there is one. A LABEL. */
+  org?: string | null;
+  /** The subject's tags — labels, never the note that produced them. */
+  tags?: string[];
   /** Filed out of the Archive view by the seven-day sweep; the row remains. */
   archived_at?: string | null;
   sort: number;
@@ -151,7 +155,7 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
     // old filter compared `run.workspace_id` to the session's workspace, so
     // a task with no run compared `undefined` and was dropped — silently,
     // and for exactly the items this list exists to surface.
-    .select('id, title, due_at, status, workspace_id, flow_run_id, run:flow_run_id (subject_label)')
+    .select('id, title, due_at, status, workspace_id, contact_id, flow_run_id, run:flow_run_id (subject_label)')
     .eq('assignee_user_id', userId)
     .eq('workspace_id', workspaceId)
     .in('status', ['open', 'in_progress'])
@@ -176,12 +180,26 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
       fromConnect.set(n.follow_up_task_id as string, (n.person_id as string | null) ?? null);
     }
   }
+  // Who these are ABOUT — the note's person, or the task's own contact. A row
+  // that says only "Follow up" is the thing this fixes.
+  const personIds = [
+    ...new Set(
+      (data ?? [])
+        .map((t) => (fromConnect.get(t.id as string) ?? null) || (t.contact_id as string | null))
+        .filter((v): v is string => !!v),
+    ),
+  ];
+  const labels = await peopleLabels(personIds, workspaceId);
+
   return (data ?? [])
     .map((t) => {
       const id = t.id as string;
       const connectPerson = fromConnect.has(id) ? fromConnect.get(id) ?? null : undefined;
       const isConnect = connectPerson !== undefined;
-      const label = (t.run as { subject_label?: string } | null)?.subject_label ?? null;
+      const personId = connectPerson || (t.contact_id as string | null) || null;
+      const about = personId ? labels.get(personId) : undefined;
+      const label =
+        about?.name || ((t.run as { subject_label?: string } | null)?.subject_label ?? null);
       return {
       id: null,
       source: { app: 'fibre-flow', ref: id },
@@ -189,8 +207,8 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
       due_on: t.due_at ? isoDay(new Date(t.due_at as string)) : null,
       // The app it BELONGS to, which is where it was made.
       app: isConnect ? 'fibre-sales' : 'fibre-flow',
-      subject: isConnect
-        ? { kind: 'person', id: connectPerson, label }
+      subject: isConnect || personId
+        ? { kind: 'person', id: personId, label }
         : t.flow_run_id
         ? {
             kind: 'flow_run',
@@ -200,7 +218,7 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
         : null,
       // A Connect follow-up opens the person you owe it to, not a Flow run.
       href: isConnect
-        ? (connectPerson ? `/people/${connectPerson}` : '/today')
+        ? (personId ? `/people/${personId}` : '/today')
         : t.flow_run_id ? `/runs/${t.flow_run_id}` : '/tasks',
       state: 'open' as const,
       snoozed_until: null,
@@ -208,6 +226,8 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
       // A Flow task's team is Flow's to say, not ours; it carries none here
       // rather than one we inferred.
       team: null,
+      org: about?.org ?? null,
+      tags: about?.tags ?? [],
       sort: 0,
       };
     });
@@ -282,6 +302,63 @@ async function threadTasks(userId: string, workspaceId: string): Promise<TaskIte
     team: teamOf(t.team),
     sort: 0,
   }));
+}
+
+/**
+ * Names, organisations and tags for a set of people — THREE queries for the
+ * whole page, never one per row.
+ *
+ * Sjoerd, 2026-09-23: *"Would also be nice to get more content than just:
+ * follow up. A person or organisation connected, a hashtag used?"* — a row
+ * reading only "Follow up" says nothing about who it is about.
+ *
+ * Every field here is a LABEL or a REFERENCE: a name, an organisation's name,
+ * a tag. Not the note that produced them. That is the rule at the top of this
+ * file and this is deliberately the side of it that stays true — the tags
+ * exist as rows on the person precisely because Connect already turned the
+ * note's hashtags into them, so nothing here reads anybody's prose.
+ */
+async function peopleLabels(
+  ids: string[],
+  workspaceId: string,
+): Promise<Map<string, { name: string; org: string | null; tags: string[] }>> {
+  const out = new Map<string, { name: string; org: string | null; tags: string[] }>();
+  if (!ids.length) return out;
+  const [people, orgs, tags] = await Promise.all([
+    adminClient
+      .from('person')
+      .select('id, first_name, last_name')
+      .in('id', ids)
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null),
+    adminClient
+      .from('org_membership')
+      .select('person_id, organisation:organisation_id (name)')
+      .in('person_id', ids),
+    adminClient.from('person_tag').select('person_id, tag:tag_id (name)').in('person_id', ids),
+  ]);
+  if (people.error) console.error('[tasks] people labels', people.error.message);
+  if (orgs.error) console.error('[tasks] org labels', orgs.error.message);
+  if (tags.error) console.error('[tasks] tag labels', tags.error.message);
+
+  for (const p of people.data ?? []) {
+    const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+    out.set(p.id as string, { name, org: null, tags: [] });
+  }
+  for (const row of orgs.data ?? []) {
+    const entry = out.get(row.person_id as string);
+    if (!entry || entry.org) continue; // the first is enough for one line
+    const o = Array.isArray(row.organisation) ? row.organisation[0] : row.organisation;
+    entry.org = ((o as { name?: string } | null)?.name ?? null);
+  }
+  for (const row of tags.data ?? []) {
+    const entry = out.get(row.person_id as string);
+    if (!entry) continue;
+    const t = Array.isArray(row.tag) ? row.tag[0] : row.tag;
+    const name = (t as { name?: string } | null)?.name;
+    if (name && entry.tags.length < 3) entry.tags.push(name);
+  }
+  return out;
 }
 
 /** Group by the day it belongs to — what the panel renders. Derived from

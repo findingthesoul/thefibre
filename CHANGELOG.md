@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.121.0] — 2026-09-23 — a row that says more than "Follow up"
+
+Sjoerd: *"Would also be nice to get more content than just: follow up. A person
+or organisation connected, a hashtag used?"* A row reading only "Follow up"
+says nothing about who it is about — and on production three of his five said
+exactly that.
+
+Each row now carries **who it is about, their organisation, and their tags**,
+with the full line as a hover title where the row is too narrow. The person
+comes from the note that made the follow-up, or from the task's own contact;
+`peopleLabels()` fetches names, organisations and tags for the whole page in
+three queries, never one per row.
+
+**Every one of those is a LABEL or a REFERENCE — not the note.** That is the
+rule at the top of `my-tasks.ts`, and this is deliberately the side of it that
+stays true. The tags are rows on the PERSON because Connect already turned the
+note's hashtags into them when it was written; nothing here reads anybody's
+prose. Tahirih Michot's follow-up shows `festivaloftrust`, `reminder` and
+`Solidarity Lab` without the platform ever opening the note that mentioned
+them.
+
+Capped at three tags and the first organisation: one line, not a profile.
+
 ## [0.120.0] — 2026-09-23 — clicking a to-do 404'd, and the list now shows what you finished
 
 **The 404.** The API hands back an app-RELATIVE path — `/people/…`,
