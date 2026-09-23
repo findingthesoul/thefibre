@@ -4,7 +4,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Baseline security headers, one list for every app (packages/shared).
   async headers() {
-    return securityHeaderRoutes([]);
+    return securityHeaderRoutes([], process.env.VERCEL_ENV);
   },
   // Hard rule §13: no personal data in Vercel. API routes here may NOT
   // touch Supabase directly — proxy to the EU backend API instead.

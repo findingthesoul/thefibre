@@ -14,6 +14,8 @@
 //     the framing rule is applied everywhere except those routes — see
 //     securityHeaderRoutes().
 
+import { noindexHeader } from './robots.js';
+
 export type Header = { key: string; value: string };
 
 /** Headers for a page that must not be framed by another site. */
@@ -48,12 +50,23 @@ export function embeddableHeaders(): Header[] {
  * and the catch-all last, and the catch-all excludes the embed paths so a
  * page never receives both answers.
  */
-export function securityHeaderRoutes(embeddable: string[] = []): { source: string; headers: Header[] }[] {
-  const rules = embeddable.map((source) => ({ source, headers: embeddableHeaders() }));
+export function securityHeaderRoutes(
+  embeddable: string[] = [],
+  /** `process.env.VERCEL_ENV` from the app's next.config. Non-production
+   *  deployments add `X-Robots-Tag: noindex` to EVERY response — the header
+   *  that actually removes a staging URL from a search index, where
+   *  robots.txt only stops the fetch. See robots.ts. */
+  vercelEnv: string | undefined = undefined,
+): { source: string; headers: Header[] }[] {
+  const noindex = noindexHeader(vercelEnv);
+  const rules = embeddable.map((source) => ({
+    source,
+    headers: [...embeddableHeaders(), ...noindex],
+  }));
   const excluded = embeddable.map((s) => s.replace(/^\//, '').replace(/\/:path\*$/, ''));
   const catchAll =
     excluded.length === 0
       ? '/(.*)'
       : `/((?!${excluded.map((e) => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}).*)`;
-  return [...rules, { source: catchAll, headers: securityHeaders() }];
+  return [...rules, { source: catchAll, headers: [...securityHeaders(), ...noindex] }];
 }

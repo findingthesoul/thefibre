@@ -4,7 +4,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Baseline security headers, one list for every app (packages/shared).
   async headers() {
-    return securityHeaderRoutes([]);
+    return securityHeaderRoutes([], process.env.VERCEL_ENV);
   },
   // Hard rule §13: no personal data in Vercel. This app renders a visitor's
   // own data, but it never stores or queries it here — every read goes to

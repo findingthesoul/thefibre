@@ -11,7 +11,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Baseline security headers, one list for every app (packages/shared).
   async headers() {
-    return securityHeaderRoutes([]);
+    return securityHeaderRoutes([], process.env.VERCEL_ENV);
   },
   // Pure marketing surface: no personal data, no Supabase, no sessions.
   // The only fetch is the public plan catalogue (no PII) — hard rule §13

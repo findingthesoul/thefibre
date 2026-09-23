@@ -32,6 +32,36 @@ have caught this in the first place. 297 API tests green.
 
 Not verified by a sent email. The code decides which URL goes in the `<img>`;
 only an arriving email proves it renders.
+## [1.5.0] — 2026-09-23 — staging can be told to leave the index, and To do opens with what it already has
+
+**Google could find thefibre.tech, and the robots.txt written to prevent that
+is why.** `Disallow: /` forbids the FETCH, not the LISTING: find the URL in a
+link anywhere and Google may list it with no description — and because it is
+forbidden to fetch the page, it can never read an instruction to drop it. The
+listing is then permanent by construction.
+
+`noindex` is that instruction, and only a crawler allowed to read it can obey
+it. So a **known** preview now says *come in, and do not index*: `robots.txt`
+opens, and every response carries `X-Robots-Tag: noindex, nofollow`. The file
+already knew this distinction — it is written in `robotsNeverIndex()`, *this
+stops the crawl, that stops the listing* — and had never been applied to
+staging.
+
+The asymmetry is unchanged where it matters: only the literal string
+`production` opens a site to indexing, and an environment we cannot reason
+about still closes AND carries the header. One shared policy, nine apps, via
+`securityHeaderRoutes`.
+
+The two tests asserting previews were closed now assert the pairing instead —
+crawlable **and** noindex — with the reasoning, so nobody restores the old rule
+thinking it was safer.
+
+**To do opens with what it already has.** The list loads on mount, because the
+badge needs a count whether or not anybody opens the panel — and opening then
+threw that away and fetched again behind a spinner. Sjoerd: *"Can the loading
+of TASK be faster? Like done on the background always... not at opening it?"*
+It now shows what it has and refreshes underneath; only the archive, which
+nothing pre-fetches, still shows the spinner.
 
 ## [1.3.1] — 2026-09-23
 

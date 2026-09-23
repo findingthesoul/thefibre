@@ -4,7 +4,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Baseline security headers, one list for every app (packages/shared).
   async headers() {
-    return securityHeaderRoutes([]);
+    return securityHeaderRoutes([], process.env.VERCEL_ENV);
   },
   // Hard rule §13 (inherited from The Fibre): no personal data in Vercel.
   // Meet's frontend never touches Supabase directly — all PII goes through

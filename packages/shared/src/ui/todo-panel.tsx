@@ -135,6 +135,13 @@ export function TodoPanelButton({
   const [busy, setBusy] = useState(false);
   // Distinct from `busy`: this is the list arriving, not a row changing.
   const [loading, setLoading] = useState(true);
+  // When the open list was last fetched. The panel loads on MOUNT — the badge
+  // needs a count whether or not anybody opens it — so by the time you click,
+  // the answer is usually already here. Opening used to throw it away and
+  // fetch again behind a spinner (Sjoerd, 2026-09-23: "Can the loading of TASK
+  // be faster? Like done on the background always... not at opening it?").
+  // Now it shows what it has and refreshes underneath.
+  const fetchedAt = useRef(0);
   const [title, setTitle] = useState('');
   // Which team the list is narrowed to, and which one a new item gets.
   // undefined = every team; '' = the ones under no team.
@@ -155,15 +162,19 @@ export function TodoPanelButton({
   actionsRef.current = actions;
 
   const load = useCallback(
-    async (which: 'open' | 'archive', team?: string) => {
-      setLoading(true);
+    async (which: 'open' | 'archive', team?: string, quiet = false) => {
+      // `quiet` refreshes without the spinner: we already have something true
+      // enough to show, and a list that flickers to "Loading…" on every open
+      // is slower to READ than one that is briefly a few seconds stale.
+      if (!quiet) setLoading(true);
       let data;
       try {
         data = await actionsRef.current.list(which, team);
       } finally {
-        setLoading(false);
+        if (!quiet) setLoading(false);
       }
       if (!data) return;
+      if (which === 'open') fetchedAt.current = Date.now();
       setTeams(data.teams);
       setDoneToday(data.doneToday);
       if (which === 'archive') setArchive(data.items);
@@ -192,7 +203,11 @@ export function TodoPanelButton({
 
   useEffect(() => {
     if (!open) return;
-    void load(view, teamFilter);
+    // Opening is not a reason to blank the list. If the background load has
+    // already answered, refresh quietly; only the archive, which nothing
+    // pre-fetches, still shows the spinner.
+    const haveOpen = view === 'open' && fetchedAt.current > 0;
+    void load(view, teamFilter, haveOpen);
     // Escape closes it; clicking elsewhere does NOT. The panel is meant to
     // stay open while you move around and between apps (Sjoerd, 2026-09-23:
     // *"the panel can also stay open, scanning through various apps"*) — and

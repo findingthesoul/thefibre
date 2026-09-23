@@ -3,7 +3,7 @@
 // direction de-indexes thethread.app, which takes weeks to recover.
 
 import { describe, expect, it } from 'vitest';
-import { isProductionDeployment, robotsForEnvironment, robotsNeverIndex } from './robots.js';
+import { isProductionDeployment, noindexHeader, robotsForEnvironment, robotsNeverIndex } from './robots.js';
 
 describe('robotsForEnvironment', () => {
   it('opens ONLY on a production deployment', () => {
@@ -11,10 +11,23 @@ describe('robotsForEnvironment', () => {
     expect(robotsForEnvironment('production')).toEqual({ rules: { userAgent: '*', allow: '/' } });
   });
 
-  it.each(['preview', 'development', '', 'Production', 'prod'])(
-    'closes on %j',
+  // Changed deliberately on 2026-09-23: a KNOWN preview is now crawlable, so
+  // the crawler can read the `noindex` header that actually removes it from
+  // the index. Disallow stops the fetch, and a crawler that cannot fetch can
+  // never read the instruction to drop the listing — which is how
+  // thefibre.tech ended up in Google despite a robots.txt written to prevent
+  // exactly that. The pairing is asserted below: crawlable AND noindex.
+  it.each(['preview', 'development'])('opens a KNOWN preview to the crawler on %j', (env) => {
+    expect(robotsForEnvironment(env)).toEqual({ rules: { userAgent: '*', allow: '/' } });
+    // …and never without the header that makes it safe.
+    expect(noindexHeader(env)).toEqual([{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }]);
+  });
+
+  it.each(['', 'Production', 'prod', undefined])(
+    'closes on an environment it cannot reason about: %j',
     (env) => {
       expect(robotsForEnvironment(env)).toEqual({ rules: { userAgent: '*', disallow: '/' } });
+      expect(noindexHeader(env)).toHaveLength(1);
     },
   );
 
