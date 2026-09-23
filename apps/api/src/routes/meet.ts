@@ -58,6 +58,7 @@ import { buildBookingIcal } from '../lib/ical.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { platformFromAddress, sendEmail } from '../lib/email/client.js';
+import { getWorkspaceBrand } from '../lib/workspace-brand.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { personalStripeAccount, defaultPaymentMethods } from '../lib/payment-accounts.js';
@@ -67,13 +68,13 @@ import {
   bookingCancellation,
   bookingRescheduled,
   escapeHtml,
+  shell,
   type EmailCommon,
 } from '../lib/email/templates.js';
 import {
   APPS,
   appUrl,
   emailSignoff,
-  legalFooterLine,
 } from '@thefibre/shared';
 import { platformFeeCents } from '../lib/fees.js';
 
@@ -82,6 +83,22 @@ const PLATFORM = APPS['fibre-platform'];
 
 function meetAppUrl(): string {
   return appUrl('fibre-meet', process.env);
+}
+
+/** Meet's one-off emails, in the same shell as every other email the
+ *  platform sends (Sjoerd, 2026-09-23, looking at an approval request:
+ *  "Emails are unbranded."). The booking confirmations went through
+ *  `templates.ts` and looked right; these five were hand-written <p> tags
+ *  and arrived as naked HTML. Workspace logo when the workspace has one,
+ *  the platform's otherwise — the same rule the Thread emails follow. */
+async function meetEmailHtml(
+  workspaceId: string | null | undefined,
+  title: string,
+  bodyHtml: string,
+): Promise<string> {
+  if (!workspaceId) return shell(title, bodyHtml);
+  const brand = await getWorkspaceBrand(workspaceId);
+  return shell(title, bodyHtml, { logoUrl: brand.logoUrl, name: brand.fromName });
 }
 
 // ---------------------------------------------------------------------------
@@ -929,7 +946,11 @@ meetRoutes.post('/public/bookings', async (c) => {
         to: inviteeEmail,
         subject: `Request received: ${mt.name}`,
         text: `Hi ${inviteeName.split(' ')[0] ?? ''},\n\nYour booking request has been sent to ${hostName}. You'll get a confirmation email once it's approved.\n\n${emailSignoff()}`,
-        html: `<p>Hi ${escapeHtml(inviteeName.split(' ')[0] ?? '')},</p><p>Your booking request has been sent to ${escapeHtml(hostName)}. You'll get a confirmation email once it's approved.</p>`,
+        html: await meetEmailHtml(
+          mt.workspace_id,
+          'Request received',
+          `<p>Hi ${escapeHtml(inviteeName.split(' ')[0] ?? '')},</p><p>Your booking request has been sent to ${escapeHtml(hostName)}. You'll get a confirmation email once it's approved.</p>`,
+        ),
         replyTo: hostEmail ?? undefined,
       });
     } catch (e) {
@@ -941,7 +962,11 @@ meetRoutes.post('/public/bookings', async (c) => {
           to: hostEmail,
           subject: `Approval needed: ${mt.name} — ${inviteeName}`,
           text: `${inviteeName} (${inviteeEmail}) requested ${mt.name} for ${starts.toISOString()}.\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
-          html: `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
+          html: await meetEmailHtml(
+            mt.workspace_id,
+            'Approval needed',
+            `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
+          ),
           replyTo: inviteeEmail,
         });
       } catch (e) {
@@ -2266,7 +2291,11 @@ meetRoutes.post('/internal-team', async (c) => {
         to: u.email,
         subject: `${inviterName} invited you to ${MEET.name}`,
         text: `${inviterName} added you to their ${PLATFORM.name} workspace and granted you access to ${MEET.name}.\n\nSign in at ${signInUrl} (using ${u.email}) to start using ${MEET.shortName}.\n\n${emailSignoff()}`,
-        html: `<p><strong>${inviterName}</strong> invited you to ${MEET.name}.</p><p><a href="${signInUrl}">Sign in to ${PLATFORM.name}</a> using <strong>${u.email}</strong>.</p>`,
+        html: await meetEmailHtml(
+          ctx.workspaceId,
+          'Invitation',
+          `<p><strong>${inviterName}</strong> invited you to ${MEET.name}.</p><p><a href="${signInUrl}">Sign in to ${PLATFORM.name}</a> using <strong>${u.email}</strong>.</p>`,
+        ),
       });
     } catch (e) {
       console.error('[internal-team] invite email failed (non-fatal)', e);
@@ -3551,7 +3580,11 @@ meetRoutes.post('/bookings/:id/reject', async (c) => {
         to: booking.invitee_email,
         subject: `Declined: ${mt.name}`,
         text: `Hi ${booking.invitee_name.split(' ')[0] ?? ''},\n\n${hostName} was unable to confirm your booking request for ${mt.name}.${reasonLine}\n${emailSignoff()}`,
-        html: `<p>Hi ${escapeHtml(booking.invitee_name.split(' ')[0] ?? '')},</p><p>${escapeHtml(hostName)} was unable to confirm your booking request for <strong>${escapeHtml(mt.name)}</strong>.</p>${body.data.reason ? `<p><em>${escapeHtml(body.data.reason)}</em></p>` : ''}`,
+        html: await meetEmailHtml(
+          ctx.workspaceId,
+          'Booking declined',
+          `<p>Hi ${escapeHtml(booking.invitee_name.split(' ')[0] ?? '')},</p><p>${escapeHtml(hostName)} was unable to confirm your booking request for <strong>${escapeHtml(mt.name)}</strong>.</p>${body.data.reason ? `<p><em>${escapeHtml(body.data.reason)}</em></p>` : ''}`,
+        ),
         replyTo: hostUser?.email ?? undefined,
       });
     } catch (e) {
@@ -3961,24 +3994,18 @@ Accept the invite: ${acceptUrl}
 You'll be asked to sign in with Google (using ${u.email}) and then taken to a page to accept. After accepting you'll start receiving bookings.
 
 ${emailSignoff()}`,
-        html: `<!doctype html><html><body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#171717;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;padding:40px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:32px;">
-        <tr><td>
-          <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#737373;">You've been invited</div>
-          <h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${inviterName} added you to ${teamName}.</h1>
-          <p style="margin-top:18px;font-size:14px;line-height:1.6;color:#404040;">Open the link below to review and accept. You'll be asked to sign in with Google.</p>
-          <p style="margin-top:24px;"><a href="${acceptUrl}" style="display:inline-block;background:#171717;color:#fff;text-decoration:none;font-size:14px;padding:10px 20px;border-radius:6px;">Accept invite</a></p>
-          <p style="margin-top:18px;font-size:12px;color:#737373;">Use your Google account for <strong>${u.email}</strong>.</p>
-          <p style="margin-top:24px;font-size:11px;color:#a3a3a3;word-break:break-all;">Or copy this link: ${acceptUrl}</p>
-          <p style="margin-top:18px;font-size:11px;color:#a3a3a3;">If you didn't expect this, just ignore the email. ${signInUrl}</p>
-        </td></tr>
-      </table>
-      <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">${legalFooterLine()}</div>
-    </td></tr>
-  </table>
-</body></html>`,
+        // Same shell as the rest (2026-09-23): this one was a hand-built
+        // card — styled, but with no logo and its own footer.
+        html: await meetEmailHtml(
+          ctx.workspaceId,
+          "You've been invited",
+          `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(inviterName)} added you to ${escapeHtml(teamName)}.</h1>
+<p style="margin-top:18px;font-size:14px;line-height:1.6;color:#404040;">Open the link below to review and accept. You'll be asked to sign in with Google.</p>
+<p style="margin-top:24px;"><a href="${acceptUrl}" style="display:inline-block;background:#171717;color:#fff;text-decoration:none;font-size:14px;padding:10px 20px;border-radius:6px;">Accept invite</a></p>
+<p style="margin-top:18px;font-size:12px;color:#737373;">Use your Google account for <strong>${escapeHtml(u.email)}</strong>.</p>
+<p style="margin-top:24px;font-size:11px;color:#a3a3a3;word-break:break-all;">Or copy this link: ${acceptUrl}</p>
+<p style="margin-top:18px;font-size:11px;color:#a3a3a3;">If you didn't expect this, just ignore the email.</p>`,
+        ),
       });
     } catch (e) {
       console.error('[teams/members] invite email failed (non-fatal)', e);
@@ -4140,7 +4167,11 @@ meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
         to: u.email,
         subject: `Reminder: accept your invite to ${team?.name ?? 'a team'}`,
         text: `Accept the invite: ${acceptUrl}\n\n${emailSignoff()}`,
-        html: `<p>Open <a href="${acceptUrl}">${acceptUrl}</a> to accept the invite.</p>`,
+        html: await meetEmailHtml(
+          ctx.workspaceId,
+          'Invitation reminder',
+          `<p>Open <a href="${acceptUrl}">${acceptUrl}</a> to accept the invite.</p>`,
+        ),
       });
     } catch (e) {
       console.error('[teams/resend-invite] email failed (non-fatal)', e);
