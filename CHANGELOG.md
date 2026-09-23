@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-09-23
+
+### Changed
+- **`deploy-api.sh --probe` can match a STATUS, not only a body** —
+  `--probe "<url> | status:401"`. Found by the session that had run four API
+  deploys today, reading the script against its own releases rather than
+  against its description: nearly every route it ships is authenticated, and a
+  body probe cannot work on one, because `curl -f` fails on any non-2xx and
+  leaves an empty body for the match. Its only honest options were a false
+  `--no-visible-change` or routing around the script — which is how an escape
+  hatch stops meaning anything.
+  "401, not 404" is not the weaker check it looks: the old image answers 404
+  because the route does not exist, the new one answers 401 because it exists
+  and wants a session. It separates the two images exactly, and needs no
+  credentials.
+- **The script now says what gate 2 does NOT do.** `--exclude-standard` skips
+  ignored files, so `apps/api/.env` never trips it; what keeps env files out of
+  the builder is `.dockerignore`'s `**/.env`, added in v0.70.1 after exactly
+  that hole. The comment had credited itself with both halves. It now names the
+  other one and says that if that `.dockerignore` line ever goes, this gate will
+  not catch it.
+
 ## [1.4.0] — 2026-09-23 — an email wears the workspace's mark, or The Thread's (staging)
 
 Sjoerd, on a booking confirmation carrying the handwritten "the fibre"

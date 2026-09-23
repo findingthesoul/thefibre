@@ -130,9 +130,20 @@ After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl htt
 ./scripts/deploy-api.sh prod    --probe "… | …" --dry-run   # check without deploying
 ```
 
-`--probe` takes either a `url | expected text` pair or the path of a script to
-run (exit 0 passes) — for a check a single request cannot make, like the
-several ordered calls a payment path needs.
+`--probe` takes one of three things:
+
+- `"<url> | expected text"` — for a public endpoint;
+- `"<url> | status:401"` — for an **authenticated** route, which is most of
+  them. A body probe cannot work there at all: `curl -f` fails on any non-2xx,
+  so the body is empty and the match never hits. "401, not 404" is the real
+  discriminator anyway — the old image has no such route, the new one has it
+  and wants a session;
+- a script path (exit 0 passes) — for a check a single request cannot make,
+  like the several ordered calls a payment path needs.
+
+If none of them fits, `--no-visible-change` is the honest answer. Email
+rendering is the clearest case: no request shows what an inbox renders, so any
+probe invented for it would pass without proving anything.
 
 `fly deploy` uploads the WORKING TREE, not the branch, and on 2026-09-23 that
 shipped something unintended twice inside one hour — once another session's

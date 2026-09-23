@@ -56,6 +56,11 @@ usage: ./scripts/deploy-api.sh <staging|prod> (--probe "<url> | <expected>" | --
 
   --probe "<url> | <expected>"   a request only the NEW code answers this way.
                                  Run after the deploy; a miss fails the run.
+  --probe "<url> | status:401"   or match the STATUS instead of the body —
+                                 for an authenticated route, where "401 not
+                                 404" is the real discriminator: the old image
+                                 has no such route, the new one wants a
+                                 session.
   --probe <script.mjs>           or a script that checks it — anything already
                                  in scripts/ (smoke-prod.mjs, verify-*.mjs).
                                  Exit 0 passes. For checks a single request
@@ -129,6 +134,14 @@ fi
 # and they rode two deploys. Scoped to these paths rather than the whole repo
 # on purpose — an untracked note in docs/ cannot reach the builder, and failing
 # on it would make this script the thing people route around.
+#
+# What this does NOT cover, said plainly so nobody credits it with more than
+# it does: --exclude-standard skips IGNORED files, so apps/api/.env and
+# .env.staging never trip it. Those are kept out of the builder by
+# .dockerignore (**/.env, **/.env.*, added in v0.70.1 after exactly that
+# hole). The two halves together are sound — but if that .dockerignore line
+# ever goes, this gate will not catch it, and env files are copied into
+# apps/api routinely for integration tests.
 UPLOADED="$(git ls-files --others --exclude-standard -- apps/api packages)"
 if [ -n "$UPLOADED" ]; then
   echo "REFUSED: untracked files under apps/api or packages — these UPLOAD to the Fly builder." >&2
@@ -201,6 +214,44 @@ else
   esac
   URL="${PROBE%%|*}"; URL="$(echo "$URL" | xargs)"
   WANT="${PROBE#*|}";  WANT="$(echo "$WANT" | xargs)"
+
+  # status: — because MOST routes here are authenticated, and for those a body
+  # probe cannot work at all: `curl -f` fails on any non-2xx, so the body is
+  # empty and the grep always misses. A session that ships authenticated
+  # routes would then have to choose between a false --no-visible-change and
+  # routing around this script, which is how the escape hatch stops meaning
+  # anything. Reported by the session that had run four API deploys today,
+  # against its own route rather than against this description.
+  #
+  # "401, not 404" is not a weaker check than a body match. The old image
+  # answers 404 because the route does not exist; the new one answers 401
+  # because it exists and wants a session. It separates the two images exactly
+  # and needs no credentials.
+  case "$WANT" in
+    status:*)
+      CODE_WANT="${WANT#status:}"
+      echo "Probing $URL for HTTP $CODE_WANT"
+      CODE_GOT="$(curl -s -o /dev/null -m 30 -w '%{http_code}' "$URL" || echo 000)"
+      if [ "$CODE_GOT" != "$CODE_WANT" ]; then
+        echo "PROBE MISSED: $URL answered $CODE_GOT, not $CODE_WANT." >&2
+        if [ "$DRY" = "1" ]; then
+          echo "  Nothing was deployed — this is the CURRENT image answering." >&2
+        else
+          echo "  The deploy HAPPENED — the running image may not be the one you meant," >&2
+          echo "  or the probe was wrong. Check both before believing either." >&2
+        fi
+        exit 1
+      fi
+      ANSWER="$URL answers $CODE_WANT"
+      echo
+      if [ "$DRY" = "1" ]; then
+        echo "would deploy $HEAD_SHA, probe: $ANSWER"
+      else
+        echo "deployed $HEAD_SHA as $RELEASE, probe: $ANSWER"
+      fi
+      exit 0 ;;
+  esac
+
   echo "Probing $URL for: $WANT"
   BODY="$(curl -fsS -m 30 "$URL" || true)"
   if ! printf '%s' "$BODY" | grep -qF -- "$WANT"; then
