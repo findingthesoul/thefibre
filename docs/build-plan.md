@@ -1420,6 +1420,16 @@ Rules:
 
 ## Parked / decisions deferred
 
+- **Spaces — a system for conversations** ([spaces-proposal.md](spaces-proposal.md), 2026-09-23). Analysed and planned,
+  deliberately not started: *"we're not going to build it now, just prep it"*.
+  The finding is that the container is not what is missing — the loop is: no row
+  anywhere in this repo has a non-workspace person writing something another
+  non-workspace person reads. Everything it would stand on already exists
+  (participant auth, `cohort_directory` consent, `identity_profile`, the grant
+  journal, the 5-minute scheduler, the sanitiser). **Unparking it needs four
+  answers from Sjoerd first** — proposal §6 D1, D3, D4, D5: which room (a Thread
+  cohort or soul.com), email cadence, who moderates, and whether `/my` grows a
+  fifth destination against its own plan. Circle stays wired up either way.
 - **`person_app_profile` / `org_app_profile` JSONB extension tables** (brief v0.4 §5 Domain 5) — the canonical home for app-owned curator data once schema stabilises. Right now the existing app-tagged tables play that role.
 - **Auto-edit / 10-step undo / change history** — good idea, premature. GDPR erasure must zero PII; storing old field values is a hidden second copy. Revisit once we know which fields people actually edit most.
 - **Self-hosted Supabase on Hetzner** — migration trigger documented in brief §4 (client requiring no-US parent, scale ≥10k users, or sovereign regulator).

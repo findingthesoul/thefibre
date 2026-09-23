@@ -4,7 +4,10 @@
 (conversations, like the circle functions). Can we analyse functionality. What
 exists. And then make a plan."*
 
-**Status:** proposal. Nothing in it is built. No decision in §6 has been taken.
+**Status:** PARKED, on purpose. Sjoerd, 2026-09-23: *"we're not going to build it
+now... just prep it."* Nothing in it is built and nothing should be started
+until §6 D1, D3, D4 and D5 are answered. Filed in build-plan.md under Parked so
+it is picked up deliberately rather than drifted into.
 
 Three sections answer the three questions, in order: **§2–3** is the
 functionality analysis (what Circle does, what we have), **§4–5** is where a
