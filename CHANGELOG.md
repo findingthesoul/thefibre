@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.128.0] — 2026-09-23 — three notes on the booking page (Meet 2.10.2, staging)
+
+Sjoerd, reading his own page after the workspace line landed.
+
+- **"Logo and name is too much."** The workspace shows its logo when it has
+  one, its name when it does not. Never both — a logo already says the name.
+- **The person's photo is bigger**, on the meeting-type page and the owner
+  page, and the same size on both: they were 48px and 64px.
+- **"Powered by The Thread: Meet"**, linking to `thethread.app` rather than
+  back to the app the visitor is already standing in. Through
+  `surfaceUrl('website')`, so staging's footer points at staging.
+
 ## [0.127.0] — 2026-09-23
 
 ### Changed
