@@ -58,6 +58,22 @@ why §1.5's render-check rule is a rule and not a nicety.
    requires a signed-in render check in a real browser before it ships.
 6. **Testing in production is legitimate** — monitoring, smoke checks and
    staged rollout are part of the approach, not an admission of failure.
+7. **An empty list is indistinguishable from a working one.** When a
+   feature's whole point is a LIST of something, assert it is NON-EMPTY for
+   somebody who should have entries. (Written down 2026-09-23 by the session
+   that promoted To do, after the one before it shipped a team picker whose
+   query named a column that does not exist. PostgREST answers that with a
+   400 at RUNTIME — a string TypeScript never reads — so the function caught
+   the error, logged a warning nobody watches, and returned `[]`. Every check
+   passed: the list loaded, an add succeeded, the re-read was fine. The
+   picker simply never appeared, and filing under a team was refused as "not
+   a member of that team". The feature looked shipped and did nothing. The
+   narrower lesson is not "test more": it is that the empty path is the
+   SILENT one, and the happy case walks straight past it.)
+8. **Run every new PostgREST select against the real database** before
+   believing it. Related to 7 and to the three latent 400s of 2026-09-15:
+   a `.select('a, b, c')` is a string the compiler never validates, so a
+   typo or a column that moved is only ever a runtime answer.
 
 ---
 
