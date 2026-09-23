@@ -18,7 +18,7 @@
 // Three rules keep that honest, and a new source must obey all three:
 //
 //   1. PER SEAT. A source's rows appear only for a user who holds that app's
-//      membership (hasAppMembership). No seat, no row — otherwise the list
+//      membership (seatsHeldBy). No seat, no row — otherwise the list
 //      becomes a side door into an app.
 //   2. REFERENCE AND LABEL, NEVER CONTENT. A row carries app, a short title,
 //      a date and a link back. The discipline of the activity log: type and
@@ -97,15 +97,38 @@ const DAY = 86_400_000;
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Does this user hold a seat for the app? Rule 1 above. */
-async function hasAppMembership(userId: string, slug: string): Promise<boolean> {
-  const { data: app } = await adminClient.from('app').select('id').eq('slug', slug).maybeSingle();
-  if (!app) return false;
-  const { count } = await adminClient
+/**
+ * Every app slug this person holds a seat for — ONE query.
+ *
+ * This replaces `hasAppMembership(userId, slug)`, which cost two round trips
+ * each (look the app up by slug, then count memberships) and was called once
+ * per source. With three sources that was SIX sequential round trips before
+ * the list itself was fetched, on every panel load, in every app, on every
+ * page. My pattern, from when there was one source and it did not matter;
+ * it stopped being true the moment there were three.
+ *
+ * The same reasoning as app-shell.ts, which exists because seven layouts each
+ * made three sequential calls: the cost is the waiting, not the querying.
+ */
+async function seatsHeldBy(userId: string): Promise<Set<string>> {
+  const { data, error } = await adminClient
     .from('app_membership')
-    .select('user_id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('app_id', app.id);
-  return (count ?? 0) > 0;
+    .select('app:app_id (slug)')
+    .eq('user_id', userId);
+  if (error) {
+    // Loudly, and an empty set means "no seats" — which here shows the
+    // person their own typed list and nothing composed, rather than pretending
+    // the sources are empty (docs/testing-approach.md §1.9).
+    console.error('[tasks] seats', error.message);
+    return new Set();
+  }
+  const held = new Set<string>();
+  for (const row of data ?? []) {
+    const app = Array.isArray(row.app) ? row.app[0] : row.app;
+    const slug = (app as { slug?: string } | null)?.slug;
+    if (slug) held.add(slug);
+  }
+  return held;
 }
 
 /**
@@ -353,10 +376,11 @@ myTasksRoutes.get('/', async (c) => {
   // Before this, every one of these was hidden behind `fibre-flow` — so
   // somebody who uses Connect and not Flow never saw their own follow-ups,
   // which looks exactly like the feature not working.
+  const held = await seatsHeldBy(ctx.userId);
   const seats = {
-    connect: await hasAppMembership(ctx.userId, 'fibre-sales'),
-    flow: await hasAppMembership(ctx.userId, 'fibre-flow'),
-    thread: await hasAppMembership(ctx.userId, 'the-thread'),
+    connect: held.has('fibre-sales'),
+    flow: held.has('fibre-flow'),
+    thread: held.has('the-thread'),
   };
   if (seats.connect || seats.flow) {
     for (const item of await flowTasks(ctx.userId, ctx.workspaceId)) {

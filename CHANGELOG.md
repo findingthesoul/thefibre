@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.113.0] — 2026-09-23 — the To do list asked six questions to answer one
+
+Opening the panel checked each source's seat with `hasAppMembership`, which is
+**two** round trips — look the app up by slug, then count memberships — and the
+three checks ran one after another. **Six sequential round trips before the
+list itself was fetched**, on every panel load, in every one of seven apps, on
+every page.
+
+It was mine, written when there was one source and the waiting did not show.
+The third source is what made it show; the session that added it inherited the
+shape rather than introducing it.
+
+`seatsHeldBy(userId)` now asks once — every slug this person holds — and the
+sources test a set. The same reasoning as `app-shell.ts`, which exists because
+seven layouts each made three sequential calls: **the cost is the waiting, not
+the querying.**
+
+Found by reading a diff someone else had written in this file, which is an
+argument for reviewing your own code in someone else's hands.
+
 ## [0.112.0] — 2026-09-23 — a thread has a to-do list, and templates have a third group (staging)
 
 Sjoerd: *"I want per thread a to do list... and people can insert a to do
