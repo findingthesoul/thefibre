@@ -59,20 +59,31 @@ async function threadContext(
   };
 }
 
-/** Names for the assignee chips, in one query rather than one per row. */
+/** Names for the assignee chips, in one query rather than one per row.
+ *
+ *  The column is `full_name`. This said `name` when first written, which
+ *  public."user" does not have — PostgREST answers that with a 400 at
+ *  RUNTIME, which TypeScript never reads, and the catch below turned it into
+ *  an empty map. So every assignee chip rendered blank while the list
+ *  answered a perfectly healthy 200. Caught by a fixture that tried to INSERT
+ *  a name, not by the tests, which only ever asserted that rows came back.
+ *  There is now a test that asserts the name itself. */
 async function namesFor(userIds: string[]): Promise<Map<string, string>> {
   const ids = [...new Set(userIds.filter(Boolean))];
   if (!ids.length) return new Map();
   const { data, error } = await adminClient
     .from('user')
-    .select('id, name, email')
+    .select('id, full_name, email')
     .in('id', ids);
   if (error) {
-    console.warn('[thread-tasks] assignee names', error.message);
+    console.error('[thread-tasks] assignee names', error.message);
     return new Map();
   }
   return new Map(
-    (data ?? []).map((u) => [u.id as string, ((u.name as string) || (u.email as string) || '') as string]),
+    (data ?? []).map((u) => [
+      u.id as string,
+      ((u.full_name as string) || (u.email as string) || '') as string,
+    ]),
   );
 }
 
@@ -429,8 +440,29 @@ threadTaskRoutes.post('/threads/:id/tasks/apply-template', async (c) => {
   const tasks = parsed.data.tasks;
   if (!tasks.length) return c.json({ items: [], added: 0 });
 
-  const base = Date.now();
-  const rows = tasks.map((t, i) => ({
+  // APPEND, in the template's own order.
+  //
+  // This used to write `t.position ?? base + i` — the template's STORED
+  // position, which is 0,1,2,… and collides head-on with the positions of
+  // to-dos already on the thread. Applying a checklist to a thread that had
+  // three items interleaved the two lists: "Book the venue" landed above an
+  // existing item, the dates jumped backwards and forwards down the list, and
+  // nothing errored. Seen on the screen, not in a test — the API had
+  // faithfully added five rows and said so.
+  //
+  // A template's positions only ever meant "the order WITHIN this list", so
+  // they order the insert and do not survive it.
+  const { data: last } = await adminClient
+    .from('thread_task')
+    .select('position')
+    .eq('thread_id', thread.id)
+    .is('deleted_at', null)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const base = ((last?.position as number | undefined) ?? 0) + 1;
+  const ordered = [...tasks].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const rows = ordered.map((t, i) => ({
     workspace_id: thread.workspace_id,
     thread_id: thread.id,
     title: t.title.trim(),
@@ -446,7 +478,7 @@ threadTaskRoutes.post('/threads/:id/tasks/apply-template', async (c) => {
     // does it. Whoever applies it hands the items out afterwards.
     assignee_user_id: null,
     team_id: thread.team_id,
-    position: t.position ?? base + i,
+    position: base + i,
     source_template_id: tpl.id as string,
     created_by: ctx.userId,
   }));

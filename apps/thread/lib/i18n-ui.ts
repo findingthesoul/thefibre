@@ -1637,12 +1637,12 @@ const CATALOG = {
 
   // ── templates ─────────────────────────────────────────────────────────
   templates_desc: {
-    en: 'Reusable designs — for whole threads and for certificates.',
-    nl: 'Herbruikbare ontwerpen — voor hele threads en voor certificaten.',
-    es: 'Diseños reutilizables — para threads enteros y para certificados.', // MT
-    pt: 'Designs reutilizáveis — para threads inteiros e para certificados.', // MT
-    de: 'Wiederverwendbare Designs — für ganze Threads und für Zertifikate.', // MT
-    fr: 'Des modèles réutilisables — pour des threads entiers et pour des certificats.', // MT
+    en: 'Reusable designs — for whole threads, for certificates, and for what has to get done.',
+    nl: 'Herbruikbare ontwerpen — voor hele threads, voor certificaten en voor wat er moet gebeuren.',
+    es: 'Diseños reutilizables — para threads enteros, para certificados y para lo que hay que hacer.', // MT
+    pt: 'Designs reutilizáveis — para threads inteiros, para certificados e para o que precisa ser feito.', // MT
+    de: 'Wiederverwendbare Designs — für ganze Threads, für Zertifikate und für das, was zu tun ist.', // MT
+    fr: 'Des modèles réutilisables — pour des threads entiers, pour des certificats et pour ce qui doit être fait.', // MT
   },
   cert_templates: {
     en: 'Certificate templates',
@@ -7249,6 +7249,22 @@ const CATALOG = {
     pt: 'Negativo é antes do início: −14 significa duas semanas antes. Deixe vazio para não ter data.', // MT
     de: 'Negativ heißt davor: −14 bedeutet zwei Wochen vorher. Leer lassen für kein Datum.', // MT
     fr: 'Négatif veut dire avant le début : −14 signifie deux semaines avant. Laisse vide pour aucune date.', // MT
+  },
+  todo_step_one: {
+    en: 'step',
+    nl: 'stap',
+    es: 'paso', // MT
+    pt: 'passo', // MT
+    de: 'Schritt', // MT
+    fr: 'étape', // MT
+  },
+  todo_step_many: {
+    en: 'steps',
+    nl: 'stappen',
+    es: 'pasos', // MT
+    pt: 'passos', // MT
+    de: 'Schritte', // MT
+    fr: 'étapes', // MT
   },
   todo_due: {
     en: 'Due',

@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { CheckCircle2, Circle, ListPlus, Loader2, Plus, Trash2 } from 'lucide-react';
-import type { Locale } from '@thefibre/shared';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,21 @@ import {
   type ThreadTask,
   type TodoTemplate,
 } from './tasks-actions';
+
+/** 'YYYY-MM-DD' → 'Sat 31 Oct'. The row printed the raw ISO string until it
+ *  was looked at on a screen — an internal format shown to a person, the same
+ *  thing v0.110.0 fixed when a to-do read "fibre-sales". Intl throws on an
+ *  invalid date and a throw here takes the whole panel down, so a date it
+ *  cannot parse is shown as it came. */
+function fmtDue(locale: Locale, iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(d);
+}
 
 export function ThreadTasksPanel({
   locale,
@@ -159,19 +174,24 @@ export function ThreadTasksPanel({
     >
       {/* Add a line. Enter commits — a checklist is typed fast or not at all. */}
       <div className="flex items-end gap-2">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder={t(locale, 'todo_add_placeholder')}
-          className={`${FIELD_INPUT_CLASS} flex-1`}
-          aria-label={t(locale, 'todo_add_placeholder')}
-        />
+        {/* The width lives on the wrapper: FIELD_INPUT_CLASS already sets
+            w-full, and a second width utility beside it is a coin toss on
+            stylesheet order (it went the wrong way in the template editor). */}
+        <div className="min-w-0 flex-1">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                add();
+              }
+            }}
+            placeholder={t(locale, 'todo_add_placeholder')}
+            className={FIELD_INPUT_CLASS}
+            aria-label={t(locale, 'todo_add_placeholder')}
+          />
+        </div>
         {/* DateField is uncontrolled by design (shared component), so it is
             remounted by key to clear after each add rather than growing a
             controlled variant of it here. */}
@@ -326,7 +346,7 @@ function Row({
       <div className="min-w-0 flex-1">
         <div className={`text-sm ${done ? 'text-ink-muted line-through' : ''}`}>{task.title}</div>
         {task.due_on && (
-          <div className="text-xs text-ink-muted tabular-nums">{task.due_on}</div>
+          <div className="text-xs text-ink-muted tabular-nums">{fmtDue(locale, task.due_on)}</div>
         )}
       </div>
 

@@ -182,6 +182,28 @@ describe('a thread to-do list is shared inside the thread', () => {
     expect(task.team_id).toBe(teamA);
   });
 
+  it('names the assignee — a blank chip is what a bad select looks like', async () => {
+    // This assertion exists because the first version of namesFor() selected
+    // `name` from public."user", which has `full_name`. PostgREST answered
+    // 400 at runtime, the catch turned it into an empty map, and every chip
+    // rendered blank while the list answered 200. Asserting "rows came back"
+    // could never have seen it; asserting the NAME can.
+    const made = await (
+      await call(adminA, 'POST', `/thread/threads/${threadA}/tasks`, {
+        title: 'has an assignee',
+        assignee_user_id: adminA.userId,
+      })
+    ).json();
+    createdTaskIds.push(made.id);
+
+    const body = await (await call(adminA, 'GET', `/thread/threads/${threadA}/tasks`)).json();
+    const row = body.items.find((t: { id: string }) => t.id === made.id);
+    expect(row).toBeTruthy();
+    expect(row.assignee_user_id).toBe(adminA.userId);
+    expect(row.assignee_name, 'the chip needs a name, not an empty string').toBeTruthy();
+    expect(String(row.assignee_name).length).toBeGreaterThan(0);
+  });
+
   it('ANOTHER member of the same workspace sees it — that is the whole point', async () => {
     const res = await call(memberA, 'GET', `/thread/threads/${threadA}/tasks`);
     expect(res.status).toBe(200);
@@ -346,6 +368,35 @@ describe('to-do templates', () => {
     expect(venue.team_id).toBe(teamA);
     // A template says WHAT, never who.
     expect(venue.assignee_user_id).toBeNull();
+  });
+
+  it('APPENDS after what is already there, in the template’s own order', async () => {
+    // Found by looking at the screen, not by a test: the first version wrote
+    // the template's stored position (0,1,2…) straight onto the row, which
+    // collides with the positions of to-dos already on the thread. Applying a
+    // checklist INTERLEAVED it with the existing list — dates jumping up and
+    // down the page — while the API happily reported five rows added.
+    const before = await (await call(adminA, 'GET', `/thread/threads/${threadA}/tasks`)).json();
+    const maxBefore = Math.max(...before.items.map((t: { position: number }) => t.position));
+
+    const res = await call(adminA, 'POST', `/thread/threads/${threadA}/tasks/apply-template`, {
+      template_id: templateId,
+    });
+    expect(res.status).toBe(201);
+    const added = await res.json();
+    for (const t of added.items) createdTaskIds.push(t.id);
+
+    // Every new row sits after everything that was already there…
+    for (const t of added.items) expect(t.position).toBeGreaterThan(maxBefore);
+    // …and they keep the order the template listed them in.
+    const titles = [...added.items]
+      .sort((a: { position: number }, b: { position: number }) => a.position - b.position)
+      .map((t: { title: string }) => t.title);
+    expect(titles).toEqual([
+      'Confirm the venue',
+      'Send the joining details',
+      'Something with no date',
+    ]);
   });
 
   it('adds rather than replaces — applying twice keeps the first list', async () => {

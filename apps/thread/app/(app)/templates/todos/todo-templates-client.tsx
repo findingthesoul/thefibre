@@ -126,7 +126,10 @@ export function TodoTemplatesClient({
                 <div className="text-xs text-ink-muted">
                   {t(locale, row.scope === 'personal' ? 'personal' : row.scope === 'team' ? 'team' : 'workspace')}
                   {' · '}
-                  {row.structure?.tasks?.length ?? 0}
+                  {/* A bare number reads as "Workspace · 5" and makes the
+                      reader guess what was counted. */}
+                  {row.structure?.tasks?.length ?? 0}{' '}
+                  {t(locale, (row.structure?.tasks?.length ?? 0) === 1 ? 'todo_step_one' : 'todo_step_many')}
                 </div>
               </div>
               <Button
@@ -204,33 +207,44 @@ export function TodoTemplatesClient({
               <p className="mt-1 text-xs text-ink-subtle">{t(locale, 'todo_day_offset_hint')}</p>
               <ul className="mt-3 space-y-2">
                 {draft.tasks.map((task, i) => (
+                  // The widths live on WRAPPERS, not on the inputs.
+                  // FIELD_INPUT_CLASS carries `w-full`, so putting `flex-1`
+                  // or `w-24` in the same class string pits two width
+                  // utilities of equal specificity against each other and
+                  // stylesheet order decides the winner. It decided wrong:
+                  // the day-offset boxes took the full row and every title
+                  // collapsed to a sliver. Seen on the screen; nothing threw.
                   <li key={i} className="flex items-center gap-2">
-                    <input
-                      value={task.title}
-                      onChange={(e) => {
-                        const tasks = [...draft.tasks];
-                        tasks[i] = { ...task, title: e.target.value };
-                        setDraft({ ...draft, tasks });
-                      }}
-                      placeholder={t(locale, 'todo_add_placeholder')}
-                      className={`${FIELD_INPUT_CLASS} flex-1`}
-                      aria-label={t(locale, 'todo_add_placeholder')}
-                    />
-                    <input
-                      type="number"
-                      value={task.day_offset ?? ''}
-                      onChange={(e) => {
-                        const tasks = [...draft.tasks];
-                        tasks[i] = {
-                          ...task,
-                          day_offset: e.target.value === '' ? null : Number(e.target.value),
-                        };
-                        setDraft({ ...draft, tasks });
-                      }}
-                      className={`${FIELD_INPUT_CLASS} w-24 tabular-nums`}
-                      aria-label={t(locale, 'todo_day_offset')}
-                      title={t(locale, 'todo_day_offset')}
-                    />
+                    <div className="min-w-0 flex-1">
+                      <input
+                        value={task.title}
+                        onChange={(e) => {
+                          const tasks = [...draft.tasks];
+                          tasks[i] = { ...task, title: e.target.value };
+                          setDraft({ ...draft, tasks });
+                        }}
+                        placeholder={t(locale, 'todo_add_placeholder')}
+                        className={FIELD_INPUT_CLASS}
+                        aria-label={t(locale, 'todo_add_placeholder')}
+                      />
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <input
+                        type="number"
+                        value={task.day_offset ?? ''}
+                        onChange={(e) => {
+                          const tasks = [...draft.tasks];
+                          tasks[i] = {
+                            ...task,
+                            day_offset: e.target.value === '' ? null : Number(e.target.value),
+                          };
+                          setDraft({ ...draft, tasks });
+                        }}
+                        className={`${FIELD_INPUT_CLASS} tabular-nums`}
+                        aria-label={t(locale, 'todo_day_offset')}
+                        title={t(locale, 'todo_day_offset')}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() =>
