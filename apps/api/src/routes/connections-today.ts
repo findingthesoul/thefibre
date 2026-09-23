@@ -28,6 +28,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { can } from '../lib/plan.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { effortFor, taskKind, type EffortKind } from '../lib/effort.js';
 import { dayInstant, daysBetween as sharedDaysBetween } from '../lib/day-instant.js';
@@ -391,7 +392,10 @@ connectionsTodayRoutes.get('/today', async (c) => {
     // The rule for WHICH ones is the flow_task rule above, word for word —
     // mine, plus anything nobody has picked up — so the list does not
     // contain two rules that look alike and are not.
-    if (meUserId && (await holdsThreadSeat(meUserId))) {
+    // The seat says this PERSON may see The Thread's content; the plan says
+    // this WORKSPACE has the feature at all. Both, or Today becomes the way
+    // to read a checklist the workspace is not paying for.
+    if (meUserId && (await can(ws, 'thread_todo')) && (await holdsThreadSeat(meUserId))) {
       const { data: threadTasks, error: ttErr } = await adminClient
         .from('thread_task')
         .select('id, title, due_on, assignee_user_id, thread_id')

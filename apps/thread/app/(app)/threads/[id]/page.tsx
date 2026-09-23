@@ -60,12 +60,20 @@ export default async function ThreadDetailPage({
     apiFetch<{ can_edit_structure: boolean }>('/api/v1/thread/template-library').catch(() => ({
       can_edit_structure: true,
     })),
-    // The thread's shared to-do list, for the header badge only. Falling back
-    // to 0 hides the badge; it never draws a wrong number, and the panel
-    // reports the truth the moment it opens.
-    apiFetch<{ open_count: number }>(`/api/v1/thread/threads/${id}/tasks`).catch(() => ({
-      open_count: 0,
-    })),
+    // The thread's shared to-do list: the header badge, and whether the plan
+    // has the feature at all.
+    //
+    // Availability is DERIVED from this call rather than asked for
+    // separately — a 402 is the API's own gate answering, so the button
+    // cannot disagree with the route behind it. Any other failure leaves the
+    // feature available and the badge at 0: a network blip should not make
+    // the button vanish.
+    apiFetch<{ open_count: number }>(`/api/v1/thread/threads/${id}/tasks`)
+      .then((r) => ({ open_count: r.open_count, available: true }))
+      .catch((e) => ({
+        open_count: 0,
+        available: !(e instanceof ApiError && e.status === 402),
+      })),
   ]);
 
   // v3 layout: a single centred column, the thread as the main item, the
@@ -88,6 +96,7 @@ export default async function ThreadDetailPage({
         workspaceSlug={brand.slug}
         canEditStructure={library.can_edit_structure}
         openTaskCount={tasks.open_count}
+        todoAvailable={tasks.available}
       />
     </div>
   );

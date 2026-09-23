@@ -26,8 +26,27 @@ import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { isWorkspaceMember, rowInWorkspace } from '../lib/workspace-refs.js';
 import { filterVisibleTemplates } from '../lib/template-visibility.js';
+import { can, needsPlan } from '../lib/plan.js';
 
 export const threadTaskRoutes = new Hono();
+
+// A thread's to-do list is a plan feature (Sjoerd, 2026-09-23: "Can I check
+// that decision with a checkbox? Maybe it is between starter and pro").
+//
+// ONE gate, at the top, so a workspace without the feature cannot read it,
+// write it, template it or have a template applied to it. The affordances are
+// hidden in the UI too — this is the half that holds when they are not, and
+// the only half a script or a stale tab ever meets.
+//
+// Its own key, not `todo`: that one is the personal cross-app list, sold to
+// different people. See lib/plan.ts.
+threadTaskRoutes.use('*', async (c, next) => {
+  const ctx = c.get('ctx');
+  if (!(await can(ctx.workspaceId, 'thread_todo'))) {
+    return c.json({ error: needsPlan("A thread's to-do list", 'Pro'), code: 'plan_gate_thread_todo' }, 402);
+  }
+  await next();
+});
 
 const TASK_SELECT =
   'id, thread_id, title, notes, due_on, assignee_user_id, team_id, status, done_at, done_by, position, source_template_id, created_by, created_at, updated_at';

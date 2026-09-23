@@ -95,6 +95,27 @@ beforeAll(async () => {
     if (error) throw new Error(`app membership fixture: ${error.message}`);
   }
 
+  // A throwaway workspace does NOT arrive without a plan: it gets a
+  // workspace_subscription row on 'free', and free does not include
+  // thread_todo. So every test below would 402 without putting this
+  // workspace on a plan that HAS the feature. (The first version assumed no
+  // subscription meant the 'unknown' plan, where can() fails open — wrong,
+  // and the whole suite went red at once, which is the pleasant way to find
+  // out.)
+  //
+  // wsB gets it TOO, and that is the interesting half: the plan gate runs
+  // before the tenancy check, so an attacker on a plan without the feature
+  // is refused 402 and the cross-tenant tests below would pass without ever
+  // reaching the code they exist to test. Giving the attacker the feature
+  // removes the confound — their 404 then means "not your thread", which is
+  // the claim.
+  for (const w of [wsA, wsB]) {
+    const { error: subErr } = await service
+      .from('workspace_subscription')
+      .upsert({ workspace_id: w, plan_id: 'pro', status: 'active' }, { onConflict: 'workspace_id' });
+    if (subErr) throw new Error(`workspace_subscription fixture: ${subErr.message}`);
+  }
+
   const { data: tm, error: teamErr } = await service
     .from('team')
     .insert({ workspace_id: wsA, name: 'Tasks test', slug: `int-tasks-${randomUUID().slice(0, 8)}` })
@@ -158,6 +179,7 @@ afterAll(async () => {
     await service.from('thread_template').delete().in('id', createdTemplateIds);
   }
   await service.from('user_task').delete().in('user_id', [adminA.userId, memberA.userId]);
+  await service.from('workspace_subscription').delete().in('workspace_id', [wsA, wsB]);
   await service.from('thread_thread').delete().eq('id', threadA);
   await service.from('program').delete().eq('id', programA);
   await service.from('thread_organiser').delete().eq('id', organiserA);
@@ -166,6 +188,103 @@ afterAll(async () => {
   for (const u of [adminA, memberA, memberB]) await deleteFixtureUser(u);
   await deleteThrowawayWorkspace(wsA);
   await deleteThrowawayWorkspace(wsB);
+});
+
+describe('the plan decides whether a thread has a to-do list at all', () => {
+  // Sjoerd, 2026-09-23: "Can I check that decision with a checkbox? Maybe it
+  // is between starter and pro". The line is data on billing_plan now, so
+  // this test asserts the MECHANISM (the gate reads the plan) rather than
+  // today's tier values, which are his to move without touching code.
+  //
+  // Both halves on purpose. A gate that refuses everybody passes a refusal
+  // test while being a lockout — the lesson from the tenancy suite, where a
+  // refusal proved nothing because its success twin was failing.
+  let starterWs: string;
+  let starterUser: FixtureUser;
+  let starterThread: string;
+  let starterProgram: string;
+  let starterOrganiser: string;
+
+  beforeAll(async () => {
+    starterWs = await createThrowawayWorkspace('plan-starter');
+    starterUser = await createFixtureUser(starterWs, 'plan-starter');
+    const { error: wmErr } = await service
+      .from('workspace_member')
+      .upsert({ workspace_id: starterWs, user_id: starterUser.userId, workspace_role: 'admin' });
+    if (wmErr) throw new Error(`workspace_member: ${wmErr.message}`);
+    const { error: amErr } = await service
+      .from('app_membership')
+      .upsert({ user_id: starterUser.userId, app_id: thethreadAppId, role: 'admin' }, { onConflict: 'user_id,app_id' });
+    if (amErr) throw new Error(`app membership: ${amErr.message}`);
+
+    // Put it on a plan that LACKS the feature. A new workspace already has
+    // a subscription (on free), so this is an upsert, not an insert — and
+    // free would have refused too, but naming the plan says what is being
+    // tested instead of relying on the default.
+    const { error: subErr } = await service
+      .from('workspace_subscription')
+      .upsert({ workspace_id: starterWs, plan_id: 'starter', status: 'active' }, { onConflict: 'workspace_id' });
+    if (subErr) throw new Error(`subscription: ${subErr.message}`);
+
+    const { data: org } = await service
+      .from('thread_organiser')
+      .insert({ user_id: starterUser.userId, workspace_id: starterWs, slug: `int-plan-${randomUUID().slice(0, 8)}` })
+      .select('id')
+      .single();
+    starterOrganiser = org!.id as string;
+    const { data: prog } = await service
+      .from('program')
+      .insert({ workspace_id: starterWs, app_id: thethreadAppId, title: 'Starter thread', format: 'event', status: 'draft' })
+      .select('id')
+      .single();
+    starterProgram = prog!.id as string;
+    const { data: th } = await service
+      .from('thread_thread')
+      .insert({
+        workspace_id: starterWs,
+        program_id: starterProgram,
+        organiser_id: starterOrganiser,
+        slug: `int-plan-${randomUUID().slice(0, 8)}`,
+      })
+      .select('id')
+      .single();
+    starterThread = th!.id as string;
+  });
+
+  afterAll(async () => {
+    await service.from('thread_thread').delete().eq('id', starterThread);
+    await service.from('program').delete().eq('id', starterProgram);
+    await service.from('thread_organiser').delete().eq('id', starterOrganiser);
+    await service.from('workspace_subscription').delete().eq('workspace_id', starterWs);
+    await service.from('app_membership').delete().eq('user_id', starterUser.userId);
+    await service.from('workspace_member').delete().eq('user_id', starterUser.userId);
+    await deleteFixtureUser(starterUser);
+    await service.from('organisation').delete().eq('workspace_id', starterWs);
+    await deleteThrowawayWorkspace(starterWs);
+  });
+
+  it('a plan without the feature is refused, and told which plan has it', async () => {
+    const res = await call(starterUser, 'GET', `/thread/threads/${starterThread}/tasks`);
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.code).toBe('plan_gate_thread_todo');
+    // The refusal names the thing and the plan — never a bare "upgrade".
+    expect(String(body.error)).toMatch(/Pro/);
+  });
+
+  it('refuses writing and templating too, not only reading', async () => {
+    const post = await call(starterUser, 'POST', `/thread/threads/${starterThread}/tasks`, { title: 'nope' });
+    expect(post.status).toBe(402);
+    const tpl = await call(starterUser, 'GET', '/thread/todo-templates');
+    expect(tpl.status).toBe(402);
+  });
+
+  it('and the workspace that HAS it is not locked out', async () => {
+    // The success twin. Without it, a gate that refused everybody would pass
+    // every test above.
+    const res = await call(adminA, 'GET', `/thread/threads/${threadA}/tasks`);
+    expect(res.status).toBe(200);
+  });
 });
 
 describe('a thread to-do list is shared inside the thread', () => {

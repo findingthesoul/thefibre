@@ -99,6 +99,17 @@ beforeAll(async () => {
     .upsert({ user_id: seated.userId, app_id: threadAppId, role: 'admin' }, { onConflict: 'user_id,app_id' });
   if (tErr) throw new Error(`thread membership: ${tErr.message}`);
 
+  // A throwaway workspace arrives on the free plan, which does not include
+  // thread_todo — Today gates the thread block on the workspace feature as
+  // well as the seat, so without this every assertion below would be empty
+  // for a reason that has nothing to do with what is being tested.
+  {
+    const { error: subErr } = await service
+      .from('workspace_subscription')
+      .upsert({ workspace_id: ws, plan_id: 'pro', status: 'active' }, { onConflict: 'workspace_id' });
+    if (subErr) throw new Error(`workspace_subscription fixture: ${subErr.message}`);
+  }
+
   const { data: org, error: oErr } = await service
     .from('thread_organiser')
     .insert({ user_id: seated.userId, workspace_id: ws, slug: `int-today-${randomUUID().slice(0, 8)}` })
@@ -192,6 +203,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (taskIds.length) await service.from('thread_task').delete().in('id', taskIds);
   await service.from('thread_task').delete().eq('thread_id', threadId);
+  await service.from('workspace_subscription').delete().eq('workspace_id', ws);
   await service.from('thread_thread').delete().eq('id', threadId);
   await service.from('program').delete().eq('id', programId);
   await service.from('thread_organiser').delete().eq('id', organiserId);

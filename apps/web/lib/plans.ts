@@ -60,6 +60,15 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       },
       { key: 'thread_custom_templates', label: 'Design your own threads', kind: 'flag' },
       { key: 'certificates', label: 'Certificates', kind: 'flag' },
+      // The shared checklist on a thread, and the to-do templates that fill
+      // it. NOT the personal cross-app list below — different key, different
+      // product, priced separately on purpose (Sjoerd, 2026-09-23).
+      {
+        key: 'thread_todo',
+        label: 'To-do list on a thread',
+        kind: 'flag',
+        note: 'What has to happen before an event, shared with its organisers and hosts',
+      },
     ],
   },
   {
@@ -99,6 +108,18 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     app: 'Platform',
     rows: [
+      // The personal cross-app To do list in every topbar. It HAD no row
+      // here: the key and its plan values shipped on 2026-09-23 but the
+      // matrix was never told about it, so the one screen built for deciding
+      // which tiers get a feature could not show it. Added when Sjoerd asked
+      // to decide the thread checklist's tier "with a checkbox" and there
+      // was no checkbox for either.
+      {
+        key: 'todo',
+        label: 'Personal To do list',
+        kind: 'flag',
+        note: 'One list across the apps, in every topbar. Private to each person.',
+      },
       { key: 'email_branding', label: 'Your logo + sender name on email', kind: 'flag' },
       { key: 'custom_sender_domain', label: 'Your own sending domain', kind: 'flag' },
       { key: 'team_access_groups', label: 'Teams decide app access', kind: 'flag' },

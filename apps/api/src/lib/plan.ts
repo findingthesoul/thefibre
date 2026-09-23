@@ -39,7 +39,14 @@ export type PlanFeature =
   // The personal To do list across the app family (Sjoerd, 2026-09-23: "TO
   // do's is only from org level plan"). Set on the plan ROWS by
   // 20260923130000; declared here because a new feature key is a deploy.
-  | 'todo';
+  | 'todo'
+  // The SHARED to-do list on one thread — a different product from `todo`
+  // above, sold to different people: that one is the personal cross-app
+  // queue, this one is part of running an event. Deliberately not the same
+  // key, or pricing one would price the other forever. Starting line is
+  // between Starter and Pro (20260923170000); Sjoerd moves it with a
+  // checkbox at /admin/plans, which is why it is a key and not a constant.
+  | 'thread_todo';
 
 export type Plan = {
   id: string;

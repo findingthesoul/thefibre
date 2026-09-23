@@ -476,7 +476,13 @@ myTasksRoutes.get('/', async (c) => {
   }
 
   // A thread's to-dos, the ones with this person's name on them.
-  if (seats.thread) {
+  //
+  // Gated on the workspace's `thread_todo` feature as well as the seat. A
+  // workspace can hold `todo` (this list) without holding `thread_todo` (the
+  // thread checklist) — they are separate keys on purpose — and composing
+  // rows from a feature they do not have would be the side door by another
+  // door.
+  if (seats.thread && (await can(ctx.workspaceId, 'thread_todo'))) {
     for (const item of await threadTasks(ctx.userId, ctx.workspaceId)) {
       const state = answered.get(`${item.source!.app}:${item.source!.ref}`);
       if (state?.state === 'done') continue;

@@ -3,7 +3,7 @@ import { Award, CalendarRange, ChevronRight, ListTodo, type LucideIcon } from 'l
 import { PageContainer, PageHeader } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiError } from '@/lib/api';
 import { EMPTY_LIBRARY, TemplateCard, type TemplateLibrary } from '@/components/template-cards';
 
 // Templates hub (Sjoerd 2026-07-02): one place for both template kinds.
@@ -17,6 +17,13 @@ export default async function TemplatesPage() {
   const library = await apiFetch<TemplateLibrary>('/api/v1/thread/template-library').catch(
     () => EMPTY_LIBRARY,
   );
+  // Whether this plan has to-do lists at all. Asked by calling the route the
+  // card leads to: a 402 is the gate itself answering, so the card cannot
+  // promise something the next page refuses. Any other failure leaves the
+  // card in place — a blip should not remove a feature.
+  const todoLists = await apiFetch('/api/v1/thread/todo-templates')
+    .then(() => true)
+    .catch((e) => !(e instanceof ApiError && e.status === 402));
   return (
     <PageContainer max="4xl">
       <PageHeader title={t(locale, 'templates')} description={t(locale, 'templates_desc')} />
@@ -34,13 +41,16 @@ export default async function TemplatesPage() {
           desc={t(locale, 'thread_templates_card_desc')}
         />
         {/* The third group (Sjoerd 2026-09-23): a checklist you drop onto a
-            thread. Same table as the thread templates, kind = 'todo'. */}
-        <Card
-          href="/templates/todos"
-          Icon={ListTodo}
-          title={t(locale, 'todo_templates')}
-          desc={t(locale, 'todo_templates_card_desc')}
-        />
+            thread. Same table as the thread templates, kind = 'todo'. Shown
+            only where the plan includes it. */}
+        {todoLists && (
+          <Card
+            href="/templates/todos"
+            Icon={ListTodo}
+            title={t(locale, 'todo_templates')}
+            desc={t(locale, 'todo_templates_card_desc')}
+          />
+        )}
       </div>
 
       {library.templates.length > 0 && (

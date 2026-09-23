@@ -224,6 +224,7 @@ export function ThreadTimeline({
   workspaceSlug = null,
   canEditStructure = true,
   openTaskCount = 0,
+  todoAvailable = true,
 }: {
   locale: Locale;
   categories?: { id: string; name: string; slug: string }[];
@@ -245,6 +246,9 @@ export function ThreadTimeline({
   /** Open to-dos on this thread, read with the page so the badge is right on
    *  first paint rather than after the panel is opened. */
   openTaskCount?: number;
+  /** Whether the plan includes a thread's to-do list. Defaults to true so a
+   *  failed read hides nothing; the API refuses regardless. */
+  todoAvailable?: boolean;
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -472,7 +476,10 @@ export function ThreadTimeline({
         </Link>
         {/* The thread's shared to-do list. The count is what makes it worth
             a place in the header — an icon that never says anything is an
-            icon nobody presses. */}
+            icon nobody presses. Hidden entirely below the plan that includes
+            it: a button that always answers "upgrade" is worse than no
+            button. */}
+        {todoAvailable && (
         <button
           type="button"
           onClick={() => setTasksOpen(true)}
@@ -486,6 +493,7 @@ export function ThreadTimeline({
             </span>
           )}
         </button>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -508,6 +516,7 @@ export function ThreadTimeline({
         </a>
       </div>
 
+      {todoAvailable && (
       <ThreadTasksPanel
         locale={locale}
         open={tasksOpen}
@@ -516,6 +525,7 @@ export function ThreadTimeline({
         workspaceMembers={workspaceMembers}
         onCountChange={setTaskCount}
       />
+      )}
 
       {/* The intention is deliberately NOT shown here. It lives in Settings →
           Basics and on the public page; once the planner started syncing
