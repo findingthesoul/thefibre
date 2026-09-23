@@ -13,7 +13,7 @@ import type { TodoItem, TodoGroups, TodoTeam } from '@thefibre/shared/ui/todo-pa
 export async function listTasks(
   view: 'open' | 'archive',
   team?: string,
-): Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[] } | null> {
+): Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[]; doneToday: TodoItem[] } | null> {
   return calls.listTasks(apiFetch, view, team);
 }
 

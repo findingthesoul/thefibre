@@ -1126,6 +1126,22 @@ const CHROME = {
     de: 'Etwas hinzufügen…', // MT
     fr: 'Ajouter quelque chose…', // MT
   },
+  todo_done_today: {
+    en: 'Done today',
+    nl: 'Vandaag gedaan',
+    es: 'Hecho hoy', // MT
+    pt: 'Feito hoje', // MT
+    de: 'Heute erledigt', // MT
+    fr: "Fait aujourd'hui", // MT
+  },
+  todo_show_less: {
+    en: 'Show less',
+    nl: 'Minder tonen',
+    es: 'Mostrar menos', // MT
+    pt: 'Mostrar menos', // MT
+    de: 'Weniger anzeigen', // MT
+    fr: 'Afficher moins', // MT
+  },
   todo_team: {
     en: 'Team',
     nl: 'Team',

@@ -19,14 +19,22 @@ export async function listTasks(
   view: 'open' | 'archive',
   /** undefined = every team; '' = the ones filed under no team at all. */
   team?: string,
-): Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[] } | null> {
+): Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[]; doneToday: TodoItem[] } | null> {
   try {
     const q = new URLSearchParams({ view });
     if (team !== undefined) q.set('team', team);
-    const data = await apiFetch<{ items: TodoItem[]; groups?: TodoGroups; teams?: TodoTeam[] }>(
-      `/api/v1/tasks?${q.toString()}`,
-    );
-    return { items: data.items, groups: data.groups ?? {}, teams: data.teams ?? [] };
+    const data = await apiFetch<{
+      items: TodoItem[];
+      groups?: TodoGroups;
+      teams?: TodoTeam[];
+      done_today?: TodoItem[];
+    }>(`/api/v1/tasks?${q.toString()}`);
+    return {
+      items: data.items,
+      groups: data.groups ?? {},
+      teams: data.teams ?? [],
+      doneToday: data.done_today ?? [],
+    };
   } catch {
     // A panel that fails to load says nothing rather than breaking the page.
     return null;

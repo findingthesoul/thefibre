@@ -409,6 +409,16 @@ myTasksRoutes.get('/', async (c) => {
     }
   }
 
+  // What you ticked TODAY, for the foot of the list (Sjoerd, 2026-09-23:
+  // "see at the bottom a todo checked of this day"). Both kinds — something
+  // you typed and something an app owns that you answered — because both are
+  // things you did today. Newest first: the last thing ticked is the one you
+  // are most likely to have ticked by mistake.
+  const today = isoDay(new Date());
+  const doneToday = mine
+    .filter((i) => i.state === 'done' && i.done_at && isoDay(new Date(i.done_at)) === today)
+    .sort((a, b) => (b.done_at ?? '').localeCompare(a.done_at ?? ''));
+
   const typed = mine.filter((i) => !i.source && i.state !== 'done');
   const all = [...typed, ...composed]
     .filter((i) => !appFilter || i.app === appFilter)
@@ -417,7 +427,13 @@ myTasksRoutes.get('/', async (c) => {
     );
   // The teams you may file under ride the list, so the panel needs no second
   // call to draw its picker.
-  return c.json({ view, items: all, groups: groupByDay(all), teams: await myTeams(ctx.userId, ctx.workspaceId) });
+  return c.json({
+    view,
+    items: all,
+    groups: groupByDay(all),
+    done_today: doneToday,
+    teams: await myTeams(ctx.userId, ctx.workspaceId),
+  });
 });
 
 const NewTask = z.object({

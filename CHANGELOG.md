@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.120.0] — 2026-09-23 — clicking a to-do 404'd, and the list now shows what you finished
+
+**The 404.** The API hands back an app-RELATIVE path — `/people/…`,
+`/threads/…`, `/runs/…` — because the item belongs to the app that made it.
+The panel lives in all seven apps, so rendering that path as-is asked the
+CURRENT app for somebody else's page: a Connect follow-up clicked from The
+Fibre went looking for `thefibre.app/people/…`. Links are now resolved through
+the branding registry against the host being served, so a panel on
+`.tech` links to `.tech` and never sends anyone to production while they
+believe they are on staging. Safe on the client, which is the only place it
+runs — items arrive from an effect, so none exist during a server render.
+
+**Done today**, at the foot of the list, *"see at the bottom a todo checked of
+this day (last 2.. then a load more for a full list)"*. Two by default —
+enough to undo a mistake without turning the list into a log of the day — with
+a count on the "Load more". Anything you ticked today, whether you typed it or
+an app owns it, and clicking the tick puts it back.
+
+**Full width on a phone.** It was hung off a button near the right edge, which
+made it a narrow column squeezed against the side. It is now fixed to the
+viewport below the topbar, square-edged, and unchanged from `sm` up.
+
 ## [0.119.0] — 2026-09-23
 
 ### Fixed

@@ -16,7 +16,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Circle, Clock, ListTodo, Loader2, Plus, RotateCcw, Users, X } from 'lucide-react';
 import { FIELD_INPUT_CLASS } from './fields.js';
 import { TODO_GROUPS } from '../todo-groups.js';
-import { APPS } from '../branding.js';
+import { APPS, appUrl } from '../branding.js';
+import type { AppId } from '../index.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
 export type TodoItem = {
@@ -44,7 +45,13 @@ export type TodoActions = {
   list: (
     view: 'open' | 'archive',
     team?: string,
-  ) => Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[] } | null>;
+  ) => Promise<{
+    items: TodoItem[];
+    groups: TodoGroups;
+    teams: TodoTeam[];
+    /** What you ticked today, newest first. */
+    doneToday: TodoItem[];
+  } | null>;
   add: (title: string, dueOn: string | null, teamId?: string | null) => Promise<void>;
   setState: (
     item: TodoItem,
@@ -72,6 +79,30 @@ function appName(slug: string | null): string | null {
   if (!slug) return null;
   const meta = (APPS as Record<string, { shortName?: string; name?: string } | undefined>)[slug];
   return meta?.shortName ?? meta?.name ?? slug;
+}
+
+/**
+ * Where a row actually points.
+ *
+ * The API hands back an app-RELATIVE path — `/people/…`, `/threads/…`,
+ * `/runs/…` — because it belongs to the app that made the item. The panel
+ * lives in all seven apps, so rendering that path as-is asks the CURRENT app
+ * for someone else's page: clicking a Connect follow-up from The Fibre looked
+ * for thefibre.app/people/… and 404'd (Sjoerd, 2026-09-23).
+ *
+ * Resolved against the host we are being served from, so a panel on
+ * thefibre.tech links to .tech and never sends somebody to production
+ * believing they are still on staging — the rule appUrl exists to enforce.
+ * Safe on the client only, which is where it runs: items arrive from an
+ * effect, so none exist during a server render.
+ */
+function hrefFor(item: TodoItem): string | null {
+  if (!item.href) return null;
+  if (/^https?:\/\//i.test(item.href)) return item.href;
+  const slug = item.app;
+  if (!slug || !(slug in APPS)) return item.href;
+  const host = typeof location === 'undefined' ? null : location.host;
+  return `${appUrl(slug as AppId, undefined, host).replace(/\/$/, '')}${item.href}`;
 }
 
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
@@ -102,6 +133,10 @@ export function TodoPanelButton({
   // Which team the list is narrowed to, and which one a new item gets.
   // undefined = every team; '' = the ones under no team.
   const [teams, setTeams] = useState<TodoTeam[]>([]);
+  // What you ticked today, at the foot of the list. Two by default — enough
+  // to undo a mistake without turning the list into a log of the day.
+  const [doneToday, setDoneToday] = useState<TodoItem[]>([]);
+  const [allDone, setAllDone] = useState(false);
   const [teamFilter, setTeamFilter] = useState<string | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +159,7 @@ export function TodoPanelButton({
       }
       if (!data) return;
       setTeams(data.teams);
+      setDoneToday(data.doneToday);
       if (which === 'archive') setArchive(data.items);
       else {
         setGroups(data.groups);
@@ -195,7 +231,18 @@ export function TodoPanelButton({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-lg border border-line bg-surface-raised shadow-lg">
+        <div
+          className={
+            // Full width on a phone (Sjoerd, 2026-09-23: "Mobile: to do list
+            // over de full width") — fixed to the viewport rather than hung
+            // off a button near the right edge, which is what made it a narrow
+            // column squeezed against the side. Unchanged from `sm` up.
+            'fixed inset-x-0 top-14 z-50 rounded-none border-x-0 ' +
+            'sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[22rem] ' +
+            'sm:max-w-[calc(100vw-1.5rem)] sm:rounded-lg sm:border-x ' +
+            'border-y border-line bg-surface-raised shadow-lg'
+          }
+        >
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="text-sm font-medium">{chromeT(locale, 'todo')}</span>
             <div className="flex items-center gap-2">
@@ -265,7 +312,48 @@ export function TodoPanelButton({
             ) : view === 'archive' ? (
               <Archive items={archive} busy={busy} onUndo={(i) => void act(() => actions.setState(i, 'open'))} />
             ) : (
-              <OpenList groups={groups} busy={busy} actions={actions} act={act} />
+              <>
+                <OpenList groups={groups} busy={busy} actions={actions} act={act} />
+                {doneToday.length > 0 && (
+                  <div className="mt-2 border-t border-line pt-2">
+                    <div className="mb-1 text-[10px] uppercase tracking-wider text-ink-muted">
+                      {chromeT(locale, 'todo_done_today')}
+                    </div>
+                    <ul className="space-y-0.5">
+                      {(allDone ? doneToday : doneToday.slice(0, 2)).map((item) => (
+                        <li
+                          key={item.id ?? `${item.source?.app}:${item.source?.ref}`}
+                          className="group flex items-start gap-2 rounded-md px-1 py-1 hover:bg-surface-sunken"
+                        >
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void act(() => actions.setState(item, 'open'))}
+                            aria-label={chromeT(locale, 'todo_undo')}
+                            className="mt-0.5 text-ink-muted hover:text-ink"
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
+                          <span className="min-w-0 flex-1 truncate text-sm text-ink-muted line-through">
+                            {item.title}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {doneToday.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setAllDone((v) => !v)}
+                        className="mt-1 px-1 text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
+                      >
+                        {allDone
+                          ? chromeT(locale, 'todo_show_less')
+                          : `${chromeT(locale, 'load_more')} (${doneToday.length - 2})`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -369,8 +457,8 @@ function Row({
             // reads the whole tag — including this.)
             className={`${FIELD_INPUT_CLASS} h-8 w-full px-1 py-0`}
           />
-        ) : item.href ? (
-          <a href={item.href} className="block truncate text-sm hover:underline">{item.title}</a>
+        ) : hrefFor(item) ? (
+          <a href={hrefFor(item)!} className="block truncate text-sm hover:underline">{item.title}</a>
         ) : (
           <span
             className={`block truncate text-sm ${onRename ? 'cursor-text' : ''}`}
