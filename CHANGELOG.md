@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.122.0] — 2026-09-23 — a migration's version is its identity (staging)
+
+Sjoerd, after watching two sessions collide: "Can you create a practice to
+prevent this double time stamp stuff for Supabase (or any deploy) to prevent
+the same mistake?"
+
+**What happened.** Two sessions, different apps, same day, both wrote
+`20260923140000_…`. Supabase keys its migration history on the 14 digits and
+nothing else, so the second push treated it as already applied: `db push`
+skipped it, listed only its siblings, and **exited 0**. The table was never
+created and every log said success. On production that is code shipped against
+a schema that never changed.
+
+The directory-lane protocol cannot prevent this. The two sessions touched no
+common file; they collided through state that lives outside the repo.
+
+**Three things now stand in the way.**
+
+- **`scripts/check-migration-versions.mjs`** reads every checkout's
+  `supabase/migrations` — this one AND every worktree — and refuses a
+  duplicate. Wired into `pnpm verify`, so no release can carry one. Exit 1
+  means duplicate, exit 2 means it could not look, which is never reported as
+  clean. Its message says the failure is silent, and says not to run the
+  `migration repair --status reverted` the CLI suggests: that points at
+  whichever file is genuinely applied, usually somebody else's.
+- **`scripts/new-migration.sh <name>`** picks the version instead of a person:
+  now, never behind the newest version any worktree holds, walking forward a
+  minute until it is free. Its first run proved the need — it offered
+  `…124817` while the repo already held `…150000`, because hand-picked
+  timestamps had run ahead of the clock, and a migration that sorts before an
+  applied one is out of its own history.
+- **Two lines in CLAUDE.md**, including the companion rule: apply to staging
+  and push the FILE in the same breath. A migration applied remotely but
+  absent locally makes `db push` refuse for every other checkout — that is
+  what blocked a peer for an hour.
+
+Checked both ways rather than only the green one: a planted duplicate exits 1
+with both files named, removing it exits 0, and four unit tests cover the rule
+itself (same file in two checkouts is not a clash; non-migration filenames are
+ignored).
+
 ## [0.121.0] — 2026-09-23 — a row that says more than "Follow up"
 
 Sjoerd: *"Would also be nice to get more content than just: follow up. A person
