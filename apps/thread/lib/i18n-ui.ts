@@ -223,6 +223,62 @@ const CATALOG = {
     de: 'Kopiert.', // MT
     fr: 'Copié.', // MT
   },
+  connect_stripe: {
+    en: 'Connect Stripe',
+    nl: 'Stripe koppelen',
+    es: 'Conectar Stripe', // MT
+    pt: 'Conectar o Stripe', // MT
+    de: 'Stripe verbinden', // MT
+    fr: 'Connecter Stripe', // MT
+  },
+  connect_stripe_note: {
+    en: 'Opens Stripe so the account holder can approve. Money still goes to their own account — we only get permission to take the payment.',
+    nl: 'Opent Stripe zodat de rekeninghouder toestemming kan geven. Het geld gaat nog steeds naar hun eigen rekening — wij krijgen alleen toestemming om de betaling aan te nemen.',
+    es: 'Abre Stripe para que el titular apruebe. El dinero sigue yendo a su propia cuenta; solo obtenemos permiso para cobrar.', // MT
+    pt: 'Abre o Stripe para o titular aprovar. O dinheiro continua a ir para a conta dele — só recebemos permissão para cobrar.', // MT
+    de: 'Öffnet Stripe, damit der Kontoinhaber zustimmen kann. Das Geld geht weiterhin auf sein eigenes Konto — wir erhalten nur die Erlaubnis, die Zahlung anzunehmen.', // MT
+    fr: 'Ouvre Stripe pour que le titulaire approuve. L’argent va toujours sur son propre compte : nous obtenons seulement l’autorisation d’encaisser.', // MT
+  },
+  opening: {
+    en: 'Opening…',
+    nl: 'Openen…',
+    es: 'Abriendo…', // MT
+    pt: 'A abrir…', // MT
+    de: 'Wird geöffnet…', // MT
+    fr: 'Ouverture…', // MT
+  },
+  stripe_unreachable: {
+    en: 'Saved, not connected',
+    nl: 'Opgeslagen, niet verbonden',
+    es: 'Guardado, no conectado', // MT
+    pt: 'Guardado, não ligado', // MT
+    de: 'Gespeichert, nicht verbunden', // MT
+    fr: 'Enregistré, non connecté', // MT
+  },
+  stripe_unreachable_note: {
+    en: 'An account id is saved, but we cannot act on it — no payment can be taken. The account holder has to approve the connection from their own Stripe.',
+    nl: 'Er is een rekeningnummer opgeslagen, maar we kunnen er niets mee — er kan geen betaling worden aangenomen. De rekeninghouder moet de koppeling vanuit zijn eigen Stripe goedkeuren.',
+    es: 'Hay un identificador guardado, pero no podemos usarlo: no se puede cobrar. El titular debe aprobar la conexión desde su propio Stripe.', // MT
+    pt: 'Há um identificador guardado, mas não podemos usá-lo: não é possível cobrar. O titular tem de aprovar a ligação a partir do seu próprio Stripe.', // MT
+    de: 'Eine Konto-ID ist gespeichert, aber wir können sie nicht nutzen — es kann keine Zahlung angenommen werden. Der Kontoinhaber muss die Verbindung in seinem eigenen Stripe bestätigen.', // MT
+    fr: 'Un identifiant de compte est enregistré, mais nous ne pouvons pas l’utiliser : aucun paiement n’est possible. Le titulaire doit approuver la connexion depuis son propre Stripe.', // MT
+  },
+  stripe_charges_disabled: {
+    en: 'Connected, but Stripe is not letting this account take payments yet.',
+    nl: 'Verbonden, maar Stripe laat deze rekening nog geen betalingen aannemen.',
+    es: 'Conectado, pero Stripe aún no permite que esta cuenta cobre.', // MT
+    pt: 'Ligado, mas o Stripe ainda não permite que esta conta receba pagamentos.', // MT
+    de: 'Verbunden, aber Stripe lässt dieses Konto noch keine Zahlungen annehmen.', // MT
+    fr: 'Connecté, mais Stripe n’autorise pas encore ce compte à encaisser.', // MT
+  },
+  err_connect_failed: {
+    en: 'Could not open Stripe. Try again in a moment.',
+    nl: 'Kon Stripe niet openen. Probeer het zo nog eens.',
+    es: 'No se pudo abrir Stripe. Inténtalo de nuevo en un momento.', // MT
+    pt: 'Não foi possível abrir o Stripe. Tente novamente daqui a pouco.', // MT
+    de: 'Stripe konnte nicht geöffnet werden. Versuche es gleich noch einmal.', // MT
+    fr: 'Impossible d’ouvrir Stripe. Réessayez dans un instant.', // MT
+  },
   connected: {
     en: 'Connected',
     nl: 'Verbonden',

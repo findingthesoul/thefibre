@@ -106,6 +106,11 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/apps/register', // POST only — an app registering itself has no credential yet
   '/api/v1/public/plans', // GET only — the catalogue for the public /pricing page; no PII
   '/api/v1/mcp', // GET/POST/DELETE — bearer is our own OAuth access token for a grant; verified in routes/mcp.ts
+  // GET only — Stripe redirects the admin's BROWSER back here from
+  // connect.stripe.com, so there is no Authorization header to send and no
+  // cookie that crosses to this domain. The signed `state` carries the
+  // workspace and is the authentication; see lib/stripe/connect.ts.
+  '/api/v1/workspace-billing/stripe/callback',
 ]);
 
 const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
@@ -118,6 +123,7 @@ const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
   // key. Verified in the handler; a bad or missing one answers 401 with the
   // WWW-Authenticate challenge that points a client at the discovery docs.
   ['/api/v1/mcp', new Set(['GET', 'POST', 'DELETE'])],
+  ['/api/v1/workspace-billing/stripe/callback', new Set(['GET'])],
 ]);
 
 // Path prefixes that bypass auth entirely. /meet/public/* serves the

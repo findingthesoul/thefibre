@@ -1,25 +1,32 @@
 'use client';
 
-// Two levels, one SPoT — the Stripe Connect account, the invoice issuer
-// identity (legal name / address / tax no.) and, at personal level, the
-// DEFAULT payment options every Fibre app inherits. Ported from The
-// Thread's settings/payments form; the copy was de-Thread-ified (sales
-// instead of threads/tickets) and SectionLabel comes from the local
-// page chrome.
+// Thin wrapper: the form itself is @thefibre/shared/ui/payments-form.
+//
+// This app carried its own copy until 2026-09-24 — one of four that had
+// drifted apart. Thread's was design-leading (CLAUDE.md) and is what the
+// shared component is built from, so porting here RESTORES what this copy had
+// lost: the accounts labelled with the workspace's real name, the
+// descriptions behind an ⓘ, and the VAT-on-sales controls.
+//
+// The strings are a typed object rather than a key lookup, because the four
+// apps used DIFFERENT names for the same strings — this app's
+// 'legal_name_label' is Thread's 'legal_name_on_invoices'. A `t(key)` would
+// have compiled in all four and silently returned the key itself in three.
 
-import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Locale } from '@thefibre/shared';
 import {
+  PaymentsForm as SharedPaymentsForm,
+  type InvoiceDetails,
+  type PaymentMethod,
+} from '@thefibre/shared/ui/payments-form';
+import {
+  startStripeConnect,
+  stripeStatus,
   updateMyPayments,
   updateWorkspacePayments,
-  type InvoiceDetails,
 } from './actions';
-import { SectionLabel } from '../page-chrome';
-import { Button } from '@/components/ui/button';
-import { t, type Locale } from '@/lib/i18n-ui';
-
-const INPUT =
-  'mt-1 w-full max-w-md rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
+import { t } from '@/lib/i18n-ui';
 
 export function PaymentsForm({
   locale,
@@ -30,218 +37,76 @@ export function PaymentsForm({
   workspaceDetails,
   workspaceMethods,
   isAdmin,
+  workspaceName = null,
 }: {
   locale: Locale;
   personalAccount: string | null;
   personalDetails: InvoiceDetails | null;
-  personalMethods: ('stripe' | 'invoice')[] | null;
+  personalMethods: PaymentMethod[] | null;
   workspaceAccount: string | null;
   workspaceDetails: InvoiceDetails | null;
-  workspaceMethods: ('stripe' | 'invoice')[] | null;
+  workspaceMethods: PaymentMethod[] | null;
   isAdmin: boolean;
+  workspaceName?: string | null;
 }) {
+  const router = useRouter();
   return (
-    <div className="mt-8 space-y-10">
-      <AccountSection
-        locale={locale}
-        label={t(locale, 'my_account')}
-        description={t(locale, 'my_account_desc')}
-        initialAccount={personalAccount}
-        initialDetails={personalDetails}
-        initialMethods={personalMethods}
-        showMethods
-        save={(acct, details, methods) => updateMyPayments(acct, details, methods)}
-      />
-      <AccountSection
-        locale={locale}
-        label={t(locale, 'workspace_account')}
-        description={t(locale, 'workspace_account_desc')}
-        initialAccount={workspaceAccount}
-        initialDetails={workspaceDetails}
-        initialMethods={workspaceMethods}
-        showMethods
-        methodsHint={t(locale, 'methods_hint_ws')}
-        save={(acct, details, methods) => updateWorkspacePayments(acct, details, methods)}
-        disabled={!isAdmin}
-        disabledNote={t(locale, 'managed_by_admins')}
-      />
-      <p className="text-xs text-ink-muted max-w-xl leading-relaxed">
-        {t(locale, 'stripe_footnote')}
-      </p>
-    </div>
+    <SharedPaymentsForm
+      s={strings(locale)}
+      personalAccount={personalAccount}
+      personalDetails={personalDetails}
+      personalMethods={personalMethods}
+      workspaceAccount={workspaceAccount}
+      workspaceDetails={workspaceDetails}
+      workspaceMethods={workspaceMethods}
+      isAdmin={isAdmin}
+      workspaceName={workspaceName}
+      onSaved={() => router.refresh()}
+      savePersonal={(a, d, m) => updateMyPayments(a, d, m)}
+      saveWorkspace={(a, d, m) => updateWorkspacePayments(a, d, m)}
+      loadWorkspaceStripeStatus={stripeStatus}
+      startWorkspaceStripeConnect={startStripeConnect}
+    />
   );
 }
 
-function AccountSection({
-  locale,
-  label,
-  description,
-  initialAccount,
-  initialDetails,
-  initialMethods,
-  showMethods = false,
-  methodsHint,
-  save,
-  disabled = false,
-  disabledNote,
-}: {
-  locale: Locale;
-  label: string;
-  description: string;
-  initialAccount: string | null;
-  initialDetails: InvoiceDetails | null;
-  initialMethods: ('stripe' | 'invoice')[] | null;
-  showMethods?: boolean;
-  methodsHint?: string;
-  save: (
-    accountId: string | null,
-    details: InvoiceDetails | null,
-    methods: ('stripe' | 'invoice')[] | null,
-  ) => Promise<{ ok: true } | { ok: false; error: string }>;
-  disabled?: boolean;
-  disabledNote?: string;
-}) {
-  const router = useRouter();
-  const [account, setAccount] = useState(initialAccount ?? '');
-  const [legalName, setLegalName] = useState(initialDetails?.legal_name ?? '');
-  const [address, setAddress] = useState(initialDetails?.address ?? '');
-  const [taxNo, setTaxNo] = useState(initialDetails?.tax_no ?? '');
-  const [stripeOn, setStripeOn] = useState(initialMethods ? initialMethods.includes('stripe') : true);
-  const [invoiceOn, setInvoiceOn] = useState(initialMethods ? initialMethods.includes('invoice') : false);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setSaved(false);
-    const acct = account.trim();
-    if (acct && !acct.startsWith('acct_')) {
-      setError(t(locale, 'acct_error'));
-      return;
-    }
-    if (showMethods && !stripeOn && !invoiceOn) {
-      setError(t(locale, 'keep_one_method'));
-      return;
-    }
-    const details: InvoiceDetails = {};
-    if (legalName.trim()) details.legal_name = legalName.trim();
-    if (address.trim()) details.address = address.trim();
-    if (taxNo.trim()) details.tax_no = taxNo.trim();
-    const methods: ('stripe' | 'invoice')[] = [
-      ...(stripeOn ? (['stripe'] as const) : []),
-      ...(invoiceOn ? (['invoice'] as const) : []),
-    ];
-    startTransition(async () => {
-      const r = await save(
-        acct || null,
-        Object.keys(details).length ? details : null,
-        showMethods ? methods : null,
-      );
-      if (!r.ok) return setError(r.error);
-      setSaved(true);
-      router.refresh();
-    });
-  }
-
-  return (
-    <form onSubmit={onSubmit}>
-      <div className="flex items-center gap-2">
-        <SectionLabel>{label}</SectionLabel>
-        <span
-          className={`text-[11px] px-2 py-0.5 rounded-full ring-1 ${
-            initialAccount
-              ? 'ring-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'ring-line bg-surface-sunken text-ink-muted'
-          }`}
-        >
-          {initialAccount ? t(locale, 'connected') : t(locale, 'not_connected')}
-        </span>
-      </div>
-      <p className="mt-1.5 text-xs text-ink-subtle max-w-xl leading-relaxed">{description}</p>
-      {disabled ? (
-        <p className="mt-2 text-xs text-ink-muted">{disabledNote}</p>
-      ) : (
-        <div className="mt-3 space-y-4">
-          <label className="block">
-            <span className="text-xs text-ink-subtle">{t(locale, 'stripe_account_id')}</span>
-            <input
-              value={account}
-              onChange={(e) => setAccount(e.target.value)}
-              placeholder="acct_…"
-              className={`${INPUT} font-mono`}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
-            <label className="block">
-              <span className="text-xs text-ink-subtle">{t(locale, 'legal_name_label')}</span>
-              <input
-                value={legalName}
-                onChange={(e) => setLegalName(e.target.value)}
-                placeholder="Solidarity Lab B.V."
-                className={INPUT}
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs text-ink-subtle">{t(locale, 'tax_vat_label')}</span>
-              <input
-                value={taxNo}
-                onChange={(e) => setTaxNo(e.target.value)}
-                placeholder="NL123456789B01"
-                className={INPUT}
-              />
-            </label>
-          </div>
-          <label className="block max-w-2xl">
-            <span className="text-xs text-ink-subtle">{t(locale, 'address_label')}</span>
-            <textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              rows={2}
-              className={`${INPUT} max-w-none`}
-            />
-          </label>
-
-          {showMethods && (
-            <div>
-              <span className="text-xs text-ink-subtle">
-                {t(locale, 'default_payment_options', {
-                  hint: methodsHint ?? t(locale, 'methods_hint_personal'),
-                })}
-              </span>
-              <div className="mt-1.5 flex items-center gap-5">
-                <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={stripeOn}
-                    onChange={(e) => setStripeOn(e.target.checked)}
-                  />
-                  {t(locale, 'pay_online_card')}
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={invoiceOn}
-                    onChange={(e) => setInvoiceOn(e.target.checked)}
-                  />
-                  {t(locale, 'pay_per_invoice')}
-                </label>
-              </div>
-            </div>
-          )}
-
-          {error && <p className="text-xs text-red-700">{error}</p>}
-          <div className="flex items-center gap-3">
-            <Button type="submit" size="sm" disabled={pending}>
-              {pending ? t(locale, 'saving') : t(locale, 'save')}
-            </Button>
-            {saved && <span className="text-xs text-ink-subtle">{t(locale, 'saved_dot')}</span>}
-          </div>
-        </div>
-      )}
-    </form>
-  );
+function strings(locale: Locale) {
+  return {
+    personalAccount: t(locale, 'my_account'),
+    personalAccountDesc: t(locale, 'my_account_desc'),
+    workspaceAccount: t(locale, 'workspace_account'),
+    workspaceAccountDesc: t(locale, 'workspace_account_desc'),
+    methodsHintWorkspace: t(locale, 'methods_hint_ws'),
+    methodsHintPersonal: t(locale, 'methods_hint_personal'),
+    managedByAdmins: t(locale, 'managed_by_admins'),
+    stripeNote1: t(locale, 'stripe_footnote'),
+    stripeNote2: t(locale, 'stripe_note_2'),
+    whatIsThis: t(locale, 'what_is_this'),
+    connected: t(locale, 'connected'),
+    notConnected: t(locale, 'not_connected'),
+    stripeAccountId: t(locale, 'stripe_account_id'),
+    legalName: t(locale, 'legal_name_label'),
+    taxNumber: t(locale, 'tax_vat_label'),
+    address: t(locale, 'address_label'),
+    vatOnSales: t(locale, 'vat_on_sales'),
+    vatRegistered: t(locale, 'vat_registered_label'),
+    rate: t(locale, 'rate'),
+    vatIncludedNote: t(locale, 'vat_included_note'),
+    defaultPaymentOptions: t(locale, 'default_payment_options'),
+    payOnlineCard: t(locale, 'pay_online_card'),
+    payPerInvoice: t(locale, 'pay_per_invoice'),
+    saving: t(locale, 'saving'),
+    save: t(locale, 'save'),
+    saved: t(locale, 'saved_dot'),
+    errAcctPrefix: t(locale, 'acct_error'),
+    errKeepOneMethod: t(locale, 'keep_one_method'),
+    errVatRate: t(locale, 'err_vat_rate'),
+    connectStripe: t(locale, 'connect_stripe'),
+    connectStripeNote: t(locale, 'connect_stripe_note'),
+    opening: t(locale, 'opening'),
+    stripeUnreachable: t(locale, 'stripe_unreachable'),
+    stripeUnreachableNote: t(locale, 'stripe_unreachable_note'),
+    stripeChargesDisabled: t(locale, 'stripe_charges_disabled'),
+    errConnectFailed: t(locale, 'err_connect_failed'),
+  };
 }

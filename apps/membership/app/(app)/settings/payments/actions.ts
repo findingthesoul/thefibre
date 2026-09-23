@@ -70,3 +70,30 @@ export async function updateWorkspacePayments(
     return { ok: false, error: formatApiError(e) };
   }
 }
+
+// --- Stripe Connect -------------------------------------------------------
+// The client approves from their OWN Stripe; nobody is added by hand. Both
+// of these are thin: every decision lives in routes/workspace-billing.ts.
+
+export type StripeStatus =
+  | { state: 'none'; connect_available?: boolean }
+  | { state: 'connected'; chargesEnabled?: boolean; detail?: string | null; connect_available?: boolean }
+  | { state: 'unreachable'; detail: string; connect_available?: boolean };
+
+/** Does the saved account actually work? The question the old badge never
+ *  asked — it reported only whether the text box was empty. */
+export async function stripeStatus(): Promise<StripeStatus> {
+  try {
+    return await apiFetch<StripeStatus>('/api/v1/workspace-billing/stripe/status');
+  } catch {
+    return { state: 'none' };
+  }
+}
+
+export async function startStripeConnect(): Promise<{ url?: string; error?: string }> {
+  try {
+    return await apiFetch<{ url: string }>('/api/v1/workspace-billing/stripe/connect');
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

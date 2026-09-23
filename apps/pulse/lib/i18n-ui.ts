@@ -2051,6 +2051,110 @@ const CATALOG = {
     de: '(Stripe → Settings → Account details). Leer lassen trennt die Verbindung. Zahlungsoptionen vererben sich nach unten: erst der Konto-Standard, jede App kann pro Posten abweichen.', // MT
     fr: '(Stripe → Settings → Account details). Le laisser vide déconnecte. Les options de paiement s’héritent vers le bas : d’abord le défaut du compte, chaque app peut déroger par article.', // MT
   },
+  connect_stripe: {
+    en: 'Connect Stripe',
+    nl: 'Stripe koppelen',
+    es: 'Conectar Stripe', // MT
+    pt: 'Conectar o Stripe', // MT
+    de: 'Stripe verbinden', // MT
+    fr: 'Connecter Stripe', // MT
+  },
+  connect_stripe_note: {
+    en: 'Opens Stripe so the account holder can approve. Money still goes to their own account — we only get permission to take the payment.',
+    nl: 'Opent Stripe zodat de rekeninghouder toestemming kan geven. Het geld gaat nog steeds naar hun eigen rekening — wij krijgen alleen toestemming om de betaling aan te nemen.',
+    es: 'Abre Stripe para que el titular apruebe. El dinero sigue yendo a su propia cuenta; solo obtenemos permiso para cobrar.', // MT
+    pt: 'Abre o Stripe para o titular aprovar. O dinheiro continua a ir para a conta dele — só recebemos permissão para cobrar.', // MT
+    de: 'Öffnet Stripe, damit der Kontoinhaber zustimmen kann. Das Geld geht weiterhin auf sein eigenes Konto — wir erhalten nur die Erlaubnis, die Zahlung anzunehmen.', // MT
+    fr: 'Ouvre Stripe pour que le titulaire approuve. L’argent va toujours sur son propre compte : nous obtenons seulement l’autorisation d’encaisser.', // MT
+  },
+  opening: {
+    en: 'Opening…',
+    nl: 'Openen…',
+    es: 'Abriendo…', // MT
+    pt: 'A abrir…', // MT
+    de: 'Wird geöffnet…', // MT
+    fr: 'Ouverture…', // MT
+  },
+  stripe_unreachable: {
+    en: 'Saved, not connected',
+    nl: 'Opgeslagen, niet verbonden',
+    es: 'Guardado, no conectado', // MT
+    pt: 'Guardado, não ligado', // MT
+    de: 'Gespeichert, nicht verbunden', // MT
+    fr: 'Enregistré, non connecté', // MT
+  },
+  stripe_unreachable_note: {
+    en: 'An account id is saved, but we cannot act on it — no payment can be taken. The account holder has to approve the connection from their own Stripe.',
+    nl: 'Er is een rekeningnummer opgeslagen, maar we kunnen er niets mee — er kan geen betaling worden aangenomen. De rekeninghouder moet de koppeling vanuit zijn eigen Stripe goedkeuren.',
+    es: 'Hay un identificador guardado, pero no podemos usarlo: no se puede cobrar. El titular debe aprobar la conexión desde su propio Stripe.', // MT
+    pt: 'Há um identificador guardado, mas não podemos usá-lo: não é possível cobrar. O titular tem de aprovar a ligação a partir do seu próprio Stripe.', // MT
+    de: 'Eine Konto-ID ist gespeichert, aber wir können sie nicht nutzen — es kann keine Zahlung angenommen werden. Der Kontoinhaber muss die Verbindung in seinem eigenen Stripe bestätigen.', // MT
+    fr: 'Un identifiant de compte est enregistré, mais nous ne pouvons pas l’utiliser : aucun paiement n’est possible. Le titulaire doit approuver la connexion depuis son propre Stripe.', // MT
+  },
+  stripe_charges_disabled: {
+    en: 'Connected, but Stripe is not letting this account take payments yet.',
+    nl: 'Verbonden, maar Stripe laat deze rekening nog geen betalingen aannemen.',
+    es: 'Conectado, pero Stripe aún no permite que esta cuenta cobre.', // MT
+    pt: 'Ligado, mas o Stripe ainda não permite que esta conta receba pagamentos.', // MT
+    de: 'Verbunden, aber Stripe lässt dieses Konto noch keine Zahlungen annehmen.', // MT
+    fr: 'Connecté, mais Stripe n’autorise pas encore ce compte à encaisser.', // MT
+  },
+  err_connect_failed: {
+    en: 'Could not open Stripe. Try again in a moment.',
+    nl: 'Kon Stripe niet openen. Probeer het zo nog eens.',
+    es: 'No se pudo abrir Stripe. Inténtalo de nuevo en un momento.', // MT
+    pt: 'Não foi possível abrir o Stripe. Tente novamente daqui a pouco.', // MT
+    de: 'Stripe konnte nicht geöffnet werden. Versuche es gleich noch einmal.', // MT
+    fr: 'Impossible d’ouvrir Stripe. Réessayez dans un instant.', // MT
+  },
+  what_is_this: {
+    en: 'What is this?',
+    nl: 'Wat is dit?',
+    es: '¿Qué es esto?', // MT
+    pt: 'O que é isto?', // MT
+    de: 'Was ist das?', // MT
+    fr: 'Qu’est-ce que c’est ?', // MT
+  },
+  vat_on_sales: {
+    en: 'VAT on sales',
+    nl: 'Btw op verkopen',
+    es: 'IVA en las ventas', // MT
+    pt: 'IVA nas vendas', // MT
+    de: 'USt auf Verkäufe', // MT
+    fr: 'TVA sur les ventes', // MT
+  },
+  vat_registered_label: {
+    en: 'VAT registered — show VAT on invoices',
+    nl: 'Btw-plichtig — toon btw op facturen',
+    es: 'Registrado a efectos de IVA — mostrar IVA en facturas', // MT
+    pt: 'Registrado para IVA — mostrar IVA nas faturas', // MT
+    de: 'Umsatzsteuerpflichtig — USt auf Rechnungen zeigen', // MT
+    fr: 'Assujetti à la TVA — afficher la TVA sur les factures', // MT
+  },
+  rate: {
+    en: 'Rate',
+    nl: 'Tarief',
+    es: 'Tipo', // MT
+    pt: 'Alíquota', // MT
+    de: 'Satz', // MT
+    fr: 'Taux', // MT
+  },
+  vat_included_note: {
+    en: 'Prices stay what buyers see — the invoice splits out the included VAT (“incl. VAT 21%”). Personal settings override the workspace’s.',
+    nl: 'Prijzen blijven wat kopers zien — de factuur splitst de inbegrepen btw uit („incl. 21% btw”). Persoonlijke instellingen gaan vóór die van de werkruimte.',
+    es: 'Los precios siguen siendo los que ve el comprador — la factura desglosa el IVA incluido («IVA 21% incl.»). La configuración personal prevalece sobre la del espacio.', // MT
+    pt: 'Os preços continuam sendo o que o comprador vê — a fatura destaca o IVA incluído (“IVA 21% incl.”). As configurações pessoais prevalecem sobre as do espaço.', // MT
+    de: 'Preise bleiben, was Käufer sehen — die Rechnung weist die enthaltene USt aus („inkl. 21 % USt“). Persönliche Einstellungen gehen vor denen des Workspace.', // MT
+    fr: 'Les prix restent ce que voit l’acheteur — la facture détaille la TVA incluse (« TVA 21 % incl. »). Les réglages personnels priment sur ceux de l’espace.', // MT
+  },
+  err_vat_rate: {
+    en: 'VAT rate must be between 0 and 100.',
+    nl: 'Het btw-tarief moet tussen 0 en 100 liggen.',
+    es: 'El tipo de IVA debe estar entre 0 y 100.', // MT
+    pt: 'A alíquota de IVA deve estar entre 0 e 100.', // MT
+    de: 'Der USt-Satz muss zwischen 0 und 100 liegen.', // MT
+    fr: 'Le taux de TVA doit être compris entre 0 et 100.', // MT
+  },
   connected: {
     en: 'Connected',
     nl: 'Gekoppeld',
@@ -2108,12 +2212,12 @@ const CATALOG = {
     fr: 'Adresse (sur les factures)', // MT
   },
   default_payment_options: {
-    en: 'Default payment options —',
-    nl: 'Standaard betaalopties —',
-    es: 'Opciones de pago predeterminadas:', // MT
-    pt: 'Opções de pagamento padrão —', // MT
-    de: 'Standard-Zahlungsoptionen —', // MT
-    fr: 'Options de paiement par défaut —', // MT
+    en: 'Default payment options',
+    nl: 'Standaard betaalopties',
+    es: 'Opciones de pago por defecto', // MT
+    pt: 'Opções de pagamento padrão', // MT
+    de: 'Standard-Zahlungsoptionen', // MT
+    fr: 'Options de paiement par défaut', // MT
   },
   methods_hint_personal: {
     en: 'your personal sales inherit these',

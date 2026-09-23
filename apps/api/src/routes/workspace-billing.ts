@@ -3,7 +3,17 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { appUrl } from '@thefibre/shared';
 import { adminClient } from '../db.js';
+import {
+  accountStatus,
+  authorizeUrl,
+  connectClientId,
+  deauthorize,
+  exchangeCode,
+  signState,
+  verifyState,
+} from '../lib/stripe/connect.js';
 
 export const workspaceBillingRoutes = new Hono();
 
@@ -61,6 +71,16 @@ workspaceBillingRoutes.patch('/', async (c) => {
   }
   const patch: Record<string, unknown> = { ...body.data };
   if (patch.stripe_account_id === '') patch.stripe_account_id = null;
+  // Clearing the field is a DISCONNECT, so hand the permission back rather
+  // than leaving the platform authorised on an account nobody points at.
+  if ('stripe_account_id' in body.data && !patch.stripe_account_id) {
+    const { data: before } = await adminClient
+      .from('workspace')
+      .select('stripe_account_id')
+      .eq('id', ctx.workspaceId)
+      .maybeSingle();
+    if (before?.stripe_account_id) await deauthorize(before.stripe_account_id);
+  }
   const { data, error } = await adminClient
     .from('workspace')
     .update(patch)
@@ -76,4 +96,99 @@ workspaceBillingRoutes.patch('/', async (c) => {
       .eq('workspace_id', ctx.workspaceId);
   }
   return c.json(data);
+});
+
+// ===========================================================================
+// Stripe Connect — the client connects themselves
+// ===========================================================================
+//
+// See lib/stripe/connect.ts for why this did not exist until 2026-09-24 and
+// what it cost. In short: the text field above stores an account id and asks
+// Stripe for nothing, which is fine for the platform's own accounts and
+// useless for a client's.
+//
+// Three routes: start the hand-off, receive it back, and say honestly
+// whether the connection works. The last one is the one the old badge
+// should have been all along.
+
+/** Where Stripe sends the admin back. Must match the redirect URI registered
+ *  in Stripe → Connect → Settings, character for character. */
+function redirectUri(): string {
+  const base = process.env.PUBLIC_API_URL ?? 'https://thefibre-api.fly.dev';
+  return `${base}/api/v1/workspace-billing/stripe/callback`;
+}
+
+/** GET /stripe/connect — hand the admin to Stripe to approve. */
+workspaceBillingRoutes.get('/stripe/connect', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json({ error: 'connecting Stripe needs an admin role' }, 403);
+  }
+  const clientId = connectClientId();
+  if (!clientId) {
+    // Dark rather than broken: the platform has not been registered with
+    // Stripe yet, and saying so beats a redirect that fails at Stripe's end.
+    return c.json({ error: 'this platform is not registered with Stripe Connect yet' }, 503);
+  }
+  return c.json({
+    url: authorizeUrl(clientId, signState(ctx.workspaceId), redirectUri()),
+  });
+});
+
+/** GET /stripe/callback — Stripe returns here with a one-time code.
+ *
+ *  No auth middleware can help: the admin arrives from Stripe's domain, so
+ *  the signed `state` IS the authentication. Without it, a crafted link
+ *  could bind somebody else's account to a workspace. */
+workspaceBillingRoutes.get('/stripe/callback', async (c) => {
+  const settingsUrl = `${appUrl('membership', process.env)}/settings/payments`;
+  const fail = (reason: string) =>
+    c.redirect(`${settingsUrl}?stripe=error&reason=${encodeURIComponent(reason)}`);
+
+  const denied = c.req.query('error');
+  if (denied) return fail(c.req.query('error_description') ?? denied);
+
+  const code = c.req.query('code');
+  const state = c.req.query('state');
+  if (!code || !state) return fail('Stripe did not return a code');
+
+  const verified = verifyState(state);
+  if (!verified) return fail('that link has expired — start again from settings');
+
+  const result = await exchangeCode(code, redirectUri());
+  if ('error' in result) return fail(result.error);
+
+  const { error } = await adminClient
+    .from('workspace')
+    .update({ stripe_account_id: result.accountId })
+    .eq('id', verified.workspaceId);
+  if (error) {
+    console.error('[workspace-billing] could not store the connected account', error);
+    return fail('connected, but we could not save it — try again');
+  }
+  await adminClient
+    .from('thread_settings')
+    .update({ stripe_account_id: result.accountId })
+    .eq('workspace_id', verified.workspaceId);
+
+  return c.redirect(`${settingsUrl}?stripe=connected`);
+});
+
+/** GET /stripe/status — does the connection actually work?
+ *
+ *  The question the old green badge never asked. `saved` and `connected` are
+ *  different things and soul.com spent two weeks in the gap between them. */
+workspaceBillingRoutes.get('/stripe/status', async (c) => {
+  const ctx = c.get('ctx');
+  const { data } = await adminClient
+    .from('workspace')
+    .select('stripe_account_id')
+    .eq('id', ctx.workspaceId)
+    .maybeSingle();
+  const status = await accountStatus(data?.stripe_account_id ?? null);
+  return c.json({
+    account_id: data?.stripe_account_id ?? null,
+    connect_available: Boolean(connectClientId()),
+    ...status,
+  });
 });

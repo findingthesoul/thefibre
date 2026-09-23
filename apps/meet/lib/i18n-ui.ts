@@ -979,6 +979,78 @@ const CATALOG = {
     de: 'Die Stripe-Konto-ID beginnt mit acct_ (Stripe → Settings → Account details). Leer lassen trennt die Verbindung. Zahlungsoptionen vererben sich nach unten: Konto-Standard → Thread → Ticket, jede Ebene kann überschreiben.', // MT
     fr: 'L’identifiant de compte Stripe commence par acct_ (Stripe → Settings → Account details). Le laisser vide déconnecte. Les options de paiement s’héritent vers le bas : défaut du compte → thread → billet, chaque niveau peut remplacer.', // MT
   },
+  connect_stripe: {
+    en: 'Connect Stripe',
+    nl: 'Stripe koppelen',
+    es: 'Conectar Stripe', // MT
+    pt: 'Conectar o Stripe', // MT
+    de: 'Stripe verbinden', // MT
+    fr: 'Connecter Stripe', // MT
+  },
+  connect_stripe_note: {
+    en: 'Opens Stripe so the account holder can approve. Money still goes to their own account — we only get permission to take the payment.',
+    nl: 'Opent Stripe zodat de rekeninghouder toestemming kan geven. Het geld gaat nog steeds naar hun eigen rekening — wij krijgen alleen toestemming om de betaling aan te nemen.',
+    es: 'Abre Stripe para que el titular apruebe. El dinero sigue yendo a su propia cuenta; solo obtenemos permiso para cobrar.', // MT
+    pt: 'Abre o Stripe para o titular aprovar. O dinheiro continua a ir para a conta dele — só recebemos permissão para cobrar.', // MT
+    de: 'Öffnet Stripe, damit der Kontoinhaber zustimmen kann. Das Geld geht weiterhin auf sein eigenes Konto — wir erhalten nur die Erlaubnis, die Zahlung anzunehmen.', // MT
+    fr: 'Ouvre Stripe pour que le titulaire approuve. L’argent va toujours sur son propre compte : nous obtenons seulement l’autorisation d’encaisser.', // MT
+  },
+  opening: {
+    en: 'Opening…',
+    nl: 'Openen…',
+    es: 'Abriendo…', // MT
+    pt: 'A abrir…', // MT
+    de: 'Wird geöffnet…', // MT
+    fr: 'Ouverture…', // MT
+  },
+  stripe_unreachable: {
+    en: 'Saved, not connected',
+    nl: 'Opgeslagen, niet verbonden',
+    es: 'Guardado, no conectado', // MT
+    pt: 'Guardado, não ligado', // MT
+    de: 'Gespeichert, nicht verbunden', // MT
+    fr: 'Enregistré, non connecté', // MT
+  },
+  stripe_unreachable_note: {
+    en: 'An account id is saved, but we cannot act on it — no payment can be taken. The account holder has to approve the connection from their own Stripe.',
+    nl: 'Er is een rekeningnummer opgeslagen, maar we kunnen er niets mee — er kan geen betaling worden aangenomen. De rekeninghouder moet de koppeling vanuit zijn eigen Stripe goedkeuren.',
+    es: 'Hay un identificador guardado, pero no podemos usarlo: no se puede cobrar. El titular debe aprobar la conexión desde su propio Stripe.', // MT
+    pt: 'Há um identificador guardado, mas não podemos usá-lo: não é possível cobrar. O titular tem de aprovar a ligação a partir do seu próprio Stripe.', // MT
+    de: 'Eine Konto-ID ist gespeichert, aber wir können sie nicht nutzen — es kann keine Zahlung angenommen werden. Der Kontoinhaber muss die Verbindung in seinem eigenen Stripe bestätigen.', // MT
+    fr: 'Un identifiant de compte est enregistré, mais nous ne pouvons pas l’utiliser : aucun paiement n’est possible. Le titulaire doit approuver la connexion depuis son propre Stripe.', // MT
+  },
+  stripe_charges_disabled: {
+    en: 'Connected, but Stripe is not letting this account take payments yet.',
+    nl: 'Verbonden, maar Stripe laat deze rekening nog geen betalingen aannemen.',
+    es: 'Conectado, pero Stripe aún no permite que esta cuenta cobre.', // MT
+    pt: 'Ligado, mas o Stripe ainda não permite que esta conta receba pagamentos.', // MT
+    de: 'Verbunden, aber Stripe lässt dieses Konto noch keine Zahlungen annehmen.', // MT
+    fr: 'Connecté, mais Stripe n’autorise pas encore ce compte à encaisser.', // MT
+  },
+  err_connect_failed: {
+    en: 'Could not open Stripe. Try again in a moment.',
+    nl: 'Kon Stripe niet openen. Probeer het zo nog eens.',
+    es: 'No se pudo abrir Stripe. Inténtalo de nuevo en un momento.', // MT
+    pt: 'Não foi possível abrir o Stripe. Tente novamente daqui a pouco.', // MT
+    de: 'Stripe konnte nicht geöffnet werden. Versuche es gleich noch einmal.', // MT
+    fr: 'Impossible d’ouvrir Stripe. Réessayez dans un instant.', // MT
+  },
+  stripe_note_2: {
+    en: '(Stripe → Settings → Account details). Leaving it empty disconnects. Payment options inherit downward: account default → thread → ticket, each level can override.',
+    nl: '(Stripe → Settings → Account details). Leeg laten ontkoppelt. Betaalopties erven naar beneden: accountstandaard → thread → ticket, elk niveau kan afwijken.',
+    es: '(Stripe → Settings → Account details). Dejarlo vacío desconecta. Las opciones de pago se heredan hacia abajo: cuenta → thread → entrada, cada nivel puede sobrescribir.', // MT
+    pt: '(Stripe → Settings → Account details). Deixar vazio desconecta. As opções de pagamento herdam para baixo: padrão da conta → thread → ingresso, cada nível pode sobrescrever.', // MT
+    de: '(Stripe → Settings → Account details). Leer lassen trennt die Verbindung. Zahlungsoptionen vererben sich nach unten: Konto-Standard → Thread → Ticket, jede Ebene kann abweichen.', // MT
+    fr: '(Stripe → Settings → Account details). Laisser vide déconnecte. Les options de paiement s’héritent vers le bas : défaut du compte → thread → billet, chaque niveau peut surcharger.', // MT
+  },
+  what_is_this: {
+    en: 'What is this?',
+    nl: 'Wat is dit?',
+    es: '¿Qué es esto?', // MT
+    pt: 'O que é isto?', // MT
+    de: 'Was ist das?', // MT
+    fr: 'Qu’est-ce que c’est ?', // MT
+  },
   connected: {
     en: 'Connected',
     nl: 'Gekoppeld',
@@ -1060,12 +1132,12 @@ const CATALOG = {
     fr: 'Les prix restent ce que voient les acheteurs — la facture détaille la TVA incluse (« TVA 21 % incl. »). Les réglages personnels priment sur ceux de l’espace de travail.', // MT
   },
   default_payment_options: {
-    en: 'Default payment options — {hint}',
-    nl: 'Standaard betaalopties — {hint}',
-    es: 'Opciones de pago predeterminadas: {hint}', // MT
-    pt: 'Opções de pagamento predefinidas — {hint}', // MT
-    de: 'Standard-Zahlungsoptionen — {hint}', // MT
-    fr: 'Options de paiement par défaut — {hint}', // MT
+    en: 'Default payment options',
+    nl: 'Standaard betaalopties',
+    es: 'Opciones de pago por defecto', // MT
+    pt: 'Opções de pagamento padrão', // MT
+    de: 'Standard-Zahlungsoptionen', // MT
+    fr: 'Options de paiement par défaut', // MT
   },
   pay_methods_hint_personal: {
     en: 'your personal threads and tickets inherit these',

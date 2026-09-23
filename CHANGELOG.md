@@ -25,6 +25,67 @@ shipping.
 
 ## [Unreleased]
 
+## [1.27.0] — 2026-09-24 — a client can connect their own Stripe (staging)
+
+Sjoerd: *"If I have to manually add every workspace to my account in order to
+let them receive payments, then that is not a platform."* He was right, and
+the reason is worse than a missing button.
+
+**There was no Stripe Connect onboarding at all.** Swept the codebase: zero
+matches for `connect.stripe.com`, `accountLinks`, `accounts.create`,
+`STRIPE_CONNECT*`. The only mechanism was a text field where an admin typed
+an `acct_…` id. Storing a number grants nothing — Connect is a permission the
+account holder gives the platform, and nobody had ever been asked for it.
+
+It survived because it works perfectly for accounts belonging to the SAME
+Stripe user as the platform: acting on your own account needs no grant, and
+every test before soul.com was on Sjoerd's own accounts. soul.com is the
+first genuinely separate company. Its live join page answered "could not
+start checkout" for two weeks while the settings screen showed a green
+**Connected** badge, because that badge meant only that the text box was not
+empty.
+
+- **`lib/stripe/connect.ts`** — OAuth start, token exchange, deauthorize on
+  disconnect, and a real `accountStatus` through `accounts.retrieve`. `state`
+  is HMAC-signed with an expiry: without that, a crafted return link could
+  bind someone else's Stripe account to a workspace.
+- **Three routes** on `workspace-billing`: `/stripe/connect`,
+  `/stripe/callback`, `/stripe/status`. The callback is exempted from auth
+  (GET only) because Stripe redirects a BROWSER back from its own domain with
+  no header to send — the signed `state` is the authentication.
+- **Dark until registered.** No `STRIPE_CONNECT_CLIENT_ID`, no button, and
+  the endpoint says so rather than redirecting into a failure.
+
+**The badge tells the truth now**, with the state that was missing: *saved,
+not connected* — an id is stored and we cannot act on it — alongside
+connected and not set, plus a note when Stripe has the account but is not
+letting it take payments yet.
+
+### The form is one component now, not four
+
+Extracting was the only sane way to add this: otherwise Connect would have
+been written four times. `packages/shared/src/ui/payments-form.tsx`, built
+from **Thread's** copy, which CLAUDE.md names design-leading.
+
+Meet, Membership and Pulse carried older ports that had drifted, and this
+restores what they lost: accounts labelled with the workspace's real name
+rather than "Workspace account", the descriptions behind an ⓘ, and the
+VAT-on-sales controls. 1,067 lines across four copies become 472 shared plus
+four wrappers of ~112.
+
+**Strings are a typed object, not a key lookup.** The four apps used
+different names for the same strings — Thread's `legal_name_on_invoices` is
+Membership's `legal_name_label`, `err_acct_prefix` is `acct_error`. A
+`t(key)` signature would have compiled in all four and silently rendered the
+key itself in three. Each app maps its own catalog and a missing field is a
+compile error.
+
+**Found by looking, not by typechecking:** Membership rendered a literal
+`{hint}` on screen. Its `default_payment_options` was a template
+(`'Default payment options — {hint}'`) where Thread's is a plain label, and
+Pulse's had a trailing dash. Nothing else used the key, so all three are
+normalised to Thread's. Driven signed in on staging as the payments admin.
+
 ## [1.25.0] — 2026-09-24 — the release number is allocated, not chosen
 
 ### Added
