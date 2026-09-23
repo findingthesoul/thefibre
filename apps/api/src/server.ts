@@ -435,8 +435,9 @@ setInterval(() => {
   // Monthly platform-fee statements: the previous month, from the 2nd on;
   // idempotent on the ledger (lib/fee-statements.ts).
   void runFeeStatementTick().catch((e) => console.error('[fee-statements] run failed', e));
-  // To-do archive: ticked items are kept seven days, then dropped. Idempotent
-  // and a single DELETE, so it rides the five-minute tick rather than needing
-  // a guard of its own.
+  // To-do archive: ticked items sit there seven days, then get FILED out of
+  // the view — never deleted (Sjoerd, 2026-09-23: "archive - not delete").
+  // Idempotent and a single UPDATE, so it rides the five-minute tick rather
+  // than needing a guard of its own.
   void fileFinishedTasks().catch((e) => console.error('[me/tasks] filing failed', e));
 }, SCHEDULER_INTERVAL_MS);

@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.99.5] — 2026-09-23 — the filing is proved, on the running system
+
+Measured on staging rather than asserted, because the whole archive-not-delete
+change is about something NOT happening:
+
+- A ticked item dated eight days ago was planted at 08:09. At 08:11:54 the
+  five-minute sweep stamped `archived_at` and left `deleted_at` null: **the row
+  is still in the table.**
+- The Archive view no longer lists it, checked through the panel in a browser
+  while the row demonstrably existed.
+- A second old item was planted at 08:17:47 and filed at 08:22:07. That proves
+  a later tick actually RAN — and the first row came through it unchanged,
+  same stamp, still there. So the sweep is idempotent and takes nothing on a
+  second pass.
+
+The fixture was deliberately left in place between passes. The one-item bug in
+v0.99.4 survived a day precisely because every walkthrough ended by deleting
+what it had just made, so the test destroyed the evidence of the bug it was
+testing for. A cleanup that hides the failure is the shape to avoid.
+
+Also: the scheduler comment in `server.ts` still said the sweep was "a single
+DELETE". It is an UPDATE, and has been since v0.99.3.
+
 ## [0.99.4] — 2026-09-23 — you could only ever have one to-do
 
 The table said a to-do was unique per `(user, source app, source ref)`, spelled
@@ -28,7 +51,11 @@ A partial index cannot be named by a bare `ON CONFLICT`, so the answer route
 no longer upserts: it updates, and inserts when nothing was updated.
 
 Migration `20260923090000_user_task_one_list_not_one_item.sql`. **Production
-now needs three migrations** before To do is promoted.
+now needs three migrations** before To do is promoted — which reads alarming
+and is not: `public.user_task` **does not exist on production at all** (checked
+2026-09-23, PGRST205), because To do has never been promoted. The first
+migration creates the table empty and the other two alter it while it is
+empty. Nobody has a to-do there to lose.
 
 ## [0.99.3] — 2026-09-23 — nothing on the To do list is destroyed on a timer
 
