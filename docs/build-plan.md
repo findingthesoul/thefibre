@@ -20,18 +20,22 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-23 (v0.115.0). Done items get removed, not ticked._
+_Last groomed 2026-09-23 (v0.123.0). Done items get removed, not ticked._
 
-**FOR SJOERD — is a thread's to-do list an Organisation-plan feature?** Set
-2026-09-23 with v0.112.0. The cross-app personal To do list is gated on the
-`todo` plan feature (org and beta only). A thread's OWN checklist
-(`thread_task`, the button in the thread header) deliberately is NOT: it is
-The Thread's content, so it reaches anyone whose plan includes The Thread,
-which is the more generous reading of what was asked for. Making it
-Organisation-only is one `can(ctx.workspaceId, 'todo')` gate at the top of
-`routes/thread-tasks.ts` — decide, then it is a five-minute change either way.
+**FOR SJOERD — the thread to-do tier is now yours to set, at /admin/plans.**
+Answered 2026-09-23 in v0.123.0: it has its own key `thread_todo`, separate
+from the personal list's `todo`, and both are checkboxes in the tier matrix.
+The line SHIPPED between Starter and Pro (off free/starter, on pro/org/beta)
+because that was his steer — it is a starting point, not a decision, and
+moving it needs no deploy.
 
-**Production is three migrations behind, as of 2026-09-23.** Whoever promotes
+One rule attaches to it permanently: `can()` ends with
+`features[key] === true`, so a plan row WITHOUT the key reads as false. Any
+promote carrying a new feature key must run `db-push-prod.sh` first, or every
+workspace loses that feature at once. True of `todo` (20260923130000) and of
+`thread_todo` (20260923170000).
+
+**Production is behind on migrations whenever staging has moved.** Whoever promotes
 next runs `./scripts/db-push-prod.sh` BEFORE `./scripts/promote.sh`. Do not
 trust this line — it goes stale the moment anything ships. Ask the branches:
 `git diff --name-only --diff-filter=A origin/main origin/staging -- supabase/migrations/`.
