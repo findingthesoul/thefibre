@@ -31,6 +31,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   instead of re-deriving it. `--dry-run` runs every check and deploys nothing.
   Each gate was exercised against the real condition it guards, including the
   two incidents that prompted it.
+## [1.3.0] — 2026-09-23 — the email and storage allowances become real
+
+Sjoerd: *"DO: set prices and the allowances become real (auto-billed, no
+interruption)."*
+
+The numbers are his own, decided in `docs/pricing-proposal.md` months ago and
+never applied: **€1 per 1,000 emails** and **€0.50 per GB per month**. The €8
+extra seat from the same line has been live for weeks; these two stayed null,
+and a null unit price means *the allowance is soft and nothing bills*. So
+Starter's 2,000 emails and Pro's 10,000 were advisory — a workspace sailed past
+them, got a warning at 80%, and nothing else happened.
+
+**Nothing is ever refused**, which is both his instruction and the rule already
+in the proposal: *"never refuse to send. A ticket that does not arrive because
+a workspace crossed a threshold is not a billing event, it is a failure."*
+Overage becomes a line on the next subscription invoice.
+
+Starter and Pro only. Free has no subscription to bill, so a price there is
+inert and its control is the 13-month archive — setting one would say we charge
+Free workspaces, and we do not. Org and beta have unlimited allowances.
+
+**Checked before writing: no workspace on production is on Starter or Pro**, so
+this bills nobody today. It sets the rule for whoever arrives next.
 
 ## [1.1.0] — 2026-09-23
 
