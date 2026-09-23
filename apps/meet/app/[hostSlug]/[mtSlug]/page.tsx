@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
-import { APPS, appUrl } from '@thefibre/shared';
+import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { WorkspaceLine, type PublicWorkspace } from '../workspace-line';
 import { BookingFlow, type Reschedule } from './flow';
@@ -184,10 +184,10 @@ function Card({
                   <img
                     src={ownerAvatar}
                     alt={ownerName}
-                    className="h-12 w-12 rounded-full object-cover"
+                    className="h-20 w-20 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400 text-sm">
+                  <div className="h-20 w-20 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
                     {ownerName.slice(0, 1).toUpperCase()}
                   </div>
                 )}
@@ -264,8 +264,11 @@ function Card({
 
         <footer className="mt-8 text-center text-xs text-neutral-400">
           Powered by{' '}
-          <Link href={appUrl('fibre-meet', { NEXT_PUBLIC_MEET_URL: process.env.NEXT_PUBLIC_MEET_URL })} className="underline">
-            {APPS['fibre-meet'].name}
+          <Link
+            href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL })}
+            className="underline"
+          >
+            {ENTITY.publicName}: {APPS['fibre-meet'].name}
           </Link>
         </footer>
       </div>

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { APPS, appUrl } from '@thefibre/shared';
+import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { WorkspaceLine, type PublicWorkspace } from './workspace-line';
 
@@ -79,10 +79,10 @@ function HostView({ host }: { host: Host }) {
             <img
               src={photo}
               alt={host.full_name ?? host.slug}
-              className="h-16 w-16 rounded-full object-cover"
+              className="h-20 w-20 rounded-full object-cover"
             />
           ) : (
-            <div className="h-16 w-16 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+            <div className="h-20 w-20 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
               {(host.full_name ?? host.slug).slice(0, 1).toUpperCase()}
             </div>
           )}
@@ -181,9 +181,15 @@ function MeetingTypeList({
 function Footer() {
   return (
     <footer className="mt-20 border-t border-neutral-200 pt-6 text-xs text-neutral-500">
+      {/* The product is The Thread; Meet is what this page is (Sjoerd,
+          2026-09-23). The link goes to the front door, not back to the app
+          the visitor is already standing in. */}
       Powered by{' '}
-      <Link className="underline" href={appUrl('fibre-meet', { NEXT_PUBLIC_MEET_URL: process.env.NEXT_PUBLIC_MEET_URL })}>
-        {APPS['fibre-meet'].name}
+      <Link
+        className="underline"
+        href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL })}
+      >
+        {ENTITY.publicName}: {APPS['fibre-meet'].name}
       </Link>
     </footer>
   );

@@ -27,19 +27,20 @@ export function WorkspaceLine({
   className?: string;
 }) {
   if (!workspace?.name && !workspace?.logo_url) return null;
-  const inner = (
-    <>
-      {workspace.logo_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={workspace.logo_url}
-          alt={workspace.name ?? ''}
-          className="h-6 w-auto max-w-[120px] object-contain"
-        />
-      ) : null}
-      {workspace.name && <span className="truncate">{workspace.name}</span>}
-    </>
+  // A logo already says the name (Sjoerd, 2026-09-23: "logo and name is too
+  // much. Logo is good enough if it is uploaded. Otherwise: name.") — so
+  // this is one or the other, never both.
+  const inner = workspace.logo_url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={workspace.logo_url}
+      alt={workspace.name ?? ''}
+      className="h-6 w-auto max-w-[160px] object-contain"
+    />
+  ) : (
+    <span className="truncate">{workspace.name}</span>
   );
+
   const shape = `inline-flex items-center gap-2 text-sm text-neutral-500 ${className}`;
   return workspace.url ? (
     <a
