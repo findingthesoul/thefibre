@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.124.0] — 2026-09-23 — the clash message names the directory (staging)
+
+The personal To do session fired yesterday's new guard on purpose — planting
+a duplicate version and watching `pnpm verify` refuse it — and noticed the
+output labelled everything "(this checkout)". Its point: the clash that
+actually bites is the cross-checkout one, two sessions each holding an
+unpushed migration, and "there is a clash somewhere" is a worse sentence than
+"go and talk to whoever is in that directory".
+
+The label now carries the path:
+
+    20260923140000_zz_probe.sql   (worktree mobile-nav — /Users/…/worktrees/mobile-nav)
+
+Proven with a real clash planted in another worktree, not only in a unit
+test: exit 1 with both paths named, exit 0 once removed.
+
 ## [0.123.0] — 2026-09-23 — the tier for a thread's to-do list is a checkbox (staging)
 
 Sjoerd: *"Can I check that decision with a checkbox? Maybe it is between
