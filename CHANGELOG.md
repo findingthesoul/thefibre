@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.18.0] — 2026-09-23 — the portal uses the width it is given (Portal 0.10.1)
+
+Sjoerd, looking at it on staging: *"full width please"*.
+
+`PageShell` capped every signed-in page at `max-w-2xl`, which on a desktop put
+the list in a narrow column with the rail on one side and a field of empty
+page on the other. A timeline row is a date, a title and two controls — it
+uses the width it is given. Gone, with a little more horizontal padding above
+`sm` so it does not run to the glass.
+
+The signed-in pages only. The sign-in screen stays centred: a full-width email
+field and one button across a desktop is worse, not better.
+
 ## [1.17.0] — 2026-09-23 — a ticket at a door with no signal, under a logo (Portal 0.10.0)
 
 Two things Sjoerd asked for in one release, because they touch the same files.
