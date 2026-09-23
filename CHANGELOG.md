@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-09-23 — soul.com launches (Members 1.0.0 · The Thread 4.0.0)
+
+The launch test of 2026-09-23 (`docs/launch-test-2026-09-23.md`) proved the
+whole member flow on staging — sign-up, Stripe payment, invoice email, annual
+renewal on a Stripe test clock, the year-agenda thread, the Circle provider —
+and Sjoerd named the launch: **the platform is 1.0.0, Members is 1.0.0, and
+The Thread is 4.0.0** (the fourth version; Suite v1, Thread V3 and the
+rebuild before it). Meet stays 2.x and Pulse 0.x on their own lines.
+
+### Fixed
+- **An unpriced tier renewed monthly.** The add-member dialog derived the
+  interval from the tier's prices, and a tier with no price at all — soul.com's
+  cooperative members, comped — fell through to `month`. Every such member was
+  dated one month out; the overdue sweep would have graced them a month later
+  and lapsed them two weeks after that, revoking the year-agenda enrolment.
+  Production carried one such row. The rule now lives on the server
+  (`apps/api/src/lib/membership-interval.ts`, with a test): no price → a year;
+  a priced interval as asked; only the other interval priced → that one.
+  `POST /membership/members` reads the tier BEFORE dating the row, so no
+  caller can send a month for an unpriced tier again; the dialog applies the
+  same rule so its preview is honest.
+
 ## [0.131.0] — 2026-09-23
 
 ### Fixed

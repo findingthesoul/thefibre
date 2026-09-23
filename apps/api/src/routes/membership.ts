@@ -26,6 +26,7 @@ import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
 import { runThreadAccessSync } from '../lib/thread-access.js';
+import { effectiveInterval } from '../lib/membership-interval.js';
 import {
   applyPct,
   evaluatePriceLogic,
@@ -745,8 +746,17 @@ membershipRoutes.post('/members', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  const { billing, interval, invite, country, ...memberFields } = body.data;
+  const { billing, interval: requestedInterval, invite, country, ...memberFields } = body.data;
   const isOrg = Boolean(memberFields.organisation_id);
+  // The tier decides the interval, not the caller: an UNPRICED tier renews
+  // yearly (membership-interval.ts — the launch-test defect of 2026-09-23,
+  // where comped cooperative members were dated one month out).
+  const { data: tier } = await db
+    .from('membership_tier')
+    .select('name, price_cents_year, price_cents_month, currency')
+    .eq('id', memberFields.tier_id)
+    .maybeSingle();
+  const interval = effectiveInterval(tier, requestedInterval);
   // A membership added today renews a period from today. Left to the caller
   // this arrived blank, or — worse — as today's date, which the overdue
   // sweep read as already due and graced minutes later (soul.com, 2026-09-09).
@@ -780,11 +790,6 @@ membershipRoutes.post('/members', async (c) => {
     }
     return fail(c, 'create member', error);
   }
-  const { data: tier } = await db
-    .from('membership_tier')
-    .select('name, price_cents_year, price_cents_month, currency')
-    .eq('id', data.tier_id)
-    .maybeSingle();
 
   // ORG membership (§3.5 v1): manual/invoice billing only — the org pays by
   // invoice (tier price × seats) against its org_billing contact. No Stripe

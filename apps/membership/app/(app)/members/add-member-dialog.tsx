@@ -71,8 +71,21 @@ export function AddMemberDialog({
   const hasYear = (tier?.price_cents_year ?? 0) > 0;
   const hasMonth = (tier?.price_cents_month ?? 0) > 0;
   const priced = hasYear || hasMonth;
-  const effectiveInterval: 'year' | 'month' =
-    interval === 'year' ? (hasYear ? 'year' : 'month') : hasMonth ? 'month' : 'year';
+  // An UNPRICED tier (comped, e.g. soul.com's cooperative members) renews
+  // yearly. Until 2026-09-23 it fell through to 'month' because the tier had
+  // no yearly price, so a comped member was dated one month out, graced a
+  // month later and lapsed two weeks after that — found by the launch test.
+  // The API applies the same rule (membership-interval.ts); this keeps the
+  // preview honest.
+  const effectiveInterval: 'year' | 'month' = !priced
+    ? 'year'
+    : interval === 'year'
+      ? hasYear
+        ? 'year'
+        : 'month'
+      : hasMonth
+        ? 'month'
+        : 'year';
   const baseCents =
     effectiveInterval === 'year' ? tier?.price_cents_year : tier?.price_cents_month;
 

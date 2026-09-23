@@ -17,7 +17,7 @@ import { APPS, tileArtUrl } from '@thefibre/shared';
 // The Thread is the rebuild of thethread-v3, so its user-facing version
 // starts at 3.0.0 — independent of the monorepo cadence in package.json,
 // same rule as Meet's v2.x. See CLAUDE.md "Version bumps".
-const VERSION = '3.52.0';
+const VERSION = '4.0.0';
 
 // A strict subtype of ShellMe: what this layout actually reads. Extend here,
 // never loosen the shared shape.
