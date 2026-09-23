@@ -20,9 +20,26 @@
 //   1. PER SEAT. A source's rows appear only for a user who holds that app's
 //      membership (seatsHeldBy). No seat, no row — otherwise the list
 //      becomes a side door into an app.
-//   2. REFERENCE AND LABEL, NEVER CONTENT. A row carries app, a short title,
-//      a date and a link back. The discipline of the activity log: type and
-//      subject, never the body.
+//   2. REFERENCE AND LABEL, AND ONE LINE OF YOUR OWN CONTEXT. A row carries
+//      app, a short title, a date and a link back — the discipline of the
+//      activity log: type and subject, never the body.
+//
+//      AMENDED 2026-09-23 by Sjoerd, deliberately, after the rule was put to
+//      him: a Connect follow-up may also carry the FIRST LINE of the note
+//      that created it, as hover text. He asked for it knowing what the rule
+//      said ("hover should show first line").
+//
+//      The boundary that keeps this honest, and it is narrow: only a row
+//      ASSIGNED TO THE READER (rule 3), only from an app the reader holds a
+//      seat in (rule 1), and only the first line. Under those two conditions
+//      the platform is showing somebody a sentence they wrote, about work
+//      they own, in an app they already have open access to. No app gains a
+//      read it did not have — which is the actual wall, and it still stands.
+//
+//      What is still forbidden: the whole body, any row not assigned to the
+//      reader, and any app whose seat they do not hold. If a future source
+//      wants to widen this, it is Sjoerd's call again, not an inference from
+//      this one.
 //   3. YOURS ONLY. Every query is filtered to this user (assignee, host,
 //      organiser). Never "everything in the workspace, for reference".
 //
@@ -58,6 +75,10 @@ export type TaskItem = {
   org?: string | null;
   /** The subject's tags — labels, never the note that produced them. */
   tags?: string[];
+  /** The FIRST LINE of the note that created this follow-up, for hover text.
+   *  Rule 2 as amended — see the header. Only ever your own assigned row,
+   *  only from an app you hold a seat in, never the whole body. */
+  note?: string | null;
   /** Filed out of the Archive view by the seven-day sweep; the row remains. */
   archived_at?: string | null;
   sort: number;
@@ -169,15 +190,23 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
   // Which of these a Connect note created, and about whom. One query for the
   // whole page rather than one per row.
   const fromConnect = new Map<string, string | null>();
+  // The first line of the note that created the follow-up — rule 2 as
+  // amended. Stored per task, capped, and never the whole body.
+  const noteLine = new Map<string, string>();
   const ids = (data ?? []).map((t) => t.id as string);
   if (ids.length) {
     const { data: notes, error: ne } = await adminClient
       .from('flow_run_note')
-      .select('follow_up_task_id, person_id')
+      .select('follow_up_task_id, person_id, body')
       .in('follow_up_task_id', ids);
     if (ne) console.warn('[tasks] note follow-ups', ne.message);
     for (const n of notes ?? []) {
       fromConnect.set(n.follow_up_task_id as string, (n.person_id as string | null) ?? null);
+      const first = String(n.body ?? '')
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .find((l) => l.length > 0);
+      if (first) noteLine.set(n.follow_up_task_id as string, first.slice(0, 200));
     }
   }
   // Who these are ABOUT — the note's person, or the task's own contact. A row
@@ -217,8 +246,17 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
           }
         : null,
       // A Connect follow-up opens the person you owe it to, not a Flow run.
+      //
+      // `/people?person=` and NOT `/people/:id`: the standalone page is a
+      // name and its notes with nothing around it, because every click INSIDE
+      // Connect opens a popup instead and an arrival from another app has no
+      // click to intercept. Sjoerd, 2026-09-23: *"please show a peoples list
+      // with a popup... not a full page floating no where."* The list reads
+      // the parameter and opens the popup, so arriving from here looks like
+      // clicking there. The standalone page is untouched — it keeps a real
+      // URL for sharing and cmd-click.
       href: isConnect
-        ? (personId ? `/people/${personId}` : '/today')
+        ? (personId ? `/people?person=${personId}` : '/today')
         : t.flow_run_id ? `/runs/${t.flow_run_id}` : '/tasks',
       state: 'open' as const,
       snoozed_until: null,
@@ -228,6 +266,7 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
       team: null,
       org: about?.org ?? null,
       tags: about?.tags ?? [],
+      note: noteLine.get(id) ?? null,
       sort: 0,
       };
     });

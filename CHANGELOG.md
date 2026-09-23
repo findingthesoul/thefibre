@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.126.0] — 2026-09-23 — the note's first line on hover, and a person who opens where people are
+
+**Rule 2 is amended, deliberately and by Sjoerd.** The To do list's founding
+discipline was *reference and label, never content* — the activity log's rule.
+Asked whether the hover should show the note behind a follow-up, knowing what
+the rule said, he answered: *"hover should show first line"*. So it does.
+
+The boundary is narrow and written into the header beside the rule: only a row
+**assigned to the reader**, only from an app they **hold a seat in**, and only
+the **first line**. Under those two conditions the platform is showing somebody
+a sentence they wrote, about work they own, in an app they already have open.
+No app gains a read it did not have — which is the actual wall, and it stands.
+Widening it further is his call again, not an inference from this one.
+
+**A follow-up now opens the person where people are.** The link was
+`/people/:id`, a standalone page — a name and its notes with nothing around it.
+Every click *inside* Connect opens a popup instead, and an arrival from another
+app has no click to intercept, so it landed on the bare page. Sjoerd: *"please
+show a peoples list with a popup... not a full page floating no where."* It is
+now `/people?person=`, which the list reads and opens the popup for — so
+arriving from the To do panel looks like clicking inside Connect. The
+standalone page is untouched and keeps its real URL for sharing and cmd-click.
+
+The Connect half of that was built by the session that asked for this string;
+the string itself is one line in `my-tasks.ts` and no other behaviour moves.
+
 ## [0.124.0] — 2026-09-23 — the clash message names the directory (staging)
 
 The personal To do session fired yesterday's new guard on purpose — planting

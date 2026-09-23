@@ -34,6 +34,8 @@ export type TodoItem = {
   org?: string | null;
   /** The subject's tags — labels, never the note that produced them. */
   tags?: string[];
+  /** The first line of the note behind a follow-up, for hover text. */
+  note?: string | null;
   state: 'open' | 'done' | 'snoozed';
   snoozed_until: string | null;
   done_at: string | null;
@@ -462,7 +464,13 @@ function Row({
             className={`${FIELD_INPUT_CLASS} h-8 w-full px-1 py-0`}
           />
         ) : hrefFor(item) ? (
-          <a href={hrefFor(item)!} className="block truncate text-sm hover:underline">{item.title}</a>
+          <a
+            href={hrefFor(item)!}
+            title={item.note ?? undefined}
+            className="block truncate text-sm hover:underline"
+          >
+            {item.title}
+          </a>
         ) : (
           <span
             className={`block truncate text-sm ${onRename ? 'cursor-text' : ''}`}
@@ -476,9 +484,17 @@ function Row({
           // "Follow up" on its own said nothing (Sjoerd, 2026-09-23).
           <span
             className="block truncate text-xs text-ink-muted"
-            title={[item.subject?.label, item.org, ...(item.tags ?? []).map((t) => `#${t}`)]
+            // The note's first line leads, because it is the thing that says
+            // WHY (Sjoerd, 2026-09-23: "hover should show first line"); the
+            // labels follow it.
+            title={[
+              item.note,
+              [item.subject?.label, item.org, ...(item.tags ?? []).map((t) => `#${t}`)]
+                .filter(Boolean)
+                .join(' · '),
+            ]
               .filter(Boolean)
-              .join(' · ')}
+              .join('\n')}
           >
             {[item.team?.name, item.subject?.label, item.org, appName(item.app)]
               .filter(Boolean)
