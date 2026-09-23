@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
 import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -141,7 +142,7 @@ export default async function MeetingTypePage({
   );
 }
 
-function Card({
+async function Card({
   ownerSlug,
   ownerKind,
   ownerName,
@@ -164,6 +165,8 @@ function Card({
   meetingType: MeetingType;
   reschedule: Reschedule | null;
 }) {
+  // The host decides staging vs production for the footer link.
+  const host = (await headers()).get('host');
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12">
@@ -265,7 +268,7 @@ function Card({
         <footer className="mt-8 text-center text-xs text-neutral-400">
           Powered by{' '}
           <Link
-            href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL })}
+            href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL }, host)}
             className="underline"
           >
             {ENTITY.publicName}: {APPS['fibre-meet'].name}

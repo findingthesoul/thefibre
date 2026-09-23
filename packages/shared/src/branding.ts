@@ -345,13 +345,27 @@ export function ambientEnv(): Record<string, string | undefined> | undefined {
   return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
 }
 
-/** Like appUrl, for surfaces: the env override wins, else production. */
+/** Like appUrl, for surfaces: the env override wins, then the HOST we are
+ *  served from, then production.
+ *
+ *  The host fallback is the same one `appUrl` has: a page on `*.thefibre.tech`
+ *  must link to `.tech`, and a staging project that was never told a sibling's
+ *  URL otherwise sends its visitor to PRODUCTION. Found on 2026-09-23 with
+ *  Meet's new "Powered by The Thread: Meet" footer, which resolved to
+ *  `thethread.app` while being served from `meet.thefibre.tech`. Callers that
+ *  cannot reach the request's host (emails, for one) simply omit it and get
+ *  production, which is what an absolute link in an email should be. */
 export function surfaceUrl(
   key: SurfaceKey,
   env?: Record<string, string | undefined>,
+  /** The host serving this page, e.g. from Next's `headers()`. */
+  host?: string | null,
 ): string {
   const s = SURFACES[key];
-  return env?.[s.urlEnv] || s.url;
+  const fromEnv = env?.[s.urlEnv];
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+  if (isStagingHost(host)) return `https://${STAGING_APEX}`;
+  return s.url;
 }
 
 /** The brand PLATFORM emails (and the shared legal footer line) present

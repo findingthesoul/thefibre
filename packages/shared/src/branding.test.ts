@@ -62,6 +62,18 @@ describe('defaultEmailFrom', () => {
 });
 
 describe('surfaceUrl — the website surface (registered 2026-09-12)', () => {
+  it('follows the host onto staging, so a .tech page does not link to .app', () => {
+    expect(surfaceUrl('website', {}, 'meet.thefibre.tech')).toBe('https://thefibre.tech');
+    expect(surfaceUrl('website', {}, 'thefibre.tech')).toBe('https://thefibre.tech');
+    expect(surfaceUrl('website', {}, 'meet.thethread.app')).toBe('https://thethread.app');
+    // No host at all (an email) still gets production.
+    expect(surfaceUrl('website', {}, null)).toBe('https://thethread.app');
+    // An explicit env value still wins over the host.
+    expect(
+      surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: 'https://example.test' }, 'meet.thefibre.tech'),
+    ).toBe('https://example.test');
+  });
+
   it('falls back to production when the environment says nothing', () => {
     expect(surfaceUrl('website', {})).toBe('https://thethread.app');
     expect(surfaceUrl('website', undefined)).toBe('https://thethread.app');

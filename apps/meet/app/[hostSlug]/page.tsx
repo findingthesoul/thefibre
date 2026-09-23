@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { WorkspaceLine, type PublicWorkspace } from './workspace-line';
@@ -178,7 +179,9 @@ function MeetingTypeList({
   );
 }
 
-function Footer() {
+async function Footer() {
+  // The host decides staging vs production when no env var says so.
+  const host = (await headers()).get('host');
   return (
     <footer className="mt-20 border-t border-neutral-200 pt-6 text-xs text-neutral-500">
       {/* The product is The Thread; Meet is what this page is (Sjoerd,
@@ -187,7 +190,7 @@ function Footer() {
       Powered by{' '}
       <Link
         className="underline"
-        href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL })}
+        href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL }, host)}
       >
         {ENTITY.publicName}: {APPS['fibre-meet'].name}
       </Link>
