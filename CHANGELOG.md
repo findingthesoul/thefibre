@@ -17,6 +17,29 @@ Sjoerd, reading his own page after the workspace line landed.
 - **"Powered by The Thread: Meet"**, linking to `thethread.app` rather than
   back to the app the visitor is already standing in. Through
   `surfaceUrl('website')`, so staging's footer points at staging.
+## [0.130.0] — 2026-09-23 — a staging page linked to production (Meet 2.10.3, staging)
+
+Found by loading the new Meet footer on staging instead of trusting that it
+shipped: `meet.thefibre.tech` rendered
+`Powered by <a href="https://thethread.app">The Thread: Meet</a>` — a staging
+page sending its visitor to production. **Production was never wrong**; there
+that link resolves to `thethread.app` either way. This was a staging-only
+leak, and exactly what the comment above `SURFACES` was written about in
+v0.68: "sending every staging visitor to PRODUCTION".
+
+The asymmetry underneath it: `appUrl()` has taken a host fallback since the
+domain flip, so a page on `*.thefibre.tech` links to `.tech`. `surfaceUrl()`,
+added later for the marketing site, never got one — it answered production
+unless an env var said otherwise, and Meet's staging project has no
+`NEXT_PUBLIC_WEBSITE_URL`. Both functions correct on their own, neither
+erroring, and the disagreement visible only from the page.
+
+`surfaceUrl(key, env, host)` now mirrors `appUrl`: env wins, then the host we
+are served from, then production. **No host still means production**, which is
+what an absolute link in an email should be. Meet's two public pages read the
+request host and pass it. Five assertions in `branding.test.ts` pin all four
+paths including the email one.
+
 ## [0.129.0] — 2026-09-23 — the app tiles lose the word
 
 Sjoerd's "PNG 3" set: the same painted marks **without the name underneath**.
