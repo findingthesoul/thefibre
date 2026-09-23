@@ -6,6 +6,97 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.112.0] — 2026-09-23 — a thread has a to-do list, and templates have a third group (staging)
+
+Sjoerd: *"I want per thread a to do list... and people can insert a to do
+template. So templates needs a third group: to do's, with a list... Auto team
+if selected... In a thread, there should be a to do list button... so
+organisisers and hosts can see what needs to happen."*
+
+**The design decision, because it is the whole shape of this.** The
+system-wide To do list shipped this morning and is PRIVATE by construction —
+`user_task`'s policies are `user_id = current_user_id()`, and its own
+migration says "not managerial… it is not a report on somebody's day". A list
+every organiser and host of a thread can see is the opposite of that promise,
+and widening `user_task` to carry it would have spent that promise on this
+feature.
+
+So the thread's list is **The Thread's content**, like its engagements: a new
+`public.thread_task` with `thread_engagement`'s RLS word for word — the
+workspace, plus a Thread seat. The platform list COMPOSES the rows assigned to
+you, by the rules already written at the top of `routes/my-tasks.ts`: per
+seat, reference-and-label-never-content, yours only. Unassigned to-dos stay on
+the thread, where the people who can act on them are already looking.
+
+**Not behind the Organisation-plan `todo` gate.** That gate belongs to the
+cross-app personal list. A thread's own checklist is part of The Thread and
+reaches anyone whose plan includes The Thread.
+
+What is there:
+
+- A **To do button in the thread header** carrying the open count, opening the
+  shared list: add a line, give it a date, tick it, assign it, remove it.
+  Assignment is a LABEL saying who is expected to act — never a permission;
+  everyone who can open the thread still sees every row.
+- **Templates → To-do lists**, the third group beside certificates and
+  threads. Same table, `kind = 'todo'`: a second table would have meant a
+  second copy of the scoping, the sharing and the ownership columns, and the
+  copy that drifted would be whichever nobody was looking at.
+- Items carry an offset in **days from the thread's start**, never a date, so
+  a list is reusable; applying rebases them. A thread with no start date gets
+  to-dos with no dates rather than an invented deadline.
+- Applying **adds, never replaces** — a second checklist means "and also
+  these", and a replace would destroy work already ticked off.
+- **"Auto team if selected"**: a to-do inherits the thread's team at creation
+  and keeps it, so moving a thread between teams later cannot silently re-file
+  work already done.
+- Ticking a composed item on the personal list closes it **on the thread too**,
+  in both directions, constrained by assignee. One truth, not two.
+
+Four bugs caught before this shipped, three of them by things other than
+typechecking:
+
+- `passThroughCompletion` was hardcoded to Flow, so ticking a thread to-do in
+  the personal panel would have recorded the answer while the thread list
+  stayed open — and nothing anywhere would have said so. Caught in review by
+  the session that owns that file.
+- The personal list's team filter keeps only items whose team matches, so an
+  item carrying no team vanishes the moment a team is chosen. The thread's
+  team is now mapped onto the composed item.
+- `isWorkspaceMember(workspaceId, userId)` was called with its arguments
+  swapped. Both are strings, so `tsc` was perfectly happy; assigning a to-do
+  to a legitimate colleague answered 403. Caught by a test that asserted the
+  success case, not only the refusal.
+- Adding `kind` to `thread_template` meant to-do lists leaked into the
+  THREAD-template routes, which had no reason to filter by kind before today.
+  A checklist would have appeared in the New-thread picker and laid down zero
+  engagements — a template that appears to work and silently does nothing. All
+  five `thread_template` queries in `routes/thread.ts` now name their kind.
+
+**A migration was skipped silently, and the push log said nothing.** This
+slice was first numbered `20260923140000`, which another session had already
+applied to staging from its own worktree under a different filename. Supabase
+records a migration by its 14-digit VERSION — not its filename, not its
+contents — so `supabase db push` treated mine as already applied, listed only
+its sibling, and exited 0. `thread_task` was simply not there afterwards. It
+was found by probing staging for the table instead of believing the log, and
+the migration is now `20260923150000`. The rule that follows: **check every
+worktree's `supabase/migrations` before choosing a timestamp**, not just the
+one you can see — a duplicate version does not sort, it disappears.
+
+Tests assert **non-empty**, not 200: a green status is exactly what an inert
+feature returns. `thread-tasks.int.test.ts` (14 new, 108 passing against
+staging) proves a second member of the workspace sees the list, that an
+assigned item arrives on that person's own list with the right app, team and
+link, that ticking it there closes it on the thread, that another workspace
+gets 404 on every path, and that removing one is a soft delete with the row
+still present.
+
+`filterVisibleTemplates` moved from `routes/thread.ts` to
+`lib/template-visibility.ts` — a third kind of template would otherwise have
+meant a third copy of one rule.
+
+
 ## [0.111.0] — 2026-09-23 — the workspace behind the page, and calendar blocks marked Free (Meet 2.10.0, staging)
 
 Two things Sjoerd found on his own booking page, meet.thethread.app/sjoerd-luteijn.
