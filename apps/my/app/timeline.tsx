@@ -72,7 +72,16 @@ function Card({
 
   return (
     <li className={`rounded-xl border border-line bg-surface p-3 ${past ? 'opacity-70' : ''}`}>
-      {/* Sjoerd's layout, 2026-09-11:
+      {/* TITLES WRAP TO TWO LINES, they do not truncate. On a phone a single
+          clipped line turned every card into "Soul.com's The theory of c…",
+          which is the half of a title that identifies nothing — and the card
+          had the vertical room all along, because the date block and the RSVP
+          button set its height. Two lines, then clipped: a title long enough
+          to need three is a title nobody scans anyway, and the detail sheet
+          has it in full. `overflow-wrap:anywhere` so one very long word
+          cannot push the row sideways.
+
+          Sjoerd's layout, 2026-09-11:
           | date | title / time · organiser · QR | RSVP |
           Date and RSVP both run the full height of the card, so the row is
           three columns rather than a body with things tucked beside it.
@@ -91,12 +100,16 @@ function Card({
               onClick={() => onOpen(entry.threadId!, entry.engagementId)}
               className="min-w-0 text-left"
             >
-              <span className="block truncate font-medium text-ink">{entry.title}</span>
+              <span className="block font-medium text-ink [overflow-wrap:anywhere] line-clamp-2">
+                {entry.title}
+              </span>
               <MetaLine entry={entry} />
             </button>
           ) : (
             <div className="min-w-0">
-              <span className="block truncate font-medium text-ink">{entry.title}</span>
+              <span className="block font-medium text-ink [overflow-wrap:anywhere] line-clamp-2">
+                {entry.title}
+              </span>
               <MetaLine entry={entry} />
             </div>
           )}

@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.20.0] — 2026-09-23 — a title you can read (Portal 0.10.3)
+
+From Sjoerd's phone screenshot: every card read *"Soul.com's The theory of
+c…"*, *"Leading through transition: …"*, *"A session on the model of: l…"* —
+the half of a title that identifies nothing, on a surface whose whole job is
+telling you what you are going to.
+
+Titles now wrap to two lines instead of truncating at one. The room was always
+there: the card's height is set by the date block and the RSVP button beside
+it, so a second line costs nothing. Clipped after two, because a title needing
+three is one nobody scans, and the detail sheet has it in full.
+`overflow-wrap:anywhere` so a single very long word cannot push the row
+sideways on a 375px screen.
+
+The meta line below it still truncates, deliberately: time, organiser and
+place are a supporting sentence, and their first half is still useful where a
+title's is not.
+
 ## [1.19.0] — 2026-09-23 — the wordmark is legible on a phone (Portal 0.10.2)
 
 Sjoerd, on production: *"on mobile my logo is still super small."* It was.
