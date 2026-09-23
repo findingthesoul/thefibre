@@ -23,6 +23,7 @@ import {
   OrganisationCombobox,
   type OrganisationOption,
 } from '@thefibre/shared/ui/organisation-combobox';
+import { PersonCombobox, type PersonOption } from '@thefibre/shared/ui/person-combobox';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -115,5 +116,62 @@ describe('a value the picker was not given', () => {
     });
     await settle();
     expect(container.textContent).toContain('Search…');
+  });
+});
+
+// ── The label comes back with the id ────────────────────────────────────────
+//
+// Sjoerd, 2026-09-23, adding Martine Verweij to a meeting write-up and getting
+// a chip that read "64f88ab3-56f2-4287-81b6-45b9baf873a7". The write-up keeps
+// its own roster, so it needs the NAME at the moment of the pick — and
+// onChange handed back only the id, leaving the caller to render the id or
+// re-fetch a name the picker had just displayed on screen.
+describe('picking somebody', () => {
+  it('hands the caller the label it was showing, not only the id', async () => {
+    const PERSON: PersonOption = {
+      id: '64f88ab3-56f2-4287-81b6-45b9baf873a7',
+      first_name: 'Martine',
+      last_name: 'Verweij',
+      email: 'martine@example.org',
+    };
+    const seen: { id: string; label?: string }[] = [];
+
+    await act(async () => {
+      root.render(
+        <PersonCombobox
+          label="Somebody else who was there"
+          search={async () => [PERSON]}
+          people={[PERSON]}
+          value=""
+          placeholder="Search…"
+          onChange={(id, label) => seen.push({ id, label })}
+        />,
+      );
+    });
+    await settle();
+
+    // Open the list from its trigger, then choose the one row.
+    const trigger = container.querySelector('button');
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await settle();
+    // `li button`, not `li`: the row's click handler is on the button, and
+    // clicking the wrapper does nothing — which is how this test first
+    // "found" a row and saw no onChange at all.
+    const row = ([...container.querySelectorAll('li button')] as HTMLElement[]).find((el) =>
+      el.textContent?.includes('Martine'),
+    );
+    expect(row, 'the picker showed no row for Martine').toBeTruthy();
+    await act(async () => {
+      row!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await settle();
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.id).toBe(PERSON.id);
+    // The assertion that matters: a caller storing its own chip can name it
+    // without a second request.
+    expect(seen[0]!.label).toContain('Martine');
   });
 });

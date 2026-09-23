@@ -50,7 +50,12 @@ export type PersonComboboxProps = {
   /** Already linked, e.g. current members of the org — not offered again. */
   exclude?: string[];
   value?: string;
-  onChange?: (id: string) => void;
+  /** The chosen id, and the LABEL the list was showing for it. The label is
+   *  passed because the picker already knows it: a caller that stores its own
+   *  chip would otherwise have to re-fetch a name it just displayed, and
+   *  until that request lands it shows the id. Optional and additive — an
+   *  existing caller taking one argument is unaffected. */
+  onChange?: (id: string, label?: string) => void;
   required?: boolean | undefined;
   errors?: string[] | undefined;
   placeholder?: string | undefined;
@@ -102,6 +107,12 @@ export function PersonCombobox({
 
   const hidden = new Set(exclude);
   const seed = people.filter((p) => !hidden.has(p.id)).map(toOption);
+  // The resolved row first, so a value loaded from the database has a name on
+  // it before any search has run. Named rather than inline because the change
+  // handler reads it back to hand the caller the label it displayed.
+  const options = resolved
+    ? [toOption(resolved), ...seed.filter((o) => o.value !== resolved.id)]
+    : seed;
 
   useEffect(() => {
     const id = value ?? inner;
@@ -142,11 +153,15 @@ export function PersonCombobox({
         value={inner}
         onChange={(id) => {
           setInner(id);
-          onChange?.(id);
+          // The label off the list that was on screen. SearchSelect hands
+          // back only the value, and the caller's chip needs the name the
+          // person just clicked — without this it renders the id until a
+          // lookup lands, which is what it did.
+          onChange?.(id, options.find((o) => o.value === id)?.label);
         }}
         // The resolved row first, so a value loaded from the database has a
         // name on it before any search has run.
-        options={resolved ? [toOption(resolved), ...seed.filter((o) => o.value !== resolved.id)] : seed}
+        options={options}
         loadOptions={load}
         placeholder={placeholder}
         searchPlaceholder={searchPlaceholder}

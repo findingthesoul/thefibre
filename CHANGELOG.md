@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-09-23
+
+### Fixed
+- **Adding somebody to a meeting write-up showed a raw id, then lost them.**
+  Sjoerd, on production: *"I tried to connect Martine Verweij"* — the chip read
+  `64f88ab3-56f2-4287-81b6-45b9baf873a7` — and then *"And then it is not
+  there"*. Two separate faults in one press:
+  - `PersonCombobox` handed its caller only the chosen id. The write-up keeps
+    its own roster, so it had no name for the chip and fell back to the id.
+    `onChange` now also passes the LABEL the list was showing — additive, and
+    the picker already had it, so a caller no longer has to re-fetch a name it
+    just displayed.
+  - The form's reset was keyed on the `event` OBJECT. The parent rebuilds that
+    on every render, so an agenda refresh handed down an equal-but-new object,
+    re-ran the reset and wiped both the ticked people and the ones added by
+    hand — under somebody in the middle of filling it in. Keyed on the
+    meeting's id now.
+  Mutation-checked: removing the label from the picker fails the new test, and
+  the test itself was wrong first — it clicked the row's wrapper rather than
+  its button, "found" a row and saw no change at all.
+
 ## [1.9.1] — 2026-09-23
 
 ### Fixed

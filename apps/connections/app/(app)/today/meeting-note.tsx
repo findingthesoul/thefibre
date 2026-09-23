@@ -141,8 +141,13 @@ export function MeetingWriteUp({
     });
     // `known` is derived from `event` on every render; depending on it would
     // re-run this on each keystroke and wipe what is being typed.
+    // Keyed on the meeting's ID, not on the object. `event` is rebuilt on
+    // every parent render — a refresh of the agenda hands down an equal but
+    // NEW object, which re-ran this and wiped `picked` and `extra` under
+    // somebody mid-form. Sjoerd, 2026-09-23, having just added a person:
+    // "And then it is not there".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event]);
+  }, [event?.id]);
 
   /** Everyone offerable as present: the invitation's known people, then the
    *  ones named by hand. One entry per person. */
@@ -360,9 +365,13 @@ export function MeetingWriteUp({
               search={searchPeople}
               exclude={roster.map((p) => p.id)}
               value=""
-              onChange={(id) => {
+              onChange={(id, label) => {
                 if (!id) return;
-                add(id);
+                // The label the picker was showing. Without it the chip fell
+                // back to the id and rendered a raw uuid — Sjoerd, 2026-09-23,
+                // adding Martine Verweij and getting
+                // "64f88ab3-56f2-4287-81b6-45b9baf873a7".
+                add(id, label);
               }}
               placeholder={t(locale, 'meeting_note_add_present')}
               onCreate={(typed) => {
