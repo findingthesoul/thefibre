@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.127.0] — 2026-09-23
+
+### Changed
+- **A person opened from outside Connect arrives on the list, not on a page of
+  their own.** Sjoerd, clicking a to-do in the topbar: *"in Connections, please
+  show a peoples list with a popup... not a full page floating no where."*
+  Every row inside Connect opens the popup, because `PersonLink` intercepts the
+  click — but a link from another app is a navigation, with no click to
+  intercept, so it landed on `/people/:id`: a name, its notes, and nothing
+  around it. Any page under `PersonPopupProvider` now opens the popup from
+  `?person=<id>`, with the list still rendered behind it. The param is stripped
+  with `replaceState` BEFORE the popup pushes its own history entry, so back
+  closes the popup and leaves you on the list rather than reopening it for
+  ever. The standalone page is untouched — it is what a cmd-click and a shared
+  URL are for. Mutation-checked by removing the effect and watching the two
+  behaviour tests fail while the no-param control kept passing.
+  This is the Connect half of the ask; the link that points at it shipped in
+  v0.126.0.
+
 ## [0.126.0] — 2026-09-23 — the note's first line on hover, and a person who opens where people are
 
 **Rule 2 is amended, deliberately and by Sjoerd.** The To do list's founding

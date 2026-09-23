@@ -197,6 +197,41 @@ export function PersonPopupProvider({
     [load],
   );
 
+  // ── Arriving from outside ─────────────────────────────────────────────────
+  //
+  // Sjoerd, 2026-09-23, clicking a to-do in the topbar list: *"in Connections,
+  // please show a peoples list with a popup... not a full page floating no
+  // where."*
+  //
+  // Every row INSIDE the app opens this popup, because `PersonLink` intercepts
+  // the click. A link from another app has no click to intercept — it is a
+  // navigation — so it landed on `/people/:id`, which is a real page with a
+  // name, its notes, and nothing around it. Correct, and disorienting: you
+  // arrive somewhere with no list to go back to.
+  //
+  // So a `?person=` on any page under this provider opens the popup over
+  // whatever that page is. The to-do link points at `/people?person=<id>`,
+  // which is the list with the person open — the same thing a click would
+  // have given you.
+  //
+  // The param is stripped with replaceState BEFORE opening, so the history is
+  // the clean page and then the popup's own entry. Back therefore closes the
+  // popup and leaves you on the list, rather than reopening it for ever.
+  // Guarded by a ref because this must happen once per arrival, not on every
+  // render that follows.
+  const autoOpened = useRef(false);
+
+  useEffect(() => {
+    if (autoOpened.current) return;
+    const url = new URL(window.location.href);
+    const wanted = url.searchParams.get('person');
+    if (!wanted) return;
+    autoOpened.current = true;
+    url.searchParams.delete('person');
+    window.history.replaceState(window.history.state, '', url.toString());
+    openPerson(wanted);
+  }, [openPerson]);
+
   /** X, Escape, backdrop: go back through history so there is one exit. */
   const close = useCallback(() => {
     if (pushed.current) window.history.back();

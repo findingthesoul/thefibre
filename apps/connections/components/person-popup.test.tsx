@@ -245,3 +245,81 @@ describe('the person popup', () => {
     expect(dialogOpen()).toBe(true);
   });
 });
+
+// ── Arriving from another app ───────────────────────────────────────────────
+//
+// Sjoerd, 2026-09-23: *"in Connections, please show a peoples list with a
+// popup... not a full page floating no where."* A to-do in the topbar list
+// links into Connect, and a navigation has no click for `PersonLink` to
+// intercept, so it used to land on the standalone `/people/:id` page.
+//
+// These fail against the version without the `?person=` effect: the first
+// because nothing opens, the second because nothing strips the param.
+describe('arriving with ?person=', () => {
+  // Each case mounts its own provider and asserts against ITS OWN container,
+  // not document.body: the popup renders in place (the shared Dialog is
+  // `fixed inset-0` with no portal), and earlier mounts in this file leave
+  // their markup in the body. A body-wide check passed for the no-param case
+  // by reading a previous test's dialog — caught here, which is why the
+  // assertions below are scoped.
+  const mounted: Root[] = [];
+  afterEach(() => {
+    for (const r of mounted.splice(0)) act(() => r.unmount());
+  });
+
+  /** A fresh provider mounted at `url`, since the shared one in beforeEach
+   *  was mounted at a URL with no param and effects do not re-run for that. */
+  const mountAt = async (url: string) => {
+    const u = new URL(url, window.location.origin);
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, href: u.toString(), search: u.search, assign: (x: string) => assigned.push(x) },
+    });
+    const c = document.createElement('div');
+    document.body.appendChild(c);
+    const r = createRoot(c);
+    mounted.push(r);
+    await act(async () => {
+      r.render(
+        <StrictMode>
+          <PersonPopupProvider locale="en" fibreContactsBase="https://example.invalid/contacts">
+            <div>the people list</div>
+          </PersonPopupProvider>
+        </StrictMode>,
+      );
+    });
+    await settle();
+    return c;
+  };
+
+  it('opens the person over the page, without a click', async () => {
+    const c = await mountAt('/people?person=p1');
+    expect(c.textContent).toContain('Wilma Doornbos');
+    // The list is still there underneath — that is the whole point of the
+    // ask. A standalone page would have replaced it.
+    expect(c.textContent).toContain('the people list');
+  });
+
+  it('strips the param so back closes the popup instead of reopening it', async () => {
+    const replaced: string[] = [];
+    const real = window.history.replaceState.bind(window.history);
+    vi.spyOn(window.history, 'replaceState').mockImplementation((st, t, u) => {
+      if (typeof u === 'string') replaced.push(u);
+      return real(st, t, u as string);
+    });
+    await mountAt('/people?person=p1&q=wil');
+
+    expect(replaced.length).toBe(1);
+    const after = new URL(replaced[0], window.location.origin);
+    expect(after.searchParams.get('person')).toBeNull();
+    // Everything else the page was showing survives — a search, a filter.
+    expect(after.searchParams.get('q')).toBe('wil');
+    vi.mocked(window.history.replaceState).mockRestore();
+  });
+
+  it('does nothing when there is no param', async () => {
+    const c = await mountAt('/people');
+    expect(c.textContent).not.toContain('Wilma Doornbos');
+    expect(c.textContent).toContain('the people list');
+  });
+});
