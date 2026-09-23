@@ -52,3 +52,34 @@ export const COOKIE_TODO = 'thefibre.todo';
 // Value is one of the shared LOCALES; '' / absent = no preference. Here
 // since 2026-09-14: seven lib/locale.ts copies each declared it themselves.
 export const COOKIE_LOCALE = 'thefibre.locale';
+
+/**
+ * Write a preference cookie from the browser, immediately.
+ *
+ * The durable copy is still the server action (`savePref`): Safari's ITP caps
+ * anything set via document.cookie to seven days, which is why preferences are
+ * written server-side in the first place. This is the belt to that braces, and
+ * it exists because of a race with a real cost — the To do panel's open state
+ * is read by the NEXT page's server render, and a server action fired on click
+ * can still be in flight when you click straight through to another app. The
+ * cookie then arrives after the render that needed it, and the panel you left
+ * open comes up closed. Writing it here makes the state true the instant you
+ * click; the server action follows and gives it a year.
+ *
+ * `domain` is NEXT_PUBLIC_COOKIE_DOMAIN — absent locally, where a host-only
+ * cookie is shared by every localhost app anyway.
+ */
+export function writePrefCookie(name: string, value: string, domain?: string): void {
+  if (typeof document === 'undefined') return;
+  const secure = typeof location !== 'undefined' && location.protocol === 'https:';
+  document.cookie = [
+    `${name}=${encodeURIComponent(value)}`,
+    'path=/',
+    domain ? `domain=${domain}` : '',
+    'max-age=31536000',
+    'samesite=lax',
+    secure ? 'secure' : '',
+  ]
+    .filter(Boolean)
+    .join('; ');
+}

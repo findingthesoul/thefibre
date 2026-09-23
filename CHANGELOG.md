@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.99.1] — 2026-09-23 — the panel's open state cannot be outrun
+
+v0.99.0 remembered the panel across apps by writing a cookie from a server
+action. Verified on staging, it worked — but only if you paused. Click the
+button and then click straight through to another app, and the write was still
+in flight when the next app's server render read the cookie: the panel you had
+just opened came up closed.
+
+The state is now written in the browser the instant you click, and the server
+action follows to give it a year (Safari caps anything JavaScript writes to
+seven days, which is why the durable copy stays server-side). Caught by the
+walkthrough clicking faster than a person would — the race was real either way.
+
 ## [0.99.0] — 2026-09-23 — To do in every app, and it stays open while you walk
 
 Sjoerd, looking at Connect on staging: *"I dont see the to do icon"*. Nothing
