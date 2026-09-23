@@ -68,7 +68,11 @@ function migrationDirs() {
     for (const name of readdirSync(wt)) {
       const dir = join(wt, name, 'supabase', 'migrations');
       if (dir === here || !existsSync(dir)) continue;
-      dirs.push({ label: `worktree ${name}`, dir });
+      // The PATH, not just the name: a cross-checkout clash means somebody
+      // else is holding an unpushed migration, and the useful next step is
+      // to go to that directory and talk to whoever is in it (thefibre-0f,
+      // 2026-09-23).
+      dirs.push({ label: `worktree ${name} — ${join(wt, name)}`, dir });
     }
   }
   return dirs;
