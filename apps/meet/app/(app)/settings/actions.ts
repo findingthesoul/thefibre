@@ -125,6 +125,20 @@ export async function disconnectZoom(): Promise<SaveResult> {
   return { ok: true };
 }
 
+/** Host preferences that are a single switch rather than a form — today
+ *  just "events marked Free still block" (Settings → Calendars). */
+export async function updateHostPrefs(patch: {
+  busy_includes_free?: boolean;
+}): Promise<SaveResult> {
+  try {
+    await apiFetch('/api/v1/meet/me', { method: 'PATCH', body: JSON.stringify(patch) });
+    revalidatePath('/settings/calendars');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: formatApiError(e) };
+  }
+}
+
 // Plain-patch twin of updateHost for the converged Public page form
 // (2026-09-05): slug + location only — the profile itself is edited in
 // The Fibre ("one profile, and it is the platform's").

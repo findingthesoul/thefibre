@@ -515,6 +515,22 @@ const CATALOG = {
     de: 'Noch keine Kalender synchronisiert. Klicke auf Neu synchronisieren, um sie von Google zu holen.', // MT
     fr: 'Aucun calendrier synchronisé pour l’instant. Clique sur Resynchroniser pour les importer depuis Google.', // MT
   },
+  cal_free_busy_label: {
+    en: 'Events marked Free still block',
+    nl: 'Afspraken met “vrij” blokkeren ook',
+    es: 'Los eventos marcados como Libre también bloquean', // MT
+    pt: 'Os eventos marcados como Livre também bloqueiam', // MT
+    de: 'Termine mit „Frei“ blockieren trotzdem', // MT
+    fr: 'Les événements marqués Libre bloquent aussi', // MT
+  },
+  cal_free_busy_hint: {
+    en: 'Google leaves events marked Free out of your availability, so Meet offers those hours. Turn this on and every timed event blocks, whatever it is marked. All-day events and meetings you declined never block.',
+    nl: 'Google laat afspraken met “vrij” weg uit je beschikbaarheid, dus Meet biedt die uren aan. Zet dit aan en elke afspraak met een tijd blokkeert, hoe die ook staat. Hele dagen en afgezegde afspraken blokkeren nooit.',
+    es: 'Google omite de tu disponibilidad los eventos marcados como Libre, así que Meet ofrece esas horas. Actívalo y cualquier evento con hora bloquea, esté como esté marcado. Los eventos de todo el día y las reuniones que rechazaste nunca bloquean.', // MT
+    pt: 'O Google deixa de fora da sua disponibilidade os eventos marcados como Livre, por isso o Meet oferece essas horas. Ative isto e qualquer evento com hora bloqueia, seja como for marcado. Eventos de dia inteiro e reuniões recusadas nunca bloqueiam.', // MT
+    de: 'Google lässt als „Frei“ markierte Termine aus deiner Verfügbarkeit heraus, also bietet Meet diese Stunden an. Schalte das ein, und jeder Termin mit Uhrzeit blockiert, egal wie er markiert ist. Ganztägige Termine und abgesagte Meetings blockieren nie.', // MT
+    fr: 'Google exclut de ta disponibilité les événements marqués Libre, donc Meet propose ces heures. Active ceci et tout événement avec une heure bloque, quelle que soit sa marque. Les journées entières et les réunions refusées ne bloquent jamais.', // MT
+  },
   cal_missing_title: {
     en: 'Don’t see a calendar you expected?',
     nl: 'Mis je een agenda die je verwachtte?',

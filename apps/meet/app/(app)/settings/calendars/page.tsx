@@ -10,18 +10,23 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { CalendarRow, type Cal } from './row';
 import { ResyncButton } from './resync';
+import { FreeBusyToggle } from './free-busy';
 
 export default async function CalendarsPage() {
   const locale = await uiLocale();
   let items: Cal[] = [];
   let connected = false;
+  let busyIncludesFree = false;
   let error: string | null = null;
   try {
     const [me, cals] = await Promise.all([
-      apiFetch<{ google_connected?: boolean }>('/api/v1/meet/me'),
+      apiFetch<{ google_connected?: boolean; busy_includes_free?: boolean }>(
+        '/api/v1/meet/me',
+      ),
       apiFetch<{ items: Cal[] }>('/api/v1/meet/calendars').catch(() => ({ items: [] })),
     ]);
     connected = !!me.google_connected;
+    busyIncludesFree = !!me.busy_includes_free;
     items = cals.items;
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
@@ -68,6 +73,8 @@ export default async function CalendarsPage() {
               </>
             )}
           </div>
+
+          <FreeBusyToggle initial={busyIncludesFree} locale={locale} />
 
           <div className="mt-6 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle leading-relaxed">
             <div className="font-medium text-ink">{t(locale, 'cal_missing_title')}</div>

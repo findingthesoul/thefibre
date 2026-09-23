@@ -131,6 +131,71 @@ export async function freeBusy(
   return out;
 }
 
+/** Which of a calendar's events count as busy once Free no longer excuses
+ *  them. Split out from the request so the rules are testable without Google:
+ *  timed events only (an all-day "working from home" must not close the day),
+ *  nothing cancelled, nothing this person declined. */
+export function busyFromEventItems(
+  items: readonly calendar_v3.Schema$Event[],
+): { start: Date; end: Date }[] {
+  const out: { start: Date; end: Date }[] = [];
+  for (const e of items) {
+    if (e.status === 'cancelled') continue;
+    // All-day events carry `date`, timed ones `dateTime`.
+    const start = e.start?.dateTime;
+    const end = e.end?.dateTime;
+    if (!start || !end) continue;
+    if ((e.attendees ?? []).find((a) => a.self)?.responseStatus === 'declined') continue;
+    out.push({ start: new Date(start), end: new Date(end) });
+  }
+  return out;
+}
+
+/** Busy intervals INCLUDING events marked Free.
+ *
+ *  `freeBusy` above asks Google the availability question, and Google answers
+ *  it the way the calendar owner defined it: an event whose transparency is
+ *  "transparent" (Show as: Free) is simply absent. For somebody who marks
+ *  their own focus blocks Free — Sjoerd, 2026-09-23 — that hands back an
+ *  empty day. This reads the events instead and treats each one as busy.
+ *
+ *  Two deliberate exclusions, or the setting would block more than anyone
+ *  means: ALL-DAY events (a date, not a datetime — "working from home" should
+ *  not close a whole day), and events this person has declined. Cancelled
+ *  events never appear (`showDeleted` defaults to false).
+ *
+ *  One calendar failing does not lose the others: each is caught on its own,
+ *  because a half-read of a conflict calendar must not silently widen
+ *  availability. */
+export async function busyIncludingFree(
+  refreshToken: string,
+  calendarIds: string[],
+  from: Date,
+  to: Date,
+): Promise<{ start: Date; end: Date }[]> {
+  if (calendarIds.length === 0) return [];
+  const cal = calendarFor(refreshToken);
+  const out: { start: Date; end: Date }[] = [];
+  await Promise.all(
+    calendarIds.map(async (id) => {
+      try {
+        const r = await cal.events.list({
+          calendarId: id,
+          timeMin: from.toISOString(),
+          timeMax: to.toISOString(),
+          singleEvents: true, // expand recurrences into their occurrences
+          maxResults: 2500,
+        });
+        out.push(...busyFromEventItems(r.data.items ?? []));
+      } catch (err) {
+        console.error('[busyIncludingFree] calendar read failed', { calendarId: id, err });
+        throw err;
+      }
+    }),
+  );
+  return out;
+}
+
 /**
  * The events on a person's own calendars in a window, with their attendees.
  *
