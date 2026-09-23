@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.117.0] — 2026-09-23
+
+### Added
+- **A guard on the inline field width.** `FIELD_INPUT_CLASS_INLINE` is built by
+  string surgery — `FIELD_INPUT_CLASS.replace('w-full ', '')` — which fires
+  only because `SURFACE` happens to begin `'w-full rounded-md …'`, carrying the
+  trailing space. Move `w-full` to the end of that string and the replace
+  becomes a no-op that throws nothing: every inline field in all nine apps
+  silently goes full width, and a caller's own `w-20` loses to it on stylesheet
+  order. `packages/shared/src/ui/fields.test.ts` now asserts the surgery fired,
+  cut the whole token, left no ragged spacing, and changed nothing else.
+  Mutation-checked by moving `w-full` to the end of `SURFACE` and watching it
+  fail. Found while the thread session was fixing that exact symptom by hand in
+  its template editor; neither side errors, so nothing but a test catches it.
+
 ## [0.116.0] — 2026-09-23 — a page exports a page (Meet 2.10.1, staging)
 
 v0.111.0 put `WorkspaceLine` in `apps/meet/app/[hostSlug]/page.tsx` and

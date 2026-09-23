@@ -17,7 +17,13 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { FIELD_TEXT, FIELD_BOX, FIELD_CLASS, FIELD_INPUT_CLASS } from './fields.js';
+import {
+  FIELD_TEXT,
+  FIELD_BOX,
+  FIELD_CLASS,
+  FIELD_INPUT_CLASS,
+  FIELD_INPUT_CLASS_INLINE,
+} from './fields.js';
 
 const ROOT = resolve(import.meta.dirname, '../../../..');
 
@@ -87,5 +93,39 @@ describe('fields on a phone', () => {
     // Import FIELD_TEXT from @thefibre/shared/ui/fields and interpolate it
     // where the `text-sm` is, or use FIELD_INPUT_CLASS for the whole box.
     expect(offenders).toEqual([]);
+  });
+});
+
+// FIELD_INPUT_CLASS_INLINE is built by string surgery —
+// `FIELD_INPUT_CLASS.replace('w-full ', '')` — and that only works because
+// SURFACE happens to begin `'w-full rounded-md …'`, so the substring carries
+// its trailing space. Move `w-full` to the end of SURFACE, or change the
+// spacing, and the replace becomes a no-op that throws nothing: every inline
+// field in all nine apps silently goes full width, and the caller's own
+// `w-20` loses to it on stylesheet order. Nobody would see it except as a
+// field that looks wrong on one screen.
+//
+// Found 2026-09-23 while the thread session was fixing exactly that symptom
+// in its own template editor. Neither side errors, so this is the
+// two-sides-must-agree shape: the only thing that catches it is a test that
+// the surgery actually cut.
+describe('the inline field variant', () => {
+  it('is the full-width class with the width taken off', () => {
+    // The premise. If this fails, SURFACE no longer sets the width and the
+    // whole INLINE/FULL distinction needs rethinking rather than repairing.
+    expect(FIELD_INPUT_CLASS).toMatch(/\bw-full\b/);
+
+    // The surgery fired at all.
+    expect(FIELD_INPUT_CLASS_INLINE).not.toBe(FIELD_INPUT_CLASS);
+    // …and cut the whole token, not part of one.
+    expect(FIELD_INPUT_CLASS_INLINE).not.toMatch(/\bw-full\b/);
+    // …and left no double space or ragged edge behind.
+    expect(FIELD_INPUT_CLASS_INLINE).toBe(FIELD_INPUT_CLASS_INLINE.trim());
+    expect(FIELD_INPUT_CLASS_INLINE).not.toMatch(/ {2}/);
+
+    // Everything else survived: same classes, minus exactly w-full.
+    expect(FIELD_INPUT_CLASS_INLINE.split(' ').filter(Boolean)).toEqual(
+      FIELD_INPUT_CLASS.split(' ').filter((c) => c && c !== 'w-full'),
+    );
   });
 });
