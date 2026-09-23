@@ -44,9 +44,24 @@ if [ "$behind" != "0" ]; then
   exit 1
 fi
 
-last=$(git show "$REF":CHANGELOG.md | grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' | head -1 | tr -d '#[] ')
+# The HIGHEST released version, not the topmost CHANGELOG heading.
+#
+# `head -1` was wrong and stayed wrong until 2026-09-24: two sessions inserted
+# entries concurrently and left 1.26.0 sitting ABOVE 1.27.0, so this read
+# 1.26.0 and approved 1.26.1 — a number lower than what was already released,
+# waved through by the guard that exists to stop exactly that.
+#
+# Two sources, because each catches the other's failure: the manifest on the
+# release branch cannot be misordered, and the headings catch a release whose
+# manifest bump was missed. `sort -V` picks the newest of everything.
+last=$(
+  {
+    git show "$REF":CHANGELOG.md | grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' | tr -d '#[] '
+    git show "$REF":package.json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null || true
+  } | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
+)
 if [ -z "$last" ]; then
-  echo "REFUSED: could not read the last release number from $REF CHANGELOG." >&2
+  echo "REFUSED: could not read the last release number from $REF." >&2
   exit 1
 fi
 

@@ -70,10 +70,35 @@ const REF = (() => {
   }
 })();
 
-const released = git('show', `${REF}:CHANGELOG.md`)
+// The HIGHEST released version, from two independent sources, because each
+// catches the other's failure:
+//
+//   * the manifest on the release branch — authoritative, cannot be misordered;
+//   * the highest CHANGELOG heading — catches a release whose manifest bump
+//     was somehow missed.
+//
+// NOT "the topmost heading", which is what this and release-guard.sh both did
+// until 2026-09-24. Two sessions inserted entries concurrently and left 1.26.0
+// sitting above 1.27.0, so "topmost" read 1.26.0, the allocator offered
+// 1.26.1, and the guard — reading the same first heading — agreed. A version
+// going BACKWARDS, approved by the check that exists to prevent collisions.
+const cmp = (a, b) => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i += 1) if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  return 0;
+};
+const headings = git('show', `${REF}:CHANGELOG.md`)
   .split('\n')
   .map((l) => l.match(/^## \[(\d+\.\d+\.\d+)\]/)?.[1])
-  .find(Boolean);
+  .filter(Boolean);
+let released = headings.sort(cmp).at(-1);
+try {
+  const manifest = JSON.parse(git('show', `${REF}:package.json`)).version;
+  if (manifest && (!released || cmp(manifest, released) > 0)) released = manifest;
+} catch {
+  /* a branch without a readable manifest falls back to the headings */
+}
 if (!released) {
   console.error(`REFUSED: could not read the last release number from ${REF}.`);
   process.exit(1);
