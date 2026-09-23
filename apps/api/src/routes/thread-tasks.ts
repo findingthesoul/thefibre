@@ -27,6 +27,7 @@ import { userClient, adminClient } from '../db.js';
 import { isWorkspaceMember, rowInWorkspace } from '../lib/workspace-refs.js';
 import { filterVisibleTemplates } from '../lib/template-visibility.js';
 import { can, needsPlan } from '../lib/plan.js';
+import { safeHttpUrl } from '../lib/safe-url.js';
 
 export const threadTaskRoutes = new Hono();
 
@@ -49,7 +50,7 @@ threadTaskRoutes.use('*', async (c, next) => {
 });
 
 const TASK_SELECT =
-  'id, thread_id, title, notes, due_on, assignee_user_id, team_id, status, done_at, done_by, position, source_template_id, created_by, created_at, updated_at';
+  'id, thread_id, title, notes, due_on, link_url, assignee_user_id, team_id, status, done_at, done_by, position, source_template_id, created_by, created_at, updated_at';
 
 /** The thread, if this caller may see it. RLS does the deciding — a thread in
  *  another workspace simply is not there. Returns its team and start date,
@@ -148,6 +149,10 @@ const NewTask = z.object({
   notes: z.string().max(4000).nullable().optional(),
   due_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   assignee_user_id: z.string().uuid().nullable().optional(),
+  /** Where the work actually is. Validated below, not here: Zod can check
+   *  the shape of a string but the question is which SCHEMES may reach an
+   *  href, and that answer lives in one place (lib/safe-url.ts). */
+  link_url: z.string().max(2000).nullable().optional(),
 });
 
 // POST /thread/threads/:id/tasks
@@ -176,6 +181,11 @@ threadTaskRoutes.post('/threads/:id/tasks', async (c) => {
       title: body.data.title.trim(),
       notes: body.data.notes ?? null,
       due_on: body.data.due_on ?? null,
+      // An unsafe scheme is dropped rather than refused: the to-do itself is
+      // worth keeping, and a silently-absent link is visible in the row the
+      // moment somebody looks for it. A 400 would lose the whole item over
+      // a paste that went wrong.
+      link_url: safeHttpUrl(body.data.link_url),
       assignee_user_id: body.data.assignee_user_id ?? null,
       // "Auto team if selected" — the thread's team, without anyone choosing.
       team_id: thread.team_id,
@@ -196,6 +206,7 @@ const TaskPatch = z.object({
   notes: z.string().max(4000).nullable().optional(),
   due_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   assignee_user_id: z.string().uuid().nullable().optional(),
+  link_url: z.string().max(2000).nullable().optional(),
   status: z.enum(['open', 'done']).optional(),
   position: z.number().optional(),
 });
@@ -223,6 +234,8 @@ threadTaskRoutes.patch('/tasks/:taskId', async (c) => {
   for (const k of ['title', 'notes', 'due_on', 'assignee_user_id', 'position'] as const) {
     if (body.data[k] !== undefined) patch[k] = body.data[k];
   }
+  // Present-but-unsafe becomes null, which is also how a link is CLEARED.
+  if (body.data.link_url !== undefined) patch.link_url = safeHttpUrl(body.data.link_url);
   if (body.data.status) {
     patch.status = body.data.status;
     patch.done_at = body.data.status === 'done' ? new Date().toISOString() : null;
@@ -277,6 +290,12 @@ const TemplateTask = z.object({
   title: z.string().min(1).max(300),
   notes: z.string().max(4000).nullable().optional(),
   day_offset: z.number().int().min(-3650).max(3650).nullable().optional(),
+  /** The same link a thread to-do carries, saved with the template so a
+   *  checklist can point at the same rehearsal schedule every time it is
+   *  used (Sjoerd, 2026-09-23: "for worklists in other tools like google
+   *  docs"). Sanitised where it is APPLIED, not where it is stored — a
+   *  template is inert until it lands on a thread. */
+  link: z.string().max(2000).nullable().optional(),
   position: z.number().optional(),
 });
 
@@ -493,6 +512,7 @@ threadTaskRoutes.post('/threads/:id/tasks/apply-template', async (c) => {
       thread.starts_on && typeof t.day_offset === 'number'
         ? shiftDay(thread.starts_on, t.day_offset)
         : null,
+    link_url: safeHttpUrl(t.link),
     // Unassigned on purpose: a template says what has to happen, never who
     // does it. Whoever applies it hands the items out afterwards.
     assignee_user_id: null,
@@ -529,7 +549,7 @@ threadTaskRoutes.post('/threads/:id/tasks/save-as-template', async (c) => {
   const db = userClient(ctx.jwt);
   const { data: tasks, error } = await db
     .from('thread_task')
-    .select('title, notes, due_on, position')
+    .select('title, notes, due_on, link_url, position')
     .eq('thread_id', thread.id)
     .is('deleted_at', null)
     .order('position', { ascending: true });
@@ -544,6 +564,7 @@ threadTaskRoutes.post('/threads/:id/tasks/save-as-template', async (c) => {
     tasks: (tasks ?? []).map((t, i) => ({
       title: t.title as string,
       notes: (t.notes as string | null) ?? null,
+      link: (t.link_url as string | null) ?? null,
       day_offset:
         t.due_on && startMs != null
           ? Math.round((Date.parse(`${t.due_on as string}T00:00:00Z`) - startMs) / 86_400_000)

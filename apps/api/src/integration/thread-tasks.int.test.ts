@@ -323,6 +323,32 @@ describe('a thread to-do list is shared inside the thread', () => {
     expect(String(row.assignee_name).length).toBeGreaterThan(0);
   });
 
+  it('takes a link on a to-do typed straight onto the thread, and refuses an unsafe one', async () => {
+    const good = await (
+      await call(adminA, 'POST', `/thread/threads/${threadA}/tasks`, {
+        title: 'Check the floor plan',
+        link_url: 'https://example.org/floor-plan.pdf',
+      })
+    ).json();
+    createdTaskIds.push(good.id);
+    expect(good.link_url).toBe('https://example.org/floor-plan.pdf');
+
+    const bad = await (
+      await call(adminA, 'POST', `/thread/threads/${threadA}/tasks`, {
+        title: 'Unsafe scheme',
+        link_url: 'javascript:alert(1)',
+      })
+    ).json();
+    createdTaskIds.push(bad.id);
+    expect(bad.link_url, 'an unsafe scheme is dropped, the to-do is kept').toBeNull();
+
+    // And a link can be cleared, which is the same code path as refusing one.
+    const cleared = await (
+      await call(adminA, 'PATCH', `/thread/tasks/${good.id}`, { link_url: null })
+    ).json();
+    expect(cleared.link_url).toBeNull();
+  });
+
   it('ANOTHER member of the same workspace sees it — that is the whole point', async () => {
     const res = await call(memberA, 'GET', `/thread/threads/${threadA}/tasks`);
     expect(res.status).toBe(200);
@@ -528,6 +554,46 @@ describe('to-do templates', () => {
     for (const t of added.items) createdTaskIds.push(t.id);
     const after = await (await call(adminA, 'GET', `/thread/threads/${threadA}/tasks`)).json();
     expect(after.items.length).toBe(before.items.length + 3);
+  });
+
+  it('carries a LINK onto every to-do it creates', async () => {
+    // Sjoerd, 2026-09-23: "Add link to do (for worklists in other tools like
+    // google docs)." A link that lives only in the template is a link nobody
+    // can click, so the assertion is on the created TASK, not on the
+    // template it came from.
+    const made = await (
+      await call(adminA, 'POST', '/thread/todo-templates', {
+        title: 'With links',
+        scope: 'workspace',
+        structure: {
+          version: 1,
+          tasks: [
+            { title: 'Read the rehearsal schedule', link: 'https://docs.google.com/document/d/x/edit' },
+            // Refused by the href check: the to-do survives, the link does not.
+            { title: 'Dodgy link', link: 'javascript:alert(1)' },
+            { title: 'No link at all' },
+          ],
+        },
+      })
+    ).json();
+    createdTemplateIds.push(made.id);
+
+    const res = await call(adminA, 'POST', `/thread/threads/${threadA}/tasks/apply-template`, {
+      template_id: made.id,
+    });
+    expect(res.status).toBe(201);
+    const { items } = await res.json();
+    for (const t of items) createdTaskIds.push(t.id);
+
+    const byTitle = new Map(items.map((t: { title: string }) => [t.title, t]));
+    expect((byTitle.get('Read the rehearsal schedule') as { link_url: string }).link_url).toBe(
+      'https://docs.google.com/document/d/x/edit',
+    );
+    // The dangerous one is dropped to null rather than stored or rejected:
+    // losing a whole to-do over a bad paste would be worse than losing the
+    // link, and storing it would be the stored-XSS shape this guards.
+    expect((byTitle.get('Dodgy link') as { link_url: string | null }).link_url).toBeNull();
+    expect((byTitle.get('No link at all') as { link_url: string | null }).link_url).toBeNull();
   });
 
   it('another workspace cannot apply it', async () => {

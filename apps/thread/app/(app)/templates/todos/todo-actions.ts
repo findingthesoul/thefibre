@@ -11,6 +11,9 @@ export type TodoTemplateItem = {
   notes?: string | null;
   /** Days from the thread's start. Negative = before it begins. */
   day_offset?: number | null;
+  /** Where the work actually is. Carried onto every to-do this template
+   *  creates, so a checklist can point at the same document every time. */
+  link?: string | null;
   position?: number;
 };
 

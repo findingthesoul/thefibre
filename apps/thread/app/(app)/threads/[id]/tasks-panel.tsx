@@ -16,7 +16,7 @@
 // (apps/api/src/routes/my-tasks.ts). One truth, in one place.
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
-import { CheckCircle2, Circle, ListPlus, Loader2, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, Circle, Link as LinkIcon, ListPlus, Loader2, Plus, Trash2 } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
 import { Dialog } from '@/components/ui/dialog';
@@ -133,6 +133,27 @@ export function ThreadTasksPanel({
     });
   }
 
+  /** Move a to-do to a different day. The row's own date control already
+   *  shows the new value, so this saves without reloading the list — a
+   *  reload here would rebuild every row under the popover that was just
+   *  used, and the date would appear to flicker back before settling. */
+  function changeDue(task: ThreadTask, dueOn: string | null) {
+    start(async () => {
+      const r = await patchThreadTask(task.id, { due_on: dueOn });
+      if (!r.ok) {
+        setError(r.error);
+        // Only on failure is the list worth rebuilding: it puts the row back
+        // to the date the server still holds, so the screen stops claiming a
+        // change that did not happen.
+        await load();
+        return;
+      }
+      setItems((prev) =>
+        prev ? prev.map((i) => (i.id === task.id ? { ...i, due_on: dueOn } : i)) : prev,
+      );
+    });
+  }
+
   function remove(task: ThreadTask) {
     start(async () => {
       const r = await removeThreadTask(task.id);
@@ -242,6 +263,7 @@ export function ThreadTasksPanel({
                   pending={pending}
                   onToggle={() => toggle(task)}
                   onAssign={(u) => assign(task, u)}
+                  onDue={(d) => changeDue(task, d)}
                   onRemove={() => remove(task)}
                 />
               ))}
@@ -263,6 +285,7 @@ export function ThreadTasksPanel({
                     pending={pending}
                     onToggle={() => toggle(task)}
                     onAssign={(u) => assign(task, u)}
+                    onDue={(d) => changeDue(task, d)}
                     onRemove={() => remove(task)}
                   />
                 ))}
@@ -315,6 +338,7 @@ function Row({
   pending,
   onToggle,
   onAssign,
+  onDue,
   onRemove,
 }: {
   locale: Locale;
@@ -323,6 +347,7 @@ function Row({
   pending: boolean;
   onToggle: () => void;
   onAssign: (userId: string) => void;
+  onDue: (dueOn: string | null) => void;
   onRemove: () => void;
 }) {
   const done = task.status === 'done';
@@ -344,10 +369,45 @@ function Row({
       </button>
 
       <div className="min-w-0 flex-1">
-        <div className={`text-sm ${done ? 'text-ink-muted line-through' : ''}`}>{task.title}</div>
-        {task.due_on && (
-          <div className="text-xs text-ink-muted tabular-nums">{fmtDue(locale, task.due_on)}</div>
-        )}
+        <div className={`flex items-center gap-1.5 text-sm ${done ? 'text-ink-muted line-through' : ''}`}>
+          <span className="truncate">{task.title}</span>
+          {/* Where the work actually is. The Thread is not trying to hold the
+              document — the checklist's job is to get you to it. Opens in a
+              new tab, because losing the list to follow a link off it is the
+              one thing a checklist must not do. */}
+          {task.link_url && (
+            <a
+              href={task.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 text-ink-muted hover:text-ink"
+              title={t(locale, 'todo_open_link')}
+              aria-label={t(locale, 'todo_open_link')}
+            >
+              <LinkIcon size={13} strokeWidth={1.75} />
+            </a>
+          )}
+        </div>
+        {/* EDITABLE, because a template's dates are a suggestion.
+            Sjoerd, 2026-09-23: "I should also be able to change dates... the
+            dates in the template are a suggestion". A checklist laid down
+            from a template is dated by arithmetic off the thread's start, and
+            arithmetic does not know that the venue answers on Tuesdays. It
+            was read-only text until he used it on a real thread.
+
+            The shared DateField, not a native input (CLAUDE.md), with a
+            screen-reader-only label: `sr-only` is out of flow, so the row
+            keeps its height and the control still has a name. */}
+        <div className="mt-0.5 w-36">
+          <DateField
+            label={<span className="sr-only">{t(locale, 'todo_due')}</span>}
+            name={`task-due-${task.id}`}
+            defaultValue={task.due_on}
+            onValueChange={(v) => onDue(v || null)}
+            compact
+          />
+        </div>
       </div>
 
       {/* Who is expected to do it. A label — everyone still sees the row. */}

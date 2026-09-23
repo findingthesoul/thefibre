@@ -7266,6 +7266,38 @@ const CATALOG = {
     de: 'Schritte', // MT
     fr: 'étapes', // MT
   },
+  todo_link: {
+    en: 'Link',
+    nl: 'Link',
+    es: 'Enlace', // MT
+    pt: 'Link', // MT
+    de: 'Link', // MT
+    fr: 'Lien', // MT
+  },
+  todo_link_hint: {
+    en: 'Where the work actually is — a document, a sheet, a folder. Starts with https://',
+    nl: 'Waar het werk echt staat — een document, een sheet, een map. Begint met https://',
+    es: 'Donde está realmente el trabajo: un documento, una hoja, una carpeta. Empieza por https://', // MT
+    pt: 'Onde o trabalho realmente está — um documento, uma planilha, uma pasta. Começa com https://', // MT
+    de: 'Wo die Arbeit wirklich liegt — ein Dokument, eine Tabelle, ein Ordner. Beginnt mit https://', // MT
+    fr: 'Là où le travail se trouve vraiment — un document, un tableur, un dossier. Commence par https://', // MT
+  },
+  todo_open_link: {
+    en: 'Open the link',
+    nl: 'Link openen',
+    es: 'Abrir el enlace', // MT
+    pt: 'Abrir o link', // MT
+    de: 'Link öffnen', // MT
+    fr: 'Ouvrir le lien', // MT
+  },
+  todo_reorder: {
+    en: 'Drag to reorder',
+    nl: 'Sleep om te ordenen',
+    es: 'Arrastra para reordenar', // MT
+    pt: 'Arraste para reordenar', // MT
+    de: 'Zum Umsortieren ziehen', // MT
+    fr: 'Glisse pour réordonner', // MT
+  },
   todo_due: {
     en: 'Due',
     nl: 'Deadline',

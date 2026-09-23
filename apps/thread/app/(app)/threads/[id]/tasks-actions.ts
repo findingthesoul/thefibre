@@ -18,6 +18,8 @@ export type ThreadTask = {
   title: string;
   notes: string | null;
   due_on: string | null;
+  /** Where the work actually is — a doc, a sheet, a folder. http(s) only. */
+  link_url: string | null;
   assignee_user_id: string | null;
   assignee_name?: string | null;
   team_id: string | null;
@@ -31,7 +33,10 @@ export type TodoTemplate = {
   id: string;
   title: string;
   scope: 'personal' | 'team' | 'workspace';
-  structure: { version: number; tasks: { title: string; notes?: string | null; day_offset?: number | null }[] };
+  structure: {
+    version: number;
+    tasks: { title: string; notes?: string | null; day_offset?: number | null; link?: string | null }[];
+  };
 };
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -53,7 +58,7 @@ export async function listThreadTasks(
 
 export async function addThreadTask(
   threadId: string,
-  input: { title: string; due_on?: string | null; assignee_user_id?: string | null },
+  input: { title: string; due_on?: string | null; assignee_user_id?: string | null; link_url?: string | null },
 ): Promise<Result<ThreadTask>> {
   try {
     const data = await apiFetch<ThreadTask>(`/api/v1/thread/threads/${threadId}/tasks`, {
@@ -68,7 +73,9 @@ export async function addThreadTask(
 
 export async function patchThreadTask(
   taskId: string,
-  patch: Partial<Pick<ThreadTask, 'title' | 'notes' | 'due_on' | 'assignee_user_id' | 'status' | 'position'>>,
+  patch: Partial<
+    Pick<ThreadTask, 'title' | 'notes' | 'due_on' | 'link_url' | 'assignee_user_id' | 'status' | 'position'>
+  >,
 ): Promise<Result<ThreadTask>> {
   try {
     const data = await apiFetch<ThreadTask>(`/api/v1/thread/tasks/${taskId}`, {

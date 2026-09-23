@@ -9,7 +9,7 @@
 // it rebases every offset onto the thread it lands on.
 
 import { useState, useTransition } from 'react';
-import { ListTodo, Pencil, Plus, Trash2 } from 'lucide-react';
+import { GripVertical, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
 import { Dialog } from '@/components/ui/dialog';
@@ -36,7 +36,7 @@ type Draft = {
   tasks: TodoTemplateItem[];
 };
 
-const BLANK: Draft = { id: null, title: '', scope: 'personal', tasks: [{ title: '', day_offset: null }] };
+const BLANK: Draft = { id: null, title: '', scope: 'personal', tasks: [{ title: '', day_offset: null, link: null }] };
 
 export function TodoTemplatesClient({
   locale,
@@ -51,7 +51,25 @@ export function TodoTemplatesClient({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<TodoTemplateRow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Which row is being dragged, by index. Native HTML5 drag — the same
+   *  shape Members' tier list uses, no library. */
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [pending, start] = useTransition();
+
+  /** Drop the dragged row ON this index. Order is the array's order, and it
+   *  is written back as `position: i` on save — so a list that LOOKS right
+   *  is right, which is the whole argument for dragging over typing numbers
+   *  (CLAUDE.md: ordering UIs are drag-and-drop, never a numeric sort
+   *  field). */
+  function dropOn(target: number) {
+    const from = dragIdx;
+    setDragIdx(null);
+    if (!draft || from === null || from === target) return;
+    const tasks = [...draft.tasks];
+    const [moved] = tasks.splice(from, 1);
+    tasks.splice(target, 0, moved);
+    setDraft({ ...draft, tasks });
+  }
 
   function refresh() {
     start(async () => {
@@ -63,9 +81,15 @@ export function TodoTemplatesClient({
 
   function save() {
     if (!draft) return;
+    // Drop the empty rows FIRST, then number what is left. The other order
+    // numbered rows that were about to be discarded and left gaps (0, 2, 3)
+    // — harmless to sorting, but the position is supposed to say "this is
+    // the nth step", and a list whose steps go 0, 2, 3 is a list that has
+    // stopped meaning what it says.
     const tasks = draft.tasks
-      .map((task, i) => ({ ...task, title: task.title.trim(), position: i }))
-      .filter((task) => task.title !== '');
+      .map((task) => ({ ...task, title: task.title.trim() }))
+      .filter((task) => task.title !== '')
+      .map((task, i) => ({ ...task, position: i }));
     const payload = { title: draft.title.trim(), scope: draft.scope, structure: { version: 1 as const, tasks } };
     if (!payload.title) return;
     start(async () => {
@@ -144,7 +168,7 @@ export function TodoTemplatesClient({
                     scope: row.scope,
                     tasks: row.structure?.tasks?.length
                       ? row.structure.tasks.map((task) => ({ ...task }))
-                      : [{ title: '', day_offset: null }],
+                      : [{ title: '', day_offset: null, link: null }],
                   })
                 }
               >
@@ -205,6 +229,7 @@ export function TodoTemplatesClient({
                 {t(locale, 'todo_list')}
               </div>
               <p className="mt-1 text-xs text-ink-subtle">{t(locale, 'todo_day_offset_hint')}</p>
+              <p className="mt-1 text-xs text-ink-subtle">{t(locale, 'todo_link_hint')}</p>
               <ul className="mt-3 space-y-2">
                 {draft.tasks.map((task, i) => (
                   // The widths live on WRAPPERS, not on the inputs.
@@ -214,8 +239,27 @@ export function TodoTemplatesClient({
                   // stylesheet order decides the winner. It decided wrong:
                   // the day-offset boxes took the full row and every title
                   // collapsed to a sliver. Seen on the screen; nothing threw.
-                  <li key={i} className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
+                  <li
+                    key={i}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => dropOn(i)}
+                    className={`flex items-start gap-2 rounded-md ${
+                      dragIdx === i ? 'opacity-50' : ''
+                    }`}
+                  >
+                    {/* Only the handle is draggable, not the row: a row-wide
+                        drag makes the text inputs impossible to select. */}
+                    <span
+                      draggable
+                      onDragStart={() => setDragIdx(i)}
+                      onDragEnd={() => setDragIdx(null)}
+                      title={t(locale, 'todo_reorder')}
+                      aria-label={t(locale, 'todo_reorder')}
+                      className="mt-2.5 shrink-0 cursor-grab text-ink-muted hover:text-ink active:cursor-grabbing"
+                    >
+                      <GripVertical size={15} strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0 flex-1 space-y-1.5">
                       <input
                         value={task.title}
                         onChange={(e) => {
@@ -226,6 +270,20 @@ export function TodoTemplatesClient({
                         placeholder={t(locale, 'todo_add_placeholder')}
                         className={FIELD_INPUT_CLASS}
                         aria-label={t(locale, 'todo_add_placeholder')}
+                      />
+                      {/* The link sits UNDER the title rather than beside it:
+                          a URL is long, and a third column would have left
+                          every field too narrow to read what is in it. */}
+                      <input
+                        value={task.link ?? ''}
+                        onChange={(e) => {
+                          const tasks = [...draft.tasks];
+                          tasks[i] = { ...task, link: e.target.value || null };
+                          setDraft({ ...draft, tasks });
+                        }}
+                        placeholder="https://docs.google.com/…"
+                        className={`${FIELD_INPUT_CLASS} text-xs`}
+                        aria-label={t(locale, 'todo_link')}
                       />
                     </div>
                     <div className="w-24 shrink-0">
@@ -250,7 +308,7 @@ export function TodoTemplatesClient({
                       onClick={() =>
                         setDraft({ ...draft, tasks: draft.tasks.filter((_, n) => n !== i) })
                       }
-                      className="shrink-0 text-ink-muted hover:text-ink"
+                      className="mt-2.5 shrink-0 text-ink-muted hover:text-ink"
                       aria-label={t(locale, 'remove')}
                     >
                       <Trash2 size={15} strokeWidth={1.75} />
@@ -265,7 +323,7 @@ export function TodoTemplatesClient({
                 leading={<Plus size={14} />}
                 className="mt-2"
                 onClick={() =>
-                  setDraft({ ...draft, tasks: [...draft.tasks, { title: '', day_offset: null }] })
+                  setDraft({ ...draft, tasks: [...draft.tasks, { title: '', day_offset: null, link: null }] })
                 }
               >
                 {t(locale, 'todo_add_item')}
