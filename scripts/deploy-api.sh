@@ -78,6 +78,10 @@ USAGE
 TARGET="${1:-}"; shift || true
 case "$TARGET" in
   staging) APP="thefibre-api-staging"; BRANCH="origin/staging"; CONFIG=(--config fly.staging.toml) ;;
+  # CONFIG is expanded as ${CONFIG[@]+"${CONFIG[@]}"} below: bash 3.2 on
+  # macOS calls "${CONFIG[@]}" on an EMPTY array UNBOUND under set -u, so the
+  # prod path — which needs no --config flag — passed every gate and then died
+  # on the deploy line. Found on its first production use.
   prod)    APP="thefibre-api";         BRANCH="origin/main";    CONFIG=() ;;
   *) usage ;;
 esac
@@ -169,9 +173,9 @@ if [ "$DRY" = "1" ]; then
   RELEASE="(not deployed)"
 else
   echo "Deploying $APP from $HEAD_SHA — $(git log --oneline -1 HEAD)"
-  fly deploy "${CONFIG[@]}" --remote-only
+  fly deploy ${CONFIG[@]+"${CONFIG[@]}"} --remote-only
 
-  RELEASE="$(fly releases "${CONFIG[@]}" --json 2>/dev/null \
+  RELEASE="$(fly releases ${CONFIG[@]+"${CONFIG[@]}"} --json 2>/dev/null \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const r=JSON.parse(s);console.log(r?.[0]?.Version?"v"+r[0].Version:"unknown")}catch{console.log("unknown")}})' \
     || echo unknown)"
 fi

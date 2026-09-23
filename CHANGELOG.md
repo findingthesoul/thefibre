@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.9.1] — 2026-09-23
+
+### Fixed
+- **`deploy-api.sh prod` died after passing every gate.** bash 3.2 on macOS
+  treats `"${CONFIG[@]}"` on an EMPTY array as an unbound variable under
+  `set -u`, and production is the path that needs no `--config` flag — so
+  staging worked twice and production failed on its first use, at the deploy
+  line, after all four checks had passed. That is the most skip-tempting
+  failure a guard can have: it costs you the checks and then does not deploy.
+  Expanded as `${CONFIG[@]+"${CONFIG[@]}"}`, empty-safe on both bashes, with
+  both paths exercised.
+
 ## [1.9.0] — 2026-09-23 — a to-do carries a link, its list drags into order, and its date is yours (staging)
 
 Sjoerd, using the checklist on a real thread: *"Reorder with drag and drop...
