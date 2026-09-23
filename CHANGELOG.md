@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.25.0] — 2026-09-24 — the release number is allocated, not chosen
+
+### Added
+- **`scripts/next-version.mjs` — one command stamps the next version
+  everywhere.** Choosing a number by hand is a race five sessions lose every
+  day: you read the last release, add one, stamp SIXTEEN files (every
+  `package.json`, `apps/web/lib/version.ts`, the CHANGELOG heading), commit —
+  and somebody releases while you are preparing, so `release-guard.sh` refuses
+  and all sixteen have to be rewritten. On 2026-09-23 that happened to one
+  session three times in an hour, and two pairs of sessions took the same
+  number simultaneously (two v0.108.0s, two v1.7.0s).
+  The guard was never wrong and the announcements were never enough —
+  messages lose races with pushes, which is rule 5. What was wrong is that
+  LOSING the race was expensive. Now:
+
+  ```
+  ./scripts/release.sh            → REFUSED, someone released 1.24.0
+  node scripts/next-version.mjs minor --amend
+  ./scripts/release.sh            → 1.25.0
+  ```
+
+  It does not choose patch vs minor — that is a judgement about what changed,
+  and a script that guessed would be wrong quietly. It does not write the
+  entry either: the number is mechanical, the entry is the release. The file
+  list is DERIVED, so a new app is covered the moment it exists.
+  Two things the tests caught rather than the reading: it stamped its own
+  repo instead of the caller's (wrong for anyone working in a worktree), and
+  it refused the very case it exists for — after a lost race your heading IS
+  the number somebody just released, so "already released" has to be decided
+  by the whole heading line, not by the number.
+
 ## [1.24.0] — 2026-09-24 — a thread can be live and take no sign-ups from its page (staging)
 
 Sjoerd: *"can you also 'close' enrolment in the thread? In the sense that

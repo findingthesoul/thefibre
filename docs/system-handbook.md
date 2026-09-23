@@ -635,6 +635,23 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   design, and a guard reading a lagging ref would approve a number another
   session already used.
 
+  **Do not choose the version number by hand.** Write the CHANGELOG entry
+  with a `## [NEXT]` heading, then:
+
+  ```bash
+  node scripts/next-version.mjs minor          # or patch / major
+  git add <your paths> && git commit
+  ./scripts/release.sh                         # or with the number, as before
+  ```
+
+  It reads the last release from CHANGELOG on `origin/staging` — the same
+  source `release-guard.sh` reads, so the two cannot disagree — and stamps
+  every `package.json`, `apps/web/lib/version.ts` and the heading. If you lose
+  the race while preparing, `node scripts/next-version.mjs minor --amend`
+  renumbers all of it and amends the commit; it keeps your title and only ever
+  rewrites a heading that is NOT on the release branch. It will not choose
+  patch vs minor for you, because that is a judgement about what changed.
+
   `db-push-prod.sh` and `fly deploy` belong with the PROMOTION, not with the
   release — migrations first, then the code that needs them.
 

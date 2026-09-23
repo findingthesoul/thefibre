@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.24.0",
+  "version": "1.25.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -89,6 +89,10 @@
     "./ui/invoices": {
       "types": "./dist/ui/invoices.d.ts",
       "default": "./dist/ui/invoices.js"
+    },
+    "./ui/payments-form": {
+      "types": "./dist/ui/payments-form.d.ts",
+      "default": "./dist/ui/payments-form.js"
     },
     "./ui/assistant": {
       "types": "./dist/ui/assistant.d.ts",

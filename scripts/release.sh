@@ -11,8 +11,18 @@
 # <version>).
 set -euo pipefail
 
-V="${1:?usage: release.sh <version>}"
 cd "$(dirname "$0")/.."
+
+# The version is OPTIONAL: with no argument it is read from package.json,
+# which `next-version.mjs` has already stamped. Typing it again was one more
+# place to get it wrong — and the "REFUSED: package.json is at X, not Y" that
+# followed was always a typo or a half-finished renumber, never a real
+# disagreement worth a gate.
+V="${1:-$(node -p "require('./package.json').version")}"
+if [[ ! "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "usage: release.sh [version]   (with none, package.json decides)" >&2
+  exit 64
+fi
 
 git fetch origin
 ./scripts/release-guard.sh "$V"
