@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.14.0] — 2026-09-23 — My Thread installs as an app (Portal 0.8.0)
+
+Sjoerd: *"how to open my.thread on desktop (via app)?"* — and the honest
+answer was that you already could (Safari → File → Add to Dock), but you got a
+generic tile, because this app had **no manifest and no icons at all**. The
+browser had nothing to name it with or draw. Then he sent the icon.
+
+- **`apps/my/app/manifest.ts`**, on the shape `apps/web` and
+  `apps/connections` already use rather than a third invention. Name and
+  tagline come from the `SURFACES` registry, so a rename cannot leave the
+  home-screen icon disagreeing with the app. Opens on the timeline, in its
+  own window, scoped to the whole app so a ticket or an invoice stays inside
+  it. Long-press gives Next and Memberships.
+- **Colours READ, not chosen.** `background_color` is `surface-sunken` and
+  `theme_color` is `surface`, both from `packages/shared/src/design/tokens.ts`
+  — this app's `globals.css` holds no colour values on purpose
+  (docs/brand-design.md).
+- **iOS tags in the layout.** Safari reads very little of a manifest: it takes
+  the icon from `apple-touch-icon`, standalone from `appleWebApp.capable`, and
+  its own title. Without them, Add to Home Screen produces a bookmark that
+  opens a browser tab — the thing this exists to avoid.
+- **`scripts/make-app-icons.sh`** — four sizes from one square PNG, so the
+  next app does not derive them from a manifest by eye. macOS `sips`, nothing
+  to install.
+
+**The maskable icon is the only interesting size, and the first attempt was
+wrong.** Android may crop a maskable icon to a circle, so the artwork must sit
+inside a safe area AND the ground must reach the edges. Padding with `sips`'s
+default white put a white ring inside the circle around a full-bleed blue
+tile. The script now **reads the source's own centre pixel** (`#2551a4` here)
+and pads with that — measured from the file rather than typed, and
+overridable with `ICON_PAD` for artwork whose centre is not its background.
+
+**Verified on a running server, not just built:** `/manifest.webmanifest`
+serves and parses, all four icons return `200 image/png`, and the head carries
+`rel="manifest"`, both `rel="icon"` sizes, `apple-touch-icon`,
+`mobile-web-app-capable` and the app title. Not verified: the install itself,
+which is a browser action on Sjoerd's machine.
+
+**Not an offline app.** There is no service worker, so without a connection it
+behaves like any web page. That matters more here than elsewhere — the reason
+this surface exists is a ticket at a door, and a door is where the signal is
+worst. Offline tickets are their own piece of work, with the wallet passes as
+the other half of that answer.
+
 ## [1.13.0] — 2026-09-23
 
 ### Fixed

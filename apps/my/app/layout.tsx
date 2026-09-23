@@ -6,9 +6,33 @@ import { loadSession } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { MemberRail, MemberTabs } from './nav';
 
+// iOS needs its own tags — Safari reads very little of app/manifest.ts. It
+// takes the home-screen icon from `apple-touch-icon`, decides whether to open
+// without browser chrome from `appleWebApp.capable`, and uses its own title.
+// Without these, "Add to Home Screen" on an iPhone (or "Add to Dock" on a Mac)
+// produces a bookmark that opens a browser tab, which is the thing this exists
+// to avoid. Same shape as apps/connections and apps/web.
 export const metadata: Metadata = {
   title: SURFACES['my-portal'].shortLabel,
   description: SURFACES['my-portal'].tagline,
+  // From the registry, not typed here: a second copy is how the icon's name
+  // and the app's name end up disagreeing after a rename.
+  applicationName: SURFACES['my-portal'].shortLabel,
+  appleWebApp: {
+    capable: true,
+    title: SURFACES['my-portal'].shortLabel,
+    // `default` keeps the status bar legible against the white page.
+    // `black-translucent` would draw under it and needs safe-area padding
+    // this shell does not have.
+    statusBarStyle: 'default',
+  },
+  icons: {
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
+  },
   // Never index this surface. Every page below the sign-in is one person's
   // own tickets, enrolments and memberships — the most personal data the
   // platform holds, on the only app whose entire purpose is to show it to
