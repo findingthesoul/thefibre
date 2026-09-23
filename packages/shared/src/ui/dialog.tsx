@@ -5,10 +5,11 @@
 // ported from The Thread's — the pinned Fibre SPoT: footer bar outside the
 // scroll area; destructive left, Cancel · Save right).
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './button.js';
 import { chromeT, useLocale } from './i18n-ui.js';
+import { dismissThreshold, dragOffset } from './dialog-swipe.js';
 
 type Props = {
   open: boolean;
@@ -40,6 +41,46 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   const ref = useRef<HTMLDivElement>(null);
   const locale = useLocale();
 
+  // ── Swipe the sheet down to close ─────────────────────────────────────────
+  //
+  // Sjoerd, 2026-09-24, on the portal's ticket sheet: "To slide the window
+  // down, you need to click X. Why not also slide down on a swipe from the top
+  // bar?" On a phone this is a bottom sheet, and a bottom sheet you cannot
+  // push away is one that does not behave like the rest of the phone.
+  //
+  // THE HEADER ONLY, and that is the whole design rather than a shortcut. The
+  // body scrolls; a drag handler on it has to guess every time whether a
+  // downward finger means "scroll up" or "dismiss", and guesses wrong at the
+  // top of the list. The header never scrolls, so there is nothing to
+  // disambiguate — which is also exactly where he said to put it.
+  //
+  // Touch only. A mouse drag on a desktop dialog is not a gesture anyone
+  // makes, and the sheet is a centred card there anyway.
+  const [drag, setDrag] = useState(0);
+  const startY = useRef<number | null>(null);
+
+  function onTouchStart(e: React.TouchEvent) {
+    startY.current = e.touches[0]?.clientY ?? null;
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    if (startY.current === null) return;
+    const dy = (e.touches[0]?.clientY ?? 0) - startY.current;
+    // Downward only. Dragging UP would lift the sheet off the bottom of the
+    // screen and show the page behind it, which looks like a bug.
+    setDrag(dragOffset(dy));
+  }
+
+  function onTouchEnd() {
+    const height = ref.current?.getBoundingClientRect().height ?? 0;
+    const threshold = dismissThreshold(height);
+    startY.current = null;
+    if (drag > threshold) onClose();
+    // Reset either way: on close the sheet unmounts, and if it does not close
+    // it must spring back rather than stay where the finger left it.
+    setDrag(0);
+  }
+
   // Escape closes. NOTE FOR ANYONE PUTTING A LAYER ON TOP OF THIS DIALOG:
   // the listener is on `document` in the BUBBLE phase, and listeners on the
   // same node fire in REGISTRATION order. This dialog opens first, so it
@@ -55,6 +96,11 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   // capture runs before every bubble listener there — and call
   // `stopImmediatePropagation` so the key never reaches this handler at all.
   // See apps/my/app/detail.tsx for the worked example.
+  // A sheet reopened after a half-drag must start where it belongs.
+  useEffect(() => {
+    if (open) setDrag(0);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -103,9 +149,27 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     >
       <div
         ref={ref}
-        className={`${SIZES[size]} w-full rounded-t-xl sm:rounded-lg bg-surface-raised border border-line shadow-xl flex flex-col max-h-[92dvh] sm:max-h-[85vh] pb-[env(safe-area-inset-bottom)] sm:pb-0`}
+        className={`relative ${SIZES[size]} w-full rounded-t-xl sm:rounded-lg bg-surface-raised border border-line shadow-xl flex flex-col max-h-[92dvh] sm:max-h-[85vh] pb-[env(safe-area-inset-bottom)] sm:pb-0 ${
+          drag > 0 ? '' : 'transition-transform'
+        }`}
+        // No transition WHILE dragging — the sheet must sit under the finger,
+        // not lag behind it. The class comes back on release so it springs.
+        style={drag > 0 ? { transform: `translateY(${drag}px)` } : undefined}
       >
-        <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line">
+        <header
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
+          className="flex items-start justify-between gap-4 px-5 pt-4 pb-4 border-b border-line touch-none select-none sm:touch-auto sm:select-auto"
+        >
+          {/* The grab handle — a phone affordance, so it is hidden from ≥sm
+              where the dialog is a centred card and there is nothing to
+              push. It is what tells someone the gesture exists at all. */}
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-2 mx-auto h-1 w-10 rounded-full bg-line-strong sm:hidden"
+          />
           <div className="min-w-0">
             <h2 className="text-base font-medium">{title}</h2>
             {/* A div, not a p: a description may be a row of links. */}

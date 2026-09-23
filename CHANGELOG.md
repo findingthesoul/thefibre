@@ -35,6 +35,44 @@ permanent cost. Suspension stays the right action; what is missing is a
 surface that shows suspended accounts and an explicit, human "delete and stop
 the charge".
 
+## [1.23.0] — 2026-09-24 — push the sheet down to close it (shared Dialog)
+
+Sjoerd, on the portal's ticket sheet: *"To slide the window down, you need to
+click X. Why not also slide down on a swipe from the top bar?"* On a phone this
+is a bottom sheet, and a bottom sheet you cannot push away does not behave
+like the rest of the phone.
+
+**In `packages/shared/src/ui/dialog.tsx`, so all eight apps get it**, not a
+portal fork. Every sheet in the family closes the same way from now on.
+
+**The header only, and that is the design rather than a shortcut.** The body
+scrolls, so a drag handler there has to guess on every touch whether a
+downward finger means "scroll up" or "dismiss", and guesses wrong at the top
+of a list. The header never scrolls, so there is nothing to disambiguate —
+which is also exactly where he said to put it.
+
+- **A grab handle**, phone-only. It is the thing that tells someone the
+  gesture exists; a hidden gesture is not a feature.
+- **Downward only.** Dragging up would lift the sheet off the bottom and show
+  the page behind it, which reads as a bug.
+- **No transition while dragging** — the sheet sits under the finger rather
+  than lagging behind it — and the transition returns on release, so a short
+  push springs back.
+- **Touch only.** A mouse drag on a desktop dialog is not a gesture anyone
+  makes, and above `sm` it is a centred card anyway.
+
+**`dialog-swipe.ts` holds the two judgements**, with tests: how far is far
+enough (a fifth of the sheet, capped at 120px, so a tall sheet needs no longer
+push than a short one) and what an upward drag does (nothing). A threshold
+buried in a touch handler is invisible — the only way to discover it was wrong
+would be somebody's thumb.
+
+**Verified:** all twelve packages typecheck against the changed component, the
+whole suite passes (84 test files), five new tests cover the judgements, and
+the gesture code is in the compiled output. **Not verified: the gesture on a
+device.** It needs a finger, and no unauthenticated page in any app renders
+this dialog, so there is nowhere to drive it from here.
+
 ## [1.22.0] — 2026-09-24 — the wordmark, at a size worth having (Portal 0.10.5)
 
 *"logo is still small"* — third time, so stop inching.
