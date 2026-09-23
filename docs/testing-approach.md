@@ -90,6 +90,18 @@ why §1.5's render-check rule is a rule and not a nicety.
    failure into a plausible answer. So: `if (error) throw` in a script,
    surface it in a route, and let a check that cannot answer FAIL rather than
    answer nothing. An empty result must only ever mean "there are none".
+10. **A status-code rule is scoped to the endpoint it came from.** "403 means
+   the shared secret is wrong" is true of `POST /api/v1/sso/redeem` and false
+   of the OAuth provider, where 403 is only `membership_inactive` and a wrong
+   client secret is a 401. Carried across, such a rule reads as knowledge and
+   is a guess. (2026-09-23: stated wrongly twice in an hour by a session
+   quoting a legend it had not opened. The legend named its endpoint.)
+11. **Grep for the question, not for the shape you expect.** Hunting those
+   403s, `", 403)"` returned nothing and nearly became "this file has no 403
+   at all" — both real ones are multi-line `c.json({ … },\n  403,\n)`. A
+   pattern that encodes your guess about the formatting answers a different
+   question from the one you asked, and answers it confidently. Same family as
+   9: the tool returns emptiness and emptiness reads as fact.
 
 ---
 
