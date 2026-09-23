@@ -11,6 +11,10 @@
 // one is the thread's, visible to everyone who can open it. Assignment here
 // is a label saying who is expected to act — never a permission.
 //
+// The dialog is xl rather than lg: every row carries a date picker and an
+// assignee picker beside the title, and at lg the title column was squeezed
+// to about a third of the row.
+//
 // Ticking a row that is assigned to somebody also moves it on THEIR personal
 // list, because the platform composes this table as a source
 // (apps/api/src/routes/my-tasks.ts). One truth, in one place.
@@ -186,7 +190,7 @@ export function ThreadTasksPanel({
       onClose={onClose}
       title={t(locale, 'todo_list')}
       description={t(locale, 'todo_shared_hint')}
-      size="lg"
+      size="xl"
       footer={
         <Button type="button" variant="secondary" onClick={onClose}>
           {t(locale, 'close')}
@@ -399,7 +403,11 @@ function Row({
             The shared DateField, not a native input (CLAUDE.md), with a
             screen-reader-only label: `sr-only` is out of flow, so the row
             keeps its height and the control still has a name. */}
-        <div className="mt-0.5 w-36">
+        {/* w-44, not w-36: the trigger carries the date PLUS a clear X and a
+            calendar icon, and at w-36 a full date truncated to "3 Oct 20…",
+            which is worse than the read-only text it replaced. Matches the
+            add-row's date field above. */}
+        <div className="mt-0.5 w-44">
           <DateField
             label={<span className="sr-only">{t(locale, 'todo_due')}</span>}
             name={`task-due-${task.id}`}
