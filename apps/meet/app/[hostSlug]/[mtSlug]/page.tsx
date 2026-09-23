@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
 import { APPS, appUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
-import { WorkspaceLine, type PublicWorkspace } from '../page';
+import { WorkspaceLine, type PublicWorkspace } from '../workspace-line';
 import { BookingFlow, type Reschedule } from './flow';
 import type { IntakeField } from '@/lib/intake';
 
