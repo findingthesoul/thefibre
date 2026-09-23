@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.99.3] — 2026-09-23 — nothing on the To do list is destroyed on a timer
+
+Asked which he had meant by "cleaned after 7 days", Sjoerd answered: *"Should
+be part of the cleaning practice. So I would say: archive - not delete... But
+there should be a delete discipline."*
+
+So the seven-day sweep **files** instead of deleting. A ticked item still
+leaves the Archive view after seven days; the row stays in the table. The
+function says what it now does — `fileFinishedTasks`, not
+`cleanFinishedTasks`.
+
+**Remove is a soft delete too.** Not part of his answer, which was about the
+timer, but CLAUDE.md hard rule 4 is "soft delete only for personal data" and a
+to-do is personal data: its title is free text and its subject label can carry
+another person's name. The row leaves every read; it does not leave the table.
+Worth him knowing, since the button still says Remove and now means something
+slightly different behind it.
+
+Answering an app's task again revives a row that was filed or removed —
+without that the unique constraint on (user, source app, source ref) would
+refuse the second answer.
+
+**The "delete discipline" is deliberately not built.** What he described is a
+practice somebody performs, not a timer that fires, and that is a design
+question rather than a line of code. Nothing here forecloses it, and everything
+it would act on is still there to act on.
+
+Migration `20260923083000_user_task_archive_not_delete.sql`, applied to
+staging. **Production needs it before To do is promoted** — it is now two
+migrations, not one.
+
 ## [0.99.2] — 2026-09-23 — the hop into Connect has never worked, and now one command says so
 
 Found while verifying the To do panel: signing in *into* Connect through the

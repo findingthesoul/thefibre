@@ -37,7 +37,7 @@ import { runHygieneSweep } from './lib/hygiene.js';
 import { currenciesRoutes } from './routes/currencies.js';
 import { membershipPortalRoutes } from './routes/membership-portal.js';
 import { portalRoutes } from './routes/portal.js';
-import { myTasksRoutes, cleanFinishedTasks } from './routes/my-tasks.js';
+import { myTasksRoutes, fileFinishedTasks } from './routes/my-tasks.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
@@ -438,5 +438,5 @@ setInterval(() => {
   // To-do archive: ticked items are kept seven days, then dropped. Idempotent
   // and a single DELETE, so it rides the five-minute tick rather than needing
   // a guard of its own.
-  void cleanFinishedTasks().catch((e) => console.error('[me/tasks] cleanup failed', e));
+  void fileFinishedTasks().catch((e) => console.error('[me/tasks] filing failed', e));
 }, SCHEDULER_INTERVAL_MS);

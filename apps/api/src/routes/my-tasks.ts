@@ -50,6 +50,8 @@ export type TaskItem = {
   state: 'open' | 'done' | 'snoozed';
   snoozed_until: string | null;
   done_at: string | null;
+  /** Filed out of the Archive view by the seven-day sweep; the row remains. */
+  archived_at?: string | null;
   sort: number;
 };
 
@@ -140,8 +142,9 @@ myTasksRoutes.get('/', async (c) => {
   const db = userClient(ctx.jwt);
   const { data: rows, error } = await db
     .from('user_task')
-    .select('id, title, due_on, app_id, subject_kind, subject_id, subject_label, href, source_app, source_ref, state, snoozed_until, done_at, sort, app:app_id (slug)')
+    .select('id, title, due_on, app_id, subject_kind, subject_id, subject_label, href, source_app, source_ref, state, snoozed_until, done_at, archived_at, sort, app:app_id (slug)')
     .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
     .order('sort', { ascending: true })
     .limit(500);
   if (error) return c.json({ error: error.message }, 500);
@@ -159,13 +162,16 @@ myTasksRoutes.get('/', async (c) => {
     state: r.state as TaskItem['state'],
     snoozed_until: (r.snoozed_until as string | null) ?? null,
     done_at: (r.done_at as string | null) ?? null,
+    archived_at: (r.archived_at as string | null) ?? null,
     sort: (r.sort as number) ?? 0,
   }));
 
-  // The archive is simply the done half of the same list — ticked items stay
-  // for seven days so a mistake can be untidied (Sjoerd, 2026-09-22).
+  // The archive is the done half of the same list — ticked items stay for
+  // seven days so a mistake can be untidied (Sjoerd, 2026-09-22). After that
+  // the sweep FILES them: they leave this view and stay in the table, because
+  // "cleaned" means archived and not destroyed (Sjoerd, 2026-09-23).
   if (view === 'archive') {
-    const done = mine.filter((i) => i.state === 'done');
+    const done = mine.filter((i) => i.state === 'done' && !i.archived_at);
     return c.json({ view, items: done, groups: { done } });
   }
 
@@ -307,6 +313,11 @@ myTasksRoutes.post('/answer', async (c) => {
       state,
       snoozed_until: body.data.snoozed_until ?? null,
       done_at: state === 'done' ? new Date().toISOString() : null,
+      // Answering again revives a row that was filed or removed — otherwise
+      // the unique constraint on (user, source_app, source_ref) would refuse
+      // the upsert and the second answer would fail.
+      archived_at: null,
+      deleted_at: null,
       sort: body.data.sort ?? Date.now(),
     },
     { onConflict: 'user_id,source_app,source_ref' },
@@ -317,34 +328,51 @@ myTasksRoutes.post('/answer', async (c) => {
 });
 
 // DELETE /api/v1/me/tasks/:id — a typed row the person no longer wants.
+//
+// A SOFT delete: CLAUDE.md hard rule 4 is "soft delete only for personal
+// data", and a to-do is personal data — its title is free text and its
+// subject_label can carry another person's name. The row leaves every read;
+// it does not leave the table.
 myTasksRoutes.delete('/:id', async (c) => {
   const ctx = c.get('ctx');
   const { error } = await adminClient
     .from('user_task')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', c.req.param('id'))
     .eq('user_id', ctx.userId)
-    .is('source_app', null);
+    .is('source_app', null)
+    .is('deleted_at', null);
   if (error) return c.json({ error: error.message }, 500);
   return c.body(null, 204);
 });
 
 /**
- * Ticked items are kept for seven days, then dropped (Sjoerd: "there is an
- * archive… cleaned after 7 days"). Idempotent, so the scheduler may call it
- * as often as it likes. A dropped row for an app's item is only the ANSWER;
+ * Ticked items sit in the Archive for seven days, then get FILED: they leave
+ * the view and stay in the table.
+ *
+ * It used to delete them. Sjoerd was asked which he meant by "cleaned after
+ * 7 days" and answered (2026-09-23): *"Should be part of the cleaning
+ * practice. So I would say: archive - not delete... But there should be a
+ * delete discipline."* So no timer in this system destroys a person's text.
+ * The discipline he wants — somebody seeing what is old and deciding — is a
+ * separate thing to build, and it needs these rows to still exist.
+ *
+ * Idempotent (it only touches rows not yet filed), so the scheduler may call
+ * it as often as it likes. Filing an app item's row files only the ANSWER;
  * the app's own row is untouched.
  */
-export async function cleanFinishedTasks(): Promise<number> {
+export async function fileFinishedTasks(): Promise<number> {
   const cutoff = new Date(Date.now() - 7 * DAY).toISOString();
   const { data, error } = await adminClient
     .from('user_task')
-    .delete()
+    .update({ archived_at: new Date().toISOString() })
     .eq('state', 'done')
     .lt('done_at', cutoff)
+    .is('archived_at', null)
+    .is('deleted_at', null)
     .select('id');
   if (error) {
-    console.warn('[tasks] archive cleanup', error.message);
+    console.warn('[tasks] archive filing', error.message);
     return 0;
   }
   return (data ?? []).length;
