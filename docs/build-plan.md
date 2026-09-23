@@ -22,21 +22,6 @@ the queue.
 
 _Last groomed 2026-09-23 (v0.123.0). Done items get removed, not ticked._
 
-**LAUNCH BLOCKER — an unpriced tier renews monthly, so comped cooperative
-members lapse after six weeks.** Found by the soul.com launch test,
-2026-09-23 evening (`docs/launch-test-2026-09-23.md` §4). The add-member
-dialog (`apps/membership/app/(app)/members/add-member-dialog.tsx` lines
-74–75) derives the interval from the tier's prices, and a tier with no yearly
-price falls to `month`; the API then dates `renews_at` one month out. Every
-cooperative member added on staging tonight renews 2026-10-23, and
-**production's cooperative member added 2026-09-22 renews 2026-10-22** — the
-overdue sweep will grace them that day and lapse them fourteen days later,
-revoking the year-agenda enrolment. Fix in two places: the dialog should
-send `year` for an unpriced tier, and `POST /membership/members` should
-default the same way rather than trust the caller; then move the production
-row's date by hand. Until then, set "Renews on" explicitly when adding a
-cooperative member.
-
 **FOR SJOERD — the thread to-do tier is now yours to set, at /admin/plans.**
 Answered 2026-09-23 in v0.123.0: it has its own key `thread_todo`, separate
 from the personal list's `todo`, and both are checkboxes in the tier matrix.

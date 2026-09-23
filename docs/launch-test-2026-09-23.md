@@ -5,8 +5,9 @@ launch, by a fresh chat with the brief in the session memory. Staging only;
 production was read for comparison and never written. Staging code was
 v0.129.0 (`a1677ce5`), the staging API at v0.123.0.
 
-**Verdict: the flow works end to end. One defect blocks a clean launch and is
-already live on production; two are cosmetic.** Details in §4.
+**Verdict: the flow works end to end. One defect blocked a clean launch and
+was live on production; it shipped fixed as v1.0.0 the same evening. Two
+findings are cosmetic.** Details in §4.
 
 ## 1. What was proven, and how
 
@@ -75,8 +76,10 @@ and Circle sync cannot run.
    agenda enrolment. **Production has the same row**: the cooperative
    member added 2026-09-22 renews 2026-10-22. Fix: an unpriced (comped)
    tier should default to a year, in the dialog and as the API's fallback;
-   and the existing production row needs its date moved. Workaround until
-   then: set "Renews on" by hand when adding a cooperative member.
+   and the existing production row needs its date moved.
+   **Fixed in v1.0.0 the same evening**: the rule moved to the server
+   (`apps/api/src/lib/membership-interval.ts`, tested), `POST /members` reads
+   the tier before dating the row, and the dialog applies the same rule.
 2. **The Members list did not show a new member after the first save** until
    a reload; later saves refreshed within the wait. Likely the
    `router.refresh()` race noted in CLAUDE.md. Cosmetic.
