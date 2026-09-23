@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
 import { APPS, appUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { WorkspaceLine, type PublicWorkspace } from '../page';
 import { BookingFlow, type Reschedule } from './flow';
 import type { IntakeField } from '@/lib/intake';
 
@@ -40,8 +41,13 @@ type MeetingType = {
   poll_slots?: { starts_at: string; ends_at: string }[];
 };
 
-type HostMtResp = { host: Host; meeting_type: MeetingType };
+type HostMtResp = {
+  host: Host;
+  meeting_type: MeetingType;
+  workspace?: PublicWorkspace | null;
+};
 type TeamMtResp = MeetingType & {
+  workspace?: PublicWorkspace | null;
   team: { id: string; slug: string; name: string; description: string | null };
   host: {
     slug: string;
@@ -100,6 +106,7 @@ export default async function MeetingTypePage({
         ownerLocation={asHost.host.location}
         backHref={`/${asHost.host.slug}`}
         hostTimezone={asHost.host.timezone}
+        workspace={asHost.workspace ?? null}
         meetingType={asHost.meeting_type}
         reschedule={reschedule}
       />
@@ -127,6 +134,7 @@ export default async function MeetingTypePage({
       ownerLocation={null}
       backHref={`/${asTeam.team.slug}`}
       hostTimezone={'UTC'}
+      workspace={asTeam.workspace ?? null}
       meetingType={asTeam}
       reschedule={reschedule}
     />
@@ -141,6 +149,7 @@ function Card({
   ownerLocation,
   backHref,
   hostTimezone,
+  workspace,
   meetingType,
   reschedule,
 }: {
@@ -151,6 +160,7 @@ function Card({
   ownerLocation: string | null;
   backHref: string;
   hostTimezone: string;
+  workspace: PublicWorkspace | null;
   meetingType: MeetingType;
   reschedule: Reschedule | null;
 }) {
@@ -183,7 +193,9 @@ function Card({
                 )}
               </div>
 
-              <div className="mt-4 text-sm text-neutral-500">{ownerName}</div>
+              <WorkspaceLine workspace={workspace} className="mt-5" />
+
+              <div className="mt-2 text-sm text-neutral-500">{ownerName}</div>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight leading-tight">
                 {meetingType.name}
               </h1>

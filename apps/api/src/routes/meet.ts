@@ -28,6 +28,7 @@ import {
   exchangeCode,
   listCalendars,
   freeBusy,
+  busyIncludingFree,
   createEvent,
   deleteEvent,
   patchEvent,
@@ -320,6 +321,7 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
     location: host.location,
     // timezone stays the HOST's — it anchors availability math.
     timezone: host.timezone,
+    workspace: await publicWorkspace(host.workspace_id),
     meeting_types: mts ?? [],
   });
 });
@@ -371,6 +373,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
       poll_slots: pollSlots,
       payment_methods: await meetingTypePaymentMethods(mt),
     },
+    workspace: await publicWorkspace(host.workspace_id),
     host: {
       id: host.id,
       slug: host.slug,
@@ -425,6 +428,38 @@ const InvoiceBilling = z.object({
   // Who pays: the booker, or an organisation (20260915100000).
   payer: z.enum(['self', 'organisation']).optional(),
 });
+
+/** Who a public Meet page belongs to, beyond the person: the workspace's
+ *  name, logo and its own public address (Sjoerd, 2026-09-23, looking at his
+ *  booking page: "No workspace link?"). The address is the root slug the
+ *  workspace holds in the one public namespace — the same /{owner} page The
+ *  Thread serves — so a visitor can get from a booking link to whoever is
+ *  behind it. Null url when the workspace holds no root slug; decoration
+ *  only, so a failed read never fails the page. */
+type PublicWorkspace = { name: string | null; logo_url: string | null; url: string | null };
+
+async function publicWorkspace(workspaceId: string): Promise<PublicWorkspace | null> {
+  if (!workspaceId) return null;
+  const [{ data: ws }, { data: slug }] = await Promise.all([
+    adminClient
+      .from('workspace')
+      .select('name, brand_logo_url')
+      .eq('id', workspaceId)
+      .maybeSingle(),
+    adminClient
+      .from('public_root_slug')
+      .select('slug')
+      .eq('workspace_id', workspaceId)
+      .eq('kind', 'workspace')
+      .maybeSingle(),
+  ]);
+  if (!ws) return null;
+  return {
+    name: ws.name ?? null,
+    logo_url: ws.brand_logo_url ?? null,
+    url: slug?.slug ? `${appUrl('the-thread', process.env)}/${slug.slug}` : null,
+  };
+}
 
 // POST /api/v1/meet/public/bookings
 // Creates a booking. If the invitee email matches an existing person in the
@@ -1124,7 +1159,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
 
   const { data: host } = await adminClient
     .from('meet_host')
-    .select('id, user_id, workspace_id, timezone, working_hours')
+    .select('id, user_id, workspace_id, timezone, working_hours, busy_includes_free')
     .eq('slug', hostSlug)
     .single();
   if (!host) return c.json({ error: 'host not found' }, 404);
@@ -1231,7 +1266,11 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
       .filter((id): id is string => !!id);
     if (ids.length > 0) {
       try {
-        const gbusy = await freeBusy(slotsGToken, ids, from, cappedTo);
+        // Settings → Calendars: "Events marked Free still block". Off by
+        // default, because Free normally means "book over this".
+        const gbusy = host.busy_includes_free
+          ? await busyIncludingFree(slotsGToken, ids, from, cappedTo)
+          : await freeBusy(slotsGToken, ids, from, cappedTo);
         busy.push(...gbusy);
       } catch (e) {
         console.error('[slots] freebusy failed (non-fatal)', e);
@@ -2547,6 +2586,8 @@ const HostUpdate = z.object({
   // Host-level default for new MTs. Per-MT override lives on
   // meet_meeting_type.requires_approval (nullable).
   requires_approval: z.boolean().optional(),
+  // Count events marked Free in Google Calendar as busy (Settings → Calendars).
+  busy_includes_free: z.boolean().optional(),
 });
 
 meetRoutes.patch('/me', async (c) => {
@@ -4194,6 +4235,7 @@ meetRoutes.get('/public/team/:team_slug', async (c) => {
     slug: team.slug,
     name: team.name,
     description: team.description,
+    workspace: await publicWorkspace(team.workspace_id),
     meeting_types: mts ?? [],
   });
 });
@@ -4204,7 +4246,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
   const mtSlug = c.req.param('mt_slug');
   const { data: team } = await adminClient
     .from('team')
-    .select('id, slug, name, description, is_active')
+    .select('id, slug, name, description, is_active, workspace_id')
     .eq('slug', teamSlug)
     .single();
   if (!team || !team.is_active) return c.json({ error: 'team not found' }, 404);
@@ -4231,6 +4273,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
     ...mt,
     poll_slots: pollSlots,
     payment_methods: await meetingTypePaymentMethods(mt),
+    workspace: await publicWorkspace(team.workspace_id),
     team,
   });
 });
@@ -4443,7 +4486,7 @@ async function buildPerHostArgs(
 ): Promise<PerHostArgs[]> {
   const { data: hosts } = await adminClient
     .from('meet_host')
-    .select('id, user_id, timezone, working_hours')
+    .select('id, user_id, timezone, working_hours, busy_includes_free')
     .in('id', hostIds);
   if (!hosts || hosts.length === 0) return [];
 
@@ -4511,12 +4554,11 @@ async function buildPerHostArgs(
       const hGToken = calendarIds.length > 0 ? await userGoogleToken(h.user_id) : null;
       if (hGToken && calendarIds.length > 0) {
         try {
-          const gbusy = await freeBusy(
-            hGToken,
-            calendarIds,
-            from,
-            to,
-          );
+          // Per person, so one member of a round-robin can count their
+          // Free-marked blocks without deciding it for the others.
+          const gbusy = h.busy_includes_free
+            ? await busyIncludingFree(hGToken, calendarIds, from, to)
+            : await freeBusy(hGToken, calendarIds, from, to);
           busy.push(...gbusy);
         } catch (e) {
           console.error('[multi-host slots] freebusy failed', e);
