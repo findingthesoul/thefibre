@@ -20,7 +20,24 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
+_Last groomed 2026-09-23 (v0.115.0). Done items get removed, not ticked._
+
+**FOR SJOERD — is a thread's to-do list an Organisation-plan feature?** Set
+2026-09-23 with v0.112.0. The cross-app personal To do list is gated on the
+`todo` plan feature (org and beta only). A thread's OWN checklist
+(`thread_task`, the button in the thread header) deliberately is NOT: it is
+The Thread's content, so it reaches anyone whose plan includes The Thread,
+which is the more generous reading of what was asked for. Making it
+Organisation-only is one `can(ctx.workspaceId, 'todo')` gate at the top of
+`routes/thread-tasks.ts` — decide, then it is a five-minute change either way.
+
+**Production is three migrations behind, as of 2026-09-23.** Whoever promotes
+next runs `./scripts/db-push-prod.sh` BEFORE `./scripts/promote.sh`. Do not
+trust this line — it goes stale the moment anything ships. Ask the branches:
+`git diff --name-only --diff-filter=A origin/main origin/staging -- supabase/migrations/`.
+`promote.sh` only warns about migrations the release RANGE adds, so one that
+reached staging in an earlier push is invisible to a promoter reading a single
+changelog entry.
 
 **FOR SJOERD — Connect's SSO secret is wrong, on BOTH stacks.** Set
 2026-09-23. The cross-apex hop into Connect has never worked: the
