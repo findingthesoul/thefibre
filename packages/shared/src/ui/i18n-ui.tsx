@@ -1116,6 +1116,22 @@ const CHROME = {
     de: 'Etwas hinzufügen…', // MT
     fr: 'Ajouter quelque chose…', // MT
   },
+  todo_edit: {
+    en: 'Edit this to-do',
+    nl: 'Bewerk dit te doen',
+    es: 'Editar esta tarea', // MT
+    pt: 'Editar esta tarefa', // MT
+    de: 'Diese Aufgabe bearbeiten', // MT
+    fr: 'Modifier cette tâche', // MT
+  },
+  todo_edit_hint: {
+    en: 'Double-click to edit',
+    nl: 'Dubbelklik om te bewerken',
+    es: 'Haz doble clic para editar', // MT
+    pt: 'Clique duas vezes para editar', // MT
+    de: 'Zum Bearbeiten doppelklicken', // MT
+    fr: 'Double-cliquez pour modifier', // MT
+  },
   todo_empty: {
     en: 'Nothing to do. Enjoy it.',
     nl: 'Niets te doen. Geniet ervan.',

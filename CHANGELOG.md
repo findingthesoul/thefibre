@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.101.0] — 2026-09-23 — double-click a to-do to edit it
+
+Sjoerd: *"In to do's: double click for edit"*. Double-click the text, type,
+and Enter or clicking away saves it; Escape puts the old title back. Emptying
+it is treated as a mistake rather than a rename — the old title returns, which
+is also what the table would insist on.
+
+**Only the ones you typed.** An item an app owns — a Flow task — keeps its
+title in that app: two places to edit one sentence is two answers to the same
+question. Those rows get no edit affordance at all, rather than one that fails.
+
 ## [0.100.1] — 2026-09-23 — every switch in the product was unnamed
 
 `SwitchField` renders its label beside the control rather than inside it, and

@@ -31,3 +31,7 @@ export async function setTaskState(
 export async function removeTask(item: TodoItem): Promise<void> {
   return calls.removeTask(apiFetch, item);
 }
+
+export async function renameTask(item: TodoItem, title: string): Promise<void> {
+  return calls.renameTask(apiFetch, item, title);
+}

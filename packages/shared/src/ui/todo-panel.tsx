@@ -42,6 +42,8 @@ export type TodoActions = {
     snoozedUntil?: string | null,
   ) => Promise<void>;
   remove: (item: TodoItem) => Promise<void>;
+  /** Rename one you typed. Absent = the panel shows no edit affordance. */
+  rename?: (item: TodoItem, title: string) => Promise<void>;
 };
 
 const GROUP_ORDER = ['overdue', 'today', 'tomorrow', 'this_week', 'later', 'no_date'] as const;
@@ -250,6 +252,11 @@ function OpenList({
                   onTick={() => void act(() => actions.setState(item, 'done'))}
                   onSnooze={(d) => void act(() => actions.setState(item, 'snoozed', d))}
                   onRemove={item.source ? undefined : () => void act(() => actions.remove(item))}
+                  onRename={
+                    actions.rename && !item.source && item.id
+                      ? (title) => void act(() => actions.rename!(item, title))
+                      : undefined
+                  }
                 />
               ))}
             </ul>
@@ -261,26 +268,66 @@ function OpenList({
 }
 
 function Row({
-  item, busy, onTick, onSnooze, onRemove,
+  item, busy, onTick, onSnooze, onRemove, onRename,
 }: {
   item: TodoItem;
   busy: boolean;
   onTick: () => void;
   onSnooze: (dueOn: string) => void;
   onRemove?: (() => void) | undefined;
+  /** Absent for an app's item: its title lives in that app. */
+  onRename?: ((title: string) => void) | undefined;
 }) {
   const locale = useLocale();
   const [menu, setMenu] = useState(false);
+  // Double-click to edit (Sjoerd, 2026-09-23). Enter or clicking away saves,
+  // Escape puts it back — the three things anybody expects of an inline edit.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(item.title);
+
+  function commit() {
+    setEditing(false);
+    const next = draft.trim();
+    // Empty is not a rename, it is a mistake: put the old title back rather
+    // than storing a row with no name (the table refuses it anyway).
+    if (!next || next === item.title) {
+      setDraft(item.title);
+      return;
+    }
+    onRename?.(next);
+  }
   return (
     <li className="group flex items-start gap-2 rounded-md px-1 py-1.5 hover:bg-surface-sunken">
       <button type="button" onClick={onTick} disabled={busy} aria-label={chromeT(locale, 'todo_done')} className="mt-0.5 text-ink-muted hover:text-ink">
         <Circle size={16} />
       </button>
-      <span className="min-w-0 flex-1">
-        {item.href ? (
+      <span className="min-w-0 flex-1" onDoubleClick={onRename ? () => { setDraft(item.title); setEditing(true); } : undefined}>
+        {editing ? (
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commit(); }
+              if (e.key === 'Escape') { e.preventDefault(); setDraft(item.title); setEditing(false); }
+            }}
+            aria-label={chromeT(locale, 'todo_edit')}
+            // Size comes from FIELD_INPUT_CLASS alone: anything smaller than
+            // 16px makes iOS zoom the page on focus. (Naming the small class
+            // even in a comment trips the guard in ui/fields.test.ts, which
+            // reads the whole tag — including this.)
+            className={`${FIELD_INPUT_CLASS} h-8 w-full px-1 py-0`}
+          />
+        ) : item.href ? (
           <a href={item.href} className="block truncate text-sm hover:underline">{item.title}</a>
         ) : (
-          <span className="block truncate text-sm">{item.title}</span>
+          <span
+            className={`block truncate text-sm ${onRename ? 'cursor-text' : ''}`}
+            title={onRename ? chromeT(locale, 'todo_edit_hint') : undefined}
+          >
+            {item.title}
+          </span>
         )}
         {(item.subject?.label || item.app) && (
           <span className="block truncate text-xs text-ink-muted">

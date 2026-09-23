@@ -80,3 +80,23 @@ export async function removeTask(apiFetch: ApiFetch, item: TodoItem): Promise<vo
   if (!item.id) return;
   await apiFetch(`/api/v1/tasks/${item.id}`, { method: 'DELETE' });
 }
+
+/**
+ * Rename a to-do you typed (Sjoerd, 2026-09-23: *"In to do's: double click for
+ * edit"*).
+ *
+ * Only your own rows. An item an app owns — a Flow task — has its title in
+ * that app, and two places to change it means two answers to the same
+ * question; the panel does not offer the edit for those at all.
+ */
+export async function renameTask(
+  apiFetch: ApiFetch,
+  item: TodoItem,
+  title: string,
+): Promise<void> {
+  if (!item.id || item.source) return;
+  await apiFetch(`/api/v1/tasks/${item.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  });
+}

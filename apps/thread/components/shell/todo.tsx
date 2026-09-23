@@ -6,7 +6,7 @@
 
 import { TodoPanelButton } from '@thefibre/shared/ui/todo-panel';
 import { writePrefCookie } from '@thefibre/shared/prefs';
-import { addTask, listTasks, removeTask, setTaskState } from '@/lib/todo-actions';
+import { addTask, listTasks, removeTask, renameTask, setTaskState } from '@/lib/todo-actions';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_TODO } from '@/lib/prefs-shared';
 
@@ -21,7 +21,13 @@ export function TodoButton({ initialOpen = false }: { initialOpen?: boolean }) {
         writePrefCookie(COOKIE_TODO, value, process.env.NEXT_PUBLIC_COOKIE_DOMAIN);
         void savePref(COOKIE_TODO, value);
       }}
-      actions={{ list: listTasks, add: addTask, setState: setTaskState, remove: removeTask }}
+      actions={{
+        list: listTasks,
+        add: addTask,
+        setState: setTaskState,
+        remove: removeTask,
+        rename: renameTask,
+      }}
     />
   );
 }
