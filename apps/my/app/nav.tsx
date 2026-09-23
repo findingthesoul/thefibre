@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CalendarDays, IdCard, Receipt, User } from 'lucide-react';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
+import { Wordmark } from './wordmark';
 import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 
 // Time first, because "what is next" is the question the page exists to
@@ -48,6 +49,11 @@ export function MemberRail() {
   const pathname = usePathname();
   return (
     <nav className="hidden md:flex w-56 shrink-0 flex-col gap-1 border-r border-line bg-surface-sunken p-3">
+      {/* Home, and the only thing on this surface that says whose app it is.
+          A rail of four icons could belong to anything. */}
+      <Link href="/" className="mb-3 flex min-h-11 items-center px-3">
+        <Wordmark className="h-6" />
+      </Link>
       {NAV[0]!.items.map((item) => {
         const Icon = item.icon;
         const active = isActive(item.href, pathname);

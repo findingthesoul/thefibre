@@ -19,19 +19,23 @@
 //
 // ── What it deliberately does NOT do, and this matters MORE here ────────────
 //
-//   * Cache a signed-in PAGE, or a ticket. Every page below the sign-in is one
-//     person's tickets, enrolments and memberships — the most personal data
-//     the platform holds, on the one app whose whole purpose is showing it to
-//     its subject. A cached copy would outlive sign-out and show yesterday's
-//     answer as though it were today's.
+//   * Cache a signed-in PAGE. Every page below the sign-in is one person's
+//     tickets, enrolments and memberships, and a cached copy would outlive
+//     sign-out and show yesterday's answer as though it were today's.
 //
-//     THIS IS THE OPEN PRODUCT DECISION, not an oversight. Holding a check-in
-//     code on the device is what would make a ticket work at a door with no
-//     signal — which is the reason this surface exists — and it is a choice
-//     about personal data on a device, so it is Sjoerd's to make and not a
-//     side effect of a caching strategy. The better answer to that problem is
-//     the WALLET PASSES, which are written and inert: offline by nature, and
-//     they live where people already look for a ticket.
+// ── The ONE exception, and it is a decision rather than a drift ─────────────
+//
+//   * A ticket's QR is cached, from /ticket/<code>/qr on THIS origin.
+//
+//     Sjoerd, 2026-09-23, asked directly: "tickets may be kept on devices."
+//     The wallet passes would have been the better answer — offline by
+//     nature, living where people look for a ticket — and he parked them as
+//     too hard for now, so this is the answer that exists.
+//
+//     It is the smallest version. The QR is an image with no name, no date and
+//     no account on it; the four facts that go with it live in localStorage
+//     (lib/kept-tickets.ts), not here. Both are wiped on sign-out. Nothing
+//     else about the person is kept.
 //
 //   * Touch anything but same-origin GET. The API is on another origin and
 //     intercepting it would be a second, invisible network layer to debug.
@@ -52,10 +56,16 @@
 // That is not hypothetical: it happened to Connect's icon on 2026-09-22 and
 // nothing could tell you, because the server was right and the home screen was
 // wrong. `scripts/check-sw-freshness.mjs` now fails a release that repeats it.
-const VERSION = 'v1';
+// v2 (2026-09-23): ticket QRs are cached, after Sjoerd allowed tickets on
+// devices. The offline page changed with it — it now shows them, under the
+// wordmark, which joins PRECACHE for the same reason the icon is in it.
+const VERSION = 'v2';
 const SHELL = `my-shell-${VERSION}`;
 const STATIC = `my-static-${VERSION}`;
-const PRECACHE = ['/offline.html', '/icon-192.png', '/apple-touch-icon.png'];
+const PRECACHE = ['/offline.html', '/wordmark.png', '/icon-192.png', '/apple-touch-icon.png'];
+// Held separately from the app's code so sign-out can drop the tickets
+// without throwing away the shell and making the next launch slow.
+const TICKETS = `my-tickets-${VERSION}`;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -75,7 +85,7 @@ self.addEventListener('activate', (event) => {
           keys
             // Only our own caches, and only old versions of them. Anything
             // another app on this origin might own is left alone.
-            .filter((k) => k.startsWith('my-') && k !== SHELL && k !== STATIC)
+            .filter((k) => k.startsWith('my-') && k !== SHELL && k !== STATIC && k !== TICKETS)
             .map((k) => caches.delete(k)),
         ),
       )
@@ -95,6 +105,23 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (isRscRequest(request, url)) return;
+
+  // A ticket's QR. Cache-first: at a door the cached copy is the point, and
+  // the image behind a check-in code never changes. Kept even when the network
+  // is fine, so the copy exists BEFORE the signal is gone — a cache that only
+  // fills on failure is empty exactly when it is needed.
+  if (url.pathname.startsWith('/ticket/') && url.pathname.endsWith('/qr')) {
+    event.respondWith(
+      caches.open(TICKETS).then(async (cache) => {
+        const hit = await cache.match(request);
+        if (hit) return hit;
+        const response = await fetch(request);
+        if (response.ok) cache.put(request, response.clone());
+        return response;
+      }),
+    );
+    return;
+  }
 
   // The app's code: immutable, hashed, safe to keep.
   if (url.pathname.startsWith('/_next/static/')) {
@@ -119,4 +146,16 @@ self.addEventListener('fetch', (event) => {
       }),
     );
   }
+});
+
+// Sign-out asks for the tickets to go. The page cannot reach the worker's
+// caches from a normal script in every browser, so it says so and this drops
+// them — the shell and the code stay, because they are nobody's data.
+self.addEventListener('message', (event) => {
+  if (event.data !== 'forget-tickets') return;
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k.startsWith('my-tickets-')).map((k) => caches.delete(k))),
+    ),
+  );
 });

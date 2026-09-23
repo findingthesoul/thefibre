@@ -4,27 +4,41 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>My Thread — offline</title>
-    <!-- Self-contained ON PURPOSE. This page is served by the service worker
-         when the network has already failed, so it cannot fetch a stylesheet,
-         a font or an icon it does not already hold. Colours are the light
-         values from packages/shared/src/design/tokens.ts, inlined because
-         there is no build step between this file and a phone. -->
+    <!-- Self-contained ON PURPOSE. The service worker serves this when the
+         network has already failed, so it cannot fetch a stylesheet, a font or
+         anything it does not already hold. Colours are the light values from
+         packages/shared/src/design/tokens.ts, inlined because there is no
+         build step between this file and a phone. -->
     <style>
       :root { color-scheme: light; }
+      * { box-sizing: border-box; }
       body {
         margin: 0; min-height: 100dvh;
-        display: flex; align-items: center; justify-content: center;
         background: #f7f7f4; color: #111418;
         font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-        padding: 24px;
+        padding: 24px 20px 40px;
       }
-      main { max-width: 22rem; text-align: center; }
-      img { width: 72px; height: 72px; border-radius: 16px; }
-      h1 { font-size: 1.25rem; font-weight: 500; margin: 20px 0 8px; letter-spacing: -0.01em; }
-      p { margin: 0 0 12px; color: #374151; }
+      main { max-width: 26rem; margin: 0 auto; }
+      header { text-align: center; }
+      header img { height: 34px; width: auto; }
+      h1 { font-size: 1.25rem; font-weight: 500; margin: 16px 0 6px; letter-spacing: -0.01em; }
+      p { margin: 0 0 10px; color: #374151; }
       .muted { color: #6b7280; font-size: 0.875rem; }
+      h2 {
+        font-size: 0.75rem; font-weight: 500; text-transform: uppercase;
+        letter-spacing: 0.04em; color: #6b7280; margin: 28px 0 10px;
+      }
+      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      li {
+        background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+        padding: 14px; display: flex; gap: 14px; align-items: center;
+      }
+      li img { width: 96px; height: 96px; flex: 0 0 96px; background: #fff; border-radius: 8px; }
+      .t { min-width: 0; }
+      .t strong { display: block; font-weight: 500; }
+      .t span { display: block; color: #6b7280; font-size: 0.875rem; }
       button {
-        margin-top: 16px; min-height: 44px; padding: 0 20px;
+        margin-top: 20px; width: 100%; min-height: 44px;
         border: 1px solid #111418; border-radius: 10px;
         background: #111418; color: #fafaf7; font: inherit; font-weight: 500;
       }
@@ -32,16 +46,72 @@
   </head>
   <body>
     <main>
-      <img src="/icon-192.png" alt="" />
-      <h1>You’re offline</h1>
-      <!-- Honest about the one thing somebody opened this for. A page that
-           says "try again" and nothing else is no help at a door. -->
-      <p>My Thread needs a connection to show your tickets and what you’re part of.</p>
-      <p class="muted">
-        At a door with no signal, the check-in code in your enrolment email
-        still works — it is the same code.
-      </p>
+      <header>
+        <!-- The wordmark, as at the top of every other screen — the square
+             icon is for app launchers. Precached with this page, so it is
+             here when the network is not. -->
+        <img src="/wordmark.png" alt="my.thread" />
+        <h1>You’re offline</h1>
+        <p id="lede">My Thread needs a connection to show what you’re part of.</p>
+      </header>
+
+      <!-- Filled from localStorage below. Hidden until there is something in
+           it, so somebody with no tickets is not shown an empty heading. -->
+      <section id="tickets" hidden>
+        <h2>Your tickets</h2>
+        <ul id="list"></ul>
+        <p class="muted" id="note"></p>
+      </section>
+
       <button type="button" onclick="location.reload()">Try again</button>
     </main>
+
+    <script>
+      // The four facts per ticket, written by the app while it was online
+      // (apps/my/lib/kept-tickets.ts). The QR images are held by the service
+      // worker at /ticket/<code>/qr, so they load here with no network.
+      //
+      // Deliberately tiny and defensive: this page runs at the worst moment,
+      // and anything it throws leaves a blank screen at a door.
+      try {
+        var raw = localStorage.getItem('my.tickets.v1');
+        var kept = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(kept) && kept.length) {
+          var fmt = function (iso) {
+            if (!iso) return '';
+            var d = new Date(iso);
+            return isNaN(d) ? '' : d.toLocaleDateString(undefined, {
+              weekday: 'short', day: 'numeric', month: 'short',
+            });
+          };
+          var list = document.getElementById('list');
+          kept.forEach(function (t) {
+            if (!t || typeof t.code !== 'string') return;
+            var li = document.createElement('li');
+            var img = document.createElement('img');
+            img.src = '/ticket/' + encodeURIComponent(t.code) + '/qr';
+            img.alt = 'Check-in code for ' + (t.title || 'your ticket');
+            var box = document.createElement('div');
+            box.className = 't';
+            var name = document.createElement('strong');
+            name.textContent = t.title || 'Your ticket';
+            var when = document.createElement('span');
+            when.textContent = [fmt(t.startsAt), t.where].filter(Boolean).join(' · ');
+            box.appendChild(name);
+            if (when.textContent) box.appendChild(when);
+            li.appendChild(img);
+            li.appendChild(box);
+            list.appendChild(li);
+          });
+          document.getElementById('tickets').hidden = false;
+          document.getElementById('lede').textContent =
+            'Your tickets are here. Everything else needs a connection.';
+          document.getElementById('note').textContent =
+            'Kept on this device from the last time you were online.';
+        }
+      } catch (e) {
+        /* A ticket that cannot be drawn must not take the page with it. */
+      }
+    </script>
   </body>
 </html>

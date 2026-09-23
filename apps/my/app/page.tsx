@@ -10,6 +10,8 @@ import type { Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { SignedOut } from './signed-out';
 import { PageShell, Empty } from './page-shell';
 import { Ticket } from './ticket';
+import { KeepTickets } from './keep-tickets';
+import type { KeptTicket } from '@/lib/kept-tickets';
 import { Timeline } from './timeline';
 
 export const dynamic = 'force-dynamic';
@@ -36,11 +38,25 @@ export default async function NextPage() {
     orphans.push(...g.tickets.filter((t) => !known.has(t.thread_id)));
   }
 
+  // What this device keeps for a door: every ticket that carries a code, with
+  // the four facts needed to find it in a queue and show it. Nothing else —
+  // see lib/kept-tickets.ts for why the list is this short.
+  const kept: KeptTicket[] = portal.groups
+    .flatMap((g) => g.tickets)
+    .filter((t) => !!t.checkin_code)
+    .map((t) => ({
+      code: t.checkin_code!,
+      title: t.title,
+      startsAt: t.starts_on,
+      where: t.location,
+    }));
+
   const name = portal.person.first_name;
   const nothing = upcoming.length === 0 && past.length === 0 && orphans.length === 0;
 
   return (
     <PageShell title={name ? `Hello, ${name}` : 'Next'} subtitle={portal.person.email}>
+      <KeepTickets tickets={kept} />
       {nothing ? (
         <Empty title="Nothing coming up.">
           When you book a place or a call, it appears here — soonest first. If you expected

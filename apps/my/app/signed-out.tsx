@@ -3,13 +3,16 @@
 
 import { SURFACES, ENTITY } from '@thefibre/shared';
 import { SignIn } from './sign-in';
+import { Wordmark } from './wordmark';
 
 export function SignedOut() {
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-16">
-      <h1 className="text-2xl font-medium tracking-tight text-ink">
-        {SURFACES['my-portal'].shortLabel}
-      </h1>
+      {/* The mark IS the heading. The name stays in the h1 for a screen
+          reader and for the tab title — an image alone leaves the page
+          without one. */}
+      <h1 className="sr-only">{SURFACES['my-portal'].shortLabel}</h1>
+      <Wordmark className="h-9" />
       <p className="mt-1 text-ink-subtle">{SURFACES['my-portal'].tagline}</p>
       <div className="mt-8 max-w-sm">
         <SignIn />

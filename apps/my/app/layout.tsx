@@ -6,6 +6,7 @@ import { loadSession } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { MemberRail, MemberTabs } from './nav';
 import { RegisterServiceWorker } from './register-sw';
+import { Wordmark } from './wordmark';
 
 // iOS needs its own tags — Safari reads very little of app/manifest.ts. It
 // takes the home-screen icon from `apple-touch-icon`, decides whether to open
@@ -57,6 +58,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="flex h-full">
             <MemberRail />
             <div className="flex min-w-0 flex-1 flex-col">
+              {/* Phone only — the rail already carries the mark on desktop.
+                  Small and quiet: the page's own title does the work, this
+                  just says whose app you are in. */}
+              <header className="flex shrink-0 items-center border-b border-line px-5 py-3 md:hidden">
+                <Wordmark className="h-6" />
+              </header>
               <main className="flex-1 overflow-y-auto">{children}</main>
               <MemberTabs version={VERSION} />
             </div>

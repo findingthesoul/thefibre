@@ -6,6 +6,69 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-09-23 — a ticket at a door with no signal, under a logo (Portal 0.10.0)
+
+Two things Sjoerd asked for in one release, because they touch the same files.
+
+### Tickets may be kept on devices
+
+His decision on the question v1.16.0 left open: *"tickets may be kept on
+devices. Wallet passes: too hard for now."* So the wallet passes — offline by
+nature, living where people already look for a ticket — are parked, and this
+is the answer that exists.
+
+**The smallest version that answers it.** Four facts per ticket in
+`localStorage` (code, what, when, where) and the QR in the worker's cache. Not
+the agenda, not the RSVP, not memberships, not invoices, not the person — none
+of which a door asks for, and all of which would be a copy of somebody's life
+on a phone to no purpose. The QR carries no name, no date and no account.
+
+- **`/ticket/:code/qr`** serves the QR from the PORTAL's origin. The image
+  already existed on the API, but `sw.js` refuses cross-origin caching on
+  purpose and intercepting the API would be a second invisible network layer.
+  Proxying makes it an ordinary same-origin asset and leaves that rule intact.
+  No session is read: the check-in code IS the credential, which is why the
+  API's route is public and why a scanner can read it off a printed email.
+- **Cached before it is needed** — cache-first, warmed on every online load. A
+  cache that only fills on failure is empty exactly when it matters.
+- **`/offline.html` shows the tickets**, QR and all. It is a static file with
+  no bundle, so it reads `localStorage` in about twenty defensive lines. A
+  page that says "try again" and nothing else is no help at a door.
+- **Replace, never merge.** A ticket that leaves the payload leaves the device
+  in the same breath. A phone holding a ticket the server has withdrawn is
+  worse than one holding none, because it will be shown with confidence.
+- **Sign-out forgets both**, before anything can fail. The shell and the app's
+  code survive, being nobody's data. That condition is what made keeping
+  tickets acceptable at all.
+
+**A bug the test found, not the build.** With no API reachable the proxy's
+bare `fetch` threw and Next answered **500**. This route is reached from a
+phone at a door and from an `<img>`; a server-error page there is worse than a
+missing image, and every caller treats any failure identically. Now 404
+whether the code is unknown or the API is unreachable.
+
+### The wordmark, at the top
+
+*"in the my.thread should there not be a logo at the top?"* — there was not.
+The signed-out screen set the name as plain text and the signed-in chrome
+carried no mark at all. `mythread-header.png` now sits in the desktop rail,
+in a phone-only header bar, on the sign-in screen and on the offline page.
+
+One `Wordmark` component for all four, so size and alt text cannot drift. The
+square icon stays for app launchers only, which is the split Sjoerd drew.
+There is deliberately **no dark variant**: the artwork is one solid blue on
+transparent and this app never switches the `dark` class on, so every surface
+is the light palette. If that changes it needs a light-on-dark file — a CSS
+filter on hand-drawn lettering looks like a mistake.
+
+**Verified in a browser:** the wordmark serves and renders at 136×36 on the
+sign-in screen and above the tickets on the offline page; worker `activated`
+with `my-shell-v2`; a QR planted in `my-tickets-v2` **dropped by the sign-out
+message while the shell survived**; the offline page rendering two planted
+tickets with title, date and place; 404 on an unknown code and on a malformed
+one. **Not verified: the signed-in chrome** — the rail and the phone header
+need a session this session cannot mint.
+
 ## [1.16.0] — 2026-09-23 — My Thread works with the signal gone (Portal 0.9.0)
 
 Sjoerd: *"can it be a real webapp"*. v1.14.0 made it installable; this is the
