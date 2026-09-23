@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.24.0] — 2026-09-24 — a thread can be live and take no sign-ups from its page (staging)
+
+Sjoerd: *"can you also 'close' enrolment in the thread? In the sense that
+people can enrol via membership (auto) but on the landing page is no
+enrolment form?"*
+
+The case is a thread that fills from somewhere else. A membership tier grants
+it, so members are enrolled automatically; the public page is there to say
+what the thread IS, and a form on it would only collect people the organiser
+has to turn away.
+
+**Smaller than it looks, because the field already existed.** The public
+payload has carried `enrolment_open` since the public API shipped, and every
+consumer already honours it — the thread page, both embeds and the grid hide
+the form when it is false. It was derived from one thing,
+`program.status === 'active'`, with no way to say no. So this gives that field
+an input rather than inventing a second concept, and the published field keeps
+its name, its type and its meaning (hard rule 8).
+
+Until now the only way to stop sign-ups was to un-publish the thread — which
+also hides it from the listing and 404s the page for everyone outside the
+workspace. That closes the door by demolishing the building.
+
+**It hides a form; it does not bar enrolment, and that is a decision.** Asked
+whether closing sign-ups should also stop the Festival of Trust planner —
+which posts to `/public/enrol` as the VISITOR rather than as an app,
+deliberately, so the app-key wall that forbids apps writing enrolments stays
+intact — Sjoerd said *"no - only on the landing page..."*. So the endpoint is
+untouched: an embed on somebody else's site, a bookmarked URL and the planner
+all keep working. Membership grants and manual adds were never near that path.
+
+The trade he is choosing, said out loud rather than left to be discovered:
+anyone holding a direct link can still enrol after sign-ups are closed. The
+switch's own help text says so, in all six locales, and the developers page
+now describes the field as "show the form", not "enrolment is barred" — which
+is the ambiguity that made this need a decision at all.
+
+The test asserts the **absence** of that gate, because absences grow gates
+later by accident. Adding a check on `public_enrolment_open` to
+`/public/enrol` now fails a test that explains why it should not.
+
+Default true: every thread that exists takes enrolments from its page, and a
+migration that silently closed them would lose somebody a cohort.
+
+128 integration tests pass against staging, including the twins that stop this
+being a lockout — with sign-ups open a stranger can still enrol; with them
+closed the page is still public, still active, and a membership grant still
+lands.
+
+Three fixture shapes learnt the hard way, each a runtime error TypeScript
+cannot see: `public_scope` has no `'public'` value (it is personal | team |
+workspace), `enrolment` has no `workspace_id` (it reaches the workspace
+through its program), and `thread_enrolment.payment_status` has no
+`'comped'`.
+
+
 ## [1.20.1] — 2026-09-24 — the price stops landing in the middle of the name (staging)
 
 Sjoerd's screenshot of the live soul.com join page: the Google Workspace
