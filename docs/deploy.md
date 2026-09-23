@@ -121,10 +121,41 @@ After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl htt
 
 ### Subsequent deploys
 
+**Use `scripts/deploy-api.sh`, not `fly deploy` directly.**
+
 ```bash
-# from the repo root
-fly deploy --remote-only
+./scripts/deploy-api.sh staging --probe "https://thefibre-api-staging.fly.dev/api/v1/… | some text only the new code returns"
+./scripts/deploy-api.sh prod    --no-visible-change
+./scripts/deploy-api.sh prod    --probe "… | …" --dry-run   # check without deploying
 ```
+
+`fly deploy` uploads the WORKING TREE, not the branch, and on 2026-09-23 that
+shipped something unintended twice inside one hour — once another session's
+uncommitted code compiled into the production image and ran, once a clean
+worktree sitting at the previous commit. Neither was visible in `git status`
+and both answered `/health` perfectly. The script refuses when:
+
+1. anything is uncommitted or untracked in a tree the image COMPILES IN
+   (`apps/api/src`, `packages/shared/src`, `packages/mcp/src`) — that code runs;
+2. anything is untracked under `apps/api` or `packages` — those UPLOAD to the
+   remote builder even when the narrow `COPY` list keeps them out of the image,
+   which is how five credential-reading throwaways rode two deploys;
+3. `HEAD` is not the branch being deployed to — a clean tree at the wrong
+   commit is still the wrong image;
+4. you say nothing about what the release serves.
+
+(4) is not a gate on the release, only on silence: `--no-visible-change` is a
+first-class answer, because a refactor has nothing to probe and a gate that
+demanded one would be satisfied with an invented probe — a green check that
+proves nothing. Whatever you answer is printed beside the sha and the Fly
+release, so a later session reads the claim rather than re-deriving it:
+
+```
+deployed 174b93d8 as v312, probe: …/mt/personal-meeting contains "workspace"
+```
+
+If a peer's uncommitted work blocks you, **ask them — do not delete it**, and
+deploy from a clean worktree: `git worktree add /tmp/deploy <sha>`.
 
 ### Custom domain
 

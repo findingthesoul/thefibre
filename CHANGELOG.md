@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-23
+
+### Added
+- **`scripts/deploy-api.sh` — the API is deployed through a guard now, not by
+  `fly deploy` directly.** `fly deploy` uploads the working TREE, not the
+  branch, and today that shipped something unintended twice inside one hour:
+  once another session's uncommitted code was compiled into the production
+  image and ran (membership billing intervals decided by an unreleased rule
+  for four minutes), once a clean worktree sitting at the previous commit
+  served one release without the other. Neither was visible in `git status`
+  and both answered `/health` perfectly.
+  It refuses on: uncommitted or untracked work in a tree the image COMPILES IN
+  (`apps/api/src`, `packages/shared/src`, `packages/mcp/src`); untracked files
+  under `apps/api` or `packages`, which UPLOAD to the remote builder even when
+  the narrow `COPY` list keeps them out of the image (five credential-reading
+  throwaways rode two deploys that way); a `HEAD` that is not the branch being
+  deployed to; and on saying nothing about what the release serves.
+  That last one is a gate on SILENCE, not on the release —
+  `--no-visible-change` is a first-class answer, because a refactor has nothing
+  to probe and a gate demanding one would be satisfied with an invented probe,
+  which is a green check that proves nothing. Whatever is answered prints
+  beside the sha and the Fly release number, so a later session reads the claim
+  instead of re-deriving it. `--dry-run` runs every check and deploys nothing.
+  Each gate was exercised against the real condition it guards, including the
+  two incidents that prompted it.
+
 ## [1.1.0] — 2026-09-23
 
 ### Fixed
