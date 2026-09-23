@@ -638,6 +638,22 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   `db-push-prod.sh` and `fly deploy` belong with the PROMOTION, not with the
   release — migrations first, then the code that needs them.
 
+  **`promote.sh` defaults to `origin/staging`, so the range you ANNOUNCE and
+  the range you PROMOTE can differ.** Two facts produce it: the script takes
+  whatever staging is at when it runs, and docs commits reach staging directly
+  (§9, no release, no version bump) — so nothing announces them. A session that
+  says "promoting 8ed7ebca → dc9df0b9", then runs a bare promote minutes later,
+  can ship two commits it never named and print a range two lines longer than
+  it stated. Harmless when they are docs; alarming mid-promotion, which is the
+  worst moment to be surprised by drift.
+
+  Both halves are fine on their own — this is the seam between them. Pass the
+  sha whenever a range has been stated out loud: `./scripts/promote.sh <sha>`.
+  And if you are pushing docs while somebody has announced a promotion, say so;
+  they cannot see your commit coming. (2026-09-23: exactly this, caught by the
+  session that had pushed the docs commits, after the promote had already
+  taken them.)
+
   **Track `origin/staging`.** This is the one new habit and it bites
   immediately: main lags by design, so the reflex pull leaves a session
   without the last release and release.sh's ancestor check refuses. Caught by
