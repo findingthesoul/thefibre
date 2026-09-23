@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.110.0] — 2026-09-23 — a to-do said "fibre-sales", not "Connect"
+
+The row printed `item.app` raw, so a Connect follow-up read **fibre-sales** and
+a Flow task read **fibre-flow** — internal identifiers, shown to a person, in
+the one place the list explains where something came from.
+
+It mattered little while everything said `fibre-flow` and nothing pointed at
+it. v0.108.0 made items say which app made them, which put the slug somewhere
+people actually read. Names now come from the branding registry — the single
+source for them — and an unknown slug falls back to itself rather than
+vanishing.
+
+Found by a verification that printed "panel mentions Connect: **false**" while
+passing. The assertion was about the gate and it was right; the line underneath
+it was the interesting part.
+
 ## [0.109.0] — 2026-09-23 — A way out of the map, for a company too (staging)
 
 Sjoerd, looking at an organisation in the Map: *"the title should have a small

@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Circle, Clock, ListTodo, Loader2, Plus, RotateCcw, Users, X } from 'lucide-react';
 import { FIELD_INPUT_CLASS } from './fields.js';
 import { TODO_GROUPS } from '../todo-groups.js';
+import { APPS } from '../branding.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
 export type TodoItem = {
@@ -61,6 +62,17 @@ const GROUP_KEY = {
   overdue: 'todo_overdue', today: 'todo_today', tomorrow: 'todo_tomorrow',
   this_week: 'todo_this_week', later: 'todo_later', no_date: 'todo_no_date',
 } as const;
+
+/** The app's NAME, not its slug. The row used to print `item.app` raw, so a
+ *  Connect follow-up read "fibre-sales" and a Flow task read "fibre-flow" —
+ *  internal identifiers shown to a person. The registry is the single source
+ *  of display names (house rule); an unknown slug falls back to itself rather
+ *  than disappearing. */
+function appName(slug: string | null): string | null {
+  if (!slug) return null;
+  const meta = (APPS as Record<string, { shortName?: string; name?: string } | undefined>)[slug];
+  return meta?.shortName ?? meta?.name ?? slug;
+}
 
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
@@ -369,7 +381,7 @@ function Row({
         )}
         {(item.subject?.label || item.app || item.team) && (
           <span className="block truncate text-xs text-ink-muted">
-            {[item.team?.name, item.subject?.label, item.app].filter(Boolean).join(' · ')}
+            {[item.team?.name, item.subject?.label, appName(item.app)].filter(Boolean).join(' · ')}
           </span>
         )}
       </span>
