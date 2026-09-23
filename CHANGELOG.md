@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.12.0] — 2026-09-23
+
+### Changed
+- **The agenda's blocks are filled, not white.** Sjoerd: *"Maybe the agenda
+  items can be colored (full) instead of white."* White cards on a near-white
+  ground read as paper rather than as time that is taken. All-day chips are
+  filled too — leaving those white would have made the fill look like a
+  property of timed meetings rather than of the agenda.
+- **A new shared token: `booked`** — the palette is deliberately monochrome
+  plus the yellow that only ever means saving, so there was nothing to reach
+  for. One accent for every block, which Sjoerd chose over a colour per
+  calendar: nothing in the grid claims to tell one calendar from another. The
+  token is named for what it MEANS, time already spoken for, so the next
+  surface that wants it reuses this one instead of inventing a second blue.
+  Past blocks stay quieter through a lighter fill and their text, never
+  through `opacity`, which would make a block the containing block for any
+  fixed-position child (the v0.89.0 bug).
+
+### Added
+- **A guard that every design token is reachable from Tailwind.** `TOKEN_NAMES`
+  and the preset's colour map are two hand-written lists that have to agree,
+  and nothing made them: adding `booked` defined the CSS variable and produced
+  no `bg-booked` class at all. The app compiled, the typecheck passed, and the
+  fill would simply not have happened. Caught here only because the class was
+  the point; a subtler token would have shipped inert. Mutation-checked by
+  removing the preset entry.
+
 ## [1.11.0] — 2026-09-23 — Connect is 1.0.0 too
 
 Sjoerd, reading the app switcher after the launch bump: "Connect still has

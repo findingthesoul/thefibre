@@ -107,7 +107,10 @@ export function AgendaDay({
               <button
                 type="button"
                 onClick={() => setWriting(ev)}
-                className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-raised px-3 text-xs shadow-sm transition-colors hover:border-ink/40"
+                // Filled like the blocks below: an all-day entry is an agenda item too,
+                // and leaving these white would have made the fill look like a
+                // property of timed meetings rather than of the agenda.
+                className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-booked bg-booked px-3 text-xs shadow-sm transition-colors hover:border-ink/40"
               >
                 <span className="truncate">{ev.summary || t(locale, 'agenda_untitled')}</span>
                 <span className="shrink-0 text-ink-subtle">{t(locale, 'agenda_all_day')}</span>
@@ -157,10 +160,21 @@ export function AgendaDay({
               // through its background and never through `opacity` — opacity
               // would make this the containing block for any fixed-position
               // child, which is the v0.89.0 bug.
-              className={`absolute overflow-hidden rounded-md border border-line border-l-[3px] bg-surface-raised px-2 py-1 text-left shadow-sm transition-colors ${
+              // FILLED, not white. Sjoerd, 2026-09-23: *"Maybe the agenda
+              // items can be colored (full) instead of white."* White cards
+              // on a near-white ground read as paper; a fill reads as time
+              // that is taken. `booked` is the token for exactly that and it
+              // is ONE colour — he chose a single accent over a colour per
+              // calendar, so nothing here distinguishes one calendar from
+              // another and no reader should infer that it does.
+              //
+              // Past stays quieter through a LIGHTER fill and its text, never
+              // through `opacity` — opacity would make this the containing
+              // block for any fixed-position child, which is the v0.89.0 bug.
+              className={`absolute overflow-hidden rounded-md border border-l-[3px] px-2 py-1 text-left shadow-sm transition-colors ${
                 past
-                  ? 'border-l-line-strong text-ink-muted hover:border-ink/40 hover:text-ink'
-                  : 'border-l-ink text-ink hover:border-ink/40'
+                  ? 'border-line bg-booked/30 border-l-line-strong text-ink-muted hover:border-ink/40 hover:text-ink'
+                  : 'border-booked bg-booked border-l-ink text-ink hover:border-ink/40'
               }`}
               style={{
                 top: top(p.startMin),

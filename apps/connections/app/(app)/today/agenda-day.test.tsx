@@ -137,14 +137,29 @@ describe('a block is visible against the page', () => {
   it('is never painted the page’s own background', () => {
     render([ev('past', '01:00', '02:00'), ev('later', '23:00', '23:30')]);
     for (const id of ['past', 'later']) {
-      expect(block(id)!.className).toContain('bg-surface-raised');
       expect(block(id)!.className).not.toContain('bg-surface-sunken');
+      // It is FILLED, whatever the fill currently is. Asserted as "has a
+      // background" rather than as a named class: this test was written
+      // against `bg-surface-raised` and broke when Sjoerd asked for colour
+      // on 2026-09-23 — *"Maybe the agenda items can be colored (full)
+      // instead of white."* The rule it exists to protect is that a block is
+      // distinguishable from the ground, and that rule did not change.
+      expect(block(id)!.className).toMatch(/\bbg-[a-z]/);
     }
+  });
+
+  it('is filled with the token that means time already taken', () => {
+    // One colour for every block, not one per calendar — his choice on
+    // 2026-09-23. A future reader adding a second fill here should know it
+    // was decided rather than defaulted.
+    render([ev('a', '09:00', '10:00')]);
+    expect(block('a')!.className).toContain('bg-booked');
   });
 
   it('keeps an edge of its own', () => {
     render([ev('a', '09:00', '10:00')]);
-    expect(block('a')!.className).toContain('border-line');
+    // Any border token: the edge is the rule, its colour is not.
+    expect(block('a')!.className).toMatch(/\bborder-(line|booked)\b/);
   });
 });
 

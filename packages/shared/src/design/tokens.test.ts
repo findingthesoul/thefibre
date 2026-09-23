@@ -9,6 +9,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DARK, LIGHT, TOKEN_NAMES, cssVariables } from './tokens.js';
+import { fibrePreset } from './tailwind-preset.js';
 
 const ROOT = resolve(import.meta.dirname, '../../../..');
 const APPS_DIR = join(ROOT, 'apps');
@@ -71,4 +72,32 @@ describe('every in-family app takes the design from the preset', () => {
       }
     });
   }
+});
+
+// ── A token nobody can use is not a token ───────────────────────────────────
+//
+// The token list and the Tailwind colour map are two hand-written lists that
+// have to agree, and nothing made them. Adding `booked` to TOKEN_NAMES on
+// 2026-09-23 defined the CSS variable and produced no `bg-booked` class at
+// all: the app compiled, the typecheck passed, and the fill simply did not
+// happen. Exactly the shape this repo keeps shipping inert — each list valid
+// on its own, no error anywhere.
+describe('every token is reachable from Tailwind', () => {
+  it('has a colour entry for each name in TOKEN_NAMES', () => {
+    const colors = (fibrePreset.theme?.extend?.colors ?? {}) as Record<
+      string,
+      Record<string, string>
+    >;
+    // A token is either its own key (`save`) or a shade under a family
+    // (`surface-sunken` → colors.surface.sunken), which is how Tailwind
+    // composes `bg-surface-sunken`.
+    const reachable = (token: string): boolean => {
+      if (colors[token]?.DEFAULT) return true;
+      const i = token.indexOf('-');
+      if (i === -1) return false;
+      return Boolean(colors[token.slice(0, i)]?.[token.slice(i + 1)]);
+    };
+    const missing = TOKEN_NAMES.filter((t) => !reachable(t));
+    expect(missing, 'tokens with no Tailwind class').toEqual([]);
+  });
 });

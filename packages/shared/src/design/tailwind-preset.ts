@@ -49,6 +49,7 @@ export const fibrePreset = {
         },
         accent: { DEFAULT: rgbVar('accent') },
         save: { DEFAULT: rgbVar('save') },
+        booked: { DEFAULT: rgbVar('booked') },
       },
     },
   },

@@ -38,6 +38,7 @@ export const TOKEN_NAMES = [
   // Roles.
   'accent', //          legacy name for the ink-coloured emphasis; prefer a role
   'save', //            the colour of committing: Save buttons, switches that are on
+  'booked', //          time that is already spoken for: an agenda block
 ] as const;
 
 export type TokenName = (typeof TOKEN_NAMES)[number];
@@ -57,6 +58,17 @@ export const LIGHT: Palette = {
   // Tailwind yellow-400 — the switches' yellow since before this file existed.
   // Yellow does not invert in dark mode: it stays yellow, with dark text on it.
   save: '250 204 21',
+  // A muted slate-blue. Sjoerd, 2026-09-23, looking at the day grid: *"Maybe
+  // the agenda items can be colored (full) instead of white."* White cards on
+  // a near-white ground read as paper rather than as time that is taken.
+  //
+  // It is ONE token and not a palette on purpose: he chose a single accent
+  // over a colour per calendar, so nothing here claims to distinguish one
+  // calendar from another, and no app should read it as a category. The name
+  // says what it MEANS — time already spoken for — so the next surface that
+  // wants it (a booked slot, a busy block) uses the same one rather than
+  // inventing a second blue.
+  booked: '203 213 225',
 };
 
 export const DARK: Palette = {
@@ -71,6 +83,10 @@ export const DARK: Palette = {
   'line-strong': '55 60 68',
   accent: '240 241 243',
   save: '250 204 21',
+  // Lighter in ink terms and darker on screen: on a near-black ground a block
+  // has to come FORWARD, so this is the same hue carrying the opposite
+  // relationship to its background.
+  booked: '51 65 85',
 };
 
 /** `--ink: 17 20 24;` etc., for a CSS rule body. */
