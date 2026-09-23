@@ -6,6 +6,70 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.123.0] — 2026-09-23 — the tier for a thread's to-do list is a checkbox (staging)
+
+Sjoerd: *"Can I check that decision with a checkbox? Maybe it is between
+starter and pro"* — about the question v0.112.0 deliberately left open, which
+was whether a thread's shared checklist should sit behind a plan at all.
+
+**Its own key, not `todo`.** The two are different products sold to different
+people: `todo` is the PERSONAL cross-app list in every topbar — the thing that
+pulls Flow, Connect and Thread into one queue, which is what an organisation
+is buying. `thread_todo` is the SHARED checklist on one thread, which is part
+of running an event. One key would have meant that pricing either one priced
+both, forever.
+
+The line **starts** between Starter and Pro, as he suggested, and that is the
+smaller half of the change: the point is that it is now movable at
+`/admin/plans` without a deploy. A feature KEY is code; its value never was.
+
+**`todo` had no checkbox either.** Its key and plan values shipped this
+morning, but `FEATURE_GROUPS` — the list the admin matrix and the public
+pricing page render from — was never told about it. So the one screen built
+for deciding which tiers get a feature could not show the feature. Both rows
+are there now.
+
+Gated in three places, because one gate would have been a door with three ways
+round it:
+
+- every `/thread/*/tasks` and `/thread/todo-templates` route, at the top;
+- **Connect's Today**, alongside the seat check — the seat says this PERSON
+  may see The Thread's content, the plan says this WORKSPACE has the feature
+  at all;
+- the personal list's thread source, since a workspace can hold `todo`
+  without holding `thread_todo`.
+
+The affordances hide too — the header button and the Templates card — and
+both derive it from the API's own 402 rather than asking a second question, so
+a button cannot disagree with the route behind it. Any other failure leaves
+them in place: a network blip should not remove a feature.
+
+**Two things the tests taught by going red.**
+
+A throwaway workspace does not arrive without a plan. It gets a
+`workspace_subscription` row on `free`, and free lacks the feature — so the
+whole suite 402'd at once. The assumption had been that no subscription meant
+the `unknown` plan, where `can()` fails open. Wrong, and much better learnt
+from seventeen red tests than from somebody's support message.
+
+And the cross-tenant tests began returning 402 where they assert 404: the plan
+gate runs BEFORE the tenancy check, so an attacker on a plan without the
+feature never reaches the code those tests exist to exercise. The attacker's
+workspace now holds the feature, so its 404 means "not your thread" again —
+which is the claim being made.
+
+Verified on staging by flipping one fixture workspace pro → starter and back:
+the header button and the Templates card are there on Pro, gone on Starter,
+with the rest of the header intact.
+
+**For whoever promotes this.** `20260923170000_thread_todo_plan_feature.sql`
+sets the key on the plan ROWS. `can()` ends with `features[key] === true`, so
+a plan row without the key is false — this code reaching production ahead of
+that migration would take the feature away from every workspace at once,
+Sjoerd's included. `db-push-prod.sh` before `promote.sh`, as always, and here
+it is the difference rather than the ritual.
+
+
 ## [0.122.0] — 2026-09-23 — a migration's version is its identity (staging)
 
 Sjoerd, after watching two sessions collide: "Can you create a practice to
