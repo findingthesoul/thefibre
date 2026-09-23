@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.111.0] — 2026-09-23 — the workspace behind the page, and calendar blocks marked Free (Meet 2.10.0, staging)
+
+Two things Sjoerd found on his own booking page, meet.thethread.app/sjoerd-luteijn.
+
+**"No workspace link?"** Meet's public pages showed the person and nothing
+else. They now carry the workspace above the host: its logo, its name, and a
+link to its own public page — the /{owner} address The Thread serves, read
+from `public_root_slug`. On the personal page, on team pages, and on every
+meeting type. A workspace with no public address still shows its name,
+without a link. The four public GETs in `routes/meet.ts` gained a `workspace`
+object; it is decoration, so a failed read never fails the page.
+
+**"Most are set to FREE instead of BUSY."** Thursday offered 09:00 to 10:15
+under a two-hour block. Google's freebusy query answers the availability
+question the way the calendar owner defined it: an event marked Free is
+simply absent, so a calendar full of self-made focus blocks reads as an open
+day.
+
+New switch in Settings → Calendars, **off by default** — for most people a
+free event really does mean "book over this". On, Meet reads the events
+themselves (`calendar.readonly`, already granted) and every timed event
+blocks. Per person, so one member of a round-robin can turn it on without
+deciding for the others, and it applies to both slot paths: personal meeting
+types and team ones.
+
+Two exclusions, or the switch would block more than anybody means, each with
+a test: **all-day events never block** (a "working from home" day must not
+close the day), and **meetings you declined never block**.
+
+**Travel time stays out, deliberately.** Apple Calendar's travel time is not
+part of what Google publishes, so Meet cannot see it, and a setting for it
+would work for one person's app and nobody else's. Sjoerd's call: "if this is
+not generic then we do not do it." Buffers before and after a meeting type
+are the generic answer, and already exist.
+
+Migration `20260923140000_meet_host_busy_includes_free` (additive, one boolean
+column, default false). On staging; production needs it at promote time.
+
 ## [0.110.0] — 2026-09-23 — a to-do said "fibre-sales", not "Connect"
 
 The row printed `item.app` raw, so a Connect follow-up read **fibre-sales** and
