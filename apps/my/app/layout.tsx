@@ -5,6 +5,7 @@ import { SURFACES } from '@thefibre/shared';
 import { loadSession } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { MemberRail, MemberTabs } from './nav';
+import { RegisterServiceWorker } from './register-sw';
 
 // iOS needs its own tags — Safari reads very little of app/manifest.ts. It
 // takes the home-screen icon from `apple-touch-icon`, decides whether to open
@@ -51,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="h-dvh antialiased bg-surface text-ink">
+        <RegisterServiceWorker />
         {session ? (
           <div className="flex h-full">
             <MemberRail />

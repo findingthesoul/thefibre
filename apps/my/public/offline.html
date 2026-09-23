@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Thread — offline</title>
+    <!-- Self-contained ON PURPOSE. This page is served by the service worker
+         when the network has already failed, so it cannot fetch a stylesheet,
+         a font or an icon it does not already hold. Colours are the light
+         values from packages/shared/src/design/tokens.ts, inlined because
+         there is no build step between this file and a phone. -->
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0; min-height: 100dvh;
+        display: flex; align-items: center; justify-content: center;
+        background: #f7f7f4; color: #111418;
+        font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        padding: 24px;
+      }
+      main { max-width: 22rem; text-align: center; }
+      img { width: 72px; height: 72px; border-radius: 16px; }
+      h1 { font-size: 1.25rem; font-weight: 500; margin: 20px 0 8px; letter-spacing: -0.01em; }
+      p { margin: 0 0 12px; color: #374151; }
+      .muted { color: #6b7280; font-size: 0.875rem; }
+      button {
+        margin-top: 16px; min-height: 44px; padding: 0 20px;
+        border: 1px solid #111418; border-radius: 10px;
+        background: #111418; color: #fafaf7; font: inherit; font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icon-192.png" alt="" />
+      <h1>You’re offline</h1>
+      <!-- Honest about the one thing somebody opened this for. A page that
+           says "try again" and nothing else is no help at a door. -->
+      <p>My Thread needs a connection to show your tickets and what you’re part of.</p>
+      <p class="muted">
+        At a door with no signal, the check-in code in your enrolment email
+        still works — it is the same code.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-09-23 — My Thread works with the signal gone (Portal 0.9.0)
+
+Sjoerd: *"can it be a real webapp"*. v1.14.0 made it installable; this is the
+half that makes an installed icon behave like an app rather than a bookmark
+that fails.
+
+`apps/my/public/sw.js`, copied in shape from `apps/connections/public/sw.js`
+rather than invented. Navigations go to the network first and fall back to a
+self-contained `/offline.html`; `/_next/static` is cached as it loads, because
+it is content-hashed, immutable and holds no personal data. Registered from
+one small client component, rendered for signed-out visitors too — somebody
+installs the app from the sign-in screen.
+
+**What it deliberately does NOT cache, and it matters more here than in
+Connect: a signed-in page, or a ticket.** Every page below the sign-in is one
+person's tickets, enrolments and memberships, on the one app whose whole
+purpose is showing that to its subject. A cached copy would outlive sign-out
+and present yesterday's answer as today's.
+
+**That leaves one decision open, and it is Sjoerd's, not a caching detail.**
+Holding a check-in code on the device is what would make a ticket work at a
+door with no signal — which is the reason this surface exists. It is a choice
+about personal data on a device. And the better answer to that problem is
+already written and inert: the **wallet passes** are offline by nature and
+live where people already look for a ticket. Checked again today: production
+still has no `APPLE_WALLET_*` or `GOOGLE_WALLET_*` secrets at all.
+
+The offline page is honest rather than decorative. It says the app needs a
+connection to show your things, and that the check-in code in the enrolment
+email still works at a door — because a page that says "try again" and nothing
+else is no help when you are standing at one.
+
+**`scripts/check-sw-freshness.mjs`, in `pnpm verify`.** A browser only
+reinstalls a worker whose OWN bytes changed, so editing a file the worker
+precaches leaves every installed phone serving the old copy while the server,
+the repo and the typecheck are all correct — the mismatch exists only between
+two commit dates. That is exactly what happened to Connect's icon on
+2026-09-22. The check reads `PRECACHE` out of each worker's own source and
+walks every `apps/*/public/sw.js`, so a new app is covered the moment it has
+one. Two exemptions keep it from becoming noise: an uncommitted worker is
+being changed right now, and a precached file with no commit yet is arriving
+alongside it rather than drifting from it.
+
+**Verified in a browser, not just built:** the worker registers and reaches
+`activated`, scope `/`, cache `my-shell-v1` holding exactly the three
+precached files, and `/offline.html` served back out of it with its own copy
+intact. No console errors.
+
 ## [1.15.0] — 2026-09-23 — CI had been red for two days, and nobody was looking
 
 Sjoerd forwarded two "ci: Some jobs were not successful" emails and asked
