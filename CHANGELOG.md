@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.15.0] — 2026-09-23 — CI had been red for two days, and nobody was looking
+
+Sjoerd forwarded two "ci: Some jobs were not successful" emails and asked
+why these things happen. The answer: `ci.yml` built only `@thefibre/shared`
+before typechecking, so from the moment `apps/api` imported `@thefibre/mcp`
+(v0.85.0) a fresh checkout could not resolve it — `src/routes/mcp.ts:
+Cannot find module '@thefibre/mcp/person'`. Every machine already had that
+package's `dist/`, so the local release gate stayed green while CI went red at
+v0.87.1 (2026-09-21) and stayed red through v1.13.0. Reproduced in a fresh
+worktree, then fixed there.
+
+### Fixed
+- **CI builds every workspace package** (`pnpm --filter "./packages/**"
+  build`) before `pnpm -r typecheck` — derived from the directory, so the
+  next package is covered the day it exists, the same rule `release.sh`
+  already follows for version files.
+- **CI runs on pushes to `staging` too.** It ran only at promote, hours after
+  the release, and emailed whoever promoted rather than whoever released.
+  Now the release itself is checked.
+
 ## [1.14.0] — 2026-09-23 — My Thread installs as an app (Portal 0.8.0)
 
 Sjoerd: *"how to open my.thread on desktop (via app)?"* — and the honest
