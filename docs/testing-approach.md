@@ -74,6 +74,22 @@ why §1.5's render-check rule is a rule and not a nicety.
    believing it. Related to 7 and to the three latent 400s of 2026-09-15:
    a `.select('a, b, c')` is a string the compiler never validates, so a
    typo or a column that moved is only ever a runtime answer.
+9. **Never coalesce an error into an empty collection.** This is the CAUSE
+   that 7 and 8 are symptoms of, and it earned its own line the same day, in
+   the worst possible way: the session that wrote 7 then made the mistake
+   itself, three hours later, in a throwaway script — `.select('full_name')`
+   against a table whose columns are `first_name`/`last_name`, a `data ?? []`
+   swallowing the 400, and a confident report of **"0 people"** in a
+   workspace holding 42. It was caught only because zero was absurd on its
+   face. Had the true answer been 2 and the broken query said 0, the report
+   would have been "no backlog, nothing to do" — indistinguishable from the
+   truth, and nobody had reason to doubt it.
+
+   Every silent failure of 2026-09-23 had the same middle: a `catch → []`, a
+   `?? []`, a caught error logged to a warning nobody reads. Each turned a
+   failure into a plausible answer. So: `if (error) throw` in a script,
+   surface it in a route, and let a check that cannot answer FAIL rather than
+   answer nothing. An empty result must only ever mean "there are none".
 
 ---
 
