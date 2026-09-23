@@ -35,6 +35,9 @@ export type ThreadRow = {
   enrolment_note?: string | null;
   categories?: { category: { id: string; name: string; slug: string } | { id: string; name: string; slug: string }[] | null }[];
   requires_approval: boolean;
+  /** False = the public page shows no enrolment form and /public/enrol
+   *  refuses. Membership grants and manual adds still work. */
+  public_enrolment_open?: boolean;
   price_cents: number | null;
   price_currency: string | null;
   payment_destination: 'workspace' | 'personal' | null;

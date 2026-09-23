@@ -443,7 +443,7 @@ threadRoutes.patch('/settings', async (c) => {
 const THREAD_SELECT = `
   id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
   intention, timezone, cover_url, is_public_listed, requires_approval,
-  price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
+  price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, public_enrolment_open, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   enrolment_note,
   locked_at, locked_by,
@@ -754,6 +754,10 @@ const ThreadUpdate = z.object({
   share_participants_public: z.boolean().optional(),
   share_participants_participants: z.boolean().optional(),
   capacity: z.number().int().positive().nullable().optional(),
+  /** False = the public page shows no enrolment form and /public/enrol
+   *  refuses. Membership grants and manual adds are unaffected — that
+   *  asymmetry is the feature (20260923221945). */
+  public_enrolment_open: z.boolean().optional(),
   registration_fields: z
     .array(
       z.object({
@@ -5152,7 +5156,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   let tq = adminClient
     .from('thread_thread')
     .select(
-      `id, slug, intention, timezone, language, facilitation_language, public_scope, cover_url, capacity, requires_approval,
+      `id, slug, intention, timezone, language, facilitation_language, public_scope, cover_url, capacity, requires_approval, public_enrolment_open,
        workspace_id, team_id, payment_destination, workspace:workspace_id (slug), thread_org:organiser_id (slug),
        price_cents, price_currency, payment_methods, registration_fields, certificate_enabled, organiser_id,
        share_participants_public, public_agenda,
@@ -5380,7 +5384,17 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
         is_online: !!meeting_url,
       })),
       enrolled_count: count ?? 0,
-      enrolment_open: program.status === 'active',
+      // Two conditions, not one. The thread has to be live AND willing to
+      // take sign-ups from its page — a thread that fills from a membership
+      // tier is live and closed at the same time, which is exactly the state
+      // that had no way to be expressed before (Sjoerd, 2026-09-23).
+      //
+      // `!== false` rather than a bare read: the column is NOT NULL with a
+      // default, but this payload is also built from rows selected before it
+      // existed in some tests, and a missing value must mean OPEN — the
+      // direction that cannot lose somebody a cohort.
+      enrolment_open:
+        program.status === 'active' && (thread as { public_enrolment_open?: boolean }).public_enrolment_open !== false,
       participants,
       // Additive (rule 8): true only for a workspace member viewing an
       // unpublished thread. Anonymous callers never see a payload with it set.
@@ -5858,6 +5872,24 @@ threadRoutes.post('/public/enrol', async (c) => {
   if (!program || program.status !== 'active') {
     return c.json({ error: 'enrolment is closed for this thread' }, 409);
   }
+  // NO CHECK ON public_enrolment_open HERE, AND THAT IS DELIBERATE.
+  //
+  // Sjoerd, 2026-09-23, asked whether closing sign-ups should also stop the
+  // Festival of Trust planner — which submits to this endpoint as the
+  // visitor rather than as an app, so a gate here would close its
+  // registration form too: *"no - only on the landing page..."*
+  //
+  // So closing sign-ups is a decision about OUR page, not a bar on
+  // enrolment. The flag makes `enrolment_open` false, every surface we
+  // render hides the form, and this endpoint keeps accepting — for the
+  // planner, for an embed on somebody else's site, and for anyone holding
+  // the URL. That last part is the trade he is choosing, not an oversight,
+  // and it is written on the developers page so an integrator reads it
+  // where they read the field.
+  //
+  // If it ever needs to become a real gate, this is the line to add — but
+  // it is a behaviour change for a live external app and belongs in its own
+  // release, not smuggled in with a display flag.
   // Resolve the ticket. Explicit ticket_id wins; without one (older embeds)
   // fall back to the cheapest open ticket. Paid enrolment lands with the
   // Stripe phase — only free tickets pass for now.

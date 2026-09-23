@@ -7298,6 +7298,38 @@ const CATALOG = {
     de: 'Zum Umsortieren ziehen', // MT
     fr: 'Glisse pour réordonner', // MT
   },
+  sign_ups: {
+    en: 'Sign-ups',
+    nl: 'Aanmeldingen',
+    es: 'Inscripciones', // MT
+    pt: 'Inscrições', // MT
+    de: 'Anmeldungen', // MT
+    fr: 'Inscriptions', // MT
+  },
+  public_enrolment_strong: {
+    en: 'Anyone can enrol',
+    nl: 'Iedereen kan zich aanmelden',
+    es: 'Cualquiera puede inscribirse', // MT
+    pt: 'Qualquer pessoa pode se inscrever', // MT
+    de: 'Alle können sich anmelden', // MT
+    fr: 'Tout le monde peut s’inscrire', // MT
+  },
+  public_enrolment_rest: {
+    en: 'from the thread’s public page.',
+    nl: 'via de openbare pagina van de thread.',
+    es: 'desde la página pública del thread.', // MT
+    pt: 'pela página pública do thread.', // MT
+    de: 'über die öffentliche Seite des Threads.', // MT
+    fr: 'depuis la page publique du thread.', // MT
+  },
+  public_enrolment_note: {
+    en: 'Off: the page still shows the thread, with no enrolment form. People already enrolled keep their place, you can still add people yourself, and a membership tier that grants this thread still enrols its members automatically. Anyone holding a direct link or an embed elsewhere can still sign up — this hides the form, it does not bar enrolment.',
+    nl: 'Uit: de pagina toont de thread nog steeds, zonder aanmeldformulier. Wie al aangemeld is behoudt zijn plek, je kunt zelf nog mensen toevoegen, en een lidmaatschapsniveau dat deze thread geeft meldt leden nog steeds automatisch aan. Wie een directe link of een embed elders heeft, kan zich nog steeds aanmelden — dit verbergt het formulier, het blokkeert aanmelden niet.',
+    es: 'Desactivado: la página sigue mostrando el thread, sin formulario de inscripción. Quien ya está inscrito conserva su plaza, puedes seguir añadiendo personas tú mismo, y un nivel de membresía que da acceso a este thread sigue inscribiendo a sus miembros automáticamente. Cualquiera con un enlace directo o un embed en otro sitio puede seguir inscribiéndose: esto oculta el formulario, no bloquea la inscripción.', // MT
+    pt: 'Desligado: a página continua mostrando o thread, sem formulário de inscrição. Quem já está inscrito mantém a vaga, você ainda pode adicionar pessoas, e um nível de assinatura que dá acesso a este thread continua inscrevendo seus membros automaticamente. Qualquer pessoa com um link direto ou um embed em outro site ainda pode se inscrever — isto esconde o formulário, não impede a inscrição.', // MT
+    de: 'Aus: die Seite zeigt den Thread weiterhin, ohne Anmeldeformular. Wer bereits angemeldet ist, behält seinen Platz, du kannst weiterhin selbst Personen hinzufügen, und eine Mitgliedsstufe, die diesen Thread freischaltet, meldet ihre Mitglieder weiterhin automatisch an. Wer einen direkten Link oder ein Embed anderswo hat, kann sich weiterhin anmelden — das verbirgt das Formular, es sperrt die Anmeldung nicht.', // MT
+    fr: 'Désactivé : la page montre toujours le thread, sans formulaire d’inscription. Les personnes déjà inscrites gardent leur place, tu peux toujours ajouter des gens toi-même, et un niveau d’adhésion donnant accès à ce thread y inscrit toujours ses membres automatiquement. Toute personne disposant d’un lien direct ou d’un embed ailleurs peut encore s’inscrire — cela masque le formulaire, cela ne bloque pas l’inscription.', // MT
+  },
   todo_due: {
     en: 'Due',
     nl: 'Deadline',

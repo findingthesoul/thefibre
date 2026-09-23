@@ -226,7 +226,7 @@ export default function DevelopersPage() {
               { name: 'agenda', type: 'object[]', note: 'Published, agenda-visible sessions only.' },
               { name: 'agenda[].is_online', type: 'boolean', note: 'The join link itself is never returned.' },
               { name: 'enrolled_count', type: 'integer' },
-              { name: 'enrolment_open', type: 'boolean' },
+              { name: 'enrolment_open', type: 'boolean', note: 'Whether the PUBLIC may sign up: false when the thread is not published, and also when its organiser has closed sign-ups (it may still fill from a membership tier). Use program.status for whether the thread is live. It means SHOW THE FORM, not "enrolment is barred": POST /public/enrol still accepts when it is false, so an app with its own registration form keeps working.' },
               {
                 name: 'participants',
                 type: 'string[]',

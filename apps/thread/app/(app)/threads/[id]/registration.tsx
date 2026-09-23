@@ -34,6 +34,9 @@ export function RegistrationPanel({
   sharePublic: initialSharePublic = false,
   shareParticipants: initialShareParticipants = false,
   requiresApproval: initialRequiresApproval = false,
+  // Defaults TRUE: an absent value must mean OPEN. The other direction would
+  // make a failed read look like a closed thread and quietly stop sign-ups.
+  publicEnrolmentOpen: initialPublicEnrolmentOpen = true,
   enrolmentNote: initialNote = null,
   workspaceNote = null,
   onSaved,
@@ -44,6 +47,7 @@ export function RegistrationPanel({
   sharePublic?: boolean;
   shareParticipants?: boolean;
   requiresApproval?: boolean;
+  publicEnrolmentOpen?: boolean;
   /** This thread's own words. Null means it uses the workspace's. */
   enrolmentNote?: string | null;
   /** The workspace default, shown so you can see what you are replacing. */
@@ -55,6 +59,7 @@ export function RegistrationPanel({
   const [sharePublic, setSharePublic] = useState(initialSharePublic);
   const [shareParticipants, setShareParticipants] = useState(initialShareParticipants);
   const [requiresApproval, setRequiresApproval] = useState(initialRequiresApproval);
+  const [publicEnrolmentOpen, setPublicEnrolmentOpen] = useState(initialPublicEnrolmentOpen);
   // Null and '' are different answers: null inherits the workspace's note, ''
   // says this thread deliberately adds nothing. A textarea cannot express both,
   // so the switch carries the distinction.
@@ -109,6 +114,7 @@ export function RegistrationPanel({
         share_participants_public: sharePublic,
         share_participants_participants: shareParticipants,
         requires_approval: requiresApproval,
+        public_enrolment_open: publicEnrolmentOpen,
         enrolment_note: ownNote ? note : null,
       });
       if (!r.ok) return setError(r.error);
@@ -189,6 +195,36 @@ export function RegistrationPanel({
           ))}
         </ul>
       )}
+
+      {/* Sign-ups BEFORE approval, because it is the earlier question: whether
+          the public page takes anybody at all comes before what happens to
+          the ones it takes. */}
+      <div className="mt-8">
+        <SectionLabel>{t(locale, 'sign_ups')}</SectionLabel>
+        <div className="mt-3">
+          <SwitchField
+            label={
+              <>
+                <strong>{t(locale, 'public_enrolment_strong')}</strong>{' '}
+                {t(locale, 'public_enrolment_rest')}
+              </>
+            }
+            checked={publicEnrolmentOpen}
+            onChange={(v) => {
+              setPublicEnrolmentOpen(v);
+              setSaved(false);
+            }}
+          />
+          {/* The note only appears when it is OFF: it exists to answer "what
+              did I just do to the people already signed up", and that
+              question is not being asked while the switch is on. */}
+          {!publicEnrolmentOpen && (
+            <p className="mt-2 text-xs text-ink-muted leading-relaxed">
+              {t(locale, 'public_enrolment_note')}
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="mt-8">
         <SectionLabel>{t(locale, 'approval')}</SectionLabel>

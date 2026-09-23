@@ -1165,6 +1165,7 @@ function SettingsTabs({
             sharePublic={thread.share_participants_public ?? false}
             shareParticipants={thread.share_participants_participants ?? false}
             requiresApproval={thread.requires_approval ?? false}
+            publicEnrolmentOpen={thread.public_enrolment_open ?? true}
             enrolmentNote={thread.enrolment_note ?? null}
             workspaceNote={workspaceNote}
             onSaved={onSaved}
