@@ -109,7 +109,12 @@ const STAGING_SUBS = {
   flow: 'fibre-flow',
   pulse: 'fibre-pulse',
   membership: 'membership',
-  connections: 'fibre-sales',
+  // `connect`, not `connections`, since the rename on 2026-09-21. The old
+  // host still serves and 307s to this one, which is why the check failed
+  // rather than 404'd — and why a redirect is not good enough here: this
+  // script exists to catch a subdomain serving the WRONG APP, and a 307 it
+  // does not follow tells it nothing either way.
+  connect: 'fibre-sales',
 };
 
 /** Surfaces are not catalogue apps, so they carry their own map and their
