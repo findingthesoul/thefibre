@@ -22,6 +22,19 @@ the queue.
 
 _Last groomed 2026-09-15 (v0.78.8). Done items get removed, not ticked._
 
+**FOR SJOERD — Connect's SSO secret is wrong, on BOTH stacks.** Set
+2026-09-23. The cross-apex hop into Connect has never worked: the
+`thefibre-connections` Vercel project's `SSO_INTERNAL_SECRET` differs from the
+API's, so `/sso/land` gets a 403 from `POST /api/v1/sso/redeem` and quietly
+redirects to Connect's own sign-in page. It looks exactly like an expired
+session, which is why it survived from Connect's launch (2026-09-13) unnoticed
+— people just sign in again. Fix: set that variable on the project, PRODUCTION
+and PREVIEW scope, to the same value the API holds
+(`fly secrets list` shows whether it is set; the value itself lives with
+Sjoerd). It is a credential, so nobody else does it. Verify with
+`node scripts/verify-sso-hop.mjs [--prod]` plus the API log line it prints:
+403 = wrong value, no line at all = not set, 400 = correct.
+
 **Port the remaining hand-rolled pickers onto the shared comboboxes.** Set
 2026-09-22, when Connect's four were replaced by
 `@thefibre/shared/ui/{person,organisation}-combobox`. Still their own:

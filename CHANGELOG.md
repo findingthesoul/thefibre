@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.99.2] — 2026-09-23 — the hop into Connect has never worked, and now one command says so
+
+Found while verifying the To do panel: signing in *into* Connect through the
+cross-apex handoff fails. `/sso/land` gets a **403** from
+`POST /api/v1/sso/redeem` — so Connect's `SSO_INTERNAL_SECRET` is set but does
+not match the API's — and the land route, which catches everything, redirects
+to Connect's own sign-in page. It is indistinguishable from an expired session,
+which is how it survived from Connect's launch on 2026-09-13 until now: people
+simply sign in again.
+
+Measured on **both** stacks, six apps against one. Staging 07:05:16–07:05:21Z
+and production 07:05:41–07:05:44Z: The Fibre, Meet, Thread, Flow, Pulse and
+Members each answer 400 (`invalid_code` — the secret is right and the bogus
+probe code was correctly refused); Connect answers 403.
+
+`scripts/verify-sso-hop.mjs` is that probe, runnable. It sends a code that
+cannot exist, so it writes nothing and needs no session, and it derives its
+hosts from the app catalogue rather than a list that would rot. It prints the
+one `fly logs` line that separates the three cases: no request at all means no
+secret, 403 means a wrong one, 400 means correct. A script and not a test, on
+purpose — a release gate that mints real handoff rows in a live database is a
+gate nobody wants at two in the morning.
+
+**The fix is Sjoerd's**, in `docs/build-plan.md`: the value is a credential and
+setting it is not something an agent should do.
+
 ## [0.99.1] — 2026-09-23 — the panel's open state cannot be outrun
 
 v0.99.0 remembered the panel across apps by writing a cookie from a server
