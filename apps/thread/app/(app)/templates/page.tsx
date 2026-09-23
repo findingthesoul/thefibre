@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Award, CalendarRange, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Award, CalendarRange, ChevronRight, ListTodo, type LucideIcon } from 'lucide-react';
 import { PageContainer, PageHeader } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -20,7 +20,7 @@ export default async function TemplatesPage() {
   return (
     <PageContainer max="4xl">
       <PageHeader title={t(locale, 'templates')} description={t(locale, 'templates_desc')} />
-      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card
           href="/certificates"
           Icon={Award}
@@ -32,6 +32,14 @@ export default async function TemplatesPage() {
           Icon={CalendarRange}
           title={t(locale, 'thread_templates')}
           desc={t(locale, 'thread_templates_card_desc')}
+        />
+        {/* The third group (Sjoerd 2026-09-23): a checklist you drop onto a
+            thread. Same table as the thread templates, kind = 'todo'. */}
+        <Card
+          href="/templates/todos"
+          Icon={ListTodo}
+          title={t(locale, 'todo_templates')}
+          desc={t(locale, 'todo_templates_card_desc')}
         />
       </div>
 

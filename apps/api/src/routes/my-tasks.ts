@@ -184,6 +184,77 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
     });
 }
 
+/**
+ * To-dos on a thread that are ASSIGNED TO THIS PERSON.
+ *
+ * The thread's list is shared — every organiser and host of the thread sees
+ * all of it (public.thread_task, migration 20260923150000). This list is not:
+ * rule 3 above is "yours only", so what comes across is the rows with your
+ * name on them. An unassigned thread to-do stays on the thread, where the
+ * people who can act on it are already looking.
+ *
+ * Labelled `the-thread` and gated on a Thread seat, by the v0.108.0 rule: an
+ * item belongs to the app it was MADE in.
+ */
+async function threadTasks(userId: string, workspaceId: string): Promise<TaskItem[]> {
+  const { data, error } = await adminClient
+    .from('thread_task')
+    .select('id, title, due_on, thread_id, team:team_id (id, name)')
+    .eq('assignee_user_id', userId)
+    // The admin client has no RLS narrowing it — the workspace filter is
+    // ours to write, on every query.
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'open')
+    .is('deleted_at', null)
+    .order('due_on', { ascending: true, nullsFirst: false })
+    .limit(200);
+  if (error) {
+    // Loudly: a swallowed error returning [] is indistinguishable from
+    // "nothing assigned to you", and that is how two features shipped inert
+    // on 2026-09-23 (docs/testing-approach.md §1.7).
+    console.error('[tasks] thread tasks', error.message);
+    return [];
+  }
+  if (!data?.length) return [];
+
+  // The thread's name, for the label and nothing else — reference and label,
+  // never content. A second query rather than a two-level embed, so a select
+  // string TypeScript cannot read stays simple enough to be obviously right.
+  const threadIds = [...new Set(data.map((t) => t.thread_id as string))];
+  const titles = new Map<string, string>();
+  const { data: threads, error: te } = await adminClient
+    .from('thread_thread')
+    .select('id, program:program_id (title)')
+    .in('id', threadIds);
+  if (te) console.error('[tasks] thread titles', te.message);
+  for (const t of threads ?? []) {
+    const prog = Array.isArray(t.program) ? t.program[0] : t.program;
+    titles.set(t.id as string, ((prog as { title?: string } | null)?.title as string) ?? '');
+  }
+
+  return data.map((t) => ({
+    id: null,
+    source: { app: 'the-thread', ref: t.id as string },
+    title: (t.title as string) ?? 'To do',
+    due_on: (t.due_on as string | null) ?? null,
+    app: 'the-thread',
+    subject: {
+      kind: 'thread',
+      id: t.thread_id as string,
+      label: titles.get(t.thread_id as string) ?? null,
+    },
+    href: `/threads/${t.thread_id as string}`,
+    state: 'open' as const,
+    snoozed_until: null,
+    done_at: null,
+    // The thread's team, carried through. Without it the item vanishes the
+    // moment a team is chosen in the panel's filter — which looks exactly
+    // like the source not working.
+    team: teamOf(t.team),
+    sort: 0,
+  }));
+}
+
 /** Group by the day it belongs to — what the panel renders. Derived from
  *  @thefibre/shared/todo-groups so the two sides cannot name them
  *  differently: a bucket the panel does not know is one it silently drops. */
@@ -285,6 +356,7 @@ myTasksRoutes.get('/', async (c) => {
   const seats = {
     connect: await hasAppMembership(ctx.userId, 'fibre-sales'),
     flow: await hasAppMembership(ctx.userId, 'fibre-flow'),
+    thread: await hasAppMembership(ctx.userId, 'the-thread'),
   };
   if (seats.connect || seats.flow) {
     for (const item of await flowTasks(ctx.userId, ctx.workspaceId)) {
@@ -293,6 +365,17 @@ myTasksRoutes.get('/', async (c) => {
       const state = answered.get(`${item.source!.app}:${item.source!.ref}`);
       if (state?.state === 'done') continue;              // ticked off my list
       composed.push(state ? { ...item, ...state, title: item.title, href: item.href } : item);
+    }
+  }
+
+  // A thread's to-dos, the ones with this person's name on them.
+  if (seats.thread) {
+    for (const item of await threadTasks(ctx.userId, ctx.workspaceId)) {
+      const state = answered.get(`${item.source!.app}:${item.source!.ref}`);
+      if (state?.state === 'done') continue;
+      composed.push(
+        state ? { ...item, ...state, title: item.title, href: item.href, team: item.team } : item,
+      );
     }
   }
 
@@ -374,18 +457,44 @@ const Answer = z.object({
   href: z.string().max(500).nullable().optional(),
 });
 
-/** Ticking a Flow task means it is done in Flow too — one truth, not two. */
+/**
+ * Ticking an item here means it is done where it LIVES too — one truth, not
+ * two. Both directions: people un-tick, and an answer that only travels one
+ * way leaves the app's row done forever.
+ *
+ * Every branch is constrained by assignee, so the pass-through can only ever
+ * complete a row that is this person's to complete.
+ */
 async function passThroughCompletion(sourceApp: string, ref: string, userId: string, done: boolean) {
-  if (sourceApp !== 'fibre-flow') return;
-  await adminClient
-    .from('flow_task')
-    .update(
-      done
-        ? { status: 'done', completed_at: new Date().toISOString(), completed_by: userId }
-        : { status: 'open', completed_at: null, completed_by: null },
-    )
-    .eq('id', ref)
-    .eq('assignee_user_id', userId);
+  if (sourceApp === 'fibre-flow') {
+    const { error } = await adminClient
+      .from('flow_task')
+      .update(
+        done
+          ? { status: 'done', completed_at: new Date().toISOString(), completed_by: userId }
+          : { status: 'open', completed_at: null, completed_by: null },
+      )
+      .eq('id', ref)
+      .eq('assignee_user_id', userId);
+    if (error) console.error('[tasks] flow pass-through', error.message);
+    return;
+  }
+  // A thread's to-do list is shared, so ticking it in the panel has to show
+  // on the thread — otherwise the item leaves your list while the organiser
+  // still sees it outstanding, and nothing anywhere says so.
+  if (sourceApp === 'the-thread') {
+    const { error } = await adminClient
+      .from('thread_task')
+      .update(
+        done
+          ? { status: 'done', done_at: new Date().toISOString(), done_by: userId }
+          : { status: 'open', done_at: null, done_by: null },
+      )
+      .eq('id', ref)
+      .eq('assignee_user_id', userId)
+      .is('deleted_at', null);
+    if (error) console.error('[tasks] thread pass-through', error.message);
+  }
 }
 
 // PATCH /api/v1/me/tasks/:id — a typed row, by id.

@@ -83,6 +83,11 @@ const TABLES = {
   team: { softDelete: null },
   thread_template: { softDelete: null },
   thread_certificate_template: { softDelete: null },
+  // A thread's to-do list (20260923150000). It DOES soft-delete: a to-do's
+  // title is free text and can name a person, so Remove sets deleted_at
+  // rather than destroying the row (hard rule 4) — and a removed to-do must
+  // then read as absent here, not as a row somebody may still patch.
+  thread_task: { softDelete: 'deleted_at' },
 } as const satisfies Record<string, { softDelete: 'deleted_at' | null }>;
 
 export type ScopedTable = keyof typeof TABLES;

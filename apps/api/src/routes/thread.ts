@@ -47,6 +47,9 @@ import {
 import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
 import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
+// Template visibility is one rule for all three kinds of template, so it
+// lives in lib/ rather than beside the certificate routes (2026-09-23).
+import { filterVisibleTemplates } from '../lib/template-visibility.js';
 
 function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
@@ -2059,6 +2062,10 @@ threadRoutes.get('/thread-templates', async (c) => {
   const { data, error } = await db
     .from('thread_template')
     .select(THREAD_TEMPLATE_SELECT)
+    // `kind` since to-do lists joined this table (20260923141000):
+    // without it a checklist appears in the thread-template picker and
+    // lays down nothing when chosen.
+    .eq('kind', 'thread')
     .order('updated_at', { ascending: false });
   if (error) return c.json({ error: error.message }, 500);
   const visible = await filterVisibleTemplates(data ?? [], 'thread', ctx.userId);
@@ -2072,6 +2079,7 @@ threadRoutes.get('/thread-templates/:id', async (c) => {
     .from('thread_template')
     .select(THREAD_TEMPLATE_SELECT)
     .eq('id', c.req.param('id'))
+    .eq('kind', 'thread')
     .maybeSingle();
   if (!data) return c.json({ error: 'not found' }, 404);
   const [visible] = await filterVisibleTemplates([data], 'thread', ctx.userId);
@@ -2105,6 +2113,7 @@ threadRoutes.patch('/thread-templates/:id', async (c) => {
     .from('thread_template')
     .update(patch)
     .eq('id', c.req.param('id'))
+    .eq('kind', 'thread')
     .select(THREAD_TEMPLATE_SELECT)
     .single();
   if (error) return c.json({ error: error.message }, 500);
@@ -2121,7 +2130,11 @@ threadRoutes.delete('/thread-templates/:id', async (c) => {
   if (!(await rowInWorkspace('thread_template', c.req.param('id'), ctx.workspaceId))) {
     return c.json({ error: 'not found' }, 404);
   }
-  const { error } = await db.from('thread_template').delete().eq('id', c.req.param('id'));
+  const { error } = await db
+    .from('thread_template')
+    .delete()
+    .eq('id', c.req.param('id'))
+    .eq('kind', 'thread');
   if (error) return c.json({ error: error.message }, 500);
   await adminClient
     .from('thread_template_share')
@@ -2336,6 +2349,7 @@ threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
     .from('thread_template')
     .select('structure')
     .eq('id', c.req.param('id'))
+    .eq('kind', 'thread')
     .maybeSingle();
   if (!tpl) return c.json({ error: 'not found' }, 404);
   const st = tpl.structure as Record<string, unknown>;
@@ -3025,55 +3039,6 @@ threadRoutes.post('/uploads', handleUpload);
 // members; workspace = everyone, unless shares exist — then only granted
 // users/teams (+ the creator).
 // ---------------------------------------------------------------------------
-
-async function userTeamIds(userId: string): Promise<Set<string>> {
-  const { data } = await adminClient
-    .from('team_member')
-    .select('team_id')
-    .eq('user_id', userId);
-  return new Set((data ?? []).map((r) => r.team_id));
-}
-
-type ScopedTemplate = {
-  id: string;
-  scope: string;
-  owner_user_id: string | null;
-  owner_team_id: string | null;
-  created_by: string | null;
-};
-
-async function filterVisibleTemplates<T extends ScopedTemplate>(
-  rows: T[],
-  kind: 'certificate' | 'thread',
-  userId: string,
-): Promise<T[]> {
-  const teamIds = await userTeamIds(userId);
-  const workspaceScoped = rows.filter((r) => r.scope === 'workspace').map((r) => r.id);
-  const sharesByTemplate = new Map<string, { users: Set<string>; teams: Set<string> }>();
-  if (workspaceScoped.length) {
-    const { data: shares } = await adminClient
-      .from('thread_template_share')
-      .select('template_id, grantee_user_id, grantee_team_id')
-      .eq('template_kind', kind)
-      .in('template_id', workspaceScoped);
-    for (const s of shares ?? []) {
-      const e = sharesByTemplate.get(s.template_id) ?? { users: new Set(), teams: new Set() };
-      if (s.grantee_user_id) e.users.add(s.grantee_user_id);
-      if (s.grantee_team_id) e.teams.add(s.grantee_team_id);
-      sharesByTemplate.set(s.template_id, e);
-    }
-  }
-  return rows.filter((r) => {
-    if (r.scope === 'personal') return r.owner_user_id === userId || r.created_by === userId;
-    if (r.scope === 'team') return !!r.owner_team_id && teamIds.has(r.owner_team_id);
-    // workspace
-    const share = sharesByTemplate.get(r.id);
-    if (!share) return true; // no grants = whole workspace
-    if (r.created_by === userId) return true;
-    if (share.users.has(userId)) return true;
-    return [...share.teams].some((t) => teamIds.has(t));
-  });
-}
 
 const CERT_TEMPLATE_SELECT =
   'id, name, scope, owner_user_id, owner_team_id, page_size, orientation, background_url, elements, guides, archived_at, created_by, created_at, updated_at';

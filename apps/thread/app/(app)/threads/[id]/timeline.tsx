@@ -13,6 +13,7 @@ import Link from 'next/link';
 import {
   Plus,
   Settings,
+  ListTodo,
   ExternalLink,
   Trash2,
   Copy,
@@ -63,6 +64,7 @@ import { PricingPanel } from './pricing-panel';
 import { AppearancePanel } from './appearance-panel';
 import { CertificatePanel } from './certificate-panel';
 import { ThreadEmbedPanel } from './embed-panel';
+import { ThreadTasksPanel } from './tasks-panel';
 import { THREAD_ORIGIN } from '@/lib/public-host';
 
 const STATUS_META: Record<string, { labelKey: UiKey; cls: string }> = {
@@ -221,6 +223,7 @@ export function ThreadTimeline({
   workspaceNote = null,
   workspaceSlug = null,
   canEditStructure = true,
+  openTaskCount = 0,
 }: {
   locale: Locale;
   categories?: { id: string; name: string; slug: string }[];
@@ -239,6 +242,9 @@ export function ThreadTimeline({
    *  added/removed. When false the add/delete affordances hide — settings of
    *  existing elements stay fully editable, which is the whole design. */
   canEditStructure?: boolean;
+  /** Open to-dos on this thread, read with the page so the badge is right on
+   *  first paint rather than after the panel is opened. */
+  openTaskCount?: number;
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -246,6 +252,10 @@ export function ThreadTimeline({
   const team = one(thread.team);
   const [, startTransition] = useTransition();
 
+  const [tasksOpen, setTasksOpen] = useState(false);
+  // Follows the panel while it is open, so ticking something off does not
+  // need a page refresh to correct the badge.
+  const [taskCount, setTaskCount] = useState(openTaskCount);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Lifted out of SettingsTabs so the footer Save can submit the active
   // tab's form (`thread-{tab}-form`) — one bottom bar, v3 style.
@@ -460,6 +470,22 @@ export function ThreadTimeline({
         >
           <ScanLine size={17} strokeWidth={1.75} />
         </Link>
+        {/* The thread's shared to-do list. The count is what makes it worth
+            a place in the header — an icon that never says anything is an
+            icon nobody presses. */}
+        <button
+          type="button"
+          onClick={() => setTasksOpen(true)}
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
+          title={t(locale, 'todo_list')}
+        >
+          <ListTodo size={17} strokeWidth={1.75} />
+          {taskCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] rounded-full bg-ink px-1 text-[10px] font-medium leading-4 text-ink-inverse tabular-nums">
+              {taskCount}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -481,6 +507,15 @@ export function ThreadTimeline({
           <ExternalLink size={16} strokeWidth={1.75} />
         </a>
       </div>
+
+      <ThreadTasksPanel
+        locale={locale}
+        open={tasksOpen}
+        onClose={() => setTasksOpen(false)}
+        threadId={thread.id}
+        workspaceMembers={workspaceMembers}
+        onCountChange={setTaskCount}
+      />
 
       {/* The intention is deliberately NOT shown here. It lives in Settings →
           Basics and on the public page; once the planner started syncing

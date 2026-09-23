@@ -7092,6 +7092,180 @@ const CATALOG = {
     de: 'Arbeite an „{title}“', // MT
     fr: 'Travaille sur « {title} »', // MT
   },
+
+  // ── the thread's to-do list ───────────────────────────────────────────
+  // Sjoerd 2026-09-23: a shared checklist per thread, so organisers and
+  // hosts can see what needs to happen. Shared — not the private cross-app
+  // To do panel, which is a different list with a different promise.
+  todo_list: {
+    en: 'To do',
+    nl: 'Te doen',
+    es: 'Tareas', // MT
+    pt: 'A fazer', // MT
+    de: 'Aufgaben', // MT
+    fr: 'À faire', // MT
+  },
+  todo_add_placeholder: {
+    en: 'Add something that has to happen…',
+    nl: 'Voeg iets toe dat moet gebeuren…',
+    es: 'Añade algo que tiene que pasar…', // MT
+    pt: 'Adicione algo que precisa acontecer…', // MT
+    de: 'Etwas hinzufügen, das passieren muss…', // MT
+    fr: 'Ajoute quelque chose à faire…', // MT
+  },
+  todo_empty: {
+    en: 'Nothing on the list yet',
+    nl: 'Nog niets op de lijst',
+    es: 'Aún no hay nada en la lista', // MT
+    pt: 'Ainda não há nada na lista', // MT
+    de: 'Noch nichts auf der Liste', // MT
+    fr: 'Rien sur la liste pour le moment', // MT
+  },
+  todo_empty_desc: {
+    en: 'Everyone who can open this thread sees the same list. Add what has to happen, or insert a to-do template.',
+    nl: 'Iedereen die deze thread kan openen ziet dezelfde lijst. Voeg toe wat er moet gebeuren, of voeg een takensjabloon in.',
+    es: 'Todos los que pueden abrir este thread ven la misma lista. Añade lo que tiene que pasar o inserta una plantilla de tareas.', // MT
+    pt: 'Todos que podem abrir este thread veem a mesma lista. Adicione o que precisa acontecer ou insira um modelo de tarefas.', // MT
+    de: 'Alle, die diesen Thread öffnen können, sehen dieselbe Liste. Füge hinzu, was passieren muss, oder füge eine Aufgabenvorlage ein.', // MT
+    fr: 'Toutes les personnes qui peuvent ouvrir ce thread voient la même liste. Ajoute ce qui doit se passer, ou insère un modèle de tâches.', // MT
+  },
+  todo_done_section: {
+    en: 'Done',
+    nl: 'Klaar',
+    es: 'Hecho', // MT
+    pt: 'Concluído', // MT
+    de: 'Erledigt', // MT
+    fr: 'Terminé', // MT
+  },
+  todo_anyone: {
+    en: 'Anyone',
+    nl: 'Iedereen',
+    es: 'Cualquiera', // MT
+    pt: 'Qualquer pessoa', // MT
+    de: 'Jede:r', // MT
+    fr: 'Tout le monde', // MT
+  },
+  todo_assignee_aria: {
+    en: 'Who does this',
+    nl: 'Wie doet dit',
+    es: 'Quién lo hace', // MT
+    pt: 'Quem faz isto', // MT
+    de: 'Wer macht das', // MT
+    fr: 'Qui s’en charge', // MT
+  },
+  todo_insert_template: {
+    en: 'Insert a list',
+    nl: 'Lijst invoegen',
+    es: 'Insertar una lista', // MT
+    pt: 'Inserir uma lista', // MT
+    de: 'Liste einfügen', // MT
+    fr: 'Insérer une liste', // MT
+  },
+  todo_no_templates: {
+    en: 'No to-do lists saved yet',
+    nl: 'Nog geen takenlijsten opgeslagen',
+    es: 'Aún no hay listas de tareas guardadas', // MT
+    pt: 'Ainda não há listas de tarefas salvas', // MT
+    de: 'Noch keine Aufgabenlisten gespeichert', // MT
+    fr: 'Aucune liste de tâches enregistrée', // MT
+  },
+  todo_save_as_template: {
+    en: 'Save this list as a template',
+    nl: 'Deze lijst als sjabloon opslaan',
+    es: 'Guardar esta lista como plantilla', // MT
+    pt: 'Salvar esta lista como modelo', // MT
+    de: 'Diese Liste als Vorlage speichern', // MT
+    fr: 'Enregistrer cette liste comme modèle',  // MT
+  },
+  todo_shared_hint: {
+    en: 'Everyone who can open this thread sees this list.',
+    nl: 'Iedereen die deze thread kan openen ziet deze lijst.',
+    es: 'Todos los que pueden abrir este thread ven esta lista.', // MT
+    pt: 'Todos que podem abrir este thread veem esta lista.', // MT
+    de: 'Alle, die diesen Thread öffnen können, sehen diese Liste.', // MT
+    fr: 'Toutes les personnes qui peuvent ouvrir ce thread voient cette liste.', // MT
+  },
+  // ── to-do templates (the third group in Templates) ────────────────────
+  todo_templates: {
+    en: 'To-do lists',
+    nl: 'Takenlijsten',
+    es: 'Listas de tareas', // MT
+    pt: 'Listas de tarefas', // MT
+    de: 'Aufgabenlisten', // MT
+    fr: 'Listes de tâches', // MT
+  },
+  todo_templates_card_desc: {
+    en: 'Checklists you can drop onto any thread — what has to happen, and when.',
+    nl: 'Checklists die je op elke thread kunt zetten — wat er moet gebeuren, en wanneer.',
+    es: 'Listas que puedes poner en cualquier thread: qué tiene que pasar y cuándo.', // MT
+    pt: 'Checklists que você pode colocar em qualquer thread — o que precisa acontecer e quando.', // MT
+    de: 'Checklisten für jeden Thread — was passieren muss, und wann.', // MT
+    fr: 'Des check-lists à poser sur n’importe quel thread — ce qui doit se passer, et quand.', // MT
+  },
+  todo_template_new: {
+    en: 'New list',
+    nl: 'Nieuwe lijst',
+    es: 'Nueva lista', // MT
+    pt: 'Nova lista', // MT
+    de: 'Neue Liste', // MT
+    fr: 'Nouvelle liste', // MT
+  },
+  todo_template_name: {
+    en: 'List name',
+    nl: 'Naam van de lijst',
+    es: 'Nombre de la lista', // MT
+    pt: 'Nome da lista', // MT
+    de: 'Name der Liste', // MT
+    fr: 'Nom de la liste', // MT
+  },
+  todo_template_empty: {
+    en: 'No to-do lists yet',
+    nl: 'Nog geen takenlijsten',
+    es: 'Aún no hay listas de tareas', // MT
+    pt: 'Ainda não há listas de tarefas', // MT
+    de: 'Noch keine Aufgabenlisten', // MT
+    fr: 'Pas encore de listes de tâches', // MT
+  },
+  todo_template_empty_desc: {
+    en: 'Build a checklist once and drop it onto every thread that needs it.',
+    nl: 'Maak een checklist één keer en zet hem op elke thread die hem nodig heeft.',
+    es: 'Crea una lista una vez y ponla en cada thread que la necesite.', // MT
+    pt: 'Monte uma checklist uma vez e use em cada thread que precisar.', // MT
+    de: 'Erstelle eine Checkliste einmal und setze sie auf jeden Thread, der sie braucht.', // MT
+    fr: 'Crée une check-list une fois et pose-la sur chaque thread qui en a besoin.', // MT
+  },
+  todo_day_offset: {
+    en: 'Days from the thread’s start',
+    nl: 'Dagen vanaf de start van de thread',
+    es: 'Días desde el inicio del thread', // MT
+    pt: 'Dias a partir do início do thread', // MT
+    de: 'Tage ab dem Start des Threads', // MT
+    fr: 'Jours à partir du début du thread', // MT
+  },
+  todo_day_offset_hint: {
+    en: 'Negative is before it starts: −14 means two weeks ahead. Leave empty for no date.',
+    nl: 'Negatief is ervoor: −14 betekent twee weken van tevoren. Leeg laten voor geen datum.',
+    es: 'Negativo es antes del inicio: −14 son dos semanas antes. Déjalo vacío para no poner fecha.', // MT
+    pt: 'Negativo é antes do início: −14 significa duas semanas antes. Deixe vazio para não ter data.', // MT
+    de: 'Negativ heißt davor: −14 bedeutet zwei Wochen vorher. Leer lassen für kein Datum.', // MT
+    fr: 'Négatif veut dire avant le début : −14 signifie deux semaines avant. Laisse vide pour aucune date.', // MT
+  },
+  todo_due: {
+    en: 'Due',
+    nl: 'Deadline',
+    es: 'Fecha límite', // MT
+    pt: 'Prazo', // MT
+    de: 'Fällig', // MT
+    fr: 'Échéance', // MT
+  },
+  todo_add_item: {
+    en: 'Add a step',
+    nl: 'Stap toevoegen',
+    es: 'Añadir un paso', // MT
+    pt: 'Adicionar um passo', // MT
+    de: 'Schritt hinzufügen', // MT
+    fr: 'Ajouter une étape', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type UiKey = keyof typeof CATALOG;

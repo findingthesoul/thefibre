@@ -41,6 +41,7 @@ import { myTasksRoutes, fileFinishedTasks } from './routes/my-tasks.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
+import { threadTaskRoutes } from './routes/thread-tasks.js';
 import { membersRoutes } from './routes/members.js';
 import { purchasesRoutes } from './routes/purchases.js';
 import { workspaceBillingRoutes } from './routes/workspace-billing.js';
@@ -365,6 +366,10 @@ v1.route('/tasks', myTasksRoutes);
 v1.route('/oauth', oauthProviderRoutes);
 v1.route('/teams', teamsRoutes);
 v1.route('/thread', threadRoutes);
+// A thread's own to-do list and the to-do templates, on the same prefix.
+// Its own file because routes/thread.ts is ~6000 lines and several
+// sessions edit it at once; the paths read as if they lived there.
+v1.route('/thread', threadTaskRoutes);
 v1.route('/members', membersRoutes);
 v1.route('/purchases', purchasesRoutes);
 v1.route('/workspace-billing', workspaceBillingRoutes);
