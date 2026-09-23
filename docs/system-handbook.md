@@ -872,11 +872,26 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     **The settled rule for the OAuth provider**, which is what the endpoints
     actually do: `403` = membership not active (the only 403 in the file);
     `401` = credential or token wrong; `400` = request or grant wrong.
+    A fourth followed the same day, from the membership session and caught
+    inside it: probing production for a `todo` table after reading only the
+    migration's FILENAME, `todo_is_an_org_feature`. There is no such table —
+    the file updates `billing_plan.features` and nothing else — and the
+    `PGRST205 table not found` was one step from being reported as a failed
+    migration on a freshly promoted production.
     **The habit:** a status-code-to-cause mapping belongs to the endpoint it
-    was measured on and travels nowhere on family resemblance. And a grep
-    that finds a shared symbol says nothing about the role that symbol plays
-    where it was found — so when a pattern returns zero on a file you expect
-    hits in, doubt the pattern before the file.
+    was measured on and travels nowhere on family resemblance. A grep that
+    finds a shared symbol says nothing about the role that symbol plays where
+    it was found — so when a pattern returns zero on a file you expect hits
+    in, doubt the pattern before the file. And a migration's filename states
+    the INTENT, not the objects it touches.
+    **What actually fixes it is not care, it is order.** All four had the
+    same shape: the cheap instrument agreed with the expectation, and the
+    authoritative one — the `.sql` file, the handler source, the endpoint
+    itself — was seconds away. So go to the authoritative thing BEFORE
+    forming the sentence, rather than after the cheap one alarms you. Three
+    of the four left the session that made them; the one that did not was
+    caught only because its alarm was loud enough to be worth a second look,
+    which is too thin a margin to rely on.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
