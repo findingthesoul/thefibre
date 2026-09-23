@@ -32,6 +32,46 @@ Four of Sjoerd's notes on the same inbox, and one from the launch-test session.
 
 One test updated rather than added: `branding.test.ts` pinned the old sender,
 which is exactly what changed — the pin did its job.
+## [1.8.0] — 2026-09-23 — two companies that are double can be merged
+
+Sjoerd: *"I see two companies that are double. I want to merge them."* People
+have had this since 2026-09-11; organisations never did, so a duplicate
+company could only be left alone.
+
+`merge_organisation` is the person merge applied to organisations, and
+deliberately so — the hard parts were solved there. It does not hand-list the
+foreign keys pointing at `organisation`; it reads them from `pg_constraint` at
+run time, so a table added next year is handled without anybody remembering
+the file exists. Every repointed row is recorded and every row dropped to a
+unique constraint is stored whole, so `unmerge_organisation` puts it all back.
+Nothing is hard-deleted: the merged row is soft-deleted and stamped
+`merged_into`.
+
+Organisation-specific: a workspace's OWN organisation cannot be merged away,
+and a parent link that would make a company its own parent is cleared and
+recorded first.
+
+**The signal that finds duplicates is the DOMAIN, not the name.** Sjoerd's own
+pair proves it — "De Werkhaven" and "De Werkhaven Schouwen-Duiveland coöperatie
+U.A." share `dewerkhaven.nl` (one capitalised) and are far too different by
+name to match. A first pass comparing folded names reported ZERO duplicates
+while he was looking at two on screen.
+
+Two bugs found by running it against real data rather than reading it, both
+from assuming a table's shape from its name:
+
+- The contains rule offered "Anker Gilde" ⇄ "Anker Stichting" at 0.90. Folding
+  strips the legal form, so "Anker Stichting" becomes "anker" — a prefix of
+  every other Anker. Six confident false pairs on the staging set. The shorter
+  side must now be two words.
+- The merge **crashed on any organisation with people**: it guarded a self-edge
+  in `org_relationship`, which is not an edge at all but the per-organisation
+  relationship record, keyed `org_id unique`. The guard named columns that do
+  not exist. Removed; the unique constraint was already handled by the generic
+  path, which records the loser for undo.
+
+Verified end to end on staging: three memberships, a flow run and a commitment
+moved; the source soft-deleted and stamped; undo restored every one.
 
 ## [1.6.0] — 2026-09-23
 
