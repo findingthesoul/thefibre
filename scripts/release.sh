@@ -139,6 +139,13 @@ if [ "${dupes:-0}" -gt 1 ]; then
   echo >&2
 fi
 
+# Order, as well as duplicates — the same pass over the same headings, and it
+# catches the CONDITION that produced the backwards-version bug rather than
+# its symptom. Never fails the release: three duplicate headings from earlier
+# collisions are already in the file, and a gate nobody can satisfy is a gate
+# people route around.
+node scripts/changelog-order.mjs || true
+
 echo "Released $V to STAGING."
 echo
 echo "  Look at it on the .tech stack. When it is good:"

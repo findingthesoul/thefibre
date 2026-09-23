@@ -4,6 +4,56 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.27.4] — 2026-09-24 — the changelog is in order again
+
+### Added
+- **`scripts/changelog-order.mjs`** — reports when the changelog is out of
+  order or carries a number twice, and `--fix` sorts it. `release.sh` runs the
+  report after every push.
+  This is the CONDITION behind the bug fixed an hour ago rather than another
+  symptom: entries are inserted at the top by whoever releases, rebases land
+  them wherever the merge put them, and nothing ever sorted them — so
+  `release-guard.sh`, reading the topmost heading as "the last release", found
+  1.26.0 above 1.27.0 and cleared 1.26.1. A number lower than what was already
+  out, approved by the check that exists to stop collisions.
+  It also surfaced three duplicate headings left by earlier collisions nobody
+  noticed — **0.59.0, 0.59.2, 0.68.5**. They are NOT merged: two releases
+  really did take one number each time, and tidying that away would lose what
+  happened. Sorting puts each pair adjacent, where it is at least visible.
+  The report never fails a release. Those three duplicates cannot be satisfied
+  away, and a gate nobody can pass is a gate people route around.
+
+### Changed
+- **The changelog is sorted, newest first** — 711 entries, moved and never
+  edited. The sort refuses to write unless the result is a line-for-line
+  permutation of the original, which is what makes it safe to run on a file
+  three sessions have been writing to.
+
+## [1.27.3] — 2026-09-24 — the Connect callback works on staging too (staging)
+
+Sjoerd, about to register the platform in Stripe: *"I do this in thefibre.tech
+right?"* Checking the answer found the bug in the question.
+
+`redirectUri()` read `process.env.PUBLIC_API_URL` and fell back to the
+production host. That variable is set on NEITHER Fly app — verified with
+`fly secrets list` on both — so every environment built a production callback
+URL. On staging the admin would have been handed to production's callback,
+where the signed `state` fails against a different `SSO_INTERNAL_SECRET` and
+the workspace id belongs to a different database. It would have looked like a
+Stripe misconfiguration rather than ours.
+
+Now derived from the REQUEST via `publicOrigin()` — the helper
+`mcp-discovery.ts` already uses, already unit-tested against the staging
+host. The authorize leg and the token exchange run on the same host, so the
+two strings match, which Stripe requires.
+
+**What this means for registering the platform:** Stripe keeps separate test
+and live Connect configurations, so it is two registrations, not one. Test
+mode's redirect URI is the staging callback and its client id belongs on the
+staging API; live mode's is the production pair.
+
+Caught before anyone tried it, by a question rather than a test.
+
 ## [1.27.2] — 2026-09-24 — a probe that cannot fail, and a guard that let a version go backwards
 
 ### Fixed
@@ -56,52 +106,6 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   release that let `enrolment_open` be false on a published thread, where the
   old code could only ever return true — one unauthenticated read separates
   the images.
-
-## [1.26.0] — 2026-09-24 — the confirmation page tells you the time in YOUR zone
-
-A booking made for 09:00 in Amsterdam read "07:00 AM" on the page that
-confirmed it (Sjoerd, 2026-09-23). The page is server-rendered and used
-`toLocaleString(undefined, …)`, and on a server "undefined" means the
-server's zone — UTC on Fly. The booking step itself was always right, because
-it runs in the browser; only the page afterwards was not, which is the worst
-half to get wrong: it is the receipt.
-
-Now the browser formats it, in the reader's own zone, **with the zone named**
-— "15:00 CEST" rather than a bare 15:00, since an unlabelled time is the
-ambiguity underneath this. The server still renders the same moment in the
-HOST's zone as a fallback, so the page is never blank and a reader without
-JavaScript sees a true time rather than none.
-
-`GET /meet/public/bookings/:id` gained the host's `timezone` (additive) to
-make that fallback possible. The select was run against production before
-shipping.
-
-## [Unreleased]
-
-## [1.27.3] — 2026-09-24 — the Connect callback works on staging too (staging)
-
-Sjoerd, about to register the platform in Stripe: *"I do this in thefibre.tech
-right?"* Checking the answer found the bug in the question.
-
-`redirectUri()` read `process.env.PUBLIC_API_URL` and fell back to the
-production host. That variable is set on NEITHER Fly app — verified with
-`fly secrets list` on both — so every environment built a production callback
-URL. On staging the admin would have been handed to production's callback,
-where the signed `state` fails against a different `SSO_INTERNAL_SECRET` and
-the workspace id belongs to a different database. It would have looked like a
-Stripe misconfiguration rather than ours.
-
-Now derived from the REQUEST via `publicOrigin()` — the helper
-`mcp-discovery.ts` already uses, already unit-tested against the staging
-host. The authorize leg and the token exchange run on the same host, so the
-two strings match, which Stripe requires.
-
-**What this means for registering the platform:** Stripe keeps separate test
-and live Connect configurations, so it is two registrations, not one. Test
-mode's redirect URI is the staging callback and its client id belongs on the
-staging API; live mode's is the production pair.
-
-Caught before anyone tried it, by a question rather than a test.
 
 ## [1.27.1] — 2026-09-24 — the Connect callback stops reviving a legacy column (staging)
 
@@ -182,6 +186,27 @@ compile error.
 (`'Default payment options — {hint}'`) where Thread's is a plain label, and
 Pulse's had a trailing dash. Nothing else used the key, so all three are
 normalised to Thread's. Driven signed in on staging as the payments admin.
+
+## [1.26.0] — 2026-09-24 — the confirmation page tells you the time in YOUR zone
+
+A booking made for 09:00 in Amsterdam read "07:00 AM" on the page that
+confirmed it (Sjoerd, 2026-09-23). The page is server-rendered and used
+`toLocaleString(undefined, …)`, and on a server "undefined" means the
+server's zone — UTC on Fly. The booking step itself was always right, because
+it runs in the browser; only the page afterwards was not, which is the worst
+half to get wrong: it is the receipt.
+
+Now the browser formats it, in the reader's own zone, **with the zone named**
+— "15:00 CEST" rather than a bare 15:00, since an unlabelled time is the
+ambiguity underneath this. The server still renders the same moment in the
+HOST's zone as a fallback, so the page is never blank and a reader without
+JavaScript sees a true time rather than none.
+
+`GET /meet/public/bookings/:id` gained the host's `timezone` (additive) to
+make that fallback possible. The select was run against production before
+shipping.
+
+## [Unreleased]
 
 ## [1.25.0] — 2026-09-24 — the release number is allocated, not chosen
 
@@ -270,35 +295,6 @@ through its program), and `thread_enrolment.payment_status` has no
 `'comped'`.
 
 
-## [1.20.1] — 2026-09-24 — the price stops landing in the middle of the name (staging)
-
-Sjoerd's screenshot of the live soul.com join page: the Google Workspace
-extra rendered as `email@soul.com+ € 193,20 / year / Google Workspace`.
-
-The name and the price were two flex siblings, the name with `flex-1`. A name
-long enough to wrap therefore ran onto a second line while the price stayed on
-the first, so the price appeared buried mid-name. Wrapping the PAIR instead
-keeps the price whole and right-aligned, on its own line when the name needs
-the room and beside it when it does not.
-
-Verified at 375px against real production data: the label now reads
-`email@soul.com / Google Workspace` with `+ € 193,20 / year` beneath it.
-
-Also in this commit, docs only: `google-workspace-provisioning.md` gains
-Sjoerd's two additions — mail both the domain address and the enrolment
-address, because a suspension notice sent only to the account you just
-suspended arrives nowhere — and the year-in-advance against monthly-out
-question, split into the three separate things hiding inside it.
-
-And it gains the answer to the billing question the proposal had listed as
-unchecked. **Suspension does not stop the Google bill.** Google's own
-documentation: suspended accounts are charged at the same rate as active ones
-on both plans, and deleting is what reduces the bill. Deleting is precisely
-what this worker deliberately never does, so the current revoke path parks a
-permanent cost. Suspension stays the right action; what is missing is a
-surface that shows suspended accounts and an explicit, human "delete and stop
-the charge".
-
 ## [1.23.0] — 2026-09-24 — push the sheet down to close it (shared Dialog)
 
 Sjoerd, on the portal's ticket sheet: *"To slide the window down, you need to
@@ -380,6 +376,35 @@ the layer with the right title and the right image source, the code goes from
 **The offline ticket itself is confirmed working on a real phone** — his
 screenshot is aeroplane mode on production, showing the QR, the title and the
 date from the device alone.
+
+## [1.20.1] — 2026-09-24 — the price stops landing in the middle of the name (staging)
+
+Sjoerd's screenshot of the live soul.com join page: the Google Workspace
+extra rendered as `email@soul.com+ € 193,20 / year / Google Workspace`.
+
+The name and the price were two flex siblings, the name with `flex-1`. A name
+long enough to wrap therefore ran onto a second line while the price stayed on
+the first, so the price appeared buried mid-name. Wrapping the PAIR instead
+keeps the price whole and right-aligned, on its own line when the name needs
+the room and beside it when it does not.
+
+Verified at 375px against real production data: the label now reads
+`email@soul.com / Google Workspace` with `+ € 193,20 / year` beneath it.
+
+Also in this commit, docs only: `google-workspace-provisioning.md` gains
+Sjoerd's two additions — mail both the domain address and the enrolment
+address, because a suspension notice sent only to the account you just
+suspended arrives nowhere — and the year-in-advance against monthly-out
+question, split into the three separate things hiding inside it.
+
+And it gains the answer to the billing question the proposal had listed as
+unchecked. **Suspension does not stop the Google bill.** Google's own
+documentation: suspended accounts are charged at the same rate as active ones
+on both plans, and deleting is what reduces the bill. Deleting is precisely
+what this worker deliberately never does, so the current revoke path parks a
+permanent cost. Suspension stays the right action; what is missing is a
+surface that shows suspended accounts and an explicit, human "delete and stop
+the charge".
 
 ## [1.20.0] — 2026-09-23 — a title you can read (Portal 0.10.3)
 
@@ -766,32 +791,6 @@ yet, so the drop handler still closes over `null`. Spaced the way a hand
 moves, it reorders correctly.
 
 
-## [1.7.0] — 2026-09-23 — emails come from The Thread, or from the workspace (Meet 2.11.0, staging)
-
-Four of Sjoerd's notes on the same inbox, and one from the launch-test session.
-
-- **The sender leaves the backstage domain.** `noreply@thethread.app`,
-  `hello@thethread.app`, `support@thethread.app`. Mail from a product called
-  The Thread was arriving from thefibre.app. **This changes the default only**
-  — the live sender is the `EMAIL_FROM` secret on Fly, which wins, and the
-  domain must be verified in Resend first. Both are Sjoerd's to do; until then
-  nothing changes and nothing breaks.
-- **Meet's fifteen sends use the workspace's own sender** when it has set one
-  (name, address, reply-to), the resolution Thread has used since v0.x. "Or
-  the reply from the workspace", as he put it.
-- **The footer loses the town.** "The Thread · The Netherlands · Hosted in the
-  EU". A home town is not a business address; the postal one belongs on
-  invoices, where the law wants it.
-- **The host's booking email can be acted on.** It carried the details and no
-  links; it now has Add to calendar, Reschedule and Cancel — the same three
-  the invitee gets. "I dont see a reschedule button in the confirmation email."
-- **The approval mail said when.** It printed a raw ISO timestamp in its text
-  and no time at all in its HTML, beside a sibling email formatting the same
-  moment as "15:00 CEST". Found by the launch-test session on a real booking;
-  `formatWhen` is now shared rather than reimplemented.
-
-One test updated rather than added: `branding.test.ts` pinned the old sender,
-which is exactly what changed — the pin did its job.
 ## [1.8.0] — 2026-09-23 — two companies that are double can be merged
 
 Sjoerd: *"I see two companies that are double. I want to merge them."* People
@@ -833,6 +832,32 @@ from assuming a table's shape from its name:
 Verified end to end on staging: three memberships, a flow run and a commitment
 moved; the source soft-deleted and stamped; undo restored every one.
 
+## [1.7.0] — 2026-09-23 — emails come from The Thread, or from the workspace (Meet 2.11.0, staging)
+
+Four of Sjoerd's notes on the same inbox, and one from the launch-test session.
+
+- **The sender leaves the backstage domain.** `noreply@thethread.app`,
+  `hello@thethread.app`, `support@thethread.app`. Mail from a product called
+  The Thread was arriving from thefibre.app. **This changes the default only**
+  — the live sender is the `EMAIL_FROM` secret on Fly, which wins, and the
+  domain must be verified in Resend first. Both are Sjoerd's to do; until then
+  nothing changes and nothing breaks.
+- **Meet's fifteen sends use the workspace's own sender** when it has set one
+  (name, address, reply-to), the resolution Thread has used since v0.x. "Or
+  the reply from the workspace", as he put it.
+- **The footer loses the town.** "The Thread · The Netherlands · Hosted in the
+  EU". A home town is not a business address; the postal one belongs on
+  invoices, where the law wants it.
+- **The host's booking email can be acted on.** It carried the details and no
+  links; it now has Add to calendar, Reschedule and Cancel — the same three
+  the invitee gets. "I dont see a reschedule button in the confirmation email."
+- **The approval mail said when.** It printed a raw ISO timestamp in its text
+  and no time at all in its HTML, beside a sibling email formatting the same
+  moment as "15:00 CEST". Found by the launch-test session on a real booking;
+  `formatWhen` is now shared rather than reimplemented.
+
+One test updated rather than added: `branding.test.ts` pinned the old sender,
+which is exactly what changed — the pin did its job.
 ## [1.6.0] — 2026-09-23
 
 ### Fixed
@@ -882,32 +907,6 @@ moved; the source soft-deleted and stamped; undo restored every one.
   other one and says that if that `.dockerignore` line ever goes, this gate will
   not catch it.
 
-## [1.4.0] — 2026-09-23 — an email wears the workspace's mark, or The Thread's (staging)
-
-Sjoerd, on a booking confirmation carrying the handwritten "the fibre"
-wordmark: "Should this not be THE THREAD? (for free) and WORKSPACE in this
-specific case?"
-
-Both. The branding pivot of 2026-09-08 made The Thread the public face and
-The Fibre backstage. The auth and platform emails moved then; the booking and
-usage emails did not, because their shell defaulted to `BRAND_ASSETS` — the
-Fibre wordmark — and nobody had passed them a workspace brand.
-
-- **`shell()` falls back to `EMAIL_BRAND`** (The Thread), not the Fibre mark.
-  `BRAND_ASSETS` is untouched and still means what it says, for Fibre's own
-  surfaces; redefining it underneath its other readers would have been the
-  quiet way to get this wrong.
-- **Meet's four booking emails pass the workspace's logo** when it has one,
-  read through `getWorkspaceBrand` like every other branded email. So a
-  soul.com booking arrives wearing soul.com.
-- **Usage emails** likewise. Two now-unused imports removed.
-
-Four tests: the shell wears The Thread with no brand, the workspace's mark
-when given, and **never** the Fibre one — the last is the assertion that would
-have caught this in the first place. 297 API tests green.
-
-Not verified by a sent email. The code decides which URL goes in the `<img>`;
-only an arriving email proves it renders.
 ## [1.5.0] — 2026-09-23 — staging can be told to leave the index, and To do opens with what it already has
 
 **Google could find thefibre.tech, and the robots.txt written to prevent that
@@ -939,6 +938,32 @@ of TASK be faster? Like done on the background always... not at opening it?"*
 It now shows what it has and refreshes underneath; only the archive, which
 nothing pre-fetches, still shows the spinner.
 
+## [1.4.0] — 2026-09-23 — an email wears the workspace's mark, or The Thread's (staging)
+
+Sjoerd, on a booking confirmation carrying the handwritten "the fibre"
+wordmark: "Should this not be THE THREAD? (for free) and WORKSPACE in this
+specific case?"
+
+Both. The branding pivot of 2026-09-08 made The Thread the public face and
+The Fibre backstage. The auth and platform emails moved then; the booking and
+usage emails did not, because their shell defaulted to `BRAND_ASSETS` — the
+Fibre wordmark — and nobody had passed them a workspace brand.
+
+- **`shell()` falls back to `EMAIL_BRAND`** (The Thread), not the Fibre mark.
+  `BRAND_ASSETS` is untouched and still means what it says, for Fibre's own
+  surfaces; redefining it underneath its other readers would have been the
+  quiet way to get this wrong.
+- **Meet's four booking emails pass the workspace's logo** when it has one,
+  read through `getWorkspaceBrand` like every other branded email. So a
+  soul.com booking arrives wearing soul.com.
+- **Usage emails** likewise. Two now-unused imports removed.
+
+Four tests: the shell wears The Thread with no brand, the workspace's mark
+when given, and **never** the Fibre one — the last is the assertion that would
+have caught this in the first place. 297 API tests green.
+
+Not verified by a sent email. The code decides which URL goes in the `<img>`;
+only an arriving email proves it renders.
 ## [1.3.1] — 2026-09-23
 
 ### Changed
@@ -950,6 +975,30 @@ nothing pre-fetches, still shows the spinner.
   failure the gate exists to prevent. `--probe scripts/smoke-prod.mjs` now
   runs it and passes on exit 0. A `--probe` that is neither a `url | text`
   pair nor an existing file is refused rather than quietly treated as a URL.
+
+## [1.3.0] — 2026-09-23 — the email and storage allowances become real
+
+Sjoerd: *"DO: set prices and the allowances become real (auto-billed, no
+interruption)."*
+
+The numbers are his own, decided in `docs/pricing-proposal.md` months ago and
+never applied: **€1 per 1,000 emails** and **€0.50 per GB per month**. The €8
+extra seat from the same line has been live for weeks; these two stayed null,
+and a null unit price means *the allowance is soft and nothing bills*. So
+Starter's 2,000 emails and Pro's 10,000 were advisory — a workspace sailed past
+them, got a warning at 80%, and nothing else happened.
+
+**Nothing is ever refused**, which is both his instruction and the rule already
+in the proposal: *"never refuse to send. A ticket that does not arrive because
+a workspace crossed a threshold is not a billing event, it is a failure."*
+Overage becomes a line on the next subscription invoice.
+
+Starter and Pro only. Free has no subscription to bill, so a price there is
+inert and its control is the 13-month archive — setting one would say we charge
+Free workspaces, and we do not. Org and beta have unlimited allowances.
+
+**Checked before writing: no workspace on production is on Starter or Pro**, so
+this bills nobody today. It sets the rule for whoever arrives next.
 
 ## [1.2.0] — 2026-09-23
 
@@ -976,30 +1025,6 @@ nothing pre-fetches, still shows the spinner.
   instead of re-deriving it. `--dry-run` runs every check and deploys nothing.
   Each gate was exercised against the real condition it guards, including the
   two incidents that prompted it.
-## [1.3.0] — 2026-09-23 — the email and storage allowances become real
-
-Sjoerd: *"DO: set prices and the allowances become real (auto-billed, no
-interruption)."*
-
-The numbers are his own, decided in `docs/pricing-proposal.md` months ago and
-never applied: **€1 per 1,000 emails** and **€0.50 per GB per month**. The €8
-extra seat from the same line has been live for weeks; these two stayed null,
-and a null unit price means *the allowance is soft and nothing bills*. So
-Starter's 2,000 emails and Pro's 10,000 were advisory — a workspace sailed past
-them, got a warning at 80%, and nothing else happened.
-
-**Nothing is ever refused**, which is both his instruction and the rule already
-in the proposal: *"never refuse to send. A ticket that does not arrive because
-a workspace crossed a threshold is not a billing event, it is a failure."*
-Overage becomes a line on the next subscription invoice.
-
-Starter and Pro only. Free has no subscription to bill, so a price there is
-inert and its control is the 13-month archive — setting one would say we charge
-Free workspaces, and we do not. Org and beta have unlimited allowances.
-
-**Checked before writing: no workspace on production is on Starter or Pro**, so
-this bills nobody today. It sets the rule for whoever arrives next.
-
 ## [1.1.0] — 2026-09-23
 
 ### Fixed
@@ -1080,17 +1105,6 @@ rebuild before it). Meet stays 2.x and Pulse 0.x on their own lines.
   the text had been typed. It now says what it is waiting for. The reason it
   was reachable at all was the bug above: the attendees could not be added.
 
-## [0.128.0] — 2026-09-23 — three notes on the booking page (Meet 2.10.2, staging)
-
-Sjoerd, reading his own page after the workspace line landed.
-
-- **"Logo and name is too much."** The workspace shows its logo when it has
-  one, its name when it does not. Never both — a logo already says the name.
-- **The person's photo is bigger**, on the meeting-type page and the owner
-  page, and the same size on both: they were 48px and 64px.
-- **"Powered by The Thread: Meet"**, linking to `thethread.app` rather than
-  back to the app the visitor is already standing in. Through
-  `surfaceUrl('website')`, so staging's footer points at staging.
 ## [0.130.0] — 2026-09-23 — a staging page linked to production (Meet 2.10.3, staging)
 
 Found by loading the new Meet footer on staging instead of trusting that it
@@ -1137,6 +1151,17 @@ The names are the contract and the pictures are not — `TILE_FILES` in
 `branding.ts` maps slug → file, so `connections.png` became `sales.png` and
 `the-thread.png` became `thethread.png`. Nothing in code changed.
 
+## [0.128.0] — 2026-09-23 — three notes on the booking page (Meet 2.10.2, staging)
+
+Sjoerd, reading his own page after the workspace line landed.
+
+- **"Logo and name is too much."** The workspace shows its logo when it has
+  one, its name when it does not. Never both — a logo already says the name.
+- **The person's photo is bigger**, on the meeting-type page and the owner
+  page, and the same size on both: they were 48px and 64px.
+- **"Powered by The Thread: Meet"**, linking to `thethread.app` rather than
+  back to the app the visitor is already standing in. Through
+  `surfaceUrl('website')`, so staging's footer points at staging.
 ## [0.127.0] — 2026-09-23
 
 ### Changed
@@ -1182,21 +1207,6 @@ standalone page is untouched and keeps its real URL for sharing and cmd-click.
 The Connect half of that was built by the session that asked for this string;
 the string itself is one line in `my-tasks.ts` and no other behaviour moves.
 
-## [0.124.0] — 2026-09-23 — the clash message names the directory (staging)
-
-The personal To do session fired yesterday's new guard on purpose — planting
-a duplicate version and watching `pnpm verify` refuse it — and noticed the
-output labelled everything "(this checkout)". Its point: the clash that
-actually bites is the cross-checkout one, two sessions each holding an
-unpushed migration, and "there is a clash somewhere" is a worse sentence than
-"go and talk to whoever is in that directory".
-
-The label now carries the path:
-
-    20260923140000_zz_probe.sql   (worktree mobile-nav — /Users/…/worktrees/mobile-nav)
-
-Proven with a real clash planted in another worktree, not only in a unit
-test: exit 1 with both paths named, exit 0 once removed.
 ## [0.125.0] — 2026-09-23 — the organisation never appeared, and an absent label reads as an absent fact
 
 `peopleLabels` asked for `organisation:organisation_id (name)`. The column on
@@ -1226,6 +1236,21 @@ two memberships shows the one they would name themselves. Verified against
 production before shipping: "soul.com - Solidarity Lab", "European Bahá'í
 Business Forum", "soul.com".
 
+## [0.124.0] — 2026-09-23 — the clash message names the directory (staging)
+
+The personal To do session fired yesterday's new guard on purpose — planting
+a duplicate version and watching `pnpm verify` refuse it — and noticed the
+output labelled everything "(this checkout)". Its point: the clash that
+actually bites is the cross-checkout one, two sessions each holding an
+unpushed migration, and "there is a clash somewhere" is a worse sentence than
+"go and talk to whoever is in that directory".
+
+The label now carries the path:
+
+    20260923140000_zz_probe.sql   (worktree mobile-nav — /Users/…/worktrees/mobile-nav)
+
+Proven with a real clash planted in another worktree, not only in a unit
+test: exit 1 with both paths named, exit 0 once removed.
 ## [0.123.0] — 2026-09-23 — the tier for a thread's to-do list is a checkbox (staging)
 
 Sjoerd: *"Can I check that decision with a checkbox? Maybe it is between
@@ -9590,26 +9615,6 @@ and finds it on /my — proven both server-side and in a real browser.
   docs/onboarding-proposal.md remain open (D1–D3).
 
 
-## [0.56.2] — 2026-09-07 — payment methods follow the dashboard
-
-### Changed
-- All five payment-link/checkout flows that pinned card-only now use
-  Stripe's dynamic payment methods — enabling iDEAL, SEPA Direct Debit,
-  Bancontact etc. in the dashboard's payment-method configuration takes
-  effect everywhere (the membership join + à-la-carte buy flows already
-  did). Cheapest rails for Dutch members: iDEAL flat ~€0.29 vs ~1.5%+
-  for cards.
-
-## [0.56.1] — 2026-09-07 — the join page's optional extras actually appear
-
-### Fixed
-- The public catalog route never split optional tier products from
-  included ones (the v0.47.0 round was interrupted before the public
-  half): optional add-ons listed under "Includes" and the tick-box
-  extras section never rendered. Caught live during the staging
-  browser tour; the admin API and the join-form wiring were already
-  correct.
-
 ## [0.57.2] — 2026-09-07 — the hook survives a mixed-case email
 
 The v0.57.0 finding, fixed and locked. Migration 20260907190000 wraps the
@@ -9671,6 +9676,26 @@ that the data wall holds in both directions.
 ### Changed
 - `apps/api/tsconfig.json` excludes `src/integration/**` — test plumbing
   never compiles into the deployed dist.
+
+## [0.56.2] — 2026-09-07 — payment methods follow the dashboard
+
+### Changed
+- All five payment-link/checkout flows that pinned card-only now use
+  Stripe's dynamic payment methods — enabling iDEAL, SEPA Direct Debit,
+  Bancontact etc. in the dashboard's payment-method configuration takes
+  effect everywhere (the membership join + à-la-carte buy flows already
+  did). Cheapest rails for Dutch members: iDEAL flat ~€0.29 vs ~1.5%+
+  for cards.
+
+## [0.56.1] — 2026-09-07 — the join page's optional extras actually appear
+
+### Fixed
+- The public catalog route never split optional tier products from
+  included ones (the v0.47.0 round was interrupted before the public
+  half): optional add-ons listed under "Includes" and the tick-box
+  extras section never rendered. Caught live during the staging
+  browser tour; the admin API and the join-form wiring were already
+  correct.
 
 ## [0.56.0] — 2026-09-07 — the golden paths: a real browser walks the product
 
