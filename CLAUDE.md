@@ -213,6 +213,23 @@ second, drifting copy.
 ### Gotchas (from hard-won experience)
 
 - Supabase migration filenames need 14-digit timestamps. Shorter prefixes collide same-day.
+- **A migration's VERSION is its identity — never pick the timestamp by hand.**
+  Supabase's history is keyed on the 14 digits alone (`supabase migration
+  repair <version>` takes nothing else). Two files on one version means the
+  second is treated as already applied: `db push` SKIPS IT, lists only its
+  siblings and EXITS 0, and the table is simply never created. Happened
+  2026-09-23 between two sessions in different apps — the directory-lane
+  protocol cannot see it, because the collision is in the migration history,
+  outside the repo. So: `./scripts/new-migration.sh <name>` picks a version
+  free in every worktree, and `scripts/check-migration-versions.mjs` (in
+  `pnpm verify`) refuses a release that carries a duplicate. Never run the
+  `migration repair --status reverted` the CLI suggests — it points at
+  whichever file is genuinely applied, usually somebody else's; renumber the
+  unapplied one instead.
+- **Apply to staging and push the FILE in the same breath.** A migration
+  applied to a remote but absent from the repo makes `supabase db push`
+  refuse for every other checkout until it lands (blocked a peer for an hour
+  on 2026-09-23).
 - Supabase tracks applied migrations by filename, not checksum. Editing a previously-applied migration file is a no-op on remote — write a fresh migration to re-apply changes (see `20260514140000_relax_text_arrays_again.sql` for an example).
 - `custom_access_token_hook` must be enabled in the Supabase dashboard. Without it, RLS denies everything authenticated.
 - JWT `sub` is `auth.users.id` — NOT `public.user.id`. Use the `app_user_id` claim (added v0.3.8) for any FK to `user(id)`. The hook injects this.
