@@ -13,7 +13,7 @@
 // archive, where it can be un-ticked for seven days.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Circle, Clock, ListTodo, Loader2, Plus, RotateCcw, X } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, ListTodo, Loader2, Plus, RotateCcw, Users, X } from 'lucide-react';
 import { FIELD_INPUT_CLASS } from './fields.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
@@ -25,6 +25,8 @@ export type TodoItem = {
   app: string | null;
   subject: { kind: string; id: string | null; label: string | null } | null;
   href: string | null;
+  /** Which team it is for. A label on your own row — never a share. */
+  team?: { id: string; name: string } | null;
   state: 'open' | 'done' | 'snoozed';
   snoozed_until: string | null;
   done_at: string | null;
@@ -33,9 +35,15 @@ export type TodoItem = {
 
 export type TodoGroups = Record<string, TodoItem[]>;
 
+/** A team you are an active member of — the only ones you may file under. */
+export type TodoTeam = { id: string; name: string };
+
 export type TodoActions = {
-  list: (view: 'open' | 'archive') => Promise<{ items: TodoItem[]; groups: TodoGroups } | null>;
-  add: (title: string, dueOn: string | null) => Promise<void>;
+  list: (
+    view: 'open' | 'archive',
+    team?: string,
+  ) => Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[] } | null>;
+  add: (title: string, dueOn: string | null, teamId?: string | null) => Promise<void>;
   setState: (
     item: TodoItem,
     state: 'open' | 'done' | 'snoozed',
@@ -77,6 +85,10 @@ export function TodoPanelButton({
   // Distinct from `busy`: this is the list arriving, not a row changing.
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
+  // Which team the list is narrowed to, and which one a new item gets.
+  // undefined = every team; '' = the ones under no team.
+  const [teams, setTeams] = useState<TodoTeam[]>([]);
+  const [teamFilter, setTeamFilter] = useState<string | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // The caller almost always builds `actions` inline, so its identity changes
@@ -88,15 +100,16 @@ export function TodoPanelButton({
   actionsRef.current = actions;
 
   const load = useCallback(
-    async (which: 'open' | 'archive') => {
+    async (which: 'open' | 'archive', team?: string) => {
       setLoading(true);
       let data;
       try {
-        data = await actionsRef.current.list(which);
+        data = await actionsRef.current.list(which, team);
       } finally {
         setLoading(false);
       }
       if (!data) return;
+      setTeams(data.teams);
       if (which === 'archive') setArchive(data.items);
       else {
         setGroups(data.groups);
@@ -109,8 +122,8 @@ export function TodoPanelButton({
   );
 
   useEffect(() => {
-    void load('open');
-  }, [load]);
+    void load('open', teamFilter);
+  }, [load, teamFilter]);
 
   // Open and closed are both deliberate states, remembered across apps, so
   // one place does both: set the state and tell the caller to persist it.
@@ -123,7 +136,7 @@ export function TodoPanelButton({
 
   useEffect(() => {
     if (!open) return;
-    void load(view);
+    void load(view, teamFilter);
     // Escape closes it; clicking elsewhere does NOT. The panel is meant to
     // stay open while you move around and between apps (Sjoerd, 2026-09-23:
     // *"the panel can also stay open, scanning through various apps"*) — and
@@ -135,14 +148,14 @@ export function TodoPanelButton({
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, view, load, setOpenPersisted]);
+  }, [open, view, teamFilter, load, setOpenPersisted]);
 
   async function act(fn: () => Promise<void>) {
     setBusy(true);
     try {
       await fn();
-      await load(view);
-      if (view === 'archive') await load('open');
+      await load(view, teamFilter);
+      if (view === 'archive') await load('open', teamFilter);
     } finally {
       setBusy(false);
     }
@@ -185,6 +198,27 @@ export function TodoPanelButton({
             </div>
           </div>
 
+          {view === 'open' && teams.length > 0 && (
+            <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+              <Users size={15} className="shrink-0 text-ink-muted" />
+              <select
+                value={teamFilter ?? '__all'}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTeamFilter(v === '__all' ? undefined : v === '__none' ? '' : v);
+                }}
+                aria-label={chromeT(locale, 'todo_team')}
+                className={`${FIELD_INPUT_CLASS} h-8 w-full border-0 bg-transparent px-0`}
+              >
+                <option value="__all">{chromeT(locale, 'todo_all_teams')}</option>
+                <option value="__none">{chromeT(locale, 'todo_no_team')}</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {view === 'open' && (
             <form
               className="flex items-center gap-2 border-b border-line px-3 py-2"
@@ -193,7 +227,9 @@ export function TodoPanelButton({
                 const t = title.trim();
                 if (!t) return;
                 setTitle('');
-                void act(() => actions.add(t, null));
+                // A new item lands in the team you are looking at — the
+                // obvious intent when you have narrowed the list first.
+                void act(() => actions.add(t, null, teamFilter || null));
               }}
             >
               <Plus size={15} className="shrink-0 text-ink-muted" />
@@ -329,9 +365,9 @@ function Row({
             {item.title}
           </span>
         )}
-        {(item.subject?.label || item.app) && (
+        {(item.subject?.label || item.app || item.team) && (
           <span className="block truncate text-xs text-ink-muted">
-            {[item.subject?.label, item.app].filter(Boolean).join(' · ')}
+            {[item.team?.name, item.subject?.label, item.app].filter(Boolean).join(' · ')}
           </span>
         )}
       </span>

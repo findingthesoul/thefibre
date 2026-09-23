@@ -1116,6 +1116,30 @@ const CHROME = {
     de: 'Etwas hinzufügen…', // MT
     fr: 'Ajouter quelque chose…', // MT
   },
+  todo_team: {
+    en: 'Team',
+    nl: 'Team',
+    es: 'Equipo', // MT
+    pt: 'Equipe', // MT
+    de: 'Team', // MT
+    fr: 'Équipe', // MT
+  },
+  todo_all_teams: {
+    en: 'All teams',
+    nl: 'Alle teams',
+    es: 'Todos los equipos', // MT
+    pt: 'Todas as equipes', // MT
+    de: 'Alle Teams', // MT
+    fr: 'Toutes les équipes', // MT
+  },
+  todo_no_team: {
+    en: 'No team',
+    nl: 'Geen team',
+    es: 'Sin equipo', // MT
+    pt: 'Sem equipe', // MT
+    de: 'Kein Team', // MT
+    fr: 'Aucune équipe', // MT
+  },
   todo_edit: {
     en: 'Edit this to-do',
     nl: 'Bewerk dit te doen',

@@ -8,16 +8,21 @@
 
 import { apiFetch } from './api';
 import * as calls from '@thefibre/shared/todo-calls';
-import type { TodoItem, TodoGroups } from '@thefibre/shared/ui/todo-panel';
+import type { TodoItem, TodoGroups, TodoTeam } from '@thefibre/shared/ui/todo-panel';
 
 export async function listTasks(
   view: 'open' | 'archive',
-): Promise<{ items: TodoItem[]; groups: TodoGroups } | null> {
-  return calls.listTasks(apiFetch, view);
+  team?: string,
+): Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[] } | null> {
+  return calls.listTasks(apiFetch, view, team);
 }
 
-export async function addTask(title: string, dueOn: string | null): Promise<void> {
-  return calls.addTask(apiFetch, title, dueOn);
+export async function addTask(
+  title: string,
+  dueOn: string | null,
+  teamId?: string | null,
+): Promise<void> {
+  return calls.addTask(apiFetch, title, dueOn, teamId);
 }
 
 export async function setTaskState(

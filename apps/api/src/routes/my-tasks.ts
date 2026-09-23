@@ -50,10 +50,42 @@ export type TaskItem = {
   state: 'open' | 'done' | 'snoozed';
   snoozed_until: string | null;
   done_at: string | null;
+  /** Which team this is for — a label on your own row, never a share. */
+  team: { id: string; name: string } | null;
   /** Filed out of the Archive view by the seven-day sweep; the row remains. */
   archived_at?: string | null;
   sort: number;
 };
+
+/** PostgREST hands an embedded row back as an object or a one-element array
+ *  depending on the shape it infers; both mean the same thing here. */
+function teamOf(v: unknown): { id: string; name: string } | null {
+  const row = Array.isArray(v) ? v[0] : v;
+  if (!row || typeof row !== 'object') return null;
+  const { id, name } = row as { id?: string; name?: string };
+  return id ? { id, name: name ?? '' } : null;
+}
+
+/** Teams in THIS workspace you are an active member of. The only teams you
+ *  may file a to-do under: tagging it with a team you are not in would be
+ *  claiming a place you do not hold. */
+async function myTeams(userId: string, workspaceId: string): Promise<{ id: string; name: string }[]> {
+  const { data, error } = await adminClient
+    .from('team_member')
+    .select('team:team_id (id, name, workspace_id, archived_at)')
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  if (error) {
+    console.warn('[tasks] my teams', error.message);
+    return [];
+  }
+  return (data ?? [])
+    .map((r) => (Array.isArray(r.team) ? r.team[0] : r.team) as
+      { id: string; name: string; workspace_id: string; archived_at: string | null } | null)
+    .filter((t): t is { id: string; name: string; workspace_id: string; archived_at: string | null } =>
+      !!t && t.workspace_id === workspaceId && !t.archived_at)
+    .map((t) => ({ id: t.id, name: t.name }));
+}
 
 const DAY = 86_400_000;
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
@@ -103,6 +135,9 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
       state: 'open' as const,
       snoozed_until: null,
       done_at: null,
+      // A Flow task's team is Flow's to say, not ours; it carries none here
+      // rather than one we inferred.
+      team: null,
       sort: 0,
     }));
 }
@@ -138,11 +173,13 @@ myTasksRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   const view = c.req.query('view') === 'archive' ? 'archive' : 'open';
   const appFilter = c.req.query('app') ?? null;
+  // '' means "no team" — a real choice, distinct from "any team" (absent).
+  const teamFilter = c.req.query('team');
 
   const db = userClient(ctx.jwt);
   const { data: rows, error } = await db
     .from('user_task')
-    .select('id, title, due_on, app_id, subject_kind, subject_id, subject_label, href, source_app, source_ref, state, snoozed_until, done_at, archived_at, sort, app:app_id (slug)')
+    .select('id, title, due_on, app_id, subject_kind, subject_id, subject_label, href, source_app, source_ref, state, snoozed_until, done_at, archived_at, sort, app:app_id (slug), team:team_id (id, name)')
     .eq('workspace_id', ctx.workspaceId)
     .is('deleted_at', null)
     .order('sort', { ascending: true })
@@ -159,6 +196,7 @@ myTasksRoutes.get('/', async (c) => {
       ? { kind: r.subject_kind as string, id: (r.subject_id as string | null) ?? null, label: (r.subject_label as string | null) ?? null }
       : null,
     href: (r.href as string | null) ?? null,
+    team: teamOf(r.team),
     state: r.state as TaskItem['state'],
     snoozed_until: (r.snoozed_until as string | null) ?? null,
     done_at: (r.done_at as string | null) ?? null,
@@ -172,7 +210,7 @@ myTasksRoutes.get('/', async (c) => {
   // "cleaned" means archived and not destroyed (Sjoerd, 2026-09-23).
   if (view === 'archive') {
     const done = mine.filter((i) => i.state === 'done' && !i.archived_at);
-    return c.json({ view, items: done, groups: { done } });
+    return c.json({ view, items: done, groups: { done }, teams: await myTeams(ctx.userId, ctx.workspaceId) });
   }
 
   const answered = new Map(mine.filter((i) => i.source).map((i) => [`${i.source!.app}:${i.source!.ref}`, i]));
@@ -186,8 +224,14 @@ myTasksRoutes.get('/', async (c) => {
   }
 
   const typed = mine.filter((i) => !i.source && i.state !== 'done');
-  const all = [...typed, ...composed].filter((i) => !appFilter || i.app === appFilter);
-  return c.json({ view, items: all, groups: groupByDay(all) });
+  const all = [...typed, ...composed]
+    .filter((i) => !appFilter || i.app === appFilter)
+    .filter((i) =>
+      teamFilter === undefined ? true : teamFilter === '' ? !i.team : i.team?.id === teamFilter,
+    );
+  // The teams you may file under ride the list, so the panel needs no second
+  // call to draw its picker.
+  return c.json({ view, items: all, groups: groupByDay(all), teams: await myTeams(ctx.userId, ctx.workspaceId) });
 });
 
 const NewTask = z.object({
@@ -198,6 +242,7 @@ const NewTask = z.object({
   subject_id: z.string().uuid().nullable().optional(),
   subject_label: z.string().max(200).nullable().optional(),
   href: z.string().max(500).nullable().optional(),
+  team_id: z.string().uuid().nullable().optional(),
 });
 
 // POST /api/v1/me/tasks — a to-do somebody typed.
@@ -211,6 +256,16 @@ myTasksRoutes.post('/', async (c) => {
     const { data: app } = await adminClient.from('app').select('id').eq('slug', body.data.app).maybeSingle();
     appId = (app?.id as string | undefined) ?? null;
   }
+  // A team you are not an active member of is not yours to file under —
+  // checked here rather than trusted from the browser.
+  let teamId: string | null = null;
+  if (body.data.team_id) {
+    const allowed = await myTeams(ctx.userId, ctx.workspaceId);
+    if (!allowed.some((t) => t.id === body.data.team_id)) {
+      return c.json({ error: 'not a member of that team' }, 403);
+    }
+    teamId = body.data.team_id;
+  }
   const { data, error } = await adminClient
     .from('user_task')
     .insert({
@@ -219,6 +274,7 @@ myTasksRoutes.post('/', async (c) => {
       title: body.data.title.trim(),
       due_on: body.data.due_on ?? null,
       app_id: appId,
+      team_id: teamId,
       subject_kind: body.data.subject_kind ?? null,
       subject_id: body.data.subject_id ?? null,
       subject_label: body.data.subject_label ?? null,

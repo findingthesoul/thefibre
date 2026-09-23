@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.103.0] — 2026-09-23 — a to-do says which team it is for
+
+Sjoerd: *"Do to do's: from which team.. (not workspace)"*. The correction is
+the design: a workspace is everything he runs, a team is the unit of work, and
+it is the "project" axis his original ask named — *"per date/app/project"*.
+
+- **Pick a team at the top of the panel** and the list narrows to it. "All
+  teams" and "No team" are both real choices — the second is not the absence
+  of a filter.
+- **A new item lands in the team you are looking at.** Having narrowed the
+  list first, that is the obvious intent; with no team selected it lands
+  unfiled.
+- **The team's name sits on the row**, before the subject and the app.
+- Only teams you are an **active member of in this workspace**, and the API
+  checks that rather than trusting the browser — filing something under a team
+  you are not in would be claiming a place you do not hold.
+- A Flow task carries **no** team. Flow's tasks belong to Flow's structure, and
+  one we inferred would be a guess presented as a fact.
+
+**It is still your list.** `team_id` is a label on your own row: the RLS
+policies are untouched, and nobody sees your to-do because you tagged it with
+a team you are both in. `on delete set null` — dissolving a team must not take
+somebody's to-dos with it.
+
+Migration `20260923110000_user_task_team.sql`.
+
 ## [0.102.0] — 2026-09-23 — the tab bar was never getting its safe area, and the dependency bump that failed
 
 Two things Sjoerd raised, both about something that was silently zero.

@@ -12,17 +12,21 @@
 // -in context (caught on staging, 2026-09-23).
 
 import type { ApiFetch } from './api-fetch.js';
-import type { TodoItem, TodoGroups } from './ui/todo-panel.js';
+import type { TodoItem, TodoGroups, TodoTeam } from './ui/todo-panel.js';
 
 export async function listTasks(
   apiFetch: ApiFetch,
   view: 'open' | 'archive',
-): Promise<{ items: TodoItem[]; groups: TodoGroups } | null> {
+  /** undefined = every team; '' = the ones filed under no team at all. */
+  team?: string,
+): Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[] } | null> {
   try {
-    const data = await apiFetch<{ items: TodoItem[]; groups?: TodoGroups }>(
-      `/api/v1/tasks?view=${view}`,
+    const q = new URLSearchParams({ view });
+    if (team !== undefined) q.set('team', team);
+    const data = await apiFetch<{ items: TodoItem[]; groups?: TodoGroups; teams?: TodoTeam[] }>(
+      `/api/v1/tasks?${q.toString()}`,
     );
-    return { items: data.items, groups: data.groups ?? {} };
+    return { items: data.items, groups: data.groups ?? {}, teams: data.teams ?? [] };
   } catch {
     // A panel that fails to load says nothing rather than breaking the page.
     return null;
@@ -33,10 +37,11 @@ export async function addTask(
   apiFetch: ApiFetch,
   title: string,
   dueOn: string | null,
+  teamId?: string | null,
 ): Promise<void> {
   await apiFetch('/api/v1/tasks', {
     method: 'POST',
-    body: JSON.stringify({ title, due_on: dueOn }),
+    body: JSON.stringify({ title, due_on: dueOn, team_id: teamId ?? null }),
   });
 }
 
