@@ -739,6 +739,39 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     missing i18n keys and a TS7006 in another session's `engagements.tsx`.
     The releasing session read the path, told the owner, fixed nothing and
     re-ran minutes later. Cost: one release cycle, no correctness.
+  - **A repo-wide search is no longer repo-wide: look in every worktree.**
+    The advice above worked, and it moved where the work IS. Sessions now hold
+    live code under `.claude/worktrees/*`, which `git status`, `git log` and a
+    `grep` from the main checkout do not see at all.
+
+    2026-09-23: three migrations were applied to STAGING and existed nowhere
+    in git, so `supabase db push` refused for every checkout on the machine
+    and a session sat holding its own migration rather than working around it.
+    One search reported them "nowhere on disk" — honest, thorough, and it had
+    not looked in `.claude/worktrees/`, where all three were sitting in
+    somebody's active worktree. We spent that morning telling each other to
+    take worktrees and then searched as though nobody had.
+
+    ```bash
+    for w in $(git worktree list --porcelain | awk '/^worktree /{print $2}'); do
+      ls "$w/supabase/migrations/" | grep -E "<version>"
+    done
+    ```
+
+    **And stamp the read.** Three sessions reported on those same files inside
+    twenty minutes — "nowhere on disk", then "untracked in a worktree", then
+    "committed but unpushed" — every one honest, every one stale by the time
+    it arrived, and none of them said when it had been taken. In a checkout
+    this busy a status read has a shelf life of about a minute; passed on
+    without a timestamp it becomes a fact somebody acts on an hour later.
+
+    The unblocking event is a PUSH, not a commit. "They are committed" reads
+    as solved and is not: the files were sealed in a worktree for a while
+    before they reached `origin/staging`, and `db push` stayed broken for
+    everyone throughout. The rule this repo already had — apply to staging and
+    push the FILE in the same breath — is the one that was broken, by the
+    session that had relayed it to somebody else that morning.
+
   - **A lane claim that omits the file you are actually in is not a lane
     claim.** v0.68.40 also swept another session's in-progress work out of
     `apps/thread/app/(app)/threads/actions.ts` — announced four files, and
