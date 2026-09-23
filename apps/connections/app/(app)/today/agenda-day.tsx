@@ -218,11 +218,11 @@ export function AgendaDay({
 
 function Strangers({ events, locale }: { events: AgendaEvent[]; locale: Locale }) {
   // One entry per address, however many meetings it is in today.
-  const seen = new Map<string, { email: string; name: string | null }>();
+  const seen = new Map<string, { email: string; name: string | null; sameName: { id: string; name: string }[] }>();
   for (const ev of events) {
     for (const p of ev.people) {
       if (p.person_id || seen.has(p.email)) continue;
-      seen.set(p.email, { email: p.email, name: p.calendar_name });
+      seen.set(p.email, { email: p.email, name: p.calendar_name, sameName: p.same_name ?? [] });
     }
   }
   if (seen.size === 0) return null;
@@ -232,7 +232,7 @@ function Strangers({ events, locale }: { events: AgendaEvent[]; locale: Locale }
       <ul className="mt-1.5 flex flex-wrap gap-1.5">
         {[...seen.values()].map((p) => (
           <li key={p.email}>
-            <AddAttendee email={p.email} name={p.name} locale={locale} />
+            <AddAttendee email={p.email} name={p.name} locale={locale} sameName={p.sameName} />
           </li>
         ))}
       </ul>

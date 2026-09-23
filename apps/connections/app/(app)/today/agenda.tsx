@@ -35,6 +35,9 @@ export type AgendaPerson = {
   person_name: string | null;
   rung: string | null;
   last_note_at: string | null;
+  /** People already on file with this calendar name, offered when no address
+   *  matched. Never applied for somebody — see the route. */
+  same_name?: { id: string; name: string }[];
 };
 
 export type AgendaEvent = {

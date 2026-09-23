@@ -343,7 +343,19 @@ export function MeetingWriteUp({
               }}
               placeholder={t(locale, 'meeting_note_add_present')}
               onCreate={(typed) => {
-                void createPersonNamed(typed).then((r) => {
+                // If the name typed is the name on somebody the INVITATION
+                // named, create them WITH that address. Sjoerd, 2026-09-23:
+                // "I added him before through this interface - I assumed it
+                // connected email." It did not, and a person with no address
+                // can never be matched to their own calendar entries again.
+                // Exact fold match, within this meeting only — not a search
+                // of the workspace, which would be a guess.
+                const fold = (x: string) =>
+                  x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+                const known = event?.people.find(
+                  (p) => !p.person_id && fold(p.calendar_name ?? '') === fold(typed),
+                );
+                void createPersonNamed(typed, known?.email).then((r) => {
                   if (r.ok) add(r.person.id, personLabel(r.person));
                 });
               }}
@@ -364,7 +376,12 @@ export function MeetingWriteUp({
                   .filter((p) => !p.person_id)
                   .map((p) => (
                     <li key={p.email}>
-                      <AddAttendee email={p.email} name={p.calendar_name} locale={locale} />
+                      <AddAttendee
+                        email={p.email}
+                        name={p.calendar_name}
+                        locale={locale}
+                        sameName={p.same_name ?? []}
+                      />
                     </li>
                   ))}
               </ul>

@@ -7437,6 +7437,33 @@ const CATALOG = {
     de: 'Wer war noch dabei…', // MT
     fr: 'Quelqu’un d’autre qui était là…', // MT
   },
+  // Somebody of this name is already on file, so the chip asks instead of
+  // making a second one. Sjoerd, 2026-09-23: "in fibre this person exist...
+  // but the TODAY meeting does not recognize it."
+  agenda_same_name: {
+    en: '{name} is already in your people — is this them?',
+    nl: '{name} staat al bij je mensen — is dit diegene?',
+    es: '{name} ya está entre tus personas, ¿es esta persona?', // MT
+    pt: '{name} já está nas tuas pessoas — é esta pessoa?', // MT
+    de: '{name} ist schon bei deinen Leuten — ist das dieselbe Person?', // MT
+    fr: '{name} est déjà parmi vos personnes — est-ce bien elle ?', // MT
+  },
+  agenda_same_yes: {
+    en: 'Yes, that is them',
+    nl: 'Ja, dat is diegene',
+    es: 'Sí, es esa persona', // MT
+    pt: 'Sim, é essa pessoa', // MT
+    de: 'Ja, das ist sie', // MT
+    fr: 'Oui, c’est bien elle', // MT
+  },
+  agenda_same_no: {
+    en: 'No, someone else',
+    nl: 'Nee, iemand anders',
+    es: 'No, otra persona', // MT
+    pt: 'Não, outra pessoa', // MT
+    de: 'Nein, jemand anders', // MT
+    fr: 'Non, quelqu’un d’autre', // MT
+  },
   agenda_strangers: {
     en: 'In your day, not in your people:',
     nl: 'In je dag, nog niet bij je mensen:',

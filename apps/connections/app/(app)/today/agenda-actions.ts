@@ -73,3 +73,34 @@ export async function saveCalendars(
     return { ok: false };
   }
 }
+
+/**
+ * Put this calendar address on a person already on file.
+ *
+ * Sjoerd, 2026-09-23: *"in fibre this person exist... but the TODAY meeting
+ * does not recognize it."* It could not: the agenda matches on an address and
+ * that person had none — this app has been able to create a person from a
+ * name alone since v0.95.0, and those people are invisible to the calendar
+ * for ever.
+ *
+ * Attaching the address is what makes it permanent: every later meeting with
+ * them matches by itself, with no guessing at any point. The guess was only
+ * ever in the OFFER, and a person accepted it.
+ */
+export async function attachAddress(
+  personId: string,
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await apiFetch(`/api/v1/persons/${personId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ email }),
+    });
+    revalidatePath('/today');
+    revalidatePath('/people');
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) return { ok: false, error: 'taken' };
+    return { ok: false, error: 'failed' };
+  }
+}

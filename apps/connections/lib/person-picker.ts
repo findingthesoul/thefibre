@@ -43,7 +43,22 @@ export type CreatePersonResult =
  * anything automatic. The rest of them — an address, a phone number — is
  * added on their own page when there is a reason to.
  */
-export async function createPersonNamed(typed: string): Promise<CreatePersonResult> {
+export async function createPersonNamed(
+  typed: string,
+  /**
+   * Their address, when the surface asking already knows it.
+   *
+   * Sjoerd, 2026-09-23, on a person he had added from a meeting write-up:
+   * *"I added him before through this interface - I assumed it connected
+   * email."* He was right to assume it. The meeting's invitation had the
+   * address the whole time and this path threw it away, so the person could
+   * never be matched to their own calendar entries again.
+   *
+   * Not a guess: the caller only passes it when the typed name is the name
+   * on an attendee of the meeting being written up.
+   */
+  email?: string,
+): Promise<CreatePersonResult> {
   const name = typed.trim().replace(/\s+/g, ' ');
   if (!name) return { ok: false, error: 'empty' };
   const [first, ...rest] = name.split(' ');
@@ -53,6 +68,7 @@ export async function createPersonNamed(typed: string): Promise<CreatePersonResu
       body: JSON.stringify({
         first_name: first,
         ...(rest.length ? { last_name: rest.join(' ') } : {}),
+        ...(email ? { email } : {}),
       }),
     });
     return { ok: true, person };

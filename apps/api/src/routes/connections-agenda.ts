@@ -84,6 +84,13 @@ const AgendaQuery = z.object({
   offset_days: z.coerce.number().int().min(0).max(13).default(0),
 });
 
+/** Lowercase, punctuation to spaces — the same folding Connect's own
+ *  detector uses, so "Rense  Bos" and "rense bos" are one name. Not a fuzzy
+ *  match: this is only ever used to OFFER a person, never to pick one. */
+function foldName(s: string): string {
+  return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
 type Matched = {
   email: string;
   /** The name Google had, kept for an unmatched attendee so the interface can
@@ -96,6 +103,25 @@ type Matched = {
   /** When a note about them was last committed — the thing this surface
    *  exists to produce more of. */
   last_note_at: string | null;
+  /**
+   * People already on file whose NAME is the one the calendar gave, for an
+   * attendee no address matched.
+   *
+   * Sjoerd, 2026-09-23, looking at somebody who exists in The Fibre and was
+   * offered as a stranger: *"in fibre this person exist... but the TODAY
+   * meeting does not recognize it."* He was right, and the reason is that a
+   * person can have no email — this app has been able to create one since
+   * v0.95.0 — while the agenda can only match on an address.
+   *
+   * It is OFFERED, never applied. Matching a calendar name to a contact is a
+   * guess, and the rule this codebase keeps is that a guess may be shown to
+   * somebody and never acted on for them (handbook §12). The interface asks
+   * "is this them?" and a person answers.
+   *
+   * It also prevents the worse half: without it, pressing add on a name
+   * already on file makes a SECOND copy of that person.
+   */
+  same_name: { id: string; name: string }[];
 };
 
 connectionsAgendaRoutes.get('/agenda', async (c) => {
@@ -168,6 +194,44 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
     }
   }
 
+  // The names the calendar gave for attendees NO address matched. Only those:
+  // somebody already found by address needs no offering, and looking up a name
+  // we do not need is a query nobody asked for.
+  const unmatchedNames = new Set<string>();
+  for (const ev of events) {
+    for (const a of ev.attendees) {
+      if (a.self) continue;
+      const norm = normaliseEmail(a.email);
+      if (!norm || byEmail.has(norm)) continue;
+      const folded = foldName(a.name ?? '');
+      if (folded) unmatchedNames.add(folded);
+    }
+  }
+
+  // One read of the workspace's people, matched in memory — the same shape
+  // the vocabulary route uses, and for the same reason: a name cannot be
+  // matched in SQL the way it has to be folded here.
+  const byName = new Map<string, { id: string; name: string }[]>();
+  if (unmatchedNames.size) {
+    const { data: all } = await adminClient
+      .from('person')
+      .select('id, first_name, last_name')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('deleted_at', null)
+      .is('merged_into', null)
+      .limit(2000);
+    for (const p of all ?? []) {
+      const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+      const folded = foldName(name);
+      if (!folded || !unmatchedNames.has(folded)) continue;
+      const list = byName.get(folded) ?? [];
+      // Three is enough to ask "is this them?"; a fourth is a merge problem,
+      // not a question this row can carry.
+      if (list.length < 3) list.push({ id: p.id as string, name });
+      byName.set(folded, list);
+    }
+  }
+
   const personIds = [...new Set([...byEmail.values()].map((p) => p.id))];
 
   // Standing and last conversation, both in one query each, both optional —
@@ -211,6 +275,7 @@ connectionsAgendaRoutes.get('/agenda', async (c) => {
         person_name: hit?.name ?? null,
         rung: hit ? (rungById.get(hit.id) ?? null) : null,
         last_note_at: hit ? (lastNoteById.get(hit.id) ?? null) : null,
+        same_name: hit ? [] : (byName.get(foldName(a.name ?? '')) ?? []),
       });
     }
     return {

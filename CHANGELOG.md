@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.106.0] — 2026-09-23 — The person who was already there (staging)
+
+Sjoerd, looking at somebody Today offered him as a stranger: *"in fibre this
+person exist... but the TODAY meeting does not recognize it."* And then, which
+is the part that matters: *"I added him before through this interface - I
+assumed it connected email."*
+
+He was right to assume it, and it did not. The agenda matches attendees by
+ADDRESS — deliberately, because an address is exact where a name is a guess.
+Since v0.95.0 this app can create a person from a name alone, and the
+write-up's "add as a new person" threw away the address the invitation was
+holding at that very moment. Those people are invisible to calendar matching
+FOR EVER, not just that day, and pressing "add" on one would have created a
+second copy of them.
+
+Both halves are fixed.
+
+**The chip asks instead of duplicating.** For an attendee no address matched,
+the route now returns anybody already on file with that exact name — folded, so
+case and the punctuation a calendar puts in a name ("Jimenez R.G.M. (Raquel)")
+do not hide a match. The chip then asks *"Rense Bos is already in your people —
+is this them?"*, with two answers. Saying yes attaches the calendar address to
+the person who already exists, which is what makes it permanent: every later
+meeting matches by address, and nothing guesses again.
+
+The guess only ever lives in the OFFER. Matching a calendar name to a contact
+is exactly the inference this codebase refuses to act on by itself, so it is
+shown to a person and they answer.
+
+**And the address is no longer thrown away.** If the name typed into "somebody
+else who was there" is the name on an attendee of that meeting, the person is
+created with that attendee's address. An exact match inside the one meeting
+being written up — not a search of the workspace, which would be a guess
+wearing a different hat.
+
 ## [0.105.0] — 2026-09-23 — the To do groups are named once, not twice
 
 The API built `{ overdue, today, tomorrow, this_week, later, no_date }` and the
