@@ -59,11 +59,14 @@
 // v2 (2026-09-23): ticket QRs are cached, after Sjoerd allowed tickets on
 // devices. The offline page changed with it — it now shows them, under the
 // wordmark, which joins PRECACHE for the same reason the icon is in it.
+// v4 (2026-09-24): the offline page's wordmark is bigger, with the rest of
+// the app's. A precached file changed again.
+//
 // v3 (2026-09-24): the offline page's ticket opens full size. A precached
 // file changed, so the worker must change with it or every installed phone
 // keeps serving the old page out of my-shell-v2 — the failure this VERSION
 // exists for, and the one check-sw-freshness.mjs enforces.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `my-shell-${VERSION}`;
 const STATIC = `my-static-${VERSION}`;
 const PRECACHE = ['/offline.html', '/wordmark.png', '/icon-192.png', '/apple-touch-icon.png'];

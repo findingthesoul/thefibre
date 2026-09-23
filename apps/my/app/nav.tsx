@@ -52,7 +52,7 @@ export function MemberRail() {
       {/* Home, and the only thing on this surface that says whose app it is.
           A rail of four icons could belong to anything. */}
       <Link href="/" className="mb-3 flex min-h-11 items-center px-3">
-        <Wordmark className="h-7" />
+        <Wordmark className="h-8" />
       </Link>
       {NAV[0]!.items.map((item) => {
         const Icon = item.icon;

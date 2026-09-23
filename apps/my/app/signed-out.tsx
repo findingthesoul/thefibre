@@ -12,7 +12,7 @@ export function SignedOut() {
           reader and for the tab title — an image alone leaves the page
           without one. */}
       <h1 className="sr-only">{SURFACES['my-portal'].shortLabel}</h1>
-      <Wordmark className="h-9" />
+      <Wordmark className="h-12" />
       <p className="mt-1 text-ink-subtle">{SURFACES['my-portal'].tagline}</p>
       <div className="mt-8 max-w-sm">
         <SignIn />

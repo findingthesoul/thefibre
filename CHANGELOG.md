@@ -35,6 +35,24 @@ permanent cost. Suspension stays the right action; what is missing is a
 surface that shows suspended accounts and an explicit, human "delete and stop
 the charge".
 
+## [1.22.0] — 2026-09-24 — the wordmark, at a size worth having (Portal 0.10.5)
+
+*"logo is still small"* — third time, so stop inching.
+
+`h-6` read as a smudge, `h-9` was still small on a phone. Now **`h-12`
+everywhere it appears**: the phone header, the sign-in screen and the offline
+page, with the desktop rail at `h-8` because a 224px column beside four labels
+has less room. Measured at 375×812: **181×48px, 48% of the screen width** —
+a header rather than a footnote, and the only thing on that bar.
+
+The lesson is not the number. Twice I moved one step up from a size that was
+wrong and shipped a size that was still wrong, which cost two releases and two
+rounds of Sjoerd looking at his phone. When a judgement has already been
+rejected once, the next guess should clear the bar rather than approach it.
+
+`sw.js` to `v4` — the offline page's wordmark changed, and a precached file
+that changes without the worker changing stays stale on every installed phone.
+
 ## [1.21.0] — 2026-09-24 — the offline ticket opens full size (Portal 0.10.4)
 
 Sjoerd, in aeroplane mode on his phone, with the QR on screen: *"Works. But I
