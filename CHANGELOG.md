@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-09-23 — an email wears the workspace's mark, or The Thread's (staging)
+
+Sjoerd, on a booking confirmation carrying the handwritten "the fibre"
+wordmark: "Should this not be THE THREAD? (for free) and WORKSPACE in this
+specific case?"
+
+Both. The branding pivot of 2026-09-08 made The Thread the public face and
+The Fibre backstage. The auth and platform emails moved then; the booking and
+usage emails did not, because their shell defaulted to `BRAND_ASSETS` — the
+Fibre wordmark — and nobody had passed them a workspace brand.
+
+- **`shell()` falls back to `EMAIL_BRAND`** (The Thread), not the Fibre mark.
+  `BRAND_ASSETS` is untouched and still means what it says, for Fibre's own
+  surfaces; redefining it underneath its other readers would have been the
+  quiet way to get this wrong.
+- **Meet's four booking emails pass the workspace's logo** when it has one,
+  read through `getWorkspaceBrand` like every other branded email. So a
+  soul.com booking arrives wearing soul.com.
+- **Usage emails** likewise. Two now-unused imports removed.
+
+Four tests: the shell wears The Thread with no brand, the workspace's mark
+when given, and **never** the Fibre one — the last is the assertion that would
+have caught this in the first place. 297 API tests green.
+
+Not verified by a sent email. The code decides which URL goes in the `<img>`;
+only an arriving email proves it renders.
+
 ## [1.3.1] — 2026-09-23
 
 ### Changed
