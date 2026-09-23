@@ -765,6 +765,29 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     this busy a status read has a shelf life of about a minute; passed on
     without a timestamp it becomes a fact somebody acts on an hour later.
 
+    **The sharp hazard is not what it looks like.** The obvious worry is
+    committing somebody else's file. The real one is that copying a peer's
+    migration into your tree to satisfy the history check and then running
+    `db push` will APPLY it — their unfinished schema change, to a shared
+    database, silently, as a side effect of unblocking yourself.
+
+    A session did exactly this on 2026-09-23 and got away with it by
+    checking first: of the three files it needed, the third had reached
+    remote history in the minutes since its last read, so pushing SKIPPED it.
+    Two minutes earlier that same copy would have applied a peer's
+    in-progress migration. So: **copying a peer's migration to satisfy the
+    history check is only safe for versions ALREADY applied remotely — check
+    each one, do not assume, and the answer expires while you work.**
+
+    Two more from the same attempt, both worth knowing before you reach for
+    the workaround:
+    - A migration authored earlier but pushed later is refused for sorting
+      BEFORE migrations already applied. Renumber yours — free while it is
+      uncommitted and applied nowhere. Do NOT reach for `--include-all`,
+      which inserts it ahead of migrations that are already live.
+    - Afterwards, verify the OBJECT (select the new column) rather than
+      reading the push log, and remove every borrowed copy.
+
     The unblocking event is a PUSH, not a commit. "They are committed" reads
     as solved and is not: the files were sealed in a worktree for a while
     before they reached `origin/staging`, and `db push` stayed broken for
