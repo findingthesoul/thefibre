@@ -17,6 +17,28 @@ Sjoerd, reading his own page after the workspace line landed.
 - **"Powered by The Thread: Meet"**, linking to `thethread.app` rather than
   back to the app the visitor is already standing in. Through
   `surfaceUrl('website')`, so staging's footer points at staging.
+## [0.129.0] — 2026-09-23 — the app tiles lose the word
+
+Sjoerd's "PNG 3" set: the same painted marks **without the name underneath**.
+The launcher and the sidebar already print the app's name beside the tile, so
+the word inside the picture was saying it twice. Seven tiles — Connect, The
+Fibre, Flow, Meet, Members, Pulse, The Thread. `learn.png` is untouched: Fibre
+Learn does not exist yet and there is no new art for it.
+
+`thethread.png` is the odd one and it is **deliberate**, confirmed before
+installing: the handwritten wordmark zoomed in and cut off mid-word ("thr")
+where the other six are centred shapes. It reads as a crop rather than a
+mistake, and the README now says so, so nobody "fixes" it.
+
+**A third of the weight.** The sources are 753px and landed at ~500KB each —
+four times the set they replaced, on a screen that loads all seven at once.
+Resized to the set's 600px square and re-encoded with sharp
+(`compressionLevel: 9, effort: 10, palette: true, quality: 92`): 115–200KB,
+paint texture intact.
+
+The names are the contract and the pictures are not — `TILE_FILES` in
+`branding.ts` maps slug → file, so `connections.png` became `sales.png` and
+`the-thread.png` became `thethread.png`. Nothing in code changed.
 
 ## [0.127.0] — 2026-09-23
 
