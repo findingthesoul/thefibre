@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.114.0] — 2026-09-23 — the To do list was dropping every task that had no run
+
+`flowTasks` took the workspace from the task's RUN — `run.workspace_id ===
+workspaceId` — and a task does not need a run. A follow-up set on a note in
+Connect has none, so the comparison was `undefined === workspaceId`, false, and
+the item was dropped. Silently, and for exactly the items this list exists to
+surface.
+
+**On production that was all five of Sjoerd's open items** — "Call" and "Get in
+touch" in soul.com, "Follow up", "call Mahmud" and "Send an invite" in The
+Thread B.V. His To do list has been showing only what he typed himself. The
+same five now reach it, verified with the corrected query against production
+before this shipped.
+
+`flow_task` has carried its own `workspace_id` all along; the run join was
+never needed for that check and now only fetches the subject label.
+
+**How it was found, which is the part worth keeping.** A browser check after an
+unrelated change asserted the panel was NON-EMPTY — four items existed in the
+database for the fixture account and only one tick button appeared. Everything
+else passed: the panel opened, the list loaded, no error anywhere. Earlier the
+same day I had reported these items as "now labelled Connect, linking to the
+person" on the strength of the DATA existing, never having checked that the
+feature returned them. Verifying the rows is not verifying the feature.
+
 ## [0.113.0] — 2026-09-23 — the To do list asked six questions to answer one
 
 Opening the panel checked each source's seat with `hasAppMembership`, which is

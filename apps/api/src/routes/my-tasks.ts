@@ -145,8 +145,15 @@ async function seatsHeldBy(userId: string): Promise<Set<string>> {
 async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[]> {
   const { data, error } = await adminClient
     .from('flow_task')
-    .select('id, title, due_at, status, flow_run_id, run:flow_run_id (subject_label, workspace_id)')
+    // The workspace comes from the TASK, not from its run. A task does not
+    // need a run: a follow-up set on a note in Connect has none, and every
+    // one of Sjoerd's five open items on production was of that kind. The
+    // old filter compared `run.workspace_id` to the session's workspace, so
+    // a task with no run compared `undefined` and was dropped — silently,
+    // and for exactly the items this list exists to surface.
+    .select('id, title, due_at, status, workspace_id, flow_run_id, run:flow_run_id (subject_label)')
     .eq('assignee_user_id', userId)
+    .eq('workspace_id', workspaceId)
     .in('status', ['open', 'in_progress'])
     .is('deleted_at', null)
     .order('due_at', { ascending: true, nullsFirst: false })
@@ -170,7 +177,6 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
     }
   }
   return (data ?? [])
-    .filter((t) => (t.run as { workspace_id?: string } | null)?.workspace_id === workspaceId)
     .map((t) => {
       const id = t.id as string;
       const connectPerson = fromConnect.has(id) ? fromConnect.get(id) ?? null : undefined;
