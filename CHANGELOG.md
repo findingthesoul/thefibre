@@ -6,6 +6,79 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-09-23 — a to-do carries a link, its list drags into order, and its date is yours (staging)
+
+Sjoerd, using the checklist on a real thread: *"Reorder with drag and drop...
+Add link to do (for worklists in other tools like google docs)"*, then
+*"I should also be able to change dates... the dates in the template are a
+suggestion."*
+
+**The link.** The Thread does not try to be where every piece of work lives.
+A rehearsal schedule is a Google Doc, a floor plan is a PDF, a budget is a
+sheet somewhere. The checklist's job is to say what has to happen and get you
+to the thing — so one link per to-do, beside the title, opening in a new tab,
+because losing the list to follow a link off it is the one thing a checklist
+must not do. Templates carry it too, so a list can point at the same document
+every time it is used.
+
+`lib/safe-url.ts` is new and is why that link is safe to render. An href is
+where stored XSS arrives through a field nobody thinks of as content, and
+`safeLinks` in `lib/public-site.ts` already answered "is this href safe" for a
+public navbar. Rather than copy that regex to a second call site — the
+two-sides-must-agree shape this repo keeps paying for — the rule has one home
+and eleven tests, including the control-character scheme split
+(`java\tscript:`) that a naive prefix check lets through. It does NOT yet
+delegate `safeLinks` to it, deliberately: that guards public pages, and
+widening a security check as a side effect of a to-do feature puts a
+security-relevant edit in a release nobody is reviewing for one. A TODO naming
+the file keeps the second copy visible rather than quiet.
+
+An unsafe scheme **drops the link and keeps the to-do**. Refusing the whole
+item over a paste that went wrong would lose real work; a silently absent link
+is visible the moment somebody looks for it.
+
+**Drag and drop, never a number** (CLAUDE.md). Native HTML5 drag, the shape
+Members' tier list already uses, no library. Only the HANDLE is draggable — a
+row-wide drag makes the text inputs impossible to select. Order is the array's
+order, written back as `position: i`, so a list that LOOKS right is right. The
+day offsets may end up out of numeric order afterwards, and that is the point:
+the order is the person's, not the calendar's.
+
+**The date on a thread's to-do is editable.** A checklist laid down from a
+template is dated by arithmetic off the thread's start, and arithmetic does
+not know the venue answers on Tuesdays. It saves without reloading the list —
+a reload would rebuild every row under the popover just used, and the date
+would appear to flicker back before settling; only a failure reloads, which
+puts the row back to what the server still holds rather than leaving the
+screen claiming a change that did not happen.
+
+Found by looking rather than reasoning: the date control needed `w-44`, not
+`w-36`, because the trigger carries the date plus a clear X and a calendar
+icon and at `w-36` a full date truncated to "3 Oct 20…" — worse than the
+static text it replaced. And the dialog is `xl` now, because every row
+carries two pickers beside the title and `lg` squeezed the title to a third
+of the row.
+
+Also fixed: the template editor's blank-row filter ran AFTER positions were
+assigned, so discarding an empty row left gaps (0, 2, 3). Harmless to sorting,
+but a position is meant to say "the nth step".
+
+**The migration was renumbered, 170733 → 171422**, and the reason generalises.
+Three organisation migrations reached staging while this was being built, and
+Supabase refuses a migration that sorts BEFORE ones already applied unless
+forced with `--include-all`. Renumbering is right and forcing is not: the flag
+would insert this one behind migrations that are already live.
+
+121 integration tests pass against staging, including the link arriving on
+every to-do a template creates, an unsafe scheme becoming null rather than
+being stored, and a link being cleared. The drag itself was verified in a
+browser by dispatching real drag events — a synthetic mouse drag does not
+start an HTML5 drag at all, and firing the sequence in one tick fails for a
+second reason worth knowing: React has not re-rendered with the drag index
+yet, so the drop handler still closes over `null`. Spaced the way a hand
+moves, it reorders correctly.
+
+
 ## [1.7.0] — 2026-09-23 — emails come from The Thread, or from the workspace (Meet 2.11.0, staging)
 
 Four of Sjoerd's notes on the same inbox, and one from the launch-test session.
