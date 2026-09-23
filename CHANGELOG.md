@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.99.4] — 2026-09-23 — you could only ever have one to-do
+
+The table said a to-do was unique per `(user, source app, source ref)`, spelled
+`UNIQUE NULLS NOT DISTINCT`. That rule exists so answering an app's task twice
+is one row. But an item you type yourself has no source — both columns null —
+and NULLS NOT DISTINCT means null equals null, so **the second thing you typed
+collided with the first and was refused.** A to-do list that holds one to-do.
+
+It hid for a day because every walkthrough added one item and then removed it,
+and Remove was a hard DELETE, which freed the slot each time. Making Remove a
+soft delete this morning turned a latent bug into a visible one: the row stays,
+so the slot stays taken. Found by a fixture insert failing, not by the UI —
+which is its own lesson about walkthroughs that only ever do one of a thing.
+
+The uniqueness only ever meant anything for rows that HAVE a source, so it is
+now a partial unique index saying exactly that. Typed rows are unconstrained,
+which is what a list is.
+
+A partial index cannot be named by a bare `ON CONFLICT`, so the answer route
+no longer upserts: it updates, and inserts when nothing was updated.
+
+Migration `20260923090000_user_task_one_list_not_one_item.sql`. **Production
+now needs three migrations** before To do is promoted.
+
 ## [0.99.3] — 2026-09-23 — nothing on the To do list is destroyed on a timer
 
 Asked which he had meant by "cleaned after 7 days", Sjoerd answered: *"Should

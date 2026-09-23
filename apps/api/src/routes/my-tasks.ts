@@ -301,28 +301,46 @@ myTasksRoutes.post('/answer', async (c) => {
     appId = (app?.id as string | undefined) ?? null;
   }
   const state = body.data.state ?? 'done';
-  const { error } = await adminClient.from('user_task').upsert(
-    {
+  // Update, then insert if nothing was updated — not an upsert.
+  //
+  // The uniqueness that makes answering twice one row is now a PARTIAL unique
+  // index (`where source_app is not null`, migration 20260923090000), because
+  // as a plain constraint its NULLS NOT DISTINCT spelling also made every
+  // to-do you typed collide with the last one. A bare ON CONFLICT cannot name
+  // a partial index, so PostgREST's upsert can no longer be used here.
+  //
+  // Answering again also REVIVES a row that was filed or removed, which is why
+  // both timestamps are cleared.
+  const fields = {
+    workspace_id: ctx.workspaceId,
+    title: body.data.title ?? body.data.subject_label ?? 'Task',
+    app_id: appId,
+    href: body.data.href ?? null,
+    state,
+    snoozed_until: body.data.snoozed_until ?? null,
+    done_at: state === 'done' ? new Date().toISOString() : null,
+    archived_at: null,
+    deleted_at: null,
+    sort: body.data.sort ?? Date.now(),
+  };
+  const { data: updated, error: updErr } = await adminClient
+    .from('user_task')
+    .update(fields)
+    .eq('user_id', ctx.userId)
+    .eq('source_app', body.data.source_app)
+    .eq('source_ref', body.data.source_ref)
+    .select('id')
+    .maybeSingle();
+  if (updErr) return c.json({ error: updErr.message }, 500);
+  if (!updated) {
+    const { error } = await adminClient.from('user_task').insert({
       user_id: ctx.userId,
-      workspace_id: ctx.workspaceId,
-      title: body.data.title ?? body.data.subject_label ?? 'Task',
       source_app: body.data.source_app,
       source_ref: body.data.source_ref,
-      app_id: appId,
-      href: body.data.href ?? null,
-      state,
-      snoozed_until: body.data.snoozed_until ?? null,
-      done_at: state === 'done' ? new Date().toISOString() : null,
-      // Answering again revives a row that was filed or removed — otherwise
-      // the unique constraint on (user, source_app, source_ref) would refuse
-      // the upsert and the second answer would fail.
-      archived_at: null,
-      deleted_at: null,
-      sort: body.data.sort ?? Date.now(),
-    },
-    { onConflict: 'user_id,source_app,source_ref' },
-  );
-  if (error) return c.json({ error: error.message }, 500);
+      ...fields,
+    });
+    if (error) return c.json({ error: error.message }, 500);
+  }
   await passThroughCompletion(body.data.source_app, body.data.source_ref, ctx.userId, state === 'done');
   return c.json({ ok: true });
 });
