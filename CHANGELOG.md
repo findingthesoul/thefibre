@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-09-23
+
+### Fixed
+- **The installed app kept the old icon.** Sjoerd: *"the icon of connect (if I
+  download it for my mobile) is the old one."* The server was right — production
+  serves the redrawn icon byte-for-byte identical to the repo, checked. The
+  service worker PRECACHES `/icon-192.png` and `/apple-touch-icon.png` (the
+  offline page shows both), and a browser only reinstalls a worker whose OWN
+  bytes changed. The icons were redrawn for the Connect rename on 2026-09-22;
+  `sw.js` had not been touched since 2026-09-13. So every phone with the app
+  installed served the pre-rename icon out of `connections-shell-v2`, and
+  nothing anywhere could say so: repo right, server right, typecheck green,
+  home screen wrong. `VERSION` is now `v3`, which reinstalls the worker,
+  re-fetches what it precaches and drops the old caches.
+
+### Added
+- **A guard that the worker is not older than what it precaches.**
+  `sw-freshness.test.ts` reads `PRECACHE` out of the source and fails when any
+  of those files was committed after `sw.js`. The comment above `VERSION` used
+  to say "bump whenever /offline.html changes" — true, and incomplete: it named
+  one of three precached files, so the other two could change unnoticed, and
+  did. Mutation-checked by committing an icon after the worker and watching it
+  name that file. It stays quiet while `sw.js` itself is uncommitted, since
+  that means somebody is already doing the thing it would ask for.
+
 ## [1.12.0] — 2026-09-23
 
 ### Changed

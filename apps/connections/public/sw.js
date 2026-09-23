@@ -33,12 +33,27 @@
 // with `self.registration.unregister()` inside an activate handler and deploy.
 // Deleting the file does NOT remove an installed worker; it only stops updates.
 
-// Bump this whenever /offline.html changes. The browser only reinstalls a
-// worker whose own bytes changed, so an edit to the page alone would leave
-// the OLD page cached on every phone. v2 (2026-09-13): the page takes a typed
-// name instead of a stored people list; the v1 page, with the list wiped,
-// would have offered nobody to write about.
-const VERSION = 'v2';
+// Bump this whenever ANY file in PRECACHE changes — the offline page or the
+// icons. The browser only reinstalls a worker whose own bytes changed, so an
+// edit to a precached FILE alone leaves the old copy on every phone, for ever.
+//
+// v2 (2026-09-13): the offline page takes a typed name instead of a stored
+// people list; the v1 page, with the list wiped, would have offered nobody to
+// write about.
+//
+// v3 (2026-09-23): the icons. They were redrawn for the Connect rename on
+// 2026-09-22 and this file was not touched, so every phone that had installed
+// the app kept serving the OLD icon out of `connections-shell-v2` — the
+// server was right, the home screen was wrong, and nothing could tell you so.
+// Sjoerd: *"the icon of connect (if I download it for my mobile) is the old
+// one."*
+//
+// The comment above used to say "whenever /offline.html changes", which was
+// true and incomplete: it named one of the three precached files, so the
+// other two could change unnoticed. `sw-freshness.test.ts` now fails when a
+// precached file is committed after this one, which is the check that would
+// have caught it.
+const VERSION = 'v3';
 const SHELL = `connections-shell-${VERSION}`;
 const STATIC = `connections-static-${VERSION}`;
 const PRECACHE = ['/offline.html', '/icon-192.png', '/apple-touch-icon.png'];
