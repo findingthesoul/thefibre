@@ -114,6 +114,31 @@ pnpm verify
 # sessions to take one for code work, so this was about to become the
 # normal path rather than the exception). HEAD is what the gates read.
 git push origin HEAD:staging
+
+# ── After the push: did somebody take this number too? ──────────────────────
+#
+# The guard checks, then the push happens — and between those two moments
+# another session can push. Git accepts both when the second is built on the
+# first, so two releases can carry ONE number with nothing refused. That is
+# not a bug in the guard; a check and a push cannot be made atomic without a
+# lock nobody wants.
+#
+# So this does not try to prevent it. It LOOKS, immediately after, and says so
+# loudly — because the alternative is finding two `## [1.27.1]` headings in
+# the permanent record weeks later, which is what happened on 2026-09-24.
+git fetch -q origin
+dupes=$(git show origin/staging:CHANGELOG.md | grep -c "^## \[$V\]" || true)
+if [ "${dupes:-0}" -gt 1 ]; then
+  echo >&2
+  echo "⚠️  DUPLICATE: origin/staging now has $dupes entries for $V." >&2
+  echo "   Another session pushed the same number in the seconds around yours." >&2
+  echo "   Nothing is broken and the next release self-heals (the guard reads the" >&2
+  echo "   newest number), but the RECORD is wrong. Whoever pushed second renumbers:" >&2
+  echo "     node scripts/next-version.mjs patch    # relabels the entry and the files" >&2
+  echo "   then release again. Tell the other session either way." >&2
+  echo >&2
+fi
+
 echo "Released $V to STAGING."
 echo
 echo "  Look at it on the .tech stack. When it is good:"

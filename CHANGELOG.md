@@ -4,7 +4,7 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
-## [1.27.1] — 2026-09-24 — a probe that cannot fail, and a guard that let a version go backwards
+## [1.27.2] — 2026-09-24 — a probe that cannot fail, and a guard that let a version go backwards
 
 ### Fixed
 - **`deploy-api.sh --probe "… | status:401"` proved nothing.** It shipped on
@@ -37,6 +37,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   without the string (wrong expectation) printed the same line and cost a
   session a debugging round. It also stops using `curl -f`, which discarded the
   body of an error response exactly when it explained the most.
+
+### Added
+- **`release.sh` now looks for a duplicate of its own number right after
+  pushing.** The guard checks and then the push happens, and in the seconds
+  between them another session can push; git accepts both when the second is
+  built on the first, so two releases can carry ONE number with nothing
+  refused. That is not a fixable hole — a check and a push cannot be made
+  atomic without a lock nobody wants — so this does not prevent it, it SEES
+  it and says so loudly, with what to run. It happened to this very release:
+  two `## [1.27.1]` headings, mine and another session's, both pushed.
+  Renumbered here, which is why this entry is 1.27.2.
 
 ### Changed
 - **Probe the release's own change, not its routes.** "Is this route there" is
