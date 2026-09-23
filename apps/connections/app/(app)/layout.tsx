@@ -21,7 +21,7 @@ import { UnfiledNotes } from '@/components/unfiled-notes';
 // Connections has its own user-facing version, independent of the monorepo
 // cadence in package.json. Starts at 0.1.0 because it's a new app (not a
 // rebuild of an existing one). See CLAUDE.md "Version bumps".
-const VERSION = '0.2.0';
+const VERSION = '1.0.0';
 
 // A strict subtype of ShellMe: what this layout actually reads. Extend here,
 // never loosen the shared shape.

@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-09-23 — Connect is 1.0.0 too
+
+Sjoerd, reading the app switcher after the launch bump: "Connect still has
+v0.2.0 … Connect does not seem right." The launch naming of v1.0.0 named
+Members and The Thread and missed Connect's own line. Its sidebar constant
+goes 0.2.0 → 1.0.0; nothing else changes. Pulse (0.29.0) and My (0.7.3) keep
+their numbers until he names them.
+
 ## [1.10.0] — 2026-09-23
 
 ### Fixed
