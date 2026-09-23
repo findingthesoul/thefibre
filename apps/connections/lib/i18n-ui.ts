@@ -7559,6 +7559,14 @@ const CATALOG = {
     de: 'Auch dabei', // MT
     fr: 'Également présents', // MT
   },
+  note_unmake: {
+    en: 'Keep the word, drop the tag',
+    nl: 'Woord houden, tag eraf',
+    es: 'Conservar la palabra, quitar la etiqueta', // MT
+    pt: 'Manter a palavra, remover a etiqueta', // MT
+    de: 'Wort behalten, Tag entfernen', // MT
+    fr: 'Garder le mot, retirer le tag', // MT
+  },
   note_mention_remove: {
     en: 'Remove them from this note, keep the word',
     nl: 'Haal ze uit deze notitie, het woord blijft staan',

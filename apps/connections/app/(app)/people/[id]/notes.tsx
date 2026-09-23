@@ -594,7 +594,11 @@ export function Notes({
   }, []);
 
   const tags: DetectedTag[] = detectTags(body, vocabulary).filter(
-    (t) => !dismissed.has(t.name.toLowerCase()),
+    // foldKey, not toLowerCase: a highlight range is keyed by fold()
+    // (lowercase, punctuation to spaces), so "Deep-Democracy" is "deep
+    // democracy" there and was "deep-democracy" here. The X would have
+    // added a key this filter never looked for, and done nothing at all.
+    (t) => !dismissed.has(foldKey(t.name)),
   );
 
   // `@` — people and organisations, resolved from what was typed. An
@@ -602,7 +606,7 @@ export function Notes({
   // characteristic of the people in it), so only PEOPLE need their own list;
   // the organisation ones are folded in with the tags below.
   const mentions: DetectedMention[] = detectMentions(body, mentionable, vocabulary).filter(
-    (m) => !dismissed.has(`@${m.name.toLowerCase()}`),
+    (m) => !dismissed.has(`@${foldKey(m.name)}`),
   );
   const peopleMentioned = mentions.filter((m) => m.kind === 'person');
   const orgsMentioned = mentions.filter((m) => m.kind === 'organisation');
@@ -928,6 +932,21 @@ export function Notes({
           }}
           ranges={ranges}
           activeKey={activeKey}
+          caret={caret}
+          // The X on the word, back where Sjoerd asked for it on 2026-09-22:
+          // *"mouse over also shows the X to turn the # into a word again"*.
+          // It reuses `dismissed`, which has meant exactly this since
+          // 2026-09-12 ("clicking it can also X the tag and keep it as a
+          // word") — the chip row was only ever its trigger, and it went on
+          // his own instruction, which left the decision with nowhere to be
+          // made. A person and a tag are keyed differently because they are
+          // different things and the filters below read them apart.
+          onUnmake={(r) =>
+            setDismissed((d) =>
+              new Set(d).add(r.kind === 'person' ? `@${r.key}` : r.key),
+            )
+          }
+          unmakeLabel={t(locale, 'note_unmake')}
           placeholder={t(locale, 'note_placeholder')}
           ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
         />
@@ -1053,9 +1072,7 @@ export function Notes({
               <button
                 key={m.id}
                 type="button"
-                onClick={() =>
-                  setDismissed((d) => new Set(d).add(`@${m.name.toLowerCase()}`))
-                }
+                onClick={() => setDismissed((d) => new Set(d).add(`@${foldKey(m.name)}`))}
                 // Pointing at a chip lights its word in the sentence, so the
                 // chip and the highlight read as the same thing. Focus too,
                 // not only hover, for keyboards and for touch screens that

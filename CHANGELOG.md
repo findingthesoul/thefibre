@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.104.0] — 2026-09-23 — The X is back, on the word this time (staging)
+
+Sjoerd, 2026-09-22: *"mouse over also shows the X to turn the # into a word
+again."*
+
+Hovering a tag or an @name inside the note box now shows a small X on the
+word. Pressing it keeps the word in your sentence and drops the tag — which is
+what he asked for in those words back on 2026-09-12, when the X lived on a chip
+below the box. He had that chip row taken away on 2026-09-15 (*"this is not
+needed"*), and with it went the only way to unmake a tag. The decision has had
+nowhere to be made since.
+
+This file used to argue there could not be an X on the word: a clickable
+element in the sentence steals the tap that places the caret. That was right
+about a clickable WORD and wrong as a conclusion. What is drawn is one small
+button over the END of the word, in a layer that is `pointer-events: none`
+everywhere except those few pixels — every other point in the box still places
+the caret exactly as before, including inside the tagged word. It is
+positioned by measuring the mirror's own highlight elements, so it cannot
+drift from the tint: it is the same element.
+
+It also shows whenever the CARET is inside the word, which is the same
+affordance on a phone, where there is no hover and a tap is how you reach a
+word anyway.
+
+**And a silent disagreement found on the way.** The mechanism behind the X has
+existed since September 12th, but its two halves keyed themselves differently:
+a highlight is keyed by folding (lowercase, punctuation collapsed to spaces)
+and the filter that reads dismissals used plain lowercase. For `retreat` those
+agree — which is why every hand-check would have passed. For `Deep-Democracy`
+they do not, and the X would have added a key nobody ever read: the button
+would have looked right and done nothing, for exactly the tags most likely to
+be real. Both sides fold now, and a test pins them to each other rather than
+testing each alone.
+
 ## [0.103.1] — 2026-09-23 — the team picker asked for a column that does not exist
 
 v0.103.0's `myTeams()` selected `team.archived_at`. The `team` table has

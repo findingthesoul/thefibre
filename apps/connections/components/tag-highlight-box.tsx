@@ -20,20 +20,36 @@
 // beneath the real letters. Nothing the person types passes through anything
 // but the browser's own text box.
 //
-// ── What that trade costs, stated rather than hidden ────────────────────────
+// ── The X on the word ───────────────────────────────────────────────────────
 //
-// There is no X on the word itself. A clickable element in the sentence would
-// sit on top of the text box and steal the tap that places the caret there, so
-// editing a highlighted word would mean aiming around it. Removing a tag stays
-// on its chip below; hovering or focusing a chip lights its word up in the
-// sentence, so the two are visibly the same thing.
+// This file used to say there could not be one: a clickable element in the
+// sentence sits on top of the text box and steals the tap that places the
+// caret. That reasoning was right about a clickable WORD and wrong as a
+// conclusion, and the gap it left became real when Sjoerd had the chip row
+// taken away on 2026-09-15 ("this is not needed") — the chips were the only
+// thing that could unmake a tag, so after that nothing could. He asked for it
+// back where it belongs, on 2026-09-22: *"mouse over also shows the X to turn
+// the # into a word again"*.
+//
+// So: not a clickable word, a clickable X. One small button, drawn over the
+// END of the word it belongs to, in a layer that is `pointer-events: none`
+// everywhere except those few pixels. Every other point in the box still
+// places the caret exactly as before, including inside the tagged word.
+//
+// It appears on hover — and also whenever the CARET is inside the word, which
+// is the same affordance for a phone, where there is no hover and a tap is how
+// you reach a word anyway.
+//
+// The positions come from measuring the mirror's own <mark> elements, so they
+// cannot drift from the tint: it is the same element.
 //
 // The layers only line up if they share every metric that affects wrapping.
 // Tailwind's preflight zeroes a textarea's padding and border, and the mirror
 // copies font size, line height, letter spacing and wrapping below. If you
 // restyle the textarea, restyle the mirror in the same commit.
 
-import { useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import type { HighlightRange } from '@/lib/detect-tags';
 
 const TINT: Record<HighlightRange['kind'], string> = {
@@ -60,6 +76,9 @@ export function TagHighlightBox({
   textareaRef,
   onKeyDown,
   onCaret,
+  onUnmake,
+  caret,
+  unmakeLabel = 'Keep the word, drop the tag',
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -75,8 +94,20 @@ export function TagHighlightBox({
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Where the caret is, on every change, click and arrow key. */
   onCaret?: (caret: number) => void;
+  /** Unmake the range under the X: it stops being a tag or a mention and
+   *  stays in the sentence as an ordinary word. Omitted, no X is drawn. */
+  onUnmake?: (range: HighlightRange) => void;
+  /** The caret, so the X can show for the word it sits in — hover's stand-in
+   *  on a touch screen. */
+  caret?: number | null;
+  /** What the X says to a screen reader and on hover. */
+  unmakeLabel?: string;
 }) {
   const mirror = useRef<HTMLDivElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  /** Where each range is on screen, measured from the mirror's own marks. */
+  const [boxes, setBoxes] = useState<{ left: number; top: number }[]>([]);
+  const [hovered, setHovered] = useState<number | null>(null);
 
   // Build the mirror's children: plain text with a span under each range.
   const parts: React.ReactNode[] = [];
@@ -110,8 +141,41 @@ export function TagHighlightBox({
   // it. The zero-width space keeps the two the same height.
   parts.push('\u200B');
 
+  // Measured after every paint that could move a word: the text, the ranges,
+  // and the box's own width all change where a mark ends.
+  const measure = useCallback(() => {
+    if (!onUnmake || !mirror.current || !wrap.current) return;
+    const base = wrap.current.getBoundingClientRect();
+    const marks = mirror.current.querySelectorAll('mark');
+    const next: { left: number; top: number }[] = [];
+    marks.forEach((m) => {
+      // The LAST rect, not the bounding box: a word that wraps across two
+      // lines ends on the second one, and that is where the X belongs.
+      const rects = m.getClientRects();
+      const r = rects[rects.length - 1];
+      if (!r) return;
+      next.push({ left: r.right - base.left, top: r.top - base.top });
+    });
+    setBoxes(next);
+  }, [onUnmake]);
+
+  useLayoutEffect(measure, [measure, value, ranges]);
+  useEffect(() => {
+    if (!onUnmake) return;
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [measure, onUnmake]);
+
+  /** The range the caret sits in — hover's equivalent where there is none. */
+  const atCaret =
+    caret === null || caret === undefined
+      ? -1
+      : ranges.findIndex((r) => caret >= r.start && caret <= r.end);
+  const showing = hovered ?? (atCaret >= 0 ? atCaret : null);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={wrap}>
       <div
         ref={mirror}
         aria-hidden="true"
@@ -134,12 +198,66 @@ export function TagHighlightBox({
         // shows its highlights against the wrong lines.
         onScroll={(e) => {
           if (mirror.current) mirror.current.scrollTop = e.currentTarget.scrollTop;
+          measure();
         }}
+        // Hit-testing on the TEXTAREA, because it is the layer the pointer
+        // actually reaches — the mirror is behind it and takes no events.
+        // Comparing against the measured marks is what lets a word be
+        // "hovered" without anything being placed over it.
+        onMouseMove={
+          onUnmake
+            ? (e) => {
+                const base = wrap.current?.getBoundingClientRect();
+                const marks = mirror.current?.querySelectorAll('mark');
+                if (!base || !marks) return;
+                const x = e.clientX - base.left;
+                const y = e.clientY - base.top;
+                let found: number | null = null;
+                marks.forEach((m, i) => {
+                  for (const r of Array.from(m.getClientRects())) {
+                    if (
+                      x >= r.left - base.left &&
+                      x <= r.right - base.left &&
+                      y >= r.top - base.top &&
+                      y <= r.bottom - base.top
+                    ) {
+                      found = i;
+                    }
+                  }
+                });
+                setHovered(found);
+              }
+            : undefined
+        }
+        onMouseLeave={onUnmake ? () => setHovered(null) : undefined}
         rows={rows}
         placeholder={placeholder}
         aria-label={ariaLabel}
         className={`${METRICS} relative resize-y bg-transparent placeholder:text-ink-muted focus:outline-none`}
       />
+
+      {/* The X layer. `pointer-events-none` on the layer and `auto` on the
+          button alone, so the only place in the whole box that does not place
+          the caret is the X itself. */}
+      {onUnmake && showing !== null && ranges[showing] && boxes[showing] && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onMouseEnter={() => setHovered(showing)}
+            onClick={() => {
+              onUnmake(ranges[showing]!);
+              setHovered(null);
+            }}
+            title={unmakeLabel}
+            aria-label={unmakeLabel}
+            style={{ left: boxes[showing]!.left - 2, top: boxes[showing]!.top - 2 }}
+            className="pointer-events-auto absolute flex h-4 w-4 items-center justify-center rounded-full bg-ink text-ink-inverse shadow-sm"
+          >
+            <X size={10} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
