@@ -74,6 +74,31 @@ const CATALOG = {
     de: 'Gespeichert.', // MT
     fr: 'Enregistré.', // MT
   },
+  // The To do panel's on/off, Settings → Profile (Sjoerd, 2026-09-23).
+  todo: {
+    en: 'To do',
+    nl: 'Te doen',
+    es: 'Tareas', // MT
+    pt: 'A fazer', // MT
+    de: 'Aufgaben', // MT
+    fr: 'À faire', // MT
+  },
+  todo_enabled_label: {
+    en: 'Show the To do panel',
+    nl: 'Toon het Te doen-paneel',
+    es: 'Mostrar el panel de tareas', // MT
+    pt: 'Mostrar o painel A fazer', // MT
+    de: 'Aufgaben-Panel anzeigen', // MT
+    fr: 'Afficher le panneau À faire', // MT
+  },
+  todo_enabled_help: {
+    en: 'The button beside your own icon, in every app. Switching it off hides it everywhere; your list is kept.',
+    nl: 'De knop naast je eigen icoon, in elke app. Uitzetten verbergt hem overal; je lijst blijft bewaard.',
+    es: 'El botón junto a tu icono, en todas las aplicaciones. Al desactivarlo se oculta en todas partes; tu lista se conserva.', // MT
+    pt: 'O botão ao lado do seu ícone, em todos os aplicativos. Desativá-lo o oculta em todos os lugares; sua lista é mantida.', // MT
+    de: 'Die Schaltfläche neben deinem Symbol, in jeder App. Ausschalten blendet sie überall aus; deine Liste bleibt erhalten.', // MT
+    fr: "Le bouton à côté de votre icône, dans chaque application. Le désactiver le masque partout ; votre liste est conservée.", // MT
+  },
   could_not_save: {
     en: 'Could not save',
     nl: 'Opslaan is niet gelukt',

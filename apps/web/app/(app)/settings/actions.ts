@@ -191,3 +191,27 @@ export async function inviteMember(input: InviteInput): Promise<InviteResult> {
 // Fibre apps (Meet and Thread inherit these).
 // ---------------------------------------------------------------------------
 
+
+/**
+ * The To do panel's on/off (Sjoerd, 2026-09-23: an ON/OFF, in "profile
+ * settings").
+ *
+ * ONE store, unlike saveLocale: this is per person and durable only —
+ * identity_profile.todo_enabled, read by every app's topbar through
+ * /auth/me. There is deliberately no cookie beside it. The panel DOES have a
+ * cookie, `thefibre.todo`, but that one answers a different question — is it
+ * open on this screen right now — and switching the feature off hides the
+ * button without touching it, so turning To do back on finds the panel the
+ * way it was left.
+ */
+export async function saveTodoEnabled(enabled: boolean): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ todo_enabled: enabled }),
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, ...unwrap(e) };
+  }
+}

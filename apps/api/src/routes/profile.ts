@@ -46,6 +46,9 @@ const ProfilePatch = z.object({
     .nullable()
     .optional()
     .refine((v) => v == null || isLocale(v), 'unsupported locale'),
+  // Whether this person wants the To do panel at all (Sjoerd, 2026-09-23:
+  // an ON/OFF, in "profile settings"). Per person, not per workspace.
+  todo_enabled: z.boolean().optional(),
   // Payments SPoT (personal level) — every app reads these.
   stripe_account_id: z
     .string()

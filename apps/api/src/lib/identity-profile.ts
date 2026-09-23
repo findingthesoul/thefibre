@@ -19,6 +19,10 @@ export type IdentityProfile = {
   timezone: string | null;
   /** UI + email language (i18n P2, D1) — one of LOCALES, null = no preference. */
   locale: string | null;
+  /** Whether this person wants the To do panel at all (Settings → Profile).
+   *  Here rather than in a cookie because it is about YOU, not about this
+   *  browser: switching it off on a laptop must switch it off on a phone. */
+  todo_enabled: boolean;
 };
 
 const EMPTY: IdentityProfile = {
@@ -27,6 +31,7 @@ const EMPTY: IdentityProfile = {
   photo_url: null,
   timezone: null,
   locale: null,
+  todo_enabled: true,
 };
 
 async function emailFor(userId: string): Promise<string | null> {
@@ -52,7 +57,7 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
   const [{ data: identity }, { data: legacy }] = await Promise.all([
     adminClient
       .from('identity_profile')
-      .select('display_name, bio, photo_url, timezone, locale')
+      .select('display_name, bio, photo_url, timezone, locale, todo_enabled')
       .eq('email', email)
       .maybeSingle(),
     adminClient
@@ -69,6 +74,8 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
     timezone: identity?.timezone ?? legacy?.timezone ?? null,
     // No legacy fallback — user_profile never had a locale (column born 20260906020000).
     locale: identity?.locale ?? null,
+    // Default ON: a person with no row yet still gets the panel.
+    todo_enabled: identity?.todo_enabled ?? true,
   };
 }
 
@@ -78,7 +85,7 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
   if (!email) throw new Error('no email for user');
   const existing = await adminClient
     .from('identity_profile')
-    .select('display_name, bio, photo_url, timezone, locale')
+    .select('display_name, bio, photo_url, timezone, locale, todo_enabled')
     .eq('email', email)
     .maybeSingle();
   if (existing.data) return { ...existing.data, email };
@@ -102,7 +109,7 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
   const { data: created, error } = await adminClient
     .from('identity_profile')
     .upsert(seed, { onConflict: 'email' })
-    .select('display_name, bio, photo_url, timezone, locale')
+    .select('display_name, bio, photo_url, timezone, locale, todo_enabled')
     .single();
   if (error || !created) throw new Error(error?.message ?? 'could not provision profile');
   return { ...created, email };
@@ -110,7 +117,7 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
 
 export async function saveProfile(
   userId: string,
-  patch: Partial<Record<keyof IdentityProfile, string | null | undefined>>,
+  patch: Partial<Record<keyof IdentityProfile, string | boolean | null | undefined>>,
 ): Promise<{ error?: string }> {
   const email = await emailFor(userId);
   if (!email) return { error: 'no email for user' };

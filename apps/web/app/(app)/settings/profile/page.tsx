@@ -5,6 +5,7 @@ import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { ProfileForm, type PublicProfile } from './profile-form';
 import { LanguagePicker } from './language-picker';
 import { LauncherPref } from './launcher-pref';
+import { TodoPref } from './todo-pref';
 import { cookies } from 'next/headers';
 import { COOKIE_LAUNCHER } from '@/lib/prefs-shared';
 
@@ -90,6 +91,7 @@ export default async function ProfileSettingsPage() {
           />
           <LanguagePicker initial={profile?.locale ?? null} locale={locale} />
           <LauncherPref initialShow={launcherShow} locale={locale} />
+          <TodoPref initial={profile?.todo_enabled !== false} locale={locale} />
           <section className="mt-12 border-t border-line pt-8">
             <div className="text-[10px] uppercase tracking-wider text-ink-muted">
               {t(locale, 'signing_in')}

@@ -25,6 +25,10 @@ export type ShellMe = {
   memberships: (AppMembershipRow & { role?: string })[];
   /** The signed-in interface language (identity_profile.locale). */
   locale?: string | null;
+  /** Whether this person wants the To do panel (identity_profile.todo_enabled).
+   *  Absent means yes: an older API that does not send it must not take the
+   *  panel away. */
+  todo_enabled?: boolean;
   workspace_archived?: boolean;
 };
 

@@ -24,6 +24,8 @@ export type PublicProfile = {
   timezone: string | null;
   /** UI + email language (i18n P2) — edited by LanguagePicker, not this form. */
   locale?: string | null;
+  /** The To do panel's on/off — edited by TodoPref, not this form. */
+  todo_enabled?: boolean;
 };
 
 export function ProfileForm({

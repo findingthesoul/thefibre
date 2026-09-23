@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.100.0] — 2026-09-23 — To do is something you can switch off
+
+Sjoerd asked for an ON/OFF for the To do panel and, asked where it should
+live, said "profile settings". So: **Settings → Profile → Show the To do
+panel**, on by default.
+
+It is a per-PERSON setting, stored on `identity_profile.todo_enabled` beside
+`locale` — not a cookie like the launcher preference above it, and not a
+workspace setting or a plan gate. Your own list is nobody else's business, and
+switching it off on a laptop has to switch it off on a phone.
+
+It rides `/auth/me`, which every app's layout already calls once per server
+render, so the button is absent from all seven topbars the moment you turn it
+off — no extra round trip anywhere. A missing value means ON: an older API, or
+a profile read that fails, must not silently take the panel away.
+
+**The two preferences do not fight.** `thefibre.todo` (open or closed, per
+browser) answers "is the panel open on this screen right now"; `todo_enabled`
+answers "do I want this at all". Switching the feature off hides the button
+without touching the open cookie, so turning it back on finds the panel exactly
+as it was left.
+
+Migration `20260923094000_identity_profile_todo_enabled.sql`.
+
 ## [0.99.5] — 2026-09-23 — the filing is proved, on the running system
 
 Measured on staging rather than asserted, because the whole archive-not-delete

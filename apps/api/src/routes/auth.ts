@@ -212,6 +212,11 @@ authRoutes.get('/me', async (c) => {
     return activeAppIds.has(m.app_id as string);
   });
   const locale: string | null = profile?.locale ?? null;
+  // Whether this person wants the To do panel. Rides this call because every
+  // app's topbar needs it on every server render, and /auth/me is already the
+  // one round trip each layout makes. Missing profile → true, so a failure
+  // here shows the panel rather than silently taking it away.
+  const todoEnabled: boolean = profile?.todo_enabled ?? true;
 
   return c.json({
     user,
@@ -219,6 +224,8 @@ authRoutes.get('/me', async (c) => {
     memberships,
     // Additive (rule 8): the signed-in interface language.
     locale,
+    // Additive (rule 8): the To do panel's per-person on/off.
+    todo_enabled: todoEnabled,
     app_id: ctx.appId,
     // Additive (rule 8): the 13-month Free archive — layouts steer archived
     // workspaces to Settings → Plan, where the reactivation banner lives.
