@@ -22,6 +22,19 @@ the queue.
 
 _Last groomed 2026-09-23 (v0.123.0). Done items get removed, not ticked._
 
+**No bounce path: a dead email address is silent everywhere.** Found
+2026-09-23 on a real Meet booking (invitee typed `gmail.con`; her request-sent
+and confirmation mails died; the host saw a normal booking). Resend reports
+bounces on a webhook we do not consume, so no enrolment, booking, invoice or
+membership ever learns its mail failed. Shape: a `POST /api/v1/email/resend-webhook`
+that records `bounced` against the sent message's reference, a visible
+"could not be delivered" state on the booking/enrolment/member row, and a
+host-side nudge. The Meet lane is queuing the cheaper half (a known-domain
+"did you mean" on the booking form; invitee address prominent to the host);
+this item is the other half and applies to every app. Also: a recipient-side
+review of every email template, read as the recipient, per app — two of
+today's three email defects would have shown up in one pass.
+
 **FOR SJOERD — the thread to-do tier is now yours to set, at /admin/plans.**
 Answered 2026-09-23 in v0.123.0: it has its own key `thread_todo`, separate
 from the personal list's `todo`, and both are checkboxes in the tier matrix.
