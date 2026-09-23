@@ -85,6 +85,58 @@ than copied.
 Default for Google: **approve**, never auto. A created account is a billable
 seat on a Google bill nobody in this system can see.
 
+## 4b. Two additions (Sjoerd, 2026-09-24)
+
+**Mail both addresses, always.** Anything about the Workspace account goes to
+the domain address AND the address they enrolled with. Obvious once stated and
+easy to get wrong: a suspension notice sent only to `name@soul.com` arrives in
+an inbox they can no longer open. The enrolment address is the one that still
+works when the other stops, so it is the one that carries bad news.
+
+**The money runs at two different speeds.** A member pays a YEAR in advance;
+Google bills soul.com MONTHLY. Sjoerd: *"so the costs should be relative."*
+Three separate things hide in that sentence and they want separating:
+
+1. **Cash timing** — a year up front against twelve monthly payments out. In
+   soul.com's favour, and needs nothing built.
+2. **A part period** — somebody joining in month seven. Charging a full year
+   for five months of service is the thing to avoid, so the price wants
+   prorating to the remaining term.
+3. **Price against cost** — €193.20/year should stay tied to what Google
+   actually charges, so a Google price rise does not silently eat the margin.
+
+Only 2 and 3 are design. **D6 below asks which of them he means**, because
+prorating a join is a different piece of work from pegging a price to cost.
+
+**The lapse case is already covered by the year-in-advance shape**, and worth
+saying so: a member who stops after three months has already paid for twelve,
+so soul.com holds nine months of their money while paying Google for a
+suspended account. The exposure starts when that paid year ENDS — which is
+exactly what D2 is about, and §4c now makes it unignorable.
+
+## 4c. Suspension does NOT stop the Google bill
+
+Checked against Google's own documentation on 2026-09-24, because the
+assumption ran the other way:
+
+> "Suspended accounts are still charged at the same rate as active accounts on
+> both the Annual billing plan and the Flexible plan."
+> — [Suspend a user temporarily](https://support.google.com/a/answer/33312)
+
+Deleting is what reduces the bill, and deleting is the thing this worker
+deliberately never does. So the current revoke path parks a permanent cost:
+suspended forever, billed forever, and never mentioned again by anything in
+the app.
+
+**Suspension stays the right revoke action** — reversible, and it protects
+mail and files. What is missing is the step after it: suspended accounts
+surfaced somewhere Sjoerd will see, with an explicit "delete and stop the
+charge" that asks about the data first. The destructive step stays human; the
+cost stops being silent.
+
+This promotes D2 from housekeeping to the decision that governs whether this
+feature costs money forever.
+
 ## 5. Decisions — Sjoerd only
 
 - **D1 · Which domain?** A Workspace can host several. Derive from
@@ -97,6 +149,9 @@ seat on a Google bill nobody in this system can see.
 - **D3 · Does a suspended seat still cost you?** Check against the Google plan
   before joining is allowed to spend money. Determines whether D2 is urgent.
 - **D4 · Who approves?** Any workspace admin, or a named person?
+- **D6 · What does "costs should be relative" mean?** Prorating a mid-term
+  join to the remaining months, pegging the price to Google's actual cost, or
+  both? They are different pieces of work.
 - **D5 · Alternatives on collision.** Sjoerd said *"this already exists… alt"*.
   Suggest (`j.smith`, `smithj`), or just refuse and let them retype?
 
@@ -114,5 +169,10 @@ seat on a Google bill nobody in this system can see.
 - Google's Directory API scope `admin.directory.user` manages accounts in the
   account's own domains — the basis for outcome C.
 
-**Not checked:** how Google bills a suspended user on Sjoerd's specific plan
-(D3). Stated as a question rather than a fact.
+- Google's billing for suspended users — now CHECKED (§4c) against
+  `support.google.com/a/answer/33312`: billed at the full rate on both plans.
+  D3 is therefore answered, and it is the answer that makes D2 urgent.
+
+**Not checked:** whether soul.com is on the Annual or Flexible plan. It does
+not change the billing answer — both charge for suspended users — but it does
+change how quickly a deletion stops the charge.

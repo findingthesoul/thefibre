@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.20.1] — 2026-09-24 — the price stops landing in the middle of the name (staging)
+
+Sjoerd's screenshot of the live soul.com join page: the Google Workspace
+extra rendered as `email@soul.com+ € 193,20 / year / Google Workspace`.
+
+The name and the price were two flex siblings, the name with `flex-1`. A name
+long enough to wrap therefore ran onto a second line while the price stayed on
+the first, so the price appeared buried mid-name. Wrapping the PAIR instead
+keeps the price whole and right-aligned, on its own line when the name needs
+the room and beside it when it does not.
+
+Verified at 375px against real production data: the label now reads
+`email@soul.com / Google Workspace` with `+ € 193,20 / year` beneath it.
+
+Also in this commit, docs only: `google-workspace-provisioning.md` gains
+Sjoerd's two additions — mail both the domain address and the enrolment
+address, because a suspension notice sent only to the account you just
+suspended arrives nowhere — and the year-in-advance against monthly-out
+question, split into the three separate things hiding inside it.
+
+And it gains the answer to the billing question the proposal had listed as
+unchecked. **Suspension does not stop the Google bill.** Google's own
+documentation: suspended accounts are charged at the same rate as active ones
+on both plans, and deleting is what reduces the bill. Deleting is precisely
+what this worker deliberately never does, so the current revoke path parks a
+permanent cost. Suspension stays the right action; what is missing is a
+surface that shows suspended accounts and an explicit, human "delete and stop
+the charge".
+
 ## [1.20.0] — 2026-09-23 — a title you can read (Portal 0.10.3)
 
 From Sjoerd's phone screenshot: every card read *"Soul.com's The theory of

@@ -353,7 +353,17 @@ function TierCard({
                         onChange={() => toggleOption(p.id)}
                         className="mt-0.5 accent-current"
                       />
-                      <span className="min-w-0 flex-1 text-ink">{p.name}</span>
+                      {/* Name and price share a line when they fit and stack
+                          when they do not. As two flex siblings the name got
+                          `flex-1` and wrapped while the price stayed on line
+                          one, so a long name like "email@soul.com / Google
+                          Workspace" rendered as `email@soul.com+ € 193,20 /
+                          year` with the price buried mid-name (Sjoerd's
+                          screenshot of the live soul.com join page,
+                          2026-09-24). Wrapping the PAIR keeps the price
+                          whole and right-aligned on its own line instead. */}
+                      <span className="min-w-0 flex-1 flex flex-wrap items-baseline justify-between gap-x-2">
+                      <span className="text-ink">{p.name}</span>
                       <span className="shrink-0 text-ink-subtle tabular-nums">
                         {(p.price_cents ?? 0) > 0
                           ? `+ ${money(p.price_cents!, p.currency ?? currency)} ${
@@ -364,6 +374,7 @@ function TierCard({
                                   : t(locale, 'option_once')
                             }`
                           : t(locale, 'option_included')}
+                      </span>
                       </span>
                     </label>
                   ))}
