@@ -126,8 +126,13 @@ After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl htt
 ```bash
 ./scripts/deploy-api.sh staging --probe "https://thefibre-api-staging.fly.dev/api/v1/… | some text only the new code returns"
 ./scripts/deploy-api.sh prod    --no-visible-change
+./scripts/deploy-api.sh prod    --probe scripts/smoke-prod.mjs
 ./scripts/deploy-api.sh prod    --probe "… | …" --dry-run   # check without deploying
 ```
+
+`--probe` takes either a `url | expected text` pair or the path of a script to
+run (exit 0 passes) — for a check a single request cannot make, like the
+several ordered calls a payment path needs.
 
 `fly deploy` uploads the WORKING TREE, not the branch, and on 2026-09-23 that
 shipped something unintended twice inside one hour — once another session's

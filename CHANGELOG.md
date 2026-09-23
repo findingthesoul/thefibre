@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-09-23
+
+### Changed
+- **`deploy-api.sh --probe` also takes a script path.** Asked for by the
+  session running the launch checks, whose real post-deploy proof is several
+  calls in order rather than one request — a payment path, a webhook round
+  trip. Without it, such a release either skips the check or invents a
+  single-request probe that stands in for the real one, which is the exact
+  failure the gate exists to prevent. `--probe scripts/smoke-prod.mjs` now
+  runs it and passes on exit 0. A `--probe` that is neither a `url | text`
+  pair nor an existing file is refused rather than quietly treated as a URL.
+
 ## [1.2.0] — 2026-09-23
 
 ### Added

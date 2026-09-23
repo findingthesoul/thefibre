@@ -56,6 +56,10 @@ usage: ./scripts/deploy-api.sh <staging|prod> (--probe "<url> | <expected>" | --
 
   --probe "<url> | <expected>"   a request only the NEW code answers this way.
                                  Run after the deploy; a miss fails the run.
+  --probe <script.mjs>           or a script that checks it — anything already
+                                 in scripts/ (smoke-prod.mjs, verify-*.mjs).
+                                 Exit 0 passes. For checks a single request
+                                 cannot make.
   --no-visible-change            nothing about this release is observable over
                                  HTTP (a refactor, a log line, a dep bump).
                                  A real answer, recorded as such.
@@ -162,6 +166,39 @@ fi
 if [ "$NO_VISIBLE" = "1" ]; then
   ANSWER="no user-visible change"
 else
+  # A script, when one request cannot say it — suggested by the session that
+  # runs the launch checks, whose real post-deploy proof is several calls in
+  # order (verify-stripe-webhooks.mjs and friends). Without this, such a
+  # release either skips gate 4 or invents a single-request probe that stands
+  # in for the real check, which is the failure this whole gate is against.
+  if [ -f "$PROBE" ]; then
+    echo "Probing with $PROBE"
+    if ! node "$PROBE"; then
+      echo "PROBE FAILED: $PROBE exited non-zero." >&2
+      if [ "$DRY" = "1" ]; then
+        echo "  Nothing was deployed — this is the CURRENT image answering." >&2
+      else
+        echo "  The deploy HAPPENED — the running image may not be the one you meant," >&2
+        echo "  or the check itself is wrong. Read its output before believing either." >&2
+      fi
+      exit 1
+    fi
+    ANSWER="$PROBE passed"
+    echo
+    if [ "$DRY" = "1" ]; then
+      echo "would deploy $HEAD_SHA, probe: $ANSWER"
+    else
+      echo "deployed $HEAD_SHA as $RELEASE, probe: $ANSWER"
+    fi
+    exit 0
+  fi
+
+  case "$PROBE" in
+    *\|*) : ;;
+    *) echo "REFUSED: --probe needs \"<url> | <expected>\" or a script path that exists." >&2
+       echo "  Got: $PROBE" >&2
+       exit 64 ;;
+  esac
   URL="${PROBE%%|*}"; URL="$(echo "$URL" | xargs)"
   WANT="${PROBE#*|}";  WANT="$(echo "$WANT" | xargs)"
   echo "Probing $URL for: $WANT"
