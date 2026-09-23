@@ -11,4 +11,6 @@ export {
   type SidebarMode,
   type IntroMode,
   type Prefs,
+  COOKIE_TODO,
+  type TodoMode,
 } from '@thefibre/shared/prefs';

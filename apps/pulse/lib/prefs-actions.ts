@@ -19,7 +19,7 @@
 
 import { cookies } from 'next/headers';
 import {
-  COOKIE_THEME,
+  COOKIE_THEME, COOKIE_TODO,
   COOKIE_SIDEBAR,
   COOKIE_CASHFLOW_VIEW,
   COOKIE_CASHFLOW_FIT,
@@ -28,6 +28,7 @@ import {
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 const ALLOWED = new Set<string>([
+  COOKIE_TODO,
   COOKIE_THEME,
   COOKIE_SIDEBAR,
   COOKIE_CASHFLOW_VIEW,

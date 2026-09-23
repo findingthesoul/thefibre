@@ -14,7 +14,15 @@ export type Prefs = {
    *  'on': the other eight apps' readPrefs do not set it, and this type is
    *  additive on purpose so adopting the toggle stays a per-app decision. */
   intro?: IntroMode;
+  /** Whether the To do panel is open. OPTIONAL and additive, like `intro`.
+   *  Sjoerd, 2026-09-23: *"the panel can also stay open, scanning through
+   *  various apps"* — so it is a cookie, not component state, and the topbar
+   *  renders it open on the server rather than a frame after hydration. */
+  todo?: TodoMode;
 };
+
+/** 'open' = the panel is showing; absent / anything else = closed. */
+export type TodoMode = 'open' | 'closed';
 
 /** Whether the paragraph under a page title is shown. Sjoerd, 2026-09-21,
  *  about Today's: *"should have a toggle button (on and off... reduce info on
@@ -28,6 +36,15 @@ export const COOKIE_SIDEBAR = 'thefibre.sidebar';
 // Domain-wide like the other two: somebody who does not want the explanation
 // on Today does not want it on the landscape either.
 export const COOKIE_INTRO = 'thefibre.intro';
+
+// The To do panel's open state. Domain-wide for the same reason as the
+// others: a list you left open is a list you are working from, and walking
+// into the next app should not close it. Note the reach of "domain-wide" —
+// it is ONE apex, so on production the panel's state carries across the
+// thethread.app apps but not over to thefibre.app, which is a different
+// registrable domain and cannot share a cookie. On staging every app is
+// under thefibre.tech, so there it carries everywhere.
+export const COOKIE_TODO = 'thefibre.todo';
 
 // UI language (i18n P2, D1) — one user-level setting, domain-wide like the
 // theme. The durable copy is identity_profile.locale (via /api/v1/profile);

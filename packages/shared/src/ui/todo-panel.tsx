@@ -13,7 +13,7 @@
 // archive, where it can be un-ticked for seven days.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Circle, Clock, ListTodo, Plus, RotateCcw, X } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, ListTodo, Loader2, Plus, RotateCcw, X } from 'lucide-react';
 import { FIELD_INPUT_CLASS } from './fields.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
@@ -53,14 +53,27 @@ const GROUP_KEY = {
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
 /** The button that lives beside the person's own icon, plus the panel it opens. */
-export function TodoPanelButton({ actions }: { actions: TodoActions }) {
+export function TodoPanelButton({
+  actions,
+  initialOpen = false,
+  onOpenChange,
+}: {
+  actions: TodoActions;
+  /** Whether it was open when you left the last app. Server-rendered from a
+   *  domain-wide cookie, so an open panel is open on first paint. */
+  initialOpen?: boolean;
+  /** Persist that, so the panel survives the walk to the next app. */
+  onOpenChange?: (open: boolean) => void;
+}) {
   const locale = useLocale();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [view, setView] = useState<'open' | 'archive'>('open');
   const [groups, setGroups] = useState<TodoGroups>({});
   const [archive, setArchive] = useState<TodoItem[]>([]);
   const [count, setCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  // Distinct from `busy`: this is the list arriving, not a row changing.
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +87,13 @@ export function TodoPanelButton({ actions }: { actions: TodoActions }) {
 
   const load = useCallback(
     async (which: 'open' | 'archive') => {
-      const data = await actionsRef.current.list(which);
+      setLoading(true);
+      let data;
+      try {
+        data = await actionsRef.current.list(which);
+      } finally {
+        setLoading(false);
+      }
       if (!data) return;
       if (which === 'archive') setArchive(data.items);
       else {
@@ -91,22 +110,30 @@ export function TodoPanelButton({ actions }: { actions: TodoActions }) {
     void load('open');
   }, [load]);
 
+  // Open and closed are both deliberate states, remembered across apps, so
+  // one place does both: set the state and tell the caller to persist it.
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  const setOpenPersisted = useCallback((next: boolean) => {
+    setOpen(next);
+    onOpenChangeRef.current?.(next);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     void load(view);
+    // Escape closes it; clicking elsewhere does NOT. The panel is meant to
+    // stay open while you move around and between apps (Sjoerd, 2026-09-23:
+    // *"the panel can also stay open, scanning through various apps"*) — and
+    // an outside-click close would fire on the app switcher itself, shutting
+    // the panel on the very click that walks you to the next app. It closes
+    // from its own X, or from the button that opened it.
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    function onClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+      if (e.key === 'Escape') setOpenPersisted(false);
     }
     document.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onClick);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onClick);
-    };
-  }, [open, view, load]);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, view, load, setOpenPersisted]);
 
   async function act(fn: () => Promise<void>) {
     setBusy(true);
@@ -123,7 +150,7 @@ export function TodoPanelButton({ actions }: { actions: TodoActions }) {
     <div className="relative" ref={panelRef}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpenPersisted(!open)}
         aria-expanded={open}
         title={chromeT(locale, 'todo')}
         className={`relative inline-flex h-9 w-9 items-center justify-center rounded-lg ${
@@ -150,7 +177,7 @@ export function TodoPanelButton({ actions }: { actions: TodoActions }) {
               >
                 {chromeT(locale, view === 'open' ? 'todo_archive' : 'todo_back_to_list')}
               </button>
-              <button type="button" onClick={() => setOpen(false)} aria-label={chromeT(locale, 'close')} className="p-1 text-ink-muted hover:text-ink">
+              <button type="button" onClick={() => setOpenPersisted(false)} aria-label={chromeT(locale, 'close')} className="p-1 text-ink-muted hover:text-ink">
                 <X size={16} />
               </button>
             </div>
@@ -178,7 +205,12 @@ export function TodoPanelButton({ actions }: { actions: TodoActions }) {
           )}
 
           <div className="max-h-[60vh] overflow-y-auto px-3 py-2">
-            {view === 'archive' ? (
+            {loading ? (
+              <p className="flex items-center gap-2 py-3 text-sm text-ink-subtle">
+                <Loader2 size={14} className="animate-spin" />
+                {chromeT(locale, 'loading')}
+              </p>
+            ) : view === 'archive' ? (
               <Archive items={archive} busy={busy} onUndo={(i) => void act(() => actions.setState(i, 'open'))} />
             ) : (
               <OpenList groups={groups} busy={busy} actions={actions} act={act} />

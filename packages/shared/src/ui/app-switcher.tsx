@@ -10,7 +10,7 @@
 // re-exports the result.
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Loader2 } from 'lucide-react';
 import { chromeT, useLocale } from './i18n-ui.js';
 
 export type AppEntry = {
@@ -22,10 +22,25 @@ export type AppEntry = {
 
 /** next/link, structurally. See HelpLink in help.tsx for why it is loose. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type LinkLike = (props: { href: string; className?: string; children?: any }) => any;
+type LinkLike = (props: {
+  href: string;
+  className?: string;
+  onClick?: () => void;
+  children?: any;
+}) => any;
 
 /** Bind the app's next/link once, at module scope, in the shim:
  *  `export const AppSwitcher = createAppSwitcher(Link);` */
+/** The origin of an app's URL, for preconnect. A relative or malformed URL
+ *  has no origin to warm, and must not throw inside a render. */
+function originOf(url: string): string | undefined {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
 export function createAppSwitcher(LinkComponent: LinkLike) {
   return function AppSwitcher({
     current,
@@ -36,6 +51,12 @@ export function createAppSwitcher(LinkComponent: LinkLike) {
   }) {
     const locale = useLocale();
     const [open, setOpen] = useState(false);
+    // Which app you just clicked. Every entry here is a DIFFERENT ORIGIN, so
+    // the hop is a full page load the router cannot make feel instant — but
+    // it can say it heard you. Without this the menu sits there looking
+    // ignored for the length of a cold connection (Sjoerd, 2026-09-23:
+    // *"show a loading icon when something is loading"*).
+    const [going, setGoing] = useState<string | null>(null);
     const ref = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -61,6 +82,17 @@ export function createAppSwitcher(LinkComponent: LinkLike) {
 
         {open && (
           <div className="absolute left-0 mt-2 w-56 rounded-lg bg-surface-raised border border-line shadow-lg py-2 text-sm z-40">
+            {/* Opening the menu is the moment we learn a hop is likely, so the
+                browser can do the DNS lookup and TLS handshake for the other
+                apps' origins now instead of after the click. Only here — not
+                on every page load — because eight idle sockets to prove a
+                point is not a speed-up. */}
+            {apps.map((a) => {
+              if (a.current ?? a.slug === current.slug) return null;
+              const origin = originOf(a.url);
+              if (!origin) return null;
+              return <link key={`pc-${a.slug}`} rel="preconnect" href={origin} />;
+            })}
             <div className="px-3 pt-1 pb-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
               {chromeT(locale, 'switch_app')}
             </div>
@@ -82,8 +114,16 @@ export function createAppSwitcher(LinkComponent: LinkLike) {
                 );
               }
               return (
-                <LinkComponent key={a.slug} href={a.url} className={cls}>
-                  {inner}
+                <LinkComponent
+                  key={a.slug}
+                  href={a.url}
+                  className={cls}
+                  onClick={() => setGoing(a.slug)}
+                >
+                  <span>{a.name}</span>
+                  {going === a.slug && (
+                    <Loader2 size={14} className="animate-spin text-ink-muted" />
+                  )}
                 </LinkComponent>
               );
             })}

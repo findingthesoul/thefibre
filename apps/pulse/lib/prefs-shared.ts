@@ -9,6 +9,8 @@ export {
   type Theme,
   type SidebarMode,
   type Prefs,
+  COOKIE_TODO,
+  type TodoMode,
 } from '@thefibre/shared/prefs';
 
 // Pulse: which Cashflow view the user last chose (period is the default).

@@ -9,6 +9,8 @@ export {
   type Theme,
   type SidebarMode,
   type Prefs,
+  COOKIE_TODO,
+  type TodoMode,
 } from '@thefibre/shared/prefs';
 
 // COOKIE_LOCALE (the UI language) is re-exported above from the shared

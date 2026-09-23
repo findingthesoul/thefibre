@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.99.0] — 2026-09-23 — To do in every app, and it stays open while you walk
+
+Sjoerd, looking at Connect on staging: *"I dont see the to do icon"*. Nothing
+was broken — the panel existed only in the Fibre web topbar, and Connect is
+where he actually works. So step 2 of `docs/personal-todo-proposal.md` arrived
+early, because that is where the question came from.
+
+**The button is now in all seven topbars** — Fibre, Connect, Thread, Meet,
+Flow, Pulse, Membership. The four fetches behind it moved to one place,
+`@thefibre/shared/todo-calls`, taking an `apiFetch` the way `app-shell.ts`
+does: shared decides WHAT, each app's `lib/todo-actions.ts` stays the thin
+`'use server'` wrapper that decides HOW. Seven copies of the same four fetches
+is the drift the components-first rule exists to prevent.
+
+**The panel stays open across apps.** Sjoerd: *"the panel can also stay open,
+scanning through various apps"*. Open/closed is now a domain-wide cookie
+(`thefibre.todo`), read server-side like the theme, so a panel you left open
+is open on first paint rather than a frame later. Two consequences worth
+naming:
+
+- **Clicking outside no longer closes it.** It could not stay open otherwise:
+  the outside-click handler fired on the app switcher itself, so the panel
+  shut on the very click that walked you to the next app. It closes from its
+  own X, from the button that opened it, or with Escape.
+- **"Domain-wide" is one apex.** On staging every app lives under
+  `thefibre.tech`, so the panel follows you everywhere. In production the
+  apps are on `thethread.app` and the platform is on `thefibre.app` — two
+  registrable domains, which cannot share a cookie — so the state carries
+  among the apps but resets on the hop to The Fibre itself.
+
+**Loading is visible now**, answering *"can apps pre-load? Or show a loading
+icon when something is loading"*:
+
+- The panel says it is loading instead of showing an empty list while the
+  first fetch is in flight.
+- The app switcher spins on the entry you clicked. Every app is a different
+  origin, so that hop is a full page load no router can make instant — but the
+  menu can stop looking ignored while it happens.
+- Opening the switcher preconnects to the other apps' origins, so the DNS
+  lookup and TLS handshake happen while you are still choosing, not after you
+  click. Only on open: eight idle sockets on every page load would be a cost,
+  not a saving.
+
 ## [0.98.2] — 2026-09-23 — To do lives at /api/v1/tasks (staging)
 
 The list answered 500 to everything: `Cannot read properties of undefined

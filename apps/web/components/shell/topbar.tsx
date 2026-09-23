@@ -28,7 +28,7 @@ export function Topbar({
       right={
         <div className="flex items-center gap-2">
           {/* Beside your own icon, per Sjoerd: the list toggles from here. */}
-          <TodoButton />
+          <TodoButton initialOpen={prefs.todo === 'open'} />
           <UserMenu
             email={email}
             fullName={fullName || email}

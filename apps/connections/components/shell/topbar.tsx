@@ -4,6 +4,7 @@
 import { TopbarFrame, initialsOf } from '@thefibre/shared/ui/topbar';
 import { UserMenu, type WorkspaceChoice } from './user-menu';
 import { AppSwitcher, type AppEntry } from './app-switcher';
+import { TodoButton } from './todo';
 import type { Prefs } from '@/lib/prefs-shared';
 
 export function Topbar({
@@ -28,15 +29,19 @@ export function Topbar({
     <TopbarFrame
       left={<AppSwitcher current={current} apps={apps} />}
       right={
-        <UserMenu
-          email={email}
-          fullName={fullName || email}
-          initials={initialsOf(fullName, email)}
-          theme={prefs.theme}
-          sidebar={prefs.sidebar}
-          workspaces={workspaces}
-          profileHref={profileHref}
-        />
+        <div className="flex items-center gap-2">
+          {/* Beside your own icon, per Sjoerd: the list toggles from here. */}
+          <TodoButton initialOpen={prefs.todo === 'open'} />
+          <UserMenu
+            email={email}
+            fullName={fullName || email}
+            initials={initialsOf(fullName, email)}
+            theme={prefs.theme}
+            sidebar={prefs.sidebar}
+            workspaces={workspaces}
+            profileHref={profileHref}
+          />
+        </div>
       }
     />
   );
