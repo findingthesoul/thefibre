@@ -67,6 +67,10 @@ export async function GET(
     description: [item.description, thread.title].filter(Boolean).join('\n\n'),
     location: item.location,
     url: item.meeting_url ?? item.external_url ?? thread.url,
+    // Who it is FROM. Without this the entry is a block of time from nobody,
+    // which is how it read until 2026-09-24.
+    organizerName: thread.organiser_name,
+    organizerEmail: thread.organiser_email,
     attendeeName:
       [portal.person.first_name, portal.person.last_name].filter(Boolean).join(' ') || null,
     attendeeEmail: portal.person.email,

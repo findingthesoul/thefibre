@@ -63,6 +63,6 @@ export const loadProfile = cache(async (): Promise<MyProfile | null> => {
  *  offers to create one, which is harmless — minting always replaces. */
 export const loadCalendarStatus = cache(async (): Promise<CalendarStatus> => {
   const s = await loadSession();
-  if (!s) return { subscribed: false, created_at: null, last_read_at: null };
+  if (!s) return { subscribed: false, created_at: null, last_read_at: null, url: null, webcal: null };
   return fetchCalendarStatus(s.token);
 });

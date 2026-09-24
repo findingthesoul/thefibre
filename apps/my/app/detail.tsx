@@ -21,6 +21,7 @@ import {
   googleWalletUrl,
   setRsvp,
   ticketQrUrl,
+  threadIcsUrl,
   type AgendaItem,
   type Portal,
   type RsvpResponse,
@@ -478,7 +479,25 @@ export function ThreadSheet({
 
         {thread.agenda.length > 0 ? (
           <section>
-            <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Agenda</h3>
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Agenda</h3>
+              {/* The whole programme in one go. Every row already offers its
+                  own session, and a course of eight was eight downloads —
+                  which nobody does (Sjoerd, 2026-09-24: "you can add the
+                  sequence at once"). Only when more than one session has a
+                  real timestamp: below that it is the same file as the row
+                  above it, wearing a second name. */}
+              {thread.agenda.filter((a) => a.starts_at).length > 1 && (
+                <a
+                  href={threadIcsUrl(thread.thread_id)}
+                  download
+                  className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink underline underline-offset-4"
+                >
+                  <CalendarPlus className="h-4 w-4" aria-hidden />
+                  Add all to calendar
+                </a>
+              )}
+            </div>
             <ul className="mt-2">
               {thread.agenda.map((a) => (
                 <AgendaRow key={a.id} threadId={thread.thread_id} item={a} />

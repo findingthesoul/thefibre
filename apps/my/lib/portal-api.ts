@@ -57,6 +57,11 @@ export type ThreadItem = {
   enrolment_status: string | null;
   progress_pct: number | null;
   url: string;
+  /** Who the sessions are FROM — the name a calendar entry carries so it is
+   *  not a block of time from nobody. Null when a workspace or team owns the
+   *  thread rather than a person. */
+  organiser_name: string | null;
+  organiser_email: string | null;
   agenda: AgendaItem[];
 };
 
@@ -277,22 +282,29 @@ export function agendaIcsUrl(threadId: string, itemId: string): string {
 }
 
 /**
- * Whether this person has a calendar subscription, and whether anything is
- * actually collecting it.
+ * Whether this person has a calendar subscription, the address itself, and
+ * whether anything is actually collecting it.
  *
- * Note what is NOT here: the address. It is stored hashed, so it exists in
- * readable form exactly once — in the response to `createCalendar()`. That is
- * deliberate (a subscription URL is a credential), and it is why the UI says
- * so plainly rather than hiding a "reveal" button that could never work.
+ * `url` is null only for an address minted before 2026-09-24, when nothing
+ * but a hash was stored. Nothing can recover those, so the page offers a new
+ * address rather than a broken promise.
  */
 export type CalendarStatus = {
   subscribed: boolean;
   created_at: string | null;
   last_read_at: string | null;
+  url: string | null;
+  webcal: string | null;
 };
 
 export async function fetchCalendarStatus(accessToken: string): Promise<CalendarStatus> {
-  const none: CalendarStatus = { subscribed: false, created_at: null, last_read_at: null };
+  const none: CalendarStatus = {
+    subscribed: false,
+    created_at: null,
+    last_read_at: null,
+    url: null,
+    webcal: null,
+  };
   try {
     const res = await fetch(`${baseUrl}/api/v1/me/portal/calendar`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -305,17 +317,15 @@ export async function fetchCalendarStatus(accessToken: string): Promise<Calendar
   }
 }
 
-export type CalendarAddress = CalendarStatus & { url: string; webcal: string };
-
 /** Mint an address, retiring any previous one. Through this app's route, so
  *  the browser never holds an access token. */
-export async function createCalendar(): Promise<CalendarAddress> {
+export async function createCalendar(): Promise<CalendarStatus> {
   const res = await fetch('/api/calendar', { method: 'POST' });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new PortalApiError(res.status, body?.error ?? 'could not create a calendar address');
   }
-  return (await res.json()) as CalendarAddress;
+  return (await res.json()) as CalendarStatus;
 }
 
 export async function deleteCalendar(): Promise<void> {
@@ -324,4 +334,14 @@ export async function deleteCalendar(): Promise<void> {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new PortalApiError(res.status, body?.error ?? 'could not stop the calendar');
   }
+}
+
+/**
+ * Add-to-calendar for a WHOLE thread — every dated session in one file.
+ *
+ * Same route family as `agendaIcsUrl`, same reason it lives in this app: a
+ * download is a plain link and a plain link cannot carry a bearer token.
+ */
+export function threadIcsUrl(threadId: string): string {
+  return `/ics/${threadId}`;
 }

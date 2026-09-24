@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.42.0] — 2026-09-24 — the sequence at once, from the organiser, and an address you can read twice
+
+Sjoerd, after using it: *"Instructions are not the solutions. What I want is
+that you can add individual events, and that you can add the sequence at once.
+And that the sender is the organiser."* Three of those land here. The fourth
+and fifth — updates reaching an event already in your calendar, and the
+participant list on the invite — are a different mechanism and are written up
+below rather than half-built.
+
+**The sequence at once.** `GET /ics/:threadId` is every dated session of one
+thread in a single file, offered on the sheet as "Add all to calendar" when
+there is more than one. A course of eight sessions was eight downloads, which
+nobody does. Same UID per session as the single download and as the
+subscription, so using two of the three corrects rather than duplicates.
+
+**From the organiser.** Every calendar entry the portal produces now carries
+ORGANIZER — the organiser's name and the address their mail from that thread
+already comes from. Until today each entry was a block of time from nobody,
+which is most of why they felt like notes rather than appointments.
+
+**The address survives being looked at once.** The subscription address was
+stored hashed and shown exactly once, on the app-key pattern. Android is where
+that broke: Google Calendar cannot add a subscription from its phone app at
+all, so the real flow is "press Subscribe on the phone, then go to a
+computer" — and a write-once address is on the wrong device by the time you
+arrive. It is now kept readable and shown whenever you open the page, which is
+what Google, Apple and Outlook all do with their own secret calendar URLs. The
+hash secured little here anyway: an app key opens other data, while this URL
+leads to an agenda sitting in plain rows in the same database.
+
+Rows minted before today keep a null token and cannot be recovered — there is
+nothing to recover from a hash — so the page offers those a new address
+instead of a broken promise. Two existed, both already revoked.
+
+**Not built, deliberately.** "When the organiser changes something, it updates
+your event", for an event already sitting in someone's calendar, is not a file
+we can serve — a download is a copy the calendar owns from the moment it
+lands. It means EMAILED INVITATIONS: METHOD:REQUEST from the organiser, a
+SEQUENCE bumped whenever a date moves, METHOD:CANCEL when a session goes.
+Which means the API starts sending mail to participants every time an
+organiser edits a schedule, from the organiser's own address. That is a
+product decision about other people's inboxes, not a technical gap, so it
+waits for a yes. Same for putting the participant list on the invite: the
+cohort-directory consent covers appearing as "Marja d." on a page, not having
+one's email address delivered into every other participant's calendar.
+
+Migration: `person_calendar_feed.token`.
+
 ## [1.41.1] — 2026-09-24 — a lighter paper
 
 `paper` from 222 218 205 to 234 230 219. Same warmth, less weight on the

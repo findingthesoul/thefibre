@@ -165,6 +165,12 @@ type ThreadItem = {
   enrolment_status: string | null;
   progress_pct: number | null;
   url: string;
+  /** Who the sessions are FROM. A calendar entry with no organiser is a block
+   *  of time from nobody; this is the name a person recognises, and the
+   *  address their mail from this thread already comes from. Null when the
+   *  owner is a workspace or team rather than a person. */
+  organiser_name: string | null;
+  organiser_email: string | null;
   agenda: AgendaItem[];
 };
 
@@ -246,7 +252,7 @@ portalRoutes.get('/portal', async (c) => {
       `id, workspace_id, checkin_code, checked_in_at, payment_status, created_at,
        enrolment:enrolment_id (status, progress_pct),
        thread:thread_id (id, slug, language, cover_url, public_scope,
-         organiser:organiser_id (slug, display_name),
+         organiser:organiser_id (slug, display_name, user:user_id (email, full_name)),
          team:team_id (slug, name),
          program:program_id (title, format, status, starts_on, ends_on))`,
     )
@@ -528,7 +534,10 @@ portalRoutes.get('/portal', async (c) => {
     const prog = one(t.program as never) as
       | { title: string; format: string; status: string; starts_on: string | null; ends_on: string | null }
       | null;
-    const org = one(t.organiser as never) as { slug: string; display_name: string } | null;
+    const org = one(t.organiser as never) as
+      | { slug: string; display_name: string; user: unknown }
+      | null;
+    const orgUser = one(org?.user as never) as { email: string | null; full_name: string | null } | null;
     const team = one(t.team as never) as { slug: string; name: string } | null;
     const enr = one(e.enrolment as never) as { status: string | null; progress_pct: number | null } | null;
 
@@ -560,6 +569,8 @@ portalRoutes.get('/portal', async (c) => {
       enrolment_status: enr?.status ?? null,
       progress_pct: enr?.progress_pct ?? null,
       url: threadPublicUrl(ownerSlug, t.slug as string),
+      organiser_name: org?.display_name ?? orgUser?.full_name ?? g.name ?? null,
+      organiser_email: orgUser?.email ?? null,
       agenda: agendaByThread.get(t.id) ?? [],
     });
 
@@ -651,16 +662,15 @@ portalRoutes.get('/portal/calendar', async (c) => {
 portalRoutes.post('/portal/calendar', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
-  const address = await mintFeed(email);
-  // The only moment this URL exists in readable form. Stored hashed.
-  return c.json({ ...address, ...(await feedStatusForEmail(email)) });
+  await mintFeed(email);
+  return c.json(await feedStatusForEmail(email));
 });
 
 portalRoutes.delete('/portal/calendar', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
   await revokeFeed(email);
-  return c.json({ subscribed: false, created_at: null, last_read_at: null });
+  return c.json({ subscribed: false, created_at: null, last_read_at: null, url: null, webcal: null });
 });
 
 // The feed. NO SESSION — see lib/calendar-feed.ts: a calendar client cannot

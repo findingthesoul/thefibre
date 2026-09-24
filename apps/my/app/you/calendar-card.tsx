@@ -3,56 +3,36 @@
 // Subscribe your calendar to everything you are taking part in.
 //
 // Sjoerd, 2026-09-23: "can I also subscribe to the whole sequence? And do
-// things get updates when there is a change in date?" The two questions have
-// one answer. Adding sessions one at a time hands your calendar a COPY, and a
-// copy is frozen — when an organiser moves a session, the person who added it
-// is the last to know. A subscription is the live answer instead: the
-// calendar re-reads it every few hours, and a moved session moves.
+// things get updates when there is a change in date?" Adding sessions one at
+// a time hands your calendar a COPY, and a copy is frozen — when an organiser
+// moves a session, the person who added it is the last to know. A
+// subscription is the live answer: the calendar re-reads it, and a moved
+// session moves.
 //
-// THE ADDRESS IS SHOWN ONCE. It is stored hashed, the way an API key is, so
-// there is no screen anywhere that can show it again — including to us. That
-// is a deliberate trade and the copy says so out loud, because a person who
-// expects to find it later and cannot would be right to be annoyed. Losing it
-// costs one button, which also retires the old address.
+// THE ADDRESS IS ALWAYS SHOWN. It was write-once at first, stored hashed the
+// way an API key is. Android broke that: Google Calendar cannot add a
+// subscription from its phone app, so the real flow is "press Subscribe on
+// the phone, then go to a computer" — and a write-once address is on the
+// wrong device by the time you get there. Every calendar service shows you
+// your own address whenever you ask. So does this.
 
 import { useState } from 'react';
 import { CalendarPlus, Check, Copy, RefreshCw } from 'lucide-react';
 import { createCalendar, deleteCalendar, type CalendarStatus } from '@/lib/portal-api';
 
 export function CalendarCard({ status }: { status: CalendarStatus }) {
-  const [subscribed, setSubscribed] = useState(status.subscribed);
-  const [lastRead, setLastRead] = useState(status.last_read_at);
-  // Present only in the moment after minting. Never re-fetched, because it
-  // cannot be: see the note above.
-  const [address, setAddress] = useState<{ url: string; webcal: string } | null>(null);
+  const [state, setState] = useState(status);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function mint() {
+  async function run(fn: () => Promise<CalendarStatus | void>, next?: CalendarStatus) {
     setBusy(true);
     setError(null);
+    setCopied(false);
     try {
-      const made = await createCalendar();
-      setAddress({ url: made.url, webcal: made.webcal });
-      setSubscribed(true);
-      setLastRead(null);
-      setCopied(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function stop() {
-    setBusy(true);
-    setError(null);
-    try {
-      await deleteCalendar();
-      setSubscribed(false);
-      setAddress(null);
-      setLastRead(null);
+      const got = await fn();
+      setState(got ?? next ?? state);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'That did not work.');
     } finally {
@@ -61,9 +41,9 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
   }
 
   async function copy() {
-    if (!address) return;
+    if (!state.url) return;
     try {
-      await navigator.clipboard.writeText(address.url);
+      await navigator.clipboard.writeText(state.url);
       setCopied(true);
     } catch {
       // Clipboard refused (an insecure origin, or a browser that asks). The
@@ -83,7 +63,7 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
         date, your calendar follows — you do not have to add anything again.
       </p>
 
-      {address ? (
+      {state.subscribed && state.url && (
         <div className="mt-4 rounded-2xl border border-line bg-surface-sunken p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
             Your calendar address
@@ -91,69 +71,85 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
           {/* Selectable and wrapping. A 64-character token in a one-line box
               that scrolls is a token nobody can copy by hand when the
               clipboard button fails. */}
-          <p className="mt-2 break-all font-mono text-xs text-ink">{address.url}</p>
+          <p className="mt-2 break-all font-mono text-xs text-ink">{state.url}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={copy} className={`${button} bg-ink text-surface hover:opacity-90`}>
               {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
               {copied ? 'Copied' : 'Copy address'}
             </button>
-            {/* webcal:// hands the address straight to the calendar app
-                instead of the browser. One click on a phone, where pasting a
-                64-character URL is the worst part of this whole flow. */}
-            <a href={address.webcal} className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}>
+            {/* webcal:// hands the address straight to the calendar app.
+                Works on Apple; Google ignores it, which is why the Google
+                route below is a link to its web page rather than this. */}
+            <a
+              href={state.webcal ?? state.url}
+              className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
+            >
               <CalendarPlus className="h-4 w-4" aria-hidden />
-              Open in calendar
+              Open in Apple Calendar
             </a>
           </div>
-          <p className="mt-3 text-xs text-ink-muted">
-            Keep this link private — anyone who has it can see your sessions.
-            It is stored scrambled, so this is the only time it can be shown.
-            If you lose it, make a new one.
-          </p>
-          {/* Where each client actually accepts a subscription, which is not
-              the same place on every device. Google only takes one on the
-              WEB — there is no "add by URL" in its phone app, so a phone-only
-              person following the old wording had nowhere to put this. It
-              syncs to the phone afterwards; it just cannot be added there. */}
-          <p className="mt-2 text-xs text-ink-muted">
-            Google Calendar: on a computer, at calendar.google.com → Other
-            calendars → From URL. Its phone app cannot add one, but it appears
-            there once the computer has it. Apple Calendar: Open in calendar
-            above, or File → New Calendar Subscription.
-          </p>
-          <p className="mt-2 text-xs text-ink-muted">
-            It arrives as its own calendar next to yours — you will see the
-            sessions in your day, and you cannot edit them. That is what keeps
-            them correct.
-          </p>
+
+          <div className="mt-4 space-y-2 text-xs text-ink-muted">
+            <p>
+              <span className="font-medium text-ink">Google Calendar</span> — on
+              a computer, open calendar.google.com, then Other calendars → From
+              URL and paste this. Its phone app cannot add one, on Android or
+              iPhone; once the computer has it, it appears on your phone by
+              itself. This page is where the address lives, so open it on the
+              computer rather than typing it across.
+            </p>
+            <p>
+              It arrives as its own calendar beside yours. The sessions show up
+              in your day, and you cannot edit them — which is what keeps them
+              correct.
+            </p>
+            <p>Keep the address private: anyone who has it can see your sessions.</p>
+          </div>
         </div>
-      ) : subscribed ? (
+      )}
+
+      {state.subscribed && !state.url && (
+        // Minted before the address was kept readable. Nothing can recover it.
         <p className="mt-4 text-sm text-ink-muted">
-          A calendar address exists.{' '}
-          {lastRead
-            ? `Last collected ${relative(lastRead)}.`
+          You have a calendar address from before this page could show it again.
+          Make a new one to see it — the old one stops working.
+        </p>
+      )}
+
+      {state.subscribed && (
+        <p className="mt-3 text-xs text-ink-muted">
+          {state.last_read_at
+            ? `Last collected ${relative(state.last_read_at)}.`
             : 'Nothing has collected it yet — if you just added it, give your calendar an hour.'}
         </p>
-      ) : null}
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={mint}
+          onClick={() => run(createCalendar)}
           disabled={busy}
           className={
-            subscribed
+            state.subscribed
               ? `${button} border border-line bg-surface text-ink hover:bg-surface-sunken`
               : `${button} bg-ink text-surface hover:opacity-90`
           }
         >
-          {subscribed ? <RefreshCw className="h-4 w-4" aria-hidden /> : <CalendarPlus className="h-4 w-4" aria-hidden />}
-          {subscribed ? 'Make a new address' : 'Subscribe'}
+          {state.subscribed ? <RefreshCw className="h-4 w-4" aria-hidden /> : <CalendarPlus className="h-4 w-4" aria-hidden />}
+          {state.subscribed ? 'Make a new address' : 'Subscribe'}
         </button>
-        {subscribed && (
+        {state.subscribed && (
           <button
             type="button"
-            onClick={stop}
+            onClick={() =>
+              run(deleteCalendar, {
+                subscribed: false,
+                created_at: null,
+                last_read_at: null,
+                url: null,
+                webcal: null,
+              })
+            }
             disabled={busy}
             className="min-h-11 text-sm text-ink-muted underline underline-offset-4 hover:text-ink disabled:opacity-40"
           >
@@ -163,7 +159,7 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
         {error && <span className="text-sm text-ink-muted">{error}</span>}
       </div>
 
-      {subscribed && !address && (
+      {state.subscribed && (
         <p className="mt-2 text-xs text-ink-muted">
           Making a new address stops the old one working everywhere you added it.
         </p>

@@ -62,6 +62,8 @@ function thread(over: Partial<Portal['groups'][number]['threads'][number]> = {})
     enrolment_status: 'confirmed',
     progress_pct: null,
     url: 'https://example.test/t',
+    organiser_name: 'Marja de Vries',
+    organiser_email: 'marja@example.test',
     agenda: [],
     ...over,
   };

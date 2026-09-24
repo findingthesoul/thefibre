@@ -22,11 +22,18 @@
 // a subscription is a weaker credential than a signed-in session, so it may
 // show less, never more.
 //
-// Stored as sha256 (lib/app-keys.ts does the same, for the same reason): the
-// address is shown once, at mint, and cannot be recovered afterwards. Losing
-// it costs one button — "create a new address" — which also retires the old
-// one, and that is the behaviour you want when a URL ends up somewhere it
-// should not have.
+// Looked up by sha256, and ALSO kept readable so the portal can show it
+// again. It was hash-only at first, on the app_key pattern — write once, show
+// once, unrecoverable. Android is where that broke: Google Calendar cannot
+// add a subscription from its phone app, so the real flow is "press Subscribe
+// on the phone, then walk to a computer", and a write-once address is on the
+// wrong device by the time you get there. Every calendar service shows you
+// your own secret address whenever you ask, for exactly this reason.
+//
+// The hash bought less here than it does for an app key: an app key opens
+// other data, while this URL leads to an agenda that sits in plain rows in
+// this same database. Anyone who can read this table can already read what it
+// protects.
 // ---------------------------------------------------------------------------
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -74,20 +81,29 @@ export type FeedStatus = {
   /** When a calendar client last collected it. The only honest answer to
    *  "is my calendar actually following this?" */
   last_read_at: string | null;
+  /** The address itself. Null only for rows minted before 2026-09-24, when
+   *  nothing but the hash was kept — there is nothing to recover from a hash,
+   *  so the portal offers those a new address instead. */
+  url: string | null;
+  webcal: string | null;
 };
 
 export async function feedStatusForEmail(email: string): Promise<FeedStatus> {
   const { data } = await adminClient
     .from('person_calendar_feed')
-    .select('created_at, last_read_at')
+    .select('created_at, last_read_at, token')
     .eq('email', email)
     .is('revoked_at', null)
     .maybeSingle();
 
+  const token = (data?.token as string | null) ?? null;
+  const address = token ? feedAddress(token) : null;
   return {
     subscribed: !!data,
     created_at: (data?.created_at as string | null) ?? null,
     last_read_at: (data?.last_read_at as string | null) ?? null,
+    url: address?.url ?? null,
+    webcal: address?.webcal ?? null,
   };
 }
 
@@ -109,7 +125,7 @@ export async function mintFeed(email: string): Promise<{ url: string; webcal: st
   const token = newToken();
   const { error } = await adminClient
     .from('person_calendar_feed')
-    .insert({ email, token_hash: hashToken(token) });
+    .insert({ email, token_hash: hashToken(token), token });
   if (error) throw new Error(`could not create calendar address: ${error.message}`);
 
   return feedAddress(token);
@@ -183,7 +199,7 @@ export async function buildFeedForEmail(email: string): Promise<string> {
         `workspace_id,
          enrolment:enrolment_id (status),
          thread:thread_id (id, slug, public_scope,
-           organiser:organiser_id (slug),
+           organiser:organiser_id (slug, display_name, user:user_id (email, full_name)),
            team:team_id (slug),
            program:program_id (title))`,
       )
@@ -198,6 +214,8 @@ export async function buildFeedForEmail(email: string): Promise<string> {
       teamSlug: string | null;
       organiserSlug: string | null;
       title: string;
+      organiserName: string | null;
+      organiserEmail: string | null;
     };
     const live = new Map<string, ThreadRow>();
     for (const e of (enrolments ?? []) as Record<string, unknown>[]) {
@@ -209,13 +227,20 @@ export async function buildFeedForEmail(email: string): Promise<string> {
       // get wrong, so a live row is never overwritten by a dropped one.
       if (!enrolmentCanRespond(enr?.status ?? null)) continue;
       const prog = one(t.program) as { title: string } | null;
+      const org = one(t.organiser) as
+        | { slug: string; display_name: string | null; user: unknown }
+        | null;
+      const orgUser = one(org?.user) as { email: string | null; full_name: string | null } | null;
       live.set(t.id as string, {
         workspaceId: e.workspace_id as string,
         slug: t.slug as string,
         publicScope: (t.public_scope as string | null) ?? null,
         teamSlug: (one(t.team) as { slug: string } | null)?.slug ?? null,
-        organiserSlug: (one(t.organiser) as { slug: string } | null)?.slug ?? null,
+        organiserSlug: org?.slug ?? null,
         title: prog?.title ?? (t.slug as string),
+        // Who the sessions are from, so a subscribed calendar names them.
+        organiserName: org?.display_name ?? orgUser?.full_name ?? null,
+        organiserEmail: orgUser?.email ?? null,
       });
     }
 
@@ -268,6 +293,8 @@ export async function buildFeedForEmail(email: string): Promise<string> {
           description: [item.description, t.title].filter(Boolean).join('\n\n'),
           location: item.location,
           url: item.meeting_url ?? item.external_url ?? threadUrl,
+          organizerName: t.organiserName,
+          organizerEmail: t.organiserEmail,
           attendeeName,
           attendeeEmail: email,
         });
