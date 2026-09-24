@@ -377,6 +377,30 @@ shipping.
 
 ## [Unreleased]
 
+## [1.33.0] — 2026-09-24 — The Fibre's payments page was a version behind the day it was born
+
+Sjoerd: *"I dont see the connect button with personal."* In The Fibre he got
+the workspace button and not the personal one; in Thread or Meet he would have
+seen both.
+
+The Fibre's payments page was created that morning (v1.30.0) by copying
+Thread's thin wrapper. Hours later v1.31.0 added personal Connect and the test
+payment, and updated the four wrappers that existed — mine was too new to be
+on anybody's list. So the page shipped missing four props:
+`loadPersonalStripeStatus`, `startPersonalStripeConnect`,
+`startPersonalTestPayment`, `startWorkspaceTestPayment`.
+
+Now identical to the other four, checked by diffing the props rather than by
+reading.
+
+**The lesson is the one the file already warned about.** Thread's wrapper says
+it *was* the implementation and that the other three "carried ports of it that
+had drifted". Extracting the form fixed the drift in the big half and left
+five thin wrappers to drift instead — and the first drift happened within
+hours, to the newest copy, in the direction nobody was watching. The strings
+are shared now (`payments-i18n`); the wiring is the remaining copy, and a
+sixth app would inherit the same trap.
+
 ## [1.30.0] — 2026-09-24 — the reusable settings are in The Fibre
 
 Sjoerd: *"the settings for my company: payment etc. is needed in 4 apps, but it

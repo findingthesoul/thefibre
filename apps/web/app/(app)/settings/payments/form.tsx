@@ -17,10 +17,14 @@ import {
   type PaymentMethod,
 } from '@thefibre/shared/ui/payments-form';
 import {
+  personalStripeStatus,
+  personalTestPayment,
+  startPersonalStripeConnect,
   startStripeConnect,
   stripeStatus,
   updateMyPayments,
   updateWorkspacePayments,
+  workspaceTestPayment,
 } from './actions';
 
 export function PaymentsForm({
@@ -61,6 +65,10 @@ export function PaymentsForm({
       saveWorkspace={(a, d, m) => updateWorkspacePayments(a, d, m)}
       loadWorkspaceStripeStatus={stripeStatus}
       startWorkspaceStripeConnect={startStripeConnect}
+      loadPersonalStripeStatus={personalStripeStatus}
+      startPersonalStripeConnect={startPersonalStripeConnect}
+      startPersonalTestPayment={personalTestPayment}
+      startWorkspaceTestPayment={workspaceTestPayment}
     />
   );
 }
