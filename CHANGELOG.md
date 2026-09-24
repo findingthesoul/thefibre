@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.48.1] — 2026-09-24 — the portal stays signed in
+
+Sjoerd: *"can login be 'stay logged in'?"* It already was meant to be. Nothing
+was expiring early — the session simply never renewed.
+
+A Supabase access token lasts an hour. The browser renews it in the
+background, but a SERVER component cannot: it may read cookies and not write
+them, and `lib/supabase/server.ts` swallows that write and says so in a
+comment. Middleware is the one place in Next that can read the request's
+cookies and write cookies onto the response, which is why every app carries a
+thirty-line `middleware.ts` that does exactly one thing — call `getUser()` so
+the refresh happens as a side effect.
+
+Every app except this one. The portal is younger than that decision and was
+never given the file. So an hour after signing in, the portal asked for a
+session, got null, and showed the sign-in form. It read as a short session and
+was a missing refresh.
+
+Two paths are excluded from it deliberately: the calendar subscription, which
+Google's servers fetch every few hours with no session and no business
+starting one, and the offline page, which exists for when nothing can be
+reached at all.
+
+It is now the seventh copy of an identical file, which the shared-component
+rule would normally forbid. Next requires it at a fixed path per app, so what
+could be extracted is the body, injected with Next's primitives the way
+`ui/auth-callback` already is — worth doing once for all seven, by someone
+holding all seven lanes. Adding the missing copy conforms to the existing
+decision rather than forking a variant.
+
 ## [1.48.0] — 2026-09-24 — a session that moves tells the people holding it
 
 Sjoerd, working out the mechanism himself: *"if I send an invite and change
