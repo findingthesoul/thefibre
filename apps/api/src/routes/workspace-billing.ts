@@ -5,7 +5,11 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { APP_IDS, type AppId, appUrl, stagingAppUrl } from '@thefibre/shared';
 import { publicOrigin } from './mcp-discovery.js';
+import { stripeOrNull } from '../lib/stripe/client.js';
+import { platformFeeCents } from '../lib/fees.js';
+import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { adminClient } from '../db.js';
+import { saveBilling } from '../lib/identity-profile.js';
 import {
   accountStatus,
   authorizeUrl,
@@ -140,7 +144,7 @@ workspaceBillingRoutes.get('/stripe/connect', async (c) => {
     return c.json({ error: 'this platform is not registered with Stripe Connect yet' }, 503);
   }
   return c.json({
-    url: authorizeUrl(clientId, signState(ctx.workspaceId, ctx.appId), redirectUri(c.req.raw.headers)),
+    url: authorizeUrl(clientId, signState('workspace', ctx.workspaceId, ctx.appId), redirectUri(c.req.raw.headers)),
   });
 });
 
@@ -167,7 +171,7 @@ workspaceBillingRoutes.get('/stripe/connect', async (c) => {
  *    first, the way server.ts derives STAGING_ORIGINS, and never rely on a
  *    per-app variable being present.
  */
-function settingsUrlFor(appId: string | null): string {
+export function settingsUrlFor(appId: string | null): string {
   const slug: AppId = (APP_IDS as readonly string[]).includes(appId ?? '')
     ? (appId as AppId)
     : 'membership'; // pre-2026-09-24 state, or a header we do not recognise
@@ -206,10 +210,24 @@ workspaceBillingRoutes.get('/stripe/callback', async (c) => {
   const result = await exchangeCode(code, redirectUri(c.req.raw.headers));
   if ('error' in result) return fail(result.error);
 
-  const { error } = await adminClient
-    .from('workspace')
-    .update({ stripe_account_id: result.accountId })
-    .eq('id', verified.workspaceId);
+  // ONE callback for both scopes, deliberately. Stripe validates the
+  // redirect_uri against a list the platform owner maintains by hand in the
+  // dashboard, in each mode — a second URI is a second thing for a human to
+  // register correctly, and the live one was only added on 2026-09-24. The
+  // signed `state` already distinguishes them, so it does the routing.
+  const { error } =
+    verified.scope === 'personal'
+      ? // identity_billing, via saveBilling — NOT user_profile. `billingFor`
+        // reads identity_billing FIRST and falls back to user_profile, so a
+        // write to the fallback is invisible the moment an identity row
+        // exists. It is keyed by email, which is why saveBilling takes the
+        // user id and resolves it (lib/identity-profile.ts).
+        await saveBilling(verified.subjectId, { stripe_account_id: result.accountId })
+          .then((r) => ({ error: r.error ? { message: r.error } : null }))
+      : await adminClient
+          .from('workspace')
+          .update({ stripe_account_id: result.accountId })
+          .eq('id', verified.subjectId);
   if (error) {
     console.error('[workspace-billing] could not store the connected account', error);
     return fail('connected, but we could not save it — try again');
@@ -226,6 +244,92 @@ workspaceBillingRoutes.get('/stripe/callback', async (c) => {
   // went null. Flagged by the connections session, 2026-09-24.
 
   return c.redirect(`${settingsUrl}?stripe=connected`);
+});
+
+/** POST /stripe/test-payment — a rehearsal the admin runs themselves.
+ *
+ *  Sjoerd, 2026-09-24: *"From experience I can say that I would like to test
+ *  it myself."* Every previous payment failure on this platform was found by
+ *  a real buyer on a live page — soul.com sat broken for two weeks behind a
+ *  green badge. `accountStatus` asks Stripe whether the account is reachable,
+ *  which is necessary and not sufficient: it does not prove a CHARGE works.
+ *  This does, because it is the same call the real checkout makes.
+ *
+ *  Deliberately a real charge on the connected account, with the same
+ *  plan-aware application fee as a real sale — a test that skips the fee or
+ *  runs in test mode proves something other than the thing in doubt. The
+ *  money lands on the workspace's own Stripe and is refundable there.
+ *
+ *  It writes NOTHING to the purchase ledger: the app webhooks key off
+ *  `metadata.thread_enrolment_id` / membership ids, so a session carrying
+ *  neither is ignored by all of them. `fibre_test` is on the metadata so a
+ *  human reading the Stripe dashboard can see what it was. */
+workspaceBillingRoutes.post('/stripe/test-payment', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json({ error: 'a test payment needs an admin role' }, 403);
+  }
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
+
+  const parsed = z
+    .object({
+      // Stripe's own floor for EUR is 50 cents; the ceiling is ours, so a
+      // mistyped amount cannot become a four-figure charge on a real card.
+      amount_cents: z.number().int().min(50).max(100_000),
+    })
+    .safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: 'choose an amount between 0.50 and 1000.00' }, 400);
+  }
+  const amountCents = parsed.data.amount_cents;
+
+  const account = await workspaceStripeAccount(ctx.workspaceId);
+  if (!account) return c.json({ error: 'connect a Stripe account first' }, 400);
+
+  const { data: ws } = await adminClient
+    .from('workspace')
+    .select('name, default_currency')
+    .eq('id', ctx.workspaceId)
+    .maybeSingle();
+  const currency = (ws?.default_currency || 'EUR').toLowerCase();
+  const back = settingsUrlFor(ctx.appId);
+
+  try {
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency,
+              unit_amount: amountCents,
+              product_data: { name: `Test payment — ${ws?.name ?? 'workspace'}` },
+            },
+            quantity: 1,
+          },
+        ],
+        payment_intent_data: {
+          application_fee_amount: await platformFeeCents(ctx.workspaceId, amountCents),
+          metadata: { fibre_test: 'true', workspace_id: ctx.workspaceId },
+        },
+        metadata: { fibre_test: 'true', workspace_id: ctx.workspaceId },
+        success_url: `${back}?stripe=test_paid`,
+        cancel_url: `${back}?stripe=test_cancelled`,
+      },
+      { stripeAccount: account },
+    );
+    if (!session.url) return c.json({ error: 'Stripe did not return a checkout page' }, 502);
+    return c.json({ url: session.url });
+  } catch (e) {
+    // The message Stripe gives here is the DIAGNOSIS — "does not have access
+    // to account", "capability disabled" — so it goes to the admin verbatim
+    // rather than being flattened into "could not start checkout", which is
+    // the exact sentence that told nobody anything for two weeks.
+    const detail = e instanceof Error ? e.message : 'could not reach Stripe';
+    console.error('[workspace-billing] test payment failed', e);
+    return c.json({ error: detail }, 502);
+  }
 });
 
 /** GET /stripe/status — does the connection actually work?

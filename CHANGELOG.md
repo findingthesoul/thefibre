@@ -4,6 +4,39 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.31.0] — 2026-09-24 — test it yourself, and the personal account connects too (staging)
+
+Sjoerd, on the day the workspace Connect flow shipped: *"From experience I
+can say that I would like to test it myself"* and *"why does the personal
+account not have to connect like this?"*
+
+**A test payment.** Settings → Payments now carries an amount and a
+**Test payment** button on any connected account. It is a REAL charge on
+that account, with the same plan-aware application fee a real sale takes,
+because a rehearsal that skips the fee or runs in test mode proves
+something other than the thing in doubt. `accountStatus` only ever asked
+whether Stripe could SEE the account; this asks whether it can charge it —
+the question soul.com's green badge never answered. Refund it in Stripe
+afterwards. Nothing reaches the purchase ledger: the app webhooks key off
+their own metadata, and a session carrying `fibre_test` has none of it.
+
+**The personal account connects too.** It had exactly the defect the
+workspace had — a pasted `acct_…` grants the platform nothing — and was
+only built second because that is where soul.com was stuck. One callback
+serves both: Stripe matches `redirect_uri` against a list a human
+maintains per mode, so a second URI is a second thing to get right. The
+signed state carries the scope instead, and `verifyState` now refuses a
+scope it does not know. Personal accounts are written through
+`saveBilling` (identity_billing), never `user_profile` — `billingFor`
+reads the identity row first, so a write to the fallback is invisible.
+
+**Two tabs**, Personal (organiser) and Workspace of {name}, replacing the
+stacked sections. Both panels stay mounted and hidden, per ui/tabs.tsx:
+each holds its own unsaved edits and its own Save.
+
+Also: the help text under Save printed twice — `stripeNote1` already
+contained the sentence `stripeNote2` repeated. Only the first renders now.
+
 ## [1.28.1] — 2026-09-24 — a gate that cannot pass should say so in seconds
 
 `pnpm verify` ended with two steps that read a Supabase project through

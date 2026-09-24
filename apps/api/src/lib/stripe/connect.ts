@@ -47,19 +47,25 @@ function stateSecret(): string {
  * account to their workspace. So it carries the workspace and an expiry, and
  * is signed with a key that never leaves the API.
  */
+export type ConnectScope = 'workspace' | 'personal';
+
 export function signState(
-  workspaceId: string,
+  scope: ConnectScope,
+  /** The workspace id, or the user id for a personal account. */
+  subjectId: string,
   /** The app the admin started from, so the callback can send them back to
    *  the settings page they left — and to the STACK they left it on. */
   appId: string,
   ttlMs = 15 * 60 * 1000,
 ): string {
-  const body = `${workspaceId}.${appId}.${Date.now() + ttlMs}`;
+  const body = `${scope}.${subjectId}.${appId}.${Date.now() + ttlMs}`;
   const mac = createHmac('sha256', stateSecret()).update(body).digest('base64url');
   return `${Buffer.from(body).toString('base64url')}.${mac}`;
 }
 
-export function verifyState(state: string): { workspaceId: string; appId: string | null } | null {
+export function verifyState(
+  state: string,
+): { scope: ConnectScope; subjectId: string; appId: string | null } | null {
   const [encoded, mac] = state.split('.');
   if (!encoded || !mac) return null;
   let body: string;
@@ -73,15 +79,32 @@ export function verifyState(state: string): { workspaceId: string; appId: string
   // returning false.
   if (mac.length !== expected.length) return null;
   if (!timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
-  // Three parts since 2026-09-24. A two-part body is a state signed by the
-  // previous build and still inside its 15 minutes — honour it rather than
-  // failing an admin mid-flow across a deploy; it simply has no app to
-  // return to and the caller falls back.
-  const parts = body.split('.');
-  const [workspaceId, appId, expiry] =
-    parts.length === 3 ? parts : [parts[0], undefined, parts[1]];
-  if (!workspaceId || !expiry || Number(expiry) < Date.now()) return null;
-  return { workspaceId, appId: appId ?? null };
+
+  // The body has grown twice in one day, and a state signed by the PREVIOUS
+  // build is still inside its 15 minutes when the new one deploys. Stranding
+  // an admin who is at that moment standing in Stripe's approval screen is a
+  // worse failure than carrying two dead shapes for a quarter of an hour, so
+  // every shape that ever existed is still read:
+  //   4 parts  scope.subject.app.expiry   (now)
+  //   3 parts  workspace.app.expiry       (v1.27.6)
+  //   2 parts  workspace.expiry           (v1.27.0)
+  const p = body.split('.');
+  let scope: ConnectScope = 'workspace';
+  let subjectId: string | undefined;
+  let appId: string | undefined;
+  let expiry: string | undefined;
+  if (p.length === 4) {
+    if (p[0] !== 'workspace' && p[0] !== 'personal') return null;
+    [scope, subjectId, appId, expiry] = [p[0], p[1], p[2], p[3]];
+  } else if (p.length === 3) {
+    [subjectId, appId, expiry] = [p[0], p[1], p[2]];
+  } else if (p.length === 2) {
+    [subjectId, expiry] = [p[0], p[1]];
+  } else {
+    return null;
+  }
+  if (!subjectId || !expiry || Number(expiry) < Date.now()) return null;
+  return { scope, subjectId, appId: appId ?? null };
 }
 
 export function authorizeUrl(clientId: string, state: string, redirectUri: string): string {

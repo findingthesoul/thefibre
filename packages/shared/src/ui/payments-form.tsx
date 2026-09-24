@@ -33,6 +33,7 @@
 import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { Button } from './button.js';
 import { FIELD_TEXT } from './fields.js';
+import { Tabs } from './tabs.js';
 import { InfoHint } from './info-hint.js';
 
 export type InvoiceDetails = {
@@ -64,6 +65,18 @@ export type StripeStatus =
  * translations move and nothing is lost.
  */
 export type PaymentsStrings = {
+  /** Tabs. `tabWorkspaceOf` may contain {name}; without a name the plain
+   *  `tabWorkspace` is used instead. */
+  tabPersonal: string;
+  tabWorkspace: string;
+  tabWorkspaceOf: string;
+  /** The rehearsal — a real charge on the connected account. */
+  testPaymentTitle: string;
+  testPaymentNote: string;
+  testPaymentAmount: string;
+  testPayment: string;
+  testPaymentOpening: string;
+  errTestPayment: string;
   personalAccount: string;
   personalAccountDesc: string;
   workspaceAccount: string;
@@ -133,6 +146,10 @@ export function PaymentsForm({
   saveWorkspace,
   loadWorkspaceStripeStatus,
   startWorkspaceStripeConnect,
+  startWorkspaceTestPayment,
+  loadPersonalStripeStatus,
+  startPersonalStripeConnect,
+  startPersonalTestPayment,
 }: {
   s: PaymentsStrings;
   personalAccount: string | null;
@@ -152,42 +169,83 @@ export function PaymentsForm({
    *  just shows the old saved/not-saved pair instead of the real state. */
   loadWorkspaceStripeStatus?: (() => Promise<StripeStatus>) | undefined;
   startWorkspaceStripeConnect?: (() => Promise<{ url?: string; error?: string }>) | undefined;
+  startWorkspaceTestPayment?: TestPayment | undefined;
+  /** The personal (organiser) account needs the same grant the workspace
+   *  does — a pasted `acct_` gives the platform no permission there either.
+   *  Optional so an app that has not wired it yet still renders. */
+  loadPersonalStripeStatus?: (() => Promise<StripeStatus>) | undefined;
+  startPersonalStripeConnect?: (() => Promise<{ url?: string; error?: string }>) | undefined;
+  startPersonalTestPayment?: TestPayment | undefined;
 }) {
+  // Both panels stay MOUNTED and are hidden when inactive (ui/tabs.tsx says
+  // why): each carries its own unsaved edits and its own Save, and switching
+  // tabs must not throw away what you typed in the other one.
+  const [tab, setTab] = useState<'personal' | 'workspace'>('personal');
+  const showWorkspace = isAdmin || workspaceAccount !== null || workspaceDetails !== null;
+  const workspaceTabLabel = workspaceName
+    ? s.tabWorkspaceOf.replace('{name}', workspaceName)
+    : s.tabWorkspace;
+
   return (
-    <div className="mt-8 space-y-10">
-      <AccountSection
-        s={s}
-        label={s.personalAccount}
-        description={s.personalAccountDesc}
-        initialAccount={personalAccount}
-        initialDetails={personalDetails}
-        initialMethods={personalMethods}
-        showMethods
-        save={savePersonal}
-        onSaved={onSaved}
-      />
-      <AccountSection
-        s={s}
-        label={workspaceName ?? s.workspaceAccount}
-        description={s.workspaceAccountDesc}
-        initialAccount={workspaceAccount}
-        initialDetails={workspaceDetails}
-        initialMethods={workspaceMethods}
-        showMethods
-        methodsHint={s.methodsHintWorkspace}
-        save={saveWorkspace}
-        onSaved={onSaved}
-        disabled={!isAdmin}
-        disabledNote={s.managedByAdmins}
-        loadStatus={loadWorkspaceStripeStatus}
-        startConnect={startWorkspaceStripeConnect}
-      />
-      <p className="text-xs text-ink-muted max-w-xl leading-relaxed">
-        {s.stripeNote1} <code className="font-mono">acct_</code> {s.stripeNote2}
+    <div className="mt-8">
+      {showWorkspace && (
+        <Tabs
+          tabs={[
+            { value: 'personal' as const, label: s.tabPersonal },
+            { value: 'workspace' as const, label: workspaceTabLabel },
+          ]}
+          value={tab}
+          onChange={setTab}
+          className="mb-6"
+        />
+      )}
+      <div hidden={showWorkspace && tab !== 'personal'}>
+        <AccountSection
+          s={s}
+          label={s.personalAccount}
+          description={s.personalAccountDesc}
+          initialAccount={personalAccount}
+          initialDetails={personalDetails}
+          initialMethods={personalMethods}
+          showMethods
+          save={savePersonal}
+          onSaved={onSaved}
+          loadStatus={loadPersonalStripeStatus}
+          startConnect={startPersonalStripeConnect}
+          startTestPayment={startPersonalTestPayment}
+        />
+      </div>
+      {showWorkspace && (
+        <div hidden={tab !== 'workspace'}>
+          <AccountSection
+            s={s}
+            label={workspaceName ?? s.workspaceAccount}
+            description={s.workspaceAccountDesc}
+            initialAccount={workspaceAccount}
+            initialDetails={workspaceDetails}
+            initialMethods={workspaceMethods}
+            showMethods
+            methodsHint={s.methodsHintWorkspace}
+            save={saveWorkspace}
+            onSaved={onSaved}
+            disabled={!isAdmin}
+            disabledNote={s.managedByAdmins}
+            loadStatus={loadWorkspaceStripeStatus}
+            startConnect={startWorkspaceStripeConnect}
+            startTestPayment={startWorkspaceTestPayment}
+          />
+        </div>
+      )}
+      <p className="mt-8 text-xs text-ink-muted max-w-xl leading-relaxed">
+        {s.stripeNote1}
       </p>
     </div>
   );
 }
+
+export type TestPayment = (
+  amountCents: number,
+) => Promise<{ url?: string; error?: string }>;
 
 type Save = (
   accountId: string | null,
@@ -210,6 +268,7 @@ function AccountSection({
   disabledNote,
   loadStatus,
   startConnect,
+  startTestPayment,
 }: {
   s: PaymentsStrings;
   label: string;
@@ -225,8 +284,11 @@ function AccountSection({
   disabledNote?: string | undefined;
   loadStatus?: (() => Promise<StripeStatus>) | undefined;
   startConnect?: (() => Promise<{ url?: string; error?: string }>) | undefined;
+  startTestPayment?: TestPayment | undefined;
 }) {
   const [account, setAccount] = useState(initialAccount ?? '');
+  const [testAmount, setTestAmount] = useState('1.00');
+  const [testing, setTesting] = useState(false);
   const [legalName, setLegalName] = useState(initialDetails?.legal_name ?? '');
   const [address, setAddress] = useState(initialDetails?.address ?? '');
   const [taxNo, setTaxNo] = useState(initialDetails?.tax_no ?? '');
@@ -381,6 +443,64 @@ function AccountSection({
               <p className="mt-1 text-[11px] text-ink-muted max-w-xl leading-relaxed">
                 {s.connectStripeNote}
               </p>
+            </div>
+          )}
+
+          {/* The rehearsal. `accountStatus` proves the account is REACHABLE,
+              which is not the same as chargeable — soul.com's screen was
+              green while every checkout failed. This runs the same call a
+              real sale makes, so a success here means a real one works.
+              Sjoerd asked for it on the day the connect flow shipped:
+              "I would like to test it myself." */}
+          {startTestPayment && status?.state === 'connected' && (
+            <div className="rounded-md border border-line bg-surface-sunken p-3 max-w-md">
+              <SectionLabel>{s.testPaymentTitle}</SectionLabel>
+              <p className="mt-1 text-[11px] text-ink-muted leading-relaxed">
+                {s.testPaymentNote}
+              </p>
+              <div className="mt-2 flex items-end gap-2">
+                <label className="block">
+                  <span className="text-xs text-ink-subtle">{s.testPaymentAmount}</span>
+                  <input
+                    value={testAmount}
+                    onChange={(e) => setTestAmount(e.target.value)}
+                    inputMode="decimal"
+                    className={`${INPUT} w-28`}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={testing}
+                  onClick={() => {
+                    // Parse HERE rather than sending the raw string: the API
+                    // takes cents, and "1,50" is what a Dutch keyboard gives.
+                    const cents = Math.round(
+                      Number(testAmount.replace(',', '.').trim()) * 100,
+                    );
+                    if (!Number.isFinite(cents) || cents < 50) {
+                      setError(s.errTestPayment);
+                      return;
+                    }
+                    setTesting(true);
+                    setError(null);
+                    void startTestPayment(cents)
+                      .then((r) => {
+                        if (r.url) window.location.href = r.url;
+                        else {
+                          setError(r.error ?? s.errTestPayment);
+                          setTesting(false);
+                        }
+                      })
+                      .catch(() => {
+                        setError(s.errTestPayment);
+                        setTesting(false);
+                      });
+                  }}
+                >
+                  {testing ? s.testPaymentOpening : s.testPayment}
+                </Button>
+              </div>
             </div>
           )}
 

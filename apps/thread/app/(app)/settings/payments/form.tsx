@@ -23,8 +23,12 @@ import {
   type PaymentMethod,
 } from '@thefibre/shared/ui/payments-form';
 import {
+  personalStripeStatus,
+  personalTestPayment,
+  startPersonalStripeConnect,
   startStripeConnect,
   stripeStatus,
+  workspaceTestPayment,
   updateMyPayments,
   updateWorkspacePayments,
 } from './actions';
@@ -68,6 +72,10 @@ export function PaymentsForm({
       saveWorkspace={(a, d, m) => updateWorkspacePayments(a, d, m)}
       loadWorkspaceStripeStatus={stripeStatus}
       startWorkspaceStripeConnect={startStripeConnect}
+      startWorkspaceTestPayment={workspaceTestPayment}
+      loadPersonalStripeStatus={personalStripeStatus}
+      startPersonalStripeConnect={startPersonalStripeConnect}
+      startPersonalTestPayment={personalTestPayment}
     />
   );
 }
@@ -112,5 +120,14 @@ export function strings(locale: Locale) {
     stripeUnreachableNote: t(locale, 'stripe_unreachable_note'),
     stripeChargesDisabled: t(locale, 'stripe_charges_disabled'),
     errConnectFailed: t(locale, 'err_connect_failed'),
+    tabPersonal: t(locale, 'tab_personal_organiser'),
+    tabWorkspace: t(locale, 'workspace_account'),
+    tabWorkspaceOf: t(locale, 'tab_workspace_of'),
+    testPaymentTitle: t(locale, 'test_payment_title'),
+    testPaymentNote: t(locale, 'test_payment_note'),
+    testPaymentAmount: t(locale, 'test_payment_amount'),
+    testPayment: t(locale, 'test_payment'),
+    testPaymentOpening: t(locale, 'test_payment_opening'),
+    errTestPayment: t(locale, 'err_test_payment'),
   };
 }

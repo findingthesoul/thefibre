@@ -96,3 +96,50 @@ export async function startStripeConnect(): Promise<{ url?: string; error?: stri
     return { error: errorMessage(e) };
   }
 }
+
+// The personal (organiser) account needs the same OAuth grant the workspace
+// does — a pasted `acct_` grants nothing on either. Added 2026-09-24 when
+// Sjoerd asked why only one of them had a Connect button.
+export async function personalStripeStatus(): Promise<StripeStatus> {
+  try {
+    return await apiFetch<StripeStatus>('/api/v1/profile/stripe/status');
+  } catch {
+    return { state: 'none' };
+  }
+}
+
+export async function startPersonalStripeConnect(): Promise<{ url?: string; error?: string }> {
+  try {
+    return await apiFetch<{ url: string }>('/api/v1/profile/stripe/connect');
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}
+
+/** A real charge on the connected account, so the admin can prove payments
+ *  work without waiting for a buyer to discover they do not. */
+export async function workspaceTestPayment(
+  amountCents: number,
+): Promise<{ url?: string; error?: string }> {
+  try {
+    return await apiFetch<{ url: string }>('/api/v1/workspace-billing/stripe/test-payment', {
+      method: 'POST',
+      body: JSON.stringify({ amount_cents: amountCents }),
+    });
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}
+
+export async function personalTestPayment(
+  amountCents: number,
+): Promise<{ url?: string; error?: string }> {
+  try {
+    return await apiFetch<{ url: string }>('/api/v1/profile/stripe/test-payment', {
+      method: 'POST',
+      body: JSON.stringify({ amount_cents: amountCents }),
+    });
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}

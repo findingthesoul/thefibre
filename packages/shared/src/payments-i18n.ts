@@ -17,6 +17,70 @@ import type { Locale } from './index.js';
 type Entry = Record<Locale, string>;
 
 const COPY: Record<string, Entry> = {
+  tab_personal_organiser: {
+    en: 'Personal (organiser)',
+    nl: 'Persoonlijk (organisator)',
+    es: 'Personal (organizador)', // MT
+    pt: 'Pessoal (organizador)', // MT
+    de: 'Persönlich (Organisator)', // MT
+    fr: 'Personnel (organisateur)', // MT
+  },
+  tab_workspace_of: {
+    en: 'Workspace of {name}',
+    nl: 'Werkruimte van {name}',
+    es: 'Espacio de trabajo de {name}', // MT
+    pt: 'Espaço de trabalho de {name}', // MT
+    de: 'Arbeitsbereich von {name}', // MT
+    fr: 'Espace de travail de {name}', // MT
+  },
+  test_payment_title: {
+    en: 'Test this account',
+    nl: 'Deze rekening testen',
+    es: 'Probar esta cuenta', // MT
+    pt: 'Testar esta conta', // MT
+    de: 'Dieses Konto testen', // MT
+    fr: 'Tester ce compte', // MT
+  },
+  test_payment_note: {
+    en: 'A real payment to this account, so you can see the money arrive. Refund it in Stripe afterwards.',
+    nl: 'Een echte betaling naar deze rekening, zodat je het geld ziet binnenkomen. Je kunt het daarna in Stripe terugstorten.',
+    es: 'Un pago real a esta cuenta, para que veas llegar el dinero. Devuélvelo después en Stripe.', // MT
+    pt: 'Um pagamento real para esta conta, para veres o dinheiro chegar. Reembolsa-o depois no Stripe.', // MT
+    de: 'Eine echte Zahlung auf dieses Konto, damit du das Geld ankommen siehst. Erstatte sie danach in Stripe.', // MT
+    fr: 'Un vrai paiement vers ce compte, pour voir l’argent arriver. Remboursez-le ensuite dans Stripe.', // MT
+  },
+  test_payment_amount: {
+    en: 'Amount',
+    nl: 'Bedrag',
+    es: 'Importe', // MT
+    pt: 'Montante', // MT
+    de: 'Betrag', // MT
+    fr: 'Montant', // MT
+  },
+  test_payment: {
+    en: 'Test payment',
+    nl: 'Testbetaling',
+    es: 'Pago de prueba', // MT
+    pt: 'Pagamento de teste', // MT
+    de: 'Testzahlung', // MT
+    fr: 'Paiement test', // MT
+  },
+  test_payment_opening: {
+    en: 'Opening…',
+    nl: 'Openen…',
+    es: 'Abriendo…', // MT
+    pt: 'A abrir…', // MT
+    de: 'Wird geöffnet…', // MT
+    fr: 'Ouverture…', // MT
+  },
+  err_test_payment: {
+    en: 'That test payment could not be started. Use an amount of 0.50 or more.',
+    nl: 'Die testbetaling kon niet worden gestart. Gebruik een bedrag van 0,50 of hoger.',
+    es: 'No se pudo iniciar ese pago de prueba. Usa un importe de 0,50 o más.', // MT
+    pt: 'Não foi possível iniciar esse pagamento de teste. Usa um montante de 0,50 ou mais.', // MT
+    de: 'Diese Testzahlung konnte nicht gestartet werden. Verwende einen Betrag ab 0,50.', // MT
+    fr: 'Ce paiement test n’a pas pu démarrer. Utilisez un montant de 0,50 ou plus.', // MT
+  },
   personal_account: {
     en: 'Personal account',
     nl: 'Persoonlijk account',
@@ -356,5 +420,14 @@ export function paymentsStrings(locale: Locale) {
     stripeUnreachableNote: s('stripe_unreachable_note'),
     stripeChargesDisabled: s('stripe_charges_disabled'),
     errConnectFailed: s('err_connect_failed'),
+    tabPersonal: s('tab_personal_organiser'),
+    tabWorkspace: s('workspace_account'),
+    tabWorkspaceOf: s('tab_workspace_of'),
+    testPaymentTitle: s('test_payment_title'),
+    testPaymentNote: s('test_payment_note'),
+    testPaymentAmount: s('test_payment_amount'),
+    testPayment: s('test_payment'),
+    testPaymentOpening: s('test_payment_opening'),
+    errTestPayment: s('err_test_payment'),
   };
 }

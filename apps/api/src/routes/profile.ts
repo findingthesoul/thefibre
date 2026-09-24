@@ -8,6 +8,17 @@ import {
   billingFor,
   saveBilling,
 } from '../lib/identity-profile.js';
+import {
+  accountStatus,
+  authorizeUrl,
+  connectClientId,
+  signState,
+} from '../lib/stripe/connect.js';
+import { stripeOrNull } from '../lib/stripe/client.js';
+import { platformFeeCents } from '../lib/fees.js';
+import { personalStripeAccount } from '../lib/payment-accounts.js';
+import { publicOrigin } from './mcp-discovery.js';
+import { settingsUrlFor } from './workspace-billing.js';
 
 // ===========================================================================
 // The platform public profile — ONE face per user, inherited by every app
@@ -109,4 +120,108 @@ profileRoutes.patch('/', async (c) => {
     billingFor(ctx.userId),
   ]);
   return c.json({ ...profile, ...saved });
+});
+
+
+// ===========================================================================
+// Stripe Connect for the PERSONAL (organiser) account.
+//
+// Sjoerd, 2026-09-24: *"And why does the personal account not have to connect
+// like this?"* It does. It had the same defect the workspace had and for the
+// same reason — a text box holding `acct_…` grants the platform nothing, so a
+// personal account belonging to anyone but the platform owner could never
+// take a payment, while the screen said it was fine. The workspace half was
+// built first only because that is where soul.com was stuck.
+//
+// The callback is shared with the workspace flow
+// (/api/v1/workspace-billing/stripe/callback): Stripe matches redirect_uri
+// against a hand-maintained list per mode, and the signed `state` already
+// says which scope this is.
+// ===========================================================================
+
+function personalRedirectUri(headers: Headers): string {
+  return `${publicOrigin(headers)}/api/v1/workspace-billing/stripe/callback`;
+}
+
+profileRoutes.get('/stripe/connect', async (c) => {
+  const ctx = c.get('ctx');
+  const clientId = connectClientId();
+  if (!clientId) {
+    return c.json({ error: 'this platform is not registered with Stripe Connect yet' }, 503);
+  }
+  return c.json({
+    url: authorizeUrl(
+      clientId,
+      signState('personal', ctx.userId, ctx.appId),
+      personalRedirectUri(c.req.raw.headers),
+    ),
+  });
+});
+
+profileRoutes.get('/stripe/status', async (c) => {
+  const ctx = c.get('ctx');
+  const accountId = await personalStripeAccount(ctx.userId);
+  const status = await accountStatus(accountId);
+  return c.json({
+    account_id: accountId,
+    connect_available: Boolean(connectClientId()),
+    ...status,
+  });
+});
+
+/** The same rehearsal as the workspace one, on the organiser's own account. */
+profileRoutes.post('/stripe/test-payment', async (c) => {
+  const ctx = c.get('ctx');
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
+
+  const parsed = z
+    .object({ amount_cents: z.number().int().min(50).max(100_000) })
+    .safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: 'choose an amount between 0.50 and 1000.00' }, 400);
+  }
+  const amountCents = parsed.data.amount_cents;
+
+  const account = await personalStripeAccount(ctx.userId);
+  if (!account) return c.json({ error: 'connect a Stripe account first' }, 400);
+
+  const { data: ws } = await adminClient
+    .from('workspace')
+    .select('default_currency')
+    .eq('id', ctx.workspaceId)
+    .maybeSingle();
+  const back = settingsUrlFor(ctx.appId);
+
+  try {
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: (ws?.default_currency || 'EUR').toLowerCase(),
+              unit_amount: amountCents,
+              product_data: { name: 'Test payment' },
+            },
+            quantity: 1,
+          },
+        ],
+        payment_intent_data: {
+          application_fee_amount: await platformFeeCents(ctx.workspaceId, amountCents),
+          metadata: { fibre_test: 'true', user_id: ctx.userId },
+        },
+        metadata: { fibre_test: 'true', user_id: ctx.userId },
+        success_url: `${back}?stripe=test_paid`,
+        cancel_url: `${back}?stripe=test_cancelled`,
+      },
+      { stripeAccount: account },
+    );
+    if (!session.url) return c.json({ error: 'Stripe did not return a checkout page' }, 502);
+    return c.json({ url: session.url });
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : 'could not reach Stripe';
+    console.error('[profile] test payment failed', e);
+    return c.json({ error: detail }, 502);
+  }
 });
