@@ -22,6 +22,12 @@ const NAV_TONE: Record<PublicSite['theme'], string> = {
   festival: 'bg-transparent absolute inset-x-0 top-0 z-20 text-white',
   corporate: 'bg-surface-raised border-b border-line',
   community: 'bg-surface-raised/80 border-b border-line',
+  // No rule under either of these. studio has a drawn line falling through
+  // the header and a border would cut it; journal draws its one rule above
+  // the entries, where it means something, and a second one at the top would
+  // make the first ornamental.
+  studio: 'bg-surface',
+  journal: 'bg-surface',
 };
 
 export function SiteNav({

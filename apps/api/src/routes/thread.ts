@@ -398,7 +398,7 @@ const SettingsUpdate = z.object({
   // at the time wrote the fixture straight into the database, so it proved the
   // renderer and never the save. src/integration/site-settings.int.test.ts now
   // saves through this route and reads the public page back.
-  site_theme: z.enum(['plain', 'festival', 'corporate', 'community']).optional(),
+  site_theme: z.enum(['plain', 'festival', 'corporate', 'community', 'studio', 'journal']).optional(),
   site_name: z.string().max(120).nullable().optional(),
   site_logo_url: z.string().url().max(500).nullable().optional(),
   site_hero_url: z.string().url().max(500).nullable().optional(),

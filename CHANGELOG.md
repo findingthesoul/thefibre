@@ -6,6 +6,78 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.45.0] — 2026-09-24 — two designs with a voice, and a clamp that never clamped (staging)
+
+Sjoerd: *"can you make the design (in settings) for the event pages more
+diverse. (rhyming with the design of the template)"*
+
+**studio** — the house hand. The fallen thread and the Matisse cut-outs from
+thethread.app, on a white ground, with the owner's words large. It is the
+only design that needs no photograph: festival is the other image-led theme
+and is unusable without a good one, so a practitioner with nothing but their
+words had four themes that all looked administrative.
+
+**journal** — typography doing the whole job. An oversized headline, one
+hairline rule, dated entries. A body of work listed rather than sold.
+
+**Why four was not already diverse.** plain, festival, corporate and
+community differ in WHERE THE WEIGHT SITS — a hero, a table, a face, a list —
+but all four wear the same neutral palette and no drawn marks at all. A
+workspace was choosing a layout, not a character. These two are the first
+with a voice.
+
+**The marks moved to `packages/shared` rather than being copied.**
+`DrawnThread` and the cut-out library were born in `apps/website`; the themes
+are their second caller, and CLAUDE.md is explicit that the second caller
+extracts. The website now re-exports, so there is one copy of each path and
+the brand cannot drift between the marketing site and the product.
+
+**The website's yellow is deliberately absent.** The only yellow in this
+codebase is `save`, which means committing and nothing else. Borrowing it for
+decoration would make every Save button in the product mean slightly less.
+Both themes are token-pure.
+
+**A theme name is written in five places that must agree** — the check
+constraint, the Zod enum, two `SiteTheme` types, and the renderer registry —
+and getting them out of step fails quietly in the worst direction: widen all
+but the constraint and the settings page offers a design, accepts the click,
+and the save returns a 400 the form reports as a generic failure. The choice
+simply will not stick, with nothing on screen saying why. A test now reads
+all five, plus the picker, and fails when any one of them drifts. Verified by
+narrowing one list and watching it go red.
+
+### Three things only looking at the page could have found
+
+**The header and the programme started at different x.** The header sat in
+`max-w-3xl` over a `max-w-5xl` main, so studio read as two pages stuck
+together. The container is now one width, with the text narrowed inside it.
+
+**The cut-out was clipped into a grey wedge.** Hung off the right edge inside
+an `overflow-hidden` header, it stopped reading as a cut-out and started
+reading as a rendering fault. It sits fully inside the frame now, smaller and
+fainter, and is hidden below `sm` where there is no margin for it.
+
+**The second drawn line ran straight through the cards on a phone.** The grid
+is one column at 375px, so the line had nowhere to fall but across the
+content — a scratch on the screen, over somebody's event photograph. Hidden
+below `sm`; the header's segment stays at every width because it only ever
+crosses empty space.
+
+### And one bug that was already live
+
+The `row` listing — which **corporate** has used in production since the
+themes shipped — printed each thread's full intention instead of one line. A
+200-word intention ran to twenty lines inside a single table row. The cause
+is that `line-clamp-1` works by setting `display:-webkit-box` while the same
+element also carried `block`; one of them wins and it was never the clamp. A
+short intention merely looked clamped because it already fitted, which is why
+nobody saw it. Found while checking journal, which shares that variant.
+
+Migration `20260924192038` widens the check constraint. Nothing changes for
+an existing workspace — it only adds permitted values, and the renderer still
+falls back to plain for a theme it does not know.
+
+
 ## [1.44.0] — 2026-09-24 — {my.thread}, and one token map instead of two (staging)
 
 Sjoerd: *"add {my.thread} as a link to the my.thethread.app in the text

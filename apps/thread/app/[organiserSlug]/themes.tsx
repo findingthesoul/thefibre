@@ -1,4 +1,4 @@
-// The three site designs, plus the plain page that was here first.
+// The site designs, plus the plain page that was here first.
 //
 // Sjoerd, 2026-09-11: "on workspace level.. provide three different design
 // styles... A festival: full page hero image with a title and navbar at the
@@ -20,6 +20,26 @@
 // themes shipped. It is also the honest choice for a workspace that wants a
 // listing and not a website.
 //
+// Two more arrived on 2026-09-24, when Sjoerd asked for the event pages to
+// be "more diverse... rhyming with the design of the template":
+//
+//   studio     the brand's own language, for a practice rather than an event
+//              -> the fallen thread and the cut-outs from thethread.app, on a
+//                 white ground, with no photograph needed at all
+//   journal    someone following a body of work over time
+//              -> dated entries under a rule, the year as the only ornament
+//
+// The four that existed differed in WHERE THE WEIGHT SITS — hero, table,
+// face — but all four wore the same neutral palette and the same drawn
+// nothing, so a workspace choosing between them was choosing a layout rather
+// than a character. These two are the first with a voice: one is the
+// marketing site's hand, the other is typography doing the whole job.
+//
+// Both are token-pure. The website's yellow is NOT here: the only yellow in
+// this codebase is `save`, which means committing and nothing else
+// (docs/brand-design.md), and borrowing it for decoration would make every
+// Save button in the product mean slightly less.
+//
 // What is deliberately NOT here: per-page layout. Sjoerd named the future —
 // "the drag and drop of the certificates for an very chique design tool" —
 // and asked for "a basic structure to use templates" now. A theme is code, a
@@ -30,6 +50,7 @@ import Link from 'next/link';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import { FOOTER_LINKS } from '@thefibre/shared';
 import type { PublicSite } from '@/lib/public-site';
+import { DrawnThread, Shape } from '@thefibre/shared/ui/marks';
 import { ThreadsGrid, type PublicThreadListItem } from './threads-grid';
 import { SiteNav, SiteFooter } from './site-chrome';
 
@@ -277,9 +298,177 @@ export function CommunityTheme(p: ThemeProps) {
   );
 }
 
+// ── studio ────────────────────────────────────────────────────────────────
+// The house hand. A white ground, one line falling through the page behind
+// everything, and a cut-out sitting off the margin — the vocabulary of
+// thethread.app, which until now stopped at the marketing site's edge.
+//
+// It is the only design that needs no photograph. festival is the other
+// image-led theme and it is unusable without a good one; a practitioner with
+// nothing but their words had four themes that all looked administrative.
+//
+// The line is two segments with an x-fraction handoff (see DrawnThread): it
+// leaves the header low-right and enters the programme there. One path
+// across both sections would break the moment the header reflowed.
+
+const STUDIO_HEADER_PATH =
+  'M8 4 C30 22 18 46 34 62 C52 80 76 70 88 86 C97 98 94 112 86 120';
+const STUDIO_MAIN_PATH =
+  'M86 0 C78 16 54 14 40 26 C24 40 30 62 20 76 C12 88 14 104 26 118';
+
+export function StudioTheme(p: ThemeProps) {
+  return (
+    <div className="min-h-screen bg-surface">
+      <SiteNav site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
+
+      <header className="relative isolate overflow-hidden">
+        <DrawnThread
+          d={STUDIO_HEADER_PATH}
+          viewBox="0 0 100 124"
+          className="pointer-events-none absolute inset-0 -z-10 h-full w-full text-ink/15"
+          strokeWidth={1.75}
+        />
+        {/* Fully inside the frame on purpose. Hanging it off the right
+            edge let overflow-hidden clip it into a wedge, which reads as a
+            rendering fault rather than as a cut-out — checked on the page,
+            not in the markup. Hidden below sm, where there is no margin for
+            it to sit in. */}
+        <Shape
+          name="leaf"
+          rotate={-14}
+          className="pointer-events-none absolute right-8 top-10 -z-10 hidden w-24 text-ink/[0.05] sm:block lg:w-32"
+        />
+        {/* Same container width as the programme below. The text is
+            narrowed INSIDE it — when the header was max-w-3xl over a
+            max-w-5xl main, the two sections started at different x and the
+            page read as two pages stuck together. */}
+        <div className="mx-auto max-w-5xl px-6 pb-16 pt-24 sm:pt-28">
+          {p.crumb && <div className="mb-8">{p.crumb}</div>}
+          {/* The eyebrow is the owner's name ABOVE their headline. When a
+              workspace has written no headline the headline falls back to
+              that same name, and printing it twice looks like a bug — seen
+              on a real organiser with no headline set. */}
+          {p.site.headline && p.site.headline !== p.name && (
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted">
+              {p.name}
+            </p>
+          )}
+          <h1 className="mt-4 max-w-3xl text-[clamp(2rem,5.5vw,3.5rem)] font-semibold leading-[1.06] tracking-tight text-balance">
+            {p.site.headline ?? p.name}
+          </h1>
+          {p.site.intro ? (
+            <RichText
+              html={p.site.intro}
+              className="mt-6 max-w-xl text-lg leading-relaxed text-ink-subtle"
+            />
+          ) : (
+            p.bio && (
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-subtle">{p.bio}</p>
+            )
+          )}
+        </div>
+      </header>
+
+      {/* The hero is optional here and sits UNDER the words, as a plate
+          rather than a backdrop — this theme's job is to work without one. */}
+      {p.site.hero_url && (
+        <div className="mx-auto max-w-5xl px-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={p.site.hero_url}
+            alt=""
+            className="h-56 w-full rounded-xl object-cover sm:h-80"
+          />
+        </div>
+      )}
+
+      <main className="relative isolate mx-auto max-w-5xl px-6 pb-24 pt-16">
+        {/* Hidden below sm. The grid is one column on a phone, so this
+            segment has no margin to run down — it crosses the cards
+            instead, and a line drawn over a photograph of an event reads as
+            a scratch on the screen. The header's segment stays at every
+            width because it only ever crosses empty space. Seen at 375px,
+            not reasoned about. */}
+        <DrawnThread
+          d={STUDIO_MAIN_PATH}
+          viewBox="0 0 100 124"
+          className="pointer-events-none absolute inset-0 -z-10 hidden h-full w-full text-ink/10 sm:block"
+          strokeWidth={1.75}
+        />
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-muted">
+          What’s on
+        </h2>
+        {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
+        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="poster" />
+      </main>
+
+      <SiteFooter site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
+    </div>
+  );
+}
+
+// ── journal ───────────────────────────────────────────────────────────────
+// Typography doing the whole job. No image above the fold, no cards, no
+// colour — an oversized headline, a hairline rule, and the programme as
+// dated entries: a body of work listed rather than sold.
+//
+// It shares variant="row" with corporate deliberately. That variant already
+// puts the date first in a column you can scan, and a fifth card shape to
+// maintain would buy nothing. What differs above it is the register:
+// corporate is a company's calendar, this is a practitioner's record.
+
+export function JournalTheme(p: ThemeProps) {
+  const year = new Date().getFullYear();
+  return (
+    <div className="min-h-screen bg-surface">
+      <SiteNav site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
+
+      <header className="mx-auto max-w-4xl px-6 pb-12 pt-24 sm:pt-32">
+        {p.crumb && <div className="mb-8">{p.crumb}</div>}
+        <div className="flex items-baseline justify-between gap-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-ink-muted">
+            {p.site.headline && p.site.headline !== p.name ? p.name : ''}
+          </p>
+          {/* The year is the only ornament, and it is information. */}
+          <span className="hidden text-[11px] tabular-nums tracking-[0.22em] text-ink-muted sm:block">
+            {year}
+          </span>
+        </div>
+        <h1 className="mt-8 text-[clamp(2.25rem,6.5vw,4.25rem)] font-medium leading-[1.02] tracking-[-0.02em] text-balance">
+          {p.site.headline ?? p.name}
+        </h1>
+        {p.site.intro ? (
+          <RichText
+            html={p.site.intro}
+            className="mt-8 max-w-2xl text-base leading-[1.75] text-ink-subtle"
+          />
+        ) : (
+          p.bio && (
+            <p className="mt-8 max-w-2xl text-base leading-[1.75] text-ink-subtle">{p.bio}</p>
+          )
+        )}
+      </header>
+
+      <main className="mx-auto max-w-4xl px-6 pb-24">
+        <div className="border-t border-ink pt-8">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-ink-muted">
+            Entries
+          </h2>
+          {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
+          <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="row" />
+        </div>
+      </main>
+
+      <SiteFooter site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
+    </div>
+  );
+}
+
 export const THEMES = {
   plain: PlainTheme,
   festival: FestivalTheme,
   corporate: CorporateTheme,
   community: CommunityTheme,
+  studio: StudioTheme,
+  journal: JournalTheme,
 } as const;

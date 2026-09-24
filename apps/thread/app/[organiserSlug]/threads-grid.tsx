@@ -161,8 +161,16 @@ export function ThreadsGrid({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-base font-medium truncate">{title}</span>
+                  {/* No `block` on the clamp below. `line-clamp-1` works by
+                      setting display:-webkit-box, and `block` sets
+                      display:block — one of them wins and it was never the
+                      clamp. The row variant therefore printed intentions at
+                      full length from the day it shipped; a short one merely
+                      looked clamped because it already fitted. Found on the
+                      corporate theme with a 200-word intention, which ran to
+                      twenty lines inside a single table row. */}
                   {th.intention && (
-                    <span className="mt-0.5 block text-sm text-ink-muted line-clamp-1">
+                    <span className="mt-0.5 text-sm text-ink-muted line-clamp-1">
                       {richTextPreview(th.intention)}
                     </span>
                   )}

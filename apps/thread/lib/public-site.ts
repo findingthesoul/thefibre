@@ -27,7 +27,7 @@
 // component" — this file is named there as surviving by accident, and this
 // comment is the part that makes it deliberate.
 
-export type SiteTheme = 'plain' | 'festival' | 'corporate' | 'community';
+export type SiteTheme = 'plain' | 'festival' | 'corporate' | 'community' | 'studio' | 'journal';
 
 export type PublicSite = {
   theme: SiteTheme;

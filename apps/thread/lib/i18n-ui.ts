@@ -1238,13 +1238,15 @@ const CATALOG = {
     de: 'Design', // MT
     fr: 'Design', // MT
   },
+  // Counted "three" until 2026-09-24, by which point there were four and two
+  // more were landing. A sentence that names a number goes stale silently.
   site_design_desc: {
-    en: 'The three designs differ in what a visitor sees first. Pick the one that fits who arrives.',
-    nl: 'De drie ontwerpen verschillen in wat een bezoeker als eerste ziet. Kies degene die past bij wie er binnenkomt.',
-    es: 'Los tres diseños difieren en lo que ve primero un visitante. Elige el que encaje con quien llega.', // MT
-    pt: 'Os três designs diferem no que o visitante vê primeiro. Escolha o que combina com quem chega.', // MT
-    de: 'Die drei Designs unterscheiden sich darin, was Besucher zuerst sehen. Wähle das passende.', // MT
-    fr: 'Les trois designs diffèrent par ce que le visiteur voit en premier. Choisis celui qui correspond.', // MT
+    en: 'Each design differs in what a visitor sees first. Pick the one that fits who arrives.',
+    nl: 'Elk ontwerp verschilt in wat een bezoeker als eerste ziet. Kies degene die past bij wie er binnenkomt.',
+    es: 'Cada diseño difiere en lo que ve primero un visitante. Elige el que encaje con quien llega.', // MT
+    pt: 'Cada design difere no que o visitante vê primeiro. Escolha o que combina com quem chega.', // MT
+    de: 'Jedes Design unterscheidet sich darin, was Besucher zuerst sehen. Wähle das passende.', // MT
+    fr: 'Chaque design diffère par ce que le visiteur voit en premier. Choisis celui qui correspond.', // MT
   },
   theme_plain: {
     en: 'Plain',
@@ -1309,6 +1311,38 @@ const CATALOG = {
     pt: 'Primeiro seu rosto e sua voz, depois o que há. Para quem já pertence.', // MT
     de: 'Erst dein Gesicht und deine Stimme, dann das Programm. Für Leute, die schon dazugehören.', // MT
     fr: 'D’abord ton visage et ta voix, puis le programme. Pour ceux qui font déjà partie.', // MT
+  },
+  theme_studio: {
+    en: 'Studio',
+    nl: 'Atelier',
+    es: 'Estudio', // MT
+    pt: 'Estúdio', // MT
+    de: 'Atelier', // MT
+    fr: 'Atelier', // MT
+  },
+  theme_studio_desc: {
+    en: 'Our own hand: a drawn line, plenty of white, your words large. The one design that needs no photograph.',
+    nl: 'Onze eigen hand: een getekende lijn, veel wit, je woorden groot. Het enige ontwerp dat geen foto nodig heeft.',
+    es: 'Nuestra propia mano: una línea dibujada, mucho blanco, tus palabras en grande. El único diseño que no necesita foto.', // MT
+    pt: 'A nossa própria mão: uma linha desenhada, muito branco, as suas palavras grandes. O único design que dispensa foto.', // MT
+    de: 'Unsere eigene Handschrift: eine gezeichnete Linie, viel Weiß, deine Worte groß. Das einzige Design ohne Foto.', // MT
+    fr: 'Notre propre main : une ligne dessinée, beaucoup de blanc, tes mots en grand. Le seul design qui n’a pas besoin de photo.', // MT
+  },
+  theme_journal: {
+    en: 'Journal',
+    nl: 'Journaal',
+    es: 'Diario', // MT
+    pt: 'Diário', // MT
+    de: 'Journal', // MT
+    fr: 'Journal', // MT
+  },
+  theme_journal_desc: {
+    en: 'Words only: a large title, one rule, dated entries. For a body of work that builds up over time.',
+    nl: 'Alleen woorden: een grote titel, één lijn, gedateerde items. Voor werk dat zich opbouwt in de tijd.',
+    es: 'Solo palabras: un título grande, una línea, entradas fechadas. Para una obra que se acumula con el tiempo.', // MT
+    pt: 'Só palavras: um título grande, uma linha, entradas datadas. Para um trabalho que se acumula ao longo do tempo.', // MT
+    de: 'Nur Worte: ein großer Titel, eine Linie, datierte Einträge. Für ein Werk, das über die Zeit wächst.', // MT
+    fr: 'Rien que des mots : un grand titre, un filet, des entrées datées. Pour une œuvre qui se construit dans le temps.', // MT
   },
   dash_your_site: { en: 'Your site', nl: 'Je site', es: 'Tu sitio', pt: 'Seu site', de: 'Deine Website', fr: 'Ton site' }, // MT es/pt/de/fr
   site_tab_design: { en: 'Design', nl: 'Ontwerp', es: 'Diseño', pt: 'Design', de: 'Design', fr: 'Design' }, // MT es/pt/de/fr

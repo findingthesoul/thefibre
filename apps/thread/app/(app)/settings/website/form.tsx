@@ -41,9 +41,11 @@ const THEMES: { value: SiteTheme; labelKey: UiKey; descKey: UiKey }[] = [
   { value: 'festival', labelKey: 'theme_festival', descKey: 'theme_festival_desc' },
   { value: 'corporate', labelKey: 'theme_corporate', descKey: 'theme_corporate_desc' },
   { value: 'community', labelKey: 'theme_community', descKey: 'theme_community_desc' },
+  { value: 'studio', labelKey: 'theme_studio', descKey: 'theme_studio_desc' },
+  { value: 'journal', labelKey: 'theme_journal', descKey: 'theme_journal_desc' },
 ];
 
-/** Where the weight sits, in four rectangles. */
+/** Where the weight sits, in a few rectangles. */
 function ThemeSketch({ theme }: { theme: SiteTheme }) {
   const bar = 'rounded-[2px] bg-current';
   if (theme === 'festival')
@@ -77,6 +79,53 @@ function ThemeSketch({ theme }: { theme: SiteTheme }) {
         <span className="mt-2 flex flex-col gap-1">
           <span className={`${bar} h-1.5 w-full opacity-35`} />
           <span className={`${bar} h-1.5 w-full opacity-35`} />
+        </span>
+      </span>
+    );
+  // studio is the only sketch with a CURVE in it, because it is the only
+  // design with a drawn line — three more rectangles would have described
+  // the layout accurately and the character not at all.
+  if (theme === 'studio')
+    return (
+      <span className="relative block h-14 w-full overflow-hidden rounded-md bg-current/10 p-1.5">
+        <svg
+          viewBox="0 0 100 56"
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full opacity-40"
+          aria-hidden="true"
+        >
+          <path
+            d="M10 2 C34 14 22 30 44 38 C64 45 84 34 94 50"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <span className="relative">
+          <span className={`${bar} h-1 w-1/4 opacity-50`} />
+          <span className={`${bar} mt-1.5 h-2 w-3/4 opacity-85`} />
+          <span className="mt-2.5 flex gap-1">
+            <span className={`${bar} h-4 flex-1 opacity-30`} />
+            <span className={`${bar} h-4 flex-1 opacity-30`} />
+            <span className={`${bar} h-4 flex-1 opacity-30`} />
+          </span>
+        </span>
+      </span>
+    );
+  if (theme === 'journal')
+    return (
+      <span className="block h-14 w-full rounded-md bg-current/10 p-1.5">
+        <span className={`${bar} h-2.5 w-4/5 opacity-85`} />
+        <span className={`${bar} mt-2 h-[2px] w-full opacity-70`} />
+        <span className="mt-1.5 flex flex-col gap-1">
+          {[0, 1].map((i) => (
+            <span key={i} className="flex items-center gap-1.5">
+              <span className={`${bar} h-1 w-4 opacity-40`} />
+              <span className={`${bar} h-1 flex-1 opacity-60`} />
+            </span>
+          ))}
         </span>
       </span>
     );

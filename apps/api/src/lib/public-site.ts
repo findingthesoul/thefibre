@@ -13,7 +13,7 @@
 
 import { adminClient } from '../db.js';
 
-export type SiteTheme = 'plain' | 'festival' | 'corporate' | 'community';
+export type SiteTheme = 'plain' | 'festival' | 'corporate' | 'community' | 'studio' | 'journal';
 
 export type PublicSite = {
   theme: SiteTheme;
