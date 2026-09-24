@@ -4,6 +4,44 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.37.0] — 2026-09-24 — a deploy can say "changed, but only with a session"
+
+`deploy-api.sh` offered two answers to "what does this release serve that the
+old image does not": a probe, or `--no-visible-change`. They are not
+exhaustive, and the gap produced a false record.
+
+The Meet session's v1.36.0 changed two user-visible things — an authenticated
+projection on `GET /meet/bookings`, and an email body — and neither is
+reachable without a session. So there is no probe (`status:401` proves
+nothing; the old image answers 401 too) and "nothing changed" is simply
+untrue. It had to file a real change as a refactor.
+
+`--behind-auth "<why>"` is the third answer. The reason is recorded verbatim:
+
+```
+deployed <sha> as <release>, probe: changed behaviour, not reachable
+without a session: the booking projection carries a host slug, and the
+reschedule email names it
+```
+
+**The line this gate prints is the whole point of it.** "no user-visible
+change" on a release that changed two user-visible things is the one outcome
+it must never produce, because a later session reads that line instead of
+re-deriving what a release meant to do.
+
+The three answers are now counted rather than compared pairwise, so a fourth
+cannot be added without the mutual-exclusion check staying correct.
+
+**Raised by the session that hit it, on its own release, rather than left in
+the log for someone to find.** It deliberately did not add the flag itself, on
+the grounds that a new answer is an interface every session has to learn —
+which was the right instinct and is why the rationale is in the script's
+header rather than only here.
+
+**Verified:** no answer refuses with all three listed; two answers refuse;
+`--behind-auth` with no reason prints usage; a dry run passes every gate and
+prints the recorded line.
+
 ## [1.36.0] — 2026-09-24 — reschedule, in the two places it was missing (Meet 2.14.0)
 
 "people told me the reschedule option is not there — it should be on the

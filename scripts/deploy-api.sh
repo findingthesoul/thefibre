@@ -44,12 +44,28 @@
 # refused is SILENCE: you must say which it is, and whatever you say is
 # printed with the sha and the Fly release so a later session can read the
 # claim instead of re-deriving it.
+#
+# `--behind-auth "<why>"` is the THIRD answer, added 2026-09-24 because the
+# first two were not exhaustive and the gap produced a false record. A release
+# can change two user-visible things and still be unprobeable from outside:
+# an authenticated projection and an email body were the case that found it.
+# Neither existing answer is true there — there is no probe, and "nothing
+# changed" is wrong — so the session deploying it had to file a real change as
+# a refactor. Raised by the Meet session on its own v1.36.0 rather than left
+# for someone to discover from the log; it did not add the flag itself on the
+# grounds that a new answer is an interface every session has to learn, which
+# was the right instinct and the reason this comment exists.
+#
+# The line this gate prints is the whole point. "no user-visible change" on a
+# release that changed two user-visible things is the ONE outcome it must
+# never produce.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 usage() {
   cat >&2 <<'USAGE'
-usage: ./scripts/deploy-api.sh <staging|prod> (--probe "<url> | <expected>" | --no-visible-change)
+usage: ./scripts/deploy-api.sh <staging|prod>
+       (--probe "<url> | <expected>" | --behind-auth "<why>" | --no-visible-change)
 
   staging   thefibre-api-staging, must be at origin/staging
   prod      thefibre-api,         must be at origin/main
@@ -65,6 +81,13 @@ usage: ./scripts/deploy-api.sh <staging|prod> (--probe "<url> | <expected>" | --
                                  in scripts/ (smoke-prod.mjs, verify-*.mjs).
                                  Exit 0 passes. For checks a single request
                                  cannot make.
+  --behind-auth "<why>"          the behaviour DID change, and no
+                                 unauthenticated request can see it — an
+                                 authenticated projection, an email body. Say
+                                 what changed; it is recorded verbatim.
+                                 (status:401 is not a probe here: the old
+                                 image answers 401 too.)
+
   --no-visible-change            nothing about this release is observable over
                                  HTTP (a refactor, a log line, a dep bump).
                                  A real answer, recorded as such.
@@ -88,22 +111,32 @@ esac
 
 PROBE=""
 NO_VISIBLE=0
+BEHIND_AUTH=""
 DRY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --probe) PROBE="${2:-}"; [ -n "$PROBE" ] || usage; shift 2 ;;
     --no-visible-change) NO_VISIBLE=1; shift ;;
+    --behind-auth) BEHIND_AUTH="${2:-}"; [ -n "$BEHIND_AUTH" ] || usage; shift 2 ;;
     --dry-run) DRY=1; shift ;;
     *) usage ;;
   esac
 done
-if [ -n "$PROBE" ] && [ "$NO_VISIBLE" = "1" ]; then
-  echo "REFUSED: --probe and --no-visible-change are different answers; give one." >&2
+# Exactly one answer. Counted rather than compared pairwise, so a fourth
+# answer cannot be added without this staying correct.
+ANSWERS=0
+[ -n "$PROBE" ] && ANSWERS=$((ANSWERS + 1))
+[ -n "$BEHIND_AUTH" ] && ANSWERS=$((ANSWERS + 1))
+[ "$NO_VISIBLE" = "1" ] && ANSWERS=$((ANSWERS + 1))
+if [ "$ANSWERS" -gt 1 ]; then
+  echo "REFUSED: --probe, --behind-auth and --no-visible-change are different answers; give one." >&2
   exit 64
 fi
-if [ -z "$PROBE" ] && [ "$NO_VISIBLE" = "0" ]; then
+if [ "$ANSWERS" -eq 0 ]; then
   echo "REFUSED: say what this release serves that the old image does not." >&2
-  echo "  --probe \"<url> | <expected text>\"   or   --no-visible-change" >&2
+  echo "  --probe \"<url> | <expected text>\"" >&2
+  echo "  --behind-auth \"<why>\"              changed, but only visible with a session" >&2
+  echo "  --no-visible-change                 nothing observable over HTTP" >&2
   echo "  /health is not an answer: every image passes it, including the wrong one." >&2
   exit 64
 fi
@@ -183,6 +216,8 @@ fi
 # ── 4. What is RUNNING ──────────────────────────────────────────────────────
 if [ "$NO_VISIBLE" = "1" ]; then
   ANSWER="no user-visible change"
+elif [ -n "$BEHIND_AUTH" ]; then
+  ANSWER="changed behaviour, not reachable without a session: $BEHIND_AUTH"
 else
   # A script, when one request cannot say it — suggested by the session that
   # runs the launch checks, whose real post-deploy proof is several calls in
