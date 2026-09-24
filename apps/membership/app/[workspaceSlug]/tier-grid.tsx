@@ -4,6 +4,7 @@
 // price (when set) is offered as an interval choice inside the form.
 
 import { useMemo, useState } from 'react';
+import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { Check } from 'lucide-react';
 import { COUNTRIES } from '@thefibre/shared/countries';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
@@ -208,7 +209,8 @@ function TierCard({
       }
       if (res.url) {
         setState('redirecting');
-        window.location.href = res.url;
+        // Escapes the iframe when embedded — Stripe refuses to be framed.
+        redirectToCheckout(res.url);
         return;
       }
       setState('idle');

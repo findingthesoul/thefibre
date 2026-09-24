@@ -7,11 +7,22 @@
 import { APPS } from '@thefibre/shared';
 import { buildEmbedLoader } from '@thefibre/shared/embed-loader';
 
-const HEADER = `/* Membership — embeddable widgets (tier cards, join button).
+const HEADER = `/* Membership — embeddable widgets (join page, tier cards, join button).
  *
  * Usage on any website (Webflow etc.):
  *   <script src="https://membership.thefibre.app/embed.js" defer></script>
+ *
+ *   The whole join page — headline, tiers, products:
+ *   <div data-membership-embed="page" data-workspace="my-community"></div>
+ *
+ *   Just the tier cards:
  *   <div data-membership-embed="tiers" data-workspace="my-community"></div>
+ *
+ *   A button that opens joining in an overlay, leaving the host page up:
+ *   <div data-membership-embed="join" data-workspace="my-community"
+ *        data-label="Become a member"></div>
+ *
+ *   A button that navigates to the join page instead:
  *   <div data-membership-embed="button" data-workspace="my-community"
  *        data-label="Become a member"></div>
  *
@@ -32,6 +43,10 @@ const JS = buildEmbedLoader({
   title: APPS.membership.name,
   header: HEADER,
   kinds: {
+    page: {
+      path: '/embed/page',
+      params: ['workspace', 'theme', 'lang'],
+    },
     tiers: {
       path: '/embed/tiers',
       params: ['workspace', 'theme', 'lang'],
@@ -39,6 +54,15 @@ const JS = buildEmbedLoader({
     button: {
       path: '/embed/button',
       params: ['workspace', 'label', 'theme', 'lang'],
+    },
+    // The popup: the host page stays where it is and the join page opens in
+    // an overlay above it. The button that triggers it is the `button` embed
+    // rendered in trigger mode — the loader handles the overlay, so nothing
+    // here has to know how to draw a modal.
+    join: {
+      mode: 'popup',
+      path: '/embed/page',
+      params: ['workspace', 'label', 'lang'],
     },
   },
 });

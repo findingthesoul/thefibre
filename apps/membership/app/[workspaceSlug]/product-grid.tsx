@@ -7,6 +7,7 @@
 // tier-scoped, so no country adjustment here.
 
 import { useMemo, useState } from 'react';
+import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { Check } from 'lucide-react';
 import { publicFetch, PublicApiError, type PublicProduct } from '@/lib/public-api';
 import { money } from '@/lib/money';
@@ -110,7 +111,8 @@ function ProductCard({
       }
       if (res.url) {
         setState('redirecting');
-        window.location.href = res.url;
+        // Escapes the iframe when embedded — Stripe refuses to be framed.
+        redirectToCheckout(res.url);
         return;
       }
       setState('idle');

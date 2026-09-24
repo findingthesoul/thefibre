@@ -49,7 +49,13 @@ const ROOT = (() => {
     return resolve(dirname(fileURLToPath(import.meta.url)), '..');
   }
 })();
-const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+// maxBuffer, because the default is 1MB and `git show <ref>:CHANGELOG.md`
+// passed it on 2026-09-24 — the changelog is simply long now. The failure
+// was `spawnSync git ENOBUFS` with a stack trace and no mention of the
+// changelog, and it blocked EVERY release until someone read the stack.
+// 64MB is not a real limit for a text file; it is "never this again".
+const git = (...args) =>
+  execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim();
 
 const KIND = process.argv[2];
 const AMEND = process.argv.includes('--amend');

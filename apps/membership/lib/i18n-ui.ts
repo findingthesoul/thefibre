@@ -2455,6 +2455,22 @@ const CATALOG = {
     de: 'Was möchtest du einbetten?', // MT
     fr: 'Que veux-tu intégrer ?', // MT
   },
+  whole_page: {
+    en: 'Whole page',
+    nl: 'Hele pagina',
+    es: 'Página completa', // MT
+    pt: 'Página inteira', // MT
+    de: 'Ganze Seite', // MT
+    fr: 'Page entière', // MT
+  },
+  join_popup: {
+    en: 'Popup',
+    nl: 'Pop-up',
+    es: 'Ventana emergente', // MT
+    pt: 'Janela pop-up', // MT
+    de: 'Pop-up', // MT
+    fr: 'Fenêtre pop-up', // MT
+  },
   tier_cards: {
     en: 'Tier cards',
     nl: 'Niveaukaarten',

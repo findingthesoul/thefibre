@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.46.0] — 2026-09-24 — put the membership on your own website
+
+Sjoerd: *"Can you create a: integrate into website page for the page and
+cards (separately). Popup for enrolement."* The cards already existed
+(`tiers`); the other two did not.
+
+- **`page`** — the whole join page: headline, intro, tier cards and
+  à-la-carte products, with the background, padding and "powered by"
+  footer left to the host site. It imports `TierGrid` and `ProductGrid`
+  from the public page rather than copying them, so the two cannot drift.
+- **`join`** — a popup. The host page stays where it is and joining opens
+  in an overlay above it. The loader binds to the host's own element rather
+  than drawing a button, so the generated snippet ships a plain `<button>`
+  inside the wrapper: it works pasted as-is, and a site with its own button
+  swaps the inner element and keeps the wrapper.
+
+**And a bug they would have walked straight into.** Membership's two
+checkout buttons did `window.location.href = res.url`, which inside an
+iframe navigates the EMBED — and Stripe Checkout refuses to be framed. A
+visitor clicking Join on an embedded page would have watched the widget go
+blank. The Thread hit this when its enrol form shipped in Webflow and
+carried the fix inline; that logic is now
+`@thefibre/shared/checkout-redirect`, used by all three, with tests for the
+plain, framed and sandboxed cases. The sandboxed one matters: reading
+`window.top` is allowed cross-origin but ASSIGNING to `top.location` throws
+when the host frames us without `allow-top-navigation`.
+
 ## [1.45.0] — 2026-09-24 — two designs with a voice, and a clamp that never clamped (staging)
 
 Sjoerd: *"can you make the design (in settings) for the event pages more

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { CheckCircle2 } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
@@ -185,15 +186,9 @@ export function EnrolCard({
         setState('redirecting');
         // Stripe Checkout refuses iframes — inside an embed, escape to the
         // top window; the success/cancel URLs return to the public page.
-        try {
-          if (window.self !== window.top && window.top) {
-            window.top.location.href = res.checkout_url;
-          } else {
-            window.location.href = res.checkout_url;
-          }
-        } catch {
-          window.location.href = res.checkout_url;
-        }
+        // The logic moved to @thefibre/shared/checkout-redirect when
+        // Membership needed the same thing (2026-09-24).
+        redirectToCheckout(res.checkout_url);
         return;
       }
       setState(

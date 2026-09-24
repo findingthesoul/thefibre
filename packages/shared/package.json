@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.45.0",
+  "version": "1.46.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -10,81 +10,185 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./ui/organisation-combobox": {
-      "types": "./dist/ui/organisation-combobox.d.ts",
-      "default": "./dist/ui/organisation-combobox.js"
+    "./api-fetch": {
+      "types": "./dist/api-fetch.d.ts",
+      "default": "./dist/api-fetch.js"
     },
-    "./ui/person-combobox": {
-      "types": "./dist/ui/person-combobox.d.ts",
-      "default": "./dist/ui/person-combobox.js"
+    "./app-shell": {
+      "types": "./dist/app-shell.d.ts",
+      "default": "./dist/app-shell.js"
     },
-    "./ui/page-intro": {
-      "types": "./dist/ui/page-intro.d.ts",
-      "default": "./dist/ui/page-intro.js"
+    "./auth-callback": {
+      "types": "./dist/auth-callback.d.ts",
+      "default": "./dist/auth-callback.js"
     },
-    "./ui/timeline": {
-      "types": "./dist/ui/timeline.d.ts",
-      "default": "./dist/ui/timeline.js"
+    "./available-apps": {
+      "types": "./dist/available-apps.d.ts",
+      "default": "./dist/available-apps.js"
     },
-    "./ui/date-field": {
-      "types": "./dist/ui/date-field.d.ts",
-      "default": "./dist/ui/date-field.js"
+    "./checkout-redirect": {
+      "types": "./dist/checkout-redirect.d.ts",
+      "default": "./dist/checkout-redirect.js"
     },
-    "./ui/marks": {
-      "types": "./dist/ui/marks.d.ts",
-      "default": "./dist/ui/marks.js"
+    "./countries": {
+      "types": "./dist/countries.d.ts",
+      "default": "./dist/countries.js"
     },
-    "./ui/help": {
-      "types": "./dist/ui/help.d.ts",
-      "default": "./dist/ui/help.js"
+    "./currencies": {
+      "types": "./dist/currencies.d.ts",
+      "default": "./dist/currencies.js"
     },
-    "./ui/info-hint": {
-      "types": "./dist/ui/info-hint.d.ts",
-      "default": "./dist/ui/info-hint.js"
+    "./design/tailwind-preset": {
+      "types": "./dist/design/tailwind-preset.d.ts",
+      "default": "./dist/design/tailwind-preset.js"
     },
-    "./ui/photo-field": {
-      "types": "./dist/ui/photo-field.d.ts",
-      "default": "./dist/ui/photo-field.js"
+    "./design/tokens": {
+      "types": "./dist/design/tokens.d.ts",
+      "default": "./dist/design/tokens.js"
     },
-    "./ui/settings": {
-      "types": "./dist/ui/settings.d.ts",
-      "default": "./dist/ui/settings.js"
+    "./embed-loader": {
+      "types": "./dist/embed-loader.d.ts",
+      "default": "./dist/embed-loader.js"
     },
-    "./ui/fields": {
-      "types": "./dist/ui/fields.d.ts",
-      "default": "./dist/ui/fields.js"
+    "./i18n": {
+      "types": "./dist/i18n.d.ts",
+      "default": "./dist/i18n.js"
     },
-    "./ui/button": {
-      "types": "./dist/ui/button.d.ts",
-      "default": "./dist/ui/button.js"
+    "./ical": {
+      "types": "./dist/ical.d.ts",
+      "default": "./dist/ical.js"
     },
-    "./ui/dialog": {
-      "types": "./dist/ui/dialog.d.ts",
-      "default": "./dist/ui/dialog.js"
+    "./invoice-model": {
+      "types": "./dist/invoice-model.d.ts",
+      "default": "./dist/invoice-model.js"
     },
-    "./ui/switch": {
-      "types": "./dist/ui/switch.d.ts",
-      "default": "./dist/ui/switch.js"
+    "./invoice-pdf-route": {
+      "types": "./dist/invoice-pdf-route.d.ts",
+      "default": "./dist/invoice-pdf-route.js"
     },
-    "./ui/list": {
-      "types": "./dist/ui/list.d.ts",
-      "default": "./dist/ui/list.js"
+    "./languages": {
+      "types": "./dist/languages.d.ts",
+      "default": "./dist/languages.js"
     },
-    "./ui/rich-text": {
-      "types": "./dist/ui/rich-text.d.ts",
-      "default": "./dist/ui/rich-text.js"
+    "./link-kinds": {
+      "types": "./dist/link-kinds.d.ts",
+      "default": "./dist/link-kinds.js"
     },
-    "./ui/theme-script": {
-      "types": "./dist/ui/theme-script.d.ts",
-      "default": "./dist/ui/theme-script.js"
+    "./money": {
+      "types": "./dist/money.d.ts",
+      "default": "./dist/money.js"
+    },
+    "./no-access": {
+      "types": "./dist/no-access.d.ts",
+      "default": "./dist/no-access.js"
+    },
+    "./participant-auth-i18n": {
+      "types": "./dist/participant-auth-i18n.d.ts",
+      "default": "./dist/participant-auth-i18n.js"
+    },
+    "./payments-i18n": {
+      "types": "./dist/payments-i18n.d.ts",
+      "default": "./dist/payments-i18n.js"
+    },
+    "./prefs": {
+      "types": "./dist/prefs.d.ts",
+      "default": "./dist/prefs.js"
+    },
+    "./robots": {
+      "types": "./dist/robots.d.ts",
+      "default": "./dist/robots.js"
+    },
+    "./root-layout": {
+      "types": "./dist/root-layout.d.ts",
+      "default": "./dist/root-layout.js"
+    },
+    "./security-headers": {
+      "types": "./dist/security-headers.d.ts",
+      "default": "./dist/security-headers.js"
+    },
+    "./slug": {
+      "types": "./dist/slug.d.ts",
+      "default": "./dist/slug.js"
+    },
+    "./sso-hop": {
+      "types": "./dist/sso-hop.d.ts",
+      "default": "./dist/sso-hop.js"
+    },
+    "./todo-calls": {
+      "types": "./dist/todo-calls.d.ts",
+      "default": "./dist/todo-calls.js"
+    },
+    "./todo-groups": {
+      "types": "./dist/todo-groups.d.ts",
+      "default": "./dist/todo-groups.js"
+    },
+    "./ui/app-landing": {
+      "types": "./dist/ui/app-landing.d.ts",
+      "default": "./dist/ui/app-landing.js"
     },
     "./ui/app-switcher": {
       "types": "./dist/ui/app-switcher.d.ts",
       "default": "./dist/ui/app-switcher.js"
     },
-    "./ui/profile-form": {
-      "types": "./dist/ui/profile-form.d.ts",
-      "default": "./dist/ui/profile-form.js"
+    "./ui/assistant": {
+      "types": "./dist/ui/assistant.d.ts",
+      "default": "./dist/ui/assistant.js"
+    },
+    "./ui/billing-choice": {
+      "types": "./dist/ui/billing-choice.d.ts",
+      "default": "./dist/ui/billing-choice.js"
+    },
+    "./ui/bottom-nav": {
+      "types": "./dist/ui/bottom-nav.d.ts",
+      "default": "./dist/ui/bottom-nav.js"
+    },
+    "./ui/button": {
+      "types": "./dist/ui/button.d.ts",
+      "default": "./dist/ui/button.js"
+    },
+    "./ui/contact-points": {
+      "types": "./dist/ui/contact-points.d.ts",
+      "default": "./dist/ui/contact-points.js"
+    },
+    "./ui/currency-editor": {
+      "types": "./dist/ui/currency-editor.d.ts",
+      "default": "./dist/ui/currency-editor.js"
+    },
+    "./ui/danger-confirm": {
+      "types": "./dist/ui/danger-confirm.d.ts",
+      "default": "./dist/ui/danger-confirm.js"
+    },
+    "./ui/date-field": {
+      "types": "./dist/ui/date-field.d.ts",
+      "default": "./dist/ui/date-field.js"
+    },
+    "./ui/dialog": {
+      "types": "./dist/ui/dialog.d.ts",
+      "default": "./dist/ui/dialog.js"
+    },
+    "./ui/embed-frame": {
+      "types": "./dist/ui/embed-frame.d.ts",
+      "default": "./dist/ui/embed-frame.js"
+    },
+    "./ui/fields": {
+      "types": "./dist/ui/fields.d.ts",
+      "default": "./dist/ui/fields.js"
+    },
+    "./ui/form-error": {
+      "types": "./dist/ui/form-error.d.ts",
+      "default": "./dist/ui/form-error.js"
+    },
+    "./ui/help": {
+      "types": "./dist/ui/help.d.ts",
+      "default": "./dist/ui/help.js"
+    },
+    "./ui/i18n-ui": {
+      "types": "./dist/ui/i18n-ui.d.ts",
+      "default": "./dist/ui/i18n-ui.js"
+    },
+    "./ui/info-hint": {
+      "types": "./dist/ui/info-hint.d.ts",
+      "default": "./dist/ui/info-hint.js"
     },
     "./ui/invoice-dialog": {
       "types": "./dist/ui/invoice-dialog.d.ts",
@@ -94,225 +198,125 @@
       "types": "./dist/ui/invoices.d.ts",
       "default": "./dist/ui/invoices.js"
     },
-    "./ui/payments-form": {
-      "types": "./dist/ui/payments-form.d.ts",
-      "default": "./dist/ui/payments-form.js"
+    "./ui/legal-docs": {
+      "types": "./dist/ui/legal-docs.d.ts",
+      "default": "./dist/ui/legal-docs.js"
     },
-    "./ui/assistant": {
-      "types": "./dist/ui/assistant.d.ts",
-      "default": "./dist/ui/assistant.js"
-    },
-    "./ui/refund-confirm": {
-      "types": "./dist/ui/refund-confirm.d.ts",
-      "default": "./dist/ui/refund-confirm.js"
-    },
-    "./ui/currency-editor": {
-      "types": "./dist/ui/currency-editor.d.ts",
-      "default": "./dist/ui/currency-editor.js"
-    },
-    "./ui/contact-points": {
-      "types": "./dist/ui/contact-points.d.ts",
-      "default": "./dist/ui/contact-points.js"
-    },
-    "./payments-i18n": {
-      "types": "./dist/payments-i18n.d.ts",
-      "default": "./dist/payments-i18n.js"
-    },
-    "./todo-groups": {
-      "types": "./dist/todo-groups.d.ts",
-      "default": "./dist/todo-groups.js"
-    },
-    "./todo-calls": {
-      "types": "./dist/todo-calls.d.ts",
-      "default": "./dist/todo-calls.js"
-    },
-    "./ui/todo-panel": {
-      "types": "./dist/ui/todo-panel.d.ts",
-      "default": "./dist/ui/todo-panel.js"
-    },
-    "./ui/share-menu": {
-      "types": "./dist/ui/share-menu.d.ts",
-      "default": "./dist/ui/share-menu.js"
-    },
-    "./ui/search-select": {
-      "types": "./dist/ui/search-select.d.ts",
-      "default": "./dist/ui/search-select.js"
-    },
-    "./ui/app-landing": {
-      "types": "./dist/ui/app-landing.d.ts",
-      "default": "./dist/ui/app-landing.js"
-    },
-    "./no-access": {
-      "types": "./dist/no-access.d.ts",
-      "default": "./dist/no-access.js"
-    },
-    "./root-layout": {
-      "types": "./dist/root-layout.d.ts",
-      "default": "./dist/root-layout.js"
-    },
-    "./invoice-pdf-route": {
-      "types": "./dist/invoice-pdf-route.d.ts",
-      "default": "./dist/invoice-pdf-route.js"
-    },
-    "./countries": {
-      "types": "./dist/countries.d.ts",
-      "default": "./dist/countries.js"
-    },
-    "./available-apps": {
-      "types": "./dist/available-apps.d.ts",
-      "default": "./dist/available-apps.js"
-    },
-    "./app-shell": {
-      "types": "./dist/app-shell.d.ts",
-      "default": "./dist/app-shell.js"
-    },
-    "./ui/page-loading": {
-      "types": "./dist/ui/page-loading.d.ts",
-      "default": "./dist/ui/page-loading.js"
-    },
-    "./api-fetch": {
-      "types": "./dist/api-fetch.d.ts",
-      "default": "./dist/api-fetch.js"
-    },
-    "./money": {
-      "types": "./dist/money.d.ts",
-      "default": "./dist/money.js"
-    },
-    "./currencies": {
-      "types": "./dist/currencies.d.ts",
-      "default": "./dist/currencies.js"
-    },
-    "./slug": {
-      "types": "./dist/slug.d.ts",
-      "default": "./dist/slug.js"
-    },
-    "./link-kinds": {
-      "types": "./dist/link-kinds.d.ts",
-      "default": "./dist/link-kinds.js"
-    },
-    "./upload": {
-      "types": "./dist/upload.d.ts",
-      "default": "./dist/upload.js"
-    },
-    "./security-headers": {
-      "types": "./dist/security-headers.d.ts",
-      "default": "./dist/security-headers.js"
-    },
-    "./languages": {
-      "types": "./dist/languages.d.ts",
-      "default": "./dist/languages.js"
-    },
-    "./i18n": {
-      "types": "./dist/i18n.d.ts",
-      "default": "./dist/i18n.js"
-    },
-    "./participant-auth-i18n": {
-      "types": "./dist/participant-auth-i18n.d.ts",
-      "default": "./dist/participant-auth-i18n.js"
-    },
-    "./embed-loader": {
-      "types": "./dist/embed-loader.d.ts",
-      "default": "./dist/embed-loader.js"
-    },
-    "./ui/embed-frame": {
-      "types": "./dist/ui/embed-frame.d.ts",
-      "default": "./dist/ui/embed-frame.js"
-    },
-    "./ui/bottom-nav": {
-      "types": "./dist/ui/bottom-nav.d.ts",
-      "default": "./dist/ui/bottom-nav.js"
-    },
-    "./ui/i18n-ui": {
-      "types": "./dist/ui/i18n-ui.d.ts",
-      "default": "./dist/ui/i18n-ui.js"
-    },
-    "./ui/billing-choice": {
-      "types": "./dist/ui/billing-choice.d.ts",
-      "default": "./dist/ui/billing-choice.js"
-    },
-    "./ui/page": {
-      "types": "./dist/ui/page.d.ts",
-      "default": "./dist/ui/page.js"
-    },
-    "./ui/danger-confirm": {
-      "types": "./dist/ui/danger-confirm.d.ts",
-      "default": "./dist/ui/danger-confirm.js"
-    },
-    "./ui/form-error": {
-      "types": "./dist/ui/form-error.d.ts",
-      "default": "./dist/ui/form-error.js"
-    },
-    "./ui/toast": {
-      "types": "./dist/ui/toast.d.ts",
-      "default": "./dist/ui/toast.js"
-    },
-    "./prefs": {
-      "types": "./dist/prefs.d.ts",
-      "default": "./dist/prefs.js"
-    },
-    "./ui/user-menu": {
-      "types": "./dist/ui/user-menu.d.ts",
-      "default": "./dist/ui/user-menu.js"
-    },
-    "./ui/sidebar-shell": {
-      "types": "./dist/ui/sidebar-shell.d.ts",
-      "default": "./dist/ui/sidebar-shell.js"
-    },
-    "./ui/topbar": {
-      "types": "./dist/ui/topbar.d.ts",
-      "default": "./dist/ui/topbar.js"
-    },
-    "./auth-callback": {
-      "types": "./dist/auth-callback.d.ts",
-      "default": "./dist/auth-callback.js"
-    },
-    "./sso-hop": {
-      "types": "./dist/sso-hop.d.ts",
-      "default": "./dist/sso-hop.js"
+    "./ui/list": {
+      "types": "./dist/ui/list.d.ts",
+      "default": "./dist/ui/list.js"
     },
     "./ui/marketing-footer": {
       "types": "./dist/ui/marketing-footer.d.ts",
       "default": "./dist/ui/marketing-footer.js"
     },
-    "./ui/legal-docs": {
-      "types": "./dist/ui/legal-docs.d.ts",
-      "default": "./dist/ui/legal-docs.js"
+    "./ui/marks": {
+      "types": "./dist/ui/marks.d.ts",
+      "default": "./dist/ui/marks.js"
     },
-    "./invoice-model": {
-      "types": "./dist/invoice-model.d.ts",
-      "default": "./dist/invoice-model.js"
+    "./ui/organisation-combobox": {
+      "types": "./dist/ui/organisation-combobox.d.ts",
+      "default": "./dist/ui/organisation-combobox.js"
     },
-    "./ical": {
-      "types": "./dist/ical.d.ts",
-      "default": "./dist/ical.js"
+    "./ui/page": {
+      "types": "./dist/ui/page.d.ts",
+      "default": "./dist/ui/page.js"
     },
-    "./robots": {
-      "types": "./dist/robots.d.ts",
-      "default": "./dist/robots.js"
+    "./ui/page-intro": {
+      "types": "./dist/ui/page-intro.d.ts",
+      "default": "./dist/ui/page-intro.js"
     },
-    "./ui/sign-out": {
-      "types": "./dist/ui/sign-out.d.ts",
-      "default": "./dist/ui/sign-out.js"
-    },
-    "./design/tokens": {
-      "types": "./dist/design/tokens.d.ts",
-      "default": "./dist/design/tokens.js"
-    },
-    "./design/tailwind-preset": {
-      "types": "./dist/design/tailwind-preset.d.ts",
-      "default": "./dist/design/tailwind-preset.js"
+    "./ui/page-loading": {
+      "types": "./dist/ui/page-loading.d.ts",
+      "default": "./dist/ui/page-loading.js"
     },
     "./ui/payment-methods": {
       "types": "./dist/ui/payment-methods.d.ts",
       "default": "./dist/ui/payment-methods.js"
     },
+    "./ui/payments-form": {
+      "types": "./dist/ui/payments-form.d.ts",
+      "default": "./dist/ui/payments-form.js"
+    },
+    "./ui/person-combobox": {
+      "types": "./dist/ui/person-combobox.d.ts",
+      "default": "./dist/ui/person-combobox.js"
+    },
+    "./ui/photo-field": {
+      "types": "./dist/ui/photo-field.d.ts",
+      "default": "./dist/ui/photo-field.js"
+    },
+    "./ui/profile-form": {
+      "types": "./dist/ui/profile-form.d.ts",
+      "default": "./dist/ui/profile-form.js"
+    },
     "./ui/recipes": {
       "types": "./dist/ui/recipes.d.ts",
       "default": "./dist/ui/recipes.js"
     },
+    "./ui/refund-confirm": {
+      "types": "./dist/ui/refund-confirm.d.ts",
+      "default": "./dist/ui/refund-confirm.js"
+    },
+    "./ui/rich-text": {
+      "types": "./dist/ui/rich-text.d.ts",
+      "default": "./dist/ui/rich-text.js"
+    },
+    "./ui/search-select": {
+      "types": "./dist/ui/search-select.d.ts",
+      "default": "./dist/ui/search-select.js"
+    },
+    "./ui/settings": {
+      "types": "./dist/ui/settings.d.ts",
+      "default": "./dist/ui/settings.js"
+    },
+    "./ui/share-menu": {
+      "types": "./dist/ui/share-menu.d.ts",
+      "default": "./dist/ui/share-menu.js"
+    },
+    "./ui/sidebar-shell": {
+      "types": "./dist/ui/sidebar-shell.d.ts",
+      "default": "./dist/ui/sidebar-shell.js"
+    },
+    "./ui/sign-out": {
+      "types": "./dist/ui/sign-out.d.ts",
+      "default": "./dist/ui/sign-out.js"
+    },
+    "./ui/switch": {
+      "types": "./dist/ui/switch.d.ts",
+      "default": "./dist/ui/switch.js"
+    },
     "./ui/tabs": {
       "types": "./dist/ui/tabs.d.ts",
       "default": "./dist/ui/tabs.js"
+    },
+    "./ui/theme-script": {
+      "types": "./dist/ui/theme-script.d.ts",
+      "default": "./dist/ui/theme-script.js"
+    },
+    "./ui/timeline": {
+      "types": "./dist/ui/timeline.d.ts",
+      "default": "./dist/ui/timeline.js"
+    },
+    "./ui/toast": {
+      "types": "./dist/ui/toast.d.ts",
+      "default": "./dist/ui/toast.js"
+    },
+    "./ui/todo-panel": {
+      "types": "./dist/ui/todo-panel.d.ts",
+      "default": "./dist/ui/todo-panel.js"
+    },
+    "./ui/topbar": {
+      "types": "./dist/ui/topbar.d.ts",
+      "default": "./dist/ui/topbar.js"
+    },
+    "./ui/user-menu": {
+      "types": "./dist/ui/user-menu.d.ts",
+      "default": "./dist/ui/user-menu.js"
+    },
+    "./upload": {
+      "types": "./dist/upload.d.ts",
+      "default": "./dist/upload.js"
     }
   },
   "files": [

@@ -12,7 +12,7 @@ import { LOCALES, LOCALE_LABELS, type Locale as PublicLocale } from '@/lib/i18n'
 import { t, type Locale } from '@/lib/i18n-ui';
 import { SectionLabel } from './page-chrome';
 
-type Kind = 'tiers' | 'button';
+type Kind = 'page' | 'tiers' | 'join' | 'button';
 
 const SELECT =
   'w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
@@ -26,7 +26,7 @@ export function EmbedsCard({
   workspaceSlug: string;
   locale: Locale;
 }) {
-  const [kind, setKind] = useState<Kind>('tiers');
+  const [kind, setKind] = useState<Kind>('page');
   // The default label travels INTO the public embed, whose language is the
   // embed's own (data-lang / workspace) — deliberately not this UI's.
   const [label, setLabel] = useState('Become a member');
@@ -37,8 +37,20 @@ export function EmbedsCard({
 
   const snippet = useMemo(() => {
     const langAttr = lang !== 'auto' ? ` data-lang="${lang}"` : '';
+    const text = label || 'Become a member';
     if (kind === 'button') {
-      return `<div data-membership-embed="button" data-workspace="${workspaceSlug}"\n     data-label="${label || 'Become a member'}"${langAttr}></div>`;
+      return `<div data-membership-embed="button" data-workspace="${workspaceSlug}"\n     data-label="${text}"${langAttr}></div>`;
+    }
+    if (kind === 'join') {
+      // The popup binds to the host's OWN element — the loader does not draw
+      // a button, it opens an overlay when this div is clicked. So the
+      // snippet ships a plain button inside it: it works pasted as-is, and
+      // anyone who wants their site's own button just replaces the inner
+      // element and keeps the wrapper.
+      return `<div data-membership-embed="join" data-workspace="${workspaceSlug}"${langAttr}>\n  <button type="button">${text}</button>\n</div>`;
+    }
+    if (kind === 'page') {
+      return `<div data-membership-embed="page" data-workspace="${workspaceSlug}"${langAttr}></div>`;
     }
     return `<div data-membership-embed="tiers" data-workspace="${workspaceSlug}"${langAttr}></div>`;
   }, [kind, label, lang, workspaceSlug]);
@@ -68,10 +80,12 @@ export function EmbedsCard({
         {/* What */}
         <div>
           <span className="text-xs text-ink-subtle">{t(locale, 'what_to_embed')}</span>
-          <div className="mt-1.5 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm max-w-md">
+          <div className="mt-1.5 grid grid-cols-2 sm:grid-cols-4 rounded-md border border-line overflow-hidden text-sm max-w-md">
             {(
               [
+                ['page', t(locale, 'whole_page')],
                 ['tiers', t(locale, 'tier_cards')],
+                ['join', t(locale, 'join_popup')],
                 ['button', t(locale, 'join_button')],
               ] as [Kind, string][]
             ).map(([k, kindLabel]) => (
@@ -79,11 +93,11 @@ export function EmbedsCard({
                 key={k}
                 type="button"
                 onClick={() => setKind(k)}
-                className={
+                className={`h-[34px] px-1 ${
                   kind === k
                     ? 'bg-surface-sunken text-ink font-medium'
                     : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
-                }
+                }`}
               >
                 {kindLabel}
               </button>
@@ -110,7 +124,7 @@ export function EmbedsCard({
           </label>
 
           {/* Button label */}
-          {kind === 'button' && (
+          {(kind === 'button' || kind === 'join') && (
             <label className="block">
               <span className="text-xs text-ink-subtle">{t(locale, 'button_text')}</span>
               <input
