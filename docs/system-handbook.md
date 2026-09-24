@@ -1232,6 +1232,41 @@ production does not have. Push before you promote:
 The same check is worth running after any promote somebody else made, for the
 same reason: nothing in the flow notices the gap on its own.
 
+### 11.3b An empty answer is a finding; a plausible one hides the same fault
+
+**When a call comes back with nothing in it, that silence is the most
+informative thing you will get all day — go and read the log.** A plausible
+body would have been filed as success and the fault would have gone to a user.
+
+2026-09-24, testing a calendar cancellation. `POST .../calendar-changes/send`
+returned an EMPTY body. The API log had the whole story: Fly had closed the
+connection about twenty seconds in ("connection closed before message
+completed") and the machine failed a health check going past, because the
+handler was holding the request open for one email per recipient per change,
+paced at the mail provider's ceiling. Forty people and three changes is over a
+minute of work inside one request.
+
+The second fault is the one worth remembering, because of its SHAPE:
+
+> The queue was marked sent only after the whole loop, while the per-session
+> `calendar_sequence` was advanced as each message went out. So an interrupted
+> run left every change looking untold with the counters already moved on —
+> and the obvious recovery, press the button again, would have re-invited
+> everyone who had already heard.
+
+**A bug whose remedy makes it worse gets found by a user, not by us**, because
+the first thing anybody does is retry. When work is a loop over recipients,
+record progress per ITEM as it completes, so an interrupted run is safe to
+leave interrupted; and refuse a second press while the first is in flight,
+since that is exactly the button people press twice when nothing appears to
+happen.
+
+Same week, same lesson one level up: our own send log said "14 of 15 sent",
+which was true and told us nothing — the mail left correctly and the
+recipients' calendars declined it. See §11.1 on what our logs can and cannot
+witness. Both times the answer came from looking at the thing itself: the
+server's log, and a rendered message in a real inbox.
+
 ### 11.4 Release gates (run per release)
 
 0. `./scripts/release-guard.sh <intended-version>` — refuses a release
