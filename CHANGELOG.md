@@ -6,6 +6,11 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.41.1] — 2026-09-24 — a lighter paper
+
+`paper` from 222 218 205 to 234 230 219. Same warmth, less weight on the
+page — judged on a rendered A4, not on a hex.
+
 ## [1.41.0] — 2026-09-24 — the invoice, redrawn
 
 Sjoerd, on the first real membership receipt: *"it is now two pages. Please

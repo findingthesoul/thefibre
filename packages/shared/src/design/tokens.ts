@@ -74,8 +74,9 @@ export const LIGHT: Palette = {
   // which is what stood there first and read cold and screen-like next to
   // the reference Sjoerd sent (2026-09-24: *"lighter and slightly more
   // yellow"*). It is a PRINT role: paper stock, not a UI surface — which is
-  // why it is named for the thing and not for a grey.
-  paper: '222 218 205',
+  // why it is named for the thing and not for a grey. Lightened once more on
+  // sight of it on the page.
+  paper: '234 230 219',
 };
 
 export const DARK: Palette = {
@@ -97,7 +98,7 @@ export const DARK: Palette = {
   // Print does not invert — a PDF is the same document whatever theme the
   // reader's screen is in. Present because the type demands every role in
   // both palettes, and deliberately the same value.
-  paper: '222 218 205',
+  paper: '234 230 219',
 };
 
 /** `--ink: 17 20 24;` etc., for a CSS rule body. */
