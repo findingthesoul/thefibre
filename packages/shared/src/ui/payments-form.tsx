@@ -247,7 +247,13 @@ export function PaymentsForm({
         </div>
       )}
       <p className="mt-8 text-xs text-ink-muted max-w-xl leading-relaxed">
-        {s.stripeNote1}
+        {/* One sentence in three pieces: the prose, the literal prefix, the
+            rest. The extraction kept only the first piece, so every app has
+            been ending on "The Stripe account id starts with" — a sentence
+            that stops mid-thought (Sjoerd, 2026-09-24: "What's the unfinished
+            text at the bottom?"). Restored as it was written. */}
+        {s.stripeNote1} <code className="font-mono">acct_</code>{' '}
+        {s.stripeNote2}
       </p>
     </div>
   );

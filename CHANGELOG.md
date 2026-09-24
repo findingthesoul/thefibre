@@ -377,6 +377,25 @@ shipping.
 
 ## [Unreleased]
 
+## [1.35.0] — 2026-09-24 — a sentence that stopped mid-thought
+
+Sjoerd: *"What's the unfinished text at the bottom?"* Under the payments form,
+in every app: **"The Stripe account id starts with"**. And then nothing.
+
+It is one sentence assembled from three pieces — prose, the literal prefix
+`acct_` in a code style, then the rest: *"(Stripe → Settings → Account
+details). Leaving it empty disconnects…"*. When the form was extracted to
+`@thefibre/shared` the render kept only the first piece, so all five apps have
+been ending on a preposition.
+
+Restored exactly as it was written before extraction, found in git history
+rather than reinvented.
+
+Worth naming: the extraction moved 180 lines of form and this is the second
+thing it dropped today — the first was the personal Connect wiring in The
+Fibre. Nothing failed, nothing errored; the page just quietly said less than
+it used to. A typecheck cannot see a missing paragraph.
+
 ## [1.34.0] — 2026-09-24 — "Connected" now says connected to WHAT
 
 Sjoerd: *"Should Trade Name also not be in settings of payments? And get that
