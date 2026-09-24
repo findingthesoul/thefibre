@@ -47,13 +47,19 @@ function stateSecret(): string {
  * account to their workspace. So it carries the workspace and an expiry, and
  * is signed with a key that never leaves the API.
  */
-export function signState(workspaceId: string, ttlMs = 15 * 60 * 1000): string {
-  const body = `${workspaceId}.${Date.now() + ttlMs}`;
+export function signState(
+  workspaceId: string,
+  /** The app the admin started from, so the callback can send them back to
+   *  the settings page they left — and to the STACK they left it on. */
+  appId: string,
+  ttlMs = 15 * 60 * 1000,
+): string {
+  const body = `${workspaceId}.${appId}.${Date.now() + ttlMs}`;
   const mac = createHmac('sha256', stateSecret()).update(body).digest('base64url');
   return `${Buffer.from(body).toString('base64url')}.${mac}`;
 }
 
-export function verifyState(state: string): { workspaceId: string } | null {
+export function verifyState(state: string): { workspaceId: string; appId: string | null } | null {
   const [encoded, mac] = state.split('.');
   if (!encoded || !mac) return null;
   let body: string;
@@ -67,9 +73,15 @@ export function verifyState(state: string): { workspaceId: string } | null {
   // returning false.
   if (mac.length !== expected.length) return null;
   if (!timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
-  const [workspaceId, expiry] = body.split('.');
+  // Three parts since 2026-09-24. A two-part body is a state signed by the
+  // previous build and still inside its 15 minutes — honour it rather than
+  // failing an admin mid-flow across a deploy; it simply has no app to
+  // return to and the caller falls back.
+  const parts = body.split('.');
+  const [workspaceId, appId, expiry] =
+    parts.length === 3 ? parts : [parts[0], undefined, parts[1]];
   if (!workspaceId || !expiry || Number(expiry) < Date.now()) return null;
-  return { workspaceId };
+  return { workspaceId, appId: appId ?? null };
 }
 
 export function authorizeUrl(clientId: string, state: string, redirectUri: string): string {

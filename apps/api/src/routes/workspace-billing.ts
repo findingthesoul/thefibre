@@ -3,7 +3,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { appUrl } from '@thefibre/shared';
+import { APP_IDS, type AppId, appUrl, stagingAppUrl } from '@thefibre/shared';
 import { publicOrigin } from './mcp-discovery.js';
 import { adminClient } from '../db.js';
 import {
@@ -140,17 +140,55 @@ workspaceBillingRoutes.get('/stripe/connect', async (c) => {
     return c.json({ error: 'this platform is not registered with Stripe Connect yet' }, 503);
   }
   return c.json({
-    url: authorizeUrl(clientId, signState(ctx.workspaceId), redirectUri(c.req.raw.headers)),
+    url: authorizeUrl(clientId, signState(ctx.workspaceId, ctx.appId), redirectUri(c.req.raw.headers)),
   });
 });
+
+/**
+ * Where to send the admin back to.
+ *
+ * Two things went wrong here on 2026-09-24 and they are separate:
+ *
+ * 1. The app was hard-coded to `membership`, so an admin who started in
+ *    Thread came back to a different product. The `state` now carries the
+ *    app they left, signed, so a crafted return URL still cannot redirect
+ *    them anywhere of an attacker's choosing — the slug is validated against
+ *    APP_IDS before it is used.
+ *
+ * 2. The STACK was wrong: staging returned Sjoerd to
+ *    `membership.thethread.app`, which is PRODUCTION. `appUrl` resolves from
+ *    `meta.urlEnv`, and the staging API has `NEXT_PUBLIC_*_URL` for only
+ *    five of the nine apps — membership's is named `MEMBERSHIP_APP_URL`, and
+ *    connect's is not set at all — so a miss falls through to the production
+ *    constant. branding.ts warns about exactly this ("a missing variable
+ *    fails toward the live system, which is the wrong way round"). Every
+ *    other membership caller in this API dodges it with an explicit
+ *    `process.env.MEMBERSHIP_APP_URL ??`; this one did not. So ask the STACK
+ *    first, the way server.ts derives STAGING_ORIGINS, and never rely on a
+ *    per-app variable being present.
+ */
+function settingsUrlFor(appId: string | null): string {
+  const slug: AppId = (APP_IDS as readonly string[]).includes(appId ?? '')
+    ? (appId as AppId)
+    : 'membership'; // pre-2026-09-24 state, or a header we do not recognise
+  const origin =
+    process.env.FLY_APP_NAME === 'thefibre-api-staging'
+      ? stagingAppUrl(slug)
+      : appUrl(slug, process.env);
+  return `${origin}/settings/payments`;
+}
 
 /** GET /stripe/callback — Stripe returns here with a one-time code.
  *
  *  No auth middleware can help: the admin arrives from Stripe's domain, so
  *  the signed `state` IS the authentication. Without it, a crafted link
  *  could bind somebody else's account to a workspace. */
+
 workspaceBillingRoutes.get('/stripe/callback', async (c) => {
-  const settingsUrl = `${appUrl('membership', process.env)}/settings/payments`;
+  // Resolved twice: before `state` is verified we do not yet know the app, so
+  // an early failure lands on the fallback; after verification we use the app
+  // the admin actually started from.
+  let settingsUrl = settingsUrlFor(null);
   const fail = (reason: string) =>
     c.redirect(`${settingsUrl}?stripe=error&reason=${encodeURIComponent(reason)}`);
 
@@ -163,6 +201,7 @@ workspaceBillingRoutes.get('/stripe/callback', async (c) => {
 
   const verified = verifyState(state);
   if (!verified) return fail('that link has expired — start again from settings');
+  settingsUrl = settingsUrlFor(verified.appId);
 
   const result = await exchangeCode(code, redirectUri(c.req.raw.headers));
   if ('error' in result) return fail(result.error);

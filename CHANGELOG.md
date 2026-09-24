@@ -4,6 +4,31 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.27.6] — 2026-09-24 — Connect returns you where you started (staging)
+
+Sjoerd connected a Stripe account from Thread on STAGING and landed on
+`https://membership.thethread.app/` — the wrong app, and the production
+stack. Two separate bugs in one line of the callback:
+
+- The return app was hard-coded to `membership`. The signed `state` now
+  carries the app the admin started from, validated against `APP_IDS`
+  before it is used in a redirect.
+- The origin came from `appUrl(slug, process.env)`, which resolves through
+  `meta.urlEnv`. The staging API has `NEXT_PUBLIC_*_URL` for five of nine
+  apps; membership's variable is named `MEMBERSHIP_APP_URL` and connect's
+  is unset, so the lookup missed and fell through to the PRODUCTION
+  constant — the exact failure branding.ts warns about ("a missing variable
+  fails toward the live system, which is the wrong way round"). It now asks
+  the stack first, the way `server.ts` derives `STAGING_ORIGINS`.
+
+The connection itself was never wrong: the account was written to the
+staging workspace by the signed state, and only the final redirect
+escaped. The "connected" banner on the production page was the query
+parameter talking, not that database.
+
+Five unit tests cover the state round-trip, including a two-part state
+signed by the previous build so nobody mid-flow is stranded by the deploy.
+
 ## [1.27.5] — 2026-09-24 — the Connect button stays visible once connected (staging)
 
 Sjoerd, on staging with the client id set: *"I dont see a connect to stripe
