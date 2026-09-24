@@ -99,6 +99,22 @@ const CATALOG = {
     de: 'Die Schaltfläche neben deinem Symbol, in jeder App. Ausschalten blendet sie überall aus; deine Liste bleibt erhalten.', // MT
     fr: "Le bouton à côté de votre icône, dans chaque application. Le désactiver le masque partout ; votre liste est conservée.", // MT
   },
+  payments_title: {
+    en: 'Payments',
+    nl: 'Betalingen',
+    es: 'Pagos', // MT
+    pt: 'Pagamentos', // MT
+    de: 'Zahlungen', // MT
+    fr: 'Paiements', // MT
+  },
+  payments_desc: {
+    en: "One set of payment settings for all Fibre apps — your personal account and the workspace's, plus your default payment options.",
+    nl: 'Eén set betaalinstellingen voor alle Fibre-apps — je persoonlijke account en dat van de werkruimte, plus je standaard betaalopties.',
+    es: 'Una sola configuración de pagos para todas las apps de Fibre — tu cuenta personal y la del espacio de trabajo, más tus opciones de pago por defecto.', // MT
+    pt: 'Uma única configuração de pagamentos para todos os apps Fibre — sua conta pessoal e a do espaço de trabalho, além das suas opções de pagamento padrão.', // MT
+    de: 'Ein Satz Zahlungseinstellungen für alle Fibre-Apps — dein persönliches Konto und das des Workspace, plus deine Standard-Zahlungsoptionen.', // MT
+    fr: 'Un seul jeu de réglages de paiement pour toutes les apps Fibre — ton compte personnel et celui de l’espace de travail, plus tes options de paiement par défaut.', // MT
+  },
   could_not_save: {
     en: 'Could not save',
     nl: 'Opslaan is niet gelukt',

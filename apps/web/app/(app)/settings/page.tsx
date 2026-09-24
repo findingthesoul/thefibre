@@ -22,10 +22,27 @@ export default async function SettingsPage() {
     locale,
     currentApp: 'fibre-platform',
     env: process.env,
-    hosted: ['profile', 'workspace', 'members', 'teams', 'apps', 'assistant', 'plan', 'about', 'privacy'],
-    // Payments and connections are set up inside the apps that use them —
-    // Meet and The Thread — and both write platform values.
-    omit: ['payments', 'connections'],
+    // Everything reusable is HERE, including the two that used to be omitted.
+    //
+    // Sjoerd, 2026-09-23: *"the settings for my company: payment etc. is
+    // needed in 4 apps, but it does not show in the fibre settings... I expect
+    // that reusable items (also calender connection etc. and zoom) are always
+    // there."*
+    //
+    // The old note said payments and connections "are set up inside the apps
+    // that use them", which was true of the PAGES and never of the DATA:
+    // payments has been platform-level since 2026-07-04 and the calendar and
+    // meeting-room connection since v0.13.107, both with one reader each. So
+    // four apps showed a form for values this app owns, and this app showed
+    // nothing. The connections page was already here — just not listed.
+    //
+    // The app copies stay. Somebody setting up Meet should not have to leave
+    // Meet to finish; the point is that the platform is where you can always
+    // find it, not that it is the only door.
+    hosted: [
+      'profile', 'workspace', 'members', 'teams', 'apps', 'assistant', 'plan',
+      'payments', 'connections', 'about', 'privacy',
+    ],
   });
 
   return (

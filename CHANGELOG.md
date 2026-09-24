@@ -297,6 +297,38 @@ shipping.
 
 ## [Unreleased]
 
+## [1.30.0] — 2026-09-24 — the reusable settings are in The Fibre
+
+Sjoerd: *"the settings for my company: payment etc. is needed in 4 apps, but it
+does not show in the fibre settings... I expect that reusable items (also
+calender connection etc. and zoom) are always there."*
+
+He was right, and the omission was backwards. The Fibre's settings hub said
+`omit: ['payments', 'connections']`, with a note that both "are set up inside
+the apps that use them". That was true of the PAGES and never of the DATA:
+payments has been platform-level since 2026-07-04 — personal on
+`user_profile`, workspace on the workspace row, every reader through
+`lib/payment-accounts.ts` — and the calendar and meeting-room connection since
+v0.13.107. So Thread, Meet, Members and Pulse each showed a form for values
+**this** app owns, and this app showed nothing.
+
+- **Payments** is now a page in The Fibre, on the same endpoints and the same
+  shared form as the other four.
+- **Connections** — calendar, Zoom, personal room — was already here. It was
+  simply not listed.
+
+**And the copy is shared rather than copied a fifth time.** The four apps hold
+the same 37 strings under different key names, which is why the shared form
+takes a typed object instead of doing a key lookup. Adding a fifth catalogue
+would have meant 37 strings × 6 languages retranslated. They are lifted
+verbatim into `@thefibre/shared/payments-i18n` from Thread, which CLAUDE.md
+names design-leading. No other app is touched; any of them can drop its own 37
+keys whenever it likes.
+
+The app copies stay on purpose. Somebody setting up Meet should not have to
+leave Meet to finish — the point is that the platform is where you can always
+find it, not that it is the only door.
+
 ## [1.29.0] — 2026-09-24 — your site opens in the same tab (staging)
 
 Sjoerd: *"your site... is open in a new tab"* — it was, and he was saying so
