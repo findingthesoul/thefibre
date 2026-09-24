@@ -45,9 +45,17 @@ export function createAppSwitcher(LinkComponent: LinkLike) {
   return function AppSwitcher({
     current,
     apps,
+    portal,
   }: {
     current: { slug: string; name: string };
     apps: AppEntry[];
+    /** The participant portal. NOT an app — it has no catalogue slug, no
+     *  workspace activation and no seat — so it sits under its own heading
+     *  rather than in the app list (branding.ts SURFACES draws the same
+     *  line). Everyone has one, including people who also run a workspace:
+     *  an organiser enrols in other people's threads too, and had no way to
+     *  reach the place that shows them (Sjoerd, 2026-09-24). */
+    portal?: { url: string; name: string } | undefined;
   }) {
     const locale = useLocale();
     const [open, setOpen] = useState(false);
@@ -127,6 +135,25 @@ export function createAppSwitcher(LinkComponent: LinkLike) {
                 </LinkComponent>
               );
             })}
+
+            {portal && (
+              <>
+                <div className="my-1.5 border-t border-line" />
+                <div className="px-3 pt-1 pb-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
+                  {chromeT(locale, 'your_own_page')}
+                </div>
+                <LinkComponent
+                  href={portal.url}
+                  className="flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-surface-sunken"
+                  onClick={() => setGoing('__portal')}
+                >
+                  <span>{portal.name}</span>
+                  {going === '__portal' && (
+                    <Loader2 size={14} className="animate-spin text-ink-muted" />
+                  )}
+                </LinkComponent>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -10,7 +10,7 @@ import { Topbar } from '@/components/shell/topbar';
 import { ArchivedGate } from '@/components/archived-gate';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, tileArtUrl } from '@thefibre/shared';
+import { APPS, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
 import { VERSION } from '@/lib/version';
 
 // /auth/me as the shell reads it. ShellMe already carries everything this
@@ -27,31 +27,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Who you are, which apps run here, which workspaces you may switch to,
   // plus this layout's own per-request reads — all started at once.
-  const shell = await loadAppShell<Me, {
-    prefs: typeof readPrefs;
-    host: () => Promise<string | null>;
-  }>({
+  const host = (await headers()).get('host');
+  // The host is read above rather than as a shell extra: the gate below needs
+  // it to send a participant to their portal, before `extras` is read.
+  // `headers()` is request-local and already resolved — nothing to overlap.
+  const shell = await loadAppShell<Me, { prefs: typeof readPrefs }>({
     apiFetch,
     appSlug: 'fibre-platform',
     extras: {
       prefs: () => readPrefs(),
-      host: async () => (await headers()).get('host'),
     },
   });
-  // Only reachable WITH a valid session: the `!claims` case above already
-  // bounced a signed-out visitor to `/`. So a failure here means the API
-  // refused this session standing in THIS app — which is not the same as
-  // having no session, and must not be sent back to `/`.
+  // No standing at all (a 401 from /auth/me) means a PARTICIPANT: a Fibre
+  // account from enrolling or joining, and a seat in no app. Their place is
+  // the portal, so they are taken there rather than shown a wall with a
+  // button on it — Sjoerd, 2026-09-24: *"I rather have that someone is
+  // automatically pushed to their my.thethread..."*
   //
-  // Sending it there was an infinite redirect: `/` sees the claims, forwards
-  // to /dashboard, the layout asks the API, gets 401, returns to `/`.
-  // ERR_TOO_MANY_REDIRECTS, and it hit a real member on production
-  // (2026-09-24) moments after they paid — a participant has a Fibre account
-  // but no seat in Thread, which is exactly the case that 401s.
-  if (!shell.ok) redirect('/no-access');
+  // `hasAccess` is the OTHER case and keeps the wall: that person does hold a
+  // seat, and the honest answer is that this workspace has not switched the
+  // app on — which the portal cannot tell them.
+  if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
 
   const { me, workspaces } = shell;
-  const { prefs, host } = shell.extras;
+  const prefs = shell.extras.prefs;
 
   const email = claims.claims.email ?? '';
   const fullName =
@@ -99,6 +98,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           prefs={prefs}
           current={{ slug: 'fibre-platform', name: APPS['fibre-platform'].name }}
           apps={apps}
+          portal={{ url: surfaceUrl('my-portal', process.env, host), name: SURFACES['my-portal'].shortLabel }}
           workspaces={workspaces}
         />
         <ArchivedGate archived={workspaceArchived} />

@@ -11,7 +11,7 @@ import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, appUrl, tileArtUrl } from '@thefibre/shared';
+import { APPS, appUrl, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
 import { OrgPopupProvider } from '@/components/org-popup';
@@ -48,22 +48,22 @@ export default async function ConnectionsAppLayout({
   // switch to — plus the prefs cookie — in ONE Promise.all
   // (packages/shared/src/app-shell.ts explains the measured cost of the old
   // sequential chain).
+  const host = (await headers()).get('host');
   const shell = await loadAppShell<Me, { prefs: typeof readPrefs }>({
     apiFetch,
     appSlug: 'fibre-sales',
     extras: { prefs: () => readPrefs() },
   });
-  // Only reachable WITH a valid session: the `!claims` case above already
-  // bounced a signed-out visitor to `/`. So a failure here means the API
-  // refused this session standing in THIS app — which is not the same as
-  // having no session, and must not be sent back to `/`.
+  // No standing at all (a 401 from /auth/me) means a PARTICIPANT: a Fibre
+  // account from enrolling or joining, and a seat in no app. Their place is
+  // the portal, so they are taken there rather than shown a wall with a
+  // button on it — Sjoerd, 2026-09-24: *"I rather have that someone is
+  // automatically pushed to their my.thethread..."*
   //
-  // Sending it there was an infinite redirect: `/` sees the claims, forwards
-  // to /dashboard, the layout asks the API, gets 401, returns to `/`.
-  // ERR_TOO_MANY_REDIRECTS, and it hit a real member on production
-  // (2026-09-24) moments after they paid — a participant has a Fibre account
-  // but no seat in Thread, which is exactly the case that 401s.
-  if (!shell.ok) redirect('/no-access');
+  // `hasAccess` is the OTHER case and keeps the wall: that person does hold a
+  // seat, and the honest answer is that this workspace has not switched the
+  // app on — which the portal cannot tell them.
+  if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
   if (!shell.hasAccess) redirect('/no-access');
 
   const { me, apps, extras } = shell;
@@ -85,7 +85,6 @@ export default async function ConnectionsAppLayout({
   // Which stack we are actually on. Every link OUT of this app is resolved
   // against it, so a page served from the .tech twin never sends you to the
   // live system by accident.
-  const host = (await headers()).get('host');
 
   const switcherApps = buildAppList({
     currentApp: 'fibre-sales',
@@ -119,6 +118,7 @@ export default async function ConnectionsAppLayout({
           prefs={prefs}
           current={{ slug: 'fibre-sales', name: APPS['fibre-sales'].name }}
           apps={switcherApps}
+          portal={{ url: surfaceUrl('my-portal', process.env, host), name: SURFACES['my-portal'].shortLabel }}
           workspaces={workspaces}
           profileHref={crossAppHref(
             'fibre-sales',

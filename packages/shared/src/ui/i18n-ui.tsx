@@ -412,6 +412,14 @@ const CHROME = {
   },
 
   // ── app-switcher ─────────────────────────────────────────────────────
+  your_own_page: {
+    en: 'Your own page',
+    nl: 'Je eigen pagina',
+    es: 'Tu propia página', // MT
+    pt: 'A tua própria página', // MT
+    de: 'Deine eigene Seite', // MT
+    fr: 'Votre propre page', // MT
+  },
   switch_app: {
     en: 'Switch app',
     nl: 'Wissel van app',

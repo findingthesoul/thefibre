@@ -9,7 +9,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, tileArtUrl } from '@thefibre/shared';
+import { APPS, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
 
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
 // This is independent of the monorepo cadence in package.json (which tracks
@@ -31,32 +31,36 @@ export default async function MeetAppLayout({
   if (!claims) redirect('/');
 
   // Everything the chrome needs, in one Promise.all: /auth/me,
-  // /workspace-apps, /auth/workspaces, plus the cookie prefs and the request
-  // host as extras so nothing waits on anything else.
-  const shell = await loadAppShell<Me, { prefs: typeof readPrefs; host: () => Promise<string | null> }>({
+  // /workspace-apps, /auth/workspaces, plus the cookie prefs as an extra so
+  // nothing waits on anything else.
+  //
+  // The host is read HERE rather than as a shell extra: the gate below needs
+  // it to send a participant to their portal, and that runs before `extras`
+  // is destructured. `headers()` is request-local and already resolved, so
+  // there is nothing to parallelise anyway.
+  const host = (await headers()).get('host');
+  const shell = await loadAppShell<Me, { prefs: typeof readPrefs }>({
     apiFetch,
     appSlug: 'fibre-meet',
     extras: {
       prefs: () => readPrefs(),
-      host: async () => (await headers()).get('host'),
     },
   });
-  // Only reachable WITH a valid session: the `!claims` case above already
-  // bounced a signed-out visitor to `/`. So a failure here means the API
-  // refused this session standing in THIS app — which is not the same as
-  // having no session, and must not be sent back to `/`.
+  // No standing at all (a 401 from /auth/me) means a PARTICIPANT: a Fibre
+  // account from enrolling or joining, and a seat in no app. Their place is
+  // the portal, so they are taken there rather than shown a wall with a
+  // button on it — Sjoerd, 2026-09-24: *"I rather have that someone is
+  // automatically pushed to their my.thethread..."*
   //
-  // Sending it there was an infinite redirect: `/` sees the claims, forwards
-  // to /dashboard, the layout asks the API, gets 401, returns to `/`.
-  // ERR_TOO_MANY_REDIRECTS, and it hit a real member on production
-  // (2026-09-24) moments after they paid — a participant has a Fibre account
-  // but no seat in Thread, which is exactly the case that 401s.
-  if (!shell.ok) redirect('/no-access');
+  // `hasAccess` is the OTHER case and keeps the wall: that person does hold a
+  // seat, and the honest answer is that this workspace has not switched the
+  // app on — which the portal cannot tell them.
+  if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
   // Gate: user must have fibre-meet membership AND the workspace must have meet activated.
   if (!shell.hasAccess) redirect('/no-access');
 
   const { me, apps, extras } = shell;
-  const { prefs, host } = extras;
+  const prefs = extras.prefs;
   const email = me.user.email;
   const fullName = me.user.full_name ?? email;
   // The workspaces this person belongs to, narrowed (by loadAppShell) to the
@@ -100,6 +104,7 @@ export default async function MeetAppLayout({
           prefs={prefs}
           current={{ slug: 'fibre-meet', name: APPS['fibre-meet'].name }}
           apps={switcherApps}
+          portal={{ url: surfaceUrl('my-portal', process.env, host), name: SURFACES['my-portal'].shortLabel }}
           workspaces={workspaces}
         />
         {/* Soft-cream content surface so the white cards inside

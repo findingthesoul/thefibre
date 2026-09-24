@@ -12,7 +12,7 @@ import { assistantEnabled } from '@/lib/assistant-actions';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, tileArtUrl } from '@thefibre/shared';
+import { APPS, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
 
 // The Thread is the rebuild of thethread-v3, so its user-facing version
 // starts at 3.0.0 — independent of the monorepo cadence in package.json,
@@ -43,22 +43,22 @@ export default async function ThreadAppLayout({
   // switch to — plus this layout's own extras — in ONE Promise.all
   // (packages/shared/src/app-shell.ts explains the measured cost of the old
   // sequential chain).
+  const host = (await headers()).get('host');
   const shell = await loadAppShell<Me, { prefs: typeof readPrefs; assistant: typeof assistantEnabled }>({
     apiFetch,
     appSlug: 'the-thread',
     extras: { prefs: () => readPrefs(), assistant: () => assistantEnabled() },
   });
-  // Only reachable WITH a valid session: the `!claims` case above already
-  // bounced a signed-out visitor to `/`. So a failure here means the API
-  // refused this session standing in THIS app — which is not the same as
-  // having no session, and must not be sent back to `/`.
+  // No standing at all (a 401 from /auth/me) means a PARTICIPANT: a Fibre
+  // account from enrolling or joining, and a seat in no app. Their place is
+  // the portal, so they are taken there rather than shown a wall with a
+  // button on it — Sjoerd, 2026-09-24: *"I rather have that someone is
+  // automatically pushed to their my.thethread..."*
   //
-  // Sending it there was an infinite redirect: `/` sees the claims, forwards
-  // to /dashboard, the layout asks the API, gets 401, returns to `/`.
-  // ERR_TOO_MANY_REDIRECTS, and it hit a real member on production
-  // (2026-09-24) moments after they paid — a participant has a Fibre account
-  // but no seat in Thread, which is exactly the case that 401s.
-  if (!shell.ok) redirect('/no-access');
+  // `hasAccess` is the OTHER case and keeps the wall: that person does hold a
+  // seat, and the honest answer is that this workspace has not switched the
+  // app on — which the portal cannot tell them.
+  if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
   if (!shell.hasAccess) redirect('/no-access');
 
   const { me, apps, extras } = shell;
@@ -82,7 +82,7 @@ export default async function ThreadAppLayout({
     memberships: me.memberships,
     workspaceApps: apps,
     env: process.env,
-    host: (await headers()).get('host'),
+    host,
   });
 
   const locale = await uiLocale(me.locale);
@@ -109,6 +109,7 @@ export default async function ThreadAppLayout({
           prefs={prefs}
           current={{ slug: 'the-thread', name: APPS['the-thread'].name }}
           apps={switcherApps}
+          portal={{ url: surfaceUrl('my-portal', process.env, host), name: SURFACES['my-portal'].shortLabel }}
           workspaces={workspaces}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>

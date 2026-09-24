@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.40.0] — 2026-09-24 — pushed to your own page, and a way back to it
+
+Sjoerd, after the redirect-loop fix landed: *"I rather have that someone is
+automatically pushed to their my.thethread... And if someone has a seat..
+there.. and then via the dropdown... someone should be able to visit
+my.thethread.app"*
+
+**Participants are taken there, not shown a wall.** `(app)/layout.tsx` sent
+a 401 to `/no-access`, which offered a button. It now redirects straight to
+the portal. The two failures stay apart, because they deserve different
+answers: `!shell.ok` is a 401 — no standing anywhere, which is what a
+participant is — and goes to the portal; `!hasAccess` means the person DOES
+hold a seat and this workspace has not switched the app on, which only the
+wall can say.
+
+**The switcher has a way back.** The portal sits under its own heading
+below a divider, not in the app list — it has no catalogue slug, no
+workspace activation and no seat, the same line branding.ts draws with
+SURFACES. It is for everyone, including people who run a workspace: an
+organiser enrols in other people's threads too, and had no route to the
+page that shows them.
+
+Both resolve through `surfaceUrl(..., host)`, so a member on `.tech` is
+never handed to production. Meet and The Fibre had been fetching the host
+as a shell extra; it is read once at the top now, because the gate needs it
+before `extras` exists.
+
 ## [1.39.1] — 2026-09-24 — your own thread, at its own address (staging)
 
 Handed over by the session that extracted `lib/public-owner-slug.ts`: it

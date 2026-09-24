@@ -14,6 +14,7 @@ export function Topbar({
   prefs,
   current,
   apps,
+  portal,
   workspaces = [],
 }: {
   /** Whether this person wants the To do panel at all (Settings → Profile).
@@ -24,11 +25,13 @@ export function Topbar({
   prefs: Prefs;
   current: { slug: string; name: string };
   apps: AppEntry[];
+  /** The participant portal, shown under its own heading in the switcher. */
+  portal?: { url: string; name: string } | undefined;
   workspaces?: WorkspaceChoice[];
 }) {
   return (
     <TopbarFrame
-      left={<AppSwitcher current={current} apps={apps} />}
+      left={<AppSwitcher current={current} apps={apps} portal={portal} />}
       right={
         <div className="flex items-center gap-2">
           {/* Beside your own icon, per Sjoerd: the list toggles from here.
