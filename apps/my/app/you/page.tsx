@@ -11,11 +11,12 @@
 // several communities hold copies of, and a language.
 
 import { ENTITY } from '@thefibre/shared';
-import { loadProfile, loadSession } from '@/lib/session';
+import { loadCalendarStatus, loadProfile, loadSession } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
 import { DetailsForm } from './details-form';
+import { CalendarCard } from './calendar-card';
 import { SignOutButton } from './sign-out-button';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,7 @@ export default async function YouPage() {
   if (!session) return <SignedOut />;
 
   const profile = await loadProfile();
+  const calendar = await loadCalendarStatus();
   const { person } = session.portal;
 
   return (
@@ -55,6 +57,8 @@ export default async function YouPage() {
           </p>
         </>
       )}
+
+      <CalendarCard status={calendar} />
 
       <div className="mt-10 border-t border-line pt-6">
         <SignOutButton />

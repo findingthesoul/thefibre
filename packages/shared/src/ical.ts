@@ -12,6 +12,27 @@
 // short description, two emails, one URL) stay well inside that, and every
 // consumer we care about tolerates long lines, so we don't fold.
 
+/**
+ * An agenda item with a start but no end: an hour is the least surprising
+ * guess, and a calendar entry with no duration renders inconsistently across
+ * clients (some collapse it to a marker, some stretch it to the day).
+ */
+export const DEFAULT_EVENT_MINUTES = 60;
+
+/**
+ * The calendar identity of one thread agenda item.
+ *
+ * Shared because it is the hinge two features turn on. The portal offers the
+ * same session twice — as a single "Add to calendar" download, and inside the
+ * subscription feed — and a person may well use both. Same uid means the
+ * second one UPDATES the first; a different uid means they end up with two of
+ * everything and no way to tell which is current. So neither side gets to
+ * spell this itself.
+ */
+export function agendaEventUid(agendaItemId: string): string {
+  return `agenda-${agendaItemId}@thefibre`;
+}
+
 export interface IcalEventInput {
   uid: string; // stable per booking — re-issuing updates rather than duplicates
   startsAt: Date;
@@ -42,6 +63,77 @@ export function buildBookingIcal(args: IcalEventInput): string {
     `PRODID:${args.prodId ?? '-//The Fibre//Meet//EN'}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    ...veventLines(args),
+    'END:VCALENDAR',
+  ];
+
+  return lines.join('\r\n') + '\r\n';
+}
+
+/**
+ * A subscribable calendar: many events in one document, re-fetched by the
+ * client on its own schedule.
+ *
+ * The difference from buildBookingIcal is not the number of events — it is
+ * what the document MEANS. A one-off .ics is a copy handed over once; from
+ * then on the calendar owns it and a change on our side never reaches it. A
+ * feed is the live answer: the client re-reads it, and whatever it says now
+ * wins. So a moved session moves, and a cancelled one disappears, without the
+ * person doing anything.
+ *
+ * That only works if UIDs are STABLE across fetches. Same agenda item, same
+ * uid, every time — otherwise each fetch reads as a fresh event and the
+ * person collects duplicates instead of corrections. The uid is the caller's
+ * to get right, because only the caller knows what the durable identity is.
+ *
+ * Deletion is by absence: an event that stops appearing in the feed is gone.
+ * There is no tombstone to emit, which is why an event the person should no
+ * longer see must be OMITTED rather than marked cancelled.
+ */
+export interface IcalFeedInput {
+  /** What the calendar is called in the sidebar once subscribed. */
+  name: string;
+  description?: string | null;
+  prodId?: string;
+  /** How often a well-behaved client should re-read. Advisory: Google and
+   *  Apple both apply their own floor (hours, not minutes) and ignore this
+   *  when it suits them. We state an intent, we do not get a guarantee. */
+  refreshMinutes?: number;
+  events: IcalEventInput[];
+  generatedAt?: Date;
+}
+
+export function buildCalendarFeed(args: IcalFeedInput): string {
+  const refresh = durationMinutes(args.refreshMinutes ?? 240);
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:${args.prodId ?? '-//The Fibre//Portal//EN'}`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    // Two spellings of the same wish. REFRESH-INTERVAL is RFC 7986; the
+    // X- forms are what shipped first and what several clients still read.
+    `REFRESH-INTERVAL;VALUE=DURATION:${refresh}`,
+    `X-PUBLISHED-TTL:${refresh}`,
+    `NAME:${escapeText(args.name)}`,
+    `X-WR-CALNAME:${escapeText(args.name)}`,
+    args.description ? `DESCRIPTION:${escapeText(args.description)}` : null,
+    args.description ? `X-WR-CALDESC:${escapeText(args.description)}` : null,
+    // The feed's stamp applies to every event that did not bring its own,
+    // so two fetches of an unchanged calendar are byte-identical.
+    ...args.events.flatMap((e) =>
+      veventLines(e.generatedAt || !args.generatedAt ? e : { ...e, generatedAt: args.generatedAt }),
+    ),
+    'END:VCALENDAR',
+  ].filter((l): l is string => l !== null);
+
+  return lines.join('\r\n') + '\r\n';
+}
+
+/** The VEVENT block, shared by the single file and the feed so the two can
+ *  never disagree about what one event looks like. */
+function veventLines(args: IcalEventInput): string[] {
+  return [
     'BEGIN:VEVENT',
     `UID:${args.uid}`,
     `DTSTAMP:${formatUtc(args.generatedAt ?? new Date())}`,
@@ -60,10 +152,16 @@ export function buildBookingIcal(args: IcalEventInput): string {
       : null,
     `STATUS:${args.status ?? 'CONFIRMED'}`,
     'END:VEVENT',
-    'END:VCALENDAR',
   ].filter((l): l is string => l !== null);
+}
 
-  return lines.join('\r\n') + '\r\n';
+/** Minutes as an RFC 5545 duration, in the largest whole unit that fits —
+ *  PT4H rather than PT240M, because a human reads the header too. */
+function durationMinutes(minutes: number): string {
+  const m = Math.max(1, Math.round(minutes));
+  if (m % 1440 === 0) return `P${m / 1440}D`;
+  if (m % 60 === 0) return `PT${m / 60}H`;
+  return `PT${m}M`;
 }
 
 /** YYYYMMDDTHHMMSSZ */

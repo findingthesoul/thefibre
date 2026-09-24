@@ -11,16 +11,12 @@
 // The .ics itself is built by @thefibre/shared/ical, the same builder Meet
 // uses for bookings (lifted there in v0.68.28). One definition, no copies.
 
-import { buildBookingIcal } from '@thefibre/shared/ical';
+import { DEFAULT_EVENT_MINUTES, agendaEventUid, buildBookingIcal } from '@thefibre/shared/ical';
 import { ENTITY } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
 import { fetchPortal } from '@/lib/portal-api';
 
 export const dynamic = 'force-dynamic';
-
-/** An agenda item with a start but no end: an hour is the least surprising
- *  guess, and a calendar entry with no duration renders inconsistently. */
-const DEFAULT_MINUTES = 60;
 
 export async function GET(
   _req: Request,
@@ -55,11 +51,13 @@ export async function GET(
   const startsAt = new Date(item.starts_at);
   const endsAt = item.ends_at
     ? new Date(item.ends_at)
-    : new Date(startsAt.getTime() + DEFAULT_MINUTES * 60_000);
+    : new Date(startsAt.getTime() + DEFAULT_EVENT_MINUTES * 60_000);
 
   const ics = buildBookingIcal({
-    // Stable, so re-adding updates the entry rather than duplicating it.
-    uid: `agenda-${item.id}@thefibre`,
+    // Stable, so re-adding updates the entry rather than duplicating it —
+    // and shared with the subscription feed, so a person who both downloads
+    // this and subscribes ends up with one event, not two.
+    uid: agendaEventUid(item.id),
     prodId: `-//${ENTITY.publicName}//Portal//EN`,
     startsAt,
     endsAt,

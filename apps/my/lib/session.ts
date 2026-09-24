@@ -10,10 +10,12 @@
 import { cache } from 'react';
 import { serverSupabase } from './supabase/server';
 import {
+  fetchCalendarStatus,
   fetchInvoices,
   fetchPortal,
   fetchProfile,
   PortalApiError,
+  type CalendarStatus,
   type MyProfile,
   type Portal,
   type PortalInvoice,
@@ -54,4 +56,13 @@ export const loadProfile = cache(async (): Promise<MyProfile | null> => {
   const s = await loadSession();
   if (!s) return null;
   return fetchProfile(s.token);
+});
+
+/** Whether a calendar subscription exists, and when a client last collected
+ *  it. Falls back to "no subscription" when the call fails: the YOU page then
+ *  offers to create one, which is harmless — minting always replaces. */
+export const loadCalendarStatus = cache(async (): Promise<CalendarStatus> => {
+  const s = await loadSession();
+  if (!s) return { subscribed: false, created_at: null, last_read_at: null };
+  return fetchCalendarStatus(s.token);
 });

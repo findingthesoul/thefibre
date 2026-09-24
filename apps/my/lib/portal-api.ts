@@ -275,3 +275,53 @@ export function googleWalletUrl(code: string): string {
 export function agendaIcsUrl(threadId: string, itemId: string): string {
   return `/ics/${threadId}/${itemId}`;
 }
+
+/**
+ * Whether this person has a calendar subscription, and whether anything is
+ * actually collecting it.
+ *
+ * Note what is NOT here: the address. It is stored hashed, so it exists in
+ * readable form exactly once — in the response to `createCalendar()`. That is
+ * deliberate (a subscription URL is a credential), and it is why the UI says
+ * so plainly rather than hiding a "reveal" button that could never work.
+ */
+export type CalendarStatus = {
+  subscribed: boolean;
+  created_at: string | null;
+  last_read_at: string | null;
+};
+
+export async function fetchCalendarStatus(accessToken: string): Promise<CalendarStatus> {
+  const none: CalendarStatus = { subscribed: false, created_at: null, last_read_at: null };
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/me/portal/calendar`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return none;
+    return (await res.json()) as CalendarStatus;
+  } catch {
+    return none;
+  }
+}
+
+export type CalendarAddress = CalendarStatus & { url: string; webcal: string };
+
+/** Mint an address, retiring any previous one. Through this app's route, so
+ *  the browser never holds an access token. */
+export async function createCalendar(): Promise<CalendarAddress> {
+  const res = await fetch('/api/calendar', { method: 'POST' });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not create a calendar address');
+  }
+  return (await res.json()) as CalendarAddress;
+}
+
+export async function deleteCalendar(): Promise<void> {
+  const res = await fetch('/api/calendar', { method: 'DELETE' });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not stop the calendar');
+  }
+}

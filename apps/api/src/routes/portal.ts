@@ -65,6 +65,15 @@ import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { enrolmentCanRespond, mergeById, resolveRsvpEnabled, ticketIsAdmissible } from '../lib/portal.js';
+import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
+import { publicOwnerSlug } from '../lib/public-owner-slug.js';
+import {
+  buildFeedForEmail,
+  feedEmailForToken,
+  feedStatusForEmail,
+  mintFeed,
+  revokeFeed,
+} from '../lib/calendar-feed.js';
 import { appUrl, isLocale } from '@thefibre/shared';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
@@ -144,32 +153,6 @@ type Ticket = {
   checked_in_at: string | null;
 };
 
-type AgendaItem = {
-  id: string;
-  title: string;
-  description: string | null;
-  type: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  location: string | null;
-  /** A map link for the venue. Stored on the engagement all along and never
-   *  published anywhere until the thread session found it missing from the
-   *  public page (v0.68.62); the portal shows the same venue and had the
-   *  same gap. Null is the ordinary case. */
-  location_url: string | null;
-  meeting_url: string | null;
-  external_url: string | null;
-  /**
-   * Whether this item asks for an RSVP. Resolved server-side: the workspace
-   * default, overridden per thread, overridden per ITEM, each level's NULL
-   * meaning inherit. The client is told the answer, never the rule.
-   */
-  rsvp_enabled: boolean;
-  /** This person's current answer. `null` is NO ANSWER, which is a third
-   *  state and not the same as 'not_coming'. */
-  rsvp: 'coming' | 'not_coming' | null;
-};
-
 type ThreadItem = {
   thread_id: string;
   title: string;
@@ -241,17 +224,14 @@ portalRoutes.get('/portal', async (c) => {
   if (!email) return c.json({ error: 'sign in required' }, 401);
 
   // One person row per workspace that knows this email. This list is the
-  // scope of everything below.
-  const { data: persons } = await adminClient
-    .from('person')
-    .select('id, first_name, last_name, email')
-    .eq('email', email)
-    .is('deleted_at', null);
+  // scope of everything below (lib/portal-agenda.ts holds the definition, so
+  // the calendar feed cannot be scoped by a slightly different rule).
+  const persons = await personsForEmail(email);
 
-  const personIds = (persons ?? []).map((p) => p.id as string);
+  const personIds = persons.map((p) => p.id);
   const me = {
-    first_name: (persons?.[0]?.first_name as string | null) ?? null,
-    last_name: (persons?.[0]?.last_name as string | null) ?? null,
+    first_name: persons[0]?.first_name ?? null,
+    last_name: persons[0]?.last_name ?? null,
     email,
   };
   if (!personIds.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
@@ -292,60 +272,7 @@ portalRoutes.get('/portal', async (c) => {
     if (t && !enrolmentCanRespond(enr?.status ?? null)) droppedThreads.add(t.id);
   }
 
-  const agendaByThread = new Map<string, AgendaItem[]>();
-  if (threadIds.length) {
-    // An item asks only when its own switch is on (lib/portal.ts
-    // resolveRsvpEnabled). Two queries stood here — the thread's override and
-    // the workspace default — and both are gone with the inheritance chain
-    // they served.
-    const { data: engagements } = await adminClient
-      .from('thread_engagement')
-      .select(
-        'id, thread_id, title, description, type, starts_at, ends_at, location, location_url, meeting_url, content, position, rsvp_enabled',
-      )
-      .in('thread_id', threadIds)
-      .eq('status', 'published')
-      .eq('show_in_agenda', true)
-      .order('position', { ascending: true });
-
-    // This person's own answers. Scoped by person_id exactly as everything
-    // else here is — a visitor has no RLS identity in these workspaces.
-    const { data: rsvps } = await adminClient
-      .from('thread_rsvp')
-      .select('engagement_id, response')
-      .in('person_id', personIds);
-    const answerByEngagement = new Map(
-      (rsvps ?? []).map((r) => [r.engagement_id as string, r.response as 'coming' | 'not_coming']),
-    );
-
-    for (const e of engagements ?? []) {
-      const content = (e.content ?? {}) as { external_url?: string; file_url?: string };
-      const list = agendaByThread.get(e.thread_id as string) ?? [];
-      list.push({
-        id: e.id as string,
-        title: e.title as string,
-        description: (e.description as string | null) ?? null,
-        type: e.type as string,
-        starts_at: (e.starts_at as string | null) ?? null,
-        ends_at: (e.ends_at as string | null) ?? null,
-        location: (e.location as string | null) ?? null,
-        location_url: (e.location_url as string | null) ?? null,
-        meeting_url: (e.meeting_url as string | null) ?? null,
-        external_url: content.external_url ?? content.file_url ?? null,
-        // One resolver, shared with the write path and the organiser panel.
-        // A dropped participant is refused separately: they still SEE the
-        // thread, they just stop answering for it.
-        rsvp_enabled:
-          !droppedThreads.has(e.thread_id as string) &&
-          resolveRsvpEnabled({
-            item: e.rsvp_enabled as boolean | null,
-            hasStart: !!e.starts_at,
-          }),
-        rsvp: answerByEngagement.get(e.id as string) ?? null,
-      });
-      agendaByThread.set(e.thread_id as string, list);
-    }
-  }
+  const agendaByThread = await loadAgendaByThread({ threadIds, personIds, droppedThreads });
 
   // -- Meets (dual key: person id OR the email on the booking) --------------
   //
@@ -484,11 +411,12 @@ portalRoutes.get('/portal', async (c) => {
       for (const t of (threads ?? []) as Record<string, unknown>[]) {
         const team = one(t.team as never) as { slug: string } | null;
         const organiser = one(t.organiser as never) as { slug: string } | null;
-        const ownerSlug =
-          (t.public_scope === 'workspace' ? wsSlug.get(t.workspace_id as string) : null) ??
-          team?.slug ??
-          organiser?.slug ??
-          '';
+        const ownerSlug = publicOwnerSlug({
+          publicScope: t.public_scope as string | null,
+          workspaceSlug: wsSlug.get(t.workspace_id as string),
+          teamSlug: team?.slug,
+          organiserSlug: organiser?.slug,
+        });
         if (!ownerSlug) continue;
         threadUrlByKey.set(
           `${t.workspace_id as string}:${t.slug as string}`,
@@ -609,20 +537,16 @@ portalRoutes.get('/portal', async (c) => {
     const ended = prog?.ends_on ?? prog?.starts_on ?? null;
     if (ended && ended < sinceDate && enr?.status === 'completed') continue;
 
-    // Public URL owner segment. THREE kinds, not two: a workspace-scoped
-    // thread has team_id NULL by design (brief D1), so `team ?? organiser`
-    // silently falls through to the organiser and emits an address that is
-    // reachable but not canonical — the page's own canonical tag points
-    // somewhere else. Same order the web app's builders use
-    // (apps/thread timeline.tsx, settings/embeds).
-    //
-    // Found 2026-09-09 by the thread session chasing the coupling between
-    // this and `public_root_slug`. Not a 404: brief D2 keeps
-    // /{organiser}/{thread} valid as a second address for exactly this case,
-    // and the one active workspace-scoped thread in production resolves 200
-    // under both. The cost is canonicality, not reachability.
-    const ownerSlug =
-      (t.public_scope === 'workspace' ? g.slug : null) ?? team?.slug ?? org?.slug ?? '';
+    // Public URL owner segment — lib/public-owner-slug.ts holds the rule and
+    // the history of getting it wrong. Not a 404 when it is wrong: brief D2
+    // keeps /{organiser}/{thread} valid as a second address, so the cost is
+    // canonicality, not reachability, which is exactly why it went unnoticed.
+    const ownerSlug = publicOwnerSlug({
+      publicScope: t.public_scope,
+      workspaceSlug: g.slug,
+      teamSlug: team?.slug,
+      organiserSlug: org?.slug,
+    });
 
     g.threads.push({
       thread_id: t.id,
@@ -699,6 +623,69 @@ portalRoutes.get('/portal', async (c) => {
   );
 
   return c.json({ person: me, wallet: walletAvailability(), groups: out });
+});
+
+// ===========================================================================
+// The subscribable calendar — GET/POST/DELETE /me/portal/calendar, and the
+// feed itself at GET /me/calendar/:token
+//
+// Sjoerd, 2026-09-23: "can I also subscribe to the whole sequence? And do
+// things get updates when there is a change in date?" One feature, because a
+// downloaded .ics can never answer the second question — the calendar owns
+// that copy from the moment it lands.
+//
+// The reasoning about the token, and why it is the only credential a calendar
+// client can carry, is in lib/calendar-feed.ts. Read it before touching the
+// feed handler.
+// ===========================================================================
+
+portalRoutes.get('/portal/calendar', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  return c.json(await feedStatusForEmail(email));
+});
+
+// Create the address, or replace one that leaked. Same handler for both:
+// minting always retires whatever came before, so "give me a new one" cannot
+// leave the old one alive through a forgotten second step.
+portalRoutes.post('/portal/calendar', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const address = await mintFeed(email);
+  // The only moment this URL exists in readable form. Stored hashed.
+  return c.json({ ...address, ...(await feedStatusForEmail(email)) });
+});
+
+portalRoutes.delete('/portal/calendar', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  await revokeFeed(email);
+  return c.json({ subscribed: false, created_at: null, last_read_at: null });
+});
+
+// The feed. NO SESSION — see lib/calendar-feed.ts: a calendar client cannot
+// carry one, so the token in the path is the whole authentication. This is
+// the one handler under /me that does not call participantEmailFromAuth, and
+// it is deliberate; feedEmailForToken is what stands in its place.
+//
+// A bad token answers 404, not 401: there is no credential to re-present and
+// nothing to be gained by telling a prober which addresses have ever existed.
+portalRoutes.get('/calendar/:token', async (c) => {
+  // The `.ics` suffix is for the calendar clients that decide what a URL is
+  // by looking at its extension. It is not part of the token.
+  const token = c.req.param('token').replace(/\.ics$/i, '');
+  const email = await feedEmailForToken(token);
+  if (!email) return c.text('Not found', 404);
+
+  const ics = await buildFeedForEmail(email);
+  return new Response(ics, {
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': 'inline; filename="my-sessions.ics"',
+      // Always re-read. The whole point is that a moved session moves.
+      'Cache-Control': 'no-store, max-age=0',
+    },
+  });
 });
 
 // ---------------------------------------------------------------------------

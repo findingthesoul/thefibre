@@ -2,7 +2,7 @@
 // errors, the event just never appears. So the escaping rules are locked.
 
 import { describe, expect, it } from 'vitest';
-import { bookingCalendarTitle, buildBookingIcal } from './ical.js';
+import { bookingCalendarTitle, buildBookingIcal, buildCalendarFeed } from './ical.js';
 
 const base = {
   uid: 'meet-abc@thefibre.app',
@@ -118,5 +118,76 @@ describe('bookingCalendarTitle', () => {
 
   it('trims a padded name rather than widening the gap', () => {
     expect(bookingCalendarTitle('Intro call', '  Daniel Ross ')).toBe('Intro call - Daniel Ross');
+  });
+});
+
+// A subscription feed is read again and again, so the properties that matter
+// are the ones that hold ACROSS fetches: same uid for the same session, and a
+// document a client will re-read rather than treat as a one-off import.
+describe('buildCalendarFeed', () => {
+  const two = [
+    { ...base, uid: 'agenda-1@thefibre', summary: 'Opening circle' },
+    {
+      ...base,
+      uid: 'agenda-2@thefibre',
+      summary: 'Closing circle',
+      startsAt: new Date('2026-11-02T09:00:00Z'),
+      endsAt: new Date('2026-11-02T11:00:00Z'),
+    },
+  ];
+
+  it('puts every event in one calendar', () => {
+    const ics = buildCalendarFeed({ name: 'My sessions', events: two });
+    expect(ics.match(/BEGIN:VCALENDAR/g)).toHaveLength(1);
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(2);
+    expect(ics).toContain('UID:agenda-1@thefibre');
+    expect(ics).toContain('UID:agenda-2@thefibre');
+  });
+
+  it('names the calendar in both spellings clients read', () => {
+    const ics = buildCalendarFeed({ name: 'My sessions', events: [] });
+    expect(ics).toContain('NAME:My sessions');
+    expect(ics).toContain('X-WR-CALNAME:My sessions');
+  });
+
+  it('asks to be re-read, in the largest whole unit', () => {
+    expect(buildCalendarFeed({ name: 'x', events: [] })).toContain(
+      'REFRESH-INTERVAL;VALUE=DURATION:PT4H',
+    );
+    expect(
+      buildCalendarFeed({ name: 'x', events: [], refreshMinutes: 90 }),
+    ).toContain('X-PUBLISHED-TTL:PT90M');
+    expect(buildCalendarFeed({ name: 'x', events: [], refreshMinutes: 1440 })).toContain(
+      'REFRESH-INTERVAL;VALUE=DURATION:P1D',
+    );
+  });
+
+  it('stays valid with no events at all — a person with an empty agenda still subscribes', () => {
+    const ics = buildCalendarFeed({ name: 'My sessions', events: [] });
+    expect(ics.startsWith('BEGIN:VCALENDAR')).toBe(true);
+    expect(ics.trimEnd().endsWith('END:VCALENDAR')).toBe(true);
+    expect(ics).not.toContain('BEGIN:VEVENT');
+  });
+
+  it('escapes a calendar name the same way it escapes an event field', () => {
+    const ics = buildCalendarFeed({ name: 'Athens, 2026; day one', events: [] });
+    expect(ics).toContain('X-WR-CALNAME:Athens\\, 2026\\; day one');
+  });
+
+  // The one that would otherwise be found by a person with two copies of
+  // every session in their calendar, months later.
+  it('emits the SAME document for the same input, so a re-fetch corrects rather than duplicates', () => {
+    const at = new Date('2026-09-24T12:00:00Z');
+    const a = buildCalendarFeed({ name: 'My sessions', events: two, generatedAt: at });
+    const b = buildCalendarFeed({ name: 'My sessions', events: two, generatedAt: at });
+    expect(a).toBe(b);
+  });
+
+  it('builds the same VEVENT as a single-file download, so the two cannot drift', () => {
+    const at = new Date('2026-09-24T12:00:00Z');
+    const single = buildBookingIcal({ ...base, generatedAt: at });
+    const feed = buildCalendarFeed({ name: 'x', events: [base], generatedAt: at });
+    const block = (s: string) => s.slice(s.indexOf('BEGIN:VEVENT'), s.indexOf('END:VEVENT'));
+    expect(block(feed)).toBe(block(single));
   });
 });

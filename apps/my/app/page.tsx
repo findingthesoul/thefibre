@@ -8,6 +8,7 @@ import { loadSession } from '@/lib/session';
 import { buildTimeline, splitAt } from '@/lib/timeline';
 import type { Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { SignedOut } from './signed-out';
+import Link from 'next/link';
 import { PageShell, Empty } from './page-shell';
 import { Ticket } from './ticket';
 import { KeepTickets } from './keep-tickets';
@@ -79,6 +80,17 @@ export default async function NextPage() {
             threads={threads}
             wallet={portal.wallet}
           />
+          {/* Where someone looks for it. Every card offers "add to calendar"
+              for ONE session, so the question "can I just follow all of it"
+              is asked here, at the bottom of the list — not on a settings
+              page they have no reason to open. The control itself lives on
+              YOU, because it mints a credential. */}
+          <p className="mt-8 text-center text-xs text-ink-muted">
+            <Link href="/you" className="underline underline-offset-4 hover:text-ink">
+              Subscribe your calendar
+            </Link>{' '}
+            to follow every session, so moved dates move.
+          </p>
         </>
       )}
     </PageShell>

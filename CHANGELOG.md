@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.39.0] — 2026-09-24 — subscribe your calendar, and moved dates move
+
+"Can I also subscribe to the whole sequence? And do things get updates when
+there is a change in date?" (Sjoerd, 2026-09-23). One feature, because the
+second question is what makes the first worth building.
+
+**What was there answered neither.** Every card on the portal offers "add to
+calendar" for ONE session, and what that hands over is a COPY. From the moment
+it lands, the calendar owns it — so when an organiser moves a session, the
+person who dutifully added it is the last to find out. The portal knew the new
+date and had no way to say so.
+
+**A subscription is the live answer.** One address per person, pasted into
+Google, Apple or Outlook once. The client re-reads it every few hours, and
+whatever it says then wins: a moved session moves, a cancelled one disappears,
+a newly published one arrives. Nobody re-adds anything.
+
+That only works if each session keeps the SAME identity across fetches, so the
+uid now lives in `@thefibre/shared/ical` (`agendaEventUid`) and both the
+one-off download and the feed call it. A person who does both ends up with one
+event, not two — which is also the case that would have surfaced months later,
+as duplicates, with nothing to point at.
+
+**The address is a credential, and is treated as one.** A calendar client
+fetches from its own servers: no cookie, no bearer, no way to add one. So the
+random string in the URL is the whole authentication — as it is for every
+calendar subscription anyone has ever used. It is 256 bits, stored as sha256
+the way an app key is, shown once at mint and never recoverable; "make a new
+address" retires the old one in the same call, so revoking cannot be the step
+somebody forgot. YOU says all of that in the copy rather than hiding a reveal
+button that could never work.
+
+The address is on the PORTAL's domain, not the API's, and deliberately: a
+subscription sits in someone's calendar for years, and the API still answers on
+`thefibre-api.fly.dev` with its own CNAME unshipped. The portal route is a pipe
+— it never parses what it forwards.
+
+**Three definitions stopped being two-or-more copies**, which is most of why
+this landed small:
+
+- `lib/portal-agenda.ts` now owns what an agenda item IS and who a visitor is
+  (`personsForEmail`). The feed and the portal page read the same rows; the
+  email scoping that stands in for RLS on those surfaces has one definition.
+- `lib/public-owner-slug.ts` owns the public-URL owner segment — the THREE-way
+  rule (`public_scope === 'workspace'` first, because a workspace thread has
+  `team_id` NULL by design) that had six hand-written copies, three of which
+  disagreed on one day in September. `routes/portal.ts` held two of them and
+  now holds none; the feed would have been a seventh. Five cases pinned in a
+  test, including the fall-through that reads like the bug and is not. Still
+  outstanding: `ownerSlugOf` in `routes/thread.ts`.
+- `DEFAULT_EVENT_MINUTES` — an hour for a session with no end — moved to
+  shared beside the uid.
+
+**Also fixed on the way past:** `scripts/new-migration.sh` had never once
+scanned a worktree. It looked in `../../../.claude/worktrees`, which resolves
+to `/Users/.claude/worktrees` and has never existed, at a depth one level short
+of a worktree's migrations anyway — and because `find` on a missing path exits
+non-zero under `pipefail`, the whole script died with a bare `exit 1` and no
+message. The tool CLAUDE.md points every session at, for the express purpose of
+not colliding with another worktree's migration version, was refusing to run at
+all. Both halves fixed.
+
+Migration: `person_calendar_feed` (service-role only, no policies, partial
+unique index so one live address per person and revoked ones are kept).
+
 ## [1.38.1] — 2026-09-24 — a member who signs in lands on their own page
 
 Sjoerd paid for a real membership on production, signed in, and got

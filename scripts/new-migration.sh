@@ -17,7 +17,16 @@ esac
 
 taken() {
   # Every migrations directory reachable from here, same set the checker reads.
-  find . ../../../.claude/worktrees -maxdepth 4 -path '*/supabase/migrations' -type d 2>/dev/null \
+  #
+  # Worktrees live INSIDE the repo, at .claude/worktrees/<name>/ — so the one
+  # that matters is ./.claude/worktrees/<name>/supabase/migrations, five levels
+  # down. Until 2026-09-24 this line searched `../../../.claude/worktrees`
+  # (which resolves to /Users/.claude/worktrees and has never existed) at
+  # maxdepth 4 (which stops one level short of a worktree's migrations). So it
+  # scanned no worktree at all — and, because `find` on a missing path exits
+  # non-zero under `pipefail`, the whole script died with a bare exit 1 and no
+  # message. Both halves of that are fixed here; keep them together.
+  find . -maxdepth 6 -path '*/supabase/migrations' -type d 2>/dev/null \
     | while read -r d; do ls "$d" 2>/dev/null; done \
     | sed -n 's/^\([0-9]\{14\}\)_.*\.sql$/\1/p' | sort -u
 }
