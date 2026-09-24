@@ -14,6 +14,7 @@ import {
   updateEngagement,
   deleteEngagement,
   getEngagementRsvps,
+  getCalendarImpact,
 } from '../actions';
 import type { EngagementRow, EngagementType, TriggerKind, DailyTime } from '@/lib/thread-types';
 import {
@@ -231,6 +232,12 @@ export function EngagementDialog({
     return daysBetween(firstDay, lastDay).map((date) => ({ date, ...dayFor(date) }));
   }
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  /** A save that is waiting on the organiser looking at a number. */
+  const [holding, setHolding] = useState<{
+    holders: number;
+    leaving: boolean;
+    run: () => void;
+  } | null>(null);
 
   function requestClose() {
     if (dirty) setConfirmDiscard(true);
@@ -355,14 +362,56 @@ export function EngagementDialog({
               content: contentFromForm(type, fd),
             };
 
+    // Is this a change people would feel? Date, time, place, or the session
+    // going away — the list Sjoerd set, and deliberately not the description.
+    // Only an activity is ever in a calendar; a message or a certificate has
+    // no appointment to move. The payload is a union across those families,
+    // so it is read as a bag of fields rather than narrowed five ways.
+    const p = payload as Record<string, unknown>;
+    const touches =
+      !isNew &&
+      engagement &&
+      family === 'activity' &&
+      (!sameInstant((p.starts_at as string | null) ?? null, engagement.starts_at) ||
+        !sameInstant((p.ends_at as string | null) ?? null, engagement.ends_at) ||
+        ((p.location as string | null) ?? null) !== (engagement.location ?? null) ||
+        ((p.meeting_url as string | null) ?? null) !== (engagement.meeting_url ?? null) ||
+        (engagement.status === 'published' && p.status !== 'published') ||
+        (engagement.show_in_agenda && p.show_in_agenda === false));
+
+    const run = () =>
+      startTransition(async () => {
+        const r = isNew
+          ? await createEngagement(threadId, payload)
+          : await updateEngagement(threadId, engagement.id, payload);
+        if (!r.ok) return setError(r.error);
+        onClose();
+        router.refresh();
+      });
+
+    if (!touches) return run();
+
+    // Ask the server who is actually holding this, then say the number out
+    // loud before committing. Sjoerd, 2026-09-24: *"This should not be a
+    // light thing."* The count is a courtesy and not a gate — if it cannot be
+    // read, the save goes ahead rather than being blocked by a failed count.
     startTransition(async () => {
-      const r = isNew
-        ? await createEngagement(threadId, payload)
-        : await updateEngagement(threadId, engagement.id, payload);
-      if (!r.ok) return setError(r.error);
-      onClose();
-      router.refresh();
+      const impact = await getCalendarImpact(engagement.id);
+      if (!impact?.in_calendars || impact.holders === 0) return run();
+      setHolding({
+        holders: impact.holders,
+        leaving: p.status !== 'published' || p.show_in_agenda === false,
+        run,
+      });
     });
+  }
+
+  /** Two spellings of one instant are one instant. Comparing the strings
+   *  would warn on every save of an untouched date. */
+  function sameInstant(a: string | null, b: string | null | undefined): boolean {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return new Date(a).getTime() === new Date(b).getTime();
   }
 
   function duplicate() {
@@ -869,6 +918,35 @@ export function EngagementDialog({
         message={t(locale, 'discard_engagement_msg')}
         confirmLabel={t(locale, 'discard')}
         destructive
+      />
+
+      {/* Moving something people hold is not the same act as moving a draft.
+          Sjoerd, 2026-09-24: *"changing the date is with an extra warning: do
+          you really want this… it is in peoples agenda? With an extra
+          confirmation. This should not be a light thing."*
+
+          The number is the whole point. "Nine people" is a fact an organiser
+          is entitled to BEFORE they commit, and it is the difference between
+          a warning and a nag: it does not appear for a draft, or for a
+          session nobody has been told about yet. */}
+      <ConfirmDialog
+        open={!!holding}
+        destructive={holding?.leaving ?? false}
+        title={holding?.leaving ? 'Take this off their calendars?' : 'This is in people’s calendars'}
+        message={
+          holding
+            ? holding.leaving
+              ? `${holding.holders} ${holding.holders === 1 ? 'person has' : 'people have'} this session in their calendar. Removing it will take it out of theirs too, once you send the change.`
+              : `${holding.holders} ${holding.holders === 1 ? 'person has' : 'people have'} this session in their calendar. They will see it move, once you send the change.`
+            : ''
+        }
+        confirmLabel={holding?.leaving ? 'Yes, take it off' : 'Yes, move it'}
+        onCancel={() => setHolding(null)}
+        onConfirm={() => {
+          const go = holding?.run;
+          setHolding(null);
+          go?.();
+        }}
       />
 
       <DangerConfirmDialog

@@ -9,6 +9,7 @@ import {
 } from '@/lib/thread-types';
 import { uiLocale } from '@/lib/locale';
 import { ThreadTimeline } from './timeline';
+import { CalendarTray } from './calendar-tray';
 
 type ThreadDetail = ThreadRow & {
   engagements: EngagementRow[];
@@ -80,6 +81,10 @@ export default async function ThreadDetailPage({
   // engagements immediately under it. No tabs.
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
+      {/* Above the thread, because it is about what has already happened to it
+          — and because a bar under a long timeline is a bar nobody scrolls to.
+          It renders nothing when nothing is owed. */}
+      <CalendarTray threadId={thread.id} />
       <ThreadTimeline
         locale={locale}
         categories={categories.items}

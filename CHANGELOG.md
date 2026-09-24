@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.49.0] — 2026-09-25 — the warning, and the one press
+
+The organiser's half of calendar invitations. The engine landed in v1.48.0;
+until now nothing could reach it, which was deliberate — there was no way to
+send by accident.
+
+**The warning, at the moment of the decision.** Changing a session's date,
+time or place — or unpublishing it, or taking it off the agenda — now asks
+first, and names the cost: *"Nine people have this session in their calendar.
+They will see it move, once you send the change."* Removing it words it
+harder, and says the session will be taken out of theirs too.
+
+It does not cry wolf. The question comes from the server, not from a guess:
+a session nobody has been told about is in nobody's calendar, however many
+people are enrolled, so editing a draft is silent as it always was. And it is
+a courtesy rather than a gate — if the count cannot be read, the save goes
+ahead. Refusing somebody's edit because a number failed to load would be the
+worse failure.
+
+One trap avoided on the way: the comparison is between instants, not strings.
+A date read back out of a form does not spell itself the way the stored one
+does, and a string compare would have warned about nine people on every save
+of an untouched date.
+
+**The tray, at the moment of sending.** *"3 changes not sent. 24 people
+haven't been told."* — a bar above the thread, with one button. Open it and
+you see exactly what they will get, each move struck through from its old date
+to its new one, with a box for a line in your own words. One press.
+
+A bar rather than a toast or a dialog, and the reason is what the work
+actually looks like: an afternoon of rearranging, then one decision at the
+end. A toast disappears while you are still thinking and a dialog interrupts
+the rearranging that produced the changes. A bar waits, and renders nothing
+when nothing is owed.
+
+There is deliberately no way to send without reading the list. The list IS the
+screen, not a confirmation on top of one.
+
+**Deleting a session already asked properly** — it has carried the
+type-the-word confirmation since August — and the server now queues the
+cancellation behind it, so nothing extra was needed there.
+
 ## [1.48.2] — 2026-09-24 — invitations go out at a pace the sender accepts
 
 Resend takes two requests a second. A thread of forty people with three moved

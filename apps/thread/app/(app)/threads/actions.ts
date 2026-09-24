@@ -587,3 +587,69 @@ async function scanResolved(code: string, expectThreadId: string | null): Promis
     return { kind: 'refused', reason: errorMessage(e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Calendar invitations — what people have not been told, and telling them.
+//
+// Editing and announcing are separate acts (Sjoerd, 2026-09-24), so nothing
+// here fires on a save. These three are read, read, and one deliberate press.
+// ---------------------------------------------------------------------------
+
+export type CalendarImpact = {
+  /** Is this session sitting in anybody's calendar right now? */
+  in_calendars: boolean;
+  /** How many people hold it. Zero when it has never been sent, however many
+   *  are enrolled — the warning must not cry wolf about a draft. */
+  holders: number;
+  enrolled: number;
+  is_session: boolean;
+};
+
+export async function getCalendarImpact(engagementId: string): Promise<CalendarImpact | null> {
+  try {
+    return await apiFetch<CalendarImpact>(
+      `/api/v1/thread/engagements/${engagementId}/calendar-impact`,
+    );
+  } catch {
+    // The warning is a courtesy, not a gate. If we cannot count the room, the
+    // organiser still gets to save — refusing an edit because a count failed
+    // would be the worse failure.
+    return null;
+  }
+}
+
+export type CalendarChange = {
+  id: string;
+  engagement_id: string | null;
+  kind: 'added' | 'moved' | 'cancelled';
+  title: string;
+  was: { starts_at: string | null; ends_at: string | null; location: string | null } | null;
+  now_state: { starts_at: string | null; ends_at: string | null; location: string | null } | null;
+  created_at: string;
+};
+
+export async function getCalendarChanges(
+  threadId: string,
+): Promise<{ changes: CalendarChange[]; audience_count: number }> {
+  try {
+    return await apiFetch(`/api/v1/thread/threads/${threadId}/calendar-changes`);
+  } catch {
+    return { changes: [], audience_count: 0 };
+  }
+}
+
+export async function sendCalendarChanges(
+  threadId: string,
+  note: string | null,
+): Promise<ActionResult & { sent?: number; recipients?: number }> {
+  try {
+    const r = await apiFetch<{ sent: number; recipients: number; skipped: string[] }>(
+      `/api/v1/thread/threads/${threadId}/calendar-changes/send`,
+      { method: 'POST', body: JSON.stringify({ note }) },
+    );
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true, sent: r.sent, recipients: r.recipients };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
