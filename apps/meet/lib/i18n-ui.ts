@@ -1633,6 +1633,22 @@ const CATALOG = {
     de: 'Noch keine persönlichen Meeting-Typen.', // MT
     fr: 'Pas encore de type de réunion personnel.', // MT
   },
+  share: {
+    en: 'Share',
+    nl: 'Delen',
+    es: 'Compartir', // MT
+    pt: 'Partilhar', // MT
+    de: 'Teilen', // MT
+    fr: 'Partager', // MT
+  },
+  visit_page: {
+    en: 'Visit page',
+    nl: 'Pagina bekijken',
+    es: 'Ver la página', // MT
+    pt: 'Ver a página', // MT
+    de: 'Seite ansehen', // MT
+    fr: 'Voir la page', // MT
+  },
   copy_booking_link: {
     en: 'Copy booking link',
     nl: 'Boekingslink kopiëren',

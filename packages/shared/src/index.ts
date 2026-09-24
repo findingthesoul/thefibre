@@ -23,6 +23,7 @@ export {
   type AppBrand,
 } from './branding.js';
 export type { SurfaceKey } from './branding.js';
+export { absoluteUrl } from './absolute-url.js';
 
 export const PROGRAM_FORMATS = ['meeting', 'event', 'journey', 'self_paced', 'blended'] as const;
 export type ProgramFormat = (typeof PROGRAM_FORMATS)[number];

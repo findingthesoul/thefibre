@@ -15,6 +15,7 @@ import {
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { AssigneesEditor, type TeamMember, type Assignee } from './assignees';
+import { ShareMeetingType } from './share';
 import { PollVotesMatrix } from './votes';
 
 type MT = MeetingTypeFormValues & {
@@ -50,6 +51,11 @@ export default async function EditMeetingTypePage({
   let calendars: CalendarOption[] = [];
   let hostSlug: string | null = null;
   let zoomConnected = false;
+  // The slug the public URL is built from: the TEAM's for a team meeting
+  // type, the host's own otherwise — the same rule the list page follows.
+  // Read from the unfiltered team list, because `teams` below keeps only the
+  // ones you lead and a member editing a team type still needs the address.
+  let ownerSlug: string | null = null;
   try {
     const [data, t, c, h] = await Promise.all([
       apiFetch<{ items: MT[] }>('/api/v1/meet/meeting-types'),
@@ -64,6 +70,9 @@ export default async function EditMeetingTypePage({
     calendars = c.items;
     hostSlug = h?.slug ?? null;
     zoomConnected = !!h?.zoom_connected;
+    ownerSlug = mt?.team_id
+      ? (t.items.find((x) => x.id === mt!.team_id)?.slug ?? null)
+      : hostSlug;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
@@ -123,7 +132,18 @@ export default async function EditMeetingTypePage({
   return (
     <PageContainer max="4xl">
       <Breadcrumb href="/meeting-types" label={t(locale, 'mt_title')} />
-      <PageHeader title={mt.name!} description={`slug: ${mt.slug}`} />
+      <PageHeader
+        title={mt.name!}
+        description={`slug: ${mt.slug}`}
+        actions={
+          // Only for a page that is actually reachable: the public route
+          // filters on is_active, so sharing a hidden type hands somebody
+          // a 404.
+          mt.is_active && ownerSlug ? (
+            <ShareMeetingType path={`/${ownerSlug}/${mt.slug}`} locale={locale} />
+          ) : null
+        }
+      />
       <div className="mt-10">
         <MeetingTypeForm
           initial={initialForForm}

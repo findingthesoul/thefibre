@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
+import { absoluteUrl } from "@thefibre/shared";
 import { Button } from "@/components/ui/button";
 
 // Reusable copy-to-clipboard button. Used in scheduling list rows to copy
@@ -28,16 +29,13 @@ export function CopyLinkButton({
   }, []);
 
   // The url prop may be a path (e.g. "/sjoerd/intro-call") or absolute.
-  // We resolve it against window.location.origin at click time so the
-  // copied value is always an absolute URL.
+  // absoluteUrl resolves it against the origin at click time, so the copied
+  // value is always something a person can paste elsewhere.
   const handleClick = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      const absolute = url.startsWith("http")
-        ? url
-        : `${window.location.origin}${url.startsWith("/") ? url : `/${url}`}`;
-      void navigator.clipboard.writeText(absolute).then(() => {
+      void navigator.clipboard.writeText(absoluteUrl(url, window.location.origin)).then(() => {
         setCopied(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => setCopied(false), 1500);
@@ -75,8 +73,8 @@ export function OpenBookingLink({
   label?: string;
   className?: string;
 }) {
-  // Resolve path-style hrefs against window.location.origin at click time
-  // so that callers can pass either "/sjoerd/intro" or an absolute URL.
+  // Same resolution as CopyLinkButton, through the same function: callers
+  // may pass either "/sjoerd/intro" or an absolute URL.
   return (
     <Button
       variant="ghost"
@@ -85,10 +83,7 @@ export function OpenBookingLink({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        const absolute = href.startsWith("http")
-          ? href
-          : `${window.location.origin}${href.startsWith("/") ? href : `/${href}`}`;
-        window.open(absolute, "_blank", "noopener,noreferrer");
+        window.open(absoluteUrl(href, window.location.origin), "_blank", "noopener,noreferrer");
       }}
       aria-label={label}
       title={label}

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.31.0",
+  "version": "1.32.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -125,6 +125,10 @@
     "./ui/todo-panel": {
       "types": "./dist/ui/todo-panel.d.ts",
       "default": "./dist/ui/todo-panel.js"
+    },
+    "./ui/share-menu": {
+      "types": "./dist/ui/share-menu.d.ts",
+      "default": "./dist/ui/share-menu.js"
     },
     "./ui/search-select": {
       "types": "./dist/ui/search-select.d.ts",

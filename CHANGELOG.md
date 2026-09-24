@@ -4,6 +4,39 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.32.0] — 2026-09-24 — a meeting type can hand you its link (Meet 2.13.0)
+
+"meeting type -> add a share button (dropdown: visit page link and copy link)"
+(Sjoerd, 2026-09-24). The editor knew the public address of the page it was
+editing and showed it as `slug: intro-call` — a fact, not an action. The two
+things anyone actually wants are to look at the page or to send it to
+somebody, and neither was reachable without going back to the list.
+
+**Share** now sits in the editor's header, with the URL it is about to give
+you, then **Visit page** and **Copy link**. It appears only when the meeting
+type is active, because the public route filters on `is_active` and sharing a
+hidden one hands somebody a 404. For a team meeting type the link carries the
+TEAM's slug, read from the unfiltered team list so that a member — not only a
+lead — still gets the right address.
+
+### Added
+- `@thefibre/shared/ui/share-menu` — born in shared, not in Meet. Every app in
+  the family publishes pages whose owner needs this; nothing in it is
+  Meet-shaped. Labels arrive as props, so a consumer uses its own catalog
+  rather than adding six locales to the chrome one before it can say "Copy
+  link".
+- `absoluteUrl(url, origin)` in `@thefibre/shared` — the one answer to "I have
+  a path and the reader needs something pasteable". Meet had written it twice
+  by hand in a single file; the share menu would have been the third. The
+  origin is a parameter rather than a read of `window`, so it is testable
+  without a DOM: five cases, including the missing leading slash and the
+  `mailto:` that the old regex would have turned into
+  `https://meet.thethread.app/mailto:…`.
+
+### Changed
+- Meet's `CopyLinkButton` and `OpenBookingLink` now resolve through
+  `absoluteUrl` instead of each carrying its own copy.
+
 ## [1.31.0] — 2026-09-24 — test it yourself, and the personal account connects too (staging)
 
 Sjoerd, on the day the workspace Connect flow shipped: *"From experience I
