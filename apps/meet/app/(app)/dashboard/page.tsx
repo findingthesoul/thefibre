@@ -35,7 +35,15 @@ type Booking = {
   starts_at: string;
   ends_at: string;
   status: string;
-  meeting_type: { name: string } | { name: string }[] | null;
+  // `host` and the meeting type's slug/event_type are not read on this page —
+  // they ride through into BookingDetailsDialog, which builds the Reschedule
+  // and Cancel links from them. Declared here so the row cannot be passed on
+  // missing them.
+  host?: { slug: string } | { slug: string }[] | null;
+  meeting_type:
+    | { name: string; slug?: string; event_type?: string }
+    | { name: string; slug?: string; event_type?: string }[]
+    | null;
 };
 
 function mtName(b: Booking): string {

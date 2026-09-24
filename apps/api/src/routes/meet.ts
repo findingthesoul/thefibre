@@ -64,6 +64,7 @@ import { recordPurchase } from '../lib/purchases.js';
 import { personalStripeAccount, defaultPaymentMethods } from '../lib/payment-accounts.js';
 import {
   bookingConfirmationInvitee,
+  bookingRequestReceived,
   bookingNotificationHost,
   bookingCancellation,
   bookingRescheduled,
@@ -971,18 +972,36 @@ meetRoutes.post('/public/bookings', async (c) => {
     const inviteeName = data.invitee_name;
     const inviteeEmail = data.invitee_email;
     const hostName = hostUser?.full_name ?? hostRow?.slug ?? 'your host';
+    // Same shape as every other booking mail, so the links come from the same
+    // builders. The hand-written version this replaced carried none at all.
+    const requestCommon: EmailCommon = {
+      brand: await meetBrand(mt.workspace_id),
+      inviteeName,
+      inviteeEmail,
+      hostName,
+      hostEmail,
+      meetingName: mt.name,
+      startsAt: starts,
+      endsAt: ends,
+      hostTimezone: hostRow?.timezone ?? 'UTC',
+      location: mt.default_location ?? null,
+      bookingId: booking.id,
+      meetAppUrl: meetAppUrl(),
+      // The host's slug, as every other booking mail uses. A team meeting
+      // type keeps a host_id too, and the public route resolves it under
+      // either slug — checked against production before relying on it.
+      hostSlug: hostRow?.slug ?? '',
+      meetingTypeSlug: mt.slug,
+    };
     try {
       const sender0 = await meetSender(mt.workspace_id);
+      const requested = bookingRequestReceived(requestCommon);
       await sendEmail({
         ...sender0,
         to: inviteeEmail,
-        subject: `Request received: ${mt.name}`,
-        text: `Hi ${inviteeName.split(' ')[0] ?? ''},\n\nYour booking request has been sent to ${hostName}. You'll get a confirmation email once it's approved.\n\n${emailSignoff()}`,
-        html: await meetEmailHtml(
-          mt.workspace_id,
-          'Request received',
-          `<p>Hi ${escapeHtml(inviteeName.split(' ')[0] ?? '')},</p><p>Your booking request has been sent to ${escapeHtml(hostName)}. You'll get a confirmation email once it's approved.</p>`,
-        ),
+        subject: requested.subject,
+        text: requested.text,
+        html: requested.html,
         replyTo: hostEmail ?? undefined,
       });
     } catch (e) {
@@ -3696,7 +3715,12 @@ meetRoutes.get('/bookings', async (c) => {
   let q = db
     .from('meet_booking')
     .select(
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (id, name, slug, team_id, team:team_id (id, name, slug))',
+      // `host (slug)` and the meeting type's `event_type` are here for the
+      // booking dialog's Cancel and Reschedule links: both live at
+      // /{team-or-host slug}/{mt slug}/…, and without the host's slug the
+      // dialog could only build them for TEAM bookings — so a personal
+      // booking, which is most of them, showed no actions at all.
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, host:host_id (slug), meeting_type:meeting_type_id (id, name, slug, team_id, event_type, team:team_id (id, name, slug))',
     )
     .eq('host_id', host.id);
 

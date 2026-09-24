@@ -28,10 +28,14 @@ export type BookingForDialog = {
   status: string;
   meet_url?: string | null;
   alternative_location?: string | null;
+  /** The host this booking belongs to. Its slug is the first half of every
+   *  public link for the booking — see `ownerSlug` below. */
+  host?: { slug: string } | { slug: string }[] | null;
   meeting_type:
     | {
         name: string;
         slug?: string;
+        event_type?: string;
         team?:
           | { name: string; slug: string }
           | { name: string; slug: string }[]
@@ -40,6 +44,7 @@ export type BookingForDialog = {
     | {
         name: string;
         slug?: string;
+        event_type?: string;
         team?:
           | { name: string; slug: string }
           | { name: string; slug: string }[]
@@ -56,6 +61,10 @@ function getTeam(b: BookingForDialog) {
   const mt = getMt(b);
   if (!mt?.team) return null;
   return Array.isArray(mt.team) ? mt.team[0] : mt.team;
+}
+function getHost(b: BookingForDialog) {
+  if (!b.host) return null;
+  return Array.isArray(b.host) ? b.host[0] : b.host;
 }
 
 function fmt(d: Date, locale: Locale) {
@@ -115,12 +124,20 @@ export function BookingDetailsDialog({
   const minutes = Math.round((ends.getTime() - starts.getTime()) / 60_000);
   const cancelled = booking.status === 'cancelled';
   const pendingApproval = booking.status === 'pending_approval';
-  const hostSlugForCancel = (team?.slug ?? mt?.slug)
-    ? // The cancel route lives at /[hostSlug-or-teamSlug]/[mtSlug]/cancel/[bookingId].
-      // We don't know the host slug from the booking projection, so we route
-      // through the meeting-type slug only when the team is known.
-      team?.slug ?? null
-    : null;
+  // Every public link for a booking is /{owner}/{mt}/… where the owner is the
+  // TEAM for a team meeting type and the HOST otherwise — the same rule the
+  // meeting-type list and the share menu follow.
+  //
+  // This used to be `team?.slug ?? null`, because the projection carried no
+  // host slug: a personal booking therefore had no owner, and the dialog
+  // silently rendered NO actions at all. Reported 2026-09-24 as "the
+  // reschedule option is not there"; cancel was missing in the same breath
+  // and on the same line.
+  const ownerSlug = team?.slug ?? getHost(booking)?.slug ?? null;
+  // A one-off IS its time and a poll has no booked time to move, so the API
+  // refuses to reschedule either. Don't offer a link that leads to a 409.
+  const reschedulable =
+    mt?.event_type !== 'one_off' && mt?.event_type !== 'poll';
 
   function handleApprove() {
     setErr(null);
@@ -280,10 +297,19 @@ export function BookingDetailsDialog({
           </Row>
         )}
 
-        {hostSlugForCancel && !cancelled && mt && (
-          <div className="pt-2 border-t border-line">
+        {ownerSlug && !cancelled && mt?.slug && (
+          <div className="pt-2 border-t border-line flex items-center gap-4">
+            {reschedulable && (
+              <Link
+                href={`/${ownerSlug}/${mt.slug}?reschedule=${booking.id}`}
+                className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+                target="_blank"
+              >
+                {t(locale, 'reschedule_booking')}
+              </Link>
+            )}
             <Link
-              href={`/${hostSlugForCancel}/${mt.slug}/cancel/${booking.id}`}
+              href={`/${ownerSlug}/${mt.slug}/cancel/${booking.id}`}
               className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
               target="_blank"
             >

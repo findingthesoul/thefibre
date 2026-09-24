@@ -3475,6 +3475,14 @@ const CATALOG = {
     de: 'Diese Buchung ablehnen? Der Eingeladene erhält eine Benachrichtigungs-E-Mail.', // MT
     fr: 'Rejeter cette réservation ? L’invité recevra un e-mail de notification.', // MT
   },
+  reschedule_booking: {
+    en: 'Reschedule this booking',
+    nl: 'Deze boeking verzetten',
+    es: 'Reprogramar esta reserva', // MT
+    pt: 'Remarcar esta reserva', // MT
+    de: 'Diese Buchung verschieben', // MT
+    fr: 'Reprogrammer cette réservation', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

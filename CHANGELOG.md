@@ -4,6 +4,36 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.36.0] — 2026-09-24 — reschedule, in the two places it was missing (Meet 2.14.0)
+
+"people told me the reschedule option is not there — it should be on the
+appointment page, but also as a link in the email" (Sjoerd, 2026-09-24).
+
+Rescheduling has worked since v0.59.0, and the invitee's confirmation mail and
+confirmation page have both carried the link all along — I checked both
+against production before changing anything. Two places did not.
+
+**The appointment in Meet had no actions at all.** Open a booking from the
+dashboard, the list or a contact and the dialog offered Cancel — except it
+did not, for most bookings. The link was built from `team?.slug ?? null`,
+because the projection behind the dialog carried no host slug, so only a TEAM
+booking had an owner to build a URL from. A personal booking — which is nearly
+all of them — fell to `null` and the whole footer disappeared. The report was
+about Reschedule; Cancel had been missing beside it on the same line. Both are
+there now, for personal and team bookings alike. `GET /meet/bookings` gained
+`host (slug)` and the meeting type's `event_type` to make it possible, and
+Reschedule is hidden for a one-off or a poll, which the API refuses to move
+anyway.
+
+**The "request received" mail carried no links at all.** A booking that needs
+approval skips the confirmation pair and gets its own mail, and that one was
+written by hand at the call site rather than as a template — so a person whose
+request was waiting had no way back to it: no page, no different time, no way
+to withdraw. It is a template now, `bookingRequestReceived`, using the same URL
+builders as the rest, with a test that the links reach the rendered output. No
+"Add to calendar" on it: nothing is confirmed yet, and a calendar file for a
+time that may not happen is worse than none.
+
 ## [1.32.1] — 2026-09-24 — Escape closes the share menu, not the page under it
 
 The share menu that shipped an hour ago listened for Escape on `document` in

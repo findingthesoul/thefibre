@@ -216,6 +216,47 @@ ${c.paymentNote ? `<p style="margin-top:20px;font-size:14px;color:#171717;">${es
   return { subject, text, html };
 }
 
+/**
+ * Sent to the invitee when the meeting type needs the host's approval — the
+ * only booking mail in this file that confirms nothing.
+ *
+ * It used to be written inline at the call site with no links at all, so a
+ * person whose request was waiting had no way back to it: no page, no
+ * reschedule, no way to withdraw (Sjoerd, 2026-09-24, relaying "the
+ * reschedule option is not there"). It lives here now for the same reason the
+ * others do — the links are built once, by the same helpers, so this mail
+ * cannot drift away from them again.
+ *
+ * No "Add to calendar": nothing is in anyone's calendar yet, and offering a
+ * file for a time that may not happen is worse than offering nothing.
+ */
+export function bookingRequestReceived(c: Common): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const subject = `Request received: ${c.meetingName}`;
+  const text = `Hi ${c.inviteeName.split(' ')[0] ?? ''},
+
+Your booking request has been sent to ${c.hostName}. You'll get a confirmation email once it's approved.
+
+${detailsText(c)}
+
+Need a different time? ${rescheduleUrl(c)}
+Changed your mind? ${cancelUrl(c)}
+
+${emailSignoff()}`;
+  const html = shell(
+    'Request received',
+    `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">Your request is with ${escapeHtml(c.hostName)}.</h1>
+<div style="margin-top:6px;font-size:14px;color:#525252;">You'll get a confirmation email once it's approved.</div>
+${detailsHtml(c)}
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${rescheduleUrl(c)}" style="color:#171717;">Ask for a different time</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Withdraw request</a></div>`,
+    c.brand,
+  );
+  return { subject, text, html };
+}
+
 export function bookingNotificationHost(c: Common): {
   subject: string;
   text: string;
