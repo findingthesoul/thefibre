@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.49.1] — 2026-09-25 — the invitation email stops promising something untrue
+
+Two sentences, both false, and they were about to go to production.
+
+The invitation email ended with *"Your calendar has been updated, so you do
+not need to add anything"* — or, for a cancellation, *"it should disappear on
+its own."* Gmail refuses these invitations. It recognises the attachment, shows
+a calendar card, and the card says **"Unable to load event"**. Nothing files,
+nothing moves, nothing disappears.
+
+So a participant was going to be told, in writing, not to act — and then miss
+a session. The cancellation wording was the worse of the two: the first costs
+somebody a session they meant to attend, the second sends them to a room for
+one that is not happening.
+
+Now the email says nothing about the calendar at all, not even hedged. It
+cannot know whether the invitation was honoured — that is the whole finding —
+and "some calendars update themselves and some do not" is a guess wearing the
+clothes of a statement. It tells the reader what they can DO: here is the new
+time, the invitation is attached, add it if you need to. True whether the
+sending problem is fixed or not, so it never needs revisiting.
+
+Four cases pinned, including that no wording about the calendar can come back
+by accident.
+
+**How this was found**, because the method is the transferable part: by opening
+a real sent message in a real Gmail and looking at it. Our own logs said 14 of
+15 sent, which was true and told us nothing — the mail left correctly and the
+recipient's calendar declined it. A first attempt to check by looking for the
+event in the recipient's calendar proved nothing, because the address on the
+invitation was a `+` alias the calendar had no reason to match; the peer
+session said so rather than letting the inconclusive result stand, which is
+why anyone looked at the rendered message at all.
+
+**Still to fix, and now isolated to one suspect.** The message leaves from
+`noreply@thethread.app` while the invitation names the organiser as its
+ORGANIZER. Google treats that misalignment as a forged invitation, which is
+documented behaviour rather than a theory — unlike the attachment-disposition
+suspect, which stays second in the queue. One test settles it: send with
+ORGANIZER set to the address the mail actually comes from.
+
+That collides with *"the sender is the organiser"*, and the collision is real
+rather than technical: to be genuinely from an organiser, mail has to leave
+from their address, which means their domain verified with us. The alternative
+is an invitation that comes from The Thread and merely names them. Sjoerd's
+call, and he has it.
+
 ## [1.49.0] — 2026-09-25 — the warning, and the one press
 
 The organiser's half of calendar invitations. The engine landed in v1.48.0;

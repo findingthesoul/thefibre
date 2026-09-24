@@ -443,10 +443,35 @@ export function calendarInviteEmail(c: {
     lines.push(c.note.trim());
   }
   lines.push('');
+  // DO NOT promise that their calendar has updated itself.
+  //
+  // It said exactly that until 2026-09-25, and it was false. Gmail recognises
+  // the attached invitation and then refuses it — "Unable to load event" —
+  // almost certainly because the message leaves from our address while the
+  // invitation names the organiser as its ORGANIZER, which Google reads as
+  // forged. Found by looking at a real sent message rather than at our own
+  // logs, where it appeared to have worked perfectly.
+  //
+  // So: say nothing about the calendar AT ALL, not even hedged. This email
+  // cannot know whether the invitation was honoured — that is the entire
+  // finding — and a hedge like "some calendars update themselves and some do
+  // not" is still a guess wearing the clothes of a statement. Tell the person
+  // what they can DO. That reads as true whether the iMIP half works, does
+  // not work, or starts working later, which also means it never needs
+  // revisiting when the alignment is fixed. (The second wording here is the
+  // peer session's; it is better than the hedge I wrote first.)
+  //
+  // Both directions of the old copy were expensive, and the cancellation was
+  // the worse one: "you do not need to add anything" costs somebody a session
+  // they meant to attend, while "it should disappear on its own" sends
+  // somebody to a room for a session that is not happening, having been told
+  // explicitly not to act.
   lines.push(
     c.kind === 'cancelled'
-      ? 'Your calendar has been updated, so it should disappear on its own.'
-      : 'Your calendar has been updated, so you do not need to add anything.',
+      ? 'If you have this in your calendar, you can take it out.'
+      : c.kind === 'moved'
+        ? 'The new time is above. The invitation is attached if you need to add it.'
+        : 'The invitation is attached, if you would like it in your calendar.',
   );
 
   const body = lines.join('\n');

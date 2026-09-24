@@ -11,6 +11,7 @@ import {
   collapseDecision,
   type CalendarState,
 } from './calendar-invite.js';
+import { calendarInviteEmail } from './email/thread-templates.js';
 
 const state = (over: Partial<CalendarState> = {}): CalendarState => ({
   starts_at: '2027-01-05T15:00:00Z',
@@ -125,5 +126,64 @@ describe('collapseDecision', () => {
         kind: 'cancelled',
       });
     });
+  });
+});
+
+// The sentence somebody acts on.
+//
+// This email told every recipient "Your calendar has been updated, so you do
+// not need to add anything" while Gmail was refusing the invitation outright.
+// Someone reads that, does nothing, and misses the session. Pinned so the
+// promise cannot come back by accident — including once the sending problem is
+// fixed, when it would be true but still the wrong thing to lean on.
+describe('calendarInviteEmail — what it promises', () => {
+  const base = {
+    sessionTitle: 'Conversation 1',
+    threadTitle: 'Year agenda',
+    organiserName: 'Sjoerd Luteijn',
+    whenLine: 'Tuesday, 9 February 2027, 15:00–17:00 UTC',
+  };
+
+  it('never claims the reader’s calendar has already updated itself', () => {
+    for (const kind of ['added', 'moved', 'cancelled'] as const) {
+      const mail = calendarInviteEmail({ ...base, kind });
+      expect(mail.text).not.toMatch(/calendar has been updated/i);
+      expect(mail.html).not.toMatch(/calendar has been updated/i);
+      expect(mail.text).not.toMatch(/do not need to add/i);
+    }
+  });
+
+  it('carries the new time in words, so the message works with no calendar at all', () => {
+    const mail = calendarInviteEmail({
+      ...base,
+      kind: 'moved',
+      wasLine: 'Tuesday, 5 January 2027, 15:00–16:00 UTC',
+    });
+    expect(mail.text).toContain('Tuesday, 9 February 2027');
+    expect(mail.text).toContain('Was: Tuesday, 5 January 2027');
+    expect(mail.subject).toContain('Moved:');
+  });
+
+  // Not even a hedge about what the calendar did: the email cannot know, so
+  // every one of these tells the reader what they can DO instead.
+  it('says nothing about what the calendar did, in any of the three cases', () => {
+    for (const kind of ['added', 'moved', 'cancelled'] as const) {
+      const mail = calendarInviteEmail({ ...base, kind });
+      expect(mail.text).not.toMatch(/disappear on its own/i);
+      expect(mail.text).not.toMatch(/some calendars/i);
+      expect(mail.text).not.toMatch(/has been updated/i);
+    }
+    expect(calendarInviteEmail({ ...base, kind: 'moved' }).text).toMatch(/attached if you need to add it/i);
+    expect(calendarInviteEmail({ ...base, kind: 'cancelled' }).text).toMatch(/take it out/i);
+  });
+
+  it('keeps an organiser’s own words, and does not let them inject markup', () => {
+    const mail = calendarInviteEmail({
+      ...base,
+      kind: 'moved',
+      note: 'Venue was double-booked <script>alert(1)</script>',
+    });
+    expect(mail.text).toContain('Venue was double-booked');
+    expect(mail.html).not.toContain('<script>');
   });
 });
