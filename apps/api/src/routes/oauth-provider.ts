@@ -143,7 +143,9 @@ function fibreWebUrl(host: string | null): string {
 export function narrowScopes(requested: string | null | undefined): string[] {
   const asked = (requested ?? '').split(/[\s,]+/).filter(Boolean);
   const allowed = asked.filter((s): s is (typeof MCP_SCOPES)[number] => (MCP_SCOPES as readonly string[]).includes(s));
-  return allowed.length ? [...new Set(allowed)] : [...MCP_SCOPES];
+  // A client that names nothing gets the READS. A write scope is granted only
+  // when asked for by name, so it always appears on the consent page.
+  return allowed.length ? [...new Set(allowed)] : MCP_SCOPES.filter((s) => s.endsWith(':read'));
 }
 
 type MemberIdentity = {

@@ -51,7 +51,11 @@ export function AssistantsConnected({ grants, locale }: { grants: AssistantGrant
                 {!g.active && <span className={`${PILL} ${PILL_TONE.neutral} ml-1`}>{t(locale, 'assistants_pending')}</span>}
               </p>
               <p className="mt-0.5 text-xs text-ink-subtle">
-                {g.scopes.map((s) => t(locale, s === 'connections:read' ? 'assistants_scope_connections' : 'assistants_scope_thread')).join(' · ')}
+                {g.scopes
+                  .map((s) =>
+                    t(locale, s === 'connections:read' ? 'assistants_scope_connections' : s === 'thread:write' ? 'assistants_scope_thread_write' : 'assistants_scope_thread'),
+                  )
+                  .join(' · ')}
               </p>
               <p className="mt-0.5 text-xs text-ink-muted">
                 {t(locale, 'assistants_connected_on', { date: df.format(new Date(g.created_at)) })}

@@ -405,11 +405,12 @@ export function PrivacyDoc() {
       <P>
         One more case is yours, not ours. If you connect your own AI assistant to your account
         (Claude, ChatGPT or another, under Settings → Connections), the data you ask it about — your
-        Connections, your notes on a person, your threads — is sent to that assistant&apos;s provider
+        Connect, your notes on a person, your threads — is sent to that assistant&apos;s provider
         on your instruction, the same as anything you type into it. We send it nothing otherwise, it
         can only read what you can read, in the workspace you connected it in, and disconnecting
-        takes effect on its next request. That provider is your processor for that data, not our
-        sub-processor.
+        takes effect on its next request. If you also allow it to create threads, they are created
+        as drafts under your name and nothing is published or sent until you do so yourself. That
+        provider is your processor for that data, not our sub-processor.
       </P>
 
       <H2 id="retention">7. How long we keep it</H2>

@@ -14,8 +14,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import { registerSchedulePrompt } from './person-prompt.js';
 
-export type PersonScope = 'connections:read' | 'thread:read';
+export { SCHEDULE_PROMPT_NAME, schedulePromptText } from './person-prompt.js';
+
+export type PersonScope = 'connections:read' | 'thread:read' | 'thread:write';
 
 export interface PersonClientOptions {
   apiUrl: string;
@@ -51,18 +54,33 @@ export class PersonClient {
     this.jwt = opts.jwt;
     this.fetchImpl = opts.fetch ?? ((i, init) => fetch(i, init));
   }
-  async get<T = unknown>(appId: string, path: string, query?: Record<string, string | number | undefined | null>): Promise<T> {
+  get<T = unknown>(appId: string, path: string, query?: Record<string, string | number | undefined | null>): Promise<T> {
+    return this.request<T>('GET', appId, path, { query });
+  }
+  /** A write, as the person. The route's own validators and plan gates decide. */
+  post<T = unknown>(appId: string, path: string, body: unknown): Promise<T> {
+    return this.request<T>('POST', appId, path, { body });
+  }
+  private async request<T>(
+    method: 'GET' | 'POST',
+    appId: string,
+    path: string,
+    opts: { query?: Record<string, string | number | undefined | null>; body?: unknown },
+  ): Promise<T> {
     let url = this.apiUrl + path;
-    if (query) {
+    if (opts.query) {
       const qs = new URLSearchParams();
-      for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+      for (const [k, v] of Object.entries(opts.query)) if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
       const s = qs.toString();
       if (s) url += `?${s}`;
     }
-    const res = await this.fetchImpl(url, {
-      method: 'GET',
-      headers: { authorization: `Bearer ${this.jwt}`, 'x-app-id': appId, accept: 'application/json' },
-    });
+    const headers: Record<string, string> = { authorization: `Bearer ${this.jwt}`, 'x-app-id': appId, accept: 'application/json' };
+    const init: RequestInit = { method, headers };
+    if (opts.body !== undefined) {
+      headers['content-type'] = 'application/json';
+      init.body = JSON.stringify(opts.body);
+    }
+    const res = await this.fetchImpl(url, init);
     const text = await res.text();
     let parsed: unknown = null;
     try {
@@ -70,7 +88,7 @@ export class PersonClient {
     } catch {
       parsed = text;
     }
-    if (!res.ok) throw new PersonApiError(res.status, 'GET', path, parsed);
+    if (!res.ok) throw new PersonApiError(res.status, method, path, parsed);
     return parsed as T;
   }
 }
@@ -88,6 +106,10 @@ export interface PersonTool<S extends Shape = Shape> {
   title: string;
   description: string;
   scope: PersonScope;
+  /** A write. MCP has no approval card of its own: the client asks the
+   *  person before a non-read-only tool, and the description says plainly
+   *  what will be created. Idempotency is the route's (slug uniqueness). */
+  write?: boolean;
   input: S;
   run: (client: PersonClient, args: z.infer<z.ZodObject<S>>) => Promise<unknown>;
 }
@@ -116,12 +138,12 @@ const one = <T>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? 
 const str = (v: unknown) => (typeof v === 'string' ? v : null);
 
 export const PERSON_TOOLS: PersonTool[] = [
-  // --- Connections ---------------------------------------------------------
+  // --- Connect (the app; slug fibre-sales; scope connections:read stays) ---------------------------------------------------------
   tool({
     name: 'connections_today',
     title: 'Who is waiting for you',
     description:
-      'Your Connections "Today": the follow-ups you owe, the meetings to prepare for, and how much of the chosen horizon (today, tomorrow, this week, next week) is already spoken for. Start here when asked "who should I follow up with".',
+      'Your Connect "Today": the follow-ups you owe, the meetings to prepare for, and how much of the chosen horizon (today, tomorrow, this week, next week) is already spoken for. Start here when asked "who should I follow up with".',
     scope: 'connections:read',
     input: { horizon: z.enum(['today', 'tomorrow', 'week', 'next_week']).optional().describe('Defaults to today') },
     run: (c, a) => c.get(CONNECTIONS, '/api/v1/connections/today', { horizon: a.horizon }),
@@ -130,7 +152,7 @@ export const PERSON_TOOLS: PersonTool[] = [
     name: 'connections_attention',
     title: 'Who needs attention',
     description:
-      'The people your Connections flags: going quiet, a promise overdue, a deal rotting, and the other attention conditions — each with why. Up to the limit you ask for.',
+      'The people your Connect flags: going quiet, a promise overdue, a deal rotting, and the other attention conditions — each with why. Up to the limit you ask for.',
     scope: 'connections:read',
     input: { limit: z.number().int().min(1).max(100).optional() },
     run: async (c, a) => {
@@ -142,7 +164,7 @@ export const PERSON_TOOLS: PersonTool[] = [
     name: 'connections_agenda',
     title: 'Your upcoming meetings',
     description:
-      "Meetings from your connected calendar with the people in them matched to your Connections. Says `connected: false` if you have not linked a calendar.",
+      "Meetings from your connected calendar with the people in them matched to your Connect. Says `connected: false` if you have not linked a calendar.",
     scope: 'connections:read',
     input: { days: z.number().int().min(1).max(30).optional().describe('How far ahead; defaults to the app’s own window') },
     run: (c, a) => c.get(CONNECTIONS, '/api/v1/connections/agenda', { days: a.days }),
@@ -151,7 +173,7 @@ export const PERSON_TOOLS: PersonTool[] = [
     name: 'connections_landscape',
     title: 'Your landscape',
     description:
-      'The Connections landscape on one axis: which band each person sits in now, and how that moved over the period. Axes: relationship (default), and the others the workspace defines.',
+      'The Connect landscape on one axis: which band each person sits in now, and how that moved over the period. Axes: relationship (default), and the others the workspace defines.',
     scope: 'connections:read',
     input: {
       axis: z.string().max(40).optional().describe('An axis key; defaults to the main one'),
@@ -181,9 +203,9 @@ export const PERSON_TOOLS: PersonTool[] = [
   }),
   tool({
     name: 'connections_person',
-    title: 'One person, in your Connections',
+    title: 'One person, in your Connect',
     description:
-      'Everything your Connections holds on one person: where they sit and who they connect to (their neighbourhood), and your notes on them, newest first. Use connections_search first if you only have a name.',
+      'Everything your Connect holds on one person: where they sit and who they connect to (their neighbourhood), and your notes on them, newest first. Use connections_search first if you only have a name.',
     scope: 'connections:read',
     input: { person_id: uuid, notes_limit: z.number().int().min(1).max(50).optional() },
     run: async (c, a) => {
@@ -296,7 +318,132 @@ export const PERSON_TOOLS: PersonTool[] = [
       };
     },
   }),
+
+  // --- The Thread, writing as the person (thread:write; phase 4, first tool) --
+  tool({
+    name: 'thread_create',
+    title: 'Create a thread',
+    description:
+      'Create a new thread for the person, as a DRAFT — nothing is published or emailed. Two ways: pass template_id (from thread_templates) and the template’s items are laid down with dates rebased onto starts_on; or omit it for a blank event or journey. Before calling: confirm the template (or blank), the title and the start date with the person; suggest a slug from the title (lowercase, hyphens, unique for them). A slug already in use is refused by The Fibre and you propose another. A new thread comes with The Thread’s own "You’re enrolled" confirmation message already on its timeline; everything else you add is a draft. Publishing, prices and tickets happen in The Thread itself.',
+    scope: 'thread:write',
+    write: true,
+    input: {
+      title: z.string().min(1).max(200),
+      slug: z.string().min(2).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'lowercase kebab-case'),
+      template_id: uuid.optional().describe('A template from thread_templates; omit for a blank thread'),
+      format: z.enum(['event', 'journey']).optional().describe('Blank threads only; defaults to event'),
+      starts_on: z.string().date().optional().describe('YYYY-MM-DD'),
+      ends_on: z.string().date().optional().describe('YYYY-MM-DD, blank threads only'),
+      intention: z.string().max(2000).optional().describe('A short intention in plain words, blank threads only'),
+    },
+    run: async (c, a) => {
+      const created = a.template_id
+        ? await c.post<Row>(THREAD, `/api/v1/thread/thread-templates/${a.template_id}/instantiate`, {
+            title: a.title,
+            slug: a.slug,
+            starts_on: a.starts_on ?? null,
+          })
+        : await c.post<Row>(THREAD, '/api/v1/thread/threads', {
+            title: a.title,
+            format: a.format ?? 'event',
+            slug: a.slug,
+            starts_on: a.starts_on ?? null,
+            ends_on: a.ends_on ?? null,
+            intention: a.intention ?? null,
+          });
+      return {
+        created: true,
+        thread_id: created.id,
+        title: a.title,
+        slug: a.slug,
+        status: 'draft',
+        from_template: a.template_id ?? null,
+        open_in_thread: `/threads/${String(created.id)}`,
+      };
+    },
+  }),
+  tool({
+    name: 'thread_add_engagements',
+    title: 'Lay a schedule onto a thread',
+    description:
+      'Add a list of items to a thread’s timeline in one go, ALL AS DRAFTS — nothing is published, sent or shown until the person publishes each one in The Thread. Two families: agenda items (type event, conversation or workshop: something on a date, with a start and end time, inside the thread’s dates; set show_in_agenda false for an internal milestone the participants should not see) and messages (type message, reflection, practice, document or inspiration: something that will be EMAILED to everyone enrolled at date + time once published). Dates are YYYY-MM-DD, times HH:MM in the thread’s timezone. Use this after thread_create when the person has given a schedule; confirm the list with them first, and say which rows became messages. Needs a plan with custom timelines; a refusal names that.',
+    scope: 'thread:write',
+    write: true,
+    input: {
+      thread_id: uuid,
+      timezone: z.string().max(64).optional().describe('IANA zone, e.g. Europe/Amsterdam; defaults to the thread’s'),
+      items: z
+        .array(
+          z.object({
+            title: z.string().min(1).max(200),
+            type: z.enum(['event', 'conversation', 'workshop', 'message', 'reflection', 'practice', 'document', 'inspiration']),
+            date: z.string().date(),
+            start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe('HH:MM; agenda items default 10:00, messages 09:00'),
+            end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe('HH:MM; agenda items default start + 1h'),
+            description: z.string().max(2000).optional(),
+            location: z.string().max(300).optional(),
+            show_in_agenda: z.boolean().optional().describe('Agenda items only; false = an internal milestone'),
+          }),
+        )
+        .min(1)
+        .max(60),
+    },
+    run: async (c, a) => {
+      const thread = await c.get<Row>(THREAD, `/api/v1/thread/threads/${a.thread_id}`);
+      const tz = a.timezone ?? str(thread.timezone) ?? 'Europe/Amsterdam';
+      const results: Row[] = [];
+      for (const it of a.items) {
+        const isAgenda = AGENDA_TYPES.has(it.type);
+        const start = it.start ?? (isAgenda ? '10:00' : '09:00');
+        const end = it.end ?? plusOneHour(start);
+        const body: Row = { title: it.title, type: it.type, status: 'draft' };
+        if (it.description) body.description = it.description;
+        if (isAgenda) {
+          body.starts_at = zonedIso(it.date, start, tz);
+          body.ends_at = zonedIso(it.date, end, tz);
+          if (it.location) body.location = it.location;
+          if (it.show_in_agenda !== undefined) body.show_in_agenda = it.show_in_agenda;
+        } else {
+          body.trigger_kind = 'fixed';
+          body.scheduled_at = zonedIso(it.date, start, tz);
+        }
+        try {
+          const e = await c.post<Row>(THREAD, `/api/v1/thread/threads/${a.thread_id}/engagements`, body);
+          results.push({ ok: true, id: e.id, title: it.title, type: it.type, date: it.date, family: isAgenda ? 'agenda' : 'message' });
+        } catch (err) {
+          results.push({ ok: false, title: it.title, type: it.type, date: it.date, error: err instanceof PersonApiError ? err.describe().split('\n')[0] : String(err) });
+          // A plan gate or a locked thread refuses every item the same way; stop early.
+          if (err instanceof PersonApiError && (err.status === 403 || err.status === 423)) break;
+        }
+      }
+      const added = results.filter((r) => r.ok).length;
+      return { thread_id: a.thread_id, timezone: tz, added, failed: results.length - added, all_drafts: true, items: results };
+    },
+  }),
 ];
+
+const AGENDA_TYPES = new Set(['event', 'conversation', 'workshop']);
+
+function plusOneHour(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${String(((h ?? 0) + 1) % 24).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')}`;
+}
+
+/** `YYYY-MM-DD` + `HH:MM` in an IANA zone → ISO 8601 with that zone's offset. */
+export function zonedIso(date: string, hhmm: string, tz: string): string {
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, mi] = hhmm.split(':').map(Number);
+  // Offset of `tz` at that wall-clock instant, found by formatting a UTC guess.
+  const guess = Date.UTC(y!, mo! - 1, d!, h!, mi!);
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const asIfUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'));
+  const offsetMin = Math.round((asIfUtc - guess) / 60_000);
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMin);
+  const off = `${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
+  return `${date}T${hhmm}:00${off}`;
+}
 
 export function personToolsForScopes(scopes: readonly string[]): PersonTool[] {
   return PERSON_TOOLS.filter((t) => scopes.includes(t.scope));
@@ -318,9 +465,11 @@ export function personInstructions(who: PersonServerOptions['who'], scopes: read
     `You are connected to The Fibre as the person who signed in, in the workspace "${who.workspace}", through ${who.clientName}.`,
     `What you may read: ${scopes.join(', ') || 'nothing'}. Everything here is that person's own data, shown to them at their request; treat it as theirs and do not repeat it into places they did not ask for.`,
     '',
-    'Connections is a landscape of a person’s relationships, not a CRM: bands say how a relationship stands, attention conditions say who needs a move, and notes are the person’s own words about a meeting.',
+    'Connect is a landscape of a person’s relationships, not a CRM: bands say how a relationship stands, attention conditions say who needs a move, and notes are the person’s own words about a meeting.',
     'When asked who to follow up with, start with connections_today, then connections_attention. To talk about one person, find them with connections_search and read connections_person.',
-    'Nothing here writes. If the person wants to add a note or change a thread, tell them where in the app that happens.',
+    scopes.includes('thread:write')
+      ? 'Two things here write, both as DRAFTS: thread_create makes a new thread (blank, or from one of the person’s templates), and thread_add_engagements lays a list of dated items onto it. Before creating, confirm template-or-blank, title, dates and slug (suggest one from the title). For a schedule the person pastes, use the plan_thread_from_schedule prompt’s method: rows people attend become agenda items, rows that get sent become messages, internal steps become agenda items hidden from the agenda; the thread’s start and end must span every row. Nothing is published or emailed until the person publishes it in The Thread. Changing a thread, adding a Connect note, publishing: in the app; say where.'
+      : 'Nothing here writes. If the person wants to create or change a thread, or add a note, tell them where in the app that happens.',
   ].join('\n');
 }
 
@@ -329,6 +478,7 @@ export function buildPersonServer(opts: PersonServerOptions): McpServer {
     { name: 'thefibre', title: 'The Fibre', version: opts.version },
     { instructions: personInstructions(opts.who, opts.scopes) },
   );
+  if (opts.scopes.includes('thread:write')) registerSchedulePrompt(server);
   for (const def of personToolsForScopes(opts.scopes)) {
     server.registerTool(
       def.name,
@@ -336,7 +486,15 @@ export function buildPersonServer(opts: PersonServerOptions): McpServer {
         title: def.title,
         description: def.description,
         inputSchema: def.input,
-        annotations: { title: def.title, readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        annotations: {
+          title: def.title,
+          readOnlyHint: !def.write,
+          destructiveHint: false,
+          // A create is not idempotent in the MCP sense (a retry with a new
+          // slug makes a second thread); the same slug is refused by the API.
+          idempotentHint: !def.write,
+          openWorldHint: false,
+        },
       },
       async (args: Record<string, unknown>): Promise<CallToolResult> => {
         try {

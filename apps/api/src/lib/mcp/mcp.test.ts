@@ -102,8 +102,16 @@ describe('discovery', () => {
     expect(pr.scopes_supported).toEqual([...MCP_SCOPES]);
   });
 
-  it('phase 1 scopes are reads only', () => {
-    for (const s of MCP_SCOPES) expect(s.endsWith(':read'), s).toBe(true);
+  it('scopes are the reads plus the one write, and a client that names nothing gets reads only', async () => {
+    expect([...MCP_SCOPES]).toEqual(['connections:read', 'thread:read', 'thread:write']);
+    const { narrowScopes } = await import('../../routes/oauth-provider.js');
+    // Found by review before the release (thefibre-83, 2026-09-25): the old
+    // default was "every scope", which would have handed thread:write to any
+    // client that authorised without naming scopes, with no consent text.
+    expect(narrowScopes(undefined)).toEqual(['connections:read', 'thread:read']);
+    expect(narrowScopes('')).toEqual(['connections:read', 'thread:read']);
+    expect(narrowScopes('thread:write')).toEqual(['thread:write']);
+    expect(narrowScopes('connections:write thread:read')).toEqual(['thread:read']);
   });
 });
 

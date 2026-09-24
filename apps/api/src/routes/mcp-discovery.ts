@@ -10,8 +10,14 @@ import { Hono } from 'hono';
 
 export const mcpDiscoveryRoutes = new Hono();
 
-/** Scopes a person can grant a client. Reads only in phase 1 (plan §3.4). */
-export const MCP_SCOPES = ['connections:read', 'thread:read'] as const;
+/**
+ * Scopes a person can grant a client. Reads (phase 1) plus the first write
+ * (phase 4, Sjoerd's "yes please" 2026-09-25): creating a thread. A write
+ * scope is never granted by default — narrowScopes() gives reads when a
+ * client asks for nothing specific; a client has to ASK for thread:write and
+ * the person sees it in its own words on the consent page.
+ */
+export const MCP_SCOPES = ['connections:read', 'thread:read', 'thread:write'] as const;
 export type McpScope = (typeof MCP_SCOPES)[number];
 
 export const MCP_RESOURCE_PATH = '/api/v1/mcp';

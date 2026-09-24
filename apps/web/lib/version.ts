@@ -5,4 +5,4 @@
  * Bump it in the same commit as the CHANGELOG entry and the package.json
  * files — see CLAUDE.md, "Version bumps".
  */
-export const VERSION = '1.49.3';
+export const VERSION = '1.50.0';

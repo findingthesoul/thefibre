@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.50.0] — 2026-09-25 — Your own Claude can now make a thread for you, from a schedule (staging)
+
+docs/mcp-personal-access-plan.md, phase 4's first slice. Sjoerd: "Is it now
+possible to have a chat create a thread based on input?" — "yes please" —
+and then a pasted table of dates and steps for the year programme fellowship.
+
+**A write scope, asked for by name.** `thread:write` joins the scopes a
+person can grant their own assistant. A client that names no scopes gets the
+reads only — the old default handed out every scope, which would have made a
+write silent the moment it existed; caught in review before the release. The
+consent page says the new scope in words: create a thread for you, as a
+draft, and your assistant asks first.
+
+**Two tools, both drafts.** `thread_create` makes a thread as the person —
+blank, or from one of their templates with the items rebased onto the start
+date. `thread_add_engagements` lays a dated list onto it in one call: rows
+people attend become agenda items with a start and end time in the thread's
+own timezone, rows that get sent become fixed-time messages, internal steps
+become agenda items hidden from the agenda. Every item lands as a draft, so
+nothing is published or emailed until the person publishes it in The Thread.
+A plan without custom timelines is refused readably, and stops the batch.
+
+**A prompt for a pasted schedule.** `plan_thread_from_schedule` is offered
+to clients that hold the write scope: paste the table, get the method — sort
+rows into agenda, message and internal; show the list; create; lay it down;
+say what happened.
+
+Also: "Connections" is "Connect" in the tool descriptions and the settings
+label, after the rename; the scope string `connections:read` stays, as the
+slug does. `verify-mcp-personal.mjs` gained a write walk — create, lay down
+three rows, check the database says draft, clean up.
+
 ## [1.49.3] — 2026-09-25 — the invitation comes from us, and says who it is from
 
 The fix for "Unable to load event", assuming the test confirms it.

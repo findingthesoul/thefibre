@@ -102,8 +102,16 @@ async function personSession() {
 
 let clientId = null;
 let grantId = null;
+let verifyThreadId = null;
 
 async function cleanup() {
+  if (verifyThreadId) {
+    // The draft thread the write step made: its engagements, the thread, its programme.
+    const { data: t } = await db.from('thread_thread').select('program_id').eq('id', verifyThreadId).maybeSingle();
+    await db.from('thread_engagement').delete().eq('thread_id', verifyThreadId);
+    await db.from('thread_thread').delete().eq('id', verifyThreadId);
+    if (t?.program_id) await db.from('program').delete().eq('id', t.program_id);
+  }
   if (grantId) await db.from('mcp_grant').delete().eq('id', grantId);
   if (clientId) {
     await db.from('oauth_code').delete().eq('client_id', clientId);
@@ -172,14 +180,14 @@ async function main() {
   const ok = await http('/api/v1/mcp-auth/consent', {
     method: 'POST',
     headers: { authorization: `Bearer ${jwt}`, 'x-app-id': 'fibre-platform' },
-    body: { client_id: clientId, redirect_uri: REDIRECT, state, code_challenge: challenge, code_challenge_method: 'S256', scope: 'connections:read thread:read connections:write', decision: 'approve' },
+    body: { client_id: clientId, redirect_uri: REDIRECT, state, code_challenge: challenge, code_challenge_method: 'S256', scope: 'connections:read thread:read thread:write connections:write', decision: 'approve' },
   });
   const code = ok.body?.redirect ? new URL(ok.body.redirect).searchParams.get('code') : null;
   check(ok.status === 200 && !!code, 'approve → a code on the registered redirect', ok.body?.redirect?.split('?')[0]);
   const { data: grantRow } = await db.from('mcp_grant').select('id, scopes, activated_at, refresh_token_hash').eq('client_id', clientId).maybeSingle();
   grantId = grantRow?.id ?? null;
   check(!!grantId && !grantRow?.activated_at && !grantRow?.refresh_token_hash, 'a grant exists, not yet activated', grantId);
-  check(JSON.stringify(grantRow?.scopes ?? []) === JSON.stringify(['connections:read', 'thread:read']), 'a write scope asked for was narrowed away', JSON.stringify(grantRow?.scopes));
+  check(JSON.stringify(grantRow?.scopes ?? []) === JSON.stringify(['connections:read', 'thread:read', 'thread:write']), 'an unknown scope was narrowed away; thread:write, asked for by name, kept', JSON.stringify(grantRow?.scopes));
 
   step(5, 'Code → tokens, with PKCE');
   const wrongVerifier = await http('/api/v1/oauth/token', { method: 'POST', form: true, body: { grant_type: 'authorization_code', code, client_id: clientId, redirect_uri: REDIRECT, code_verifier: b64url(randomBytes(32)) } });
@@ -197,8 +205,14 @@ async function main() {
   check(/workspace "/.test(init.body?.result?.instructions ?? ''), 'instructions name the workspace');
   const list = await mcp(access, 'tools/list', {}, 2);
   const names = (list.body?.result?.tools ?? []).map((t) => t.name);
-  check(names.includes('connections_today') && names.includes('thread_list'), 'tools follow the two scopes', `${names.length} tools`);
-  check((list.body?.result?.tools ?? []).every((t) => t.annotations?.readOnlyHint === true), 'every tool is read-only');
+  check(names.includes('connections_today') && names.includes('thread_list') && names.includes('thread_create'), 'tools follow the three scopes', `${names.length} tools`);
+  const toolsListed = list.body?.result?.tools ?? [];
+  check(
+    toolsListed.filter((t) => t.annotations?.readOnlyHint === false).map((t) => t.name).sort().join(',') === 'thread_add_engagements,thread_create',
+    'exactly the two write tools say they write; every other tool is read-only',
+  );
+  const promptsList = await mcp(access, 'prompts/list', {}, 20);
+  check((promptsList.body?.result?.prompts ?? []).some((p) => p.name === 'plan_thread_from_schedule'), 'the schedule prompt is offered');
   const today = await mcp(access, 'tools/call', { name: 'connections_today', arguments: {} }, 3);
   const todayText = today.body?.result?.content?.[0]?.text ?? '';
   const todayErr = today.body?.result?.isError === true;
@@ -207,6 +221,52 @@ async function main() {
   check(today.status === 200 && (!todayErr || /403|Not allowed/.test(todayText)), 'a real read runs under the person’s own rights', todayErr ? todayText.split('\n')[0] : `${todayText.length} chars`);
   const threads = await mcp(access, 'tools/call', { name: 'thread_list', arguments: {} }, 4);
   check(threads.status === 200 && !threads.body?.result?.isError, 'thread_list answers', (threads.body?.result?.content?.[0]?.text ?? '').slice(0, 60).replace(/\s+/g, ' '));
+  // --- the first write, as the person: a draft thread with a small schedule.
+  step('6b', 'thread_create + thread_add_engagements, as the person, as drafts');
+  const slug = `verify-mcp-${Date.now().toString(36)}`;
+  const made = await mcp(access, 'tools/call', { name: 'thread_create', arguments: { title: 'verify-mcp-personal', slug, format: 'journey', starts_on: '2026-10-01', ends_on: '2027-12-31' } }, 30);
+  const madeOut = safeJson(made.body?.result?.content?.[0]?.text ?? '{}');
+  const madeErr = made.body?.result?.isError === true;
+  check(made.status === 200 && !madeErr && madeOut.created === true && !!madeOut.thread_id, 'a draft thread is created as the person', madeErr ? (made.body?.result?.content?.[0]?.text ?? '').split('\n')[0] : madeOut.thread_id);
+  verifyThreadId = madeOut.thread_id ?? null;
+  if (verifyThreadId) {
+    const { data: prog } = await db.from('thread_thread').select('id, program:program_id (status, title)').eq('id', verifyThreadId).maybeSingle();
+    const p = Array.isArray(prog?.program) ? prog.program[0] : prog?.program;
+    check(p?.status === 'draft' && p?.title === 'verify-mcp-personal', 'and it really is a draft in the database', p?.status);
+    const laid = await mcp(access, 'tools/call', {
+      name: 'thread_add_engagements',
+      arguments: {
+        thread_id: verifyThreadId,
+        items: [
+          { title: 'Fellowship introduced at the Quarterly Community Gathering', type: 'event', date: '2026-10-06' },
+          { title: 'Invitation to all current facilitators', type: 'message', date: '2026-10-08' },
+          { title: 'Written responses complete', type: 'event', date: '2026-11-23', show_in_agenda: false },
+        ],
+      },
+    }, 31);
+    const laidOut = safeJson(laid.body?.result?.content?.[0]?.text ?? '{}');
+    // A workspace without custom timelines (plan gate) answers 403 per item; that
+    // is the route's own rule, reported readably — not a plumbing failure.
+    const gated = laidOut.added === 0 && /403|Not allowed|higher plan/.test(JSON.stringify(laidOut.items ?? []));
+    check(laid.status === 200 && !laid.body?.result?.isError && (laidOut.added === 3 || gated), gated ? 'the schedule is refused by the plan gate, readably' : 'three rows land on the timeline as drafts', `added=${laidOut.added} failed=${laidOut.failed}`);
+    if (laidOut.added === 3) {
+      const { data: eng, error: engErr } = await db
+        .from('thread_engagement')
+        .select('title, type, status, starts_at, scheduled_at, show_in_agenda, position, system_role')
+        .eq('thread_id', verifyThreadId)
+        .order('position');
+      const byTitle = (t) => (eng ?? []).find((e) => e.title === t);
+      // A new thread arrives with The Thread's own "You're enrolled" message,
+      // published — that is the app's standing behaviour, not ours. Judge only
+      // the three rows the tool laid down.
+      const ours = (eng ?? []).filter((e) => !e.system_role);
+      check(ours.length === 3 && ours.every((e) => e.status === 'draft'), 'the three rows we added are drafts in the database', engErr?.message ?? ours.map((e) => `${e.type}:${e.status}`).join(' '));
+      const sent = byTitle('Invitation to all current facilitators');
+      check(sent?.type === 'message' && !!sent.scheduled_at && !sent.starts_at, 'the sent row became a fixed-time message', sent?.scheduled_at ?? 'missing');
+      check(byTitle('Written responses complete')?.show_in_agenda === false, 'the internal row is hidden from the agenda');
+    }
+  }
+
   const sameWs = await db.from('mcp_grant').select('last_used_at, session_refresh_ciphertext').eq('id', grantId).maybeSingle();
   check(!!sameWs.data?.session_refresh_ciphertext && !sameWs.data.session_refresh_ciphertext.includes('.'), 'the stored session credential is ciphertext, not a token');
 

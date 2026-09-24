@@ -1424,7 +1424,11 @@ middleware source. Stdio (Claude Desktop / Claude Code) and a stateless
   Claude.ai → `https://thefibre-api-staging.fly.dev/api/v1/mcp`, press Allow
   on `/connect`, ask "who should I follow up with this week?". Whatever a
   real client does differently from the script gets fixed then.
-- [ ] **P4 — writes and ChatGPT**: `connections_add_note` and a follow-up
+- [x] **P4, first slice — v1.50.0 (2026-09-25):** `thread:write` scope,
+  `thread_create` + `thread_add_engagements` (all drafts), and the
+  `plan_thread_from_schedule` prompt: paste a table of dates and steps into
+  your own Claude and get a thread with every row on its timeline.
+- [ ] **P4, the rest — writes and ChatGPT**: `connections_add_note` and a follow-up
   setter behind the client's own confirmation, with `source='mcp'`
   provenance; then the ChatGPT connector, whose OAuth client behaves
   differently enough to be its own check. Also `api.thefibre.app`, so the

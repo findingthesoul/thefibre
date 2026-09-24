@@ -6444,12 +6444,12 @@ const CATALOG = {
     fr: 'non terminé', // MT
   },
   assistants_scope_connections: {
-    en: 'reads Connections',
-    nl: 'leest Connections',
-    es: 'lee Connections', // MT
-    pt: 'lê Connections', // MT
-    de: 'liest Connections', // MT
-    fr: 'lit Connections', // MT
+    en: 'reads Connect',
+    nl: 'leest Connect',
+    es: 'lee Connect', // MT
+    pt: 'lê Connect', // MT
+    de: 'liest Connect', // MT
+    fr: 'lit Connect', // MT
   },
   assistants_scope_thread: {
     en: 'reads your threads',
@@ -6458,6 +6458,14 @@ const CATALOG = {
     pt: 'lê os seus threads', // MT
     de: 'liest deine Threads', // MT
     fr: 'lit vos threads', // MT
+  },
+  assistants_scope_thread_write: {
+    en: 'creates threads as drafts',
+    nl: 'maakt threads aan als concept',
+    es: 'crea threads como borrador', // MT
+    pt: 'cria threads como rascunho', // MT
+    de: 'legt Threads als Entwurf an', // MT
+    fr: 'crée des threads en brouillon', // MT
   },
   assistants_connected_on: {
     en: 'Connected {date}',

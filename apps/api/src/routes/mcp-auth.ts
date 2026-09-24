@@ -26,8 +26,10 @@ const CODE_TTL_MS = 60 * 1000;
 
 /** What the consent page says a scope means. Plain words, one line each. */
 export const SCOPE_WORDS: Record<McpScope, string> = {
-  'connections:read': 'Read your Connections: who is waiting for you, your agenda, your landscape, your notes on a person.',
+  'connections:read': 'Read your Connect: who is waiting for you, your agenda, your landscape, your notes on a person.',
   'thread:read': 'Read your threads: titles, dates, status, templates, and how registration is going as counts.',
+  'thread:write':
+    'Create a thread for you — blank or from one of your templates. It starts as a draft, nothing is published or sent, and your assistant asks you before it does it.',
 };
 
 mcpAuthRoutes.get('/client', async (c) => {
