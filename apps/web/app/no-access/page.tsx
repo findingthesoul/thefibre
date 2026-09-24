@@ -8,4 +8,5 @@ import { createNoAccessPage } from '@thefibre/shared/no-access';
 export default createNoAccessPage({
   appName: 'The Fibre',
   fibreUrl: '',
+  portalUrl: process.env.NEXT_PUBLIC_MY_URL,
 });

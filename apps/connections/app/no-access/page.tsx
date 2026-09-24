@@ -6,4 +6,5 @@ import { APPS } from '@thefibre/shared';
 export default createNoAccessPage({
   appName: APPS['fibre-sales'].name,
   fibreUrl: process.env.NEXT_PUBLIC_FIBRE_URL,
+  portalUrl: process.env.NEXT_PUBLIC_MY_URL,
 });

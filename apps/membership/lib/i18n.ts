@@ -316,6 +316,14 @@ const CATALOG = {
     de: 'Deine Mitgliedschaft ist aktiv — eine Bestätigung ist auf dem Weg in dein Postfach.', // MT
     fr: 'Ton adhésion est active — une confirmation arrive dans ta boîte mail.', // MT
   },
+  bookmark_portal: {
+    en: 'Bookmark that page — everything you join, buy or take part in appears there.',
+    nl: 'Sla die pagina op als favoriet — alles waar je lid van wordt, koopt of aan meedoet komt daar samen.',
+    es: 'Guarda esa página en marcadores: todo lo que te unes, compras o en lo que participas aparece allí.', // MT
+    pt: 'Guarda essa página nos favoritos — tudo a que aderes, compras ou em que participas aparece ali.', // MT
+    de: 'Setz ein Lesezeichen auf diese Seite — alles, dem du beitrittst, was du kaufst oder woran du teilnimmst, erscheint dort.', // MT
+    fr: 'Ajoutez cette page aux favoris — tout ce que vous rejoignez, achetez ou auquel vous participez s’y retrouve.', // MT
+  },
   view_membership: {
     en: 'View your membership',
     nl: 'Bekijk je lidmaatschap',

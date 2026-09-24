@@ -2,12 +2,19 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { publicFetch } from '@/lib/public-api';
+import { surfaceUrl } from '@thefibre/shared';
+import { headers } from 'next/headers';
 
 // The wall the (app) gate sends people to. It used to be the whole answer,
 // which was wrong for the largest group hitting it: community members. They
 // pay, land on this app, and have no workspace seat by design — their place
 // is /my. Check for a membership first and send them there; the wall is for
 // people who genuinely have nowhere to go (soul.com, 2026-09-09).
+//
+// 2026-09-24: that redirect pointed at THIS app's /my. The member's home is
+// the cross-app portal — every community, purchase and thread they are part
+// of, not just the membership half. Sjoerd, after paying for a real one:
+// *"why not go to my.thethread.app?"*
 
 async function holdsMembership(): Promise<boolean> {
   const supabase = await serverSupabase();
@@ -27,7 +34,11 @@ async function holdsMembership(): Promise<boolean> {
 }
 
 export default async function NoAccess() {
-  if (await holdsMembership()) redirect('/my');
+  // The host decides the stack, so a member on .tech is not thrown at
+  // production (branding.ts).
+  const host = (await headers()).get('host');
+  const portal = surfaceUrl('my-portal', process.env, host);
+  if (await holdsMembership()) redirect(portal);
 
   const fibreUrl = process.env.NEXT_PUBLIC_FIBRE_URL ?? 'https://thefibre.app';
   return (
@@ -46,7 +57,7 @@ export default async function NoAccess() {
         </p>
         <div className="mt-10 flex flex-wrap items-center gap-5">
           <Link
-            href="/my"
+            href={portal}
             className="rounded-md bg-neutral-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-neutral-800"
           >
             See your membership

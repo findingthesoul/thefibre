@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.38.1] — 2026-09-24 — a member who signs in lands on their own page
+
+Sjoerd paid for a real membership on production, signed in, and got
+`ERR_TOO_MANY_REDIRECTS` on app.thethread.app.
+
+**The loop.** `(app)/layout.tsx` asked the API for the shell, got 401, read
+that as `no-session` and redirected to `/`. But `/` sees a perfectly valid
+JWT and forwards to `/dashboard`, which asks again. Round and round. The
+mistake is the reading: by the time that line runs, `!claims` has already
+bounced anyone without a session, so a 401 means *this account has no seat
+in THIS app* — not *not signed in*. It now goes to `/no-access`. All seven
+apps carried the identical line and all seven are fixed.
+
+A participant is exactly the account that 401s: they hold a Fibre account
+because they enrolled or joined, and a seat in no app at all. So the
+largest group reaching that page was the one it served worst.
+
+**Where they go instead.** `/no-access` offered "Apply for a Fibre account"
+— which they already had — and no way onward. It now leads with their own
+page on the portal. Membership's own `/no-access` already detected members
+and redirected them, but to its app-local `/my`; that goes to the portal
+too, where every community, purchase and thread appears together rather
+than the membership half alone.
+
+**After paying**, `/[workspaceSlug]/joined` pointed at the same app-local
+`/my`. It now points at the portal, as a button, with the bookmark
+invitation Sjoerd asked for. The page itself stays where it is: it names
+the community you just joined and must work before you sign in.
+
 ## [1.38.0] — 2026-09-24 — you cannot take a commission from yourself
 
 Sjoerd pressed the test-payment button on The Thread's own workspace and got,

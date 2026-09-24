@@ -44,7 +44,17 @@ export default async function PulseAppLayout({
     appSlug: 'fibre-pulse',
     extras: { prefs: () => readPrefs() },
   });
-  if (!shell.ok) redirect(shell.reason === 'no-session' ? '/' : '/no-access');
+  // Only reachable WITH a valid session: the `!claims` case above already
+  // bounced a signed-out visitor to `/`. So a failure here means the API
+  // refused this session standing in THIS app — which is not the same as
+  // having no session, and must not be sent back to `/`.
+  //
+  // Sending it there was an infinite redirect: `/` sees the claims, forwards
+  // to /dashboard, the layout asks the API, gets 401, returns to `/`.
+  // ERR_TOO_MANY_REDIRECTS, and it hit a real member on production
+  // (2026-09-24) moments after they paid — a participant has a Fibre account
+  // but no seat in Thread, which is exactly the case that 401s.
+  if (!shell.ok) redirect('/no-access');
   if (!shell.hasAccess) redirect('/no-access');
   const { me, apps } = shell;
   const prefs = shell.extras.prefs;
