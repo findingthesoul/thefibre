@@ -388,3 +388,99 @@ ${emailSignoff()}`;
 
   return { subject, text, html };
 }
+
+// ---------------------------------------------------------------------------
+// Calendar invitations — the message that carries the .ics
+//
+// Deliberately plain. The .ics is doing the work: the recipient's calendar
+// reads it and files or corrects the event, often before they open anything.
+// What the human sees is the courtesy half — what changed, in words, so the
+// message is not a bare attachment from a name they half-recognise.
+//
+// Escaping stays where it is in engagementMessage above: organiser text is
+// escaped whole, and the only string that becomes a link is one we put there.
+// ---------------------------------------------------------------------------
+
+export type CalendarInviteKind = 'added' | 'moved' | 'cancelled';
+
+export function calendarInviteEmail(c: {
+  kind: CalendarInviteKind;
+  sessionTitle: string;
+  threadTitle: string;
+  organiserName: string;
+  /** Rendered, human, already in the reader's timezone where we know it. */
+  whenLine: string;
+  /** The previous when-line, for a move. Seeing what it WAS is most of how
+   *  somebody recognises whether this affects them. */
+  wasLine?: string | null;
+  whereLine?: string | null;
+  /** The organiser's own words, typed once at the moment of sending. */
+  note?: string | null;
+  brand?: EmailBrand | undefined;
+}): { subject: string; text: string; html: string } {
+  const subject =
+    c.kind === 'cancelled'
+      ? `Cancelled: ${c.sessionTitle}`
+      : c.kind === 'moved'
+        ? `Moved: ${c.sessionTitle} — now ${c.whenLine}`
+        : `Invitation: ${c.sessionTitle}`;
+
+  const lines: string[] = [];
+  lines.push(
+    c.kind === 'cancelled'
+      ? `${c.organiserName} has cancelled this session of ${c.threadTitle}.`
+      : c.kind === 'moved'
+        ? `${c.organiserName} has moved this session of ${c.threadTitle}.`
+        : `${c.organiserName} has added a session to ${c.threadTitle}.`,
+  );
+  lines.push('');
+  lines.push(c.sessionTitle);
+  if (c.kind === 'moved' && c.wasLine) lines.push(`Was: ${c.wasLine}`);
+  if (c.kind !== 'cancelled') lines.push(c.kind === 'moved' ? `Now: ${c.whenLine}` : c.whenLine);
+  if (c.whereLine && c.kind !== 'cancelled') lines.push(c.whereLine);
+  if (c.note?.trim()) {
+    lines.push('');
+    lines.push(c.note.trim());
+  }
+  lines.push('');
+  lines.push(
+    c.kind === 'cancelled'
+      ? 'Your calendar has been updated, so it should disappear on its own.'
+      : 'Your calendar has been updated, so you do not need to add anything.',
+  );
+
+  const body = lines.join('\n');
+  const text = `${body}\n\n${emailSignoff()}`;
+
+  const html = shell(
+    c.threadTitle,
+    `
+      <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;">${escapeHtml(c.sessionTitle)}</h2>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(lines[0]!)}</p>
+      <table style="font-size:15px;line-height:1.6;border-collapse:collapse;">
+        ${c.kind === 'moved' && c.wasLine ? row('Was', c.wasLine, true) : ''}
+        ${c.kind !== 'cancelled' ? row(c.kind === 'moved' ? 'Now' : 'When', c.whenLine) : ''}
+        ${c.whereLine && c.kind !== 'cancelled' ? row('Where', c.whereLine) : ''}
+      </table>
+      ${
+        c.note?.trim()
+          ? `<div style="margin:20px 0 0;font-size:15px;line-height:1.6;white-space:pre-wrap;">${linkPortal(escapeHtml(c.note.trim()), myThreadUrl())}</div>`
+          : ''
+      }
+      <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(lines[lines.length - 1]!)}</p>
+      <p style="margin:16px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
+    `,
+    c.brand,
+  );
+
+  return { subject, text, html };
+}
+
+/** A label/value pair, with the old value struck through so a move reads at a
+ *  glance rather than needing both lines compared word by word. */
+function row(label: string, value: string, struck = false): string {
+  const v = struck
+    ? `<span style="text-decoration:line-through;color:#737373;">${escapeHtml(value)}</span>`
+    : escapeHtml(value);
+  return `<tr><td style="padding:2px 16px 2px 0;color:#737373;white-space:nowrap;">${escapeHtml(label)}</td><td style="padding:2px 0;">${v}</td></tr>`;
+}

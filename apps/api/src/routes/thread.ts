@@ -1,4 +1,13 @@
 import { Hono } from 'hono';
+import {
+  calendarAudience,
+  calendarStateChanged,
+  calendarStateOf,
+  isCalendarSession,
+  pendingChanges,
+  recordCalendarChange,
+  sendPendingChanges,
+} from '../lib/calendar-invite.js';
 import { profileFor } from '../lib/identity-profile.js';
 import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
@@ -906,7 +915,7 @@ threadRoutes.patch('/threads/:id', async (c) => {
   if (shiftDays !== 0) {
     const { data: engagements } = await db
       .from('thread_engagement')
-      .select('id, starts_at, ends_at, scheduled_at')
+      .select('*')
       .eq('thread_id', id);
     for (const e of engagements ?? []) {
       const patch: Record<string, string> = {};
@@ -914,7 +923,27 @@ threadRoutes.patch('/threads/:id', async (c) => {
       if (e.ends_at) patch.ends_at = shiftTimestamp(e.ends_at, shiftDays);
       if (e.scheduled_at) patch.scheduled_at = shiftTimestamp(e.scheduled_at, shiftDays);
       if (Object.keys(patch).length) {
-        await db.from('thread_engagement').update(patch).eq('id', e.id);
+        const { data: moved } = await db
+          .from('thread_engagement')
+          .update(patch)
+          .eq('id', e.id)
+          .select('*')
+          .single();
+        // THE case this whole queue was designed around: one drag of the
+        // thread's start date moves every session at once, and it must reach
+        // people as one decision rather than as a row of separate alarms.
+        if (moved && isCalendarSession(moved)) {
+          try {
+            await recordCalendarChange({
+              engagement: moved,
+              kind: 'moved',
+              before: calendarStateOf(e),
+              actorUserId: ctx.userId,
+            });
+          } catch (err) {
+            console.error('[thread/threads] shifted change not queued', { id: e.id, err });
+          }
+        }
       }
     }
   }
@@ -1332,6 +1361,15 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
     .limit(1)
     .maybeSingle();
 
+  // A new session on a thread people have already joined starts UNPUBLISHED,
+  // whatever the form said. Sjoerd, 2026-09-24: *"when a new date is added —
+  // if people are registered — is by default unpublish. When published first
+  // a message… then send."* Publishing is then a separate, deliberate act
+  // that queues the invitation, rather than a side effect of typing a title
+  // into a form and reaching for save.
+  const joined = (await calendarAudience(threadId)).length > 0;
+  const status = joined ? 'draft' : (body.data.status ?? 'draft');
+
   const { data, error } = await db
     .from('thread_engagement')
     .insert({
@@ -1339,7 +1377,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       thread_id: threadId,
       title: body.data.title,
       type: body.data.type,
-      status: body.data.status ?? 'draft',
+      status,
       description: sanitizeRichText(body.data.description),
       starts_at: body.data.starts_at ?? null,
       ends_at: body.data.ends_at ?? null,
@@ -1366,7 +1404,8 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
     console.error('[thread/engagements] insert failed', { body: body.data, error });
     return c.json(pgErrorBody(error), pgErrorStatus(error));
   }
-  return c.json(data, 201);
+  // Told, rather than silently overruled: the editor says why it is a draft.
+  return c.json({ ...data, held_as_draft: joined && body.data.status === 'published' }, 201);
 });
 
 export const EngagementUpdate = EngagementCreate.partial().extend({
@@ -1381,9 +1420,11 @@ threadRoutes.patch('/engagements/:id', async (c) => {
   const db = userClient(ctx.jwt);
   const id = c.req.param('id');
 
+  // The whole row, not four columns: the calendar queue compares before and
+  // after, and a field it cannot see is a change nobody gets told about.
   const { data: existing } = await db
     .from('thread_engagement')
-    .select('type, thread_id, starts_at, ends_at')
+    .select('*')
     .eq('id', id)
     .single();
   if (!existing) return c.json({ error: 'not found' }, 404);
@@ -1415,6 +1456,9 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     enPatch.description = sanitizeRichText(enPatch.description as string | null);
   }
 
+  const wasSession = isCalendarSession(existing);
+  const wasState = calendarStateOf(existing);
+
   const { data, error } = await db
     .from('thread_engagement')
     .update({ ...enPatch, updated_at: new Date().toISOString() })
@@ -1425,7 +1469,103 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     console.error('[thread/engagements] update failed', { body: body.data, error });
     return c.json(pgErrorBody(error), pgErrorStatus(error));
   }
+
+  // What, if anything, the people holding this session need to hear. Queued,
+  // never sent: the organiser reviews the thread's pending changes and presses
+  // once (lib/calendar-invite.ts explains why those are separate acts).
+  //
+  // Best-effort by design. A failure here must not fail the edit — losing the
+  // organiser's work to protect a notification is the wrong way round, and the
+  // queue is re-derivable from the next edit.
+  try {
+    const isSession = isCalendarSession(data);
+    if (!wasSession && isSession) {
+      await recordCalendarChange({ engagement: data, kind: 'added', actorUserId: ctx.userId });
+    } else if (wasSession && !isSession) {
+      // Unpublished, hidden from the agenda, or stripped of its date. All
+      // three are the same thing to somebody holding it: it is off.
+      await recordCalendarChange({ engagement: data, kind: 'cancelled', actorUserId: ctx.userId });
+    } else if (isSession && calendarStateChanged(wasState, calendarStateOf(data))) {
+      await recordCalendarChange({
+        engagement: data,
+        kind: 'moved',
+        before: wasState,
+        actorUserId: ctx.userId,
+      });
+    }
+  } catch (e) {
+    console.error('[thread/engagements] calendar change not queued', { id, e });
+  }
+
   return c.json(data);
+});
+
+// ---------------------------------------------------------------------------
+// The calendar queue — what people have not been told yet, and telling them.
+//
+// Sjoerd, 2026-09-24: editing and announcing are separate acts. Nothing in
+// here sends on an edit; the organiser reads what is owed and presses once.
+// lib/calendar-invite.ts holds the reasoning and the collapse rules.
+// ---------------------------------------------------------------------------
+
+/** What a change to THIS session would cost, so the editor can say it out
+ *  loud before the organiser commits. "Nine people have this in their
+ *  calendar" is a fact they are entitled to in advance, not after. */
+threadRoutes.get('/engagements/:id/calendar-impact', async (c) => {
+  const ctx = c.get('ctx');
+  const { data: e } = await userClient(ctx.jwt)
+    .from('thread_engagement')
+    .select('id, thread_id, status, show_in_agenda, starts_at, calendar_sent_at')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!e) return c.json({ error: 'not found' }, 404);
+
+  const audience = await calendarAudience(e.thread_id as string);
+  return c.json({
+    // Whether anybody is actually holding this session right now. A session
+    // never sent is not in a single calendar, however many people enrolled,
+    // so the editor must not warn about moving it.
+    in_calendars: !!e.calendar_sent_at,
+    holders: e.calendar_sent_at ? audience.length : 0,
+    enrolled: audience.length,
+    is_session: isCalendarSession(e),
+  });
+});
+
+threadRoutes.get('/threads/:id/calendar-changes', async (c) => {
+  const ctx = c.get('ctx');
+  const threadId = c.req.param('id');
+  // Reachability check on the user's own identity before the admin reads.
+  const { data: t } = await userClient(ctx.jwt)
+    .from('thread_thread')
+    .select('id')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!t) return c.json({ error: 'not found' }, 404);
+
+  const [changes, audience] = await Promise.all([
+    pendingChanges(threadId),
+    calendarAudience(threadId),
+  ]);
+  return c.json({ changes, audience_count: audience.length });
+});
+
+threadRoutes.post('/threads/:id/calendar-changes/send', async (c) => {
+  const ctx = c.get('ctx');
+  const threadId = c.req.param('id');
+  const { data: t } = await userClient(ctx.jwt)
+    .from('thread_thread')
+    .select('id')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!t) return c.json({ error: 'not found' }, 404);
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
+
+  const body = (await c.req.json().catch(() => null)) as { note?: unknown } | null;
+  const note = typeof body?.note === 'string' ? body.note.slice(0, 2000) : null;
+
+  const result = await sendPendingChanges({ threadId, note });
+  return c.json(result);
 });
 
 threadRoutes.delete('/engagements/:id', async (c) => {
@@ -1447,10 +1587,28 @@ threadRoutes.delete('/engagements/:id', async (c) => {
     }
   }
   const db = userClient(ctx.jwt);
+
+  // Read it BEFORE it is gone: a cancellation is exactly the case where the
+  // thing no longer exists and the people holding it still need telling, so
+  // the queue row keeps its own copy of the title.
+  const { data: doomed } = await db
+    .from('thread_engagement')
+    .select('*')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+
   const { error } = await db.from('thread_engagement').delete().eq('id', c.req.param('id'));
   if (error) {
     console.error('[thread/engagements] delete failed', error);
     return c.json(pgErrorBody(error), pgErrorStatus(error));
+  }
+
+  if (doomed && isCalendarSession(doomed)) {
+    try {
+      await recordCalendarChange({ engagement: doomed, kind: 'cancelled', actorUserId: ctx.userId });
+    } catch (e) {
+      console.error('[thread/engagements] cancellation not queued', e);
+    }
   }
   return c.body(null, 204);
 });

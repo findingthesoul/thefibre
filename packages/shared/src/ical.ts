@@ -103,6 +103,59 @@ export interface IcalFeedInput {
   generatedAt?: Date;
 }
 
+/**
+ * An INVITATION, or an update or cancellation of one.
+ *
+ * The difference from `buildBookingIcal` is one line — METHOD — and it is the
+ * line that changes what the receiving calendar does with the file. PUBLISH
+ * says "here is some information"; REQUEST says "this is a meeting you are in,
+ * file it"; CANCEL says "the one you filed is off". Only REQUEST and CANCEL
+ * reach an event a person already holds, which is the whole point of sending
+ * one at all.
+ *
+ * Two things have to be right or the update silently becomes a second event
+ * in someone's calendar three weeks from now:
+ *
+ *   UID must be the SAME string as the original invitation. It is how the
+ *   calendar finds what to correct. Ours is `agendaEventUid`, shared with the
+ *   download and the subscription for exactly this reason.
+ *
+ *   SEQUENCE must be HIGHER than the one already held. A calendar ignores an
+ *   update numbered at or below what it has — which is what makes a retry
+ *   safe, and what makes forgetting to increment look like nothing happening.
+ *
+ * ATTENDEE carries RSVP=TRUE here, unlike the download: this one is asking.
+ */
+export interface IcalInviteInput extends IcalEventInput {
+  method: 'REQUEST' | 'CANCEL';
+  /** Everyone invited. The first entry is not special; the ORGANIZER is
+   *  separate. Leave empty to invite only `attendeeEmail`. */
+  attendees?: { name?: string | null; email: string }[];
+}
+
+export function buildInviteIcal(args: IcalInviteInput): string {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:${args.prodId ?? '-//The Fibre//Thread//EN'}`,
+    'CALSCALE:GREGORIAN',
+    `METHOD:${args.method}`,
+    ...veventLines(
+      args.method === 'CANCEL' ? { ...args, status: 'CANCELLED' } : args,
+      args.attendees ? { rsvp: true, attendees: args.attendees } : { rsvp: true },
+    ),
+    'END:VCALENDAR',
+  ];
+  return lines.join('\r\n') + '\r\n';
+}
+
+/** The MIME type an invitation has to arrive as. A plain `text/calendar`
+ *  without the method is a file attachment: the recipient sees a download,
+ *  their calendar does nothing, and nothing about our side looks wrong. */
+export function icalContentType(method: 'REQUEST' | 'CANCEL' | 'PUBLISH'): string {
+  return `text/calendar; charset=utf-8; method=${method}`;
+}
+
 export function buildCalendarFeed(args: IcalFeedInput): string {
   const refresh = durationMinutes(args.refreshMinutes ?? 240);
   const lines = [
@@ -130,9 +183,20 @@ export function buildCalendarFeed(args: IcalFeedInput): string {
   return lines.join('\r\n') + '\r\n';
 }
 
-/** The VEVENT block, shared by the single file and the feed so the two can
- *  never disagree about what one event looks like. */
-function veventLines(args: IcalEventInput): string[] {
+/** The VEVENT block, shared by the download, the feed and the invitation so
+ *  the three can never disagree about what one event looks like. */
+function veventLines(
+  args: IcalEventInput,
+  opts?: { rsvp?: boolean; attendees?: { name?: string | null; email: string }[] },
+): string[] {
+  // An invitation asks; a download informs. RSVP=TRUE is what makes a calendar
+  // show Yes/No buttons rather than filing the event silently.
+  const rsvp = opts?.rsvp ? 'TRUE' : 'FALSE';
+  const people = opts?.attendees?.length
+    ? opts.attendees
+    : args.attendeeEmail
+      ? [{ name: args.attendeeName, email: args.attendeeEmail }]
+      : [];
   return [
     'BEGIN:VEVENT',
     `UID:${args.uid}`,
@@ -147,9 +211,9 @@ function veventLines(args: IcalEventInput): string[] {
     args.organizerEmail
       ? `ORGANIZER;CN=${escapeParam(args.organizerName ?? args.organizerEmail)}:mailto:${args.organizerEmail}`
       : null,
-    args.attendeeEmail
-      ? `ATTENDEE;CN=${escapeParam(args.attendeeName ?? args.attendeeEmail)};RSVP=FALSE:mailto:${args.attendeeEmail}`
-      : null,
+    ...people.map(
+      (p) => `ATTENDEE;CN=${escapeParam(p.name ?? p.email)};RSVP=${rsvp}:mailto:${p.email}`,
+    ),
     `STATUS:${args.status ?? 'CONFIRMED'}`,
     'END:VEVENT',
   ].filter((l): l is string => l !== null);

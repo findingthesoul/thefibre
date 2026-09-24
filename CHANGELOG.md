@@ -6,6 +6,80 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.48.0] — 2026-09-24 — a session that moves tells the people holding it
+
+Sjoerd, working out the mechanism himself: *"if I send an invite and change
+it, it changes the invite."* Exactly — and worth saying plainly, because it is
+the thing that was missing. Nothing is watching. His calendar SENDS AN EMAIL,
+a specially formed one saying "same meeting as before, here is version 2, it
+is now Thursday", and the recipient's calendar edits the event it already
+holds. That is iMIP, and it is the only mechanism that reaches an event
+somebody already has. A downloaded file never can: it is a copy the calendar
+owns from the moment it lands.
+
+This is the engine. The organiser's screens are the next slice; nothing sends
+until they exist, because nothing yet calls the send.
+
+**Editing is not announcing.** *"when someone moves an event for which people
+have registered and RSVP-ed… This should not be a light thing."* So a change
+never sends at the moment of the edit. It queues on `thread_calendar_change`,
+and the organiser will review and press once. An organiser rearranging a
+programme on a Tuesday afternoon is thinking, not broadcasting.
+
+**What collapses, which is most of the design.** Rows are one per session, not
+one per edit:
+
+- Moving a session three times before pressing send is ONE change — from where
+  it originally was to where it now is. `was` is written once and never
+  overwritten, because that difference is the only thing a participant can act
+  on.
+- A session added and then cancelled while both are still unsent is NOTHING.
+  No message is ever sent about a session that existed for one afternoon.
+- A cancellation supersedes a queued move: telling someone a session moved
+  AND that it is off is worse than telling them only the second thing.
+- A session whose invitation has never gone out cannot be "moved" — it is a
+  draft being drafted. Only the first send makes it real.
+
+Twelve cases pinned in a test, because each of them is a decision that is
+invisible in the code and obvious in somebody's inbox.
+
+**What counts as a change** is the list Sjoerd set: date, time, place,
+existence. Not a typo. Renaming is deliberately absent too — a calendar
+entry's title changing under someone is noise, not news.
+
+One of those comparisons had a trap worth naming: a timestamp does not come
+back from Postgres in the spelling it went in (`2027-01-05T15:00:00Z` returns
+as `2027-01-05 15:00:00+00`). A string compare would have called every save a
+reschedule and mailed everybody. Instants are compared, and the case is
+pinned.
+
+**A new session on a thread people have joined starts unpublished**, whatever
+the form said — *"when a new date is added, if people are registered, is by
+default unpublish"*. Publishing is then a deliberate act that queues the
+invitation, not a side effect of typing a title and reaching for save.
+
+**Also carried:** `buildInviteIcal` in shared (METHOD, per-recipient
+ATTENDEE, RSVP=TRUE, CANCEL by both method and status), and `contentType` on
+email attachments — the line the whole feature stands on, since a `text/calendar`
+part without `method=REQUEST` arrives as a file to download, does nothing in
+the recipient's calendar, and looks perfectly fine from our side.
+
+**Where the promise bends, and he should hear it from me.** "Five moves, one
+email" is one *decision* and one press, not one message on the wire. RFC 5546
+allows several events in one REQUEST only when they are recurrences of the
+same event; unrelated sessions must travel separately or the receiving
+calendar acts on one and ignores the rest. Five moved sessions are five
+messages sent from one press — the same thing that happens when anyone moves
+five events in their own calendar.
+
+**Unverified, and next:** whether Resend preserves `method=REQUEST` on the
+attachment. It is the one thing that decides whether any of this works, it
+cannot be answered from our side, and an invitation that arrives as a file
+attachment looks like success in our logs.
+
+Migration: `thread_calendar_change`, plus `calendar_sequence` and
+`calendar_sent_at` on `thread_engagement`.
+
 ## [1.47.2] — 2026-09-24 — the number in the footer was not the software you were using (Portal 0.11.0, Thread 4.1.0, staging)
 
 The portal prints its version at the foot of every page. It read **0.10.5**

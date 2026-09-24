@@ -2,7 +2,13 @@
 // errors, the event just never appears. So the escaping rules are locked.
 
 import { describe, expect, it } from 'vitest';
-import { bookingCalendarTitle, buildBookingIcal, buildCalendarFeed } from './ical.js';
+import {
+  bookingCalendarTitle,
+  buildBookingIcal,
+  buildCalendarFeed,
+  buildInviteIcal,
+  icalContentType,
+} from './ical.js';
 
 const base = {
   uid: 'meet-abc@thefibre.app',
@@ -189,5 +195,69 @@ describe('buildCalendarFeed', () => {
     const feed = buildCalendarFeed({ name: 'x', events: [base], generatedAt: at });
     const block = (s: string) => s.slice(s.indexOf('BEGIN:VEVENT'), s.indexOf('END:VEVENT'));
     expect(block(feed)).toBe(block(single));
+  });
+});
+
+// An invitation that arrives as a file attachment instead of an invitation
+// looks like success from our side and does nothing on the recipient's. The
+// three things that decide which it is are METHOD, UID and SEQUENCE.
+describe('buildInviteIcal', () => {
+  it('asks, rather than informs', () => {
+    const ics = buildInviteIcal({ ...base, method: 'REQUEST' });
+    expect(ics).toContain('METHOD:REQUEST');
+    expect(ics).toContain('STATUS:CONFIRMED');
+    // RSVP=TRUE is what puts Yes/No buttons in front of the recipient.
+    expect(ics).toContain('RSVP=TRUE');
+  });
+
+  it('cancels by method AND status, because clients read different ones', () => {
+    const ics = buildInviteIcal({ ...base, method: 'CANCEL' });
+    expect(ics).toContain('METHOD:CANCEL');
+    expect(ics).toContain('STATUS:CANCELLED');
+  });
+
+  // The one that would otherwise be found months later, as duplicates.
+  it('keeps the uid so an update lands on the event already held', () => {
+    const first = buildInviteIcal({ ...base, method: 'REQUEST', sequence: 0 });
+    const update = buildInviteIcal({
+      ...base,
+      method: 'REQUEST',
+      sequence: 1,
+      startsAt: new Date('2026-09-11T09:00:00Z'),
+      endsAt: new Date('2026-09-11T09:30:00Z'),
+    });
+    const uid = (s: string) => s.match(/^UID:.*$/m)![0];
+    expect(uid(update)).toBe(uid(first));
+    expect(update).toContain('SEQUENCE:1');
+    expect(update).toContain('DTSTART:20260911T090000Z');
+  });
+
+  it('invites everybody named, not just the one addressee', () => {
+    const ics = buildInviteIcal({
+      ...base,
+      method: 'REQUEST',
+      attendees: [
+        { name: 'Daniel Ross', email: 'daniel@example.com' },
+        { name: 'Marja de Vries', email: 'marja@example.org' },
+        { email: 'no-name@example.net' },
+      ],
+    });
+    expect(ics.match(/^ATTENDEE/gm)).toHaveLength(3);
+    // With no name, the address stands in rather than "undefined".
+    expect(ics).toContain('ATTENDEE;CN=no-name@example.net;RSVP=TRUE:mailto:no-name@example.net');
+  });
+
+  it('carries the method in the content type, which is what a mail client reads', () => {
+    expect(icalContentType('REQUEST')).toBe('text/calendar; charset=utf-8; method=REQUEST');
+    expect(icalContentType('CANCEL')).toBe('text/calendar; charset=utf-8; method=CANCEL');
+  });
+
+  it('builds the same VEVENT body as a download, apart from the asking', () => {
+    const at = new Date('2026-09-24T12:00:00Z');
+    const download = buildBookingIcal({ ...base, generatedAt: at });
+    const invite = buildInviteIcal({ ...base, method: 'REQUEST', generatedAt: at });
+    const strip = (s: string) =>
+      s.slice(s.indexOf('BEGIN:VEVENT'), s.indexOf('END:VEVENT')).replace(/RSVP=\w+/g, 'RSVP');
+    expect(strip(invite)).toBe(strip(download));
   });
 });

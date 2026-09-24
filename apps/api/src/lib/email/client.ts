@@ -9,8 +9,16 @@ export type EmailMessage = {
   html: string;
   replyTo?: string | undefined;
   /** Attached files (Resend: base64 content). Used for the internal invoice
-   *  PDF — the ledger is the record, never Stripe's hosted page. */
-  attachments?: { filename: string; content: string }[] | undefined;
+   *  PDF — the ledger is the record, never Stripe's hosted page.
+   *
+   *  `contentType` matters for exactly one case and it is load-bearing there:
+   *  a calendar invitation is only an invitation because its part says
+   *  `text/calendar; method=REQUEST`. Drop the method and the same bytes
+   *  arrive as a file to download — the recipient's calendar does nothing and
+   *  nothing on our side looks wrong. The PDF needs none of this because
+   *  Resend infers it from the `.pdf` filename, which is why this field did
+   *  not exist until invitations needed it. */
+  attachments?: { filename: string; content: string; contentType?: string }[] | undefined;
   /**
    * Who it comes from, when a workspace has said. Two halves with very
    * different costs: a display NAME is free — a mailbox shows it and nothing
@@ -79,7 +87,11 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     html: msg.html,
   };
   if (msg.replyTo) body.reply_to = msg.replyTo;
-  if (msg.attachments?.length) body.attachments = msg.attachments;
+  if (msg.attachments?.length) {
+    body.attachments = msg.attachments.map((a) =>
+      a.contentType ? { filename: a.filename, content: a.content, content_type: a.contentType } : a,
+    );
+  }
 
   let r = await post(key, body);
 
