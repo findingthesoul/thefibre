@@ -245,11 +245,11 @@ second, drifting copy.
 - **`pnpm verify` cannot finish in a worktree without pointing it at an env
   file.** Its last step (`sync-app-names.mjs --check`) reads a Supabase
   project, and `apps/api/.env` is gitignored — so it exists in the main
-  checkout and in no worktree. The failure is the last line of a long green
-  run (`Env file not found: …/apps/api/.env`) and looks like a broken release,
-  not a missing file — though since v1.28.1 it is the THIRD step rather than
-  the last, so it refuses in seconds rather than after typecheck and the full
-  suite. Run the release as
+  checkout and in no worktree. Two steps need it (`verify-public-api.mjs`,
+  which throws a bare `Env file not found`, and `sync-app-names.mjs --check`,
+  which says COULD NOT CHECK). Since v1.28.1 the second of those runs THIRD in
+  the chain, so a missing file is refused in about a second instead of after
+  typecheck and the full suite. Run the release as
   `FIBRE_ENV_FILE=/Users/sjoerdair/Projects/thefibre/apps/api/.env ./scripts/release.sh`.
   An absolute path is honoured; the check itself is read-only.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.

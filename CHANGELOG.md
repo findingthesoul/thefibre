@@ -6,17 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [1.28.1] — 2026-09-24 — a gate that cannot pass should say so in seconds
 
-`pnpm verify` ends with `sync-app-names.mjs --check`, which reads a Supabase
-project through `apps/api/.env` — a gitignored file, so it exists in the main
-checkout and in no worktree. CLAUDE.md sends every session into a worktree for
-code work, so the release gate refused with `Env file not found` after
-typecheck and the full suite had already passed: eight minutes to learn about
-a missing file.
+`pnpm verify` ended with two steps that read a Supabase project through
+`apps/api/.env` — a gitignored file, so it exists in the main checkout and in
+no worktree. CLAUDE.md sends every session into a worktree for code work, so
+the release gate refused after typecheck and the full suite had already
+passed: eight minutes to learn about a missing file. (The raw
+`Env file not found` came from `verify-public-api.mjs`, which loads the env
+unguarded; `sync-app-names.mjs --check` catches it and says COULD NOT CHECK,
+but it was last and so never got the chance.)
 
-The check has moved to third in the chain, behind the two instant static
-checks and ahead of everything expensive. It is the same check, refusing the
-same releases; it now does it in seconds. Pointed at a file it can read, the
-whole chain passes exactly as before.
+`sync-app-names.mjs --check` has moved to third in the chain, behind the two
+instant static checks and ahead of everything expensive. Nothing else moved:
+it is the earliest step that needs the file, so an absent one now refuses in
+**one second** instead of eight minutes, and `verify-public-api` is never
+reached without it. Same checks, same releases refused. Pointed at a file it
+can read, the whole chain passes exactly as before — measured both ways.
 
 The incantation is unchanged and is in CLAUDE.md:
 `FIBRE_ENV_FILE=/Users/sjoerdair/Projects/thefibre/apps/api/.env ./scripts/release.sh`
