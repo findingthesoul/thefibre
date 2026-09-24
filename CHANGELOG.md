@@ -297,6 +297,29 @@ shipping.
 
 ## [Unreleased]
 
+## [1.29.0] — 2026-09-24 — your site opens in the same tab (staging)
+
+Sjoerd: *"your site... is open in a new tab"* — it was, and he was saying so
+because he did not want it.
+
+Going to your own public homepage is navigation, not a detour. A new tab
+leaves a dead admin tab behind every time you look, and the way back is the
+browser's Back button, which is where people already reach for it.
+
+Both doors changed together — the dashboard's **Your site** and Settings →
+Website's **Preview** — because they lead to the same page, and one of them
+behaving differently would be worse than either choice on its own.
+
+The icon changed with them. `ExternalLink` is a promise that a link leaves
+and opens elsewhere; leaving it on a same-tab link would be the icon lying
+about the behaviour. `Globe` says "your public site" and promises nothing
+about tabs.
+
+**Left alone, deliberately:** a thread's own *Open public page* in the
+editor. That one IS a detour — you are mid-edit and want to see how it looks
+— and not losing the editor is exactly what a new tab is for.
+
+
 ## [1.25.0] — 2026-09-24 — the release number is allocated, not chosen
 
 ### Added
