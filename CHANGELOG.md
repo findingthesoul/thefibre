@@ -4,6 +4,21 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.27.5] — 2026-09-24 — the Connect button stays visible once connected (staging)
+
+Sjoerd, on staging with the client id set: *"I dont see a connect to stripe
+button."* He was looking at a workspace whose badge said **Connected**, and I
+had written the button to appear only when it was not.
+
+That is wrong twice. It leaves no way to switch a workspace to a different
+Stripe account without first clearing the field and saving — a dead end
+reached by doing the obvious thing. And on a first run it hides the feature
+from the one person trying to prove it works.
+
+The button now shows whenever the platform is registered, and the LABEL
+carries the difference: **Connect Stripe** when nothing is connected,
+**Connect a different account** when something is.
+
 ## [1.27.4] — 2026-09-24 — the changelog is in order again
 
 ### Added

@@ -979,6 +979,14 @@ const CATALOG = {
     de: 'Die Stripe-Konto-ID beginnt mit acct_ (Stripe → Settings → Account details). Leer lassen trennt die Verbindung. Zahlungsoptionen vererben sich nach unten: Konto-Standard → Thread → Ticket, jede Ebene kann überschreiben.', // MT
     fr: 'L’identifiant de compte Stripe commence par acct_ (Stripe → Settings → Account details). Le laisser vide déconnecte. Les options de paiement s’héritent vers le bas : défaut du compte → thread → billet, chaque niveau peut remplacer.', // MT
   },
+  connect_stripe_change: {
+    en: 'Connect a different account',
+    nl: 'Een andere rekening koppelen',
+    es: 'Conectar otra cuenta', // MT
+    pt: 'Ligar outra conta', // MT
+    de: 'Ein anderes Konto verbinden', // MT
+    fr: 'Connecter un autre compte', // MT
+  },
   connect_stripe: {
     en: 'Connect Stripe',
     nl: 'Stripe koppelen',

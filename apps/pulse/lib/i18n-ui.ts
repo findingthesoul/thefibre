@@ -2051,6 +2051,14 @@ const CATALOG = {
     de: '(Stripe → Settings → Account details). Leer lassen trennt die Verbindung. Zahlungsoptionen vererben sich nach unten: erst der Konto-Standard, jede App kann pro Posten abweichen.', // MT
     fr: '(Stripe → Settings → Account details). Le laisser vide déconnecte. Les options de paiement s’héritent vers le bas : d’abord le défaut du compte, chaque app peut déroger par article.', // MT
   },
+  connect_stripe_change: {
+    en: 'Connect a different account',
+    nl: 'Een andere rekening koppelen',
+    es: 'Conectar otra cuenta', // MT
+    pt: 'Ligar outra conta', // MT
+    de: 'Ein anderes Konto verbinden', // MT
+    fr: 'Connecter un autre compte', // MT
+  },
   connect_stripe: {
     en: 'Connect Stripe',
     nl: 'Stripe koppelen',

@@ -102,6 +102,7 @@ function strings(locale: Locale) {
     errKeepOneMethod: t(locale, 'err_keep_one_method'),
     errVatRate: t(locale, 'err_vat_rate'),
     connectStripe: t(locale, 'connect_stripe'),
+    connectStripeChange: t(locale, 'connect_stripe_change'),
     connectStripeNote: t(locale, 'connect_stripe_note'),
     opening: t(locale, 'opening'),
     stripeUnreachable: t(locale, 'stripe_unreachable'),

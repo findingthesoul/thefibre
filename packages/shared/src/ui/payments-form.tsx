@@ -95,6 +95,8 @@ export type PaymentsStrings = {
   errVatRate: string;
   /** New with Connect — see the note at the top of this file. */
   connectStripe: string;
+  /** Same button, different job, once an account is already connected. */
+  connectStripeChange: string;
   connectStripeNote: string;
   opening: string;
   stripeUnreachable: string;
@@ -342,7 +344,12 @@ function AccountSection({
         <div className="mt-3 space-y-4">
           {/* The button that makes this a platform: the account holder
               approves from their OWN Stripe, and nobody is added by hand. */}
-          {startConnect && status?.connect_available && status.state !== 'connected' && (
+          {/* Shown whenever the platform is registered, connected or not.
+              Hiding it once connected left no way to switch accounts and no
+              way to see the button at all if an id was already saved — which
+              is exactly what Sjoerd hit on the first run (2026-09-24). The
+              LABEL carries the difference instead. */}
+          {startConnect && status?.connect_available && (
             <div>
               <Button
                 type="button"
@@ -365,7 +372,11 @@ function AccountSection({
                     });
                 }}
               >
-                {connecting ? s.opening : s.connectStripe}
+                {connecting
+                  ? s.opening
+                  : status.state === 'connected'
+                    ? s.connectStripeChange
+                    : s.connectStripe}
               </Button>
               <p className="mt-1 text-[11px] text-ink-muted max-w-xl leading-relaxed">
                 {s.connectStripeNote}

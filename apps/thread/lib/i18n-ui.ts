@@ -223,6 +223,14 @@ const CATALOG = {
     de: 'Kopiert.', // MT
     fr: 'Copié.', // MT
   },
+  connect_stripe_change: {
+    en: 'Connect a different account',
+    nl: 'Een andere rekening koppelen',
+    es: 'Conectar otra cuenta', // MT
+    pt: 'Ligar outra conta', // MT
+    de: 'Ein anderes Konto verbinden', // MT
+    fr: 'Connecter un autre compte', // MT
+  },
   connect_stripe: {
     en: 'Connect Stripe',
     nl: 'Stripe koppelen',
