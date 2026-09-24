@@ -242,6 +242,14 @@ second, drifting copy.
 - **After pulling a commit that ADDS a shared subpath export, build shared before believing a typecheck failure.** A stale `dist/` makes an unrelated app fail with e.g. `apps/membership/lib/i18n.ts(17,34): error TS2307: Cannot find module '@thefibre/shared/participant-auth-i18n' or its corresponding type declarations.` The error names the consuming app and a module path and points nowhere near the stale artefact in another package. Fix: `pnpm --filter @thefibre/shared build`.
 - **When `apps/api` gains a `workspace:*` dependency, add it to `apps/api/Dockerfile` in the same commit.** The image copies each package BY NAME (`packages/shared`, `packages/mcp`, …); a new one builds fine locally and fails only in the Fly build with `tsc` unable to find the module. Hit on 2026-09-21 (v0.85.0 → fixed in v0.85.2). And read the tail of a `fly deploy` log before announcing it landed — a failed image build still exits the background command cleanly.
 - **After pulling a commit that ADDS a workspace package, run `pnpm install` before `pnpm verify`.** A checkout (worktree especially) has no `node_modules` for a package it has never installed, so `pnpm -r typecheck` fails inside that package with missing modules. Hit on 2026-09-15, first release after `packages/mcp` landed.
+- **`pnpm verify` cannot finish in a worktree without pointing it at an env
+  file.** Its last step (`sync-app-names.mjs --check`) reads a Supabase
+  project, and `apps/api/.env` is gitignored — so it exists in the main
+  checkout and in no worktree. The failure is the last line of a long green
+  run (`Env file not found: …/apps/api/.env`) and looks like a broken release,
+  not a missing file. Run the release as
+  `FIBRE_ENV_FILE=/Users/sjoerdair/Projects/thefibre/apps/api/.env ./scripts/release.sh`.
+  An absolute path is honoured; the check itself is read-only.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
 ## Where we left off — 2026-09-01 (v0.21.0)
