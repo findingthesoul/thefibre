@@ -1008,6 +1008,21 @@ function EngagementCard({
               {meta.family === 'message' && (
                 <span className="text-ink-muted">{triggerText}</span>
               )}
+              {/* Which message is the platform's own.
+                  It carries the TICKET — sendTriggeredMessages attaches it
+                  only to the row whose system_role is enrolment_confirmed —
+                  and until 2026-09-25 nothing on this screen said so. A
+                  duplicated thread ended up with two identical "You're
+                  enrolled" rows (the copy lost its system_role and a second
+                  was seeded), and deleting the wrong one left every enrolling
+                  participant getting an email with no ticket in it. Sjoerd
+                  hit exactly that: "It auto copies the enrolment message. I
+                  CAN'T DELETE ONE." */}
+              {e.system_role && (
+                <span className="px-1.5 py-px rounded-full ring-1 ring-line bg-surface-sunken text-ink-muted">
+                  {t(locale, 'sends_the_ticket')}
+                </span>
+              )}
             </div>
             <div className="mt-0.5 text-[15px] font-medium truncate">{e.title}</div>
           </div>

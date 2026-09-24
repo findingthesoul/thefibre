@@ -6,6 +6,66 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.49.2] — 2026-09-25 — a duplicated thread stops arriving with two enrolment messages (staging)
+
+Sjoerd, after duplicating a thread into "fellowship year agenda": *"It auto
+copies the enrolment message. I CAN'T DELETE ONE."*
+
+Two faults met, and the second is what made it feel unfixable.
+
+**The duplicate dropped `system_role`.** The engagement clone names its
+columns explicitly — correct for a clone — and that list never included
+`system_role`. So the copied enrolment message arrived as an ordinary
+message; opening the new thread then found no `enrolment_confirmed`, and
+seeded a second one. Two identical "You're enrolled" rows at position −2.
+
+**And a deleted system message came straight back.**
+`ensureSystemEngagements` runs on EVERY editor load and asked *is this row
+here?* rather than *did we already give it to you?*. So deleting the real one
+re-created it moments later. The note above that function has said since it
+was written that these are "seeded, not required — delete one and the send
+falls back to the platform's compiled email". That was never true. The
+message was undeletable, and because the two rows were identical, whether
+deleting appeared to work at all came down to which one you picked.
+
+### What made it expensive rather than annoying
+
+**The ticket is attached only to the row carrying `enrolment_confirmed`** —
+deliberately, so that an organiser editing their welcome text cannot delete
+the ticket out of their own ticket email. With two identical rows and no
+marker, deleting the wrong one leaves every enrolling participant getting an
+email with no ticket in it. And until one is deleted, everyone who enrols
+receives **two** emails, one of them ticketless.
+
+So the timeline now marks that row — **"Sends the ticket"**, in six locales.
+It names what the message does rather than what it is, because "system
+message" tells an organiser nothing about why deleting it would cost them
+something. Nothing on that screen had ever distinguished it.
+
+### The fixes
+
+`system_role` is copied. And migration `20260924224207` adds
+`thread_thread.system_messages_seeded`, a record of which roles a thread has
+already been given, so seeding skips a role already recorded. Delete it and
+it is gone — which is what the comment promised all along.
+
+Per-role rather than one flag, because the second message
+(`enrolment_received`) only applies while a thread requires approval: turning
+approval on later must still seed it once, and a single flag would either
+block that or re-open the hole for both. A failed insert records nothing —
+recording a role whose message never arrived would mean it never arrives and
+is never retried.
+
+The tests read the source, because what needs guarding is the ABSENCE of a
+line: a column left out of an insert, a check left off a branch. Both are
+invisible to a typecheck — nothing is missing, a question is simply the wrong
+question. Verified by removing `system_role` again and watching it go red.
+
+**Existing threads are not repaired by this.** A thread already duplicated
+still carries both rows; deleting either now sticks, and the badge says which
+one holds the ticket.
+
+
 ## [1.49.1] — 2026-09-25 — the invitation email stops promising something untrue
 
 Two sentences, both false, and they were about to go to production.

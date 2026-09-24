@@ -1344,6 +1344,17 @@ const CATALOG = {
     de: 'Nur Worte: ein großer Titel, eine Linie, datierte Einträge. Für ein Werk, das über die Zeit wächst.', // MT
     fr: 'Rien que des mots : un grand titre, un filet, des entrées datées. Pour une œuvre qui se construit dans le temps.', // MT
   },
+  // The badge on the platform's own enrolment message. It names what the
+  // message DOES rather than what it is, because "system message" tells an
+  // organiser nothing about why deleting it would cost them something.
+  sends_the_ticket: {
+    en: 'Sends the ticket',
+    nl: 'Stuurt het ticket',
+    es: 'Envía la entrada', // MT
+    pt: 'Envia o bilhete', // MT
+    de: 'Verschickt das Ticket', // MT
+    fr: 'Envoie le billet', // MT
+  },
   dash_your_site: { en: 'Your site', nl: 'Je site', es: 'Tu sitio', pt: 'Seu site', de: 'Deine Website', fr: 'Ton site' }, // MT es/pt/de/fr
   site_tab_design: { en: 'Design', nl: 'Ontwerp', es: 'Diseño', pt: 'Design', de: 'Design', fr: 'Design' }, // MT es/pt/de/fr
   site_tab_brand: { en: 'Name & images', nl: 'Naam & beelden', es: 'Nombre e imágenes', pt: 'Nome e imagens', de: 'Name & Bilder', fr: 'Nom et images' }, // MT es/pt/de/fr

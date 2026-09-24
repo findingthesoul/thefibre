@@ -1179,6 +1179,16 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       title: e.title,
       description: e.description,
       type: e.type,
+      // WITHOUT THIS the copy of the enrolment message arrives as an
+      // ordinary message, ensureSystemEngagements sees no
+      // `enrolment_confirmed` on the new thread and seeds a SECOND one — two
+      // identical "You're enrolled" rows at position -2, with nothing on
+      // screen telling them apart (Sjoerd, 2026-09-25, duplicating into
+      // "fellowship year agenda"). The insert here names its columns
+      // explicitly, which is the right call for a clone and is also why
+      // every column added to thread_engagement since has to be added here
+      // too — daily_schedule was the last one to be missed.
+      system_role: e.system_role,
       // Keep the source status — an all-draft copy silently empties the
       // public agenda and mutes every message (review 2026-07-05).
       status: e.status === 'published' ? 'published' : 'draft',
@@ -3516,7 +3526,7 @@ async function loadEnrolmentForAction(
 export async function ensureSystemEngagements(threadId: string): Promise<void> {
   const { data: thread } = await adminClient
     .from('thread_thread')
-    .select('id, workspace_id, language, requires_approval')
+    .select('id, workspace_id, language, requires_approval, system_messages_seeded')
     .eq('id', threadId)
     .maybeSingle();
   if (!thread) return;
@@ -3528,12 +3538,22 @@ export async function ensureSystemEngagements(threadId: string): Promise<void> {
     .not('system_role', 'is', null);
   const have = new Set((existing ?? []).map((r) => r.system_role as string));
 
+  // "Did we already give you this?", which is a different question from "is
+  // it here?" — and asking only the second one is why a deleted system
+  // message came straight back on the next editor load. This function runs on
+  // EVERY load, so without the record there was no way to delete one at all,
+  // despite the note above promising there was.
+  const seeded = new Set(
+    ((thread as { system_messages_seeded?: string[] | null }).system_messages_seeded ?? []),
+  );
+  const skip = (role: string) => have.has(role) || seeded.has(role);
+
   const defaults = systemMessageDefaults((thread as { language?: string }).language ?? 'en');
   const rows: Record<string, unknown>[] = [];
 
   // "Your ticket" — on approval where a thread is gated, on enrolment where it
   // is not. One row either way: which moment it fires at is the trigger's job.
-  if (!have.has('enrolment_confirmed')) {
+  if (!skip('enrolment_confirmed')) {
     rows.push({
       workspace_id: thread.workspace_id,
       thread_id: threadId,
@@ -3548,7 +3568,7 @@ export async function ensureSystemEngagements(threadId: string): Promise<void> {
       position: -2,
     });
   }
-  if (thread.requires_approval && !have.has('enrolment_received')) {
+  if (thread.requires_approval && !skip('enrolment_received')) {
     rows.push({
       workspace_id: thread.workspace_id,
       thread_id: threadId,
@@ -3564,7 +3584,17 @@ export async function ensureSystemEngagements(threadId: string): Promise<void> {
   }
   if (!rows.length) return;
   const { error } = await adminClient.from('thread_engagement').insert(rows);
-  if (error) console.warn('[thread] could not seed system messages', error.message);
+  if (error) {
+    console.warn('[thread] could not seed system messages', error.message);
+    return; // Don't record a role we failed to create, or it never arrives.
+  }
+  // Record what was given, so deleting it is final.
+  await adminClient
+    .from('thread_thread')
+    .update({
+      system_messages_seeded: [...seeded, ...rows.map((r) => r.system_role as string)],
+    })
+    .eq('id', threadId);
 }
 
 /** Does this thread carry its own version of one of them? */
