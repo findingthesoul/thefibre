@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.47.1] — 2026-09-24 — the way back is a button
+
+Sjoerd, asking a second time: *"button to go back to thethread"*. It shipped
+in v1.40.3 as a small underlined link at the foot of YOU, which is what a
+second asking usually means — not that it was missing, but that it did not
+read as a way out. It is now a real button, full width on a phone, with an
+arrow on it.
+
+The other half of why he could not find it: v1.40.3 is on staging and
+production is still at v1.40.2, so on the site he was actually looking at,
+there was nothing there at all.
+
 ## [1.47.0] — 2026-09-24 — the atelier, with Connect in it and Flow underneath
 
 Sjoerd, looking at the site: *"The workshop can be called: the atelier"*,
