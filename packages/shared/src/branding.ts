@@ -317,7 +317,10 @@ export const SURFACES = {
    *  organiser workspace. Dev port 3007 (3006 is apps/website). */
   'my-portal': {
     name: ENTITY.publicName,
-    shortLabel: 'My Thread',
+    // The wordmark on the portal itself reads `my.thread`, so every menu that
+    // points at it says the same (Sjoerd, 2026-09-24, on seeing "My Thread"
+    // proposed in the app switcher: *"my.thread"*).
+    shortLabel: 'my.thread',
     tagline: 'Everything you’re part of, in one place.',
     url: 'https://my.thethread.app',
     urlEnv: 'NEXT_PUBLIC_MY_URL',

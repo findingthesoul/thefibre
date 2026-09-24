@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.40.2] — 2026-09-24 — the portal is called my.thread
+
+The wordmark on the portal reads `my.thread`; the switcher entry added in
+1.40.0 said "My Thread". One name, in `SURFACES['my-portal'].shortLabel`,
+which every menu pointing there reads.
+
 ## [1.40.1] — 2026-09-24 — the staging portal address was a production one
 
 Found by looking at the thing rather than at the code. Pressing Subscribe on
