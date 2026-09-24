@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.49.3] — 2026-09-25 — the invitation comes from us, and says who it is from
+
+The fix for "Unable to load event", assuming the test confirms it.
+
+iMIP requires the message's SENDER to align with the ORGANIZER inside it. Ours
+left from `noreply@thethread.app` while the invitation named the organiser at
+their own domain — which is, to Google, exactly what a forged invitation looks
+like. It was right to refuse.
+
+So the ADDRESS is ours and the NAME is theirs. In the inbox and in the calendar
+entry a participant sees "Sjoerd Luteijn"; Reply-To still reaches them; the
+address underneath is the one with SPF and DKIM on it. What a person sees is
+the organiser, and what the protocol checks is consistent.
+
+The alternative is invitations genuinely FROM each organiser's own address,
+which needs every organiser to verify their domain with us. That is real setup
+rather than a code change, and it is Sjoerd's call — this is the version that
+works today for everybody with none.
+
 ## [1.49.2] — 2026-09-25 — a duplicated thread stops arriving with two enrolment messages (staging)
 
 Sjoerd, after duplicating a thread into "fellowship year agenda": *"It auto

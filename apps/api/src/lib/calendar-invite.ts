@@ -44,7 +44,7 @@ import {
   DEFAULT_EVENT_MINUTES,
 } from '@thefibre/shared/ical';
 import { ENTITY } from '@thefibre/shared';
-import { sendEmail } from './email/client.js';
+import { platformFromAddress, sendEmail } from './email/client.js';
 import { calendarInviteEmail } from './email/thread-templates.js';
 
 /** The fields whose change is worth telling somebody about. Sjoerd set this
@@ -326,6 +326,25 @@ export async function sendPendingChanges(args: {
     return { sent: 0, recipients: 0, changes: changes.length, skipped: ['no organiser address'] };
   }
 
+  // WHOSE ADDRESS GOES IN ORGANIZER — and why it is not the organiser's.
+  //
+  // It was theirs until 2026-09-25, and Gmail refused every invitation:
+  // "Unable to load event", nothing filed. iMIP requires the message's SENDER
+  // to align with the ORGANIZER, and ours leaves from the platform address
+  // because that is the domain with SPF and DKIM. A mail from us claiming an
+  // ORGANIZER at someone else's domain is, to Google, exactly what a forged
+  // invitation looks like — and it is right to think so.
+  //
+  // So the address is ours and the NAME is theirs: the invitation reads as
+  // "Sjoerd Luteijn" in the inbox and in the calendar entry, and Reply-To
+  // still reaches them. What a person sees is the organiser; what the
+  // protocol checks is consistent.
+  //
+  // The alternative — invitations genuinely FROM each organiser's address —
+  // needs every organiser to verify their own domain with us, which is real
+  // setup rather than a code change. That is Sjoerd's call and he has it.
+  const organizerEmail = platformFromAddress();
+
   const audience = await calendarAudience(args.threadId);
   if (!audience.length) {
     // Nothing to tell, but the changes are still resolved: leaving them
@@ -379,7 +398,7 @@ export async function sendPendingChanges(args: {
         location: state.location,
         url: state.meeting_url ?? state.location_url,
         organizerName: organiserName,
-        organizerEmail: organiserEmail,
+        organizerEmail,
         attendees: [{ name: person.name, email: person.email }],
         status: change.kind === 'cancelled' ? 'CANCELLED' : 'CONFIRMED',
       });
