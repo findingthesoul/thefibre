@@ -56,7 +56,7 @@ export async function createThreadPaymentLink(p: {
   const publicBase = `${threadUrl}/${team?.slug ?? organiser?.slug ?? ''}/${thread?.slug ?? ''}`;
 
   // Same plan-aware fee rule as checkout and the Invoices-page link (lib/fees).
-  const applicationFeeCents = await platformFeeCents(p.workspaceId, p.amountCents);
+  const applicationFeeCents = await platformFeeCents(p.workspaceId, p.amountCents, account);
   try {
     const session = await stripe.checkout.sessions.create(
       {

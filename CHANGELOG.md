@@ -445,6 +445,34 @@ shipping.
 
 ## [Unreleased]
 
+## [1.38.0] — 2026-09-24 — you cannot take a commission from yourself
+
+Sjoerd pressed the test-payment button on The Thread's own workspace and got,
+at the **Pay** button — not at the button he clicked, not on the checkout page,
+but at the last moment that is still a failure:
+
+> Can only apply an application_fee when the request is made on behalf of
+> another account.
+
+The Thread's workspace sells on the platform's OWN Stripe account. Stripe reads
+"on behalf of myself" as not-another-account and refuses the fee. Every seller
+path added `application_fee_amount` unconditionally, so the platform's own
+workspace could not take a payment at all.
+
+`platformFeeCents` now takes the destination account and returns **0** when it
+is our own, via `isOwnAccount()` — one cached `GET /v1/account` per process.
+Applied to all five paths that charge: both test payments, Thread enrolment,
+Thread payment links, Meet bookings.
+
+Fails toward CHARGING. No destination given, or Stripe unreachable, and the fee
+applies exactly as before. A fee wrongly skipped is revenue quietly lost; a fee
+wrongly applied is a loud error somebody notices in minutes.
+
+This is the mirror of v1.27.0. That bug worked for the platform's own accounts
+and failed for everybody else's; this one worked for everybody else's and
+failed for the platform's own. Neither was visible until somebody tried to move
+actual money.
+
 ## [1.35.0] — 2026-09-24 — a sentence that stopped mid-thought
 
 Sjoerd: *"What's the unfinished text at the bottom?"* Under the payments form,

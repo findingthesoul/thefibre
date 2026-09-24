@@ -310,7 +310,7 @@ workspaceBillingRoutes.post('/stripe/test-payment', async (c) => {
           },
         ],
         payment_intent_data: {
-          application_fee_amount: await platformFeeCents(ctx.workspaceId, amountCents),
+          application_fee_amount: await platformFeeCents(ctx.workspaceId, amountCents, account),
           metadata: { fibre_test: 'true', workspace_id: ctx.workspaceId },
         },
         metadata: { fibre_test: 'true', workspace_id: ctx.workspaceId },

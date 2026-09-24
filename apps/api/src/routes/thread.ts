@@ -6277,7 +6277,7 @@ threadRoutes.post('/public/enrol', async (c) => {
     }
 
     // Platform fee — same plan-aware rule as Meet, via lib/fees.
-    const applicationFeeCents = await platformFeeCents(thread.workspace_id, finalPriceCents);
+    const applicationFeeCents = await platformFeeCents(thread.workspace_id, finalPriceCents, destAccount);
 
     const publicBase = `${threadAppUrl()}/${d.organiser_slug}/${thread.slug}`;
     try {

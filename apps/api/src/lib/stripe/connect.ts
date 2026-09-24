@@ -234,3 +234,47 @@ export async function accountStatus(
     return { state: 'unreachable', detail: e instanceof Error ? e.message : 'could not reach Stripe' };
   }
 }
+
+/**
+ * The platform's OWN Stripe account id, read from Stripe and cached.
+ *
+ * Needed because Stripe refuses an `application_fee_amount` when the request
+ * is "on behalf of" the account that is making it: *"Can only apply an
+ * application_fee when the request is made on behalf of another account."*
+ * You cannot take a commission from yourself.
+ *
+ * That is not an edge case here — the workspace that owns the platform is a
+ * real seller. Sjoerd, 2026-09-24, pressing the test-payment button on The
+ * Thread's own workspace, got exactly that error at the Pay button, after the
+ * checkout page had already rendered.
+ *
+ * Read once per process from GET /v1/account, which returns whoever the
+ * secret key belongs to. Cached because it cannot change without a redeploy,
+ * and a failure returns null so callers fall back to CHARGING the fee — the
+ * safe direction, since a missing fee is revenue quietly lost and a wrongly
+ * applied one is a loud error somebody notices.
+ */
+let ownAccountCache: { id: string | null } | null = null;
+
+export async function platformAccountId(): Promise<string | null> {
+  if (ownAccountCache) return ownAccountCache.id;
+  const secret = process.env.STRIPE_SECRET_KEY;
+  if (!secret) return null;
+  try {
+    const res = await fetch('https://api.stripe.com/v1/account', {
+      headers: { Authorization: `Bearer ${secret}` },
+    });
+    const body = (await res.json()) as { id?: string };
+    ownAccountCache = { id: res.ok ? (body.id ?? null) : null };
+    return ownAccountCache.id;
+  } catch {
+    return null;
+  }
+}
+
+/** Is this the platform's own account — i.e. would a fee be a fee on itself? */
+export async function isOwnAccount(accountId: string | null | undefined): Promise<boolean> {
+  if (!accountId) return false;
+  const own = await platformAccountId();
+  return Boolean(own && own === accountId);
+}

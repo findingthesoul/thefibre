@@ -856,7 +856,7 @@ meetRoutes.post('/public/bookings', async (c) => {
     // so we never under-skim. Conservative on the platform side; harmless
     // on the host side.
     const grossCents = mt.price_cents!;
-    const applicationFeeCents = await platformFeeCents(mt.workspace_id, grossCents);
+    const applicationFeeCents = await platformFeeCents(mt.workspace_id, grossCents, hostAccount);
 
     const successUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success`;
     const cancelUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}?stripe=cancelled&booking=${booking.id}`;

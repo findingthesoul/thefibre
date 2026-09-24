@@ -6,11 +6,19 @@
 // lookup fails.
 
 import { adminClient } from '../db.js';
+import { isOwnAccount } from './stripe/connect.js';
 
 export async function platformFeeCents(
   workspaceId: string,
   grossCents: number,
+  /** The account the money is going to. When it is the PLATFORM's own — the
+   *  workspace that owns The Thread is a real seller — Stripe refuses a fee
+   *  outright ("Can only apply an application_fee when the request is made on
+   *  behalf of another account"), so the fee is zero rather than an error at
+   *  the Pay button. Omitted, the fee is charged as before. */
+  destinationAccountId?: string | null,
 ): Promise<number> {
+  if (destinationAccountId && (await isOwnAccount(destinationAccountId))) return 0;
   let feePct = 0.02;
   let feeCapCents: number | null = 200;
   try {
