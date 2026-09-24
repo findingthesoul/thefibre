@@ -644,6 +644,17 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   ./scripts/release.sh                         # or with the number, as before
   ```
 
+  **And write that heading at the TOP of the file**, directly under the
+  preamble, above the newest release — not under `## [Unreleased]` wherever
+  that happens to sit. `next-version.mjs` renumbers the TOPMOST
+  `## [NEXT]`-or-version heading it finds, so an entry filed further down does
+  not get renumbered; the newest *shipped* entry does, and a release that
+  already exists silently takes your number. The `## [Unreleased]` marker is a
+  convenience, not a fixed point: on 2026-09-24 it had drifted 440 lines into
+  the archive, and inserting "after `## [Unreleased]`" — the obvious move —
+  filed four releases below 1.26.0 before anyone noticed. Find the newest
+  version heading and go above it; that cannot drift.
+
   It reads the last release from CHANGELOG on `origin/staging` — the same
   source `release-guard.sh` reads, so the two cannot disagree — and stamps
   every `package.json`, `apps/web/lib/version.ts` and the heading. If you lose

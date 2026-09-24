@@ -102,6 +102,70 @@ builders as the rest, with a test that the links reach the rendered output. No
 "Add to calendar" on it: nothing is confirmed yet, and a calendar file for a
 time that may not happen is worse than none.
 
+## [1.35.0] — 2026-09-24 — a sentence that stopped mid-thought
+
+Sjoerd: *"What's the unfinished text at the bottom?"* Under the payments form,
+in every app: **"The Stripe account id starts with"**. And then nothing.
+
+It is one sentence assembled from three pieces — prose, the literal prefix
+`acct_` in a code style, then the rest: *"(Stripe → Settings → Account
+details). Leaving it empty disconnects…"*. When the form was extracted to
+`@thefibre/shared` the render kept only the first piece, so all five apps have
+been ending on a preposition.
+
+Restored exactly as it was written before extraction, found in git history
+rather than reinvented.
+
+Worth naming: the extraction moved 180 lines of form and this is the second
+thing it dropped today — the first was the personal Connect wiring in The
+Fibre. Nothing failed, nothing errored; the page just quietly said less than
+it used to. A typecheck cannot see a missing paragraph.
+
+## [1.34.0] — 2026-09-24 — "Connected" now says connected to WHAT
+
+Sjoerd: *"Should Trade Name also not be in settings of payments? And get that
+from Stripe (so it is clearly the right account)."*
+
+The badge said **Connected** and nothing else. That is one step along from the
+badge that meant "the text box is not empty" — it now proves an account
+answers, but not whose. With four clients each connecting their own Stripe,
+the question is never whether AN account is attached; it is whether it is
+theirs.
+
+The status call already fetched the account to ask whether charges were
+enabled, so the name was one field away. It now returns the **trade name**
+(`business_profile.name`), falling back to the dashboard display name, plus
+the account **email** and **country** — Stripe's own words, never something we
+stored and could have stored wrong. The shared form shows them under the
+badge, so all five apps get it without per-app wiring.
+
+Somebody who connects the wrong company now sees it immediately, rather than
+after the first payment lands somewhere unexpected.
+
+## [1.33.0] — 2026-09-24 — The Fibre's payments page was a version behind the day it was born
+
+Sjoerd: *"I dont see the connect button with personal."* In The Fibre he got
+the workspace button and not the personal one; in Thread or Meet he would have
+seen both.
+
+The Fibre's payments page was created that morning (v1.30.0) by copying
+Thread's thin wrapper. Hours later v1.31.0 added personal Connect and the test
+payment, and updated the four wrappers that existed — mine was too new to be
+on anybody's list. So the page shipped missing four props:
+`loadPersonalStripeStatus`, `startPersonalStripeConnect`,
+`startPersonalTestPayment`, `startWorkspaceTestPayment`.
+
+Now identical to the other four, checked by diffing the props rather than by
+reading.
+
+**The lesson is the one the file already warned about.** Thread's wrapper says
+it *was* the implementation and that the other three "carried ports of it that
+had drifted". Extracting the form fixed the drift in the big half and left
+five thin wrappers to drift instead — and the first drift happened within
+hours, to the newest copy, in the direction nobody was watching. The strings
+are shared now (`payments-i18n`); the wiring is the remaining copy, and a
+sixth app would inherit the same trap.
+
 ## [1.32.1] — 2026-09-24 — Escape closes the share menu, not the page under it
 
 The share menu that shipped an hour ago listened for Escape on `document` in
@@ -181,6 +245,61 @@ each holds its own unsaved edits and its own Save.
 
 Also: the help text under Save printed twice — `stripeNote1` already
 contained the sentence `stripeNote2` repeated. Only the first renders now.
+
+## [1.30.0] — 2026-09-24 — the reusable settings are in The Fibre
+
+Sjoerd: *"the settings for my company: payment etc. is needed in 4 apps, but it
+does not show in the fibre settings... I expect that reusable items (also
+calender connection etc. and zoom) are always there."*
+
+He was right, and the omission was backwards. The Fibre's settings hub said
+`omit: ['payments', 'connections']`, with a note that both "are set up inside
+the apps that use them". That was true of the PAGES and never of the DATA:
+payments has been platform-level since 2026-07-04 — personal on
+`user_profile`, workspace on the workspace row, every reader through
+`lib/payment-accounts.ts` — and the calendar and meeting-room connection since
+v0.13.107. So Thread, Meet, Members and Pulse each showed a form for values
+**this** app owns, and this app showed nothing.
+
+- **Payments** is now a page in The Fibre, on the same endpoints and the same
+  shared form as the other four.
+- **Connections** — calendar, Zoom, personal room — was already here. It was
+  simply not listed.
+
+**And the copy is shared rather than copied a fifth time.** The four apps hold
+the same 37 strings under different key names, which is why the shared form
+takes a typed object instead of doing a key lookup. Adding a fifth catalogue
+would have meant 37 strings × 6 languages retranslated. They are lifted
+verbatim into `@thefibre/shared/payments-i18n` from Thread, which CLAUDE.md
+names design-leading. No other app is touched; any of them can drop its own 37
+keys whenever it likes.
+
+The app copies stay on purpose. Somebody setting up Meet should not have to
+leave Meet to finish — the point is that the platform is where you can always
+find it, not that it is the only door.
+
+## [1.29.0] — 2026-09-24 — your site opens in the same tab (staging)
+
+Sjoerd: *"your site... is open in a new tab"* — it was, and he was saying so
+because he did not want it.
+
+Going to your own public homepage is navigation, not a detour. A new tab
+leaves a dead admin tab behind every time you look, and the way back is the
+browser's Back button, which is where people already reach for it.
+
+Both doors changed together — the dashboard's **Your site** and Settings →
+Website's **Preview** — because they lead to the same page, and one of them
+behaving differently would be worse than either choice on its own.
+
+The icon changed with them. `ExternalLink` is a promise that a link leaves
+and opens elsewhere; leaving it on a same-tab link would be the icon lying
+about the behaviour. `Globe` says "your public site" and promises nothing
+about tabs.
+
+**Left alone, deliberately:** a thread's own *Open public page* in the
+editor. That one IS a detour — you are mid-edit and want to see how it looks
+— and not losing the editor is exactly what a new tab is for.
+
 
 ## [1.28.1] — 2026-09-24 — a gate that cannot pass should say so in seconds
 
@@ -472,125 +591,6 @@ JavaScript sees a true time rather than none.
 `GET /meet/public/bookings/:id` gained the host's `timezone` (additive) to
 make that fallback possible. The select was run against production before
 shipping.
-
-## [1.35.0] — 2026-09-24 — a sentence that stopped mid-thought
-
-Sjoerd: *"What's the unfinished text at the bottom?"* Under the payments form,
-in every app: **"The Stripe account id starts with"**. And then nothing.
-
-It is one sentence assembled from three pieces — prose, the literal prefix
-`acct_` in a code style, then the rest: *"(Stripe → Settings → Account
-details). Leaving it empty disconnects…"*. When the form was extracted to
-`@thefibre/shared` the render kept only the first piece, so all five apps have
-been ending on a preposition.
-
-Restored exactly as it was written before extraction, found in git history
-rather than reinvented.
-
-Worth naming: the extraction moved 180 lines of form and this is the second
-thing it dropped today — the first was the personal Connect wiring in The
-Fibre. Nothing failed, nothing errored; the page just quietly said less than
-it used to. A typecheck cannot see a missing paragraph.
-
-## [1.34.0] — 2026-09-24 — "Connected" now says connected to WHAT
-
-Sjoerd: *"Should Trade Name also not be in settings of payments? And get that
-from Stripe (so it is clearly the right account)."*
-
-The badge said **Connected** and nothing else. That is one step along from the
-badge that meant "the text box is not empty" — it now proves an account
-answers, but not whose. With four clients each connecting their own Stripe,
-the question is never whether AN account is attached; it is whether it is
-theirs.
-
-The status call already fetched the account to ask whether charges were
-enabled, so the name was one field away. It now returns the **trade name**
-(`business_profile.name`), falling back to the dashboard display name, plus
-the account **email** and **country** — Stripe's own words, never something we
-stored and could have stored wrong. The shared form shows them under the
-badge, so all five apps get it without per-app wiring.
-
-Somebody who connects the wrong company now sees it immediately, rather than
-after the first payment lands somewhere unexpected.
-
-## [1.33.0] — 2026-09-24 — The Fibre's payments page was a version behind the day it was born
-
-Sjoerd: *"I dont see the connect button with personal."* In The Fibre he got
-the workspace button and not the personal one; in Thread or Meet he would have
-seen both.
-
-The Fibre's payments page was created that morning (v1.30.0) by copying
-Thread's thin wrapper. Hours later v1.31.0 added personal Connect and the test
-payment, and updated the four wrappers that existed — mine was too new to be
-on anybody's list. So the page shipped missing four props:
-`loadPersonalStripeStatus`, `startPersonalStripeConnect`,
-`startPersonalTestPayment`, `startWorkspaceTestPayment`.
-
-Now identical to the other four, checked by diffing the props rather than by
-reading.
-
-**The lesson is the one the file already warned about.** Thread's wrapper says
-it *was* the implementation and that the other three "carried ports of it that
-had drifted". Extracting the form fixed the drift in the big half and left
-five thin wrappers to drift instead — and the first drift happened within
-hours, to the newest copy, in the direction nobody was watching. The strings
-are shared now (`payments-i18n`); the wiring is the remaining copy, and a
-sixth app would inherit the same trap.
-
-## [1.30.0] — 2026-09-24 — the reusable settings are in The Fibre
-
-Sjoerd: *"the settings for my company: payment etc. is needed in 4 apps, but it
-does not show in the fibre settings... I expect that reusable items (also
-calender connection etc. and zoom) are always there."*
-
-He was right, and the omission was backwards. The Fibre's settings hub said
-`omit: ['payments', 'connections']`, with a note that both "are set up inside
-the apps that use them". That was true of the PAGES and never of the DATA:
-payments has been platform-level since 2026-07-04 — personal on
-`user_profile`, workspace on the workspace row, every reader through
-`lib/payment-accounts.ts` — and the calendar and meeting-room connection since
-v0.13.107. So Thread, Meet, Members and Pulse each showed a form for values
-**this** app owns, and this app showed nothing.
-
-- **Payments** is now a page in The Fibre, on the same endpoints and the same
-  shared form as the other four.
-- **Connections** — calendar, Zoom, personal room — was already here. It was
-  simply not listed.
-
-**And the copy is shared rather than copied a fifth time.** The four apps hold
-the same 37 strings under different key names, which is why the shared form
-takes a typed object instead of doing a key lookup. Adding a fifth catalogue
-would have meant 37 strings × 6 languages retranslated. They are lifted
-verbatim into `@thefibre/shared/payments-i18n` from Thread, which CLAUDE.md
-names design-leading. No other app is touched; any of them can drop its own 37
-keys whenever it likes.
-
-The app copies stay on purpose. Somebody setting up Meet should not have to
-leave Meet to finish — the point is that the platform is where you can always
-find it, not that it is the only door.
-
-## [1.29.0] — 2026-09-24 — your site opens in the same tab (staging)
-
-Sjoerd: *"your site... is open in a new tab"* — it was, and he was saying so
-because he did not want it.
-
-Going to your own public homepage is navigation, not a detour. A new tab
-leaves a dead admin tab behind every time you look, and the way back is the
-browser's Back button, which is where people already reach for it.
-
-Both doors changed together — the dashboard's **Your site** and Settings →
-Website's **Preview** — because they lead to the same page, and one of them
-behaving differently would be worse than either choice on its own.
-
-The icon changed with them. `ExternalLink` is a promise that a link leaves
-and opens elsewhere; leaving it on a same-tab link would be the icon lying
-about the behaviour. `Globe` says "your public site" and promises nothing
-about tabs.
-
-**Left alone, deliberately:** a thread's own *Open public page* in the
-editor. That one IS a detour — you are mid-edit and want to see how it looks
-— and not losing the editor is exactly what a new tab is for.
-
 
 ## [1.25.0] — 2026-09-24 — the release number is allocated, not chosen
 
