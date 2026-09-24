@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.40.4] — 2026-09-24 — where a subscription can actually be added
+
+Sjoerd, on his phone, minutes after it shipped: "but can not add these to your
+own calendar? and get them updated?"
+
+The instructions said "In Google Calendar: Other calendars → From URL", which
+is true and is WEB ONLY. Google's phone app has no way to add a calendar by
+URL at all. So the person most likely to be standing in front of this — a
+participant, on a phone, who just pressed Subscribe — was told to do something
+their device cannot do, with no hint that a computer was required. It syncs to
+the phone perfectly well once a computer has added it; it simply cannot be
+added there.
+
+Also says what a subscription IS, which the card assumed everyone knew: it
+arrives as its own calendar beside yours, the sessions show up in your day,
+and you cannot edit them. That last part is not a limitation to apologise for
+— it is the reason the dates stay correct.
+
 ## [1.40.3] — 2026-09-24 — the way back out of the portal
 
 The app switcher now offers my.thread from every app; this is the other

@@ -110,9 +110,21 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
             It is stored scrambled, so this is the only time it can be shown.
             If you lose it, make a new one.
           </p>
+          {/* Where each client actually accepts a subscription, which is not
+              the same place on every device. Google only takes one on the
+              WEB — there is no "add by URL" in its phone app, so a phone-only
+              person following the old wording had nowhere to put this. It
+              syncs to the phone afterwards; it just cannot be added there. */}
           <p className="mt-2 text-xs text-ink-muted">
-            In Google Calendar: Other calendars → From URL. In Apple Calendar:
-            File → New Calendar Subscription.
+            Google Calendar: on a computer, at calendar.google.com → Other
+            calendars → From URL. Its phone app cannot add one, but it appears
+            there once the computer has it. Apple Calendar: Open in calendar
+            above, or File → New Calendar Subscription.
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">
+            It arrives as its own calendar next to yours — you will see the
+            sessions in your day, and you cannot edit them. That is what keeps
+            them correct.
           </p>
         </div>
       ) : subscribed ? (
