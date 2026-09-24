@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.40.3] — 2026-09-24 — the way back out of the portal
+
+The app switcher now offers my.thread from every app; this is the other
+half of that pair. Under You, above Sign out, a link back to the public
+site — Sjoerd: *"And of course on my.thread below YOU a button: back the
+thethread.app"*.
+
+It points at the site rather than an app, because someone reading this page
+holds a seat in no app by definition, and `thethread.app` is the address
+they know. Both the href and its LABEL come from `surfaceUrl(..., host)`:
+on staging the page is my.thefibre.tech, and a link reading "thethread.app"
+would be telling a visitor they are somewhere they are not.
+
 ## [1.40.2] — 2026-09-24 — the portal is called my.thread
 
 The wordmark on the portal reads `my.thread`; the switcher entry added in

@@ -10,7 +10,8 @@
 // workspace sees. A member has none of that. What they have is a name that
 // several communities hold copies of, and a language.
 
-import { ENTITY } from '@thefibre/shared';
+import { ENTITY, surfaceUrl } from '@thefibre/shared';
+import { headers } from 'next/headers';
 import { loadCalendarStatus, loadProfile, loadSession } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { SignedOut } from '../signed-out';
@@ -28,6 +29,10 @@ export default async function YouPage() {
   const profile = await loadProfile();
   const calendar = await loadCalendarStatus();
   const { person } = session.portal;
+  // Label derived from the resolved href, not from the constant: on staging
+  // this page is my.thefibre.tech and a link reading "thethread.app" would be
+  // telling the visitor they are somewhere they are not.
+  const siteUrl = surfaceUrl('website', process.env, (await headers()).get('host'));
 
   return (
     <PageShell title="You">
@@ -60,7 +65,23 @@ export default async function YouPage() {
 
       <CalendarCard status={calendar} />
 
+      {/* The way back. The app switcher now offers my.thread from every app,
+          so this is the other half of that pair — a member who lives here
+          still needs one obvious door outward. It points at the public site
+          rather than an app: someone reading this page has a seat in no app
+          by definition, and thethread.app is the address they know.
+          (Sjoerd, 2026-09-24: *"And of course on my.thread below YOU a
+          button: back the thethread.app"*.) */}
       <div className="mt-10 border-t border-line pt-6">
+        <a
+          href={siteUrl}
+          className="inline-flex items-center gap-1.5 text-sm text-ink-subtle underline underline-offset-4 hover:text-ink"
+        >
+          Back to {siteUrl.replace(/^https?:\/\//, '')}
+        </a>
+      </div>
+
+      <div className="mt-8 border-t border-line pt-6">
         <SignOutButton />
       </div>
 
