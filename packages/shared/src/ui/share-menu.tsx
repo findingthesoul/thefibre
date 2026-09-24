@@ -64,14 +64,23 @@ export function ShareMenu({
     function onDown(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    // CAPTURE phase, and the key stops here. This menu is a layer, and the
+    // layer underneath may be the shared Dialog, whose own Escape listener
+    // sits on `document` in the BUBBLE phase and was registered first — so a
+    // bubble listener here could never get in front of it. The symptom points
+    // away from the cause: Escape would close the dialog underneath and leave
+    // this menu stranded over a page whose parent is gone. dialog.tsx's own
+    // header documents the rule; this follows it rather than rediscovering it.
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      setOpen(false);
     }
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onKey, true);
     };
   }, [open]);
 

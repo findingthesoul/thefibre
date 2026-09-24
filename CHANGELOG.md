@@ -4,6 +4,20 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.32.1] — 2026-09-24 — Escape closes the share menu, not the page under it
+
+The share menu that shipped an hour ago listened for Escape on `document` in
+the bubble phase. The shared Dialog does the same, and listeners on one node
+fire in registration order — the dialog opens first, so it wins. Put the menu
+inside a dialog and Escape would have closed the DIALOG, leaving the menu
+stranded over a page whose parent was gone. That exact failure cost an hour in
+the visitor portal in September and is written up in `dialog.tsx`'s header;
+the menu now follows the rule it documents — capture phase,
+`stopImmediatePropagation`.
+
+Nothing renders it inside a dialog today. Fixed now because it is a new shared
+component and the second consumer is the one who would have paid for it.
+
 ## [1.32.0] — 2026-09-24 — a meeting type can hand you its link (Meet 2.13.0)
 
 "meeting type -> add a share button (dropdown: visit page link and copy link)"
