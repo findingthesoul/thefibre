@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.40.1] — 2026-09-24 — the staging portal address was a production one
+
+Found by looking at the thing rather than at the code. Pressing Subscribe on
+`my.thefibre.tech` handed back a `my.thethread.app` address — a subscription
+URL on the PRODUCTION domain, minted on staging, carrying a token that only
+exists on staging. It would have failed for whoever pasted it, and it is the
+exact failure the staging apex exists to prevent (Sjoerd, 2026-09-13: *"The
+menu brings me from .tech to .app"*).
+
+Two causes, and the second is the one worth keeping:
+
+1. The staging API had no `NEXT_PUBLIC_MY_URL`. Set. Its seven siblings all
+   had theirs; the portal is newer than the last time anyone added one.
+2. `surfaceUrl`'s staging fallback returned the bare apex for EVERY surface,
+   because surfaces had no label map the way apps do — so `my-portal` on
+   staging resolved to the marketing site. Nothing had noticed because every
+   previous caller was a Next app with the env var set. The first caller
+   without one was the API, and a missing variable there falls toward
+   production, which is the wrong way for a mistake to fall.
+
+`stagingSurfaceUrl` now exists beside `stagingAppUrl`, with the label map next
+to it, so registering a surface and giving it a staging address are the same
+edit. Three cases pinned.
+
 ## [1.40.0] — 2026-09-24 — pushed to your own page, and a way back to it
 
 Sjoerd, after the redirect-loop fix landed: *"I rather have that someone is

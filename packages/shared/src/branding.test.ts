@@ -155,3 +155,26 @@ describe('which stack an app link points at', () => {
     ).toBe('https://meet.example.test');
   });
 });
+
+// The portal surface is NOT the apex, and a staging caller without the env
+// var used to be told it was. The first caller in that position was the API
+// building a calendar subscription address — a URL that lives in someone's
+// calendar for years — and it handed out the PRODUCTION portal from the
+// staging stack.
+describe('surfaceUrl — the portal surface on staging', () => {
+  it('resolves to the portal on the staging apex, not the marketing site', () => {
+    expect(surfaceUrl('my-portal', {}, 'thread.thefibre.tech')).toBe('https://my.thefibre.tech');
+    expect(surfaceUrl('my-portal', {}, 'thefibre.tech')).toBe('https://my.thefibre.tech');
+  });
+
+  it('still prefers an explicit env value', () => {
+    expect(
+      surfaceUrl('my-portal', { NEXT_PUBLIC_MY_URL: 'https://my.thefibre.tech' }, null),
+    ).toBe('https://my.thefibre.tech');
+  });
+
+  it('falls back to production when nothing says otherwise', () => {
+    expect(surfaceUrl('my-portal', {}, null)).toBe('https://my.thethread.app');
+    expect(surfaceUrl('my-portal', {}, 'thread.thethread.app')).toBe('https://my.thethread.app');
+  });
+});

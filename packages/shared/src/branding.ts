@@ -372,8 +372,27 @@ export function surfaceUrl(
   const s = SURFACES[key];
   const fromEnv = env?.[s.urlEnv];
   if (fromEnv && fromEnv.trim()) return fromEnv.trim();
-  if (isStagingHost(host)) return `https://${STAGING_APEX}`;
+  if (isStagingHost(host)) return stagingSurfaceUrl(key);
   return s.url;
+}
+
+/** The label each SURFACE answers on, on the staging apex. Null = the apex.
+ *
+ *  This was missing until 2026-09-24: `surfaceUrl` sent every staging caller
+ *  to the bare apex, so `my-portal` on staging resolved to the marketing site
+ *  rather than the portal. Nothing had noticed because every caller in a Next
+ *  app had the env var set; the first caller without one was the API, building
+ *  a calendar subscription address, and it handed out a PRODUCTION URL from
+ *  the staging stack. Which is the failure this fallback exists to prevent. */
+const STAGING_SURFACE_LABEL: Record<SurfaceKey, string | null> = {
+  'my-portal': 'my',
+  website: null,
+};
+
+/** Where a surface lives on the staging stack. */
+export function stagingSurfaceUrl(key: SurfaceKey): string {
+  const label = STAGING_SURFACE_LABEL[key];
+  return label ? `https://${label}.${STAGING_APEX}` : `https://${STAGING_APEX}`;
 }
 
 /** The brand PLATFORM emails (and the shared legal footer line) present
