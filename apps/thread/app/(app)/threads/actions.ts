@@ -643,12 +643,12 @@ export async function sendCalendarChanges(
   note: string | null,
 ): Promise<ActionResult & { sent?: number; recipients?: number }> {
   try {
-    const r = await apiFetch<{ sent: number; recipients: number; skipped: string[] }>(
+    const r = await apiFetch<{ started: boolean; changes: number; recipients: number }>(
       `/api/v1/thread/threads/${threadId}/calendar-changes/send`,
       { method: 'POST', body: JSON.stringify({ note }) },
     );
     revalidatePath(`/threads/${threadId}`);
-    return { ok: true, sent: r.sent, recipients: r.recipients };
+    return { ok: true, sent: r.started ? r.changes : 0, recipients: r.recipients };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };
   }

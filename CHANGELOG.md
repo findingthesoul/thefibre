@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.51.0] — 2026-09-25 — a send that survives being interrupted
+
+Found by sending a cancellation and then reading the API log instead of the
+response, which was empty. Fly had closed the connection about twenty seconds
+in: *"connection closed before message completed"*, and the machine failed a
+health check on the way past.
+
+Two faults, and the second is the one that would have cost somebody.
+
+**The send held an HTTP request open for the whole job.** One message per
+recipient per change, paced at the mail provider's ceiling — forty people and
+three changes is a hundred and twenty messages and over a minute. Nothing
+should hold a connection that long and Fly does not let it. The request now
+starts the work and answers immediately with what it is about to do.
+
+**And the queue was marked sent only at the very end.** So an interrupted run
+left every change unsent while the sequence numbers had already moved on:
+pressing the button again would have re-invited everyone who had already
+heard. Each change is now marked as its own messages finish, which is what
+makes an interrupted run safe to simply leave interrupted — the queue is the
+record of what is left.
+
+A second press while a send is in flight is also refused now. It is exactly
+the button people press twice when nothing appears to happen, and the first
+press no longer makes anything appear to happen.
+
+**The tray says "Sending", not "Sent"**, for the same reason the invitation
+email stopped claiming calendars had updated: the work outlives the answer, so
+claiming completion we have not seen is the same mistake one level up.
+
+The cancellation itself is still unproven — the run that was meant to test it
+is the run that failed. That is the next thing to send.
+
 ## [1.50.0] — 2026-09-25 — Your own Claude can now make a thread for you, from a schedule (staging)
 
 docs/mcp-personal-access-plan.md, phase 4's first slice. Sjoerd: "Is it now

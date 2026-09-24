@@ -66,9 +66,14 @@ export function CalendarTray({ threadId }: { threadId: string }) {
       }
       setOpen(false);
       setNote('');
+      // "Sending", not "Sent": the work runs on after the answer comes back,
+      // because holding a request open for a hundred messages is what broke
+      // it once already. Promising completion we have not seen is the same
+      // class of mistake as the email copy that promised a calendar had
+      // updated itself.
       setDone(
-        r.sent
-          ? `Sent to ${r.recipients} ${r.recipients === 1 ? 'person' : 'people'}.`
+        r.recipients
+          ? `Sending to ${r.recipients} ${r.recipients === 1 ? 'person' : 'people'}. Their calendars update as it arrives.`
           : 'Nothing to send — nobody is enrolled yet.',
       );
       setChanges([]);

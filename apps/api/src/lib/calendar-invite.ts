@@ -355,6 +355,12 @@ export async function sendPendingChanges(args: {
 
   let sent = 0;
   for (const change of changes) {
+    // Marked one at a time, below, as each finishes. It used to be one
+    // markSent for all of them after the loop, and the loop does not always
+    // reach the end (2026-09-24: Fly closed a 20-second request mid-send).
+    // With a single mark at the end, a send that dies halfway leaves every
+    // change unsent — so pressing the button again re-invites everyone who
+    // already heard, from a sequence that has already moved on.
     const state = change.now_state ?? change.was;
     if (!state?.starts_at) {
       skipped.push(`${change.title}: no date`);
@@ -433,9 +439,14 @@ export async function sendPendingChanges(args: {
         skipped.push(`${person.email}: send failed`);
       }
     }
+
+    // This change is done. Recorded now so a later failure cannot undo it —
+    // and recorded even when every address bounced, because the alternative
+    // is a queue that can never be cleared and a button that re-sends forever
+    // to the people it CAN reach.
+    await markSent([change.id]);
   }
 
-  await markSent(changes.map((ch) => ch.id));
   return { sent, recipients: audience.length, changes: changes.length, skipped };
 }
 
@@ -482,4 +493,50 @@ export function whenLine(startsAt: Date, endsAt: Date | null): string {
   const time = (d: Date) =>
     d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
   return endsAt ? `${day}, ${time(startsAt)}–${time(endsAt)} UTC` : `${day}, ${time(startsAt)} UTC`;
+}
+
+// ---------------------------------------------------------------------------
+// Starting a send without holding a request open
+// ---------------------------------------------------------------------------
+//
+// A send is one message per recipient per change, paced at Resend's ceiling.
+// Forty people and three changes is a hundred and twenty messages and over a
+// minute of work — far longer than anything should hold an HTTP connection
+// open, and on 2026-09-24 Fly closed one mid-send at about twenty seconds. The
+// organiser saw nothing, the queue stayed unsent, and the sequence numbers had
+// already moved on.
+//
+// So the request starts the work and answers immediately with what it is about
+// to do. The queue is the record of what is left, marked change by change as
+// it goes, which is what makes an interrupted run safe to leave interrupted.
+
+/** Threads with a send in flight. A second press while the first is running
+ *  would re-invite everyone the first has not reached yet — and the button is
+ *  exactly the kind people press twice when nothing appears to happen. */
+const sending = new Set<string>();
+
+export async function startSendingPendingChanges(args: {
+  threadId: string;
+  note?: string | null;
+}): Promise<{ started: boolean; changes: number; recipients: number }> {
+  const [changes, audience] = await Promise.all([
+    pendingChanges(args.threadId),
+    calendarAudience(args.threadId),
+  ]);
+  if (!changes.length) return { started: false, changes: 0, recipients: audience.length };
+  if (sending.has(args.threadId)) {
+    return { started: false, changes: changes.length, recipients: audience.length };
+  }
+
+  sending.add(args.threadId);
+  void sendPendingChanges({ threadId: args.threadId, note: args.note ?? null })
+    .then((r) => {
+      if (r.skipped.length) {
+        console.log('[thread/calendar] send finished with skips', { threadId: args.threadId, ...r });
+      }
+    })
+    .catch((e) => console.error('[thread/calendar] send failed', { threadId: args.threadId, e }))
+    .finally(() => sending.delete(args.threadId));
+
+  return { started: true, changes: changes.length, recipients: audience.length };
 }

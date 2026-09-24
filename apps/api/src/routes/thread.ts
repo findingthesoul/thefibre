@@ -6,7 +6,7 @@ import {
   isCalendarSession,
   pendingChanges,
   recordCalendarChange,
-  sendPendingChanges,
+  startSendingPendingChanges,
 } from '../lib/calendar-invite.js';
 import { profileFor } from '../lib/identity-profile.js';
 import { handleUpload } from '../lib/uploads.js';
@@ -1574,7 +1574,11 @@ threadRoutes.post('/threads/:id/calendar-changes/send', async (c) => {
   const body = (await c.req.json().catch(() => null)) as { note?: unknown } | null;
   const note = typeof body?.note === 'string' ? body.note.slice(0, 2000) : null;
 
-  const result = await sendPendingChanges({ threadId, note });
+  // Starts the work and answers now. A send is one message per recipient per
+  // change; holding the request open for all of them is what closed a
+  // connection mid-send on 2026-09-24 and left the queue in a state where
+  // pressing again would have re-invited everyone.
+  const result = await startSendingPendingChanges({ threadId, note });
   return c.json(result);
 });
 
