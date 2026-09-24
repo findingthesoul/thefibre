@@ -3,6 +3,7 @@
 
 import { emailSignoff, INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared';
 import { shell, escapeHtml, type EmailBrand } from './templates.js';
+import { myThreadUrl } from '../message-tokens.js';
 
 /**
  * The organiser's own words, dropped into the platform's email.
@@ -206,6 +207,38 @@ export function systemMessageDefaults(locale: string): {
 
 // A message-family engagement rendered as an email — used by every
 // triggered send (lifecycle triggers AND the 5-minute scheduler).
+/**
+ * Make the visitor portal's address clickable in the HTML part.
+ *
+ * This runs AFTER `escapeHtml`, and that order is the whole design. The body
+ * is an organiser's plain text on its way into HTML, so it is escaped whole
+ * and nothing they type can become markup. The only string that turns into an
+ * anchor is one `{my.thread}` expanded a moment earlier — a URL this codebase
+ * chose, matched literally, not a URL-shaped thing found by a regex sweeping
+ * the participant's mail.
+ *
+ * It also catches the address typed by hand, which is the same string and
+ * deserves the same treatment.
+ *
+ * The visible text stays the address rather than a friendly label, so the
+ * HTML part and the plain-text part say the identical thing and differ only
+ * in whether you can click it.
+ *
+ * #171717 is not a new colour: it is what every inline link in these emails
+ * already uses (templates.ts — join, reschedule, cancel, add-to-calendar).
+ * Mail clients cannot read our design tokens, so these hexes are written
+ * out; copying the neighbouring one is how that stays a single decision
+ * rather than a per-email invention.
+ */
+function linkPortal(escaped: string, url: string): string {
+  const safeUrl = escapeHtml(url);
+  const shown = url.replace(/^https?:\/\//, '');
+  return escaped.replaceAll(
+    safeUrl,
+    `<a href="${safeUrl}" style="color:#171717;">${escapeHtml(shown)}</a>`,
+  );
+}
+
 export function engagementMessage(c: {
   title: string;
   bodyText: string; // tokens already substituted; newlines preserved
@@ -221,7 +254,7 @@ export function engagementMessage(c: {
     c.threadTitle,
     `
       <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;">${escapeHtml(c.title)}</h2>
-      <div style="font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(c.bodyText)}</div>
+      <div style="font-size:15px;line-height:1.6;white-space:pre-wrap;">${linkPortal(escapeHtml(c.bodyText), myThreadUrl())}</div>
       ${ticketBlock(c.ticket, c.locale ?? 'en')}
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,

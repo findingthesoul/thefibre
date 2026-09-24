@@ -98,6 +98,7 @@ import { platformFeeCents } from '../lib/fees.js';
 import { zonedTimeToUtc } from '../lib/availability/timezone.js';
 import { publicApiUrl } from '../lib/public-url.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
+import { messageTokens, substituteTokens } from '../lib/message-tokens.js';
 
 const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? createRemoteJWKSet(
@@ -6553,21 +6554,16 @@ export async function sendTriggeredMessages(opts: {
     enrolment_note: (ownerThread as { enrolment_note?: string | null } | null)?.enrolment_note,
   });
 
-  const tokens: Record<string, string> = {
-    '{name}': opts.name.split(/\s+/)[0] ?? opts.name,
-    '{thread}': opts.threadTitle,
-    '{organiser}': opts.organiserName,
-    '{date}': opts.startsOn
-      ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-          new Date(opts.startsOn),
-        )
-      : '',
-  };
-  // {start_date} reads better in a sentence somebody is writing by hand, and
-  // is the token Sjoerd reached for unprompted. Same value, two names.
-  tokens['{start_date}'] = tokens['{date}'] ?? '';
-  const substitute = (s: string) =>
-    Object.entries(tokens).reduce((acc, [k, v]) => acc.replaceAll(k, v), s);
+  // One token map for both send paths — lib/message-tokens.ts. This used to
+  // be written out here and again in the scheduler, and the two had already
+  // drifted apart.
+  const tokens = messageTokens({
+    name: opts.name,
+    threadTitle: opts.threadTitle,
+    organiserName: opts.organiserName,
+    startsOn: opts.startsOn,
+  });
+  const substitute = (s: string) => substituteTokens(s, tokens);
 
   for (const m of messages) {
     // Dedup: one send per (engagement, person). Insert first — if the row
@@ -6848,14 +6844,18 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
       }
 
       const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email;
-      const tokens: Record<string, string> = {
-        '{name}': person.first_name ?? name,
-        '{thread}': d.threadTitle,
-        '{organiser}': d.organiserName,
-        '{date}': dateLabel,
-      };
-      const substitute = (s: string) =>
-        Object.entries(tokens).reduce((acc, [k, v]) => acc.replaceAll(k, v), s);
+      // Same map as the triggered path. Before this shared it, the
+      // scheduler's copy had no {start_date} — so a message timed relative to
+      // the start date, the exact case that token is FOR, mailed the literal
+      // token to participants.
+      const tokens = messageTokens({
+        name,
+        firstName: person.first_name,
+        threadTitle: d.threadTitle,
+        organiserName: d.organiserName,
+        dateLabel,
+      });
+      const substitute = (s: string) => substituteTokens(s, tokens);
       const body = substitute(
         renderMessageBody(
           d.engagement.type,

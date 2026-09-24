@@ -1127,13 +1127,20 @@ export function MessageContentFields({
             name="body"
             defaultValue={str('body')}
             minHeight={64}
+            hint={t(locale, 'body_tokens_hint')}
           />
         </>
       );
     case 'inspiration':
       return (
         <>
-          <RichTextField locale={locale} label={t(locale, 'text')} name="body" defaultValue={str('body')} />
+          <RichTextField
+            locale={locale}
+            label={t(locale, 'text')}
+            name="body"
+            defaultValue={str('body')}
+            hint={t(locale, 'body_tokens_hint')}
+          />
           <TextField
             label={t(locale, 'link_optional')}
             name="external_url"

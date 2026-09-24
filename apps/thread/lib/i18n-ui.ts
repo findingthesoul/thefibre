@@ -3849,13 +3849,17 @@ const CATALOG = {
     de: 'Inhalt', // MT
     fr: 'Corps', // MT
   },
+  // Every token, not just the four that happened to be listed when this was
+  // written. {start_date} has worked since the triggered sends shipped and
+  // was invisible here; {my.thread} is new (2026-09-24) and becomes a link to
+  // the participant's own page.
   body_tokens_hint: {
-    en: 'Tokens: {name}, {thread}, {organiser}, {date} — replaced per participant when sent.',
-    nl: 'Tokens: {name}, {thread}, {organiser}, {date} — per deelnemer vervangen bij verzending.',
-    es: 'Variables: {name}, {thread}, {organiser}, {date} — se reemplazan por participante al enviar.', // MT
-    pt: 'Variáveis: {name}, {thread}, {organiser}, {date} — substituídas por participante no envio.', // MT
-    de: 'Platzhalter: {name}, {thread}, {organiser}, {date} — beim Senden pro Teilnehmer:in ersetzt.', // MT
-    fr: 'Jetons : {name}, {thread}, {organiser}, {date} — remplacés par participant à l’envoi.', // MT
+    en: 'Tokens: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — replaced per participant when sent.',
+    nl: 'Tokens: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — per deelnemer vervangen bij verzending.',
+    es: 'Variables: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — se reemplazan por participante al enviar.', // MT
+    pt: 'Variáveis: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — substituídas por participante no envio.', // MT
+    de: 'Platzhalter: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — beim Senden pro Teilnehmer:in ersetzt.', // MT
+    fr: 'Jetons : {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — remplacés par participant à l’envoi.', // MT
   },
   // ── image upload + rich text ──────────────────────────────────────────
   or_paste_url: {

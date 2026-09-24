@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.44.0] — 2026-09-24 — {my.thread}, and one token map instead of two (staging)
+
+Sjoerd: *"add {my.thread} as a link to the my.thethread.app in the text
+fields"*. An organiser writing a message can now point people at their own
+page without typing the address and hoping it survives.
+
+Type `{my.thread}` in a message body and each participant gets the portal
+address — clickable in the HTML part, the plain URL in the text part, the
+same string in both so the two never disagree about where they are sending
+someone.
+
+**The link is made after escaping, and that order is the point.** Everything
+an organiser types is escaped whole, on purpose, so that neither an organiser
+nor an app writing through the published contract can inject markup into mail
+from our domain. The only thing that becomes an anchor is a URL this codebase
+put there a moment earlier, matched literally — not a URL-shaped thing found
+by a regex. A test types `<a href="https://evil.test">` into a body and
+asserts it arrives as text.
+
+It links the front door, not a signed-in session. A per-person magic link
+would be a credential sitting in an inbox and in every forward of it.
+
+**Finding two token maps is the reason this is bigger than a token.** There
+were two: one for triggered sends (enrolment, approval, completion) and one
+in the 5-minute scheduler that sends everything dated or relative. They had
+already drifted — **the scheduler's had no `{start_date}`**, so a message
+timed "a week before we start", the exact case that token exists for, mailed
+people the literal text `{start_date}`.
+
+Adding `{my.thread}` to one of two copies would have repeated that bug
+precisely, and repeated it invisibly: triggers fire immediately, so testing a
+new token by hand exercises the copy that works and never the copy that does
+most of the sending. Both paths now read `lib/message-tokens.ts`, and
+`{start_date}` works in scheduled messages for the first time. A test reads
+the source and fails if a third map appears.
+
+**The hint under the field was also a list that had stopped being true.** It
+named four tokens; `{start_date}` had worked since the triggered sends
+shipped and was simply invisible. It now names all six, in six locales, and
+appears on the other two bodies that substitute — the note on a document and
+the text on an inspiration — which had always substituted without saying so.
+
+Still true and not touched here: the scheduler calls `engagementMessage`
+without `brand`, `ticket` or `locale`, so a scheduled message wears platform
+branding where a triggered one wears the workspace's. Same drift, different
+symptom, and changing how a live email looks deserves its own release.
+
+Not offered in the certificate builder: that has a separate substituter whose
+`\{(\w+)\}` pattern cannot match a dot.
+
+
 ## [1.43.0] — 2026-09-24 — the invoice gets its one colour
 
 Seven corrections against the reference, in one pass.
@@ -28,7 +79,6 @@ new `website` on `invoice_details`, beside the legal name and the VAT
 number, with a field for it in Settings → Payments in all four apps and The
 Fibre. It belongs there and not in a per-app settings table: that is what
 makes it appear the same way on every document.
-
 ## [1.42.0] — 2026-09-24 — the sequence at once, from the organiser, and an address you can read twice
 
 Sjoerd, after using it: *"Instructions are not the solutions. What I want is
