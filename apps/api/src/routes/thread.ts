@@ -97,6 +97,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { platformFeeCents } from '../lib/fees.js';
 import { zonedTimeToUtc } from '../lib/availability/timezone.js';
 import { publicApiUrl } from '../lib/public-url.js';
+import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 
 const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? createRemoteJWKSet(
@@ -5020,10 +5021,31 @@ async function resolvePublicOwner(slug: string): Promise<PublicOwner | null> {
   return null;
 }
 
-/** The slug a thread's public URL lives under. */
-function ownerSlugOf(thread: { team?: unknown }, organiserSlug: string | null): string {
-  const team = Array.isArray(thread.team) ? (thread.team as { slug?: string }[])[0] : (thread.team as { slug?: string } | null);
-  return team?.slug ?? organiserSlug ?? '';
+/** The slug a thread's public URL lives under.
+ *
+ *  THREE kinds, not two. This was `team?.slug ?? organiserSlug` until
+ *  2026-09-24, which is the fall-through lib/public-owner-slug.ts exists to
+ *  stop: a workspace-scoped thread has `team_id` NULL by design, so it took
+ *  the organiser's address instead of its workspace's. Two of the eleven
+ *  threads in production are shaped exactly like that, so the participant
+ *  portal was handing people a working-but-not-canonical link to their own
+ *  thread — a different URL from the one the page declares as its own.
+ *
+ *  Flagged by the session that extracted the rule (it converted portal.ts's
+ *  two copies and left this one, correctly, as not its lane). The shape is
+ *  now imported rather than re-stated, so there is one place to be wrong. */
+function ownerSlugOf(
+  thread: { team?: unknown; workspace?: unknown; public_scope?: string | null },
+  organiserSlug: string | null,
+): string {
+  const one = <T,>(v: unknown): T | null =>
+    (Array.isArray(v) ? (v as T[])[0] : (v as T | null)) ?? null;
+  return publicOwnerSlug({
+    publicScope: thread.public_scope,
+    workspaceSlug: one<{ slug?: string }>(thread.workspace)?.slug,
+    teamSlug: one<{ slug?: string }>(thread.team)?.slug,
+    organiserSlug,
+  });
 }
 
 /** Every public owner belongs to a workspace, and the workspace is what
@@ -5520,8 +5542,10 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
       `id, created_at,
        enrolment:enrolment_id (status, progress_pct),
        thread:thread_id (id, slug, intention, language, cover_url, share_participants_participants,
+         public_scope,
          organiser:organiser_id (slug, display_name),
          team:team_id (slug, name),
+         workspace:workspace_id (slug),
          program:program_id (title, format, status, starts_on, ends_on))`,
     )
     .in('person_id', persons.map((p) => p.id))

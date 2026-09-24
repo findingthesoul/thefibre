@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.39.1] — 2026-09-24 — your own thread, at its own address (staging)
+
+Handed over by the session that extracted `lib/public-owner-slug.ts`: it
+converted the two copies of the owner-slug rule inside `routes/portal.ts`,
+saw a third in `routes/thread.ts`, and left it alone because that file was
+not its lane. It was right to leave it, and right to say so out loud.
+
+**Which slug owns a thread's public address has three answers, not two.** A
+workspace-scoped thread stores `team_id` NULL by design, so the obvious
+`team ?? organiser` falls straight through to the organiser. The participant
+portal was therefore handing people an organiser address for a thread whose
+canonical address is its workspace's — a link that works, and disagrees with
+the canonical tag on the page it opens.
+
+The reason the old code looked fine is worth naming, because it is the
+general shape of this kind of bug: the route used a two-way rule AND selected
+two-way data. Both halves agreed with each other and were wrong together.
+Nothing was inconsistent, so nothing looked wrong.
+
+`GET /public/my-enrolments` now asks for `public_scope` and the workspace's
+slug, and builds the address through the shared rule instead of re-stating
+it. Fourth surface to get this wrong; first one where the rule is imported
+rather than retyped.
+
+**Nothing visible changes in production today, and that is the honest
+report.** Of the eleven threads there, the two that are workspace-scoped have
+no enrolments — so this route's real traffic cannot currently tell a correct
+rule from a broken one. The first workspace-scoped thread somebody enrols in
+would have been the first wrong link. This is a trap disarmed, not a
+complaint answered.
+
+The new test asserts the **wiring** rather than the rule — the rule has its
+own test one file over. What that one cannot see is whether this route ever
+asked PostgREST for the columns the rule reads. Dropping either field is
+silent: the rows come back without complaint, the embed is `undefined`, the
+rule falls through to the organiser, and the link still works. Verified by
+removing `public_scope` and watching it go red.
+
+Still outstanding, deliberately not in this commit: `ownerThreadFilter`'s
+organiser branch matches `team_id IS NULL`, which a workspace-scoped thread
+also satisfies — so such a thread is additionally listed on the organiser's
+public page. That changes what a public listing shows and deserves its own
+release, for the same reason this one was handed over rather than swept in.
+
+
 ## [1.39.0] — 2026-09-24 — subscribe your calendar, and moved dates move
 
 "Can I also subscribe to the whole sequence? And do things get updates when
