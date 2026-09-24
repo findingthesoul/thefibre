@@ -230,7 +230,16 @@ type ReceiptPurchase = {
   billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string; subtotal_cents?: number | null; tax_cents?: number | null; tax_label?: string | null } | null;
 };
 
-type SellerDetails = { legal_name?: string; address?: string; tax_no?: string } | null;
+type SellerDetails = {
+  legal_name?: string;
+  address?: string;
+  tax_no?: string;
+  /** The workspace's brand mark, for the PDF masthead. Always the
+   *  WORKSPACE's, even when the seller is a person: a freelancer selling in
+   *  their own name is still trading under that workspace's mark, and there
+   *  is no personal logo anywhere in the SPoT to prefer over it. */
+  logo_url?: string | null;
+} | null;
 
 /** The invoice issuer's identity for a purchase — personal or workspace.
  *  Resolves through the payments SPoT (review 2026-07-05: this read the
@@ -271,8 +280,17 @@ export async function sellerForSale(
   workspaceId: string,
   organiserUserId: string | null,
 ): Promise<SellerDetails> {
-  if (appSlug === 'membership') return sellerDetailsFor(workspaceId, null);
-  return sellerDetailsFor(workspaceId, organiserUserId);
+  const details =
+    appSlug === 'membership'
+      ? await sellerDetailsFor(workspaceId, null)
+      : await sellerDetailsFor(workspaceId, organiserUserId);
+  const { data } = await adminClient
+    .from('workspace')
+    .select('brand_logo_url')
+    .eq('id', workspaceId)
+    .maybeSingle();
+  const logo = (data as { brand_logo_url?: string | null } | null)?.brand_logo_url ?? null;
+  return { ...(details ?? {}), logo_url: logo };
 }
 
 /** Which app sold this, read off the ledger row itself.

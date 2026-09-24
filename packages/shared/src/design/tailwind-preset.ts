@@ -50,6 +50,10 @@ export const fibrePreset = {
         accent: { DEFAULT: rgbVar('accent') },
         save: { DEFAULT: rgbVar('save') },
         booked: { DEFAULT: rgbVar('booked') },
+        // A print role (the invoice PDF's foot band). Exposed here because a
+        // token that Tailwind cannot see is a token half-added — which is
+        // what tokens.test.ts caught the moment it was.
+        paper: { DEFAULT: rgbVar('paper') },
       },
     },
   },

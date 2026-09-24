@@ -39,6 +39,7 @@ export const TOKEN_NAMES = [
   'accent', //          legacy name for the ink-coloured emphasis; prefer a role
   'save', //            the colour of committing: Save buttons, switches that are on
   'booked', //          time that is already spoken for: an agenda block
+  'paper', //           the warm ground of a printed document's summary band
 ] as const;
 
 export type TokenName = (typeof TOKEN_NAMES)[number];
@@ -69,6 +70,12 @@ export const LIGHT: Palette = {
   // wants it (a booked slot, a busy block) uses the same one rather than
   // inventing a second blue.
   booked: '203 213 225',
+  // The band across the foot of an invoice. Warmer and lighter than `line`,
+  // which is what stood there first and read cold and screen-like next to
+  // the reference Sjoerd sent (2026-09-24: *"lighter and slightly more
+  // yellow"*). It is a PRINT role: paper stock, not a UI surface — which is
+  // why it is named for the thing and not for a grey.
+  paper: '222 218 205',
 };
 
 export const DARK: Palette = {
@@ -87,6 +94,10 @@ export const DARK: Palette = {
   // has to come FORWARD, so this is the same hue carrying the opposite
   // relationship to its background.
   booked: '51 65 85',
+  // Print does not invert — a PDF is the same document whatever theme the
+  // reader's screen is in. Present because the type demands every role in
+  // both palettes, and deliberately the same value.
+  paper: '222 218 205',
 };
 
 /** `--ink: 17 20 24;` etc., for a CSS rule body. */

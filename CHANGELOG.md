@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.41.0] — 2026-09-24 — the invoice, redrawn
+
+Sjoerd, on the first real membership receipt: *"it is now two pages. Please
+make it one. Logo of the company is missing. make it look better. Design
+wise. More space. A old style receipt like invoice."* Then a reference
+design, and five corrections against it.
+
+**The second page was one string.** The footer printed the seller address,
+addresses are stored multi-line, and three lines starting at y≈762 on an
+842pt page spill — pdfkit then opens a page to hold the overflow. Worse,
+`{ lineBreak: false }` does NOT prevent it: a string wider than its box
+still wraps. Every one-line band is measured with `widthOfString` and
+trimmed now (`fitOneLine`), and the footer no longer repeats the address
+that is already in the letterhead.
+
+**The logo is drawn**, from `workspace.brand_logo_url`, https only, 3s, 2MB,
+PNG/JPEG — pdfkit cannot embed SVG, and a mark we cannot draw costs nothing
+rather than throwing. Sized by its real dimensions (`openImage`) so a wide
+wordmark shares an axis with the word beside it instead of floating above a
+square box.
+
+**Both party columns sit on one baseline grid**, InDesign-style: pdfkit
+positions text by the TOP of the line box, so a 12pt name and a 9pt name on
+the same `y` sit on different baselines. `topFor(baseline, size)` converts
+back, and the client's details now line up with the company's line for line.
+
+**A `paper` token** — the warm ground of the foot band. Named for the thing,
+not the grey, and added to the preset in the same commit because
+`tokens.test.ts` correctly refused a token Tailwind could not see. The
+palette's five hand-written hexes in this file are gone: it reads LIGHT.
+
+Plus: the total in a full-bleed band, the VAT registration at the foot where
+a tax document wants it, and a ♥ drawn as a path — U+2665 is not in WinAnsi,
+so typed into a standard font it would silently vanish.
+
+Five tests cover the page count, including the whole document at once — the
+first version of that test checked the long addresses SEPARATELY, passed,
+and shipped a two-page PDF anyway.
+
 ## [1.40.4] — 2026-09-24 — where a subscription can actually be added
 
 Sjoerd, on his phone, minutes after it shipped: "but can not add these to your

@@ -20,7 +20,42 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-23 (v0.123.0). Done items get removed, not ticked._
+_Last groomed 2026-09-24. Done items get removed, not ticked._
+
+**Invoices: export, and a road to the bookkeeping.** Sjoerd, 2026-09-24,
+right after the first real membership invoice: *"A total list of all invoices
+for workspace/organiser. Export function CVS/Excel. A future connection to
+admin apps."*
+
+The first third already exists and should not be built twice: **Invoices** in
+the Thread and Meet sidebars lists Me / Team / Workspace (workspace scope is
+admin+), with app filter chips, search and per-currency totals
+(`@thefibre/shared/ui/invoices`, `GET /api/v1/purchases`). Worth showing him
+before building anything — the ask may be for it to be reachable from more
+places (Membership and Pulse have no Invoices entry) rather than for a new
+screen.
+
+What is genuinely missing:
+
+- **Export.** CSV first, and only CSV: every accounting package and every
+  spreadsheet reads it, and an .xlsx writer is a dependency plus a format to
+  get wrong. Server-side from the same query the page runs, so the export and
+  the screen can never disagree — the mistake would be exporting the loaded
+  page. Must carry the fields a bookkeeper actually posts from: date, number,
+  seller legal entity + VAT no., buyer + VAT no., net, VAT rate, VAT amount,
+  gross, currency, method, status, app, workspace. Respect the scope the user
+  is allowed to see; an export is a read of the same rows, not a wider one.
+- **The accounting connection.** Deliberately AFTER the export, not instead of
+  it: a CSV a human drops into Moneybird or e-Boekhouden is worth having on
+  its own, and it is also the specification for any integration that follows.
+  Stripe is rails and the ledger is the record ([[design-stripe-rails-ledger-record]]
+  in the same spirit) — an accounting integration reads `purchase`, never
+  Stripe's API, or it will show a different set of sales than the Invoices
+  page does.
+
+One thing to settle before the export ships: whether a refunded/reimbursed row
+exports as one line with a negative amount or as two. Bookkeepers differ, and
+it is Sjoerd's accountant's call, not ours.
 
 **No bounce path: a dead email address is silent everywhere.** Found
 2026-09-23 on a real Meet booking (invitee typed `gmail.con`; her request-sent
