@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.43.0] — 2026-09-24 — the invoice gets its one colour
+
+Seven corrections against the reference, in one pass.
+
+**A `sum` token** — the figure a document exists to state, and the ♥ beside
+the thanks. Nothing else may use it. The palette had no warm accent at all
+until now, which is why the total had been carrying its weight through size
+alone; Sjoerd chose the colour from the reference, so it is a decision in
+`tokens.ts` rather than a hex typed into a PDF.
+
+**The band reads as three columns**: a rule under each label, the date set
+as large as the total, and the total in `sum`.
+
+**Thank you is bigger and the heart is red.**
+
+**The seller's VAT number left the letterhead.** It is at the foot, and
+printing a registration twice on one page reads as a document unsure what
+it is saying. The line it vacated now holds the seller's **website** — a
+new `website` on `invoice_details`, beside the legal name and the VAT
+number, with a field for it in Settings → Payments in all four apps and The
+Fibre. It belongs there and not in a per-app settings table: that is what
+makes it appear the same way on every document.
+
 ## [1.42.0] — 2026-09-24 — the sequence at once, from the organiser, and an address you can read twice
 
 Sjoerd, after using it: *"Instructions are not the solutions. What I want is

@@ -40,6 +40,8 @@ export type InvoiceDetails = {
   legal_name?: string;
   address?: string;
   tax_no?: string;
+  /** Printed under the seller's address on the invoice PDF. */
+  website?: string;
   vat_registered?: boolean;
   vat_rate_pct?: number | null;
 };
@@ -102,6 +104,7 @@ export type PaymentsStrings = {
   stripeAccountId: string;
   legalName: string;
   taxNumber: string;
+  website: string;
   address: string;
   vatOnSales: string;
   vatRegistered: string;
@@ -308,6 +311,7 @@ function AccountSection({
   const [legalName, setLegalName] = useState(initialDetails?.legal_name ?? '');
   const [address, setAddress] = useState(initialDetails?.address ?? '');
   const [taxNo, setTaxNo] = useState(initialDetails?.tax_no ?? '');
+  const [website, setWebsite] = useState(initialDetails?.website ?? '');
   const [vatOn, setVatOn] = useState(initialDetails?.vat_registered ?? false);
   const [vatRate, setVatRate] = useState(
     initialDetails?.vat_rate_pct != null ? String(initialDetails.vat_rate_pct) : '21',
@@ -351,6 +355,7 @@ function AccountSection({
     if (legalName.trim()) details.legal_name = legalName.trim();
     if (address.trim()) details.address = address.trim();
     if (taxNo.trim()) details.tax_no = taxNo.trim();
+    if (website.trim()) details.website = website.trim();
     const rate = Number(vatRate.replace(',', '.'));
     if (vatOn && (!Number.isFinite(rate) || rate <= 0 || rate > 100)) {
       setError(s.errVatRate);
@@ -565,6 +570,17 @@ function AccountSection({
               />
             </label>
           </div>
+          <label className="block max-w-md">
+            <span className="text-xs text-ink-subtle">{s.website}</span>
+            <input
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="soul.com"
+              className={INPUT}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
           <label className="block max-w-2xl">
             <span className="text-xs text-ink-subtle">{s.address}</span>
             <textarea

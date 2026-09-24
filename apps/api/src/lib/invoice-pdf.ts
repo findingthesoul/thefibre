@@ -48,6 +48,7 @@ const SUBTLE = hex('ink-subtle');
 const MUTED = hex('ink-muted');
 const LINE = hex('line');
 const BAND = hex('paper');
+const SUM = hex('sum');
 
 /** How this document words each payment method. The email words them its
  *  own way; the model decides which method it IS, not what to call it. */
@@ -254,10 +255,18 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       doc.text(fitOneLine(doc, part, colW), rightX, topFor(baselineOf(row + i), 8.5), rightCol);
     });
     let rightRowCount = rightRows.length;
-    if (m.seller.taxNo) {
+    // The website, not the VAT number: the registration is at the foot, and
+    // printing it twice on one page reads as a document that is not sure
+    // what it is saying (Sjoerd, 2026-09-24).
+    if (m.seller.website) {
       doc
         .fillColor(MUTED)
-        .text(`VAT ${m.seller.taxNo}`, rightX, topFor(baselineOf(row + rightRowCount), 8.5), rightCol);
+        .text(
+          fitOneLine(doc, m.seller.website.replace(/^https?:\/\//, ''), colW),
+          rightX,
+          topFor(baselineOf(row + rightRowCount), 8.5),
+          rightCol,
+        );
       rightRowCount += 1;
     }
 
@@ -341,32 +350,49 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
     caps('PAID WITH', L, by, third, 'left');
     caps('DATE', L + third, by, third, 'left');
     caps('TOTAL', L, by, W, 'right');
+    by += 13;
+
+    // A rule under each label, as in the reference: it is what turns three
+    // stacked pairs into three columns.
+    const labelRule = (x: number, w: number) =>
+      doc.moveTo(x, by).lineTo(x + w, by).lineWidth(0.75).strokeColor(MUTED).opacity(0.45).stroke().opacity(1);
+    labelRule(L, third - 16);
+    labelRule(L + third, third - 16);
+    labelRule(L + W - third + 16, third - 16);
     by += 16;
 
+    const VALUE = 17;
     doc
       .font('Helvetica-Bold')
-      .fontSize(12)
+      .fontSize(VALUE)
       .fillColor(INK)
       // Capitalised even on the fallback: `raw.method` is a column value and
       // reads as one ("card") next to two properly typeset fields.
       .text(
         PDF_METHOD[m.method] ?? m.raw.method.charAt(0).toUpperCase() + m.raw.method.slice(1),
         L,
-        by + 5,
-        { width: third },
+        by,
+        { width: third, lineBreak: false },
       );
     doc
       .font('Helvetica-Bold')
-      .fontSize(12)
+      .fontSize(VALUE)
       .fillColor(INK)
       .text(
         date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
         L + third,
-        by + 5,
-        { width: third },
+        by,
+        { width: third, lineBreak: false },
       );
-    doc.fillColor(INK);
-    amountAt(`${m.currency} ${money(m.totals.totalCents, m.currency).replace(/^[^\d-]+/, '')}`, by, true, 20);
+    // The figure the document exists to state, in the one colour the
+    // document has.
+    doc.fillColor(SUM);
+    amountAt(
+      `${m.currency} ${money(m.totals.totalCents, m.currency).replace(/^[^\d-]+/, '')}`,
+      by - 3,
+      true,
+      20,
+    );
 
     // ♥ drawn, not typed: pdfkit's standard fonts are WinAnsi-encoded and
     // U+2665 is not in WinAnsi, so the character would silently vanish.
@@ -383,13 +409,13 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       doc.restore();
     };
 
-    const thanksY = bandTop + 152;
-    heart(L, thanksY + 8, 9, INK);
+    const thanksY = bandTop + 148;
+    heart(L, thanksY + 11, 12, SUM);
     doc
       .font('Helvetica')
-      .fontSize(8)
-      .fillColor(SUBTLE)
-      .text('Thank you!', L + 14, thanksY, { width: W * 0.5, lineBreak: false });
+      .fontSize(11)
+      .fillColor(INK)
+      .text('Thank you!', L + 18, thanksY, { width: W * 0.5, lineBreak: false });
 
     // The seller's VAT number, not a hosting note: on a tax document the
     // registration is what belongs at the foot (Sjoerd, 2026-09-24).
@@ -401,7 +427,7 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
         W * 0.6,
       ),
       L,
-      thanksY + 1,
+      thanksY + 4,
       { width: W, align: 'right', lineBreak: false },
     );
 

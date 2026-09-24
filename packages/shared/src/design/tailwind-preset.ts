@@ -54,6 +54,7 @@ export const fibrePreset = {
         // token that Tailwind cannot see is a token half-added — which is
         // what tokens.test.ts caught the moment it was.
         paper: { DEFAULT: rgbVar('paper') },
+        sum: { DEFAULT: rgbVar('sum') },
       },
     },
   },

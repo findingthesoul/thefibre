@@ -54,6 +54,11 @@ export type InvoiceSeller = {
   legal_name?: string;
   address?: string;
   tax_no?: string;
+  /** The seller's own website, printed under their address on an invoice.
+   *  Lives with the rest of the seller's invoicing identity rather than in a
+   *  per-app settings table, because that is what makes it appear on every
+   *  document the same way. */
+  website?: string;
 };
 
 /** A pending row is an INVOICE; anything else is a RECEIPT. Getting this
@@ -69,6 +74,10 @@ export type InvoiceParty = {
   /** Street, postcode + town, country — joined the way all three did it. */
   address: string | null;
   taxNo: string | null;
+  /** Seller-only in practice: a buyer's website has no place on an invoice.
+   *  It sits on the shared party type rather than forking it, and the buyer's
+   *  is always null. */
+  website: string | null;
   email: string | null;
 };
 
@@ -145,12 +154,14 @@ export function invoiceModel(p: InvoicePurchase, seller?: InvoiceSeller | null):
       name: seller?.legal_name ?? '',
       address: seller?.address ?? null,
       taxNo: seller?.tax_no ?? null,
+      website: seller?.website ?? null,
       email: null,
     },
     buyer: {
       name: b.company ?? p.payer_name,
       address: addressLine(b),
       taxNo: b.tax_no ?? null,
+      website: null,
       email: p.payer_email ?? null,
     },
     line: {

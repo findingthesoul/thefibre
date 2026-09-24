@@ -81,6 +81,14 @@ const COPY: Record<string, Entry> = {
     de: 'Diese Testzahlung konnte nicht gestartet werden. Verwende einen Betrag ab 0,50.', // MT
     fr: 'Ce paiement test n’a pas pu démarrer. Utilisez un montant de 0,50 ou plus.', // MT
   },
+  website_on_invoices: {
+    en: 'Website (on invoices)',
+    nl: 'Website (op facturen)',
+    es: 'Sitio web (en las facturas)', // MT
+    pt: 'Site (nas faturas)', // MT
+    de: 'Website (auf Rechnungen)', // MT
+    fr: 'Site web (sur les factures)', // MT
+  },
   personal_account: {
     en: 'Personal account',
     nl: 'Persoonlijk account',
@@ -420,6 +428,7 @@ export function paymentsStrings(locale: Locale) {
     stripeUnreachableNote: s('stripe_unreachable_note'),
     stripeChargesDisabled: s('stripe_charges_disabled'),
     errConnectFailed: s('err_connect_failed'),
+    website: s('website_on_invoices'),
     tabPersonal: s('tab_personal_organiser'),
     tabWorkspace: s('workspace_account'),
     tabWorkspaceOf: s('tab_workspace_of'),

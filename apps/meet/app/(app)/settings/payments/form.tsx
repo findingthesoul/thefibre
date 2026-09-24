@@ -117,6 +117,7 @@ function strings(locale: Locale) {
     stripeUnreachableNote: t(locale, 'stripe_unreachable_note'),
     stripeChargesDisabled: t(locale, 'stripe_charges_disabled'),
     errConnectFailed: t(locale, 'err_connect_failed'),
+    website: t(locale, 'website_on_invoices'),
     tabPersonal: t(locale, 'tab_personal_organiser'),
     tabWorkspace: t(locale, 'pay_ws_account'),
     tabWorkspaceOf: t(locale, 'tab_workspace_of'),

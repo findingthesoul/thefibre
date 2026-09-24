@@ -1043,6 +1043,14 @@ const CATALOG = {
     de: 'Diese Testzahlung konnte nicht gestartet werden. Verwende einen Betrag ab 0,50.', // MT
     fr: 'Ce paiement test n’a pas pu démarrer. Utilisez un montant de 0,50 ou plus.', // MT
   },
+  website_on_invoices: {
+    en: 'Website (on invoices)',
+    nl: 'Website (op facturen)',
+    es: 'Sitio web (en las facturas)', // MT
+    pt: 'Site (nas faturas)', // MT
+    de: 'Website (auf Rechnungen)', // MT
+    fr: 'Site web (sur les factures)', // MT
+  },
   connect_stripe_change: {
     en: 'Connect a different account',
     nl: 'Een andere rekening koppelen',

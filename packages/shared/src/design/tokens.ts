@@ -40,6 +40,7 @@ export const TOKEN_NAMES = [
   'save', //            the colour of committing: Save buttons, switches that are on
   'booked', //          time that is already spoken for: an agenda block
   'paper', //           the warm ground of a printed document's summary band
+  'sum', //             the figure a document exists to state, and its thanks
 ] as const;
 
 export type TokenName = (typeof TOKEN_NAMES)[number];
@@ -77,6 +78,12 @@ export const LIGHT: Palette = {
   // why it is named for the thing and not for a grey. Lightened once more on
   // sight of it on the page.
   paper: '234 230 219',
+  // The one colour on an invoice. It marks the two human parts of the
+  // document — the amount, and the thank you beside the heart — and nothing
+  // else. Sjoerd chose it from a reference on 2026-09-24; before that the
+  // palette had no warm accent at all, which is why the total had to carry
+  // its weight through size alone.
+  sum: '230 74 51',
 };
 
 export const DARK: Palette = {
@@ -99,6 +106,7 @@ export const DARK: Palette = {
   // reader's screen is in. Present because the type demands every role in
   // both palettes, and deliberately the same value.
   paper: '234 230 219',
+  sum: '230 74 51',
 };
 
 /** `--ink: 17 20 24;` etc., for a CSS rule body. */
