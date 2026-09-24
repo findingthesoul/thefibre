@@ -1,6 +1,6 @@
 {
   "name": "thefibre",
-  "version": "1.28.0",
+  "version": "1.28.1",
   "private": true,
   "description": "The Fibre — relationship intelligence for purpose-driven work",
   "packageManager": "pnpm@9.12.0",
@@ -17,7 +17,7 @@
     "db:migrate": "supabase db push",
     "db:diff": "supabase db diff -f",
     "test": "pnpm -r test && vitest run",
-    "verify": "node scripts/check-migration-versions.mjs && node scripts/check-sw-freshness.mjs && pnpm -r typecheck && pnpm -r test && node scripts/smoke-prod.mjs && FIBRE_API=https://thefibre-api.fly.dev node apps/api/scripts/verify-public-api.mjs && node apps/api/scripts/sync-app-names.mjs --check",
+    "verify": "node scripts/check-migration-versions.mjs && node scripts/check-sw-freshness.mjs && node apps/api/scripts/sync-app-names.mjs --check && pnpm -r typecheck && pnpm -r test && node scripts/smoke-prod.mjs && FIBRE_API=https://thefibre-api.fly.dev node apps/api/scripts/verify-public-api.mjs",
     "test:integration": "pnpm --filter @thefibre/api test:integration",
     "verify:full": "pnpm run verify && pnpm run test:integration",
     "test:e2e": "playwright test --config e2e/playwright.config.ts"

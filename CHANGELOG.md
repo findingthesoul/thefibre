@@ -4,6 +4,24 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.28.1] — 2026-09-24 — a gate that cannot pass should say so in seconds
+
+`pnpm verify` ends with `sync-app-names.mjs --check`, which reads a Supabase
+project through `apps/api/.env` — a gitignored file, so it exists in the main
+checkout and in no worktree. CLAUDE.md sends every session into a worktree for
+code work, so the release gate refused with `Env file not found` after
+typecheck and the full suite had already passed: eight minutes to learn about
+a missing file.
+
+The check has moved to third in the chain, behind the two instant static
+checks and ahead of everything expensive. It is the same check, refusing the
+same releases; it now does it in seconds. Pointed at a file it can read, the
+whole chain passes exactly as before.
+
+The incantation is unchanged and is in CLAUDE.md:
+`FIBRE_ENV_FILE=/Users/sjoerdair/Projects/thefibre/apps/api/.env ./scripts/release.sh`
+— an absolute path is honoured by the loader.
+
 ## [1.28.0] — 2026-09-24 — a meeting in the calendar says who it is with (Meet 2.12.0)
 
 "It would be nice in Meet that someone gets {meeting name} - {person s/he has
