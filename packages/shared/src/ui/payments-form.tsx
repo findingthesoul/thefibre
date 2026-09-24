@@ -48,7 +48,17 @@ export type PaymentMethod = 'stripe' | 'invoice';
 
 export type StripeStatus =
   | { state: 'none'; connect_available?: boolean }
-  | { state: 'connected'; chargesEnabled?: boolean; detail?: string | null; connect_available?: boolean }
+  | {
+      state: 'connected';
+      chargesEnabled?: boolean;
+      detail?: string | null;
+      connect_available?: boolean;
+      /** Whose account, in Stripe's words — so "connected" says connected to
+       *  WHAT. Sjoerd, 2026-09-24. */
+      accountName?: string | null;
+      accountEmail?: string | null;
+      accountCountry?: string | null;
+    }
   | { state: 'unreachable'; detail: string; connect_available?: boolean };
 
 /**
@@ -391,6 +401,20 @@ function AccountSection({
       {status?.state === 'unreachable' && (
         <p className="mt-2 text-xs text-amber-800 max-w-xl leading-relaxed">
           {s.stripeUnreachableNote} <span className="text-ink-muted">({status.detail})</span>
+        </p>
+      )}
+      {status?.state === 'connected' && (status.accountName || status.accountEmail) && (
+        // The name Stripe holds for the account, not one we stored. A person
+        // connecting the wrong company sees it immediately, which is the whole
+        // point of showing it rather than only "Connected".
+        <p className="mt-2 text-xs text-ink-subtle max-w-xl leading-relaxed">
+          {status.accountName ?? status.accountEmail}
+          {status.accountName && status.accountEmail ? (
+            <span className="text-ink-muted"> · {status.accountEmail}</span>
+          ) : null}
+          {status.accountCountry ? (
+            <span className="text-ink-muted"> · {status.accountCountry.toUpperCase()}</span>
+          ) : null}
         </p>
       )}
       {status?.state === 'connected' && status.chargesEnabled === false && (

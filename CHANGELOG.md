@@ -377,6 +377,27 @@ shipping.
 
 ## [Unreleased]
 
+## [1.34.0] — 2026-09-24 — "Connected" now says connected to WHAT
+
+Sjoerd: *"Should Trade Name also not be in settings of payments? And get that
+from Stripe (so it is clearly the right account)."*
+
+The badge said **Connected** and nothing else. That is one step along from the
+badge that meant "the text box is not empty" — it now proves an account
+answers, but not whose. With four clients each connecting their own Stripe,
+the question is never whether AN account is attached; it is whether it is
+theirs.
+
+The status call already fetched the account to ask whether charges were
+enabled, so the name was one field away. It now returns the **trade name**
+(`business_profile.name`), falling back to the dashboard display name, plus
+the account **email** and **country** — Stripe's own words, never something we
+stored and could have stored wrong. The shared form shows them under the
+badge, so all five apps get it without per-app wiring.
+
+Somebody who connects the wrong company now sees it immediately, rather than
+after the first payment lands somewhere unexpected.
+
 ## [1.33.0] — 2026-09-24 — The Fibre's payments page was a version behind the day it was born
 
 Sjoerd: *"I dont see the connect button with personal."* In The Fibre he got

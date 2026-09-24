@@ -182,7 +182,20 @@ export async function accountStatus(
   accountId: string | null,
 ): Promise<
   | { state: 'none' }
-  | { state: 'connected'; chargesEnabled: boolean; detail: string | null }
+  | {
+      state: 'connected';
+      chargesEnabled: boolean;
+      detail: string | null;
+      /** Whose account this is, in Stripe's own words. Sjoerd, 2026-09-24:
+       *  *"get that from Stripe (so it is clearly the right account)"* —
+       *  "Connected" without a name is the same empty reassurance the old
+       *  green badge gave, one step further along. With four clients each
+       *  connecting their own Stripe, the question is never whether AN
+       *  account is attached; it is whether it is THEIRS. */
+      accountName: string | null;
+      accountEmail: string | null;
+      accountCountry: string | null;
+    }
   | { state: 'unreachable'; detail: string }
 > {
   if (!accountId) return { state: 'none' };
@@ -195,6 +208,12 @@ export async function accountStatus(
     const body = (await res.json()) as {
       charges_enabled?: boolean;
       requirements?: { disabled_reason?: string | null };
+      // The trade name first, then what Stripe shows on their own dashboard,
+      // then the account email — the order a person would recognise.
+      business_profile?: { name?: string | null } | null;
+      settings?: { dashboard?: { display_name?: string | null } | null } | null;
+      email?: string | null;
+      country?: string | null;
       error?: { message?: string };
     };
     if (!res.ok) {
@@ -204,6 +223,12 @@ export async function accountStatus(
       state: 'connected',
       chargesEnabled: Boolean(body.charges_enabled),
       detail: body.requirements?.disabled_reason ?? null,
+      accountName:
+        body.business_profile?.name ||
+        body.settings?.dashboard?.display_name ||
+        null,
+      accountEmail: body.email ?? null,
+      accountCountry: body.country ?? null,
     };
   } catch (e) {
     return { state: 'unreachable', detail: e instanceof Error ? e.message : 'could not reach Stripe' };
