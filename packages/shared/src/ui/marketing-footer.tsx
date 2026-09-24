@@ -63,7 +63,7 @@ export function MarketingFooter({
             <p className={COL_TITLE}>Explore</p>
             <ul className="mt-4 space-y-1.5">
               <li><a href={`${WEBSITE}/why`} className={COL_LINK}>Why The Thread</a></li>
-              <li><a href={`${WEBSITE}/workshop`} className={COL_LINK}>The workshop</a></li>
+              <li><a href={`${WEBSITE}/atelier`} className={COL_LINK}>The atelier</a></li>
               <li><a href={`${WEBSITE}/pricing`} className={COL_LINK}>Pricing</a></li>
               <li><a href={`${WEBSITE}/about`} className={COL_LINK}>About</a></li>
               <li><a href={`${WEBSITE}/contact`} className={COL_LINK}>Contact</a></li>

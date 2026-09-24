@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.47.0] — 2026-09-24 — the atelier, with Connect in it and Flow underneath
+
+Sjoerd, looking at the site: *"The workshop can be called: the atelier"*,
+*"Update the text on the website (flow maybe gone now... ), connections in.
+New functionality like to do lists... etc."*, and *"My.thethread"*.
+
+**The workshop is the atelier.** Renamed everywhere it is the NAME of the
+page — nav, landing section, pricing line, the shared marketing footer, the
+closing line. Deliberately NOT renamed where "workshop" is the ordinary noun:
+a workshop is a kind of event people run, and *"If you run workshops, courses,
+festivals"* is a sentence about their work, not about ours. A find-and-replace
+would have quietly rewritten four of those. `/workshop` still answers — a
+permanent redirect — because the name is ours to change and other people's
+bookmarks are not.
+
+**Flow comes out of the line-up.** Not removed, relocated: Sjoerd decided on
+2026-09-23 that *"Flows as a tech should be available in all apps — but not as
+an app people can select (more as a building block for apps)."* A page selling
+it as the fifth thing to choose contradicts what it has become. It is now
+named in "Underneath, quietly" with the rest of the foundation.
+
+**Connect comes in.** Held off the product page as "not there yet" since
+before it was live, and in production since 2026-09-13. Four tools in service
+either way — one swapped for another. Its copy says what it is rather than
+what the category usually is: the landscape of people around the work, not a
+CRM that asks you to describe them as deals.
+
+**my.thread gets a section of its own**, not a fifth tile. It is what your
+PARTICIPANTS stand on, and it is a platform SURFACE rather than a catalogue
+app — so it reads from `SURFACES`, has no tile art, and resolves its link
+through `surfaceUrl`, which is why the staging twin points at the staging
+portal instead of sending a tester to production.
+
+**To-dos are named** where they actually live: in the foundation paragraph,
+because a follow-up written in Connect and a task set on a thread arrive in
+one list whichever tool you have open. That is the fact worth stating; which
+app "has" to-dos is not.
+
 ## [1.46.0] — 2026-09-24 — put the membership on your own website
 
 Sjoerd: *"Can you create a: integrate into website page for the page and

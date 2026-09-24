@@ -11,7 +11,7 @@ import { APP_URL } from '@/lib/site';
 
 const LINKS = [
   { href: '/why', label: 'Why' },
-  { href: '/workshop', label: 'The workshop' },
+  { href: '/atelier', label: 'The atelier' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },

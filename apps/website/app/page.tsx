@@ -26,7 +26,7 @@ const THREAD = {
   hero: 'M150 0 C145 130 168 250 152 370 C142 460 172 550 180 640',
   fabric: 'M180 0 C175 110 240 210 350 300 C480 410 630 500 700 640',
   moment: 'M700 0 C695 110 638 200 658 300 C678 400 706 520 700 640',
-  workshop:
+  atelier:
     'M700 0 C705 110 640 190 585 255 C530 320 470 330 490 385 C510 440 610 420 590 355 C575 305 470 400 420 460 C370 520 300 560 280 640',
   fibre: 'M280 0 C270 130 310 260 285 380 C265 480 228 540 220 640',
   starts: 'M220 0 C215 130 290 250 380 340 C460 425 545 530 560 640',
@@ -197,11 +197,11 @@ export default async function Home() {
         </div>
       </StoryScene>
 
-      {/* ── The workshop: text left, Sjoerd's portrait composition right. ── */}
+      {/* ── The atelier: text left, Sjoerd's portrait composition right. ── */}
       <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-20">
         <DrawnThread
           viewBox="0 0 1000 640"
-          d={THREAD.workshop}
+          d={THREAD.atelier}
           begin={1.05}
           end={0.45}
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
@@ -209,9 +209,9 @@ export default async function Home() {
         />
         <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-16">
           <div>
-            <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">The workshop.</h2>
+            <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">The atelier.</h2>
             <p className="mt-6 text-base leading-relaxed text-ink-subtle md:text-lg">
-              In the workshop we place tools that support weaving. Weaving is the activity of
+              In the atelier we place tools that support weaving. Weaving is the activity of
               bringing people together — building connection and collaboration: in a meeting, at a
               party, across a learning process that runs for months.
             </p>
@@ -225,8 +225,8 @@ export default async function Home() {
               More tools are still on the workbench.
             </p>
             <p className="mt-6 text-sm text-ink-subtle">
-              <Link href="/workshop" className="underline underline-offset-4 hover:text-ink">
-                Step into the workshop →
+              <Link href="/atelier" className="underline underline-offset-4 hover:text-ink">
+                Step into the atelier →
               </Link>
             </p>
           </div>
@@ -262,7 +262,7 @@ export default async function Home() {
               Underneath it all: The Fibre.
             </h2>
             <p className="mt-6 text-base leading-relaxed text-ink-subtle md:text-lg">
-              Every tool in the workshop stands on the same foundation. The Fibre holds your
+              Every tool in the atelier stands on the same foundation. The Fibre holds your
               contacts and their personal information — with the highest integrity. One contact
               base, hosted in the EU, GDPR by construction.
             </p>
@@ -345,8 +345,8 @@ export default async function Home() {
             </Settle>
           </div>
           <p className="mt-10 text-sm text-ink-subtle">
-            <Link href="/workshop" className="underline underline-offset-4 hover:text-ink">
-              The workshop behind it — by facilitators, for facilitators →
+            <Link href="/atelier" className="underline underline-offset-4 hover:text-ink">
+              The atelier behind it — by facilitators, for facilitators →
             </Link>
           </p>
         </div>

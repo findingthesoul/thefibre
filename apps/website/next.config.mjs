@@ -28,8 +28,12 @@ const nextConfig = {
       // new site inherits the obligation).
       { source: '/login', destination: THREAD_APP_URL, permanent: false },
       { source: '/signup', destination: THREAD_APP_URL, permanent: false },
-      // V3's features page becomes the workshop.
-      { source: '/features', destination: '/workshop', permanent: true },
+      // V3's features page becomes the atelier.
+      { source: '/features', destination: '/atelier', permanent: true },
+      // "The workshop" was renamed to "the atelier" on 2026-09-24. The page
+      // had been linked from the nav, the landing page and the pricing page
+      // for two weeks, so the old path is somebody's bookmark by now.
+      { source: '/workshop', destination: '/atelier', permanent: true },
     ];
   },
 };

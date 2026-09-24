@@ -18,7 +18,7 @@ export const revalidate = 300;
 const LEAD: Record<string, string> = {
   free: 'One live event, forever. Not a trial — a promise.',
   starter: 'A few journeys running at once, in your own voice.',
-  pro: 'Design your own threads. The whole workshop, no enrolment fee.',
+  pro: 'Design your own threads. The whole atelier, no enrolment fee.',
   org: 'Many teams, one fabric. Let’s talk about what you’re weaving.',
 };
 
