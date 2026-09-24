@@ -404,6 +404,11 @@ export async function sendPendingChanges(args: {
           ],
         });
         sent += 1;
+        // Resend accepts two requests a second. A thread of forty people with
+        // three moved sessions is a hundred and twenty sends in a tight loop,
+        // and the rejections would land silently in `skipped` — a send that
+        // reports partial success and looks fine in the log. Pace it.
+        await new Promise((r) => setTimeout(r, SEND_GAP_MS));
       } catch (e) {
         console.error('[thread/calendar] send failed', { to: person.email, e });
         skipped.push(`${person.email}: send failed`);
@@ -414,6 +419,9 @@ export async function sendPendingChanges(args: {
   await markSent(changes.map((ch) => ch.id));
   return { sent, recipients: audience.length, changes: changes.length, skipped };
 }
+
+/** Just inside Resend's two-per-second ceiling, with room for jitter. */
+const SEND_GAP_MS = 550;
 
 async function markSent(ids: string[]): Promise<void> {
   if (!ids.length) return;

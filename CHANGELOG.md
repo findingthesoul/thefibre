@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.48.2] — 2026-09-24 — invitations go out at a pace the sender accepts
+
+Resend takes two requests a second. A thread of forty people with three moved
+sessions is a hundred and twenty sends in a tight loop, and the rejections
+would have landed in `skipped` — a send that reports partial success, logs
+tidily, and leaves a third of the room never told. Paced to just inside the
+ceiling.
+
+Found before the first real send rather than after, which is the only reason
+it is a line in a changelog instead of an incident.
+
 ## [1.48.1] — 2026-09-24 — the portal stays signed in
 
 Sjoerd: *"can login be 'stay logged in'?"* It already was meant to be. Nothing
