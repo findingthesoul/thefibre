@@ -9,7 +9,7 @@
 
 import { apiFetch, ApiError } from '@/lib/api';
 import { publicSite } from '@/lib/public-site-url';
-import { ExternalLink } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { buttonClassName } from '@thefibre/shared/ui/button';
 import { PageContainer, PageHeader, Breadcrumb, ErrorBanner } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
@@ -41,13 +41,18 @@ export default async function WebsiteSettingsPage() {
         // It opens the live public page, so it shows what is SAVED.
         actions={
           publicUrl ? (
-            <a
-              href={publicUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonClassName('secondary', 'md')}
-            >
-              <ExternalLink size={14} strokeWidth={1.75} />
+        // SAME TAB. Sjoerd, 2026-09-24: "your site... is open in a new
+        // tab" — it was, and he was telling me so because he did not want
+        // it. Going to your own public homepage is navigation, not a detour:
+        // a new tab leaves a dead admin tab behind every time, and the way
+        // back is the browser's Back button, which is where people already
+        // reach for it.
+        //
+        // The icon changed with it. `ExternalLink` is a promise that a link
+        // leaves and opens elsewhere; keeping it on a same-tab link would be
+        // the icon lying about the behaviour.
+            <a href={publicUrl} className={buttonClassName('secondary', 'md')}>
+              <Globe size={14} strokeWidth={1.75} />
               {t(locale, 'site_preview')}
             </a>
           ) : undefined
