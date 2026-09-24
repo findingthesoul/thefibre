@@ -54,7 +54,7 @@ import {
   ZoomAlternativeHostsError,
 } from '../lib/zoom/client.js';
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
-import { buildBookingIcal } from '../lib/ical.js';
+import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { platformFromAddress, sendEmail } from '../lib/email/client.js';
@@ -1086,7 +1086,10 @@ meetRoutes.post('/public/bookings', async (c) => {
       }
       const { eventId, meetUrl } = await createEvent(bookingGToken, {
         calendarId,
-        summary: mt.name,
+        // The event is written to the HOST's calendar, so it names the
+        // invitee. The invitee's own copy comes from the .ics we link in
+        // their confirmation mail, and names the host instead.
+        summary: bookingCalendarTitle(mt.name, data.invitee_name),
         description: mt.description ?? null,
         startsAt: starts,
         endsAt: ends,
@@ -1711,12 +1714,15 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
   });
 });
 
-// GET /api/v1/meet/public/bookings/:id/calendar.ics
-// "Add to calendar" for the invitee. Google already sends its own invite
-// when the host has a calendar connected — this covers everyone else, and
-// every host without Google.
+// GET /api/v1/meet/public/bookings/:id/calendar.ics[?for=host]
+// "Add to calendar". The invitee's file by default; `for=host` renders the
+// host's copy, which differs in one thing — the title names the other person.
+// Both emails link here, so the query string is what tells the two apart.
+// It grants nothing: the file's contents are the booking, and both names are
+// already in it as ORGANIZER and ATTENDEE.
 meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
   const id = c.req.param('id');
+  const forHost = c.req.query('for') === 'host';
   const { data: b, error } = await adminClient
     .from('meet_booking')
     .select(
@@ -1739,7 +1745,10 @@ meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
     uid: `meet-${b.id}@thefibre.app`,
     startsAt: new Date(b.starts_at),
     endsAt: new Date(b.ends_at),
-    summary: mt?.name ?? 'Meeting',
+    summary: bookingCalendarTitle(
+      mt?.name ?? 'Meeting',
+      forHost ? b.invitee_name : (hostUser?.full_name ?? null),
+    ),
     description: [mt?.description ?? null, b.meet_url ? `Join: ${b.meet_url}` : null]
       .filter(Boolean)
       .join('\n\n'),
@@ -3262,7 +3271,8 @@ async function runConfirmationSideEffects(
       const withMeet = mt.conferencing_provider === 'google_meet';
       const { eventId, meetUrl: m } = await createEvent(confirmGToken, {
         calendarId,
-        summary: mt.name,
+        // Host's calendar — same reasoning as the auto-confirm path above.
+        summary: bookingCalendarTitle(mt.name, booking.invitee_name),
         description: mt.description ?? null,
         startsAt: new Date(booking.starts_at),
         endsAt: new Date(booking.ends_at),

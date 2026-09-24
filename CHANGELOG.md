@@ -4,6 +4,33 @@ All notable changes to The Fibre. Format follows [Keep a Changelog](https://keep
 
 The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
+## [1.28.0] — 2026-09-24 — a meeting in the calendar says who it is with (Meet 2.12.0)
+
+"It would be nice in Meet that someone gets {meeting name} - {person s/he has
+an appointment with}" (Sjoerd, 2026-09-24). A calendar entry said only
+"personal meeting" — fine once, useless in a week of them, and the one thing
+you actually want to read at a glance is who is on the other side.
+
+So a calendar entry now names the **counterpart**, never the reader:
+
+- the event Meet writes to the **host's** Google Calendar says
+  `personal meeting - Tuana`;
+- the `.ics` the **invitee** downloads from their confirmation mail says
+  `personal meeting - Sjoerd Luteijn`.
+
+Both sides share one `.ics` route, so `?for=host` is what tells them apart —
+and the two email templates linking to it are now asserted to ask for
+different files, because a dropped query string is invisible in the mail and
+shows up later as a host whose whole week is titled with their own name.
+
+A meeting with nobody to name keeps its own name rather than trailing a
+separator.
+
+One thing Google cannot do: an event has a single title for everyone on it.
+The invitee is an attendee on the host's event, so if they add that copy
+rather than the one in their mail, they will see their own name. The file in
+their confirmation mail is the one written for them.
+
 ## [1.27.6] — 2026-09-24 — Connect returns you where you started (staging)
 
 Sjoerd connected a Stripe account from Thread on STAGING and landed on

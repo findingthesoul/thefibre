@@ -88,3 +88,24 @@ function escapeText(s: string): string {
 function escapeParam(s: string): string {
   return s.replace(/[";:,]/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+/**
+ * The title a calendar entry carries: the meeting's name, then the person on
+ * the OTHER side of it.
+ *
+ * A host's week is otherwise a column of identical "Intro call" blocks, and an
+ * invitee's is a meeting with nobody named. So each side names its counterpart
+ * — the host's copy says the invitee, the invitee's copy says the host
+ * (Sjoerd, 2026-09-24). Which name to pass is the caller's decision, because
+ * only the caller knows whose calendar the entry is going onto.
+ *
+ * With no counterpart to name, the meeting's own name stands alone rather than
+ * trailing a separator.
+ */
+export function bookingCalendarTitle(
+  meetingName: string,
+  counterpartName?: string | null,
+): string {
+  const other = counterpartName?.trim();
+  return other ? `${meetingName} - ${other}` : meetingName;
+}

@@ -80,9 +80,14 @@ function bookingBaseUrl(c: Common): string {
 }
 
 /** "Add to calendar" — the .ics the API renders for this booking, proxied by
- *  the Meet app so the link stays on the app's own domain. */
-function icsUrl(c: Common): string {
-  return `${bookingBaseUrl(c)}/calendar.ics`;
+ *  the Meet app so the link stays on the app's own domain.
+ *
+ *  The audience is in the link because the file differs by it: a calendar
+ *  entry names the person on the OTHER side, so the host's copy says the
+ *  invitee and the invitee's says the host. Get this wrong and someone books
+ *  an hour with themselves. */
+function icsUrl(c: Common, audience: 'invitee' | 'host'): string {
+  return `${bookingBaseUrl(c)}/calendar.ics${audience === 'host' ? '?for=host' : ''}`;
 }
 
 function rescheduleUrl(c: Common): string {
@@ -195,7 +200,7 @@ You're booked.
 
 ${detailsText(c)}
 ${c.paymentNote ? `\n${c.paymentNote}\n` : ''}
-Add to your calendar: ${icsUrl(c)}
+Add to your calendar: ${icsUrl(c, 'invitee')}
 Need a different time? ${rescheduleUrl(c)}
 Need to cancel? ${cancel}
 
@@ -205,7 +210,7 @@ ${emailSignoff()}`;
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">You're booked, ${escapeHtml(c.inviteeName.split(' ')[0] ?? '')}.</h1>
 ${detailsHtml(c)}
 ${c.paymentNote ? `<p style="margin-top:20px;font-size:14px;color:#171717;">${escapeHtml(c.paymentNote)}</p>` : ''}
-<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">Cancel</a></div>`,
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'invitee')}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">Cancel</a></div>`,
     c.brand,
   );
   return { subject, text, html };
@@ -227,7 +232,7 @@ export function bookingNotificationHost(c: Common): {
 
 ${detailsText(c)}
 
-Add to your calendar: ${icsUrl(c)}
+Add to your calendar: ${icsUrl(c, 'host')}
 Need a different time? ${rescheduleUrl(c)}
 Need to cancel? ${cancelUrl(c)}
 
@@ -237,7 +242,7 @@ ${emailSignoff()}`;
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(c.inviteeName)} booked ${escapeHtml(c.meetingName)}.</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(c.inviteeEmail)}</div>
 ${detailsHtml(c)}
-<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'host')}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
     c.brand,
   );
   return { subject, text, html };
@@ -292,7 +297,7 @@ Was:   ${was}
 
 ${detailsText(c)}
 
-Add to your calendar: ${icsUrl(c)}
+Add to your calendar: ${icsUrl(c, audience)}
 Need to cancel? ${cancelUrl(c)}
 
 ${emailSignoff()}`;
@@ -301,7 +306,7 @@ ${emailSignoff()}`;
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">Was: <s>${escapeHtml(was)}</s></div>
 ${detailsHtml(c)}
-<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, audience)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
     c.brand,
   );
   return { subject, text, html };

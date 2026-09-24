@@ -2,7 +2,7 @@
 // errors, the event just never appears. So the escaping rules are locked.
 
 import { describe, expect, it } from 'vitest';
-import { buildBookingIcal } from './ical.js';
+import { bookingCalendarTitle, buildBookingIcal } from './ical.js';
 
 const base = {
   uid: 'meet-abc@thefibre.app',
@@ -92,5 +92,31 @@ describe('buildBookingIcal — the portal shape', () => {
     expect(buildBookingIcal({ ...item, prodId: '-//X//Portal//EN' })).toContain(
       'PRODID:-//X//Portal//EN',
     );
+  });
+});
+
+describe('bookingCalendarTitle', () => {
+  it('names the counterpart after the meeting', () => {
+    expect(bookingCalendarTitle('Intro call', 'Daniel Ross')).toBe('Intro call - Daniel Ross');
+  });
+
+  it('is perspective-dependent — each side names the other', () => {
+    // The same booking, two calendars. This is the whole point of the helper:
+    // neither side reads its own name back.
+    const meeting = 'Intro call';
+    const host = 'Marja de Vries';
+    const invitee = 'Daniel Ross';
+    expect(bookingCalendarTitle(meeting, invitee)).toBe('Intro call - Daniel Ross');
+    expect(bookingCalendarTitle(meeting, host)).toBe('Intro call - Marja de Vries');
+  });
+
+  it('stands alone when there is nobody to name', () => {
+    expect(bookingCalendarTitle('Intro call', null)).toBe('Intro call');
+    expect(bookingCalendarTitle('Intro call', undefined)).toBe('Intro call');
+    expect(bookingCalendarTitle('Intro call', '   ')).toBe('Intro call');
+  });
+
+  it('trims a padded name rather than widening the gap', () => {
+    expect(bookingCalendarTitle('Intro call', '  Daniel Ross ')).toBe('Intro call - Daniel Ross');
   });
 });
