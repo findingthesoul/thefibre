@@ -6,6 +6,59 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.47.2] — 2026-09-24 — the number in the footer was not the software you were using (Portal 0.11.0, Thread 4.1.0, staging)
+
+The portal prints its version at the foot of every page. It read **0.10.5**
+while five releases of portal features had shipped on top of it: a calendar
+you can subscribe to, the way back out, where a subscription can actually be
+added, the whole sequence at once, and the way-back button. The footer was
+telling people they were looking at software that did not have the feature on
+the screen in front of them.
+
+Five apps carry their own user-facing version, decoupled from the monorepo
+number on purpose — Meet shows v2.x as the rebuild of Suite v1; Pulse,
+Members and the portal each started at 0.1.0; Thread is at 4.x from its own
+rebuild. `release.sh` DERIVES every monorepo version surface precisely so a
+new app cannot be forgotten. These five sit outside that by design, so they
+move when somebody remembers, and on 2026-09-24 nobody had.
+
+**`scripts/check-app-versions.mjs` now says so at release time.** It compares
+two commit dates — when an app's version constant last moved, against when
+its source last moved — which is the same technique as
+`check-sw-freshness.mjs` and for the same reason: the mismatch exists in no
+other place. Not in `pnpm verify`; verify's output is long enough to scroll
+past, and this is release-time information.
+
+**It warns and never fails**, which is a deliberate weakening. It cannot tell
+a user-facing change from a shared refactor that happened to touch the
+folder, and a gate that misfires is a gate people route around — the
+reasoning already written into `changelog-order.mjs`. Deciding whether a
+change earned a number is a judgement; this is a reminder to make it, not a
+claim to have made it.
+
+Two things found by running it rather than by reading it:
+
+**It matched one app out of five and reported the other four as fine.** The
+portal writes `export const VERSION`; Meet, Pulse, Members and Thread write a
+bare `const`. A pattern requiring the export produced a confident all-clear —
+exactly the failure the script exists to catch, in the script itself.
+
+**With no threshold it fired on all five**, most of them one commit behind,
+which is a warning nobody reads twice. Three commits is where "we have
+shipped this app a few times without moving its number" stops being routine.
+That number is a noise dial, not a correctness boundary, and it is written
+down as one.
+
+Bumped here: the **portal to 0.11.0** (the calendar subscription and the way
+back out) and **Thread to 4.1.0** (Settings → Website gained two designs in
+1.45.0). After the bumps the check is quiet, which is the point.
+
+Also corrected in passing: CLAUDE.md names three apps with their own version.
+There are five. The comment in the new script says so rather than repeating
+the count — a hand-kept inventory is what went stale here in the first place,
+and CLAUDE.md is Sjoerd's file to edit.
+
+
 ## [1.47.1] — 2026-09-24 — the way back is a button
 
 Sjoerd, asking a second time: *"button to go back to thethread"*. It shipped

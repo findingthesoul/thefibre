@@ -146,6 +146,13 @@ fi
 # people route around.
 node scripts/changelog-order.mjs || true
 
+# The per-app versions release.sh does NOT stamp — Meet, Pulse, Members,
+# Thread and the portal each carry their own, shown to users, bumped by
+# hand. Printed here rather than inside `pnpm verify` because it is
+# release-time information and verify's output is long enough to scroll
+# past. Never fails, for the reason written in the script's own header.
+node scripts/check-app-versions.mjs || true
+
 echo "Released $V to STAGING."
 echo
 echo "  Look at it on the .tech stack. When it is good:"
