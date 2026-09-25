@@ -46,6 +46,32 @@ fixture that has entries:
   `apps/connections/app/(app)/entries/page.tsx` ~82, Pulse `safeItems`,
   Membership `.catch(() => [])`, `packages/shared/src/todo-calls.ts` ~38.
 
+**A merged-away address cannot see its portal** (Sjoerd decides; found by
+thefibre-fb 2026-09-25 on production: soul.com person fd1a8fe1 merged into
+7c7b9786, the old address paid a membership the day before). Every
+participant surface resolves the signed-in email against `person.email`
+only (`lib/portal-agenda.ts personsForEmail`, `routes/membership-portal.ts`
+~120 and ~287). A merge carries the loser's address into
+`person_contact_point` with `verified_at` null and no record of where it
+came from, so signing in as that address matches no live person and the
+portal is empty. **Do not widen the match to every contact point**: an
+organiser can attach their own address to any person they can edit and
+would then read that person's invoices. Safe shapes, pick one:
+1. Add `source` to `person_contact_point` (`form` | `merge` | `enrolment` |
+   `sign_in`), have `merge_person` stamp `merge` and the enrol path
+   `enrolment`, and match `person.email OR (contact point with source in
+   (merge, enrolment) or verified_at not null)`. Provenance from the
+   participant's own act, never from an organiser's edit.
+2. Simpler: at merge time, when the merged-away `email` had ever been used
+   to enrol or pay (an enrolment or purchase row carries it), stamp
+   `verified_at` on the carried contact point; match verified contact points
+   only. The 20260915090000 backfill already treats "signed in with it" as
+   proof, so this extends an existing rule.
+Either way the RLS for the portal stays keyed on person ids; only the
+email→persons resolution changes, in ONE place (`personsForEmail`), and the
+member portal should call it rather than keep its own copy.
+Until then: the member signs in with the surviving address.
+
 **Payment destination default disagrees between panel and charge** (Sjoerd
 decides). `apps/thread/app/(app)/threads/[id]/pricing-panel.tsx` ~437: a
 thread with no team and no saved `payment_destination` shows "personal" when
