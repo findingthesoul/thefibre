@@ -16,12 +16,14 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { AssigneesEditor, type TeamMember, type Assignee } from './assignees';
 import { ShareMeetingType } from './share';
+import { RetireMeetingType } from './retire';
 import { PollVotesMatrix } from './votes';
 
 type MT = MeetingTypeFormValues & {
   id: string;
   team_id: string | null;
   event_type: string;
+  archived_at: string | null;
 };
 type Team = {
   id: string;
@@ -139,7 +141,7 @@ export default async function EditMeetingTypePage({
           // Only for a page that is actually reachable: the public route
           // filters on is_active, so sharing a hidden type hands somebody
           // a 404.
-          mt.is_active && ownerSlug ? (
+          mt.is_active && !mt.archived_at && ownerSlug ? (
             <ShareMeetingType path={`/${ownerSlug}/${mt.slug}`} locale={locale} />
           ) : null
         }
@@ -165,6 +167,18 @@ export default async function EditMeetingTypePage({
           </div>
         </section>
       )}
+      <section className="mt-14">
+        <SectionLabel>{t(locale, 'retire_label')}</SectionLabel>
+        <div className="mt-4">
+          <RetireMeetingType
+            id={mt.id}
+            name={mt.name ?? ''}
+            archived={!!mt.archived_at}
+            locale={locale}
+          />
+        </div>
+      </section>
+
       {showAssignees && isLead && (
         <section className="mt-14">
           <SectionLabel>{t(locale, 'assignees_label')}</SectionLabel>

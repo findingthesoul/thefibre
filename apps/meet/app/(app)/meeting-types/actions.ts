@@ -269,3 +269,41 @@ export async function updateMeetingType(
   revalidatePath(`/meeting-types/${id}`);
   return { ok: true };
 }
+
+// ── Retiring a meeting type ────────────────────────────────────────────────
+// Archive is the normal way out: a meeting type with bookings cannot be
+// deleted (the FK from meet_booking has no cascade, and those rows are the
+// record of meetings that happened). Delete is offered only for one nobody
+// used — the API is the judge of that, not the UI.
+
+export async function archiveMeetingType(id: string): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${id}/archive`, { method: 'POST' });
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+  revalidatePath('/meeting-types');
+  revalidatePath(`/meeting-types/${id}`);
+  return { ok: true };
+}
+
+export async function unarchiveMeetingType(id: string): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${id}/unarchive`, { method: 'POST' });
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+  revalidatePath('/meeting-types');
+  revalidatePath(`/meeting-types/${id}`);
+  return { ok: true };
+}
+
+export async function deleteMeetingType(id: string): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${id}`, { method: 'DELETE' });
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+  revalidatePath('/meeting-types');
+  return { ok: true };
+}

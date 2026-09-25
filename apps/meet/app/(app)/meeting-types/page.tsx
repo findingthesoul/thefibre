@@ -11,6 +11,7 @@ import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 import { uiLocale } from '@/lib/locale';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { NewMeetingTypeMenu } from './new-menu';
+import { MeetingTypesViewTabs } from './view-tabs';
 import { MEET_HOST } from '@/lib/public-host';
 
 type Team = { id: string; name: string; my_role: 'lead' | 'member' };
@@ -23,6 +24,7 @@ type MeetingType = {
   duration_minutes: number;
   conferencing_provider: string;
   is_active: boolean;
+  archived_at: string | null;
   team_id: string | null;
   team:
     | { id: string; name: string; slug: string }
@@ -32,8 +34,13 @@ type MeetingType = {
 
 type Host = { slug: string };
 
-export default async function MeetingTypesPage() {
+export default async function MeetingTypesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const locale = await uiLocale();
+  const view = (await searchParams).view === 'archived' ? 'archived' : 'active';
   let items: MeetingType[] = [];
   let host: Host | null = null;
   let teams: Team[] = [];
@@ -52,9 +59,13 @@ export default async function MeetingTypesPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
-  const personal = items.filter((m) => !m.team_id);
+  // Archived types are out of the way, not gone: the Archived tab is the only
+  // place they appear. "Active" here means "not archived" — a HIDDEN type is
+  // still something you offer, just not publicly listed, so it stays.
+  const visible = items.filter((m) => (view === 'archived' ? !!m.archived_at : !m.archived_at));
+  const personal = visible.filter((m) => !m.team_id);
   const byTeam = new Map<string, { name: string; slug: string; items: MeetingType[] }>();
-  for (const mt of items) {
+  for (const mt of visible) {
     if (!mt.team_id) continue;
     const tm = Array.isArray(mt.team) ? mt.team[0] : mt.team;
     if (!tm) continue;
@@ -78,10 +89,16 @@ export default async function MeetingTypesPage() {
               secondary={`${MEET_HOST}${bookingPath}`}
               meta={
                 <>
-                  {!mt.is_active && (
+                  {mt.archived_at ? (
                     <span className="uppercase tracking-wider text-ink-muted">
-                      {t(locale, 'hidden')}
+                      {t(locale, 'archived')}
                     </span>
+                  ) : (
+                    !mt.is_active && (
+                      <span className="uppercase tracking-wider text-ink-muted">
+                        {t(locale, 'hidden')}
+                      </span>
+                    )
                   )}
                   <span>{mt.duration_minutes} min</span>
                 </>
@@ -115,10 +132,17 @@ export default async function MeetingTypesPage() {
 
       {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
+      <MeetingTypesViewTabs
+        view={view}
+        labels={{ active: t(locale, 'active'), archived: t(locale, 'archived') }}
+      />
+
       <section className="mt-10">
         <SectionLabel>{t(locale, 'personal')}</SectionLabel>
         {personal.length === 0 ? (
-          <EmptyState>{t(locale, 'no_personal_mts')}</EmptyState>
+          <EmptyState>
+            {view === 'archived' ? t(locale, 'no_archived_mts') : t(locale, 'no_personal_mts')}
+          </EmptyState>
         ) : (
           host && renderList(host.slug, personal, locale)
         )}

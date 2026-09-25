@@ -3491,6 +3491,94 @@ const CATALOG = {
     de: 'Diese Buchung verschieben', // MT
     fr: 'Reprogrammer cette réservation', // MT
   },
+  active: {
+    en: 'Active',
+    nl: 'Actief',
+    es: 'Activos', // MT
+    pt: 'Ativos', // MT
+    de: 'Aktiv', // MT
+    fr: 'Actifs', // MT
+  },
+  archived: {
+    en: 'Archived',
+    nl: 'Gearchiveerd',
+    es: 'Archivados', // MT
+    pt: 'Arquivados', // MT
+    de: 'Archiviert', // MT
+    fr: 'Archivés', // MT
+  },
+  archive: {
+    en: 'Archive',
+    nl: 'Archiveren',
+    es: 'Archivar', // MT
+    pt: 'Arquivar', // MT
+    de: 'Archivieren', // MT
+    fr: 'Archiver', // MT
+  },
+  unarchive: {
+    en: 'Unarchive',
+    nl: 'Terughalen',
+    es: 'Desarchivar', // MT
+    pt: 'Desarquivar', // MT
+    de: 'Wiederherstellen', // MT
+    fr: 'Désarchiver', // MT
+  },
+  retire_label: {
+    en: 'Archive or delete',
+    nl: 'Archiveren of verwijderen',
+    es: 'Archivar o eliminar', // MT
+    pt: 'Arquivar ou eliminar', // MT
+    de: 'Archivieren oder löschen', // MT
+    fr: 'Archiver ou supprimer', // MT
+  },
+  archive_desc: {
+    en: 'Archiving takes it off your booking page and out of this list. Bookings already made are unaffected, and you can bring it back later.',
+    nl: 'Archiveren haalt het van je boekingspagina en uit deze lijst. Bestaande boekingen blijven staan en je kunt het later terughalen.',
+    es: 'Archivar lo retira de tu página de reservas y de esta lista. Las reservas ya hechas no cambian y puedes recuperarlo más tarde.', // MT
+    pt: 'Arquivar remove-o da tua página de marcações e desta lista. As marcações já feitas não mudam e podes recuperá-lo mais tarde.', // MT
+    de: 'Archivieren nimmt es von deiner Buchungsseite und aus dieser Liste. Bereits getätigte Buchungen bleiben bestehen, und du kannst es später zurückholen.', // MT
+    fr: 'Archiver le retire de ta page de réservation et de cette liste. Les réservations déjà faites ne changent pas et tu peux le restaurer plus tard.', // MT
+  },
+  unarchive_desc: {
+    en: 'This meeting type is archived. Bringing it back puts it in your list as hidden — publish it again whenever you are ready.',
+    nl: 'Dit meetingtype is gearchiveerd. Terughalen zet het verborgen in je lijst — publiceer het weer wanneer je wilt.',
+    es: 'Este tipo de reunión está archivado. Al recuperarlo vuelve a tu lista como oculto: publícalo de nuevo cuando quieras.', // MT
+    pt: 'Este tipo de reunião está arquivado. Ao recuperá-lo volta à tua lista como oculto: publica-o de novo quando quiseres.', // MT
+    de: 'Dieser Meeting-Typ ist archiviert. Beim Zurückholen erscheint er verborgen in deiner Liste — veröffentliche ihn wieder, wann du willst.', // MT
+    fr: 'Ce type de réunion est archivé. En le restaurant, il revient masqué dans ta liste — publie-le à nouveau quand tu veux.', // MT
+  },
+  delete: {
+    en: 'Delete',
+    nl: 'Verwijderen',
+    es: 'Eliminar', // MT
+    pt: 'Eliminar', // MT
+    de: 'Löschen', // MT
+    fr: 'Supprimer', // MT
+  },
+  delete_mt_title: {
+    en: 'Delete this meeting type?',
+    nl: 'Dit meetingtype verwijderen?',
+    es: '¿Eliminar este tipo de reunión?', // MT
+    pt: 'Eliminar este tipo de reunião?', // MT
+    de: 'Diesen Meeting-Typ löschen?', // MT
+    fr: 'Supprimer ce type de réunion ?', // MT
+  },
+  delete_mt_message: {
+    en: '“{name}” will be gone for good. This only works if nobody has ever booked it — otherwise archive it instead.',
+    nl: '“{name}” is dan definitief weg. Dit kan alleen als niemand het ooit geboekt heeft — archiveer het anders.',
+    es: '“{name}” desaparecerá para siempre. Solo funciona si nadie lo ha reservado nunca; si no, archívalo.', // MT
+    pt: '“{name}” desaparece definitivamente. Só funciona se ninguém o tiver marcado; caso contrário, arquiva-o.', // MT
+    de: '„{name}“ ist dann endgültig weg. Das geht nur, wenn es nie gebucht wurde — archiviere es sonst.', // MT
+    fr: '« {name} » sera supprimé définitivement. Cela ne fonctionne que si personne ne l’a jamais réservé — sinon, archive-le.', // MT
+  },
+  no_archived_mts: {
+    en: 'Nothing archived.',
+    nl: 'Niets gearchiveerd.',
+    es: 'Nada archivado.', // MT
+    pt: 'Nada arquivado.', // MT
+    de: 'Nichts archiviert.', // MT
+    fr: 'Rien d’archivé.', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

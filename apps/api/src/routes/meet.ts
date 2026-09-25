@@ -3054,6 +3054,130 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
 });
 
 // ===========================================================================
+// RETIRING A MEETING TYPE — archive, unarchive, delete.
+//
+// Deleting is the rare case, not the normal one. `meet_booking.meeting_type_id`
+// is a non-null FK with no cascade, so Postgres refuses to remove anything
+// that has ever been booked — and rightly: those rows are the record of
+// meetings that actually happened. So DELETE is offered only for a meeting
+// type nobody used, and everything else archives.
+//
+// Archiving forces `is_active = false` rather than adding a second condition
+// to every reader. Every public surface — the host page, the meeting-type
+// page, the slots endpoint, the reschedule flow — already filters on
+// is_active, so an archived type leaves all of them without any of them
+// learning what "archived" means.
+// ===========================================================================
+
+/** Rows the caller may retire: their own personal ones, or a team's where
+ *  they lead. Returns the row, or null when it is not theirs to touch —
+ *  RLS is the real gate, this is the readable error. */
+async function meetingTypeForRetire(
+  jwt: string,
+  userId: string,
+  id: string,
+): Promise<{ id: string; archived_at: string | null; team_id: string | null } | null> {
+  const db = userClient(jwt);
+  const { data } = await db
+    .from('meet_meeting_type')
+    .select('id, archived_at, team_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (!data) return null;
+  if (data.team_id) {
+    const { data: membership } = await adminClient
+      .from('team_member')
+      .select('role')
+      .eq('team_id', data.team_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (membership?.role !== 'lead') return null;
+  }
+  return data;
+}
+
+// POST /api/v1/meet/meeting-types/:id/archive
+meetRoutes.post('/meeting-types/:id/archive', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const mt = await meetingTypeForRetire(ctx.jwt, ctx.userId, id);
+  if (!mt) return c.json({ error: 'meeting type not found' }, 404);
+  const { data, error } = await userClient(ctx.jwt)
+    .from('meet_meeting_type')
+    .update({ archived_at: new Date().toISOString(), is_active: false })
+    .eq('id', id)
+    .select('id, archived_at, is_active')
+    .single();
+  if (error) {
+    console.error('[mt/archive] failed', { id, code: error.code, message: error.message });
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data);
+});
+
+// POST /api/v1/meet/meeting-types/:id/unarchive
+//
+// Restores it to the list as HIDDEN, never straight back onto the public
+// page: bringing something back is the host's decision, publishing it is a
+// second one. They are one click apart in the editor.
+meetRoutes.post('/meeting-types/:id/unarchive', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const mt = await meetingTypeForRetire(ctx.jwt, ctx.userId, id);
+  if (!mt) return c.json({ error: 'meeting type not found' }, 404);
+  const { data, error } = await userClient(ctx.jwt)
+    .from('meet_meeting_type')
+    .update({ archived_at: null })
+    .eq('id', id)
+    .select('id, archived_at, is_active')
+    .single();
+  if (error) {
+    console.error('[mt/unarchive] failed', { id, code: error.code, message: error.message });
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data);
+});
+
+// DELETE /api/v1/meet/meeting-types/:id
+//
+// Refused once anything has been booked. The count is checked with the admin
+// client on purpose: the host may not be able to READ every booking row under
+// RLS, and a delete that looked allowed because the caller could not see the
+// bookings would be the worst possible answer.
+meetRoutes.delete('/meeting-types/:id', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const mt = await meetingTypeForRetire(ctx.jwt, ctx.userId, id);
+  if (!mt) return c.json({ error: 'meeting type not found' }, 404);
+
+  const { count, error: countErr } = await adminClient
+    .from('meet_booking')
+    .select('id', { count: 'exact', head: true })
+    .eq('meeting_type_id', id);
+  if (countErr) {
+    console.error('[mt/delete] booking count failed', { id, message: countErr.message });
+    return c.json({ error: countErr.message }, 500);
+  }
+  if ((count ?? 0) > 0) {
+    return c.json(
+      {
+        error: 'this meeting type has bookings and cannot be deleted — archive it instead',
+        code: 'has_bookings',
+        bookings: count,
+      },
+      409,
+    );
+  }
+
+  const { error } = await userClient(ctx.jwt).from('meet_meeting_type').delete().eq('id', id);
+  if (error) {
+    console.error('[mt/delete] failed', { id, code: error.code, message: error.message });
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ ok: true });
+});
+
+// ===========================================================================
 // POLL — candidate slots + invitee votes for event_type='poll' meeting types.
 // ===========================================================================
 

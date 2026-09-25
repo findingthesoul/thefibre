@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.54.0] — 2026-09-25 — a meeting type you can retire, and two event types that never worked (Meet 2.15.0)
+
+### Meeting polls and one-offs have never been creatable
+
+Sjoerd tried to make a Meeting poll and got
+
+    API 500: new row for relation "meet_meeting_type"
+    violates check constraint "meet_meeting_type_event_type_check"
+
+The migration that shipped both event types on 2026-05-17 added their tables,
+their columns and their UI, and widened no constraint. `event_type`'s CHECK has
+listed the same four values since May, so **every** poll and one-off ever
+attempted was refused by the database — for four months, behind a UI that
+offered them. Corroborated before fixing: zero rows of either type exist in
+production or staging.
+
+A personal poll tripped a second constraint behind the first.
+`team_only_multihost` says "anything but one_on_one/group needs a team", which
+was right when the only other values were round_robin and collective — the
+genuinely multi-host ones. A one-off and a poll have a single host, so they
+now sit with one_on_one rather than behind a team.
+
+Both constraints are widened. Proved on staging by inserting a personal poll
+against the real database, not by reading the push log.
+
+### Archive, and delete when it is honestly possible
+
+"How can I delete a meeting type?" — you could not, and the answer is mostly
+that you should not. `meet_booking.meeting_type_id` is a non-null FK with no
+cascade, so Postgres refuses to remove anything that has ever been booked, and
+those rows are the record of meetings that happened.
+
+So the list now has **Active** and **Archived** tabs, and the editor has both
+doors:
+
+- **Archive** takes it off your booking page and out of the list, keeping
+  every booking. It forces `is_active = false` rather than teaching a second
+  rule to every reader — the public page, the slots endpoint and the
+  reschedule flow all filter on `is_active` already, so an archived type
+  leaves all of them without any of them knowing the word.
+- **Unarchive** brings it back **hidden**, never straight onto the public
+  page. Restoring is one decision; publishing is another.
+- **Delete** is offered, and the API refuses it with `409 has_bookings` the
+  moment anything has been booked. The count is taken with the admin client
+  on purpose: the host may not be able to read every booking row under RLS,
+  and a delete that looked allowed because the caller could not see the
+  bookings would be the worst possible answer.
+
+"Active" means not archived — a HIDDEN type is still something you offer, so
+it stays on the first tab.
+
 ## [1.53.0] — 2026-09-25 — your certificate, on your own page
 
 Sjoerd: *"Certificates (with if you have…) should be in my.thread … could be
