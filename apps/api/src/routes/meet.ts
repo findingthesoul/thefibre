@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { SignJWT, jwtVerify } from 'jose';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { adminClient, userClient } from '../db.js';
+import { rows } from '../lib/rows.js';
 import {
   isAdminRole,
   wouldOrphanWorkspace,
@@ -1309,13 +1310,18 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
   // type). Confirmed only — cancelled bookings don't block.
   // Group MTs: bookings on this MT itself do NOT block, since the slot
   // stays open until capacity is reached. We track per-slot counts below.
-  const { data: bookings } = await adminClient
-    .from('meet_booking')
-    .select('starts_at, ends_at, meeting_type_id')
-    .eq('host_id', host.id)
-    .eq('status', 'confirmed')
-    .gte('ends_at', from.toISOString())
-    .lte('starts_at', cappedTo.toISOString());
+  // A failed read here used to become "no bookings" — every taken slot
+  // offered as free. Availability must fail loudly or not at all.
+  const bookings = rows(
+    'meet availability: host bookings',
+    await adminClient
+      .from('meet_booking')
+      .select('starts_at, ends_at, meeting_type_id')
+      .eq('host_id', host.id)
+      .eq('status', 'confirmed')
+      .gte('ends_at', from.toISOString())
+      .lte('starts_at', cappedTo.toISOString()),
+  );
 
   const isGroup = mt.event_type === 'group';
   const busy: BusyInterval[] = (bookings ?? [])
@@ -4750,13 +4756,16 @@ async function buildPerHostArgs(
   // All confirmed bookings touching the window for any of these hosts.
   // For group MTs we omit bookings on the MT itself — the slot stays open
   // (and shareable) until capacity is reached.
-  const { data: bookings } = await adminClient
-    .from('meet_booking')
-    .select('id, host_id, starts_at, ends_at, meeting_type_id')
-    .in('host_id', hostIds)
-    .eq('status', 'confirmed')
-    .gte('ends_at', from.toISOString())
-    .lte('starts_at', to.toISOString());
+  const bookings = rows(
+    'meet availability: team bookings',
+    await adminClient
+      .from('meet_booking')
+      .select('id, host_id, starts_at, ends_at, meeting_type_id')
+      .in('host_id', hostIds)
+      .eq('status', 'confirmed')
+      .gte('ends_at', from.toISOString())
+      .lte('starts_at', to.toISOString()),
+  );
   const isGroup = mt.event_type === 'group';
   const busyByHost = new Map<string, BusyInterval[]>();
   for (const b of bookings ?? []) {

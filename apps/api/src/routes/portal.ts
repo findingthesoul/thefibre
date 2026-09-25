@@ -63,6 +63,7 @@
 
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
+import { rows } from '../lib/rows.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { enrolmentCanRespond, mergeById, resolveRsvpEnabled, ticketIsAdmissible } from '../lib/portal.js';
 import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
@@ -257,18 +258,23 @@ portalRoutes.get('/portal', async (c) => {
   const sinceDate = since.slice(0, 10);
 
   // -- Threads + tickets ----------------------------------------------------
-  const { data: enrolments } = await adminClient
-    .from('thread_enrolment')
-    .select(
-      `id, workspace_id, checkin_code, checked_in_at, payment_status, created_at,
+  // The lists on this page throw on a failed read (lib/rows.ts). "No tickets"
+  // with a 200 because a select broke is the silent failure §1.9 is about.
+  const enrolments = rows(
+    'portal: enrolments',
+    await adminClient
+      .from('thread_enrolment')
+      .select(
+        `id, workspace_id, checkin_code, checked_in_at, payment_status, created_at,
        enrolment:enrolment_id (status, progress_pct),
        thread:thread_id (id, slug, language, cover_url, public_scope,
          organiser:organiser_id (slug, display_name, user:user_id (email, full_name)),
          team:team_id (slug, name),
          program:program_id (title, format, status, starts_on, ends_on))`,
-    )
-    .in('person_id', personIds)
-    .order('created_at', { ascending: false });
+      )
+      .in('person_id', personIds)
+      .order('created_at', { ascending: false }),
+  );
 
   // -- Agenda, for the threads we just found --------------------------------
   const threadIds = [
@@ -300,10 +306,13 @@ portalRoutes.get('/portal', async (c) => {
   const certByEnrolment = new Map<string, { number: string; issued_at: string }>();
   const enrolmentIds = (enrolments ?? []).map((e) => e.id as string);
   if (enrolmentIds.length) {
-    const { data: certs } = await adminClient
-      .from('thread_certificate')
-      .select('thread_enrolment_id, certificate_number, issued_at')
-      .in('thread_enrolment_id', enrolmentIds);
+    const certs = rows(
+      'portal: certificates',
+      await adminClient
+        .from('thread_certificate')
+        .select('thread_enrolment_id, certificate_number, issued_at')
+        .in('thread_enrolment_id', enrolmentIds),
+    );
     for (const c of certs ?? []) {
       certByEnrolment.set(c.thread_enrolment_id as string, {
         number: c.certificate_number as string,
@@ -337,20 +346,26 @@ portalRoutes.get('/portal', async (c) => {
       .neq('status', 'cancelled')
       .gte('starts_at', since),
   ]);
-  const bookings = mergeById(byPerson.data, byEmail.data).sort((a, b) =>
+  const bookings = mergeById(
+    rows('portal: bookings by person', byPerson),
+    rows('portal: bookings by email', byEmail),
+  ).sort((a, b) =>
     (a.starts_at as string).localeCompare(b.starts_at as string),
   );
 
   // -- Memberships ----------------------------------------------------------
-  const { data: members } = await adminClient
-    .from('membership_member')
-    .select(
-      `id, workspace_id, tier_id, status, started_at, renews_at, stripe_customer_id,
+  const members = rows(
+    'portal: memberships',
+    await adminClient
+      .from('membership_member')
+      .select(
+        `id, workspace_id, tier_id, status, started_at, renews_at, stripe_customer_id,
        tier:tier_id (name)`,
-    )
-    .in('person_id', personIds)
-    .is('deleted_at', null)
-    .order('started_at', { ascending: false });
+      )
+      .in('person_id', personIds)
+      .is('deleted_at', null)
+      .order('started_at', { ascending: false }),
+  );
 
   // WHAT A MEMBERSHIP INCLUDES.
   //

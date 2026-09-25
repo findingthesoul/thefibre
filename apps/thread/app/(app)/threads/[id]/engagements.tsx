@@ -1042,7 +1042,10 @@ function TriggerFields({
           { value: 'relative', label: t(locale, 'trig_relative') },
           { value: 'on_enrolment', label: t(locale, 'trig_when_enrols') },
           ...(requiresApproval
-            ? [{ value: 'on_approval', label: t(locale, 'trig_when_approved') }]
+            ? [
+                { value: 'on_application', label: t(locale, 'trig_when_applies') },
+                { value: 'on_approval', label: t(locale, 'trig_when_approved') },
+              ]
             : []),
           { value: 'on_completion', label: t(locale, 'trig_when_completes') },
         ];
@@ -1109,6 +1112,7 @@ function TriggerFields({
         </div>
       )}
       {(triggerKind === 'on_enrolment' ||
+        triggerKind === 'on_application' ||
         triggerKind === 'on_approval' ||
         triggerKind === 'on_completion') && (
         <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">

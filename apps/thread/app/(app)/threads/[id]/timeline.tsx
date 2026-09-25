@@ -77,6 +77,9 @@ const STATUS_META: Record<string, { labelKey: UiKey; cls: string }> = {
 const LIFECYCLE_LABEL_KEYS: Record<string, UiKey> = {
   on_enrolment: 'trig_on_enrolment',
   on_approval: 'trig_on_approval',
+  // Missing until 2026-09-25: the seeded "application received" row fell
+  // through as undated and unlabelled on every approval-gated thread.
+  on_application: 'trig_on_application',
   on_completion: 'trig_on_completion',
 };
 
@@ -1017,8 +1020,13 @@ function EngagementCard({
                   was seeded), and deleting the wrong one left every enrolling
                   participant getting an email with no ticket in it. Sjoerd
                   hit exactly that: "It auto copies the enrolment message. I
-                  CAN'T DELETE ONE." */}
-              {e.system_role && (
+                  CAN'T DELETE ONE."
+                  The CONFIRMED row only: an approval-gated thread also seeds
+                  an enrolment_received row ("we got your application"), which
+                  is a system message too and carries no ticket. Badging every
+                  system row put the label on both, which on exactly the
+                  thread it was written for pointed at the wrong one. */}
+              {e.system_role === 'enrolment_confirmed' && (
                 <span className="px-1.5 py-px rounded-full ring-1 ring-line bg-surface-sunken text-ink-muted">
                   {t(locale, 'sends_the_ticket')}
                 </span>

@@ -246,7 +246,9 @@ const PatchThread = z.object({
   /** The festival's own timezone, not the workspace default. NOT NULL. */
   timezone: z.string().min(1).max(100).optional(),
   /** Mirrors the column's check constraint. NOT NULL. */
-  language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
+  // French joined the column's check in 20260905230000; this list did not
+  // follow, so an external app could not create a French thread. Additive.
+  language: z.enum(['en', 'nl', 'es', 'pt', 'de', 'fr']).optional(),
   /** "People apply, we admit" rather than open enrolment. NOT NULL. */
   requires_approval: z.boolean().optional(),
   /** page = its own page; popup = the enrol popup. NOT NULL. */

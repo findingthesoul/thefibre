@@ -15,6 +15,7 @@ import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-pa
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { settleFromPurchase } from '../lib/pulse-ledger.js';
 import { finalizePaidEnrolment } from './thread.js';
 // CYCLE: membership.ts imports sendReceipt from this file, and this file
@@ -695,7 +696,9 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
 
   const { data: te } = await adminClient
     .from('thread_enrolment')
-    .select('id, workspace_id, thread:thread_id (slug, organiser:organiser_id (slug), team:team_id (slug))')
+    .select(
+      'id, workspace_id, thread:thread_id (slug, public_scope, organiser:organiser_id (slug), team:team_id (slug), workspace:workspace_id (slug))',
+    )
     .eq('id', p.item_ref)
     .maybeSingle();
   if (!te) return c.json({ error: 'source enrolment missing' }, 409);
@@ -705,8 +708,17 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
   const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
   const organiser = thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
   const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
+  const workspace = thread && (Array.isArray(thread.workspace) ? thread.workspace[0] : thread.workspace);
   const threadUrl = process.env.THREAD_APP_URL ?? appUrl('the-thread', process.env);
-  const publicBase = `${threadUrl}/${team?.slug ?? organiser?.slug ?? ''}/${thread?.slug ?? ''}`;
+  // Three owner kinds (lib/public-owner-slug.ts), same as the payment link
+  // this resends; `team ?? organiser` dropped the workspace-scoped case.
+  const ownerSlug = publicOwnerSlug({
+    publicScope: thread?.public_scope ?? null,
+    workspaceSlug: workspace?.slug ?? null,
+    teamSlug: team?.slug ?? null,
+    organiserSlug: organiser?.slug ?? null,
+  });
+  const publicBase = `${threadUrl}/${ownerSlug}/${thread?.slug ?? ''}`;
 
   // A resend must kill the previous session — the old link would stay
   // payable while the webhook only knows the newest session id.

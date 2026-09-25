@@ -2853,6 +2853,23 @@ const CATALOG = {
     de: 'Bei Freigabe', // MT
     fr: 'À l’approbation', // MT
   },
+  // The seeded "application received" message (approval-gated threads).
+  trig_on_application: {
+    en: 'On application',
+    nl: 'Bij aanmelding',
+    es: 'Al solicitar', // MT
+    pt: 'Na candidatura', // MT
+    de: 'Bei Bewerbung', // MT
+    fr: 'À la candidature', // MT
+  },
+  trig_when_applies: {
+    en: 'When they apply',
+    nl: 'Wanneer iemand zich aanmeldt',
+    es: 'Cuando alguien solicita', // MT
+    pt: 'Quando alguém se candidata', // MT
+    de: 'Wenn sich jemand bewirbt', // MT
+    fr: 'Quand quelqu’un fait une demande', // MT
+  },
   trig_on_completion: {
     en: 'On completion',
     nl: 'Bij afronding',

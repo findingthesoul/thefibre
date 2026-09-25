@@ -12,6 +12,7 @@
 // this person's, and what do they say".
 
 import { adminClient } from '../db.js';
+import { rows } from './rows.js';
 import { resolveRsvpEnabled } from './portal.js';
 
 /**
@@ -29,12 +30,16 @@ import { resolveRsvpEnabled } from './portal.js';
 export async function personsForEmail(email: string): Promise<
   { id: string; first_name: string | null; last_name: string | null; email: string }[]
 > {
-  const { data } = await adminClient
-    .from('person')
-    .select('id, first_name, last_name, email')
-    .eq('email', email)
-    .is('deleted_at', null);
-  return (data ?? []) as { id: string; first_name: string | null; last_name: string | null; email: string }[];
+  // Throws on a failed read: an empty answer here blanks the whole portal.
+  const data = rows(
+    'portal: persons for email',
+    await adminClient
+      .from('person')
+      .select('id, first_name, last_name, email')
+      .eq('email', email)
+      .is('deleted_at', null),
+  );
+  return data as { id: string; first_name: string | null; last_name: string | null; email: string }[];
 }
 
 export type AgendaItem = {
@@ -88,24 +93,27 @@ export async function loadAgendaByThread(args: {
   // resolveRsvpEnabled). Two queries stood here — the thread's override and
   // the workspace default — and both are gone with the inheritance chain
   // they served.
-  const { data: engagements } = await adminClient
-    .from('thread_engagement')
-    .select(
-      'id, thread_id, title, description, type, starts_at, ends_at, location, location_url, meeting_url, content, position, rsvp_enabled',
-    )
-    .in('thread_id', args.threadIds)
-    .eq('status', 'published')
-    .eq('show_in_agenda', true)
-    .order('position', { ascending: true });
+  const engagements = rows(
+    'portal: agenda engagements',
+    await adminClient
+      .from('thread_engagement')
+      .select(
+        'id, thread_id, title, description, type, starts_at, ends_at, location, location_url, meeting_url, content, position, rsvp_enabled',
+      )
+      .in('thread_id', args.threadIds)
+      .eq('status', 'published')
+      .eq('show_in_agenda', true)
+      .order('position', { ascending: true }),
+  );
 
   // This person's own answers. Scoped by person_id exactly as everything
   // else here is — a visitor has no RLS identity in these workspaces.
-  const { data: rsvps } = await adminClient
-    .from('thread_rsvp')
-    .select('engagement_id, response')
-    .in('person_id', args.personIds);
+  const rsvps = rows(
+    'portal: rsvps',
+    await adminClient.from('thread_rsvp').select('engagement_id, response').in('person_id', args.personIds),
+  );
   const answerByEngagement = new Map(
-    (rsvps ?? []).map((r) => [r.engagement_id as string, r.response as 'coming' | 'not_coming']),
+    rsvps.map((r) => [r.engagement_id as string, r.response as 'coming' | 'not_coming']),
   );
 
   for (const e of engagements ?? []) {

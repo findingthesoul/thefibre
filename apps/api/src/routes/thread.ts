@@ -1273,8 +1273,11 @@ export const EngagementCreate = z.object({
     .optional(),
   scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
   // Message-family send triggers (see migration 20260702100000).
+  // on_application is what 20260901180000 seeds on the "application
+  // received" row of an approval-gated thread; the column's check has had it
+  // since, this list did not, so saving that row's wording was a 400.
   trigger_kind: z
-    .enum(['fixed', 'on_enrolment', 'on_approval', 'on_completion', 'relative'])
+    .enum(['fixed', 'on_enrolment', 'on_approval', 'on_completion', 'on_application', 'relative'])
     .optional(),
   trigger_anchor: z.enum(['start', 'end', 'engagement']).nullable().optional(),
   trigger_engagement_id: z.string().uuid().nullable().optional(),
@@ -6359,7 +6362,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       teamId: (thread as { team_id?: string | null }).team_id ?? null,
       amountCents: 0,
       currency: priceCurrency,
-      method: 'free' as never,
+      method: 'free',
       status: 'paid',
     });
   }

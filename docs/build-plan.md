@@ -20,7 +20,47 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-24. Done items get removed, not ticked._
+_Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
+Done items get removed, not ticked._
+
+**Silent-empty sites still open** (testing approach §1.9; the sweep of
+2026-09-25 found thirteen HIGH, the portals, Meet availability and the
+sole-admin guard are fixed through `apps/api/src/lib/rows.ts`). Each is a
+`const { data } = …; (data ?? [])` that renders a failed read as "there are
+none". Convert with `rows()` as the file is touched; assert non-empty for a
+fixture that has entries:
+- `routes/thread.ts` ~5305 and ~5349 (public organiser / workspace pages:
+  "no threads"), ~5732 (`/public/my-enrolments`: `items: []`), ~1648
+  (`/teams?mine=1`), ~2895 (bulk certificate issue reports "0 issued").
+- `routes/meet.ts` ~351 and ~4481 (public host / team page: "no meeting
+  types").
+- `routes/my-tasks.ts` ~115/151/186/223 (task list empties), `lib/team-grants.ts`
+  ~82–192 (team-granted app access vanishes → "no access"),
+  `routes/members.ts` ~37 (grantable slugs, cached 5 min) and ~107,
+  `routes/teams.ts` ~45/242/246, `routes/persons.ts` per-app tabs and Meet
+  bookings on a profile, `lib/archived-workspaces.ts` ~21 (archived set
+  emptied → archived treated as live), `lib/pricing.ts` ~76.
+- Web: `apps/my/lib/portal-api.ts` fetchInvoices `return []` on !ok,
+  `apps/thread/app/(app)/checkin/page.tsx` ~61 (door shows nobody),
+  `apps/thread` and `apps/meet` dashboard pages `.catch(() => null)?.items ?? []`,
+  `apps/connections/app/(app)/entries/page.tsx` ~82, Pulse `safeItems`,
+  Membership `.catch(() => [])`, `packages/shared/src/todo-calls.ts` ~38.
+
+**Payment destination default disagrees between panel and charge** (Sjoerd
+decides). `apps/thread/app/(app)/threads/[id]/pricing-panel.tsx` ~437: a
+thread with no team and no saved `payment_destination` shows "personal" when
+the organiser is connected; `lib/payment-accounts.ts threadDestinationAccount`
+routes that same thread to the WORKSPACE account. Either the server defaults
+to personal-when-connected, or the panel shows workspace. Until then the
+first save fixes it.
+
+**Embed payload `organiser_slug` is two-way.** `routes/thread.ts`
+`/public/embed/threads` ~5684: `tm?.slug ?? o?.slug`, so a workspace-scoped
+thread is listed under the organiser's address. Published contract, so
+additive only: add `owner_slug` (from `publicOwnerSlug`) beside it and point
+`url` at it; leave `organiser_slug` meaning what it means. Same family:
+`meet.ts` ~861 Stripe redirects use the host slug for team meeting types
+(resolves, non-canonical).
 
 **One person picker, everywhere.** Sjoerd, 2026-09-25, on the new search in
 Add participant: *"That person connection field should be a single point of

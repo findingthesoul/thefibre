@@ -94,7 +94,11 @@ describe('the organiser can tell which message carries the ticket', () => {
       fileURLToPath(new URL('../../../thread/app/(app)/threads/[id]/timeline.tsx', import.meta.url)),
       'utf8',
     );
-    expect(timeline).toMatch(/e\.system_role &&/);
+    // The CONFIRMED row and no other: an approval-gated thread also seeds
+    // an enrolment_received row, which is a system message that carries no
+    // ticket. `e.system_role &&` badged both (stress round 2026-09-25).
+    expect(timeline).toMatch(/e\.system_role === 'enrolment_confirmed' &&/);
+    expect(timeline).not.toMatch(/e\.system_role &&/);
     expect(timeline).toContain('sends_the_ticket');
   });
 });

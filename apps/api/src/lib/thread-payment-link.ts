@@ -12,6 +12,7 @@ import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { chargeAccountForItem } from './payment-accounts.js';
 import { platformFeeCents } from './fees.js';
+import { publicOwnerSlug } from './public-owner-slug.js';
 
 export async function createThreadPaymentLink(p: {
   purchaseId: string;
@@ -30,7 +31,7 @@ export async function createThreadPaymentLink(p: {
   const { data: te } = await adminClient
     .from('thread_enrolment')
     .select(
-      'stripe_session_id, thread:thread_id (slug, organiser:organiser_id (slug), team:team_id (slug))',
+      'stripe_session_id, thread:thread_id (slug, public_scope, organiser:organiser_id (slug), team:team_id (slug), workspace:workspace_id (slug))',
     )
     .eq('id', p.threadEnrolmentId)
     .maybeSingle();
@@ -52,8 +53,18 @@ export async function createThreadPaymentLink(p: {
   const organiser =
     thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
   const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
+  const workspace = thread && (Array.isArray(thread.workspace) ? thread.workspace[0] : thread.workspace);
   const threadUrl = process.env.THREAD_APP_URL ?? appUrl('the-thread', process.env);
-  const publicBase = `${threadUrl}/${team?.slug ?? organiser?.slug ?? ''}/${thread?.slug ?? ''}`;
+  // Three owner kinds, not two: a workspace-scoped thread (team_id NULL,
+  // public_scope 'workspace') lives under the WORKSPACE slug. `team ?? organiser`
+  // sent its payers back to the organiser's address after paying.
+  const ownerSlug = publicOwnerSlug({
+    publicScope: thread?.public_scope ?? null,
+    workspaceSlug: workspace?.slug ?? null,
+    teamSlug: team?.slug ?? null,
+    organiserSlug: organiser?.slug ?? null,
+  });
+  const publicBase = `${threadUrl}/${ownerSlug}/${thread?.slug ?? ''}`;
 
   // Same plan-aware fee rule as checkout and the Invoices-page link (lib/fees).
   const applicationFeeCents = await platformFeeCents(p.workspaceId, p.amountCents, account);

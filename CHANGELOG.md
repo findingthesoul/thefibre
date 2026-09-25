@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.58.0] — 2026-09-25 — the second stress round: a merge stays in its workspace, and an empty list must mean empty
+
+Full record: `docs/stress-test-2026-09-25.md`. Every scripted layer was green
+before the first edit; the findings came from three targeted hunts and from
+four peers naming what nobody had rendered.
+
+### Security
+- **Merging or un-merging people is scoped to the caller's workspace.**
+  `POST /persons/merge` and `POST /persons/merges/:id/undo` checked the
+  caller's role and then trusted the body's UUIDs; the SQL only checked the
+  two persons shared *a* workspace. An admin of any workspace could merge
+  two persons of another by id, and since v1.57.0 copy the personal data
+  between them. Both routes now refuse (404) unless both persons — or the
+  merge row — are the caller's, before the service-role call runs.
+  `persons-merge-tenancy.int.test.ts` proves the refusal across workspaces
+  and that the legitimate admin can still merge and undo inside their own.
+
+### Fixed
+- **"Sends the ticket" marks the confirmed row only.** An approval-gated
+  thread seeds a second system message (application received) that carries
+  no ticket; the badge was on both, on exactly the thread it was written for.
+- **The "application received" message could not be saved.** Its trigger
+  (`on_application`, in the column's check since 2026-09-01) was missing
+  from the API's zod list, the editor's type and the timeline's labels: a
+  400 on save, and an undated, unlabelled card. All four know it now; the
+  editor offers "When they apply" on approval-gated threads.
+- **A failed read no longer renders as "there are none"** where the wrong
+  answer does harm: Meet availability (a failed bookings read offered every
+  taken slot as free), the sole-admin guard (failed open, so the last admin
+  could step down), the visitor portal (`/my`: enrolments, certificates,
+  bookings, memberships, agenda, RSVPs) and the member portal (memberships,
+  purchases, invoices). `apps/api/src/lib/rows.ts` throws the PostgREST
+  error instead; the route answers 500 and the log names the query. The
+  remaining sites from the sweep are listed in the build plan.
+- **Stripe redirects for a workspace-scoped thread** (manual-add payment
+  link, resend from Invoices) went to the organiser's address; both now use
+  the canonical three-way owner rule.
+- The external-app thread route accepts `fr`, which the column has accepted
+  since 2026-09-05. A `'free' as never` cast and a `'admin' | 'member'` read
+  type that were both wrong for months are corrected.
+
+### Added
+- `e2e/organiser-screens.spec.ts` — the signed-in render check for the
+  calendar tray and its dialog, the ticket badge, Add participant's person
+  search (name AND email fill) and Settings → Connections' "Build a thread
+  from a document". All four pass on staging.
+- `docs/stress-test-2026-09-25.md`; `docs/testing-approach.md` counts
+  re-measured (99 / 964, 17 / 133, 5 / 27); build plan groomed with the
+  sweep's leftovers and two decisions for Sjoerd (payment-destination
+  default; embed `owner_slug`).
+
 ## [1.57.2] — 2026-09-25 — an undo reverses the merge, not the afternoon's work
 
 Four corrections to yesterday's contact merge, from a stress-test review that

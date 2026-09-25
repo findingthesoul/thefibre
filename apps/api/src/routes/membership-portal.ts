@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
+import { rows } from '../lib/rows.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
@@ -112,23 +113,27 @@ membershipPortalRoutes.get('/me', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
 
-  const { data: persons } = await adminClient
-    .from('person')
-    .select('id')
-    .eq('email', email.toLowerCase())
-    .is('deleted_at', null);
-  if (!persons?.length) return c.json({ email, items: [], products: [] });
+  // Every list on this page throws on a failed read (lib/rows.ts): a member
+  // shown "no memberships" because a query broke is worse than an error.
+  const persons = rows(
+    'member portal: persons',
+    await adminClient.from('person').select('id').eq('email', email.toLowerCase()).is('deleted_at', null),
+  );
+  if (!persons.length) return c.json({ email, items: [], products: [] });
 
-  const { data: members } = await adminClient
-    .from('membership_member')
-    .select(
-      `id, workspace_id, person_id, status, started_at, renews_at, stripe_customer_id, locale,
+  const members = rows(
+    'member portal: memberships',
+    await adminClient
+      .from('membership_member')
+      .select(
+        `id, workspace_id, person_id, status, started_at, renews_at, stripe_customer_id, locale,
        workspace:workspace_id (name, slug),
        tier:tier_id (name, price_cents_year, price_cents_month, currency)`,
-    )
-    .in('person_id', persons.map((p) => p.id))
-    .is('deleted_at', null)
-    .order('started_at', { ascending: false });
+      )
+      .in('person_id', persons.map((p) => p.id))
+      .is('deleted_at', null)
+      .order('started_at', { ascending: false }),
+  );
 
   // Workspace default locales, for members without one of their own
   // (member.locale ?? membership_settings.locale ?? 'en').
@@ -146,16 +151,19 @@ membershipPortalRoutes.get('/me', async (c) => {
 
   // À-la-carte purchases (2026-09-06): person-keyed, so they surface even
   // when the buyer holds no membership. Additive `products` array.
-  const { data: purchases } = await adminClient
-    .from('membership_product_purchase')
-    .select(
-      `id, workspace_id, amount_cents, currency, status, created_at,
+  const purchases = rows(
+    'member portal: product purchases',
+    await adminClient
+      .from('membership_product_purchase')
+      .select(
+        `id, workspace_id, amount_cents, currency, status, created_at,
        product:product_id (name, description, links),
        workspace:workspace_id (name, slug)`,
-    )
-    .in('person_id', persons.map((p) => p.id))
-    .eq('status', 'paid')
-    .order('created_at', { ascending: false });
+      )
+      .in('person_id', persons.map((p) => p.id))
+      .eq('status', 'paid')
+      .order('created_at', { ascending: false }),
+  );
 
   type PurchaseRow = {
     id: string;
@@ -235,15 +243,18 @@ membershipPortalRoutes.get('/me/invoices', async (c) => {
     .maybeSingle();
   if (!app) return c.json({ items: [] });
 
-  const { data: rows } = await adminClient
-    .from('purchase')
-    .select('id, item_label, amount_cents, currency, status, created_at, stripe_invoice_url')
-    .eq('app_id', app.id)
-    .eq('workspace_id', member.workspace_id)
-    .eq('person_id', member.person_id)
-    .order('created_at', { ascending: false });
+  const items = rows(
+    'member portal: invoices',
+    await adminClient
+      .from('purchase')
+      .select('id, item_label, amount_cents, currency, status, created_at, stripe_invoice_url')
+      .eq('app_id', app.id)
+      .eq('workspace_id', member.workspace_id)
+      .eq('person_id', member.person_id)
+      .order('created_at', { ascending: false }),
+  );
 
-  return c.json({ items: rows ?? [] });
+  return c.json({ items });
 });
 
 // GET /me/invoices/:id/pdf — the member's OWN invoice as a PDF.

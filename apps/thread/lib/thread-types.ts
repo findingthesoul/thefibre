@@ -128,6 +128,10 @@ export type TriggerKind =
   | 'on_enrolment'
   | 'on_approval'
   | 'on_completion'
+  // The seeded "application received" message on an approval-gated thread
+  // (migration 20260901180000). Missing here since then: the editor handed
+  // the row's own value back and the API refused it.
+  | 'on_application'
   | 'relative';
 
 /** One day's wall-clock window in a multi-day engagement (thread timezone).

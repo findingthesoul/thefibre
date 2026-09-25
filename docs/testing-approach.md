@@ -12,14 +12,15 @@ strict type system, a handful of executable contract checks, a full staging
 twin and a disciplined manual loop bought more correctness per hour than a
 test suite would have while the product was still being discovered.
 
-**Where it actually stands (2026-09-15).** Counted by running them, not by
-reading the previous count:
+**Where it actually stands (2026-09-25).** Counted by running them, not by
+reading the previous count (the 2026-09-15 row read 57 / 679, 13 / 93,
+4 / 24):
 
-| Layer | Files | Assertions |
+| Layer | Files | Tests |
 |---|---|---|
-| Unit (vitest) | 57 | 679 |
-| Integration, real Postgres + RLS on staging | 13 | 93 |
-| End-to-end (Playwright, staging) | 4 | 24 |
+| Unit (vitest) | 99 | 964 |
+| Integration, real Postgres + RLS on staging | 17 | 133 |
+| End-to-end (Playwright, staging) | 5 | 27 |
 
 Plus the executable contract checks, which are not counted above because they
 assert against deployed environments rather than a test runner: the two smoke

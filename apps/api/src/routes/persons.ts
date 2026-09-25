@@ -252,6 +252,19 @@ async function isWorkspaceAdmin(ctx: { userId: string; workspaceId: string }) {
 
 const ADMINS_ONLY = { error: 'admins only' } as const;
 
+/** Are BOTH ids live persons of this workspace? The service-role RPCs below
+ *  do not know who is asking, so the route has to. */
+async function bothInWorkspace(workspaceId: string, a: string, b: string): Promise<boolean> {
+  if (a === b) return false;
+  const { count, error } = await adminClient
+    .from('person')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId)
+    .in('id', [a, b]);
+  if (error) throw new Error(`person lookup failed: ${error.message}`);
+  return count === 2;
+}
+
 /**
  * A person id plus anyone merged into them. Merges deliberately do NOT
  * repoint activity — it is append-only — so every read of a person's history
@@ -409,6 +422,16 @@ personsRoutes.post('/merge', async (c) => {
   const body = MergeBody.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
 
+  // Both persons must be in the CALLER's workspace. merge_person only checks
+  // that the two share *a* workspace, and the RPC runs as the service role,
+  // so without this an admin of any workspace could merge — and, since
+  // 20260925053333, copy the personal data between — two persons of another
+  // workspace by id. Same shape as /duplicates/distinct above. (Stress round
+  // 2026-09-25.)
+  if (!(await bothInWorkspace(ctx.workspaceId, body.data.keep_id, body.data.merge_id))) {
+    return c.json({ error: 'person not found' }, 404);
+  }
+
   const { data, error } = await adminClient.rpc('merge_person', {
     p_keep: body.data.keep_id,
     p_merge: body.data.merge_id,
@@ -435,6 +458,16 @@ personsRoutes.post('/merge', async (c) => {
 personsRoutes.post('/merges/:id/undo', async (c) => {
   const ctx = c.get('ctx');
   if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  // The merge row has to be this workspace's BEFORE the RPC runs: the lookup
+  // further down only guards the post-processing, and unmerge_person, as the
+  // service role, would happily put back another workspace's merge.
+  const { count: owned } = await adminClient
+    .from('person_merge')
+    .select('id', { count: 'exact', head: true })
+    .eq('id', c.req.param('id'))
+    .eq('workspace_id', ctx.workspaceId);
+  if (owned !== 1) return c.json({ error: 'merge not found' }, 404);
 
   const { error } = await adminClient.rpc('unmerge_person', {
     p_merge_id: c.req.param('id'),
@@ -635,7 +668,9 @@ personsRoutes.get('/:id/memberships', async (c) => {
   let workspaceMember:
     | {
         workspace_id: string;
-        workspace_role: 'admin' | 'member';
+        // The role tiers since 20260704090000; 'member' has not existed
+        // since then and this type said it did for three months.
+        workspace_role: 'super_admin' | 'admin' | 'organiser';
         relationship_type: 'internal' | 'external';
         joined_at: string;
         workspace: { id: string; name: string; slug: string } | null;

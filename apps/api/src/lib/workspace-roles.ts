@@ -11,6 +11,7 @@
 // no authority over any workspace. Same word, different thing.
 
 import { adminClient } from '../db.js';
+import { rows } from './rows.js';
 
 export const WORKSPACE_ROLES = ['super_admin', 'admin', 'organiser'] as const;
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
@@ -35,12 +36,17 @@ export async function wouldOrphanWorkspace(
 ): Promise<boolean> {
   if (isAdminRole(nextRole)) return false;
 
-  const { data } = await adminClient
-    .from('workspace_member')
-    .select('user_id, workspace_role')
-    .eq('workspace_id', workspaceId);
+  // Throws on a failed read: `(data ?? [])` here meant "no admins", so the
+  // guard answered false and the sole admin could step down after all.
+  const data = rows(
+    'workspace admins',
+    await adminClient
+      .from('workspace_member')
+      .select('user_id, workspace_role')
+      .eq('workspace_id', workspaceId),
+  );
 
-  const admins = (data ?? []).filter((m) => isAdminRole(m.workspace_role as string));
+  const admins = data.filter((m) => isAdminRole(m.workspace_role as string));
   // Only a problem if the user being demoted is currently the sole admin.
   return admins.length === 1 && admins[0]?.user_id === userId;
 }
