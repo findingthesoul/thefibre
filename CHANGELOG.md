@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.58.3] — 2026-09-25 — a failed count must not read as "nothing stands in your way"
+
+The stress round's `lib/rows.ts` refuses to turn a database error into an
+empty list. This carries it into `lib/portal-erasure.ts`, which is where the
+same pattern was most expensive — and adds the third shape the helper was
+missing.
+
+**`count()`.** A counted read (`count: 'exact', head: true`) returns a number
+and no rows, so neither `rows()` nor `row()` fits it and `?? 0` is the same
+lie wearing different clothes. portal-erasure is entirely counts; without this
+the conversion would have been half a conversion.
+
+**All nine reads there now throw.** That file counts the people whose places
+depend on an organiser's account before letting them ask to be erased, and
+every default in it resolved to **"nothing blocks this request"** — the answer
+that reassures the person asking and omits the warning from the note handed to
+whoever processes it. It had already happened once, in the release that
+introduced the file: `from('"user"')` answers PGRST205, the error fell into an
+empty list, and the check reported a clear path for every organiser on the
+platform.
+
+**A defect in the helper, found by asserting on what the error SAYS.** The
+message was built inline and `.trim()`ed, which leaves a double space in the
+middle of every error without a code — most of them. `expect(...).toThrow()`
+alone would have passed forever. A test that checks a failure happened without
+checking what it reports is the same shape as a default that looks like an
+answer.
+
+Seven cases pinned, including that a true zero and a genuinely empty list
+still pass through — the half that would break everything if the helper erred
+the other way.
+
 ## [1.58.2] — 2026-09-25 — the portal has a page for "not this time"
 
 ### Fixed

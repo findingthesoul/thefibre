@@ -39,6 +39,7 @@
 
 import { adminClient } from '../db.js';
 import { personsForEmail } from './portal-agenda.js';
+import { count, row, rows } from './rows.js';
 
 export type ErasurePicture = {
   /** An erasure request already in flight, so a second press does not file a
@@ -87,15 +88,18 @@ export async function erasurePicture(email: string): Promise<ErasurePicture> {
 
 async function pendingRequest(personIds: string[]) {
   if (!personIds.length) return null;
-  const { data } = await adminClient
+  const data = row<Record<string, unknown>>(
+    'erasure: pending request',
+    await adminClient
     .from('data_subject_request')
     .select('id, requested_at, due_at, status')
     .in('person_id', personIds)
     .eq('type', 'erasure')
     .in('status', ['received', 'in_progress'])
-    .order('requested_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+      .order('requested_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  );
   return data
     ? {
         id: data.id as string,
@@ -114,12 +118,12 @@ async function participantFootprint(personIds: string[], email: string) {
     adminClient.from('membership_member').select('id', { count: 'exact', head: true }).in('person_id', personIds).is('deleted_at', null),
   ]);
   return {
-    enrolments: enrolments.count ?? 0,
+    enrolments: count('erasure: enrolments', enrolments),
     // Deliberately the larger of the two rather than a sum: the dual keys
     // overlap, and a count that double-counts a booking is a number the
     // person can catch us being wrong about.
-    bookings: Math.max(byPerson.count ?? 0, byEmail.count ?? 0),
-    memberships: memberships.count ?? 0,
+    bookings: Math.max(count('erasure: bookings by person', byPerson), count('erasure: bookings by email', byEmail)),
+    memberships: count('erasure: memberships', memberships),
   };
 }
 
@@ -127,10 +131,13 @@ async function invoiceCount(personIds: string[], email: string): Promise<number>
   const [byPerson, byEmail] = await Promise.all([
     personIds.length
       ? adminClient.from('purchase').select('id', { count: 'exact', head: true }).in('person_id', personIds)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ count: 0, error: null }),
     adminClient.from('purchase').select('id', { count: 'exact', head: true }).eq('payer_email', email),
   ]);
-  return Math.max(byPerson.count ?? 0, byEmail.count ?? 0);
+  return Math.max(
+    count('erasure: invoices by person', byPerson),
+    count('erasure: invoices by email', byEmail),
+  );
 }
 
 /**
@@ -149,12 +156,15 @@ async function organiserFootprint(email: string): Promise<ErasurePicture['blocke
   // whole organiser check would have silently reported "nothing blocks this"
   // for every organiser on the platform. Caught by running the select, which
   // is the only thing that reads these strings.
-  const { data: users } = await adminClient
-    .from('user')
-    .select('id, workspace_id, workspace:workspace_id (name)')
-    .eq('email', email)
-    .is('deleted_at', null);
-  if (!users?.length) return empty;
+  const users = rows<Record<string, unknown>>(
+    'erasure: seats by email',
+    await adminClient
+      .from('user')
+      .select('id, workspace_id, workspace:workspace_id (name)')
+      .eq('email', email)
+      .is('deleted_at', null),
+  );
+  if (!users.length) return empty;
 
   const workspaces = [
     ...new Set(
@@ -164,19 +174,25 @@ async function organiserFootprint(email: string): Promise<ErasurePicture['blocke
     ),
   ];
 
-  const { data: organisers } = await adminClient
-    .from('thread_organiser')
-    .select('id')
-    .in('user_id', users.map((u) => u.id as string));
-  if (!organisers?.length) return empty;
+  const organisers = rows<{ id: string }>(
+    'erasure: organiser rows',
+    await adminClient
+      .from('thread_organiser')
+      .select('id')
+      .in('user_id', users.map((u) => u.id as string)),
+  );
+  if (!organisers.length) return empty;
 
   const today = new Date().toISOString().slice(0, 10);
-  const { data: threads } = await adminClient
-    .from('thread_thread')
-    .select('id, program:program_id (starts_on, ends_on)')
-    .in('organiser_id', organisers.map((o) => o.id as string));
+  const threads = rows<Record<string, unknown>>(
+    'erasure: threads they organise',
+    await adminClient
+      .from('thread_thread')
+      .select('id, program:program_id (starts_on, ends_on)')
+      .in('organiser_id', organisers.map((o) => o.id)),
+  );
 
-  const upcoming = (threads ?? []).filter((t) => {
+  const upcoming = threads.filter((t) => {
     const p = one(t.program) as { starts_on: string | null; ends_on: string | null } | null;
     const last = p?.ends_on ?? p?.starts_on ?? null;
     // No dates at all counts as upcoming: an undated thread is a live plan,
@@ -185,14 +201,17 @@ async function organiserFootprint(email: string): Promise<ErasurePicture['blocke
   });
   if (!upcoming.length) return empty;
 
-  const { count } = await adminClient
-    .from('thread_enrolment')
-    .select('id', { count: 'exact', head: true })
-    .in('thread_id', upcoming.map((t) => t.id as string));
+  const affected = count(
+    'erasure: enrolments in those threads',
+    await adminClient
+      .from('thread_enrolment')
+      .select('id', { count: 'exact', head: true })
+      .in('thread_id', upcoming.map((t) => t.id as string)),
+  );
 
   return {
     upcoming_threads: upcoming.length,
-    participants_affected: count ?? 0,
+    participants_affected: affected,
     workspaces,
   };
 }
