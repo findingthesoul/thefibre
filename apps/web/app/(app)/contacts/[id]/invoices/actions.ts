@@ -21,6 +21,7 @@ export async function listPurchases(params: ListPurchasesArgs) {
   if (params.q) qs.set('q', params.q);
   if (params.app) qs.set('app', params.app);
   if (params.cursor) qs.set('cursor', params.cursor);
+  if (params.id) qs.set('id', params.id);
   if (params.personId) qs.set('person_id', params.personId);
   if (params.orgId) qs.set('org_id', params.orgId);
   try {

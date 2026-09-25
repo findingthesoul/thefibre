@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.60.0] — 2026-09-25 — the share link is our invoice
+
+Sjoerd: *"Share link of invoice, should refer to our own invoice, not the
+stripe one."*
+
+`shareUrl` ended `?? purchase.stripe_invoice_url`, described in a comment as
+a fallback for apps that supplied no page of their own. Four of the five
+supplied none — Thread, Meet, Membership and Pulse passed `pdfHref` but
+never `printHref` — so on every one of them the share button copied
+STRIPE's hosted invoice. Another company's document, with another company's
+branding, as the canonical reference to our sale. The same fallback sat on
+Download PDF, which is the correction Sjoerd already made once on
+2026-09-04; it survived on this path.
+
+Both fallbacks are gone. A new `shareHref` carries our own address for the
+invoice, and the shared Invoices list passes `/invoices?invoice=<id>` — the
+page with that row open, so there is no new route to build and the reader
+lands on the document inside the product.
+
+**The link resolves properly**, rather than dumping the reader on a list:
+`GET /purchases` takes an `id`, and the list opens that invoice on arrival.
+The id lookup narrows the SAME already-scoped query, so the scope, the role
+check and the person filter all still apply — a shared link is a
+convenience, never a grant. A link to something the reader may not see
+simply does not open.
+
+A test reads the source and fails if either fallback returns. Weak evidence
+of behaviour, strong evidence of intent — and it was checked by putting the
+line back and watching it go red.
+
 ## [1.59.0] — 2026-09-25 — a calendar entry with no HTML in it, and a way out for people who have one
 
 Two things a real person hit today, one of them in a calendar entry that had

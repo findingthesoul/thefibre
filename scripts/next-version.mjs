@@ -105,6 +105,31 @@ try {
 } catch {
   /* a branch without a readable manifest falls back to the headings */
 }
+// And the LOCAL history, which `${REF}` cannot see.
+//
+// In a shared checkout a peer's release is often committed and not yet
+// pushed. Reading only origin then offers a number that peer has already
+// taken, and the duplicate is discovered by whoever pushes second — or, if
+// nobody looks, by a changelog with two entries under one version. That
+// happened on 2026-09-25: origin was at 1.58.4, a peer held 1.59.0
+// committed locally, and this script offered 1.59.0 twice in a row.
+//
+// HEAD is the union of what origin has and what this checkout has committed
+// on top, so it answers both questions at once.
+try {
+  const localHeadings = git('show', 'HEAD:CHANGELOG.md')
+    .split('\n')
+    .map((l) => l.match(/^## \[(\d+\.\d+\.\d+)\]/)?.[1])
+    .filter(Boolean)
+    .sort(cmp)
+    .at(-1);
+  if (localHeadings && (!released || cmp(localHeadings, released) > 0)) released = localHeadings;
+  const localManifest = JSON.parse(git('show', 'HEAD:package.json')).version;
+  if (localManifest && (!released || cmp(localManifest, released) > 0)) released = localManifest;
+} catch {
+  /* no local history to read — origin's answer stands */
+}
+
 if (!released) {
   console.error(`REFUSED: could not read the last release number from ${REF}.`);
   process.exit(1);

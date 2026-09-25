@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { MY_THREAD_TOKEN, messageTokens, myThreadUrl, substituteTokens } from './message-tokens.js';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { engagementMessage } from './email/thread-templates.js';
 
 const ENV = { NEXT_PUBLIC_MY_URL: 'https://my.example.test' };
@@ -109,5 +110,45 @@ describe('both send paths use the one token map', () => {
 
   it('the triggered path and the scheduler both call messageTokens', () => {
     expect(source.match(/messageTokens\(/g)?.length).toBe(2);
+  });
+});
+
+// A message body makes one trip: rich text → strip → token substitution.
+// The strip runs FIRST, so a token has to come out of it intact — if the
+// flattener ever touched braces, or collapsed whitespace differently inside a
+// line, every organiser's `{name}` would arrive as literal text in somebody's
+// inbox and nothing would error.
+//
+// The flattener moved to @thefibre/shared/rich-text-plain on 2026-09-25
+// (a calendar invitation had shipped a literal `<div>`), which is exactly the
+// kind of move that could have broken this quietly. Suggested by the peer
+// session reviewing that change rather than found by it going wrong.
+describe('tokens survive the strip that runs before them', () => {
+  const tokens = messageTokens({
+    name: 'Marja de Vries',
+    threadTitle: 'Vertrouwen als de basis',
+    organiserName: 'soul.com community',
+    startsOn: '2026-11-03',
+    env: ENV,
+  });
+
+  it('leaves every token untouched when flattening rich text', () => {
+    for (const token of Object.keys(tokens)) {
+      expect(richTextToPlain(`<p>Hello ${token}</p>`)).toBe(`Hello ${token}`);
+    }
+  });
+
+  it('still substitutes after the strip, which is the real order', () => {
+    const body = '<div>Dear {name}, we meet on {start_date}.</div>';
+    expect(substituteTokens(richTextToPlain(body), tokens)).toBe(
+      'Dear Marja, we meet on 3 November 2026.',
+    );
+  });
+
+  it('keeps the portal token whole, braces and dot included', () => {
+    expect(richTextToPlain(`<p>Your page: ${MY_THREAD_TOKEN}</p>`)).toContain(MY_THREAD_TOKEN);
+    expect(substituteTokens(richTextToPlain(`<p>${MY_THREAD_TOKEN}</p>`), tokens)).toBe(
+      myThreadUrl(ENV),
+    );
   });
 });

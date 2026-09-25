@@ -46,6 +46,7 @@ export function InvoiceDialog({
   onClose,
   /** Absolute or app-relative href of the full-page (printable) invoice. */
   printHref,
+  shareHref,
   pdfHref,
   /** Send the receipt/invoice email to an address; resolve to error text or null. */
   onEmail,
@@ -58,6 +59,10 @@ export function InvoiceDialog({
   open: boolean;
   onClose: () => void;
   printHref?: string;
+  /** The link the share button copies: a page in OUR product that shows this
+   *  invoice. Falls back to `printHref` when an app has only that. Never
+   *  Stripe — see the note on `shareUrl`. */
+  shareHref?: string;
   /** The app's own PDF endpoint — used for Download PDF when provided. */
   pdfHref?: string;
   onEmail?: (to: string) => Promise<string | null>;
@@ -92,13 +97,22 @@ export function InvoiceDialog({
   const m = invoiceModel(purchase, seller);
   const date = new Date(m.dateIso);
   const settled = m.kind === 'receipt';
-  const pdfUrl = pdfHref ?? b.pdf ?? purchase.stripe_invoice_url ?? null;
-  // The share link is OUR invoice page — Stripe's hosted copy only when the
-  // app gave us no page at all (the ledger is the record, Stripe is rails).
-  const shareUrl =
-    (printHref && typeof window !== 'undefined'
-      ? new URL(printHref, window.location.origin).href
-      : null) ?? purchase.stripe_invoice_url;
+  // Both of these are OURS or they are nothing. There used to be a
+  // `?? purchase.stripe_invoice_url` on the end of each, described as a
+  // fallback for apps that gave us no page — but a fallback that hands
+  // somebody Stripe's document instead of ours is not a degraded version of
+  // the feature, it is the feature pointing at the wrong company. Sjoerd,
+  // 2026-09-25: *"Share link of invoice, should refer to our own invoice,
+  // not the stripe one."* (Same correction he made about Download PDF on
+  // 2026-09-04; the fallback survived on this path.)
+  //
+  // Stripe's copy is still reachable — the Invoices list offers it as its
+  // own clearly-labelled action for the organiser, which is the honest place
+  // for it. The ledger is the record; Stripe is rails.
+  const pdfUrl = pdfHref ?? b.pdf ?? null;
+  const abs = (href: string | null | undefined): string | null =>
+    href && typeof window !== 'undefined' ? new URL(href, window.location.origin).href : null;
+  const shareUrl = abs(shareHref) ?? abs(printHref);
 
   async function copyLink() {
     if (!shareUrl) return;

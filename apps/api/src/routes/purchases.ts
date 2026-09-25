@@ -138,6 +138,15 @@ purchasesRoutes.get('/', async (c) => {
         .maybeSingle();
       if (app) query = query.eq('app_id', app.id);
     }
+    // A single invoice by id — what the share link resolves. Narrowing an
+    // existing, already-scoped list rather than adding a by-id endpoint: the
+    // scope, the role check and the person filter all still apply, so a
+    // shared link cannot show somebody a row their list would not.
+    const idParam = c.req.query('id');
+    if (idParam) {
+      if (!UUID.test(idParam)) return c.json({ error: 'id must be a uuid' }, 400);
+      query = query.eq('id', idParam);
+    }
     if (q) query = query.or(orIlike(SEARCH_COLUMNS, q));
     if (personFilter) query = query.or(personFilter);
     if (orgId) query = query.eq('payer_org_id', orgId);

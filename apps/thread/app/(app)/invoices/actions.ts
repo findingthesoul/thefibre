@@ -55,12 +55,15 @@ export async function listPurchases(params: {
   q?: string;
   app?: string;
   cursor?: string | null;
+  /** One invoice by id — the share link. */
+  id?: string | null;
 }): Promise<{ ok: true; data: PurchaseList } | { ok: false; error: string }> {
   const qs = new URLSearchParams({ scope: params.scope });
   if (params.teamId) qs.set('team_id', params.teamId);
   if (params.q) qs.set('q', params.q);
   if (params.app) qs.set('app', params.app);
   if (params.cursor) qs.set('cursor', params.cursor);
+  if (params.id) qs.set('id', params.id);
   try {
     const data = await apiFetch<PurchaseList>(`/api/v1/purchases?${qs.toString()}`);
     return { ok: true, data };

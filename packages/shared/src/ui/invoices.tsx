@@ -86,6 +86,8 @@ export type ListPurchasesArgs = {
   q?: string | undefined;
   app?: string | undefined;
   cursor?: string | null | undefined;
+  /** One invoice by id — how a share link reopens its own row. */
+  id?: string | null | undefined;
   /** One person's money only — the Invoices tab on a contact (2026-09-14).
    *  The API matches the ledger's two identity keys, person_id OR
    *  payer_email. Apps whose actions ignore it simply show everything. */
@@ -224,6 +226,37 @@ export function InvoicesArea({
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A share link (`/invoices?invoice=<id>`) opens that invoice on arrival.
+  //
+  // It asks the API for the single row rather than hunting through the
+  // loaded page: the row may be on page four, or outside the scope this
+  // visitor's list defaults to. The API applies the SAME scope and role
+  // checks to an id lookup as to the list, so a link cannot show anyone a
+  // row their own list would not — a shared link is a convenience, never a
+  // grant.
+  //
+  // Runs once. If the row is gone or not theirs, nothing opens and the list
+  // renders normally, which is the right answer to a stale link.
+  const openedFromUrl = useRef(false);
+  useEffect(() => {
+    if (openedFromUrl.current || typeof window === 'undefined') return;
+    const wanted = new URLSearchParams(window.location.search).get('invoice');
+    if (!wanted) return;
+    openedFromUrl.current = true;
+    void actions
+      .listPurchases({ scope: 'workspace', teamId: null, id: wanted })
+      .then((r) => {
+        if (r.ok && r.data.items.length) return setDetail(r.data.items[0] as PurchaseRow);
+        // Not visible at workspace scope (not an admin) — try their own.
+        return actions.listPurchases({ scope: 'me', teamId: null, id: wanted }).then((mine) => {
+          if (mine.ok && mine.data.items.length) setDetail(mine.data.items[0] as PurchaseRow);
+        });
+      })
+      .catch(() => {
+        /* a stale or foreign link simply does not open */
+      });
+  }, [actions]);
 
   const load = useCallback(
     async (cursor?: string | null) => {
@@ -516,6 +549,10 @@ export function InvoicesArea({
           open
           onClose={() => setDetail(null)}
           pdfHref={`/invoices/${detail.id}/pdf`}
+          // Our own address for this invoice: the Invoices page with the row
+          // open. No new route to build, and it lands the reader on the
+          // document inside the product rather than on Stripe's copy of it.
+          shareHref={`/invoices?invoice=${encodeURIComponent(detail.id)}`}
           onEmail={async (to) => {
             const r = await actions.emailInvoice(detail.id, to);
             return r.ok ? null : (r.error ?? 'could not send');
