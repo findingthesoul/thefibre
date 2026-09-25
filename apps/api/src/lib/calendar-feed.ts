@@ -39,6 +39,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { adminClient } from '../db.js';
 import { appUrl, surfaceUrl } from '@thefibre/shared';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   DEFAULT_EVENT_MINUTES,
   agendaEventUid,
@@ -290,7 +291,9 @@ export async function buildFeedForEmail(email: string): Promise<string> {
           summary: item.title,
           // The thread is the context a calendar entry loses otherwise:
           // three months later "Opening circle" alone means nothing.
-          description: [item.description, t.title].filter(Boolean).join('\n\n'),
+          // Flattened: a description is rich text and iCalendar has no
+          // markup, so the tags would be read as part of the sentence.
+          description: [richTextToPlain(item.description), t.title].filter(Boolean).join('\n\n'),
           location: item.location,
           url: item.meeting_url ?? item.external_url ?? threadUrl,
           organizerName: t.organiserName,

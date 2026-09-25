@@ -13,6 +13,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { ENTITY, surfaceUrl } from '@thefibre/shared';
 import { headers } from 'next/headers';
+import { reachableApps } from '@/lib/app-access';
 import { loadCalendarStatus, loadErasure, loadProfile, loadSession } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { SignedOut } from '../signed-out';
@@ -31,6 +32,9 @@ export default async function YouPage() {
   const profile = await loadProfile();
   const calendar = await loadCalendarStatus();
   const erasure = await loadErasure();
+  // Drives the sentence below: with no seat anywhere, 'back to the site' is
+  // the only door there is and deserves explaining.
+  const apps = await reachableApps((await headers()).get('host'));
   const { person } = session.portal;
   // Label derived from the resolved href, not from the constant: on staging
   // this page is my.thefibre.tech and a link reading "thethread.app" would be
@@ -75,14 +79,23 @@ export default async function YouPage() {
           on this page, since the privacy policy carries it either way. */}
       {erasure && <RemoveData picture={erasure} />}
 
-      {/* The way back. The app switcher now offers my.thread from every app,
-          so this is the other half of that pair — a member who lives here
-          still needs one obvious door outward. It points at the public site
-          rather than an app: someone reading this page has a seat in no app
-          by definition, and thethread.app is the address they know.
-          (Sjoerd, 2026-09-24: *"And of course on my.thread below YOU a
-          button: back the thethread.app"*.) */}
-      <div className="mt-10 border-t border-line pt-6">
+      {/* The way back — and, since 2026-09-25, a sentence saying what it is.
+          Debbie signed in, could only reach this page, pressed this button and
+          landed on the marketing homepage. Everything behaved as designed: she
+          holds no seat anywhere, so there is no app for her to enter. What was
+          missing was anybody telling her that. A button whose destination
+          surprises you is a button that reads as a fault in the product.
+
+          Only for people with no apps. Someone who HAS a seat gets the
+          switcher in the header instead, which goes somewhere they can use. */}
+      {apps.length === 0 && (
+        <p className="mt-10 border-t border-line pt-6 text-sm text-ink-muted">
+          This page is everything you take part in. The Thread itself — where
+          programmes are built and run — is for organisers, and you would need
+          to be invited to a workspace to open it.
+        </p>
+      )}
+      <div className={`${apps.length === 0 ? 'mt-6' : 'mt-10 border-t border-line pt-6'}`}>
         {/* A BUTTON, not a link. It shipped as small underlined text and
             Sjoerd asked for it a second time — "button to go back to
             thethread" — which is the answer to whether an underline at the

@@ -13,6 +13,7 @@
 
 import { DEFAULT_EVENT_MINUTES, agendaEventUid, buildBookingIcal } from '@thefibre/shared/ical';
 import { ENTITY } from '@thefibre/shared';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { serverSupabase } from '@/lib/supabase/server';
 import { fetchPortal } from '@/lib/portal-api';
 
@@ -64,7 +65,10 @@ export async function GET(
     summary: item.title,
     // The thread is the context a calendar entry loses otherwise: three
     // months later "Opening circle" alone means nothing.
-    description: [item.description, thread.title].filter(Boolean).join('\n\n'),
+    // Flattened: a description is rich text and iCalendar has no markup,
+    // so the tags would be read as part of the sentence — as they were,
+    // in a real invitation, on 2026-09-25.
+    description: [richTextToPlain(item.description), thread.title].filter(Boolean).join('\n\n'),
     location: item.location,
     url: item.meeting_url ?? item.external_url ?? thread.url,
     // Who it is FROM. Without this the entry is a block of time from nobody,

@@ -1,5 +1,6 @@
 import { APP_VIEWPORT } from '@thefibre/shared/root-layout';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 import { SURFACES } from '@thefibre/shared';
 import { loadSession } from '@/lib/session';
@@ -7,6 +8,8 @@ import { VERSION } from '@/lib/version';
 import { MemberRail, MemberTabs } from './nav';
 import { RegisterServiceWorker } from './register-sw';
 import { Wordmark } from './wordmark';
+import { AppSwitcher } from './app-switcher';
+import { reachableApps } from '@/lib/app-access';
 
 // iOS needs its own tags — Safari reads very little of app/manifest.ts. It
 // takes the home-screen icon from `apple-touch-icon`, decides whether to open
@@ -49,6 +52,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // gets one page with one thing on it, and four tabs leading to four copies
   // of that same sign-in form would be noise.
   const session = await loadSession();
+  // Empty for a participant, which is almost everybody. The switcher renders
+  // nothing in that case, so this costs an unused array and no chrome.
+  const apps = session ? await reachableApps((await headers()).get('host')) : [];
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -66,9 +72,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   to Sjoerd on the phone. Stop inching. At 48px the wordmark
                   is ~180px across on a 390pt screen — a header, not a
                   footnote — and it is the only thing on this bar. */}
-              <header className="flex shrink-0 items-center border-b border-line px-5 py-3 md:hidden">
+              <header className="flex shrink-0 items-center gap-3 border-b border-line px-5 py-3 md:hidden">
                 <Wordmark className="h-12" />
+                {/* Top right, where a person looks for the way out. */}
+                <AppSwitcher apps={apps} className="ml-auto" />
               </header>
+
+              {/* Desktop has no such bar — the rail carries the mark — so the
+                  switcher gets a thin one of its own rather than being buried
+                  in the rail's list of destinations, which is about THIS app. */}
+              {apps.length > 0 && (
+                <div className="hidden shrink-0 justify-end border-b border-line px-5 py-2 md:flex">
+                  <AppSwitcher apps={apps} />
+                </div>
+              )}
               <main className="flex-1 overflow-y-auto">{children}</main>
               <MemberTabs version={VERSION} />
             </div>

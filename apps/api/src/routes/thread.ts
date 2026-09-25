@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   calendarAudience,
   calendarStateChanged,
@@ -6665,20 +6666,12 @@ threadRoutes.post('/public/enrol', async (c) => {
 // completion, manual add and the 5-minute scheduler.
 // ---------------------------------------------------------------------------
 
-/** Rich-text fields store HTML; plain-text email parts need it stripped. */
-function stripHtml(s: string): string {
-  return s
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+/** Rich-text fields store HTML; plain-text email parts need it stripped.
+ *  The definition moved to `@thefibre/shared/rich-text-plain` on 2026-09-25,
+ *  when a calendar invitation shipped `<div>` into somebody's agenda and the
+ *  fourth copy of this function was about to be written. Same behaviour,
+ *  including one newline between blocks rather than two. */
+const stripHtml = richTextToPlain;
 
 function renderMessageBody(
   type: string,

@@ -17,6 +17,7 @@
 
 import { buildCalendarFeed, DEFAULT_EVENT_MINUTES, agendaEventUid } from '@thefibre/shared/ical';
 import { ENTITY } from '@thefibre/shared';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { serverSupabase } from '@/lib/supabase/server';
 import { fetchPortal } from '@/lib/portal-api';
 
@@ -65,7 +66,10 @@ export async function GET(
         startsAt,
         endsAt,
         summary: item.title,
-        description: [item.description, thread.title].filter(Boolean).join('\n\n'),
+        // Flattened: a description is rich text and iCalendar has no markup,
+        // so the tags would be read as part of the sentence — as they were,
+        // in a real invitation, on 2026-09-25.
+        description: [richTextToPlain(item.description), thread.title].filter(Boolean).join('\n\n'),
         location: item.location,
         url: item.meeting_url ?? item.external_url ?? thread.url,
         organizerName: thread.organiser_name,

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.58.4",
+  "version": "1.59.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -97,6 +97,10 @@
     "./prefs": {
       "types": "./dist/prefs.d.ts",
       "default": "./dist/prefs.js"
+    },
+    "./rich-text-plain": {
+      "types": "./dist/rich-text-plain.d.ts",
+      "default": "./dist/rich-text-plain.js"
     },
     "./robots": {
       "types": "./dist/robots.d.ts",

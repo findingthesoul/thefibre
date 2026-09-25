@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.59.0] — 2026-09-25 — a calendar entry with no HTML in it, and a way out for people who have one
+
+Two things a real person hit today, one of them in a calendar entry that had
+already been delivered.
+
+**`<div>` in somebody's agenda.** A session description is rich text; iCalendar
+has no markup at all. So the tags were read as part of the sentence and a
+participant's calendar showed *"<div>We will share learning from Leading
+Through Transitions Cycle 1 with members…</div>"*. Nothing errored: the file
+was valid, the event was at the right time, and the markup was simply prose.
+
+`richTextToPlain` now lives in `@thefibre/shared/rich-text-plain` and every
+calendar path uses it — the subscription feed and both downloads. It replaces
+the `stripHtml` in routes/thread.ts too, behaviour for behaviour, including
+one newline between blocks rather than two, so the email path is a move rather
+than a silent change to what thousands of sent messages look like. That was
+already the third copy; the calendar was about to be the fourth. The preview
+flattener in apps/thread stays separate on purpose — it collapses to a single
+line for a two-line clamp, which is a different question with the same input.
+
+**And the dead end.** Debbie signed in, could reach only the portal, pressed
+"Back to thethread.app" and landed on the marketing homepage. Everything
+behaved as designed — she holds no seat anywhere, so there is no app for her
+to enter — and nothing said so. A button whose destination surprises you reads
+as a fault in the product.
+
+So the portal now says it, in a sentence, to people with no apps: this page is
+everything you take part in, and The Thread itself is for organisers.
+
+**And for people who DO hold a seat, the switcher Sjoerd asked for** — top
+right, where a person looks when they are trying to leave. It reads
+`app_memberships` from their own token, so it costs no call and cannot
+disagree with what the API enforces; it renders nothing at all for a
+participant, which is almost everybody here. A `<details>`, so it works before
+hydration and needs no focus handling.
+
+Worth being plain about: **the switcher would not have helped Debbie.** Her
+list is empty. Her problem was the missing sentence, and separately that
+nobody has invited her to a workspace — which is not a code change.
+
 ## [1.58.4] — 2026-09-25 — the invoice now says who it is FOR
 
 I had been telling Sjoerd that somebody should look at an invoice before the
