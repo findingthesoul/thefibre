@@ -1075,6 +1075,40 @@ local and unpushed, and `scripts/next-version.mjs` read only `origin`, so
 it offered an already-taken number twice. It now takes the highest of
 `origin` AND `HEAD`. Being more careful was never going to be the fix.
 
+### 10.z Which session made a commit is not in the commit, except in one line
+
+Every commit in this repo carries Sjoerd's git identity, because every session
+runs as him. So `git log --author` cannot answer "whose lane is this", and the
+shared checkout means a freshly-made commit is visible to sessions that had
+nothing to do with it.
+
+What settles it is the trailer:
+
+```bash
+git show --format='%an%n%b' --no-patch <sha> | grep -i 'co-authored-by'
+```
+
+Different sessions run different models, so `Co-Authored-By: Claude Opus 5`
+and `Co-Authored-By: Claude Fable 5.1` are different authors even when the
+committer is identical. Where a finding and its write-up belong to different
+sessions, the body usually says so — read it before deciding.
+
+**Three misattributions between two sessions in one night, all in the same
+direction: each guessed the author was whoever they had been talking to.** One
+session assumed a peer's release was the peer's because they were mid-thread
+with them; another corrected an attribution to a colleague and handed it one
+session too far, to the person who had FOUND the thing rather than the one who
+wrote it up. None of the three cost anything, because each was raised rather
+than quietly assumed — which is the actual rule:
+
+> In a shared checkout, **guessing an author from context is a coin flip**.
+> Read the trailer, or say "I think this is yours" and let them answer.
+
+Getting it wrong matters most where the record outlives the conversation:
+whoever reads a commit in six months has only the trailer and the body, and
+a confident wrong attribution in a handover note is worse than an open
+question.
+
 ### 10.y The Fly builder OOMs on `tsc`, and a retry hides it
 
 Same day: two sessions within an hour had
