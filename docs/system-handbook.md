@@ -1109,6 +1109,20 @@ whoever reads a commit in six months has only the trailer and the body, and
 a confident wrong attribution in a handover note is worse than an open
 question.
 
+**The same failure with option numbers, an hour later.** A decision doc listed
+two safe shapes as 1 and 2. One session then summarised them to Sjoerd in the
+other order, because it led with the one both sessions preferred. Two of us
+were confidently agreed on "(2)" while one meant the opposite thing, and a
+"do 1" from him would have built the option neither of us wanted.
+
+> **Name the mechanism, never the ordinal, once it leaves the document.**
+> "Stamp `verified_at` at merge" survives being quoted, forwarded and
+> half-remembered. "Option 2" is only true next to the list it came from.
+
+Same shape as the attribution above and as §11.3d: a confident match on a
+token that does not carry the meaning. Numbers inside a doc are fine — they
+stop being safe the moment they travel.
+
 ### 10.y The Fly builder OOMs on `tsc`, and a retry hides it
 
 Same day: two sessions within an hour had
