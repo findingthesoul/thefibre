@@ -11,6 +11,7 @@ import { t } from '@/lib/i18n-ui';
 import { GoogleConnect } from './google-connect';
 import { PersonalRoomForm } from './personal-room';
 import { AssistantsConnected, type AssistantGrant } from './assistants';
+import { ThreadPromptCard } from './thread-prompt';
 
 // Connections are a user-level SPoT: one Google Calendar link + one personal
 // meeting room per person, shared across the Fibre apps. The data lives
@@ -78,6 +79,12 @@ export default async function ConnectionsPage({
             <p className="mt-1 text-sm text-ink-subtle max-w-2xl">{t(locale, 'assistants_blurb')}</p>
             <div className="mt-4">
               <AssistantsConnected grants={grants} locale={locale} />
+            </div>
+            {/* What a connected assistant is actually FOR. Shown whether or
+                not a grant exists: somebody deciding whether to connect one
+                is exactly the person who needs to see what it would do. */}
+            <div className="mt-4">
+              <ThreadPromptCard locale={locale} />
             </div>
           </section>
         </>

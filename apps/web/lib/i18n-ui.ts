@@ -275,6 +275,31 @@ const CATALOG = {
     de: 'Zurücksetzen', // MT
     fr: 'Effacer', // MT
   },
+  // Settings → Connections: what a connected assistant is for.
+  thread_prompt_title: {
+    en: 'Build a thread from a document',
+    nl: 'Maak een thread van een document',
+    es: 'Crea un hilo a partir de un documento', // MT
+    pt: 'Criar uma thread a partir de um documento', // MT
+    de: 'Einen Thread aus einem Dokument bauen', // MT
+    fr: 'Créer un fil à partir d’un document', // MT
+  },
+  thread_prompt_blurb: {
+    en: 'Paste this to your assistant with a document of dates and steps. It asks what it needs — paid or free, who may see it, which messages are sent when — and builds the thread as drafts.',
+    nl: 'Geef dit aan je assistent samen met een document met data en stappen. Het vraagt wat het nodig heeft — betaald of gratis, wie het mag zien, welke berichten wanneer — en bouwt de thread als concept.',
+    es: 'Pega esto en tu asistente junto a un documento con fechas y pasos. Preguntará lo que necesita — de pago o gratis, quién puede verlo, qué mensajes se envían y cuándo — y creará el hilo como borradores.', // MT
+    pt: 'Cole isto no seu assistente com um documento de datas e passos. Ele pergunta o que precisa — pago ou gratuito, quem pode ver, que mensagens são enviadas e quando — e cria a thread como rascunhos.', // MT
+    de: 'Gib das deiner Assistenz zusammen mit einem Dokument aus Daten und Schritten. Sie fragt, was sie braucht — bezahlt oder kostenlos, wer es sehen darf, welche Nachrichten wann — und baut den Thread als Entwurf.', // MT
+    fr: 'Colle ceci à ton assistant avec un document de dates et d’étapes. Il demande ce qu’il lui faut — payant ou gratuit, qui peut le voir, quels messages partent quand — et construit le fil en brouillons.', // MT
+  },
+  thread_prompt_how: {
+    en: 'Copy it, paste it into a chat that has The Fibre connected, then paste your document underneath.',
+    nl: 'Kopieer het, plak het in een chat waar The Fibre gekoppeld is, en plak je document eronder.',
+    es: 'Cópialo, pégalo en un chat con The Fibre conectado y pega tu documento debajo.', // MT
+    pt: 'Copie, cole num chat com o The Fibre ligado e cole o seu documento por baixo.', // MT
+    de: 'Kopieren, in einen Chat mit verbundenem The Fibre einfügen und dein Dokument darunter setzen.', // MT
+    fr: 'Copie-le, colle-le dans une conversation où The Fibre est connecté, puis colle ton document en dessous.', // MT
+  },
   copy: {
     en: 'Copy',
     nl: 'Kopiëren',

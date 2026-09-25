@@ -74,6 +74,10 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 // can keep importing from the root.
 export * from './i18n.js';
 export * from './invoice-model.js';
+// The prompt that turns a document of dates into a thread. One string,
+// rendered in Settings → Connections; docs/thread-from-a-document-prompt.md
+// explains the method and points here rather than keeping a second copy.
+export { THREAD_PLAN_PROMPT } from './thread-plan-prompt.js';
 
 // Participant sign-in catalog (email code + Google) — shared by every
 // participant-facing portal; also the subpath './participant-auth-i18n'.

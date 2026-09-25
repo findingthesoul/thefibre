@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.55.0] — 2026-09-25 — the prompt that builds a thread, in the product (staging)
+
+Sjoerd: *"Can you add the prompt somewhere in the interface? e.g. in the
+documentation of help... or a chapter on AI"*.
+
+**Settings → Connections → "Build a thread from a document"** — collapsed
+until you open it, with a copy button. That page rather than a help article,
+because it is where somebody has just connected an assistant and is holding
+the question the prompt answers: *now what can it actually do?* A help page
+is where you go once you already know the thing exists. Shown whether or not
+a grant exists — somebody deciding whether to connect one is exactly the
+person who needs to see what it would do.
+
+**One string, one place.** `packages/shared/src/thread-plan-prompt.ts`. He
+had just finished saying what he thinks of something that exists twice
+("should be a single point of truth in the whole app"), so
+`docs/thread-from-a-document-prompt.md` now carries the reasoning and the
+field-by-field reference and points at the module for the text, instead of
+keeping a copy to drift.
+
+**Why it interviews rather than converts.** The MCP prompt
+`plan_thread_from_schedule` sorts rows and creates drafts, which was right
+for a first slice and is not enough for a real programme: whether a thread is
+paid, who may see it, whether its messages actually send, and whether a dated
+step is for participants or for the organisers are all absent from a
+schedule. Twenty-four questions, grouped, each with a recommended default so
+"defaults" is a valid answer, and each mapped in the doc to the field it
+sets.
+
+**Question 15 is an instruction, not a preference**, and it exists because of
+a real result: the first test produced timeline rows whose titles were whole
+sentences. Not a bug in `thread_add_engagements` — it maps `title` and
+`description` to separate columns — but a prompt that named one field of two,
+so the assistant passed the line as a title and sent no description. Nothing
+errored. That is the general shape: a tool with two fields and a prompt
+mentioning one produces plausible output with the second quietly empty.
+
+**Not rendered by anyone.** Settings → Connections is behind a session this
+one does not have. Typechecked only.
+
+
 ## [1.54.1] — 2026-09-25 — the certificate is the right size in its first frame
 
 Seen on a phone, a moment after the thumbnail shipped: the certificate drew
