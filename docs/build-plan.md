@@ -22,6 +22,53 @@ the queue.
 
 _Last groomed 2026-09-24. Done items get removed, not ticked._
 
+**One person picker, everywhere.** Sjoerd, 2026-09-25, on the new search in
+Add participant: *"That person connection field should be a single point of
+truth in the whole app."* It is not yet. This is the audit, so the next
+session starts from facts rather than a grep.
+
+`@thefibre/shared/ui/person-combobox` is THE picker — server-side search
+under the caller's own RLS, an exclude list, an "add what you typed" option,
+and a `resolve` for a saved id. Each app binds its own `search` server
+action, because an action is bound to one app's apiFetch and session; the
+three bindings (`apps/web/lib/person-actions.ts`,
+`apps/connections/lib/person-picker.ts`, `apps/thread/lib/person-picker.ts`)
+are deliberately copies of each other.
+
+**Already on it:** The Fibre (org members, programme enrol), Connect (meeting
+note, org popup, relationship card), Thread (add participant, v1.52.0).
+
+**Confirmed NOT on it — a person chosen by hand where one probably exists:**
+
+- `apps/thread/app/(app)/threads/[id]/tasks-panel.tsx` — the to-do assignee
+  is a plain `<select>` over workspace members. Mine, from the to-do work.
+- `apps/meet/app/(app)/teams/[id]/members.tsx` — adding somebody to a team.
+- `apps/meet/app/(app)/internal-team/invite.tsx` — inviting a colleague.
+- `apps/web/app/(app)/settings/members/invite-dialog.tsx` — inviting a
+  workspace member.
+
+**Deliberately NOT candidates, so nobody "fixes" them:** every public form
+where the typist is a stranger with no session and nothing to search —
+Thread's enrol form and contact form, Membership's product and tier grids,
+`/my` sign-in, `request-access`, the website's start dialog. And
+`apps/web/app/(app)/contacts/new/form.tsx`, which exists to create a person;
+a picker there would be circular, though it could warn on an address that
+already exists.
+
+**The part that makes this more than a port, and the reason to read before
+starting:** the assignee select chooses a **workspace member** (`user_id`,
+from `public."user"`), while PersonCombobox is **person**-shaped
+(`person.id`). Those are different entities — a member is somebody with a
+seat, a person is somebody in the contact graph, and most members are not
+persons and vice versa. So "use the picker everywhere" needs a decision
+first: a member-shaped sibling sharing SearchSelect, or one component taught
+both shapes. Porting the assignee select without settling that would swap a
+working select for a picker that searches the wrong table.
+
+Not exhaustive: found by grepping for name+email pairs and person-shaped
+selects. A surface that picks a person some other way is not in this list.
+
+
 **Invoices: export, and a road to the bookkeeping.** Sjoerd, 2026-09-24,
 right after the first real membership invoice: *"A total list of all invoices
 for workspace/organiser. Export function CVS/Excel. A future connection to
