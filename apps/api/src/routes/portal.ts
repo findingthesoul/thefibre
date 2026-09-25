@@ -74,6 +74,7 @@ import {
   mintFeed,
   revokeFeed,
 } from '../lib/calendar-feed.js';
+import { erasurePicture, fileErasureRequest } from '../lib/portal-erasure.js';
 import { appUrl, isLocale } from '@thefibre/shared';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
@@ -666,6 +667,29 @@ portalRoutes.get('/portal', async (c) => {
   );
 
   return c.json({ person: me, wallet: walletAvailability(), groups: out });
+});
+
+// ===========================================================================
+// Removing your data — GET/POST /me/portal/erasure
+//
+// The reasoning, and the answer to "what if they also organise things", is in
+// lib/portal-erasure.ts. In short: the request is always accepted, the person
+// is told beforehand what is kept by law and what is blocked because other
+// people depend on it, and a human does the erasing.
+// ===========================================================================
+
+portalRoutes.get('/portal/erasure', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  return c.json(await erasurePicture(email));
+});
+
+portalRoutes.post('/portal/erasure', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = (await c.req.json().catch(() => null)) as { reason?: unknown } | null;
+  const reason = typeof body?.reason === 'string' ? body.reason.slice(0, 500) : null;
+  return c.json(await fileErasureRequest({ email, reason }));
 });
 
 // ===========================================================================

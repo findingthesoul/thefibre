@@ -386,3 +386,38 @@ export async function fetchCertificate(
     return null;
   }
 }
+
+/** What a removal request would mean for this person. Read before they ask,
+ *  because finding out afterwards is how a right becomes a grievance. */
+export type ErasurePicture = {
+  pending: { id: string; requested_at: string; due_at: string } | null;
+  removes: { workspaces: number; enrolments: number; bookings: number; memberships: number };
+  kept: { invoices: number };
+  blocked: { upcoming_threads: number; participants_affected: number; workspaces: string[] };
+};
+
+export async function fetchErasure(accessToken: string): Promise<ErasurePicture | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/me/portal/erasure`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ErasurePicture;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestErasure(reason: string | null): Promise<ErasurePicture> {
+  const res = await fetch('/api/erasure', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not send that request');
+  }
+  return (await res.json()) as ErasurePicture;
+}

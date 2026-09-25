@@ -13,12 +13,13 @@
 import { ArrowLeft } from 'lucide-react';
 import { ENTITY, surfaceUrl } from '@thefibre/shared';
 import { headers } from 'next/headers';
-import { loadCalendarStatus, loadProfile, loadSession } from '@/lib/session';
+import { loadCalendarStatus, loadErasure, loadProfile, loadSession } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
 import { DetailsForm } from './details-form';
 import { CalendarCard } from './calendar-card';
+import { RemoveData } from './remove-data';
 import { SignOutButton } from './sign-out-button';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,7 @@ export default async function YouPage() {
 
   const profile = await loadProfile();
   const calendar = await loadCalendarStatus();
+  const erasure = await loadErasure();
   const { person } = session.portal;
   // Label derived from the resolved href, not from the constant: on staging
   // this page is my.thefibre.tech and a link reading "thethread.app" would be
@@ -65,6 +67,13 @@ export default async function YouPage() {
       )}
 
       <CalendarCard status={calendar} />
+
+      {/* Below the calendar and above the way out — last of the things you
+          DO here, which is where a page puts the one you hope nobody needs.
+          Omitted entirely when the picture could not be read: offering a
+          right we cannot describe accurately is worse than not offering it
+          on this page, since the privacy policy carries it either way. */}
+      {erasure && <RemoveData picture={erasure} />}
 
       {/* The way back. The app switcher now offers my.thread from every app,
           so this is the other half of that pair — a member who lives here

@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.56.0] — 2026-09-25 — asking to be removed, and being told what that means
+
+Sjoerd: *"add the data removal in my.thread"* — and then the question that
+shaped the whole thing: *"what happens if someone requests removal but they
+have a seat, are organising threads in the future?"*
+
+The answer is that those are two different people wearing one email address,
+and the portal must not confuse them.
+
+**What the portal is looking at is a participant** — `person` rows, one per
+workspace that knows this email, carrying enrolments, tickets, bookings and
+memberships. That is what a removal request is about.
+
+**The same human may also hold a seat.** Erasing that is a different act: it
+reaches into other people's records. Their certificates name this organiser.
+Their invitations came from this address. Their places depend on threads that
+would have nobody behind them. So the portal counts those threads and the
+people enrolled in them, and says so — *"nine people are enrolled; their place
+depends on your account"* — naming the workspaces rather than being ominous.
+
+**And some of it cannot be erased by anybody.** Art. 17(3)(b): an invoice is a
+fiscal record kept for its statutory period regardless of who asks. The page
+says that too, in those words, because a right that turns out to have an
+exception is a grievance if you learn about it in a reply three weeks later.
+
+So: the request is ALWAYS accepted — you cannot decline to receive one, and
+the thirty-day clock starts on arrival. One request per person row, because
+each workspace is its own controller and a single request against one of them
+would leave the others holding data nobody was told to remove. What blocks it
+goes into the note, so whoever picks it up is not re-deriving it. And a human
+does the erasing: these tables are append-only by design, erasure across them
+is anonymisation with a design behind it
+(docs/data-protection-approach.md §3.7), and half-automating that would be
+worse than a request somebody reads.
+
+Nothing on the screen pretends to be instant, because nothing is.
+
+**One bug caught by running the query rather than compiling it.** The organiser
+check asked PostgREST for `'"user"'` — quoted, the way SQL wants it. PostgREST
+wants the plain name and answers PGRST205 to anything else. Every failure in
+that function returns an empty list, so the check would have reported "nothing
+blocks this" for every organiser on the platform, silently, forever. A select
+is a string TypeScript never reads; all nine were run against a real database
+before this shipped.
+
 ## [1.55.0] — 2026-09-25 — the prompt that builds a thread, in the product (staging)
 
 Sjoerd: *"Can you add the prompt somewhere in the interface? e.g. in the

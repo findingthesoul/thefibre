@@ -11,11 +11,13 @@ import { cache } from 'react';
 import { serverSupabase } from './supabase/server';
 import {
   fetchCalendarStatus,
+  fetchErasure,
   fetchInvoices,
   fetchPortal,
   fetchProfile,
   PortalApiError,
   type CalendarStatus,
+  type ErasurePicture,
   type MyProfile,
   type Portal,
   type PortalInvoice,
@@ -65,4 +67,13 @@ export const loadCalendarStatus = cache(async (): Promise<CalendarStatus> => {
   const s = await loadSession();
   if (!s) return { subscribed: false, created_at: null, last_read_at: null, url: null, webcal: null };
   return fetchCalendarStatus(s.token);
+});
+
+/** What removing this person's data would involve. Null when the call failed
+ *  — the YOU tab then omits the section rather than offering a right it
+ *  cannot describe accurately. */
+export const loadErasure = cache(async (): Promise<ErasurePicture | null> => {
+  const s = await loadSession();
+  if (!s) return null;
+  return fetchErasure(s.token);
 });
