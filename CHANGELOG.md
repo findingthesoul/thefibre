@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.54.1] — 2026-09-25 — the certificate is the right size in its first frame
+
+Seen on a phone, a moment after the thumbnail shipped: the certificate drew
+every font at full design size for one frame — a heading four times too big,
+wrapping into the line beneath it — then snapped to the right size. Barely
+visible on a laptop and very visible on a phone.
+
+The scale was measured in an effect, and an effect runs after the browser
+paints. It is measured in the ref callback now, which runs during commit, so
+the corrected size is in the FIRST paint rather than the second. The resize
+observer still handles everything after that.
+
+Shared, so the public verification page gets it too — which is the argument
+for having moved the renderer rather than copying it.
+
 ## [1.54.0] — 2026-09-25 — a meeting type you can retire, and two event types that never worked (Meet 2.15.0)
 
 ### Meeting polls and one-offs have never been creatable

@@ -17,7 +17,7 @@
 // stayed behind because they belong to the PAGE and not to the certificate:
 // the print button, and the auto-print on `?print=1`.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   PAGE_ASPECT,
   substituteFields,
@@ -54,24 +54,34 @@ export function CertView({
   apiBase: string;
   className?: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
   const [scale, setScale] = useState(1);
   const { template, values } = snapshot;
   const aspect = PAGE_ASPECT[template.page_size]?.[template.orientation] ?? 1.4142;
 
+  // Measured in the ref callback rather than in an effect, because an effect
+  // runs AFTER the browser paints: the first frame drew every font at its
+  // full design size, which at thumbnail width is a heading four times too
+  // big, wrapping into the line below it before snapping back. Barely visible
+  // on a fast laptop and very visible on a phone. A ref callback runs during
+  // commit, so the corrected scale is in the first paint rather than the
+  // second.
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    ref.current = el;
+    if (el) setScale(el.clientWidth / BUILDER_WIDTH);
+  }, []);
+
   useEffect(() => {
-    if (!ref.current) return;
     const el = ref.current;
-    const update = () => setScale(el.clientWidth / BUILDER_WIDTH);
-    update();
-    const ro = new ResizeObserver(update);
+    if (!el) return;
+    const ro = new ResizeObserver(() => setScale(el.clientWidth / BUILDER_WIDTH));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   return (
     <div
-      ref={ref}
+      ref={measure}
       className={
         className ??
         'cert-page relative w-full overflow-hidden rounded-lg ring-1 ring-line bg-white print:ring-0 print:rounded-none'
