@@ -51,6 +51,98 @@ afterAll(async () => {
 });
 
 describe('merge_person', () => {
+  // The point of this test is to FAIL when somebody adds a column to person.
+  //
+  // person_merge_fill_blanks carries the merged record's values into the kept
+  // record's blanks, and it decides what may travel from the catalogue rather
+  // than from a list. That is the right default for content and the wrong one
+  // for a legal fact: an `erased_at`, a `marketing_consent`, a `verified_by`
+  // must NOT ride across from one person to another. The type and suffix
+  // rules in person_fillable_columns() are meant to catch those, but a rule
+  // is a guess about names nobody has chosen yet.
+  //
+  // So this asserts the exact set. A new column lands here as a red test, and
+  // whoever added it decides — add it to this list, or name it so the rule
+  // excludes it. The failure is the feature.
+  it('carries content and nothing else — a new person column must be classified', async () => {
+    const { data, error } = await service.rpc('person_fillable_columns');
+    expect(error).toBeNull();
+
+    const got = ((data ?? []) as ({ name: string } | string)[])
+      .map((r) => (typeof r === 'string' ? r : r.name))
+      .sort();
+
+    expect(got).toEqual(
+      [
+        'city',
+        'country',
+        'custom_fields',
+        'email',
+        'email_secondary',
+        'first_name',
+        'languages_spoken',
+        'last_name',
+        'linkedin_url',
+        'phone',
+        'phone_secondary',
+        'postal_code',
+        'preferred_language',
+        'preferred_name',
+        'pronouns',
+        'region',
+        'street',
+        'website_url',
+      ].sort(),
+    );
+
+    // and the ones that must never travel, named so the reason is on the page
+    for (const identity of ['id', 'workspace_id', 'user_id', 'merged_into', 'created_via']) {
+      expect(got).not.toContain(identity);
+    }
+    for (const state of ['created_at', 'deleted_at']) {
+      expect(got).not.toContain(state);
+    }
+  });
+
+  // An undo reverses the merge, not the afternoon's work.
+  it('leaves a column alone on undo when somebody edited it after the merge', async () => {
+    const stamp = Date.now();
+    const keep = (
+      await service
+        .from('person')
+        .insert({ workspace_id: ws, first_name: 'Edited', last_name: null, phone: null })
+        .select('id')
+        .single()
+    ).data!.id as string;
+    madePeople.push(keep);
+
+    const lose = (
+      await service
+        .from('person')
+        .insert({ workspace_id: ws, first_name: 'Edited', last_name: 'Carried', phone: '+31611111111' })
+        .select('id')
+        .single()
+    ).data!.id as string;
+    madePeople.push(lose);
+
+    const { data: mergeId } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+    });
+
+    // a human corrects the phone the merge filled in
+    await service.from('person').update({ phone: '+31699999999' }).eq('id', keep);
+
+    await service.rpc('unmerge_person', { p_merge_id: mergeId as string, p_actor: null });
+
+    const back = (
+      await service.from('person').select('phone, last_name').eq('id', keep).single()
+    ).data!;
+    expect(back.phone).toBe('+31699999999'); // theirs survives
+    expect(back.last_name).toBeNull();       // untouched, so reverted
+  });
+
   // Sjoerd, 2026-09-25: *"can you also merge contact (not just choose). For
   // example: two email addresses belong to each other"*. Before 20260925053333
   // a merge combined the ROWS pointing at a person and never the person's own

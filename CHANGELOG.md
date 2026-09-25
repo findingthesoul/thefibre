@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.57.2] — 2026-09-25 — an undo reverses the merge, not the afternoon's work
+
+Four corrections to yesterday's contact merge, from a stress-test review that
+read it the same day it shipped. It never reached production; this goes with
+it.
+
+**Undo no longer discards a later edit.** The audit recorded only each
+column's value from BEFORE the merge and wrote it back unconditionally. So:
+the merge fills a blank phone from the merged record, somebody corrects that
+number by hand, somebody else undoes the merge — and the correction is gone,
+replaced by the blank. It now records `{before, after}` and restores only
+where the column is STILL what the merge wrote. Proved on staging in exactly
+that order: the hand edit survives, an untouched column still reverts.
+
+**The column filter stopped trusting a list of names.** It excluded seven
+columns by name — right for every column that exists and wrong for the first
+one that does not. `erased_at`, `marketing_consent`, `verified_by` would each
+have travelled from one person to another, quietly, and two of those three are
+legal facts about a specific human being. The rule now describes what a
+fillable column IS: text, arrays and jsonb content; never a boolean, a
+timestamp or a uuid; never a name ending `_at`/`_by`/`_id`/`_hash`/`_token`;
+still never anything under a unique constraint. A test asserts the exact set
+of eighteen, so **a new column on `person` lands as a failing test** and
+whoever adds it decides whether it may travel. The failure is the feature.
+
+**An empty object counts as blank.** `custom_fields` is `not null default
+'{}'`, so under the old rule it could never be blank and never moved — while
+the comment above it said it would. Fixed the behaviour rather than correcting
+the comment down.
+
+**The trigger functions gave up their default grants.** Not exploitable —
+Postgres refuses to call a trigger function directly and PostgREST omits
+trigger-returning procedures, both confirmed by error code — but the
+neighbouring sync function is revoked and these should match.
+
+The review also found a HIGH severity hole in the merge ROUTES, which predates
+all of this and is being fixed separately by the session that found it:
+`/persons/merge` checks that the caller is an admin of their OWN workspace and
+then passes the body's ids straight through, and `merge_person` only compares
+the two people to each other. The undo route has the same gap and hides it
+better — its workspace check runs AFTER the RPC, so it filters the response
+rather than the action.
+
 ## [1.57.1] — 2026-09-25 — the blocked note, and a field that told the truth by accident
 
 Two corrections to the removal request, found by calling it against real data
