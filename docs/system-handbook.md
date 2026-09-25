@@ -1015,6 +1015,68 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 ---
 
+### 10.x A staged-file check that filters OUT staged files
+
+2026-09-25. Rebasing a release in the shared checkout, I resolved a peer's
+conflicted commit, reported "version files + CHANGELOG only, no code", and
+was wrong: `apps/api/src/lib/message-tokens.test.ts` — a test another
+session had amended into its own commit about a minute earlier — rode into
+MY commit instead. The peer found it by listing the files rather than
+believing my summary.
+
+**Two different things went unchecked, and only one of them is the famous
+one.**
+
+1. The conflict list is not the commit contents. `git status --porcelain |
+   grep '^UU'` answers "what did git fail to merge", which I read as "what
+   is in play". A file that was cleanly STAGED by somebody else is not
+   conflicted and never appears there.
+
+2. The guard I ran was structurally incapable of firing:
+
+   ```bash
+   git status --porcelain | grep -v "^M \|^A " || echo "(all staged)"
+   ```
+
+   It prints what is NOT staged. A peer's pre-staged file shows as `A ` or
+   `M ` in column 1 — precisely what the `grep -v` removes. It printed
+   nothing, I read "(all staged)" as "only my work is staged", and committed.
+   CLAUDE.md §3 says *check column 1 for someone else's pre-staged entries*;
+   I had inverted it into a check for unstaged leftovers.
+
+**What to run instead.** Compare the staged set against the paths you
+intended, and look at what is left over:
+
+```bash
+git diff --cached --name-only | sort > /tmp/staged
+printf '%s\n' "${INTENDED[@]}" | sort > /tmp/intended
+comm -23 /tmp/staged /tmp/intended   # staged, but NOT yours — stop here
+```
+
+Nothing was lost (the test is on staging and passing, and it belongs to the
+same change either way) and the history was NOT rewritten to move it —
+rewriting pushed history to relocate one file costs more than the confusion
+it saves. The cost is a reader finding a rich-text token test inside a
+commit called "the share link is our invoice", which is what this entry
+exists to explain.
+
+**Root cause, and the fix that actually holds:** the peer's commit was
+local and unpushed, and `scripts/next-version.mjs` read only `origin`, so
+it offered an already-taken number twice. It now takes the highest of
+`origin` AND `HEAD`. Being more careful was never going to be the fix.
+
+### 10.y The Fly builder OOMs on `tsc`, and a retry hides it
+
+Same day: two sessions within an hour had
+`pnpm --filter @thefibre/api... build` die in the Fly image build with
+**SIGKILL** — an out-of-memory kill in the builder, not a type error, and
+the local `pnpm -r typecheck` passes. Both retries succeeded, which is
+exactly how this becomes invisible.
+
+Retry once. If a third session hits it, the remote builder needs more
+memory rather than more retries — that is an infrastructure change and
+Sjoerd's call, not something to keep absorbing.
+
 ## 11. Testing
 
 Full rationale and roadmap: `docs/testing-approach.md`. This section is the
