@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.58.2] — 2026-09-25 — the portal has a page for "not this time"
+
+### Fixed
+- **`apps/my/app/error.tsx`.** v1.58.0 made the portal's reads throw instead
+  of rendering empty, and `loadSession` rethrows anything but a 401 — which,
+  with no error boundary, landed on Next's bare error screen. Now one
+  sentence and a retry, in the portal's own shell, worded so it does not
+  read as "your things are gone" (thefibre-60's point: a person whose
+  tickets did not load is one press from believing they lost them).
+
 ## [1.58.1] — 2026-09-25 — a failed search on the map says so
 
 ### Fixed

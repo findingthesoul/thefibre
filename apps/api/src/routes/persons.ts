@@ -260,6 +260,7 @@ async function bothInWorkspace(workspaceId: string, a: string, b: string): Promi
     .from('person')
     .select('id', { count: 'exact', head: true })
     .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
     .in('id', [a, b]);
   if (error) throw new Error(`person lookup failed: ${error.message}`);
   return count === 2;
