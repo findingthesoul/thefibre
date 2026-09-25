@@ -62,6 +62,11 @@ export type ThreadItem = {
    *  thread rather than a person. */
   organiser_name: string | null;
   organiser_email: string | null;
+  /** The certificate for this thread, if one was issued to this person. The
+   *  number and the date only — the drawing is fetched by the thumbnail from
+   *  the public endpoint, so the payload does not carry a page of JSON per
+   *  certificate. */
+  certificate: { number: string; issued_at: string } | null;
   agenda: AgendaItem[];
 };
 
@@ -344,4 +349,40 @@ export async function deleteCalendar(): Promise<void> {
  */
 export function threadIcsUrl(threadId: string): string {
   return `/ics/${threadId}`;
+}
+
+/** The certificate's own page — where a holder sends someone to verify it,
+ *  and where "View online" goes. Served by The Thread, not by this app: it is
+ *  public by design, addressed by the number alone, and needs no session.
+ *
+ *  The origin is taken from the thread's OWN public url rather than from an
+ *  environment variable, so a certificate on the staging stack links to
+ *  staging without this app having to know which stack it is on — the same
+ *  mistake the portal's calendar address made and had to be fixed for. */
+export function certificateUrl(number: string, threadUrl: string): string {
+  let origin: string;
+  try {
+    origin = new URL(threadUrl).origin;
+  } catch {
+    return `/certificate/${encodeURIComponent(number)}`;
+  }
+  return `${origin}/certificate/${encodeURIComponent(number)}`;
+}
+
+/** The snapshot a thumbnail renders from. Public — the number IS the
+ *  capability, exactly as it is for the verification page — so this needs no
+ *  bearer and can be fetched from the browser. */
+export async function fetchCertificate(
+  number: string,
+): Promise<{ certificate_number: string; recipient_name: string; issued_at: string; template_snapshot: unknown } | null> {
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/v1/thread/public/certificate/${encodeURIComponent(number)}`,
+      { cache: 'force-cache' },
+    );
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }

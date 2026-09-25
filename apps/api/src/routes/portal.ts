@@ -171,6 +171,16 @@ type ThreadItem = {
    *  owner is a workspace or team rather than a person. */
   organiser_name: string | null;
   organiser_email: string | null;
+  /**
+   * The certificate this person was issued for this thread, if any.
+   *
+   * The NUMBER and the date only — never the design. The snapshot is a page
+   * of JSON per certificate and the portal payload is already the heaviest
+   * call this app makes; the drawing is fetched by the thumbnail, from the
+   * public endpoint that renders it for anybody holding the number. So the
+   * list stays cheap and nothing is duplicated.
+   */
+  certificate: { number: string; issued_at: string } | null;
   agenda: AgendaItem[];
 };
 
@@ -279,6 +289,27 @@ portalRoutes.get('/portal', async (c) => {
   }
 
   const agendaByThread = await loadAgendaByThread({ threadIds, personIds, droppedThreads });
+
+  // -- Certificates ---------------------------------------------------------
+  //
+  // Keyed on the ENROLMENT, one per enrolment, which is how the issuer writes
+  // them. Scoped by the enrolment ids we just found — those came from
+  // personIds, so this inherits the same filter rather than trusting a second
+  // one (Sjoerd, 2026-09-25: certificates belong on the person's own page).
+  const certByEnrolment = new Map<string, { number: string; issued_at: string }>();
+  const enrolmentIds = (enrolments ?? []).map((e) => e.id as string);
+  if (enrolmentIds.length) {
+    const { data: certs } = await adminClient
+      .from('thread_certificate')
+      .select('thread_enrolment_id, certificate_number, issued_at')
+      .in('thread_enrolment_id', enrolmentIds);
+    for (const c of certs ?? []) {
+      certByEnrolment.set(c.thread_enrolment_id as string, {
+        number: c.certificate_number as string,
+        issued_at: c.issued_at as string,
+      });
+    }
+  }
 
   // -- Meets (dual key: person id OR the email on the booking) --------------
   //
@@ -571,6 +602,7 @@ portalRoutes.get('/portal', async (c) => {
       url: threadPublicUrl(ownerSlug, t.slug as string),
       organiser_name: org?.display_name ?? orgUser?.full_name ?? g.name ?? null,
       organiser_email: orgUser?.email ?? null,
+      certificate: certByEnrolment.get(e.id as string) ?? null,
       agenda: agendaByThread.get(t.id) ?? [],
     });
 

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.52.0",
+  "version": "1.53.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -25,6 +25,10 @@
     "./available-apps": {
       "types": "./dist/available-apps.d.ts",
       "default": "./dist/available-apps.js"
+    },
+    "./certificate": {
+      "types": "./dist/certificate.d.ts",
+      "default": "./dist/certificate.js"
     },
     "./checkout-redirect": {
       "types": "./dist/checkout-redirect.d.ts",
@@ -145,6 +149,10 @@
     "./ui/button": {
       "types": "./dist/ui/button.d.ts",
       "default": "./dist/ui/button.js"
+    },
+    "./ui/cert-view": {
+      "types": "./dist/ui/cert-view.d.ts",
+      "default": "./dist/ui/cert-view.js"
     },
     "./ui/contact-points": {
       "types": "./dist/ui/contact-points.d.ts",

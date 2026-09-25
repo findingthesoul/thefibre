@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.53.0] — 2026-09-25 — your certificate, on your own page
+
+Sjoerd: *"Certificates (with if you have…) should be in my.thread … could be
+a timeline design … see certificate thumbnail and a link to online."*
+
+Until now a certificate existed at a public address and arrived once, by
+email. Which means the person who earned it had to keep that email to ever
+find it again — while the portal, where everything else of theirs already
+lives, did not know it existed.
+
+**In the timeline, not in a drawer.** A certificate is now an entry of its own
+on the day it was issued, beside the sessions rather than behind a tab nobody
+opens. It is all-day on purpose: an issue time of 14:32 is the organiser's
+working moment, and a clock in that chip would show it as if it were an
+appointment the holder had. The third column carries an award mark where an
+RSVP would be — same width, so a mixed list does not go ragged down its right
+edge — and the meta line says "Certificate", because the title is the
+thread's and would otherwise read as one more session on a programme already
+finished.
+
+The page's own code had anticipated this: the note on `splitAt` already said
+past entries are looked at "usually for a certificate or a receipt".
+
+**A real thumbnail, not an icon.** The whole point of a certificate is that
+somebody designed it, and a row reading "Certificate · THR-2027-00042" shows
+none of that. Opening the thread shows the document itself, above the agenda,
+with its number, its date and a link to the public page an employer can
+verify.
+
+**One renderer, which is what makes that safe.** `CertView` moved to
+`@thefibre/shared/ui/cert-view` and the certificate document model to
+`@thefibre/shared/certificate`; The Thread's public page now uses the shared
+one and keeps only what belongs to a PAGE — the print button, the auto-print
+on `?print=1`, and the print stylesheet. So a thumbnail in someone's portal is
+the same document as the page being verified, not a second implementation that
+looks similar until a font or a QR moves. The builder stayed in apps/thread,
+where organiser machinery belongs.
+
+**The payload carries the number, never the design.** A snapshot is a page of
+JSON per certificate and the portal payload is already the heaviest call this
+app makes. The thumbnail fetches the drawing itself from the public endpoint —
+the one addressed by number alone, which needs no session and caches like
+anything static. The certificate's link is built from the thread's own public
+url rather than an environment variable, so staging links to staging: the same
+mistake the calendar address made yesterday and had to be fixed for.
+
+Four cases pinned, including that somebody who was never issued one sees
+nothing at all.
+
 ## [1.52.0] — 2026-09-25 — adding a participant starts by finding them (staging)
 
 Sjoerd, looking at the Add participant dialog's two empty boxes: *"Should

@@ -9,6 +9,18 @@ import type { Portal, RsvpResponse } from './portal-api';
 
 export type Entry = {
   key: string;
+  /**
+   * What this row IS. Everything was a session until 2026-09-25; a
+   * certificate is the first entry that is not something you attend, and it
+   * behaves differently for it — no RSVP to give, no room to join, and a
+   * thumbnail rather than a time.
+   *
+   * A field rather than a separate list, because the whole premise of this
+   * page is one column in date order. A certificate arriving on the day you
+   * finished belongs next to the session that finished it, not in a drawer
+   * labelled Certificates that nobody opens.
+   */
+  kind: 'session' | 'certificate';
   /** The instant this sorts at. All-day things sort at the START of their
    *  day — the convention every calendar uses, and the reason is that "the
    *  whole day" does begin before the 16:00 call. */
@@ -77,6 +89,7 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
         const startsAt = a.starts_at!;
         out.push({
           key: `agenda:${a.id}`,
+          kind: 'session',
           at: new Date(startsAt).getTime(),
           allDay: false,
           title: a.title,
@@ -101,6 +114,7 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
       if (timed.length === 0 && t.starts_on) {
         out.push({
           key: `thread:${t.thread_id}`,
+          kind: 'session',
           at: startOfDay(t.starts_on),
           allDay: true,
           title: t.title,
@@ -118,11 +132,45 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           hasTicket: ticketFor.has(t.thread_id),
         });
       }
+
+      // The certificate, on the day it was issued.
+      //
+      // Always an entry of its own, even on a thread with sessions — it is
+      // not something you attended, it is what you were left with, and it is
+      // the one thing people come back to this page for months later. The
+      // comment on `splitAt` below said so before this existed: past is
+      // looked at "usually for a certificate or a receipt".
+      //
+      // All-day, deliberately: a certificate issued at 14:32 tells the
+      // holder nothing, and a clock in that chip would be the organiser's
+      // working moment shown as if it were an appointment.
+      if (t.certificate) {
+        out.push({
+          key: `cert:${t.certificate.number}`,
+          kind: 'certificate',
+          at: startOfDay(t.certificate.issued_at),
+          allDay: true,
+          title: t.title,
+          organiser: g.name,
+          workspaceId: g.workspace_id,
+          dateIso: t.certificate.issued_at,
+          time: null,
+          where: null,
+          whereUrl: null,
+          joinUrl: null,
+          threadId: t.thread_id,
+          engagementId: null,
+          rsvpEnabled: false,
+          rsvp: null,
+          hasTicket: false,
+        });
+      }
     }
 
     for (const m of g.meets) {
       out.push({
         key: `meet:${m.booking_id}`,
+        kind: 'session',
         at: new Date(m.starts_at).getTime(),
         allDay: false,
         title: m.title,

@@ -62,6 +62,7 @@ function thread(over: Partial<Portal['groups'][number]['threads'][number]> = {})
     enrolment_status: 'confirmed',
     progress_pct: null,
     url: 'https://example.test/t',
+    certificate: null,
     organiser_name: 'Marja de Vries',
     organiser_email: 'marja@example.test',
     agenda: [],
@@ -174,6 +175,7 @@ describe('splitAt', () => {
   const at = (iso: string, allDay = false): Entry =>
     ({
       key: iso,
+      kind: 'session',
       at: new Date(iso).getTime(),
       allDay,
       title: iso,
@@ -241,6 +243,7 @@ describe('unanswered', () => {
   const entry = (over: Partial<Entry>): Entry =>
     ({
       key: 'k',
+      kind: 'session',
       at: 0,
       allDay: false,
       title: 't',
@@ -271,5 +274,57 @@ describe('unanswered', () => {
 
   it("treats 'can't' as answered — it is a reply, not a silence", () => {
     expect(unanswered([entry({ rsvpEnabled: true, rsvp: 'not_coming' })])).toHaveLength(0);
+  });
+});
+
+// A certificate is the one thing people open this page for months later, so
+// it has to be IN the list rather than reachable from it.
+describe('buildTimeline — certificates', () => {
+  const cert = { number: 'THR-2027-00042', issued_at: '2027-02-10T14:32:00Z' };
+
+  it('appears as its own entry, on the day it was issued', () => {
+    const out = buildTimeline(
+      portal([group({ threads: [thread({ certificate: cert, agenda: [], starts_on: null })] })]),
+    );
+    const c = out.find((e) => e.kind === 'certificate');
+    expect(c).toBeTruthy();
+    expect(c!.key).toBe('cert:THR-2027-00042');
+    // All-day: an issue time of 14:32 is the organiser's working moment, not
+    // an appointment the holder had.
+    expect(c!.allDay).toBe(true);
+    expect(c!.time).toBeNull();
+  });
+
+  it('stands beside the sessions rather than replacing them', () => {
+    const out = buildTimeline(
+      portal([
+        group({
+          threads: [
+            thread({
+              certificate: cert,
+              agenda: [agenda({ id: 'a1', starts_at: '2027-02-09T15:00:00Z' })],
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(out.filter((e) => e.kind === 'session').length).toBeGreaterThan(0);
+    expect(out.filter((e) => e.kind === 'certificate')).toHaveLength(1);
+  });
+
+  it('opens the thread it belongs to, so the thumbnail has somewhere to live', () => {
+    const out = buildTimeline(
+      portal([group({ threads: [thread({ certificate: cert, agenda: [] })] })]),
+    );
+    const c = out.find((e) => e.kind === 'certificate')!;
+    expect(c.threadId).toBeTruthy();
+    // Nothing to answer and nothing to join.
+    expect(c.rsvpEnabled).toBe(false);
+    expect(c.joinUrl).toBeNull();
+  });
+
+  it('is absent for somebody who was never issued one', () => {
+    const out = buildTimeline(portal([group({ threads: [thread({ certificate: null })] })]));
+    expect(out.some((e) => e.kind === 'certificate')).toBe(false);
   });
 });

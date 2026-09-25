@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { RichText } from '@thefibre/shared/ui/rich-text';
+import { Certificate } from './certificate';
 import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X, HelpCircle } from 'lucide-react';
 import {
   agendaIcsUrl,
@@ -475,6 +476,17 @@ export function ThreadSheet({
               </div>
             </div>
           </section>
+        )}
+
+        {/* Above the agenda, because it is the thing you came back for. A
+            certificate is the only part of a finished thread anybody opens
+            their portal to look at again. */}
+        {thread.certificate && (
+          <Certificate
+            number={thread.certificate.number}
+            issuedAt={thread.certificate.issued_at}
+            threadUrl={thread.url}
+          />
         )}
 
         {thread.agenda.length > 0 ? (

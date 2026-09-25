@@ -9,7 +9,7 @@
 // became a filter, which is where it belongs.
 
 import { Fragment, useMemo, useState } from 'react';
-import { QrCode, Video } from 'lucide-react';
+import { Award, QrCode, Video } from 'lucide-react';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { quarterLabel, unanswered, type Entry } from '@/lib/timeline';
 import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
@@ -131,6 +131,19 @@ function Card({
         )}
 
         {rsvpItem?.rsvp_enabled && !past && <Rsvp item={rsvpItem} stretch />}
+
+        {/* A certificate has no answer to give and no room to join, so the
+            third column carries the one mark that says what this row is.
+            Same width and stretch as the RSVP it stands in for, so a list
+            mixing the two does not go ragged down its right edge. */}
+        {entry.kind === 'certificate' && (
+          <span
+            aria-hidden
+            className="inline-flex w-11 shrink-0 items-center justify-center self-stretch rounded-lg border border-line text-ink-subtle"
+          >
+            <Award className="h-5 w-5" />
+          </span>
+        )}
       </div>
     </li>
   );
@@ -140,7 +153,16 @@ function Card({
  *  with the small facts rather than out at the edge competing with the one
  *  control that does something. */
 function MetaLine({ entry }: { entry: Entry }) {
-  const meta = [entry.time, entry.organiser, entry.where].filter(Boolean).join(' \u00b7 ');
+  // A certificate's row says so in words as well as by its mark: the title is
+  // the thread's, so without this the line reads as one more session on a
+  // programme the person has already finished.
+  const meta = [
+    entry.kind === 'certificate' ? 'Certificate' : entry.time,
+    entry.organiser,
+    entry.where,
+  ]
+    .filter(Boolean)
+    .join(' \u00b7 ');
   return (
     <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-muted">
       <span className="truncate">{meta}</span>
