@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.61.0] — 2026-09-25 — Business Models, a new app on the family
+
+Sjoerd: *"We use the full framework of thethread as a foundation. Just
+another app. In the fibre we use the workspace Solidarity Lab, then we make
+teams, give people access to a team. They can see the business models for
+that team."*
+
+The business model generator started life as a password-protected static
+page (solidarity-lab/business-models). Every hosting option for that was
+either public (GitHub Pages) or paid (Netlify's password), and the real need
+was never a shared password: it was *these people, this model*. The Fibre
+already answers that — teams are workspace-scoped, have members, and since
+2026-09-11 confer apps. So the generator became `apps/models`, slug
+`fibre-models`, "Business Models".
+
+**What a model is.** One JSON definition per venture — turnover generators
+each with their own volume, price and cost structure, generic fixed costs,
+one-off investment, and the Business Model Canvas text — plus the team's
+edited numbers. The engine (`apps/models/lib/engine.ts`, a typed port of the
+static build's, checked to the dollar against it) runs in the browser; the
+API only stores. The page shows the canvas with the numbers in it (segments,
+revenue streams as price × volume, key resources carrying the fixed costs,
+key activities the variable ones), the KPI tiles, turnover and costs per
+year, break even and cash charts, the mix and cost tables, the monthly
+projection, and the input panels underneath. CSV export, print of the
+canvas alone, six-locale chrome.
+
+**Who sees what.** `models_model.team_id` is the whole access story: a
+team's active members read and edit the numbers of that team's models, a
+workspace-wide model (null team) is for everyone with the app, admins see
+all. Admins and team leads create, reshape and delete; every member turns
+the dials (`apps/api/src/routes/models.ts`, RLS in
+`20260925124033_fibre_models_schema.sql`). New models start from a
+template — blank, or doáb.ai — or from a pasted definition, which is how a
+story told to Claude becomes a model.
+
+**Not yet reachable.** The catalogue row carries `beta_at`, not
+`released_at`, and branding says `available: false`: the Vercel project
+`thefibre-models` and the domain `models.thethread.app` come next, then both
+flip (docs/deploy.md, "Adding a NEW app"). Until then nothing in any
+switcher points at it.
+
 ## [1.60.0] — 2026-09-25 — the share link is our invoice
 
 Sjoerd: *"Share link of invoice, should refer to our own invoice, not the
