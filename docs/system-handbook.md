@@ -1267,6 +1267,46 @@ recipients' calendars declined it. See §11.1 on what our logs can and cannot
 witness. Both times the answer came from looking at the thing itself: the
 server's log, and a rendered message in a real inbox.
 
+### 11.3c A DEGRADED answer is worse than an empty one — and worst pointing the safe way
+
+§11.3b is about a call that returns NOTHING. This is its sibling and the more
+dangerous half: a call that returns a plausible answer it invented.
+
+`const { data } = await q; return data ?? []` turns a database error into a
+result. An empty response at least looks like nothing; a defaulted one looks
+like a finding. `lib/rows.ts` exists to refuse that — `rows()`, `row()` and
+`count()` read the error the query returned and throw it, so the route answers
+500 and the log names the query.
+
+**Use it on every read whose EMPTY case means something to the person looking
+at it.** Decoration may degrade — a missing label, an avatar that does not
+load. A list may not, and a COUNT may not.
+
+**Then ask which direction the default points**, because that is what decides
+how much it costs. Both of these are one line of code and they are not the
+same mistake:
+
+> A visitor's ticket list that fails to `[]` says "you have no tickets". Wrong,
+> alarming, and instantly disbelieved — the person knows they have a ticket.
+>
+> `lib/portal-erasure.ts` counts the people whose places depend on an
+> organiser's account before it lets them ask to be erased. Every `?? []` and
+> `?? 0` in it resolves to **"nothing blocks this request"** — the answer that
+> looks fine, reassures the person asking, and omits the warning from the note
+> handed to whoever processes it. Fifteen people's places, silently unmentioned.
+
+The second is worse in every way that matters: it is not disbelieved, nobody
+reports it, and the harm lands on people who were never in the conversation.
+So when a read can fail, do not only ask "what will it return" — ask **"is the
+default the reassuring answer or the alarming one?"** A default that reassures
+needs to throw. A default that alarms will at least be reported.
+
+This is not hypothetical in that file. It shipped with `from('"user"')`, which
+PostgREST answers PGRST205 to; the error fell into an empty list and the
+function reported "nothing blocks this" for every organiser on the platform
+(v1.55.0, fixed before release by running the selects — §11.1). The rule and
+the bug were found the same week, from opposite ends.
+
 ### 11.4 Release gates (run per release)
 
 0. `./scripts/release-guard.sh <intended-version>` — refuses a release
