@@ -1044,8 +1044,18 @@ one.**
    CLAUDE.md §3 says *check column 1 for someone else's pre-staged entries*;
    I had inverted it into a check for unstaged leftovers.
 
+**The principle, which is bigger than this bug.** Two sessions ran checks
+with identical intent that night. Mine filtered to what looked staged and
+could not fire; the other filtered out its own paths and asked what was
+LEFT — and its eleven release commits were clean. The difference was not
+care. It was which set gets enumerated:
+
+> **Enumerate the leftovers, never the expected.** A check that lists what
+> you expect and finds it will always pass.
+
 **What to run instead.** Compare the staged set against the paths you
-intended, and look at what is left over:
+intended, and look at what is left over — which also makes "intended" an
+explicit list rather than something you hold in your head:
 
 ```bash
 git diff --cached --name-only | sort > /tmp/staged
@@ -1328,6 +1338,22 @@ which was true and told us nothing — the mail left correctly and the
 recipients' calendars declined it. See §11.1 on what our logs can and cannot
 witness. Both times the answer came from looking at the thing itself: the
 server's log, and a rendered message in a real inbox.
+
+### 11.3d A check that passes for the WRONG REASON looks exactly like one that passes
+
+2026-09-25, from a session verifying that rich text had been stripped out of
+a calendar feed. The first check grepped the whole `.ics` document for tags
+and found none — which would have reported success even if every VEVENT had
+been full of markup, because the string it actually matched was the
+calendar-level `DESCRIPTION`, not the event's. It was caught only because
+the line it printed was visibly not the one it meant to check.
+
+So: make the assertion name the exact thing under test (`DESCRIPTION:` INSIDE
+the `VEVENT`, for a session whose description you planted), and read what the
+check matched, not just whether it matched. Sibling of [11.3b] — an empty
+answer is a finding, a plausible one hides the fault — and of the
+enumeration rule in §10.x: all three are the same failure wearing different
+clothes, a green that could not have gone red.
 
 ### 11.3c A DEGRADED answer is worse than an empty one — and worst pointing the safe way
 
