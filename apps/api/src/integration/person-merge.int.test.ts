@@ -51,6 +51,89 @@ afterAll(async () => {
 });
 
 describe('merge_person', () => {
+  // Sjoerd, 2026-09-25: *"can you also merge contact (not just choose). For
+  // example: two email addresses belong to each other"*. Before 20260925053333
+  // a merge combined the ROWS pointing at a person and never the person's own
+  // columns, so anything the keeper had left blank stayed blank — the merged
+  // record's surname, phone and second address were on screen nowhere, even
+  // though the contact points themselves had moved across.
+  it('fills the keeper\'s BLANK fields from the merged record, and never overwrites one they had', async () => {
+    const stamp = Date.now();
+    const { data: keepRow } = await service
+      .from('person')
+      .insert({
+        workspace_id: ws,
+        first_name: 'Probe',
+        last_name: null,                        // blank — should be filled
+        email: `probe-a-${stamp}@example.com`,  // held — must NOT be overwritten
+        phone: null,                            // blank — should be filled
+        city: null,                             // blank — should be filled
+      })
+      .select('id')
+      .single();
+    const keep = keepRow!.id as string;
+    madePeople.push(keep);
+
+    const lose = (
+      await service
+        .from('person')
+        .insert({
+          workspace_id: ws,
+          first_name: 'Probe',
+          last_name: 'Surname',
+          email: `probe-b-${stamp}@example.com`,
+          phone: '+31612345678',
+          city: 'Zierikzee',
+        })
+        .select('id')
+        .single()
+    ).data!.id as string;
+    madePeople.push(lose);
+
+    const { data: mergeId, error } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+    });
+    expect(error).toBeNull();
+
+    const after = (
+      await service
+        .from('person')
+        .select('last_name, email, email_secondary, phone, city')
+        .eq('id', keep)
+        .single()
+    ).data!;
+
+    expect(after.last_name).toBe('Surname');
+    expect(after.phone).toBe('+31612345678');
+    expect(after.city).toBe('Zierikzee');
+    // the second address — the thing that prompted this
+    expect(after.email_secondary).toBe(`probe-b-${stamp}@example.com`);
+    // and the address they already had is untouched: "keep this one" still means it
+    expect(after.email).toBe(`probe-a-${stamp}@example.com`);
+
+    // undo puts every filled column back to blank, not to the merged value
+    const { error: undoErr } = await service.rpc('unmerge_person', {
+      p_merge_id: mergeId as string,
+      p_actor: null,
+    });
+    expect(undoErr).toBeNull();
+
+    const back = (
+      await service
+        .from('person')
+        .select('last_name, email, email_secondary, phone, city')
+        .eq('id', keep)
+        .single()
+    ).data!;
+    expect(back.last_name).toBeNull();
+    expect(back.phone).toBeNull();
+    expect(back.city).toBeNull();
+    expect(back.email_secondary).toBeNull();
+    expect(back.email).toBe(`probe-a-${stamp}@example.com`);
+  });
+
   it('leaves activity where it is — the log is append-only — and resolves it on read', async () => {
     const keep = await makePerson('Marja', 'Bakker', `marja-${Date.now()}@example.com`);
     const dupe = await makePerson('M.', 'Bakker', `m-bakker-${Date.now()}@example.com`);

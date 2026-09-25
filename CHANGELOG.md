@@ -6,6 +6,61 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.57.0] — 2026-09-25 — a merge combines two contacts, not just the rows they own
+
+Sjoerd: *"with duplicates - can you also merge contact (not just choose). For
+example: two email addresses belong to each other"*.
+
+He was right, and it was worse than the example. `merge_person()` discovers
+every FK pointing at `person(id)` and repoints those rows — enrolments,
+payments, activity, contact points. It never touched the person ROW. So every
+column the kept record left blank stayed blank, however complete the record
+being merged in was.
+
+Proved on staging with a fixture before writing a line of the fix:
+
+| | keeper had | merged record had | after merge |
+|---|---|---|---|
+| `email` | A | — | A |
+| `email_secondary` | — | B | **null** |
+| `phone` | — | +316… | **null** |
+| `last_name` | — | Surname | **null** |
+
+The addresses were not lost — `person_contact_point` is FK'd to person, so all
+three rows moved across. But `person.phone` / `.email_secondary` /
+`.last_name` are what ~15 readers actually render. Merging somebody who has a
+surname into somebody who does not gave you a person with no surname.
+
+**Now the blanks are filled from the merged record**, and only the blanks: a
+value the keeper already holds is never overwritten, because "keep this one"
+has to keep meaning what it says. The second address lands in the free
+secondary slot — the case Sjoerd named. Columns are DISCOVERED from the
+catalogue rather than listed, like the FK walk above it, so a column added
+next month is carried without anyone remembering to add it here. Identity is
+excluded: the primary key, workspace, timestamps, `user_id`, and anything
+under a unique constraint — moving one of those is a collision or an
+impersonation, not a merge.
+
+**Every fill is recorded and every fill is reversible.** `person_merge.filled`
+stores each column's value from BEFORE, and undo restores it — verified byte
+for byte on the fixture, not assumed.
+
+Two things worth keeping:
+
+`jsonb_populate_record` does the assignment, so each value is cast to its
+column's own type. The obvious `($1 -> col) #>> '{}'` renders text correctly
+and mangles everything else — `languages_spoken` would have received the
+literal string `["nl","en"]`. Written that way first; caught by reading the
+column list rather than by a failure.
+
+The hook is a trigger on the audit row, not an edit to `merge_person()`. That
+function is 150 lines and its current definition already lives in a migration
+LATER than the one that created it, so adding two lines meant copying all of
+it forward into a second copy to keep in step — which is the exact shape of
+the bug fixed one day earlier, where a theme name had to agree in five places.
+The timing works because `merge_person` inserts its audit row LAST, after the
+contact points have moved, and `unmerge_person` sets `undone_at` last of all.
+
 ## [1.56.0] — 2026-09-25 — asking to be removed, and being told what that means
 
 Sjoerd: *"add the data removal in my.thread"* — and then the question that
