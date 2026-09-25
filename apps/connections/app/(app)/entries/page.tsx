@@ -60,10 +60,23 @@ export default async function EntriesPage() {
           hint: p.email,
         })),
       ];
-    } catch {
-      // A failed lookup must not blow up the search field — an empty list
-      // reads as "nothing matched", which is the same shape of answer.
-      return [];
+    } catch (e) {
+      // THROW, do not return []. The comment that used to sit here said an
+      // empty list "reads as nothing matched, which is the same shape of
+      // answer" — it is the same shape and the opposite meaning, and that is
+      // the bug rather than the justification for it.
+      //
+      // SearchSelect handles a rejected search properly since 2026-09-23: it
+      // keeps the last good results, says it could not look, and WITHHOLDS
+      // the create row — which matters here for the same reason it mattered
+      // there, because "nothing matched" beside "add what you typed" invites
+      // somebody to create a person who already exists.
+      //
+      // Found by the stress-test session's silent-empty sweep, one of
+      // thirteen. It reached production because every happy-path check
+      // passes: a failing search and a search with no results are the same
+      // screen.
+      throw e;
     }
   }
 

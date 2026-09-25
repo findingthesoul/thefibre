@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.58.1] — 2026-09-25 — a failed search on the map says so
+
+### Fixed
+- **The Landscape's search answered a FAILURE like an empty result.** Its
+  lookup caught the error and returned `[]`, under a comment that stated the
+  bug as its own justification: *"an empty list reads as 'nothing matched',
+  which is the same shape of answer"*. It is the same shape and the opposite
+  meaning — and next to the "add what you typed" row, the difference is
+  somebody creating a person who already exists. That is not hypothetical: it
+  is the duplicate this app was fixed for on 2026-09-23, arriving through a
+  second door.
+  `SearchSelect` has handled a rejected search properly since then — it keeps
+  the last good results, says it could not look, and withholds the create row
+  — but only if the search actually rejects. Now it does.
+  Found by the stress-test session's silent-empty sweep, one of thirteen it
+  listed across the repo.
+
+### Added
+- **A guard that no search swallows its own failure** — scans every
+  `search…` function in Connect for a `catch` that returns an empty array.
+  Deliberately narrow: elsewhere an empty list on failure is often the right
+  answer (`loadMyTeams` returning none means no team picker, which is correct
+  for the many workspaces that have none), and a blanket rule would be wrong
+  and would get switched off. Mutation-checked.
+  Its own first version flagged both already-fixed functions — for the prose
+  explaining why they no longer swallow. It now strips comments before
+  scanning, which is the same mistake it exists to catch in others: matching
+  the words rather than the code.
+
 ## [1.58.0] — 2026-09-25 — the second stress round: a merge stays in its workspace, and an empty list must mean empty
 
 Full record: `docs/stress-test-2026-09-25.md`. Every scripted layer was green
