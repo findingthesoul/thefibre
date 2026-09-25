@@ -57,8 +57,11 @@ export type ErasurePicture = {
     upcoming_threads: number;
     /** People enrolled in them, whose places depend on this account. */
     participants_affected: number;
-    /** Workspaces where they hold a seat, by name, so the message can be
-     *  specific rather than ominous. */
+    /** Workspaces where the blocked threads live, by name, so the message can
+     *  be specific rather than ominous. EMPTY when nothing is blocked — it
+     *  used to list every workspace the person had ever signed in to, which
+     *  is true of anyone who has used the portal at all and would have read,
+     *  to the next person to use this field, as "they have a seat here". */
     workspaces: string[];
   };
 };
@@ -165,7 +168,7 @@ async function organiserFootprint(email: string): Promise<ErasurePicture['blocke
     .from('thread_organiser')
     .select('id')
     .in('user_id', users.map((u) => u.id as string));
-  if (!organisers?.length) return { ...empty, workspaces };
+  if (!organisers?.length) return empty;
 
   const today = new Date().toISOString().slice(0, 10);
   const { data: threads } = await adminClient
@@ -180,7 +183,7 @@ async function organiserFootprint(email: string): Promise<ErasurePicture['blocke
     // not a finished one, and guessing it away is the wrong direction to err.
     return !last || last >= today;
   });
-  if (!upcoming.length) return { ...empty, workspaces };
+  if (!upcoming.length) return empty;
 
   const { count } = await adminClient
     .from('thread_enrolment')
@@ -214,24 +217,42 @@ export async function fileErasureRequest(args: {
   const persons = await personsForEmail(args.email);
   if (!persons.length) return picture;
 
-  const note = [
-    'Requested from the visitor portal.',
-    args.reason?.trim() ? `Their words: ${args.reason.trim()}` : null,
-    picture.blocked.upcoming_threads
-      ? `BLOCKED: also organises ${picture.blocked.upcoming_threads} unfinished thread(s) with ${picture.blocked.participants_affected} enrolment(s). Hand over or close those first — erasing this account removes other people's organiser.`
-      : null,
-    picture.kept.invoices
-      ? `${picture.kept.invoices} invoice(s) are kept regardless (Art. 17(3)(b), fiscal retention).`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const note = erasureNote({ ...picture, reason: args.reason ?? null });
 
   await adminClient.from('data_subject_request').insert(
     persons.map((p) => ({ person_id: p.id, type: 'erasure', notes: note.slice(0, 2000) })),
   );
 
   return await erasurePicture(args.email);
+}
+
+/**
+ * What the person handling this needs to know, in one paragraph.
+ *
+ * Its own function because it is the only part of erasure that is pure — and
+ * because the blocked sentence is the answer to the question that prompted
+ * all of this. Whoever opens the request should not have to re-derive that
+ * erasing this account removes somebody else's organiser.
+ */
+export function erasureNote(args: {
+  blocked: ErasurePicture['blocked'];
+  kept: ErasurePicture['kept'];
+  reason: string | null;
+}): string {
+  return [
+    'Requested from the visitor portal.',
+    args.reason?.trim() ? `Their words: ${args.reason.trim()}` : null,
+    args.blocked.upcoming_threads
+      ? `BLOCKED: also organises ${args.blocked.upcoming_threads} unfinished thread(s) with ${args.blocked.participants_affected} enrolment(s)${
+          args.blocked.workspaces.length ? ` in ${args.blocked.workspaces.join(', ')}` : ''
+        }. Hand over or close those first — erasing this account removes other people's organiser.`
+      : null,
+    args.kept.invoices
+      ? `${args.kept.invoices} invoice(s) are kept regardless (Art. 17(3)(b), fiscal retention).`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 const one = <T>(v: unknown): T | null =>

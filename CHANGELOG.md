@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.57.1] — 2026-09-25 — the blocked note, and a field that told the truth by accident
+
+Two corrections to the removal request, found by calling it against real data
+rather than reading it.
+
+**`blocked.workspaces` listed every workspace the person had ever signed in
+to**, even when nothing was blocked — which is true of anybody who has opened
+the portal at all. The screen never showed it, because it only renders that
+row when there is something to block. But the next person to use the field
+would have read it as "they hold a seat here", and been wrong. It is empty now
+unless something actually blocks the request.
+
+**The note is its own function, and tested.** It is the part of this a human
+reads when they open the request, and the blocked sentence in it is the whole
+answer to *"what if they are organising threads in the future?"* — the numbers,
+the workspaces, and what has to happen first. Five cases pinned, including
+that it stays quiet when nothing blocks and nothing is retained.
+
+Checked against the two cases that matter, on staging: an organiser asking is
+told 1 unfinished thread and 15 enrolments stand in the way; a participant
+asking is told what would go and nothing else. Neither number was typed by
+hand.
+
 ## [1.57.0] — 2026-09-25 — a merge combines two contacts, not just the rows they own
 
 Sjoerd: *"with duplicates - can you also merge contact (not just choose). For
