@@ -63,6 +63,7 @@ import { mcpDiscoveryRoutes } from './routes/mcp-discovery.js';
 import { mcpAuthRoutes } from './routes/mcp-auth.js';
 import { mcpRoutes } from './routes/mcp.js';
 import { assistantRoutes } from './routes/assistant.js';
+import { modelsRoutes } from './routes/models.js';
 import { maybeSyncVatRates } from './lib/vat-sync.js';
 import { ensureStripeTaxRates } from './lib/vat-stripe.js';
 
@@ -146,7 +147,7 @@ const EXTRA_ORIGINS = new Set<string>(
 // stable enough that we allowlist the entire *.vercel.app suffix only
 // for the projects we know we own.
 const VERCEL_PREVIEW_RE =
-  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse|thefibre-membership|thefibre-my|thefibre-connections)-[a-z0-9-]+\.vercel\.app$/;
+  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse|thefibre-membership|thefibre-my|thefibre-connections|thefibre-models)-[a-z0-9-]+\.vercel\.app$/;
 
 function isAllowedOrigin(origin: string): boolean {
   if (PROD_ORIGINS.has(origin)) return true;
@@ -352,6 +353,7 @@ v1.route('/membership/portal', membershipPortalRoutes);
 // The in-app assistant (docs/assistant-in-app.md). User sessions only; the
 // app-key allow-list in middleware/app-context.ts keeps keys out of it.
 v1.route('/assistant', assistantRoutes);
+v1.route('/models', modelsRoutes);
 // A person's own assistant, acting as them (docs/mcp-personal-access-plan.md):
 // consent + grants under the user session; the MCP endpoint carries its own
 // bearer (a public path in middleware/app-context.ts, verified in the handler).

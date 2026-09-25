@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "cd ../.. && pnpm --filter @thefibre/models... build",
+  "installCommand": "cd ../.. && pnpm install",
+  "ignoreCommand": "node ../../scripts/vercel-ignore.mjs models",
+  "regions": [
+    "fra1"
+  ]
+}

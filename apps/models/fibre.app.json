@@ -1,0 +1,15 @@
+{
+  "$schema": "https://thefibre.app/schemas/fibre-app-manifest.v1.json",
+  "app_slug": "fibre-models",
+  "app_name": "Business Models",
+  "version": "0.1.0",
+  "description": "Business model generators per team: turnover generators with their own cost structure, generic costs, investment need, break even, and the Business Model Canvas, all live from one set of inputs.",
+  "scopes_requested": [],
+  "entity_mappings": [],
+  "curator_fields": [],
+  "activity_types": [],
+  "deactivation": {
+    "on_workspace_uninstall": "preserve_models",
+    "on_user_revoke": "nothing"
+  }
+}

@@ -1,0 +1,42 @@
+'use server';
+
+// The app-bound half of the shared To do panel: this app's apiFetch, bound to
+// the platform list. The calls themselves live once, in
+// @thefibre/shared/todo-calls; the panel is @thefibre/shared/ui/todo-panel.
+// Same arrangement as the invoices area — seven identical copies of the
+// fetching is exactly what the components-first rule forbids.
+
+import { apiFetch } from './api';
+import * as calls from '@thefibre/shared/todo-calls';
+import type { TodoItem, TodoGroups, TodoTeam } from '@thefibre/shared/ui/todo-panel';
+
+export async function listTasks(
+  view: 'open' | 'archive',
+  team?: string,
+): Promise<{ items: TodoItem[]; groups: TodoGroups; teams: TodoTeam[]; doneToday: TodoItem[] } | null> {
+  return calls.listTasks(apiFetch, view, team);
+}
+
+export async function addTask(
+  title: string,
+  dueOn: string | null,
+  teamId?: string | null,
+): Promise<void> {
+  return calls.addTask(apiFetch, title, dueOn, teamId);
+}
+
+export async function setTaskState(
+  item: TodoItem,
+  state: 'open' | 'done' | 'snoozed',
+  snoozedUntil?: string | null,
+): Promise<void> {
+  return calls.setTaskState(apiFetch, item, state, snoozedUntil);
+}
+
+export async function removeTask(item: TodoItem): Promise<void> {
+  return calls.removeTask(apiFetch, item);
+}
+
+export async function renameTask(item: TodoItem, title: string): Promise<void> {
+  return calls.renameTask(apiFetch, item, title);
+}

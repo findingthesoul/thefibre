@@ -1,4 +1,4 @@
-export const APP_IDS = ['fibre-platform', 'fibre-meet', 'the-thread', 'fibre-flow', 'fibre-pulse', 'membership', 'fibre-sales', 'fibre-learn'] as const;
+export const APP_IDS = ['fibre-platform', 'fibre-meet', 'the-thread', 'fibre-flow', 'fibre-pulse', 'membership', 'fibre-sales', 'fibre-learn', 'fibre-models'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 export {

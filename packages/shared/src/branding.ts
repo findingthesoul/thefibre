@@ -227,6 +227,19 @@ export const APPS: Record<AppId, AppBrand> = {
     urlEnv: 'NEXT_PUBLIC_LEARN_URL',
     available: false,
   },
+  'fibre-models': {
+    // Business model generators per team (Sjoerd, 2026-09-25): turnover
+    // generators with their own costs, generic costs, investment, break
+    // even and the Business Model Canvas. `available` flips once
+    // models.thethread.app serves (docs/deploy.md, "Adding a NEW app").
+    name: 'Business Models',
+    shortName: 'Models',
+    brandLetters: 'bm',
+    tagline: 'Turnover, costs and break even, on one canvas.',
+    url: 'https://models.thethread.app',
+    urlEnv: 'NEXT_PUBLIC_MODELS_URL',
+    available: false,
+  },
 };
 
 /**
@@ -247,6 +260,7 @@ const STAGING_LABEL: Record<AppId, string | null> = {
   'fibre-meet': 'meet',
   'fibre-flow': 'flow',
   'fibre-pulse': 'pulse',
+  'fibre-models': 'models',
   membership: 'membership',
   // Renamed with the app (2026-09-21). This drives every staging URL, which
   // is derived from the host rather than configured per app.
@@ -451,6 +465,7 @@ export const APP_DISPLAY_ORDER: AppId[] = [
   'fibre-flow',
   'fibre-sales',
   'fibre-learn',
+  'fibre-models',
 ];
 
 /** Sjoerd's tile-art filenames under the web app's /brand/apps/. */
