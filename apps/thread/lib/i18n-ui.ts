@@ -1355,6 +1355,41 @@ const CATALOG = {
     de: 'Verschickt das Ticket', // MT
     fr: 'Envoie le billet', // MT
   },
+  // The search at the top of Add participant. It says FIND, not "person",
+  // because the point of the field is that most people being added are
+  // already known.
+  find_person: {
+    en: 'Find someone',
+    nl: 'Iemand zoeken',
+    es: 'Buscar a alguien', // MT
+    pt: 'Encontrar alguém', // MT
+    de: 'Jemanden finden', // MT
+    fr: 'Trouver quelqu’un', // MT
+  },
+  find_person_placeholder: {
+    en: 'Search by name or email…',
+    nl: 'Zoek op naam of e-mail…',
+    es: 'Busca por nombre o correo…', // MT
+    pt: 'Pesquise por nome ou e-mail…', // MT
+    de: 'Nach Name oder E-Mail suchen…', // MT
+    fr: 'Chercher par nom ou e-mail…', // MT
+  },
+  add_new_person: {
+    en: 'Add “{name}” as someone new',
+    nl: '“{name}” als nieuw persoon toevoegen',
+    es: 'Añadir a “{name}” como alguien nuevo', // MT
+    pt: 'Adicionar “{name}” como alguém novo', // MT
+    de: '“{name}” als neue Person hinzufügen', // MT
+    fr: 'Ajouter « {name} » comme nouvelle personne', // MT
+  },
+  person_has_no_email: {
+    en: 'This person has no email address on file. Add one below to enrol them.',
+    nl: 'Van deze persoon is geen e-mailadres bekend. Vul er hieronder een in om ze in te schrijven.',
+    es: 'Esta persona no tiene correo registrado. Añade uno abajo para inscribirla.', // MT
+    pt: 'Esta pessoa não tem e-mail registado. Adicione um abaixo para a inscrever.', // MT
+    de: 'Für diese Person ist keine E-Mail hinterlegt. Trage unten eine ein, um sie anzumelden.', // MT
+    fr: 'Cette personne n’a pas d’e-mail enregistré. Ajoutes-en un ci-dessous pour l’inscrire.', // MT
+  },
   dash_your_site: { en: 'Your site', nl: 'Je site', es: 'Tu sitio', pt: 'Seu site', de: 'Deine Website', fr: 'Ton site' }, // MT es/pt/de/fr
   site_tab_design: { en: 'Design', nl: 'Ontwerp', es: 'Diseño', pt: 'Design', de: 'Design', fr: 'Design' }, // MT es/pt/de/fr
   site_tab_brand: { en: 'Name & images', nl: 'Naam & beelden', es: 'Nombre e imágenes', pt: 'Nome e imagens', de: 'Name & Bilder', fr: 'Nom et images' }, // MT es/pt/de/fr

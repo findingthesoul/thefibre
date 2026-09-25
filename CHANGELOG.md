@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.52.0] — 2026-09-25 — adding a participant starts by finding them (staging)
+
+Sjoerd, looking at the Add participant dialog's two empty boxes: *"Should
+this not be a search field and add?"*
+
+It should, and not only because typing is slower. Name and email were free
+text, so adding somebody already in the community meant recalling their
+address exactly. **One character wrong and the platform has no way to know it
+is the same person.** It creates a second record, enrols that one, and sends
+the confirmation to an address nobody reads — a failure that looks like
+success on this screen, and only surfaces when someone says they never got
+their ticket.
+
+So the search comes first and fills both fields from the record it found.
+Typing stays, because the dialog exists for walk-ins and phone signups
+(2026-07-04): choosing "Add *name* as someone new" hands the typed name to
+the same two fields, which is the path that was there before.
+
+`@thefibre/shared/ui/person-combobox` is THE picker — this is its third
+binding, after The Fibre and Connect, and the binding is a copy of Connect's
+down to the comment explaining why a failed search **throws** rather than
+returning an empty list. That reasoning applies harder here: an empty list
+shows "add what you typed" underneath it, so a transient network failure
+talks an organiser into creating a person who already exists. In Connect that
+produces a duplicate contact. Here it also enrols them and emails them.
+
+Two details that only exist because of how the component hands a choice back:
+
+**The picker returns an id and the label it displayed, not the address** —
+and the address is the one field this dialog cannot do without. Rather than
+querying again for rows just received, the search keeps what it showed and
+reads the address out of that. A second query would cost a request and could
+match the wrong row or none.
+
+**A person can exist with no email at all.** Connect creates them that way
+for somebody who was merely in the room. Picking one now says which field is
+waiting, rather than leaving a form that refuses to submit for no stated
+reason.
+
+**Not rendered by anyone.** The dialog is behind an organiser session and
+this session has none — signing in means an OTP or Google, which is
+authentication, and planting a session cookie is the thing a sandbox
+correctly refuses. Typechecked, and the endpoint it depends on
+(`GET /api/v1/persons?q=`) was read to confirm it returns `items` with
+exactly `id, first_name, last_name, email` under the caller's own RLS. That
+is not the same as having seen it work, and it is Sjoerd's to open.
+
+
 ## [1.51.0] — 2026-09-25 — a send that survives being interrupted
 
 Found by sending a cancellation and then reading the API log instead of the
