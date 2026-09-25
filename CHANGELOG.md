@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.58.4] — 2026-09-25 — the invoice now says who it is FOR
+
+I had been telling Sjoerd that somebody should look at an invoice before the
+promote, since four releases redrew it and no test can see whether a document
+looks right. So I rendered two — a paid receipt and an unpaid invoice — from
+the real generator, and looked.
+
+**The customer's address was never printed.** Not missing data: `invoiceModel`
+computes `buyer.address`, the on-screen invoice dialog has always drawn it one
+line under the name, and the PDF drew the name, the VAT number and the email
+and skipped the address — while drawing the SELLER's address in the column
+beside it. The version on screen carried the customer's address; the version
+that reaches the customer's accountant did not.
+
+That is a legal gap, not a visual one. An EU VAT invoice has to carry the
+customer's name AND address, so a business reclaiming VAT could have the
+document refused. With clients about to be invoiced, it is the one thing in
+the promote queue worth stopping for.
+
+**Why five tests missed it.** Every test in `invoice-pdf.test.ts` asserts the
+PAGE COUNT. They all passed the entire time — including the one named *"is one
+page for the full document: number, VAT line, both addresses"*, which names
+the field it was not checking. A page count cannot see an absent field, and a
+PDF's text is inside a compressed stream, so there was nothing cheap to assert
+against.
+
+So the row-building moved out into `buyerRows()`, a pure function, and the new
+tests assert WHICH FIELDS reach the document and in what order. Verified the
+only way that means anything: removed the fix again and watched two of them go
+red.
+
+**One bug of my own, caught by looking rather than by the types.** The first
+version pushed the whole flattened address as a single row. This layout has
+fixed baselines and no notion of a tall row, so it wrapped across the next one
+and printed *through* the VAT number. It is one grid row per address part now,
+each measured and truncated to the column exactly as the seller's is.
+
+And a false alarm worth recording, because it nearly went in a report: the
+first render also showed `Invoice_awaiting` as the payment method, a raw
+column value on a customer document. It was my fixture — `invoice_awaiting` is
+a DERIVED value, never a stored one. Production holds `stripe`, `invoice` and
+`free`, and all three are worded properly. Checked before saying anything.
+
 ## [1.58.3] — 2026-09-25 — a failed count must not read as "nothing stands in your way"
 
 The stress round's `lib/rows.ts` refuses to turn a database error into an

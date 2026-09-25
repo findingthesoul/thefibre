@@ -22,7 +22,12 @@
 // and `oneLine` exists so the next person cannot reintroduce it by accident.
 
 import PDFDocument from 'pdfkit';
-import { invoiceModel, type InvoicePurchase, type InvoiceSeller } from '@thefibre/shared';
+import {
+  invoiceModel,
+  type InvoiceKind,
+  type InvoicePurchase,
+  type InvoiceSeller,
+} from '@thefibre/shared';
 
 export type PdfInvoice = InvoicePurchase;
 export type PdfSeller = InvoiceSeller & {
@@ -116,6 +121,36 @@ async function fetchLogo(url: string | null | undefined): Promise<Buffer | null>
   } catch {
     return null;
   }
+}
+
+/**
+ * The buyer column, as label/value rows — pure, so it can be tested.
+ *
+ * It exists because the thing that went wrong here was not the drawing, it
+ * was WHICH FIELDS got drawn: `buyer.address` was computed by invoiceModel,
+ * rendered by the on-screen dialog, and silently absent from the PDF for
+ * months. The page-count tests could not see that, and one of them is even
+ * called "both addresses". A list of rows can be asserted; a PDF's compressed
+ * text stream cannot, short of a text-extraction dependency.
+ *
+ * `fit` narrows a value to the column. It is passed in rather than measured
+ * here so this function needs no pdfkit document.
+ */
+export function buyerRows(
+  m: { kind: InvoiceKind; number: string | null; buyer: { address: string | null; taxNo: string | null; email: string | null } },
+  issuedOn: string,
+  fit: (value: string) => string = (v) => v,
+): [string, string][] {
+  const rows: [string, string][] = [['Date issued:', issuedOn]];
+  if (m.number) rows.push([m.kind === 'receipt' ? 'Receipt No:' : 'Invoice No:', m.number]);
+  if (m.buyer.address) {
+    for (const part of m.buyer.address.split(', ').map((x) => x.trim()).filter(Boolean)) {
+      rows.push(['', fit(part)]);
+    }
+  }
+  if (m.buyer.taxNo) rows.push(['VAT:', m.buyer.taxNo]);
+  if (m.buyer.email) rows.push(['Email:', m.buyer.email]);
+  return rows;
 }
 
 export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promise<Buffer> {
@@ -238,15 +273,12 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       });
     };
 
-    const leftRows: [string, string][] = [
-      [
-        'Date issued:',
-        date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      ],
-    ];
-    if (m.number) leftRows.push([m.kind === 'receipt' ? 'Receipt No:' : 'Invoice No:', m.number]);
-    if (m.buyer.taxNo) leftRows.push(['VAT:', m.buyer.taxNo]);
-    if (m.buyer.email) leftRows.push(['Email:', m.buyer.email]);
+    doc.font('Helvetica-Bold').fontSize(8.5);
+    const leftRows = buyerRows(
+      m,
+      date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      (v) => fitOneLine(doc, v, colW - 68),
+    );
     leftRows.forEach(([label, value], i) => pair(label, value, row + i));
 
     const rightRows = oneLine(m.seller.address).split(' · ').filter(Boolean);

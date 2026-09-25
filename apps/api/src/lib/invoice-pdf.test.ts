@@ -7,7 +7,7 @@
 // footer. Nothing in a typecheck can see that — only a rendered page count
 // can, which is why this test renders.
 import { describe, expect, it } from 'vitest';
-import { buildInvoicePdf, type PdfInvoice, type PdfSeller } from './invoice-pdf.js';
+import { buildInvoicePdf, type PdfInvoice, type PdfSeller, buyerRows } from './invoice-pdf.js';
 
 /** pdfkit writes one `/Type /Page` object per page (and `/Type /Pages` once
  *  for the tree, which the word boundary keeps out). */
@@ -99,5 +99,52 @@ describe('invoice pdf', () => {
       logo_url: 'file:///etc/passwd',
     });
     expect(pageCount(pdf)).toBe(1);
+  });
+});
+
+describe('buyerRows — which fields reach the document', () => {
+  // The bug this guards: buyer.address was computed by invoiceModel, drawn by
+  // the on-screen dialog, and absent from the PDF. Every existing test here
+  // asserts the PAGE COUNT, so all of them passed the whole time — including
+  // the one named "both addresses". A page count cannot see a missing field.
+  const base = {
+    kind: 'invoice' as const,
+    number: 'F-2026-004',
+    buyer: { address: 'Route de Ferney 150, 1211 Geneve, Switzerland', taxNo: 'CHE-123', email: 'a@b.test' },
+  };
+
+  it("carries the buyer's address, one row per part, between the number and the VAT", () => {
+    const rows = buyerRows(base, '20 Sept 2026');
+    const values = rows.map(([, v]) => v);
+
+    expect(values).toContain('Route de Ferney 150');
+    expect(values).toContain('1211 Geneve');
+    expect(values).toContain('Switzerland');
+
+    // order matters on a document: number, then where they are, then who they are
+    expect(values.indexOf('Route de Ferney 150')).toBeGreaterThan(values.indexOf('F-2026-004'));
+    expect(values.indexOf('Switzerland')).toBeLessThan(values.indexOf('CHE-123'));
+  });
+
+  it('gives each address part its own row, so nothing wraps into the row beneath', () => {
+    // A single long value wrapped across the next baseline and printed
+    // through the VAT number. Fixed baselines, so one value per row.
+    const rows = buyerRows(base, '20 Sept 2026');
+    for (const [, value] of rows) expect(value).not.toContain(',');
+  });
+
+  it('applies the column fit to address parts, which are the only free text here', () => {
+    const rows = buyerRows(base, '20 Sept 2026', (v) => v.slice(0, 6));
+    expect(rows.map(([, v]) => v)).toContain('Route ');
+    // and not to the fields that are already short and must stay exact
+    expect(rows.map(([, v]) => v)).toContain('CHE-123');
+  });
+
+  it('omits what is absent rather than printing an empty label', () => {
+    const rows = buyerRows(
+      { kind: 'receipt', number: null, buyer: { address: null, taxNo: null, email: null } },
+      '20 Sept 2026',
+    );
+    expect(rows).toEqual([['Date issued:', '20 Sept 2026']]);
   });
 });
