@@ -60,3 +60,24 @@ export async function saveSubscription(
   revalidatePath('/admin/workspaces');
   return { ok: true };
 }
+
+/** Seed the first admin into a workspace that has none. Super-admin only, and
+ *  the API refuses unless the workspace really is empty of users — this is
+ *  the repair for one stranded by the old create route, not a way to add
+ *  people to somebody's live workspace. */
+export async function addFirstAdmin(
+  workspaceId: string,
+  email: string,
+  name: string | null,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/workspaces/${workspaceId}/first-admin`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_email: email, admin_name: name }),
+    });
+  } catch (e) {
+    return { error: message(e) };
+  }
+  revalidatePath('/admin/workspaces');
+  return { ok: true };
+}

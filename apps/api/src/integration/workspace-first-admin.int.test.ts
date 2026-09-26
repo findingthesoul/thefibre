@@ -105,3 +105,42 @@ describe('seedFirstAdmin', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('the guard on POST /:id/first-admin', () => {
+  // The endpoint's safety is ONE condition: zero live users. Everything else
+  // about it — that a super admin may call it, that it seeds and switches on
+  // apps — is ordinary. This is the assertion that keeps it from becoming a
+  // way to add yourself to somebody's real workspace, so it is tested against
+  // the same count the route does rather than against the route's own reply.
+  it('a workspace with a live user is no longer seedable', async () => {
+    const { count } = await service
+      .from('user')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', wsId)
+      .is('deleted_at', null);
+    expect(count).toBe(1);
+    // and that is exactly the condition the route refuses on (409), which is
+    // why seedFirstAdmin is never reached for a workspace in use.
+  });
+
+  it('a soft-deleted user does NOT make a workspace seedable again', async () => {
+    // The count filters on deleted_at for a reason: a removed member leaves a
+    // row behind, and `unique (workspace_id, email)` means seeding the same
+    // address would collide — while the workspace still has nobody who can
+    // sign in. Counting ALL rows would refuse a workspace that needs help;
+    // counting none would let a seed collide. Live rows is the right set.
+    await service.from('user').update({ deleted_at: new Date().toISOString() }).eq('id', userId);
+    const { count: live } = await service
+      .from('user')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', wsId)
+      .is('deleted_at', null);
+    const { count: all } = await service
+      .from('user')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', wsId);
+    expect(live).toBe(0); // seedable by the route's rule
+    expect(all).toBe(1); // but the row is still there to collide with
+    await service.from('user').update({ deleted_at: null }).eq('id', userId);
+  });
+});

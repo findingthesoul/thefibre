@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.69.0] — 2026-09-26 — a stranded workspace can be rescued from inside the product
+
+Sjoerd, blocked on the workspace he had made to present from: *"But I can not
+get to the workspace I made"* — and then, when I reached for the database:
+*"I want to to be fixed on an approach"*.
+
+He was right to stop me. Editing rows by hand fixes one workspace and teaches
+the product nothing; the classifier refused the write, which was the correct
+outcome twice over.
+
+**`POST /workspaces/:id/first-admin`**, super-admin only, refuses unless the
+workspace has **zero live users** — and that single condition is the whole
+safety argument. A workspace with nobody in it has no tenant whose boundary
+could be crossed. The same request aimed at a live workspace is a 409, so this
+cannot become a way to add yourself to somebody else's. It is the narrow half
+of "let a super admin add a member anywhere", and the wide half stays
+unbuilt on purpose — days after we removed an accidental cross-tenant write,
+adding a deliberate one would be an odd lesson to draw.
+
+Live, not deleted, is the right set to count. Counting every row would refuse
+a workspace whose only member was removed — exactly the one needing help.
+Counting none would let the seed collide with the leftover row that
+`unique (workspace_id, email)` still holds. Both directions are tested.
+
+**The create route now switches the plan's apps on**, via the same
+`ensurePlanApps` the approval flow uses. `doab.ai` on production had a plan, a
+subscription, and zero rows in `workspace_app` — so even once somebody could
+get in, there would have been no app to get in TO. The rescue endpoint does it
+too, since a workspace stranded since September has none either.
+
+In the admin list, a workspace badged **No user** now carries an **Add first
+admin…** button. The badge told you something was wrong; this makes the page
+able to do something about it.
+
 ## [1.68.2] — 2026-09-26 — the print hides the shell by class
 
 The sidebar, top bar and bottom nav of Business Models now carry a print

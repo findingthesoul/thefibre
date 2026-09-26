@@ -11,6 +11,7 @@ import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/ui/page';
 import { Button } from '@/components/ui/button';
+import { FirstAdminDialog } from './first-admin-dialog';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { eur } from '@/lib/plans';
@@ -49,7 +50,9 @@ export type Workspace = {
 export type PlanOption = { id: string; name: string };
 
 export function WorkspaceList({ items, plans }: { items: Workspace[]; plans: PlanOption[] }) {
+  const router = useRouter();
   const [editing, setEditing] = useState<Workspace | null>(null);
+  const [seeding, setSeeding] = useState<Workspace | null>(null);
   const [query, setQuery] = useState('');
 
   if (items.length === 0) {
@@ -132,6 +135,11 @@ export function WorkspaceList({ items, plans }: { items: Workspace[]; plans: Pla
                     {new Date(w.created_at).toLocaleDateString('en-GB', { dateStyle: 'medium' })}
                   </div>
                 </div>
+                {w.has_no_user && (
+                  <Button variant="secondary" size="sm" onClick={() => setSeeding(w)}>
+                    Add first admin…
+                  </Button>
+                )}
                 <Button variant="secondary" size="sm" onClick={() => setEditing(w)}>
                   Plan…
                 </Button>
@@ -150,6 +158,15 @@ export function WorkspaceList({ items, plans }: { items: Workspace[]; plans: Pla
       </ul>
       )}
 
+      {seeding && (
+        <FirstAdminDialog
+          workspace={seeding}
+          onClose={(changed) => {
+            setSeeding(null);
+            if (changed) router.refresh();
+          }}
+        />
+      )}
       {editing && (
         <SubscriptionDialog workspace={editing} plans={plans} onClose={() => setEditing(null)} />
       )}

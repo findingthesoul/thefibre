@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { seedFirstAdmin } from '../lib/first-admin.js';
+import { ensurePlanApps } from '../lib/plan-apps.js';
 import { forgetPlan } from '../lib/plan.js';
 import { isSuperAdminUser } from '../lib/super-admin.js';
 
@@ -242,6 +243,12 @@ workspacesRoutes.post('/', async (c) => {
     return c.json({ error: `Workspace not created: ${msg}` }, 500);
   }
 
+  // The plan's apps, exactly as approveSignup does it. Without this the
+  // workspace opens onto nothing: `doab.ai` on production had a plan, a
+  // subscription and zero rows in workspace_app, so even once somebody could
+  // get in there would be no app to get in TO.
+  await ensurePlanApps(ws.id);
+
   forgetPlan(ws.id);
   return c.json({
     ok: true,
@@ -324,4 +331,83 @@ workspacesRoutes.patch('/:id/subscription', async (c) => {
   // The gate cache answers for this workspace changed right now.
   forgetPlan(workspaceId);
   return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/first-admin — put the first person into a workspace that has none.
+//
+// The narrow, safe half of "let a super admin add a member anywhere". It
+// refuses unless the workspace has ZERO live users, and that single condition
+// is what makes it safe: a workspace with no users has no tenant whose
+// boundary could be crossed. It cannot add a colleague to somebody's real
+// workspace, cannot change who is in one, and cannot be aimed at a workspace
+// that is in use — the same request that would be a cross-tenant write
+// against a live tenant is a 409 here.
+//
+// It exists because a stranded workspace cannot be repaired from inside the
+// product: membership is a public."user" row, the JWT's workspace_id is read
+// from it, and every members screen acts on that claim. Two workspaces on
+// production were in that state when this was written, and the only
+// alternative was editing the database by hand — which is the thing a product
+// should make unnecessary (Sjoerd, 2026-09-26: *"I want to to be fixed on an
+// approach"*).
+// ---------------------------------------------------------------------------
+const FirstAdminBody = z.object({
+  admin_email: z.string().email().max(320),
+  admin_name: z.string().max(200).nullable().optional(),
+});
+
+workspacesRoutes.post('/:id/first-admin', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isSuperAdminUser(ctx))) {
+    return c.json({ error: 'super admin required' }, 403);
+  }
+  const workspaceId = c.req.param('id');
+  const body = FirstAdminBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: ws, error: wErr } = await adminClient
+    .from('workspace')
+    .select('id, name')
+    .eq('id', workspaceId)
+    .maybeSingle();
+  if (wErr) return c.json({ error: wErr.message }, 500);
+  if (!ws) return c.json({ error: 'workspace not found' }, 404);
+
+  // The whole guard. Counted, not assumed — and counting live users only,
+  // because a soft-deleted one leaves a row that `unique (workspace_id,
+  // email)` would collide with while not letting anybody in.
+  const { count, error: cErr } = await adminClient
+    .from('user')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+  if (cErr) return c.json({ error: cErr.message }, 500);
+  if ((count ?? 0) > 0) {
+    return c.json(
+      {
+        error:
+          'This workspace already has someone in it. Add further people from its own Settings → Members.',
+      },
+      409,
+    );
+  }
+
+  let seeded: { userId: string };
+  try {
+    seeded = await seedFirstAdmin({
+      workspaceId,
+      email: body.data.admin_email,
+      name: body.data.admin_name ?? null,
+    });
+  } catch (e) {
+    console.error('[workspaces first-admin] failed', e);
+    return c.json({ error: e instanceof Error ? e.message : 'could not add the first admin' }, 500);
+  }
+
+  // A workspace that has been sitting empty has no apps either — the old
+  // create route switched none on. Do it now, so they arrive at a product.
+  await ensurePlanApps(workspaceId);
+
+  return c.json({ ok: true, workspace_id: workspaceId, admin_user_id: seeded.userId }, 201);
 });
