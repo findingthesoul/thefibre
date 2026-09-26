@@ -2,11 +2,13 @@
 
 // The result panels in the order this person wants them (Sjoerd,
 // 2026-09-26: "the above window, drag and drop how the elements are ordered
-// and save for this person"). Plain HTML drag and drop on a grip; the order
+// and save for this person"). Two ways to move a panel — drag it by its
+// grip, or the up and down arrows beside the grip — because HTML drag and
+// drop is the one thing every browser does a little differently. The order
 // is remembered in this browser per model and per view.
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 
 export type PanelDef = { id: string; node: ReactNode };
 
@@ -16,8 +18,7 @@ export function SortablePanels({ storageKey, panels, title }: { storageKey: stri
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   // A new key (another view, another model) starts from that view's own
-  // panels — the previous view's order must not leak in (it did, and the
-  // projection view rendered nothing on 2026-09-26).
+  // panels — the previous view's order must not leak in.
   useEffect(() => {
     let next = ids;
     try {
@@ -27,28 +28,44 @@ export function SortablePanels({ storageKey, panels, title }: { storageKey: stri
     setOrder(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, ids.join('|')]);
-  function drop(target: string, from: string) {
-    if (from === target || !order.includes(from)) return;
-    const next = order.filter((id) => id !== from);
-    next.splice(next.indexOf(target), 0, from);
+  function commit(next: string[]) {
     setOrder(next);
     try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
   }
+  function moveTo(from: string, target: string) {
+    if (from === target || !order.includes(from) || !order.includes(target)) return;
+    const next = order.filter((id) => id !== from);
+    next.splice(next.indexOf(target), 0, from);
+    commit(next);
+  }
+  function nudge(id: string, dir: -1 | 1) {
+    const i = order.indexOf(id);
+    const j = i + dir;
+    if (i === -1 || j < 0 || j >= order.length) return;
+    const next = [...order];
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    commit(next);
+  }
+  const btn = 'rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-30';
   return (
     <div className="flex flex-col gap-4">
-      {order.map((id) => {
+      {order.map((id, i) => {
         const p = panels.find((x) => x.id === id);
         if (!p) return null;
         return (
-          <div key={id} draggable
-            // Safari drops nothing unless the drag carries data, and the id
-            // travels in the transfer as well so a drop does not depend on
-            // state having caught up.
-            onDragStart={(e) => { e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; setDragging(id); }}
-            onDragEnd={() => { setDragging(null); setOver(null); }}
-            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== id) setOver(id); }}
-            onDrop={(e) => { e.preventDefault(); const from = e.dataTransfer.getData('text/plain') || dragging; if (from) drop(id, from); setOver(null); setDragging(null); }} className={`relative rounded-lg transition-shadow ${over === id && dragging !== id ? 'ring-2 ring-line-strong' : ''} ${dragging === id ? 'opacity-60' : ''}`}>
-            <div className="absolute -left-5 top-3 hidden cursor-grab text-ink-muted hover:text-ink lg:block" title={title}><GripVertical size={14} /></div>
+          <div key={id}
+            onDragEnter={(e) => { e.preventDefault(); if (dragging && dragging !== id) setOver(id); }}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragging && dragging !== id && over !== id) setOver(id); }}
+            onDragLeave={() => { if (over === id) setOver(null); }}
+            onDrop={(e) => { e.preventDefault(); const from = e.dataTransfer.getData('text/plain') || dragging; if (from) moveTo(from, id); setOver(null); setDragging(null); }}
+            className={`relative rounded-lg transition-shadow ${over === id && dragging !== id ? 'ring-2 ring-line-strong' : ''} ${dragging === id ? 'opacity-60' : ''}`}>
+            <div className="absolute -left-6 top-2 hidden flex-col items-center lg:flex">
+              <button type="button" onClick={() => nudge(id, -1)} disabled={i === 0} className={btn} title={title}><ChevronUp size={13} /></button>
+              <span draggable title={title} className="cursor-grab text-ink-muted hover:text-ink active:cursor-grabbing"
+                onDragStart={(e) => { e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; setDragging(id); }}
+                onDragEnd={() => { setDragging(null); setOver(null); }}><GripVertical size={14} /></span>
+              <button type="button" onClick={() => nudge(id, 1)} disabled={i === order.length - 1} className={btn} title={title}><ChevronDown size={13} /></button>
+            </div>
             {p.node}
           </div>
         );

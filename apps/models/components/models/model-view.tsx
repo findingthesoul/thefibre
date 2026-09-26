@@ -176,7 +176,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
               <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : 'view_projection')}</button>
             ))}
           </div>
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-4 pl-0 lg:pl-5">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-4 pl-0 lg:pl-7">
             {view === 'bep' ? (
               <SortablePanels key="bep" storageKey={`bm-order-${row.id}-bep`} title={t(locale, 'drag_to_reorder')} panels={[
                 { id: 'kpis', node: <Kpis model={def} s={s} locale={locale} /> },
