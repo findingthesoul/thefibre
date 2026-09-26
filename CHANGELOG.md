@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.8] — 2026-09-26 — Business Models: costs left, turnover right
+
+Sjoerd: *"Turnover and costs — the other way around (left/right) in
+accordance with the canvas."* The overview's two tables now sit as the
+canvas's bottom row does: cost structure on the left, revenue streams on
+the right.
+
 ## [1.63.7] — 2026-09-26 — Business Models: panels move by arrow as well as by drag
 
 Sjoerd: *"Also the drag and drop over the views don't work."* Two changes.
