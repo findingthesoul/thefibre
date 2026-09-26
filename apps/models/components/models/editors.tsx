@@ -34,10 +34,11 @@ function VarsEditor({ vars, onChange, locale, fixedIds = [] }: { vars: NumberInp
   const set = (i: number, patch: Partial<NumberInput>) => onChange(vars.map((v, j) => (j === i ? { ...v, ...patch } : v)));
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="grid grid-cols-[minmax(0,1fr)_7rem_5.5rem_4rem_1.25rem] gap-2 text-[10px] uppercase tracking-wider text-ink-muted"><span>{t(locale, 'label')}</span><span>{t(locale, 'unit')}</span><span className="text-right">{t(locale, 'value')}</span><span className="text-right">{t(locale, 'step')}</span><span /></div>
+      <div className="grid grid-cols-[minmax(0,1fr)_5rem_7rem_5.5rem_4rem_1.25rem] gap-2 text-[10px] uppercase tracking-wider text-ink-muted"><span>{t(locale, 'label')}</span><span>{t(locale, 'id_in_formulas')}</span><span>{t(locale, 'unit')}</span><span className="text-right">{t(locale, 'value')}</span><span className="text-right">{t(locale, 'step')}</span><span /></div>
       {vars.map((v, i) => (
-        <div key={v.id} className="grid grid-cols-[minmax(0,1fr)_7rem_5.5rem_4rem_1.25rem] items-center gap-2">
+        <div key={v.id} className="grid grid-cols-[minmax(0,1fr)_5rem_7rem_5.5rem_4rem_1.25rem] items-center gap-2">
           <Txt value={v.label} onChange={(label) => set(i, { label })} />
+          <code className="truncate text-[11px] text-ink-muted" title={v.id}>{v.id}</code>
           <Txt value={v.unit ?? ''} onChange={(unit) => set(i, { unit })} />
           <Num value={v.value} step={v.step ?? 1} onChange={(value) => set(i, { value })} />
           <Num value={v.step ?? 1} onChange={(step) => set(i, { step })} />
@@ -55,8 +56,9 @@ function CostsEditor({ costs, onChange, locale }: { costs: CostLine[]; onChange:
     <div className="flex flex-col gap-1.5">
       {costs.map((c, i) => (
         <div key={c.id} className="rounded-md border border-line p-2">
-          <div className="grid grid-cols-[minmax(0,1fr)_7rem_1.25rem] items-center gap-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_5rem_7rem_1.25rem] items-center gap-2">
             <Txt value={c.label} onChange={(label) => set(i, { label })} />
+            <code className="truncate text-[11px] text-ink-muted" title={c.id}>{c.id}</code>
             <Txt value={c.unit ?? ''} placeholder={t(locale, 'unit')} onChange={(unit) => set(i, { unit })} />
             <Del label={t(locale, 'remove')} onClick={() => onChange(costs.filter((_, j) => j !== i))} />
           </div>
@@ -72,22 +74,75 @@ function CostsEditor({ costs, onChange, locale }: { costs: CostLine[]; onChange:
   );
 }
 
+/** How this generator reaches the numbers, in one paragraph, from its own
+ *  definition — so a variable's place in the arithmetic is never a guess. */
+function HowItComputes({ g, locale }: { g: Generator; locale: Locale }) {
+  const v = g.volume ?? {};
+  const lines: string[] = [];
+  if (v.linkedTo) lines.push(t(locale, 'calc_linked', { n: `${v.linkedTo} × ${String(v.factor ?? 1)}` }));
+  else if (g.revenueTotal != null) lines.push(t(locale, 'calc_lump', { n: String(v.startMonth ?? 1) }));
+  else lines.push(t(locale, 'calc_volume', { s: String(v.start ?? 0), g: String(v.growth ?? 0), c: String(v.churn ?? 0) }));
+  if (g.revenueTotal != null) lines.push(t(locale, 'calc_revenue_total', { n: String(g.revenueTotal) }));
+  else lines.push(t(locale, 'calc_revenue', { n: String(g.revenuePerUnit ?? 0) }));
+  (g.costs ?? []).forEach((c) => {
+    const how = c.kind === 'perUnit' ? t(locale, 'calc_cost_per_unit', { id: c.id }) : c.kind === 'perNewUnit' ? t(locale, 'calc_cost_per_new', { id: c.id }) : c.kind === 'perBatch' ? t(locale, 'calc_cost_per_batch', { id: c.id, b: String(c.batchSize ?? 1) }) : c.kind === 'percentRevenue' ? t(locale, 'calc_cost_percent', { id: c.id }) : c.kind === 'fixed' ? t(locale, 'calc_cost_fixed', { id: c.id }) : String(c.formula ?? '');
+    lines.push(`${c.label}: ${how}`);
+  });
+  return (
+    <div className="rounded-md border border-line bg-surface-sunken px-3 py-2">
+      <div className={SECTION_LABEL}>{t(locale, 'in_the_calculation')}</div>
+      <ul className="mt-1 flex flex-col gap-0.5 font-mono text-[11px] leading-snug text-ink-subtle">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+    </div>
+  );
+}
+
+/** The numbers of a generator: its variables (with ids), the revenue formula, its own cost lines. Shared by both editors. */
+function GeneratorNumbers({ g, setG, def, locale, source }: { g: Generator; setG: (g: Generator) => void; def: ModelDefinition; locale: Locale; source: 'own' | 'linked' | 'lump' }) {
+  const vol = ['start', 'growth', 'churn', 'from'];
+  const shown = (g.inputs ?? []).filter((i) => !vol.includes(i.id) || source === 'linked');
+  const known = [...(g.inputs ?? []).map((i) => i.id), ...(def.settings ?? []).map((s) => s.id)];
+  return (
+    <>
+      <div>
+        <Head action={<AddBtn label={t(locale, 'add_variable')} onClick={() => setG({ ...g, inputs: [...(g.inputs ?? []), newInput((g.inputs ?? []).map((i) => i.id))] })} />}>{source === 'own' ? t(locale, 'price_variables') : t(locale, 'variables')}</Head>
+        <p className="mb-1.5 text-xs text-ink-muted">{t(locale, 'variables_hint')}</p>
+        <VarsEditor locale={locale} vars={shown} fixedIds={vol} onChange={(vs) => setG({ ...g, inputs: [...(g.inputs ?? []).filter((i) => vol.includes(i.id) && source !== 'linked' && !vs.some((v) => v.id === i.id)), ...vs] })} />
+      </div>
+      <TextField label={source === 'lump' ? t(locale, 'amount_formula') : t(locale, 'price_formula')} value={String(source === 'lump' ? g.revenueTotal ?? '' : g.revenuePerUnit ?? '')} onChange={(e) => setG(source === 'lump' ? { ...g, revenueTotal: e.target.value } : { ...g, revenuePerUnit: e.target.value })} hint={t(locale, 'formula_hint', { n: known.join(', ') || '—' })} />
+      <div>
+        <Head action={<AddBtn label={t(locale, 'add_cost_line')} onClick={() => setG({ ...g, costs: [...(g.costs ?? []), newCost([...(g.costs ?? []).map((c) => c.id), ...(g.inputs ?? []).map((i) => i.id)])] })} />}>{t(locale, 'own_cost_structure')}</Head>
+        <p className="mb-1.5 text-xs text-ink-muted">{t(locale, 'cost_lines_hint')}</p>
+        <CostsEditor locale={locale} costs={g.costs ?? []} onChange={(costs) => setG({ ...g, costs })} />
+      </div>
+      <HowItComputes g={g} locale={locale} />
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Segment: who pays, how many, how they grow and leave.
+// Segment: who pays, how many, how they grow and leave — and, because a
+// segment is also a stream, its price, its variables and its own costs.
 // ---------------------------------------------------------------------------
 export function SegmentEditor({ open, def, gen, locale, onSave, onDelete, onClose }: { open: boolean; def: ModelDefinition; gen: Generator | null; locale: Locale; onSave: (g: Generator) => void; onDelete: () => void; onClose: () => void }) {
   const [g, setG] = useState<Generator>(gen ?? blank());
   useEffect(() => { setG(gen ?? blank()); }, [gen, open]);
   function blank(): Generator { return { id: '', name: '', short: '', segment: '', help: '', inputs: [], volume: { start: 'start', growth: 'growth', churn: 'churn' }, costs: [] }; }
+  const [err, setErr] = useState<string | null>(null);
   const vol = ['start', 'growth', 'churn'];
   const volVars = (g.inputs ?? []).filter((i) => vol.includes(i.id));
   const deps = gen ? dependents(def, gen.id) : [];
+  function save() {
+    const known = [...(g.inputs ?? []).map((i) => i.id), ...(def.settings ?? []).map((st) => st.id)];
+    const formula = String(g.revenuePerUnit ?? '');
+    if (gen && formula.trim()) { const problem = formulaProblem(formula, known); if (problem) return setErr(t(locale, 'formula_invalid', { n: problem })); }
+    onSave({ ...g, name: g.name.trim(), short: (g.short ?? '').trim() || g.name.trim(), revenuePerUnit: formula.trim() || 0 });
+  }
   return (
-    <Dialog open={open} onClose={onClose} size="lg" title={gen ? t(locale, 'edit_segment') : t(locale, 'add_segment')}
+    <Dialog open={open} onClose={onClose} size="xl" title={gen ? t(locale, 'edit_segment') : t(locale, 'add_segment')}
       footer={<>
         {gen && <Button variant="danger" disabled={deps.length > 0} title={deps.length ? t(locale, 'cannot_delete_linked', { n: deps.map((d) => d.name).join(', ') }) : undefined} onClick={() => { if (confirm(t(locale, 'delete_segment_confirm'))) onDelete(); }}>{t(locale, 'delete')}</Button>}
         <Button variant="secondary" onClick={onClose}>{t(locale, 'cancel')}</Button>
-        <Button variant="primary" type="submit" disabled={!g.name.trim()} onClick={() => onSave({ ...g, name: g.name.trim(), short: (g.short ?? '').trim() || g.name.trim() })}>{t(locale, 'save')}</Button>
+        <Button variant="primary" type="submit" disabled={!g.name.trim()} onClick={save}>{t(locale, 'save')}</Button>
       </>}>
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -103,7 +158,9 @@ export function SegmentEditor({ open, def, gen, locale, onSave, onDelete, onClos
             <VarsEditor locale={locale} vars={volVars} fixedIds={vol} onChange={(vs) => setG({ ...g, inputs: (g.inputs ?? []).map((i) => vs.find((v) => v.id === i.id) ?? i) })} />
           </div>
         )}
+        {gen && <GeneratorNumbers g={g} setG={setG} def={def} locale={locale} source="own" />}
         {deps.length > 0 && <p className="text-xs text-ink-muted">{t(locale, 'feeds_streams', { n: deps.map((d) => d.name).join(', ') })}</p>}
+        {err && <div className={ERROR_TEXT}>{err}</div>}
       </div>
     </Dialog>
   );
@@ -120,8 +177,6 @@ export function StreamEditor({ open, def, gen, locale, onSave, onDelete, onClose
   function blank(): Generator { return { id: '', name: '', short: '', help: '', volume: { linkedTo: segments(def)[0]?.id ?? undefined, factor: 1 }, inputs: [{ id: 'price', label: 'Price', unit: `${def.currency ?? ''} / month`, value: 10, step: 1 }], revenuePerUnit: 'price', costs: [] }; }
   const source: Source = g.revenueTotal != null ? 'lump' : g.volume?.linkedTo ? 'linked' : 'own';
   const segs = segments(def).filter((s) => s.id !== g.id);
-  const vol = ['start', 'growth', 'churn', 'from'];
-  const priceVars = (g.inputs ?? []).filter((i) => !vol.includes(i.id) || source === 'linked');
   const known = [...(g.inputs ?? []).map((i) => i.id), ...(def.settings ?? []).map((s) => s.id)];
   const deps = gen ? dependents(def, gen.id) : [];
   function setSource(src: Source) {
@@ -161,17 +216,7 @@ export function StreamEditor({ open, def, gen, locale, onSave, onDelete, onClose
             </div>
           )}
         </div>
-        <div>
-          <Head action={<AddBtn label={t(locale, 'add_variable')} onClick={() => setG({ ...g, inputs: [...(g.inputs ?? []), newInput((g.inputs ?? []).map((i) => i.id))] })} />}>{t(locale, 'variables')}</Head>
-          <div className="mt-1.5"><VarsEditor locale={locale} vars={priceVars} fixedIds={vol} onChange={(vs) => setG({ ...g, inputs: [...(g.inputs ?? []).filter((i) => vol.includes(i.id) && source !== 'linked' && !vs.some((v) => v.id === i.id)), ...vs] })} /></div>
-        </div>
-        <div>
-          <TextField label={source === 'lump' ? t(locale, 'amount_formula') : t(locale, 'price_formula')} value={String(source === 'lump' ? g.revenueTotal ?? '' : g.revenuePerUnit ?? '')} onChange={(e) => setG(source === 'lump' ? { ...g, revenueTotal: e.target.value } : { ...g, revenuePerUnit: e.target.value })} hint={t(locale, 'formula_hint', { n: known.join(', ') || '—' })} />
-        </div>
-        <div>
-          <Head action={<AddBtn label={t(locale, 'add_cost_line')} onClick={() => setG({ ...g, costs: [...(g.costs ?? []), newCost([...(g.costs ?? []).map((c) => c.id), ...(g.inputs ?? []).map((i) => i.id)])] })} />}>{t(locale, 'own_cost_structure')}</Head>
-          <div className="mt-1.5"><CostsEditor locale={locale} costs={g.costs ?? []} onChange={(costs) => setG({ ...g, costs })} /></div>
-        </div>
+        <GeneratorNumbers g={g} setG={setG} def={def} locale={locale} source={source} />
         {err && <div className={ERROR_TEXT}>{err}</div>}
       </div>
     </Dialog>
