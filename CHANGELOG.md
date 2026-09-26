@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.61.4] — 2026-09-26 — the prompt that turns a story into a business model
+
+Sjoerd: *"what is the prompt I have to give to translate the doab calculator
+to a business model (can you add the prompt to the interface). Potentially
+with questions that may be unclear in the app yet."*
+
+One text, three doors. `@thefibre/shared/business-models` now holds the
+definition format in words, a complete small example, the seven questions
+a model needs answered, and `storyPromptText()`: read the story, list the
+generators you see, ask ONLY the open questions in one message, then write
+one JSON object. The "New business model" dialog shows it beside the paste
+field with a Copy button (six-locale chrome around it; the prompt itself is
+content and stays English). The MCP server offers the same words as the
+prompt `write_business_model_from_story` behind `models:write`, and
+`models_schema` reads the same guide — the inline copy it carried since
+1.61.1 is gone. `packages/mcp` depends on `@thefibre/shared` for it; the
+API image already compiles shared first.
+
 ## [1.61.3] — 2026-09-26 — Business Models has its tile
 
 Sjoerd: *"here is the icon"* — `models.png` from the "PNG 3" set, two white
