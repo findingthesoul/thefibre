@@ -1,54 +1,68 @@
 'use client';
 
-// One business model: the canvas, the results, the inputs. State lives here;
-// every change recalculates in the browser and is saved for the whole team
-// through a server action, debounced.
+// One business model, two tabs. Canvas: the nine blocks, full height,
+// editable by admins and team leads. Numbers: a view on top (break even and
+// cash, or projection and overview) and, underneath, the canvas as columns —
+// element, the turnover and cost items, the variables — edited in place.
+// State lives here; every change recalculates in the browser and is saved
+// for the whole team through server actions, debounced.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Download, Printer, RotateCcw, ChevronLeft } from 'lucide-react';
 import { Button } from '@thefibre/shared/ui/button';
 import { PageContainer } from '@thefibre/shared/ui/page';
-import { CHIP, CHIP_STATE, NOTICE, PILL, PILL_TONE, SECTION_LABEL } from '@thefibre/shared/ui/recipes';
-import { defaultState, mergeState, summarize, type ModelDefinition, type ModelState } from '@/lib/engine';
-import { makeFormatters, singular } from '@/lib/format';
+import { Tabs } from '@thefibre/shared/ui/tabs';
+import { CHIP, CHIP_STATE, NOTICE, PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
+import { defaultState, mergeState, summarize, itemObj, type CanvasBlockKey, type CanvasItem, type ModelDefinition, type ModelState } from '@/lib/engine';
+import type { Scope } from '@/lib/links';
 import { t, type Locale } from '@/lib/i18n-ui';
 import type { ModelRow } from '@/app/(app)/models/actions';
-import { saveInputs } from '@/app/(app)/models/actions';
+import { saveInputs, updateModel } from '@/app/(app)/models/actions';
 import { BusinessModelCanvas } from './canvas';
+import { CanvasEditor } from './canvas-editor';
 import { Kpis, YearsPanels, ChartPanels, MixPanels, ProjectionPanel } from './results';
-import { InputPanels, type Scope } from './inputs';
+import { NumbersTable } from './numbers-table';
 
 type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number };
+type Tab = 'canvas' | 'numbers';
+type View = 'bep' | 'projection';
 
 export function ModelView({ model: row, locale }: { model: ModelRow; locale: Locale }) {
-  const def: ModelDefinition = row.definition;
+  const [def, setDef] = useState<ModelDefinition>(row.definition);
   const saved = (row.inputs ?? {}) as SavedInputs;
-  const [state, setState] = useState<ModelState>(() => mergeState(defaultState(def), saved));
-  const [refMonth, setRefMonth] = useState<number>(typeof saved.refMonth === 'number' ? saved.refMonth : (def.breakEvenMonth ?? 12));
-  const [horizon, setHorizon] = useState<number>(typeof saved.horizon === 'number' ? saved.horizon : (def.horizon ?? 36));
+  const [state, setState] = useState<ModelState>(() => mergeState(defaultState(row.definition), saved));
+  const [refMonth, setRefMonth] = useState<number>(typeof saved.refMonth === 'number' ? saved.refMonth : (row.definition.breakEvenMonth ?? 12));
+  const [horizon, setHorizon] = useState<number>(typeof saved.horizon === 'number' ? saved.horizon : (row.definition.horizon ?? 36));
+  const [tab, setTab] = useState<Tab>('canvas');
+  const [view, setView] = useState<View>('bep');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const dirty = useRef(false);
+  const [editing, setEditing] = useState<{ block: CanvasBlockKey; index: number | null } | null>(null);
+  const inputsDirty = useRef(false);
+  const defDirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const s = useMemo(() => summarize(def, state, { horizon, refMonth: Math.min(refMonth, horizon) }), [def, state, horizon, refMonth]);
-  const { fmtMoney } = makeFormatters(def.currencySymbol ?? '');
 
-  // Debounced save of the whole inputs blob; the last write wins.
+  // Debounced save of whatever changed: the inputs blob, the definition, or both.
   useEffect(() => {
-    if (!dirty.current) return;
+    if (!inputsDirty.current && !defDirty.current) return;
     setStatus('saving');
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      const r = await saveInputs(row.id, { ...state, refMonth, horizon });
-      setStatus(r.error ? 'error' : 'saved');
-      if (!r.error) setTimeout(() => setStatus((st) => (st === 'saved' ? 'idle' : st)), 1500);
+      const jobs: Promise<{ error?: string }>[] = [];
+      if (inputsDirty.current) { inputsDirty.current = false; jobs.push(saveInputs(row.id, { ...state, refMonth, horizon })); }
+      if (defDirty.current) { defDirty.current = false; jobs.push(updateModel(row.id, { definition: def })); }
+      const results = await Promise.all(jobs);
+      const err = results.find((r) => r.error);
+      setStatus(err ? 'error' : 'saved');
+      if (!err) setTimeout(() => setStatus((st) => (st === 'saved' ? 'idle' : st)), 1500);
     }, 800);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [state, refMonth, horizon, row.id]);
+  }, [state, refMonth, horizon, def, row.id]);
 
   function change(scope: Scope, id: string, value: number) {
-    dirty.current = true;
+    inputsDirty.current = true;
     setState((st) => {
       const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, generators: { ...st.generators } };
       if (typeof scope === 'string') next[scope][id] = value;
@@ -56,9 +70,13 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       return next;
     });
   }
+  function setItems(block: CanvasBlockKey, items: CanvasItem[]) {
+    defDirty.current = true;
+    setDef((d) => ({ ...d, canvas: { ...(d.canvas ?? {}), [block]: items } }));
+  }
   function reset() {
     if (!confirm(t(locale, 'reset_confirm'))) return;
-    dirty.current = true;
+    inputsDirty.current = true;
     setState(defaultState(def));
     setRefMonth(def.breakEvenMonth ?? 12);
     setHorizon(def.horizon ?? 36);
@@ -76,11 +94,8 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  const nav = [
-    { href: '#canvas', label: t(locale, 'canvas') }, { href: '#overview', label: t(locale, 'overview') }, { href: '#breakeven', label: t(locale, 'break_even') }, { href: '#projection', label: t(locale, 'projection') },
-    { href: '#generators', label: t(locale, 'turnover_generators') }, { href: '#fixed', label: t(locale, 'generic_costs') }, { href: '#investment', label: t(locale, 'investment') }, { href: '#settings', label: t(locale, 'settings') },
-  ];
-  const unit = def.unitLabel ?? 'units';
+  const editable = row.may_shape;
+  const editingItem = editing && editing.index !== null ? (def.canvas?.[editing.block]?.[editing.index] ?? null) : null;
 
   return (
     <PageContainer max="full">
@@ -89,7 +104,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
         <header className="mt-2 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-medium tracking-tight">{row.name}</h1>
-            <p className="mt-1 max-w-[72ch] text-sm text-ink-subtle">{def.description}</p>
+            {def.description && <p className="mt-1 max-w-[72ch] text-sm text-ink-subtle">{def.description}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className={`${PILL} ${PILL_TONE.neutral}`}>{row.team?.name ?? t(locale, 'workspace_wide')}</span>
               {def.tagline && <span className="text-xs italic text-ink-muted">{def.tagline}</span>}
@@ -103,25 +118,68 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
           </div>
         </header>
         {status === 'error' && <div className={`${NOTICE.error} mt-3`}>{t(locale, 'save_failed')}</div>}
-        {!row.may_shape && <div className={`${NOTICE.info} mt-3`}>{t(locale, 'read_only_hint')}</div>}
-        <nav className="sticky top-0 z-20 -mx-4 mt-4 flex gap-2 overflow-x-auto bg-surface-sunken/95 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8">
-          {nav.map((n) => <a key={n.href} href={n.href} className={`${CHIP} ${CHIP_STATE.off} whitespace-nowrap`}>{n.label}</a>)}
-        </nav>
-        <div className={`${SECTION_LABEL} mt-6 mb-3 flex items-center gap-3 after:h-px after:flex-1 after:bg-line`}>{t(locale, 'business_model_canvas')}</div>
+        {!editable && <div className={`${NOTICE.info} mt-3`}>{t(locale, 'read_only_hint')}</div>}
+        <Tabs className="mt-4" value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }]} />
       </div>
-      <BusinessModelCanvas model={def} state={state} s={s} locale={locale} />
-      <div className="print:hidden">
-        <div className={`${SECTION_LABEL} mt-10 mb-3 flex items-center gap-3 after:h-px after:flex-1 after:bg-line`}>{t(locale, 'results')}</div>
-        <Kpis model={def} s={s} locale={locale} />
-        <YearsPanels model={def} s={s} locale={locale} />
-        <ChartPanels model={def} s={s} locale={locale} />
-        <MixPanels model={def} state={state} s={s} locale={locale} />
-        <ProjectionPanel model={def} s={s} locale={locale} />
-        <InputPanels model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { dirty.current = true; setRefMonth(v); }} onHorizon={(v) => { dirty.current = true; setHorizon(v); }} />
-        <footer className="mt-10 max-w-[80ch] text-[12.5px] text-ink-muted">
-          <b className="font-medium text-ink">{t(locale, 'how_it_works_title')}</b> {t(locale, 'how_it_works', { units: unit, unit: singular(unit) })} {fmtMoney(0).slice(0, 0)}
-        </footer>
-      </div>
+
+      {tab === 'canvas' && (
+        <div className="mt-4">
+          {editable && <p className="mb-2 text-xs text-ink-muted print:hidden">{t(locale, 'canvas_edit_hint')}</p>}
+          <BusinessModelCanvas model={def} state={state} s={s} locale={locale} tall editable={editable} edit={{ onEditItem: (block, index) => setEditing({ block, index }), onAddItem: (block) => setEditing({ block, index: null }) }} />
+        </div>
+      )}
+
+      {tab === 'numbers' && (
+        <div className="mt-4 print:hidden">
+          <div className="flex flex-wrap gap-2">
+            {(['bep', 'projection'] as View[]).map((v) => (
+              <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : 'view_projection')}</button>
+            ))}
+          </div>
+          <div className="mt-4">
+            {view === 'bep' ? (
+              <>
+                <Kpis model={def} s={s} locale={locale} />
+                <ChartPanels model={def} s={s} locale={locale} />
+              </>
+            ) : (
+              <>
+                <YearsPanels model={def} s={s} locale={locale} />
+                <MixPanels model={def} state={state} s={s} locale={locale} />
+                <ProjectionPanel model={def} s={s} locale={locale} />
+              </>
+            )}
+          </div>
+          <div className="mt-8 mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-[15px] font-medium tracking-tight">{t(locale, 'numbers_table_title')}</h2>
+            <span className="text-xs text-ink-muted">{t(locale, 'numbers_table_help')}</span>
+          </div>
+          <NumbersTable model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }} />
+        </div>
+      )}
+
+      {editing && (
+        <CanvasEditor
+          open
+          def={def}
+          block={editing.block}
+          item={editingItem}
+          locale={locale}
+          onClose={() => setEditing(null)}
+          onSave={(item) => {
+            const items = [...(def.canvas?.[editing.block] ?? [])].map(itemObj);
+            if (editing.index === null) items.push(item); else items[editing.index] = item;
+            setItems(editing.block, items);
+            setEditing(null);
+          }}
+          onDelete={() => {
+            const items = [...(def.canvas?.[editing.block] ?? [])];
+            if (editing.index !== null) items.splice(editing.index, 1);
+            setItems(editing.block, items);
+            setEditing(null);
+          }}
+        />
+      )}
     </PageContainer>
   );
 }

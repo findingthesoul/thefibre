@@ -1,18 +1,21 @@
 'use client';
 
 // The Business Model Canvas: nine blocks in the Strategyzer layout. The six
-// text blocks come from the model's story; segments, revenue streams and cost
-// structure are the live numbers. Key resources carry the fixed costs, key
-// activities the variable ones.
+// text blocks come from the model's story and, for admins and team leads,
+// are edited in place: click a statement to change, link or delete it, "+" to
+// add one. Segments, revenue streams and cost structure are the live numbers.
+// Each block shows its first lines and grows on "… more" — the page grows
+// with it, nothing scrolls inside a block.
 
-import { Link2, Activity, Box, Gift, Heart, Truck, Users, Tag, Banknote } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Link2, Activity, Box, Gift, Heart, Truck, Users, Tag, Banknote, Plus } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
-import type { ModelDefinition, ModelState, Summary, CanvasItem } from '@/lib/engine';
+import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
+import { linkables } from '@/lib/links';
 import { makeFormatters, singular } from '@/lib/format';
 import { t, type Locale } from '@/lib/i18n-ui';
 
-type Block = { key: keyof NonNullable<ModelDefinition['canvas']>; title: 'key_partners' | 'key_activities' | 'key_resources' | 'value_propositions' | 'customer_relationships' | 'channels'; icon: ReactNode; area: string };
+type Block = { key: CanvasBlockKey; title: 'key_partners' | 'key_activities' | 'key_resources' | 'value_propositions' | 'customer_relationships' | 'channels'; icon: ReactNode; area: string };
 const BLOCKS: Block[] = [
   { key: 'keyPartners', title: 'key_partners', icon: <Link2 size={16} />, area: 'lg:[grid-area:1/1/3/3]' },
   { key: 'keyActivities', title: 'key_activities', icon: <Activity size={16} />, area: 'lg:[grid-area:1/3/2/5]' },
@@ -21,15 +24,19 @@ const BLOCKS: Block[] = [
   { key: 'customerRelationships', title: 'customer_relationships', icon: <Heart size={16} />, area: 'lg:[grid-area:1/7/2/9]' },
   { key: 'channels', title: 'channels', icon: <Truck size={16} />, area: 'lg:[grid-area:2/7/3/9]' },
 ];
+const PREVIEW = 4;
 
-function Cell({ title, icon, question, area, children }: { title: string; icon: ReactNode; question: string; area: string; children: ReactNode; last?: boolean }) {
-  // Grid lines come from the 1px gap on the container's line-coloured ground,
-  // so no cell needs to know whether it sits on an edge at this breakpoint.
+export type CanvasEditHandlers = {
+  onEditItem: (block: CanvasBlockKey, index: number) => void;
+  onAddItem: (block: CanvasBlockKey) => void;
+};
+
+function Cell({ title, icon, question, area, children, action }: { title: string; icon: ReactNode; question: string; area: string; children: ReactNode; action?: ReactNode }) {
   return (
     <div className={`flex min-w-0 flex-col gap-2 bg-surface-raised p-3.5 ${area}`}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[13px] font-medium tracking-tight">{title}</h3>
-        <span className="text-ink-muted">{icon}</span>
+        <span className="flex items-center gap-1 text-ink-muted">{action}{icon}</span>
       </div>
       <div className="text-[11px] leading-snug text-ink-muted">{question}</div>
       {children}
@@ -37,21 +44,46 @@ function Cell({ title, icon, question, area, children }: { title: string; icon: 
   );
 }
 
-function Items({ items, locale, segName }: { items: CanvasItem[] | undefined; locale: Locale; segName: (id: string) => string }) {
-  if (!items?.length) return <div className="text-[11px] italic text-ink-muted">{t(locale, 'not_described')}</div>;
+function Items({ def, block, locale, editable, edit }: { def: ModelDefinition; block: CanvasBlockKey; locale: Locale; editable: boolean; edit?: CanvasEditHandlers }) {
+  const [open, setOpen] = useState(false);
+  const items = def.canvas?.[block] ?? [];
+  const segName = (id: string) => { const g = def.generators.find((x) => x.id === id); return g ? (g.short ?? g.name) : id; };
+  const linkLabel = (id: string) => linkables(def).find((l) => l.id === id)?.label ?? id;
+  if (!items.length) return <div className="text-[11px] italic text-ink-muted">{t(locale, 'not_described')}</div>;
+  const shown = open ? items : items.slice(0, PREVIEW);
   return (
-    <ul className="flex flex-col gap-1.5">
-      {items.map((it, i) => {
-        const text = typeof it === 'string' ? it : it.text;
-        const segs = typeof it === 'string' ? [] : (it.segments ?? []);
-        return (
-          <li key={i} className="relative pl-3 text-[12.5px] leading-snug before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-ink-muted">
-            {text}
-            {segs.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{segs.map((id) => <span key={id} className="inline-flex rounded-full bg-surface-sunken px-1.5 text-[10px] leading-4 text-ink-subtle ring-1 ring-line">{segName(id)}</span>)}</div>}
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="flex flex-col gap-1.5">
+        {shown.map((raw, i) => {
+          const it = itemObj(raw);
+          const body = (
+            <>
+              {it.text}
+              {((it.segments?.length ?? 0) > 0 || (it.links?.length ?? 0) > 0) && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {(it.segments ?? []).map((id) => <span key={'s' + id} className="inline-flex rounded-full bg-surface-sunken px-1.5 text-[10px] leading-4 text-ink-subtle ring-1 ring-line">{segName(id)}</span>)}
+                  {(it.links ?? []).map((id) => <span key={'l' + id} className="inline-flex rounded-full px-1.5 text-[10px] leading-4 text-ink-muted ring-1 ring-line">{linkLabel(id)}</span>)}
+                </div>
+              )}
+            </>
+          );
+          return (
+            <li key={it.id ?? i} className="relative pl-3 text-[12.5px] leading-snug before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-ink-muted">
+              {editable && edit ? (
+                <button type="button" onClick={() => edit.onEditItem(block, i)} className="-mx-1 -my-0.5 w-[calc(100%+0.5rem)] rounded px-1 py-0.5 text-left hover:bg-surface-sunken focus:outline-none focus-visible:ring-2 focus-visible:ring-line-strong" title={t(locale, 'edit_statement')}>
+                  {body}
+                </button>
+              ) : body}
+            </li>
+          );
+        })}
+      </ul>
+      {items.length > PREVIEW && (
+        <button type="button" onClick={() => setOpen(!open)} className="self-start text-[11px] text-ink-subtle underline-offset-2 hover:text-ink hover:underline">
+          {open ? t(locale, 'show_less') : t(locale, 'more_n', { n: items.length - PREVIEW })}
+        </button>
+      )}
+    </>
   );
 }
 
@@ -59,12 +91,12 @@ const Sub = ({ children }: { children: ReactNode }) => <div className={`${SECTIO
 const Row = ({ a, b, c, total }: { a: ReactNode; b?: ReactNode; c: ReactNode; total?: boolean }) => (
   <tr className={total ? 'font-medium [&>td]:border-t [&>td]:border-line' : ''}>
     <td className="border-b border-line/50 py-1 align-top">{a}</td>
-    {b !== undefined && <td className="whitespace-nowrap border-b border-line/50py-1 pl-2.5 text-right text-[11px] text-ink-muted">{b}</td>}
+    {b !== undefined && <td className="whitespace-nowrap border-b border-line/50 py-1 pl-2.5 text-right text-[11px] text-ink-muted">{b}</td>}
     <td className="whitespace-nowrap border-b border-line/50 py-1 pl-2.5 text-right tabular-nums">{c}</td>
   </tr>
 );
 
-export function BusinessModelCanvas({ model, state, s, locale }: { model: ModelDefinition; state: ModelState; s: Summary; locale: Locale }) {
+export function BusinessModelCanvas({ model, state, s, locale, editable = false, edit, tall = false }: { model: ModelDefinition; state: ModelState; s: Summary; locale: Locale; editable?: boolean; edit?: CanvasEditHandlers; tall?: boolean }) {
   const { fmtMoney, fmtMoneyK, fmtNum, fmtPct } = makeFormatters(model.currencySymbol ?? '');
   const unit = model.unitLabel ?? 'units';
   const ref = s.ref;
@@ -87,7 +119,7 @@ export function BusinessModelCanvas({ model, state, s, locale }: { model: ModelD
   acts.sort((a, b) => b.amount - a.amount);
   const tbl = 'w-full border-collapse text-[12.5px]';
 
-  const numbers: Partial<Record<Block['key'], ReactNode>> = {
+  const numbers: Partial<Record<CanvasBlockKey, ReactNode>> = {
     keyActivities: (
       <><Sub>{t(locale, 'variable_cost_month', { n: s.refMonth })}</Sub><table className={tbl}><tbody>
         {acts.map((a) => <Row key={a.label + a.who} a={<><span className="block">{a.label}</span><span className="block text-[11px] text-ink-muted">{a.who} · {a.unit}</span></>} c={fmtMoney(a.amount)} />)}
@@ -104,13 +136,16 @@ export function BusinessModelCanvas({ model, state, s, locale }: { model: ModelD
       </tbody></table></>
     ),
   };
+  const addBtn = (block: CanvasBlockKey) => editable && edit ? (
+    <button type="button" onClick={() => edit.onAddItem(block)} title={t(locale, 'add_statement')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Plus size={14} /></button>
+  ) : null;
 
   return (
     <div id="canvas">
-      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:[grid-template-columns:repeat(10,minmax(0,1fr))] lg:[grid-template-rows:auto_auto_auto] print:rounded-none">
+      <div className={`grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:[grid-template-columns:repeat(10,minmax(0,1fr))] ${tall ? 'lg:[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)_auto] lg:min-h-[calc(100dvh-14rem)]' : 'lg:[grid-template-rows:auto_auto_auto]'} print:rounded-none`}>
         {BLOCKS.map((b) => (
-          <Cell key={b.key} title={t(locale, b.title)} icon={b.icon} question={t(locale, `${b.title}_q`)} area={b.area}>
-            <Items items={model.canvas?.[b.key]} locale={locale} segName={segName} />
+          <Cell key={b.key} title={t(locale, b.title)} icon={b.icon} question={t(locale, `${b.title}_q`)} area={b.area} action={addBtn(b.key)}>
+            <Items def={model} block={b.key} locale={locale} editable={editable} edit={edit} />
             {numbers[b.key]}
           </Cell>
         ))}
@@ -139,7 +174,7 @@ export function BusinessModelCanvas({ model, state, s, locale }: { model: ModelD
             {t(locale, 'funding_line', { i: fmtMoney(s.investmentTotal), f: fmtMoney(s.fundingNeed), when: s.cashPositiveMonth ? t(locale, 'in_month_lower', { n: s.cashPositiveMonth }) : t(locale, 'not_within_months', { n: s.horizon }).toLowerCase() })}
           </div>
         </Cell>
-        <Cell title={t(locale, 'revenue_streams')} icon={<Banknote size={16} />} question={t(locale, 'revenue_streams_q', { n: s.refMonth })} area="sm:col-span-2 lg:[grid-area:3/6/4/11]" last>
+        <Cell title={t(locale, 'revenue_streams')} icon={<Banknote size={16} />} question={t(locale, 'revenue_streams_q', { n: s.refMonth })} area="sm:col-span-2 lg:[grid-area:3/6/4/11]">
           <table className={tbl}><tbody>
             {gens.map((g) => { const r = ref.gens[g.id]!; return (
               <Row key={g.id} a={<><span className="block">{g.name}</span><span className="block text-[11px] text-ink-muted">{priceOf(g)}</span><div className="mt-1 h-1 rounded bg-surface-sunken"><div className="h-1 rounded bg-ink" style={{ width: `${((r.revenue / maxRev) * 100).toFixed(1)}%` }} /></div></>} b={fmtPct((r.revenue / (ref.revenue || 1)) * 100)} c={fmtMoney(r.revenue)} />
@@ -158,3 +193,5 @@ export function BusinessModelCanvas({ model, state, s, locale }: { model: ModelD
     </div>
   );
 }
+
+export { CANVAS_BLOCK_KEYS };

@@ -30,7 +30,14 @@ export type Generator = {
   revenueTotal?: string | number;
   costs?: CostLine[];
 };
-export type CanvasItem = string | { text: string; segments?: string[] };
+/** A canvas statement. Strings are accepted from older definitions; the app
+ *  writes objects with an id, so a statement can be edited and linked to the
+ *  turnover and cost items it belongs to (link ids: see lib/links.ts). */
+export type CanvasItem = string | { id?: string; text: string; segments?: string[]; links?: string[] };
+export type CanvasBlockKey = 'keyPartners' | 'keyActivities' | 'keyResources' | 'valuePropositions' | 'customerRelationships' | 'channels';
+export const CANVAS_BLOCK_KEYS: CanvasBlockKey[] = ['keyPartners', 'keyActivities', 'keyResources', 'valuePropositions', 'customerRelationships', 'channels'];
+export const itemText = (it: CanvasItem): string => (typeof it === 'string' ? it : it.text);
+export const itemObj = (it: CanvasItem): { id?: string; text: string; segments?: string[]; links?: string[] } => (typeof it === 'string' ? { text: it } : it);
 export type ModelDefinition = {
   id?: string;
   name: string;
@@ -41,7 +48,7 @@ export type ModelDefinition = {
   horizon?: number;
   breakEvenMonth?: number;
   unitLabel?: string;
-  canvas?: Partial<Record<'keyPartners' | 'keyActivities' | 'keyResources' | 'valuePropositions' | 'customerRelationships' | 'channels', CanvasItem[]>>;
+  canvas?: Partial<Record<CanvasBlockKey, CanvasItem[]>>;
   settings?: NumberInput[];
   genericVariable?: { id: string; label: string; kind: 'percentRevenue' | 'perUnit' | 'perNewUnit'; value?: number }[];
   generators: Generator[];
