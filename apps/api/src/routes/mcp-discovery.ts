@@ -17,7 +17,7 @@ export const mcpDiscoveryRoutes = new Hono();
  * client asks for nothing specific; a client has to ASK for thread:write and
  * the person sees it in its own words on the consent page.
  */
-export const MCP_SCOPES = ['connections:read', 'thread:read', 'thread:write'] as const;
+export const MCP_SCOPES = ['connections:read', 'thread:read', 'thread:write', 'models:read', 'models:write'] as const;
 export type McpScope = (typeof MCP_SCOPES)[number];
 
 export const MCP_RESOURCE_PATH = '/api/v1/mcp';

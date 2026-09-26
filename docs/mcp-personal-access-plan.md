@@ -258,3 +258,14 @@ told so and asks you to switch back or connect again.
 - It does not give an assistant any authority the person lacks.
 - It does not replace the app-key MCP; external systems without a person
   behind them still use that.
+
+## Business Models tools (2026-09-26)
+
+Scopes `models:read` and `models:write`, tools `models_list`, `models_teams`,
+`models_get`, `models_schema` (a local guide: the definition format with one
+complete example, no API call) and `models_create`. Every call is the person's
+own JWT with `X-App-ID: fibre-models`, so a model is created only where the
+person is admin or team lead (`apps/api/src/routes/models.ts`), and only the
+team sees it. The point: a story told to an assistant becomes a model in the
+app without pasting JSON (Sjoerd, 2026-09-26: "can I then use my Claude to
+upload a business model?").

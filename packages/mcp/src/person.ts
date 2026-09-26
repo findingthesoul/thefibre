@@ -18,7 +18,7 @@ import { registerSchedulePrompt } from './person-prompt.js';
 
 export { SCHEDULE_PROMPT_NAME, schedulePromptText } from './person-prompt.js';
 
-export type PersonScope = 'connections:read' | 'thread:read' | 'thread:write';
+export type PersonScope = 'connections:read' | 'thread:read' | 'thread:write' | 'models:read' | 'models:write';
 
 export interface PersonClientOptions {
   apiUrl: string;
@@ -99,6 +99,7 @@ export class PersonClient {
 const CONNECTIONS = 'fibre-sales';
 const THREAD = 'the-thread';
 const PLATFORM = 'fibre-platform';
+const MODELS = 'fibre-models';
 
 type Shape = Record<string, z.ZodTypeAny>;
 export interface PersonTool<S extends Shape = Shape> {
@@ -110,6 +111,8 @@ export interface PersonTool<S extends Shape = Shape> {
    *  person before a non-read-only tool, and the description says plainly
    *  what will be created. Idempotency is the route's (slug uniqueness). */
   write?: boolean;
+  /** Answers from the catalogue itself, no API call (a schema, a guide). */
+  local?: boolean;
   input: S;
   run: (client: PersonClient, args: z.infer<z.ZodObject<S>>) => Promise<unknown>;
 }
@@ -136,6 +139,71 @@ function count<T>(rows: T[], key: (r: T) => string | null): Record<string, numbe
 }
 const one = <T>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 const str = (v: unknown) => (typeof v === 'string' ? v : null);
+
+
+// What a business model definition looks like, for an assistant writing one
+// from a story. The engine that reads it lives in apps/models/lib/engine.ts;
+// this text is the contract in words, plus one small complete example.
+const MODEL_SCHEMA_GUIDE = {
+  format: [
+    'A definition is one JSON object. Top level: name, tagline, description, currency (e.g. "EUR"), currencySymbol (e.g. "€"), horizon (months, 12–120, default 36), breakEvenMonth (the reference month for blended rates, default 12), unitLabel (plural, e.g. "members" or "customers"), canvas, settings, genericVariable, generators, fixedCosts, investment.',
+    'canvas: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels }, each an array of short lines. A value proposition may be { text, segments: ["<generator id>", …] } to say which segments it serves.',
+    'settings: [{ id, label, unit, value, step }] — global numbers every formula may use by id (e.g. a payment fee percentage).',
+    'genericVariable: [{ id: "<a settings id>", label, kind }] — costs on all revenue; kind is percentRevenue, perUnit or perNewUnit.',
+    'generators: the turnover generators. Each: { id, name, short, segment (one line: who this is), help, countsAsUnit (default true), inputs: [{ id, label, unit, value, step }], volume, revenuePerUnit or revenueTotal, costs }.',
+    'volume for a segment: { start: "<input id>", growth: "<input id>", churn: "<input id>" } — units start at start, then each month × (1 + growth% − churn%). Optional add, cap, startMonth. A derived stream: { linkedTo: "<generator id>", factor: 1 } takes that generator’s units.',
+    'revenuePerUnit: a formula string over the generator’s input ids and settings ids, e.g. "fee" or "vol * take / 100". Lump income: countsAsUnit false, volume { start: 1, startMonth: "from" }, revenueTotal: "amount".',
+    'costs: [{ id, label, unit, kind, value, step, batchSize? }] — the generator’s own cost lines; kind is perUnit, perNewUnit, perBatch (with batchSize, a formula), percentRevenue, fixed or formula (with formula).',
+    'fixedCosts: [{ id, label, value, step }] per month (key resources). investment: [{ id, label, value, step }] one-off before month one.',
+    'Formulas are plain arithmetic over ids: + - * / ( ) and numbers, plus month, units, newUnits, revenue, batches. Nothing else.',
+    'Every number is a placeholder. Choose plausible values and say in help texts what they mean; never present them as the venture’s real figures.',
+  ],
+  example: {
+    name: 'Example studio',
+    tagline: 'A small studio with members and workshops',
+    description: 'Members pay monthly; workshops sell seats to the same people.',
+    currency: 'EUR', currencySymbol: '€', horizon: 36, breakEvenMonth: 12, unitLabel: 'members',
+    canvas: {
+      keyPartners: ['The venue that hosts the workshops'],
+      keyActivities: ['Weekly community evening', 'Monthly workshop'],
+      keyResources: ['Two part-time facilitators', 'The studio space'],
+      valuePropositions: [{ text: 'A place to practise every week, with people who keep you going', segments: ['members'] }],
+      customerRelationships: ['Personal onboarding call', 'Members recommend members'],
+      channels: ['Open evenings', 'Word of mouth'],
+    },
+    settings: [{ id: 'procFee', label: 'Payment processing fee', unit: '% of revenue', value: 2, step: 0.1 }],
+    genericVariable: [{ id: 'procFee', label: 'Payment processing', kind: 'percentRevenue' }],
+    generators: [
+      {
+        id: 'members', name: 'Members', short: 'Members', segment: 'People who practise weekly', help: 'A monthly membership.',
+        inputs: [
+          { id: 'fee', label: 'Monthly fee', unit: 'EUR / member', value: 40, step: 5 },
+          { id: 'start', label: 'Members in month one', unit: 'members', value: 30, step: 5 },
+          { id: 'growth', label: 'Monthly growth', unit: '%', value: 8, step: 0.5 },
+          { id: 'churn', label: 'Monthly churn', unit: '%', value: 3, step: 0.5 },
+        ],
+        volume: { start: 'start', growth: 'growth', churn: 'churn' },
+        revenuePerUnit: 'fee',
+        costs: [
+          { id: 'cOnboard', label: 'Onboarding call', unit: 'EUR / new member', kind: 'perNewUnit', value: 15, step: 1 },
+          { id: 'cCare', label: 'Materials', unit: 'EUR / member / month', kind: 'perUnit', value: 3, step: 0.5 },
+        ],
+      },
+      {
+        id: 'workshops', name: 'Workshops', short: 'Workshops', help: 'Seats sold to members, one workshop a month.',
+        volume: { linkedTo: 'members', factor: 0.3 },
+        inputs: [{ id: 'price', label: 'Seat price', unit: 'EUR / seat', value: 60, step: 5 }],
+        revenuePerUnit: 'price',
+        costs: [{ id: 'cRoom', label: 'Room and facilitator', unit: 'EUR / workshop', kind: 'perBatch', batchSize: 12, value: 300, step: 25 }],
+      },
+    ],
+    fixedCosts: [
+      { id: 'team', label: 'Facilitators', value: 3000, step: 100 },
+      { id: 'rent', label: 'Studio rent', value: 900, step: 50 },
+    ],
+    investment: [{ id: 'setup', label: 'Furnishing the studio', value: 6000, step: 500 }],
+  },
+};
 
 export const PERSON_TOOLS: PersonTool[] = [
   // --- Connect (the app; slug fibre-sales; scope connections:read stays) ---------------------------------------------------------
@@ -420,6 +488,80 @@ export const PERSON_TOOLS: PersonTool[] = [
       return { thread_id: a.thread_id, timezone: tz, added, failed: results.length - added, all_drafts: true, items: results };
     },
   }),
+  // --- Business Models, as the person (models:read / models:write) ---------
+  tool({
+    name: 'models_list',
+    title: 'Your business models',
+    description: 'The business models the person may open in Business Models: name, tagline, which team it belongs to (or the whole workspace), when it last changed.',
+    scope: 'models:read',
+    input: {},
+    run: async (c) => {
+      const r = await c.get<{ items: Row[]; is_admin?: boolean }>(MODELS, '/api/v1/models');
+      return {
+        ...cap(
+          (r.items ?? []).map((m) => {
+            const team = one(m.team as Row | Row[] | null);
+            return { id: m.id, name: m.name, slug: m.slug, tagline: m.tagline ?? null, team: team ? { id: team.id, name: team.name } : null, updated_at: m.updated_at };
+          }),
+          50,
+        ),
+        is_admin: r.is_admin === true,
+      };
+    },
+  }),
+  tool({
+    name: 'models_teams',
+    title: 'Teams a business model can belong to',
+    description: 'The teams the person may put a business model in, with their standing in each (admin, lead or member). Admins may also create workspace-wide models (team_id null). Only admins and team leads can create.',
+    scope: 'models:read',
+    input: {},
+    run: async (c) => c.get<{ items: Row[]; is_admin: boolean }>(MODELS, '/api/v1/models/teams'),
+  }),
+  tool({
+    name: 'models_get',
+    title: 'One business model',
+    description: 'A business model with its full definition (turnover generators, costs, investment, canvas) and the numbers the team has edited. Use it to read a model back or as the example for a new one.',
+    scope: 'models:read',
+    input: { model_id: uuid },
+    run: async (c, a) => c.get<Row>(MODELS, `/api/v1/models/${a.model_id}`),
+  }),
+  tool({
+    name: 'models_schema',
+    title: 'How to write a business model definition',
+    description: 'The format a business model definition must have, with a small complete example. Read this before models_create when writing a model from a story.',
+    scope: 'models:read',
+    local: true,
+    input: {},
+    run: async () => MODEL_SCHEMA_GUIDE,
+  }),
+  tool({
+    name: 'models_create',
+    title: 'Create a business model',
+    description:
+      'Create a business model in Business Models from a definition (see models_schema): turnover generators each with a volume, a price and their own cost structure, generic fixed costs, one-off investment, and the Business Model Canvas text. The team then turns the numbers in the app. Before calling: confirm the name and the team with the person (models_teams says where they may create; admins may pass team_id null for the whole workspace). Every number in the definition is a placeholder for the team to replace; say so in the help texts. Nothing is shared outside the team.',
+    scope: 'models:write',
+    write: true,
+    input: {
+      name: z.string().min(1).max(200),
+      tagline: z.string().max(300).optional(),
+      team_id: uuid.nullable().describe('A team from models_teams, or null for the whole workspace (admins only)'),
+      definition: z
+        .object({ name: z.string().min(1).max(200), generators: z.array(z.record(z.unknown())).min(1).max(40) })
+        .passthrough()
+        .describe('The definition, in the format models_schema describes'),
+    },
+    run: async (c, a) => {
+      const created = await c.post<Row>(MODELS, '/api/v1/models', {
+        name: a.name,
+        tagline: a.tagline ?? null,
+        team_id: a.team_id,
+        definition: a.definition,
+      });
+      const team = one(created.team as Row | Row[] | null);
+      return { created: true, model_id: created.id, name: created.name, slug: created.slug, team: team ? { id: team.id, name: team.name } : null, open_in_models: `/models/${String(created.id)}` };
+    },
+  }),
+
 ];
 
 const AGENDA_TYPES = new Set(['event', 'conversation', 'workshop']);
@@ -467,6 +609,9 @@ export function personInstructions(who: PersonServerOptions['who'], scopes: read
     '',
     'Connect is a landscape of a person’s relationships, not a CRM: bands say how a relationship stands, attention conditions say who needs a move, and notes are the person’s own words about a meeting.',
     'When asked who to follow up with, start with connections_today, then connections_attention. To talk about one person, find them with connections_search and read connections_person.',
+    scopes.includes('models:read')
+      ? 'Business Models holds one model per venture: turnover generators with their own costs, generic costs, investment, break even, on a Business Model Canvas. models_list shows what the person may open; models_get reads one back. To write a model from a story, read models_schema first, draft the definition, and confirm name and team before models_create.'
+      : '',
     scopes.includes('thread:write')
       ? 'Two things here write, both as DRAFTS: thread_create makes a new thread (blank, or from one of the person’s templates), and thread_add_engagements lays a list of dated items onto it. Before creating, confirm template-or-blank, title, dates and slug (suggest one from the title). For a schedule the person pastes, use the plan_thread_from_schedule prompt’s method: rows people attend become agenda items, rows that get sent become messages, internal steps become agenda items hidden from the agenda; the thread’s start and end must span every row. Nothing is published or emailed until the person publishes it in The Thread. Changing a thread, adding a Connect note, publishing: in the app; say where.'
       : 'Nothing here writes. If the person wants to create or change a thread, or add a note, tell them where in the app that happens.',

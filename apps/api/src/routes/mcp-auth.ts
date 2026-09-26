@@ -30,6 +30,9 @@ export const SCOPE_WORDS: Record<McpScope, string> = {
   'thread:read': 'Read your threads: titles, dates, status, templates, and how registration is going as counts.',
   'thread:write':
     'Create a thread for you — blank or from one of your templates. It starts as a draft, nothing is published or sent, and your assistant asks you before it does it.',
+  'models:read': 'Read your business models: the models your teams may open, their definitions and numbers.',
+  'models:write':
+    'Create a business model for one of your teams from a story: turnover generators, costs, investment, the canvas. Every number is a placeholder your team edits in the app, and your assistant asks you before it creates it.',
 };
 
 mcpAuthRoutes.get('/client', async (c) => {

@@ -6492,6 +6492,22 @@ const CATALOG = {
     de: 'legt Threads als Entwurf an', // MT
     fr: 'crée des threads en brouillon', // MT
   },
+  assistants_scope_models: {
+    en: 'reads your business models',
+    nl: 'leest je businessmodellen',
+    es: 'lee tus modelos de negocio', // MT
+    pt: 'lê seus modelos de negócio', // MT
+    de: 'liest deine Geschäftsmodelle', // MT
+    fr: "lit tes modèles d'affaires", // MT
+  },
+  assistants_scope_models_write: {
+    en: 'creates business models for your teams',
+    nl: 'maakt businessmodellen aan voor je teams',
+    es: 'crea modelos de negocio para tus equipos', // MT
+    pt: 'cria modelos de negócio para suas equipes', // MT
+    de: 'legt Geschäftsmodelle für deine Teams an', // MT
+    fr: "crée des modèles d'affaires pour tes équipes", // MT
+  },
   assistants_connected_on: {
     en: 'Connected {date}',
     nl: 'Gekoppeld op {date}',

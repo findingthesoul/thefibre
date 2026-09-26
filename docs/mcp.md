@@ -214,3 +214,10 @@ revoked key stops working within a minute (whoami is cached per key hash for
   should follow.
 - `packages/mcp/package.json` carries the monorepo version like every other
   workspace package; `scripts/release.sh` derives `packages/*` since v0.76.0.
+
+### Business Models (person catalogue, 2026-09-26)
+
+| Scope | Tools |
+|---|---|
+| `models:read` | `models_list`, `models_teams`, `models_get`, `models_schema` (local, no API call) |
+| `models:write` | `models_create` — a definition in, a model in the app out; admins and team leads only, the API decides |

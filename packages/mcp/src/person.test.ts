@@ -21,6 +21,11 @@ function recorder(answer: unknown = { ok: true }, status = 200) {
 }
 
 const SAMPLES: Record<string, Record<string, unknown>> = {
+  models_list: {},
+  models_teams: {},
+  models_get: { model_id: U },
+  models_schema: {},
+  models_create: { name: 'Example studio', team_id: null, definition: { name: 'Example studio', generators: [{ id: 'members' }] } },
   connections_today: { horizon: 'week' },
   connections_attention: { limit: 5 },
   connections_agenda: {},
@@ -47,6 +52,7 @@ const OWNER: Record<string, string> = {
   '/api/v1/notes': 'fibre-sales',
   '/api/v1/persons': 'fibre-platform',
   '/api/v1/thread': 'the-thread',
+  '/api/v1/models': 'fibre-models',
 };
 
 describe('the person catalogue', () => {
@@ -56,7 +62,8 @@ describe('the person catalogue', () => {
       const rec = recorder({ items: [], engagements: [], program: {} });
       const client = new PersonClient({ apiUrl: 'http://api.test', jwt: 'jwt-1', fetch: rec.fetch });
       await t.run(client, SAMPLES[t.name] as never);
-      expect(rec.calls.length, t.name).toBeGreaterThan(0);
+      if (t.local) expect(rec.calls.length, `${t.name} is local and must not call the API`).toBe(0);
+      else expect(rec.calls.length, t.name).toBeGreaterThan(0);
       for (const call of rec.calls) {
         const path = new URL(call.url).pathname;
         expect(call.headers.authorization, `${t.name} ${path}`).toBe('Bearer jwt-1');
@@ -75,9 +82,9 @@ describe('the person catalogue', () => {
     const reads = personToolsForScopes(['connections:read', 'thread:read']);
     expect(reads.every((t) => !t.write)).toBe(true);
     expect(reads.map((t) => t.name)).not.toContain('thread_create');
-    const all = personToolsForScopes(['connections:read', 'thread:read', 'thread:write']);
+    const all = personToolsForScopes(['connections:read', 'thread:read', 'thread:write', 'models:read', 'models:write']);
     expect(all.length).toBe(PERSON_TOOLS.length);
-    expect(all.filter((t) => t.write).map((t) => t.name).sort()).toEqual(['thread_add_engagements', 'thread_create']);
+    expect(all.filter((t) => t.write).map((t) => t.name).sort()).toEqual(['models_create', 'thread_add_engagements', 'thread_create']);
   });
 
   it('thread_create posts as the person to the real routes, and lands a draft', async () => {

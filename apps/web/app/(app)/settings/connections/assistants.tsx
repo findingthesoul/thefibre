@@ -53,7 +53,7 @@ export function AssistantsConnected({ grants, locale }: { grants: AssistantGrant
               <p className="mt-0.5 text-xs text-ink-subtle">
                 {g.scopes
                   .map((s) =>
-                    t(locale, s === 'connections:read' ? 'assistants_scope_connections' : s === 'thread:write' ? 'assistants_scope_thread_write' : 'assistants_scope_thread'),
+                    t(locale, s === 'connections:read' ? 'assistants_scope_connections' : s === 'thread:write' ? 'assistants_scope_thread_write' : s === 'models:read' ? 'assistants_scope_models' : s === 'models:write' ? 'assistants_scope_models_write' : 'assistants_scope_thread'),
                   )
                   .join(' · ')}
               </p>
