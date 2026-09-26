@@ -61,6 +61,17 @@ Two ways in, same result:
    Assistants) with `models:read` + `models:write`. The assistant reads
    `models_schema`, drafts, confirms name and team, calls `models_create`.
 
+**The assistant cannot change the wrong model.** Every write tool
+(`models_update`, `models_set_numbers`, `models_save_scenario`,
+`models_duplicate`) takes `model_name` next to `model_id`; `models_create`
+and a duplicate into another team take `team_name` next to `team_id`. The
+tool reads the model or team back and refuses on a mismatch, with the real
+name in the answer, before anything is written. Creating a model whose name
+already exists in the same team is refused too (the person meant "change
+it", or the assistant lost track). And the descriptions tell the assistant
+to say name, team and change to the person first and wait for a yes. See
+docs/mcp.md.
+
 ## Beta, on purpose
 
 The catalogue row carries `beta_at` and no `released_at` (Sjoerd, 2026-09-26:

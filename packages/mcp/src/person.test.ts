@@ -25,11 +25,11 @@ const SAMPLES: Record<string, Record<string, unknown>> = {
   models_teams: {},
   models_get: { model_id: U },
   models_schema: {},
-  models_create: { name: 'Example studio', team_id: null, definition: { name: 'Example studio', generators: [{ id: 'members' }] } },
-  models_update: { model_id: U, name: 'Renamed' },
-  models_set_numbers: { model_id: U, fixed: { team: 9000 } },
-  models_save_scenario: { model_id: U, name: 'Careful' },
-  models_duplicate: { model_id: U, name: 'Copy' },
+  models_create: { name: 'Example studio', team_id: null, team_name: 'workspace', definition: { name: 'Example studio', generators: [{ id: 'members' }] } },
+  models_update: { model_id: U, model_name: 'Example studio', name: 'Renamed' },
+  models_set_numbers: { model_id: U, model_name: 'Example studio', fixed: { team: 9000 } },
+  models_save_scenario: { model_id: U, model_name: 'Example studio', name: 'Careful' },
+  models_duplicate: { model_id: U, model_name: 'Example studio', name: 'Copy' },
   connections_today: { horizon: 'week' },
   connections_attention: { limit: 5 },
   connections_agenda: {},
@@ -63,7 +63,9 @@ describe('the person catalogue', () => {
   it('has a sample for every tool and every tool reads as the person, as the owning app', async () => {
     for (const t of PERSON_TOOLS) {
       expect(SAMPLES, `no sample for ${t.name}`).toHaveProperty(t.name);
-      const rec = recorder({ items: [], engagements: [], program: {} });
+      // The one answer serves every route: an empty list, and a model called
+      // "Example studio" on the whole workspace, for the write checks.
+      const rec = recorder({ items: [], engagements: [], program: {}, name: 'Example studio', team: null, is_admin: true });
       const client = new PersonClient({ apiUrl: 'http://api.test', jwt: 'jwt-1', fetch: rec.fetch });
       await t.run(client, SAMPLES[t.name] as never);
       if (t.local) expect(rec.calls.length, `${t.name} is local and must not call the API`).toBe(0);
@@ -89,6 +91,45 @@ describe('the person catalogue', () => {
     const all = personToolsForScopes(['connections:read', 'thread:read', 'thread:write', 'models:read', 'models:write']);
     expect(all.length).toBe(PERSON_TOOLS.length);
     expect(all.filter((t) => t.write).map((t) => t.name).sort()).toEqual(['models_create', 'models_duplicate', 'models_save_scenario', 'models_set_numbers', 'models_update', 'thread_add_engagements', 'thread_create']);
+  });
+
+  it('a write to a business model is refused, before anything is written, when the name does not match', async () => {
+    const wrongName = recorder({ id: U, name: 'Solidarity Lab', team: { id: 'b3b1ac8e-4f2f-4b4b-9c1e-3a5c6d7e8f90', name: 'doáb' } });
+    const client = new PersonClient({ apiUrl: 'http://api.test', jwt: 'j', fetch: wrongName.fetch });
+    for (const name of ['models_update', 'models_set_numbers', 'models_save_scenario', 'models_duplicate']) {
+      wrongName.calls.length = 0;
+      const t = PERSON_TOOLS.find((x) => x.name === name)!;
+      await expect(t.run(client, { ...SAMPLES[name], model_name: 'doáb cooperative' } as never)).rejects.toThrow(/is called "Solidarity Lab" \(team doáb\), not "doáb cooperative"/);
+      expect(wrongName.calls.length, `${name} must only read`).toBe(1);
+      expect(wrongName.calls[0]!.url).toBe(`http://api.test/api/v1/models/${U}`);
+    }
+    // Name matches: the write goes through, case and spacing forgiven.
+    const right = recorder({ id: U, name: 'Solidarity  Lab', team: null, items: [], is_admin: true });
+    const ok = new PersonClient({ apiUrl: 'http://api.test', jwt: 'j', fetch: right.fetch });
+    const upd = PERSON_TOOLS.find((x) => x.name === 'models_update')!;
+    await upd.run(ok, { model_id: U, model_name: 'solidarity lab', name: 'Renamed' } as never);
+    expect(right.calls.map((c) => c.url)).toEqual([`http://api.test/api/v1/models/${U}`, `http://api.test/api/v1/models/${U}`]);
+  });
+
+  it('models_create checks the team by name, and refuses a second model with the same name in the same place', async () => {
+    const teamId = 'b3b1ac8e-4f2f-4b4b-9c1e-3a5c6d7e8f90';
+    const def = { name: 'OSC 2027', generators: [{ id: 'members' }] };
+    const create = PERSON_TOOLS.find((x) => x.name === 'models_create')!;
+    // Wrong team name for the id.
+    const teams = recorder({ items: [{ id: teamId, name: 'doáb', role: 'lead' }, { id: U, name: 'OSC 2027', team: { id: teamId, name: 'doáb' } }], is_admin: false });
+    const c1 = new PersonClient({ apiUrl: 'http://api.test', jwt: 'j', fetch: teams.fetch });
+    await expect(create.run(c1, { name: 'OSC 2027', team_id: teamId, team_name: 'OSC', definition: def } as never)).rejects.toThrow(/is called "doáb", not "OSC"/);
+    expect(teams.calls.length).toBe(1);
+    // Right team, but the name is taken there.
+    teams.calls.length = 0;
+    await expect(create.run(c1, { name: 'osc 2027', team_id: teamId, team_name: 'doáb', definition: def } as never)).rejects.toThrow(/already exists in that team/);
+    expect(teams.calls.map((c) => new URL(c.url).pathname)).toEqual(['/api/v1/models/teams', '/api/v1/models']);
+    // Workspace-wide needs an admin.
+    await expect(create.run(c1, { name: 'New', team_id: null, team_name: 'workspace', definition: def } as never)).rejects.toThrow(/only a workspace admin/);
+    // Explicitly allowed: the post happens.
+    teams.calls.length = 0;
+    await create.run(c1, { name: 'OSC 2027', team_id: teamId, team_name: 'doáb', allow_same_name: true, definition: def } as never);
+    expect(teams.calls.map((c) => new URL(c.url).pathname)).toEqual(['/api/v1/models/teams', '/api/v1/models']);
   });
 
   it('thread_create posts as the person to the real routes, and lands a draft', async () => {

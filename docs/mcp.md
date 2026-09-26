@@ -220,4 +220,17 @@ revoked key stops working within a minute (whoami is cached per key hash for
 | Scope | Tools |
 |---|---|
 | `models:read` | `models_list`, `models_teams`, `models_get`, `models_schema` (local, no API call) |
-| `models:write` | `models_create` — a definition in, a model in the app out; admins and team leads only, the API decides |
+| `models:write` | `models_create`, `models_update`, `models_set_numbers`, `models_save_scenario`, `models_duplicate` — the API decides who may (admins and leads for structure, every active member for numbers) |
+
+**Security checks before a write (2026-09-26).** Sjoerd: _"make sure when
+talking to the system, that it always checks if it is clear which and where
+and it does not change the wrong models."_ Every write tool takes the name of
+what it means next to the id — `model_name` for a model, `team_name` for a
+team (`"workspace"` for a workspace-wide model) — reads the real thing back
+and refuses on a mismatch, before anything is written. `models_create` also
+refuses a second model with a name that already exists in that team, unless
+`allow_same_name` is passed. The tool descriptions tell the assistant to name
+the model and team to the person and wait for a yes, and to ask rather than
+guess when words could match more than one. The check is in
+`packages/mcp/src/person.ts` (`checkModel`, `checkTeam`, `checkNameFree`),
+tested in `person.test.ts`.

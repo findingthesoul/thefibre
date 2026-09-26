@@ -147,6 +147,61 @@ function count<T>(rows: T[], key: (r: T) => string | null): Record<string, numbe
 const one = <T>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 const str = (v: unknown) => (typeof v === 'string' ? v : null);
 
+// --- Business Models: the security checks before a write ---------------------
+// Sjoerd: "make sure when talking to the system, that it always checks if it
+// is clear which and where and it does not change the wrong models." So every
+// write names the model and the team it means, in words, and the tool reads
+// them back and compares before touching anything. A stale id, a guess, or a
+// mix-up between two similar names is refused with the real name in the
+// answer, and nothing is written.
+const norm = (v: string) => v.trim().toLowerCase().replace(/\s+/g, ' ');
+const WRITE_RULE =
+  'Security check, every time: before calling, tell the person which model (its name and its team) and what will change, and wait for their yes. If their words could match more than one model, ask; never guess. Pass model_name exactly as shown to them: the tool reads the model back and refuses when the name does not match, so a wrong id never changes another model.';
+
+async function checkModel(c: PersonClient, modelId: string, expected: string): Promise<{ row: Row; team: Row | null }> {
+  const row = await c.get<Row>(MODELS, `/api/v1/models/${modelId}`);
+  const team = one(row.team as Row | Row[] | null);
+  const actual = str(row.name) ?? '';
+  if (norm(actual) !== norm(expected)) {
+    throw new Error(
+      `Refused, nothing changed: model ${modelId} is called "${actual}" (${team ? `team ${String(team.name)}` : 'whole workspace'}), not "${expected}". Look at models_list, tell the person which model you mean by name and team, and pass that name.`,
+    );
+  }
+  return { row, team };
+}
+
+/** The team a model goes into, checked by name: null with "workspace" for a
+ *  workspace-wide model (admins only), otherwise a team from models_teams. */
+async function checkTeam(c: PersonClient, teamId: string | null, expected: string): Promise<{ id: string | null; name: string }> {
+  const r = await c.get<{ items: Row[]; is_admin?: boolean }>(MODELS, '/api/v1/models/teams');
+  if (teamId === null) {
+    if (!['workspace', 'whole workspace', 'workspace wide', 'workspace-wide'].includes(norm(expected))) {
+      throw new Error(`Refused, nothing changed: team_id null means the whole workspace, but team_name says "${expected}". Pick the team's id from models_teams, or say "workspace" if the person wants everyone with the app to see it.`);
+    }
+    if (r.is_admin !== true) throw new Error('Refused, nothing changed: only a workspace admin may put a model on the whole workspace. Choose one of the teams from models_teams.');
+    return { id: null, name: 'workspace' };
+  }
+  const team = (r.items ?? []).find((t) => t.id === teamId);
+  if (!team) throw new Error(`Refused, nothing changed: team ${teamId} is not one the person may put a model in. models_teams lists the ones that are.`);
+  const name = str(team.name) ?? '';
+  if (norm(name) !== norm(expected)) {
+    throw new Error(`Refused, nothing changed: team ${teamId} is called "${name}", not "${expected}". Confirm the team with the person by name and pass that name.`);
+  }
+  return { id: teamId, name };
+}
+
+/** A second model with the same name in the same place is almost always a
+ *  mistake (the person meant "change it", or the assistant lost track). */
+async function checkNameFree(c: PersonClient, teamId: string | null, name: string): Promise<void> {
+  const r = await c.get<{ items: Row[] }>(MODELS, '/api/v1/models');
+  const clash = (r.items ?? []).find((m) => norm(str(m.name) ?? '') === norm(name) && ((one(m.team as Row | Row[] | null)?.id ?? null) === teamId));
+  if (clash) {
+    throw new Error(
+      `Refused, nothing changed: a model called "${String(clash.name)}" already exists ${teamId ? 'in that team' : 'on the whole workspace'} (id ${String(clash.id)}). To change it, use models_update or models_set_numbers with that id. To make a variation, use models_duplicate. If the person really wants a second one with the same name, pass allow_same_name: true.`,
+    );
+  }
+}
+
 
 export const PERSON_TOOLS: PersonTool[] = [
   // --- Connect (the app; slug fibre-sales; scope connections:read stays) ---------------------------------------------------------
@@ -481,27 +536,31 @@ export const PERSON_TOOLS: PersonTool[] = [
     name: 'models_create',
     title: 'Create a business model',
     description:
-      'Create a business model in Business Models from a definition (see models_schema): turnover generators each with a volume, a price and their own cost structure, generic fixed costs, one-off investment, and the Business Model Canvas text. The team then turns the numbers in the app. Before calling: confirm the name and the team with the person (models_teams says where they may create; admins may pass team_id null for the whole workspace). Every number in the definition is a placeholder for the team to replace; say so in the help texts. Nothing is shared outside the team.',
+      'Create a business model in Business Models from a definition (see models_schema): turnover generators each with a volume, a price and their own cost structure, generic fixed costs, one-off investment, and the Business Model Canvas text. The team then turns the numbers in the app. Security check, every time: before calling, tell the person the model name and the team it goes into and wait for their yes (models_teams says where they may create; admins may pass team_id null for the whole workspace). Pass team_name as confirmed: the tool checks it against team_id and refuses a mismatch. A model with the same name in the same place is refused too, so "create" never silently doubles or replaces an existing one; to change one, use models_update. This tool only ever creates; it never changes an existing model. Every number in the definition is a placeholder for the team to replace; say so in the help texts. Nothing is shared outside the team.',
     scope: 'models:write',
     write: true,
     input: {
       name: z.string().min(1).max(200),
       tagline: z.string().max(300).optional(),
       team_id: uuid.nullable().describe('A team from models_teams, or null for the whole workspace (admins only)'),
+      team_name: z.string().min(1).max(200).describe('The team’s name as the person confirmed it, or "workspace" for a workspace-wide model. Checked against team_id.'),
+      allow_same_name: z.boolean().optional().describe('Only when the person explicitly wants a second model with a name that already exists there'),
       definition: z
         .object({ name: z.string().min(1).max(200), generators: z.array(z.record(z.unknown())).min(1).max(40) })
         .passthrough()
         .describe('The definition, in the format models_schema describes'),
     },
     run: async (c, a) => {
+      const place = await checkTeam(c, a.team_id, a.team_name);
+      if (!a.allow_same_name) await checkNameFree(c, place.id, a.name);
       const created = await c.post<Row>(MODELS, '/api/v1/models', {
         name: a.name,
         tagline: a.tagline ?? null,
-        team_id: a.team_id,
+        team_id: place.id,
         definition: a.definition,
       });
       const team = one(created.team as Row | Row[] | null);
-      return { created: true, model_id: created.id, name: created.name, slug: created.slug, team: team ? { id: team.id, name: team.name } : null, open_in_models: `/models/${String(created.id)}` };
+      return { created: true, model_id: created.id, name: created.name, slug: created.slug, team: team ? { id: team.id, name: team.name } : { id: null, name: 'workspace' }, open_in_models: `/models/${String(created.id)}` };
     },
   }),
 
@@ -509,11 +568,13 @@ export const PERSON_TOOLS: PersonTool[] = [
     name: 'models_update',
     title: 'Change a business model',
     description:
-      'Change a business model’s name, tagline, description or its whole definition (the structure: generators, costs, canvas, funnel). Read it first with models_get, change what the person asked, send the full definition back. Admins and team leads only. Pass if_updated_at from models_get: if someone changed the model meanwhile the call is refused with the current version, so nothing is overwritten silently. The numbers the team typed are untouched; use models_set_numbers for those.',
+      'Change a business model’s name, tagline, description or its whole definition (the structure: generators, costs, canvas, funnel). Read it first with models_get, change what the person asked, send the full definition back. Admins and team leads only. Pass if_updated_at from models_get: if someone changed the model meanwhile the call is refused with the current version, so nothing is overwritten silently. The numbers the team typed are untouched; use models_set_numbers for those. ' +
+      WRITE_RULE,
     scope: 'models:write',
     write: true,
     input: {
       model_id: uuid,
+      model_name: z.string().min(1).max(200).describe('The model’s current name, as the person confirmed it; checked against model_id'),
       if_updated_at: z.string().optional().describe('updated_at as models_get returned it'),
       name: z.string().min(1).max(200).optional(),
       tagline: z.string().max(300).optional(),
@@ -521,20 +582,23 @@ export const PERSON_TOOLS: PersonTool[] = [
       definition: z.object({ name: z.string().min(1).max(200), generators: z.array(z.record(z.unknown())).min(1).max(40) }).passthrough().optional(),
     },
     run: async (c, a) => {
-      const { model_id, ...patch } = a;
+      const { model_id, model_name, ...patch } = a;
+      const { team } = await checkModel(c, model_id, model_name);
       const r = await c.patch<Row>(MODELS, `/api/v1/models/${model_id}`, patch);
-      return { updated: true, model_id: r.id, name: r.name, updated_at: r.updated_at };
+      return { updated: true, model_id: r.id, name: r.name, team: team ? { id: team.id, name: team.name } : { id: null, name: 'workspace' }, updated_at: r.updated_at };
     },
   }),
   tool({
     name: 'models_set_numbers',
     title: 'Set numbers in a business model',
     description:
-      'Change some of the numbers of a model — the variables of a generator ({ generators: { "<generator id>": { "<input or cost id>": value } } }), a fixed cost ({ fixed: { "<id>": value } }), an investment line, a setting, a funnel rate ({ transitions: { "<transition id>": percent } }), new clients typed for months ({ periods: { "<segment id>": { "7": 12 } } }), the horizon or the reference month. Only what you send changes; the rest stays. Every active member of the team may. Confirm the numbers with the person first.',
+      'Change some of the numbers of a model — the variables of a generator ({ generators: { "<generator id>": { "<input or cost id>": value } } }), a fixed cost ({ fixed: { "<id>": value } }), an investment line, a setting, a funnel rate ({ transitions: { "<transition id>": percent } }), new clients typed for months ({ periods: { "<segment id>": { "7": 12 } } }), the horizon or the reference month. Only what you send changes; the rest stays. Every active member of the team may. Confirm the numbers with the person first. ' +
+      WRITE_RULE,
     scope: 'models:write',
     write: true,
     input: {
       model_id: uuid,
+      model_name: z.string().min(1).max(200).describe('The model’s name, as the person confirmed it; checked against model_id'),
       settings: z.record(z.number()).optional(),
       generators: z.record(z.record(z.number())).optional(),
       fixed: z.record(z.number()).optional(),
@@ -546,28 +610,44 @@ export const PERSON_TOOLS: PersonTool[] = [
       horizon: z.number().int().min(12).max(240).optional(),
     },
     run: async (c, a) => {
-      const { model_id, ...numbers } = a;
+      const { model_id, model_name, ...numbers } = a;
+      const { row, team } = await checkModel(c, model_id, model_name);
       const r = await c.put<Row>(MODELS, `/api/v1/models/${model_id}/numbers`, numbers);
-      return { updated: true, model_id: r.id, updated_at: r.updated_at };
+      return { updated: true, model_id: r.id, name: row.name, team: team ? { id: team.id, name: team.name } : { id: null, name: 'workspace' }, updated_at: r.updated_at };
     },
   }),
   tool({
     name: 'models_save_scenario',
     title: 'Save the current numbers as a scenario',
-    description: 'Save the model’s current numbers under a name, so the team can compare and switch between variations in the app. Set the numbers first with models_set_numbers, then save; a scenario with the same name is replaced.',
+    description: 'Save the model’s current numbers under a name, so the team can compare and switch between variations in the app. Set the numbers first with models_set_numbers, then save; a scenario with the same name is replaced. ' + WRITE_RULE,
     scope: 'models:write',
     write: true,
-    input: { model_id: uuid, name: z.string().min(1).max(120) },
-    run: async (c, a) => c.post<Row>(MODELS, `/api/v1/models/${a.model_id}/scenarios`, { name: a.name }),
+    input: { model_id: uuid, model_name: z.string().min(1).max(200).describe('The model’s name, as the person confirmed it; checked against model_id'), name: z.string().min(1).max(120) },
+    run: async (c, a) => {
+      const { row, team } = await checkModel(c, a.model_id, a.model_name);
+      const r = await c.post<Row>(MODELS, `/api/v1/models/${a.model_id}/scenarios`, { name: a.name });
+      return { ...r, model_name: row.name, team: team ? { id: team.id, name: team.name } : { id: null, name: 'workspace' } };
+    },
   }),
   tool({
     name: 'models_duplicate',
     title: 'Duplicate a business model',
-    description: 'A copy of a model, definition and numbers and scenarios, under a new name, in a team the person leads (models_teams) or workspace wide for admins. The way to make a variation of the structure without touching the original.',
+    description: 'A copy of a model, definition and numbers and scenarios, under a new name, in a team the person leads (models_teams) or workspace wide for admins. The way to make a variation of the structure without touching the original. ' + WRITE_RULE + ' When you move the copy to another team, pass team_name as confirmed too.',
     scope: 'models:write',
     write: true,
-    input: { model_id: uuid, name: z.string().min(1).max(200).optional(), team_id: uuid.nullable().optional().describe('Omit to keep the original’s team') },
+    input: {
+      model_id: uuid,
+      model_name: z.string().min(1).max(200).describe('The original’s name, as the person confirmed it; checked against model_id'),
+      name: z.string().min(1).max(200).optional(),
+      team_id: uuid.nullable().optional().describe('Omit to keep the original’s team'),
+      team_name: z.string().min(1).max(200).optional().describe('Required when team_id is given: that team’s name as confirmed, or "workspace"'),
+    },
     run: async (c, a) => {
+      await checkModel(c, a.model_id, a.model_name);
+      if (a.team_id !== undefined) {
+        if (!a.team_name) throw new Error('Refused, nothing changed: team_id was given without team_name. Confirm the target team with the person and pass its name.');
+        await checkTeam(c, a.team_id, a.team_name);
+      }
       const r = await c.post<Row>(MODELS, `/api/v1/models/${a.model_id}/duplicate`, { name: a.name, team_id: a.team_id });
       const team = one(r.team as Row | Row[] | null);
       return { created: true, model_id: r.id, name: r.name, team: team ? { id: team.id, name: team.name } : null, open_in_models: `/models/${String(r.id)}` };
