@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.61.3] — 2026-09-26 — Business Models has its tile
+
+Sjoerd: *"here is the icon"* — `models.png` from the "PNG 3" set, two white
+blocks on the blue paint, resized to the set's 600px square and encoded like
+its siblings (`apps/web/public/brand/apps/README.md`). `TILE_FILES` maps
+`fibre-models` to it, so the tile shows at the top of the app's own sidebar
+and in the launcher once the app is available.
+
 ## [1.61.2] — 2026-09-26 — Business Models: doors to Teams and Members
 
 Sjoerd: *"Can I create teams and contacts in the side bar? So I can make a
