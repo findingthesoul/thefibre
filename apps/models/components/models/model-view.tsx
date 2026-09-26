@@ -9,7 +9,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Download, Printer, RotateCcw, ChevronLeft, Link2, Check } from 'lucide-react';
+import { Download, Printer, RotateCcw, ChevronLeft, Link2, Check, Undo2 } from 'lucide-react';
 import { Button } from '@thefibre/shared/ui/button';
 import { PageContainer } from '@thefibre/shared/ui/page';
 import { Tabs } from '@thefibre/shared/ui/tabs';
@@ -28,8 +28,9 @@ import { Kpis, YearsPanels, ChartPanels, MixPanels, ProjectionPanel } from './re
 import { ColumnsDrawer } from './columns-drawer';
 import { SortablePanels } from './sortable-panels';
 import { PeriodsGrid } from './periods-grid';
+import { ScenariosPanel, type Scenario } from './scenarios';
 
-type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number };
+type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number; scenarios?: Scenario[] };
 
 /** Fills the window from where it sits to the bottom, so the drawer inside
  *  it is always at the bottom and the views scroll above it. */
@@ -45,7 +46,7 @@ function FillToBottom({ children, className = '' }: { children: React.ReactNode;
   return <div ref={ref} className={className} style={{ height: `calc(100dvh - ${Math.round(top)}px)` }}>{children}</div>;
 }
 type Tab = 'canvas' | 'numbers';
-type View = 'bep' | 'projection' | 'periods';
+type View = 'bep' | 'projection' | 'periods' | 'scenarios';
 
 export function ModelView({ model: row, locale }: { model: ModelRow; locale: Locale }) {
   const [def, setDef] = useState<ModelDefinition>(row.definition);
@@ -55,6 +56,25 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   const [horizon, setHorizon] = useState<number>(typeof saved.horizon === 'number' ? saved.horizon : (row.definition.horizon ?? 36));
   const [tab, setTab] = useState<Tab>('canvas');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [scenarios, setScenarios] = useState<Scenario[]>(Array.isArray(saved.scenarios) ? saved.scenarios.filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && x.inputs && typeof x.inputs === 'object') : []);
+  // Undo: a snapshot before every change, back with the button or ⌘Z.
+  type Snap = { def: ModelDefinition; state: ModelState; refMonth: number; horizon: number };
+  const history = useRef<Snap[]>([]);
+  const [undoDepth, setUndoDepth] = useState(0);
+  const snapshotRef = useRef<Snap | null>(null);
+  const undo = () => {
+    const snap = history.current.pop();
+    if (!snap) return;
+    setUndoDepth(history.current.length);
+    inputsDirty.current = true; defDirty.current = true;
+    setDef(snap.def); setState(snap.state); setRefMonth(snap.refMonth); setHorizon(snap.horizon);
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { const el = document.activeElement as HTMLElement | null; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.closest('[role=dialog]')) return; e.preventDefault(); undo(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // A shared link opens the tab it was copied from: /models/<id>?tab=numbers.
   useEffect(() => { try { const q = new URLSearchParams(window.location.search).get('tab'); if (q === 'numbers' || q === 'canvas') setTab(q); } catch {} }, []);
   const [view, setView] = useState<View>('bep');
@@ -74,7 +94,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       const jobs: Promise<{ error?: string }>[] = [];
-      if (inputsDirty.current) { inputsDirty.current = false; jobs.push(saveInputs(row.id, { ...state, refMonth, horizon })); }
+      if (inputsDirty.current) { inputsDirty.current = false; jobs.push(saveInputs(row.id, { ...state, refMonth, horizon, scenarios })); }
       if (defDirty.current) { defDirty.current = false; jobs.push(updateModel(row.id, { definition: def })); }
       const results = await Promise.all(jobs);
       const err = results.find((r) => r.error);
@@ -82,9 +102,10 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       if (!err) setTimeout(() => setStatus((st) => (st === 'saved' ? 'idle' : st)), 1500);
     }, 800);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [state, refMonth, horizon, def, row.id]);
+  }, [state, refMonth, horizon, def, scenarios, row.id]);
 
   function change(scope: Scope, id: string, value: number) {
+    remember();
     inputsDirty.current = true;
     setState((st) => {
       const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, periods: st.periods, periodRates: st.periodRates, generators: { ...st.generators } };
@@ -94,12 +115,23 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     });
   }
   function patchDef(next: ModelDefinition) {
+    lastSnapAt.current = 0; remember();
     defDirty.current = true;
     setDef(next);
     // New generators need their default numbers in the state, or every field shows 0.
     setState((st) => mergeState(defaultState(next), st));
   }
+  const lastSnapAt = useRef(0);
+  function remember() {
+    const now = Date.now();
+    if (now - lastSnapAt.current < 1200 && history.current.length) return; // one step per burst of typing
+    lastSnapAt.current = now;
+    history.current.push({ def, state, refMonth, horizon });
+    if (history.current.length > 50) history.current.shift();
+    setUndoDepth(history.current.length);
+  }
   function setCell(kind: 'periods' | 'periodRates', id: string, month: number, value: number | null) {
+    remember();
     inputsDirty.current = true;
     setState((st) => {
       const table = { ...(st[kind][id] ?? {}) };
@@ -110,16 +142,31 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     });
   }
   function setItems(block: CanvasBlockKey, items: CanvasItem[]) {
+    lastSnapAt.current = 0; remember();
     defDirty.current = true;
     setDef((d) => ({ ...d, canvas: { ...(d.canvas ?? {}), [block]: items } }));
   }
   function reset() {
     if (!confirm(t(locale, 'reset_confirm'))) return;
+    lastSnapAt.current = 0; remember();
     inputsDirty.current = true;
     setState(defaultState(def));
     setRefMonth(def.breakEvenMonth ?? 12);
     setHorizon(def.horizon ?? 36);
   }
+  function saveScenario(name: string) {
+    const sc: Scenario = { id: (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())), name, savedAt: new Date().toISOString(), inputs: { ...state, refMonth, horizon } };
+    inputsDirty.current = true;
+    setScenarios((list) => [...list.filter((x) => x.name !== name), sc]);
+  }
+  function loadScenario(sc: Scenario) {
+    lastSnapAt.current = 0; remember();
+    inputsDirty.current = true;
+    setState(mergeState(defaultState(def), sc.inputs));
+    if (typeof sc.inputs.refMonth === 'number') setRefMonth(sc.inputs.refMonth);
+    if (typeof sc.inputs.horizon === 'number') setHorizon(sc.inputs.horizon);
+  }
+  function deleteScenario(sc: Scenario) { inputsDirty.current = true; setScenarios((list) => list.filter((x) => x.id !== sc.id)); }
   async function copyLink() {
     const url = `${window.location.origin}/models/${row.id}?tab=${tab}`;
     try { await navigator.clipboard.writeText(url); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { window.prompt(t(locale, 'copy_link'), url); }
@@ -157,6 +204,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
           </div>
           <div className="flex items-center gap-1">
             <Tabs value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }]} className="border-b-0" />
+            <Button variant="ghost" size="icon" onClick={undo} disabled={undoDepth === 0} title={t(locale, 'undo')}><Undo2 size={16} /></Button>
             <Button variant="ghost" size="icon" onClick={copyLink} title={linkCopied ? t(locale, 'link_copied') : t(locale, 'copy_link')}>{linkCopied ? <Check size={16} /> : <Link2 size={16} />}</Button>
             <Button variant="ghost" size="icon" onClick={() => window.print()} title={t(locale, 'print_canvas')}><Printer size={16} /></Button>
             <Button variant="ghost" size="icon" onClick={exportCsv} title={t(locale, 'export_csv')}><Download size={16} /></Button>
@@ -183,8 +231,8 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       {tab === 'numbers' && (
         <FillToBottom className="mt-3 flex flex-col print:hidden">
           <div className="flex flex-wrap gap-2">
-            {(['bep', 'projection', 'periods'] as View[]).map((v) => (
-              <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : v === 'projection' ? 'view_projection' : 'view_periods')}</button>
+            {(['bep', 'projection', 'periods', 'scenarios'] as View[]).map((v) => (
+              <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : v === 'projection' ? 'view_projection' : v === 'periods' ? 'view_periods' : 'view_scenarios')}</button>
             ))}
           </div>
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-4 pl-0 lg:pl-7">
@@ -195,6 +243,8 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
               ]} />
             ) : view === 'periods' ? (
               <PeriodsGrid model={def} state={state} s={s} locale={locale} onCell={setCell} />
+            ) : view === 'scenarios' ? (
+              <ScenariosPanel model={def} state={state} refMonth={Math.min(refMonth, horizon)} horizon={horizon} scenarios={scenarios} locale={locale} onSave={saveScenario} onLoad={loadScenario} onDelete={deleteScenario} />
             ) : (
               <SortablePanels key="projection" storageKey={`bm-order-${row.id}-projection`} title={t(locale, 'drag_to_reorder')} panels={[
                 { id: 'years', node: <YearsPanels model={def} s={s} locale={locale} /> },
