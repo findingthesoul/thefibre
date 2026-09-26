@@ -21,6 +21,24 @@ the queue.
 ### Open queue (in priority order — THE to-do list, keep it current)
 
 _Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
+
+**LAUNCH — the production API is ONE Fly machine, and every restart is a
+short outage.** Found 2026-09-25 by the Fibre session, relayed at Sjoerd's
+request. `fly status --app thefibre-api` shows a single machine (fra); a
+routine probe got a 502 that lasted 15 s before clean 200s; every
+`fly secrets set` and every deploy restarts that machine with nothing to take
+the traffic, so a config change becomes a client-visible error. Staging is
+the same shape. With paying clients onboarding, decide before launch:
+`fly scale count 2 --app thefibre-api` (second machine, same region; the
+in-API schedulers must then tolerate two runners — check the 5-minute ticks
+dedupe by row, which the thread_message_send and reminder tables already do),
+or at minimum accept the outage windows and stop setting secrets during
+client hours. Cost of the second machine is the trade; it is Sjoerd's call.
+
+**LAUNCH — promote the privacy policy that names Anthropic.** The in-app
+assistant went live on production 2026-09-25 (ANTHROPIC_API_KEY set) but the
+privacy-policy text naming Anthropic as a sub-processor is on STAGING only.
+Promote before client data flows through the assistant in earnest.
 Done items get removed, not ticked._
 
 **Silent-empty sites still open** (testing approach §1.9; the sweep of
