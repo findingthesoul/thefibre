@@ -10,15 +10,16 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { createWorkspace } from './actions';
+import { PersonEmailField, type ChosenAdmin } from '@/components/ui/person-email-field';
 import type { PlanOption } from './list';
 
 export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  // The first human. Required by the API since 2026-09-26: a workspace with
-  // no user cannot be entered by anybody, including whoever made it.
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminName, setAdminName] = useState('');
+  // The first human, chosen from the contact book rather than typed from
+  // memory — same single-point-of-truth rule as everywhere else a person is
+  // named (Sjoerd, 2026-09-26).
+  const [admin, setAdmin] = useState<ChosenAdmin | null>(null);
   const [planId, setPlanId] = useState('free');
   const [comped, setComped] = useState(false);
   const [reason, setReason] = useState('');
@@ -32,8 +33,7 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
     setPlanId('free');
     setComped(false);
     setReason('');
-    setAdminEmail('');
-    setAdminName('');
+    setAdmin(null);
     setCustomMonth('');
     setError(null);
   }
@@ -44,7 +44,7 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
       setError('A workspace needs a name.');
       return;
     }
-    if (!adminEmail.trim()) {
+    if (!admin) {
       setError('A workspace needs a first admin — nobody can enter one without a user in it.');
       return;
     }
@@ -60,8 +60,8 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
     start(async () => {
       const r = await createWorkspace({
         name: name.trim(),
-        admin_email: adminEmail.trim(),
-        admin_name: adminName.trim() || null,
+        admin_email: admin.email,
+        admin_name: admin.name,
         plan_id: planId,
         comped,
         comped_reason: comped ? (reason.trim() || null) : null,
@@ -113,29 +113,11 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
               autoFocus
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-ink-subtle">First admin — email</span>
-            <input
-              className={`${field} mt-1`}
-              type="email"
-              value={adminEmail}
-              onChange={(e) => setAdminEmail(e.target.value)}
-              placeholder="them@their-organisation.org"
-            />
-            <span className="mt-1 block text-xs text-ink-muted">
-              They become super admin, get an email, and are the only way into this workspace —
-              a workspace with no user cannot be opened by anyone, including you.
-            </span>
-          </label>
-          <label className="block text-sm">
-            <span className="text-ink-subtle">First admin — name (optional)</span>
-            <input
-              className={`${field} mt-1`}
-              value={adminName}
-              onChange={(e) => setAdminName(e.target.value)}
-              placeholder="Optional"
-            />
-          </label>
+          <PersonEmailField label="First admin" value={admin} onChange={setAdmin} disabled={pending} />
+          <p className="text-xs text-ink-muted">
+            They become super admin and are the only way into this workspace — one with no user
+            cannot be opened by anyone, including you.
+          </p>
           <label className="block text-sm">
             <span className="text-ink-subtle">Plan</span>
             <select className={`${field} mt-1`} value={planId} onChange={(e) => setPlanId(e.target.value)}>

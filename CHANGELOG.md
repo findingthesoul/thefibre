@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.70.0] — 2026-09-26 — naming a person means picking one, everywhere it happens
+
+Sjoerd, twice within a few minutes: *"the forst admin field is not a single
+point of truth field.. it does not search in the fibre..."*, and then, with a
+screenshot of Settings → Members showing the browser's own autofill offering
+him "salim": *"Also the field in ADD member is not this field"*.
+
+Both were plain `type="email"` boxes. The person being invited is usually
+**already a contact** — that is generally how they came to be invited — so
+asking for their address from memory is both work and a chance to mistype the
+one string the whole invitation resolves on.
+
+All three now use one `PersonEmailField`, built on the shared
+`PersonCombobox`: Settings → Members, the first admin on a new workspace, and
+the first admin on a stranded one. Picking a contact fills the name too when
+the name is still blank. Typing an address that belongs to nobody yet still
+works — the usual case when a workspace is being made for somebody met this
+morning — and it is validated as an address rather than accepted as whatever
+was typed.
+
+Two things the picker had to be told, which a plain box never had to answer:
+
+**A contact with no email address.** The picker is right, the person is real,
+and they still cannot be invited — sign-in resolves an ADDRESS, so there is
+nothing to sign in as. That gets its own sentence naming the person rather
+than a silent refusal.
+
+**Which contact book.** The picker searches the CALLER's people, under their
+own RLS. For a stranded workspace that is the only book there is — the target
+has no contacts by definition — and the seed then creates a fresh person in
+the target workspace, because a person belongs to one workspace and the data
+wall does not bend for an admin screen.
+
+**Why the existing guard did not catch this.**
+`combobox-single-source.test.ts` has enforced this rule since 2026-09-22, but
+it looks for the shape of a HAND-ROLLED type-ahead: a text input whose results
+are a list the file filters itself. A plain email box has no results to
+filter, so there was nothing to detect — widening its directory list would not
+have found these either. The new assertion names the three dialogs and
+requires the picker, refusing both a bare `<input type="email">` and a plain
+`TextField`. Confirmed by putting the old field back in the Add member dialog
+and watching it go red.
+
 ## [1.69.1] — 2026-09-26 — an assistant cannot change the wrong business model
 
 Sjoerd: *"Can you make sure when talking to the system, that it always checks

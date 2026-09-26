@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/field';
 import { APPS, type AppSlug } from '@/lib/apps';
+import { PersonEmailField, type ChosenAdmin } from '@/components/ui/person-email-field';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { inviteMember } from './actions';
 
@@ -94,18 +95,23 @@ export function InviteDialog({
       }
     >
       <form id="invite-member-form" onSubmit={submit} className="space-y-4">
-        <TextField
+        {/* The contact book, not a blank box. Sjoerd, 2026-09-26, typing a
+            first name into this field and getting the browser's autofill
+            instead of his own people: *"Also the field in ADD member is not
+            this field"*. Most people invited here are ALREADY a contact —
+            that is how they came to be invited — so retyping their address
+            from memory is both work and a chance to get it wrong. Picking a
+            contact fills the name too, when the name is still blank. */}
+        <PersonEmailField
           label={t(locale, 'email_label')}
-          name="email"
-          type="email"
-          required
-          autoFocus
-          value={email}
-          onChange={(e) => {
+          value={email ? { email, name: name || null } : null}
+          onChange={(v) => {
+            // A confirmation belongs to the invite it was shown for.
             setSeatConfirm(null);
-            setEmail(e.target.value);
+            setEmail(v?.email ?? '');
+            if (v?.name && !name.trim()) setName(v.name);
           }}
-          placeholder="them@example.org"
+          disabled={pending}
         />
         <TextField
           label={t(locale, 'name')}

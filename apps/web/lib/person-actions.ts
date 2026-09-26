@@ -109,3 +109,31 @@ export async function createOrganisationFromPicker(input: {
     return { ok: false, error: typeof err.body?.error === 'string' ? err.body.error : `API ${err.status ?? ''}`.trim() };
   }
 }
+
+/** The email and name of a person a caller picked from the contact book.
+ *
+ *  The picker hands back an id and a display label; seeding needs the
+ *  ADDRESS, because an address is what a sign-in resolves to. One extra
+ *  round trip on selection, rather than a second copy of the search results
+ *  kept in the dialog purely to look one field up. */
+export async function personForSeeding(
+  personId: string,
+): Promise<{ email: string | null; name: string | null } | { error: string }> {
+  try {
+    const p = await apiFetch<{ email: string | null; first_name: string | null; last_name: string | null }>(
+      `/api/v1/persons/${personId}`,
+    );
+    return {
+      email: p.email,
+      name: [p.first_name, p.last_name].filter(Boolean).join(' ') || null,
+    };
+  } catch (e) {
+    const err = e as { status?: number };
+    return {
+      error:
+        err.status === 404
+          ? 'That contact could not be read — it may have been removed.'
+          : 'Could not read that contact.',
+    };
+  }
+}

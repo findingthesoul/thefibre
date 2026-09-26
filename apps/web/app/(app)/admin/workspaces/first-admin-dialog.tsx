@@ -16,6 +16,7 @@ import { useState, useTransition } from 'react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { addFirstAdmin } from './actions';
+import { PersonEmailField, type ChosenAdmin } from '@/components/ui/person-email-field';
 import type { Workspace } from './list';
 
 export function FirstAdminDialog({
@@ -25,22 +26,18 @@ export function FirstAdminDialog({
   workspace: Workspace;
   onClose: (changed: boolean) => void;
 }) {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+  const [chosen, setChosen] = useState<ChosenAdmin | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const field =
-    'w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-line-strong';
-
   function save() {
     setError(null);
-    if (!email.trim()) {
-      setError('An email address — it is the only way in.');
+    if (!chosen) {
+      setError('Pick the person, or type their email address — it is the only way in.');
       return;
     }
     start(async () => {
-      const r = await addFirstAdmin(workspace.id, email.trim(), name.trim() || null);
+      const r = await addFirstAdmin(workspace.id, chosen.email, chosen.name);
       if (r.error) setError(r.error);
       else onClose(true);
     });
@@ -57,38 +54,19 @@ export function FirstAdminDialog({
           <Button variant="ghost" onClick={() => onClose(false)} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={pending || !email.trim()}>
+          <Button onClick={save} disabled={pending || !chosen}>
             {pending ? 'Adding…' : 'Add first admin'}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <label className="block text-sm">
-          <span className="text-ink-subtle">Email</span>
-          <input
-            className={`${field} mt-1`}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="them@their-organisation.org"
-            autoFocus
-          />
-          <span className="mt-1 block text-xs text-ink-muted">
-            They become super admin of this workspace, its apps are switched on, and they get an
-            email. They sign in with this address — Google, or an emailed code if they have no
-            Google account on it.
-          </span>
-        </label>
-        <label className="block text-sm">
-          <span className="text-ink-subtle">Name (optional)</span>
-          <input
-            className={`${field} mt-1`}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Optional"
-          />
-        </label>
+        <PersonEmailField label="First admin" value={chosen} onChange={setChosen} disabled={pending} />
+        <p className="text-xs text-ink-muted">
+          They become super admin of this workspace, its apps are switched on, and they get an
+          email. They sign in with that address — Google, or an emailed code if they have no
+          Google account on it.
+        </p>
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
     </Dialog>
