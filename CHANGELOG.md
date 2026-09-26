@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.62.1] — 2026-09-26 — Business Models: the variables as Finder columns, pinned at the bottom
+
+Sjoerd: *"Reduce the top info. I want to see a frozen bottom bar with the
+column structure that we also create in Connect Landscape (apple columns).
+Column 1: list of segments… click one opens the next column: item… that
+opens the variables with numbers. All on one small part, in a frozen element
+at the bottom that you can change manually in height. Above it, the views of
+results."*
+
+So: the Numbers tab is the result views (break even & cash, or projection &
+overview) scrolling above a drawer pinned to the bottom of the page. The
+drawer is dragged to any height by its grip and the height is remembered in
+the browser. Inside it, three columns the way Connect's Landscape browses —
+same head, same rows, same chevrons: canvas elements (segments, revenue
+streams, key resources, settings, and every statement linked to items) →
+the items of the chosen element with their reading at the reference month →
+the variables of the chosen item, edited in place, the views above moving on
+each keystroke. Below `md` only the deepest column shows, with a back arrow.
+
+The header lost its weight: one line with back, name, team, save state, the
+two tabs and three icon actions. Description and tagline sit on the Canvas
+tab, above the canvas, where they are read. Business Models shows `v0.2.1`.
+
 ## [1.62.0] — 2026-09-26 — Business Models: the canvas you edit, the numbers you turn
 
 Sjoerd: *"Can you make tabs in the design. When clicking on a canvas box, you
