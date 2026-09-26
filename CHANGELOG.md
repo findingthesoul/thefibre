@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.62.2] — 2026-09-26 — Canvas: totals by default, the breakdown on a click
+
+Sjoerd: *"VARIABLE COST, MONTH 12 / FIXED COST PER MONTH should only show
+total in default mode. You can click on it to see a breakdown in a popup."*
+
+Key activities carry one line, the variable cost of the reference month;
+key resources two, the fixed cost per month and the one-off investment. Each
+is a quiet button; the breakdown table that used to sit in the block opens
+in a dialog. The canvas breathes again and prints as the totals.
+
 ## [1.62.1] — 2026-09-26 — Business Models: the variables as Finder columns, pinned at the bottom
 
 Sjoerd: *"Reduce the top info. I want to see a frozen bottom bar with the
