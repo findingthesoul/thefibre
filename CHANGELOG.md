@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.4] — 2026-09-26 — Business Models: one row per variable
+
+Sjoerd: *"Monthly fee (USD/member) can be one row."* The unit joins the
+label in brackets and the field is a touch lower, so a column of variables
+reads as a list rather than a form.
+
 ## [1.63.3] — 2026-09-26 — Business Models: copy the link
 
 Sjoerd: *"can I copy a link to the canvas? (for easy sharing) with a
