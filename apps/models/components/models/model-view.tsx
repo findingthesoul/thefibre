@@ -22,8 +22,11 @@ import type { ModelRow } from '@/app/(app)/models/actions';
 import { saveInputs, updateModel } from '@/app/(app)/models/actions';
 import { BusinessModelCanvas } from './canvas';
 import { CanvasEditor } from './canvas-editor';
+import { SegmentEditor, StreamEditor, ResourcesEditor, SettingsEditor } from './editors';
+import { newSegment, newStream, removeGenerator, upsertGenerator } from '@/lib/structure';
 import { Kpis, YearsPanels, ChartPanels, MixPanels, ProjectionPanel } from './results';
 import { ColumnsDrawer } from './columns-drawer';
+import { SortablePanels } from './sortable-panels';
 
 type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number };
 type Tab = 'canvas' | 'numbers';
@@ -39,6 +42,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   const [view, setView] = useState<View>('bep');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [editing, setEditing] = useState<{ block: CanvasBlockKey; index: number | null } | null>(null);
+  const [structure, setStructure] = useState<{ kind: 'segment' | 'stream'; id: string | null } | { kind: 'resources' | 'settings' } | null>(null);
   const inputsDirty = useRef(false);
   const defDirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,6 +74,12 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       else next.generators[scope.gen] = { ...(next.generators[scope.gen] ?? {}), [id]: value };
       return next;
     });
+  }
+  function patchDef(next: ModelDefinition) {
+    defDirty.current = true;
+    setDef(next);
+    // New generators need their default numbers in the state, or every field shows 0.
+    setState((st) => mergeState(defaultState(next), st));
   }
   function setItems(block: CanvasBlockKey, items: CanvasItem[]) {
     defDirty.current = true;
@@ -126,8 +136,14 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
 
       {tab === 'canvas' && (
         <div className="mt-3">
-          {editable && <p className="mb-2 text-xs text-ink-muted print:hidden">{t(locale, 'canvas_edit_hint')}</p>}
-          <BusinessModelCanvas model={def} state={state} s={s} locale={locale} tall editable={editable} edit={{ onEditItem: (block, index) => setEditing({ block, index }), onAddItem: (block) => setEditing({ block, index: null }) }} />
+          <BusinessModelCanvas model={def} state={state} s={s} locale={locale} tall editable={editable} edit={{
+            onEditItem: (block, index) => setEditing({ block, index }),
+            onAddItem: (block) => setEditing({ block, index: null }),
+            onEditSegment: (id) => setStructure({ kind: 'segment', id }),
+            onEditStream: (id) => setStructure({ kind: 'stream', id }),
+            onEditResources: () => setStructure({ kind: 'resources' }),
+            onEditSettings: () => setStructure({ kind: 'settings' }),
+          }} />
         </div>
       )}
 
@@ -138,24 +154,40 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
               <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : 'view_projection')}</button>
             ))}
           </div>
-          <div className="mt-3 pb-4">
+          <div className="mt-3 pb-4 pl-0 lg:pl-5">
             {view === 'bep' ? (
-              <>
-                <Kpis model={def} s={s} locale={locale} />
-                <ChartPanels model={def} s={s} locale={locale} />
-              </>
+              <SortablePanels storageKey={`bm-order-${row.id}-bep`} title={t(locale, 'drag_to_reorder')} panels={[
+                { id: 'kpis', node: <Kpis model={def} s={s} locale={locale} /> },
+                { id: 'charts', node: <ChartPanels model={def} s={s} locale={locale} /> },
+              ]} />
             ) : (
-              <>
-                <YearsPanels model={def} s={s} locale={locale} />
-                <MixPanels model={def} state={state} s={s} locale={locale} />
-                <ProjectionPanel model={def} s={s} locale={locale} />
-              </>
+              <SortablePanels storageKey={`bm-order-${row.id}-projection`} title={t(locale, 'drag_to_reorder')} panels={[
+                { id: 'years', node: <YearsPanels model={def} s={s} locale={locale} /> },
+                { id: 'mix', node: <MixPanels model={def} state={state} s={s} locale={locale} /> },
+                { id: 'projection', node: <ProjectionPanel model={def} s={s} locale={locale} /> },
+              ]} />
             )}
           </div>
           <ColumnsDrawer model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }} />
         </div>
       )}
 
+      {structure?.kind === 'segment' && (
+        <SegmentEditor open def={def} locale={locale} gen={structure.id ? (def.generators.find((g) => g.id === structure.id) ?? null) : null} onClose={() => setStructure(null)}
+          onSave={(g) => { const fresh = g.id ? g : { ...newSegment(def, g.name), name: g.name, short: g.short, segment: g.segment, help: g.help }; patchDef(upsertGenerator(def, fresh)); setStructure(null); }}
+          onDelete={() => { if (structure.id) patchDef(removeGenerator(def, structure.id)); setStructure(null); }} />
+      )}
+      {structure?.kind === 'stream' && (
+        <StreamEditor open def={def} locale={locale} gen={structure.id ? (def.generators.find((g) => g.id === structure.id) ?? null) : null} onClose={() => setStructure(null)}
+          onSave={(g) => { const fresh = g.id ? g : { ...g, id: newStream(def, g.name, null).id }; patchDef(upsertGenerator(def, fresh)); setStructure(null); }}
+          onDelete={() => { if (structure.id) patchDef(removeGenerator(def, structure.id)); setStructure(null); }} />
+      )}
+      {structure?.kind === 'resources' && (
+        <ResourcesEditor open def={def} locale={locale} onClose={() => setStructure(null)} onSave={(patch) => { patchDef({ ...def, ...patch }); setStructure(null); }} />
+      )}
+      {structure?.kind === 'settings' && (
+        <SettingsEditor open def={def} locale={locale} onClose={() => setStructure(null)} onSave={(patch) => { patchDef({ ...def, ...patch }); setStructure(null); }} />
+      )}
       {editing && (
         <CanvasEditor
           open

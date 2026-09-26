@@ -9,7 +9,7 @@
 
 export const MODEL_FORMAT: readonly string[] = [
   'A definition is one JSON object. Top level: name, tagline, description, currency (e.g. "EUR"), currencySymbol (e.g. "€"), horizon (months, 12–120, default 36), breakEvenMonth (the reference month for blended rates, default 12), unitLabel (plural, e.g. "members" or "customers"), canvas, settings, genericVariable, generators, fixedCosts, investment.',
-  'canvas: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels }, each an array of short lines in the venture’s own words. A value proposition may be { text, segments: ["<generator id>", …] } to say which segments it serves.',
+  'canvas: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels }, each an array of short lines in the venture’s own words. A line may be an object { id, text, segments, links }: segments (value propositions only) names the generator ids it serves; links names the turnover and cost items it stands for, as "gen:<generator id>", "cost:<generator id>.<cost id>", "fixed:<fixed cost id>", "invest:<investment id>" or "setting:<setting id>".',
   'settings: [{ id, label, unit, value, step }] — global numbers every formula may use by id (e.g. a payment fee percentage).',
   'genericVariable: [{ id: "<a settings id>", label, kind }] — costs on all revenue; kind is percentRevenue, perUnit or perNewUnit.',
   'generators: the turnover generators, one per way money comes in. Each: { id, name, short, segment (one line: who this is), help, countsAsUnit (default true), inputs: [{ id, label, unit, value, step }], volume, revenuePerUnit or revenueTotal, costs }.',

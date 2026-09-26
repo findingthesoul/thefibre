@@ -60,7 +60,7 @@ export function Kpis({ model, s, locale }: { model: ModelDefinition; s: Summary;
 export function YearsPanels({ model, s, locale }: { model: ModelDefinition; s: Summary; locale: Locale }) {
   const { fmtMoney, fmtMoneyK } = makeFormatters(model.currencySymbol ?? '');
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 lg:[grid-template-columns:minmax(0,3fr)_minmax(0,2fr)]">
+    <div className="grid grid-cols-1 gap-4 lg:[grid-template-columns:minmax(0,3fr)_minmax(0,2fr)]">
       <Panel title={t(locale, 'years_panel')} help={t(locale, 'years_help')}>
         <Legend items={[{ label: t(locale, 'turnover'), tone: 'ink' }, { label: t(locale, 'total_cost'), tone: 'muted' }]} />
         <div className="mt-2"><BarChart groups={s.years.map((y) => ({ label: t(locale, 'year_n', { n: y.year }) + (y.months < 12 ? '*' : ''), revenue: y.revenue, cost: y.totalCost, net: y.net }))} series={[{ key: 'revenue', label: t(locale, 'turnover'), tone: 'ink' }, { key: 'cost', label: t(locale, 'total_cost'), tone: 'muted' }]} yFmt={fmtMoneyK} yFmtFull={fmtMoney} netFmt={fmtMoneyK} netLabel={t(locale, 'net')} /></div>
@@ -83,7 +83,7 @@ export function ChartPanels({ model, s, locale }: { model: ModelDefinition; s: S
   const { fmtMoney, fmtMoneyK, fmtNum } = makeFormatters(model.currencySymbol ?? '');
   const unit = model.unitLabel ?? 'units';
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Panel id="breakeven" title={t(locale, 'break_even_point')} help={t(locale, 'break_even_help', { units: unit, n: s.refMonth })}>
         <Legend items={[{ label: t(locale, 'revenue'), tone: 'ink' }, { label: t(locale, 'total_cost'), tone: 'muted', dash: true }]} />
         <div className="mt-2"><LineChart points={s.curve.map((p) => ({ x: p.units, revenue: p.revenue, cost: p.cost }))} series={[{ key: 'cost', label: t(locale, 'total_cost'), tone: 'muted', dash: '5 4' }, { key: 'revenue', label: t(locale, 'revenue'), tone: 'ink' }]} xLabel={unit} xFmt={fmtNum} yFmt={fmtMoneyK} yFmtFull={fmtMoney} marker={s.breakEvenUnits} markerLabel={s.breakEvenUnits != null ? `${t(locale, 'break_even').toLowerCase()} ${fmtNum(s.breakEvenUnits)}` : ''} tipTitle={(p) => `${fmtNum(p.x)} ${unit}`} /></div>
@@ -110,7 +110,7 @@ export function MixPanels({ model, state, s, locale }: { model: ModelDefinition;
   const maxCost = Math.max(...rows.map((r) => r.amount), 1);
   const totalOwn = gens.reduce((a, g) => a + (ref.gens[g.id]?.cost ?? 0), 0);
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Panel title={t(locale, 'generators_at_month', { n: s.refMonth })} help={t(locale, 'generators_help')}>
         <table className="w-full border-collapse text-[13px]"><thead><tr><th className={th}>{t(locale, 'generator')}</th><th className={`${th} text-right`}>{cap(unit)}</th><th className={`${th} text-right`}>{t(locale, 'revenue')}</th><th className={th} style={{ width: '22%' }} /><th className={`${th} text-right`}>{t(locale, 'own_costs')}</th><th className={`${th} text-right`}>{t(locale, 'margin')}</th></tr></thead>
           <tbody>{gens.map((g) => { const r = ref.gens[g.id]!; const m = r.revenue - r.cost; return <tr key={g.id}><td className={td}>{g.short ?? g.name}</td><td className={`${td} ${num}`}>{g.countsAsUnit === false ? '' : fmtNum(r.units)}</td><td className={`${td} ${num}`}>{fmtMoney(r.revenue)}</td><td className={td}><Bar pct={(r.revenue / maxRev) * 100} /></td><td className={`${td} ${num}`}>{fmtMoney(r.cost)}</td><td className={`${td} ${num} ${m < 0 ? NEG : ''}`}>{fmtMoney(m)}</td></tr>; })}</tbody>
@@ -145,7 +145,7 @@ export function ProjectionPanel({ model, s, locale }: { model: ModelDefinition; 
     { label: t(locale, 'cash_position'), cell: (m) => <span className={m.cash < 0 ? NEG : ''}>{fmtMoney(m.cash)}</span> },
   );
   return (
-    <Panel id="projection" className="mt-4" title={t(locale, 'monthly_projection')} help={t(locale, 'projection_help', { n: s.horizon })} actions={<label className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px] text-ink-subtle"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> {t(locale, 'by_generator')}</label>}>
+    <Panel id="projection" title={t(locale, 'monthly_projection')} help={t(locale, 'projection_help', { n: s.horizon })} actions={<label className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px] text-ink-subtle"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> {t(locale, 'by_generator')}</label>}>
       <div className="-mx-4 max-h-[420px] overflow-auto border-t border-line px-4">
         <table className="w-full border-collapse whitespace-nowrap text-[12.5px]">
           <thead><tr>{cols.map((c, i) => <th key={i} className={`sticky top-0 z-[2] bg-surface-raised px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-wider text-ink-muted border-b border-line ${c.left ? 'left-0 z-[3] text-left' : 'text-right'} ${c.group ? 'border-l border-line' : ''}`}>{c.label}</th>)}</tr></thead>

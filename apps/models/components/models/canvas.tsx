@@ -8,7 +8,7 @@
 // with it, nothing scrolls inside a block.
 
 import { useState, type ReactNode } from 'react';
-import { Link2, Activity, Box, Gift, Heart, Truck, Users, Tag, Banknote, Plus } from 'lucide-react';
+import { Link2, Activity, Box, Gift, Heart, Truck, Users, Tag, Banknote, Plus, Settings2, Pencil } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
@@ -30,6 +30,10 @@ const PREVIEW = 4;
 export type CanvasEditHandlers = {
   onEditItem: (block: CanvasBlockKey, index: number) => void;
   onAddItem: (block: CanvasBlockKey) => void;
+  onEditSegment: (id: string | null) => void;
+  onEditStream: (id: string | null) => void;
+  onEditResources: () => void;
+  onEditSettings: () => void;
 };
 
 function Cell({ title, icon, question, area, children, action }: { title: string; icon: ReactNode; question: string; area: string; children: ReactNode; action?: ReactNode }) {
@@ -89,8 +93,8 @@ function Items({ def, block, locale, editable, edit }: { def: ModelDefinition; b
 }
 
 const Sub = ({ children }: { children: ReactNode }) => <div className={`${SECTION_LABEL} mt-1`}>{children}</div>;
-const Row = ({ a, b, c, total }: { a: ReactNode; b?: ReactNode; c: ReactNode; total?: boolean }) => (
-  <tr className={total ? 'font-medium [&>td]:border-t [&>td]:border-line' : ''}>
+const Row = ({ a, b, c, total, onClick, title }: { a: ReactNode; b?: ReactNode; c: ReactNode; total?: boolean; onClick?: () => void; title?: string }) => (
+  <tr className={`${total ? 'font-medium [&>td]:border-t [&>td]:border-line' : ''} ${onClick ? 'cursor-pointer hover:bg-surface-sunken' : ''}`} onClick={onClick} title={title}>
     <td className="border-b border-line/50 py-1 align-top">{a}</td>
     {b !== undefined && <td className="whitespace-nowrap border-b border-line/50 py-1 pl-2.5 text-right text-[11px] text-ink-muted">{b}</td>}
     <td className="whitespace-nowrap border-b border-line/50 py-1 pl-2.5 text-right tabular-nums">{c}</td>
@@ -115,8 +119,8 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
     const base = g.volume?.linkedTo ? singular(segName(g.volume.linkedTo)).toLowerCase() : singular(unit);
     return `${fmtMoney(p)} ${t(locale, 'per')} ${base} × ${fmtNum(r.units)}`;
   };
-  const acts: { label: string; who: string; unit: string; amount: number }[] = [];
-  gens.forEach((g) => (g.costs ?? []).forEach((c) => { const amt = ref.gens[g.id]?.costLines[c.id] ?? 0; if (amt > 0) acts.push({ label: c.label, who: g.short ?? g.name, unit: `${fmtMoney(state.generators[g.id]?.[c.id] ?? 0)} ${(c.unit ?? '').replace(/^[A-Z]{3}\s*/, '')}`, amount: amt }); }));
+  const acts: { label: string; who: string; unit: string; amount: number; gid?: string }[] = [];
+  gens.forEach((g) => (g.costs ?? []).forEach((c) => { const amt = ref.gens[g.id]?.costLines[c.id] ?? 0; if (amt > 0) acts.push({ gid: g.id, label: c.label, who: g.short ?? g.name, unit: `${fmtMoney(state.generators[g.id]?.[c.id] ?? 0)} ${(c.unit ?? '').replace(/^[A-Z]{3}\s*/, '')}`, amount: amt }); }));
   (model.genericVariable ?? []).forEach((c) => { const r = ref.gens[c.id]; if (r && r.cost > 0) acts.push({ label: c.label, who: t(locale, 'all_streams'), unit: `${state.settings[c.id] ?? 0}${c.kind === 'percentRevenue' ? '% ' + t(locale, 'of_revenue') : ' ' + t(locale, 'per') + ' ' + singular(unit)}`, amount: r.cost }); });
   acts.sort((a, b) => b.amount - a.amount);
   const tbl = 'w-full border-collapse text-[12.5px]';
@@ -140,17 +144,17 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
   const popupTitle = popup === 'variable' ? t(locale, 'variable_cost_month', { n: s.refMonth }) : popup === 'fixed' ? t(locale, 'fixed_cost_per_month') : t(locale, 'one_off_investment');
   const popupBody = popup === 'variable' ? (
     <table className={tbl}><tbody>
-      {acts.map((a) => <Row key={a.label + a.who} a={<><span className="block">{a.label}</span><span className="block text-[11px] text-ink-muted">{a.who} · {a.unit}</span></>} c={fmtMoney(a.amount)} />)}
+      {acts.map((a) => <Row key={a.label + a.who} onClick={editable && edit && a.gid ? () => { setPopup(null); edit.onEditStream(a.gid!); } : undefined} title={editable && a.gid ? t(locale, 'edit_stream') : undefined} a={<><span className="block">{a.label}</span><span className="block text-[11px] text-ink-muted">{a.who} · {a.unit}</span></>} c={fmtMoney(a.amount)} />)}
       <Row total a={t(locale, 'total_variable_cost')} c={fmtMoney(ref.variableCost)} />
     </tbody></table>
   ) : popup === 'fixed' ? (
     <table className={tbl}><tbody>
-      {(model.fixedCosts ?? []).map((f) => <Row key={f.id} a={f.label} c={fmtMoney(state.fixed[f.id] ?? 0)} />)}
+      {(model.fixedCosts ?? []).map((f) => <Row key={f.id} onClick={editable && edit ? () => { setPopup(null); edit.onEditResources(); } : undefined} a={f.label} c={fmtMoney(state.fixed[f.id] ?? 0)} />)}
       <Row total a={t(locale, 'total_fixed_cost')} c={fmtMoney(ref.fixedCost)} />
     </tbody></table>
   ) : (
     <table className={tbl}><tbody>
-      {(model.investment ?? []).map((i) => <Row key={i.id} a={i.label} c={fmtMoney(state.investment[i.id] ?? 0)} />)}
+      {(model.investment ?? []).map((i) => <Row key={i.id} onClick={editable && edit ? () => { setPopup(null); edit.onEditResources(); } : undefined} a={i.label} c={fmtMoney(state.investment[i.id] ?? 0)} />)}
       <Row total a={t(locale, 'investment')} c={fmtMoney(s.investmentTotal)} />
     </tbody></table>
   );
@@ -162,14 +166,14 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
     <div id="canvas">
       <div className={`grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:[grid-template-columns:repeat(10,minmax(0,1fr))] ${tall ? 'lg:[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)_auto] lg:min-h-[calc(100dvh-14rem)]' : 'lg:[grid-template-rows:auto_auto_auto]'} print:rounded-none`}>
         {BLOCKS.map((b) => (
-          <Cell key={b.key} title={t(locale, b.title)} icon={b.icon} question={t(locale, `${b.title}_q`)} area={b.area} action={addBtn(b.key)}>
+          <Cell key={b.key} title={t(locale, b.title)} icon={b.icon} question={t(locale, `${b.title}_q`)} area={b.area} action={<>{b.key === 'keyResources' && editable && edit && <button type="button" onClick={() => edit.onEditResources()} title={t(locale, 'edit_resources')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Pencil size={13} /></button>}{addBtn(b.key)}</>}>
             <Items def={model} block={b.key} locale={locale} editable={editable} edit={edit} />
             {numbers[b.key]}
           </Cell>
         ))}
-        <Cell title={t(locale, 'customer_segments')} icon={<Users size={16} />} question={t(locale, 'customer_segments_q', { n: s.refMonth })} area="lg:[grid-area:1/9/3/11]">
+        <Cell title={t(locale, 'customer_segments')} icon={<Users size={16} />} question={t(locale, 'customer_segments_q', { n: s.refMonth })} area="lg:[grid-area:1/9/3/11]" action={editable && edit ? <button type="button" onClick={() => edit.onEditSegment(null)} title={t(locale, 'add_segment')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Plus size={14} /></button> : null}>
           <table className={tbl}><tbody>
-            {segs.map((g) => <Row key={g.id} a={<><span className="block">{g.name}</span>{g.segment && <span className="block text-[11px] text-ink-muted">{g.segment}</span>}</>} c={fmtNum(ref.gens[g.id]?.units ?? 0)} />)}
+            {segs.map((g) => <Row key={g.id} onClick={editable && edit ? () => edit.onEditSegment(g.id) : undefined} title={editable ? t(locale, 'edit_segment') : undefined} a={<><span className="block">{g.name}</span>{g.segment && <span className="block text-[11px] text-ink-muted">{g.segment}</span>}</>} c={fmtNum(ref.gens[g.id]?.units ?? 0)} />)}
             <Row total a={t(locale, 'total_units', { units: unit })} c={fmtNum(ref.units)} />
           </tbody></table>
           <Sub>{t(locale, 'by_year')}</Sub>
@@ -192,10 +196,10 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
             {t(locale, 'funding_line', { i: fmtMoney(s.investmentTotal), f: fmtMoney(s.fundingNeed), when: s.cashPositiveMonth ? t(locale, 'in_month_lower', { n: s.cashPositiveMonth }) : t(locale, 'not_within_months', { n: s.horizon }).toLowerCase() })}
           </div>
         </Cell>
-        <Cell title={t(locale, 'revenue_streams')} icon={<Banknote size={16} />} question={t(locale, 'revenue_streams_q', { n: s.refMonth })} area="sm:col-span-2 lg:[grid-area:3/6/4/11]">
+        <Cell title={t(locale, 'revenue_streams')} icon={<Banknote size={16} />} question={t(locale, 'revenue_streams_q', { n: s.refMonth })} area="sm:col-span-2 lg:[grid-area:3/6/4/11]" action={editable && edit ? <button type="button" onClick={() => edit.onEditStream(null)} title={t(locale, 'add_stream')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Plus size={14} /></button> : null}>
           <table className={tbl}><tbody>
             {gens.map((g) => { const r = ref.gens[g.id]!; return (
-              <Row key={g.id} a={<><span className="block">{g.name}</span><span className="block text-[11px] text-ink-muted">{priceOf(g)}</span><div className="mt-1 h-1 rounded bg-surface-sunken"><div className="h-1 rounded bg-ink" style={{ width: `${((r.revenue / maxRev) * 100).toFixed(1)}%` }} /></div></>} b={fmtPct((r.revenue / (ref.revenue || 1)) * 100)} c={fmtMoney(r.revenue)} />
+              <Row key={g.id} onClick={editable && edit ? () => edit.onEditStream(g.id) : undefined} title={editable ? t(locale, 'edit_stream') : undefined} a={<><span className="block">{g.name}</span><span className="block text-[11px] text-ink-muted">{priceOf(g)}</span><div className="mt-1 h-1 rounded bg-surface-sunken"><div className="h-1 rounded bg-ink" style={{ width: `${((r.revenue / maxRev) * 100).toFixed(1)}%` }} /></div></>} b={fmtPct((r.revenue / (ref.revenue || 1)) * 100)} c={fmtMoney(r.revenue)} />
             ); })}
             <Row total a={t(locale, 'turnover_per_month')} b="" c={fmtMoney(ref.revenue)} />
           </tbody></table>
@@ -204,10 +208,11 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
           <div className="mt-auto pt-2 text-[11px] text-ink-muted">{t(locale, 'per_unit_per_month', { v: fmtMoney(s.arpu), unit: singular(unit), c: fmtMoney(s.contribution) })}</div>
         </Cell>
       </div>
-      <div className="mt-2 flex flex-wrap justify-between gap-3 px-0.5 text-[11px] text-ink-muted">
-        <span>{model.name}{model.tagline ? ` · ${model.tagline}` : ''}</span>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3 px-0.5 text-[11px] text-ink-muted">
+        <span className="flex items-center gap-2">{model.name}{model.tagline ? ` · ${model.tagline}` : ''}{editable && edit && <button type="button" onClick={() => edit.onEditSettings()} className="inline-flex items-center gap-1 rounded px-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink print:hidden" title={t(locale, 'edit_settings')}><Settings2 size={12} />{t(locale, 'settings')}</button>}</span>
         <span>{t(locale, 'canvas_note', { n: s.refMonth })}</span>
       </div>
+      {editable && <p className="mt-1 px-0.5 text-[11px] text-ink-muted print:hidden">{t(locale, 'canvas_edit_hint')} {t(locale, 'canvas_structure_hint')}</p>}
       <Dialog open={popup !== null} onClose={() => setPopup(null)} title={popupTitle} size="md">{popupBody}</Dialog>
     </div>
   );
