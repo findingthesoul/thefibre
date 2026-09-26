@@ -23,6 +23,9 @@ const RAW = {
   // ── chrome ────────────────────────────────────────────────────────────
   nav_home: ['Home', 'Home', 'Inicio', 'Início', 'Start', 'Accueil'],
   nav_models: ['Business models', 'Businessmodellen', 'Modelos de negocio', 'Modelos de negócio', 'Geschäftsmodelle', "Modèles d'affaires"],
+  nav_in_fibre: ['In The Fibre', 'In The Fibre', 'En The Fibre', 'No The Fibre', 'In The Fibre', 'Dans The Fibre'],
+  nav_teams: ['Teams', 'Teams', 'Equipos', 'Equipes', 'Teams', 'Équipes'],
+  nav_members: ['Members', 'Leden', 'Miembros', 'Membros', 'Mitglieder', 'Membres'],
   nav_settings: ['Settings', 'Instellingen', 'Ajustes', 'Configurações', 'Einstellungen', 'Paramètres'],
   settings: ['Settings', 'Instellingen', 'Ajustes', 'Configurações', 'Einstellungen', 'Paramètres'],
   settings_blurb: ['Your profile, workspace and apps live in The Fibre.', 'Je profiel, werkruimte en apps staan in The Fibre.', 'Tu perfil, espacio de trabajo y apps están en The Fibre.', 'Seu perfil, espaço de trabalho e apps ficam no The Fibre.', 'Dein Profil, Workspace und Apps liegen in The Fibre.', 'Ton profil, ton espace de travail et tes apps sont dans The Fibre.'],
