@@ -190,7 +190,11 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
               ]} />
             )}
           </div>
-          <ColumnsDrawer model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }} />
+          <ColumnsDrawer model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }}
+            edit={editable ? {
+              onAdd: (groupId) => { if (groupId === 'segments') setStructure({ kind: 'segment', id: null }); else if (groupId === 'streams') setStructure({ kind: 'stream', id: null }); else if (groupId === 'resources') setStructure({ kind: 'resources' }); else if (groupId === 'settings') setStructure({ kind: 'settings' }); },
+              onEdit: (ref) => { if (ref.kind === 'statement') setEditing({ block: ref.block, index: ref.index }); else setStructure(ref.kind === 'segment' || ref.kind === 'stream' ? { kind: ref.kind, id: ref.id } : { kind: ref.kind }); },
+            } : undefined} />
         </FillToBottom>
       )}
 

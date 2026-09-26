@@ -270,6 +270,8 @@ const RAW = {
   drag_to_reorder: ['Drag to reorder; the order is remembered for you', 'Sleep om te ordenen; de volgorde wordt voor jou onthouden', 'Arrastra para ordenar; el orden se recuerda para ti', 'Arraste para ordenar; a ordem é lembrada para você', 'Ziehen zum Ordnen; die Reihenfolge wird für dich gemerkt', 'Glisse pour ordonner ; l’ordre est mémorisé pour toi'],
   copy_link: ['Copy link to share with the team', 'Kopieer link om te delen met het team', 'Copiar enlace para compartir con el equipo', 'Copiar link para compartilhar com a equipe', 'Link kopieren, um ihn mit dem Team zu teilen', 'Copier le lien à partager avec l’équipe'],
   link_copied: ['Link copied', 'Link gekopieerd', 'Enlace copiado', 'Link copiado', 'Link kopiert', 'Lien copié'],
+  add: ['Add', 'Toevoegen', 'Añadir', 'Adicionar', 'Hinzufügen', 'Ajouter'],
+  edit: ['Edit', 'Bewerken', 'Editar', 'Editar', 'Bearbeiten', 'Modifier'],
   numbers_table_title: ['Canvas, items, variables', 'Canvas, posten, variabelen', 'Lienzo, partidas, variables', 'Tela, itens, variáveis', 'Canvas, Posten, Variablen', 'Canevas, postes, variables'],
   numbers_table_help: ['Every change recalculates the views above at once.', 'Elke wijziging herberekent de weergaven hierboven meteen.', 'Cada cambio recalcula las vistas de arriba al instante.', 'Cada alteração recalcula as visões acima na hora.', 'Jede Änderung berechnet die Ansichten oben sofort neu.', 'Chaque modification recalcule aussitôt les vues ci-dessus.'],
   col_canvas_element: ['Canvas element', 'Canvas-element', 'Elemento del lienzo', 'Elemento da tela', 'Canvas-Element', 'Élément du canevas'],

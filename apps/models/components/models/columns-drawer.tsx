@@ -17,7 +17,7 @@
 // with a back arrow — what Finder does in a narrow window too.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, GripHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GripHorizontal, Plus, Pencil } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
 import { genVars, readingFor, variablesFor, type Scope, type Variable } from '@/lib/links';
@@ -26,7 +26,9 @@ import { makeFormatters } from '@/lib/format';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { Field } from './inputs';
 
-type Element = { id: string; label: string; sub?: string; reading?: string; vars: Variable[]; relations: string[]; horizon?: boolean };
+type Element = { id: string; label: string; sub?: string; reading?: string; vars: Variable[]; relations: string[]; horizon?: boolean; editRef?: EditRef };
+export type EditRef = { kind: 'segment' | 'stream'; id: string } | { kind: 'resources' } | { kind: 'settings' } | { kind: 'statement'; block: CanvasBlockKey; index: number };
+export type DrawerEditHandlers = { onAdd: (groupId: string) => void; onEdit: (ref: EditRef) => void };
 type Group = { id: string; label: string; elements: Element[] };
 
 const TITLE: Record<CanvasBlockKey, 'key_partners' | 'key_activities' | 'key_resources' | 'value_propositions' | 'customer_relationships' | 'channels'> = {
@@ -58,7 +60,7 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
   const groups: Group[] = [
     { id: 'segments', label: t(locale, 'customer_segments'), elements: segs.map((g) => {
       const r = ref.gens[g.id]!;
-      return { id: g.id, label: g.name, sub: g.segment, reading: `${fmtNum(r.units)} ${unit} · ${fmtMoney(r.revenue)} / ${mo}`, vars: [...genVars(def, state, g.id, 'all'), ...costVars(g)],
+      return { id: g.id, label: g.name, sub: g.segment, reading: `${fmtNum(r.units)} ${unit} · ${fmtMoney(r.revenue)} / ${mo}`, vars: [...genVars(def, state, g.id, 'all'), ...costVars(g)], editRef: { kind: 'segment' as const, id: g.id },
         relations: [...dependents(def, g.id).map((d) => t(locale, 'rel_feeds', { n: d.name })), ...servedBy(g.id).map((v) => t(locale, 'rel_served_by', { n: v }))] };
     }) },
     { id: 'streams', label: t(locale, 'revenue_streams'), elements: def.generators.map((g) => {
@@ -69,23 +71,25 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
       else rel.push(t(locale, 'rel_own_segment'));
       if (g.revenuePerUnit != null) rel.push(t(locale, 'rel_price_formula', { n: String(g.revenuePerUnit) }));
       if (g.revenueTotal != null) rel.push(t(locale, 'rel_amount_formula', { n: String(g.revenueTotal) }));
-      return { id: g.id, label: g.name, sub: g.help, reading: `${fmtMoney(r.revenue)} / ${mo}`, vars: [...genVars(def, state, g.id, 'all'), ...costVars(g)], relations: rel };
+      return { id: g.id, label: g.name, sub: g.help, reading: `${fmtMoney(r.revenue)} / ${mo}`, vars: [...genVars(def, state, g.id, 'all'), ...costVars(g)], relations: rel, editRef: { kind: 'stream' as const, id: g.id } };
     }) },
     { id: 'resources', label: t(locale, 'key_resources'), elements: [
-      ...(def.fixedCosts ?? []).map((f) => ({ id: `fixed:${f.id}`, label: f.label, reading: `${fmtMoney(state.fixed[f.id] ?? f.value)} / ${mo}`, vars: [{ scope: 'fixed' as const, def: { ...f, unit: `${cur} / ${mo}` }, value: state.fixed[f.id] ?? f.value }], relations: f.startMonth && f.startMonth > 1 ? [t(locale, 'rel_from_month', { n: f.startMonth })] : [] })),
-      ...(def.investment ?? []).map((i) => ({ id: `invest:${i.id}`, label: i.label, reading: `${fmtMoney(state.investment[i.id] ?? i.value)} ${t(locale, 'one_off')}`, vars: [{ scope: 'investment' as const, def: { ...i, unit: `${cur} ${t(locale, 'one_off')}` }, value: state.investment[i.id] ?? i.value }], relations: [t(locale, 'one_off_investment')] })),
+      ...(def.fixedCosts ?? []).map((f) => ({ id: `fixed:${f.id}`, label: f.label, reading: `${fmtMoney(state.fixed[f.id] ?? f.value)} / ${mo}`, vars: [{ scope: 'fixed' as const, def: { ...f, unit: `${cur} / ${mo}` }, value: state.fixed[f.id] ?? f.value }], relations: f.startMonth && f.startMonth > 1 ? [t(locale, 'rel_from_month', { n: f.startMonth })] : [], editRef: { kind: 'resources' as const } })),
+      ...(def.investment ?? []).map((i) => ({ id: `invest:${i.id}`, label: i.label, reading: `${fmtMoney(state.investment[i.id] ?? i.value)} ${t(locale, 'one_off')}`, vars: [{ scope: 'investment' as const, def: { ...i, unit: `${cur} ${t(locale, 'one_off')}` }, value: state.investment[i.id] ?? i.value }], relations: [t(locale, 'one_off_investment')], editRef: { kind: 'resources' as const } })),
     ] },
     { id: 'settings', label: t(locale, 'settings'), elements: [
-      ...(def.settings ?? []).map((st) => ({ id: `setting:${st.id}`, label: st.label, reading: `${state.settings[st.id] ?? st.value} ${st.unit ?? ''}`, vars: [{ scope: 'settings' as const, def: st, value: state.settings[st.id] ?? st.value }], relations: (def.genericVariable ?? []).filter((c) => c.id === st.id).map((c) => t(locale, 'rel_generic_cost', { n: c.label })) })),
-      { id: '__horizon', label: t(locale, 'horizon_and_ref'), reading: `${horizon} · ${t(locale, 'month_n', { n: refMonth })}`, vars: [], relations: [], horizon: true },
+      ...(def.settings ?? []).map((st) => ({ id: `setting:${st.id}`, label: st.label, reading: `${state.settings[st.id] ?? st.value} ${st.unit ?? ''}`, vars: [{ scope: 'settings' as const, def: st, value: state.settings[st.id] ?? st.value }], relations: (def.genericVariable ?? []).filter((c) => c.id === st.id).map((c) => t(locale, 'rel_generic_cost', { n: c.label })), editRef: { kind: 'settings' as const } })),
+      { id: '__horizon', label: t(locale, 'horizon_and_ref'), reading: `${horizon} · ${t(locale, 'month_n', { n: refMonth })}`, vars: [], relations: [], horizon: true, editRef: { kind: 'settings' as const } },
     ] },
   ];
   CANVAS_BLOCK_KEYS.forEach((k) => {
-    const items = (def.canvas?.[k] ?? []).map(itemObj).filter((it) => (it.links?.length ?? 0) > 0);
+    const all = (def.canvas?.[k] ?? []).map(itemObj);
+    const items = all.map((it, index) => ({ it, index })).filter(({ it }) => (it.links?.length ?? 0) > 0);
     if (!items.length) return;
-    groups.push({ id: `block:${k}`, label: t(locale, TITLE[k]), elements: items.map((it, i) => ({
-      id: `stmt:${it.id ?? i}`, label: it.text, reading: (it.links ?? []).map((l) => readingFor(def, s, state, l, fm)).filter(Boolean).join(' · '),
+    groups.push({ id: `block:${k}`, label: t(locale, TITLE[k]), elements: items.map(({ it, index }) => ({
+      id: `stmt:${it.id ?? index}`, label: it.text, reading: (it.links ?? []).map((l) => readingFor(def, s, state, l, fm)).filter(Boolean).join(' · '),
       vars: (it.links ?? []).flatMap((l) => variablesFor(def, state, l)), relations: (it.links ?? []).map((l) => t(locale, 'rel_stands_for', { n: readingLabel(def, l) })),
+      editRef: { kind: 'statement' as const, block: k, index },
     })) });
   });
   return groups;
@@ -93,9 +97,11 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
 
 const MIN_H = 160, MAX_H = 640, DEFAULT_H = 300;
 
-export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onChange, onRefMonth, onHorizon }: {
+export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onChange, onRefMonth, onHorizon, edit }: {
   model: ModelDefinition; state: ModelState; s: Summary; locale: Locale; refMonth: number; horizon: number;
   onChange: (scope: Scope, id: string, value: number) => void; onRefMonth: (v: number) => void; onHorizon: (v: number) => void;
+  /** Create and edit from the drawer, for admins and team leads. */
+  edit?: DrawerEditHandlers;
 }) {
   const groups = useMemo(() => buildGroups(model, state, s, locale, horizon, refMonth), [model, state, s, locale, horizon, refMonth]);
   const [groupId, setGroupId] = useState<string>('segments');
@@ -133,6 +139,7 @@ export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onCh
           <ColumnHead>
             <button type="button" onClick={() => setLevel('group')} className="mr-1 md:hidden"><ChevronLeft size={14} /></button>
             <span className="min-w-0 flex-1 truncate">{group?.label ?? t(locale, 'col_items')}</span>
+            {edit && group && !group.id.startsWith('block:') && <button type="button" onClick={() => edit.onAdd(group.id)} title={t(locale, 'add')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Plus size={14} /></button>}
           </ColumnHead>
           {!group && <p className="px-3 pt-3 text-xs text-ink-muted">{t(locale, 'pick_element')}</p>}
           {group && (
@@ -150,6 +157,7 @@ export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onCh
             <button type="button" onClick={() => setLevel('element')} className="mr-1 md:hidden"><ChevronLeft size={14} /></button>
             <span className="min-w-0 flex-1 truncate">{element ? element.label : t(locale, 'col_variables')}</span>
             {element?.reading && <span className="shrink-0 text-xs normal-case tracking-normal text-ink-muted tabular-nums">{element.reading}</span>}
+            {edit && element?.editRef && <button type="button" onClick={() => edit.onEdit(element.editRef!)} title={t(locale, 'edit')} className="ml-2 rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Pencil size={13} /></button>}
           </ColumnHead>
           {!element && <p className="px-3 pt-3 text-xs text-ink-muted">{t(locale, 'pick_item')}</p>}
           {element && (
