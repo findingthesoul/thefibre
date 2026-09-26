@@ -5,6 +5,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { storyPromptText } from '@thefibre/shared/business-models';
 
 export const SCHEDULE_PROMPT_NAME = 'plan_thread_from_schedule';
 
@@ -40,6 +41,30 @@ export function registerSchedulePrompt(server: McpServer): void {
     },
     ({ schedule, title }) => ({
       messages: [{ role: 'user', content: { type: 'text', text: schedulePromptText(schedule, title) } }],
+    }),
+  );
+}
+
+// A second prompt: a story becomes a business model (Sjoerd, 2026-09-26:
+// "what is the prompt I have to give to translate the doab calculator to a
+// business model — potentially with questions that may be unclear"). The
+// text lives in @thefibre/shared/business-models so the app's dialog shows
+// the same words.
+export const MODEL_PROMPT_NAME = 'write_business_model_from_story';
+
+export function registerModelPrompt(server: McpServer): void {
+  server.registerPrompt(
+    MODEL_PROMPT_NAME,
+    {
+      title: 'Write a business model from a story',
+      description: 'Paste the story of a venture: the assistant lists what it sees, asks only the open questions, then writes the definition and creates the model for a team you lead.',
+      argsSchema: {
+        story: z.string().min(1).max(30000).describe('The story of the venture, as told'),
+        name: z.string().max(200).optional().describe('The model name, if you already know it'),
+      },
+    },
+    ({ story, name }) => ({
+      messages: [{ role: 'user', content: { type: 'text', text: storyPromptText(story, name) } }],
     }),
   );
 }

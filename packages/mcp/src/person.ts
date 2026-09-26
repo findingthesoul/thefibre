@@ -14,7 +14,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { registerSchedulePrompt } from './person-prompt.js';
+import { registerSchedulePrompt, registerModelPrompt } from './person-prompt.js';
+import { MODEL_SCHEMA_GUIDE } from '@thefibre/shared/business-models';
 
 export { SCHEDULE_PROMPT_NAME, schedulePromptText } from './person-prompt.js';
 
@@ -140,70 +141,6 @@ function count<T>(rows: T[], key: (r: T) => string | null): Record<string, numbe
 const one = <T>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 const str = (v: unknown) => (typeof v === 'string' ? v : null);
 
-
-// What a business model definition looks like, for an assistant writing one
-// from a story. The engine that reads it lives in apps/models/lib/engine.ts;
-// this text is the contract in words, plus one small complete example.
-const MODEL_SCHEMA_GUIDE = {
-  format: [
-    'A definition is one JSON object. Top level: name, tagline, description, currency (e.g. "EUR"), currencySymbol (e.g. "€"), horizon (months, 12–120, default 36), breakEvenMonth (the reference month for blended rates, default 12), unitLabel (plural, e.g. "members" or "customers"), canvas, settings, genericVariable, generators, fixedCosts, investment.',
-    'canvas: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels }, each an array of short lines. A value proposition may be { text, segments: ["<generator id>", …] } to say which segments it serves.',
-    'settings: [{ id, label, unit, value, step }] — global numbers every formula may use by id (e.g. a payment fee percentage).',
-    'genericVariable: [{ id: "<a settings id>", label, kind }] — costs on all revenue; kind is percentRevenue, perUnit or perNewUnit.',
-    'generators: the turnover generators. Each: { id, name, short, segment (one line: who this is), help, countsAsUnit (default true), inputs: [{ id, label, unit, value, step }], volume, revenuePerUnit or revenueTotal, costs }.',
-    'volume for a segment: { start: "<input id>", growth: "<input id>", churn: "<input id>" } — units start at start, then each month × (1 + growth% − churn%). Optional add, cap, startMonth. A derived stream: { linkedTo: "<generator id>", factor: 1 } takes that generator’s units.',
-    'revenuePerUnit: a formula string over the generator’s input ids and settings ids, e.g. "fee" or "vol * take / 100". Lump income: countsAsUnit false, volume { start: 1, startMonth: "from" }, revenueTotal: "amount".',
-    'costs: [{ id, label, unit, kind, value, step, batchSize? }] — the generator’s own cost lines; kind is perUnit, perNewUnit, perBatch (with batchSize, a formula), percentRevenue, fixed or formula (with formula).',
-    'fixedCosts: [{ id, label, value, step }] per month (key resources). investment: [{ id, label, value, step }] one-off before month one.',
-    'Formulas are plain arithmetic over ids: + - * / ( ) and numbers, plus month, units, newUnits, revenue, batches. Nothing else.',
-    'Every number is a placeholder. Choose plausible values and say in help texts what they mean; never present them as the venture’s real figures.',
-  ],
-  example: {
-    name: 'Example studio',
-    tagline: 'A small studio with members and workshops',
-    description: 'Members pay monthly; workshops sell seats to the same people.',
-    currency: 'EUR', currencySymbol: '€', horizon: 36, breakEvenMonth: 12, unitLabel: 'members',
-    canvas: {
-      keyPartners: ['The venue that hosts the workshops'],
-      keyActivities: ['Weekly community evening', 'Monthly workshop'],
-      keyResources: ['Two part-time facilitators', 'The studio space'],
-      valuePropositions: [{ text: 'A place to practise every week, with people who keep you going', segments: ['members'] }],
-      customerRelationships: ['Personal onboarding call', 'Members recommend members'],
-      channels: ['Open evenings', 'Word of mouth'],
-    },
-    settings: [{ id: 'procFee', label: 'Payment processing fee', unit: '% of revenue', value: 2, step: 0.1 }],
-    genericVariable: [{ id: 'procFee', label: 'Payment processing', kind: 'percentRevenue' }],
-    generators: [
-      {
-        id: 'members', name: 'Members', short: 'Members', segment: 'People who practise weekly', help: 'A monthly membership.',
-        inputs: [
-          { id: 'fee', label: 'Monthly fee', unit: 'EUR / member', value: 40, step: 5 },
-          { id: 'start', label: 'Members in month one', unit: 'members', value: 30, step: 5 },
-          { id: 'growth', label: 'Monthly growth', unit: '%', value: 8, step: 0.5 },
-          { id: 'churn', label: 'Monthly churn', unit: '%', value: 3, step: 0.5 },
-        ],
-        volume: { start: 'start', growth: 'growth', churn: 'churn' },
-        revenuePerUnit: 'fee',
-        costs: [
-          { id: 'cOnboard', label: 'Onboarding call', unit: 'EUR / new member', kind: 'perNewUnit', value: 15, step: 1 },
-          { id: 'cCare', label: 'Materials', unit: 'EUR / member / month', kind: 'perUnit', value: 3, step: 0.5 },
-        ],
-      },
-      {
-        id: 'workshops', name: 'Workshops', short: 'Workshops', help: 'Seats sold to members, one workshop a month.',
-        volume: { linkedTo: 'members', factor: 0.3 },
-        inputs: [{ id: 'price', label: 'Seat price', unit: 'EUR / seat', value: 60, step: 5 }],
-        revenuePerUnit: 'price',
-        costs: [{ id: 'cRoom', label: 'Room and facilitator', unit: 'EUR / workshop', kind: 'perBatch', batchSize: 12, value: 300, step: 25 }],
-      },
-    ],
-    fixedCosts: [
-      { id: 'team', label: 'Facilitators', value: 3000, step: 100 },
-      { id: 'rent', label: 'Studio rent', value: 900, step: 50 },
-    ],
-    investment: [{ id: 'setup', label: 'Furnishing the studio', value: 6000, step: 500 }],
-  },
-};
 
 export const PERSON_TOOLS: PersonTool[] = [
   // --- Connect (the app; slug fibre-sales; scope connections:read stays) ---------------------------------------------------------
@@ -624,6 +561,7 @@ export function buildPersonServer(opts: PersonServerOptions): McpServer {
     { instructions: personInstructions(opts.who, opts.scopes) },
   );
   if (opts.scopes.includes('thread:write')) registerSchedulePrompt(server);
+  if (opts.scopes.includes('models:write')) registerModelPrompt(server);
   for (const def of personToolsForScopes(opts.scopes)) {
     server.registerTool(
       def.name,

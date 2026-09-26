@@ -2,7 +2,7 @@
   "name": "@thefibre/mcp",
   "version": "1.61.3",
   "private": true,
-  "description": "The Fibre as an MCP server — an AI assistant acting as an app on the platform, through an app key",
+  "description": "The Fibre as an MCP server \u2014 an AI assistant acting as an app on the platform, through an app key",
   "type": "module",
   "bin": {
     "fibre-mcp": "./dist/cli.js"
@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@thefibre/shared": "workspace:*",
     "zod": "^3.25.0"
   },
   "devDependencies": {

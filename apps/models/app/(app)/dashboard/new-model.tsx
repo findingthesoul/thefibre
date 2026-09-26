@@ -12,6 +12,8 @@ import { t } from '@/lib/i18n-ui';
 import { TEMPLATES } from '@/lib/templates';
 import type { ModelDefinition } from '@/lib/engine';
 import { createModel, type TeamChoice } from '../models/actions';
+import { storyPromptText } from '@thefibre/shared/business-models';
+import { INSET } from '@thefibre/shared/ui/recipes';
 
 export function NewModelButton({ teams, isAdmin }: { teams: TeamChoice[]; isAdmin: boolean }) {
   const locale = useLocale();
@@ -24,6 +26,11 @@ export function NewModelButton({ teams, isAdmin }: { teams: TeamChoice[]; isAdmi
   const [teamId, setTeamId] = useState<string>(teams.find((x) => x.role !== 'member')?.id ?? (isAdmin ? '' : ''));
   const [source, setSource] = useState<string>('doab');
   const [pasted, setPasted] = useState('');
+  const [copied, setCopied] = useState(false);
+  const prompt = storyPromptText(undefined, name.trim() || undefined);
+  async function copyPrompt() {
+    try { await navigator.clipboard.writeText(prompt); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard blocked: the text is selectable below */ }
+  }
 
   const teamOptions = [
     ...(isAdmin ? [{ value: '', label: t(locale, 'workspace_wide') }] : []),
@@ -79,7 +86,19 @@ export function NewModelButton({ teams, isAdmin }: { teams: TeamChoice[]; isAdmi
             <p className="text-sm text-ink-subtle">{TEMPLATES.find((x) => x.id === source)?.blurb}</p>
           )}
           {source === 'paste' && (
-            <TextAreaField label={t(locale, 'paste_definition')} hint={t(locale, 'paste_hint')} rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)} spellCheck={false} />
+            <>
+              <div className={`${INSET} p-3`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">{t(locale, 'prompt_for_claude')}</div>
+                    <p className="mt-0.5 text-xs text-ink-subtle">{t(locale, 'prompt_hint')}</p>
+                  </div>
+                  <Button variant="secondary" size="sm" type="button" onClick={copyPrompt}>{copied ? t(locale, 'copied') : t(locale, 'copy_prompt')}</Button>
+                </div>
+                <textarea readOnly value={prompt} rows={6} className="mt-2 w-full resize-y rounded-md border border-line bg-surface-raised p-2 font-mono text-[11px] leading-snug text-ink-subtle" onFocus={(e) => e.currentTarget.select()} />
+              </div>
+              <TextAreaField label={t(locale, 'paste_definition')} hint={t(locale, 'paste_hint')} rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)} spellCheck={false} />
+            </>
           )}
           {error && <div className={ERROR_TEXT}>{error}</div>}
         </div>

@@ -54,6 +54,10 @@
       "types": "./dist/embed-loader.d.ts",
       "default": "./dist/embed-loader.js"
     },
+    "./business-models": {
+      "types": "./dist/business-models.d.ts",
+      "default": "./dist/business-models.js"
+    },
     "./i18n": {
       "types": "./dist/i18n.d.ts",
       "default": "./dist/i18n.js"
