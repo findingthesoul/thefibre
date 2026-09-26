@@ -114,6 +114,9 @@ apps/
   flow/           Flow                           :3003
   pulse/          Pulse                          :3004
   membership/     Membership                     :3005
+  my/             Portal (my.thethread.app)      :3007
+  connections/    Connect                        :3008
+  models/         Business Models (beta)         :3009   docs/business-models.md
 packages/
   shared/         @thefibre/shared — THE shared package (§5)
 supabase/
@@ -160,7 +163,7 @@ all six identically (check with `md5 -q apps/*/lib/<file>`).
 - Table namespaces: platform (`person`, `organisation`, `workspace`,
   `user`, `activity`, `enrolment`, `consent_record`, `billing_plan`,
   `purchase`, `signup_request`, …) and per-app prefixes (`thread_*`,
-  `meet_*`, `flow_*`, `pulse_*`, `membership_*`). In-family apps use
+  `meet_*`, `flow_*`, `pulse_*`, `membership_*`, `models_*`). In-family apps use
   platform tables **natively**; `app_entity_mapping` is for EXTERNAL apps
   only.
 - JWT `sub` is `auth.users.id`, **not** `public.user.id`. Use the
@@ -521,15 +524,16 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 | | Production | Staging |
 |---|---|---|
-| Web/apps | thefibre.app + app./meet./flow./pulse./membership.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership.thefibre.tech |
+| Web/apps | thefibre.app + app./meet./flow./pulse./membership./models.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership./models.thefibre.tech |
 | API | `thefibre-api` (Fly, fra) → thefibre-api.fly.dev | `thefibre-api-staging` |
 | DB/Auth | Supabase `zfsyyokepyycefbxiblc` | Supabase `lukhyylwhhjyihqtghvw` |
 | Cookie domain | `.thefibre.app` (web) / `.thethread.app` (five apps) | `.thefibre.tech` |
 | Stripe | live keys | sandbox keys |
 | Deploy trigger | `git push origin main` | `git push origin main:staging` |
 
-- **Vercel**: six projects (`thefibre`, `thefibre-{meet,thread,flow,pulse,
-  membership}`), all in the `sjoerd-1708s-projects` scope. Domains are
+- **Vercel**: the projects `thefibre`, `thefibre-{meet,thread,flow,pulse,
+  membership,my,connections,models}` (the list scripts/verify-vercel-env.mjs
+  holds), all in the `sjoerd-1708s-projects` scope. Domains are
   attached per-project in Vercel (each domain to ITS OWN project — the
   2026-09-03 misroute lesson); DNS is at **TransIP** (A records
   `76.76.21.21` for the thethread subdomains; trailing dots on external
@@ -601,7 +605,7 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   SemVer-ish: features bump minor, fixes bump patch.
 - **Per-app user-facing versions are decoupled**: Meet shows `v2.x`
   (`apps/meet/app/(app)/layout.tsx`), Thread `v3.x`, Flow / Pulse / Membership
-  their own constants in their layouts. Bump those only when app-specific
+  / Business Models their own constants in their layouts. Bump those only when app-specific
   surfaces ship.
 - **Every release = one commit** containing: the code, the nine version
   bumps, `version.ts`, and a `CHANGELOG.md` entry (top of file, dated,
@@ -1664,7 +1668,7 @@ canvas, timeline editor) are deliberately desktop-first.
 | `CHANGELOG.md` | The shipped record, narrative per release |
 | `docs/deploy.md` / `docs/environments.md` | Prod / staging runbooks incl. every env var and hard-won gotcha |
 | `docs/naming-brief.md` | The branding pivot: Thread flagship, function names, Fibre backstage |
-| `docs/meet-architecture.md`, `docs/fibreflow-*.md`, `docs/membership-proposal.md`, `docs/fibre-pulse-proposal.md` | Per-app deep dives |
+| `docs/meet-architecture.md`, `docs/fibreflow-*.md`, `docs/membership-proposal.md`, `docs/fibre-pulse-proposal.md`, `docs/business-models.md` | Per-app deep dives |
 | `docs/invoices-and-roles-proposal.md`, `docs/pricing-proposal.md`, `docs/productisation-proposal.md` | Money: ledger, roles, tiers |
 | `docs/i18n-proposal.md` | Locale architecture |
 | `docs/spike-circle-sso.md` | The OAuth-provider spike |

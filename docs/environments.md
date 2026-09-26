@@ -170,7 +170,7 @@ person. Leave the Stripe secrets for step F.
 
 ### E · Vercel — six projects, staging env (~15 min, repetitive)
 
-For **each** of the six projects (web, meet, thread, flow, pulse, membership):
+For **each** of the app projects (web, meet, thread, flow, pulse, membership, my, connections, models — the list in `scripts/verify-vercel-env.mjs`):
 
 1. **Settings → Environment Variables** — add these, scoped to
    **Preview** and (important) limited to the **`staging` branch** where the

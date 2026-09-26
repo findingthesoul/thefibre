@@ -573,7 +573,7 @@ and only the second one should ever be on your roadmap.
 
 ## 7. In-family apps: what differs
 
-An app inside this monorepo (Meet, Thread, Flow, Pulse) follows §1 and §2
+An app inside this monorepo (Meet, Thread, Flow, Pulse, Business Models) follows §1 and §2
 exactly the same way. What changes is the plumbing:
 
 | | In-family | External |

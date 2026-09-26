@@ -52,7 +52,7 @@ cd ~/Projects/thefibre
 pnpm dev          # every app's dev script, in parallel (`pnpm -r --parallel run dev`)
                   # api :8080, web :3000, meet :3001, thread :3002, flow :3003,
                   # pulse :3004, membership :3005, website :3006, my :3007,
-                  # connections :3008
+                  # connections :3008, models :3009
                   # Derived from the workspace, so a new app joins automatically —
                   # this comment is the thing that goes stale, not the script.
                   # (It went stale on 2026-09-12, exactly as predicted: connections
@@ -65,6 +65,8 @@ pnpm dev          # every app's dev script, in parallel (`pnpm -r --parallel run
 Every shipped change updates the `package.json` file of **every workspace package** plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit. Don't count the packages by hand — `scripts/release.sh` derives the list from `apps/*/package.json` + `packages/*/package.json` + root (apps since v0.68.20, packages since v0.76.0 when `packages/mcp` joined `packages/shared`), so a new app or package is covered the moment it exists. **Bump every `packages/*/package.json`, not just shared** — a hand-rolled bump loop that names `packages/shared` gets refused. The hand-written count in this file said "ten" and was already wrong once.
 
 **Meet has its own user-facing version** in `apps/meet/app/(app)/layout.tsx` — **decoupled from the monorepo cadence**. Meet is the rebuild of Suite v1, so its sidebar shows `v2.x`. Bump Meet's VERSION constant independently when Meet-specific surfaces ship, not in lockstep with platform-wide work. **Pulse likewise** has its own `VERSION` in `apps/pulse/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-07-07). **Membership likewise** — its own `VERSION` in `apps/membership/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-09-04; display name may become "Hyve" — the slug `membership` never changes, only branding.ts does).
+
+**Business Models likewise** — its own `VERSION` in `apps/models/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-09-25; slug `fibre-models`, display name "Business Models", `docs/business-models.md`).
 
 ### Seed realistic data
 
@@ -254,7 +256,31 @@ second, drifting copy.
   An absolute path is honoured; the check itself is read-only.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-09-01 (v0.21.0)
+## Where we left off — 2026-09-26 (v1.61.3): Business Models, a ninth app
+
+`apps/models` (slug `fibre-models`, "Business Models") joined the family on
+2026-09-25: business model generators per team — turnover generators with
+their own cost structure, generic costs, investment, break even, all on a
+Business Model Canvas, one JSON definition per venture, the arithmetic in the
+browser. Teams are the access layer (a model's `team_id`; RLS in
+`20260925124033`). `docs/business-models.md` is the deep dive: the definition
+contract, who may do what, the MCP tools (`models:read` / `models:write`,
+v1.61.1) that let an assistant write a model from a story, hosting.
+
+State: released to STAGING (models.thefibre.tech, Vercel `thefibre-models`,
+Preview env on the `staging` branch) and switched on for "The Thread"
+workspace there. **A beta app on purpose** (Sjoerd: "activate it in beta
+only"): the catalogue row has `beta_at`, never `released_at`, so only a plan
+with "Gets new apps early, to test" can switch it on. `available` in
+branding stays `false` until `models.thethread.app` serves — the smoke test
+in `pnpm verify` probes every available app's PRODUCTION url, so flipping it
+early blocks every release. Open: promote to production
+(`./scripts/promote.sh`, then `deploy-api.sh prod`, attach the domain in
+Vercel, flip `available`, activate for Solidarity Lab).
+
+---
+
+## Where we left off before that — 2026-09-01 (v0.21.0)
 
 **Productisation shipped in two slices** (docs/productisation-proposal.md is
 the umbrella; docs/pricing-proposal.md holds the decided numbers — Free /

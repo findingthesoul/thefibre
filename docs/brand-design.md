@@ -7,7 +7,7 @@ changes are simple, and app-wide implemented. Think about the old fashioned
 object oriented programming."*
 
 This is the rulebook for how The Thread, The Fibre, Meet, Members, Flow, Pulse,
-Connections and the portal look. **Read it before building any screen.** If
+Connections, Business Models and the portal look. **Read it before building any screen.** If
 this document and the code disagree, the code in `packages/shared` is what
 ships — fix whichever is wrong in the same commit.
 
