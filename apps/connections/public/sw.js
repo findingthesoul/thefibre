@@ -48,12 +48,21 @@
 // Sjoerd: *"the icon of connect (if I download it for my mobile) is the old
 // one."*
 //
+// v4 (2026-09-26): the icons again, and for the SAME reason one rung up.
+// v0.129.0 redrew the brand tiles — the SPoT the favicons point at — without
+// regenerating the per-app PWA icons cut from them, so apps/web and
+// apps/connections had been serving 22 September's artwork. Regenerating them
+// changed two precached files, and without this bump every installed phone
+// would have kept the old one out of `connections-shell-v3`, exactly as it
+// did in September. The freshness test caught it this time rather than
+// Sjoerd's home screen.
+//
 // The comment above used to say "whenever /offline.html changes", which was
 // true and incomplete: it named one of the three precached files, so the
 // other two could change unnoticed. `sw-freshness.test.ts` now fails when a
 // precached file is committed after this one, which is the check that would
 // have caught it.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `connections-shell-${VERSION}`;
 const STATIC = `connections-static-${VERSION}`;
 const PRECACHE = ['/offline.html', '/icon-192.png', '/apple-touch-icon.png'];

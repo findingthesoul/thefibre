@@ -401,6 +401,14 @@ export function PrivacyDoc() {
           Only if you choose it: signing in with a Google account, or connecting your calendar so
           Fibre Meet can read your availability. Disconnecting revokes it.
         </Row>
+        <Row term="Anthropic">
+          Only where the in-app assistant is switched on for your workspace (Settings →
+          Assistant). It is sent the titles, dates, statuses and counts of the things you ask
+          about, and what you type to it — never who registered for anything. It is not sent
+          anything when nobody is using it, and a workspace with the assistant off sends nothing
+          at all. This applies whether the assistant runs on our key or on one your workspace
+          pasted in; the difference is only who is billed.
+        </Row>
       </Rows>
       <P>
         One more case is yours, not ours. If you connect your own AI assistant to your account

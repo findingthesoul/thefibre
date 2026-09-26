@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.71.0] — 2026-09-26 — the tab wears the current mark, and Anthropic is named
+
+Two things found while answering "can you give me my key", neither of them the
+key.
+
+**The browser tab was still the old Fibre icon.** Sjoerd: *"The icon in the
+brower is the old fibre logo"* — a white block with the wordmark under it,
+which is what the tile looked like before v0.129.0 took the word off. That
+release redrew `public/brand/apps/*.png`, the SPoT every app's favicon points
+at, and did NOT regenerate the per-app PWA icons in `apps/*/public`, which are
+separate files cut from the same artwork. `apps/web` and `apps/connections`
+had been serving September 22nd's icons ever since; `apps/my` was already
+current.
+
+Regenerated from the brand tiles rather than from the source drive, so the
+thing on screen is derived from the thing the launcher shows.
+
+**`make-app-icons.sh` needed its own escape hatch used.** It reads the
+maskable icon's ground from the source's CENTRE pixel, which is right for
+full-bleed artwork and wrong for these: the centre is the white mark, so the
+first run produced a white ring around a navy tile — precisely the failure its
+own comment documents, complete with the `ICON_PAD` override it tells you to
+use. Sampled the top-centre strip instead: clear of the mark AND of the
+rounded transparent corners, which an average over the whole top edge pulls in
+(that attempt produced a washed-out `#949dae`).
+
+**`apps/web/app/icon.svg` is gone.** A third copy of the brand, a yellow tile
+with letters, last touched on 1 September. It was not reaching anybody — the
+layout sets `icons` explicitly, so the PNGs win — but it answered 200 and
+looked authoritative to the next person who went looking for why the tab was
+wrong.
+
+**Anthropic is named as a sub-processor.** The policy already covered the
+assistant you bring — correctly, as YOUR processor rather than our
+sub-processor. The in-app assistant is the other case: The Fibre sends the
+data itself, so Anthropic is ours, and the list said *"There is nobody else."*
+Switching it on in production before saying so would have been a disclosure
+gap on a platform with paying clients. Written to cover both keys, since which
+one is used changes who is billed and nothing else.
+
 ## [1.70.0] — 2026-09-26 — naming a person means picking one, everywhere it happens
 
 Sjoerd, twice within a few minutes: *"the forst admin field is not a single
