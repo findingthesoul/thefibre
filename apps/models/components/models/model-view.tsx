@@ -9,7 +9,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Download, Printer, RotateCcw, ChevronLeft } from 'lucide-react';
+import { Download, Printer, RotateCcw, ChevronLeft, Link2, Check } from 'lucide-react';
 import { Button } from '@thefibre/shared/ui/button';
 import { PageContainer } from '@thefibre/shared/ui/page';
 import { Tabs } from '@thefibre/shared/ui/tabs';
@@ -53,6 +53,9 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   const [refMonth, setRefMonth] = useState<number>(typeof saved.refMonth === 'number' ? saved.refMonth : (row.definition.breakEvenMonth ?? 12));
   const [horizon, setHorizon] = useState<number>(typeof saved.horizon === 'number' ? saved.horizon : (row.definition.horizon ?? 36));
   const [tab, setTab] = useState<Tab>('canvas');
+  const [linkCopied, setLinkCopied] = useState(false);
+  // A shared link opens the tab it was copied from: /models/<id>?tab=numbers.
+  useEffect(() => { try { const q = new URLSearchParams(window.location.search).get('tab'); if (q === 'numbers' || q === 'canvas') setTab(q); } catch {} }, []);
   const [view, setView] = useState<View>('bep');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [editing, setEditing] = useState<{ block: CanvasBlockKey; index: number | null } | null>(null);
@@ -106,6 +109,10 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     setRefMonth(def.breakEvenMonth ?? 12);
     setHorizon(def.horizon ?? 36);
   }
+  async function copyLink() {
+    const url = `${window.location.origin}/models/${row.id}?tab=${tab}`;
+    try { await navigator.clipboard.writeText(url); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { window.prompt(t(locale, 'copy_link'), url); }
+  }
   function exportCsv() {
     const gens = def.generators;
     const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -139,6 +146,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
           </div>
           <div className="flex items-center gap-1">
             <Tabs value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }]} className="border-b-0" />
+            <Button variant="ghost" size="icon" onClick={copyLink} title={linkCopied ? t(locale, 'link_copied') : t(locale, 'copy_link')}>{linkCopied ? <Check size={16} /> : <Link2 size={16} />}</Button>
             <Button variant="ghost" size="icon" onClick={() => window.print()} title={t(locale, 'print_canvas')}><Printer size={16} /></Button>
             <Button variant="ghost" size="icon" onClick={exportCsv} title={t(locale, 'export_csv')}><Download size={16} /></Button>
             <Button variant="ghost" size="icon" onClick={reset} title={t(locale, 'reset')}><RotateCcw size={16} /></Button>
