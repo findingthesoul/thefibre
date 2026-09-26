@@ -61,6 +61,12 @@ Two ways in, same result:
    Assistants) with `models:read` + `models:write`. The assistant reads
    `models_schema`, drafts, confirms name and team, calls `models_create`.
 
+**An update made elsewhere shows up on the open page.** Every 15 seconds
+while the tab is visible, the model page asks the API when the model last
+changed (`modelUpdatedAt` in `models/actions.ts`). A newer stamp than the
+page holds, and no save of its own in flight, shows a notice: "updated by
+someone else, or by an assistant. Reload." Nothing reloads by itself.
+
 **The assistant cannot change the wrong model.** Every write tool
 (`models_update`, `models_set_numbers`, `models_save_scenario`,
 `models_duplicate`) takes `model_name` next to `model_id`; `models_create`

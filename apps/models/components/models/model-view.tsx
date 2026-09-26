@@ -19,7 +19,7 @@ import { defaultState, mergeState, summarize, itemObj, type CanvasBlockKey, type
 import type { Scope } from '@/lib/links';
 import { t, type Locale } from '@/lib/i18n-ui';
 import type { ModelRow } from '@/app/(app)/models/actions';
-import { saveInputs, updateModel, duplicateModel } from '@/app/(app)/models/actions';
+import { saveInputs, updateModel, duplicateModel, modelUpdatedAt } from '@/app/(app)/models/actions';
 import { useRouter } from 'next/navigation';
 import { BusinessModelCanvas } from './canvas';
 import { CanvasEditor } from './canvas-editor';
@@ -89,6 +89,24 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const s = useMemo(() => summarize(def, state, { horizon, refMonth: Math.min(refMonth, horizon) }), [def, state, horizon, refMonth]);
+
+  // Somebody else's change: a colleague in another browser, or an assistant
+  // through MCP. Every 15 seconds while the tab is visible, ask when the
+  // model last changed; a newer stamp than the one this page holds means
+  // there is a version to see. Nothing reloads by itself: the person may be
+  // in the middle of a thought, so the page says so and offers the reload.
+  const [changedElsewhere, setChangedElsewhere] = useState(false);
+  useEffect(() => {
+    let stop = false;
+    const check = async () => {
+      if (document.visibilityState !== 'visible' || inputsDirty.current || defDirty.current) return;
+      const at = await modelUpdatedAt(row.id);
+      if (!stop && at && at !== updatedAt.current && new Date(at) > new Date(updatedAt.current)) setChangedElsewhere(true);
+    };
+    const id = setInterval(check, 15_000);
+    document.addEventListener('visibilitychange', check);
+    return () => { stop = true; clearInterval(id); document.removeEventListener('visibilitychange', check); };
+  }, [row.id]);
 
   // Debounced save of whatever changed: the inputs blob, the definition, or both.
   useEffect(() => {
@@ -227,6 +245,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
         </header>
         {status === 'error' && <div className={`${NOTICE.error} mt-3`}>{t(locale, 'save_failed')}</div>}
         {status === 'conflict' && <div className={`${NOTICE.warning} mt-3 flex flex-wrap items-center justify-between gap-2`}><span>{t(locale, 'save_conflict')}</span><Button variant="secondary" size="sm" onClick={() => window.location.reload()}>{t(locale, 'reload')}</Button></div>}
+        {changedElsewhere && status !== 'conflict' && <div className={`${NOTICE.info} mt-3 flex flex-wrap items-center justify-between gap-2 print:hidden`}><span>{t(locale, 'changed_elsewhere')}</span><Button variant="secondary" size="sm" onClick={() => window.location.reload()}>{t(locale, 'reload')}</Button></div>}
         {!editable && <div className={`${NOTICE.info} mt-3`}>{t(locale, 'read_only_hint')}</div>}
       </div>
 

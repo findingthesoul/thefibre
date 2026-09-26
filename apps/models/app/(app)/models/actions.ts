@@ -58,6 +58,17 @@ function saveFail(e: unknown, fallback: string): SaveResult {
 }
 
 /** Saves the numbers; `ifUpdatedAt` is the updated_at last seen, so a save over someone else's change is refused. */
+/** When the model last changed, for the open page to notice an update made
+ *  elsewhere: a colleague, or an assistant through MCP. Null when unreadable. */
+export async function modelUpdatedAt(id: string): Promise<string | null> {
+  try {
+    const r = await apiFetch<{ updated_at: string }>(`/api/v1/models/${id}`);
+    return r.updated_at ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function saveInputs(id: string, inputs: Record<string, unknown>, ifUpdatedAt?: string): Promise<SaveResult> {
   try {
     const r = await apiFetch<{ updated_at: string }>(`/api/v1/models/${id}`, { method: 'PATCH', body: JSON.stringify({ inputs, if_updated_at: ifUpdatedAt }) });
