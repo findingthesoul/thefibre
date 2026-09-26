@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { seedFirstAdmin } from '../lib/first-admin.js';
 import { forgetPlan } from '../lib/plan.js';
 import { isSuperAdminUser } from '../lib/super-admin.js';
 
@@ -108,6 +109,13 @@ workspacesRoutes.get('/', async (c) => {
         // A workspace nobody has ever signed into. This is the signal the page
         // exists for — an accidental or abandoned tenant, visible at a glance.
         is_empty: counts.users === 0 && counts.people === 0 && counts.activities === 0,
+        // Narrower than is_empty, and a different KIND of fact. `is_empty`
+        // says nobody has used this workspace; this says nobody CAN. With no
+        // user row there is no workspace_id for any JWT to carry, so the
+        // workspace has no door — not for its owner and not for a super
+        // admin. Every workspace made through this route before 2026-09-26
+        // is in that state, and none of them looked it.
+        has_no_user: counts.users === 0,
         is_yours: w.id === ctx.workspaceId,
       };
     }),
@@ -124,9 +132,24 @@ workspacesRoutes.get('/', async (c) => {
 // without filing a signup request. The subscription row itself is created by
 // the on_workspace_insert trigger (free + comped); we then move it to what
 // was asked for.
+//
+// `admin_email` is REQUIRED, since 2026-09-26. Until then this route made a
+// workspace with nobody in it, and nothing could put anybody in it later:
+// membership is a public."user" row, the JWT's workspace_id comes from that
+// row, and the only endpoint that adds members acts on the caller's OWN
+// workspace. Not even a super admin could enter — super-admin grants sight of
+// the admin screens, not a user row. The result looked perfectly healthy in
+// the list and was unusable, which is how Sjoerd found it: by going to add
+// members to one and finding no way to. The approval flow never had this
+// problem because it ties the workspace to the applicant's email; this is
+// that same tie, made at the only moment when refusing is free.
 // ---------------------------------------------------------------------------
 const CreateBody = z.object({
   name: z.string().min(1).max(200),
+  /** The first human. Required: a workspace with no user cannot be entered
+   *  by anyone, including whoever just made it. */
+  admin_email: z.string().email().max(320),
+  admin_name: z.string().max(200).nullable().optional(),
   slug: z
     .string()
     .regex(/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/)
@@ -200,8 +223,32 @@ workspacesRoutes.post('/', async (c) => {
       return c.json({ error: subErr.message }, 500);
     }
   }
+  // The first human, in the same request. If this fails the workspace goes
+  // with it: an empty workspace is precisely the thing this route used to
+  // leave behind, and leaving one now — after asking for the address — would
+  // be worse than before, because the list would show a workspace somebody
+  // believes has an owner.
+  let firstAdmin: { userId: string } | null = null;
+  try {
+    firstAdmin = await seedFirstAdmin({
+      workspaceId: ws.id,
+      email: b.admin_email,
+      name: b.admin_name ?? null,
+    });
+  } catch (e) {
+    console.error('[workspaces POST] first admin failed, removing the workspace', e);
+    await adminClient.from('workspace').delete().eq('id', ws.id);
+    const msg = e instanceof Error ? e.message : 'could not add the first admin';
+    return c.json({ error: `Workspace not created: ${msg}` }, 500);
+  }
+
   forgetPlan(ws.id);
-  return c.json({ ok: true, workspace_id: ws.id, slug: ws.slug });
+  return c.json({
+    ok: true,
+    workspace_id: ws.id,
+    slug: ws.slug,
+    admin_user_id: firstAdmin.userId,
+  });
 });
 
 // ---------------------------------------------------------------------------

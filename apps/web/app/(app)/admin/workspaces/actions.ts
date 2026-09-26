@@ -18,6 +18,8 @@ function message(e: unknown): string {
 
 export async function createWorkspace(input: {
   name: string;
+  admin_email: string;
+  admin_name?: string | null;
   plan_id?: string;
   comped?: boolean;
   comped_reason?: string | null;

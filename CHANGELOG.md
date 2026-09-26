@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.68.0] — 2026-09-26 — a workspace is created with somebody in it, or it is not created
+
+Sjoerd, having just made one from /admin/workspaces: *"Why is - when making a
+new workspace - not enforced to have one user? - and why can't I as super user
+go there and add a new user or myself?"*
+
+Both halves had one cause, and the answer to the second is the reason for the
+first. **Being in a workspace is a ROW, not a permission.** The JWT's
+`workspace_id` is read from `public."user"`, and every members screen acts on
+that claim. Super-admin grants sight of the admin pages; it does not put a
+user row anywhere. And the only endpoint that adds a member works on the
+workspace the caller is already in — there is none that takes a workspace id,
+deliberately, because that is a cross-tenant write.
+
+`POST /workspaces` created the workspace and its subscription and stopped. So
+the workspace it produced was a sealed room: nobody inside, and nothing able
+to put anybody inside. **It looked completely healthy in the admin list**,
+which is how it survived: you only discover it by going to add members and
+finding no way to.
+
+The approval flow never had this problem, because it ties the workspace to the
+applicant's email and their user row appears at first sign-in. This gives the
+admin door the same tie, at the only moment when refusing costs nothing:
+`admin_email` is now required, and the workspace is **deleted** if seeding its
+first admin fails. Half a workspace is the thing being prevented.
+
+That person is made `super_admin` — they are alone, so they must be able to
+appoint the next one — and granted `fibre-platform` admin explicitly.
+`grantableSlugs()` excludes that slug from every ordinary invite and
+`resolve_sso_identity` only grants it at first sign-in, so without doing it
+here the first admin would be redirected away from Settings → Members, the one
+page they exist for.
+
+**Two workspaces on production are already in this state** — `doab.ai` and
+`De Werkhaven` — and there is no way to open them after the fact. They have to
+be made again with an admin address and the stranded ones deleted. So the
+admin list now carries a **No user** badge, which says the actionable thing:
+not "unused" but "cannot be opened, by anyone". `is_empty` could not say that
+— it means nobody has signed in YET, which is the normal state of a workspace
+approved this morning.
+
+Not reused: the invite endpoint's logic. Its seat gating, paid-seat consent
+and resurrect-a-removed-colleague branches are all about a workspace that
+already has people. The first seat is inside every plan's allowance, there is
+nobody to resurrect, and there is no admin present to consent to anything.
+
 ## [1.67.0] — 2026-09-26 — Business Models: two people, two assistants, one model
 
 Sjoerd: *"Can he also use his Claude to make a scenario in his own Claude

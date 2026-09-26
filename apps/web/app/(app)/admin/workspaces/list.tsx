@@ -42,6 +42,7 @@ export type Workspace = {
     apps: number;
   };
   is_empty: boolean;
+  has_no_user: boolean;
   is_yours: boolean;
 };
 
@@ -102,10 +103,24 @@ export function WorkspaceList({ items, plans }: { items: Workspace[]; plans: Pla
                       Yours
                     </span>
                   )}
-                  {w.is_empty && (
-                    <span className="shrink-0 rounded-full border border-amber-600/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:border-amber-400/40 dark:text-amber-400">
-                      Empty
+                  {/* `has_no_user` implies `is_empty` for anything made
+                      recently, so one badge, saying the actionable half.
+                      "Empty" reads as "unused"; the fact worth acting on is
+                      that nobody can get in at all. Same colour as before —
+                      a new state, not a new palette entry. */}
+                  {w.has_no_user ? (
+                    <span
+                      title="No user row, so no sign-in can resolve to this workspace — not even yours. It has to be recreated with a first admin."
+                      className="shrink-0 rounded-full border border-amber-600/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:border-amber-400/40 dark:text-amber-400"
+                    >
+                      No user
                     </span>
+                  ) : (
+                    w.is_empty && (
+                      <span className="shrink-0 rounded-full border border-amber-600/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:border-amber-400/40 dark:text-amber-400">
+                        Empty
+                      </span>
+                    )
                   )}
                 </div>
                 <div className="mt-0.5 font-mono text-xs text-ink-muted">{w.slug}</div>

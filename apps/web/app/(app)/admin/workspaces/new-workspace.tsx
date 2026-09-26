@@ -15,6 +15,10 @@ import type { PlanOption } from './list';
 export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  // The first human. Required by the API since 2026-09-26: a workspace with
+  // no user cannot be entered by anybody, including whoever made it.
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminName, setAdminName] = useState('');
   const [planId, setPlanId] = useState('free');
   const [comped, setComped] = useState(false);
   const [reason, setReason] = useState('');
@@ -28,6 +32,8 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
     setPlanId('free');
     setComped(false);
     setReason('');
+    setAdminEmail('');
+    setAdminName('');
     setCustomMonth('');
     setError(null);
   }
@@ -36,6 +42,10 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
     setError(null);
     if (!name.trim()) {
       setError('A workspace needs a name.');
+      return;
+    }
+    if (!adminEmail.trim()) {
+      setError('A workspace needs a first admin — nobody can enter one without a user in it.');
       return;
     }
     let month: number | null = null;
@@ -50,6 +60,8 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
     start(async () => {
       const r = await createWorkspace({
         name: name.trim(),
+        admin_email: adminEmail.trim(),
+        admin_name: adminName.trim() || null,
         plan_id: planId,
         comped,
         comped_reason: comped ? (reason.trim() || null) : null,
@@ -99,6 +111,29 @@ export function NewWorkspaceButton({ plans }: { plans: PlanOption[] }) {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Weaving Futures Coöperatie"
               autoFocus
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-ink-subtle">First admin — email</span>
+            <input
+              className={`${field} mt-1`}
+              type="email"
+              value={adminEmail}
+              onChange={(e) => setAdminEmail(e.target.value)}
+              placeholder="them@their-organisation.org"
+            />
+            <span className="mt-1 block text-xs text-ink-muted">
+              They become super admin, get an email, and are the only way into this workspace —
+              a workspace with no user cannot be opened by anyone, including you.
+            </span>
+          </label>
+          <label className="block text-sm">
+            <span className="text-ink-subtle">First admin — name (optional)</span>
+            <input
+              className={`${field} mt-1`}
+              value={adminName}
+              onChange={(e) => setAdminName(e.target.value)}
+              placeholder="Optional"
             />
           </label>
           <label className="block text-sm">

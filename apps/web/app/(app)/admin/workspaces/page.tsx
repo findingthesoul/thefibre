@@ -74,6 +74,14 @@ export default async function AdminWorkspacesPage() {
             signed into it: no users, no contacts, no activity. That is almost always either a
             workspace approved for someone who has not signed in yet, or one created by mistake.
           </p>
+          <p>
+            A <span className="font-medium text-ink">No user</span> badge is the sharper one: the
+            workspace has no user row, so no sign-in can resolve to it &mdash; not the owner&rsquo;s,
+            not yours. Being in a workspace is a row, not a permission, and super-admin does not
+            create one. Every workspace made here before 26 September 2026 is in that state,
+            because this dialog did not ask for a first admin until then. There is no way to open
+            one after the fact: make it again with an admin address, and delete the stranded one.
+          </p>
         </div>
       </section>
     </PageContainer>
