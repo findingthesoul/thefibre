@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.66.0] — 2026-09-26 — Business Models: scenarios, and a way back
+
+The last two items on the calculator's list (Sjoerd: *"then continue with
+the rest of the to do"*).
+
+**Scenarios.** A fourth view on the Numbers tab. Save the current numbers
+under a name — every variable, the typed months, horizon and reference
+month — load one back, delete one, and a table compares them all with the
+current numbers: break even month and units, funding need, cash positive,
+revenue and net at the reference month, last-year turnover, cash at the
+end. The model is shared by all scenarios; only the numbers differ. They
+travel with the team's inputs, so everyone sees the same list.
+
+**Undo.** A snapshot before every change — a typed number, a grid cell, a
+structure edit, a reset, a loaded scenario — one per burst of typing, fifty
+deep. The header button or ⌘Z steps back; the change is saved again for the
+team like any other. Business Models shows `v0.6.0`.
+
 ## [1.65.0] — 2026-09-26 — Business Models: the numbers per month, and costs that step
 
 Sjoerd: *"we also want to change the amounts of input (input of clients)
