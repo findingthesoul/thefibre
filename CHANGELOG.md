@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.68.2] — 2026-09-26 — the print hides the shell by class
+
+The sidebar, top bar and bottom nav of Business Models now carry a print
+class of their own, so the printed canvas does not depend on which HTML
+tag a shell component happens to render.
+
 ## [1.68.1] — 2026-09-26 — Business Models in the app switcher, and the print is the canvas
 
 Sjoerd: *"Models is not in the switch app button."* It could not be until
