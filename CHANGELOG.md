@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.72.3] — 2026-09-26 — the canvas tells you when an assistant changed it
+
+Sjoerd: *"Can you organise that, once Claude updates the canvas, it also
+gives a message on screen (a new update: reload)?"* The open model page
+now asks every fifteen seconds, while its tab is visible, when the model
+last changed. A newer version than the page holds, from a colleague or from
+an assistant through MCP, shows a notice with a Reload button. Nothing
+reloads by itself, and the page stays quiet while its own save is in flight.
+
 ## [1.72.2] — 2026-09-26 — the server says why it refused a registration
 
 Claude Desktop could not register for an entire evening. All anybody could see
