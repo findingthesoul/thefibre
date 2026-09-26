@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.5] — 2026-09-26 — Business Models: create and edit from the drawer too
+
+Sjoerd: *"And the create, edit and delete — can that be done in the Canvas
+elements?"* Yes: "+" in the element column adds to the chosen group (a
+segment, a stream, a fixed cost or investment line, a setting), the pencil
+in the variables column edits the chosen element, and delete lives in the
+editor as on the canvas. Same editors, same rule: admins and team leads.
+
 ## [1.63.4] — 2026-09-26 — Business Models: one row per variable
 
 Sjoerd: *"Monthly fee (USD/member) can be one row."* The unit joins the
