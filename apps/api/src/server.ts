@@ -32,6 +32,7 @@ import { meetRoutes } from './routes/meet.js';
 import { flowRoutes } from './routes/flow.js';
 import { pulseRoutes } from './routes/pulse.js';
 import { membershipRoutes, runMembershipScheduler } from './routes/membership.js';
+import { withSchedulerLease } from './lib/scheduler-lease.js';
 import { runBillingMeterTick } from './routes/billing.js';
 import { runHygieneSweep } from './lib/hygiene.js';
 import { currenciesRoutes } from './routes/currencies.js';
@@ -406,45 +407,40 @@ serve({ fetch: app.fetch, port }, ({ port }) => {
 // (idempotent — touches Stripe only on drift).
 setTimeout(() => void ensureStripeTaxRates(), 15_000);
 
+// Every tick runs under a LEASE (lib/scheduler-lease.ts, 2026-09-26): the Fly
+// config deploys blue-green, so for a moment two processes are up and both
+// would fire these — the usage meter's guard is module memory and the access
+// syncs have no lock. One holder per job name at a time; a dead holder
+// releases by TTL. This is also the prerequisite for a second machine.
 const SCHEDULER_INTERVAL_MS = 5 * 60 * 1000;
-setTimeout(() => {
-  void runThreadMessageScheduler().catch((e) =>
-    console.error('[thread/scheduler] initial run failed', e),
-  );
-  void runMembershipScheduler().catch((e) =>
-    console.error('[membership/scheduler] initial run failed', e),
-  );
+const LEASE_TTL_MS = 4 * 60 * 1000; // under the 5-min tick: a wedged run frees itself before the next
+function leased(name: string, run: () => Promise<unknown>, label: string) {
+  void withSchedulerLease(name, LEASE_TTL_MS, async () => {
+    await run();
+  }).catch((e) => console.error(`[${label}] run failed`, e));
+}
+function runAllSchedulers() {
+  leased('thread-messages', runThreadMessageScheduler, 'thread/scheduler');
+  // Membership renewal reminders + manual-member grace/lapse sweep + the
+  // Circle / Fibre-seat / Google / Thread access syncs.
+  leased('membership', runMembershipScheduler, 'membership/scheduler');
   // Usage meters: 80% warnings, overage invoice items, Free archive sweep
-  // (hourly guard lives inside the lib).
-  void runBillingMeterTick().catch((e) =>
-    console.error('[billing/meters] initial run failed', e),
-  );
-  // Fourth job (connections-data-integrity.md §9.3). Its own nightly guard is
-  // PERSISTED in hygiene_run, not in memory, because this repo deploys
-  // several times a day and an in-memory guard would make "nightly" mean
-  // "every deploy".
-  void runHygieneSweep().catch((e) => console.error('[hygiene] initial run failed', e));
-}, 20_000);
+  // (hourly guard lives inside the lib — and is module memory, hence the lease).
+  leased('billing-meters', runBillingMeterTick, 'billing/meters');
+  // Nightly hygiene sweep (connections-data-integrity.md §9.3); its own
+  // nightly guard is persisted in hygiene_run.
+  leased('hygiene', runHygieneSweep, 'hygiene');
+  // Monthly platform-fee statements: the previous month, from the 2nd on;
+  // idempotent on the ledger (lib/fee-statements.ts).
+  leased('fee-statements', () => runFeeStatementTick(), 'fee-statements');
+  // To-do archive: ticked items sit there seven days, then get FILED out of
+  // the view — never deleted (Sjoerd, 2026-09-23: "archive - not delete").
+  // Idempotent and a single UPDATE.
+  leased('file-finished-tasks', fileFinishedTasks, 'me/tasks');
+}
+setTimeout(runAllSchedulers, 20_000);
 setInterval(() => {
   // Piggyback: hourly-ish guard, weekly probe of Stripe Tax → VAT table.
   void maybeSyncVatRates();
-  void runThreadMessageScheduler().catch((e) =>
-    console.error('[thread/scheduler] run failed', e),
-  );
-  // Membership renewal reminders + manual-member grace/lapse sweep.
-  void runMembershipScheduler().catch((e) =>
-    console.error('[membership/scheduler] run failed', e),
-  );
-  void runBillingMeterTick().catch((e) =>
-    console.error('[billing/meters] run failed', e),
-  );
-  void runHygieneSweep().catch((e) => console.error('[hygiene] run failed', e));
-  // Monthly platform-fee statements: the previous month, from the 2nd on;
-  // idempotent on the ledger (lib/fee-statements.ts).
-  void runFeeStatementTick().catch((e) => console.error('[fee-statements] run failed', e));
-  // To-do archive: ticked items sit there seven days, then get FILED out of
-  // the view — never deleted (Sjoerd, 2026-09-23: "archive - not delete").
-  // Idempotent and a single UPDATE, so it rides the five-minute tick rather
-  // than needing a guard of its own.
-  void fileFinishedTasks().catch((e) => console.error('[me/tasks] filing failed', e));
+  runAllSchedulers();
 }, SCHEDULER_INTERVAL_MS);

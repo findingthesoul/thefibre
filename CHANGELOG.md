@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.72.0] — 2026-09-26 — a deploy no longer takes the API down
+
+Launch list, from the Fibre session at Sjoerd's request: `thefibre-api` is
+one Fly machine, and every deploy and every `fly secrets set` restarted it —
+a routine probe saw a 502 for 15 s. The obvious answer, a second machine,
+was the wrong one today, and so — the Connect and Fibre sessions pointed out
+in the hour before this shipped — was the first draft of this release:
+blue-green deploys ALSO run two processes for a moment, and `server.ts`
+fires every scheduler 20 s after boot. The usage meter's hourly guard was
+`let lastSweepAt = 0`, module memory, so a fresh process never declined;
+the access syncs pick "pending" rows with no lock. Two runners would bill
+overage twice and invite twice.
+
+### Added
+- **A scheduler lease** (`scheduler_lease`, migration `20260926192940`;
+  `apps/api/src/lib/scheduler-lease.ts`). Every tick in `server.ts` now runs
+  only if this process wins a named lease with a four-minute TTL; the winner
+  releases when done and a dead winner releases by expiry. Service-role
+  only. Integration-tested on staging: two holders racing get exactly one
+  runner, a released lease is free at once, an abandoned one frees itself
+  after its TTL, the anon key can neither read the row nor call the RPC.
+  This is also the whole prerequisite for `fly scale count 2`.
+
+### Changed
+- **Both Fly configs deploy blue-green.** Fly boots the new machine beside
+  the old one, waits for its health checks, moves traffic, then destroys the
+  old one. Same single machine at rest; no restart window on a deploy.
+- **Secrets are staged, not applied live.** `fly secrets set --stage` and
+  the next `scripts/deploy-api.sh` carries them, so a config change is a
+  blue-green deploy rather than a restart. Written into docs/deploy.md.
+
 ## [1.71.1] — 2026-09-26 — a desktop assistant can connect at all
 
 Sjoerd, trying to point his Claude at The Fibre: *"Couldn't register with The

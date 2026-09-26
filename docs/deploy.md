@@ -121,6 +121,17 @@ After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl htt
 
 ### Subsequent deploys
 
+**Deploys are blue-green and secrets are staged (2026-09-26).** Both
+`fly.toml` files carry `strategy = "bluegreen"`: the new machine comes up
+beside the old one, traffic moves only after its health checks pass, and the
+old one is then destroyed — no restart window, still one machine at rest.
+Setting a secret used to restart that machine too, so set secrets with
+`fly secrets set --stage NAME=… [-c fly.staging.toml]` and let the next
+`scripts/deploy-api.sh` apply them. The in-process schedulers run under a
+lease (`scheduler_lease`, lib/scheduler-lease.ts) so the moment both
+processes are up they cannot double-run a tick; the same lease is what makes
+`fly scale count 2` safe when a second machine is wanted.
+
 **Use `scripts/deploy-api.sh`, not `fly deploy` directly.**
 
 ```bash

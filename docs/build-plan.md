@@ -22,18 +22,14 @@ the queue.
 
 _Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
 
-**LAUNCH — the production API is ONE Fly machine, and every restart is a
-short outage.** Found 2026-09-25 by the Fibre session, relayed at Sjoerd's
-request. `fly status --app thefibre-api` shows a single machine (fra); a
-routine probe got a 502 that lasted 15 s before clean 200s; every
-`fly secrets set` and every deploy restarts that machine with nothing to take
-the traffic, so a config change becomes a client-visible error. Staging is
-the same shape. With paying clients onboarding, decide before launch:
-`fly scale count 2 --app thefibre-api` (second machine, same region; the
-in-API schedulers must then tolerate two runners — check the 5-minute ticks
-dedupe by row, which the thread_message_send and reminder tables already do),
-or at minimum accept the outage windows and stop setting secrets during
-client hours. Cost of the second machine is the trade; it is Sjoerd's call.
+**A second API machine, when a crash matters more than the cost.** v1.72.0
+made deploys blue-green (no 502 on a deploy or a staged secret) and put every
+scheduled tick under a lease, so `fly scale count 2 --app thefibre-api` is
+now safe from double-running. What it buys is survival of a machine crash or
+a Fly host event; what it costs is a second shared-cpu-1x. Sjoerd's call.
+Smaller leftover: the usage meter's hourly guard is still module memory, so
+each deploy runs the (deduplicated) sweeps once at boot — persist it in
+`scheduler_lease.acquired_at` or a stamp table when it bothers anyone.
 
 **LAUNCH — promote the privacy policy that names Anthropic.** The in-app
 assistant went live on production 2026-09-25 (ANTHROPIC_API_KEY set) but the

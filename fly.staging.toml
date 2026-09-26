@@ -14,6 +14,15 @@ primary_region = 'fra'
 
 [deploy]
   release_command = "echo 'Migrations are pushed manually via supabase CLI — see docs/environments.md Phase 3.'"
+  # Blue-green (2026-09-26): the API is ONE machine, and until now every deploy
+  # and every `fly secrets set` restarted it — a 15 s 502 window that a client
+  # could hit (Fibre session, launch list). With bluegreen Fly boots the new
+  # machine beside the old one, waits for its health checks, moves traffic,
+  # then destroys the old one. Still one machine at rest: the in-process
+  # schedulers (billing meter, fee statements, access syncs) have no leader
+  # lock, so `fly scale count 2` is NOT safe until they get one. Secrets:
+  # `fly secrets set --stage …` and let scripts/deploy-api.sh apply them.
+  strategy = "bluegreen"
 
 [env]
   API_PORT = '8080'
