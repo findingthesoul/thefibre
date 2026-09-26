@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.0] — 2026-09-26 — Business Models: the structure, edited where it lives
+
+Sjoerd: *"Where can you edit, create or delete all the elements and its
+relations? Where can I edit the segments? Where can I create, edit or
+delete costs or turnover elements (variables)? Where can I make relations
+between elements? Where can I make the settings? All of this is now done
+through Claude. This is great."* — and then the plan, step 1.
+
+**Editors, opened from the canvas.** A segment (name, who this is, help,
+how many in month one, growth and churn). A revenue stream (where its
+volume comes from — its own segment, a segment times a factor, or lump
+income — its variables, the revenue formula, its own cost lines with their
+kind). Key resources (fixed costs with a start month, investment lines).
+Settings (tagline, description, currency, unit word, reference month, the
+global variables and the generic costs they drive). Click a segment or a
+stream row to edit, "+" to add, the pencil on key resources, "Settings"
+under the canvas. Ids are minted from labels and never shown. A formula is
+checked against the ids it may use before it saves. A segment that feeds a
+stream cannot be deleted until the stream is pointed elsewhere. Deleting
+a generator also drops the links and segment ties that named it.
+
+**The drawer walks the model.** Column one: customer segments, revenue
+streams, key resources, settings, and any canvas block with linked
+statements. Column two: the elements of that group with their reading.
+Column three: every variable of the element, edited in place, and its
+relations — where the volume comes from, what it feeds, which value
+propositions serve it, the price formula, the generic cost it drives.
+
+**Panels in your order.** The result views above the drawer drag into any
+order by the grip at their left; the order is kept per person, per model
+and per view, in the browser.
+
+The schema guide names statement `id` and `links`, so a definition written
+by an assistant can carry them. Business Models shows `v0.3.0`.
+
 ## [1.62.3] — 2026-09-26 — Business Models: the description behind an i
 
 Sjoerd: *"Also this [description · tagline] under an i."* The shared
