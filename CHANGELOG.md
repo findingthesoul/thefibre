@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.69.1] — 2026-09-26 — an assistant cannot change the wrong business model
+
+Sjoerd: *"Can you make sure when talking to the system, that it always checks
+if it is clear which and where and it does not change the wrong models? Like:
+security checks."*
+
+Every write tool in the Business Models catalogue now takes, next to the id,
+the name of what it means: `model_name` for a model, `team_name` for a team
+(or "workspace"). The tool reads the real model or team back and refuses on a
+mismatch, with the real name in its answer, before anything is written. A
+stale id, a guess, a mix-up between two similar names: refused, nothing
+changed. Creating a model whose name already exists in the same team is
+refused as well, because that is nearly always "change it" or a lost thread,
+unless the person explicitly wants a second one.
+
+And the tool descriptions and the story prompt tell the assistant the
+discipline in words: say which model, which team and what changes, wait for
+a yes, and ask rather than guess when words could match more than one.
+
 ## [1.69.0] — 2026-09-26 — a stranded workspace can be rescued from inside the product
 
 Sjoerd, blocked on the workspace he had made to present from: *"But I can not
