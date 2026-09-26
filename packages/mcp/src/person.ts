@@ -62,8 +62,14 @@ export class PersonClient {
   post<T = unknown>(appId: string, path: string, body: unknown): Promise<T> {
     return this.request<T>('POST', appId, path, { body });
   }
+  patch<T = unknown>(appId: string, path: string, body: unknown): Promise<T> {
+    return this.request<T>('PATCH', appId, path, { body });
+  }
+  put<T = unknown>(appId: string, path: string, body: unknown): Promise<T> {
+    return this.request<T>('PUT', appId, path, { body });
+  }
   private async request<T>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT',
     appId: string,
     path: string,
     opts: { query?: Record<string, string | number | undefined | null>; body?: unknown },
@@ -499,6 +505,75 @@ export const PERSON_TOOLS: PersonTool[] = [
     },
   }),
 
+  tool({
+    name: 'models_update',
+    title: 'Change a business model',
+    description:
+      'Change a business model’s name, tagline, description or its whole definition (the structure: generators, costs, canvas, funnel). Read it first with models_get, change what the person asked, send the full definition back. Admins and team leads only. Pass if_updated_at from models_get: if someone changed the model meanwhile the call is refused with the current version, so nothing is overwritten silently. The numbers the team typed are untouched; use models_set_numbers for those.',
+    scope: 'models:write',
+    write: true,
+    input: {
+      model_id: uuid,
+      if_updated_at: z.string().optional().describe('updated_at as models_get returned it'),
+      name: z.string().min(1).max(200).optional(),
+      tagline: z.string().max(300).optional(),
+      description: z.string().max(2000).optional(),
+      definition: z.object({ name: z.string().min(1).max(200), generators: z.array(z.record(z.unknown())).min(1).max(40) }).passthrough().optional(),
+    },
+    run: async (c, a) => {
+      const { model_id, ...patch } = a;
+      const r = await c.patch<Row>(MODELS, `/api/v1/models/${model_id}`, patch);
+      return { updated: true, model_id: r.id, name: r.name, updated_at: r.updated_at };
+    },
+  }),
+  tool({
+    name: 'models_set_numbers',
+    title: 'Set numbers in a business model',
+    description:
+      'Change some of the numbers of a model — the variables of a generator ({ generators: { "<generator id>": { "<input or cost id>": value } } }), a fixed cost ({ fixed: { "<id>": value } }), an investment line, a setting, a funnel rate ({ transitions: { "<transition id>": percent } }), new clients typed for months ({ periods: { "<segment id>": { "7": 12 } } }), the horizon or the reference month. Only what you send changes; the rest stays. Every active member of the team may. Confirm the numbers with the person first.',
+    scope: 'models:write',
+    write: true,
+    input: {
+      model_id: uuid,
+      settings: z.record(z.number()).optional(),
+      generators: z.record(z.record(z.number())).optional(),
+      fixed: z.record(z.number()).optional(),
+      investment: z.record(z.number()).optional(),
+      transitions: z.record(z.number()).optional(),
+      periods: z.record(z.record(z.number())).optional(),
+      periodRates: z.record(z.record(z.number())).optional(),
+      refMonth: z.number().int().min(1).max(240).optional(),
+      horizon: z.number().int().min(12).max(240).optional(),
+    },
+    run: async (c, a) => {
+      const { model_id, ...numbers } = a;
+      const r = await c.put<Row>(MODELS, `/api/v1/models/${model_id}/numbers`, numbers);
+      return { updated: true, model_id: r.id, updated_at: r.updated_at };
+    },
+  }),
+  tool({
+    name: 'models_save_scenario',
+    title: 'Save the current numbers as a scenario',
+    description: 'Save the model’s current numbers under a name, so the team can compare and switch between variations in the app. Set the numbers first with models_set_numbers, then save; a scenario with the same name is replaced.',
+    scope: 'models:write',
+    write: true,
+    input: { model_id: uuid, name: z.string().min(1).max(120) },
+    run: async (c, a) => c.post<Row>(MODELS, `/api/v1/models/${a.model_id}/scenarios`, { name: a.name }),
+  }),
+  tool({
+    name: 'models_duplicate',
+    title: 'Duplicate a business model',
+    description: 'A copy of a model, definition and numbers and scenarios, under a new name, in a team the person leads (models_teams) or workspace wide for admins. The way to make a variation of the structure without touching the original.',
+    scope: 'models:write',
+    write: true,
+    input: { model_id: uuid, name: z.string().min(1).max(200).optional(), team_id: uuid.nullable().optional().describe('Omit to keep the original’s team') },
+    run: async (c, a) => {
+      const r = await c.post<Row>(MODELS, `/api/v1/models/${a.model_id}/duplicate`, { name: a.name, team_id: a.team_id });
+      const team = one(r.team as Row | Row[] | null);
+      return { created: true, model_id: r.id, name: r.name, team: team ? { id: team.id, name: team.name } : null, open_in_models: `/models/${String(r.id)}` };
+    },
+  }),
+
 ];
 
 const AGENDA_TYPES = new Set(['event', 'conversation', 'workshop']);
@@ -547,7 +622,7 @@ export function personInstructions(who: PersonServerOptions['who'], scopes: read
     'Connect is a landscape of a person’s relationships, not a CRM: bands say how a relationship stands, attention conditions say who needs a move, and notes are the person’s own words about a meeting.',
     'When asked who to follow up with, start with connections_today, then connections_attention. To talk about one person, find them with connections_search and read connections_person.',
     scopes.includes('models:read')
-      ? 'Business Models holds one model per venture: turnover generators with their own costs, generic costs, investment, break even, on a Business Model Canvas. models_list shows what the person may open; models_get reads one back. To write a model from a story, read models_schema first, draft the definition, and confirm name and team before models_create.'
+      ? 'Business Models holds one model per venture: turnover generators with their own costs, generic costs, investment, break even, on a Business Model Canvas. models_list shows what the person may open; models_get reads one back. To write a model from a story, read models_schema first, draft the definition, and confirm name and team before models_create. With models:write you may also change a model (models_update, definition and words; models_set_numbers, the numbers; models_save_scenario; models_duplicate for a variation of the structure). Always read first, change only what was asked, pass if_updated_at so nobody is overwritten, and confirm before a write.'
       : '',
     scopes.includes('thread:write')
       ? 'Two things here write, both as DRAFTS: thread_create makes a new thread (blank, or from one of the person’s templates), and thread_add_engagements lays a list of dated items onto it. Before creating, confirm template-or-blank, title, dates and slug (suggest one from the title). For a schedule the person pastes, use the plan_thread_from_schedule prompt’s method: rows people attend become agenda items, rows that get sent become messages, internal steps become agenda items hidden from the agenda; the thread’s start and end must span every row. Nothing is published or emailed until the person publishes it in The Thread. Changing a thread, adding a Connect note, publishing: in the app; say where.'

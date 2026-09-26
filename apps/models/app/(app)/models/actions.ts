@@ -50,24 +50,42 @@ export async function createModel(input: {
   }
 }
 
-export async function saveInputs(id: string, inputs: Record<string, unknown>): Promise<{ error?: string }> {
+export type SaveResult = { error?: string; conflict?: boolean; updated_at?: string };
+
+function saveFail(e: unknown, fallback: string): SaveResult {
+  if (e instanceof ApiError && e.status === 409) return { error: fallback, conflict: true };
+  return fail(e, fallback);
+}
+
+/** Saves the numbers; `ifUpdatedAt` is the updated_at last seen, so a save over someone else's change is refused. */
+export async function saveInputs(id: string, inputs: Record<string, unknown>, ifUpdatedAt?: string): Promise<SaveResult> {
   try {
-    await apiFetch(`/api/v1/models/${id}`, { method: 'PATCH', body: JSON.stringify({ inputs }) });
-    return {};
+    const r = await apiFetch<{ updated_at: string }>(`/api/v1/models/${id}`, { method: 'PATCH', body: JSON.stringify({ inputs, if_updated_at: ifUpdatedAt }) });
+    return { updated_at: r.updated_at };
   } catch (e) {
-    return fail(e, 'Could not save.');
+    return saveFail(e, 'Could not save.');
   }
 }
 
 export async function updateModel(
   id: string,
   patch: { name?: string; tagline?: string | null; description?: string | null; team_id?: string | null; definition?: ModelDefinition },
-): Promise<{ error?: string }> {
+  ifUpdatedAt?: string,
+): Promise<SaveResult> {
   try {
-    await apiFetch(`/api/v1/models/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
-    return {};
+    const r = await apiFetch<{ updated_at: string }>(`/api/v1/models/${id}`, { method: 'PATCH', body: JSON.stringify({ ...patch, if_updated_at: ifUpdatedAt }) });
+    return { updated_at: r.updated_at };
   } catch (e) {
-    return fail(e, 'Could not update the business model.');
+    return saveFail(e, 'Could not update the business model.');
+  }
+}
+
+export async function duplicateModel(id: string, name?: string): Promise<{ id?: string; error?: string }> {
+  try {
+    const r = await apiFetch<{ id: string }>(`/api/v1/models/${id}/duplicate`, { method: 'POST', body: JSON.stringify(name ? { name } : {}) });
+    return { id: r.id };
+  } catch (e) {
+    return fail(e, 'Could not duplicate the business model.');
   }
 }
 

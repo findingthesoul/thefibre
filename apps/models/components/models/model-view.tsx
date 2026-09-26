@@ -9,7 +9,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Download, Printer, RotateCcw, ChevronLeft, Link2, Check, Undo2 } from 'lucide-react';
+import { Download, Printer, RotateCcw, ChevronLeft, Link2, Check, Undo2, Copy } from 'lucide-react';
 import { Button } from '@thefibre/shared/ui/button';
 import { PageContainer } from '@thefibre/shared/ui/page';
 import { Tabs } from '@thefibre/shared/ui/tabs';
@@ -19,7 +19,8 @@ import { defaultState, mergeState, summarize, itemObj, type CanvasBlockKey, type
 import type { Scope } from '@/lib/links';
 import { t, type Locale } from '@/lib/i18n-ui';
 import type { ModelRow } from '@/app/(app)/models/actions';
-import { saveInputs, updateModel } from '@/app/(app)/models/actions';
+import { saveInputs, updateModel, duplicateModel } from '@/app/(app)/models/actions';
+import { useRouter } from 'next/navigation';
 import { BusinessModelCanvas } from './canvas';
 import { CanvasEditor } from './canvas-editor';
 import { SegmentEditor, StreamEditor, ResourcesEditor, SettingsEditor } from './editors';
@@ -78,7 +79,9 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   // A shared link opens the tab it was copied from: /models/<id>?tab=numbers.
   useEffect(() => { try { const q = new URLSearchParams(window.location.search).get('tab'); if (q === 'numbers' || q === 'canvas') setTab(q); } catch {} }, []);
   const [view, setView] = useState<View>('bep');
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'conflict'>('idle');
+  const updatedAt = useRef<string>(row.updated_at);
+  const router = useRouter();
   const [editing, setEditing] = useState<{ block: CanvasBlockKey; index: number | null } | null>(null);
   const [structure, setStructure] = useState<{ kind: 'segment' | 'stream'; id: string | null } | { kind: 'resources' | 'settings' } | null>(null);
   const inputsDirty = useRef(false);
@@ -93,12 +96,14 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     setStatus('saving');
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      const jobs: Promise<{ error?: string }>[] = [];
-      if (inputsDirty.current) { inputsDirty.current = false; jobs.push(saveInputs(row.id, { ...state, refMonth, horizon, scenarios })); }
-      if (defDirty.current) { defDirty.current = false; jobs.push(updateModel(row.id, { definition: def })); }
-      const results = await Promise.all(jobs);
+      // One after the other, each carrying the updated_at the last one
+      // returned: two writes in flight would refuse each other otherwise.
+      const results: Awaited<ReturnType<typeof saveInputs>>[] = [];
+      if (inputsDirty.current) { inputsDirty.current = false; const r = await saveInputs(row.id, { ...state, refMonth, horizon, scenarios }, updatedAt.current); if (r.updated_at) updatedAt.current = r.updated_at; results.push(r); }
+      if (defDirty.current && !results.some((r) => r.conflict)) { defDirty.current = false; const r = await updateModel(row.id, { definition: def }, updatedAt.current); if (r.updated_at) updatedAt.current = r.updated_at; results.push(r); }
+      const conflict = results.some((r) => r.conflict);
       const err = results.find((r) => r.error);
-      setStatus(err ? 'error' : 'saved');
+      setStatus(conflict ? 'conflict' : err ? 'error' : 'saved');
       if (!err) setTimeout(() => setStatus((st) => (st === 'saved' ? 'idle' : st)), 1500);
     }, 800);
     return () => { if (timer.current) clearTimeout(timer.current); };
@@ -167,6 +172,13 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     if (typeof sc.inputs.horizon === 'number') setHorizon(sc.inputs.horizon);
   }
   function deleteScenario(sc: Scenario) { inputsDirty.current = true; setScenarios((list) => list.filter((x) => x.id !== sc.id)); }
+  async function duplicate() {
+    const name = window.prompt(t(locale, 'duplicate_name'), `${row.name} (${t(locale, 'copy_suffix')})`);
+    if (!name) return;
+    const r = await duplicateModel(row.id, name.trim());
+    if (r.error || !r.id) { alert(r.error ?? t(locale, 'duplicate_failed')); return; }
+    router.push(`/models/${r.id}`);
+  }
   async function copyLink() {
     const url = `${window.location.origin}/models/${row.id}?tab=${tab}`;
     try { await navigator.clipboard.writeText(url); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { window.prompt(t(locale, 'copy_link'), url); }
@@ -205,6 +217,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
           <div className="flex items-center gap-1">
             <Tabs value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }]} className="border-b-0" />
             <Button variant="ghost" size="icon" onClick={undo} disabled={undoDepth === 0} title={t(locale, 'undo')}><Undo2 size={16} /></Button>
+            {editable && <Button variant="ghost" size="icon" onClick={duplicate} title={t(locale, 'duplicate')}><Copy size={16} /></Button>}
             <Button variant="ghost" size="icon" onClick={copyLink} title={linkCopied ? t(locale, 'link_copied') : t(locale, 'copy_link')}>{linkCopied ? <Check size={16} /> : <Link2 size={16} />}</Button>
             <Button variant="ghost" size="icon" onClick={() => window.print()} title={t(locale, 'print_canvas')}><Printer size={16} /></Button>
             <Button variant="ghost" size="icon" onClick={exportCsv} title={t(locale, 'export_csv')}><Download size={16} /></Button>
@@ -212,6 +225,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
           </div>
         </header>
         {status === 'error' && <div className={`${NOTICE.error} mt-3`}>{t(locale, 'save_failed')}</div>}
+        {status === 'conflict' && <div className={`${NOTICE.warning} mt-3 flex flex-wrap items-center justify-between gap-2`}><span>{t(locale, 'save_conflict')}</span><Button variant="secondary" size="sm" onClick={() => window.location.reload()}>{t(locale, 'reload')}</Button></div>}
         {!editable && <div className={`${NOTICE.info} mt-3`}>{t(locale, 'read_only_hint')}</div>}
       </div>
 

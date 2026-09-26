@@ -26,6 +26,10 @@ const SAMPLES: Record<string, Record<string, unknown>> = {
   models_get: { model_id: U },
   models_schema: {},
   models_create: { name: 'Example studio', team_id: null, definition: { name: 'Example studio', generators: [{ id: 'members' }] } },
+  models_update: { model_id: U, name: 'Renamed' },
+  models_set_numbers: { model_id: U, fixed: { team: 9000 } },
+  models_save_scenario: { model_id: U, name: 'Careful' },
+  models_duplicate: { model_id: U, name: 'Copy' },
   connections_today: { horizon: 'week' },
   connections_attention: { limit: 5 },
   connections_agenda: {},
@@ -84,7 +88,7 @@ describe('the person catalogue', () => {
     expect(reads.map((t) => t.name)).not.toContain('thread_create');
     const all = personToolsForScopes(['connections:read', 'thread:read', 'thread:write', 'models:read', 'models:write']);
     expect(all.length).toBe(PERSON_TOOLS.length);
-    expect(all.filter((t) => t.write).map((t) => t.name).sort()).toEqual(['models_create', 'thread_add_engagements', 'thread_create']);
+    expect(all.filter((t) => t.write).map((t) => t.name).sort()).toEqual(['models_create', 'models_duplicate', 'models_save_scenario', 'models_set_numbers', 'models_update', 'thread_add_engagements', 'thread_create']);
   });
 
   it('thread_create posts as the person to the real routes, and lands a draft', async () => {
