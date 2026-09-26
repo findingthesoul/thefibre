@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.74.0] — 2026-09-27 — a reserve that builds up, and the "per" that was applied all along
+
+Sjoerd's briefing, second part: *"The app calculates month by month and
+keeps no running total. So a reserve that builds up over time cannot be
+shown anywhere. OSC 2.0 sets aside a share of turnover every month, aiming
+at one year of costs within two years. Whether and when that target is met
+is now calculated outside the app."*
+
+**A running balance.** A model gets a reserve rule: a share of every
+month's turnover set aside, a target in months of costs that follows the
+costs as they change, and what is already held before month one. The
+projection carries the reserve built up and the target month by month, a
+panel draws the two lines, and a tile next to break even names the month
+the target is reached. The three numbers turn in the drawer under Settings
+→ Reserve, a scenario keeps them, an assistant sets them.
+
+**"per" on fixed costs was applied, but never shown.** Sjoerd: *"Google
+accounts at €17 per fellow showed €17 in total, with ten fellows."* The
+totals had the €170 all along; every place that listed the line showed the
+base value. Each fixed cost line now reports its amount after its steps and
+its "per", in the canvas popup, the drawer, the cost-structure table and a
+statement's reading, and the drawer says how it got there.
+
 ## [1.73.0] — 2026-09-26 — a price that steps: band tables in Business Models
 
 Sjoerd's briefing: *"Many prices do not grow in a straight line. They step.
