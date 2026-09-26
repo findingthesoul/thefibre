@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.67.0] — 2026-09-26 — Business Models: two people, two assistants, one model
+
+Sjoerd: *"Can he also use his Claude to make a scenario in his own Claude
+based on the same model? Can we make variations with the same model? And
+can you work with two Claudes in one canvas?"* — *"go"*.
+
+**Duplicate.** A copy button in the header: the definition, the numbers
+and the scenarios, under a new name, in the same team or one the person
+leads. The way to vary the structure without touching the original.
+
+**Four more tools for the assistant**, all behind `models:write` and the
+same rule as the app. `models_update` changes the words or the whole
+definition; `models_set_numbers` changes only the numbers it is given —
+a variable, a fixed cost, a funnel rate, the clients typed for a month —
+and leaves the rest; `models_save_scenario` saves the current numbers
+under a name, server side, so it cannot race the numbers being typed in
+the app; `models_duplicate` copies. The client learned PATCH and PUT.
+
+**Nobody overwrites anybody.** Every save carries the `updated_at` the
+saver last saw; the API refuses with 409 when the model moved on since,
+and the page says so with a Reload. Saves from the page now run one after
+the other, each carrying the stamp the previous one returned. Two people
+or two assistants on one model no longer silently undo each other; they
+take turns. Business Models shows `v0.7.0`.
+
 ## [1.66.0] — 2026-09-26 — Business Models: scenarios, and a way back
 
 The last two items on the calculator's list (Sjoerd: *"then continue with
