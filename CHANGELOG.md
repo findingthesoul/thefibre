@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.62.0] — 2026-09-26 — Business Models: the canvas you edit, the numbers you turn
+
+Sjoerd: *"Can you make tabs in the design. When clicking on a canvas box, you
+can add, edit, delete elements. First tab: canvas (full screen is initial
+view with … for more). Second tab: two horizontal screens below each other:
+top: views (a) BEP and CASH (b) projections / turnover / costs overview.
+Below: the canvas with variables in columns: canvas element → turnover /
+costs items → variables. After a change, an immediate…"*
+
+**Canvas tab.** The nine blocks fill the screen. A block shows its first
+four lines and "… n more" grows it — the page grows, nothing scrolls inside
+a block, so the whole canvas is always readable and printable. For admins
+and team leads every statement is a button: change the words, delete it,
+link it to the turnover and cost items it stands for, and for value
+propositions the segments it serves; "+" adds one. A statement is now an
+object with an id and `links` (`apps/models/lib/links.ts` names the id
+forms: `gen:`, `cost:`, `fixed:`, `invest:`, `setting:`); strings from
+older definitions still read. Edits go through `updateModel`, the same
+route rule as always — members turn numbers, leads and admins shape.
+
+**Numbers tab.** On top, one of two views: break even & cash (the tiles,
+the break even and cash charts) or projection & overview (years, the
+turnover mix, the cost structure, the monthly projection). Underneath, one
+table — canvas element → turnover and cost items → variables — where every
+variable edits in place and the view above moves on each keystroke. Rows
+come from the definition itself (segments with their volume inputs,
+revenue streams with their prices, key activities with each stream's own
+cost lines, key resources with the fixed costs and the investment,
+settings with horizon and reference month) plus every statement that was
+linked to items, with those items' variables beside it. The input panels
+that sat at the bottom of the page are gone; the table is where they went.
+
+Business Models shows `v0.2.0` in its sidebar.
+
 ## [1.61.4] — 2026-09-26 — the prompt that turns a story into a business model
 
 Sjoerd: *"what is the prompt I have to give to translate the doab calculator
