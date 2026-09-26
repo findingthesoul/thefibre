@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.2] — 2026-09-26 — Business Models: the drawer always at the bottom, the projection view back
+
+Sjoerd: *"Always at the bottom please. And the projection overview is empty
+now."* Two faults. The panel order kept the first view's list when the view
+switched, so the projection view looked up panels it did not have and drew
+nothing; the list now starts from its own view. And the drawer was only at
+the bottom when the page was long: the Numbers tab now fills the window
+from the chips down, the views scroll inside it, the drawer sits below
+them whatever their height.
+
 ## [1.63.1] — 2026-09-26 — Business Models: the panels drop where they are dragged
 
 Sjoerd: *"drag and drop don't work good yet. I see a drag, but after drop
