@@ -17,7 +17,7 @@
 // with a back arrow — what Finder does in a narrow window too.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, GripHorizontal, Plus, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, GripHorizontal, Plus, Pencil } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
 import { genVars, readingFor, variablesFor, type Scope, type Variable } from '@/lib/links';
@@ -95,7 +95,7 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
   return groups;
 }
 
-const MIN_H = 160, MAX_H = 640, DEFAULT_H = 300;
+const MIN_H = 160, MAX_H = 640, DEFAULT_H = 300, BAR_H = 28;
 
 export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onChange, onRefMonth, onHorizon, edit }: {
   model: ModelDefinition; state: ModelState; s: Summary; locale: Locale; refMonth: number; horizon: number;
@@ -108,22 +108,30 @@ export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onCh
   const [elementId, setElementId] = useState<string | null>(null);
   const [level, setLevel] = useState<'group' | 'element' | 'vars'>('group');
   const [height, setHeight] = useState(DEFAULT_H);
+  const [collapsed, setCollapsed] = useState(false);
+  const remember = (h: number) => { try { localStorage.setItem('bm-drawer-h', String(h)); } catch {} };
   const drag = useRef<{ startY: number; startH: number } | null>(null);
   useEffect(() => { try { const h = parseInt(localStorage.getItem('bm-drawer-h') ?? '', 10); if (h >= MIN_H && h <= MAX_H) setHeight(h); } catch {} }, []);
   const group = groups.find((g) => g.id === groupId) ?? groups[0] ?? null;
   const element = group?.elements.find((e) => e.id === elementId) ?? null;
 
-  function onPointerDown(e: React.PointerEvent) { drag.current = { startY: e.clientY, startH: height }; (e.target as HTMLElement).setPointerCapture(e.pointerId); }
+  function onPointerDown(e: React.PointerEvent) { if (collapsed) return; drag.current = { startY: e.clientY, startH: height }; (e.target as HTMLElement).setPointerCapture(e.pointerId); }
   function onPointerMove(e: React.PointerEvent) { if (!drag.current) return; setHeight(Math.min(MAX_H, Math.max(MIN_H, drag.current.startH + (drag.current.startY - e.clientY)))); }
-  function onPointerUp() { if (drag.current) { drag.current = null; try { localStorage.setItem('bm-drawer-h', String(height)); } catch {} } }
+  function onPointerUp() { if (drag.current) { drag.current = null; remember(height); } }
 
   const column = 'min-h-0 overflow-y-auto border-line';
   const phone = (l: typeof level) => (l === level ? '' : 'hidden md:block');
 
   return (
-    <div className="z-20 -mx-4 shrink-0 border-t border-line bg-surface-raised shadow-[0_-8px_24px_-16px_rgb(0_0_0_/_0.25)] sm:-mx-8" style={{ height }}>
-      <div role="separator" aria-orientation="horizontal" title={t(locale, 'drawer_resize')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} className="flex h-4 cursor-row-resize touch-none items-center justify-center text-ink-muted hover:bg-surface-sunken"><GripHorizontal size={14} /></div>
-      <div className="grid h-[calc(100%-1rem)] grid-cols-1 md:grid-cols-[13rem_18rem_minmax(0,1fr)]">
+    <div className="z-20 -mx-4 shrink-0 border-t border-line bg-surface-raised shadow-[0_-8px_24px_-16px_rgb(0_0_0_/_0.25)] sm:-mx-8" style={{ height: collapsed ? BAR_H : height }}>
+      <div className="flex items-center" style={{ height: BAR_H }}>
+        <div role="separator" aria-orientation="horizontal" title={t(locale, 'drawer_resize')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} className={`flex h-full flex-1 items-center justify-center text-ink-muted ${collapsed ? '' : 'cursor-row-resize touch-none hover:bg-surface-sunken'}`}><GripHorizontal size={14} /></div>
+        <div className="flex shrink-0 items-center gap-0.5 px-2">
+          <button type="button" title={t(locale, 'drawer_down')} onClick={() => { if (collapsed) return; if (height > DEFAULT_H) { setHeight(DEFAULT_H); remember(DEFAULT_H); } else setCollapsed(true); }} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-40" disabled={collapsed}><ChevronDown size={14} /></button>
+          <button type="button" title={t(locale, 'drawer_up')} onClick={() => { if (collapsed) { setCollapsed(false); return; } setHeight(MAX_H); remember(MAX_H); }} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-40" disabled={!collapsed && height >= MAX_H}><ChevronUp size={14} /></button>
+        </div>
+      </div>
+      <div className={`grid grid-cols-1 md:grid-cols-[13rem_18rem_minmax(0,1fr)] ${collapsed ? 'hidden' : ''}`} style={{ height: `calc(100% - ${BAR_H}px)` }}>
         <div className={`${column} border-r ${phone('group')}`}>
           <ColumnHead>{t(locale, 'col_canvas_element')}</ColumnHead>
           <ul className="py-1">

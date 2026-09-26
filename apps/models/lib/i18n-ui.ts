@@ -272,6 +272,8 @@ const RAW = {
   link_copied: ['Link copied', 'Link gekopieerd', 'Enlace copiado', 'Link copiado', 'Link kopiert', 'Lien copié'],
   add: ['Add', 'Toevoegen', 'Añadir', 'Adicionar', 'Hinzufügen', 'Ajouter'],
   edit: ['Edit', 'Bewerken', 'Editar', 'Editar', 'Bearbeiten', 'Modifier'],
+  drawer_down: ['Smaller, then hide', 'Kleiner, dan verbergen', 'Más pequeño, luego ocultar', 'Menor, depois ocultar', 'Kleiner, dann ausblenden', 'Plus petit, puis masquer'],
+  drawer_up: ['Show, then larger', 'Tonen, dan groter', 'Mostrar, luego más grande', 'Mostrar, depois maior', 'Einblenden, dann größer', 'Afficher, puis plus grand'],
   numbers_table_title: ['Canvas, items, variables', 'Canvas, posten, variabelen', 'Lienzo, partidas, variables', 'Tela, itens, variáveis', 'Canvas, Posten, Variablen', 'Canevas, postes, variables'],
   numbers_table_help: ['Every change recalculates the views above at once.', 'Elke wijziging herberekent de weergaven hierboven meteen.', 'Cada cambio recalcula las vistas de arriba al instante.', 'Cada alteração recalcula as visões acima na hora.', 'Jede Änderung berechnet die Ansichten oben sofort neu.', 'Chaque modification recalcule aussitôt les vues ci-dessus.'],
   col_canvas_element: ['Canvas element', 'Canvas-element', 'Elemento del lienzo', 'Elemento da tela', 'Canvas-Element', 'Élément du canevas'],
