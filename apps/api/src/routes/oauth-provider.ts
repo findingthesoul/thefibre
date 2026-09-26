@@ -529,23 +529,38 @@ oauthProviderRoutes.post('/register', async (c) => {
     return c.json({ error: 'invalid_client_metadata', error_description: 'too many registrations from this address today' }, 429);
   }
   const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!body) return c.json({ error: 'invalid_client_metadata', error_description: 'JSON body required' }, 400);
+  // Every refusal below is logged with what was actually sent.
+  //
+  // Claude Desktop could not register for a whole evening and the only thing
+  // anybody could see was the app's own sentence — "Couldn't register with
+  // The Fibre's sign-in service" — which names neither the field nor the
+  // reason. The server knew precisely why and said it only to a caller that
+  // does not show it. Two wrong hypotheses were built and one was shipped
+  // before this line existed. Callback URLs and an auth method are not
+  // secrets; a registration body carries no token.
+  const reject = (error: string, description: string) => {
+    console.warn('[oauth/register] refused', {
+      error,
+      description,
+      client_name: typeof body?.client_name === 'string' ? body.client_name : null,
+      token_endpoint_auth_method: body?.token_endpoint_auth_method ?? '(absent)',
+      redirect_uris: body?.redirect_uris ?? '(absent)',
+      redirect_uris_type: Array.isArray(body?.redirect_uris) ? 'array' : typeof body?.redirect_uris,
+      keys: body ? Object.keys(body) : [],
+    });
+    return c.json({ error, error_description: description }, 400);
+  };
+  if (!body) return reject('invalid_client_metadata', 'JSON body required');
 
   const redirectUris = Array.isArray(body.redirect_uris)
     ? (body.redirect_uris as unknown[]).filter((u): u is string => typeof u === 'string').slice(0, 10)
     : [];
   if (redirectUris.length === 0 || !redirectUris.every(redirectUriAcceptable)) {
-    return c.json(
-      { error: 'invalid_redirect_uri', error_description: 'redirect_uris must be https, or http on localhost' },
-      400,
-    );
+    return reject('invalid_redirect_uri', 'redirect_uris must be https, http on localhost, or a private-use scheme');
   }
   const authMethod = typeof body.token_endpoint_auth_method === 'string' ? body.token_endpoint_auth_method : 'none';
   if (authMethod !== 'none') {
-    return c.json(
-      { error: 'invalid_client_metadata', error_description: 'only public clients (token_endpoint_auth_method=none) are registered here' },
-      400,
-    );
+    return reject('invalid_client_metadata', 'only public clients (token_endpoint_auth_method=none) are registered here');
   }
   const name = (typeof body.client_name === 'string' && body.client_name.trim().slice(0, 120)) || 'An assistant';
   const metadata: Record<string, unknown> = {};

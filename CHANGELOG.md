@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.72.2] — 2026-09-26 — the server says why it refused a registration
+
+Claude Desktop could not register for an entire evening. All anybody could see
+was the app's own sentence — *"Couldn't register with The Fibre's sign-in
+service"* — which names neither the field nor the reason, and an access log
+line reading `POST /api/v1/oauth/register 400`. The server knew exactly why
+and told only the caller, which does not show it.
+
+On that evidence I built two hypotheses and shipped one. v1.71.1 widened
+`redirectUriAcceptable` to accept private-use schemes, which is a correct fix
+for a real gap — RFC 8252 §7.1 — and did not fix this: the next attempt
+returned the same 400. The remaining candidates were a non-public
+`token_endpoint_auth_method` and a `redirect_uris` that is not an array, and
+there was no way to tell them apart from outside.
+
+Every refusal now logs what it saw: the error, the description, the client
+name, the auth method, the redirect URIs and their type, and the body's keys.
+Callback URLs and an auth method are not secrets, and a registration body
+carries no token — this is the one thing in the flow that is safe to write
+down, and the only thing that would have made an hour of guessing into a
+minute of reading.
+
+The lesson, which is older than this bug: a failure that is legible to the
+party who cannot act on it and silent to the party who can is not really
+logged. `upsertProfile` learned it in v0.3.x, and the reviewer's note in
+CLAUDE.md has said *"read the API server log"* ever since. That only works if
+the log has something in it.
+
 ## [1.72.1] — 2026-09-26 — the printed canvas looks like a Business Model Canvas
 
 Sjoerd: *"Can you make the print design look more like a business model
