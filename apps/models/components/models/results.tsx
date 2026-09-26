@@ -111,16 +111,16 @@ export function MixPanels({ model, state, s, locale }: { model: ModelDefinition;
   const totalOwn = gens.reduce((a, g) => a + (ref.gens[g.id]?.cost ?? 0), 0);
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Panel title={t(locale, 'generators_at_month', { n: s.refMonth })} help={t(locale, 'generators_help')}>
-        <table className="w-full border-collapse text-[13px]"><thead><tr><th className={th}>{t(locale, 'generator')}</th><th className={`${th} text-right`}>{cap(unit)}</th><th className={`${th} text-right`}>{t(locale, 'revenue')}</th><th className={th} style={{ width: '22%' }} /><th className={`${th} text-right`}>{t(locale, 'own_costs')}</th><th className={`${th} text-right`}>{t(locale, 'margin')}</th></tr></thead>
-          <tbody>{gens.map((g) => { const r = ref.gens[g.id]!; const m = r.revenue - r.cost; return <tr key={g.id}><td className={td}>{g.short ?? g.name}</td><td className={`${td} ${num}`}>{g.countsAsUnit === false ? '' : fmtNum(r.units)}</td><td className={`${td} ${num}`}>{fmtMoney(r.revenue)}</td><td className={td}><Bar pct={(r.revenue / maxRev) * 100} /></td><td className={`${td} ${num}`}>{fmtMoney(r.cost)}</td><td className={`${td} ${num} ${m < 0 ? NEG : ''}`}>{fmtMoney(m)}</td></tr>; })}</tbody>
-          <tfoot><tr className="font-medium"><td className="px-2 py-1.5">{t(locale, 'total')}</td><td className={`px-2 py-1.5 ${num}`}>{fmtNum(ref.units)}</td><td className={`px-2 py-1.5 ${num}`}>{fmtMoney(ref.revenue)}</td><td /><td className={`px-2 py-1.5 ${num}`}>{fmtMoney(totalOwn)}</td><td className={`px-2 py-1.5 ${num}`}>{fmtMoney(ref.revenue - totalOwn)}</td></tr></tfoot>
-        </table>
-      </Panel>
       <Panel title={t(locale, 'cost_structure_at_month', { n: s.refMonth })} help={t(locale, 'cost_help')}>
         <table className="w-full border-collapse text-[13px]"><thead><tr><th className={th}>{t(locale, 'cost_line')}</th><th className={th} /><th className={`${th} text-right`}>{t(locale, 'per_month')}</th><th className={th} style={{ width: '22%' }} /><th className={`${th} text-right`}>{t(locale, 'share')}</th></tr></thead>
           <tbody>{rows.map((r) => <tr key={r.label}><td className={td}>{r.label}</td><td className={td}><span className={`${PILL} ${PILL_TONE.neutral}`}>{t(locale, r.kind)}</span></td><td className={`${td} ${num}`}>{fmtMoney(r.amount)}</td><td className={td}><Bar pct={(r.amount / maxCost) * 100} /></td><td className={`${td} ${num}`}>{fmtPct((r.amount / (ref.totalCost || 1)) * 100)}</td></tr>)}</tbody>
           <tfoot><tr className="font-medium"><td className="px-2 py-1.5">{t(locale, 'total_cost')}</td><td /><td className={`px-2 py-1.5 ${num}`}>{fmtMoney(ref.totalCost)}</td><td /><td className={`px-2 py-1.5 ${num}`}>{fmtPct((ref.totalCost / (ref.revenue || 1)) * 100)} {t(locale, 'of_revenue')}</td></tr></tfoot>
+        </table>
+      </Panel>
+      <Panel title={t(locale, 'generators_at_month', { n: s.refMonth })} help={t(locale, 'generators_help')}>
+        <table className="w-full border-collapse text-[13px]"><thead><tr><th className={th}>{t(locale, 'generator')}</th><th className={`${th} text-right`}>{cap(unit)}</th><th className={`${th} text-right`}>{t(locale, 'revenue')}</th><th className={th} style={{ width: '22%' }} /><th className={`${th} text-right`}>{t(locale, 'own_costs')}</th><th className={`${th} text-right`}>{t(locale, 'margin')}</th></tr></thead>
+          <tbody>{gens.map((g) => { const r = ref.gens[g.id]!; const m = r.revenue - r.cost; return <tr key={g.id}><td className={td}>{g.short ?? g.name}</td><td className={`${td} ${num}`}>{g.countsAsUnit === false ? '' : fmtNum(r.units)}</td><td className={`${td} ${num}`}>{fmtMoney(r.revenue)}</td><td className={td}><Bar pct={(r.revenue / maxRev) * 100} /></td><td className={`${td} ${num}`}>{fmtMoney(r.cost)}</td><td className={`${td} ${num} ${m < 0 ? NEG : ''}`}>{fmtMoney(m)}</td></tr>; })}</tbody>
+          <tfoot><tr className="font-medium"><td className="px-2 py-1.5">{t(locale, 'total')}</td><td className={`px-2 py-1.5 ${num}`}>{fmtNum(ref.units)}</td><td className={`px-2 py-1.5 ${num}`}>{fmtMoney(ref.revenue)}</td><td /><td className={`px-2 py-1.5 ${num}`}>{fmtMoney(totalOwn)}</td><td className={`px-2 py-1.5 ${num}`}>{fmtMoney(ref.revenue - totalOwn)}</td></tr></tfoot>
         </table>
       </Panel>
     </div>
