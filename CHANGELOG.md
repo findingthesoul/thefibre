@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.3] — 2026-09-26 — Business Models: copy the link
+
+Sjoerd: *"can I copy a link to the canvas? (for easy sharing) with a
+member."* A link icon in the header copies the page address with the tab
+you are on (`/models/<id>?tab=canvas`); opening such a link lands on that
+tab. It works for anyone with a seat in the model's team — the address is
+the same for everyone, the access rule does the rest.
+
 ## [1.63.2] — 2026-09-26 — Business Models: the drawer always at the bottom, the projection view back
 
 Sjoerd: *"Always at the bottom please. And the projection overview is empty
