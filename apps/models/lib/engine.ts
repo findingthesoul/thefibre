@@ -38,6 +38,9 @@ export type CanvasBlockKey = 'keyPartners' | 'keyActivities' | 'keyResources' | 
 export const CANVAS_BLOCK_KEYS: CanvasBlockKey[] = ['keyPartners', 'keyActivities', 'keyResources', 'valuePropositions', 'customerRelationships', 'channels'];
 export const itemText = (it: CanvasItem): string => (typeof it === 'string' ? it : it.text);
 export const itemObj = (it: CanvasItem): { id?: string; text: string; segments?: string[]; links?: string[] } => (typeof it === 'string' ? { text: it } : it);
+/** A funnel step: each month, `rate`% of the people in `from` go to `to`.
+ *  `move` (default true) takes them out of `from`; false counts them in both. */
+export type Transition = { id: string; from: string; to: string; rate: number; move?: boolean; label?: string };
 export type ModelDefinition = {
   id?: string;
   name: string;
@@ -52,6 +55,7 @@ export type ModelDefinition = {
   settings?: NumberInput[];
   genericVariable?: { id: string; label: string; kind: 'percentRevenue' | 'perUnit' | 'perNewUnit'; value?: number }[];
   generators: Generator[];
+  transitions?: Transition[];
   fixedCosts?: (NumberInput & { startMonth?: number })[];
   investment?: NumberInput[];
 };
@@ -61,6 +65,8 @@ export type ModelState = {
   generators: Record<string, Record<string, number>>;
   fixed: Record<string, number>;
   investment: Record<string, number>;
+  /** Transition rates, % per month, by transition id. */
+  transitions: Record<string, number>;
 };
 
 type Scope = Record<string, number>;
@@ -99,7 +105,7 @@ export const evalExpr = (expr: string | number | undefined | null, scope: Scope)
 
 // ---------- state ----------
 export function defaultState(model: ModelDefinition): ModelState {
-  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {} };
+  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {}, transitions: {} };
   (model.settings ?? []).forEach((s) => { st.settings[s.id] = s.value; });
   model.generators.forEach((g) => {
     const gs: Record<string, number> = {};
@@ -109,6 +115,7 @@ export function defaultState(model: ModelDefinition): ModelState {
   });
   (model.fixedCosts ?? []).forEach((f) => { st.fixed[f.id] = f.value; });
   (model.investment ?? []).forEach((i) => { st.investment[i.id] = i.value; });
+  (model.transitions ?? []).forEach((tr) => { st.transitions[tr.id] = tr.rate; });
   return st;
 }
 
@@ -116,8 +123,8 @@ export function defaultState(model: ModelDefinition): ModelState {
 export function mergeState(base: ModelState, saved: unknown): ModelState {
   if (!saved || typeof saved !== 'object') return base;
   const sv = saved as Record<string, Record<string, unknown>>;
-  const out: ModelState = JSON.parse(JSON.stringify(base));
-  (['settings', 'fixed', 'investment'] as const).forEach((k) => {
+  const out: ModelState = { ...JSON.parse(JSON.stringify(base)), transitions: { ...(base.transitions ?? {}) } };
+  (['settings', 'fixed', 'investment', 'transitions'] as const).forEach((k) => {
     const src = sv[k];
     if (!src || typeof src !== 'object') return;
     Object.keys(out[k]).forEach((id) => { const v = src[id]; if (typeof v === 'number' && Number.isFinite(v)) out[k][id] = v; });
@@ -135,7 +142,7 @@ export function mergeState(base: ModelState, saved: unknown): ModelState {
 }
 
 // ---------- projection ----------
-export type GenMonth = { units: number; newUnits: number; revenue: number; cost: number; costLines: Record<string, number>; generic?: boolean };
+export type GenMonth = { units: number; newUnits: number; revenue: number; cost: number; costLines: Record<string, number>; generic?: boolean; /** Moved in from other segments this month. */ inflow: number; /** Moved out to other segments this month. */ outflow: number };
 export type MonthRow = {
   m: number;
   gens: Record<string, GenMonth>;
@@ -180,16 +187,17 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
   for (let m = 1; m <= H; m++) {
     const row: MonthRow = { m, gens: {}, revenue: 0, variableCost: 0, fixedCost: 0, units: 0, newUnits: 0, net: 0, cumulative: 0, cash: 0, totalCost: 0 };
     const unitsNow: Record<string, number> = {};
+    const inflow: Record<string, number> = {};
+    const outflow: Record<string, number> = {};
+    // Phase one: every segment's own volume, before anyone reads it.
     ordered.forEach((g) => {
+      const v = g.volume ?? {};
+      if (v.linkedTo) return;
       const inp = state.generators[g.id] ?? {};
       const scope: Scope = { ...state.settings, ...inp, month: m };
-      const v = g.volume ?? {};
-      let units = 0;
       const startMonth = v.startMonth != null ? evalExpr(v.startMonth, scope) : 1;
-      if (m < startMonth) units = 0;
-      else if (v.linkedTo) {
-        units = (unitsNow[v.linkedTo] ?? 0) * evalExpr(v.factor == null ? 1 : v.factor, scope);
-      } else {
+      let units = 0;
+      if (m >= startMonth) {
         const prev = unitsPrev[g.id];
         if (prev == null || m === startMonth) units = evalExpr(v.start, scope);
         else {
@@ -200,6 +208,25 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
         }
         if (v.cap != null) units = Math.min(units, evalExpr(v.cap, scope));
       }
+      unitsNow[g.id] = units;
+    });
+    // Phase two: the funnel. A share of last month's people in `from` go to
+    // `to`; by default they leave `from` (move), or they count in both.
+    (model.transitions ?? []).forEach((tr) => {
+      if (m === 1 || !(tr.from in unitsNow) || !(tr.to in unitsNow)) return;
+      const rate = (state.transitions[tr.id] ?? tr.rate) / 100;
+      const moved = Math.max((unitsPrev[tr.from] ?? 0) * rate, 0);
+      if (!moved) return;
+      unitsNow[tr.to] = (unitsNow[tr.to] ?? 0) + moved;
+      inflow[tr.to] = (inflow[tr.to] ?? 0) + moved;
+      if (tr.move !== false) { unitsNow[tr.from] = Math.max((unitsNow[tr.from] ?? 0) - moved, 0); outflow[tr.from] = (outflow[tr.from] ?? 0) + moved; }
+    });
+    // Phase three: linked streams, revenue and costs.
+    ordered.forEach((g) => {
+      const inp = state.generators[g.id] ?? {};
+      const scope: Scope = { ...state.settings, ...inp, month: m };
+      const v = g.volume ?? {};
+      const units = v.linkedTo ? (unitsNow[v.linkedTo] ?? 0) * evalExpr(v.factor == null ? 1 : v.factor, scope) : (unitsNow[g.id] ?? 0);
       const newUnits = Math.max(units - (unitsPrev[g.id] ?? 0), 0);
       unitsNow[g.id] = units;
       scope.units = units;
@@ -228,7 +255,7 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
         costLines[c.id] = amount;
         cost += amount;
       });
-      row.gens[g.id] = { units, newUnits, revenue, cost, costLines };
+      row.gens[g.id] = { units, newUnits, revenue, cost, costLines, inflow: inflow[g.id] ?? 0, outflow: outflow[g.id] ?? 0 };
       row.revenue += revenue;
       row.variableCost += cost;
       if (g.countsAsUnit !== false && !v.linkedTo) { row.units += units; row.newUnits += newUnits; }
@@ -238,7 +265,7 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
     (model.genericVariable ?? []).forEach((c) => {
       const value = state.settings[c.id] ?? c.value ?? 0;
       const amount = c.kind === 'percentRevenue' ? (row.revenue * value) / 100 : c.kind === 'perUnit' ? row.units * value : row.newUnits * value;
-      row.gens[c.id] = { units: 0, newUnits: 0, revenue: 0, cost: amount, costLines: {}, generic: true };
+      row.gens[c.id] = { units: 0, newUnits: 0, revenue: 0, cost: amount, costLines: {}, generic: true, inflow: 0, outflow: 0 };
       row.variableCost += amount;
     });
     (model.fixedCosts ?? []).forEach((f) => { if (m >= (f.startMonth ?? 1)) row.fixedCost += state.fixed[f.id] ?? 0; });

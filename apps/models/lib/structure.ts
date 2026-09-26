@@ -64,5 +64,7 @@ export function removeGenerator(def: ModelDefinition, id: string): ModelDefiniti
   const canvas = { ...(def.canvas ?? {}) };
   if (canvas.valuePropositions) canvas.valuePropositions = canvas.valuePropositions.map((it) => (typeof it === 'string' ? it : { ...it, segments: (it.segments ?? []).filter((s) => s !== id) }));
   (Object.keys(canvas) as (keyof typeof canvas)[]).forEach((k) => { canvas[k] = (canvas[k] ?? []).map((it) => (typeof it === 'string' ? it : { ...it, links: (it.links ?? []).filter((l) => l !== `gen:${id}` && !l.startsWith(`cost:${id}.`)) })); });
-  return { ...def, canvas, generators: def.generators.filter((g) => g.id !== id) };
+  return { ...def, canvas, generators: def.generators.filter((g) => g.id !== id), transitions: (def.transitions ?? []).filter((tr) => tr.from !== id && tr.to !== id) };
 }
+
+export const newTransition = (def: ModelDefinition, from: string, to: string) => ({ id: slugId(`${from}_to_${to}`, (def.transitions ?? []).map((t) => t.id), 'flow'), from, to, rate: 2, move: true });

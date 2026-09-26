@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, GripHorizontal, Plus, Pencil } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
-import { genVars, readingFor, variablesFor, type Scope, type Variable } from '@/lib/links';
+import { genVars, readingFor, variablesFor, transitionVar, type Scope, type Variable } from '@/lib/links';
 import { dependents } from '@/lib/structure';
 import { makeFormatters } from '@/lib/format';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -60,8 +60,13 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
   const groups: Group[] = [
     { id: 'segments', label: t(locale, 'customer_segments'), elements: segs.map((g) => {
       const r = ref.gens[g.id]!;
-      return { id: g.id, label: g.name, sub: g.segment, reading: `${fmtNum(r.units)} ${unit} · ${fmtMoney(r.revenue)} / ${mo}`, vars: [...genVars(def, state, g.id, 'all'), ...costVars(g)], editRef: { kind: 'segment' as const, id: g.id },
-        relations: [...dependents(def, g.id).map((d) => t(locale, 'rel_feeds', { n: d.name })), ...servedBy(g.id).map((v) => t(locale, 'rel_served_by', { n: v }))] };
+      const out = (def.transitions ?? []).filter((tr) => tr.from === g.id);
+      const inn = (def.transitions ?? []).filter((tr) => tr.to === g.id);
+      return { id: g.id, label: g.name, sub: g.segment, reading: `${fmtNum(r.units)} ${unit} · ${fmtMoney(r.revenue)} / ${mo}${r.inflow ? ` · +${fmtNum(r.inflow)}` : ''}${r.outflow ? ` · −${fmtNum(r.outflow)}` : ''}`, vars: [...genVars(def, state, g.id, 'all'), ...out.map((tr) => transitionVar(def, state, tr)), ...costVars(g)], editRef: { kind: 'segment' as const, id: g.id },
+        relations: [
+          ...out.map((tr) => t(locale, tr.move === false ? 'rel_flow_copy' : 'rel_flow_move', { n: name(tr.to), r: String(state.transitions[tr.id] ?? tr.rate) })),
+          ...inn.map((tr) => t(locale, 'rel_flow_in', { n: name(tr.from), r: String(state.transitions[tr.id] ?? tr.rate) })),
+          ...dependents(def, g.id).map((d) => t(locale, 'rel_feeds', { n: d.name })), ...servedBy(g.id).map((v) => t(locale, 'rel_served_by', { n: v }))] };
     }) },
     { id: 'streams', label: t(locale, 'revenue_streams'), elements: def.generators.map((g) => {
       const r = ref.gens[g.id]!;

@@ -86,7 +86,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   function change(scope: Scope, id: string, value: number) {
     inputsDirty.current = true;
     setState((st) => {
-      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, generators: { ...st.generators } };
+      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, generators: { ...st.generators } };
       if (typeof scope === 'string') next[scope][id] = value;
       else next.generators[scope.gen] = { ...(next.generators[scope.gen] ?? {}), [id]: value };
       return next;
@@ -200,7 +200,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
 
       {structure?.kind === 'segment' && (
         <SegmentEditor open def={def} locale={locale} gen={structure.id ? (def.generators.find((g) => g.id === structure.id) ?? null) : null} onClose={() => setStructure(null)}
-          onSave={(g) => { const fresh = g.id ? g : { ...newSegment(def, g.name), name: g.name, short: g.short, segment: g.segment, help: g.help }; patchDef(upsertGenerator(def, fresh)); setStructure(null); }}
+          onSave={(g, transitions) => { const fresh = g.id ? g : { ...newSegment(def, g.name), name: g.name, short: g.short, segment: g.segment, help: g.help }; patchDef({ ...upsertGenerator(def, fresh), transitions }); setStructure(null); }}
           onDelete={() => { if (structure.id) patchDef(removeGenerator(def, structure.id)); setStructure(null); }} />
       )}
       {structure?.kind === 'stream' && (

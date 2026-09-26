@@ -12,8 +12,8 @@ import { Button } from '@thefibre/shared/ui/button';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { TextField, SelectField, TextAreaField, FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 import { ERROR_TEXT, SECTION_LABEL } from '@thefibre/shared/ui/recipes';
-import type { CostKind, CostLine, Generator, ModelDefinition, NumberInput } from '@/lib/engine';
-import { dependents, formulaProblem, newCost, newInput, segments } from '@/lib/structure';
+import type { CostKind, CostLine, Generator, ModelDefinition, NumberInput, Transition } from '@/lib/engine';
+import { dependents, formulaProblem, newCost, newInput, newTransition, segments } from '@/lib/structure';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 const KINDS: CostKind[] = ['perUnit', 'perNewUnit', 'perBatch', 'percentRevenue', 'fixed'];
@@ -76,9 +76,10 @@ function CostsEditor({ costs, onChange, locale }: { costs: CostLine[]; onChange:
 
 /** How this generator reaches the numbers, in one paragraph, from its own
  *  definition — so a variable's place in the arithmetic is never a guess. */
-function HowItComputes({ g, locale }: { g: Generator; locale: Locale }) {
+function HowItComputes({ g, locale, flows = [] }: { g: Generator; locale: Locale; flows?: Transition[] }) {
   const v = g.volume ?? {};
   const lines: string[] = [];
+  flows.forEach((f) => lines.push(t(locale, f.move === false ? 'calc_flow_copy' : 'calc_flow_move', { n: f.to, r: String(f.rate) })));
   if (v.linkedTo) lines.push(t(locale, 'calc_linked', { n: `${v.linkedTo} × ${String(v.factor ?? 1)}` }));
   else if (g.revenueTotal != null) lines.push(t(locale, 'calc_lump', { n: String(v.startMonth ?? 1) }));
   else lines.push(t(locale, 'calc_volume', { s: String(v.start ?? 0), g: String(v.growth ?? 0), c: String(v.churn ?? 0) }));
@@ -123,9 +124,10 @@ function GeneratorNumbers({ g, setG, def, locale, source }: { g: Generator; setG
 // Segment: who pays, how many, how they grow and leave — and, because a
 // segment is also a stream, its price, its variables and its own costs.
 // ---------------------------------------------------------------------------
-export function SegmentEditor({ open, def, gen, locale, onSave, onDelete, onClose }: { open: boolean; def: ModelDefinition; gen: Generator | null; locale: Locale; onSave: (g: Generator) => void; onDelete: () => void; onClose: () => void }) {
+export function SegmentEditor({ open, def, gen, locale, onSave, onDelete, onClose }: { open: boolean; def: ModelDefinition; gen: Generator | null; locale: Locale; onSave: (g: Generator, transitions: Transition[]) => void; onDelete: () => void; onClose: () => void }) {
   const [g, setG] = useState<Generator>(gen ?? blank());
-  useEffect(() => { setG(gen ?? blank()); }, [gen, open]);
+  const [flows, setFlows] = useState<Transition[]>(gen ? (def.transitions ?? []).filter((tr) => tr.from === gen.id) : []);
+  useEffect(() => { setG(gen ?? blank()); setFlows(gen ? (def.transitions ?? []).filter((tr) => tr.from === gen.id) : []); }, [gen, open, def]);
   function blank(): Generator { return { id: '', name: '', short: '', segment: '', help: '', inputs: [], volume: { start: 'start', growth: 'growth', churn: 'churn' }, costs: [] }; }
   const [err, setErr] = useState<string | null>(null);
   const vol = ['start', 'growth', 'churn'];
@@ -135,7 +137,8 @@ export function SegmentEditor({ open, def, gen, locale, onSave, onDelete, onClos
     const known = [...(g.inputs ?? []).map((i) => i.id), ...(def.settings ?? []).map((st) => st.id)];
     const formula = String(g.revenuePerUnit ?? '');
     if (gen && formula.trim()) { const problem = formulaProblem(formula, known); if (problem) return setErr(t(locale, 'formula_invalid', { n: problem })); }
-    onSave({ ...g, name: g.name.trim(), short: (g.short ?? '').trim() || g.name.trim(), revenuePerUnit: formula.trim() || 0 });
+    const others = (def.transitions ?? []).filter((tr) => !gen || tr.from !== gen.id);
+    onSave({ ...g, name: g.name.trim(), short: (g.short ?? '').trim() || g.name.trim(), revenuePerUnit: formula.trim() || 0 }, [...others, ...flows]);
   }
   return (
     <Dialog open={open} onClose={onClose} size="xl" title={gen ? t(locale, 'edit_segment') : t(locale, 'add_segment')}
@@ -156,6 +159,23 @@ export function SegmentEditor({ open, def, gen, locale, onSave, onDelete, onClos
             <Head>{t(locale, 'volume')}</Head>
             <p className="mb-1.5 text-xs text-ink-muted">{t(locale, 'volume_hint')}</p>
             <VarsEditor locale={locale} vars={volVars} fixedIds={vol} onChange={(vs) => setG({ ...g, inputs: (g.inputs ?? []).map((i) => vs.find((v) => v.id === i.id) ?? i) })} />
+          </div>
+        )}
+        {gen && (
+          <div>
+            <Head action={segments(def).some((x) => x.id !== gen.id) ? <AddBtn label={t(locale, 'add_flow')} onClick={() => { const target = segments(def).find((x) => x.id !== gen.id && !flows.some((f) => f.to === x.id)) ?? segments(def).find((x) => x.id !== gen.id); if (target) setFlows([...flows, newTransition({ ...def, transitions: [...(def.transitions ?? []), ...flows] }, gen.id, target.id)]); }} /> : undefined}>{t(locale, 'funnel')}</Head>
+            <p className="mb-1.5 text-xs text-ink-muted">{t(locale, 'funnel_hint')}</p>
+            <div className="flex flex-col gap-1.5">
+              {flows.map((f, i) => (
+                <div key={f.id} className="grid grid-cols-[minmax(0,1fr)_5.5rem_auto_1.25rem] items-center gap-2">
+                  <select value={f.to} onChange={(e) => setFlows(flows.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)))} className={`${FIELD_INPUT_CLASS} h-8`}>{segments(def).filter((x) => x.id !== gen.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+                  <div className="flex items-center gap-1"><Num value={f.rate} step={0.5} onChange={(rate) => setFlows(flows.map((x, j) => (j === i ? { ...x, rate } : x)))} /><span className="text-xs text-ink-muted">%</span></div>
+                  <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs"><input type="checkbox" checked={f.move !== false} onChange={(e) => setFlows(flows.map((x, j) => (j === i ? { ...x, move: e.target.checked } : x)))} />{t(locale, 'flow_move')}</label>
+                  <Del label={t(locale, 'remove')} onClick={() => setFlows(flows.filter((_, j) => j !== i))} />
+                </div>
+              ))}
+              {flows.length === 0 && <p className="text-xs text-ink-muted">—</p>}
+            </div>
           </div>
         )}
         {gen && <GeneratorNumbers g={g} setG={setG} def={def} locale={locale} source="own" />}

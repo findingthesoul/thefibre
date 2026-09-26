@@ -472,6 +472,9 @@ export const DOAB: ModelDefinition = {
       ]
     }
   ],
+  "transitions": [
+    { "id": "community_to_forge", "from": "community", "to": "forge", "rate": 3, "move": true, "label": "Community members who join the Forge" }
+  ],
   "fixedCosts": [
     {
       "id": "team",
