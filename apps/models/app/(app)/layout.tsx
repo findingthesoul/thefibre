@@ -53,11 +53,11 @@ export default async function ModelsAppLayout({ children }: { children: React.Re
   return (
     <LocaleProvider locale={locale}>
       <div className="h-dvh flex bg-surface">
-        <div className="hidden md:block shrink-0">
+        <div className="hidden md:block shrink-0 print:hidden">
           <Sidebar mode={prefs.sidebar} version={VERSION} brandTileSrc={tileArtUrl('fibre-models', process.env)} />
         </div>
         <div className="flex-1 flex flex-col min-w-0">
-          <Topbar
+          <div className="print:hidden"><Topbar
             todoEnabled={me.todo_enabled !== false && me.todo_available !== false}
             email={email}
             fullName={fullName}
@@ -66,9 +66,9 @@ export default async function ModelsAppLayout({ children }: { children: React.Re
             apps={switcherApps}
             portal={{ url: surfaceUrl('my-portal', process.env, host), name: SURFACES['my-portal'].shortLabel }}
             workspaces={workspaces}
-          />
+          /></div>
           <main className="flex-1 overflow-y-auto bg-surface-sunken">{children}</main>
-          <MobileNav version={VERSION} />
+          <div className="print:hidden"><MobileNav version={VERSION} /></div>
         </div>
       </div>
     </LocaleProvider>
