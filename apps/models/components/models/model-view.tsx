@@ -200,6 +200,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   const editingItem = editing && editing.index !== null ? (def.canvas?.[editing.block]?.[editing.index] ?? null) : null;
 
   return (
+    <div className="print-page">
     <PageContainer max="full">
       <div className="print:hidden">
         <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -314,5 +315,6 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
         />
       )}
     </PageContainer>
+    </div>
   );
 }

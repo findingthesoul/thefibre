@@ -2,9 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Print: the canvas alone, one landscape page. Everything else carries
-   print:hidden in the model view. */
+/* Print: the canvas alone, on one landscape sheet of whatever paper the
+   printer holds. The shell (sidebar, top bar), the header, tabs and drawer
+   all leave; the canvas grid keeps its nine-block layout at the sheet's
+   width and shrinks a little to fit. Collapsed statements print in full
+   (canvas.tsx renders the full list for print). */
 @media print {
-  @page { size: A4 landscape; margin: 10mm; }
-  #canvas { break-inside: avoid; }
+  @page { size: landscape; margin: 8mm; }
+  aside, header, nav, .print-hide { display: none !important; }
+  html, body { height: auto !important; background: #fff !important; }
+  .h-dvh { height: auto !important; display: block !important; }
+  main { overflow: visible !important; height: auto !important; background: #fff !important; }
+  .print-page { padding: 0 !important; max-width: none !important; }
+  #canvas { break-inside: avoid; zoom: 0.82; }
+  #canvas .canvas-grid { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; grid-template-rows: auto auto auto !important; min-height: 0 !important; border-radius: 0 !important; }
+  #canvas .canvas-grid > div { break-inside: avoid; }
 }

@@ -56,10 +56,9 @@ function Items({ def, block, locale, editable, edit }: { def: ModelDefinition; b
   const linkLabel = (id: string) => linkables(def).find((l) => l.id === id)?.label ?? id;
   if (!items.length) return <div className="text-[11px] italic text-ink-muted">{t(locale, 'not_described')}</div>;
   const shown = open ? items : items.slice(0, PREVIEW);
-  return (
-    <>
-      <ul className="flex flex-col gap-1.5">
-        {shown.map((raw, i) => {
+  const render = (list: typeof items, cls: string) => (
+      <ul className={`flex flex-col gap-1.5 ${cls}`}>
+        {list.map((raw, i) => {
           const it = itemObj(raw);
           const body = (
             <>
@@ -83,8 +82,13 @@ function Items({ def, block, locale, editable, edit }: { def: ModelDefinition; b
           );
         })}
       </ul>
+  );
+  return (
+    <>
+      {render(shown, 'print:hidden')}
+      {render(items, 'hidden print:flex')}
       {items.length > PREVIEW && (
-        <button type="button" onClick={() => setOpen(!open)} className="self-start text-[11px] text-ink-subtle underline-offset-2 hover:text-ink hover:underline">
+        <button type="button" onClick={() => setOpen(!open)} className="self-start text-[11px] text-ink-subtle underline-offset-2 hover:text-ink hover:underline print:hidden">
           {open ? t(locale, 'show_less') : t(locale, 'more_n', { n: items.length - PREVIEW })}
         </button>
       )}
@@ -128,7 +132,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
   // Default view: one total per block; the breakdown opens in a popup
   // (Sjoerd, 2026-09-26: "should only show total in default mode").
   const TotalLine = ({ label, value, onClick }: { label: string; value: string; onClick: () => void }) => (
-    <button type="button" onClick={onClick} className="mt-1 flex w-full items-center justify-between gap-2 rounded border border-line bg-surface-sunken px-2 py-1 text-left text-[12.5px] hover:border-line-strong print:hidden" title={t(locale, 'show_breakdown')}>
+    <button type="button" onClick={onClick} className="mt-1 flex w-full items-center justify-between gap-2 rounded border border-line bg-surface-sunken px-2 py-1 text-left text-[12.5px] hover:border-line-strong print:pointer-events-none" title={t(locale, 'show_breakdown')}>
       <span className="text-ink-subtle">{label}</span><span className="font-medium tabular-nums">{value}</span>
     </button>
   );
@@ -164,7 +168,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
 
   return (
     <div id="canvas">
-      <div className={`grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:[grid-template-columns:repeat(10,minmax(0,1fr))] ${tall ? 'lg:[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)_auto] lg:min-h-[calc(100dvh-14rem)]' : 'lg:[grid-template-rows:auto_auto_auto]'} print:rounded-none`}>
+      <div className={`canvas-grid grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:[grid-template-columns:repeat(10,minmax(0,1fr))] ${tall ? 'lg:[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)_auto] lg:min-h-[calc(100dvh-14rem)]' : 'lg:[grid-template-rows:auto_auto_auto]'} print:rounded-none`}>
         {BLOCKS.map((b) => (
           <Cell key={b.key} title={t(locale, b.title)} icon={b.icon} question={t(locale, `${b.title}_q`)} area={b.area} action={<>{b.key === 'keyResources' && editable && edit && <button type="button" onClick={() => edit.onEditResources()} title={t(locale, 'edit_resources')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Pencil size={13} /></button>}{addBtn(b.key)}</>}>
             <Items def={model} block={b.key} locale={locale} editable={editable} edit={edit} />
