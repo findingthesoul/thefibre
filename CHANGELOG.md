@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.61.2] — 2026-09-26 — Business Models: doors to Teams and Members
+
+Sjoerd: *"Can I create teams and contacts in the side bar? So I can make a
+team, and add a contact to that team."* — *"word."*
+
+Teams and members are platform things and stay in The Fibre, where every
+app shares them. The Business Models sidebar now carries a section "In The
+Fibre" with two doors, Teams and Members, to the Settings pages that make a
+team, add a person to it, and tick which apps the team confers. Env-aware
+like the user menu, so staging stays on staging.
+
 ## [1.61.1] — 2026-09-26 — a story becomes a business model, from the assistant
 
 Sjoerd: *"If I create a business model… can I then use my Claude to upload a
