@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.65.0] — 2026-09-26 — Business Models: the numbers per month, and costs that step
+
+Sjoerd: *"we also want to change the amounts of input (input of clients)
+per period, of the various types. Then automatically the cost structure
+changes (variable costs or fixed cost that are stacked). And the turnover
+changes."* — the third step of the plan.
+
+**A grid, "Per month".** A row per segment: type the new clients of a
+month and it replaces that month's growth — churn still applies — with the
+resulting clients on the line beneath; grey cells show what the formula
+gives. Months between two typed cells run in a straight line; before the
+first and after the last the formula rules; empty a cell to hand the month
+back. A row per funnel step takes its rate per month the same way. Typed
+months are numbers, not structure: they live with the team's inputs, not
+in the definition, and every view above and the drawer follow at once.
+
+**Fixed costs that stack.** In the resources editor a fixed cost can grow
+with a segment or with all units — one facilitator per every 40 Forge
+members, as ceil(units ÷ 40) times the amount — and can step by month, a
+second facilitator from month 13, the amount replaced from that month on.
+Both combine. The engine adds them per month against that month's units,
+so a segment typed higher in the grid raises the cost line in the same
+breath.
+
+Tests cover the typed months, the straight line between them, and the
+steps. The schema guide names steps and per. Business Models shows
+`v0.5.0`.
+
 ## [1.64.0] — 2026-09-26 — Business Models: the funnel
 
 Sjoerd: *"Also the transition funnel from type of client to other type of
