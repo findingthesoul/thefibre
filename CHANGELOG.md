@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.68.1] — 2026-09-26 — Business Models in the app switcher, and the print is the canvas
+
+Sjoerd: *"Models is not in the switch app button."* It could not be until
+production served it: the release gate probes every available app's
+production address. As of today models.thethread.app answers, so the
+branding entry flips to `available: true` and Business Models takes its
+place in the switchers, the launcher and the portal, for the people who
+hold a seat. Still a beta app: the catalogue row keeps `released_at`
+null, so only workspaces on a plan with "Gets new apps early, to test"
+can switch it on.
+
+**And the print is the canvas.** Sjoerd: *"The print version needs to be
+only the canvas, not just a print screen. Needs to fit on a landscape
+form."* Print now drops the sidebar, the top bar, the header, tabs and
+drawer, opens every collapsed block in full, keeps the nine-block layout
+at the sheet's width, shrinks it a little to fit, and asks for landscape
+on whatever paper the printer holds.
+
 ## [1.68.0] — 2026-09-26 — a workspace is created with somebody in it, or it is not created
 
 Sjoerd, having just made one from /admin/workspaces: *"Why is - when making a
