@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.62.3] — 2026-09-26 — Business Models: the description behind an i
+
+Sjoerd: *"Also this [description · tagline] under an i."* The shared
+InfoHint, next to the team pill in the one-line header; the Canvas tab no
+longer prints the paragraph above the canvas.
+
 ## [1.62.2] — 2026-09-26 — Canvas: totals by default, the breakdown on a click
 
 Sjoerd: *"VARIABLE COST, MONTH 12 / FIXED COST PER MONTH should only show
