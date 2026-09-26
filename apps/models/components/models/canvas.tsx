@@ -10,6 +10,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link2, Activity, Box, Gift, Heart, Truck, Users, Tag, Banknote, Plus } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
+import { Dialog } from '@thefibre/shared/ui/dialog';
 import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
 import { linkables } from '@/lib/links';
 import { makeFormatters, singular } from '@/lib/format';
@@ -97,6 +98,7 @@ const Row = ({ a, b, c, total }: { a: ReactNode; b?: ReactNode; c: ReactNode; to
 );
 
 export function BusinessModelCanvas({ model, state, s, locale, editable = false, edit, tall = false }: { model: ModelDefinition; state: ModelState; s: Summary; locale: Locale; editable?: boolean; edit?: CanvasEditHandlers; tall?: boolean }) {
+  const [popup, setPopup] = useState<'variable' | 'fixed' | 'invest' | null>(null);
   const { fmtMoney, fmtMoneyK, fmtNum, fmtPct } = makeFormatters(model.currencySymbol ?? '');
   const unit = model.unitLabel ?? 'units';
   const ref = s.ref;
@@ -119,23 +121,39 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
   acts.sort((a, b) => b.amount - a.amount);
   const tbl = 'w-full border-collapse text-[12.5px]';
 
+  // Default view: one total per block; the breakdown opens in a popup
+  // (Sjoerd, 2026-09-26: "should only show total in default mode").
+  const TotalLine = ({ label, value, onClick }: { label: string; value: string; onClick: () => void }) => (
+    <button type="button" onClick={onClick} className="mt-1 flex w-full items-center justify-between gap-2 rounded border border-line bg-surface-sunken px-2 py-1 text-left text-[12.5px] hover:border-line-strong print:hidden" title={t(locale, 'show_breakdown')}>
+      <span className="text-ink-subtle">{label}</span><span className="font-medium tabular-nums">{value}</span>
+    </button>
+  );
   const numbers: Partial<Record<CanvasBlockKey, ReactNode>> = {
-    keyActivities: (
-      <><Sub>{t(locale, 'variable_cost_month', { n: s.refMonth })}</Sub><table className={tbl}><tbody>
-        {acts.map((a) => <Row key={a.label + a.who} a={<><span className="block">{a.label}</span><span className="block text-[11px] text-ink-muted">{a.who} · {a.unit}</span></>} c={fmtMoney(a.amount)} />)}
-        <Row total a={t(locale, 'total_variable_cost')} c={fmtMoney(ref.variableCost)} />
-      </tbody></table></>
-    ),
+    keyActivities: <TotalLine label={t(locale, 'variable_cost_month', { n: s.refMonth })} value={fmtMoney(ref.variableCost)} onClick={() => setPopup('variable')} />,
     keyResources: (
-      <><Sub>{t(locale, 'fixed_cost_per_month')}</Sub><table className={tbl}><tbody>
-        {(model.fixedCosts ?? []).map((f) => <Row key={f.id} a={f.label} c={fmtMoney(state.fixed[f.id] ?? 0)} />)}
-        <Row total a={t(locale, 'total_fixed_cost')} c={fmtMoney(ref.fixedCost)} />
-      </tbody></table>
-      <Sub>{t(locale, 'one_off_investment')}</Sub><table className={tbl}><tbody>
-        {(model.investment ?? []).map((i) => <Row key={i.id} a={i.label} c={fmtMoney(state.investment[i.id] ?? 0)} />)}
-      </tbody></table></>
+      <>
+        <TotalLine label={t(locale, 'fixed_cost_per_month')} value={fmtMoney(ref.fixedCost)} onClick={() => setPopup('fixed')} />
+        <TotalLine label={t(locale, 'one_off_investment')} value={fmtMoney(s.investmentTotal)} onClick={() => setPopup('invest')} />
+      </>
     ),
   };
+  const popupTitle = popup === 'variable' ? t(locale, 'variable_cost_month', { n: s.refMonth }) : popup === 'fixed' ? t(locale, 'fixed_cost_per_month') : t(locale, 'one_off_investment');
+  const popupBody = popup === 'variable' ? (
+    <table className={tbl}><tbody>
+      {acts.map((a) => <Row key={a.label + a.who} a={<><span className="block">{a.label}</span><span className="block text-[11px] text-ink-muted">{a.who} · {a.unit}</span></>} c={fmtMoney(a.amount)} />)}
+      <Row total a={t(locale, 'total_variable_cost')} c={fmtMoney(ref.variableCost)} />
+    </tbody></table>
+  ) : popup === 'fixed' ? (
+    <table className={tbl}><tbody>
+      {(model.fixedCosts ?? []).map((f) => <Row key={f.id} a={f.label} c={fmtMoney(state.fixed[f.id] ?? 0)} />)}
+      <Row total a={t(locale, 'total_fixed_cost')} c={fmtMoney(ref.fixedCost)} />
+    </tbody></table>
+  ) : (
+    <table className={tbl}><tbody>
+      {(model.investment ?? []).map((i) => <Row key={i.id} a={i.label} c={fmtMoney(state.investment[i.id] ?? 0)} />)}
+      <Row total a={t(locale, 'investment')} c={fmtMoney(s.investmentTotal)} />
+    </tbody></table>
+  );
   const addBtn = (block: CanvasBlockKey) => editable && edit ? (
     <button type="button" onClick={() => edit.onAddItem(block)} title={t(locale, 'add_statement')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Plus size={14} /></button>
   ) : null;
@@ -190,6 +208,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
         <span>{model.name}{model.tagline ? ` · ${model.tagline}` : ''}</span>
         <span>{t(locale, 'canvas_note', { n: s.refMonth })}</span>
       </div>
+      <Dialog open={popup !== null} onClose={() => setPopup(null)} title={popupTitle} size="md">{popupBody}</Dialog>
     </div>
   );
 }
