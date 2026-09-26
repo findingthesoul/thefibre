@@ -230,15 +230,16 @@ export const APPS: Record<AppId, AppBrand> = {
   'fibre-models': {
     // Business model generators per team (Sjoerd, 2026-09-25): turnover
     // generators with their own costs, generic costs, investment, break
-    // even and the Business Model Canvas. `available` flips once
-    // models.thethread.app serves (docs/deploy.md, "Adding a NEW app").
+    // even and the Business Model Canvas. Available since 2026-09-26, when
+    // models.thethread.app began to serve; still a beta app in the catalogue
+    // (beta_at, no released_at), so only plans with beta apps can switch it on.
     name: 'Business Models',
     shortName: 'Models',
     brandLetters: 'bm',
     tagline: 'Turnover, costs and break even, on one canvas.',
     url: 'https://models.thethread.app',
     urlEnv: 'NEXT_PUBLIC_MODELS_URL',
-    available: false,
+    available: true,
   },
 };
 
