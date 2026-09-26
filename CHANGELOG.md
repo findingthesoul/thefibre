@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.6] — 2026-09-26 — Business Models: the drawer bar has down and up
+
+Sjoerd: *"With the CANVAS element bar, also a DOWN and UP button."* Down
+shrinks a tall drawer to its usual height and, pressed again, hides it to
+the bar; up brings it back and, pressed again, makes it tall. The grip still
+drags to any height in between.
+
 ## [1.63.5] — 2026-09-26 — Business Models: create and edit from the drawer too
 
 Sjoerd: *"And the create, edit and delete — can that be done in the Canvas
