@@ -12,7 +12,7 @@ import { Button } from '@thefibre/shared/ui/button';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { TextField, SelectField, TextAreaField, FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 import { ERROR_TEXT, SECTION_LABEL } from '@thefibre/shared/ui/recipes';
-import type { CostKind, CostLine, Generator, ModelDefinition, NumberInput, Transition } from '@/lib/engine';
+import type { CostKind, CostLine, FixedCost, Generator, ModelDefinition, NumberInput, Transition } from '@/lib/engine';
 import { dependents, formulaProblem, newCost, newInput, newTransition, segments } from '@/lib/structure';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
@@ -247,7 +247,9 @@ export function StreamEditor({ open, def, gen, locale, onSave, onDelete, onClose
 // Key resources: fixed costs per month, one-off investment.
 // ---------------------------------------------------------------------------
 export function ResourcesEditor({ open, def, locale, onSave, onClose }: { open: boolean; def: ModelDefinition; locale: Locale; onSave: (patch: Pick<ModelDefinition, 'fixedCosts' | 'investment'>) => void; onClose: () => void }) {
-  const [fixed, setFixed] = useState<NonNullable<ModelDefinition['fixedCosts']>>(def.fixedCosts ?? []);
+  const [fixed, setFixed] = useState<FixedCost[]>(def.fixedCosts ?? []);
+  const setF = (i: number, patch: Partial<FixedCost>) => setFixed(fixed.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const segs = segments(def);
   const [invest, setInvest] = useState<NumberInput[]>(def.investment ?? []);
   useEffect(() => { setFixed(def.fixedCosts ?? []); setInvest(def.investment ?? []); }, [def, open]);
   return (
@@ -259,12 +261,40 @@ export function ResourcesEditor({ open, def, locale, onSave, onClose }: { open: 
           <div className="mt-1.5 flex flex-col gap-1.5">
             <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_4rem_4.5rem_1.25rem] gap-2 text-[10px] uppercase tracking-wider text-ink-muted"><span>{t(locale, 'label')}</span><span className="text-right">{t(locale, 'value')}</span><span className="text-right">{t(locale, 'step')}</span><span className="text-right">{t(locale, 'start_month')}</span><span /></div>
             {fixed.map((f, i) => (
-              <div key={f.id} className="grid grid-cols-[minmax(0,1fr)_5.5rem_4rem_4.5rem_1.25rem] items-center gap-2">
-                <Txt value={f.label} onChange={(label) => setFixed(fixed.map((x, j) => (j === i ? { ...x, label } : x)))} />
-                <Num value={f.value} step={f.step ?? 50} onChange={(value) => setFixed(fixed.map((x, j) => (j === i ? { ...x, value } : x)))} />
-                <Num value={f.step ?? 50} onChange={(step) => setFixed(fixed.map((x, j) => (j === i ? { ...x, step } : x)))} />
-                <Num value={f.startMonth ?? 1} onChange={(m) => setFixed(fixed.map((x, j) => (j === i ? { ...x, startMonth: Math.max(1, Math.round(m)) } : x)))} />
-                <Del label={t(locale, 'remove')} onClick={() => setFixed(fixed.filter((_, j) => j !== i))} />
+              <div key={f.id} className="rounded-md border border-line p-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_4rem_4.5rem_1.25rem] items-center gap-2">
+                  <Txt value={f.label} onChange={(label) => setF(i, { label })} />
+                  <Num value={f.value} step={f.step ?? 50} onChange={(value) => setF(i, { value })} />
+                  <Num value={f.step ?? 50} onChange={(step) => setF(i, { step })} />
+                  <Num value={f.startMonth ?? 1} onChange={(m) => setF(i, { startMonth: Math.max(1, Math.round(m)) })} />
+                  <Del label={t(locale, 'remove')} onClick={() => setFixed(fixed.filter((_, j) => j !== i))} />
+                </div>
+                <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <div className="flex items-center justify-between"><span className="text-[11px] text-ink-subtle">{t(locale, 'grows_with')}</span></div>
+                    <div className="mt-1 grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-2">
+                      <select value={f.per?.of ?? ''} onChange={(e) => setF(i, { per: e.target.value ? { of: e.target.value, every: f.per?.every ?? 40 } : undefined })} className={`${FIELD_INPUT_CLASS} h-8`}>
+                        <option value="">{t(locale, 'grows_none')}</option>
+                        <option value="units">{t(locale, 'grows_all_units')}</option>
+                        {segs.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                      </select>
+                      {f.per && <div className="flex items-center gap-1"><span className="text-[11px] text-ink-muted">{t(locale, 'per_every')}</span><Num value={f.per.every} onChange={(every) => setF(i, { per: { of: f.per!.of, every: Math.max(1, Math.round(every)) } })} /></div>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between"><span className="text-[11px] text-ink-subtle">{t(locale, 'steps')}</span><AddBtn label={t(locale, 'add_step')} onClick={() => setF(i, { steps: [...(f.steps ?? []), { fromMonth: 13, value: f.value * 2 }] })} /></div>
+                    <div className="mt-1 flex flex-col gap-1">
+                      {(f.steps ?? []).map((st, k) => (
+                        <div key={k} className="grid grid-cols-[auto_4.5rem_auto_5.5rem_1.25rem] items-center gap-1.5 text-[11px] text-ink-muted">
+                          <span>{t(locale, 'start_month').toLowerCase()}</span><Num value={st.fromMonth} onChange={(v) => setF(i, { steps: (f.steps ?? []).map((x, q) => (q === k ? { ...x, fromMonth: Math.max(1, Math.round(v)) } : x)) })} />
+                          <span>→</span><Num value={st.value} step={f.step ?? 50} onChange={(v) => setF(i, { steps: (f.steps ?? []).map((x, q) => (q === k ? { ...x, value: v } : x)) })} />
+                          <Del label={t(locale, 'remove')} onClick={() => setF(i, { steps: (f.steps ?? []).filter((_, q) => q !== k) })} />
+                        </div>
+                      ))}
+                      {!(f.steps ?? []).length && <span className="text-[11px] text-ink-muted">—</span>}
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

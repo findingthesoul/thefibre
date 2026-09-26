@@ -17,7 +17,8 @@ export const MODEL_FORMAT: readonly string[] = [
   'revenuePerUnit: a formula string over the generator’s input ids and settings ids, e.g. "fee" or "vol * take / 100". Lump income (a grant, a sponsorship): countsAsUnit false, volume { start: 1, startMonth: "from" }, revenueTotal: "amount".',
   'costs: [{ id, label, unit, kind, value, step, batchSize? }] — the costs that exist only because of this generator; kind is perUnit, perNewUnit, perBatch (with batchSize, a formula), percentRevenue, fixed or formula (with formula).',
   'transitions (the funnel): [{ id, from: "<segment id>", to: "<segment id>", rate, move }] — each month rate% of last month’s people in from go to to; move true (default) takes them out of from, false counts them in both. Use it when one client type becomes another (community → builder → venture).',
-  'fixedCosts: [{ id, label, value, step }] per month (the key resources: team, software, rent, legal, marketing). investment: [{ id, label, value, step }] one-off before month one.',
+  'fixedCosts: [{ id, label, value, step, startMonth, steps, per }] per month (the key resources: team, software, rent, legal, marketing). startMonth: from which month it is paid. steps: [{ fromMonth, value }] replace the value from that month on (a second facilitator from month 13). per: { of: "<segment id>" | "units", every } multiplies it by ceil(units ÷ every), one facilitator per 40 members. investment: [{ id, label, value, step }] one-off before month one.',
+  'Numbers typed per month (new clients in a month, a funnel rate in a month) are not part of the definition: the team types them in the app.',
   'Formulas are plain arithmetic over ids: + - * / ( ) and numbers, plus month, units, newUnits, revenue, batches. Nothing else.',
   'Every number is a placeholder. Choose plausible values and say in help texts what they mean; never present them as the venture’s real figures. Ids are short, unique, lowercase.',
 ];

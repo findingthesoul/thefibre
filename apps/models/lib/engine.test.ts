@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultState, summarize, type ModelDefinition } from './engine';
+import { defaultState, summarize, typedForMonth, fixedAmount, type ModelDefinition } from './engine';
 import { DOAB } from './templates/doab';
 
 const r = (n: number) => Math.round(n);
@@ -45,5 +45,28 @@ describe('the engine', () => {
     const st = defaultState(def);
     st.transitions.ab = 50;
     expect(summarize(def, st).months[1]!.gens.b!.units).toBe(50);
+  });
+
+  it('typed new clients replace growth for that month, churn still applies, and interpolate between typed months', () => {
+    const def: ModelDefinition = { name: 't', horizon: 6, generators: [{ id: 'a', name: 'A', inputs: [{ id: 'start', label: 's', value: 100, step: 1 }, { id: 'growth', label: 'g', value: 10, step: 1 }, { id: 'churn', label: 'c', value: 0, step: 1 }], volume: { start: 'start', growth: 'growth', churn: 'churn' } }] };
+    const st = defaultState(def);
+    st.periods.a = { '2': 5, '4': 15 };
+    const u = summarize(def, st).months.map((m) => m.gens.a!.units);
+    expect(u[0]).toBe(100);           // month 1: start
+    expect(u[1]).toBe(105);           // typed: +5
+    expect(u[2]).toBe(115);           // interpolated: +10
+    expect(u[3]).toBe(130);           // typed: +15
+    expect(u[4]).toBeCloseTo(143, 5); // after the last typed month the formula rules: ×1.1
+    expect(typedForMonth({ '2': 5, '4': 15 }, 3)).toBe(10);
+    expect(typedForMonth({ '2': 5 }, 3)).toBeNull();
+  });
+
+  it('a fixed cost steps by month and grows with a segment', () => {
+    const f = { id: 'fac', label: 'Facilitators', value: 3000, step: 100, steps: [{ fromMonth: 13, value: 6000 }], per: { of: 'forge', every: 40 } };
+    expect(fixedAmount(f, 3000, 1, 0, { forge: 10 })).toBe(3000);
+    expect(fixedAmount(f, 3000, 1, 0, { forge: 41 })).toBe(6000);
+    expect(fixedAmount(f, 3000, 13, 0, { forge: 10 })).toBe(6000);
+    expect(fixedAmount({ ...f, per: undefined }, 3000, 20, 0, {})).toBe(6000);
+    expect(fixedAmount({ id: 'x', label: 'x', value: 1, step: 1, per: { of: 'units', every: 100 } }, 500, 1, 250, {})).toBe(1500);
   });
 });

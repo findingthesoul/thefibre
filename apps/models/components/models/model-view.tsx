@@ -27,6 +27,7 @@ import { newSegment, newStream, removeGenerator, upsertGenerator } from '@/lib/s
 import { Kpis, YearsPanels, ChartPanels, MixPanels, ProjectionPanel } from './results';
 import { ColumnsDrawer } from './columns-drawer';
 import { SortablePanels } from './sortable-panels';
+import { PeriodsGrid } from './periods-grid';
 
 type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number };
 
@@ -44,7 +45,7 @@ function FillToBottom({ children, className = '' }: { children: React.ReactNode;
   return <div ref={ref} className={className} style={{ height: `calc(100dvh - ${Math.round(top)}px)` }}>{children}</div>;
 }
 type Tab = 'canvas' | 'numbers';
-type View = 'bep' | 'projection';
+type View = 'bep' | 'projection' | 'periods';
 
 export function ModelView({ model: row, locale }: { model: ModelRow; locale: Locale }) {
   const [def, setDef] = useState<ModelDefinition>(row.definition);
@@ -86,7 +87,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   function change(scope: Scope, id: string, value: number) {
     inputsDirty.current = true;
     setState((st) => {
-      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, generators: { ...st.generators } };
+      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, periods: st.periods, periodRates: st.periodRates, generators: { ...st.generators } };
       if (typeof scope === 'string') next[scope][id] = value;
       else next.generators[scope.gen] = { ...(next.generators[scope.gen] ?? {}), [id]: value };
       return next;
@@ -97,6 +98,16 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     setDef(next);
     // New generators need their default numbers in the state, or every field shows 0.
     setState((st) => mergeState(defaultState(next), st));
+  }
+  function setCell(kind: 'periods' | 'periodRates', id: string, month: number, value: number | null) {
+    inputsDirty.current = true;
+    setState((st) => {
+      const table = { ...(st[kind][id] ?? {}) };
+      if (value == null) delete table[String(month)]; else table[String(month)] = value;
+      const next = { ...st[kind] };
+      if (Object.keys(table).length) next[id] = table; else delete next[id];
+      return { ...st, [kind]: next };
+    });
   }
   function setItems(block: CanvasBlockKey, items: CanvasItem[]) {
     defDirty.current = true;
@@ -172,8 +183,8 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       {tab === 'numbers' && (
         <FillToBottom className="mt-3 flex flex-col print:hidden">
           <div className="flex flex-wrap gap-2">
-            {(['bep', 'projection'] as View[]).map((v) => (
-              <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : 'view_projection')}</button>
+            {(['bep', 'projection', 'periods'] as View[]).map((v) => (
+              <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : v === 'projection' ? 'view_projection' : 'view_periods')}</button>
             ))}
           </div>
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-4 pl-0 lg:pl-7">
@@ -182,6 +193,8 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
                 { id: 'kpis', node: <Kpis model={def} s={s} locale={locale} /> },
                 { id: 'charts', node: <ChartPanels model={def} s={s} locale={locale} /> },
               ]} />
+            ) : view === 'periods' ? (
+              <PeriodsGrid model={def} state={state} s={s} locale={locale} onCell={setCell} />
             ) : (
               <SortablePanels key="projection" storageKey={`bm-order-${row.id}-projection`} title={t(locale, 'drag_to_reorder')} panels={[
                 { id: 'years', node: <YearsPanels model={def} s={s} locale={locale} /> },

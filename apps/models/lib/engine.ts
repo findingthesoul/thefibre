@@ -38,6 +38,15 @@ export type CanvasBlockKey = 'keyPartners' | 'keyActivities' | 'keyResources' | 
 export const CANVAS_BLOCK_KEYS: CanvasBlockKey[] = ['keyPartners', 'keyActivities', 'keyResources', 'valuePropositions', 'customerRelationships', 'channels'];
 export const itemText = (it: CanvasItem): string => (typeof it === 'string' ? it : it.text);
 export const itemObj = (it: CanvasItem): { id?: string; text: string; segments?: string[]; links?: string[] } => (typeof it === 'string' ? { text: it } : it);
+/** A fixed cost per month. It may step: `steps` replaces the value from a
+ *  month on (a second facilitator from month 13); `per` multiplies it by
+ *  ceil(units ÷ every) of a segment or of all units (one facilitator per 40
+ *  Forge members). Both may combine. */
+export type FixedCost = NumberInput & {
+  startMonth?: number;
+  steps?: { fromMonth: number; value: number }[];
+  per?: { of: string | 'units'; every: number };
+};
 /** A funnel step: each month, `rate`% of the people in `from` go to `to`.
  *  `move` (default true) takes them out of `from`; false counts them in both. */
 export type Transition = { id: string; from: string; to: string; rate: number; move?: boolean; label?: string };
@@ -56,7 +65,7 @@ export type ModelDefinition = {
   genericVariable?: { id: string; label: string; kind: 'percentRevenue' | 'perUnit' | 'perNewUnit'; value?: number }[];
   generators: Generator[];
   transitions?: Transition[];
-  fixedCosts?: (NumberInput & { startMonth?: number })[];
+  fixedCosts?: FixedCost[];
   investment?: NumberInput[];
 };
 
@@ -67,6 +76,13 @@ export type ModelState = {
   investment: Record<string, number>;
   /** Transition rates, % per month, by transition id. */
   transitions: Record<string, number>;
+  /** New clients per month typed by hand, by segment id then month: they
+   *  replace that month's growth (churn still applies). Months between two
+   *  typed months are interpolated; before the first and after the last the
+   *  formula rules. Month 1 sets the starting number. */
+  periods: Record<string, Record<string, number>>;
+  /** Transition rates per month typed by hand, by transition id then month. */
+  periodRates: Record<string, Record<string, number>>;
 };
 
 type Scope = Record<string, number>;
@@ -105,7 +121,7 @@ export const evalExpr = (expr: string | number | undefined | null, scope: Scope)
 
 // ---------- state ----------
 export function defaultState(model: ModelDefinition): ModelState {
-  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {}, transitions: {} };
+  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {}, transitions: {}, periods: {}, periodRates: {} };
   (model.settings ?? []).forEach((s) => { st.settings[s.id] = s.value; });
   model.generators.forEach((g) => {
     const gs: Record<string, number> = {};
@@ -123,7 +139,17 @@ export function defaultState(model: ModelDefinition): ModelState {
 export function mergeState(base: ModelState, saved: unknown): ModelState {
   if (!saved || typeof saved !== 'object') return base;
   const sv = saved as Record<string, Record<string, unknown>>;
-  const out: ModelState = { ...JSON.parse(JSON.stringify(base)), transitions: { ...(base.transitions ?? {}) } };
+  const out: ModelState = { ...JSON.parse(JSON.stringify(base)), transitions: { ...(base.transitions ?? {}) }, periods: {}, periodRates: {} };
+  (['periods', 'periodRates'] as const).forEach((k) => {
+    const src = sv[k] as Record<string, Record<string, unknown>> | undefined;
+    if (!src || typeof src !== 'object') return;
+    Object.entries(src).forEach(([id, months]) => {
+      if (!months || typeof months !== 'object') return;
+      const clean: Record<string, number> = {};
+      Object.entries(months).forEach(([mo, v]) => { if (/^\d+$/.test(mo) && typeof v === 'number' && Number.isFinite(v)) clean[mo] = v; });
+      if (Object.keys(clean).length) out[k][id] = clean;
+    });
+  });
   (['settings', 'fixed', 'investment', 'transitions'] as const).forEach((k) => {
     const src = sv[k];
     if (!src || typeof src !== 'object') return;
@@ -156,6 +182,32 @@ export type MonthRow = {
   cumulative: number;
   cash: number;
 };
+
+/** A fixed cost line in month m: the base value, replaced by the latest step
+ *  reached, multiplied by ceil(units ÷ every) when it grows with a segment. */
+export function fixedAmount(f: FixedCost, base: number, m: number, totalUnits: number, units: Record<string, number>): number {
+  let value = base;
+  (f.steps ?? []).filter((st) => st.fromMonth <= m).sort((a, b) => a.fromMonth - b.fromMonth).forEach((st) => { value = st.value; });
+  if (f.per && f.per.every > 0) {
+    const n = f.per.of === 'units' ? totalUnits : (units[f.per.of] ?? 0);
+    value = value * Math.ceil(Math.max(n, 0) / f.per.every);
+  }
+  return value;
+}
+
+/** The new clients typed for a month: the cell itself, or a straight line
+ *  between the nearest typed months on either side; null when the formula rules. */
+export function typedForMonth(cells: Record<string, number> | undefined, m: number): number | null {
+  if (!cells) return null;
+  const direct = cells[String(m)];
+  if (typeof direct === 'number') return direct;
+  const months = Object.keys(cells).map(Number).filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  const before = months.filter((x) => x < m).pop();
+  const after = months.find((x) => x > m);
+  if (before == null || after == null) return null;
+  const a = cells[String(before)]!, b = cells[String(after)]!;
+  return a + ((b - a) * (m - before)) / (after - before);
+}
 
 function topoOrder(gens: Generator[]): Generator[] {
   const byId = new Map(gens.map((g) => [g.id, g]));
@@ -199,12 +251,16 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
       let units = 0;
       if (m >= startMonth) {
         const prev = unitsPrev[g.id];
-        if (prev == null || m === startMonth) units = evalExpr(v.start, scope);
+        const typed = typedForMonth(state.periods[g.id], m);
+        if (prev == null || m === startMonth) units = typed ?? evalExpr(v.start, scope);
         else {
-          const growth = evalExpr(v.growth ?? 0, scope) / 100;
           const churn = evalExpr(v.churn ?? 0, scope) / 100;
-          const add = evalExpr(v.add ?? 0, scope);
-          units = prev * (1 + growth - churn) + add;
+          if (typed != null) units = prev * (1 - churn) + typed;
+          else {
+            const growth = evalExpr(v.growth ?? 0, scope) / 100;
+            const add = evalExpr(v.add ?? 0, scope);
+            units = prev * (1 + growth - churn) + add;
+          }
         }
         if (v.cap != null) units = Math.min(units, evalExpr(v.cap, scope));
       }
@@ -214,7 +270,7 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
     // `to`; by default they leave `from` (move), or they count in both.
     (model.transitions ?? []).forEach((tr) => {
       if (m === 1 || !(tr.from in unitsNow) || !(tr.to in unitsNow)) return;
-      const rate = (state.transitions[tr.id] ?? tr.rate) / 100;
+      const rate = (typedForMonth(state.periodRates[tr.id], m) ?? state.transitions[tr.id] ?? tr.rate) / 100;
       const moved = Math.max((unitsPrev[tr.from] ?? 0) * rate, 0);
       if (!moved) return;
       unitsNow[tr.to] = (unitsNow[tr.to] ?? 0) + moved;
@@ -268,7 +324,7 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
       row.gens[c.id] = { units: 0, newUnits: 0, revenue: 0, cost: amount, costLines: {}, generic: true, inflow: 0, outflow: 0 };
       row.variableCost += amount;
     });
-    (model.fixedCosts ?? []).forEach((f) => { if (m >= (f.startMonth ?? 1)) row.fixedCost += state.fixed[f.id] ?? 0; });
+    (model.fixedCosts ?? []).forEach((f) => { if (m >= (f.startMonth ?? 1)) row.fixedCost += fixedAmount(f, state.fixed[f.id] ?? 0, m, row.units, unitsNow); });
     row.totalCost = row.variableCost + row.fixedCost;
     row.net = row.revenue - row.totalCost;
     cumulative += row.net;
