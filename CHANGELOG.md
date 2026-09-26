@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.64.0] — 2026-09-26 — Business Models: the funnel
+
+Sjoerd: *"Also the transition funnel from type of client to other type of
+clients (if the relations are there) changes the result."* — *"go with
+that"* (move, months, new clients per period) — *"follow your flow"*.
+
+**A segment feeds a segment.** A transition says: each month this share of
+last month's people in one segment go to another. By default they move
+(they leave the first); unticked, they count in both. The engine runs it as
+the second of three phases in every month — the segments' own growth and
+churn first, then the funnel, then the streams that read the segments,
+revenue and costs — so a Forge member who came from the community pays
+the Forge fee, costs the Forge's onboarding, and feeds the streams that
+hang on Forge, all in the same month.
+
+**Where it shows.** The segment editor has "Feeds into (funnel)": pick the
+target, the rate, move or not; the calculation block spells it out. The
+canvas prints "→ Forge 3%/mo" under a segment. The drawer lists the rate
+among the segment's variables, so it turns like any other number, and
+names the flows in and out in the relations, with this month's inflow and
+outflow in the reading. The schema guide and the doáb template carry a
+first flow, community → forge at 3%.
+
+**Tests.** `apps/models` has vitest now: the engine still reproduces the
+static build's doáb figures without the funnel, and the funnel moves,
+copies and reads its rate from the state as intended. Business Models
+shows `v0.4.0`.
+
 ## [1.63.9] — 2026-09-26 — Business Models: all the variables, and how they count
 
 Sjoerd: *"great how to edit elements… but how to add and edit all the
