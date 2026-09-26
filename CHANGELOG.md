@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.9] — 2026-09-26 — Business Models: all the variables, and how they count
+
+Sjoerd: *"great how to edit elements… but how to add and edit all the
+variables? And how do they equate in the calculations?"*
+
+The segment editor was showing only the volume; the same segment's price,
+its other variables and its own cost lines sat in the stream editor, and
+nothing said how any of it reached the numbers. Now every generator editor
+carries it all: the volume, "Price and other variables" with an **id
+column** (the name a formula uses), the revenue formula with the ids it may
+use, the own cost lines with their ids and kinds, and a read-only block "In
+the calculation" that spells the arithmetic out from the definition itself —
+units in month one and how they grow, revenue = units × (formula), and each
+cost line as what it is multiplied by. Add a variable, use its id in the
+formula, save: the whole model moves.
+
 ## [1.63.8] — 2026-09-26 — Business Models: costs left, turnover right
 
 Sjoerd: *"Turnover and costs — the other way around (left/right) in
