@@ -203,6 +203,7 @@ const RAW = {
   pick_item: ['Pick an item to see its variables.', 'Kies een post om de variabelen te zien.', 'Elige una partida para ver sus variables.', 'Escolha um item para ver suas variáveis.', 'Wähle einen Posten, um die Variablen zu sehen.', 'Choisis un poste pour voir ses variables.'],
   drawer_resize: ['Drag to change the height', 'Sleep om de hoogte aan te passen', 'Arrastra para cambiar la altura', 'Arraste para mudar a altura', 'Ziehen, um die Höhe zu ändern', 'Glisse pour changer la hauteur'],
   show_breakdown: ['Show the breakdown', 'Toon de uitsplitsing', 'Ver el desglose', 'Ver o detalhamento', 'Aufschlüsselung zeigen', 'Voir le détail'],
+  about_this_model: ['About this model', 'Over dit model', 'Sobre este modelo', 'Sobre este modelo', 'Über dieses Modell', 'À propos de ce modèle'],
   numbers_table_title: ['Canvas, items, variables', 'Canvas, posten, variabelen', 'Lienzo, partidas, variables', 'Tela, itens, variáveis', 'Canvas, Posten, Variablen', 'Canevas, postes, variables'],
   numbers_table_help: ['Every change recalculates the views above at once.', 'Elke wijziging herberekent de weergaven hierboven meteen.', 'Cada cambio recalcula las vistas de arriba al instante.', 'Cada alteração recalcula as visões acima na hora.', 'Jede Änderung berechnet die Ansichten oben sofort neu.', 'Chaque modification recalcule aussitôt les vues ci-dessus.'],
   col_canvas_element: ['Canvas element', 'Canvas-element', 'Elemento del lienzo', 'Elemento da tela', 'Canvas-Element', 'Élément du canevas'],

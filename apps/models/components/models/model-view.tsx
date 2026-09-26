@@ -13,6 +13,7 @@ import { Download, Printer, RotateCcw, ChevronLeft } from 'lucide-react';
 import { Button } from '@thefibre/shared/ui/button';
 import { PageContainer } from '@thefibre/shared/ui/page';
 import { Tabs } from '@thefibre/shared/ui/tabs';
+import { InfoHint } from '@thefibre/shared/ui/info-hint';
 import { CHIP, CHIP_STATE, NOTICE, PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 import { defaultState, mergeState, summarize, itemObj, type CanvasBlockKey, type CanvasItem, type ModelDefinition, type ModelState } from '@/lib/engine';
 import type { Scope } from '@/lib/links';
@@ -105,6 +106,11 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
             <Link href="/dashboard" className="inline-flex items-center text-ink-subtle hover:text-ink" title={t(locale, 'nav_models')}><ChevronLeft size={18} /></Link>
             <h1 className="truncate text-xl font-medium tracking-tight">{row.name}</h1>
             <span className={`${PILL} ${PILL_TONE.neutral} shrink-0`}>{row.team?.name ?? t(locale, 'workspace_wide')}</span>
+            {(def.description || def.tagline) && (
+              <InfoHint label={t(locale, 'about_this_model')}>
+                {def.description}{def.tagline && <span className="italic text-ink-muted"> · {def.tagline}</span>}
+              </InfoHint>
+            )}
             <span className="text-xs text-ink-subtle" aria-live="polite">{status === 'saving' ? t(locale, 'saving') : status === 'saved' ? t(locale, 'saved') : ''}</span>
           </div>
           <div className="flex items-center gap-1">
@@ -120,7 +126,6 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
 
       {tab === 'canvas' && (
         <div className="mt-3">
-          {(def.description || def.tagline) && <p className="mb-2 max-w-[90ch] text-sm text-ink-subtle">{def.description}{def.tagline && <span className="italic text-ink-muted"> · {def.tagline}</span>}</p>}
           {editable && <p className="mb-2 text-xs text-ink-muted print:hidden">{t(locale, 'canvas_edit_hint')}</p>}
           <BusinessModelCanvas model={def} state={state} s={s} locale={locale} tall editable={editable} edit={{ onEditItem: (block, index) => setEditing({ block, index }), onAddItem: (block) => setEditing({ block, index: null }) }} />
         </div>
