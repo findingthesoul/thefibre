@@ -31,3 +31,6 @@ with room to read: the landing page, the sign-in page.
 
 `learn.png` is still the older Matisse crop: Fibre Learn does not exist yet
 (Sjoerd, 2026-09-21), so there is no new icon for it.
+
+`models.png` joined on 2026-09-26 from the same "PNG 3" set (Business
+Models: two white blocks on the blue paint), resized and encoded the same way.

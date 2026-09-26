@@ -478,6 +478,7 @@ export const TILE_FILES: Partial<Record<AppId, string>> = {
   'fibre-platform': 'fibre',
   'fibre-sales': 'sales',
   'fibre-learn': 'learn',
+  'fibre-models': 'models',
 };
 
 /** Absolute URL of an app's Matisse tile (served by fibre web — the brand
