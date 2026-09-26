@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.7] — 2026-09-26 — Business Models: panels move by arrow as well as by drag
+
+Sjoerd: *"Also the drag and drop over the views don't work."* Two changes.
+The grip is now the only drag handle, so a drag no longer starts from a
+chart or a table that has mouse handlers of its own, and the drop target
+answers drag-enter as well as drag-over. And beside the grip sit an up and a
+down arrow, which move the panel one step in any browser, no drag needed.
+
 ## [1.63.6] — 2026-09-26 — Business Models: the drawer bar has down and up
 
 Sjoerd: *"With the CANVAS element bar, also a DOWN and UP button."* Down
