@@ -83,6 +83,25 @@ plus `NEXT_PUBLIC_MODELS_URL`; `scripts/verify-vercel-env.mjs` holds the
 list. Vercel's own deployment protection is OFF on this project, like the
 others — with it on, the custom staging domain bounced to a Vercel login.
 
+## The calculator, as of 1.65.0
+
+- **Structure edited in the app** (1.63.0): segment, stream (volume source,
+  variables with ids, revenue formula, own cost lines), key resources,
+  settings, statements and their links — from the canvas and from the
+  drawer; admins and team leads.
+- **The funnel** (1.64.0): `transitions` — each month `rate`% of last
+  month's people in one segment go to another, moving by default. Phase
+  two of the monthly loop, between the segments' own growth and the streams.
+- **Per month** (1.65.0): typed new clients per segment per month (replace
+  that month's growth, churn still applies, straight line between typed
+  months) and funnel rates per month, both in the inputs blob, not the
+  definition. Fixed costs step by month (`steps`) and grow with a segment or
+  all units (`per`).
+- **The drawer**: group → element → all variables with relations; create and
+  edit from there too. Panels above in the person's own order.
+- **Not yet**: scenarios, undo, per-user preferences on the server (they
+  are in the browser), production.
+
 ## Versions
 
 Its own `VERSION` in `apps/models/app/(app)/layout.tsx` (0.1.0 from
