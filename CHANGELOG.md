@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.63.1] — 2026-09-26 — Business Models: the panels drop where they are dragged
+
+Sjoerd: *"drag and drop don't work good yet. I see a drag, but after drop
+nothing happens."* Safari ignores a drop unless the drag carries data; the
+panel id now travels in the transfer and the drop reads it from there.
+
 ## [1.63.0] — 2026-09-26 — Business Models: the structure, edited where it lives
 
 Sjoerd: *"Where can you edit, create or delete all the elements and its
