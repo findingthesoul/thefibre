@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.73.0] — 2026-09-26 — a price that steps: band tables in Business Models
+
+Sjoerd's briefing: *"Many prices do not grow in a straight line. They step.
+A licence that depends on turnover band. A volume discount. A second
+facilitator per 40 members. A tax bracket. Today a formula allows only plus,
+minus, times, divide and brackets."*
+
+**Band tables.** A definition gets `tables`: a named table of bands any
+formula reads with `lookup(<table id>, <number>)`, the one new word in the
+grammar. Two modes, because both occur: *step*, where the whole amount
+follows the band the number falls in (€120,000 falls in the band up to
+€250,000 and pays €6,000), and *marginal*, where each part carries the rate
+of its own band like income tax, with an optional cap. An edge belongs to the
+lower band; zero or less gives zero. The bands are numbers: the team edits
+them in the drawer under "Tables", a scenario keeps them, an assistant sets
+them through `models_set_numbers`. The structure is definition, edited in a
+Tables dialog from the canvas footer. A stream lists the tables it reads, a
+table lists the streams that read it, a small chart shows amount and
+effective rate so a jump at a band edge is visible. All six acceptance
+cases from the briefing are tests.
+
+**A billing moment per stream.** `billing: { every: 12, month: 1 }` puts
+the year's amount in January and nothing in between, so the monthly cash
+picture is right for a reserve target while yearly totals stay the same.
+
+**Formula costs show their formula.** A cost of kind `formula` no longer
+shows an unused "€0 / month" field next to the amount: the editor shows the
+formula, the drawer lists it as a relation.
+
 ## [1.72.3] — 2026-09-26 — the canvas tells you when an assistant changed it
 
 Sjoerd: *"Can you organise that, once Claude updates the canvas, it also
