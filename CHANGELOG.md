@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.61.1] — 2026-09-26 — a story becomes a business model, from the assistant
+
+Sjoerd: *"If I create a business model… can I then use my Claude to upload a
+business model?"* — *"Make the last step of the MCP."*
+
+Five tools in the person catalogue, behind two new scopes. `models:read`:
+`models_list` (what the person may open, by team), `models_teams` (where they
+may create, with their standing), `models_get` (one model, definition and
+numbers), and `models_schema` — a LOCAL tool, no API call, that hands the
+assistant the definition format in words plus one complete example, so a
+model can be written from a story without the repository at hand.
+`models:write`: `models_create`, a definition in, a model in the app out.
+
+Every call is the person's own JWT with `X-App-ID: fibre-models`, so the
+route's rule holds unchanged: admins and team leads create, the team sees
+it, nobody else. The consent page names both scopes in words; Settings →
+Connections shows them in six locales. `person.test.ts` learned that a tool
+may be local (`local: true` — then it must NOT call the API), which is the
+only change to the catalogue's contract.
+
+Still a beta app; `available` stays false until models.thethread.app serves.
+
 ## [1.61.0] — 2026-09-25 — Business Models, a new app on the family
 
 Sjoerd: *"We use the full framework of thethread as a foundation. Just
