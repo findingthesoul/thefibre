@@ -115,7 +115,7 @@ export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onCh
   const phone = (l: typeof level) => (l === level ? '' : 'hidden md:block');
 
   return (
-    <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-surface-raised shadow-[0_-8px_24px_-16px_rgb(0_0_0_/_0.25)] sm:-mx-8" style={{ height }}>
+    <div className="z-20 -mx-4 shrink-0 border-t border-line bg-surface-raised shadow-[0_-8px_24px_-16px_rgb(0_0_0_/_0.25)] sm:-mx-8" style={{ height }}>
       <div role="separator" aria-orientation="horizontal" title={t(locale, 'drawer_resize')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} className="flex h-4 cursor-row-resize touch-none items-center justify-center text-ink-muted hover:bg-surface-sunken"><GripHorizontal size={14} /></div>
       <div className="grid h-[calc(100%-1rem)] grid-cols-1 md:grid-cols-[13rem_18rem_minmax(0,1fr)]">
         <div className={`${column} border-r ${phone('group')}`}>

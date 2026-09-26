@@ -7,7 +7,7 @@
 // State lives here; every change recalculates in the browser and is saved
 // for the whole team through server actions, debounced.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Download, Printer, RotateCcw, ChevronLeft } from 'lucide-react';
 import { Button } from '@thefibre/shared/ui/button';
@@ -29,6 +29,20 @@ import { ColumnsDrawer } from './columns-drawer';
 import { SortablePanels } from './sortable-panels';
 
 type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number };
+
+/** Fills the window from where it sits to the bottom, so the drawer inside
+ *  it is always at the bottom and the views scroll above it. */
+function FillToBottom({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => { if (ref.current) setTop(ref.current.getBoundingClientRect().top); };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+  return <div ref={ref} className={className} style={{ height: `calc(100dvh - ${Math.round(top)}px)` }}>{children}</div>;
+}
 type Tab = 'canvas' | 'numbers';
 type View = 'bep' | 'projection';
 
@@ -148,20 +162,20 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       )}
 
       {tab === 'numbers' && (
-        <div className="mt-3 print:hidden">
+        <FillToBottom className="mt-3 flex flex-col print:hidden">
           <div className="flex flex-wrap gap-2">
             {(['bep', 'projection'] as View[]).map((v) => (
               <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : 'view_projection')}</button>
             ))}
           </div>
-          <div className="mt-3 pb-4 pl-0 lg:pl-5">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-4 pl-0 lg:pl-5">
             {view === 'bep' ? (
-              <SortablePanels storageKey={`bm-order-${row.id}-bep`} title={t(locale, 'drag_to_reorder')} panels={[
+              <SortablePanels key="bep" storageKey={`bm-order-${row.id}-bep`} title={t(locale, 'drag_to_reorder')} panels={[
                 { id: 'kpis', node: <Kpis model={def} s={s} locale={locale} /> },
                 { id: 'charts', node: <ChartPanels model={def} s={s} locale={locale} /> },
               ]} />
             ) : (
-              <SortablePanels storageKey={`bm-order-${row.id}-projection`} title={t(locale, 'drag_to_reorder')} panels={[
+              <SortablePanels key="projection" storageKey={`bm-order-${row.id}-projection`} title={t(locale, 'drag_to_reorder')} panels={[
                 { id: 'years', node: <YearsPanels model={def} s={s} locale={locale} /> },
                 { id: 'mix', node: <MixPanels model={def} state={state} s={s} locale={locale} /> },
                 { id: 'projection', node: <ProjectionPanel model={def} s={s} locale={locale} /> },
@@ -169,7 +183,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
             )}
           </div>
           <ColumnsDrawer model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }} />
-        </div>
+        </FillToBottom>
       )}
 
       {structure?.kind === 'segment' && (

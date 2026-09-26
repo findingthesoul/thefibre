@@ -15,13 +15,18 @@ export function SortablePanels({ storageKey, panels, title }: { storageKey: stri
   const [order, setOrder] = useState<string[]>(ids);
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  // A new key (another view, another model) starts from that view's own
+  // panels — the previous view's order must not leak in (it did, and the
+  // projection view rendered nothing on 2026-09-26).
   useEffect(() => {
+    let next = ids;
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as string[] | null;
-      if (Array.isArray(saved)) setOrder([...saved.filter((id) => ids.includes(id)), ...ids.filter((id) => !saved.includes(id))]);
+      if (Array.isArray(saved)) next = [...saved.filter((id) => ids.includes(id)), ...ids.filter((id) => !saved.includes(id))];
     } catch {}
+    setOrder(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+  }, [storageKey, ids.join('|')]);
   function drop(target: string, from: string) {
     if (from === target || !order.includes(from)) return;
     const next = order.filter((id) => id !== from);
