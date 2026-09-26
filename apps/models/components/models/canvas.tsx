@@ -38,12 +38,12 @@ export type CanvasEditHandlers = {
 
 function Cell({ title, icon, question, area, children, action }: { title: string; icon: ReactNode; question: string; area: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <div className={`flex min-w-0 flex-col gap-2 bg-surface-raised p-3.5 ${area}`}>
-      <div className="flex items-center justify-between gap-2">
+    <div className={`canvas-cell flex min-w-0 flex-col gap-2 bg-surface-raised p-3.5 ${area}`}>
+      <div className="canvas-head flex items-center justify-between gap-2">
         <h3 className="text-[13px] font-medium tracking-tight">{title}</h3>
         <span className="flex items-center gap-1 text-ink-muted">{action}{icon}</span>
       </div>
-      <div className="text-[11px] leading-snug text-ink-muted">{question}</div>
+      <div className="canvas-q text-[11px] leading-snug text-ink-muted">{question}</div>
       {children}
     </div>
   );
@@ -168,6 +168,16 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
 
   return (
     <div id="canvas">
+      <div className="print-title hidden print:flex">
+        <div>
+          <div className="print-title-name">{model.name}</div>
+          {model.tagline && <div className="print-title-tagline">{model.tagline}</div>}
+        </div>
+        <div className="print-title-meta">
+          <div>{t(locale, 'canvas_title')}</div>
+          <div>{t(locale, 'canvas_note', { n: s.refMonth })}</div>
+        </div>
+      </div>
       <div className={`canvas-grid grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:[grid-template-columns:repeat(10,minmax(0,1fr))] ${tall ? 'lg:[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)_auto] lg:min-h-[calc(100dvh-14rem)]' : 'lg:[grid-template-rows:auto_auto_auto]'} print:rounded-none`}>
         {BLOCKS.map((b) => (
           <Cell key={b.key} title={t(locale, b.title)} icon={b.icon} question={t(locale, `${b.title}_q`)} area={b.area} action={<>{b.key === 'keyResources' && editable && edit && <button type="button" onClick={() => edit.onEditResources()} title={t(locale, 'edit_resources')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Pencil size={13} /></button>}{addBtn(b.key)}</>}>
@@ -187,7 +197,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
             {s.breakEvenMonth ? `, ${t(locale, 'reached_in_month', { n: s.breakEvenMonth })}` : ''}.
           </div>
         </Cell>
-        <Cell title={t(locale, 'cost_structure')} icon={<Tag size={16} />} question={t(locale, 'cost_structure_q')} area="sm:col-span-2 lg:[grid-area:3/1/4/6]">
+        <Cell title={t(locale, 'cost_structure')} icon={<Tag size={16} />} question={t(locale, 'cost_structure_q')} area="canvas-cell-money sm:col-span-2 lg:[grid-area:3/1/4/6]">
           <table className={tbl}><tbody>
             <Row a={<><span className="block">{t(locale, 'key_resources')}</span><span className="block text-[11px] text-ink-muted">{(model.fixedCosts ?? []).map((f) => f.label).join(', ')}</span></>} b={t(locale, 'fixed')} c={fmtMoney(ref.fixedCost)} />
             <Row a={<><span className="block">{t(locale, 'key_activities')}</span><span className="block text-[11px] text-ink-muted">{t(locale, 'activities_desc')}</span></>} b={t(locale, 'variable')} c={fmtMoney(ownCost)} />
@@ -200,7 +210,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
             {t(locale, 'funding_line', { i: fmtMoney(s.investmentTotal), f: fmtMoney(s.fundingNeed), when: s.cashPositiveMonth ? t(locale, 'in_month_lower', { n: s.cashPositiveMonth }) : t(locale, 'not_within_months', { n: s.horizon }).toLowerCase() })}
           </div>
         </Cell>
-        <Cell title={t(locale, 'revenue_streams')} icon={<Banknote size={16} />} question={t(locale, 'revenue_streams_q', { n: s.refMonth })} area="sm:col-span-2 lg:[grid-area:3/6/4/11]" action={editable && edit ? <button type="button" onClick={() => edit.onEditStream(null)} title={t(locale, 'add_stream')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Plus size={14} /></button> : null}>
+        <Cell title={t(locale, 'revenue_streams')} icon={<Banknote size={16} />} question={t(locale, 'revenue_streams_q', { n: s.refMonth })} area="canvas-cell-money sm:col-span-2 lg:[grid-area:3/6/4/11]" action={editable && edit ? <button type="button" onClick={() => edit.onEditStream(null)} title={t(locale, 'add_stream')} className="rounded p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"><Plus size={14} /></button> : null}>
           <table className={tbl}><tbody>
             {gens.map((g) => { const r = ref.gens[g.id]!; return (
               <Row key={g.id} onClick={editable && edit ? () => edit.onEditStream(g.id) : undefined} title={editable ? t(locale, 'edit_stream') : undefined} a={<><span className="block">{g.name}</span><span className="block text-[11px] text-ink-muted">{priceOf(g)}</span><div className="mt-1 h-1 rounded bg-surface-sunken"><div className="h-1 rounded bg-ink" style={{ width: `${((r.revenue / maxRev) * 100).toFixed(1)}%` }} /></div></>} b={fmtPct((r.revenue / (ref.revenue || 1)) * 100)} c={fmtMoney(r.revenue)} />
@@ -212,7 +222,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
           <div className="mt-auto pt-2 text-[11px] text-ink-muted">{t(locale, 'per_unit_per_month', { v: fmtMoney(s.arpu), unit: singular(unit), c: fmtMoney(s.contribution) })}</div>
         </Cell>
       </div>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-3 px-0.5 text-[11px] text-ink-muted">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3 px-0.5 text-[11px] text-ink-muted print:hidden">
         <span className="flex items-center gap-2">{model.name}{model.tagline ? ` · ${model.tagline}` : ''}{editable && edit && <button type="button" onClick={() => edit.onEditSettings()} className="inline-flex items-center gap-1 rounded px-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink print:hidden" title={t(locale, 'edit_settings')}><Settings2 size={12} />{t(locale, 'settings')}</button>}</span>
         <span>{t(locale, 'canvas_note', { n: s.refMonth })}</span>
       </div>

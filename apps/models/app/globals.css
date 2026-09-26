@@ -14,7 +14,28 @@
   .h-dvh { height: auto !important; display: block !important; }
   main { overflow: visible !important; height: auto !important; background: #fff !important; }
   .print-page { padding: 0 !important; max-width: none !important; }
-  #canvas { break-inside: avoid; zoom: 0.82; }
-  #canvas .canvas-grid { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; grid-template-rows: auto auto auto !important; min-height: 0 !important; border-radius: 0 !important; }
-  #canvas .canvas-grid > div { break-inside: avoid; }
+  #canvas { break-inside: avoid; zoom: 0.82; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* The title band: name and tagline left, what this is and when right. */
+  #canvas .print-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 0 2px 6px; margin-bottom: 8px; border-bottom: 2px solid #111; }
+  #canvas .print-title-name { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
+  #canvas .print-title-tagline { font-size: 12px; color: #444; margin-top: 2px; }
+  #canvas .print-title-meta { text-align: right; font-size: 10px; line-height: 1.4; color: #444; }
+  #canvas .print-title-meta > div:first-child { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #111; }
+
+  /* The nine blocks as drawn on the original canvas: one black frame, a
+     black hairline between every block, the money row a shade darker. */
+  #canvas .canvas-grid { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; grid-template-rows: auto auto auto !important; min-height: 0 !important; gap: 0 !important; border: 2px solid #111 !important; border-radius: 0 !important; background: #111 !important; }
+  #canvas .canvas-cell { break-inside: avoid; background: #fff !important; border: 1px solid #111 !important; padding: 8px 10px !important; gap: 6px !important; }
+  #canvas .canvas-cell-money { background: #f2f1ed !important; }
+  #canvas .canvas-head { border-bottom: 1px solid #111; padding-bottom: 4px; }
+  #canvas .canvas-head h3 { font-size: 9.5px !important; font-weight: 700 !important; letter-spacing: 0.1em; text-transform: uppercase; }
+  #canvas .canvas-head svg { width: 12px; height: 12px; color: #111; }
+  #canvas .canvas-q { font-style: italic; color: #555 !important; }
+  #canvas .canvas-cell li::before { background: #111 !important; }
+  #canvas .canvas-cell table td { border-color: #bbb !important; }
+  #canvas .canvas-cell .text-ink-muted, #canvas .canvas-cell .text-ink-subtle { color: #555 !important; }
+  #canvas .canvas-cell .bg-surface-sunken { background: #e6e4de !important; }
+  #canvas .canvas-cell .bg-ink { background: #111 !important; }
+  #canvas .canvas-cell .ring-line { box-shadow: 0 0 0 1px #999 !important; }
 }

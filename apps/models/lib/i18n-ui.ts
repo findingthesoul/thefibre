@@ -108,6 +108,7 @@ const RAW = {
   by_year: ['By year', 'Per jaar', 'Por año', 'Por ano', 'Pro Jahr', 'Par an'],
   turnover_by_year: ['Turnover by year', 'Omzet per jaar', 'Ingresos por año', 'Receita por ano', 'Umsatz pro Jahr', "Chiffre d'affaires par an"],
   cost_by_year: ['Cost by year', 'Kosten per jaar', 'Costes por año', 'Custos por ano', 'Kosten pro Jahr', 'Coûts par an'],
+  canvas_title: ['Business Model Canvas', 'Business Model Canvas', 'Business Model Canvas', 'Business Model Canvas', 'Business Model Canvas', 'Business Model Canvas'],
   canvas_note: ['Numbers are month {n} of the projection below. Layout after the Business Model Canvas by Strategyzer.', 'De getallen zijn maand {n} van de projectie hieronder. Indeling naar het Business Model Canvas van Strategyzer.', 'Las cifras son el mes {n} de la proyección. Diseño según el Business Model Canvas de Strategyzer.', 'Os números são o mês {n} da projeção abaixo. Layout conforme o Business Model Canvas da Strategyzer.', 'Die Zahlen sind Monat {n} der Projektion unten. Aufbau nach dem Business Model Canvas von Strategyzer.', 'Les chiffres sont le mois {n} de la projection ci-dessous. Disposition d’après le Business Model Canvas de Strategyzer.'],
   // ── results ───────────────────────────────────────────────────────────
   kpi_break_even_month: ['Break even month', 'Break-evenmaand', 'Mes de equilibrio', 'Mês de equilíbrio', 'Break-even-Monat', 'Mois du seuil'],
