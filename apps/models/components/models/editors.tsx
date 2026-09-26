@@ -12,11 +12,11 @@ import { Button } from '@thefibre/shared/ui/button';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { TextField, SelectField, TextAreaField, FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 import { ERROR_TEXT, SECTION_LABEL } from '@thefibre/shared/ui/recipes';
-import type { CostKind, CostLine, FixedCost, Generator, ModelDefinition, NumberInput, Transition } from '@/lib/engine';
-import { dependents, formulaProblem, newCost, newInput, newTransition, segments } from '@/lib/structure';
+import { lookupTable, type Band, type BandTable, type CostKind, type CostLine, type FixedCost, type Generator, type ModelDefinition, type NumberInput, type Transition } from '@/lib/engine';
+import { dependents, formulaProblem, knownIds, newCost, newInput, newTable, newTransition, segments } from '@/lib/structure';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
-const KINDS: CostKind[] = ['perUnit', 'perNewUnit', 'perBatch', 'percentRevenue', 'fixed'];
+const KINDS: CostKind[] = ['perUnit', 'perNewUnit', 'perBatch', 'percentRevenue', 'fixed', 'formula'];
 const KIND_KEY: Record<CostKind, UiKey> = { perUnit: 'kind_per_unit', perNewUnit: 'kind_per_new_unit', perBatch: 'kind_per_batch', percentRevenue: 'kind_percent_revenue', fixed: 'kind_fixed', formula: 'kind_formula' };
 
 function Num({ value, onChange, step = 1, className = '' }: { value: number; onChange: (v: number) => void; step?: number; className?: string }) {
@@ -64,14 +64,24 @@ function CostsEditor({ costs, onChange, locale }: { costs: CostLine[]; onChange:
           </div>
           <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_5.5rem_4rem] items-center gap-2">
             <select value={c.kind} onChange={(e) => set(i, { kind: e.target.value as CostKind })} className={`${FIELD_INPUT_CLASS} h-8`}>{KINDS.map((k) => <option key={k} value={k}>{t(locale, KIND_KEY[k])}</option>)}</select>
-            <Num value={c.value} step={c.step ?? 1} onChange={(value) => set(i, { value })} />
-            <Num value={c.step ?? 1} onChange={(step) => set(i, { step })} />
+            {c.kind === 'formula' ? <span className="col-span-2 text-[11px] text-ink-muted">{t(locale, 'formula_cost_hint')}</span> : <><Num value={c.value} step={c.step ?? 1} onChange={(value) => set(i, { value })} /><Num value={c.step ?? 1} onChange={(step) => set(i, { step })} /></>}
           </div>
+          {c.kind === 'formula' && <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-2"><span className="text-xs text-ink-subtle">{t(locale, 'formula')}</span><Txt value={String(c.formula ?? '')} placeholder="lookup(table, revenue * 12) / 12" onChange={(formula) => set(i, { formula })} className="font-mono text-[12px]" /></div>}
           {c.kind === 'perBatch' && <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span className="text-xs text-ink-subtle">{t(locale, 'batch_size')}</span><Txt value={String(c.batchSize ?? '')} onChange={(v) => set(i, { batchSize: /^\d+(\.\d+)?$/.test(v) ? Number(v) : v })} /></div>}
         </div>
       ))}
     </div>
   );
+}
+
+/** The first cost-line formula that does not hold, as "label: problem". */
+function costFormulaProblem(g: Generator, known: string[]): string | null {
+  for (const c of g.costs ?? []) {
+    if (c.kind !== 'formula') continue;
+    const problem = formulaProblem(String(c.formula ?? ''), known);
+    if (problem) return `${c.label}: ${problem}`;
+  }
+  return null;
 }
 
 /** How this generator reaches the numbers, in one paragraph, from its own
@@ -85,6 +95,7 @@ function HowItComputes({ g, locale, flows = [] }: { g: Generator; locale: Locale
   else lines.push(t(locale, 'calc_volume', { s: String(v.start ?? 0), g: String(v.growth ?? 0), c: String(v.churn ?? 0) }));
   if (g.revenueTotal != null) lines.push(t(locale, 'calc_revenue_total', { n: String(g.revenueTotal) }));
   else lines.push(t(locale, 'calc_revenue', { n: String(g.revenuePerUnit ?? 0) }));
+  if (g.billing && g.billing.every > 1) lines.push(t(locale, 'calc_billing', { n: g.billing.every, m: g.billing.month ?? 1 }));
   (g.costs ?? []).forEach((c) => {
     const how = c.kind === 'perUnit' ? t(locale, 'calc_cost_per_unit', { id: c.id }) : c.kind === 'perNewUnit' ? t(locale, 'calc_cost_per_new', { id: c.id }) : c.kind === 'perBatch' ? t(locale, 'calc_cost_per_batch', { id: c.id, b: String(c.batchSize ?? 1) }) : c.kind === 'percentRevenue' ? t(locale, 'calc_cost_percent', { id: c.id }) : c.kind === 'fixed' ? t(locale, 'calc_cost_fixed', { id: c.id }) : String(c.formula ?? '');
     lines.push(`${c.label}: ${how}`);
@@ -101,7 +112,8 @@ function HowItComputes({ g, locale, flows = [] }: { g: Generator; locale: Locale
 function GeneratorNumbers({ g, setG, def, locale, source }: { g: Generator; setG: (g: Generator) => void; def: ModelDefinition; locale: Locale; source: 'own' | 'linked' | 'lump' }) {
   const vol = ['start', 'growth', 'churn', 'from'];
   const shown = (g.inputs ?? []).filter((i) => !vol.includes(i.id) || source === 'linked');
-  const known = [...(g.inputs ?? []).map((i) => i.id), ...(def.settings ?? []).map((s) => s.id)];
+  const known = knownIds(def, g);
+  const bill = g.billing && g.billing.every > 1 ? g.billing : null;
   return (
     <>
       <div>
@@ -110,6 +122,15 @@ function GeneratorNumbers({ g, setG, def, locale, source }: { g: Generator; setG
         <VarsEditor locale={locale} vars={shown} fixedIds={vol} onChange={(vs) => setG({ ...g, inputs: [...(g.inputs ?? []).filter((i) => vol.includes(i.id) && source !== 'linked' && !vs.some((v) => v.id === i.id)), ...vs] })} />
       </div>
       <TextField label={source === 'lump' ? t(locale, 'amount_formula') : t(locale, 'price_formula')} value={String(source === 'lump' ? g.revenueTotal ?? '' : g.revenuePerUnit ?? '')} onChange={(e) => setG(source === 'lump' ? { ...g, revenueTotal: e.target.value } : { ...g, revenuePerUnit: e.target.value })} hint={t(locale, 'formula_hint', { n: known.join(', ') || '—' })} />
+      <div>
+        <Head>{t(locale, 'billing')}</Head>
+        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm">
+          <label className="inline-flex items-center gap-1.5"><input type="radio" name="billing" checked={!bill} onChange={() => setG({ ...g, billing: undefined })} />{t(locale, 'billing_monthly')}</label>
+          <label className="inline-flex items-center gap-1.5"><input type="radio" name="billing" checked={!!bill} onChange={() => setG({ ...g, billing: { every: 12, month: 1 } })} />{t(locale, 'billing_periodic')}</label>
+          {bill && <><Num value={bill.every} className="w-16" onChange={(every) => setG({ ...g, billing: { ...bill, every: Math.max(2, Math.round(every)) } })} /><span className="text-xs text-ink-muted">{t(locale, 'billing_months_from')}</span><Num value={bill.month ?? 1} className="w-16" onChange={(month) => setG({ ...g, billing: { ...bill, month: Math.max(1, Math.round(month)) } })} /></>}
+        </div>
+        <p className="mt-1 text-xs text-ink-muted">{t(locale, 'billing_hint')}</p>
+      </div>
       <div>
         <Head action={<AddBtn label={t(locale, 'add_cost_line')} onClick={() => setG({ ...g, costs: [...(g.costs ?? []), newCost([...(g.costs ?? []).map((c) => c.id), ...(g.inputs ?? []).map((i) => i.id)])] })} />}>{t(locale, 'own_cost_structure')}</Head>
         <p className="mb-1.5 text-xs text-ink-muted">{t(locale, 'cost_lines_hint')}</p>
@@ -134,9 +155,11 @@ export function SegmentEditor({ open, def, gen, locale, onSave, onDelete, onClos
   const volVars = (g.inputs ?? []).filter((i) => vol.includes(i.id));
   const deps = gen ? dependents(def, gen.id) : [];
   function save() {
-    const known = [...(g.inputs ?? []).map((i) => i.id), ...(def.settings ?? []).map((st) => st.id)];
+    const known = knownIds(def, g);
     const formula = String(g.revenuePerUnit ?? '');
     if (gen && formula.trim()) { const problem = formulaProblem(formula, known); if (problem) return setErr(t(locale, 'formula_invalid', { n: problem })); }
+    const costProblem = costFormulaProblem(g, known);
+    if (costProblem) return setErr(t(locale, 'formula_invalid', { n: costProblem }));
     const others = (def.transitions ?? []).filter((tr) => !gen || tr.from !== gen.id);
     onSave({ ...g, name: g.name.trim(), short: (g.short ?? '').trim() || g.name.trim(), revenuePerUnit: formula.trim() || 0 }, [...others, ...flows]);
   }
@@ -197,7 +220,7 @@ export function StreamEditor({ open, def, gen, locale, onSave, onDelete, onClose
   function blank(): Generator { return { id: '', name: '', short: '', help: '', volume: { linkedTo: segments(def)[0]?.id ?? undefined, factor: 1 }, inputs: [{ id: 'price', label: 'Price', unit: `${def.currency ?? ''} / month`, value: 10, step: 1 }], revenuePerUnit: 'price', costs: [] }; }
   const source: Source = g.revenueTotal != null ? 'lump' : g.volume?.linkedTo ? 'linked' : 'own';
   const segs = segments(def).filter((s) => s.id !== g.id);
-  const known = [...(g.inputs ?? []).map((i) => i.id), ...(def.settings ?? []).map((s) => s.id)];
+  const known = knownIds(def, g);
   const deps = gen ? dependents(def, gen.id) : [];
   function setSource(src: Source) {
     if (src === 'linked') setG({ ...g, countsAsUnit: undefined, volume: { linkedTo: segs[0]?.id, factor: 1 }, revenueTotal: undefined, revenuePerUnit: g.revenuePerUnit || 'price' });
@@ -208,6 +231,8 @@ export function StreamEditor({ open, def, gen, locale, onSave, onDelete, onClose
     const formula = source === 'lump' ? String(g.revenueTotal ?? '') : String(g.revenuePerUnit ?? '');
     const problem = formulaProblem(formula, known);
     if (problem) return setErr(t(locale, 'formula_invalid', { n: problem }));
+    const costProblem = costFormulaProblem(g, known);
+    if (costProblem) return setErr(t(locale, 'formula_invalid', { n: costProblem }));
     if (source === 'lump' && !(g.inputs ?? []).some((i) => i.id === 'from')) return setErr(t(locale, 'formula_invalid', { n: 'from' }));
     onSave({ ...g, name: g.name.trim(), short: (g.short ?? '').trim() || g.name.trim() });
   }
@@ -346,6 +371,93 @@ export function SettingsEditor({ open, def, locale, onSave, onClose }: { open: b
             ))}
           </div>
         </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Band tables: a stepped licence, a volume discount, a tax bracket. The
+// structure (id, label, mode) lives in the definition; the bands are numbers,
+// edited here and in the drawer, kept per scenario.
+// ---------------------------------------------------------------------------
+/** The bands of one table, as a small grid: up to · amount or rate. The last
+ *  band has no upper limit. Shared by the editor dialog and the drawer. */
+export function BandsEditor({ mode, bands, cap, onChange, locale, compact = false }: { mode: BandTable['mode']; bands: Band[]; cap?: number | null; onChange: (patch: { bands?: Band[]; cap?: number | null }) => void; locale: Locale; compact?: boolean }) {
+  const set = (i: number, patch: Partial<Band>) => onChange({ bands: bands.map((b, j) => (j === i ? { ...b, ...patch } : b)) });
+  const cols = compact ? 'grid-cols-[7rem_6rem_1.25rem]' : 'grid-cols-[9rem_7rem_1.25rem]';
+  return (
+    <div className="flex flex-col gap-1">
+      <div className={`grid ${cols} gap-2 text-[10px] uppercase tracking-wider text-ink-muted`}><span>{t(locale, 'band_up_to')}</span><span className="text-right">{mode === 'marginal' ? t(locale, 'band_rate') : t(locale, 'band_value')}</span><span /></div>
+      {bands.map((b, i) => (
+        <div key={i} className={`grid ${cols} items-center gap-2`}>
+          {b.upTo == null ? <span className="px-2 text-xs text-ink-muted">{t(locale, 'no_limit')}</span> : <Num value={b.upTo} step={1000} onChange={(upTo) => set(i, { upTo })} />}
+          {mode === 'marginal' ? <Num value={b.rate ?? 0} step={0.1} onChange={(rate) => set(i, { rate })} /> : <Num value={b.value ?? 0} step={10} onChange={(value) => set(i, { value })} />}
+          {bands.length > 1 ? <Del label={t(locale, 'remove')} onClick={() => onChange({ bands: bands.filter((_, j) => j !== i) })} /> : <span />}
+        </div>
+      ))}
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <AddBtn label={t(locale, 'add_band')} onClick={() => { const last = bands[bands.length - 1]; const prev = bands.length > 1 ? bands[bands.length - 2]! : null; const upTo = prev?.upTo != null ? prev.upTo * 2 : 10000; const fresh: Band = mode === 'marginal' ? { upTo, rate: last?.rate ?? 1 } : { upTo, value: last?.value ?? 0 }; onChange({ bands: last && last.upTo == null ? [...bands.slice(0, -1), fresh, last] : [...bands, { upTo: null, ...(mode === 'marginal' ? { rate: last?.rate ?? 1 } : { value: last?.value ?? 0 }) }] }); }} />
+        {mode === 'marginal' && <label className="inline-flex items-center gap-1.5 text-[11px] text-ink-subtle">{t(locale, 'cap')}<Num value={cap ?? 0} step={1000} className="w-24" onChange={(v) => onChange({ cap: v > 0 ? v : null })} /></label>}
+      </div>
+    </div>
+  );
+}
+
+/** Amount (line) and effective rate (dotted) against the number looked up,
+ *  so a jump at a band edge is visible. Ink only; the tokens paint it. */
+export function TableChart({ table, locale }: { table: Pick<BandTable, 'mode' | 'cap'> & { bands: Band[] }; locale: Locale }) {
+  const tops = table.bands.map((b) => b.upTo).filter((v): v is number => v != null);
+  const maxX = (tops.length ? Math.max(...tops) : 100000) * 1.25;
+  const W = 260, H = 80, N = 80;
+  const pts = Array.from({ length: N + 1 }, (_, i) => { const x = (maxX * i) / N; return { x, y: lookupTable(table, x) }; });
+  const maxY = Math.max(...pts.map((p) => p.y), 1);
+  const maxR = Math.max(...pts.map((p) => (p.x > 0 ? (p.y / p.x) * 100 : 0)), 0.01);
+  const sx = (x: number) => (x / maxX) * (W - 4) + 2;
+  const amount = pts.map((p) => `${sx(p.x).toFixed(1)},${(H - 2 - (p.y / maxY) * (H - 6)).toFixed(1)}`).join(' ');
+  const rate = pts.filter((p) => p.x > 0).map((p) => `${sx(p.x).toFixed(1)},${(H - 2 - ((p.y / p.x) * 100 / maxR) * (H - 6)).toFixed(1)}`).join(' ');
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-20 w-full max-w-[16rem] text-ink" role="img" aria-label={t(locale, 'table_chart_hint')}>
+        {tops.map((x) => <line key={x} x1={sx(x)} x2={sx(x)} y1={2} y2={H - 2} className="stroke-line" strokeWidth={1} />)}
+        <polyline points={amount} fill="none" stroke="currentColor" strokeWidth={1.5} />
+        <polyline points={rate} fill="none" stroke="currentColor" strokeWidth={1} strokeDasharray="2 3" className="text-ink-muted" />
+      </svg>
+      <p className="text-[10px] text-ink-muted">{t(locale, 'table_chart_hint')}</p>
+    </div>
+  );
+}
+
+export function TablesEditor({ open, def, locale, onSave, onClose }: { open: boolean; def: ModelDefinition; locale: Locale; onSave: (tables: BandTable[]) => void; onClose: () => void }) {
+  const [tables, setTables] = useState<BandTable[]>(def.tables ?? []);
+  useEffect(() => { setTables(def.tables ?? []); }, [def, open]);
+  const set = (i: number, patch: Partial<BandTable>) => setTables(tables.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const switchMode = (i: number, mode: BandTable['mode']) => set(i, { mode, bands: tables[i]!.bands.map((b) => (mode === 'marginal' ? { upTo: b.upTo, rate: b.rate ?? 0 } : { upTo: b.upTo, value: b.value ?? 0 })) });
+  return (
+    <Dialog open={open} onClose={onClose} size="lg" title={t(locale, 'edit_tables')}
+      footer={<><Button variant="secondary" onClick={onClose}>{t(locale, 'cancel')}</Button><Button variant="primary" type="submit" onClick={() => onSave(tables.map((tb) => ({ ...tb, label: tb.label.trim() || tb.id })))}>{t(locale, 'save')}</Button></>}>
+      <div className="space-y-4">
+        <p className="text-xs text-ink-muted">{t(locale, 'tables_hint')}</p>
+        <Head action={<AddBtn label={t(locale, 'add_table')} onClick={() => setTables([...tables, newTable({ ...def, tables })])} />}>{t(locale, 'tables')}</Head>
+        {tables.map((tb, i) => (
+          <div key={tb.id} className="rounded-md border border-line p-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_6rem_7rem_1.25rem] items-center gap-2">
+              <Txt value={tb.label} onChange={(label) => set(i, { label })} />
+              <code className="truncate text-[11px] text-ink-muted" title={tb.id}>{tb.id}</code>
+              <Txt value={tb.unit ?? ''} placeholder={t(locale, 'unit')} onChange={(unit) => set(i, { unit })} />
+              <Del label={t(locale, 'remove')} onClick={() => setTables(tables.filter((_, j) => j !== i))} />
+            </div>
+            <div className="mt-2 flex flex-col gap-1 text-sm">
+              {(['step', 'marginal'] as const).map((m) => <label key={m} className="inline-flex items-start gap-1.5 text-xs"><input type="radio" name={`mode-${tb.id}`} className="mt-0.5" checked={tb.mode === m} onChange={() => switchMode(i, m)} />{t(locale, m === 'step' ? 'mode_step' : 'mode_marginal')}</label>)}
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-[auto_minmax(0,1fr)]">
+              <BandsEditor locale={locale} mode={tb.mode} bands={tb.bands} cap={tb.cap} onChange={(patch) => set(i, patch)} />
+              <TableChart table={tb} locale={locale} />
+            </div>
+            <p className="mt-2 font-mono text-[11px] text-ink-muted">lookup({tb.id}, …)</p>
+          </div>
+        ))}
+        {tables.length === 0 && <p className="text-xs text-ink-muted">—</p>}
       </div>
     </Dialog>
   );

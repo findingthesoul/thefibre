@@ -15,7 +15,7 @@ import { PageContainer } from '@thefibre/shared/ui/page';
 import { Tabs } from '@thefibre/shared/ui/tabs';
 import { InfoHint } from '@thefibre/shared/ui/info-hint';
 import { CHIP, CHIP_STATE, NOTICE, PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
-import { defaultState, mergeState, summarize, itemObj, type CanvasBlockKey, type CanvasItem, type ModelDefinition, type ModelState } from '@/lib/engine';
+import { defaultState, mergeState, summarize, itemObj, type CanvasBlockKey, type CanvasItem, type ModelDefinition, type ModelState, type TableNumbers } from '@/lib/engine';
 import type { Scope } from '@/lib/links';
 import { t, type Locale } from '@/lib/i18n-ui';
 import type { ModelRow } from '@/app/(app)/models/actions';
@@ -23,7 +23,7 @@ import { saveInputs, updateModel, duplicateModel, modelUpdatedAt } from '@/app/(
 import { useRouter } from 'next/navigation';
 import { BusinessModelCanvas } from './canvas';
 import { CanvasEditor } from './canvas-editor';
-import { SegmentEditor, StreamEditor, ResourcesEditor, SettingsEditor } from './editors';
+import { SegmentEditor, StreamEditor, ResourcesEditor, SettingsEditor, TablesEditor } from './editors';
 import { newSegment, newStream, removeGenerator, upsertGenerator } from '@/lib/structure';
 import { Kpis, YearsPanels, ChartPanels, MixPanels, ProjectionPanel } from './results';
 import { ColumnsDrawer } from './columns-drawer';
@@ -83,7 +83,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   const updatedAt = useRef<string>(row.updated_at);
   const router = useRouter();
   const [editing, setEditing] = useState<{ block: CanvasBlockKey; index: number | null } | null>(null);
-  const [structure, setStructure] = useState<{ kind: 'segment' | 'stream'; id: string | null } | { kind: 'resources' | 'settings' } | null>(null);
+  const [structure, setStructure] = useState<{ kind: 'segment' | 'stream'; id: string | null } | { kind: 'resources' | 'settings' | 'tables' } | null>(null);
   const inputsDirty = useRef(false);
   const defDirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,10 +131,19 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     remember();
     inputsDirty.current = true;
     setState((st) => {
-      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, periods: st.periods, periodRates: st.periodRates, generators: { ...st.generators } };
+      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, periods: st.periods, periodRates: st.periodRates, generators: { ...st.generators }, tables: st.tables };
       if (typeof scope === 'string') next[scope][id] = value;
       else next.generators[scope.gen] = { ...(next.generators[scope.gen] ?? {}), [id]: value };
       return next;
+    });
+  }
+  /** A band table's numbers: the bands or the cap, edited in the drawer. */
+  function changeTable(id: string, patch: Partial<TableNumbers>) {
+    remember();
+    inputsDirty.current = true;
+    setState((st) => {
+      const base = st.tables[id] ?? { bands: (def.tables ?? []).find((tb) => tb.id === id)?.bands ?? [] };
+      return { ...st, tables: { ...st.tables, [id]: { ...base, ...patch } } };
     });
   }
   function patchDef(next: ModelDefinition) {
@@ -258,6 +267,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
             onEditStream: (id) => setStructure({ kind: 'stream', id }),
             onEditResources: () => setStructure({ kind: 'resources' }),
             onEditSettings: () => setStructure({ kind: 'settings' }),
+            onEditTables: () => setStructure({ kind: 'tables' }),
           }} />
         </div>
       )}
@@ -287,9 +297,9 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
               ]} />
             )}
           </div>
-          <ColumnsDrawer model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }}
+          <ColumnsDrawer model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }} onTable={changeTable}
             edit={editable ? {
-              onAdd: (groupId) => { if (groupId === 'segments') setStructure({ kind: 'segment', id: null }); else if (groupId === 'streams') setStructure({ kind: 'stream', id: null }); else if (groupId === 'resources') setStructure({ kind: 'resources' }); else if (groupId === 'settings') setStructure({ kind: 'settings' }); },
+              onAdd: (groupId) => { if (groupId === 'segments') setStructure({ kind: 'segment', id: null }); else if (groupId === 'streams') setStructure({ kind: 'stream', id: null }); else if (groupId === 'resources') setStructure({ kind: 'resources' }); else if (groupId === 'settings') setStructure({ kind: 'settings' }); else if (groupId === 'tables') setStructure({ kind: 'tables' }); },
               onEdit: (ref) => { if (ref.kind === 'statement') setEditing({ block: ref.block, index: ref.index }); else setStructure(ref.kind === 'segment' || ref.kind === 'stream' ? { kind: ref.kind, id: ref.id } : { kind: ref.kind }); },
             } : undefined} />
         </FillToBottom>
@@ -310,6 +320,9 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       )}
       {structure?.kind === 'settings' && (
         <SettingsEditor open def={def} locale={locale} onClose={() => setStructure(null)} onSave={(patch) => { patchDef({ ...def, ...patch }); setStructure(null); }} />
+      )}
+      {structure?.kind === 'tables' && (
+        <TablesEditor open def={def} locale={locale} onClose={() => setStructure(null)} onSave={(tables) => { patchDef({ ...def, tables }); setStructure(null); }} />
       )}
       {editing && (
         <CanvasEditor

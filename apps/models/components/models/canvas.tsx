@@ -8,7 +8,7 @@
 // with it, nothing scrolls inside a block.
 
 import { useState, type ReactNode } from 'react';
-import { Link2, Activity, Box, Gift, Heart, Truck, Users, Tag, Banknote, Plus, Settings2, Pencil } from 'lucide-react';
+import { Link2, Activity, Box, Gift, Heart, Truck, Users, Tag, Banknote, Plus, Settings2, Pencil, Table2 } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
@@ -34,6 +34,7 @@ export type CanvasEditHandlers = {
   onEditStream: (id: string | null) => void;
   onEditResources: () => void;
   onEditSettings: () => void;
+  onEditTables: () => void;
 };
 
 function Cell({ title, icon, question, area, children, action }: { title: string; icon: ReactNode; question: string; area: string; children: ReactNode; action?: ReactNode }) {
@@ -223,7 +224,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
         </Cell>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3 px-0.5 text-[11px] text-ink-muted print:hidden">
-        <span className="flex items-center gap-2">{model.name}{model.tagline ? ` · ${model.tagline}` : ''}{editable && edit && <button type="button" onClick={() => edit.onEditSettings()} className="inline-flex items-center gap-1 rounded px-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink print:hidden" title={t(locale, 'edit_settings')}><Settings2 size={12} />{t(locale, 'settings')}</button>}</span>
+        <span className="flex items-center gap-2">{model.name}{model.tagline ? ` · ${model.tagline}` : ''}{editable && edit && <button type="button" onClick={() => edit.onEditSettings()} className="inline-flex items-center gap-1 rounded px-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink print:hidden" title={t(locale, 'edit_settings')}><Settings2 size={12} />{t(locale, 'settings')}</button>}{editable && edit && <button type="button" onClick={() => edit.onEditTables()} className="inline-flex items-center gap-1 rounded px-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink print:hidden" title={t(locale, 'edit_tables')}><Table2 size={12} />{t(locale, 'tables')}{(model.tables ?? []).length ? ` (${(model.tables ?? []).length})` : ''}</button>}</span>
         <span>{t(locale, 'canvas_note', { n: s.refMonth })}</span>
       </div>
       {editable && <p className="mt-1 px-0.5 text-[11px] text-ink-muted print:hidden">{t(locale, 'canvas_edit_hint')} {t(locale, 'canvas_structure_hint')}</p>}

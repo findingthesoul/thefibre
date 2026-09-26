@@ -19,15 +19,16 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, GripHorizontal, Plus, Pencil } from 'lucide-react';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
-import { CANVAS_BLOCK_KEYS, itemObj, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary } from '@/lib/engine';
-import { genVars, readingFor, variablesFor, transitionVar, type Scope, type Variable } from '@/lib/links';
+import { CANVAS_BLOCK_KEYS, itemObj, type BandTable, type CanvasBlockKey, type ModelDefinition, type ModelState, type Summary, type TableNumbers } from '@/lib/engine';
+import { genVars, readingFor, variablesFor, transitionVar, tablesUsedBy, usersOfTable, type Scope, type Variable } from '@/lib/links';
 import { dependents } from '@/lib/structure';
+import { BandsEditor, TableChart } from './editors';
 import { makeFormatters } from '@/lib/format';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { Field } from './inputs';
 
-type Element = { id: string; label: string; sub?: string; reading?: string; vars: Variable[]; relations: string[]; horizon?: boolean; editRef?: EditRef };
-export type EditRef = { kind: 'segment' | 'stream'; id: string } | { kind: 'resources' } | { kind: 'settings' } | { kind: 'statement'; block: CanvasBlockKey; index: number };
+type Element = { id: string; label: string; sub?: string; reading?: string; vars: Variable[]; relations: string[]; horizon?: boolean; editRef?: EditRef; /** A band table: its bands edit in place. */ table?: BandTable };
+export type EditRef = { kind: 'segment' | 'stream'; id: string } | { kind: 'resources' } | { kind: 'settings' } | { kind: 'tables' } | { kind: 'statement'; block: CanvasBlockKey; index: number };
 export type DrawerEditHandlers = { onAdd: (groupId: string) => void; onEdit: (ref: EditRef) => void };
 type Group = { id: string; label: string; elements: Element[] };
 
@@ -42,6 +43,7 @@ function readingLabel(def: ModelDefinition, link: string): string {
   if (kind === 'fixed') return (def.fixedCosts ?? []).find((f) => f.id === rest)?.label ?? rest;
   if (kind === 'invest') return (def.investment ?? []).find((i) => i.id === rest)?.label ?? rest;
   if (kind === 'setting') return (def.settings ?? []).find((s) => s.id === rest)?.label ?? rest;
+  if (kind === 'table') return (def.tables ?? []).find((tb) => tb.id === rest)?.label ?? rest;
   return link;
 }
 
@@ -54,7 +56,14 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
   const mo = t(locale, 'unit_month');
   const name = (id: string) => def.generators.find((g) => g.id === id)?.name ?? id;
   const servedBy = (gid: string) => (def.canvas?.valuePropositions ?? []).map(itemObj).filter((it) => (it.segments ?? []).includes(gid)).map((it) => it.text);
-  const costVars = (g: ModelDefinition['generators'][number]): Variable[] => (g.costs ?? []).map((c) => ({ scope: { gen: g.id }, def: c, value: state.generators[g.id]?.[c.id] ?? c.value }));
+  const costVars = (g: ModelDefinition['generators'][number]): Variable[] => (g.costs ?? []).filter((c) => c.kind !== 'formula').map((c) => ({ scope: { gen: g.id }, def: c, value: state.generators[g.id]?.[c.id] ?? c.value }));
+  const tableName = (id: string) => (def.tables ?? []).find((tb) => tb.id === id)?.label ?? id;
+  // A formula cost has no value of its own: it reads as a relation, with the formula. So does a table a formula reads, and a billing moment.
+  const formulaRels = (g: ModelDefinition['generators'][number]): string[] => [
+    ...(g.costs ?? []).filter((c) => c.kind === 'formula').map((c) => t(locale, 'rel_formula_cost', { l: c.label, f: String(c.formula ?? '') })),
+    ...tablesUsedBy(g).map((id) => t(locale, 'rel_uses_table', { n: tableName(id) })),
+    ...(g.billing && g.billing.every > 1 ? [t(locale, 'rel_billing', { n: g.billing.every, m: g.billing.month ?? 1 })] : []),
+  ];
 
   const segs = def.generators.filter((g) => g.countsAsUnit !== false && !g.volume?.linkedTo);
   const groups: Group[] = [
@@ -66,7 +75,7 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
         relations: [
           ...out.map((tr) => t(locale, tr.move === false ? 'rel_flow_copy' : 'rel_flow_move', { n: name(tr.to), r: String(state.transitions[tr.id] ?? tr.rate) })),
           ...inn.map((tr) => t(locale, 'rel_flow_in', { n: name(tr.from), r: String(state.transitions[tr.id] ?? tr.rate) })),
-          ...dependents(def, g.id).map((d) => t(locale, 'rel_feeds', { n: d.name })), ...servedBy(g.id).map((v) => t(locale, 'rel_served_by', { n: v }))] };
+          ...dependents(def, g.id).map((d) => t(locale, 'rel_feeds', { n: d.name })), ...servedBy(g.id).map((v) => t(locale, 'rel_served_by', { n: v })), ...formulaRels(g)] };
     }) },
     { id: 'streams', label: t(locale, 'revenue_streams'), elements: def.generators.map((g) => {
       const r = ref.gens[g.id]!;
@@ -76,6 +85,7 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
       else rel.push(t(locale, 'rel_own_segment'));
       if (g.revenuePerUnit != null) rel.push(t(locale, 'rel_price_formula', { n: String(g.revenuePerUnit) }));
       if (g.revenueTotal != null) rel.push(t(locale, 'rel_amount_formula', { n: String(g.revenueTotal) }));
+      rel.push(...formulaRels(g));
       return { id: g.id, label: g.name, sub: g.help, reading: `${fmtMoney(r.revenue)} / ${mo}`, vars: [...genVars(def, state, g.id, 'all'), ...costVars(g)], relations: rel, editRef: { kind: 'stream' as const, id: g.id } };
     }) },
     { id: 'resources', label: t(locale, 'key_resources'), elements: [
@@ -86,6 +96,11 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
       ...(def.settings ?? []).map((st) => ({ id: `setting:${st.id}`, label: st.label, reading: `${state.settings[st.id] ?? st.value} ${st.unit ?? ''}`, vars: [{ scope: 'settings' as const, def: st, value: state.settings[st.id] ?? st.value }], relations: (def.genericVariable ?? []).filter((c) => c.id === st.id).map((c) => t(locale, 'rel_generic_cost', { n: c.label })), editRef: { kind: 'settings' as const } })),
       { id: '__horizon', label: t(locale, 'horizon_and_ref'), reading: `${horizon} · ${t(locale, 'month_n', { n: refMonth })}`, vars: [], relations: [], horizon: true, editRef: { kind: 'settings' as const } },
     ] },
+    { id: 'tables', label: t(locale, 'tables'), elements: (def.tables ?? []).map((tb) => {
+      const users = usersOfTable(def, tb.id);
+      return { id: `table:${tb.id}`, label: tb.label, sub: tb.unit, reading: `${t(locale, 'bands_n', { n: (state.tables[tb.id]?.bands ?? tb.bands).length })} · ${tb.mode}`, vars: [], table: tb, editRef: { kind: 'tables' as const },
+        relations: users.length ? users.map((g) => t(locale, 'rel_used_by', { n: g.name })) : [t(locale, 'rel_not_used')] };
+    }) },
   ];
   CANVAS_BLOCK_KEYS.forEach((k) => {
     const all = (def.canvas?.[k] ?? []).map(itemObj);
@@ -102,9 +117,11 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
 
 const MIN_H = 160, MAX_H = 640, DEFAULT_H = 300, BAR_H = 28;
 
-export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onChange, onRefMonth, onHorizon, edit }: {
+export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onChange, onRefMonth, onHorizon, onTable, edit }: {
   model: ModelDefinition; state: ModelState; s: Summary; locale: Locale; refMonth: number; horizon: number;
   onChange: (scope: Scope, id: string, value: number) => void; onRefMonth: (v: number) => void; onHorizon: (v: number) => void;
+  /** A band table's numbers, edited in place (every active member may). */
+  onTable: (id: string, patch: Partial<TableNumbers>) => void;
   /** Create and edit from the drawer, for admins and team leads. */
   edit?: DrawerEditHandlers;
 }) {
@@ -183,7 +200,14 @@ export function ColumnsDrawer({ model, state, s, locale, refMonth, horizon, onCh
                     <Field def={{ id: 'refMonth', label: t(locale, 'ref_month'), unit: t(locale, 'unit_month'), value: refMonth, step: 1 }} value={refMonth} onChange={(v) => { if (v >= 1 && v <= horizon) onRefMonth(Math.round(v)); }} />
                   </>
                 )}
-                {element.vars.length === 0 && !element.horizon && <p className="pt-2 text-xs text-ink-muted">—</p>}
+                {element.table && (() => { const nums = state.tables[element.table.id] ?? { bands: element.table.bands, cap: element.table.cap }; return (
+                  <div className="flex flex-col gap-3 pt-1">
+                    <BandsEditor compact locale={locale} mode={element.table.mode} bands={nums.bands} cap={nums.cap} onChange={(patch) => onTable(element.table!.id, patch)} />
+                    <TableChart table={{ mode: element.table.mode, cap: nums.cap, bands: nums.bands }} locale={locale} />
+                    <p className="font-mono text-[11px] text-ink-muted">lookup({element.table.id}, …)</p>
+                  </div>
+                ); })()}
+                {element.vars.length === 0 && !element.horizon && !element.table && <p className="pt-2 text-xs text-ink-muted">—</p>}
               </div>
               {element.relations.length > 0 && (
                 <div className="pt-1">

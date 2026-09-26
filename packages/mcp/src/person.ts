@@ -592,7 +592,7 @@ export const PERSON_TOOLS: PersonTool[] = [
     name: 'models_set_numbers',
     title: 'Set numbers in a business model',
     description:
-      'Change some of the numbers of a model — the variables of a generator ({ generators: { "<generator id>": { "<input or cost id>": value } } }), a fixed cost ({ fixed: { "<id>": value } }), an investment line, a setting, a funnel rate ({ transitions: { "<transition id>": percent } }), new clients typed for months ({ periods: { "<segment id>": { "7": 12 } } }), the horizon or the reference month. Only what you send changes; the rest stays. Every active member of the team may. Confirm the numbers with the person first. ' +
+      'Change some of the numbers of a model — the variables of a generator ({ generators: { "<generator id>": { "<input or cost id>": value } } }), a fixed cost ({ fixed: { "<id>": value } }), an investment line, a setting, a funnel rate ({ transitions: { "<transition id>": percent } }), new clients typed for months ({ periods: { "<segment id>": { "7": 12 } } }), the bands of a band table ({ tables: { "<table id>": { bands: [{ upTo, value | rate }, …, { upTo: null, … }], cap? } } }, replaced whole), the horizon or the reference month. Only what you send changes; the rest stays. Every active member of the team may. Confirm the numbers with the person first. ' +
       WRITE_RULE,
     scope: 'models:write',
     write: true,
@@ -606,6 +606,7 @@ export const PERSON_TOOLS: PersonTool[] = [
       transitions: z.record(z.number()).optional(),
       periods: z.record(z.record(z.number())).optional(),
       periodRates: z.record(z.record(z.number())).optional(),
+      tables: z.record(z.object({ bands: z.array(z.object({ upTo: z.number().nullable(), value: z.number().optional(), rate: z.number().optional() })).min(1).max(40), cap: z.number().nullable().optional() })).optional().describe('A band table’s bands, replaced whole; the last band has upTo null'),
       refMonth: z.number().int().min(1).max(240).optional(),
       horizon: z.number().int().min(12).max(240).optional(),
     },

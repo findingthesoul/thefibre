@@ -6,11 +6,12 @@
 //   invest:<investment id>        a one-off investment line
 //   setting:<setting id>          a global setting
 //   transition:<transition id>    a funnel step's monthly rate
-import type { ModelDefinition, ModelState, NumberInput, Summary } from './engine';
+//   table:<table id>              a band table (a stepped licence, a discount)
+import { tableRefs, type Generator, type ModelDefinition, type ModelState, type NumberInput, type Summary } from './engine';
 
 export type Scope = 'settings' | 'fixed' | 'investment' | 'transitions' | { gen: string };
 export type Variable = { scope: Scope; def: NumberInput; value: number };
-export type Linkable = { id: string; label: string; group: string; kind: 'gen' | 'cost' | 'fixed' | 'invest' | 'setting' | 'transition' };
+export type Linkable = { id: string; label: string; group: string; kind: 'gen' | 'cost' | 'fixed' | 'invest' | 'setting' | 'transition' | 'table' };
 
 const VOLUME_KEYS = ['start', 'growth', 'churn', 'add', 'cap', 'startMonth', 'factor'] as const;
 
@@ -25,8 +26,18 @@ export function linkables(def: ModelDefinition): Linkable[] {
   (def.investment ?? []).forEach((i) => out.push({ id: `invest:${i.id}`, label: i.label, group: 'Investment', kind: 'invest' }));
   (def.settings ?? []).forEach((s) => out.push({ id: `setting:${s.id}`, label: s.label, group: 'Settings', kind: 'setting' }));
   (def.transitions ?? []).forEach((tr) => out.push({ id: `transition:${tr.id}`, label: transitionLabel(def, tr), group: 'Funnel', kind: 'transition' }));
+  (def.tables ?? []).forEach((tb) => out.push({ id: `table:${tb.id}`, label: tb.label, group: 'Tables', kind: 'table' }));
   return out;
 }
+
+/** The table ids a generator's formulas read: price, amount, cost formulas, batch sizes. */
+export function tablesUsedBy(g: Generator): string[] {
+  const ids = new Set<string>();
+  [g.revenuePerUnit, g.revenueTotal, ...(g.costs ?? []).flatMap((c) => [c.formula, c.batchSize])].forEach((f) => tableRefs(f).forEach((id) => ids.add(id)));
+  return Array.from(ids);
+}
+/** The generators whose formulas read a table. */
+export const usersOfTable = (def: ModelDefinition, tableId: string): Generator[] => def.generators.filter((g) => tablesUsedBy(g).includes(tableId));
 
 /** "Community → Forge" for a transition. */
 export function transitionLabel(def: ModelDefinition, tr: NonNullable<ModelDefinition['transitions']>[number]): string {
@@ -64,7 +75,7 @@ export function variablesFor(def: ModelDefinition, state: ModelState, link: stri
     const [gid, cid] = rest.split('.', 2) as [string, string];
     const g = def.generators.find((x) => x.id === gid);
     const c = g?.costs?.find((x) => x.id === cid);
-    return g && c ? [{ scope: { gen: gid }, def: c, value: state.generators[gid]?.[cid] ?? c.value }] : [];
+    return g && c && c.kind !== 'formula' ? [{ scope: { gen: gid }, def: c, value: state.generators[gid]?.[cid] ?? c.value }] : [];
   }
   if (kind === 'fixed') { const f = (def.fixedCosts ?? []).find((x) => x.id === rest); return f ? [{ scope: 'fixed', def: { ...f, unit: `${def.currency ?? ''} / month` }, value: state.fixed[rest] ?? f.value }] : []; }
   if (kind === 'invest') { const i = (def.investment ?? []).find((x) => x.id === rest); return i ? [{ scope: 'investment', def: { ...i, unit: `${def.currency ?? ''} one off` }, value: state.investment[rest] ?? i.value }] : []; }
@@ -72,6 +83,9 @@ export function variablesFor(def: ModelDefinition, state: ModelState, link: stri
   if (kind === 'transition') { const tr = (def.transitions ?? []).find((x) => x.id === rest); return tr ? [transitionVar(def, state, tr)] : []; }
   return [];
 }
+
+/** A cost line with a formula has no value of its own: it is not a variable. */
+export const isFormulaCost = (c: { kind: string }) => c.kind === 'formula';
 
 /** A one-line reading of a link at the reference month, for the middle column. */
 export function readingFor(def: ModelDefinition, s: Summary, state: ModelState, link: string, fm: { money: (n: number) => string; num: (n: number) => string }): string {
@@ -83,6 +97,7 @@ export function readingFor(def: ModelDefinition, s: Summary, state: ModelState, 
   if (kind === 'invest') return `${fm.money(state.investment[rest] ?? 0)} one off`;
   if (kind === 'setting') { const st = (def.settings ?? []).find((x) => x.id === rest); return `${state.settings[rest] ?? 0} ${st?.unit ?? ''}`; }
   if (kind === 'transition') { const tr = (def.transitions ?? []).find((x) => x.id === rest); return tr ? `${state.transitions[tr.id] ?? tr.rate}% / month` : ''; }
+  if (kind === 'table') { const tb = (def.tables ?? []).find((x) => x.id === rest); const n = state.tables[rest]?.bands.length ?? tb?.bands.length ?? 0; return tb ? `${n} bands · ${tb.mode}` : ''; }
   return '';
 }
 

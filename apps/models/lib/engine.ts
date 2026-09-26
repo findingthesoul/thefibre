@@ -16,6 +16,10 @@ export type Volume = {
   linkedTo?: string;
   factor?: string | number;
 };
+/** When a stream bills: every `every` months, first in month `month` (default
+ *  1), the amount for the whole period lands in that month (an annual fee
+ *  billed in January); the months between show nothing. Absent: monthly. */
+export type Billing = { every: number; month?: number };
 export type Generator = {
   id: string;
   name: string;
@@ -29,7 +33,19 @@ export type Generator = {
   revenuePerUnit?: string | number;
   revenueTotal?: string | number;
   costs?: CostLine[];
+  billing?: Billing;
 };
+/** A band table: a stepped price, a volume discount, a licence on turnover,
+ *  a tax bracket. Bands are read in ascending order of upTo; the last one has
+ *  upTo null (no upper limit). A value exactly on an edge belongs to the
+ *  lower band. `step`: the whole amount is the value of the band the number
+ *  falls in. `marginal`: each part of the number carries the rate (%) of its
+ *  own band, like income tax, optionally capped. Formulas read a table with
+ *  lookup(<table id>, <expression>). */
+export type Band = { upTo: number | null; value?: number; rate?: number };
+export type BandTable = { id: string; label: string; unit?: string; help?: string; mode: 'step' | 'marginal'; cap?: number | null; bands: Band[] };
+/** The part of a table the team may edit and a scenario may keep. */
+export type TableNumbers = { bands: Band[]; cap?: number | null };
 /** A canvas statement. Strings are accepted from older definitions; the app
  *  writes objects with an id, so a statement can be edited and linked to the
  *  turnover and cost items it belongs to (link ids: see lib/links.ts). */
@@ -67,6 +83,7 @@ export type ModelDefinition = {
   transitions?: Transition[];
   fixedCosts?: FixedCost[];
   investment?: NumberInput[];
+  tables?: BandTable[];
 };
 
 export type ModelState = {
@@ -83,9 +100,51 @@ export type ModelState = {
   periods: Record<string, Record<string, number>>;
   /** Transition rates per month typed by hand, by transition id then month. */
   periodRates: Record<string, Record<string, number>>;
+  /** The bands of every band table, editable like settings, kept per scenario. */
+  tables: Record<string, TableNumbers>;
 };
 
-type Scope = Record<string, number>;
+type LookupFn = (id: string, x: number) => number;
+type Scope = Record<string, number | LookupFn>;
+
+// ---------- band tables ----------
+const bandOrder = (bands: Band[]) => [...bands].sort((a, b) => (a.upTo == null ? 1 : b.upTo == null ? -1 : a.upTo - b.upTo));
+/** What a table gives for a number: zero at or below zero; step mode takes
+ *  the band the number falls in, marginal mode sums part × rate per band. */
+export function lookupTable(table: Pick<BandTable, 'mode' | 'cap'> & TableNumbers, x: number): number {
+  if (!(x > 0)) return 0;
+  const bands = bandOrder(table.bands ?? []);
+  if (!bands.length) return 0;
+  let out = 0;
+  if (table.mode === 'marginal') {
+    let lower = 0;
+    for (const b of bands) {
+      const top = b.upTo == null ? Infinity : b.upTo;
+      const part = Math.min(x, top) - lower;
+      if (part > 0) out += (part * (b.rate ?? 0)) / 100;
+      if (x <= top) break;
+      lower = top;
+    }
+  } else {
+    const hit = bands.find((b) => b.upTo == null || x <= b.upTo) ?? bands[bands.length - 1]!;
+    out = hit.value ?? 0;
+  }
+  if (table.cap != null && Number.isFinite(table.cap)) out = Math.min(out, table.cap);
+  return out;
+}
+/** The lookup a formula calls, over the tables as the state has them. */
+export function makeLookup(model: ModelDefinition, state: ModelState): LookupFn {
+  const byId = new Map((model.tables ?? []).map((tb) => [tb.id, tb]));
+  return (id, x) => {
+    const tb = byId.get(String(id));
+    if (!tb) return 0;
+    const nums = state.tables?.[tb.id];
+    return lookupTable({ mode: tb.mode, cap: nums?.cap !== undefined ? nums.cap : tb.cap, bands: nums?.bands ?? tb.bands }, Number(x) || 0);
+  };
+}
+/** The table ids a formula reads through lookup(). */
+export const tableRefs = (expr: string | number | undefined | null): string[] =>
+  expr == null ? [] : Array.from(new Set(Array.from(String(expr).matchAll(/lookup\(\s*([A-Za-z_]\w*)/g), (m) => m[1]!)));
 
 // ---------- formulas ----------
 // Small arithmetic strings over named inputs ("vol * take / 100"). The proxy
@@ -97,8 +156,11 @@ export function compile(expr: string | number): (s: Scope) => number {
   const cached = fnCache.get(key);
   if (cached) return cached;
   if (!/^[\w\s+\-*/().,<>=?:!&|]*$/.test(key)) throw new Error('Bad formula: ' + key);
+  // lookup(lictable, x): the table id is a name in the text, a string to the
+  // function — rewritten after the character check, which admits no quotes.
+  const src = key.replace(/lookup\(\s*([A-Za-z_]\w*)\s*,/g, 'lookup("$1",');
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const f = new Function('s', 'with (s) { return (' + key + '); }') as (s: unknown) => unknown;
+  const f = new Function('s', 'with (s) { return (' + src + '); }') as (s: unknown) => unknown;
   const wrapped = (scope: Scope) => {
     let v: unknown = 0;
     try {
@@ -121,7 +183,7 @@ export const evalExpr = (expr: string | number | undefined | null, scope: Scope)
 
 // ---------- state ----------
 export function defaultState(model: ModelDefinition): ModelState {
-  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {}, transitions: {}, periods: {}, periodRates: {} };
+  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {}, transitions: {}, periods: {}, periodRates: {}, tables: {} };
   (model.settings ?? []).forEach((s) => { st.settings[s.id] = s.value; });
   model.generators.forEach((g) => {
     const gs: Record<string, number> = {};
@@ -132,14 +194,37 @@ export function defaultState(model: ModelDefinition): ModelState {
   (model.fixedCosts ?? []).forEach((f) => { st.fixed[f.id] = f.value; });
   (model.investment ?? []).forEach((i) => { st.investment[i.id] = i.value; });
   (model.transitions ?? []).forEach((tr) => { st.transitions[tr.id] = tr.rate; });
+  (model.tables ?? []).forEach((tb) => { st.tables[tb.id] = { bands: (tb.bands ?? []).map((b) => ({ ...b })), ...(tb.cap != null ? { cap: tb.cap } : {}) }; });
   return st;
+}
+
+/** A saved table's numbers, if they have the shape; null otherwise. */
+export function cleanTable(v: unknown): TableNumbers | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as { bands?: unknown; cap?: unknown };
+  if (!Array.isArray(o.bands)) return null;
+  const bands: Band[] = [];
+  for (const b of o.bands) {
+    if (!b || typeof b !== 'object') return null;
+    const { upTo, value, rate } = b as { upTo?: unknown; value?: unknown; rate?: unknown };
+    if (!(upTo === null || (typeof upTo === 'number' && Number.isFinite(upTo)))) return null;
+    const band: Band = { upTo: upTo as number | null };
+    if (typeof value === 'number' && Number.isFinite(value)) band.value = value;
+    if (typeof rate === 'number' && Number.isFinite(rate)) band.rate = rate;
+    bands.push(band);
+  }
+  const out: TableNumbers = { bands };
+  if (o.cap === null || (typeof o.cap === 'number' && Number.isFinite(o.cap))) out.cap = o.cap as number | null;
+  return out;
 }
 
 /** Saved numbers over the defaults; only keys the definition knows, only numbers. */
 export function mergeState(base: ModelState, saved: unknown): ModelState {
   if (!saved || typeof saved !== 'object') return base;
   const sv = saved as Record<string, Record<string, unknown>>;
-  const out: ModelState = { ...JSON.parse(JSON.stringify(base)), transitions: { ...(base.transitions ?? {}) }, periods: {}, periodRates: {} };
+  const out: ModelState = { ...JSON.parse(JSON.stringify(base)), transitions: { ...(base.transitions ?? {}) }, periods: {}, periodRates: {}, tables: JSON.parse(JSON.stringify(base.tables ?? {})) };
+  const tables = sv.tables as Record<string, unknown> | undefined;
+  if (tables && typeof tables === 'object') Object.keys(out.tables).forEach((id) => { const tb = cleanTable(tables[id]); if (tb) out.tables[id] = tb; });
   (['periods', 'periodRates'] as const).forEach((k) => {
     const src = sv[k] as Record<string, Record<string, unknown>> | undefined;
     if (!src || typeof src !== 'object') return;
@@ -209,6 +294,9 @@ export function typedForMonth(cells: Record<string, number> | undefined, m: numb
   return a + ((b - a) * (m - before)) / (after - before);
 }
 
+/** Whether month m is a billing month: the first one, then every `every`. */
+export const billsIn = (m: number, every: number, first: number): boolean => m >= first && (m - first) % every === 0;
+
 function topoOrder(gens: Generator[]): Generator[] {
   const byId = new Map(gens.map((g) => [g.id, g]));
   const out: Generator[] = [];
@@ -228,6 +316,7 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
   const H = horizon ?? model.horizon ?? 36;
   const gens = model.generators;
   const ordered = topoOrder(gens);
+  const lookup = makeLookup(model, state);
   const months: MonthRow[] = [];
   const unitsPrev: Record<string, number> = {};
   let cumulative = 0;
@@ -246,7 +335,7 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
       const v = g.volume ?? {};
       if (v.linkedTo) return;
       const inp = state.generators[g.id] ?? {};
-      const scope: Scope = { ...state.settings, ...inp, month: m };
+      const scope: Scope = { ...state.settings, ...inp, month: m, lookup };
       const startMonth = v.startMonth != null ? evalExpr(v.startMonth, scope) : 1;
       let units = 0;
       if (m >= startMonth) {
@@ -280,14 +369,18 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
     // Phase three: linked streams, revenue and costs.
     ordered.forEach((g) => {
       const inp = state.generators[g.id] ?? {};
-      const scope: Scope = { ...state.settings, ...inp, month: m };
+      const scope: Scope = { ...state.settings, ...inp, month: m, lookup };
       const v = g.volume ?? {};
       const units = v.linkedTo ? (unitsNow[v.linkedTo] ?? 0) * evalExpr(v.factor == null ? 1 : v.factor, scope) : (unitsNow[g.id] ?? 0);
       const newUnits = Math.max(units - (unitsPrev[g.id] ?? 0), 0);
       unitsNow[g.id] = units;
       scope.units = units;
       scope.newUnits = newUnits;
-      const revenue = g.revenueTotal != null ? (units > 0 ? evalExpr(g.revenueTotal, scope) : 0) : units * evalExpr(g.revenuePerUnit ?? 0, scope);
+      const monthly = g.revenueTotal != null ? (units > 0 ? evalExpr(g.revenueTotal, scope) : 0) : units * evalExpr(g.revenuePerUnit ?? 0, scope);
+      // A billing moment: the whole period's amount lands in the billing
+      // month, on that month's units; the months between show nothing.
+      const every = g.billing && g.billing.every > 1 ? Math.round(g.billing.every) : 1;
+      const revenue = every > 1 ? (billsIn(m, every, g.billing?.month ?? 1) ? monthly * every : 0) : monthly;
       scope.revenue = revenue;
       let cost = 0;
       const costLines: Record<string, number> = {};

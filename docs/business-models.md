@@ -119,6 +119,40 @@ others — with it on, the custom staging domain bounced to a Vercel login.
 - **Not yet**: scenarios, undo, per-user preferences on the server (they
   are in the browser), production.
 
+## Band tables, billing moments (1.73.0)
+
+Sjoerd's briefing, 2026-09-26: _"Many prices do not grow in a straight line.
+They step. A licence that depends on turnover band. A volume discount. A
+second facilitator per 40 members. A tax bracket."_ The OSC 2.0 case:
+practices pay a licence on soul.com related turnover, set in a band table.
+
+- **`tables`** at the top level of a definition: `{ id, label, unit, mode,
+  cap?, bands }`. `step`: bands `{ upTo, value }`, the whole amount is the
+  band's value. `marginal`: bands `{ upTo, rate }` (%), each part carries its
+  own rate, `cap` limits the total. Bands read in ascending `upTo`; the last
+  has `upTo: null`; an edge belongs to the lower band; ≤ 0 gives 0.
+- **`lookup(<table id>, <expression>)`** is the one new function in the
+  formula grammar. The engine rewrites the bare id to a string after the
+  character check, then hands `lookup` in through the scope.
+- **The bands are numbers**, so they live in the state (`state.tables`),
+  editable in the drawer (group "Tables") by every active member, kept per
+  scenario, settable through `models_set_numbers` (`tables`, replaced whole).
+  The structure (id, label, mode) is definition, edited in the Tables dialog
+  (admins and leads), from the canvas footer or the drawer.
+- Relations: a stream lists the tables its formulas read; a table lists the
+  streams that read it. Canvas lines link as `table:<id>`. A small chart per
+  table shows amount and effective rate against the input, so a jump at a
+  band edge is visible.
+- **`billing`** per generator: `{ every, month }` puts the whole period's
+  amount in the billing month, on that month's units, nothing in between.
+  Yearly totals stay; the monthly cash picture changes.
+- A **formula cost** (kind `formula`) has no value of its own: the editor
+  shows the formula instead of value and step, and the drawer lists it as a
+  relation ("Licence = lookup(licence, revenue * 12) / 12") rather than a
+  €0 field.
+
+Acceptance from the briefing is in `apps/models/lib/engine.test.ts`.
+
 ## Versions
 
 Its own `VERSION` in `apps/models/app/(app)/layout.tsx` (0.1.0 from

@@ -31,6 +31,7 @@ const Definition = z
     genericVariable: z.array(Named).max(20).optional(),
     fixedCosts: z.array(Named).max(60).optional(),
     investment: z.array(Named).max(60).optional(),
+    tables: z.array(Named).max(40).optional(),
     horizon: z.number().int().min(12).max(240).optional(),
     breakEvenMonth: z.number().int().min(1).max(240).optional(),
   })
@@ -268,6 +269,11 @@ modelsRoutes.patch('/:id', async (c) => {
 // scenarios:[...]}. A partial patch merges one level into the tables so an
 // assistant can set two variables without knowing the rest.
 const NumberTable = z.record(z.number().finite());
+// A band table's numbers, replaced whole: bands are an ordered list.
+const BandNumbers = z.object({
+  bands: z.array(z.object({ upTo: z.number().finite().nullable(), value: z.number().finite().optional(), rate: z.number().finite().optional() })).min(1).max(40),
+  cap: z.number().finite().nullable().optional(),
+});
 const NumbersPatch = z.object({
   settings: NumberTable.optional(),
   generators: z.record(NumberTable).optional(),
@@ -276,6 +282,7 @@ const NumbersPatch = z.object({
   transitions: NumberTable.optional(),
   periods: z.record(NumberTable).optional(),
   periodRates: z.record(NumberTable).optional(),
+  tables: z.record(BandNumbers).optional(),
   refMonth: z.number().int().min(1).max(240).optional(),
   horizon: z.number().int().min(12).max(240).optional(),
 });
@@ -290,6 +297,7 @@ function mergeNumbers(current: Blob, patch: z.infer<typeof NumbersPatch>): Blob 
     Object.entries(patch[k]!).forEach(([id, table]) => { next[id] = { ...(cur[id] ?? {}), ...table }; });
     out[k] = next;
   });
+  if (patch.tables) out.tables = { ...((current.tables as Blob) ?? {}), ...patch.tables };
   if (patch.refMonth != null) out.refMonth = patch.refMonth;
   if (patch.horizon != null) out.horizon = patch.horizon;
   return out;

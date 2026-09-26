@@ -8,18 +8,20 @@
 // format grows, grow it here in the same commit.
 
 export const MODEL_FORMAT: readonly string[] = [
-  'A definition is one JSON object. Top level: name, tagline, description, currency (e.g. "EUR"), currencySymbol (e.g. "€"), horizon (months, 12–120, default 36), breakEvenMonth (the reference month for blended rates, default 12), unitLabel (plural, e.g. "members" or "customers"), canvas, settings, genericVariable, generators, fixedCosts, investment.',
-  'canvas: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels }, each an array of short lines in the venture’s own words. A line may be an object { id, text, segments, links }: segments (value propositions only) names the generator ids it serves; links names the turnover and cost items it stands for, as "gen:<generator id>", "cost:<generator id>.<cost id>", "fixed:<fixed cost id>", "invest:<investment id>" or "setting:<setting id>".',
+  'A definition is one JSON object. Top level: name, tagline, description, currency (e.g. "EUR"), currencySymbol (e.g. "€"), horizon (months, 12–120, default 36), breakEvenMonth (the reference month for blended rates, default 12), unitLabel (plural, e.g. "members" or "customers"), canvas, settings, tables, genericVariable, generators, transitions, fixedCosts, investment.',
+  'canvas: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels }, each an array of short lines in the venture’s own words. A line may be an object { id, text, segments, links }: segments (value propositions only) names the generator ids it serves; links names the turnover and cost items it stands for, as "gen:<generator id>", "cost:<generator id>.<cost id>", "fixed:<fixed cost id>", "invest:<investment id>" or "setting:<setting id>" or "table:<table id>".',
   'settings: [{ id, label, unit, value, step }] — global numbers every formula may use by id (e.g. a payment fee percentage).',
+  'tables: [{ id, label, unit, mode, cap?, bands }] — band tables, for prices that step instead of growing in a straight line (a licence by turnover band, a volume discount, a second facilitator per 40 members, a tax bracket). bands are read in ascending order of upTo; the last band has upTo null (no upper limit); a value exactly on an edge belongs to the lower band; zero or negative input gives 0. mode "step": bands [{ upTo, value }], the whole amount is the value of the band the number falls in (120000 in the band up to 250000 pays that band’s value). mode "marginal": bands [{ upTo, rate }] with rate in %, each part of the number carries the rate of its own band, like income tax, no jump at an edge; cap limits the total. The team edits the bands in the app; a scenario keeps them.',
   'genericVariable: [{ id: "<a settings id>", label, kind }] — costs on all revenue; kind is percentRevenue, perUnit or perNewUnit.',
   'generators: the turnover generators, one per way money comes in. Each: { id, name, short, segment (one line: who this is), help, countsAsUnit (default true), inputs: [{ id, label, unit, value, step }], volume, revenuePerUnit or revenueTotal, costs }.',
   'volume for a segment: { start: "<input id>", growth: "<input id>", churn: "<input id>" } — units start at start, then each month × (1 + growth% − churn%). Optional add, cap, startMonth. A derived stream: { linkedTo: "<generator id>", factor: 1 } takes that generator’s units.',
   'revenuePerUnit: a formula string over the generator’s input ids and settings ids, e.g. "fee" or "vol * take / 100". Lump income (a grant, a sponsorship): countsAsUnit false, volume { start: 1, startMonth: "from" }, revenueTotal: "amount".',
-  'costs: [{ id, label, unit, kind, value, step, batchSize? }] — the costs that exist only because of this generator; kind is perUnit, perNewUnit, perBatch (with batchSize, a formula), percentRevenue, fixed or formula (with formula).',
+  'costs: [{ id, label, unit, kind, value, step, batchSize? }] — the costs that exist only because of this generator; kind is perUnit, perNewUnit, perBatch (with batchSize, a formula), percentRevenue, fixed or formula (with formula: the amount per month is the formula, value is ignored).',
+  'billing (optional, per generator): { every, month } — the stream bills every `every` months, first in `month` (default 1); the whole period’s amount lands in that month, on that month’s units, and the months between show nothing. An annual fee billed in January: { every: 12, month: 1 }. Yearly totals stay the same; the monthly cash picture changes. Absent: billed monthly.',
   'transitions (the funnel): [{ id, from: "<segment id>", to: "<segment id>", rate, move }] — each month rate% of last month’s people in from go to to; move true (default) takes them out of from, false counts them in both. Use it when one client type becomes another (community → builder → venture).',
   'fixedCosts: [{ id, label, value, step, startMonth, steps, per }] per month (the key resources: team, software, rent, legal, marketing). startMonth: from which month it is paid. steps: [{ fromMonth, value }] replace the value from that month on (a second facilitator from month 13). per: { of: "<segment id>" | "units", every } multiplies it by ceil(units ÷ every), one facilitator per 40 members. investment: [{ id, label, value, step }] one-off before month one.',
   'Numbers typed per month (new clients in a month, a funnel rate in a month) are not part of the definition: the team types them in the app.',
-  'Formulas are plain arithmetic over ids: + - * / ( ) and numbers, plus month, units, newUnits, revenue, batches. Nothing else.',
+  'Formulas are plain arithmetic over ids: + - * / ( ) and numbers, plus month, units, newUnits, revenue, batches, and one function: lookup(<table id>, <expression>) reads a band table for the expression’s value, e.g. "lookup(lictable, turnover) * share / 100 / 12". Nothing else.',
   'Every number is a placeholder. Choose plausible values and say in help texts what they mean; never present them as the venture’s real figures. Ids are short, unique, lowercase.',
 ];
 
@@ -41,6 +43,9 @@ export const MODEL_EXAMPLE = {
     channels: ['Open evenings', 'Word of mouth'],
   },
   settings: [{ id: 'procFee', label: 'Payment processing fee', unit: '% of revenue', value: 2, step: 0.1 }],
+  tables: [
+    { id: 'licence', label: 'Platform licence by yearly turnover', unit: 'EUR / year', mode: 'step', bands: [{ upTo: 25000, value: 750 }, { upTo: 100000, value: 3000 }, { upTo: null, value: 6000 }] },
+  ],
   genericVariable: [{ id: 'procFee', label: 'Payment processing', kind: 'percentRevenue' }],
   generators: [
     {
@@ -60,6 +65,7 @@ export const MODEL_EXAMPLE = {
       costs: [
         { id: 'cOnboard', label: 'Onboarding call', unit: 'EUR / new member', kind: 'perNewUnit', value: 15, step: 1 },
         { id: 'cCare', label: 'Materials', unit: 'EUR / member / month', kind: 'perUnit', value: 3, step: 0.5 },
+        { id: 'cLicence', label: 'Platform licence', unit: 'EUR / month', kind: 'formula', formula: 'lookup(licence, revenue * 12) / 12', value: 0, step: 1 },
       ],
     },
     {
@@ -88,6 +94,7 @@ export const MODEL_QUESTIONS: readonly string[] = [
   'Who pays? Each customer segment or revenue stream, in one line each. Roughly how many of each in month one, and how they grow and leave per month (in %).',
   'What does each pay, and how often? A monthly fee, a price per sale, a share of a transaction, a seat, a grant amount.',
   'Which costs exist only because of a stream: delivery, onboarding per new customer, facilitation per group, a payout share, payment fees.',
+  'Prices or costs that step rather than grow in a straight line (a licence by turnover band, a volume discount, a tax bracket): the bands, and whether the whole amount follows the band (step) or each part carries its own rate (marginal). And whether a fee is billed monthly or once a period (an annual fee in January).',
   'The fixed monthly costs: team, software, rent, legal, marketing.',
   'The one-off investment before month one: formation, product build, launch.',
   'The currency, the horizon in months (36 is usual), and the word for a unit (members, customers, orders).',

@@ -2,7 +2,7 @@
 // lines, fixed costs, investment, settings. Pure functions over the
 // definition; the editors call them and the page saves the result.
 
-import { compile, type CostLine, type Generator, type ModelDefinition, type NumberInput } from './engine';
+import { compile, type BandTable, type CostLine, type Generator, type ModelDefinition, type NumberInput } from './engine';
 
 export const slugId = (label: string, taken: Iterable<string>, fallback = 'item'): string => {
   const base = label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24) || fallback;
@@ -19,7 +19,7 @@ export const segments = (def: ModelDefinition) => def.generators.filter(isSegmen
 export function formulaProblem(expr: string, known: Iterable<string>): string | null {
   if (!expr.trim()) return 'empty';
   try { compile(expr); } catch { return 'characters'; }
-  const ids = new Set([...known, 'month', 'units', 'newUnits', 'revenue', 'batches']);
+  const ids = new Set([...known, 'month', 'units', 'newUnits', 'revenue', 'batches', 'lookup']);
   const unknown = (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? []).filter((w) => !ids.has(w));
   return unknown.length ? unknown.join(', ') : null;
 }
@@ -65,6 +65,18 @@ export function removeGenerator(def: ModelDefinition, id: string): ModelDefiniti
   if (canvas.valuePropositions) canvas.valuePropositions = canvas.valuePropositions.map((it) => (typeof it === 'string' ? it : { ...it, segments: (it.segments ?? []).filter((s) => s !== id) }));
   (Object.keys(canvas) as (keyof typeof canvas)[]).forEach((k) => { canvas[k] = (canvas[k] ?? []).map((it) => (typeof it === 'string' ? it : { ...it, links: (it.links ?? []).filter((l) => l !== `gen:${id}` && !l.startsWith(`cost:${id}.`)) })); });
   return { ...def, canvas, generators: def.generators.filter((g) => g.id !== id), transitions: (def.transitions ?? []).filter((tr) => tr.from !== id && tr.to !== id) };
+}
+
+/** The ids a formula in this definition may use: the generator's own inputs and cost ids, the settings, the tables. */
+export const knownIds = (def: ModelDefinition, g?: Generator | null): string[] => [
+  ...((g?.inputs ?? []).map((i) => i.id)),
+  ...((g?.costs ?? []).map((c) => c.id)),
+  ...((def.settings ?? []).map((s) => s.id)),
+  ...((def.tables ?? []).map((tb) => tb.id)),
+];
+
+export function newTable(def: ModelDefinition, label = 'New table'): BandTable {
+  return { id: slugId(label, (def.tables ?? []).map((tb) => tb.id), 'table'), label, unit: `${def.currency ?? ''} / year`, mode: 'step', bands: [{ upTo: 10000, value: 100 }, { upTo: 50000, value: 400 }, { upTo: null, value: 1000 }] };
 }
 
 export const newTransition = (def: ModelDefinition, from: string, to: string) => ({ id: slugId(`${from}_to_${to}`, (def.transitions ?? []).map((t) => t.id), 'flow'), from, to, rate: 2, move: true });
