@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.71.1] — 2026-09-26 — a desktop assistant can connect at all
+
+Sjoerd, trying to point his Claude at The Fibre: *"Couldn't register with The
+Fibre's sign-in service."* Twice, with a fresh connector each time.
+
+`POST /api/v1/oauth/register` was answering **400**. The cause:
+`redirectUriAcceptable` allowed https anywhere and http on the loopback, and
+nothing else — so a **private-use scheme**, which is the only callback a
+desktop app has, was refused. Reproduced by registering
+`claude://mcp/callback` by hand and getting the identical
+`invalid_redirect_uri`.
+
+RFC 8252 §7.1 endorses private-use schemes for native apps precisely because
+they own no https origin. The rule was stricter than the spec in the one place
+it cost a working integration.
+
+**Why it survived until somebody tried the desktop app.** claude.ai in a
+browser redirects to an `https://claude.ai/...` callback, which passed — and
+that is the case the test asserted. The feature was correct for the client we
+tested with and broken for the one people run. The new tests name three real
+native callbacks rather than a synthetic one.
+
+Still refused, and named rather than inferred: `javascript:`, `data:`,
+`file:`, `vbscript:`, `blob:`, `about:` — each a way to turn a redirect into
+execution or disclosure. Widening what may be REGISTERED does not widen where
+an existing client may be sent: `/authorize` matches the redirect exactly
+against what that client registered, and renders an error rather than bouncing
+to an unregistered URI.
+
+**Found by reading the log rather than guessing.** Two earlier attempts
+produced nothing at the server at all, which is what pointed at the connector
+caching its failure; a third, from a freshly added connector, produced the 400
+that named the field.
+
 ## [1.71.0] — 2026-09-26 — the tab wears the current mark, and Anthropic is named
 
 Two things found while answering "can you give me my key", neither of them the

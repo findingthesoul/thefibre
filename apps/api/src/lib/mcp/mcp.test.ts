@@ -80,6 +80,33 @@ describe('PKCE', () => {
     expect(redirectUriAcceptable('javascript:alert(1)')).toBe(false);
     expect(redirectUriAcceptable('not a url')).toBe(false);
   });
+
+  // A DESKTOP app has no https origin to own, so RFC 8252 §7.1 gives it a
+  // private-use scheme instead. Refusing those made Claude Desktop
+  // unconnectable — 400 at /oauth/register, shown as "Couldn't register with
+  // The Fibre's sign-in service" — while claude.ai in a browser worked,
+  // which is why it survived: the case above passes and was the one tested.
+  it('lets a native client register a private-use scheme, which is all a desktop app has', () => {
+    expect(redirectUriAcceptable('claude://mcp/callback')).toBe(true);
+    expect(redirectUriAcceptable('com.anthropic.claude://oauth')).toBe(true);
+    expect(redirectUriAcceptable('cursor://anysphere.cursor-mcp/oauth/callback')).toBe(true);
+  });
+
+  it('still refuses the schemes that turn a redirect into execution', () => {
+    // Named, not inferred: each of these is a way to run code or read a file
+    // if a client could be sent to it. `javascript:` is covered above too —
+    // it is repeated here so removing either test leaves the case guarded.
+    for (const uri of [
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'file:///etc/passwd',
+      'vbscript:msgbox(1)',
+      'blob:https://evil.example/uuid',
+      'about:blank',
+    ]) {
+      expect(redirectUriAcceptable(uri), uri).toBe(false);
+    }
+  });
 });
 
 describe('discovery', () => {
