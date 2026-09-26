@@ -154,7 +154,7 @@ export function BusinessModelCanvas({ model, state, s, locale, editable = false,
     </tbody></table>
   ) : popup === 'fixed' ? (
     <table className={tbl}><tbody>
-      {(model.fixedCosts ?? []).map((f) => <Row key={f.id} onClick={editable && edit ? () => { setPopup(null); edit.onEditResources(); } : undefined} a={f.label} c={fmtMoney(state.fixed[f.id] ?? 0)} />)}
+      {(model.fixedCosts ?? []).map((f) => { const applied = ref.fixedLines[f.id] ?? 0; const base = state.fixed[f.id] ?? 0; return <Row key={f.id} onClick={editable && edit ? () => { setPopup(null); edit.onEditResources(); } : undefined} a={<><span className="block">{f.label}</span>{(f.per || (f.steps ?? []).length > 0) && <span className="block text-[11px] text-ink-muted">{fmtMoney(base)}{f.per ? ` × ⌈${f.per.of === 'units' ? unit : (segName(f.per.of))} ÷ ${f.per.every}⌉` : ''}{(f.steps ?? []).length ? ` · ${t(locale, 'steps').toLowerCase()}` : ''}</span>}</>} c={fmtMoney(applied)} />; })}
       <Row total a={t(locale, 'total_fixed_cost')} c={fmtMoney(ref.fixedCost)} />
     </tbody></table>
   ) : (

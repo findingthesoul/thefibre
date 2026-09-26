@@ -131,7 +131,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     remember();
     inputsDirty.current = true;
     setState((st) => {
-      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, periods: st.periods, periodRates: st.periodRates, generators: { ...st.generators }, tables: st.tables };
+      const next: ModelState = { ...st, settings: { ...st.settings }, fixed: { ...st.fixed }, investment: { ...st.investment }, transitions: { ...st.transitions }, reserve: { ...st.reserve }, periods: st.periods, periodRates: st.periodRates, generators: { ...st.generators }, tables: st.tables };
       if (typeof scope === 'string') next[scope][id] = value;
       else next.generators[scope.gen] = { ...(next.generators[scope.gen] ?? {}), [id]: value };
       return next;

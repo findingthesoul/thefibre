@@ -153,6 +153,32 @@ practices pay a licence on soul.com related turnover, set in a band table.
 
 Acceptance from the briefing is in `apps/models/lib/engine.test.ts`.
 
+## A running balance, and the "per" that seemed unapplied (1.74.0)
+
+Sjoerd's briefing, second part: _"The app calculates month by month and
+keeps no running total. So a reserve that builds up over time cannot be
+shown anywhere. OSC 2.0 sets aside a share of turnover every month, aiming
+at one year of costs within two years."_
+
+- **`reserve`** in the definition: `{ share, targetMonths, start }`. Every
+  month `share`% of turnover joins the reserve; the target is `targetMonths`
+  × that month's total costs, so it follows the costs as they change;
+  `start` is what is held before month one. Numbers, so they live in
+  `state.reserve`, turn in the drawer (Settings → Reserve), keep per
+  scenario, and set through `models_set_numbers` (`reserve`). The
+  definition holds the defaults (Settings dialog).
+- Shown as: a KPI tile "Reserve target reached" next to break even, a
+  Reserve panel under BEP & cash (reserve built up against the target), and
+  two columns in the monthly projection. Off while share and start are both
+  zero. Cash at month end after the investment was already the cash column.
+- **The bug that was a display bug.** `per: { of: "fellows", every: 1 }`
+  was applied in every total all along (`fixedAmount`, tested), but every
+  place that listed a fixed cost line showed the base value from the state
+  (€17), not the applied amount (€170). `MonthRow.fixedLines` now carries
+  each line's amount after steps and per; the canvas popup, the drawer, the
+  cost-structure table and a statement's reading all show it, and the drawer
+  says "× ⌈fellows ÷ 1⌉: €170 / month in month 12" as a relation.
+
 ## Versions
 
 Its own `VERSION` in `apps/models/app/(app)/layout.tsx` (0.1.0 from

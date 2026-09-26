@@ -9,7 +9,7 @@
 //   table:<table id>              a band table (a stepped licence, a discount)
 import { tableRefs, type Generator, type ModelDefinition, type ModelState, type NumberInput, type Summary } from './engine';
 
-export type Scope = 'settings' | 'fixed' | 'investment' | 'transitions' | { gen: string };
+export type Scope = 'settings' | 'fixed' | 'investment' | 'transitions' | 'reserve' | { gen: string };
 export type Variable = { scope: Scope; def: NumberInput; value: number };
 export type Linkable = { id: string; label: string; group: string; kind: 'gen' | 'cost' | 'fixed' | 'invest' | 'setting' | 'transition' | 'table' };
 
@@ -93,7 +93,7 @@ export function readingFor(def: ModelDefinition, s: Summary, state: ModelState, 
   const ref = s.ref;
   if (kind === 'gen') { const r = ref.gens[rest]; const g = def.generators.find((x) => x.id === rest); return r ? `${g?.countsAsUnit === false ? '' : fm.num(r.units) + ' × '}${fm.money(r.revenue)} / month` : ''; }
   if (kind === 'cost') { const [gid, cid] = rest.split('.', 2) as [string, string]; const amt = ref.gens[gid]?.costLines[cid]; return amt != null ? `${fm.money(amt)} / month` : ''; }
-  if (kind === 'fixed') return `${fm.money(state.fixed[rest] ?? 0)} / month`;
+  if (kind === 'fixed') return `${fm.money(ref.fixedLines[rest] ?? state.fixed[rest] ?? 0)} / month`;
   if (kind === 'invest') return `${fm.money(state.investment[rest] ?? 0)} one off`;
   if (kind === 'setting') { const st = (def.settings ?? []).find((x) => x.id === rest); return `${state.settings[rest] ?? 0} ${st?.unit ?? ''}`; }
   if (kind === 'transition') { const tr = (def.transitions ?? []).find((x) => x.id === rest); return tr ? `${state.transitions[tr.id] ?? tr.rate}% / month` : ''; }

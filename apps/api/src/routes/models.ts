@@ -283,13 +283,14 @@ const NumbersPatch = z.object({
   periods: z.record(NumberTable).optional(),
   periodRates: z.record(NumberTable).optional(),
   tables: z.record(BandNumbers).optional(),
+  reserve: NumberTable.optional(),
   refMonth: z.number().int().min(1).max(240).optional(),
   horizon: z.number().int().min(12).max(240).optional(),
 });
 type Blob = Record<string, unknown>;
 function mergeNumbers(current: Blob, patch: z.infer<typeof NumbersPatch>): Blob {
   const out: Blob = { ...current };
-  (['settings', 'fixed', 'investment', 'transitions'] as const).forEach((k) => { if (patch[k]) out[k] = { ...((current[k] as Blob) ?? {}), ...patch[k] }; });
+  (['settings', 'fixed', 'investment', 'transitions', 'reserve'] as const).forEach((k) => { if (patch[k]) out[k] = { ...((current[k] as Blob) ?? {}), ...patch[k] }; });
   (['generators', 'periods', 'periodRates'] as const).forEach((k) => {
     if (!patch[k]) return;
     const cur = (current[k] as Record<string, Blob>) ?? {};

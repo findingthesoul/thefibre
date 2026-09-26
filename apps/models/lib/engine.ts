@@ -84,6 +84,11 @@ export type ModelDefinition = {
   fixedCosts?: FixedCost[];
   investment?: NumberInput[];
   tables?: BandTable[];
+  /** A running balance: `share`% of every month's turnover is set aside; the
+   *  target is `targetMonths` months of that month's total costs; `start` is
+   *  what is already held before month one. Numbers, so the team turns them
+   *  in the drawer and a scenario keeps them (state.reserve). */
+  reserve?: { share?: number; targetMonths?: number; start?: number };
 };
 
 export type ModelState = {
@@ -102,6 +107,8 @@ export type ModelState = {
   periodRates: Record<string, Record<string, number>>;
   /** The bands of every band table, editable like settings, kept per scenario. */
   tables: Record<string, TableNumbers>;
+  /** The reserve rule: share (% of turnover per month), targetMonths, start. */
+  reserve: Record<string, number>;
 };
 
 type LookupFn = (id: string, x: number) => number;
@@ -183,7 +190,7 @@ export const evalExpr = (expr: string | number | undefined | null, scope: Scope)
 
 // ---------- state ----------
 export function defaultState(model: ModelDefinition): ModelState {
-  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {}, transitions: {}, periods: {}, periodRates: {}, tables: {} };
+  const st: ModelState = { settings: {}, generators: {}, fixed: {}, investment: {}, transitions: {}, periods: {}, periodRates: {}, tables: {}, reserve: { share: model.reserve?.share ?? 0, targetMonths: model.reserve?.targetMonths ?? 12, start: model.reserve?.start ?? 0 } };
   (model.settings ?? []).forEach((s) => { st.settings[s.id] = s.value; });
   model.generators.forEach((g) => {
     const gs: Record<string, number> = {};
@@ -222,7 +229,7 @@ export function cleanTable(v: unknown): TableNumbers | null {
 export function mergeState(base: ModelState, saved: unknown): ModelState {
   if (!saved || typeof saved !== 'object') return base;
   const sv = saved as Record<string, Record<string, unknown>>;
-  const out: ModelState = { ...JSON.parse(JSON.stringify(base)), transitions: { ...(base.transitions ?? {}) }, periods: {}, periodRates: {}, tables: JSON.parse(JSON.stringify(base.tables ?? {})) };
+  const out: ModelState = { ...JSON.parse(JSON.stringify(base)), transitions: { ...(base.transitions ?? {}) }, periods: {}, periodRates: {}, tables: JSON.parse(JSON.stringify(base.tables ?? {})), reserve: { ...(base.reserve ?? {}) } };
   const tables = sv.tables as Record<string, unknown> | undefined;
   if (tables && typeof tables === 'object') Object.keys(out.tables).forEach((id) => { const tb = cleanTable(tables[id]); if (tb) out.tables[id] = tb; });
   (['periods', 'periodRates'] as const).forEach((k) => {
@@ -235,7 +242,7 @@ export function mergeState(base: ModelState, saved: unknown): ModelState {
       if (Object.keys(clean).length) out[k][id] = clean;
     });
   });
-  (['settings', 'fixed', 'investment', 'transitions'] as const).forEach((k) => {
+  (['settings', 'fixed', 'investment', 'transitions', 'reserve'] as const).forEach((k) => {
     const src = sv[k];
     if (!src || typeof src !== 'object') return;
     Object.keys(out[k]).forEach((id) => { const v = src[id]; if (typeof v === 'number' && Number.isFinite(v)) out[k][id] = v; });
@@ -266,6 +273,12 @@ export type MonthRow = {
   net: number;
   cumulative: number;
   cash: number;
+  /** Each fixed cost line's amount this month, after its steps and its "per". */
+  fixedLines: Record<string, number>;
+  /** Set aside this month, the reserve built up so far, and the target it aims at. */
+  reserveIn: number;
+  reserve: number;
+  reserveTarget: number;
 };
 
 /** A fixed cost line in month m: the base value, replaced by the latest step
@@ -324,9 +337,12 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
   let cash = -investmentTotal;
   let minCash = cash;
   let minCashMonth = 0;
+  const share = state.reserve?.share ?? 0;
+  const targetMonths = state.reserve?.targetMonths ?? 12;
+  let reserve = state.reserve?.start ?? 0;
 
   for (let m = 1; m <= H; m++) {
-    const row: MonthRow = { m, gens: {}, revenue: 0, variableCost: 0, fixedCost: 0, units: 0, newUnits: 0, net: 0, cumulative: 0, cash: 0, totalCost: 0 };
+    const row: MonthRow = { m, gens: {}, revenue: 0, variableCost: 0, fixedCost: 0, units: 0, newUnits: 0, net: 0, cumulative: 0, cash: 0, totalCost: 0, fixedLines: {}, reserveIn: 0, reserve: 0, reserveTarget: 0 };
     const unitsNow: Record<string, number> = {};
     const inflow: Record<string, number> = {};
     const outflow: Record<string, number> = {};
@@ -417,13 +433,21 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
       row.gens[c.id] = { units: 0, newUnits: 0, revenue: 0, cost: amount, costLines: {}, generic: true, inflow: 0, outflow: 0 };
       row.variableCost += amount;
     });
-    (model.fixedCosts ?? []).forEach((f) => { if (m >= (f.startMonth ?? 1)) row.fixedCost += fixedAmount(f, state.fixed[f.id] ?? 0, m, row.units, unitsNow); });
+    (model.fixedCosts ?? []).forEach((f) => {
+      const amount = m >= (f.startMonth ?? 1) ? fixedAmount(f, state.fixed[f.id] ?? 0, m, row.units, unitsNow) : 0;
+      row.fixedLines[f.id] = amount;
+      row.fixedCost += amount;
+    });
     row.totalCost = row.variableCost + row.fixedCost;
     row.net = row.revenue - row.totalCost;
     cumulative += row.net;
     row.cumulative = cumulative;
     cash += row.net;
     row.cash = cash;
+    row.reserveIn = (row.revenue * share) / 100;
+    reserve += row.reserveIn;
+    row.reserve = reserve;
+    row.reserveTarget = row.totalCost * targetMonths;
     if (cash < minCash) { minCash = cash; minCashMonth = m; }
     months.push(row);
   }
@@ -453,6 +477,8 @@ export function summarize(model: ModelDefinition, state: ModelState, opts?: { ho
     years.push({ year: y + 1, months: slice.length, revenue: sum('revenue'), variableCost: sum('variableCost'), fixedCost: sum('fixedCost'), totalCost: sum('totalCost'), net: sum('net'), cash: end.cash, units: end.units });
   }
   const breakEvenYear = years.find((y) => y.net >= 0)?.year ?? null;
+  const reserveOn = (state.reserve?.share ?? 0) > 0 || (state.reserve?.start ?? 0) > 0;
+  const reserveMonth = reserveOn ? (months.find((r) => r.reserveTarget > 0 && r.reserve >= r.reserveTarget)?.m ?? null) : null;
   const maxU = Math.max(ref.units * 1.6, (breakEvenUnits ?? 0) * 1.3, 10);
   const curve = Array.from({ length: 41 }, (_, i) => {
     const u = (maxU * i) / 40;
@@ -462,6 +488,6 @@ export function summarize(model: ModelDefinition, state: ModelState, opts?: { ho
     months, years, ref, refMonth: refIdx + 1, horizon: months.length, arpu, varPerUnit, contribution, breakEvenUnits,
     breakEvenMonth: breakEvenMonthRow?.m ?? null, breakEvenYear, cashPositiveMonth: cashPositiveRow?.m ?? null,
     fundingNeed: Math.max(-p.minCash, 0), investmentTotal: p.investmentTotal, minCash: p.minCash, minCashMonth: p.minCashMonth,
-    fixedMonthly: ref.fixedCost, last, curve,
+    fixedMonthly: ref.fixedCost, last, curve, reserveOn, reserveMonth, reserveTargetMonths: state.reserve?.targetMonths ?? 12,
   };
 }

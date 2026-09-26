@@ -343,7 +343,7 @@ export function SettingsEditor({ open, def, locale, onSave, onClose }: { open: b
   const gvKinds: NonNullable<ModelDefinition['genericVariable']>[number]['kind'][] = ['percentRevenue', 'perUnit', 'perNewUnit'];
   return (
     <Dialog open={open} onClose={onClose} size="lg" title={t(locale, 'edit_settings')}
-      footer={<><Button variant="secondary" onClick={onClose}>{t(locale, 'cancel')}</Button><Button variant="primary" type="submit" onClick={() => onSave({ name: d.name, tagline: d.tagline, description: d.description, currency: d.currency, currencySymbol: d.currencySymbol, unitLabel: d.unitLabel, horizon: d.horizon, breakEvenMonth: d.breakEvenMonth, settings: d.settings, genericVariable: d.genericVariable })}>{t(locale, 'save')}</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>{t(locale, 'cancel')}</Button><Button variant="primary" type="submit" onClick={() => onSave({ name: d.name, tagline: d.tagline, description: d.description, currency: d.currency, currencySymbol: d.currencySymbol, unitLabel: d.unitLabel, horizon: d.horizon, breakEvenMonth: d.breakEvenMonth, settings: d.settings, genericVariable: d.genericVariable, reserve: d.reserve })}>{t(locale, 'save')}</Button></>}>
       <div className="space-y-4">
         <TextField label={t(locale, 'tagline')} value={d.tagline ?? ''} onChange={(e) => setD({ ...d, tagline: e.target.value })} />
         <TextAreaField label={t(locale, 'description')} rows={2} value={d.description ?? ''} onChange={(e) => setD({ ...d, description: e.target.value })} />
@@ -356,6 +356,15 @@ export function SettingsEditor({ open, def, locale, onSave, onClose }: { open: b
         <div>
           <Head action={<AddBtn label={t(locale, 'add_variable')} onClick={() => setD({ ...d, settings: [...(d.settings ?? []), newInput((d.settings ?? []).map((s) => s.id))] })} />}>{t(locale, 'global_variables')}</Head>
           <div className="mt-1.5"><VarsEditor locale={locale} vars={d.settings ?? []} onChange={(settings) => setD({ ...d, settings, genericVariable: gv.filter((c) => settings.some((s) => s.id === c.id)) })} /></div>
+        </div>
+        <div>
+          <Head>{t(locale, 'reserve')}</Head>
+          <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'reserve_help')} {t(locale, 'reserve_defaults_hint')}</p>
+          <div className="mt-1.5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <TextField label={`${t(locale, 'reserve_share')} (% ${t(locale, 'of_turnover')})`} type="number" value={String(d.reserve?.share ?? 0)} onChange={(e) => setD({ ...d, reserve: { ...(d.reserve ?? {}), share: Math.max(0, parseFloat(e.target.value) || 0) } })} />
+            <TextField label={t(locale, 'reserve_target_months')} type="number" value={String(d.reserve?.targetMonths ?? 12)} onChange={(e) => setD({ ...d, reserve: { ...(d.reserve ?? {}), targetMonths: Math.max(1, parseInt(e.target.value, 10) || 12) } })} />
+            <TextField label={`${t(locale, 'reserve_start')} (${d.currency ?? ''})`} type="number" value={String(d.reserve?.start ?? 0)} onChange={(e) => setD({ ...d, reserve: { ...(d.reserve ?? {}), start: Math.max(0, parseFloat(e.target.value) || 0) } })} />
+          </div>
         </div>
         <div>
           <Head action={<AddBtn label={t(locale, 'add_generic_cost')} onClick={() => { const free = (d.settings ?? []).find((s) => !gv.some((c) => c.id === s.id)); if (free) setD({ ...d, genericVariable: [...gv, { id: free.id, label: free.label, kind: 'percentRevenue' }] }); }} />}>{t(locale, 'generic_variable_costs')}</Head>

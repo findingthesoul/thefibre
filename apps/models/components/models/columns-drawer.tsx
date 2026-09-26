@@ -89,12 +89,24 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
       return { id: g.id, label: g.name, sub: g.help, reading: `${fmtMoney(r.revenue)} / ${mo}`, vars: [...genVars(def, state, g.id, 'all'), ...costVars(g)], relations: rel, editRef: { kind: 'stream' as const, id: g.id } };
     }) },
     { id: 'resources', label: t(locale, 'key_resources'), elements: [
-      ...(def.fixedCosts ?? []).map((f) => ({ id: `fixed:${f.id}`, label: f.label, reading: `${fmtMoney(state.fixed[f.id] ?? f.value)} / ${mo}`, vars: [{ scope: 'fixed' as const, def: { ...f, unit: `${cur} / ${mo}` }, value: state.fixed[f.id] ?? f.value }], relations: f.startMonth && f.startMonth > 1 ? [t(locale, 'rel_from_month', { n: f.startMonth })] : [], editRef: { kind: 'resources' as const } })),
+      ...(def.fixedCosts ?? []).map((f) => ({ id: `fixed:${f.id}`, label: f.label, reading: `${fmtMoney(ref.fixedLines[f.id] ?? state.fixed[f.id] ?? f.value)} / ${mo}`, vars: [{ scope: 'fixed' as const, def: { ...f, unit: `${cur} / ${mo}${f.per ? ` ${t(locale, 'per_every')} ${f.per.every} ${f.per.of === 'units' ? unit : name(f.per.of)}` : ''}` }, value: state.fixed[f.id] ?? f.value }],
+        relations: [
+          ...(f.startMonth && f.startMonth > 1 ? [t(locale, 'rel_from_month', { n: f.startMonth })] : []),
+          ...(f.per ? [t(locale, 'rel_per', { n: f.per.of === 'units' ? unit : name(f.per.of), e: f.per.every, v: fmtMoney(ref.fixedLines[f.id] ?? 0), m: s.refMonth })] : []),
+          ...(f.steps ?? []).map((st) => t(locale, 'rel_step', { m: st.fromMonth, v: fmtMoney(st.value) })),
+        ], editRef: { kind: 'resources' as const } })),
       ...(def.investment ?? []).map((i) => ({ id: `invest:${i.id}`, label: i.label, reading: `${fmtMoney(state.investment[i.id] ?? i.value)} ${t(locale, 'one_off')}`, vars: [{ scope: 'investment' as const, def: { ...i, unit: `${cur} ${t(locale, 'one_off')}` }, value: state.investment[i.id] ?? i.value }], relations: [t(locale, 'one_off_investment')], editRef: { kind: 'resources' as const } })),
     ] },
     { id: 'settings', label: t(locale, 'settings'), elements: [
       ...(def.settings ?? []).map((st) => ({ id: `setting:${st.id}`, label: st.label, reading: `${state.settings[st.id] ?? st.value} ${st.unit ?? ''}`, vars: [{ scope: 'settings' as const, def: st, value: state.settings[st.id] ?? st.value }], relations: (def.genericVariable ?? []).filter((c) => c.id === st.id).map((c) => t(locale, 'rel_generic_cost', { n: c.label })), editRef: { kind: 'settings' as const } })),
       { id: '__horizon', label: t(locale, 'horizon_and_ref'), reading: `${horizon} · ${t(locale, 'month_n', { n: refMonth })}`, vars: [], relations: [], horizon: true, editRef: { kind: 'settings' as const } },
+      { id: '__reserve', label: t(locale, 'reserve'), reading: s.reserveOn ? `${fmtMoney(ref.reserve)} · ${s.reserveMonth ? t(locale, 'month_n', { n: s.reserveMonth }) : t(locale, 'not_within_months', { n: horizon })}` : t(locale, 'reserve_off'),
+        vars: [
+          { scope: 'reserve' as const, def: { id: 'share', label: t(locale, 'reserve_share'), unit: '% ' + t(locale, 'of_turnover'), value: 0, step: 0.5 }, value: state.reserve.share ?? 0 },
+          { scope: 'reserve' as const, def: { id: 'targetMonths', label: t(locale, 'reserve_target_months'), unit: t(locale, 'horizon_unit'), value: 12, step: 1 }, value: state.reserve.targetMonths ?? 12 },
+          { scope: 'reserve' as const, def: { id: 'start', label: t(locale, 'reserve_start'), unit: cur, value: 0, step: 500 }, value: state.reserve.start ?? 0 },
+        ],
+        relations: [t(locale, 'reserve_help')], editRef: { kind: 'settings' as const } },
     ] },
     { id: 'tables', label: t(locale, 'tables'), elements: (def.tables ?? []).map((tb) => {
       const users = usersOfTable(def, tb.id);

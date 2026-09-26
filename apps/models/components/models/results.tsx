@@ -4,7 +4,7 @@
 // the cost structure and the monthly projection.
 
 import { useState, type ReactNode } from 'react';
-import { CalendarDays, Scale, Wallet, Landmark, TrendingUp, Coins, Users, Receipt } from 'lucide-react';
+import { CalendarDays, Scale, Wallet, Landmark, TrendingUp, Coins, Users, Receipt, PiggyBank } from 'lucide-react';
 import { CARD, ERROR_TEXT, PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 import type { ModelDefinition, ModelState, Summary } from '@/lib/engine';
 import { makeFormatters, singular, cap } from '@/lib/format';
@@ -44,6 +44,7 @@ export function Kpis({ model, s, locale }: { model: ModelDefinition; s: Summary;
     { icon: <Users size={16} />, lab: t(locale, 'kpi_revenue_per_unit', { unit: singular(unit) }), num: fmtMoney(s.arpu), note: t(locale, 'blended_month', { n: s.refMonth }) },
     { icon: <Receipt size={16} />, lab: t(locale, 'kpi_contribution', { unit: singular(unit) }), num: fmtMoney(s.contribution), warn: s.contribution <= 0, note: t(locale, 'after_variable_cost', { v: fmtMoney(s.varPerUnit) }) },
   ];
+  if (s.reserveOn) tiles.splice(4, 0, { icon: <PiggyBank size={16} />, lab: t(locale, 'kpi_reserve_reached'), num: s.reserveMonth ? t(locale, 'month_n', { n: s.reserveMonth }) : t(locale, 'not_within_months', { n: H }), warn: !s.reserveMonth, note: t(locale, 'reserve_target_note', { n: s.reserveTargetMonths, v: fmtMoneyK(s.last.reserve), t: fmtMoneyK(s.last.reserveTarget) }) });
   return (
     <div id="overview" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {tiles.map((k) => (
@@ -92,6 +93,12 @@ export function ChartPanels({ model, s, locale }: { model: ModelDefinition; s: S
         <Legend items={[{ label: t(locale, 'cash_position'), tone: 'ink' }, { label: t(locale, 'monthly_net'), tone: 'muted', dash: true }]} />
         <div className="mt-2"><LineChart points={[{ x: 0, cash: -s.investmentTotal, net: 0 }, ...s.months.map((m) => ({ x: m.m, cash: m.cash, net: m.net }))]} series={[{ key: 'net', label: t(locale, 'monthly_net'), tone: 'muted', dash: '3 3', width: 1.5 }, { key: 'cash', label: t(locale, 'cash_position'), tone: 'ink' }]} xLabel={t(locale, 'unit_month')} xFmt={(v) => String(v)} yFmt={fmtMoneyK} yFmtFull={fmtMoney} marker={s.minCashMonth} markerLabel={`${t(locale, 'kpi_funding_need').toLowerCase()} ${fmtMoneyK(s.fundingNeed)}`} tipTitle={(p) => (p.x === 0 ? `${t(locale, 'month_n', { n: 0 })}, ${t(locale, 'investment').toLowerCase()}` : t(locale, 'month_n', { n: p.x }))} /></div>
       </Panel>
+      {s.reserveOn && (
+        <Panel title={t(locale, 'reserve_panel')} help={t(locale, 'reserve_panel_help', { n: s.reserveTargetMonths })} className="lg:col-span-2">
+          <Legend items={[{ label: t(locale, 'reserve_built'), tone: 'ink' }, { label: t(locale, 'reserve_target'), tone: 'muted', dash: true }]} />
+          <div className="mt-2"><LineChart height={220} points={[{ x: 0, reserve: s.months[0]!.reserve - s.months[0]!.reserveIn, target: s.months[0]!.reserveTarget }, ...s.months.map((m) => ({ x: m.m, reserve: m.reserve, target: m.reserveTarget }))]} series={[{ key: 'target', label: t(locale, 'reserve_target'), tone: 'muted', dash: '5 4' }, { key: 'reserve', label: t(locale, 'reserve_built'), tone: 'ink' }]} xLabel={t(locale, 'unit_month')} xFmt={(v) => String(v)} yFmt={fmtMoneyK} yFmtFull={fmtMoney} marker={s.reserveMonth} markerLabel={s.reserveMonth ? `${t(locale, 'reserve_reached').toLowerCase()} ${t(locale, 'month_n', { n: s.reserveMonth })}` : ''} tipTitle={(p) => t(locale, 'month_n', { n: p.x })} /></div>
+        </Panel>
+      )}
     </div>
   );
 }
@@ -105,7 +112,7 @@ export function MixPanels({ model, state, s, locale }: { model: ModelDefinition;
   const rows: { label: string; amount: number; kind: 'fixed' | 'variable' }[] = [];
   gens.forEach((g) => { const c = ref.gens[g.id]?.cost ?? 0; if (c > 0) rows.push({ label: `${g.short ?? g.name} ${t(locale, 'own_costs').toLowerCase()}`, amount: c, kind: 'variable' }); });
   (model.genericVariable ?? []).forEach((c) => { const r = ref.gens[c.id]; if (r && r.cost > 0) rows.push({ label: c.label, amount: r.cost, kind: 'variable' }); });
-  (model.fixedCosts ?? []).forEach((f) => { const v = state.fixed[f.id] ?? 0; if (v > 0 && s.refMonth >= (f.startMonth ?? 1)) rows.push({ label: f.label, amount: v, kind: 'fixed' }); });
+  (model.fixedCosts ?? []).forEach((f) => { const v = ref.fixedLines[f.id] ?? 0; if (v > 0) rows.push({ label: f.label, amount: v, kind: 'fixed' }); });
   rows.sort((a, b) => b.amount - a.amount);
   const maxCost = Math.max(...rows.map((r) => r.amount), 1);
   const totalOwn = gens.reduce((a, g) => a + (ref.gens[g.id]?.cost ?? 0), 0);
@@ -144,6 +151,7 @@ export function ProjectionPanel({ model, s, locale }: { model: ModelDefinition; 
     { label: t(locale, 'net_result'), cell: (m) => <span className={m.net < 0 ? NEG : ''}>{fmtMoney(m.net)}</span>, group: true },
     { label: t(locale, 'cash_position'), cell: (m) => <span className={m.cash < 0 ? NEG : ''}>{fmtMoney(m.cash)}</span> },
   );
+  if (s.reserveOn) cols.push({ label: t(locale, 'reserve_built'), cell: (m) => fmtMoney(m.reserve), group: true }, { label: t(locale, 'reserve_target'), cell: (m) => <span className={m.reserve < m.reserveTarget ? 'text-ink-muted' : ''}>{fmtMoney(m.reserveTarget)}</span> });
   return (
     <Panel id="projection" title={t(locale, 'monthly_projection')} help={t(locale, 'projection_help', { n: s.horizon })} actions={<label className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px] text-ink-subtle"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> {t(locale, 'by_generator')}</label>}>
       <div className="-mx-4 max-h-[420px] overflow-auto border-t border-line px-4">

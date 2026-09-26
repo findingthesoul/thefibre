@@ -121,4 +121,37 @@ describe('the engine', () => {
     const march = summarize({ ...def, generators: [{ ...def.generators[0]!, billing: { every: 12, month: 3 } }] }, defaultState(def)).months.map((m) => m.revenue);
     expect(march[0]).toBe(0); expect(march[2]).toBe(12000); expect(march[14]).toBe(12000);
   });
+
+  it('a fixed cost "per" a segment is applied, and each line reports its applied amount (the OSC bug)', () => {
+    const def: ModelDefinition = { name: 't', horizon: 2, generators: [{ id: 'fellows', name: 'Fellows', inputs: [{ id: 'start', label: 's', value: 10, step: 1 }], volume: { start: 'start' }, revenuePerUnit: 0 }],
+      fixedCosts: [{ id: 'google', label: 'Google accounts', value: 17, step: 1, per: { of: 'fellows', every: 1 } }, { id: 'thread', label: 'The Thread', value: 17, step: 1, per: { of: 'fellows', every: 5 } }, { id: 'later', label: 'Later', value: 100, step: 1, startMonth: 2 }] };
+    const s = summarize(def, defaultState(def), { refMonth: 1 });
+    expect(s.ref.fixedLines.google).toBe(170);
+    expect(s.ref.fixedLines.thread).toBe(34);
+    expect(s.ref.fixedLines.later).toBe(0);
+    expect(s.ref.fixedCost).toBe(204);
+    expect(s.months[1]!.fixedLines.later).toBe(100);
+  });
+
+  it('a reserve builds up from a share of turnover and reports the month it covers the target', () => {
+    const def: ModelDefinition = { name: 't', horizon: 12, reserve: { share: 10, targetMonths: 2, start: 100 },
+      generators: [{ id: 'a', name: 'A', inputs: [{ id: 'start', label: 's', value: 10, step: 1 }, { id: 'fee', label: 'f', value: 100, step: 1 }], volume: { start: 'start' }, revenuePerUnit: 'fee' }],
+      fixedCosts: [{ id: 'team', label: 'Team', value: 300, step: 1 }] };
+    const st = defaultState(def);
+    expect(st.reserve).toEqual({ share: 10, targetMonths: 2, start: 100 });
+    const s = summarize(def, st);
+    // Turnover 1000 a month: 100 set aside; costs 300, target 600. 100 + 100·m ≥ 600 → month 5.
+    expect(s.months[0]!.reserveIn).toBe(100);
+    expect(s.months[0]!.reserve).toBe(200);
+    expect(s.months[0]!.reserveTarget).toBe(600);
+    expect(s.reserveOn).toBe(true);
+    expect(s.reserveMonth).toBe(5);
+    // Off when nothing is set aside and nothing is held.
+    const off = summarize({ ...def, reserve: undefined }, defaultState({ ...def, reserve: undefined }));
+    expect(off.reserveOn).toBe(false);
+    expect(off.reserveMonth).toBeNull();
+    // The drawer turns the share in the state; a scenario keeps it.
+    const turned = mergeState(defaultState(def), { reserve: { share: 50 } });
+    expect(summarize(def, turned).reserveMonth).toBe(1);
+  });
 });
