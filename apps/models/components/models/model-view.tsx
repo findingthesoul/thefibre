@@ -22,7 +22,7 @@ import { saveInputs, updateModel } from '@/app/(app)/models/actions';
 import { BusinessModelCanvas } from './canvas';
 import { CanvasEditor } from './canvas-editor';
 import { Kpis, YearsPanels, ChartPanels, MixPanels, ProjectionPanel } from './results';
-import { NumbersTable } from './numbers-table';
+import { ColumnsDrawer } from './columns-drawer';
 
 type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number };
 type Tab = 'canvas' | 'numbers';
@@ -100,43 +100,40 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   return (
     <PageContainer max="full">
       <div className="print:hidden">
-        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-ink-subtle hover:text-ink"><ChevronLeft size={16} />{t(locale, 'nav_models')}</Link>
-        <header className="mt-2 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-medium tracking-tight">{row.name}</h1>
-            {def.description && <p className="mt-1 max-w-[72ch] text-sm text-ink-subtle">{def.description}</p>}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className={`${PILL} ${PILL_TONE.neutral}`}>{row.team?.name ?? t(locale, 'workspace_wide')}</span>
-              {def.tagline && <span className="text-xs italic text-ink-muted">{def.tagline}</span>}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/dashboard" className="inline-flex items-center text-ink-subtle hover:text-ink" title={t(locale, 'nav_models')}><ChevronLeft size={18} /></Link>
+            <h1 className="truncate text-xl font-medium tracking-tight">{row.name}</h1>
+            <span className={`${PILL} ${PILL_TONE.neutral} shrink-0`}>{row.team?.name ?? t(locale, 'workspace_wide')}</span>
             <span className="text-xs text-ink-subtle" aria-live="polite">{status === 'saving' ? t(locale, 'saving') : status === 'saved' ? t(locale, 'saved') : ''}</span>
-            <Button variant="secondary" size="sm" onClick={() => window.print()} leading={<Printer size={14} />}>{t(locale, 'print_canvas')}</Button>
-            <Button variant="secondary" size="sm" onClick={exportCsv} leading={<Download size={14} />}>{t(locale, 'export_csv')}</Button>
-            <Button variant="secondary" size="sm" onClick={reset} leading={<RotateCcw size={14} />}>{t(locale, 'reset')}</Button>
+          </div>
+          <div className="flex items-center gap-1">
+            <Tabs value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }]} className="border-b-0" />
+            <Button variant="ghost" size="icon" onClick={() => window.print()} title={t(locale, 'print_canvas')}><Printer size={16} /></Button>
+            <Button variant="ghost" size="icon" onClick={exportCsv} title={t(locale, 'export_csv')}><Download size={16} /></Button>
+            <Button variant="ghost" size="icon" onClick={reset} title={t(locale, 'reset')}><RotateCcw size={16} /></Button>
           </div>
         </header>
         {status === 'error' && <div className={`${NOTICE.error} mt-3`}>{t(locale, 'save_failed')}</div>}
         {!editable && <div className={`${NOTICE.info} mt-3`}>{t(locale, 'read_only_hint')}</div>}
-        <Tabs className="mt-4" value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }]} />
       </div>
 
       {tab === 'canvas' && (
-        <div className="mt-4">
+        <div className="mt-3">
+          {(def.description || def.tagline) && <p className="mb-2 max-w-[90ch] text-sm text-ink-subtle">{def.description}{def.tagline && <span className="italic text-ink-muted"> · {def.tagline}</span>}</p>}
           {editable && <p className="mb-2 text-xs text-ink-muted print:hidden">{t(locale, 'canvas_edit_hint')}</p>}
           <BusinessModelCanvas model={def} state={state} s={s} locale={locale} tall editable={editable} edit={{ onEditItem: (block, index) => setEditing({ block, index }), onAddItem: (block) => setEditing({ block, index: null }) }} />
         </div>
       )}
 
       {tab === 'numbers' && (
-        <div className="mt-4 print:hidden">
+        <div className="mt-3 print:hidden">
           <div className="flex flex-wrap gap-2">
             {(['bep', 'projection'] as View[]).map((v) => (
               <button key={v} type="button" onClick={() => setView(v)} className={`${CHIP} ${view === v ? CHIP_STATE.on : CHIP_STATE.off}`}>{t(locale, v === 'bep' ? 'view_bep_cash' : 'view_projection')}</button>
             ))}
           </div>
-          <div className="mt-4">
+          <div className="mt-3 pb-4">
             {view === 'bep' ? (
               <>
                 <Kpis model={def} s={s} locale={locale} />
@@ -150,11 +147,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
               </>
             )}
           </div>
-          <div className="mt-8 mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-[15px] font-medium tracking-tight">{t(locale, 'numbers_table_title')}</h2>
-            <span className="text-xs text-ink-muted">{t(locale, 'numbers_table_help')}</span>
-          </div>
-          <NumbersTable model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }} />
+          <ColumnsDrawer model={def} state={state} s={s} locale={locale} refMonth={Math.min(refMonth, horizon)} horizon={horizon} onChange={change} onRefMonth={(v) => { inputsDirty.current = true; setRefMonth(v); }} onHorizon={(v) => { inputsDirty.current = true; setHorizon(v); }} />
         </div>
       )}
 
