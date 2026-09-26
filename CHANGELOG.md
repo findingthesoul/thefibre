@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.72.1] — 2026-09-26 — the printed canvas looks like a Business Model Canvas
+
+Sjoerd: *"Can you make the print design look more like a business model
+canvas (better distinction between elements)?"* The print now draws the
+nine blocks the way the original is drawn: a title band with the model's
+name and tagline, one black frame, a black hairline between every block,
+block titles in small capitals over a rule, the guiding question in italic,
+and the cost and revenue row a shade darker than the rest. Screen unchanged.
+
 ## [1.72.0] — 2026-09-26 — a deploy no longer takes the API down
 
 Launch list, from the Fibre session at Sjoerd's request: `thefibre-api` is
