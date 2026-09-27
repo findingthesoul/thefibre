@@ -18,6 +18,10 @@ export type PlanPatch = {
   retention_months?: number | null;
   meet_paid_pct?: number;
   meet_paid_cap_cents?: number | null;
+  /** Engagement list prices. Null means not offered on this plan. */
+  setup_cents?: number | null;
+  training_onboarding_cents?: number | null;
+  training_day_cents?: number | null;
   features?: Record<string, boolean | number | null>;
 };
 

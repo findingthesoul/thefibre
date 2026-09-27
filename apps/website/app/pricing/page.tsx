@@ -5,6 +5,9 @@
 
 import type { Metadata } from 'next';
 import { eur, feePhrase, isPoa, loadPlans, type CataloguePlan } from '@/lib/plans';
+// One phrasing for the three engagement numbers, shared with wherever else
+// they are quoted — a card and an admin screen should not each invent it.
+import { engagementLine } from '@thefibre/shared';
 import { StartButton } from '@/components/start-dialog';
 import Link from 'next/link';
 
@@ -85,6 +88,9 @@ export default async function PricingPage() {
                   {' · '}
                   {feePhrase(p.meet_paid_pct, p.meet_paid_cap_cents)}
                 </p>
+                {engagementLine(p, eur) && (
+                  <p className="mt-2 text-xs text-ink-muted">{engagementLine(p, eur)}</p>
+                )}
                 {isPoa(p) ? (
                   <a
                     href="/contact"

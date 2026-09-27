@@ -28,6 +28,9 @@ export type AdminPlan = {
   retention_months: number | null;
   meet_paid_pct: number;
   meet_paid_cap_cents: number | null;
+  setup_cents: number | null;
+  training_onboarding_cents: number | null;
+  training_day_cents: number | null;
   features: Record<string, boolean | number | null>;
   workspaces: { total: number; comped: number };
 };
@@ -42,7 +45,10 @@ type NumericField =
   | 'email_overage_cents_per_1000'
   | 'storage_overage_cents_per_gb'
   | 'retention_months'
-  | 'meet_paid_cap_cents';
+  | 'meet_paid_cap_cents'
+  | 'setup_cents'
+  | 'training_onboarding_cents'
+  | 'training_day_cents';
 
 export function PlanMatrix({ plans }: { plans: AdminPlan[] }) {
   const [edits, setEdits] = useState<Record<string, PlanPatch>>({});
@@ -149,6 +155,36 @@ export function PlanMatrix({ plans }: { plans: AdminPlan[] }) {
                 nullable
                 placeholder="not sold"
                 onChange={(v) => edit(p.id, { price_cents_year: v })}
+              />
+            )} />
+            {/* What an engagement costs before the subscription starts.
+                Empty means NOT OFFERED, not free — which is why every field
+                here is nullable and the placeholder says so rather than
+                showing a tempting 0. Shown on the plan and quoted from; the
+                platform does not charge them (Sjoerd, 2026-09-27). */}
+            <GroupRow label="Engagement (empty = not offered)" span={merged.length} />
+            <EditableRow label="Setup, one-off (€)" plans={merged} render={(p) => (
+              <EuroInput
+                cents={p.setup_cents}
+                nullable
+                placeholder="not offered"
+                onChange={(v) => edit(p.id, { setup_cents: v })}
+              />
+            )} />
+            <EditableRow label="Training, onboarding (€)" plans={merged} render={(p) => (
+              <EuroInput
+                cents={p.training_onboarding_cents}
+                nullable
+                placeholder="not offered"
+                onChange={(v) => edit(p.id, { training_onboarding_cents: v })}
+              />
+            )} />
+            <EditableRow label="Training, per day (€)" plans={merged} render={(p) => (
+              <EuroInput
+                cents={p.training_day_cents}
+                nullable
+                placeholder="not offered"
+                onChange={(v) => edit(p.id, { training_day_cents: v })}
               />
             )} />
             <GroupRow label="Allowances" span={merged.length} />

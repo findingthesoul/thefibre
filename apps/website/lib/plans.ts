@@ -12,6 +12,11 @@ export type CataloguePlan = {
   meet_paid_pct: number;
   meet_paid_cap_cents: number | null;
   included_seats: number | null;
+  /** Engagement list prices. Absent or null means the plan does not offer
+   *  one — which is why these are optional rather than defaulted to 0. */
+  setup_cents?: number | null;
+  training_onboarding_cents?: number | null;
+  training_day_cents?: number | null;
 };
 
 /** Enterprise is a conversation: the catalogue's `org` plan carries no

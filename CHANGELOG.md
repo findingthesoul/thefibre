@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.79.0] — 2026-09-27 — what an Enterprise engagement costs before the subscription starts
+
+Sjoerd: *"for enterprise plan we should have a setup cost - and training
+costs"* — training as **both** a day rate and a one-off, and all of it
+**shown, not charged**.
+
+Three nullable columns on `billing_plan`: `setup_cents`,
+`training_onboarding_cents`, `training_day_cents`. Editable in /admin/plans
+under a section of their own, carried on the public catalogue, and printed on
+the pricing card when a plan has them — which today is Enterprise alone, and
+that is the point: the monthly figure there says "Talk to us", and these are
+the part of that conversation that can be said in advance.
+
+**Null means NOT OFFERED, and not offered is not free.** Every branch asks
+whether the number exists, never whether it is non-zero. `if (cents)` would
+swallow a deliberate zero and invent a promise out of a missing value in the
+same line: a card reading "€0 setup" tells a customer this plan includes setup
+at no cost, and nobody said that. Four tests pin it, including the zero.
+
+The phrasing lives in `packages/shared/src/plan-engagement.ts` rather than in
+the pricing page, because a quote, an admin screen and a public card should
+not each invent their own sentence for the same three numbers. It was written
+in the page first, with its test beside it — and `apps/website` has no test
+runner, so that test would never have run. A test that cannot fail is worse
+than no test: it reads as cover. Moving the helper to shared moved the test
+somewhere it executes.
+
+Charging them stays unbuilt, deliberately: that wants an invoice line and a
+moment to raise it, and is a decision rather than a column.
+
 ## [1.78.0] — 2026-09-27 — Models off the website for now
 
 Sjoerd: *"Models can be taken off the website for now."* It is beta-gated,

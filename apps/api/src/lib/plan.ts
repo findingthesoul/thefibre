@@ -125,8 +125,12 @@ export function forgetAllPlans(): void {
 // dropped by the same forgetAllPlans() an /admin/plans edit calls. Measured
 // 2026-09-14 on staging: 60 concurrent requests took 1.3 s each uncached
 // (one machine, one pool, sixty identical queries); a single request 140 ms.
+// Additive only: the public /pricing page renders whatever is here, and this
+// response is also what an outside reader sees. setup/training joined on
+// 2026-09-27 — list prices for an Enterprise engagement, null everywhere they
+// are not offered, so a page can ask "is there one" rather than "is it zero".
 const CATALOGUE_SELECT =
-  'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features';
+  'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, setup_cents, training_onboarding_cents, training_day_cents, features';
 export type CataloguePlan = Record<string, unknown> & { id: string; price_cents_month?: number | null };
 let catalogue: { at: number; plans: CataloguePlan[] } | null = null;
 
