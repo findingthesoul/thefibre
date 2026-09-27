@@ -222,7 +222,7 @@ export default async function Home() {
               memberships — groups and subgroups, engagement, the whole administration.{' '}
               <span className="font-semibold text-ink">Pulse</span> keeps the money side honest,{' '}
               <span className="font-semibold text-ink">Connect</span> the relationships, and{' '}
-              <span className="font-semibold text-ink">Business Models</span> the plan behind it
+              <span className="font-semibold text-ink">Models</span> the plan behind it
               all.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-ink-muted">

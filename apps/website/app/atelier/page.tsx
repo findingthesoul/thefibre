@@ -20,7 +20,7 @@ import { StartButton } from '@/components/start-dialog';
 export const metadata: Metadata = {
   title: 'The atelier',
   description:
-    'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Connect, Business Models.',
+    'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Connect, Models.',
 };
 
 // The tools shown, in the canonical display order (derived since 2026-09-14;
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
 //
 // Connect joined on 2026-09-24 — it had been held back as "not on the
 // product page yet" since before it was live, and has been in production
-// since 2026-09-13. Business Models joined on 2026-09-27: it entered
+// since 2026-09-13. Models joined on 2026-09-27: it entered
 // APP_DISPLAY_ORDER two days earlier and rendered here as a bare name and
 // tagline, because a tool with no entry in PROBLEMS/FEATURES still renders —
 // it just says nothing. Beta in the catalogue; the copy says so.

@@ -1,4 +1,4 @@
-// Business Models — signed-in interface translations.
+// Models — signed-in interface translations.
 //
 // THE RULE (as in Flow and Pulse): every string a signed-in user can see in
 // the chrome lives HERE, in all locales. Model CONTENT — the names, help

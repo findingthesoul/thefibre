@@ -6,6 +6,59 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.77.0] — 2026-09-27 — every app has a manual, and the website knows the latest tools
+
+Sjoerd, before Zoom: *"update all manuals for end users (help) for all apps..
+and update the website with the latest tools?"* Help had been a link list
+with one-line blurbs since v0.18.1, last touched 2026-09-14 — two hundred
+releases ago. Connect, My Thread and Models had no Help at all.
+
+### Added
+- **"How to" on every Help page.** `packages/shared/src/ui/help.tsx` gains
+  `guides` — task-by-task manuals rendered as numbered steps with an "Open →"
+  link to the page where the task starts. Content lives in each app's own
+  catalog in all six locales (two keys per guide; the steps are one string
+  split on newlines), so a manual is translated like everything else.
+- The manuals, written from what each app does today, not from the plan:
+  The Thread (10 — create, timeline, publish and who may enrol, approve and
+  complete, check-in at the door, tickets and discount codes, certificates,
+  schedule-change messages, per-thread to-do lists, embeds), Meet (10 —
+  booking page, Google Calendar and the Free-blocks switch, meeting types and
+  Share, where the meeting happens, charging, intake and approval,
+  reschedule/cancel, teams, polls and one-offs, archive vs delete), Members
+  (10 — tiers, products and what they unlock, Circle/Google/Fibre seats, the
+  join page, manual members incl. invoice vs comped, changing a member,
+  access status, invoices, pricing rules, embeds), The Fibre (10 — people and
+  organisations, duplicates, domain verification, members and roles, apps and
+  keys, plan, payments, the assistant connector, workspaces, data requests),
+  Pulse (8), Flow (6, now introduced as the engine under the other apps),
+  Connect (10 — a NEW Help page: Today, write-ups, closeness, organisations,
+  ways in, landscape, map, tags, the assistant), Models (10 — canvas, numbers,
+  structure, per-month clients, scenarios, band tables, reserve, assistant),
+  My Thread (6 — a NEW help route linked from You: sign in, ticket and
+  check-in code, calendar, install and offline, memberships, purchases).
+- Blurbs that had gone stale were corrected (Settings in Members and The
+  Fibre; Flow's three; Check-in and Invoices rows added where the sidebar had
+  them and Help did not).
+
+### Changed
+- **The website's tools page** carries Models with its own entry, and the
+  other tools' bullets say what shipped in the last two weeks (to-do lists
+  with links, My Thread as an installable portal with an offline ticket, the
+  assistant connector at mcp.thefibre.app, Meet's share and archive, the
+  calendar Free-blocks switch, Members embeds, closed sign-ups, certificates
+  on the participant's page). "Four tools in its service" is five. One claim
+  came out: "Zoom or your own room on every booking" — Zoom is not live yet;
+  it is a Google Meet room or your own link.
+
+### Noted, not fixed here
+- My Thread has no string catalog at all, so its Help is English only, like
+  the rest of the portal.
+- The Thread's calendar-change bar and Members' Invoice/Comped radios are
+  hard-coded English; the manuals name them in English in every locale.
+- Organisation merge exists server-side (v1.8.0) but has no page in the
+  web app, so it is not in the manual.
+
 ## [1.76.2] — 2026-09-27 — picking "Meeting poll" now opens a meeting poll (Meet 2.15.1)
 
 The "+ New" menu passes `event_type=poll` in the URL, and the page it opens
