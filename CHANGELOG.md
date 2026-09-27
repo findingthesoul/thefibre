@@ -6,6 +6,61 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.83.0] — 2026-09-27 — a template keeps the price (staging)
+
+Sjoerd: *"Template for threads: settings also need to be in it (pricing,
+image, etc.)"*
+
+The image was already there, and so were the intention, timezone, language,
+approval, capacity, registration fields, payment methods and certificate
+settings. **Pricing was there only in its legacy form.** `price_cents` is the
+single price a thread had before tickets existed; once a thread HAS tickets
+they *are* its pricing, because `effectivePrice` takes the lowest active one.
+So a template of a properly priced thread produced a thread reading **Free** —
+every setting he could see carried across, and the one that decides what
+people pay did not.
+
+**Categories travel as slugs, not ids.** A template can be shared into
+another workspace, and `thread_category` is workspace-scoped with
+`unique (workspace_id, slug)`. An id would either break a foreign key or —
+worse — name a different workspace's category. The slug is resolved in the
+applying workspace, and one that does not exist there is **skipped rather
+than created**: a template somebody imported should not be able to invent
+categories in their workspace.
+
+**A ticket's sales deadline is deliberately left behind.** `available_until`
+is an absolute date belonging to one run. A template applied three months
+later would arrive with a deadline already past and a ticket nobody can buy,
+which reads as "the template is broken". Discount codes stay out entirely for
+the same reason — a code with an expiry and an allowance belongs to a
+specific run, not to the shape of the offer. (The DUPLICATE path does carry
+both, correctly: a duplicate is the same run again, a template is not.)
+
+### Two captured and then thrown away
+
+`facilitation_language` and `public_scope` have been written into every
+template since templates shipped, and ignored when one was applied. That is
+worse than never capturing them, because the stored template looked complete.
+`public_scope` decides a thread's public **address**, so losing it quietly
+republished a workspace-level thread under the organiser instead — a working
+link at the wrong URL, the same family as the participant-portal fix in
+1.39.1.
+
+### The test asserts the rule, not the line
+
+Capture and apply are two lists in two functions that have to agree, and
+nothing in the type system says so — every field is `unknown` on its way
+through jsonb, which is exactly how they drifted. The test names the rule
+(*everything a template stores must be restored*) and was verified by
+deleting the two apply lines and watching it go red.
+
+Written that way on purpose. Two days ago a test in this repo matched the
+implementation it found and so pinned a bug as though it were the intent —
+the "Sends the ticket" badge — where it could never have failed and failed
+the fix instead. A test whose assertion is copied from the code under it is
+not a test.
+
+
 ## [1.82.2] — 2026-09-27 — the commit message can't name a version it didn't ship
 
 `next-version.mjs` stamps sixteen files; the commit subject is typed by hand

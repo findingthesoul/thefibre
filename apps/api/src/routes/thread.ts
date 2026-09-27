@@ -2373,6 +2373,31 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
   const durationMin = (a: string | null, b: string | null) =>
     a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 60_000) : null;
 
+  // Tickets are THE pricing when a thread has them: effectivePrice takes the
+  // lowest active one, so a template that carried only `price_cents` produced
+  // a thread reading "Free" no matter how carefully the legacy price was
+  // copied. Sjoerd, 2026-09-25: *"Template for threads: settings also need to
+  // be in it (pricing, image, etc.)"* — the image was already there; this is
+  // the half that was missing, and it was the half he noticed.
+  const { data: srcTickets } = await adminClient
+    .from('thread_ticket')
+    .select('*')
+    .eq('thread_id', thread.id)
+    .order('position');
+
+  // Categories travel as SLUGS, not ids. A template can be shared into
+  // another workspace (thread_template_share) and thread_category is
+  // workspace-scoped with unique (workspace_id, slug) — so an id from the
+  // source workspace either fails a foreign key or, worse, names a different
+  // category. The slug is resolved against the APPLYING workspace, and one
+  // that does not exist there is skipped rather than created: inventing
+  // categories in somebody's workspace from a template they imported is not
+  // something a template should be able to do.
+  const { data: srcCats } = await adminClient
+    .from('thread_thread_category')
+    .select('category:category_id (slug)')
+    .eq('thread_id', thread.id);
+
   const structure = {
     version: 1,
     format: prog?.format ?? 'event',
@@ -2392,6 +2417,28 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
     certificate_enabled: thread.certificate_enabled,
     certificate_criteria: thread.certificate_criteria,
     certificate_template_id: thread.certificate_template_id,
+    tickets: (srcTickets ?? []).map((t) => ({
+      name: t.name,
+      description: t.description,
+      price_cents: t.price_cents,
+      price_currency: t.price_currency,
+      quantity_limit: t.quantity_limit,
+      payment_methods: t.payment_methods,
+      is_active: t.is_active,
+      position: t.position,
+      // `available_until` is deliberately NOT carried. It is an absolute
+      // date belonging to one run; a template applied three months later
+      // would arrive with a sales deadline already in the past and a ticket
+      // nobody can buy. Same reasoning keeps discount codes out entirely —
+      // a code with an expiry and an allowance belongs to a specific run,
+      // not to the shape of the offer.
+    })),
+    category_slugs: (srcCats ?? [])
+      .map((r) => {
+        const c = Array.isArray(r.category) ? r.category[0] : r.category;
+        return (c as { slug?: string } | null)?.slug ?? null;
+      })
+      .filter(Boolean),
     duration_days:
       prog?.starts_on && prog?.ends_on
         ? Math.round((Date.parse(prog.ends_on) - Date.parse(prog.starts_on)) / 86_400_000)
@@ -2575,6 +2622,14 @@ threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
       intention: (st.intention as string) ?? null,
       timezone: (st.timezone as string) ?? 'Europe/Amsterdam',
       language: (st.language as string) ?? 'en',
+      facilitation_language: (st.facilitation_language as string) ?? null,
+      public_scope: (st.public_scope as string) ?? null,
+      // Both were captured into the template from the day it shipped and
+      // then dropped here, which is worse than never capturing them: the
+      // stored template looked complete. public_scope decides the thread's
+      // public ADDRESS, so losing it silently republished a workspace-level
+      // thread under the organiser instead.
+
       cover_url: (st.cover_url as string) ?? null,
       is_public_listed: false,
       requires_approval: !!st.requires_approval,
@@ -2595,6 +2650,40 @@ threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
     await adminClient.from('program').delete().eq('id', program.id);
     const status = tErr?.code === '23505' ? 409 : 500;
     return c.json({ error: tErr?.code === '23505' ? 'slug already taken' : tErr?.message }, status);
+  }
+
+  // Tickets, before the engagements: a thread's price should be right the
+  // moment it exists, not a step later.
+  const tplTickets = Array.isArray(st.tickets) ? (st.tickets as Record<string, unknown>[]) : [];
+  for (const t of tplTickets) {
+    await db.from('thread_ticket').insert({
+      workspace_id: ctx.workspaceId,
+      thread_id: thread.id,
+      name: t.name,
+      description: t.description ?? null,
+      price_cents: t.price_cents ?? 0,
+      price_currency: t.price_currency ?? 'EUR',
+      quantity_limit: t.quantity_limit ?? null,
+      payment_methods: t.payment_methods ?? null,
+      is_active: t.is_active ?? true,
+      position: t.position ?? 0,
+    });
+  }
+
+  // Categories by slug, resolved in THIS workspace. A slug with no match here
+  // is skipped — see the note where they are captured.
+  const tplSlugs = Array.isArray(st.category_slugs) ? (st.category_slugs as string[]) : [];
+  if (tplSlugs.length) {
+    const { data: cats } = await db
+      .from('thread_category')
+      .select('id, slug')
+      .eq('workspace_id', ctx.workspaceId)
+      .in('slug', tplSlugs);
+    if (cats?.length) {
+      await db
+        .from('thread_thread_category')
+        .insert(cats.map((c) => ({ thread_id: thread.id, category_id: c.id })));
+    }
   }
 
   await seedTemplateEngagements({
