@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.79.1] — 2026-09-27 — a release you abandoned can't send the version backwards
+
+The version files of a release that gets amended or dropped stay in the
+working tree, uncommitted, and in a shared checkout that looks exactly like a
+release in progress. A v1.60.0 release was amended on 2026-09-25 and left
+every manifest stamped 1.60.1; they were still sitting there two days and
+seventeen releases later. One `git add -A`, or one release run from that
+checkout, and every manifest plus the sidebar footer would have gone from
+1.77.0 back to 1.60.1 — in a commit touching precisely the files a release
+touches.
+
+- **`scripts/check-version-residue.mjs`**, first step of `pnpm verify`:
+  refuses an uncommitted version stamp that is not strictly greater than the
+  released version on `origin/staging`. A live release stamps higher and
+  passes; residue is lower or equal and is refused. It judges only a manifest
+  whose version FIELD changed, so adding a dependency at the current number
+  is not a finding — a gate that misfires is a gate people route around.
+- Six tests against throwaway checkouts, including the mid-release case. The
+  first version of the script read the INDEX rather than the working tree,
+  which for an unstaged stamp is HEAD: it would have refused every release in
+  the repo while still catching the residue, for the wrong reason.
+- Handbook §10.w has the story.
+
 ## [1.79.0] — 2026-09-27 — what an Enterprise engagement costs before the subscription starts
 
 Sjoerd: *"for enterprise plan we should have a setup cost - and training

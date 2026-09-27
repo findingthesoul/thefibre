@@ -1139,6 +1139,34 @@ Retry once. If a third session hits it, the remote builder needs more
 memory rather than more retries — that is an infrastructure change and
 Sjoerd's call, not something to keep absorbing.
 
+### 10.w An abandoned release leaves its version stamp in the tree
+
+`next-version.mjs` stamps sixteen files and `release.sh` commits them. If
+the release is then amended, reset or simply dropped, **the stamp stays
+uncommitted in the working tree** — and in the shared main checkout that is
+indistinguishable, in `git status`, from a release in progress.
+
+On 2026-09-25 a v1.60.0 release was amended and left every manifest sitting
+at 1.60.1. They were still there on 2026-09-27, seventeen releases later.
+Anything that committed them — a release run from that checkout, or one
+`git add -A` — would have sent every manifest and the sidebar footer from
+1.77.0 back to 1.60.1, in a commit touching exactly the files a release
+touches. Nothing looked wrong for two days.
+
+`scripts/check-version-residue.mjs` now runs first in `pnpm verify` and
+refuses an uncommitted version stamp that is not strictly greater than the
+released version on `origin/staging`. That predicate is what makes it safe
+inside verify, which `release.sh` calls after stamping and before
+committing: a live release's stamp is higher and passes, residue is lower or
+equal and is refused. It only judges a manifest whose version FIELD changed,
+so adding a dependency at the current number is not a finding.
+
+Two lessons beyond the script. **A shared checkout's `git status` is not a
+diff of your own work** — fourteen modified manifests look like somebody
+mid-release, which is why nobody looked. And **the residue of a correct
+process is still a hazard**: nothing here was done wrong except failing to
+clean up after changing one's mind.
+
 ## 11. Testing
 
 Full rationale and roadmap: `docs/testing-approach.md`. This section is the
