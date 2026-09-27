@@ -66,7 +66,13 @@ export function authorizationServerMetadata(origin: string) {
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
-    token_endpoint_auth_methods_supported: ['none', 'client_secret_post', 'client_secret_basic'],
+    // Public clients only: we issue no client secrets, the token endpoint
+    // authenticates the code with PKCE. Advertising the confidential methods
+    // (which /register does not accept) made Claude register with
+    // client_secret_post — a method we named but refuse — and every
+    // connection died at "Couldn't register with … sign-in service" (Sjoerd,
+    // 2026-09-27, connecting Festival of Trust). Advertise only what we take.
+    token_endpoint_auth_methods_supported: ['none'],
     revocation_endpoint_auth_methods_supported: ['none'],
     scopes_supported: [...MCP_SCOPES],
     service_documentation: 'https://github.com/findingthesoul/thefibre/blob/main/docs/mcp-personal-access-plan.md',

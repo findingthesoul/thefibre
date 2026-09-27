@@ -558,10 +558,14 @@ oauthProviderRoutes.post('/register', async (c) => {
   if (redirectUris.length === 0 || !redirectUris.every(redirectUriAcceptable)) {
     return reject('invalid_redirect_uri', 'redirect_uris must be https, http on localhost, or a private-use scheme');
   }
-  const authMethod = typeof body.token_endpoint_auth_method === 'string' ? body.token_endpoint_auth_method : 'none';
-  if (authMethod !== 'none') {
-    return reject('invalid_client_metadata', 'only public clients (token_endpoint_auth_method=none) are registered here');
-  }
+  // We register PUBLIC clients only — no secret is issued, PKCE authenticates
+  // the code. A client that ASKS for a confidential method (Claude sends
+  // client_secret_post) is not refused: it is registered as public and the
+  // 'none' below tells it so, per RFC 7591 §3.2.1 (the server returns the
+  // metadata it actually registered, which the client adopts). Refusing here
+  // instead is what broke every Festival of Trust connection on 2026-09-27.
+  // A confidential client that truly cannot do PKCE will fail later, cleanly,
+  // at the token endpoint — not with an opaque "couldn't register".
   const name = (typeof body.client_name === 'string' && body.client_name.trim().slice(0, 120)) || 'An assistant';
   const metadata: Record<string, unknown> = {};
   for (const k of ['client_name', 'client_uri', 'logo_uri', 'software_id', 'software_version', 'contacts']) {

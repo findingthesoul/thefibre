@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.83.2] — 2026-09-28 — the connector can actually register (staging)
+
+Sjoerd, connecting Festival of Trust: every attempt died at "Couldn't register
+with Fibre's sign-in service", with a fresh reference each time.
+
+- **The discovery document promised auth methods the registration endpoint
+  refused.** `/.well-known/oauth-authorization-server` advertised
+  `token_endpoint_auth_methods_supported: ['none', 'client_secret_post',
+  'client_secret_basic']`, but `POST /oauth/register` accepted only `none`.
+  Claude read the metadata, registered with `client_secret_post` — a method we
+  had named — and we rejected it with a 400 the client showed as an opaque
+  "couldn't register". The metadata now advertises only `none`, which is what
+  we are: a public-client provider that issues no secrets and authenticates the
+  code with PKCE. A regression test asserts the two halves agree.
+- **Registration no longer refuses a client that asks for a secret method.**
+  Belt and braces: a client that still sends `client_secret_post` is registered
+  as public and told so in the response (RFC 7591 §3.2.1), rather than being
+  turned away. The soul.com connection worked all along because that client
+  happened to register as public; Festival of Trust hit the other path.
+
 ## [1.83.1] — 2026-09-27 — the e2e fixture is the account it says it is
 
 ### Fixed

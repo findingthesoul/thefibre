@@ -140,10 +140,34 @@ describe('discovery', () => {
     expect(as.registration_endpoint).toBe('https://x.test/api/v1/oauth/register');
     expect(as.code_challenge_methods_supported).toEqual(['S256']);
     expect(as.grant_types_supported).toEqual(['authorization_code', 'refresh_token']);
+    // Advertise ONLY what /register accepts. Naming client_secret_post here
+    // once made Claude register with it and every connection died at
+    // "Couldn't register" (2026-09-27). The metadata and the endpoint are two
+    // halves of one contract; this asserts they agree on the auth method.
+    expect(as.token_endpoint_auth_methods_supported).toEqual(['none']);
     const pr = protectedResourceMetadata('https://x.test');
     expect(pr.resource).toBe('https://x.test/api/v1/mcp');
     expect(pr.authorization_servers).toEqual(['https://x.test']);
     expect(pr.scopes_supported).toEqual([...MCP_SCOPES]);
+  });
+
+  it('registers a client that asks for client_secret_post as PUBLIC, not a refusal', async () => {
+    const { oauthProviderRoutes } = await import('../../routes/oauth-provider.js');
+    const res = await oauthProviderRoutes.request('/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        client_name: 'Claude',
+        redirect_uris: ['https://claude.ai/api/mcp/auth_callback'],
+        token_endpoint_auth_method: 'client_secret_post',
+      }),
+    });
+    expect(res.status).toBe(201);
+    const doc = (await res.json()) as { token_endpoint_auth_method: string; client_id: string };
+    // We hand back the method we actually registered — public — and the
+    // client adopts it (RFC 7591 §3.2.1). The old code returned 400 here.
+    expect(doc.token_endpoint_auth_method).toBe('none');
+    expect(doc.client_id).toMatch(/^mcp_/);
   });
 
   it('scopes are the reads plus the one write, and a client that names nothing gets reads only', async () => {
