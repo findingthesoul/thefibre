@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.78.0] — 2026-09-27 — Models off the website for now
+
+Sjoerd: *"Models can be taken off the website for now."* It is beta-gated,
+so the public page was ahead of who can open it. `fibre-models` joins the
+atelier's NOT_SHOWN set, the landing paragraph names four tools in The
+Thread's service again, and the count reads four. Its copy stays in the
+page; taking it out of that set is the whole of putting it back.
+
 ## [1.77.0] — 2026-09-27 — every app has a manual, and the website knows the latest tools
 
 Sjoerd, before Zoom: *"update all manuals for end users (help) for all apps..

@@ -20,7 +20,7 @@ import { StartButton } from '@/components/start-dialog';
 export const metadata: Metadata = {
   title: 'The atelier',
   description:
-    'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Connect, Models.',
+    'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Connect.',
 };
 
 // The tools shown, in the canonical display order (derived since 2026-09-14;
@@ -43,7 +43,10 @@ export const metadata: Metadata = {
 // APP_DISPLAY_ORDER two days earlier and rendered here as a bare name and
 // tagline, because a tool with no entry in PROBLEMS/FEATURES still renders —
 // it just says nothing. Beta in the catalogue; the copy says so.
-const NOT_SHOWN = new Set<AppId>(['fibre-platform', 'fibre-learn', 'fibre-flow']);
+// fibre-models: off the website for now (Sjoerd, 2026-09-27: "Models can be
+// taken off the website for now") — it is beta-gated; its copy stays below so
+// removing it from this set is the whole of putting it back.
+const NOT_SHOWN = new Set<AppId>(['fibre-platform', 'fibre-learn', 'fibre-flow', 'fibre-models']);
 const TOOL_ORDER: AppId[] = APP_DISPLAY_ORDER.filter((slug) => !NOT_SHOWN.has(slug));
 
 // The recognisable problem each tool answers (Sjoerd, 2026-09-08): the
@@ -165,7 +168,7 @@ export default function AtelierPage() {
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-subtle">
           We host gatherings ourselves — festivals, fellowships, courses. The atelier is the set
-          of tools we built because we needed them: one for the journey itself, and five in its
+          of tools we built because we needed them: one for the journey itself, and four in its
           service. They share one foundation, one contact book, one honest ledger — so the work
           flows between them without you carrying it.
         </p>

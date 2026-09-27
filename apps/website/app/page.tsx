@@ -220,10 +220,8 @@ export default async function Home() {
               appointments with people and groups, easily.{' '}
               <span className="font-semibold text-ink">Members</span> organises people into
               memberships — groups and subgroups, engagement, the whole administration.{' '}
-              <span className="font-semibold text-ink">Pulse</span> keeps the money side honest,{' '}
-              <span className="font-semibold text-ink">Connect</span> the relationships, and{' '}
-              <span className="font-semibold text-ink">Models</span> the plan behind it
-              all.
+              <span className="font-semibold text-ink">Pulse</span> keeps the money side honest, and{' '}
+              <span className="font-semibold text-ink">Connect</span> the relationships.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-ink-muted">
               More tools are still on the workbench.
