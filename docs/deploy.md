@@ -297,11 +297,22 @@ Meet creates a real Zoom meeting for any meeting type set to Zoom. It needs a
    (staging: the same path on the staging API host).
 3. Scopes (granular): `meeting:write:meeting`, `meeting:update:meeting`,
    `meeting:delete:meeting`, `user:read:user`.
-4. Copy the Client ID + Secret, then:
+4. Copy the Client ID + Secret, then set them STAGED (a live `fly secrets
+   set` restarts the machine; staged ones ride the next blue-green deploy)
+   and deploy through the guard. Read the values with `read -s` so they
+   never land in a shell history or a chat:
 
 ```bash
-fly secrets set ZOOM_CLIENT_ID="…" ZOOM_CLIENT_SECRET="…"
+read -rs -p "ZOOM_CLIENT_ID: " ZOOM_CLIENT_ID; echo
+read -rs -p "ZOOM_CLIENT_SECRET: " ZOOM_CLIENT_SECRET; echo
+fly secrets set --stage ZOOM_CLIENT_ID="$ZOOM_CLIENT_ID" ZOOM_CLIENT_SECRET="$ZOOM_CLIENT_SECRET"   # add -c fly.staging.toml for staging
+./scripts/deploy-api.sh prod --probe "https://thefibre-api.fly.dev/api/v1/meet/zoom/auth-callback | "   # or staging
 ```
+
+   Create the app under the account that will own it for good (Solidarity
+   Lab, on a role address — decided 2026-09-24); development mode is enough
+   until a host outside that Zoom account needs to connect
+   (docs/zoom-marketplace-submission.md).
 
 Until those secrets exist, Settings → Integrations shows Zoom as "not set up
 on this server" and the Zoom option in the meeting-type form stays
