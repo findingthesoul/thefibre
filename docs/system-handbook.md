@@ -1167,6 +1167,29 @@ mid-release, which is why nobody looked. And **the residue of a correct
 process is still a hazard**: nothing here was done wrong except failing to
 clean up after changing one's mind.
 
+### 10.v The commit subject is a version surface, and nothing stamped it
+
+`next-version.mjs` stamps sixteen files. The commit message is typed by hand
+BEFORE it, so when a lost race moves the number, `--amend` restamps every file
+and cannot reach the subject line — and git history then names a version the
+commit did not ship, permanently.
+
+Four of the last 120 release commits on `staging`: e06f90ab says `v1.76.0` and
+shipped 1.79.0, 63b68e40 says v1.75.1 and shipped 1.76.1, plus 61d3f61b and
+a873ac56. All recent, because renumbering only became routine once several
+sessions released in one day. The CHANGELOG is right in every case, which is
+why it stayed invisible — the mismatch exists only between two places nobody
+compares. It bites when someone asks which commit shipped a version: the
+answer read off `git log` is the wrong commit.
+
+`release.sh` now refuses a commit whose subject names a version other than
+the one being released, and says to `git commit --amend`. A subject that
+names no version — a docs commit — is ignored.
+
+The same drift reaches the ANNOUNCEMENT: a session said `RELEASING NOW
+v1.81.0` and landed 1.82.0 on 2026-09-27. Nothing can gate a message, so say
+the number again in `released <sha>` and treat the first one as provisional.
+
 ## 11. Testing
 
 Full rationale and roadmap: `docs/testing-approach.md`. This section is the

@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.82.2] — 2026-09-27 — the commit message can't name a version it didn't ship
+
+`next-version.mjs` stamps sixteen files; the commit subject is typed by hand
+before it, so a lost race renumbers everything except the message. Four of the
+last 120 release commits on staging name the wrong version — e06f90ab says
+v1.76.0 and shipped 1.79.0, 63b68e40 says v1.75.1 and shipped 1.76.1, plus
+61d3f61b and a873ac56. The CHANGELOG is right every time, so the mismatch is
+invisible until somebody asks which commit shipped a version and reads the
+wrong answer off `git log`.
+
+- **`release.sh` now gates the commit subject** against the number it is
+  releasing, alongside the manifests, `version.ts` and the CHANGELOG heading
+  it already checked, and says to `git commit --amend`. A subject that names
+  no version is ignored, so docs commits are unaffected.
+- Handbook §10.v, including the same drift in the RELEASING NOW announcement,
+  which no script can gate.
+
 ## [1.82.1] — 2026-09-27 — an amend keeps its own version number
 
 My fix on 09-25 taught `next-version.mjs` to read HEAD as well as origin, so

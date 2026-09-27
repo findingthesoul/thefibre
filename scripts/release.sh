@@ -55,6 +55,40 @@ grep -q "^## \[$V\]" CHANGELOG.md || {
   echo "REFUSED: CHANGELOG.md has no [$V] heading" >&2
   exit 1
 }
+
+# ── The commit subject is a version surface too ─────────────────────────────
+#
+# Every other surface is stamped by `next-version.mjs`. The commit message is
+# typed by hand BEFORE it, and when a lost race moves the number `--amend`
+# restamps sixteen files and cannot reach the subject line. So git history
+# ends up naming a version the commit did not ship, permanently: e06f90ab says
+# "v1.76.0" and shipped 1.79.0; 63b68e40 says v1.75.1 and shipped 1.76.1; also
+# 61d3f61b and a873ac56. Four in the last 120 release commits, all recent,
+# because renumbering only became routine when several sessions started
+# releasing in one day.
+#
+# It matters when somebody asks which commit shipped a version — the answer
+# read off `git log` is the wrong commit, and the number they wanted is on a
+# commit three releases later. The CHANGELOG is right, so the mismatch is
+# invisible until the two are compared.
+#
+# Docs commits and anything not announcing a version are ignored: this fires
+# only on a subject that NAMES one.
+subject=$(git log -1 --format=%s)
+said=$(printf '%s' "$subject" | grep -oE '^v[0-9]+\.[0-9]+\.[0-9]+' | tr -d v || true)
+if [ -n "${said:-}" ] && [ "$said" != "$V" ]; then
+  echo "REFUSED: the commit subject says v$said, this release is $V" >&2
+  echo "  $subject" >&2
+  echo >&2
+  echo "  The stamper moved the number after you wrote the message (a lost race," >&2
+  echo "  usually). Every file agrees on $V and only the subject does not, so git" >&2
+  echo "  history would name a version this commit did not ship." >&2
+  echo >&2
+  echo "      git commit --amend    # put $V in the subject, then re-run" >&2
+  echo >&2
+  exit 1
+fi
+
 # Two Claude sessions share this working tree as a matter of course, so a
 # fully clean tree is the wrong bar — the OTHER session's in-flight files
 # would block a sealed release (and push people around this script, which
