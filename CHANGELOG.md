@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.76.1] — 2026-09-27 — the tool is called Models
+
+Sjoerd, of the app switcher: *"not Business Models"*.
+
+Every other tool in the family is named for what it does in one word — Meet,
+Flow, Pulse, Members, Connect. "Business Models" read like a category sitting
+among them rather than a thing you open. The tagline still says what kind of
+models these are, which is where the explaining belongs.
+
+Renamed in `branding.ts`, which is the source: `sync-app-names.mjs` mirrors it
+into `public.app.name`, and `pnpm verify` refuses a release while the two
+disagree. Applied to both databases, because the DATABASE name is what a
+screen shows when it renders `app:app_id (slug, name)` — leaving it would have
+renamed the switcher and left the old name on the activity trail and the teams
+page.
+
+Also updated where the old name was written out by hand: the no-access page
+and the definition guide the assistant reads.
+
 ## [1.76.0] — 2026-09-27 — the connector is an address you can say out loud (staging)
 
 Sjoerd, connecting his own Claude to The Fibre: *"they need the link too no?

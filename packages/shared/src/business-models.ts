@@ -107,14 +107,14 @@ export const MODEL_QUESTIONS: readonly string[] = [
  *  underneath. Used verbatim by the app's dialog and by the MCP prompt. */
 export function storyPromptText(story?: string, name?: string): string {
   return [
-    `Turn the story below into a business model definition for the Business Models app in The Fibre${name ? `, called "${name}"` : ''}. Work in this order.`,
+    `Turn the story below into a business model definition for the Models app in The Fibre${name ? `, called "${name}"` : ''}. Work in this order.`,
     '',
     '1. Read the story. List the turnover generators you see (every way money comes in), the segments that pay, the costs that belong to each generator, the generic fixed costs, and the investment.',
     '2. Ask me, in ONE message, only the questions the story leaves open. Do not ask what it already answers. The things a model needs:',
     ...MODEL_QUESTIONS.map((q) => `   - ${q}`),
     '   Where I do not know, propose a plausible placeholder and mark it as yours.',
     '3. After my answers, produce ONE JSON object in the format below, and nothing after it. Every number is a placeholder; say what each means in its help text.',
-    '4. I paste it into Business Models → New business model → "Paste a definition (JSON)", or you create it with models_create if you are connected through The Fibre.',
+    '4. I paste it into Models → New business model → "Paste a definition (JSON)", or you create it with models_create if you are connected through The Fibre.',
     '',
     'Security checks, when you are connected through The Fibre:',
     '- Before you create or change anything, say which model (its name) and which team it is in, and what will change, and wait for my yes.',

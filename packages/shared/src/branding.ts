@@ -233,7 +233,13 @@ export const APPS: Record<AppId, AppBrand> = {
     // even and the Business Model Canvas. Available since 2026-09-26, when
     // models.thethread.app began to serve; still a beta app in the catalogue
     // (beta_at, no released_at), so only plans with beta apps can switch it on.
-    name: 'Business Models',
+    // "Models", not "Business Models" (Sjoerd, 2026-09-27, of the app
+    // switcher: *"not Business Models"*). Every other tool in the family is
+    // named for what it does in one word — Meet, Flow, Pulse, Members,
+    // Connect — and the long form read like a category beside them. The
+    // tagline still says what kind of models these are, which is where the
+    // explaining belongs.
+    name: 'Models',
     shortName: 'Models',
     brandLetters: 'bm',
     tagline: 'Turnover, costs and break even, on one canvas.',
