@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.82.1] — 2026-09-27 — an amend keeps its own version number
+
+My fix on 09-25 taught `next-version.mjs` to read HEAD as well as origin, so
+a peer's committed-but-unpushed release could not be handed out twice. It
+read one commit too many: `--amend` re-stamps the commit that IS HEAD, and
+that commit carries the number the run is meant to REUSE. Every amend
+therefore stepped over its own allocation — a session announced 1.81.0,
+re-ran with `--amend`, and shipped 1.82.0.
+
+An amend now reads `HEAD~1`. The distinction is not local-versus-remote, it
+is MINE-versus-THEIRS: a peer's local commit must be stepped over, the one
+I am rewriting must not.
+
+Two tests, and both were checked by breaking the fix and watching the right
+one go red: an amend reuses its number and does not add a commit, and a
+peer's local number is still stepped over — the original bug, which the fix
+must not undo.
+
 ## [1.82.0] — 2026-09-27 — the wrong workspace is named, and the anon floor covers every table
 
 The third stress round, from v1.77.0 (`docs/stress-test-2026-09-27.md`).

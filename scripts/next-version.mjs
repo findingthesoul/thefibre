@@ -116,18 +116,29 @@ try {
 //
 // HEAD is the union of what origin has and what this checkout has committed
 // on top, so it answers both questions at once.
+//
+// EXCEPT when amending. `--amend` re-stamps the commit that is HEAD, and
+// that commit carries the number this run is supposed to REUSE — not one to
+// step over. Reading HEAD there made the script skip its own allocation
+// every time: a session announced 1.81.0, re-ran with --amend, and shipped
+// 1.82.0 (2026-09-27). So an amend asks HEAD~1 — everything taken by
+// somebody else, and nothing taken by the commit being rewritten.
+//
+// The distinction that matters is not local-vs-remote, it is MINE-vs-THEIRS:
+// a peer's local commit must be stepped over, my own in-flight one must not.
+const LOCAL_REF = AMEND ? 'HEAD~1' : 'HEAD';
 try {
-  const localHeadings = git('show', 'HEAD:CHANGELOG.md')
+  const localHeadings = git('show', `${LOCAL_REF}:CHANGELOG.md`)
     .split('\n')
     .map((l) => l.match(/^## \[(\d+\.\d+\.\d+)\]/)?.[1])
     .filter(Boolean)
     .sort(cmp)
     .at(-1);
   if (localHeadings && (!released || cmp(localHeadings, released) > 0)) released = localHeadings;
-  const localManifest = JSON.parse(git('show', 'HEAD:package.json')).version;
+  const localManifest = JSON.parse(git('show', `${LOCAL_REF}:package.json`)).version;
   if (localManifest && (!released || cmp(localManifest, released) > 0)) released = localManifest;
 } catch {
-  /* no local history to read — origin's answer stands */
+  /* no local history to read (or amending the first commit) — origin's answer stands */
 }
 
 if (!released) {

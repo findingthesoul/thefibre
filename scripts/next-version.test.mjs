@@ -93,6 +93,41 @@ describe('next-version', () => {
     );
   });
 
+  it('--amend REUSES its own number instead of stepping over it', () => {
+    // 2026-09-27: a session announced 1.81.0, re-ran with --amend, and
+    // shipped 1.82.0. Reading HEAD to find numbers a PEER had taken locally
+    // also found the number this very commit had just taken, so every amend
+    // burned a version. An amend must look at HEAD~1.
+    const work = repo('1.24.0', '## [NEXT] — a thing happened');
+    expect(run(work, 'minor').out).toContain('→ 1.25.0');
+    git(work, 'add', '.');
+    git(work, 'commit', '-qm', 'v1.25.0');
+
+    // Re-stamp the same commit: still 1.25.0, not 1.26.0.
+    const again = run(work, 'minor', '--amend');
+    expect(again.ok, again.out).toBe(true);
+    expect(again.out).toContain('→ 1.25.0');
+    expect(JSON.parse(readFileSync(join(work, 'package.json'), 'utf8')).version).toBe('1.25.0');
+    expect(git(work, 'log', '--oneline').split('\n')).toHaveLength(2);
+  });
+
+  it("still steps over a PEER's committed-but-unpushed number", () => {
+    // The bug the HEAD read exists for, and which the amend fix must not
+    // undo: origin is behind, somebody else's release sits on top locally.
+    const work = repo('1.24.0', '## [NEXT] — theirs');
+    expect(run(work, 'minor').out).toContain('→ 1.25.0');
+    git(work, 'add', '.');
+    git(work, 'commit', '-qm', 'v1.25.0 by a peer');
+
+    // A fresh entry of MY own, no --amend: must not reuse their 1.25.0.
+    const log = readFileSync(join(work, 'CHANGELOG.md'), 'utf8');
+    writeFileSync(
+      join(work, 'CHANGELOG.md'),
+      log.replace('## [Unreleased]\n', '## [Unreleased]\n\n## [NEXT] — mine\n'),
+    );
+    expect(run(work, 'minor').out).toContain('→ 1.26.0');
+  });
+
   it('bumps patch and major on request', () => {
     expect(run(repo('1.24.3', '## [NEXT]'), 'patch').out).toContain('→ 1.24.4');
     expect(run(repo('1.24.3', '## [NEXT]'), 'major').out).toContain('→ 2.0.0');
