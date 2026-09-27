@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.76.2] — 2026-09-27 — picking "Meeting poll" now opens a meeting poll (Meet 2.15.1)
+
+The "+ New" menu passes `event_type=poll` in the URL, and the page it opens
+validated that against its own copy of the event-type list — the four values
+that existed before `one_off` and `poll` shipped in May. An unrecognised value
+falls back, so choosing Meeting poll silently opened a one-on-one form. Spotted
+by another session while writing Meet's end-user manual, which is a good sign
+about writing manuals.
+
+That is the THIRD place the same stale list of four turned up. The other two
+were the database's `event_type` CHECK and `team_only_multihost`, both widened
+yesterday. So this one is not widened — it is deleted. The page now validates
+against `EVENT_TYPES`, the list the menu itself is built from, and a seventh
+event type cannot drift away from it.
+
+### Added
+- A test that the event types Meet OFFERS and the ones the API ACCEPTS are the
+  same set, reading each list as source text. Both were already correct; that
+  is the point — nothing fails until somebody picks the new one and gets a 400
+  at save, which is precisely how the first two went unnoticed for four months.
+  Verified by breaking one list on purpose and watching it fail, not only by
+  watching it pass.
+
 ## [1.76.1] — 2026-09-27 — the tool is called Models
 
 Sjoerd, of the app switcher: *"not Business Models"*.
