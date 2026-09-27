@@ -1324,7 +1324,7 @@ _(Resend rotated; Stripe Connect onboarded.)_
 
 - [x] **Tighten CORS** in `apps/api/src/server.ts` — done in v0.13.17. Allowlist covers the 5 thefibre.app subdomains, local dev (3000/3001/3002), opt-in `CORS_ORIGINS` env, and our own `*.vercel.app` previews. Unknown origins get no `Access-Control-Allow-Origin` header (browser blocks). Server-to-server (Stripe webhook, Supabase Send Email Hook) unaffected.
 - [ ] **Custom API domain** — `fly certs add api.thefibre.app --config fly.toml`, add the CNAME at the registrar, then update Vercel's `NEXT_PUBLIC_API_BASE_URL` and redeploy. (Web is already at `thefibre.app`.)
-- [ ] **MCP connector DNS (Sjoerd)** — the code answers at the root of `mcp.thefibre.app` / `mcp.thefibre.tech` since v1.76 (2026-09-27) and Settings → Assistant prints those addresses; they resolve only once `fly certs add` has run on both APIs and the two CNAMEs exist at the registrar (docs/deploy.md "Custom domain"). Until then, set `NEXT_PUBLIC_MCP_URL` on Vercel to the Fly address or the printed link is dead.
+- [x] **MCP connector DNS** — DONE 2026-09-27: Sjoerd ran `fly certs add` on both APIs and added the CNAME + `_fly-ownership` TXT at TransIP; both certificates issued within minutes and `https://mcp.thefibre.app` / `https://mcp.thefibre.tech` answer the connector at the root (v1.76.0, promoted the same day). Procedure kept in docs/deploy.md "Custom domain".
 - [ ] **Supabase Auth redirect URLs** — confirm `https://thefibre.app/**` and `https://*.thefibre.app/**` are listed (sign-in already works, so likely fine — verify).
 
 ---
