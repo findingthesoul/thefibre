@@ -219,7 +219,11 @@ export default async function Home() {
               <span className="font-semibold text-ink">Meet</span> is the planning tool: schedule
               appointments with people and groups, easily.{' '}
               <span className="font-semibold text-ink">Members</span> organises people into
-              memberships — groups and subgroups, engagement, the whole administration.
+              memberships — groups and subgroups, engagement, the whole administration.{' '}
+              <span className="font-semibold text-ink">Pulse</span> keeps the money side honest,{' '}
+              <span className="font-semibold text-ink">Connect</span> the relationships, and{' '}
+              <span className="font-semibold text-ink">Business Models</span> the plan behind it
+              all.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-ink-muted">
               More tools are still on the workbench.

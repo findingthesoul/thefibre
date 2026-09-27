@@ -10,6 +10,7 @@
 // workspace sees. A member has none of that. What they have is a name that
 // several communities hold copies of, and a language.
 
+import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { ENTITY, surfaceUrl } from '@thefibre/shared';
 import { headers } from 'next/headers';
@@ -111,8 +112,16 @@ export default async function YouPage() {
         </a>
       </div>
 
-      <div className="mt-8 border-t border-line pt-6">
+      <div className="mt-8 flex flex-wrap items-center gap-x-6 border-t border-line pt-6">
         <SignOutButton />
+        {/* The manual, one link, beside the way out: both are things you look
+            for once rather than live in. */}
+        <Link
+          href="/help"
+          className="min-h-11 inline-flex items-center text-sm text-ink-subtle underline underline-offset-4 hover:text-ink"
+        >
+          Help
+        </Link>
       </div>
 
       <p className="mt-12 text-xs text-ink-muted">

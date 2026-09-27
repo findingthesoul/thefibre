@@ -37,9 +37,30 @@ export type HelpSection = {
 /** An AppEntry from lib/available-apps.ts — apps this user can actually open. */
 export type HelpOtherApp = { slug: string; name: string; url: string };
 
+/** One "how to" — the manual, task by task (2026-09-27, Sjoerd: "update all
+ *  manuals for end users"). A title in the user's words, the steps in order,
+ *  and optionally the page where it happens. Content comes from each app's
+ *  catalog so it is translated like everything else; the steps arrive as
+ *  ONE catalog string split on newlines, so a guide costs two keys, not ten. */
+export type HelpGuide = {
+  title: string;
+  steps: string[];
+  /** App-relative route where this is done, shown as "Open →". */
+  href?: string;
+};
+
+/** Split a catalog string into steps: one per line, blanks dropped. */
+export function guideSteps(text: string): string[] {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
 export function HelpPage({
   appId,
   sections,
+  guides = [],
   otherApps,
   aboutHref,
   link: Link,
@@ -48,6 +69,9 @@ export function HelpPage({
   /** Which app this Help page belongs to. Supplies the name + tagline. */
   appId: AppId;
   sections: HelpSection[];
+  /** The manual: task-by-task guides, rendered between "getting around" and
+   *  the other apps. Optional so an app without content renders as before. */
+  guides?: HelpGuide[];
   /** Everything from buildAppList(); the current app is filtered out here. */
   otherApps: HelpOtherApp[];
   /** Where "How The Fibre works" lives — relative on the platform, absolute elsewhere. */
@@ -85,6 +109,36 @@ export function HelpPage({
           ))}
         </ul>
       </section>
+
+      {/* ---------------------------------------------------------- */}
+      {guides.length > 0 && (
+        <section className="mt-12">
+          <SectionLabel>{serverChromeT(locale, 'help_how_to')}</SectionLabel>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {guides.map((g) => (
+              <article
+                key={g.title}
+                className="flex flex-col rounded-lg border border-line bg-surface-raised p-4"
+              >
+                <h3 className="text-sm font-medium text-ink">{g.title}</h3>
+                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-ink-subtle">
+                  {g.steps.map((step, i) => (
+                    <li key={i}>{step}</li>
+                  ))}
+                </ol>
+                {g.href && (
+                  <Link
+                    href={g.href}
+                    className="mt-3 inline-block text-sm font-medium text-ink underline-offset-4 hover:underline"
+                  >
+                    {serverChromeT(locale, 'help_open')} &rarr;
+                  </Link>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ---------------------------------------------------------- */}
       <section className="mt-12">

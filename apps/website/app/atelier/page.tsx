@@ -20,7 +20,7 @@ import { StartButton } from '@/components/start-dialog';
 export const metadata: Metadata = {
   title: 'The atelier',
   description:
-    'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Connect.',
+    'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Connect, Business Models.',
 };
 
 // The tools shown, in the canonical display order (derived since 2026-09-14;
@@ -39,7 +39,10 @@ export const metadata: Metadata = {
 //
 // Connect joined on 2026-09-24 — it had been held back as "not on the
 // product page yet" since before it was live, and has been in production
-// since 2026-09-13.
+// since 2026-09-13. Business Models joined on 2026-09-27: it entered
+// APP_DISPLAY_ORDER two days earlier and rendered here as a bare name and
+// tagline, because a tool with no entry in PROBLEMS/FEATURES still renders —
+// it just says nothing. Beta in the catalogue; the copy says so.
 const NOT_SHOWN = new Set<AppId>(['fibre-platform', 'fibre-learn', 'fibre-flow']);
 const TOOL_ORDER: AppId[] = APP_DISPLAY_ORDER.filter((slug) => !NOT_SHOWN.has(slug));
 
@@ -76,25 +79,35 @@ const PROBLEMS: Record<string, { problem: string; solved: string }> = {
     solved:
       'The landscape of everybody around the work, kept honestly: people and organisations, how they are connected, what was actually said. Follow-ups become to-dos instead of good intentions, and nothing asks you to call a relationship a pipeline.',
   },
+  'fibre-models': {
+    problem:
+      'The business model lives in a spreadsheet only one person understands. Change a price and nothing else moves; ask when you break even and the answer is a week of formulas. The story of the venture is in a deck, the numbers are somewhere else, and the two have never been introduced.',
+    solved:
+      'One canvas with the numbers in it. The Business Model Canvas you edit — segments, streams, resources, costs — and underneath, the variables you turn: every keystroke moves break even, cash and the years ahead. Your team works the same model together, and a story told to your own assistant becomes a model you can open.',
+  },
 };
 
 const FEATURES: Record<string, string[]> = {
   'the-thread': [
     'A timeline editor for the whole journey — sessions, one-to-ones, messages, reflection, practice: eight kinds of engagement, arranged like a score',
-    'Public enrolment pages that need no login, in six languages',
+    'Public enrolment pages that need no login, in six languages — or a page that stays live while sign-ups are closed, when a membership fills the thread instead',
     'Tickets, discount codes, approval flows — payment by card or by invoice',
     'Messages that send themselves: on enrolment, on approval, on completion, or at exactly the right moment',
-    'Certificates — designed, issued, verified, shared to LinkedIn',
-    'A personal portal for every participant: their whole trail, their materials, what comes next',
+    'Certificates — designed, issued, verified, shared to LinkedIn, and waiting on the participant’s own page',
+    'A to-do list on every thread, dated from its start, each item linking to where the work actually lives — from a checklist template if you keep one. What is assigned to you follows you into every tool',
+    'A personal portal for every participant: their whole trail, their materials, their tickets, what comes next — and a calendar subscription, so a session that moves, moves in their calendar too',
     'Embeds for your own website; thread templates so the next edition starts warm',
+    'Paste a schedule into your own assistant and it drafts the thread for you — every item a draft until you publish',
   ],
   'fibre-meet': [
-    'Booking pages for you and your team — meeting types, availability, one link',
+    'Booking pages for you and your team — meeting types, availability, one link, shared straight from the editor',
     'Fair rotation across facilitators, so the load spreads honestly',
-    'Google Calendar connected; Zoom or your own room on every booking',
+    'Google Calendar connected — a Google Meet room or your own room link on every booking; blocks you marked Free can count as busy, if you say so',
     'Group polls when the time has to suit everyone',
-    'Paid sessions when your time is the offer — card checkout built in',
-    'Invitations and an internal-team view that tells the truth',
+    'Paid sessions when your time is the offer — by card, or by invoice with the booking confirmed at once',
+    'Reschedule and cancel from the appointment and from every email; the calendar entry names who the meeting is with',
+    'Retire a meeting type without losing a booking — archive it, bring it back hidden',
+    'Invitations from your workspace’s own address, and an internal-team view that tells the truth',
   ],
   membership: [
     'Tiers, renewals, grace and lapse — the whole membership lifecycle, tended automatically',
@@ -103,6 +116,8 @@ const FEATURES: Record<string, string[]> = {
     'Access that follows membership: community spaces and accounts open when someone joins, close when they lapse',
     'A member portal for invoices, payment details and renewal',
     'Reminders in the community’s own voice, not a noreply',
+    'A tier can grant a thread, so members are enrolled automatically — while the thread’s page stays public and takes no sign-ups of its own',
+    'On your own website: the whole join page, the tier cards alone, or a join popup over the page you already have',
   ],
   'fibre-pulse': [
     'Cashflow as a plan, not a surprise — money in, money out, visible before it happens',
@@ -116,7 +131,21 @@ const FEATURES: Record<string, string[]> = {
     'The conversation kept with the person it belongs to — notes, hashtags, who introduced whom',
     'Follow-ups that become to-dos, so a promise made in a corridor survives the week',
     'Built for a phone: the person in front of you, not a table you have to zoom',
-    'Your own assistant can reach it, with your permission and nobody else’s',
+    'Today: the day’s meetings with a way in — the video call opens its app, a place opens Maps — and a write-up that opens already filled in when you click one',
+    'To-dos from your threads land on Today, beside the follow-ups you owe',
+    'Two records of one person merged into one — blanks filled, nothing overwritten, and an undo',
+    'Your own Claude, connected at mcp.thefibre.app — on the web or the desktop — reads it as you, with your permission and nobody else’s',
+  ],
+  'fibre-models': [
+    'The Business Model Canvas, editable — each block’s statements linked to the turnover and cost items they stand for',
+    'Turnover generators with their own volume, price and costs; fixed costs that step by month or grow with the numbers; one-off investment; a reserve that builds up',
+    'Break even, funding need and cash, month by month and per year — every number moves as you type',
+    'A funnel between segments, new clients typed per month, and prices that step: band tables for licences, volume discounts and brackets',
+    'Scenarios saved side by side and compared on break even, funding and cash — and an undo fifty deep',
+    'Per team: the people you give access see the model and turn the dials; leads and admins shape it',
+    'Print the canvas as a Business Model Canvas; export the projection as CSV',
+    'Tell your own assistant the story and it drafts the model — two people and two assistants on one canvas take turns, never overwriting each other',
+    'In beta: a workspace on a plan with early access to new apps can switch it on today',
   ],
 };
 
@@ -136,7 +165,7 @@ export default function AtelierPage() {
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-subtle">
           We host gatherings ourselves — festivals, fellowships, courses. The atelier is the set
-          of tools we built because we needed them: one for the journey itself, and four in its
+          of tools we built because we needed them: one for the journey itself, and five in its
           service. They share one foundation, one contact book, one honest ledger — so the work
           flows between them without you carrying it.
         </p>
@@ -238,7 +267,7 @@ export default function AtelierPage() {
           trail, one ledger. Your to-dos gather there too — a follow-up written in Connect and a
           task set on a thread arrive in the same list, in whichever tool you happen to have open.
           Flows run underneath as well: the paths people travel through a programme are a building
-          block every tool can use, rather than a sixth thing to learn. Hosted in the EU, private
+          block every tool can use, rather than one more thing to learn. Hosted in the EU, private
           by construction — your guests&apos; data is theirs, and export and erasure actually work.
           Embeds for your own website, an API for your developers.{' '}
           <a href="https://thefibre.app" className="underline underline-offset-4 hover:text-ink">

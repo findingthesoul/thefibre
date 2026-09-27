@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { appName, appUrl } from '@thefibre/shared';
-import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
+import { HelpPage, guideSteps, type HelpGuide, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { uiLocale } from '@/lib/locale';
-import { t, type Locale } from '@/lib/i18n-ui';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export const metadata = { title: `Help — ${appName('fibre-meet')}` };
 
@@ -54,6 +54,33 @@ function sections(locale: Locale): HelpSection[] {
   ];
 }
 
+// The manual (2026-09-27): task-by-task, in the order a new host meets
+// things — page + hours, calendar, first meeting type, where it happens,
+// money, vetting, daily bookings, teams, polls, retiring. Every string comes
+// from the catalog; the steps are one string split on newlines.
+const GUIDES = [
+  { slug: 'booking_page', href: '/settings/profile' },
+  { slug: 'google_calendar', href: '/settings/integrations' },
+  { slug: 'create_mt', href: '/meeting-types/new' },
+  { slug: 'where', href: '/settings/integrations' },
+  { slug: 'charge', href: '/settings/payments' },
+  { slug: 'intake_approval', href: '/meeting-types' },
+  { slug: 'bookings', href: '/bookings' },
+  { slug: 'team', href: '/teams' },
+  { slug: 'poll', href: '/meeting-types/new' },
+  { slug: 'retire', href: '/meeting-types' },
+] as const;
+
+function guides(locale: Locale): HelpGuide[] {
+  return GUIDES.map(({ slug, href }) => {
+    // Typed, not cast: a slug without both catalog keys fails typecheck here
+    // instead of crashing the page at runtime.
+    const titleKey: UiKey = `help_g_${slug}_title`;
+    const stepsKey: UiKey = `help_g_${slug}_steps`;
+    return { title: t(locale, titleKey), steps: guideSteps(t(locale, stepsKey)), href };
+  });
+}
+
 export default async function MeetHelpPage() {
   const locale = await uiLocale();
   let apps: { slug: string; name: string; url: string }[] = [];
@@ -75,6 +102,7 @@ export default async function MeetHelpPage() {
     <HelpPage
       appId="fibre-meet"
       sections={sections(locale)}
+      guides={guides(locale)}
       otherApps={apps}
       aboutHref={`${appUrl('fibre-platform', process.env)}/settings/about`}
       link={Link}

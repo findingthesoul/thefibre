@@ -272,6 +272,22 @@ const SERVER_CHROME = {
     de: 'Jede hat ihre eigene Hilfeseite, an derselben Stelle in der Seitenleiste. Du siehst diese Liste, weil diese Apps für den Workspace aktiviert sind und du Mitglied bist.', // MT
     fr: 'Chacune a sa propre page d’aide, au même endroit dans sa barre latérale. Tu vois cette liste parce que ces apps sont activées pour l’espace et que tu en es membre.', // MT
   },
+  help_how_to: {
+    en: 'How to',
+    nl: 'Zo doe je het',
+    es: 'Cómo hacerlo', // MT
+    pt: 'Como fazer', // MT
+    de: 'So geht’s', // MT
+    fr: 'Comment faire', // MT
+  },
+  help_open: {
+    en: 'Open',
+    nl: 'Openen',
+    es: 'Abrir', // MT
+    pt: 'Abrir', // MT
+    de: 'Öffnen', // MT
+    fr: 'Ouvrir', // MT
+  },
   help_read_more: {
     en: 'Read more',
     nl: 'Meer lezen',

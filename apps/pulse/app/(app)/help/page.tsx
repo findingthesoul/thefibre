@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { appName, appUrl } from '@thefibre/shared';
-import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
+import { HelpPage, guideSteps, type HelpGuide, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { headers } from 'next/headers';
 import { buildAppList } from '@thefibre/shared/available-apps';
@@ -30,6 +30,29 @@ function sections(locale: Locale): HelpSection[] {
   ];
 }
 
+// The manual — task by task, in the order a new organiser meets things
+// (rhythm → bank → income → costs → moving money → invoicing → reserves →
+// teams). Titles and steps come from the catalog; steps are one string per
+// guide, split on newlines by guideSteps.
+const GUIDES = [
+  { slug: 'rhythm', href: '/settings/planner' },
+  { slug: 'bank', href: '/cashflow' },
+  { slug: 'income', href: '/cashflow' },
+  { slug: 'budget', href: '/budget' },
+  { slug: 'retime', href: '/cashflow' },
+  { slug: 'invoice', href: '/cashflow' },
+  { slug: 'reserve', href: '/settings/planner' },
+  { slug: 'teams', href: '/teams' },
+] as const;
+
+function guides(locale: Locale): HelpGuide[] {
+  return GUIDES.map(({ slug, href }) => ({
+    title: t(locale, `help_g_${slug}_title`),
+    steps: guideSteps(t(locale, `help_g_${slug}_steps`)),
+    href,
+  }));
+}
+
 export default async function PulseHelpPage() {
   const locale = await uiLocale();
   let apps: { slug: string; name: string; url: string }[] = [];
@@ -51,6 +74,7 @@ export default async function PulseHelpPage() {
     <HelpPage
       appId="fibre-pulse"
       sections={sections(locale)}
+      guides={guides(locale)}
       otherApps={apps}
       aboutHref={`${appUrl('fibre-platform', process.env)}/settings/about`}
       link={Link}
