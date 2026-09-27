@@ -42,15 +42,21 @@ export default async function LandingPage() {
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
         <header>
-          {/* The 2026-09-21 lockup: the shape with the name under it. Square
-              art, so it is sized by height and keeps its own proportions. */}
+          {/* The MARK, not a lockup. Every lockup that exists — here and in
+              the brand drive — is the pre-2026-09-23 design, a navy block with
+              the words beneath it, from before the tiles lost the word. The
+              mark is what the tab, the launcher and the home screen show, so
+              the old lockup left these two pages wearing the previous brand
+              (Sjoerd, 2026-09-27, of the sign-in page: *"I saw the old logo
+              (with the block)"*). A new lockup would mean inventing the
+              typography; when a real one exists it replaces this. */}
           <Image
-            src="/brand/lockups/the-fibre.png"
+            src="/brand/apps/fibre.png"
             alt={BRAND_ASSETS.logoAlt}
-            width={900}
-            height={900}
+            width={512}
+            height={512}
             priority
-            className="h-28 w-auto"
+            className="h-28 w-28 rounded-2xl"
           />
           <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
             <span

@@ -13,13 +13,14 @@ export default function SignInPage() {
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-md px-6 py-20">
+        {/* The mark, not the old block-and-words lockup — see app/page.tsx. */}
         <Image
-          src="/brand/lockups/the-fibre.png"
+          src="/brand/apps/fibre.png"
           alt={FIBRE.name}
-          width={900}
-          height={900}
+          width={512}
+          height={512}
           priority
-          className="h-24 w-auto"
+          className="h-24 w-24 rounded-2xl"
         />
         <h1 className="mt-3 text-3xl font-medium tracking-tight leading-tight">
           Sign in

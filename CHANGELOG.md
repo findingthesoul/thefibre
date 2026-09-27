@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.74.1] — 2026-09-27 — the sign-in page stops wearing the previous brand
+
+Sjoerd, once the tab icon was right: *"For the login page I saw the old logo
+(with the block)"*.
+
+Both the sign-in page and The Fibre's landing page used
+`/brand/lockups/the-fibre.png` — the navy block with the words beneath it,
+dated 21 September, from before v0.129.0 took the word off the tiles. So the
+two pages a person sees BEFORE they are signed in were the last two still
+showing the previous brand, which is the worst place for it: they are the
+first impression, and the tab beside them already showed the new mark.
+
+They now show the mark itself, `/brand/apps/fibre.png` — the same file the
+tab, the launcher, the app switcher and the home-screen icon all resolve to.
+
+**No new lockup was composed, deliberately.** Every lockup in the repo and in
+the brand drive is the old design; making one with the current mark means
+choosing typography and spacing for a wordmark, which is a design decision and
+not a passing fix. The mark alone is correct today and needs nothing invented.
+When a real lockup exists it replaces this in two lines.
+
+Looked at, not assumed: rendered at /sign-in in a dev server and read the
+page. Its landing-page sibling could not be rendered in a worktree — it needs
+Supabase env the worktree has no copy of — so that one is a two-line change of
+the same kind, made and typechecked but not seen.
+
 ## [1.74.0] — 2026-09-27 — a reserve that builds up, and the "per" that was applied all along
 
 Sjoerd's briefing, second part: *"The app calculates month by month and
