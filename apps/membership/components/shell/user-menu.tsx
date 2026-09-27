@@ -41,7 +41,7 @@ export function UserMenu(props: {
         return {};
       }}
       onSignOut={async () => {
-        await browserSupabase().auth.signOut();
+        await browserSupabase().auth.signOut({ scope: 'local' });
         router.push('/');
         router.refresh();
       }}

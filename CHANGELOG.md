@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.80.0] — 2026-09-27 — signing out of a browser no longer disconnects your assistant (staging)
+
+Found while working out why Sjoerd's Claude lost The Fibre at 18:28 today.
+
+- **Sign out signs out this browser, not every session.** Every app's
+  sign-out called `supabase.auth.signOut()` with the default scope, which is
+  *global*: it revoked every session the person had, including the dedicated
+  one a connected assistant runs on — so signing out of The Thread on a phone
+  silently disconnected Claude on the desktop, and the next question was
+  answered with "sign in again". All twelve call sites now pass
+  `{ scope: 'local' }`. The shared cookie still signs the person out of every
+  Fibre app in that browser at once; other devices and connected assistants
+  stay signed in, which is what a sign-out button means.
+- **When a connection dies, the log says why.** The session-refresh refusal
+  that revokes a grant now logs Supabase's reason (`[mcp] grant … session
+  refresh refused — …`). Today's disconnection cannot be explained after the
+  fact because it did not.
+
 ## [1.79.1] — 2026-09-27 — a release you abandoned can't send the version backwards
 
 The version files of a release that gets amended or dropped stay in the

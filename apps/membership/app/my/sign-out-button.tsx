@@ -14,7 +14,7 @@ export function SignOutButton({ locale }: { locale: Locale }) {
       label={t(locale, 'sign_out')}
       busyLabel={t(locale, 'signing_out')}
       onSignOut={async () => {
-        await browserSupabase().auth.signOut();
+        await browserSupabase().auth.signOut({ scope: 'local' });
         window.location.href = '/my';
       }}
     />

@@ -74,7 +74,7 @@ export function UserMenu(props: {
         }
         clearOfflineData();
         await clearServiceWorkerCaches();
-        await browserSupabase().auth.signOut();
+        await browserSupabase().auth.signOut({ scope: 'local' });
         router.push('/');
         router.refresh();
       }}

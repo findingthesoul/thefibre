@@ -9,7 +9,7 @@ export function SignOutBlock() {
   const router = useRouter();
   async function signOut() {
     setBusy(true);
-    await browserSupabase().auth.signOut();
+    await browserSupabase().auth.signOut({ scope: 'local' });
     router.push('/');
     router.refresh();
   }

@@ -22,7 +22,7 @@ export function SignOutButton() {
         // directly, so it asks. Best-effort: no worker means no cache.
         navigator.serviceWorker?.controller?.postMessage('forget-tickets');
 
-        await browserSupabase().auth.signOut();
+        await browserSupabase().auth.signOut({ scope: 'local' });
         window.location.href = '/';
       }}
     />

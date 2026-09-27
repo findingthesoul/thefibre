@@ -170,6 +170,11 @@ async function refreshSession(grant: Grant): Promise<string> {
   if (error || !data.session) {
     // Signed out everywhere, password changed, or the session was revoked on
     // the Supabase side. The grant is dead; say so and make it visible.
+    // Logged with Supabase's reason: on 2026-09-27 a grant died 334 ms after
+    // a good call and nothing said why. (A browser sign-out used to be one
+    // cause — supabase-js signs out EVERY session by default, this one
+    // included; the apps now sign out with scope 'local'.)
+    console.warn(`[mcp] grant ${grant.id}: session refresh refused — ${error?.message ?? 'no session returned'}; revoking`);
     await adminClient.from('mcp_grant').update({ revoked_at: new Date().toISOString() }).eq('id', grant.id).is('revoked_at', null);
     throw new GrantError('session_lost', 'this connection has expired — connect again');
   }

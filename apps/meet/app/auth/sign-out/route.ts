@@ -6,6 +6,6 @@ import { serverSupabase } from '@/lib/supabase/server';
 // 404'd. Everywhere else sign-out happens client-side via the user menu.
 export async function POST(request: Request) {
   const supabase = await serverSupabase();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: 'local' });
   return NextResponse.redirect(new URL('/', request.url), 303);
 }
