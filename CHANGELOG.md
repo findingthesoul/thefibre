@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.75.0] — 2026-09-27 — one current workspace, in every app, until you switch
+
+Sjoerd, after an evening of it: *"I go to models -> it shows doab... That is
+not the intention. It should stay in the workspace until I switch."*
+
+**Nothing was broken, which is why it took all evening to name.** The
+workspace lives in the access token; each app sits on its own apex and holds
+its own token. Switching in The Fibre records the choice and refreshes THAT
+app's token. Every other open app keeps the workspace it was minted with until
+its own token renews — up to an hour — and in the meantime shows that
+workspace's data, under a header naming that workspace, answering every
+request correctly. Two apps, two right answers, disagreeing, with nothing on
+screen admitting it.
+
+It also self-corrected on its own schedule, which is what made it feel random
+rather than wrong.
+
+**The choice now wins.** `GET /auth/workspaces` returns `is_chosen` beside
+`is_active` — what was last chosen, against what this token carries — and when
+they differ the app follows the choice: it re-records it, refreshes the token
+so the claim is restamped, and goes home, because what is on screen belongs to
+the workspace being left. That is the path the switcher already used; this
+just walks it without being asked.
+
+**Reached every app without touching a single app.** The flag rides the
+workspace list that all seven layouts already hand to the shared user menu, so
+the change is three files — the route, the shell, the menu — rather than one
+edit per app and one app forgotten.
+
+**It follows the choice even where the app has no seat.** doab.ai has no
+Thread, so Thread will land on /no-access — which says plainly where you are.
+The alternative is Thread showing soul.com's threads under a header reading
+doab.ai, and that is the bug, not the remedy. The shell keeps the chosen
+workspace in the list for this case instead of filtering it out.
+
+Guarded by a ref, not by render state: an effect rerunning before the
+transition settled would fire a second switch, and two token refreshes racing
+is how a session gets torn.
+
+This is the root cause of the evening — the models app showing doab, Thread
+saying "no seat", and an account that looked wrecked and never was.
+
 ## [1.74.1] — 2026-09-27 — the sign-in page stops wearing the previous brand
 
 Sjoerd, once the tab icon was right: *"For the login page I saw the old logo

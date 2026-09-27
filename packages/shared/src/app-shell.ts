@@ -44,6 +44,7 @@ export type ShellWorkspace = {
   name: string | null;
   slug: string | null;
   is_active: boolean;
+  is_chosen?: boolean;
   has_app: boolean;
 };
 
@@ -56,6 +57,7 @@ export type AppShell<Me extends ShellMe, X extends Thunks> =
       me: Me;
       /** Apps activated for the workspace (active and deactivated rows alike). */
       apps: ShellWorkspaceApp[];
+      staleWorkspace: boolean;
       /** Workspaces the signed-in user may switch to — only those where this app is usable. */
       workspaces: ShellWorkspace[];
       /** Membership held AND app activated for this workspace (platform: always). */
@@ -83,13 +85,34 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
   let me: Me;
   let apps: ShellWorkspaceApp[];
   let workspaces: ShellWorkspace[];
+  let stale = false;
   let extraValues: unknown[];
   try {
     [me, apps, workspaces, ...extraValues] = await Promise.all([
       apiFetch<Me>('/api/v1/auth/me'),
       apiFetch<{ items: ShellWorkspaceApp[] }>('/api/v1/workspace-apps').then((r) => r.items ?? []),
-      apiFetch<{ workspaces: ShellWorkspace[] }>('/api/v1/auth/workspaces')
-        .then((r) => (r.workspaces ?? []).filter((w) => w.has_app))
+      apiFetch<{
+        workspaces: ShellWorkspace[];
+        active_workspace_id?: string | null;
+        chosen_workspace_id?: string | null;
+      }>('/api/v1/auth/workspaces')
+        .then((r) => {
+          // The token's workspace against the one last chosen. They disagree
+          // whenever a switch happened in ANOTHER app: this apex holds its own
+          // token and keeps the workspace it was minted with, for up to an
+          // hour, while showing that workspace's data as if nothing had
+          // changed. Recorded here; the chrome ends it.
+          stale = Boolean(
+            r.chosen_workspace_id &&
+              r.active_workspace_id &&
+              r.chosen_workspace_id !== r.active_workspace_id,
+          );
+          // `has_app` normally hides workspaces where this app would bounce
+          // you. The CHOSEN one is kept regardless: if the person is in a
+          // workspace this app cannot serve, saying so is the honest answer —
+          // silently showing a different workspace's data is the bug.
+          return (r.workspaces ?? []).filter((w) => w.has_app || w.is_chosen);
+        })
         // The switcher is decoration; a failed list must not take the page down.
         .catch(() => [] as ShellWorkspace[]),
       ...extraKeys.map((k) => fns[k]!()),
@@ -104,5 +127,14 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
     appSlug === 'fibre-platform' || me.memberships.some((m) => slugOf(m.app) === appSlug);
   const activated =
     appSlug === 'fibre-platform' || apps.some((w) => slugOf(w.app) === appSlug && !w.deactivated_at);
-  return { ok: true, me, apps, workspaces, hasAccess: hasMembership && activated, extras: resolved };
+  return {
+    ok: true,
+    me,
+    apps,
+    workspaces,
+    hasAccess: hasMembership && activated,
+    /** This app's token is acting in a workspace the person has since left. */
+    staleWorkspace: stale,
+    extras: resolved,
+  };
 }

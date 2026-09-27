@@ -25,7 +25,14 @@ import {
 import { COOKIE_THEME, COOKIE_SIDEBAR, type SidebarMode, type Theme } from '../prefs.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
-export type WorkspaceChoice = { id: string; name: string | null; is_active: boolean };
+export type WorkspaceChoice = {
+  id: string;
+  name: string | null;
+  is_active: boolean;
+  /** The workspace the person last chose, which may not be the one this app's
+   *  token is carrying — see the resync below. */
+  is_chosen?: boolean;
+};
 
 function applyTheme(theme: Theme) {
   const dark =
@@ -121,6 +128,33 @@ export function UserMenu({
       setOpen(false);
     });
   }
+
+  // ONE current workspace, in every app, until the person switches again.
+  //
+  // The workspace lives in the access token and each apex holds its own, so
+  // switching in The Fibre left Business Models on the previous one — showing
+  // that workspace's models, under a header naming that workspace, with every
+  // request correct and the whole thing wrong. It self-corrected when the
+  // token happened to renew, up to an hour later, which made it feel random.
+  // Sjoerd, 2026-09-27: *"It should stay in the workspace until I switch."*
+  //
+  // So when this app's token disagrees with the recorded choice, the app
+  // follows the choice. `onSwitchWorkspace` is the path the switcher already
+  // uses: it re-records the same choice (a no-op), refreshes the token so the
+  // claim is restamped, and sends the page home — because what is on screen
+  // belongs to the workspace being left.
+  //
+  // Guarded by a ref rather than the `switching` state: an effect that reran
+  // before the transition settled would fire a second switch, and two
+  // refreshes racing is how a session gets torn.
+  const resynced = useRef(false);
+  useEffect(() => {
+    if (resynced.current || !onSwitchWorkspace) return;
+    const chosen = workspaces.find((w) => w.is_chosen);
+    if (!chosen || chosen.is_active) return;
+    resynced.current = true;
+    void onSwitchWorkspace(chosen.id);
+  }, [workspaces, onSwitchWorkspace]);
 
   // The workspace you are standing in, named in front of the avatar
   // (Sjoerd, 2026-09-08: "e.g. soul.com  SL"). Derived from the switcher

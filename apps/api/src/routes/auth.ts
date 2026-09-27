@@ -93,10 +93,35 @@ authRoutes.get('/workspaces', async (c) => {
 
   const rows = await myMemberships(ctx);
   const usable = await usableWorkspaces(ctx.appId, rows);
+
+  // The CHOICE, as recorded when somebody last switched — which is not always
+  // what this token carries.
+  //
+  // The workspace lives in the access token, and each app on each apex holds
+  // its own. Switching in one app records the choice here and refreshes THAT
+  // app's token; every other open app keeps the workspace it was minted with
+  // until its own token renews, up to an hour later. So The Fibre could say
+  // soul.com while Business Models showed doab.ai, both correctly reporting
+  // their own token, with nothing on screen admitting they disagreed.
+  //
+  // Sjoerd, 2026-09-27, after an evening of it: *"It should stay in the
+  // workspace until I switch."* Returning both halves is what lets a client
+  // notice the disagreement and end it. Nothing here CHANGES the token — a
+  // read that quietly re-stamped identity would be a worse surprise than the
+  // one it fixes.
+  const { data: chosen } = await adminClient
+    .from('user_active_workspace')
+    .select('workspace_id')
+    .eq('auth_user_id', ctx.authUserId)
+    .maybeSingle();
+
   return c.json({
     // The one this token is acting in — not the stored choice. If the two ever
     // disagree, what the token says is what the request will actually do.
     active_workspace_id: ctx.workspaceId,
+    // The one the person last chose. Null when they have never switched, in
+    // which case there is nothing to reconcile.
+    chosen_workspace_id: (chosen?.workspace_id as string | undefined) ?? null,
     workspaces: rows.map((r) => {
       const w = Array.isArray(r.workspace) ? r.workspace[0] : r.workspace;
       return {
@@ -105,6 +130,9 @@ authRoutes.get('/workspaces', async (c) => {
         slug: w?.slug ?? null,
         plan: w?.plan ?? null,
         is_active: r.workspace_id === ctx.workspaceId,
+        // The one last chosen. Equal to is_active in the ordinary case; they
+        // part company exactly when another app did the switching.
+        is_chosen: r.workspace_id === (chosen?.workspace_id ?? ctx.workspaceId),
         // Whether the app ASKING can actually be used there. The Thread, Meet,
         // Flow and Pulse all bounce you to /no-access without a grant, so a
         // switcher that offered every workspace would be offering dead ends.
