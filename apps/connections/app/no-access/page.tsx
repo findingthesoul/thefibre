@@ -1,10 +1,16 @@
-import { createNoAccessPage } from '@thefibre/shared/no-access';
+import { createNoAccessPage, noAccessContextFromShell } from '@thefibre/shared/no-access';
+import { loadAppShell } from '@thefibre/shared/app-shell';
 import { APPS } from '@thefibre/shared';
+import { apiFetch } from '@/lib/api';
+import { Switch } from './switch';
 
-// The name comes from branding for the same reason the home-screen icon's
-// does: a rename must not leave one page still saying the old word.
+// Context comes from the same loader the (app) layout used to send someone
+// here, so the page names the workspace it is talking about and offers the
+// ones where Connect is on (Sjoerd, 2026-09-27).
 export default createNoAccessPage({
   appName: APPS['fibre-sales'].name,
   fibreUrl: process.env.NEXT_PUBLIC_FIBRE_URL,
   portalUrl: process.env.NEXT_PUBLIC_MY_URL,
+  context: async () => noAccessContextFromShell(await loadAppShell({ apiFetch, appSlug: 'fibre-sales' })),
+  Switch,
 });

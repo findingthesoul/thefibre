@@ -53,7 +53,9 @@ const GUIDES = [
   ['certificates', '/certificates'],
   ['schedule', '/threads'],
   ['todo', '/templates/todos'],
-  ['website', '/settings/embeds'],
+  // The guide's first step starts at Settings → Website; embeds are step two.
+  // It opened on /settings/embeds until 2026-09-27 (stress-round audit).
+  ['website', '/settings/website'],
 ] as const;
 
 function guides(locale: Locale): HelpGuide[] {

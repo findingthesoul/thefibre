@@ -41,7 +41,9 @@ function sections(locale: Locale): HelpSection[] {
     },
     {
       label: t(locale, 'help_access_label'),
-      href: '/products',
+      // Access has its own page, and the `access` guide below already
+      // points there; this row pointed at /products (2026-09-27 audit).
+      href: '/access',
       blurb: t(locale, 'help_access_blurb'),
     },
     {

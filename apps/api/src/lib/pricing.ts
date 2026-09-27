@@ -16,6 +16,7 @@
 // the next renewal, on purpose, via repricing code, not re-evaluation.
 
 import { adminClient } from '../db.js';
+import { rows } from './rows.js';
 
 export type PriceCondition = {
   attr: 'country' | 'interval';
@@ -73,14 +74,19 @@ export async function priceLogicFor(
   workspaceId: string,
   tierId: string | null,
 ): Promise<PriceLogic | null> {
-  const { data } = await adminClient
-    .from('membership_pricing_rule')
-    .select('tier_id, config')
-    .eq('workspace_id', workspaceId)
-    .eq('kind', 'price_logic');
-  const rows = data ?? [];
-  const specific = tierId ? rows.find((r) => r.tier_id === tierId) : null;
-  const general = rows.find((r) => r.tier_id === null);
+  // Throws on a failed read: `null` here means "no rule, charge the default",
+  // which is a price, not an error message. A member must not be charged the
+  // default because a query broke.
+  const rules = rows(
+    'membership pricing rules',
+    await adminClient
+      .from('membership_pricing_rule')
+      .select('tier_id, config')
+      .eq('workspace_id', workspaceId)
+      .eq('kind', 'price_logic'),
+  );
+  const specific = tierId ? rules.find((r) => r.tier_id === tierId) : null;
+  const general = rules.find((r) => r.tier_id === null);
   const config = (specific ?? general)?.config as PriceLogic | undefined;
   return config ?? null;
 }

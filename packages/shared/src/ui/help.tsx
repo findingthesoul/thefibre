@@ -184,12 +184,16 @@ export function HelpPage({
             {serverChromeT(locale, 'help_about_blurb')}
           </span>
         </Link>
+        {/* Through the catalogue like every other string on this page. This
+            paragraph was the one English literal on eight apps' Help pages
+            in six locales (2026-09-27 audit). The file names are not
+            translated; the sentence around them is. */}
         <p className="mt-4 text-sm leading-relaxed text-ink-subtle">
-          If you are building against the platform, the contract is in the repository at{' '}
-          <code className="font-mono text-xs">docs/building-on-the-fibre.md</code>, and{' '}
-          <code className="font-mono text-xs">apps/api/scripts/verify-external-app.mjs</code> is the
-          runnable version of everything it claims. The release history is in{' '}
-          <code className="font-mono text-xs">CHANGELOG.md</code>.
+          {serverChromeT(locale, 'help_building_blurb', {
+            contract: 'docs/building-on-the-fibre.md',
+            verify: 'apps/api/scripts/verify-external-app.mjs',
+            changelog: 'CHANGELOG.md',
+          })}
         </p>
       </section>
     </div>

@@ -3,6 +3,7 @@ import { seatAvailable, planFor } from '../lib/plan.js';
 import { seatBillable, reconcileSeatBilling } from '../lib/seat-billing.js';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { rows } from '../lib/rows.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
@@ -34,13 +35,19 @@ async function grantableSlugs(): Promise<string[]> {
   if (grantableCache && Date.now() - grantableCache.at < 5 * 60 * 1000) {
     return grantableCache.slugs;
   }
-  const { data } = await adminClient
-    .from('app')
-    .select('slug')
-    .eq('status', 'approved')
-    .eq('kind', 'first_party')
-    .neq('slug', 'fibre-platform');
-  const slugs = (data ?? []).map((a) => a.slug);
+  // Throws on a failed read — and so never CACHES a failure: an empty answer
+  // here would have stripped every app checkbox off the Members page for
+  // five minutes and looked like a workspace with nothing to grant.
+  const data = rows(
+    'grantable apps',
+    await adminClient
+      .from('app')
+      .select('slug')
+      .eq('status', 'approved')
+      .eq('kind', 'first_party')
+      .neq('slug', 'fibre-platform'),
+  );
+  const slugs = data.map((a) => a.slug);
   grantableCache = { slugs, at: Date.now() };
   return slugs;
 }
@@ -104,12 +111,15 @@ membersRoutes.get('/', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
 
   const userIds = (members ?? []).map((m) => m.user_id);
-  const { data: grants } = await adminClient
-    .from('app_membership')
-    .select('user_id, role, app:app_id (slug)')
-    .in('user_id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000']);
+  const grants = rows(
+    'members: app grants',
+    await adminClient
+      .from('app_membership')
+      .select('user_id, role, app:app_id (slug)')
+      .in('user_id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000']),
+  );
   const appsByUser = new Map<string, { slug: string; role: string }[]>();
-  for (const g of grants ?? []) {
+  for (const g of grants) {
     const app = Array.isArray(g.app) ? g.app[0] : g.app;
     if (!app || app.slug === 'fibre-platform') continue;
     const list = appsByUser.get(g.user_id) ?? [];

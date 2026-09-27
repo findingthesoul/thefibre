@@ -48,28 +48,52 @@ privacy-policy text naming Anthropic as a sub-processor is on STAGING only.
 Promote before client data flows through the assistant in earnest.
 Done items get removed, not ticked._
 
-**Silent-empty sites still open** (testing approach §1.9; the sweep of
-2026-09-25 found thirteen HIGH, the portals, Meet availability and the
-sole-admin guard are fixed through `apps/api/src/lib/rows.ts`). Each is a
-`const { data } = …; (data ?? [])` that renders a failed read as "there are
-none". Convert with `rows()` as the file is touched; assert non-empty for a
-fixture that has entries:
-- `routes/thread.ts` ~5305 and ~5349 (public organiser / workspace pages:
-  "no threads"), ~5732 (`/public/my-enrolments`: `items: []`), ~1648
-  (`/teams?mine=1`), ~2895 (bulk certificate issue reports "0 issued").
-- `routes/meet.ts` ~351 and ~4481 (public host / team page: "no meeting
-  types").
-- `routes/my-tasks.ts` ~115/151/186/223 (task list empties), `lib/team-grants.ts`
-  ~82–192 (team-granted app access vanishes → "no access"),
-  `routes/members.ts` ~37 (grantable slugs, cached 5 min) and ~107,
-  `routes/teams.ts` ~45/242/246, `routes/persons.ts` per-app tabs and Meet
-  bookings on a profile, `lib/archived-workspaces.ts` ~21 (archived set
-  emptied → archived treated as live), `lib/pricing.ts` ~76.
+**Silent-empty sites still open** (testing approach §1.9). The API side of
+the 2026-09-25 list is converted (rounds 2 and 3: portals, Meet
+availability and public pages, the sole-admin guard, team grants, the
+archived gate, price rules, the composed to-do list, Members/Teams/profile
+tabs, `/public/my-enrolments`, `/teams?mine=1`) through
+`apps/api/src/lib/rows.ts` (`rows` / `row` / `count`). Left, each a
+judgement per site rather than a sweep:
+- `routes/thread.ts` bulk certificate issue (~2895: "0 issued, 0 skipped" on
+  a failed read), `routes/persons.ts` Meet bookings on a profile (~975/982).
 - Web: `apps/my/lib/portal-api.ts` fetchInvoices `return []` on !ok,
   `apps/thread/app/(app)/checkin/page.tsx` ~61 (door shows nobody),
   `apps/thread` and `apps/meet` dashboard pages `.catch(() => null)?.items ?? []`,
-  `apps/connections/app/(app)/entries/page.tsx` ~82, Pulse `safeItems`,
-  Membership `.catch(() => [])`, `packages/shared/src/todo-calls.ts` ~38.
+  Pulse `safeItems`, Membership `.catch(() => [])`,
+  `packages/shared/src/todo-calls.ts` ~38. (Connect's entries search was
+  fixed in v1.58.1.) A page that throws needs an `error.tsx`; `apps/my` has
+  one since v1.58.2, the others do not.
+
+**RLS hygiene, not breaches** (round 3 audit, 2026-09-27):
+- `assistant_usage` read policy (20260915120000:43) compares `auth.uid()`
+  with `public.user.id`, so it never matches — fails closed; the API reads
+  it as service role. The same inert pattern sits in `20260906110000:82,87`,
+  `20260519100000:123`, `20260517270000:58,70,77`. Rewrite with
+  `current_user_id()` when next touched, or drop the dead policies.
+- `user_task_read` (20260923060000:68) has no workspace term in USING; the
+  route filters workspace itself. Add it for the rule's sake.
+- Three `create or replace` re-definitions of definer functions
+  (20260923170950, 20260923171115, 20260925053333's trigger fns) omit the
+  same-file revoke; they inherit the earlier ACL and the runtime guard
+  probes them. Harmless; breaks the letter of §11.3b.
+
+**`billing_plan` has no `updated_at`** — it drives the public catalogue and
+was silently rewritten on staging on 2026-09-2x with no way to date it
+(round 3). Add the column and the trigger every other platform table has.
+Same incident: Starter and Pro on STAGING have null sandbox Stripe ids
+(`stripe_product_id`, `stripe_price_id_month/year`); re-mint with
+`sync-stripe-plans.mjs` against the sandbox, never copy production's live
+ids. And `/pricing` on the web app caches the catalogue, so a repaired name
+shows there only after its revalidation window.
+
+**Help manuals**: the "connect your own Claude" procedure is written three
+times in three wordings (`apps/web/lib/i18n-ui.ts` own_claude,
+`apps/connections/lib/i18n-ui.ts` assistant, `apps/models/lib/i18n-ui.ts`
+assistant) × six locales; move the shared steps to the chrome catalogue.
+`apps/my/app/help/page.tsx` is English literals by declaration. Members'
+no-access wall keeps its own shape and does not yet name the active
+workspace (the Doab.ai case, fixed for six apps in v1.80.0).
 
 **A merged-away address cannot see its portal** (Sjoerd decides; found by
 thefibre-fb 2026-09-25 on production: soul.com person fd1a8fe1 merged into

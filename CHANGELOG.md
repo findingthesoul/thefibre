@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.82.0] — 2026-09-27 — the wrong workspace is named, and the anon floor covers every table
+
+The third stress round, from v1.77.0 (`docs/stress-test-2026-09-27.md`).
+Every scripted layer was green before the first edit; the findings came
+from an RLS coverage audit, a Help-manual audit, the staging smoke, and
+Sjoerd opening Thread with the wrong workspace active.
+
+### Changed
+- **The no-access page says which workspace it is talking about.** Signed
+  in with Doab.ai active, Thread said "You don't have a seat in Thread" —
+  false; the seat was in another workspace. The shared page now takes
+  context from the same shell loader that sent someone there: it names the
+  active workspace, offers "Continue in <workspace>" for every workspace
+  where the app is on and the account holds a seat (switch, refresh the
+  token, land on the app's home — the user menu's three steps, bound per
+  app), and links The Fibre and the portal. Without a session or a loader
+  answer it keeps the member-first copy. Thread, Meet, Flow, Connect, Models,
+  Pulse; Members keeps its own member-redirecting wall. `e2e/no-access.spec.ts`
+  proves it on staging with a two-workspace fixture.
+- **The anon-floor RLS test derives its tables from the migrations.** It
+  was a hand list of fourteen names that included none of the thirteen
+  tables created since 2026-09-14 — the encrypted MCP session, the
+  encrypted assistant key, the calendar-feed token and every contact point
+  among them. Now 140 tables are probed as anon; none returns a row. The
+  audit behind it found RLS on every new table and no anon-readable policy;
+  two hygiene notes are in the build plan.
+- **A failed read no longer renders as "there are none"** in the next set
+  of places (`lib/rows.ts`): team grants (a failed read resolved to "no
+  grants" and, through the sync, would have deleted memberships), the
+  archived-workspace gate (its catch never fired, PostgREST does not throw,
+  so a failed refresh unlocked archived workspaces for a minute), membership
+  price rules, the composed to-do list per source, the public organiser and
+  host pages, `/public/my-enrolments`, the Members page's grantable apps
+  (which cached a failure for five minutes), team detail, and the profile's
+  per-app tabs.
+
+### Fixed
+- Two Help links pointed near their target rather than at it: Thread's
+  website guide opened on embeds; Members' Access row opened on products.
+- The one English literal on eight apps' Help pages (the "building against
+  the platform" paragraph in the shared component) goes through the chrome
+  catalogue in six locales.
+- `smoke-staging` knows Models (models.thefibre.tech answered 200 while the
+  map did not list it, and the guard said so).
+- Staging data, not code: every `billing_plan` name on staging had been
+  overwritten with a person's name by a private variant of the clone script
+  (thefibre-0f owned it); restored from production's catalogue. The same
+  run nulled Starter's and Pro's sandbox Stripe ids on staging — still to
+  re-mint (build plan).
+
+### Added
+- `e2e/help-pages.spec.ts` — Help renders signed in for six apps and the
+  first guide's link is a real page.
+- `docs/stress-test-2026-09-27.md`; `docs/testing-approach.md` re-measured
+  (106 / 1020 unit, 19 / 273 integration); build plan groomed.
+
 ## [1.80.0] — 2026-09-27 — signing out of a browser no longer disconnects your assistant (staging)
 
 Found while working out why Sjoerd's Claude lost The Fibre at 18:28 today.

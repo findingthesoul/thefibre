@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { rows } from '../lib/rows.js';
 import { resolvePerson, normaliseEmail } from '../lib/resolve-person.js';
 import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
 import { orIlike } from '../lib/postgrest-filter.js';
@@ -709,11 +710,13 @@ personsRoutes.get('/:id/memberships', async (c) => {
       .is('deactivated_at', null);
     const activeAppIds = new Set((activeApps ?? []).map((r) => r.app_id as string));
 
-    const { data: ams } = await db
-      .from('app_membership')
-      .select('app_id, role, app:app_id (slug, name)')
-      .eq('user_id', person.user_id);
-    appMemberships = (ams ?? [])
+    // Throws on a failed read: the profile's per-app tabs come from this, and
+    // an empty answer removed every tab silently (§1.9).
+    const ams = rows(
+      'person: app memberships',
+      await db.from('app_membership').select('app_id, role, app:app_id (slug, name)').eq('user_id', person.user_id),
+    );
+    appMemberships = ams
       .filter((r) => {
         // fibre-platform is The Fibre itself — always present, even though
         // there's no workspace_app row for it (matches /api/v1/auth/me).

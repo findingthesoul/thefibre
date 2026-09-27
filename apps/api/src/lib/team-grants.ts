@@ -16,6 +16,7 @@
 // app access because a card failed is the wrong response to a billing event.
 
 import { adminClient } from '../db.js';
+import { rows } from './rows.js';
 
 export type EffectiveGrant = {
   app_id: string;
@@ -79,20 +80,31 @@ export function mergeGrants(
  */
 export async function effectiveGrants(userId: string): Promise<EffectiveGrant[]> {
   // 1. Direct grants — the rows an admin ticked on the Members page.
-  const { data: direct } = await adminClient
-    .from('app_membership')
-    .select('app_id, role, is_direct')
-    .eq('user_id', userId)
-    .eq('is_direct', true);
+  // Every read here throws on failure (lib/rows.ts). This function decides
+  // what a person may open; a failed read that resolved to "no grants" would
+  // tell them they have no access — and, through syncUsers, DELETE the
+  // memberships they had. The only acceptable answer to a broken read is
+  // an error, never a smaller set of rights.
+  const direct = rows(
+    'team grants: direct memberships',
+    await adminClient
+      .from('app_membership')
+      .select('app_id, role, is_direct')
+      .eq('user_id', userId)
+      .eq('is_direct', true),
+  );
 
   // 2. Teams the user actually belongs to.
-  const { data: memberships } = await adminClient
-    .from('team_member')
-    .select('team_id, role, status, team:team_id (id, name, is_active)')
-    .eq('user_id', userId)
-    .eq('status', 'active');
+  const memberships = rows(
+    'team grants: team memberships',
+    await adminClient
+      .from('team_member')
+      .select('team_id, role, status, team:team_id (id, name, is_active)')
+      .eq('user_id', userId)
+      .eq('status', 'active'),
+  );
 
-  const liveTeams = (memberships ?? [])
+  const liveTeams = memberships
     .map((m) => {
       const team = Array.isArray(m.team) ? m.team[0] : m.team;
       return team && team.is_active
@@ -103,18 +115,20 @@ export async function effectiveGrants(userId: string): Promise<EffectiveGrant[]>
 
   let grants: { team_id: string; app_id: string; lead_is_app_admin: boolean }[] = [];
   if (liveTeams.length) {
-    const { data } = await adminClient
-      .from('team_app_grant')
-      .select('team_id, app_id, lead_is_app_admin')
-      .in(
-        'team_id',
-        liveTeams.map((t) => t.id),
-      );
-    grants = data ?? [];
+    grants = rows(
+      'team grants: team app grants',
+      await adminClient
+        .from('team_app_grant')
+        .select('team_id, app_id, lead_is_app_admin')
+        .in(
+          'team_id',
+          liveTeams.map((t) => t.id),
+        ),
+    );
   }
 
   return mergeGrants(
-    (direct ?? []).map((d) => ({ app_id: d.app_id, role: d.role })),
+    direct.map((d) => ({ app_id: d.app_id, role: d.role })),
     liveTeams.map((t) => ({
       name: t.name,
       lead: t.lead,
@@ -149,12 +163,14 @@ export async function syncUsers(userIds: string[]): Promise<void> {
     const wanted = await effectiveGrants(userId);
     const wantedByApp = new Map(wanted.map((g) => [g.app_id, g]));
 
-    const { data: current } = await adminClient
-      .from('app_membership')
-      .select('app_id, role, is_direct')
-      .eq('user_id', userId);
+    // A failed read here used to mean "they hold nothing" — and then every
+    // wanted grant was re-upserted. Harmless by luck; not by design.
+    const current = rows(
+      'team grants: current memberships',
+      await adminClient.from('app_membership').select('app_id, role, is_direct').eq('user_id', userId),
+    );
 
-    for (const row of current ?? []) {
+    for (const row of current) {
       if (row.app_id === platformAppId) continue;
       const want = wantedByApp.get(row.app_id);
       if (!want) {
@@ -174,7 +190,7 @@ export async function syncUsers(userIds: string[]): Promise<void> {
       }
     }
 
-    const have = new Set((current ?? []).map((r) => r.app_id));
+    const have = new Set(current.map((r) => r.app_id));
     for (const g of wanted) {
       if (have.has(g.app_id)) continue;
       await adminClient
@@ -189,11 +205,11 @@ export async function syncUsers(userIds: string[]): Promise<void> {
 
 /** Re-resolve everyone in a team — after its grants or its roster changed. */
 export async function syncTeam(teamId: string): Promise<void> {
-  const { data: members } = await adminClient
-    .from('team_member')
-    .select('user_id')
-    .eq('team_id', teamId);
-  await syncUsers((members ?? []).map((m) => m.user_id));
+  const members = rows(
+    'team grants: team roster',
+    await adminClient.from('team_member').select('user_id').eq('team_id', teamId),
+  );
+  await syncUsers(members.map((m) => m.user_id));
 }
 
 /**

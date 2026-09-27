@@ -349,15 +349,20 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
   // bio edited in The Fibre never reached the booking page.
   const hostProfile = await profileFor((host as { user_id?: string }).user_id ?? '');
 
-  const { data: mts } = await adminClient
-    .from('meet_meeting_type')
-    .select(
-      'id, slug, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency',
-    )
-    .eq('host_id', host.id)
-    .eq('is_active', true)
-    .eq('is_public_listed', true)
-    .order('created_at', { ascending: true });
+  // Throws on a failed read: a public host page with "no meeting types"
+  // because the select broke is indistinguishable from a host with none.
+  const mts = rows(
+    'public host page: meeting types',
+    await adminClient
+      .from('meet_meeting_type')
+      .select(
+        'id, slug, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency',
+      )
+      .eq('host_id', host.id)
+      .eq('is_active', true)
+      .eq('is_public_listed', true)
+      .order('created_at', { ascending: true }),
+  );
 
   const userObj = Array.isArray(host.user) ? host.user[0] : host.user;
   return c.json({
@@ -4484,15 +4489,18 @@ meetRoutes.get('/public/team/:team_slug', async (c) => {
     .single();
   if (error || !team) return c.json({ error: 'team not found' }, 404);
   if (!team.is_active) return c.json({ error: 'team is inactive' }, 404);
-  const { data: mts } = await adminClient
-    .from('meet_meeting_type')
-    .select(
-      'id, slug, name, description, duration_minutes, conferencing_provider, default_location',
-    )
-    .eq('team_id', team.id)
-    .eq('is_active', true)
-    .eq('is_public_listed', true)
-    .order('created_at', { ascending: true });
+  const mts = rows(
+    'public team page: meeting types',
+    await adminClient
+      .from('meet_meeting_type')
+      .select(
+        'id, slug, name, description, duration_minutes, conferencing_provider, default_location',
+      )
+      .eq('team_id', team.id)
+      .eq('is_active', true)
+      .eq('is_public_listed', true)
+      .order('created_at', { ascending: true }),
+  );
   return c.json({
     id: team.id,
     slug: team.slug,

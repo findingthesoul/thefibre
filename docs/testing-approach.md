@@ -12,15 +12,21 @@ strict type system, a handful of executable contract checks, a full staging
 twin and a disciplined manual loop bought more correctness per hour than a
 test suite would have while the product was still being discovered.
 
-**Where it actually stands (2026-09-25).** Counted by running them, not by
-reading the previous count (the 2026-09-15 row read 57 / 679, 13 / 93,
-4 / 24):
+**Where it actually stands (2026-09-27).** Counted by running them, not by
+reading the previous count (2026-09-15: 57 / 679, 13 / 93, 4 / 24;
+2026-09-25: 99 / 964, 17 / 133, 5 / 27):
 
 | Layer | Files | Tests |
 |---|---|---|
-| Unit (vitest) | 99 | 964 |
-| Integration, real Postgres + RLS on staging | 17 | 133 |
-| End-to-end (Playwright, staging) | 5 | 27 |
+| Unit (vitest) | 106 | 1020 |
+| Integration, real Postgres + RLS on staging | 19 | 273 |
+| End-to-end (Playwright, staging) | 7 | 34 |
+
+The integration jump is one file: `rls-floor.int.test.ts` now derives its
+table list from the migrations (140 tables probed as anon) instead of a
+hand list of fourteen that had missed every table created after
+2026-09-14 — including the ones holding encrypted keys and tokens. Nothing
+was open; nothing was checked either.
 
 Plus the executable contract checks, which are not counted above because they
 assert against deployed environments rather than a test runner: the two smoke

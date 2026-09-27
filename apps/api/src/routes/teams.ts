@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { APPS } from '@thefibre/shared';
 import { userClient, adminClient } from '../db.js';
+import { rows } from '../lib/rows.js';
 import { isAdminRole } from '../lib/workspace-roles.js';
 import { can, needsPlan } from '../lib/plan.js';
 import { syncTeam, syncUsers } from '../lib/team-grants.js';
@@ -42,12 +43,16 @@ export const teamsRoutes = new Hono();
 async function grantableApps(
   workspaceId: string,
 ): Promise<{ id: string; slug: string; name: string }[]> {
-  const { data } = await adminClient
-    .from('workspace_app')
-    .select('deactivated_at, app:app_id (id, slug, name, status, kind)')
-    .eq('workspace_id', workspaceId)
-    .is('deactivated_at', null);
-  return (data ?? [])
+  // Throws on a failed read (lib/rows.ts): "no apps to grant" must mean none.
+  const data = rows(
+    'teams: grantable apps',
+    await adminClient
+      .from('workspace_app')
+      .select('deactivated_at, app:app_id (id, slug, name, status, kind)')
+      .eq('workspace_id', workspaceId)
+      .is('deactivated_at', null),
+  );
+  return data
     .map((w) => (Array.isArray(w.app) ? w.app[0] : w.app))
     .filter(
       (a): a is { id: string; slug: string; name: string; status: string; kind: string } =>
@@ -239,14 +244,20 @@ teamsRoutes.get('/:id', async (c) => {
     return c.json({ error: 'team not found' }, 404);
   }
 
-  const { data: members } = await adminClient
-    .from('team_member')
-    .select('user_id, role, status, user:user_id (id, full_name, email)')
-    .eq('team_id', id);
-  const { data: grants } = await adminClient
-    .from('team_app_grant')
-    .select('app_id, lead_is_app_admin, app:app_id (slug, name)')
-    .eq('team_id', id);
+  const members = rows(
+    'team: members',
+    await adminClient
+      .from('team_member')
+      .select('user_id, role, status, user:user_id (id, full_name, email)')
+      .eq('team_id', id),
+  );
+  const grants = rows(
+    'team: app grants',
+    await adminClient
+      .from('team_app_grant')
+      .select('app_id, lead_is_app_admin, app:app_id (slug, name)')
+      .eq('team_id', id),
+  );
 
   return c.json({
     team: {

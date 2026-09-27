@@ -107,10 +107,10 @@ async function myTeams(userId: string, workspaceId: string): Promise<{ id: strin
     .select('team:team_id (id, name, workspace_id, is_active)')
     .eq('user_id', userId)
     .eq('status', 'active');
-  if (error) {
-    console.warn('[tasks] my teams', error.message);
-    return [];
-  }
+  // Throw, do not degrade: an empty picker here reads as "you are in no
+  // team", and filing under a team then 403s with no visible cause — which is
+  // exactly how the archived_at bug above hid on staging.
+  if (error) throw new Error(`tasks: my teams: ${error.message}`);
   type TeamRow = { id: string; name: string; workspace_id: string; is_active: boolean | null };
   return (data ?? [])
     .map((r) => (Array.isArray(r.team) ? r.team[0] : r.team) as TeamRow | null)
@@ -140,13 +140,11 @@ async function seatsHeldBy(userId: string): Promise<Set<string>> {
     .from('app_membership')
     .select('app:app_id (slug)')
     .eq('user_id', userId);
-  if (error) {
-    // Loudly, and an empty set means "no seats" — which here shows the
-    // person their own typed list and nothing composed, rather than pretending
-    // the sources are empty (docs/testing-approach.md §1.9).
-    console.error('[tasks] seats', error.message);
-    return new Set();
-  }
+  // A failed read is not "no seats". Returning an empty set showed the
+  // person their own typed list with every composed source missing — a list
+  // that looks complete and is not, which is worse than an error page
+  // (docs/testing-approach.md §1.9; thefibre-05, 2026-09-27).
+  if (error) throw new Error(`tasks: seats: ${error.message}`);
   const held = new Set<string>();
   for (const row of data ?? []) {
     const app = Array.isArray(row.app) ? row.app[0] : row.app;
@@ -183,10 +181,8 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
     .is('deleted_at', null)
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(200);
-  if (error) {
-    console.warn('[tasks] flow tasks', error.message);
-    return [];
-  }
+  // One source failing must not read as that source having nothing.
+  if (error) throw new Error(`tasks: flow tasks: ${error.message}`);
   // Which of these a Connect note created, and about whom. One query for the
   // whole page rather than one per row.
   const fromConnect = new Map<string, string | null>();
@@ -199,7 +195,10 @@ async function flowTasks(userId: string, workspaceId: string): Promise<TaskItem[
       .from('flow_run_note')
       .select('follow_up_task_id, person_id, body')
       .in('follow_up_task_id', ids);
-    if (ne) console.warn('[tasks] note follow-ups', ne.message);
+    // Without this map every Connect follow-up is shown as a Flow item with
+    // the wrong link and the wrong seat gate — a plausible list, wrongly
+    // labelled. Throw rather than mislabel.
+    if (ne) throw new Error(`tasks: note follow-ups: ${ne.message}`);
     for (const n of notes ?? []) {
       fromConnect.set(n.follow_up_task_id as string, (n.person_id as string | null) ?? null);
       const first = String(n.body ?? '')
@@ -296,13 +295,11 @@ async function threadTasks(userId: string, workspaceId: string): Promise<TaskIte
     .is('deleted_at', null)
     .order('due_on', { ascending: true, nullsFirst: false })
     .limit(200);
-  if (error) {
-    // Loudly: a swallowed error returning [] is indistinguishable from
-    // "nothing assigned to you", and that is how two features shipped inert
-    // on 2026-09-23 (docs/testing-approach.md §1.7).
-    console.error('[tasks] thread tasks', error.message);
-    return [];
-  }
+  // Loudly, and all the way: a swallowed error returning [] is
+  // indistinguishable from "nothing assigned to you", and that is how two
+  // features shipped inert on 2026-09-23 (docs/testing-approach.md §1.7).
+  // Logging it and returning [] anyway was half the lesson.
+  if (error) throw new Error(`tasks: thread tasks: ${error.message}`);
   if (!data?.length) return [];
 
   // The thread's name, for the label and nothing else — reference and label,

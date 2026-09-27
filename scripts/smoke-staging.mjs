@@ -115,6 +115,9 @@ const STAGING_SUBS = {
   // script exists to catch a subdomain serving the WRONG APP, and a 307 it
   // does not follow tells it nothing either way.
   connect: 'fibre-sales',
+  // Models (2026-09-25): models.thefibre.tech answered 200 on 2026-09-27
+  // while this map did not know it — the guard below said so.
+  models: 'fibre-models',
 };
 
 /** Surfaces are not catalogue apps, so they carry their own map and their

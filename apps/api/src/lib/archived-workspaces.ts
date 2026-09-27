@@ -10,6 +10,7 @@
 // flag before anything else runs).
 
 import { adminClient } from '../db.js';
+import { rows } from './rows.js';
 
 let archived = new Set<string>();
 let fetchedAt = 0;
@@ -18,11 +19,16 @@ const TTL_MS = 60_000;
 
 async function refresh(): Promise<void> {
   try {
-    const { data } = await adminClient
-      .from('workspace')
-      .select('id')
-      .not('archived_at', 'is', null);
-    archived = new Set((data ?? []).map((w) => w.id));
+    // rows() THROWS on a PostgREST error, which is what makes the catch below
+    // real. Before it, a failed query came back as `{ data: null, error }`
+    // with no exception, `data ?? []` made an empty set, and every archived
+    // workspace was unlocked for a minute — the exact outcome the comment
+    // below says it was avoiding.
+    const data = rows(
+      'archived workspaces',
+      await adminClient.from('workspace').select('id').not('archived_at', 'is', null),
+    );
+    archived = new Set(data.map((w) => w.id));
     fetchedAt = Date.now();
   } catch (e) {
     // Keep the stale set — an errored refresh must never lock everyone out

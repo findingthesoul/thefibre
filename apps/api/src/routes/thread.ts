@@ -14,6 +14,7 @@ import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { rows } from '../lib/rows.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
 import { hit } from '../lib/rate-limit.js';
 import {
@@ -1649,12 +1650,11 @@ threadRoutes.get('/teams', async (c) => {
   // ?mine=1 — only teams the caller is an active member of (the Invoices
   // team scope shows nothing for other teams anyway).
   if (c.req.query('mine') === '1' && items.length) {
-    const { data: memberships } = await adminClient
-      .from('team_member')
-      .select('team_id')
-      .eq('user_id', ctx.userId)
-      .eq('status', 'active');
-    const mine = new Set((memberships ?? []).map((m) => m.team_id));
+    const memberships = rows(
+      'teams?mine: memberships',
+      await adminClient.from('team_member').select('team_id').eq('user_id', ctx.userId).eq('status', 'active'),
+    );
+    const mine = new Set(memberships.map((m) => m.team_id));
     items = items.filter((t) => mine.has(t.id));
   }
   return c.json({ items });
@@ -5306,7 +5306,9 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     )
     .eq('is_public_listed', true);
   q = ownerThreadFilter(q, owner);
-  const { data: threads } = await q;
+  // Throws on a failed read (lib/rows.ts): a public page saying "no threads"
+  // because a select broke is the silent failure §1.9 is about.
+  const threads = rows('public page: threads', await q);
 
   let listed = (threads ?? []).filter((t) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
@@ -5350,7 +5352,9 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
     .eq('workspace_id', owner.workspace.id)
     .eq('public_scope', 'workspace')
     .eq('organiser_id', organiser.id);
-  const { data: threads } = await q;
+  // Throws on a failed read (lib/rows.ts): a public page saying "no threads"
+  // because a select broke is the silent failure §1.9 is about.
+  const threads = rows('public page: threads', await q);
   let listed = (threads ?? []).filter((t) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
     return p && (p.status === 'active' || p.status === 'completed');
@@ -5724,19 +5728,26 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
 
-  const { data: persons } = await adminClient
-    .from('person')
-    .select('id, first_name, last_name, email')
-    .eq('email', email.toLowerCase())
-    .is('deleted_at', null);
-  if (!persons?.length) {
+  // Both reads throw on failure (lib/rows.ts): `items: []` here is what a
+  // participant with three tickets saw when a select broke.
+  const persons = rows(
+    'my-enrolments: persons',
+    await adminClient
+      .from('person')
+      .select('id, first_name, last_name, email')
+      .eq('email', email.toLowerCase())
+      .is('deleted_at', null),
+  );
+  if (!persons.length) {
     return c.json({ person: { first_name: null, last_name: null, email }, items: [] });
   }
 
-  const { data: enrolments } = await adminClient
-    .from('thread_enrolment')
-    .select(
-      `id, created_at,
+  const enrolments = rows(
+    'my-enrolments: enrolments',
+    await adminClient
+      .from('thread_enrolment')
+      .select(
+        `id, created_at,
        enrolment:enrolment_id (status, progress_pct),
        thread:thread_id (id, slug, intention, language, cover_url, share_participants_participants,
          public_scope,
@@ -5744,9 +5755,10 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
          team:team_id (slug, name),
          workspace:workspace_id (slug),
          program:program_id (title, format, status, starts_on, ends_on))`,
-    )
-    .in('person_id', persons.map((p) => p.id))
-    .order('created_at', { ascending: false });
+      )
+      .in('person_id', persons.map((p) => p.id))
+      .order('created_at', { ascending: false }),
+  );
 
   // Cohort directory (share_participants_participants): fellow participants,
   // first name + initial, ONLY those who opted into cohort_directory —

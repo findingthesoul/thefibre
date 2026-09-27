@@ -240,6 +240,14 @@ const SERVER_CHROME = {
     de: 'Hilfe', // MT
     fr: 'Aide', // MT
   },
+  help_building_blurb: {
+    en: 'If you are building against the platform, the contract is in the repository at {contract}, and {verify} is the runnable version of everything it claims. The release history is in {changelog}.',
+    nl: 'Bouw je op het platform, dan staat het contract in de repository in {contract}, en {verify} is de uitvoerbare versie van alles wat het belooft. De releasegeschiedenis staat in {changelog}.',
+    es: 'Si desarrollas sobre la plataforma, el contrato está en el repositorio en {contract}, y {verify} es la versión ejecutable de todo lo que afirma. El historial de versiones está en {changelog}.', // MT
+    pt: 'Se desenvolves sobre a plataforma, o contrato está no repositório em {contract}, e {verify} é a versão executável de tudo o que afirma. O histórico de versões está em {changelog}.', // MT
+    de: 'Wer auf der Plattform baut, findet den Vertrag im Repository unter {contract}; {verify} ist die ausführbare Fassung von allem, was er behauptet. Die Release-Historie steht in {changelog}.', // MT
+    fr: 'Si vous développez sur la plateforme, le contrat se trouve dans le dépôt à {contract}, et {verify} en est la version exécutable. L’historique des versions est dans {changelog}.', // MT
+  },
   help_getting_around: {
     en: 'Getting around {app}',
     nl: 'Wegwijs in {app}',
