@@ -22,6 +22,17 @@ the queue.
 
 _Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
 
+**Blue-green: `failed to destroy VM …: unauthorized` at the end of a deploy.**
+Seen once on staging 2026-09-26 (v1.74.0 deploy by the Business Models
+session); a later `fly machine destroy --force` on the same machines worked,
+so it is not a blanket token denial. Until explained, every blue-green deploy
+is one such error away from a half-cutover — and the half-cutover LOOKS
+healthy (docs/deploy.md, "re-run the deploy, never destroy by hand"). Worth:
+`deploy-api.sh` detecting a non-zero exit after "Destroying all blue
+machines" and printing exactly that instruction; and a post-deploy external
+probe in the script (an actual request through the proxy, not `fly status`),
+which is the only signal that told the truth.
+
 **A second API machine, when a crash matters more than the cost.** v1.72.0
 made deploys blue-green (no 502 on a deploy or a staged secret) and put every
 scheduled tick under a lease, so `fly scale count 2 --app thefibre-api` is

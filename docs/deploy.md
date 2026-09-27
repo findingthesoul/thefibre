@@ -132,6 +132,23 @@ lease (`scheduler_lease`, lib/scheduler-lease.ts) so the moment both
 processes are up they cannot double-run a tick; the same lease is what makes
 `fly scale count 2` safe when a second machine is wanted.
 
+**If a blue-green deploy errors at the destroy step, RE-RUN THE DEPLOY. Never
+destroy machines by hand.** Learned on staging 2026-09-26 (Fibre session):
+a deploy ended with `failed to destroy VM …: unauthorized` and left four
+machines — two on the new image, two on the old. The old ones were destroyed
+by hand as "stale". They were the ones the proxy was routing to: in a
+half-finished blue-green the new machines are still green — they pass their
+own checks but the proxy has not been switched — so afterwards `fly status`
+showed started machines with checks passing and `/health 200` in the logs,
+while from outside the API was unreachable (TLS completed, no first byte,
+requests never reaching the log). The remedy was `./scripts/deploy-api.sh
+staging` at the same sha, which reconciled it: fresh pair, promoted, 200 in
+70 ms. Two rules from it: (1) old image does not mean not serving until the
+cutover completes; (2) Fly's machine state and check status are NOT evidence
+the app is reachable — only an external request is, and the tell is a request
+that never reaches the log. The `unauthorized` on destroy is unexplained
+(build plan).
+
 **Use `scripts/deploy-api.sh`, not `fly deploy` directly.**
 
 ```bash
