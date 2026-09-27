@@ -42,24 +42,52 @@ export function stagingService(): SupabaseClient {
   return cached;
 }
 
+/**
+ * A staging auth user by email, paging through the WHOLE list.
+ *
+ * Until 2026-09-27 this read one page of fifty (a hundred in authUserByEmail)
+ * and searched it. Staging had grown past fifty accounts, so the oldest
+ * platform user — the super admin every signed-in spec relies on — was no
+ * longer on the page, the picker fell through to the next candidate, and the
+ * fixture silently became a test MEMBER with three seats. Three specs then
+ * failed on screens that need an admin, and the failures read as product
+ * regressions for an hour. A truncated lookup that answers with a plausible
+ * account is the same class as testing approach §1.9 — the lookup must find
+ * the account or say it cannot, never pick another one.
+ */
+async function authUserByEmailPaged(email: string): Promise<{ id: string; email: string; confirmed: boolean } | null> {
+  const service = stagingService();
+  const want = email.toLowerCase();
+  for (let page = 1; page < 50; page++) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw new Error(`e2e: listUsers page ${page}: ${error.message}`);
+    const hit = data.users.find((a) => a.email?.toLowerCase() === want);
+    if (hit) return { id: hit.id, email: hit.email!, confirmed: !!hit.email_confirmed_at };
+    if (data.users.length < 200) return null;
+  }
+  return null;
+}
+
 /** An existing staging user who holds a platform user row (so the
- *  auth-callback access-check passes). */
+ *  auth-callback access-check passes): the OLDEST such account, which on
+ *  staging is the super admin. Fails loudly if that account cannot be
+ *  found rather than picking a different one. */
 async function fixtureUser(): Promise<{ id: string; email: string }> {
   const service = stagingService();
-  const { data: users } = await service
+  const { data: users, error } = await service
     .from('user')
     .select('email')
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
-    .limit(5);
-  const { data: auth } = await service.auth.admin.listUsers({ perPage: 50 });
-  for (const u of users ?? []) {
-    const match = auth?.users.find(
-      (a) => a.email?.toLowerCase() === String(u.email).toLowerCase() && a.email_confirmed_at,
-    );
-    if (match) return { id: match.id, email: match.email! };
+    .limit(1);
+  if (error) throw new Error(`e2e: fixture user lookup: ${error.message}`);
+  const email = String(users?.[0]?.email ?? '');
+  if (!email) throw new Error('e2e: no platform user row on staging');
+  const auth = await authUserByEmailPaged(email);
+  if (!auth || !auth.confirmed) {
+    throw new Error(`e2e: the oldest platform user (${email}) has no confirmed auth account`);
   }
-  throw new Error('e2e: no staging user found with both an auth account and a platform row');
+  return { id: auth.id, email: auth.email };
 }
 
 /** Mint a single-use handoff code and return the land URL that signs the
@@ -133,9 +161,7 @@ export async function signedInLandUrlFor(
 /** Find a staging auth user by email (e.g. the account the enrol flow
  *  auto-created). */
 export async function authUserByEmail(email: string): Promise<{ id: string; email: string }> {
-  const service = stagingService();
-  const { data } = await service.auth.admin.listUsers({ perPage: 100 });
-  const u = data?.users.find((a) => a.email?.toLowerCase() === email.toLowerCase());
+  const u = await authUserByEmailPaged(email);
   if (!u) throw new Error(`e2e: no auth user for ${email}`);
   return { id: u.id, email: u.email! };
 }

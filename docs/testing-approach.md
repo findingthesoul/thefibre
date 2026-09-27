@@ -20,7 +20,7 @@ reading the previous count (2026-09-15: 57 / 679, 13 / 93, 4 / 24;
 |---|---|---|
 | Unit (vitest) | 106 | 1020 |
 | Integration, real Postgres + RLS on staging | 19 | 273 |
-| End-to-end (Playwright, staging) | 7 | 34 |
+| End-to-end (Playwright, staging) | 7 | 33 |
 
 The integration jump is one file: `rls-floor.int.test.ts` now derives its
 table list from the migrations (140 tables probed as anon) instead of a

@@ -78,6 +78,14 @@ judgement per site rather than a sweep:
   same-file revoke; they inherit the earlier ACL and the runtime guard
   probes them. Harmless; breaks the letter of §11.3b.
 
+**Leaked fixture accounts on staging.** 38 of staging's 54 auth users are
+`@example.com` fixtures from integration and e2e runs that crashed before
+their `afterAll` (counted 2026-09-27). They are what pushed the super admin
+past the e2e harness's one-page lookup (fixed in v1.82.x by paging). A
+`scripts/sweep-staging-fixtures.mjs` that deletes `int-*`/`e2e-*`
+`@example.com` auth users older than a day, with their `user` rows, would
+keep the list honest; nothing real carries that domain.
+
 **`billing_plan` has no `updated_at`** — it drives the public catalogue and
 was silently rewritten on staging on 2026-09-2x with no way to date it
 (round 3). Add the column and the trigger every other platform table has.

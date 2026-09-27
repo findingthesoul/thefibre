@@ -50,7 +50,7 @@ round ran staging-only as before.
 | External-app walk, MCP personal (new connector root), public API — staging | green |
 | Stripe webhooks staging, definer audits both stacks, root slugs both, workspace admins both, SSO hop | green |
 | Smoke staging | two failures: the plan names (item 2) and no entry for `fibre-models` (added) |
-| Playwright pack | green |
+| Playwright pack | **not green, and I first reported it green** — the layer run's summary was truncated in my read. The failures (a contact's Invoices tab, the Fibre Teams and Apps screens, Flow and Pulse refusing the fixture) traced to the harness: `e2e/helpers.ts` looked the fixture account up in the first FIFTY auth users, staging had grown past that, and the fixture silently became a less-privileged test member (`sjoerd+petertester`). Same class as §1.9: a truncated lookup answered with a plausible account. Fixed by paging through the auth users; an in-process `/auth/me` test (`auth-me-memberships.int.test.ts`) pinned the route while the cause was being found. |
 
 ## Hunts and what they found
 

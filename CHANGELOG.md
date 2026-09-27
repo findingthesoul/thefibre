@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.83.1] — 2026-09-27 — the e2e fixture is the account it says it is
+
+### Fixed
+- **`e2e/helpers.ts` pages through the auth users.** It read one page of
+  fifty and searched it; staging had grown to 54 accounts (38 of them leaked
+  `@example.com` fixtures), the super admin was the 54th, and the picker fell
+  through to the next candidate — a test MEMBER with three seats. Three specs
+  then failed on screens that need an admin (a contact's Invoices tab, the
+  Fibre Teams and Apps screens) and two more skipped as "no seat", and for an
+  hour they read as product regressions of v1.82.0. They were not. Same class
+  as testing approach §1.9: a truncated lookup that answers with a plausible
+  account. The lookup now finds the account or fails, never substitutes.
+  Full pack with the right fixture: 33 passed, none skipped.
+
+### Added
+- `auth-me-memberships.int.test.ts` — `/auth/me` returns every activated
+  membership with its role for an account holding the same mix of grants
+  (in-process, real RLS). Written to pin the route while the cause above was
+  being found; kept because it is the assertion that would have said "the
+  product is fine, look elsewhere" in the first minute.
+- Build plan: a sweep for leaked `@example.com` fixture accounts on staging.
+
 ## [1.83.0] — 2026-09-27 — a template keeps the price (staging)
 
 Sjoerd: *"Template for threads: settings also need to be in it (pricing,
