@@ -35,6 +35,27 @@ export function publicOrigin(headers: Headers): string {
   return `${scheme}://${host}`;
 }
 
+/**
+ * The connector address a person pastes into their assistant. Sjoerd,
+ * 2026-09-27: "can that be a better link than the one I used" — the one he
+ * used was the Fly hostname plus /api/v1/mcp. On a host whose first label is
+ * `mcp` (mcp.thefibre.app, mcp.thefibre.tech) the endpoint answers at the
+ * ROOT, so the whole address is the hostname. The same code path serves both
+ * spellings; only the resource identity differs, and an access token is bound
+ * to the one it was minted for.
+ */
+export function isMcpHost(headers: Headers): boolean {
+  const host = (headers.get('x-forwarded-host') ?? headers.get('host') ?? '').toLowerCase();
+  return host.startsWith('mcp.');
+}
+
+/** Origin, endpoint path and resource identifier for THIS request's host. */
+export function mcpResource(headers: Headers): { origin: string; path: string; resource: string } {
+  const origin = publicOrigin(headers);
+  const path = isMcpHost(headers) ? '' : MCP_RESOURCE_PATH;
+  return { origin, path, resource: `${origin}${path}` };
+}
+
 export function authorizationServerMetadata(origin: string) {
   return {
     issuer: origin,
@@ -52,9 +73,9 @@ export function authorizationServerMetadata(origin: string) {
   };
 }
 
-export function protectedResourceMetadata(origin: string) {
+export function protectedResourceMetadata(origin: string, path: string = MCP_RESOURCE_PATH) {
   return {
-    resource: `${origin}${MCP_RESOURCE_PATH}`,
+    resource: `${origin}${path}`,
     authorization_servers: [origin],
     scopes_supported: [...MCP_SCOPES],
     bearer_methods_supported: ['header'],
@@ -69,9 +90,10 @@ mcpDiscoveryRoutes.get('/.well-known/oauth-authorization-server', (c) =>
 );
 // Both spellings of the resource document: at the root, and path-suffixed
 // (RFC 9728 §3), which is what a client derives from the resource URL.
-mcpDiscoveryRoutes.get('/.well-known/oauth-protected-resource', (c) =>
-  c.json(protectedResourceMetadata(publicOrigin(c.req.raw.headers)), 200, cacheable),
-);
-mcpDiscoveryRoutes.get(`/.well-known/oauth-protected-resource${MCP_RESOURCE_PATH}`, (c) =>
-  c.json(protectedResourceMetadata(publicOrigin(c.req.raw.headers)), 200, cacheable),
-);
+// On an mcp.* host both name the root resource — one identity per host.
+const resourceDoc = (c: { req: { raw: Request } }) => {
+  const { origin, path } = mcpResource(c.req.raw.headers);
+  return protectedResourceMetadata(origin, path);
+};
+mcpDiscoveryRoutes.get('/.well-known/oauth-protected-resource', (c) => c.json(resourceDoc(c), 200, cacheable));
+mcpDiscoveryRoutes.get(`/.well-known/oauth-protected-resource${MCP_RESOURCE_PATH}`, (c) => c.json(resourceDoc(c), 200, cacheable));

@@ -48,8 +48,9 @@ function table(name: string) {
 vi.mock('../../db.js', () => ({ adminClient: { from: (n: string) => table(n) } }));
 
 const { pkceChallengeOf, pkceMatches, redirectUriAcceptable } = await import('./pkce.js');
-const { authorizationServerMetadata, protectedResourceMetadata, publicOrigin, MCP_SCOPES } = await import('../../routes/mcp-discovery.js');
+const { authorizationServerMetadata, protectedResourceMetadata, publicOrigin, mcpResource, isMcpHost, MCP_SCOPES } = await import('../../routes/mcp-discovery.js');
 const { signAccessToken, grantFromAccessToken, issueRefreshToken, grantFromRefreshToken, revokeGrant, resetGrantCachesForTests } = await import('./grants.js');
+const { mcpRootRoutes } = await import('../../routes/mcp.js');
 
 beforeEach(() => {
   process.env.SSO_INTERNAL_SECRET = 'an-internal-secret-long-enough-for-tests-0000';
@@ -115,6 +116,22 @@ describe('discovery', () => {
     expect(publicOrigin(new Headers({ host: 'localhost:8080' }))).toBe('http://localhost:8080');
     process.env.API_PUBLIC_URL = 'https://api.thefibre.app/';
     expect(publicOrigin(new Headers({ host: 'whatever' }))).toBe('https://api.thefibre.app');
+    delete process.env.API_PUBLIC_URL;
+  });
+
+  it('on an mcp.* host the connector address is the hostname alone; elsewhere it keeps the path', () => {
+    const pretty = new Headers({ host: 'mcp.thefibre.app' });
+    expect(isMcpHost(pretty)).toBe(true);
+    expect(mcpResource(pretty)).toEqual({ origin: 'https://mcp.thefibre.app', path: '', resource: 'https://mcp.thefibre.app' });
+    expect(protectedResourceMetadata('https://mcp.thefibre.app', '').resource).toBe('https://mcp.thefibre.app');
+    // Fly puts the outside hostname in x-forwarded-host; the bare host is the machine.
+    expect(isMcpHost(new Headers({ host: 'thefibre-api.internal:8080', 'x-forwarded-host': 'mcp.thefibre.tech' }))).toBe(true);
+
+    const plain = new Headers({ host: 'thefibre-api-staging.fly.dev' });
+    expect(isMcpHost(plain)).toBe(false);
+    expect(mcpResource(plain).resource).toBe('https://thefibre-api-staging.fly.dev/api/v1/mcp');
+    // A hostname that merely CONTAINS mcp is not the connector host.
+    expect(isMcpHost(new Headers({ host: 'thefibre-mcp-api.fly.dev' }))).toBe(false);
   });
 
   it('points a client at our endpoints and only S256 + code + refresh', () => {
@@ -139,6 +156,40 @@ describe('discovery', () => {
     expect(narrowScopes('')).toEqual(['connections:read', 'thread:read', 'models:read']);
     expect(narrowScopes('thread:write')).toEqual(['thread:write']);
     expect(narrowScopes('connections:write thread:read')).toEqual(['thread:read']);
+  });
+});
+
+describe('the connector at the root of an mcp.* host', () => {
+  const mcpHost = { host: 'mcp.thefibre.tech' };
+
+  it('challenges an unsigned client with the ROOT resource document, no path', async () => {
+    const res = await mcpRootRoutes.request('/', { method: 'POST', headers: { ...mcpHost, 'content-type': 'application/json' }, body: '{}' });
+    expect(res.status).toBe(401);
+    expect(res.headers.get('www-authenticate')).toContain('resource_metadata="https://mcp.thefibre.tech/.well-known/oauth-protected-resource"');
+  });
+
+  it('is inert on every other hostname — the root falls through', async () => {
+    const res = await mcpRootRoutes.request('/', { method: 'POST', headers: { host: 'thefibre-api-staging.fly.dev' }, body: '{}' });
+    expect(res.status).toBe(404);
+  });
+
+  it('sends a browser that opens the address to Settings → Assistant on the same stack', async () => {
+    const res = await mcpRootRoutes.request('/', { method: 'GET', headers: { ...mcpHost, accept: 'text/html,application/xhtml+xml' } });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('https://thefibre.tech/settings/assistant');
+  });
+
+  it('a token minted for the old address is not valid at the new one — each connection stays where it was made', async () => {
+    const grant = {
+      id: 'g-1', user_id: 'u-1', workspace_id: 'ws-1', client_id: 'mcp_abc', client_name: 'Claude', scopes: ['connections:read' as const],
+      session_refresh_ciphertext: 'x', refresh_token_hash: null, refresh_token_expires_at: null, created_at: new Date().toISOString(),
+      activated_at: null, last_used_at: null, revoked_at: null,
+    };
+    rows.set('g-1', { ...grant });
+    const token = await signAccessToken(grant, 'https://thefibre-api-staging.fly.dev/api/v1/mcp');
+    const res = await mcpRootRoutes.request('/', { method: 'POST', headers: { ...mcpHost, authorization: `Bearer ${token}` }, body: '{}' });
+    expect(res.status).toBe(401);
+    expect(await grantFromAccessToken(token, 'https://thefibre-api-staging.fly.dev/api/v1/mcp')).not.toBeNull();
   });
 });
 

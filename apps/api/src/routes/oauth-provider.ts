@@ -13,7 +13,7 @@ import {
   revokeGrant,
   signAccessToken,
 } from '../lib/mcp/grants.js';
-import { MCP_RESOURCE_PATH, MCP_SCOPES, publicOrigin } from './mcp-discovery.js';
+import { MCP_SCOPES, mcpResource } from './mcp-discovery.js';
 
 // ---------------------------------------------------------------------------
 // Since v0.83.0 this provider serves TWO kinds of client
@@ -404,7 +404,7 @@ oauthProviderRoutes.post('/token', async (c) => {
     if (!grant || (client_id && client_id !== grant.client_id)) {
       return c.json({ error: 'invalid_grant' }, 400);
     }
-    const resource = `${publicOrigin(c.req.raw.headers)}${MCP_RESOURCE_PATH}`;
+    const resource = mcpResource(c.req.raw.headers).resource;
     const [access_token, refresh_token] = await Promise.all([signAccessToken(grant, resource), issueRefreshToken(grant)]);
     return c.json({ access_token, token_type: 'Bearer', expires_in: ACCESS_TOKEN_TTL_S, refresh_token, scope: grant.scopes.join(' ') });
   }
@@ -446,7 +446,7 @@ oauthProviderRoutes.post('/token', async (c) => {
 
     const grant = codeRow.grant_id ? await loadGrant(codeRow.grant_id as string) : null;
     if (!grant || grant.revoked_at) return c.json({ error: 'invalid_grant' }, 400);
-    const resource = `${publicOrigin(c.req.raw.headers)}${MCP_RESOURCE_PATH}`;
+    const resource = mcpResource(c.req.raw.headers).resource;
     const [access_token, refresh_token] = await Promise.all([signAccessToken(grant, resource), issueRefreshToken(grant)]);
     return c.json({ access_token, token_type: 'Bearer', expires_in: ACCESS_TOKEN_TTL_S, refresh_token, scope: grant.scopes.join(' ') });
   }

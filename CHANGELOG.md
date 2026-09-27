@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.76.0] — 2026-09-27 — the connector is an address you can say out loud (staging)
+
+Sjoerd, connecting his own Claude to The Fibre: *"they need the link too no?
+Can that be a better link than the one I used"* — the one he used was the Fly
+hostname plus `/api/v1/mcp`.
+
+- **`https://mcp.thefibre.app` is the connector address** (staging:
+  `https://mcp.thefibre.tech`). The API answers the MCP endpoint at the ROOT
+  of any `mcp.`-prefixed hostname, so the whole address is the hostname; the
+  discovery documents, the sign-in challenge and the tokens all name that
+  root as the resource (`routes/mcp-discovery.ts` `mcpResource`). The old
+  address keeps working unchanged, and a token stays bound to the address it
+  was minted for — an existing connection is not disturbed. Opening the
+  address in a browser lands on Settings → Assistant instead of a JSON 401.
+  **Not live until the DNS records exist** (`fly certs add` on both APIs, a
+  CNAME per hostname at the registrar — Sjoerd's step; docs/deploy.md).
+- **Settings → Assistant explains the two doors.** *A. The assistant inside
+  The Thread* (the Ask panel, on the plan's allowance or the workspace's own
+  key — what the rest of the page configures) and *B. Your own Claude,
+  connected to The Fibre*: what it can do, the connector address with a copy
+  button, the two ways to add it (Claude's Add custom connector, and the
+  `claude mcp add` line), and the link to where connections are listed and
+  disconnected. Six locales. The address follows the stack the page is
+  served from; `NEXT_PUBLIC_MCP_URL` overrides it.
+
 ## [1.75.0] — 2026-09-27 — one current workspace, in every app, until you switch
 
 Sjoerd, after an evening of it: *"I go to models -> it shows doab... That is

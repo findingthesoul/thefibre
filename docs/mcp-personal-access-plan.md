@@ -210,6 +210,15 @@ Total: **three to four sessions**, P1 and P2 sequential, P3 and P4 short.
 
 The staging API is the server; nothing needs to be installed.
 
+**The address** (since v1.76, 2026-09-27) is the hostname alone:
+`https://mcp.thefibre.app` on production, `https://mcp.thefibre.tech` on
+staging — the API serves the endpoint at the root of any `mcp.` host and
+names that root as the resource. Until the DNS records exist (a Fly cert plus
+a CNAME per hostname, docs/deploy.md "Custom domain") the Fly addresses below
+are the ones that resolve, and they keep working afterwards; a connection made
+on one address stays on it. Settings → Assistant in The Fibre prints the right
+one for the stack with a copy button.
+
 **Claude Desktop** (or Claude.ai → Settings → Connectors → Add custom
 connector): give it the URL
 

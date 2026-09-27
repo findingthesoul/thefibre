@@ -1,9 +1,13 @@
+import Link from 'next/link';
+import { headers } from 'next/headers';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel, ErrorBanner } from '@/components/ui/page';
 import { CARD } from '@thefibre/shared/ui/recipes';
+import { mcpConnectorUrl } from '@thefibre/shared';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { KeyForm } from './key-form';
+import { ConnectorAddress } from './connector-address';
 
 // Settings → Assistant (docs/assistant-in-app.md §1.4 + §6.2). Three answers
 // in one screen: is it on here and on whose key, how much has it used, and
@@ -25,6 +29,7 @@ type Me = { user: { id: string; is_super_admin?: boolean }; memberships: { app: 
 
 export default async function AssistantSettingsPage() {
   const locale = await uiLocale();
+  const connectorUrl = mcpConnectorUrl((await headers()).get('host'));
   const nf = new Intl.NumberFormat(INTL_LOCALES[locale]);
   const df = new Intl.DateTimeFormat(INTL_LOCALES[locale], { dateStyle: 'medium' });
 
@@ -65,11 +70,29 @@ export default async function AssistantSettingsPage() {
       <PageHeader title={t(locale, 'assistant_title')} description={t(locale, 'assistant_lead')} />
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      {status && (
-        <section className={`${CARD} p-5`}>
-          <p className="text-sm text-ink">{statusLine(status)}</p>
-        </section>
-      )}
+      {/* The two doors, side by side. A is what the rest of this page
+          configures; B is the person's own assistant, connected through the
+          MCP address — the page they land on if they open that address in a
+          browser. */}
+      <section className="space-y-3">
+        <SectionLabel>{t(locale, 'assistant_two_ways_title')}</SectionLabel>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className={`${CARD} p-5 space-y-2`}>
+            <h3 className="text-sm font-medium text-ink">{t(locale, 'assistant_way_in_app_title')}</h3>
+            <p className="text-sm text-ink-subtle">{t(locale, 'assistant_way_in_app_body')}</p>
+            {status && <p className="text-sm text-ink pt-1">{statusLine(status)}</p>}
+          </div>
+          <div className={`${CARD} p-5 space-y-3`}>
+            <h3 className="text-sm font-medium text-ink">{t(locale, 'assistant_way_own_title')}</h3>
+            <p className="text-sm text-ink-subtle">{t(locale, 'assistant_way_own_body')}</p>
+            <ConnectorAddress locale={locale} url={connectorUrl} />
+            <p className="text-xs text-ink-muted">{t(locale, 'assistant_connector_steps', { url: connectorUrl })}</p>
+            <Link href="/settings/connections" className="inline-block text-sm text-ink-subtle underline underline-offset-2 hover:text-ink">
+              {t(locale, 'assistant_connector_manage')} →
+            </Link>
+          </div>
+        </div>
+      </section>
 
       <section className="mt-8 space-y-3">
         <SectionLabel>{t(locale, 'assistant_own_key_title')}</SectionLabel>

@@ -6210,6 +6210,74 @@ const CATALOG = {
     de: 'Der Assistent in den Apps beantwortet Fragen zu deinen Threads und richtet sie für dich ein. Jede Änderung wird der Person zuerst gezeigt. Er liest Titel, Daten, Status und Zahlen — nie, wer sich angemeldet hat.', // MT
     fr: 'L’assistant dans les apps répond sur tes threads et les prépare pour toi. Chaque changement est d’abord montré à la personne. Il lit titres, dates, statuts et comptes — jamais qui s’est inscrit.', // MT
   },
+  // The two doors, side by side (Sjoerd, 2026-09-27: "make description on the
+  // assistant page what are the two options"). A = the panel in The Thread on
+  // the platform's or the workspace's key; B = the person's own Claude,
+  // connected through the MCP address (mcp-personal-access-plan.md §8).
+  assistant_two_ways_title: {
+    en: 'Two ways to work with an assistant',
+    nl: 'Twee manieren om met een assistent te werken',
+    es: 'Dos maneras de trabajar con un asistente', // MT
+    pt: 'Duas maneiras de trabalhar com um assistente', // MT
+    de: 'Zwei Wege, mit einem Assistenten zu arbeiten', // MT
+    fr: 'Deux façons de travailler avec un assistant', // MT
+  },
+  assistant_way_in_app_title: {
+    en: 'A. The assistant inside The Thread',
+    nl: 'A. De assistent in The Thread',
+    es: 'A. El asistente dentro de The Thread', // MT
+    pt: 'A. O assistente dentro do The Thread', // MT
+    de: 'A. Der Assistent in The Thread', // MT
+    fr: 'A. L’assistant dans The Thread', // MT
+  },
+  assistant_way_in_app_body: {
+    en: 'Press Ask in The Thread. It answers about your threads and sets them up for you; every change is shown to you before it happens. It runs on the allowance of your plan, or on your own Anthropic key from the section below. Nothing to install.',
+    nl: 'Druk op Vraag in The Thread. Hij beantwoordt vragen over je threads en zet ze voor je op; elke wijziging zie je eerst. Hij draait op het tegoed van je plan, of op je eigen Anthropic-sleutel uit het onderdeel hieronder. Niets te installeren.',
+    es: 'Pulsa Preguntar en The Thread. Responde sobre tus threads y los prepara por ti; cada cambio se te muestra antes de aplicarse. Funciona con la asignación de tu plan o con tu propia clave de Anthropic de la sección de abajo. Nada que instalar.', // MT
+    pt: 'Prima Perguntar no The Thread. Responde sobre os seus threads e prepara-os por si; cada alteração é-lhe mostrada antes de acontecer. Funciona com a alocação do seu plano ou com a sua própria chave Anthropic da secção abaixo. Nada a instalar.', // MT
+    de: 'Drücke in The Thread auf Fragen. Er beantwortet Fragen zu deinen Threads und richtet sie für dich ein; jede Änderung siehst du vorher. Er läuft auf dem Kontingent deines Plans oder auf deinem eigenen Anthropic-Schlüssel aus dem Abschnitt unten. Nichts zu installieren.', // MT
+    fr: 'Appuie sur Demander dans The Thread. Il répond sur tes fils et les prépare pour toi ; chaque changement t’est montré avant d’être appliqué. Il fonctionne sur l’allocation de ton plan ou sur ta propre clé Anthropic, dans la section ci-dessous. Rien à installer.', // MT
+  },
+  assistant_way_own_title: {
+    en: 'B. Your own Claude, connected to The Fibre',
+    nl: 'B. Je eigen Claude, gekoppeld aan The Fibre',
+    es: 'B. Tu propio Claude, conectado a The Fibre', // MT
+    pt: 'B. O seu próprio Claude, ligado ao The Fibre', // MT
+    de: 'B. Dein eigener Claude, verbunden mit The Fibre', // MT
+    fr: 'B. Ton propre Claude, connecté à The Fibre', // MT
+  },
+  assistant_way_own_body: {
+    en: 'Give the Claude you already use — claude.ai, Claude Desktop or Claude Code — the address below. It sends you here once to allow it; from then on it can read your Connect entries, look up your threads and build a thread from a schedule you paste. Everything it makes is a draft under your name, and it only ever sees what you can see. ChatGPT follows later.',
+    nl: 'Geef de Claude die je al gebruikt — claude.ai, Claude Desktop of Claude Code — het adres hieronder. Hij stuurt je één keer hierheen om toestemming te geven; daarna kan hij je Connect-items lezen, je threads opzoeken en een thread bouwen uit een schema dat je plakt. Alles wat hij maakt is een concept op jouw naam, en hij ziet alleen wat jij ook ziet. ChatGPT volgt later.',
+    es: 'Dale al Claude que ya usas — claude.ai, Claude Desktop o Claude Code — la dirección de abajo. Te envía aquí una vez para autorizarlo; desde entonces puede leer tus entradas de Connect, consultar tus threads y construir un thread a partir de un calendario que pegues. Todo lo que crea es un borrador a tu nombre y solo ve lo que tú ves. ChatGPT llegará más adelante.', // MT
+    pt: 'Dê ao Claude que já usa — claude.ai, Claude Desktop ou Claude Code — o endereço abaixo. Ele envia-o aqui uma vez para o autorizar; a partir daí pode ler as suas entradas do Connect, consultar os seus threads e construir um thread a partir de um calendário que colar. Tudo o que cria é um rascunho em seu nome e só vê o que você vê. O ChatGPT vem mais tarde.', // MT
+    de: 'Gib dem Claude, den du schon nutzt — claude.ai, Claude Desktop oder Claude Code — die Adresse unten. Er schickt dich einmal hierher, um ihn zuzulassen; danach kann er deine Connect-Einträge lesen, deine Threads nachschlagen und aus einem eingefügten Zeitplan einen Thread bauen. Alles, was er anlegt, ist ein Entwurf unter deinem Namen, und er sieht nur, was du siehst. ChatGPT folgt später.', // MT
+    fr: 'Donne au Claude que tu utilises déjà — claude.ai, Claude Desktop ou Claude Code — l’adresse ci-dessous. Il t’envoie ici une fois pour l’autoriser ; ensuite il peut lire tes entrées Connect, consulter tes fils et construire un fil à partir d’un calendrier que tu colles. Tout ce qu’il crée est un brouillon à ton nom, et il ne voit que ce que tu vois. ChatGPT suivra plus tard.', // MT
+  },
+  assistant_connector_address: {
+    en: 'Connector address',
+    nl: 'Koppeladres',
+    es: 'Dirección del conector', // MT
+    pt: 'Endereço do conector', // MT
+    de: 'Verbindungsadresse', // MT
+    fr: 'Adresse du connecteur', // MT
+  },
+  assistant_connector_steps: {
+    en: 'In Claude: Settings → Connectors → Add custom connector, paste the address, then press Allow when The Fibre asks. In Claude Code: claude mcp add --transport http thefibre {url}. What you connected is listed under Settings → Connections, where you can disconnect it.',
+    nl: 'In Claude: Instellingen → Connectors → Aangepaste connector toevoegen, plak het adres en druk op Toestaan als The Fibre dat vraagt. In Claude Code: claude mcp add --transport http thefibre {url}. Wat je hebt gekoppeld staat onder Instellingen → Koppelingen, waar je het ook weer loskoppelt.',
+    es: 'En Claude: Ajustes → Conectores → Añadir conector personalizado, pega la dirección y pulsa Permitir cuando The Fibre lo pida. En Claude Code: claude mcp add --transport http thefibre {url}. Lo que conectes aparece en Ajustes → Conexiones, donde puedes desconectarlo.', // MT
+    pt: 'No Claude: Definições → Conectores → Adicionar conector personalizado, cole o endereço e prima Permitir quando o The Fibre pedir. No Claude Code: claude mcp add --transport http thefibre {url}. O que ligou aparece em Definições → Ligações, onde pode desligá-lo.', // MT
+    de: 'In Claude: Einstellungen → Connectors → Eigenen Connector hinzufügen, Adresse einfügen, dann auf Erlauben drücken, wenn The Fibre fragt. In Claude Code: claude mcp add --transport http thefibre {url}. Was du verbunden hast, steht unter Einstellungen → Verbindungen, wo du es auch wieder trennst.', // MT
+    fr: 'Dans Claude : Paramètres → Connecteurs → Ajouter un connecteur personnalisé, colle l’adresse, puis appuie sur Autoriser quand The Fibre le demande. Dans Claude Code : claude mcp add --transport http thefibre {url}. Ce que tu as connecté figure sous Paramètres → Connexions, où tu peux le déconnecter.', // MT
+  },
+  assistant_connector_manage: {
+    en: 'Connected assistants',
+    nl: 'Gekoppelde assistenten',
+    es: 'Asistentes conectados', // MT
+    pt: 'Assistentes ligados', // MT
+    de: 'Verbundene Assistenten', // MT
+    fr: 'Assistants connectés', // MT
+  },
   assistant_status_workspace_key: {
     en: 'On, using this workspace’s own key (…{hint}). Anthropic bills the workspace directly; the platform allowance does not apply.',
     nl: 'Aan, met de eigen sleutel van deze workspace (…{hint}). Anthropic factureert de workspace rechtstreeks; de platformbundel geldt niet.',

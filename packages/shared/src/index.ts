@@ -9,6 +9,7 @@ export {
   PLATFORM_APP_ID,
   appUrl,
   stagingAppUrl,
+  mcpConnectorUrl,
   appName,
   appHomePath,
   APP_DISPLAY_ORDER,

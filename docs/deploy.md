@@ -232,6 +232,26 @@ fly certs add api.thefibre.app
 
 Then update the Vercel env var `NEXT_PUBLIC_API_BASE_URL` to `https://api.thefibre.app` and redeploy the web.
 
+**The MCP connector address** (`https://mcp.thefibre.app`, staging
+`https://mcp.thefibre.tech`) is the same mechanism on a second hostname. The
+API already answers the endpoint at the root of any `mcp.` host (v1.76); what
+makes the address real is the certificate and the DNS record, once per stack:
+
+```bash
+fly certs add mcp.thefibre.app -a thefibre-api
+fly certs add mcp.thefibre.tech -a thefibre-api-staging
+```
+
+Each prints the record to add at the registrar — a CNAME from `mcp` to the
+Fly app's hostname (`thefibre-api.fly.dev` / `thefibre-api-staging.fly.dev`),
+plus a `_acme-challenge.mcp` CNAME if Fly asks for one. `fly certs check
+mcp.thefibre.app -a thefibre-api` says when it has issued. Probe:
+`curl -s https://mcp.thefibre.app/.well-known/oauth-protected-resource` should
+answer `"resource":"https://mcp.thefibre.app"` — the root, no path. Until the
+record exists the Fly address with `/api/v1/mcp` keeps working, and Settings →
+Assistant can be told to print that instead with `NEXT_PUBLIC_MCP_URL` on
+Vercel.
+
 ### CORS
 
 The API uses Hono CORS with `origin: (origin) => isAllowedOrigin(origin) — allowlist, unknown origins blocked`, which allows any caller. Tighten this before opening to outside traffic: in `apps/api/src/server.ts`, restrict to the production web origins.

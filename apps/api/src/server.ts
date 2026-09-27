@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { APP_IDS, appUrl, stagingAppUrl, SURFACES, surfaceUrl} from '@thefibre/shared';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
@@ -60,9 +60,9 @@ import { uploadRoutes } from './routes/uploads.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
 import { authHookRoutes } from './routes/auth-hook.js';
-import { mcpDiscoveryRoutes } from './routes/mcp-discovery.js';
+import { isMcpHost, mcpDiscoveryRoutes } from './routes/mcp-discovery.js';
 import { mcpAuthRoutes } from './routes/mcp-auth.js';
-import { mcpRoutes } from './routes/mcp.js';
+import { mcpRootRoutes, mcpRoutes } from './routes/mcp.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { modelsRoutes } from './routes/models.js';
 import { maybeSyncVatRates } from './lib/vat-sync.js';
@@ -310,14 +310,21 @@ const openCors = cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Ty
 app.use('/.well-known/*', openCors);
 for (const p of OPEN_OAUTH_PATHS) app.use(p, openCors);
 
+// On an mcp.* host the root IS the MCP endpoint (routes/mcp.ts mcpRootRoutes),
+// so it gets the same open CORS as /api/v1/mcp.
+const mcpRoot = (c: Context) => c.req.path === '/' && isMcpHost(c.req.raw.headers);
+app.use('/', async (c, next) => (mcpRoot(c) ? openCors(c, next) : next()));
+
 app.use('*', async (c, next) => {
-  if (isPublishedReadPath(c.req.path) || c.req.path.startsWith('/.well-known/') || OPEN_OAUTH_PATHS.has(c.req.path)) return next();
+  if (isPublishedReadPath(c.req.path) || c.req.path.startsWith('/.well-known/') || OPEN_OAUTH_PATHS.has(c.req.path) || mcpRoot(c)) return next();
   return allowlistCors(c, next);
 });
 
 // OAuth discovery for MCP clients (routes/mcp-discovery.ts) — at the origin
 // root, where RFC 8414 / 9728 say they live; outside /api/v1 so no auth runs.
 app.route('/', mcpDiscoveryRoutes);
+// https://mcp.thefibre.app — the connector address is the hostname alone.
+app.route('/', mcpRootRoutes);
 
 app.get('/health', (c) => c.json({ ok: true, service: 'thefibre-api' }));
 

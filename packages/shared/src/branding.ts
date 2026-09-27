@@ -283,6 +283,19 @@ export function stagingAppUrl(slug: AppId): string {
 }
 
 /**
+ * The address a person gives their own assistant (Claude, ChatGPT) to connect
+ * it to The Fibre — docs/mcp-personal-access-plan.md §8. The API answers the
+ * MCP endpoint at the root of an `mcp.` hostname, so the address is the
+ * hostname alone. Env override first (a stack whose DNS is not there yet can
+ * print the Fly address), then the stack the page is served from.
+ */
+export function mcpConnectorUrl(host?: string | null, env: Record<string, string | undefined> | undefined = ambientEnv()): string {
+  const fromEnv = env?.NEXT_PUBLIC_MCP_URL;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim().replace(/\/+$/, '');
+  return isStagingHost(host) ? `https://mcp.${STAGING_APEX}` : 'https://mcp.thefibre.app';
+}
+
+/**
  * Where an app lives.
  *
  * `urlEnv` wins, because a deployment may be told exactly where its siblings

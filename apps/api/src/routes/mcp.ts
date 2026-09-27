@@ -18,7 +18,8 @@ import { PersonClient, buildPersonServer } from '@thefibre/mcp/person';
 import { adminClient } from '../db.js';
 import { GrantError, grantFromAccessToken, sessionJwtFor } from '../lib/mcp/grants.js';
 import { clientIp, hit } from '../lib/rate-limit.js';
-import { MCP_RESOURCE_PATH, publicOrigin } from './mcp-discovery.js';
+import { appUrl } from '@thefibre/shared';
+import { isMcpHost, mcpResource } from './mcp-discovery.js';
 
 export const mcpRoutes = new Hono();
 
@@ -28,11 +29,11 @@ const WINDOW_MS = 60_000;
 
 const VERSION: string = (createRequire(import.meta.url)('../../package.json') as { version: string }).version;
 
-function challenge(c: Context, origin: string, detail: string) {
+function challenge(c: Context, origin: string, path: string, detail: string) {
   const safe = detail.replace(/["\\\r\n]/g, ' ');
   c.header(
     'WWW-Authenticate',
-    `Bearer realm="thefibre", resource_metadata="${origin}/.well-known/oauth-protected-resource${MCP_RESOURCE_PATH}", error="invalid_token", error_description="${safe}"`,
+    `Bearer realm="thefibre", resource_metadata="${origin}/.well-known/oauth-protected-resource${path}", error="invalid_token", error_description="${safe}"`,
   );
   return c.json({ error: 'invalid_token', error_description: detail }, 401);
 }
@@ -42,14 +43,23 @@ async function workspaceName(id: string): Promise<string> {
   return (data?.name as string | undefined) ?? 'your workspace';
 }
 
-const handler = async (c: Context) => {
-  const origin = publicOrigin(c.req.raw.headers);
+export const mcpHandler = async (c: Context) => {
+  const { origin, path, resource } = mcpResource(c.req.raw.headers);
   const auth = c.req.header('authorization') ?? '';
   const m = /^Bearer\s+(\S+)$/i.exec(auth);
-  if (!m) return challenge(c, origin, 'sign in to connect this assistant to The Fibre');
+  if (!m) {
+    // A person who opens the connector address in a BROWSER is not a client:
+    // send them to the page that says what to do with it.
+    if (c.req.method === 'GET' && (c.req.header('accept') ?? '').includes('text/html')) {
+      const host = c.req.header('x-forwarded-host') ?? c.req.header('host') ?? null;
+      const web = (process.env.FIBRE_WEB_URL ?? appUrl('fibre-platform', process.env, host)).replace(/\/+$/, '');
+      return c.redirect(`${web}/settings/assistant`, 302);
+    }
+    return challenge(c, origin, path, 'sign in to connect this assistant to The Fibre');
+  }
 
-  const grant = await grantFromAccessToken(m[1]!, `${origin}${MCP_RESOURCE_PATH}`);
-  if (!grant) return challenge(c, origin, 'the token is not valid for this server, or the connection was disconnected');
+  const grant = await grantFromAccessToken(m[1]!, resource);
+  if (!grant) return challenge(c, origin, path, 'the token is not valid for this server, or the connection was disconnected');
 
   const brake = hit(`mcp:${grant.id}`, CALLS_PER_WINDOW, WINDOW_MS);
   if (!brake.allowed) {
@@ -65,7 +75,7 @@ const handler = async (c: Context) => {
   } catch (e) {
     if (e instanceof GrantError) {
       console.log(`[mcp] grant=${grant.id} ${e.code} ip=${ip}`);
-      return challenge(c, origin, e.message);
+      return challenge(c, origin, path, e.message);
     }
     console.error('[mcp] session refresh failed', e);
     return c.json({ error: 'server_error' }, 500);
@@ -97,6 +107,12 @@ const handler = async (c: Context) => {
   }
 };
 
-mcpRoutes.post('/', handler);
-mcpRoutes.get('/', handler);
-mcpRoutes.delete('/', handler);
+mcpRoutes.post('/', mcpHandler);
+mcpRoutes.get('/', mcpHandler);
+mcpRoutes.delete('/', mcpHandler);
+
+// The same endpoint at the ROOT of an mcp.* host (mcp-discovery.ts
+// isMcpHost): `https://mcp.thefibre.app` is the whole connector address.
+// Mounted at `/` in server.ts; inert on every other hostname.
+export const mcpRootRoutes = new Hono();
+mcpRootRoutes.on(['GET', 'POST', 'DELETE'], '/', async (c, next) => (isMcpHost(c.req.raw.headers) ? mcpHandler(c) : next()));
