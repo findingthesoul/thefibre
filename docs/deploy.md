@@ -149,6 +149,28 @@ the app is reachable — only an external request is, and the tell is a request
 that never reaches the log. The `unauthorized` on destroy is unexplained
 (build plan).
 
+**When the Depot builder is down, fall back to the legacy builder with
+`--depot=false` (2026-09-28).** For most of an hour, `deploy-api.sh` (which
+uses `fly deploy --remote-only`, Depot by default) hung at `Waiting for depot
+builder…` and never built, while a flood of `error reporting health:
+unauthenticated: Invalid token` filled the log — a transient Fly platform
+spell, not the image or the code (the same Dockerfile had deployed cleanly
+hours before, and `pnpm -r typecheck` was green). What got through was Fly's
+**legacy remote builder**, invoked directly:
+
+```bash
+fly deploy --config fly.staging.toml --remote-only --depot=false   # staging
+fly deploy --config fly.toml         --remote-only --depot=false   # production
+```
+
+This bypasses `deploy-api.sh`'s guards, so run it only from a **clean worktree
+whose HEAD is `origin/staging` (staging) or `origin/main` (prod)** — the guard
+those replace. Even on the legacy builder the deploy may wedge at
+`Waiting for all green machines to start`; that is the same health-token spell
+and it passes — **re-run the whole deploy**, it is idempotent, and confirm
+success with an external request (a discovery doc or `/health`), never machine
+state. It took ~10 attempts across both builders before one completed.
+
 **Use `scripts/deploy-api.sh`, not `fly deploy` directly.**
 
 ```bash
