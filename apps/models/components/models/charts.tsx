@@ -4,8 +4,24 @@
 // (stroke-ink / stroke-ink-muted): a line chart of two series reads by weight
 // and dash, never by hue, so it holds in both themes and in print.
 
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
 import { CARD } from '@thefibre/shared/ui/recipes';
+
+/** The drawing is laid out in CSS pixels of its box, so a wide panel gets a
+ *  wide viewBox instead of a stretched one: text and dashes keep their shape
+ *  (Sjoerd, 2026-09-28, on the full-width Reserve panel: "fonts are stretched"). */
+function useBoxWidth(fallback = 600): [RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [w, setW] = useState(fallback);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => { const cw = entries[0]?.contentRect.width; if (cw && cw > 80) setW(Math.round(cw)); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w];
+}
 
 export type Series<K extends string> = { key: K; label: string; tone: 'ink' | 'muted'; dash?: string; width?: number };
 type Pt<K extends string> = Record<K, number>;
@@ -52,7 +68,8 @@ export function LineChart<K extends string>({
   height?: number;
 }) {
   const [hover, setHover] = useState<{ i: number; px: number; py: number; w: number } | null>(null);
-  const W = 600, H = height, padL = 56, padR = 12, padT = 14, padB = 34;
+  const [box, W] = useBoxWidth();
+  const H = height, padL = 56, padR = 12, padT = 14, padB = 34;
   const pw = W - padL - padR, ph = H - padT - padB;
   const xs = points.map((p) => p.x);
   const minX = Math.min(...xs), maxX = Math.max(...xs) || 1;
@@ -74,7 +91,7 @@ export function LineChart<K extends string>({
   const hp = hover ? points[hover.i] : null;
 
   return (
-    <div className="relative" style={{ height }}>
+    <div ref={box} className="relative" style={{ height }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block w-full h-full overflow-visible" onMouseMove={onMove} onMouseLeave={() => setHover(null)} role="img">
         {niceTicks(minY, maxY, 5).map((tk) => (
           <g key={tk}>
@@ -82,7 +99,7 @@ export function LineChart<K extends string>({
             <text x={padL - 8} y={yAt(tk) + 3.5} textAnchor="end" fontSize="10.5" className="fill-ink-muted">{yFmt(tk)}</text>
           </g>
         ))}
-        {niceTicks(minX, maxX, 6).filter((v) => v >= minX && v <= maxX).map((tk) => (
+        {niceTicks(minX, maxX, Math.max(3, Math.min(10, Math.round(W / 100)))).filter((v) => v >= minX && v <= maxX).map((tk) => (
           <text key={tk} x={xAt(tk)} y={H - padB + 16} textAnchor="middle" fontSize="10.5" className="fill-ink-muted">{xFmt(tk)}</text>
         ))}
         <text x={padL + pw / 2} y={H - 4} textAnchor="middle" fontSize="10.5" className="fill-ink-muted">{xLabel}</text>
@@ -119,7 +136,8 @@ export function BarChart<K extends string>({
   height?: number;
 }) {
   const [hover, setHover] = useState<{ i: number; px: number; py: number; w: number } | null>(null);
-  const W = 600, H = height, padL = 56, padR = 12, padT = 16, padB = 30;
+  const [box, W] = useBoxWidth();
+  const H = height, padL = 56, padR = 12, padT = 16, padB = 30;
   const pw = W - padL - padR, ph = H - padT - padB;
   const maxY = Math.max(1, ...groups.flatMap((g) => series.map((s) => g[s.key] ?? 0))) * 1.08;
   const yAt = (v: number) => padT + ph - (v / maxY) * ph;
@@ -132,7 +150,7 @@ export function BarChart<K extends string>({
   }
   const hg = hover ? groups[hover.i] : null;
   return (
-    <div className="relative" style={{ height }}>
+    <div ref={box} className="relative" style={{ height }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block w-full h-full overflow-visible" onMouseMove={onMove} onMouseLeave={() => setHover(null)} role="img">
         {niceTicks(0, maxY, 4).map((tk) => (
           <g key={tk}>
