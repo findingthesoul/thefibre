@@ -509,11 +509,36 @@ export const PERSON_TOOLS: PersonTool[] = [
   }),
   tool({
     name: 'models_teams',
-    title: 'Teams a business model can belong to',
-    description: 'The teams the person may put a business model in, with their standing in each (admin, lead or member). Admins may also create workspace-wide models (team_id null). Only admins and team leads can create.',
+    title: 'Where a business model can live',
+    description:
+      'Where the person may put a business model: "the whole workspace" (workspace_wide — a model every member may open; admins only), and the teams they may create in, with their standing in each. Read this before models_create. A workspace with NO teams is normal for a new one: then workspace-wide is the home, not a fallback — never reach for a team from another workspace to fill the gap.',
     scope: 'models:read',
     input: {},
-    run: async (c) => c.get<{ items: Row[]; is_admin: boolean }>(MODELS, '/api/v1/models/teams'),
+    run: async (c) => {
+      const r = await c.get<{ items: Row[]; is_admin: boolean }>(MODELS, '/api/v1/models/teams');
+      const items = r.items ?? [];
+      const isAdmin = r.is_admin === true;
+      // Option B (Sjoerd, 2026-09-29): "the whole workspace" is the first-class
+      // default home for a model, offered FIRST — because a fresh workspace has
+      // zero teams, and a bare `items: []` sent his assistant guessing a team
+      // from a different workspace. `meaning` spells out that team_id null here
+      // is "no team, deliberately", not an unset value: three surfaces once read
+      // team_id IS NULL as "personal" when it meant workspace-scoped
+      // (docs/build-plan.md, design_team_id_null_is_not_personal).
+      return {
+        workspace_wide: isAdmin
+          ? { available: true, team_id: null, team_name: 'workspace', meaning: 'no team, deliberately: a model every member of this workspace may open' }
+          : { available: false, reason: 'only workspace admins may create a workspace-wide model' },
+        items,
+        is_admin: isAdmin,
+        note:
+          items.length === 0
+            ? isAdmin
+              ? 'This workspace has no teams yet — that is normal for a new one. Create the model workspace-wide (team_id null, team_name "workspace"). Do not pick a team from another workspace.'
+              : 'This workspace has no teams yet, and only a workspace admin may create a workspace-wide model. Ask an admin to create a team, or the model.'
+            : undefined,
+      };
+    },
   }),
   tool({
     name: 'models_get',
@@ -536,7 +561,7 @@ export const PERSON_TOOLS: PersonTool[] = [
     name: 'models_create',
     title: 'Create a business model',
     description:
-      'Create a business model in Business Models from a definition (see models_schema): turnover generators each with a volume, a price and their own cost structure, generic fixed costs, one-off investment, and the Business Model Canvas text. The team then turns the numbers in the app. Security check, every time: before calling, tell the person the model name and the team it goes into and wait for their yes (models_teams says where they may create; admins may pass team_id null for the whole workspace). Pass team_name as confirmed: the tool checks it against team_id and refuses a mismatch. A model with the same name in the same place is refused too, so "create" never silently doubles or replaces an existing one; to change one, use models_update. This tool only ever creates; it never changes an existing model. Every number in the definition is a placeholder for the team to replace; say so in the help texts. Nothing is shared outside the team.',
+      'Create a business model in Business Models from a definition (see models_schema): turnover generators each with a volume, a price and their own cost structure, generic fixed costs, one-off investment, and the Business Model Canvas text. The team then turns the numbers in the app. Security check, every time: before calling, tell the person the model name and where it goes — a team, or the whole workspace — and wait for their yes. models_teams says where they may create. For an admin, the whole workspace (team_id null, team_name "workspace") is the DEFAULT home when the workspace has no teams or the person names none; it is the normal place, not a fallback, and you must never pick a team from a different workspace to fill a gap. Pass team_name as confirmed: the tool checks it against team_id and refuses a mismatch. A model with the same name in the same place is refused too, so "create" never silently doubles or replaces an existing one; to change one, use models_update. This tool only ever creates; it never changes an existing model. Every number in the definition is a placeholder for the team to replace; say so in the help texts. Nothing is shared outside the team.',
     scope: 'models:write',
     write: true,
     input: {
@@ -704,7 +729,7 @@ export function personInstructions(who: PersonServerOptions['who'], scopes: read
     'Connect is a landscape of a person’s relationships, not a CRM: bands say how a relationship stands, attention conditions say who needs a move, and notes are the person’s own words about a meeting.',
     'When asked who to follow up with, start with connections_today, then connections_attention. To talk about one person, find them with connections_search and read connections_person.',
     scopes.includes('models:read')
-      ? 'Business Models holds one model per venture: turnover generators with their own costs, generic costs, investment, break even, on a Business Model Canvas. models_list shows what the person may open; models_get reads one back. To write a model from a story, read models_schema first, draft the definition, and confirm name and team before models_create. With models:write you may also change a model (models_update, definition and words; models_set_numbers, the numbers; models_save_scenario; models_duplicate for a variation of the structure). Always read first, change only what was asked, pass if_updated_at so nobody is overwritten, and confirm before a write.'
+      ? 'Business Models holds one model per venture: turnover generators with their own costs, generic costs, investment, break even, on a Business Model Canvas. models_list shows what the person may open; models_get reads one back. To write a model from a story, read models_schema first, draft the definition, and confirm the name and where it lives before models_create: a team, or the whole workspace. models_teams says which are available. A model with no team is workspace-wide — for an admin that is the default home when the workspace has no teams yet or none is named; never borrow a team from another workspace. With models:write you may also change a model (models_update, definition and words; models_set_numbers, the numbers; models_save_scenario; models_duplicate for a variation of the structure). Always read first, change only what was asked, pass if_updated_at so nobody is overwritten, and confirm before a write.'
       : '',
     scopes.includes('thread:write')
       ? 'Two things here write, both as DRAFTS: thread_create makes a new thread (blank, or from one of the person’s templates), and thread_add_engagements lays a list of dated items onto it. Before creating, confirm template-or-blank, title, dates and slug (suggest one from the title). For a schedule the person pastes, use the plan_thread_from_schedule prompt’s method: rows people attend become agenda items, rows that get sent become messages, internal steps become agenda items hidden from the agenda; the thread’s start and end must span every row. Nothing is published or emailed until the person publishes it in The Thread. Changing a thread, adding a Connect note, publishing: in the app; say where.'

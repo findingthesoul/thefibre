@@ -132,6 +132,39 @@ describe('the person catalogue', () => {
     expect(teams.calls.map((c) => new URL(c.url).pathname)).toEqual(['/api/v1/models/teams', '/api/v1/models']);
   });
 
+  it('models_teams offers the whole workspace first and never answers a bare [] (option B, 2026-09-29)', async () => {
+    const teams = PERSON_TOOLS.find((x) => x.name === 'models_teams')!;
+    type Out = { workspace_wide: Record<string, unknown>; items: unknown[]; is_admin: boolean; note?: string };
+    // A fresh workspace: no teams, the person is admin. Festival of Trust,
+    // 2026-09-29 — a bare items: [] sent the assistant guessing a team from
+    // ANOTHER workspace. Workspace-wide must be offered, first and plainly.
+    const fresh = recorder({ items: [], is_admin: true });
+    const c1 = new PersonClient({ apiUrl: 'http://api.test', jwt: 'j', fetch: fresh.fetch });
+    const a = (await teams.run(c1, {} as never)) as Out;
+    expect(a.workspace_wide.available).toBe(true);
+    expect(a.workspace_wide.team_id).toBeNull();
+    expect(a.workspace_wide.team_name).toBe('workspace');
+    // team_id null here is "no team, DELIBERATELY" — say so, so no reader
+    // mistakes it for unset (design_team_id_null_is_not_personal).
+    expect(String(a.workspace_wide.meaning)).toMatch(/deliberately/);
+    expect(a.note).toMatch(/no teams yet/);
+    expect(a.note).toMatch(/workspace-wide/);
+    expect(a.note).toMatch(/another workspace/);
+    // Same empty workspace, but not an admin: told to ask one, not left with [].
+    const member = recorder({ items: [], is_admin: false });
+    const c2 = new PersonClient({ apiUrl: 'http://api.test', jwt: 'j', fetch: member.fetch });
+    const b = (await teams.run(c2, {} as never)) as Out;
+    expect(b.workspace_wide.available).toBe(false);
+    expect(b.note).toMatch(/admin/);
+    // Teams exist: they pass through, and there is nothing to warn about.
+    const withTeams = recorder({ items: [{ id: U, name: 'doáb', role: 'lead' }], is_admin: true });
+    const c3 = new PersonClient({ apiUrl: 'http://api.test', jwt: 'j', fetch: withTeams.fetch });
+    const d = (await teams.run(c3, {} as never)) as Out;
+    expect(d.items).toHaveLength(1);
+    expect(d.note).toBeUndefined();
+    expect(d.workspace_wide.available).toBe(true);
+  });
+
   it('thread_create posts as the person to the real routes, and lands a draft', async () => {
     const rec = recorder({ id: U });
     const client = new PersonClient({ apiUrl: 'http://api.test', jwt: 'j', fetch: rec.fetch });

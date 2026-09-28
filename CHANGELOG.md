@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.86.3] — 2026-09-29 — a workspace with no teams is a home, not a dead end (staging)
+
+Sjoerd, connecting his assistant to Festival of Trust (Models on, zero teams):
+the assistant asked "which team?" of an empty list and reached for a team in
+a *different* workspace. *"Maybe there should always be a default team."* He
+chose option B: **the whole workspace is the first-class default home.**
+
+- **`models_teams` offers the whole workspace first, and never answers a bare
+  `[]`.** The result now leads with `workspace_wide` — available to admins,
+  with `team_id: null`, `team_name: "workspace"` and a `meaning` that spells
+  out "no team, deliberately: a model every member may open" (so no reader
+  mistakes that null for unset; this codebase has misread `team_id IS NULL`
+  before). When the workspace has no teams a `note` says so plainly and says
+  what to do: create workspace-wide (admin), or ask an admin (member).
+- **`models_create` and the server instructions treat workspace-wide as the
+  default,** not a fallback: when the workspace has no teams or the person
+  names none, an admin's model goes to the whole workspace, and the assistant
+  is told never to borrow a team from another workspace to fill a gap.
+- The app's own UI half of B (offering "whole workspace" first in Models) is
+  filed for the Models lane in docs/build-plan.md; this release is the MCP half.
+
 ## [1.86.2] — 2026-09-29 — a button that says why, instead of going grey (Meet 2.17.2)
 
 "Button is there... but I cant press it." New booking disabled itself when the
