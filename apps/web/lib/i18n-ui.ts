@@ -33,6 +33,52 @@ export {
 } from '@thefibre/shared/i18n';
 
 const CATALOG = {
+  // ── sent home from another app ────────────────────────────────────────
+  // An app that cannot serve you hands you back here rather than showing a
+  // wall (Sjoerd, 2026-09-28). These are what the popup says. {app} is the
+  // app that could not serve, {workspace} the workspace you are in — which
+  // is untouched: being sent here never changes it.
+  sent_home_title: {
+    en: 'Back in The Fibre',
+    nl: 'Terug in The Fibre',
+    es: 'De vuelta en The Fibre', // MT
+    pt: 'De volta ao The Fibre', // MT
+    de: 'Zurück in The Fibre', // MT
+    fr: 'De retour dans The Fibre', // MT
+  },
+  sent_home_no_access: {
+    en: "{app} isn't switched on in {workspace}, so we brought you back here. Your workspace hasn't changed — switch workspace yourself if you meant to go somewhere else.",
+    nl: '{app} staat niet aan in {workspace}, dus we hebben je hierheen teruggebracht. Je workspace is niet veranderd — wissel zelf van workspace als je ergens anders heen wilde.',
+    es: '{app} no está activado en {workspace}, así que te trajimos de vuelta aquí. Tu espacio de trabajo no ha cambiado: cámbialo tú mismo si querías ir a otro sitio.', // MT
+    pt: '{app} não está ativado em {workspace}, por isso trouxemos-te de volta aqui. O teu espaço de trabalho não mudou — muda-o tu se querias ir para outro lado.', // MT
+    de: '{app} ist in {workspace} nicht eingeschaltet, deshalb haben wir dich hierher zurückgebracht. Dein Workspace ist unverändert — wechsle ihn selbst, wenn du woandershin wolltest.', // MT
+    fr: "{app} n'est pas activé dans {workspace}, nous vous avons donc ramené ici. Votre espace de travail n'a pas changé — changez-en vous-même si vous vouliez aller ailleurs.", // MT
+  },
+  sent_home_no_access_unknown_workspace: {
+    en: "{app} isn't switched on in the workspace you're in, so we brought you back here. Your workspace hasn't changed.",
+    nl: '{app} staat niet aan in de workspace waarin je zit, dus we hebben je hierheen teruggebracht. Je workspace is niet veranderd.',
+    es: '{app} no está activado en el espacio de trabajo en el que estás, así que te trajimos de vuelta aquí. Tu espacio de trabajo no ha cambiado.', // MT
+    pt: '{app} não está ativado no espaço de trabalho em que estás, por isso trouxemos-te de volta aqui. O teu espaço de trabalho não mudou.', // MT
+    de: '{app} ist in deinem aktuellen Workspace nicht eingeschaltet, deshalb haben wir dich hierher zurückgebracht. Dein Workspace ist unverändert.', // MT
+    fr: "{app} n'est pas activé dans l'espace de travail où vous êtes, nous vous avons donc ramené ici. Votre espace de travail n'a pas changé.", // MT
+  },
+  sent_home_no_session: {
+    en: "{app} couldn't tell who you are, so we brought you back here. Your workspace hasn't changed.",
+    nl: '{app} kon niet vaststellen wie je bent, dus we hebben je hierheen teruggebracht. Je workspace is niet veranderd.',
+    es: '{app} no pudo identificarte, así que te trajimos de vuelta aquí. Tu espacio de trabajo no ha cambiado.', // MT
+    pt: '{app} não conseguiu identificar-te, por isso trouxemos-te de volta aqui. O teu espaço de trabalho não mudou.', // MT
+    de: '{app} konnte nicht feststellen, wer du bist, deshalb haben wir dich hierher zurückgebracht. Dein Workspace ist unverändert.', // MT
+    fr: "{app} n'a pas pu déterminer qui vous êtes, nous vous avons donc ramené ici. Votre espace de travail n'a pas changé.", // MT
+  },
+  sent_home_dismiss: {
+    en: 'Got it',
+    nl: 'Duidelijk',
+    es: 'Entendido', // MT
+    pt: 'Entendido', // MT
+    de: 'Verstanden', // MT
+    fr: "D'accord", // MT
+  },
+
   // ── shared ────────────────────────────────────────────────────────────
   cancel: {
     en: 'Cancel',

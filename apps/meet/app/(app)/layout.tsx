@@ -9,7 +9,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
+import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
 // This is independent of the monorepo cadence in package.json (which tracks
@@ -57,7 +57,15 @@ export default async function MeetAppLayout({
   // app on — which the portal cannot tell them.
   if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
   // Gate: user must have fibre-meet membership AND the workspace must have meet activated.
-  if (!shell.hasAccess) redirect('/no-access');
+  // Sjoerd, 2026-09-28: *"In any other case of an error or mistake, go back
+  // to the fibre, but never switch workspace automatically"* — and *"a
+  // comment in a popup"*. So: no wall here, no switch offered here, and the
+  // workspace is left exactly as it was. The Fibre says what happened.
+  if (!shell.hasAccess) {
+    redirect(
+      sentHomeUrl({ reason: 'no-access', from: 'fibre-meet', workspace: shell.me.workspace?.name ?? null }, process.env, host),
+    );
+  }
 
   const { me, apps, extras } = shell;
   const prefs = extras.prefs;

@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.84.0] — 2026-09-28 — an app that can't serve you hands you back, and says why
+
+Sjoerd, tonight: *"always stay in the workspace until someone switched
+workspace… In any other case of an error or mistake, go back to the fibre,
+but never switch workspace automatically."* And: *"Back to fibre — but a
+comment in a popup."*
+
+Opening an app the workspace does not run used to land you on a wall inside
+that app, with a button that moved your workspace for you. Two things wrong
+with it: you were left standing in an app that cannot serve you, and the way
+out changed the one thing that is supposed to change only when you say so.
+
+Now all seven apps hand you back to The Fibre, which opens a popup naming the
+app and the workspace you are in, and saying in as many words that your
+workspace has not changed. One press dismisses it, and the reason is stripped
+from the URL so a refresh does not replay it.
+
+The reason travels as query parameters, because the hop crosses apexes and a
+cookie set on one is not readable on the other. They are display-only: an
+unknown reason is ignored rather than shown, which the tests assert, since
+those parameters arrive from another origin.
+
+`packages/shared/src/sent-home.ts` decides where and why; each app supplies
+its own slug and workspace name. The e2e spec that asserted the old wall now
+asserts the new rule, and its load-bearing line is that the workspace is
+still the one you were in.
+
+Not addressed, and worth naming: apps still hold their workspace separately,
+so one can lag behind another until it catches up. That is the deeper thing
+behind "it swaps back", and it needs the workspace to travel with the hop
+rather than each app remembering its own.
+
 ## [1.83.6] — 2026-09-28 — a new connector actually starts signing in (staging)
 
 Sjoerd hit the same failure ~20 times connecting Festival of Trust. The wire

@@ -10,7 +10,7 @@ import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
+import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 
 // Business Models has its own user-facing version, independent of the
 // monorepo cadence (new app, started at 0.1.0 on 2026-09-25).
@@ -34,7 +34,15 @@ export default async function ModelsAppLayout({ children }: { children: React.Re
     extras: { prefs: () => readPrefs() },
   });
   if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
-  if (!shell.hasAccess) redirect('/no-access');
+  // Sjoerd, 2026-09-28: *"In any other case of an error or mistake, go back
+  // to the fibre, but never switch workspace automatically"* — and *"a
+  // comment in a popup"*. So: no wall here, no switch offered here, and the
+  // workspace is left exactly as it was. The Fibre says what happened.
+  if (!shell.hasAccess) {
+    redirect(
+      sentHomeUrl({ reason: 'no-access', from: 'fibre-models', workspace: shell.me.workspace?.name ?? null }, process.env, host),
+    );
+  }
   const { me, apps } = shell;
   const prefs = shell.extras.prefs;
   const email = me.user.email;

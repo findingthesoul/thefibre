@@ -11,7 +11,7 @@ import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, appUrl, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
+import { APPS, appUrl, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
 import { OrgPopupProvider } from '@/components/org-popup';
@@ -64,7 +64,15 @@ export default async function ConnectionsAppLayout({
   // seat, and the honest answer is that this workspace has not switched the
   // app on — which the portal cannot tell them.
   if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
-  if (!shell.hasAccess) redirect('/no-access');
+  // Sjoerd, 2026-09-28: *"In any other case of an error or mistake, go back
+  // to the fibre, but never switch workspace automatically"* — and *"a
+  // comment in a popup"*. So: no wall here, no switch offered here, and the
+  // workspace is left exactly as it was. The Fibre says what happened.
+  if (!shell.hasAccess) {
+    redirect(
+      sentHomeUrl({ reason: 'no-access', from: 'fibre-sales', workspace: shell.me.workspace?.name ?? null }, process.env, host),
+    );
+  }
 
   const { me, apps, extras } = shell;
   const prefs = extras.prefs;

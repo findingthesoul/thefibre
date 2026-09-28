@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
-import { APPS, APP_IDS, APP_DISPLAY_ORDER, TILE_FILES, appName, appHomePath, type AppId } from '@thefibre/shared';
+import { APPS, APP_IDS, APP_DISPLAY_ORDER, TILE_FILES, appName, appHomePath, readSentHome, type AppId } from '@thefibre/shared';
+import { SentHomePopup } from './sent-home-popup';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
@@ -71,8 +72,16 @@ function appOf(w: WorkspaceApp): AppRef | null {
   return Array.isArray(w.app) ? w.app[0] ?? null : w.app;
 }
 
-export default async function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const locale = await uiLocale();
+  // An app that could not serve this person handed them back here and said
+  // why in the URL (packages/shared/src/sent-home.ts). Display only — nothing
+  // is granted on the strength of these, and the workspace is untouched.
+  const sentHome = readSentHome(await searchParams);
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: { session } } = await supabase.auth.getSession();
@@ -168,6 +177,27 @@ export default async function Dashboard() {
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">
+      {/* Handed back by an app that could not serve you, with the reason.
+          Rendered before the launcher so the explanation is what you read
+          first — being moved between apps is the more surprising event. */}
+      {sentHome && (
+        <SentHomePopup
+          title={t(locale, 'sent_home_title')}
+          body={
+            sentHome.reason === 'no-session'
+              ? t(locale, 'sent_home_no_session', { app: appName(sentHome.from as AppId) })
+              : sentHome.workspace
+                ? t(locale, 'sent_home_no_access', {
+                    app: appName(sentHome.from as AppId),
+                    workspace: sentHome.workspace,
+                  })
+                : t(locale, 'sent_home_no_access_unknown_workspace', {
+                    app: appName(sentHome.from as AppId),
+                  })
+          }
+          dismiss={t(locale, 'sent_home_dismiss')}
+        />
+      )}
       {/* On entry the launcher pops above the page, dimmed backdrop —
           once per browser session; the same tiles stay inline below. */}
       {!launcherOff && (

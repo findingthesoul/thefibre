@@ -2,10 +2,20 @@ import { test, expect } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { HOSTS, stagingService } from './helpers.js';
 
-// The no-access page, with context (v1.79.0). Sjoerd, 2026-09-27, signed in
-// with Doab.ai active and opening Thread: the page said "You don't have a
-// seat in Thread" — false; the seat was in another workspace. It now names
-// the workspace it is talking about and offers the ones where the app is on.
+// Opening an app the workspace does not run (v1.83.x). Two rounds of history
+// here, and the second replaced the first:
+//
+//   v1.79.0 — Sjoerd, signed in with Doab.ai active and opening Thread, was
+//   told "You don't have a seat in Thread". False: the seat was in another
+//   workspace. So the page learned to name the workspace and offer the ones
+//   where the app is on, with a switch button.
+//
+//   2026-09-28 — that switch was still a workspace change he had not asked
+//   for, and the wall left him standing in an app that cannot serve him:
+//   *"In any other case of an error or mistake, go back to the fibre, but
+//   never switch workspace automatically"*, *"a comment in a popup"*. The app
+//   now hands him back to The Fibre, which explains in a popup, and his
+//   workspace is untouched.
 //
 // Fixture: ONE account (one auth user, one public.user row per workspace —
 // the one-account-many-workspaces model) in two throwaway workspaces. A runs
@@ -105,21 +115,34 @@ test.describe('Thread — no access in THIS workspace', () => {
     if (f) await cleanup(f);
   });
 
-  test('names the active workspace, offers the one that runs Thread, and switches', async ({ page }) => {
+  test('hands you back to The Fibre, says why, and leaves your workspace alone', async ({ page }) => {
     test.slow();
     await page.goto(await landUrl(f, '/dashboard'));
-    await page.waitForURL(/no-access/, { timeout: 45_000 });
 
-    // The page talks about B by name, not about "a seat in Thread".
-    await expect(page.locator('h1')).toContainText(B);
-    await expect(page.locator('h1')).toContainText("isn't switched on");
-    await expect(page.locator('body')).not.toContainText("You don't have a seat");
+    // Sjoerd, 2026-09-28: *"In any other case of an error or mistake, go back
+    // to the fibre, but never switch workspace automatically"* — and *"a
+    // comment in a popup"*. This replaces the wall-with-a-switch this spec
+    // asserted in v1.79.0: the wall left you standing in an app that cannot
+    // serve you, and its switch moved your workspace for you.
+    await page.waitForURL(/thefibre\.tech\/dashboard\?.*sent_home=no-access/, { timeout: 45_000 });
 
-    // …and offers A, where Thread is on.
-    const cont = page.getByRole('button', { name: `Continue in ${A}` });
-    await expect(cont).toBeVisible();
-    await cont.click();
-    await page.waitForURL(/\/dashboard/, { timeout: 45_000 });
-    await expect(page.locator('body')).not.toContainText("isn't switched on");
+    // The popup names the app that could not serve, and the workspace you are
+    // in — the two facts that make the jump comprehensible.
+    const popup = page.getByRole('dialog');
+    await expect(popup).toBeVisible();
+    await expect(popup).toContainText('The Thread');
+    await expect(popup).toContainText(B);
+
+    // The load-bearing assertion: B is STILL the workspace. Being sent home
+    // is not a switch. If this ever goes green while the chrome says A, the
+    // rule has been broken somewhere upstream.
+    await expect(popup).toContainText("workspace hasn't changed");
+    await popup.getByRole('button', { name: 'Got it' }).click();
+    await expect(popup).toBeHidden();
+    await expect(page.locator('body')).toContainText(B);
+
+    // And the explanation does not replay on the next visit.
+    await page.reload();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });

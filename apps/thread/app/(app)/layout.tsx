@@ -12,7 +12,7 @@ import { assistantEnabled } from '@/lib/assistant-actions';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
-import { APPS, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
+import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 
 // The Thread is the rebuild of thethread-v3, so its user-facing version
 // starts at 3.0.0 — independent of the monorepo cadence in package.json,
@@ -59,7 +59,15 @@ export default async function ThreadAppLayout({
   // seat, and the honest answer is that this workspace has not switched the
   // app on — which the portal cannot tell them.
   if (!shell.ok) redirect(surfaceUrl('my-portal', process.env, host));
-  if (!shell.hasAccess) redirect('/no-access');
+  // Sjoerd, 2026-09-28: *"In any other case of an error or mistake, go back
+  // to the fibre, but never switch workspace automatically"* — and *"a
+  // comment in a popup"*. So: no wall here, no switch offered here, and the
+  // workspace is left exactly as it was. The Fibre says what happened.
+  if (!shell.hasAccess) {
+    redirect(
+      sentHomeUrl({ reason: 'no-access', from: 'the-thread', workspace: shell.me.workspace?.name ?? null }, process.env, host),
+    );
+  }
 
   const { me, apps, extras } = shell;
   const prefs = extras.prefs;
