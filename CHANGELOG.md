@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.86.1] — 2026-09-29 — /meeting-types/new crashed on production (Meet 2.17.1)
+
+"Application error: a server-side exception has occurred." Creating a meeting
+type was impossible on production, and it was mine: v1.76.2 made the New page
+validate `?event_type=` against `EVENT_TYPES` — which lives in
+`components/event-type-picker.tsx`, a **client** module.
+
+In the App Router every export of a `'use client'` file becomes a client
+REFERENCE when a server component imports it, not the value. So
+`EVENT_TYPES.some(...)` inside a server page throws at render. It typechecked.
+It built. It failed only when somebody loaded the page — which I never did,
+having verified that release by typecheck and `next build` alone.
+
+The bare list of values now lives in `lib/event-type-values.ts`, with no
+`'use client'`, and any component may read it. The picker keeps the
+presentation — icons, labels, grouping — because that is client business.
+
+The agreement test grew a third list: the values module, the picker and the
+API's zod enum must all match. That is what the test was for, and it would
+not have caught this one on its own — nothing about matching lists says which
+side of the client boundary each one is on.
+
 ## [1.86.0] — 2026-09-29 — you can add an appointment yourself (Meet 2.17.0)
 
 "Why can't I add an appointment through the interface myself?" (Sjoerd,

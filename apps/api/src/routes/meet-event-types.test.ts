@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PICKER = resolve(HERE, '../../../meet/components/event-type-picker.tsx');
+const VALUES = resolve(HERE, '../../../meet/lib/event-type-values.ts');
 const ROUTES = resolve(HERE, './meet.ts');
 
 /** The `value:` of every entry in Meet's EVENT_TYPES array. */
@@ -27,6 +28,16 @@ function offered(): string[] {
   const src = readFileSync(PICKER, 'utf8');
   const block = src.slice(src.indexOf('export const EVENT_TYPES'));
   return [...block.matchAll(/^\s*value: '([a-z_]+)'/gm)].map((m) => m[1]);
+}
+
+/** The bare list a SERVER component may read — lib/event-type-values.ts.
+ *  It exists because the picker is a client module and a server page that
+ *  read it crashed on every render (2026-09-29). Three lists now, and all
+ *  three have to agree. */
+function serverSafe(): string[] {
+  const src = readFileSync(VALUES, 'utf8');
+  const block = src.slice(src.indexOf('EVENT_TYPE_VALUES'));
+  return [...block.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
 }
 
 /** The values in the API's `event_type` zod enum. */
@@ -43,10 +54,15 @@ describe('Meet event types', () => {
     // here pass by comparing two empty sets.
     expect(offered().length).toBeGreaterThanOrEqual(6);
     expect(accepted().length).toBeGreaterThanOrEqual(6);
+    expect(serverSafe().length).toBeGreaterThanOrEqual(6);
   });
 
   it('offers exactly what the API accepts', () => {
     expect([...offered()].sort()).toEqual([...accepted()].sort());
+  });
+
+  it('and the server-safe list agrees with both', () => {
+    expect([...serverSafe()].sort()).toEqual([...offered()].sort());
   });
 
   it('still includes the two that were unreachable until 2026-09-25', () => {
