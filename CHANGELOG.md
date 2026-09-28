@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.86.2] — 2026-09-29 — a button that says why, instead of going grey (Meet 2.17.2)
+
+"Button is there... but I cant press it." New booking disabled itself when the
+workspace had no meeting types — true, and unguessable. Sjoerd was in Festival
+of Trust, which has none; in soul.com, which has five, the same button worked,
+so the control appeared broken rather than empty.
+
+It opens either way now, and says there is nothing to book somebody into yet,
+with a link to make a meeting type.
+
+A disabled control states a fact only the person who wrote it can read. When
+the reason is data — this workspace, not that one — it has to be said in
+words.
+
+### And it now reaches the person's timeline
+
+"Is a meet with Mahmud also added to the Connect info?" It was not. The
+host-created booking never set `invitee_person_id`, and the confirmation
+side-effects write the `meeting_booked` activity only for a booking that has
+a person — so an appointment added by hand was an island: nowhere on that
+person's timeline, nowhere on their card in Connect. It resolves the person
+the same way the public booking route does, and the ledger row carries the
+person too.
+
 ## [1.86.1] — 2026-09-29 — /meeting-types/new crashed on production (Meet 2.17.1)
 
 "Application error: a server-side exception has occurred." Creating a meeting

@@ -9,6 +9,7 @@
 // me" are different states, and the host is the only one who knows which.
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
@@ -82,11 +83,15 @@ export function NewBookingButton({
 
   return (
     <>
+      {/* Never disabled. With no meeting types this used to be a dead button
+          that explained nothing — and "no meeting types in THIS workspace" is
+          exactly the thing you cannot guess from a greyed-out control
+          (Sjoerd, 2026-09-29: "Button is there... but I cant press it"). It
+          opens and says so instead. */}
       <Button
         type="button"
         leading={<Plus className="h-4 w-4" strokeWidth={1.5} />}
         onClick={() => setOpen(true)}
-        disabled={types.length === 0}
       >
         {t(locale, 'new_booking')}
       </Button>
@@ -98,14 +103,27 @@ export function NewBookingButton({
         footer={
           <>
             <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
-              {t(locale, 'cancel')}
+              {t(locale, 'close')}
             </Button>
-            <Button type="button" onClick={submit} disabled={!ready || pending}>
-              {pending ? t(locale, 'saving') : t(locale, 'create')}
-            </Button>
+            {types.length > 0 && (
+              <Button type="button" onClick={submit} disabled={!ready || pending}>
+                {pending ? t(locale, 'saving') : t(locale, 'create')}
+              </Button>
+            )}
           </>
         }
       >
+        {types.length === 0 ? (
+          <div className="space-y-3 text-sm">
+            <p>{t(locale, 'no_bookable_types')}</p>
+            <Link
+              href="/meeting-types/new"
+              className="inline-block underline underline-offset-2 hover:text-ink"
+            >
+              {t(locale, 'new_mt_title')}
+            </Link>
+          </div>
+        ) : (
         <div className="space-y-4">
           <SelectField
             label={t(locale, 'meeting_type')}
@@ -171,6 +189,7 @@ export function NewBookingButton({
 
           {err && <p className="text-sm text-red-700">{err}</p>}
         </div>
+        )}
       </Dialog>
     </>
   );

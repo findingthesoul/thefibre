@@ -3882,6 +3882,20 @@ meetRoutes.post('/bookings', async (c) => {
   if (Number.isNaN(starts.getTime())) return c.json({ error: 'invalid starts_at' }, 400);
   const ends = new Date(starts.getTime() + mt.duration_minutes * 60 * 1000);
 
+  // Link the invitee to a person in the workspace, exactly as the public
+  // booking route does. Without it the booking is an island: the confirmation
+  // side-effects only write the `meeting_booked` activity when the booking
+  // has a person, so a meeting added by hand would never reach that person's
+  // timeline or their card in Connect (Sjoerd asked, 2026-09-29 — it did not).
+  // Non-fatal: a booking without a linked person is degraded, not broken.
+  const personId = await resolvePersonId({
+    workspaceId: mt.workspace_id,
+    email: d.invitee_email,
+    name: d.invitee_name,
+    source: 'meet_booking',
+    create: true,
+  });
+
   const paid = !!(mt.price_cents && mt.price_cents > 0);
   // A free meeting type has nothing to settle, whatever was asked for.
   const payment = paid ? (d.payment ?? 'comp') : null;
@@ -3892,6 +3906,7 @@ meetRoutes.post('/bookings', async (c) => {
       workspace_id: mt.workspace_id,
       meeting_type_id: mt.id,
       host_id: mt.host_id,
+      invitee_person_id: personId,
       invitee_email: d.invitee_email,
       invitee_name: d.invitee_name,
       starts_at: starts.toISOString(),
@@ -3936,6 +3951,7 @@ meetRoutes.post('/bookings', async (c) => {
       appSlug: 'fibre-meet',
       workspaceId: mt.workspace_id,
       itemRef: booking.id,
+      personId: personId ?? null,
       payerName: d.invitee_name,
       payerEmail: d.invitee_email,
       itemLabel: mt.name,

@@ -3675,6 +3675,14 @@ const CATALOG = {
     de: 'Bestätigungsmail senden', // MT
     fr: 'Envoyer un e-mail de confirmation', // MT
   },
+  no_bookable_types: {
+    en: 'This workspace has no meeting types yet, so there is nothing to book somebody into. Make one first.',
+    nl: 'Deze workspace heeft nog geen meetingtypes, dus er is niets om iemand voor in te plannen. Maak er eerst een.',
+    es: 'Este espacio aún no tiene tipos de reunión, así que no hay nada para lo que reservar a alguien. Crea uno primero.', // MT
+    pt: 'Este espaço ainda não tem tipos de reunião, por isso não há nada para marcar. Cria um primeiro.', // MT
+    de: 'Dieser Workspace hat noch keine Meeting-Typen, also gibt es nichts, wofür du jemanden buchen kannst. Lege zuerst einen an.', // MT
+    fr: 'Cet espace n’a pas encore de type de réunion, il n’y a donc rien pour lequel réserver quelqu’un. Crées-en un d’abord.', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',
