@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.83.3] — 2026-09-28 — chart text keeps its shape in a wide panel
+
+Sjoerd, on the full-width Reserve panel in Business Models: *"fonts are
+stretched."* Every chart drew on a fixed 600-unit canvas and let the SVG
+scale to its box without keeping the aspect, so in a panel twice as wide the
+letters and the dashes stretched with the lines. The charts now measure
+their box and draw at that width; the lines fill the panel as before, the
+text and the dashes keep their shape, and a wide chart gets more month
+ticks.
+
 ## [1.83.2] — 2026-09-28 — the connector can actually register (staging)
 
 Sjoerd, connecting Festival of Trust: every attempt died at "Couldn't register
