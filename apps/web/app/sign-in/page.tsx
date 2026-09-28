@@ -1,5 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { serverSupabase } from '@/lib/supabase/server';
 import { SignInButton } from '../sign-in-button';
 import { APPS } from '@thefibre/shared';
 
@@ -9,7 +11,30 @@ export const metadata = {
   title: `Sign in · ${FIBRE.name}`,
 };
 
-export default function SignInPage() {
+// A `next` path (e.g. a /connect consent URL the (app) layout bounced here) is
+// carried through sign-in and honoured on the far side. Only same-origin
+// absolute paths are allowed — never an off-site URL — so this cannot be turned
+// into an open redirect.
+function safeNext(raw: string | undefined): string | null {
+  if (!raw) return null;
+  return raw.startsWith('/') && !raw.startsWith('//') ? raw : null;
+}
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const raw = Array.isArray(sp.next) ? sp.next[0] : sp.next;
+  const next = safeNext(raw);
+
+  // Already signed in? Go where they were headed (the /connect page renders its
+  // own consent), or the dashboard.
+  const supabase = await serverSupabase();
+  const { data: claims } = await supabase.auth.getClaims();
+  if (claims) redirect(next ?? '/dashboard');
+
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-md px-6 py-20">
@@ -31,7 +56,7 @@ export default function SignInPage() {
         </p>
 
         <div className="mt-8">
-          <SignInButton />
+          <SignInButton next={next} />
         </div>
 
         <div className="mt-10 text-xs text-neutral-500">

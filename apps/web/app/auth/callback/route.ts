@@ -24,7 +24,18 @@ type AccessCheck =
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
-  const next = url.searchParams.get('next') ?? '/dashboard';
+  // Where to land after sign-in: an explicit ?next wins, else the fibre_next
+  // cookie the sign-in button set (how a /connect consent return survives the
+  // OAuth round trip without touching Supabase's redirect allowlist), else the
+  // dashboard. Only a same-origin absolute path is honoured — never an off-site
+  // URL — so this cannot become an open redirect. The cookie is cleared below.
+  const cookieNext = req.cookies.get('fibre_next')?.value;
+  const rawNext = url.searchParams.get('next') ?? (cookieNext ? decodeURIComponent(cookieNext) : null);
+  const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard';
+  const clearNext = (res: NextResponse): NextResponse => {
+    if (cookieNext) res.cookies.set('fibre_next', '', { path: '/', maxAge: 0 });
+    return res;
+  };
 
   const supabase = await serverSupabase();
 
@@ -65,7 +76,7 @@ export async function GET(req: NextRequest) {
   // If our internal secret isn't configured we can't check access status —
   // fall back to the legacy default-workspace behaviour so dev doesn't break.
   if (!ssoSecret || !email) {
-    return withLauncherPending(NextResponse.redirect(new URL(next, url.origin)));
+    return clearNext(withLauncherPending(NextResponse.redirect(new URL(next, url.origin))));
   }
 
   // Step 1 — what's this email's status?
@@ -143,5 +154,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return withLauncherPending(NextResponse.redirect(new URL(destination, url.origin)));
+  return clearNext(withLauncherPending(NextResponse.redirect(new URL(destination, url.origin))));
 }

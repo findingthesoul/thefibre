@@ -21,7 +21,14 @@ import { NextResponse, type NextRequest } from "next/server";
 const COOKIE_DOMAIN = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Expose the requested path+query to server components (the (app) layout
+  // reads it to build a `next=` return URL when it bounces an unsigned visitor
+  // to sign-in — without it, /connect's OAuth params were lost and a connected
+  // assistant could never complete consent). headers() in a server component
+  // reads these rewritten request headers.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-fibre-path', request.nextUrl.pathname + request.nextUrl.search);
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) return response;
@@ -34,7 +41,7 @@ export async function middleware(request: NextRequest) {
         // Both halves matter: the request copy so the rest of this pass sees
         // the new token, the response copy so the browser keeps it.
         for (const { name, value } of toSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers: requestHeaders } });
         for (const { name, value, options } of toSet) {
           response.cookies.set(name, value, {
             ...options,

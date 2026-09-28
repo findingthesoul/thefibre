@@ -23,7 +23,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // trip to Supabase Auth on every server render (getUser made one).
   const supabase = await serverSupabase();
   const { data: claims } = await supabase.auth.getClaims();
-  if (!claims) redirect('/');
+  if (!claims) {
+    // An unsigned visit to /connect must come BACK to /connect after sign-in,
+    // OAuth params intact — otherwise a person connecting their own assistant
+    // signs in, lands on the dashboard, and the consent step never happens, so
+    // no grant is ever created (Sjoerd, connecting Festival of Trust,
+    // 2026-09-27/28). Other pages keep the plain bounce to the landing page.
+    const path = (await headers()).get('x-fibre-path') ?? '';
+    if (path.startsWith('/connect')) redirect(`/sign-in?next=${encodeURIComponent(path)}`);
+    redirect('/');
+  }
 
   // Who you are, which apps run here, which workspaces you may switch to,
   // plus this layout's own per-request reads — all started at once.

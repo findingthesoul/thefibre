@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.83.4] — 2026-09-28 — connecting an assistant survives signing in (staging)
+
+Sjoerd, connecting Festival of Trust, hit "connection issue / reconnect" over
+and over. The registration fix (v1.83.2) was live, yet no grant was ever being
+created — the flow died at the last step.
+
+- **The consent page bounced an unsigned visit and lost the request.**
+  `/connect` lives inside the signed-in shell, whose layout sends any unsigned
+  visitor to `/` — dropping the OAuth query string. So when an assistant opened
+  the Allow page in a browser without a live Fibre session, the person signed
+  in, landed on the dashboard, and never saw the Allow button: consent never
+  ran, no grant was saved, and the connector reported a dead connection. The
+  layout now sends an unsigned `/connect` visit to `/sign-in?next=<the consent
+  URL>`; sign-in carries that return through Google, the email code and the
+  magic link, and lands back on the consent page with everything intact.
+- **The return path rides a short-lived cookie, not the OAuth redirect.**
+  `fibre_next` (same-origin, lax, 10 minutes), read and cleared by the auth
+  callback. Deliberately not a `redirectTo` query param: that must match
+  Supabase's redirect allowlist, and appending to it risks breaking sign-in for
+  everyone. Only a same-origin absolute path is honoured, so it cannot become
+  an open redirect.
+
 ## [1.83.3] — 2026-09-28 — chart text keeps its shape in a wide panel
 
 Sjoerd, on the full-width Reserve panel in Business Models: *"fonts are

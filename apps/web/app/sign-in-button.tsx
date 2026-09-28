@@ -3,17 +3,37 @@
 import { useState } from 'react';
 import { browserSupabase } from '@/lib/supabase/client';
 
+// Remember where to land after sign-in, in a short-lived cookie the auth
+// callback reads. A cookie rather than a `redirectTo` query param on purpose:
+// the OAuth/magic-link redirect URL must match Supabase's allowlist, and
+// appending `?next=` risks the whole sign-in being rejected — breaking it for
+// everyone. The callback URL stays exactly what already works; the cookie
+// rides alongside and cannot affect the allowlist. Same-origin, lax, 10 min.
+function rememberNext(next: string | null): void {
+  if (!next) return;
+  try {
+    document.cookie = `fibre_next=${encodeURIComponent(next)}; path=/; max-age=600; samesite=lax`;
+  } catch {
+    /* cookies disabled — sign-in still works, just lands on the dashboard */
+  }
+}
+function callbackUrl(): string {
+  return `${window.location.origin}/auth/callback`;
+}
+
 async function startGoogleSignIn(
+  next: string | null,
   setBusy: (b: boolean) => void,
   setError: (e: string | null) => void,
 ) {
   setBusy(true);
   setError(null);
+  rememberNext(next);
   const supabase = browserSupabase();
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: callbackUrl(),
       queryParams: { prompt: 'select_account' },
     },
   });
@@ -26,18 +46,20 @@ async function startGoogleSignIn(
 
 async function sendCode(
   email: string,
+  next: string | null,
   setBusy: (b: boolean) => void,
   setStage: (s: 'enter-code') => void,
   setError: (e: string | null) => void,
 ) {
   setBusy(true);
   setError(null);
+  rememberNext(next);
   const supabase = browserSupabase();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       // Email contains BOTH a one-time code and a magic-link as fallback.
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
+      emailRedirectTo: callbackUrl(),
       shouldCreateUser: true,
     },
   });
@@ -53,6 +75,7 @@ async function sendCode(
 async function verifyCode(
   email: string,
   code: string,
+  next: string | null,
   setBusy: (b: boolean) => void,
   setError: (e: string | null) => void,
 ) {
@@ -71,13 +94,15 @@ async function verifyCode(
     return;
   }
   // Session is set. Hand off to the same callback so it runs access-check
-  // and SSO resolve before landing on /dashboard.
-  window.location.href = '/auth/callback';
+  // and SSO resolve before landing on the destination (the fibre_next cookie
+  // set when the code was requested carries a /connect return, if any).
+  rememberNext(next);
+  window.location.href = callbackUrl();
 }
 
 type Stage = 'idle' | 'enter-email' | 'enter-code';
 
-export function SignInButton() {
+export function SignInButton({ next = null }: { next?: string | null }) {
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<Stage>('idle');
   const [email, setEmail] = useState('');
@@ -88,7 +113,7 @@ export function SignInButton() {
     <div className="space-y-3 max-w-sm">
       <button
         type="button"
-        onClick={() => startGoogleSignIn(setBusy, setError)}
+        onClick={() => startGoogleSignIn(next, setBusy, setError)}
         disabled={busy}
         className="w-full rounded-md bg-ink text-ink-inverse px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
       >
@@ -109,7 +134,7 @@ export function SignInButton() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (email.trim()) sendCode(email.trim(), setBusy, setStage, setError);
+            if (email.trim()) sendCode(email.trim(), next, setBusy, setStage, setError);
           }}
           className="space-y-2"
         >
@@ -136,7 +161,7 @@ export function SignInButton() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (code.trim()) verifyCode(email, code.trim(), setBusy, setError);
+            if (code.trim()) verifyCode(email, code.trim(), next, setBusy, setError);
           }}
           className="space-y-2"
         >
