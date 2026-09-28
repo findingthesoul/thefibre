@@ -3611,6 +3611,70 @@ const CATALOG = {
     de: 'Nur {n} freie Zeiten gefunden — trage selbst mehr ein, wenn du mehr Auswahl willst.', // MT
     fr: 'Seulement {n} créneaux libres trouvés — ajoutes-en si tu veux plus de choix.', // MT
   },
+  new_booking: {
+    en: 'New booking',
+    nl: 'Nieuwe boeking',
+    es: 'Nueva reserva', // MT
+    pt: 'Nova marcação', // MT
+    de: 'Neue Buchung', // MT
+    fr: 'Nouvelle réservation', // MT
+  },
+  meeting_type: {
+    en: 'Meeting type',
+    nl: 'Meetingtype',
+    es: 'Tipo de reunión', // MT
+    pt: 'Tipo de reunião', // MT
+    de: 'Meeting-Typ', // MT
+    fr: 'Type de réunion', // MT
+  },
+  host_booking_time_hint: {
+    en: 'Your own time is yours to book — this is not checked against your availability.',
+    nl: 'Je eigen tijd boek je zelf — dit wordt niet getoetst aan je beschikbaarheid.',
+    es: 'Tu tiempo es tuyo: esto no se comprueba con tu disponibilidad.', // MT
+    pt: 'O teu tempo é teu: isto não é verificado com a tua disponibilidade.', // MT
+    de: 'Deine eigene Zeit buchst du selbst — das wird nicht gegen deine Verfügbarkeit geprüft.', // MT
+    fr: 'Ton temps t’appartient — ceci n’est pas vérifié avec ta disponibilité.', // MT
+  },
+  payment_of: {
+    en: 'Payment of {price}',
+    nl: 'Betaling van {price}',
+    es: 'Pago de {price}', // MT
+    pt: 'Pagamento de {price}', // MT
+    de: 'Zahlung von {price}', // MT
+    fr: 'Paiement de {price}', // MT
+  },
+  pay_send_link: {
+    en: 'Send a payment link (with invoice)',
+    nl: 'Betaallink sturen (met factuur)',
+    es: 'Enviar un enlace de pago (con factura)', // MT
+    pt: 'Enviar uma ligação de pagamento (com fatura)', // MT
+    de: 'Zahlungslink senden (mit Rechnung)', // MT
+    fr: 'Envoyer un lien de paiement (avec facture)', // MT
+  },
+  pay_send_invoice: {
+    en: 'Invoice them separately',
+    nl: 'Apart factureren',
+    es: 'Facturar aparte', // MT
+    pt: 'Faturar em separado', // MT
+    de: 'Separat in Rechnung stellen', // MT
+    fr: 'Facturer séparément', // MT
+  },
+  pay_on_the_house: {
+    en: 'On the house',
+    nl: 'Van het huis',
+    es: 'Invita la casa', // MT
+    pt: 'Por conta da casa', // MT
+    de: 'Geht aufs Haus', // MT
+    fr: 'C’est la maison qui offre', // MT
+  },
+  send_confirmation: {
+    en: 'Send a confirmation email',
+    nl: 'Bevestigingsmail sturen',
+    es: 'Enviar un correo de confirmación', // MT
+    pt: 'Enviar um email de confirmação', // MT
+    de: 'Bestätigungsmail senden', // MT
+    fr: 'Envoyer un e-mail de confirmation', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

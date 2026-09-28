@@ -57,6 +57,7 @@ import {
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
+import { createMeetPaymentLink, meetPayButtonHtml } from '../lib/meet-payment-link.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { platformFromAddress, sendEmail } from '../lib/email/client.js';
@@ -3653,7 +3654,7 @@ meetRoutes.post('/stripe-webhook', async (c) => {
   async function abandonBookingForSession(sessionId: string, reason: string) {
     const { data: booking } = await adminClient
       .from('meet_booking')
-      .select('id, status, payment_status')
+      .select('id, status, payment_status, created_by_user_id')
       .eq('stripe_session_id', sessionId)
       .maybeSingle();
     if (!booking) {
@@ -3661,6 +3662,18 @@ meetRoutes.post('/stripe-webhook', async (c) => {
       return;
     }
     if (booking.status === 'cancelled') return; // already done
+    // A booking the HOST added by hand is never cancelled by an expiring
+    // link. On the public flow, abandoning checkout should release the slot —
+    // nobody agreed to anything. Here the appointment was agreed and the link
+    // is how it gets paid for; an unpaid link is a debt, not a reason to
+    // cancel somebody's meeting. It stays confirmed and stays on the ledger.
+    if (booking.created_by_user_id) {
+      console.log('[meet stripe-webhook] host-created booking, link expiry ignored', {
+        id: booking.id,
+        reason,
+      });
+      return;
+    }
     await adminClient
       .from('meet_booking')
       .update({ status: 'cancelled', payment_status: 'failed' })
@@ -3824,6 +3837,170 @@ async function loadBookingWithJoins(id: string) {
     .eq('id', id)
     .single();
 }
+
+const HostBooking = z.object({
+  meeting_type_id: z.string().uuid(),
+  invitee_name: z.string().min(1),
+  invitee_email: z.string().email(),
+  starts_at: z.string().datetime(),
+  /** What to do about money. Ignored when the meeting type is free. */
+  payment: z.enum(['link', 'invoice', 'comp']).optional(),
+  /** Off for an appointment you already agreed by phone and do not want to
+   *  re-announce. Defaults to sending. */
+  notify: z.boolean().optional(),
+});
+
+// POST /api/v1/meet/bookings — the host adds an appointment themselves.
+//
+// Until now the ONLY way a booking came into being was the invitee filling in
+// the public page (Sjoerd, 2026-09-28: "why can't I add an appointment through
+// the interface myself"). A host could approve, reject, cancel, reschedule and
+// archive — never create.
+//
+// Deliberately NOT availability-checked. The host is the authority on their
+// own time: they are looking at the calendar, and a booking refused because
+// the slot "isn't offered" would be the tool arguing with the person. The UI
+// warns about a clash; the API takes the instruction.
+meetRoutes.post('/bookings', async (c) => {
+  const ctx = c.get('ctx');
+  const body = HostBooking.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const d = body.data;
+  const db = userClient(ctx.jwt);
+
+  // RLS decides whether this meeting type is theirs.
+  const { data: mt } = await db
+    .from('meet_meeting_type')
+    .select(
+      'id, slug, name, workspace_id, host_id, team_id, duration_minutes, price_cents, price_currency, conferencing_provider, default_location',
+    )
+    .eq('id', d.meeting_type_id)
+    .maybeSingle();
+  if (!mt) return c.json({ error: 'meeting type not found' }, 404);
+
+  const starts = new Date(d.starts_at);
+  if (Number.isNaN(starts.getTime())) return c.json({ error: 'invalid starts_at' }, 400);
+  const ends = new Date(starts.getTime() + mt.duration_minutes * 60 * 1000);
+
+  const paid = !!(mt.price_cents && mt.price_cents > 0);
+  // A free meeting type has nothing to settle, whatever was asked for.
+  const payment = paid ? (d.payment ?? 'comp') : null;
+
+  const { data: booking, error } = await adminClient
+    .from('meet_booking')
+    .insert({
+      workspace_id: mt.workspace_id,
+      meeting_type_id: mt.id,
+      host_id: mt.host_id,
+      invitee_email: d.invitee_email,
+      invitee_name: d.invitee_name,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+      status: 'confirmed',
+      payment_status:
+        payment === 'link' ? 'pending' : payment === 'invoice' ? 'invoice_pending' : 'not_required',
+      payment_method: payment === 'invoice' ? 'invoice' : 'stripe',
+      conferencing_provider: mt.conferencing_provider,
+      alternative_location: mt.default_location,
+      created_by_user_id: ctx.userId,
+      // Unique per row, and it is what makes a double-submit harmless.
+      request_id: `host-${ctx.userId}-${starts.toISOString()}-${d.invitee_email}`,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    // Same appointment sent twice — hand back the one that exists.
+    if (error.code === '23505') {
+      const { data: existing } = await adminClient
+        .from('meet_booking')
+        .select('id')
+        .eq('request_id', `host-${ctx.userId}-${starts.toISOString()}-${d.invitee_email}`)
+        .maybeSingle();
+      if (existing) return c.json({ booking: existing, duplicate: true });
+    }
+    console.error('[meet host-booking] insert failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message, code: error.code }, 500);
+  }
+
+  // The ledger row, always — including the comped one. "Why was this free"
+  // is a question you ask six months later, and an absent row cannot answer
+  // it (build-plan's open question about €0 rows, decided here for Meet).
+  if (paid) {
+    await recordPurchase({
+      appSlug: 'fibre-meet',
+      workspaceId: mt.workspace_id,
+      itemRef: booking.id,
+      payerName: d.invitee_name,
+      payerEmail: d.invitee_email,
+      itemLabel: mt.name,
+      teamId: (mt as { team_id?: string | null }).team_id ?? null,
+      amountCents: payment === 'comp' ? 0 : mt.price_cents!,
+      currency: (mt.price_currency ?? 'EUR').toUpperCase(),
+      method: payment === 'invoice' ? 'invoice' : 'stripe',
+      status: payment === 'comp' ? 'paid' : 'pending',
+    });
+  }
+
+  // Calendar event, branded confirmation, host notification, activity — the
+  // same path the approval flow and the paid webhook take. A third caller
+  // rather than a third implementation.
+  if (d.notify !== false) await runConfirmationSideEffects(booking.id);
+
+  // And, for a payment link, the mail that carries it.
+  let payUrl: string | null = null;
+  if (payment === 'link') {
+    const { data: hostRow } = await adminClient
+      .from('meet_host')
+      .select('slug, timezone, user:user_id (full_name, email)')
+      .eq('id', mt.host_id)
+      .maybeSingle();
+    const hostUser = hostRow?.user
+      ? Array.isArray(hostRow.user)
+        ? hostRow.user[0]
+        : hostRow.user
+      : null;
+    payUrl = await createMeetPaymentLink({
+      bookingId: booking.id,
+      workspaceId: mt.workspace_id,
+      amountCents: mt.price_cents!,
+      currency: mt.price_currency ?? 'EUR',
+      itemLabel: mt.name,
+      payerEmail: d.invitee_email,
+      publicPath: `/${hostRow?.slug ?? ''}/${mt.slug}`,
+    });
+    if (payUrl && d.notify !== false) {
+      const amount = new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: (mt.price_currency ?? 'EUR').toUpperCase(),
+      }).format(mt.price_cents! / 100);
+      try {
+        const sender = await meetSender(mt.workspace_id);
+        await sendEmail({
+          ...sender,
+          to: d.invitee_email,
+          subject: `Payment for ${mt.name}`,
+          text: `Hi ${d.invitee_name.split(' ')[0] ?? ''},\n\n${amount} is due for ${mt.name}.\n\nPay online: ${payUrl}\n\n${emailSignoff()}`,
+          html: await meetEmailHtml(
+            mt.workspace_id,
+            'Payment',
+            `<p>Hi ${escapeHtml(d.invitee_name.split(' ')[0] ?? '')},</p><p><strong>${escapeHtml(amount)}</strong> is due for ${escapeHtml(mt.name)}.</p>${meetPayButtonHtml(payUrl)}`,
+          ),
+          replyTo: hostUser?.email ?? undefined,
+        });
+      } catch (e) {
+        console.error('[meet host-booking] payment email failed (non-fatal)', e);
+      }
+    }
+  }
+
+  return c.json({ booking: { id: booking.id }, payment_url: payUrl });
+});
 
 meetRoutes.post('/bookings/:id/approve', async (c) => {
   const id = c.req.param('id');

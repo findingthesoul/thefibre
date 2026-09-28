@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.86.0] — 2026-09-29 — you can add an appointment yourself (Meet 2.17.0)
+
+"Why can't I add an appointment through the interface myself?" (Sjoerd,
+2026-09-28). Because it had never been built: the only route that created a
+booking was the public, invitee-facing one. A host could approve, reject,
+cancel, reschedule and archive — never create.
+
+**New booking** now sits on the Bookings page: meeting type, who, when. It is
+deliberately NOT checked against your availability — you are looking at your
+calendar, and a tool that refused your own time would be arguing with you.
+
+For a paid meeting type it asks the question only you can answer:
+
+- **Send a payment link (with invoice)** — a Stripe Checkout link by email,
+  with Stripe issuing the legal invoice on your connected account. This is
+  `lib/meet-payment-link.ts`, the sibling of the Thread and Membership ones
+  and the item the build plan has carried since v0.75.17. The session id lands
+  on the booking, which is exactly what the existing Meet webhook looks a
+  booking up by — so a link sent from here settles through the same handler as
+  a payment made on the public page. No second settlement path.
+- **Invoice them separately** — the existing invoice rail.
+- **On the house** — no charge, and still a €0 line on the ledger marked paid.
+  "Why was this one free" is a question you ask six months later, and an
+  absent row cannot answer it.
+
+"Send a confirmation email" can be turned off for an appointment you already
+agreed by phone and do not want to re-announce.
+
+### An expiring payment link must not cancel a real appointment
+
+On the public flow, a booking holds the slot while the invitee pays, and
+`checkout.session.expired` cancels it to release the time. That is right
+there and wrong here: this appointment was agreed, and an unpaid link is a
+debt, not a reason to cancel somebody's meeting. `meet_booking` gained
+`created_by_user_id` (NULL = the invitee booked it themselves, the whole
+history to date) and the webhook now leaves host-created bookings alone.
+
+The calendar event, the branded confirmation and the host notification come
+from `runConfirmationSideEffects` — the same function the approval flow and
+the paid webhook use. A third caller rather than a third implementation.
+
 ## [1.85.0] — 2026-09-28 — three things about a meeting type you could not reach (Meet 2.16.0)
 
 ### The editor links to the page it is editing
