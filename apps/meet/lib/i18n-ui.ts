@@ -3579,6 +3579,38 @@ const CATALOG = {
     de: 'Nichts archiviert.', // MT
     fr: 'Rien d’archivé.', // MT
   },
+  suggest_times: {
+    en: 'Suggest times',
+    nl: 'Tijden voorstellen',
+    es: 'Sugerir horarios', // MT
+    pt: 'Sugerir horários', // MT
+    de: 'Zeiten vorschlagen', // MT
+    fr: 'Proposer des horaires', // MT
+  },
+  how_many_options: {
+    en: 'How many options',
+    nl: 'Hoeveel opties',
+    es: 'Cuántas opciones', // MT
+    pt: 'Quantas opções', // MT
+    de: 'Wie viele Optionen', // MT
+    fr: 'Combien d’options', // MT
+  },
+  poll_no_free_times: {
+    en: 'No free times in your calendar for the coming period. Widen your availability or add times yourself.',
+    nl: 'Geen vrije tijden in je agenda voor de komende periode. Verruim je beschikbaarheid of voeg zelf tijden toe.',
+    es: 'No hay horarios libres en tu calendario para el próximo periodo. Amplía tu disponibilidad o añade horarios tú mismo.', // MT
+    pt: 'Não há horários livres na tua agenda para o próximo período. Alarga a tua disponibilidade ou adiciona horários tu mesmo.', // MT
+    de: 'Keine freien Zeiten in deinem Kalender für den kommenden Zeitraum. Erweitere deine Verfügbarkeit oder trage selbst Zeiten ein.', // MT
+    fr: 'Aucun créneau libre dans ton agenda pour la période à venir. Élargis ta disponibilité ou ajoute des horaires toi-même.', // MT
+  },
+  poll_only_n_free: {
+    en: 'Only {n} free times were found — add more yourself if you want a wider choice.',
+    nl: 'Maar {n} vrije tijden gevonden — voeg er zelf meer toe als je meer keuze wilt.',
+    es: 'Solo se encontraron {n} horarios libres: añade más si quieres más opciones.', // MT
+    pt: 'Só foram encontrados {n} horários livres — adiciona mais se quiseres mais opções.', // MT
+    de: 'Nur {n} freie Zeiten gefunden — trage selbst mehr ein, wenn du mehr Auswahl willst.', // MT
+    fr: 'Seulement {n} créneaux libres trouvés — ajoutes-en si tu veux plus de choix.', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

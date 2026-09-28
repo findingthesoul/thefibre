@@ -17,6 +17,7 @@ import { t } from '@/lib/i18n-ui';
 import { AssigneesEditor, type TeamMember, type Assignee } from './assignees';
 import { ShareMeetingType } from './share';
 import { RetireMeetingType } from './retire';
+import { MEET_HOST } from '@/lib/public-host';
 import { PollVotesMatrix } from './votes';
 
 type MT = MeetingTypeFormValues & {
@@ -131,19 +132,42 @@ export default async function EditMeetingTypePage({
     }
   }
 
+  // The public address, and whether it serves. Both the link and the Share
+  // menu hang off this one answer rather than repeating the condition.
+  const publicPath = ownerSlug ? `/${ownerSlug}/${mt.slug}` : null;
+  const live = !!publicPath && mt.is_active && !mt.archived_at;
+
   return (
     <PageContainer max="4xl">
       <Breadcrumb href="/meeting-types" label={t(locale, 'mt_title')} />
       <PageHeader
         title={mt.name!}
-        description={`slug: ${mt.slug}`}
+        description={
+          // The address of the thing you are editing, as a link you can
+          // follow — it used to read `slug: short-call`, which is the same
+          // fact with the useful half removed (Sjoerd, 2026-09-28). Only a
+          // page that actually serves gets a link: the public route filters
+          // on is_active, so a hidden or archived type shows its slug
+          // instead of a link to a 404.
+          live ? (
+            <a
+              href={publicPath}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-ink"
+            >
+              {MEET_HOST}
+              {publicPath}
+            </a>
+          ) : (
+            `slug: ${mt.slug}`
+          )
+        }
         actions={
           // Only for a page that is actually reachable: the public route
           // filters on is_active, so sharing a hidden type hands somebody
           // a 404.
-          mt.is_active && !mt.archived_at && ownerSlug ? (
-            <ShareMeetingType path={`/${ownerSlug}/${mt.slug}`} locale={locale} />
-          ) : null
+          live ? <ShareMeetingType path={publicPath} locale={locale} /> : null
         }
       />
       <div className="mt-10">

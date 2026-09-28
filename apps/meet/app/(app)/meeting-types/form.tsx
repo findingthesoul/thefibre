@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { User, Users as TeamIcon, Plus, X } from 'lucide-react';
+import { User, Users as TeamIcon, Plus, X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
@@ -16,7 +16,14 @@ import {
   type Schedule,
 } from '@/components/working-hours-editor';
 import { t, type Locale } from '@/lib/i18n-ui';
-import { createMeetingType, savePollSlots, saveIntakeFields, updateMeetingType, type SaveResult } from './actions';
+import {
+  createMeetingType,
+  savePollSlots,
+  suggestPollSlots,
+  saveIntakeFields,
+  updateMeetingType,
+  type SaveResult,
+} from './actions';
 import { MEET_HOST } from '@/lib/public-host';
 import { PaymentMethodsPicker, type PayMethod } from '@thefibre/shared/ui/payment-methods';
 
@@ -404,6 +411,29 @@ export function MeetingTypeForm({
               />
               <span>{t(locale, 'active_accept')}</span>
             </label>
+            {/* "Is this on my booking page?" is a Basics question, and it used
+                to live under Availability — a tab you open to set working
+                hours. Worse, it sat in the NON-poll branch, so a meeting poll
+                could not be unlisted at all: the control was not merely hard
+                to find, it did not exist for that event type. Moved here on
+                Sjoerd's ask (2026-09-28) for a toggle he could not find,
+                because it was three clicks away from where it reads. */}
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="is_public_listed"
+                defaultChecked={initial.is_public_listed ?? true}
+                className="mt-1"
+              />
+              <span>
+                <span className="font-medium">{t(locale, 'public_listed')}</span>
+                <span className="block text-xs text-ink-muted mt-0.5">
+                  {t(locale, 'public_listed_hint', {
+                    url: `${MEET_HOST}/${prefix.replace(`${MEET_HOST}/`, '').replace(/\/$/, '') || 'your-slug'}`,
+                  })}
+                </span>
+              </span>
+            </label>
           </Section>
         </>
       </div>
@@ -492,28 +522,6 @@ export function MeetingTypeForm({
                 hint={t(locale, 'bookable_hint')}
               />
             </div>
-          </Section>
-
-          <Section
-            title={t(locale, 'visibility_section')}
-            desc={t(locale, 'mt_visibility_desc')}
-          >
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="is_public_listed"
-                defaultChecked={initial.is_public_listed ?? true}
-                className="mt-1"
-              />
-              <span>
-                <span className="font-medium">{t(locale, 'public_listed')}</span>
-                <span className="block text-xs text-ink-muted mt-0.5">
-                  {t(locale, 'public_listed_hint', {
-                    url: `${MEET_HOST}/${prefix.replace(`${MEET_HOST}/`, '').replace(/\/$/, '') || 'your-slug'}`,
-                  })}
-                </span>
-              </span>
-            </label>
           </Section>
 
           <Section
@@ -869,6 +877,7 @@ function PollSlotsEditor({
   );
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [suggestCount, setSuggestCount] = useState(3);
 
   if (!mtId) {
     return (
@@ -895,6 +904,34 @@ function PollSlotsEditor({
     next.splice(i, 1);
     setSlots(next);
   }
+  // Fill the inputs from the host's REAL availability — the same engine the
+  // booking page uses, so the meeting type's conflict calendars are honoured
+  // (Sjoerd, 2026-09-28). It writes into the form rather than saving: the
+  // suggestion is a starting point, and every time stays editable before the
+  // host commits it.
+  async function suggest(count: number) {
+    setMsg(null);
+    setBusy(true);
+    const r = await suggestPollSlots(mtId!, count);
+    setBusy(false);
+    if (r.error) {
+      setMsg(r.error);
+      return;
+    }
+    if (!r.slots || r.slots.length === 0) {
+      setMsg(t(locale, 'poll_no_free_times'));
+      return;
+    }
+    setSlots(r.slots.map((x) => toLocalDatetimeInput(x.starts_at)));
+    // Fewer than asked is worth saying out loud: a silently short list looks
+    // like the feature half-worked.
+    setMsg(
+      r.slots.length < count
+        ? t(locale, 'poll_only_n_free', { n: String(r.slots.length) })
+        : null,
+    );
+  }
+
   async function save() {
     setMsg(null);
     const valid = slots
@@ -954,6 +991,28 @@ function PollSlotsEditor({
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} /> {t(locale, 'add_slot')}
         </button>
+        <span className="inline-flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => suggest(suggestCount)}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-sm hover:bg-surface-sunken disabled:opacity-40"
+          >
+            <Sparkles className="h-4 w-4" strokeWidth={1.5} /> {t(locale, 'suggest_times')}
+          </button>
+          <select
+            value={suggestCount}
+            onChange={(e) => setSuggestCount(Number(e.target.value))}
+            aria-label={t(locale, 'how_many_options')}
+            className="h-[34px] rounded-md border border-line bg-surface px-2 text-sm"
+          >
+            {[2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </span>
         <button
           type="button"
           onClick={save}

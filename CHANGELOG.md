@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.85.0] — 2026-09-28 — three things about a meeting type you could not reach (Meet 2.16.0)
+
+### The editor links to the page it is editing
+
+The header read `slug: short-call` — the address, with the useful half removed
+(Sjoerd, 2026-09-28: "on meeting type page - link to the page"). It is the full
+URL now, and it opens. Only when the page actually serves: a hidden or archived
+type still shows its slug, because the public route filters on `is_active` and
+a link to a 404 is worse than no link.
+
+### A meeting poll can propose times you are actually free
+
+"With poll: auto select options (select the amount of options), considering the
+Conflict calendars" (Sjoerd). **Suggest times** now fills the candidate slots
+from the host's real availability — 2 to 5 of them — and it asks the same
+engine the booking page asks, so the meeting type's conflict calendars, its
+working hours, its buffers and its notice period all apply. Proposing a time
+you are already booked for is the one thing a poll must never do: worse than
+proposing nothing, because somebody votes for it.
+
+The engine is now ONE function (`hostFreeSlots`), called by the public slots
+route and the suggester. A second implementation would have been a second
+answer, and the one that drifts is always the one nobody is looking at.
+
+Which free times get offered is its own decision, in `lib/spread-slots.ts`
+with six tests. Taking the first N would offer three times on one Tuesday
+morning — technically three choices, actually one. It takes one per day across
+different days first, and only doubles up on a day when it must, choosing a
+slot far from that day's other one so a doubled day carries a morning and an
+afternoon rather than 09:00 and 09:30. Days are grouped in the HOST's zone,
+not UTC, or a late-evening slot counts as tomorrow.
+
+Fewer free times than asked for is said out loud rather than quietly returning
+a short list, which reads as a half-working feature.
+
+### The "on my booking page" toggle was three clicks from where it reads
+
+It already existed — column, default on, and the public host page has filtered
+on it since May. It sat in a Visibility section on the **Availability** tab,
+which you open to set working hours. Worse, it was inside the non-poll branch,
+so a meeting poll could not be unlisted at all: not merely hard to find, absent
+for that event type. It is on **Basics** now, under "Active", where "is this on
+my booking page" is actually looked for.
+
 ## [1.84.0] — 2026-09-28 — an app that can't serve you hands you back, and says why
 
 Sjoerd, tonight: *"always stay in the workspace until someone switched

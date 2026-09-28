@@ -307,3 +307,20 @@ export async function deleteMeetingType(id: string): Promise<SaveResult> {
   revalidatePath('/meeting-types');
   return { ok: true };
 }
+
+/** Candidate times for a meeting poll, from the host's real availability —
+ *  the conflict calendars the meeting type names are honoured, because the
+ *  API answers with the same engine the booking page uses. */
+export async function suggestPollSlots(
+  mtId: string,
+  count: number,
+): Promise<{ slots?: { starts_at: string; ends_at: string }[]; error?: string }> {
+  try {
+    const r = await apiFetch<{ slots: { starts_at: string; ends_at: string }[] }>(
+      `/api/v1/meet/meeting-types/${mtId}/suggest-slots?count=${encodeURIComponent(String(count))}`,
+    );
+    return { slots: r.slots };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

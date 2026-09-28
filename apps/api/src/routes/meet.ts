@@ -56,6 +56,7 @@ import {
 } from '../lib/zoom/client.js';
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
+import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { platformFromAddress, sendEmail } from '../lib/email/client.js';
@@ -1242,6 +1243,133 @@ meetRoutes.post('/public/bookings', async (c) => {
   return c.json({ booking });
 });
 
+/** Everything the availability engine needs about the host and the type. */
+type SlotHost = {
+  id: string;
+  user_id: string;
+  timezone: string;
+  working_hours: unknown;
+  busy_includes_free?: boolean | null;
+};
+type SlotMt = {
+  id: string;
+  duration_minutes: number;
+  buffer_before_minutes: number;
+  buffer_after_minutes: number;
+  min_notice_minutes: number;
+  working_hours_override: unknown;
+  conflict_calendar_ids: string[] | null;
+  event_type: string;
+  capacity?: number | null;
+};
+
+/**
+ * The free starts for one host and one meeting type in a window.
+ *
+ * Extracted from the public slots route so a SECOND caller could have it:
+ * suggesting candidate times for a meeting poll (2026-09-28). A poll's whole
+ * point is offering times you can actually make, so it has to ask the same
+ * question the booking page asks — same working hours, same buffers, same
+ * notice, and above all the same conflict calendars. A second implementation
+ * would have been a second answer, and the one that drifts is always the one
+ * nobody is looking at.
+ *
+ * Deliberately knows nothing about event_type gating or capacity filtering —
+ * those are the caller's, because the public route and the poll suggester
+ * want different things from the same slots.
+ */
+async function hostFreeSlots(
+  host: SlotHost,
+  mt: SlotMt,
+  from: Date,
+  to: Date,
+  now: Date,
+): Promise<{ slots: Date[]; groupCounts: Record<string, number> }> {
+  // Busy intervals from existing meet_bookings for this host (any meeting
+  // type). Confirmed only - cancelled bookings don't block.
+  // Group MTs: bookings on this MT itself do NOT block, since the slot
+  // stays open until capacity is reached. We track per-slot counts below.
+  // A failed read here used to become "no bookings" - every taken slot
+  // offered as free. Availability must fail loudly or not at all.
+  const bookings = rows(
+    'meet availability: host bookings',
+    await adminClient
+      .from('meet_booking')
+      .select('starts_at, ends_at, meeting_type_id')
+      .eq('host_id', host.id)
+      .eq('status', 'confirmed')
+      .gte('ends_at', from.toISOString())
+      .lte('starts_at', to.toISOString()),
+  );
+
+  const isGroup = mt.event_type === 'group';
+  const busy: BusyInterval[] = (bookings ?? [])
+    .filter((b) => !(isGroup && b.meeting_type_id === mt.id))
+    .map((b) => ({ start: new Date(b.starts_at), end: new Date(b.ends_at) }));
+
+  const groupCounts: Record<string, number> = {};
+  if (isGroup) {
+    for (const b of bookings ?? []) {
+      if (b.meeting_type_id !== mt.id) continue;
+      const k = new Date(b.starts_at).toISOString();
+      groupCounts[k] = (groupCounts[k] ?? 0) + 1;
+    }
+  }
+
+  // Layer in the host's Google Calendar freebusy if they're connected. The
+  // meeting type can override which calendars to conflict-check; otherwise
+  // we use every primary / conflict_check calendar on the host.
+  const slotsGToken = await userGoogleToken(host.user_id);
+  if (slotsGToken) {
+    let calsQuery = adminClient
+      .from('meet_calendar')
+      .select('id, google_calendar_id, role')
+      .eq('host_id', host.id);
+    if (mt.conflict_calendar_ids && mt.conflict_calendar_ids.length > 0) {
+      calsQuery = calsQuery.in('id', mt.conflict_calendar_ids);
+    } else {
+      calsQuery = calsQuery.in('role', ['primary', 'conflict_check']);
+    }
+    const { data: cals } = await calsQuery;
+    const ids = (cals ?? [])
+      .map((c) => c.google_calendar_id)
+      .filter((id): id is string => !!id);
+    if (ids.length > 0) {
+      try {
+        // Settings -> Calendars: "Events marked Free still block". Off by
+        // default, because Free normally means "book over this".
+        const gbusy = host.busy_includes_free
+          ? await busyIncludingFree(slotsGToken, ids, from, to)
+          : await freeBusy(slotsGToken, ids, from, to);
+        busy.push(...gbusy);
+      } catch (e) {
+        console.error('[slots] freebusy failed (non-fatal)', e);
+      }
+    }
+  }
+
+  // Use the meeting type's override if set, otherwise the host's default.
+  const workingHours =
+    (mt.working_hours_override as WorkingSchedule | null) ??
+    (host.working_hours as WorkingSchedule | null) ??
+    {};
+
+  const slots = generateSlots({
+    hostTimezone: host.timezone,
+    workingHours,
+    durationMinutes: mt.duration_minutes,
+    bufferBeforeMinutes: mt.buffer_before_minutes,
+    bufferAfterMinutes: mt.buffer_after_minutes,
+    minNoticeMinutes: mt.min_notice_minutes,
+    from,
+    to,
+    busy,
+    now,
+  });
+
+  return { slots, groupCounts };
+}
+
 // GET /api/v1/meet/public/host/:host_slug/mt/:mt_slug/slots?from=&to=
 // Returns available start timestamps for booking. `from` and `to` are ISO
 // instants; defaults to "next 14 days from now".
@@ -1311,91 +1439,8 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
       ? new Date(from.getTime() + MAX_WINDOW_MS)
       : to;
 
-  // Busy intervals from existing meet_bookings for this host (any meeting
-  // type). Confirmed only — cancelled bookings don't block.
-  // Group MTs: bookings on this MT itself do NOT block, since the slot
-  // stays open until capacity is reached. We track per-slot counts below.
-  // A failed read here used to become "no bookings" — every taken slot
-  // offered as free. Availability must fail loudly or not at all.
-  const bookings = rows(
-    'meet availability: host bookings',
-    await adminClient
-      .from('meet_booking')
-      .select('starts_at, ends_at, meeting_type_id')
-      .eq('host_id', host.id)
-      .eq('status', 'confirmed')
-      .gte('ends_at', from.toISOString())
-      .lte('starts_at', cappedTo.toISOString()),
-  );
-
+  const { slots, groupCounts } = await hostFreeSlots(host, mt, from, cappedTo, now);
   const isGroup = mt.event_type === 'group';
-  const busy: BusyInterval[] = (bookings ?? [])
-    .filter((b) => !(isGroup && b.meeting_type_id === mt.id))
-    .map((b) => ({
-      start: new Date(b.starts_at),
-      end: new Date(b.ends_at),
-    }));
-
-  // Per-slot booked counts for group MTs (keyed by starts_at ISO string).
-  const groupCounts: Record<string, number> = {};
-  if (isGroup) {
-    for (const b of bookings ?? []) {
-      if (b.meeting_type_id !== mt.id) continue;
-      const k = new Date(b.starts_at).toISOString();
-      groupCounts[k] = (groupCounts[k] ?? 0) + 1;
-    }
-  }
-
-  // Layer in the host's Google Calendar freebusy if they're connected. The
-  // meeting type can override which calendars to conflict-check; otherwise
-  // we use every primary / conflict_check calendar on the host.
-  const slotsGToken = await userGoogleToken(host.user_id);
-  if (slotsGToken) {
-    let calsQuery = adminClient
-      .from('meet_calendar')
-      .select('id, google_calendar_id, role')
-      .eq('host_id', host.id);
-    if (mt.conflict_calendar_ids && mt.conflict_calendar_ids.length > 0) {
-      calsQuery = calsQuery.in('id', mt.conflict_calendar_ids);
-    } else {
-      calsQuery = calsQuery.in('role', ['primary', 'conflict_check']);
-    }
-    const { data: cals } = await calsQuery;
-    const ids = (cals ?? [])
-      .map((c) => c.google_calendar_id)
-      .filter((id): id is string => !!id);
-    if (ids.length > 0) {
-      try {
-        // Settings → Calendars: "Events marked Free still block". Off by
-        // default, because Free normally means "book over this".
-        const gbusy = host.busy_includes_free
-          ? await busyIncludingFree(slotsGToken, ids, from, cappedTo)
-          : await freeBusy(slotsGToken, ids, from, cappedTo);
-        busy.push(...gbusy);
-      } catch (e) {
-        console.error('[slots] freebusy failed (non-fatal)', e);
-      }
-    }
-  }
-
-  // Use the meeting type's override if set, otherwise the host's default.
-  const workingHours =
-    (mt.working_hours_override as WorkingSchedule | null) ??
-    (host.working_hours as WorkingSchedule | null) ??
-    {};
-
-  const slots = generateSlots({
-    hostTimezone: host.timezone,
-    workingHours,
-    durationMinutes: mt.duration_minutes,
-    bufferBeforeMinutes: mt.buffer_before_minutes,
-    bufferAfterMinutes: mt.buffer_after_minutes,
-    minNoticeMinutes: mt.min_notice_minutes,
-    from,
-    to: cappedTo,
-    busy,
-    now,
-  });
 
   const slotsIso = slots.map((d) => d.toISOString());
 
@@ -3260,6 +3305,66 @@ meetRoutes.put('/meeting-types/:id/poll-slots', async (c) => {
   const { error: iErr } = await adminClient.from('meet_poll_slot').insert(rows);
   if (iErr) return c.json({ error: iErr.message }, 500);
   return c.json({ ok: true, slots: rows });
+});
+
+// GET /api/v1/meet/meeting-types/:id/suggest-slots?count=3
+//
+// Candidate times for a meeting poll, picked from the host's REAL
+// availability — the same engine the booking page uses, so the conflict
+// calendars a poll's meeting type names are honoured here too (Sjoerd,
+// 2026-09-28: "auto select options, considering the Conflict calendars").
+// Proposing a time you are already booked for is the one thing a poll must
+// never do; it is worse than proposing nothing, because somebody votes for it.
+//
+// Host-authenticated, unlike the public slots route: a poll has no public
+// slots endpoint (voters choose from what the host proposed), and the
+// suggestion is part of editing the meeting type.
+meetRoutes.get('/meeting-types/:id/suggest-slots', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  // RLS decides whether this meeting type is theirs to see.
+  const { data: mt } = await db
+    .from('meet_meeting_type')
+    .select(
+      'id, host_id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, working_hours_override, conflict_calendar_ids, event_type, capacity',
+    )
+    .eq('id', id)
+    .maybeSingle();
+  if (!mt) return c.json({ error: 'meeting type not found' }, 404);
+
+  const { data: host } = await adminClient
+    .from('meet_host')
+    .select('id, user_id, timezone, working_hours, busy_includes_free')
+    .eq('id', mt.host_id)
+    .maybeSingle();
+  if (!host) return c.json({ error: 'host not found' }, 404);
+
+  const asked = Number(new URL(c.req.url).searchParams.get('count') ?? '3');
+  // The poll editor itself accepts 2..5 candidate slots; asking for more than
+  // it can hold would hand back options the form silently drops.
+  const count = Number.isFinite(asked) ? Math.min(Math.max(Math.round(asked), 2), 5) : 3;
+
+  const now = new Date();
+  const from = new Date(now.getTime() + (mt.min_notice_minutes ?? 0) * 60 * 1000);
+  const to = new Date(
+    from.getTime() + Math.min(mt.max_advance_days || 14, 60) * 24 * 60 * 60 * 1000,
+  );
+
+  const { slots } = await hostFreeSlots(host, mt, from, to, now);
+  const picked = spreadAcrossDays(slots, count, host.timezone);
+
+  return c.json({
+    slots: picked.map((d) => ({
+      starts_at: d.toISOString(),
+      ends_at: new Date(d.getTime() + mt.duration_minutes * 60 * 1000).toISOString(),
+    })),
+    // The caller can say "only two were free" rather than silently offering
+    // fewer than asked and looking broken.
+    asked: count,
+    available: slots.length,
+  });
 });
 
 // POST /api/v1/meet/meeting-types/:id/confirm-poll-slot — host picks the
