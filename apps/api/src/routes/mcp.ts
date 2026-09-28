@@ -29,13 +29,22 @@ const WINDOW_MS = 60_000;
 
 const VERSION: string = (createRequire(import.meta.url)('../../package.json') as { version: string }).version;
 
-function challenge(c: Context, origin: string, path: string, detail: string) {
+// tokenPresented distinguishes "you need to authorize" from "your token was
+// rejected". RFC 6750 §3.1: error="invalid_token" means a credential WAS sent
+// and failed. Sending it on a first, credential-less probe made Claude treat a
+// brand-new connector as a broken one — it showed "connection issue, reconnect"
+// and never started the OAuth flow (no discovery, no /authorize; just POST /
+// 401 on a loop), because a rejected token is not a reason to sign in, only to
+// give up. On a request with no Authorization header the challenge is now the
+// bare discovery pointer (realm + resource_metadata), which is the signal that
+// says "authenticate here" — the one Claude acts on. (Sjoerd, 2026-09-28, after
+// ~20 failed Festival of Trust connects.)
+function challenge(c: Context, origin: string, path: string, detail: string, tokenPresented: boolean) {
   const safe = detail.replace(/["\\\r\n]/g, ' ');
-  c.header(
-    'WWW-Authenticate',
-    `Bearer realm="thefibre", resource_metadata="${origin}/.well-known/oauth-protected-resource${path}", error="invalid_token", error_description="${safe}"`,
-  );
-  return c.json({ error: 'invalid_token', error_description: detail }, 401);
+  const parts = [`realm="thefibre"`, `resource_metadata="${origin}/.well-known/oauth-protected-resource${path}"`];
+  if (tokenPresented) parts.push(`error="invalid_token"`, `error_description="${safe}"`);
+  c.header('WWW-Authenticate', `Bearer ${parts.join(', ')}`);
+  return c.json({ error: tokenPresented ? 'invalid_token' : 'unauthorized', error_description: detail }, 401);
 }
 
 async function workspaceName(id: string): Promise<string> {
@@ -55,11 +64,11 @@ export const mcpHandler = async (c: Context) => {
       const web = (process.env.FIBRE_WEB_URL ?? appUrl('fibre-platform', process.env, host)).replace(/\/+$/, '');
       return c.redirect(`${web}/settings/assistant`, 302);
     }
-    return challenge(c, origin, path, 'sign in to connect this assistant to The Fibre');
+    return challenge(c, origin, path, 'sign in to connect this assistant to The Fibre', false);
   }
 
   const grant = await grantFromAccessToken(m[1]!, resource);
-  if (!grant) return challenge(c, origin, path, 'the token is not valid for this server, or the connection was disconnected');
+  if (!grant) return challenge(c, origin, path, 'the token is not valid for this server, or the connection was disconnected', true);
 
   const brake = hit(`mcp:${grant.id}`, CALLS_PER_WINDOW, WINDOW_MS);
   if (!brake.allowed) {
@@ -75,7 +84,7 @@ export const mcpHandler = async (c: Context) => {
   } catch (e) {
     if (e instanceof GrantError) {
       console.log(`[mcp] grant=${grant.id} ${e.code} ip=${ip}`);
-      return challenge(c, origin, path, e.message);
+      return challenge(c, origin, path, e.message, true);
     }
     console.error('[mcp] session refresh failed', e);
     return c.json({ error: 'server_error' }, 500);

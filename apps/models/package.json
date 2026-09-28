@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/models",
-  "version": "1.83.5",
+  "version": "1.83.6",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3009",

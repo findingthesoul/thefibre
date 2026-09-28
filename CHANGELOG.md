@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.83.6] — 2026-09-28 — a new connector actually starts signing in (staging)
+
+Sjoerd hit the same failure ~20 times connecting Festival of Trust. The wire
+told the story at last: `POST / 401` on a loop, no discovery, no `/authorize` —
+Claude was not starting the OAuth flow at all.
+
+- **The 401 challenge cried "invalid token" when no token had been sent.**
+  Every unauthenticated probe of the MCP endpoint answered
+  `WWW-Authenticate: Bearer … error="invalid_token"`. RFC 6750 reserves that
+  error for a credential that was supplied and rejected — so Claude read a
+  brand-new connector's first, credential-less probe as a *broken* connection
+  ("connection issue, reconnect") rather than "authorize here", and never
+  opened the sign-in flow. Reconnect just repeated the probe. A request with no
+  `Authorization` header now gets the bare discovery pointer
+  (`realm` + `resource_metadata`), which is the signal a client acts on; the
+  `invalid_token` error is kept only for a bearer that was actually presented
+  and failed. Tests cover both.
+
 ## [1.83.5] — 2026-09-28 — one bad timezone can no longer take an app down
 
 **One row stopped The Thread.** A thread carried the timezone

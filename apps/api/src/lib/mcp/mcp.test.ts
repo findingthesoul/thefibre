@@ -189,7 +189,22 @@ describe('the connector at the root of an mcp.* host', () => {
   it('challenges an unsigned client with the ROOT resource document, no path', async () => {
     const res = await mcpRootRoutes.request('/', { method: 'POST', headers: { ...mcpHost, 'content-type': 'application/json' }, body: '{}' });
     expect(res.status).toBe(401);
-    expect(res.headers.get('www-authenticate')).toContain('resource_metadata="https://mcp.thefibre.tech/.well-known/oauth-protected-resource"');
+    const wa = res.headers.get('www-authenticate') ?? '';
+    expect(wa).toContain('resource_metadata="https://mcp.thefibre.tech/.well-known/oauth-protected-resource"');
+    // No credential was sent, so this is "authorize here", NOT "your token was
+    // rejected". error="invalid_token" on a first probe made Claude give up
+    // instead of starting OAuth (2026-09-28). The bare discovery pointer only.
+    expect(wa).not.toContain('invalid_token');
+  });
+
+  it('DOES say invalid_token when a bad bearer WAS presented', async () => {
+    const res = await mcpRootRoutes.request('/', {
+      method: 'POST',
+      headers: { ...mcpHost, 'content-type': 'application/json', authorization: 'Bearer not-a-real-token' },
+      body: '{}',
+    });
+    expect(res.status).toBe(401);
+    expect(res.headers.get('www-authenticate')).toContain('error="invalid_token"');
   });
 
   it('is inert on every other hostname — the root falls through', async () => {
