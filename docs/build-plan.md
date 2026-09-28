@@ -22,6 +22,28 @@ the queue.
 
 _Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
 
+**Models: a workspace with no teams is a dead end — decide the default home.**
+Sjoerd, 2026-09-29, after Festival of Trust (Models switched on, zero teams)
+gave his assistant an empty "which team?" and it guessed a soul.com team
+instead: *"This could be a more returning problem. Maybe there should always be
+a default team... like workspace organiser."* Models live per team
+(`models_model.team_id`, RLS on team membership); only admins may create
+workspace-wide ones (`team_id NULL`), and only admins + team leads may create
+at all. So a fresh workspace is a trap twice over: the assistant's team list
+is empty, and a non-admin can create nothing. Two clean shapes, Sjoerd's call:
+(A) **a default team per workspace**, made when Models is switched on (named
+"Organisers" or after the workspace), every workspace admin a lead of it —
+gives non-admins a home once they are added, but needs a policy for who leads
+it and adds a row to every workspace; (B) **make "the whole workspace" the
+first-class default** the app and the MCP tools offer first (it already exists
+as `team_id NULL`), so no team is required and the assistant never faces an
+empty list — no new rows, but creation stays admin-only. Recommendation: B
+now (it is the scope that already exists; the fix is UX + `models_teams`/
+`models_create` presenting workspace-wide first), A only if non-admin creation
+is wanted. Either way the MCP `models_teams` result should say plainly "no
+teams yet — workspace-wide is available" instead of returning `[]`. Lane:
+Models (`apps/models`, `packages/mcp/src/person.ts` models tools).
+
 **Blue-green: `failed to destroy VM …: unauthorized` at the end of a deploy.**
 Seen once on staging 2026-09-26 (v1.74.0 deploy by the Business Models
 session); a later `fly machine destroy --force` on the same machines worked,
