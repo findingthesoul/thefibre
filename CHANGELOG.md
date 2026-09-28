@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.83.5] — 2026-09-28 — one bad timezone can no longer take an app down
+
+**One row stopped The Thread.** A thread carried the timezone
+`Athenes/Greece` — a plausible-looking guess, not an IANA zone. `Intl` throws
+a `RangeError` for a zone it does not know, so every signed-in page of the app
+died server-side with "Application error: a server-side exception has
+occurred", mid-demonstration. Anonymous pages were fine, the API answered 200
+to every call, and `smoke-prod` passed 14/14 — because all of those exercise
+the paths that do not format a date in a thread's own zone.
+
+Two halves, because either alone leaves the hole open:
+
+- **The door.** The API accepted any string under 100 characters as a
+  timezone. All three thread schemas (organiser, create, update) now take a
+  `timeZoneField` that asks the runtime whether it knows the zone, and
+  answers 400 with "not a known IANA time zone (e.g. Europe/Athens)" when it
+  does not.
+- **The rows already written.** `todayIn` guarded with `timezone ||
+  'Europe/Amsterdam'`, which only catches empty — a non-empty wrong string
+  sails past `||`. It now resolves through `resolveTimeZone`, which falls back
+  rather than throwing. Validating writes does nothing for the rows stored
+  before today, and falling back on read alone would let nonsense keep
+  arriving and quietly render an Athens programme in Amsterdam time.
+
+`packages/shared/src/timezone.ts` is where both live, with the guarantee the
+render path depends on under test: whatever the column holds, the resolved
+value is always safe to hand to `Intl`. There is no hard-coded zone list —
+the set belongs to the runtime and differs between it and a browser, so the
+check asks the only authority there is.
+
 ## [1.83.4] — 2026-09-28 — connecting an assistant survives signing in (staging)
 
 Sjoerd, connecting Festival of Trust, hit "connection issue / reconnect" over

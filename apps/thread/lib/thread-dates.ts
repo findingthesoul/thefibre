@@ -11,11 +11,20 @@
 // the only framing that says so.
 
 import { one, type ThreadRow } from '@/lib/thread-types';
+import { resolveTimeZone } from '@thefibre/shared';
 
-/** Today, as a 'YYYY-MM-DD' date in the given timezone. */
+/** Today, as a 'YYYY-MM-DD' date in the given timezone.
+ *
+ * `resolveTimeZone`, not `timezone || default`: the `||` only catches empty,
+ * and on 2026-09-28 a thread carrying `Athenes/Greece` sailed past it into
+ * Intl, which threw a RangeError and took every signed-in page of The Thread
+ * down mid-demonstration. A wrong zone now formats in the default rather
+ * than ending the render. The API refuses to store one in the first place —
+ * both halves, because validating writes does nothing for the rows already
+ * in the table. */
 export function todayIn(timezone: string | null | undefined): string {
   return new Date().toLocaleDateString('en-CA', {
-    timeZone: timezone || 'Europe/Amsterdam',
+    timeZone: resolveTimeZone(timezone),
   });
 }
 

@@ -55,7 +55,7 @@ import {
   enrolmentPending,
   engagementMessage,
 } from '../lib/email/thread-templates.js';
-import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY } from '@thefibre/shared';
+import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
 import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
 // Template visibility is one rule for all three kinds of template, so it
@@ -228,6 +228,17 @@ const slugField = z
     message: 'reserved word — pick something else',
   });
 
+// A timezone must be one the runtime knows, not merely a short string. This
+// was `z.string().max(100)` until 2026-09-28, when a thread stored
+// `Athenes/Greece` and every signed-in page of The Thread died server-side
+// with a RangeError out of Intl. Refusing it here is the half that stops it
+// arriving; `resolveTimeZone` in the apps is the half that survives the rows
+// written before today.
+const timeZoneField = z
+  .string()
+  .max(100)
+  .refine(isTimeZone, { message: 'not a known IANA time zone (e.g. Europe/Athens)' });
+
 // Engagement families — type may only change within its family after
 // creation (thethread-v3 rule; see docs/thread-rebuild-plan.md).
 const ACTIVITY_TYPES = ['event', 'conversation', 'workshop'] as const;
@@ -298,7 +309,7 @@ const OrganiserUpdate = z.object({
   display_name: z.string().max(200).nullable().optional(),
   bio: z.string().max(2000).nullable().optional(),
   photo_url: z.string().max(500).nullable().optional(),
-  timezone: z.string().max(100).optional(),
+  timezone: timeZoneField.optional(),
   // (stripe_account_id intentionally NOT accepted here — payments are a
   // platform SPoT; Settings → Payments writes /api/v1/profile.)
   // Share of net revenue this organiser keeps (workspace admin decision).
@@ -538,7 +549,7 @@ const ThreadCreate = z.object({
   intention: z.string().max(2000).nullable().optional(),
   starts_on: z.string().date().nullable().optional(),
   ends_on: z.string().date().nullable().optional(),
-  timezone: z.string().max(100).optional(),
+  timezone: timeZoneField.optional(),
   team_id: z.string().uuid().nullable().optional(),
   public_scope: z.enum(['personal', 'team', 'workspace']).nullable().optional(),
   /** A standard-library template id — the plan's thread_template_limit
@@ -740,7 +751,7 @@ const ThreadUpdate = z.object({
   // thread-side
   slug: slugField.optional(),
   intention: z.string().max(2000).nullable().optional(),
-  timezone: z.string().max(100).optional(),
+  timezone: timeZoneField.optional(),
   team_id: z.string().uuid().nullable().optional(),
   organisation_id: z.string().uuid().nullable().optional(),
   cover_url: z.string().max(500).nullable().optional(),

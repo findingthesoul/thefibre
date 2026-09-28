@@ -76,6 +76,7 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 export * from './i18n.js';
 export * from './invoice-model.js';
 export * from './plan-engagement.js';
+export * from './timezone.js';
 // The prompt that turns a document of dates into a thread. One string,
 // rendered in Settings → Connections; docs/thread-from-a-document-prompt.md
 // explains the method and points here rather than keeping a second copy.
