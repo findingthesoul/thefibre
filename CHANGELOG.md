@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.87.0] — 2026-09-29 — the assumptions behind a business model, as a list
+
+Sjoerd: *"Can you make a third tab with assumptions, so there is a clear
+list with the assumptions behind this calculation."*
+
+Business Models gets a third tab next to Canvas and Numbers. It opens with
+the **stated assumptions**: what the calculation rests on that nobody can
+type as a number, written by the team in its own words ("practices report
+their turnover honestly"). Below it, **from the model**: every number as it
+stands now and every rule that turns the numbers into the projection, in
+sentences. How a segment starts, grows and loses people. Which months were
+typed by hand. What a stream charges, when it bills, which table its price
+reads. What every cost is multiplied by. From which month a fixed cost
+runs, and per how many fellows. The bands of a table, the reserve rule, the
+horizon.
+
+A number the team turned shows the model's default next to it. The list
+copies as plain text, prints as a list, and has its own link. An assistant
+writes stated assumptions with the definition; the format guide and the
+story prompt now ask for them.
+
 ## [1.86.3] — 2026-09-29 — a workspace with no teams is a home, not a dead end (staging)
 
 Sjoerd, connecting his assistant to Festival of Trust (Models on, zero teams):
