@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.88.0] — 2026-09-29 — assumptions read like a document, and a refresh lands where you were
+
+Sjoerd, on the first Assumptions tab: *"Visually it can be more attractive.
+Like HEADER - listed assumptions. Not a full box per one. Simpler. Less
+heavy."* Then: *"maybe indeed with FROM THE MODEL view and an ASSUMPTION
+LIST view."* And: *"After a refresh, please land on the tab/view that was
+open."*
+
+**The list.** The boxes are gone. A stated assumption sits under a header
+the team chooses ("Regional pricing", "Where this is weakest"), the list is
+numbered through, and each line can say how sure it is: real, a guess,
+known wrong, or pending. Click a line to change its sentence, its header or
+its mark. An assistant writes the same three things with the definition.
+
+**Two views.** "Assumption list" for what the team states, "From the
+model" for what the numbers and rules themselves carry, set as headers with
+lines under them in two columns.
+
+**The address remembers.** Tab and view travel in the address, in all
+three tabs, so a refresh reopens the page where it was and a copied link
+opens the same place for a colleague.
+
 ## [1.87.0] — 2026-09-29 — the assumptions behind a business model, as a list
 
 Sjoerd: *"Can you make a third tab with assumptions, so there is a clear
