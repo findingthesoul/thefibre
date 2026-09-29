@@ -30,6 +30,7 @@ import { ColumnsDrawer } from './columns-drawer';
 import { SortablePanels } from './sortable-panels';
 import { PeriodsGrid } from './periods-grid';
 import { ScenariosPanel, type Scenario } from './scenarios';
+import { Assumptions } from './assumptions';
 
 type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number; scenarios?: Scenario[] };
 
@@ -46,7 +47,7 @@ function FillToBottom({ children, className = '' }: { children: React.ReactNode;
   }, []);
   return <div ref={ref} className={className} style={{ height: `calc(100dvh - ${Math.round(top)}px)` }}>{children}</div>;
 }
-type Tab = 'canvas' | 'numbers';
+type Tab = 'canvas' | 'numbers' | 'assumptions';
 type View = 'bep' | 'projection' | 'periods' | 'scenarios';
 
 export function ModelView({ model: row, locale }: { model: ModelRow; locale: Locale }) {
@@ -77,7 +78,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // A shared link opens the tab it was copied from: /models/<id>?tab=numbers.
-  useEffect(() => { try { const q = new URLSearchParams(window.location.search).get('tab'); if (q === 'numbers' || q === 'canvas') setTab(q); } catch {} }, []);
+  useEffect(() => { try { const q = new URLSearchParams(window.location.search).get('tab'); if (q === 'numbers' || q === 'canvas' || q === 'assumptions') setTab(q); } catch {} }, []);
   const [view, setView] = useState<View>('bep');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'conflict'>('idle');
   const updatedAt = useRef<string>(row.updated_at);
@@ -243,11 +244,11 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
             <span className="text-xs text-ink-subtle" aria-live="polite">{status === 'saving' ? t(locale, 'saving') : status === 'saved' ? t(locale, 'saved') : ''}</span>
           </div>
           <div className="flex items-center gap-1">
-            <Tabs value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }]} className="border-b-0" />
+            <Tabs value={tab} onChange={setTab} tabs={[{ value: 'canvas', label: t(locale, 'tab_canvas') }, { value: 'numbers', label: t(locale, 'tab_numbers') }, { value: 'assumptions', label: t(locale, 'tab_assumptions') }]} className="border-b-0" />
             <Button variant="ghost" size="icon" onClick={undo} disabled={undoDepth === 0} title={t(locale, 'undo')}><Undo2 size={16} /></Button>
             {editable && <Button variant="ghost" size="icon" onClick={duplicate} title={t(locale, 'duplicate')}><Copy size={16} /></Button>}
             <Button variant="ghost" size="icon" onClick={copyLink} title={linkCopied ? t(locale, 'link_copied') : t(locale, 'copy_link')}>{linkCopied ? <Check size={16} /> : <Link2 size={16} />}</Button>
-            <Button variant="ghost" size="icon" onClick={() => window.print()} title={t(locale, 'print_canvas')}><Printer size={16} /></Button>
+            <Button variant="ghost" size="icon" onClick={() => window.print()} title={t(locale, tab === 'assumptions' ? 'print_assumptions' : 'print_canvas')}><Printer size={16} /></Button>
             <Button variant="ghost" size="icon" onClick={exportCsv} title={t(locale, 'export_csv')}><Download size={16} /></Button>
             <Button variant="ghost" size="icon" onClick={reset} title={t(locale, 'reset')}><RotateCcw size={16} /></Button>
           </div>
@@ -269,6 +270,12 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
             onEditSettings: () => setStructure({ kind: 'settings' }),
             onEditTables: () => setStructure({ kind: 'tables' }),
           }} />
+        </div>
+      )}
+
+      {tab === 'assumptions' && (
+        <div className="mt-4">
+          <Assumptions model={def} state={state} horizon={horizon} refMonth={Math.min(refMonth, horizon)} locale={locale} editable={editable} onStated={(assumptions) => patchDef({ ...def, assumptions })} />
         </div>
       )}
 

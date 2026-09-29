@@ -179,6 +179,32 @@ at one year of costs within two years."_
   cost-structure table and a statement's reading all show it, and the drawer
   says "× ⌈fellows ÷ 1⌉: €170 / month in month 12" as a relation.
 
+## The Assumptions tab (1.87.0)
+
+Sjoerd, 2026-09-29: _"a third tab with assumptions, so there is a clear list
+with the assumptions behind this calculation."_
+
+- **Stated assumptions** come first: `assumptions` in the definition, short
+  sentences for what nobody can type as a number. Admins and team leads
+  write them in place (saved on blur, one undo step each); an assistant
+  sends them with `models_create` / `models_update`.
+- **From the model** comes everything else, built by
+  `apps/models/lib/assumptions.ts` from the definition and the numbers as
+  they stand: a General card (horizon, reference month, currency, the
+  reserve rule), one card per segment and per stream (how many and how they
+  grow with the numbers filled in, months typed by hand, every variable with
+  its id, the price formula, the billing moment, the tables it reads, the
+  funnel, every own cost and how it multiplies), key resources (from which
+  month, per how many, steps), global variables and generic costs, and the
+  band tables in words.
+- A number that differs from the definition's default shows that default
+  next to it, so a reader sees what the team turned.
+- "Copy as text" puts the whole list on the clipboard; Print on this tab
+  prints the list (the canvas tab still prints the canvas). The tab has its
+  own link: `/models/<id>?tab=assumptions`.
+- The builder is pure and takes the words as a function, so it is tested
+  without the catalogue (`assumptions.test.ts`).
+
 ## Versions
 
 Its own `VERSION` in `apps/models/app/(app)/layout.tsx` (0.1.0 from

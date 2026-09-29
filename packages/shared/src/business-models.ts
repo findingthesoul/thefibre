@@ -8,7 +8,7 @@
 // format grows, grow it here in the same commit.
 
 export const MODEL_FORMAT: readonly string[] = [
-  'A definition is one JSON object. Top level: name, tagline, description, currency (e.g. "EUR"), currencySymbol (e.g. "€"), horizon (months, 12–120, default 36), breakEvenMonth (the reference month for blended rates, default 12), unitLabel (plural, e.g. "members" or "customers"), canvas, settings, tables, genericVariable, generators, transitions, fixedCosts, investment, reserve.',
+  'A definition is one JSON object. Top level: name, tagline, description, currency (e.g. "EUR"), currencySymbol (e.g. "€"), horizon (months, 12–120, default 36), breakEvenMonth (the reference month for blended rates, default 12), unitLabel (plural, e.g. "members" or "customers"), canvas, settings, tables, genericVariable, generators, transitions, fixedCosts, investment, reserve, assumptions.',
   'canvas: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels }, each an array of short lines in the venture’s own words. A line may be an object { id, text, segments, links }: segments (value propositions only) names the generator ids it serves; links names the turnover and cost items it stands for, as "gen:<generator id>", "cost:<generator id>.<cost id>", "fixed:<fixed cost id>", "invest:<investment id>" or "setting:<setting id>" or "table:<table id>".',
   'settings: [{ id, label, unit, value, step }] — global numbers every formula may use by id (e.g. a payment fee percentage).',
   'tables: [{ id, label, unit, mode, cap?, bands }] — band tables, for prices that step instead of growing in a straight line (a licence by turnover band, a volume discount, a second facilitator per 40 members, a tax bracket). bands are read in ascending order of upTo; the last band has upTo null (no upper limit); a value exactly on an edge belongs to the lower band; zero or negative input gives 0. mode "step": bands [{ upTo, value }], the whole amount is the value of the band the number falls in (120000 in the band up to 250000 pays that band’s value). mode "marginal": bands [{ upTo, rate }] with rate in %, each part of the number carries the rate of its own band, like income tax, no jump at an edge; cap limits the total. The team edits the bands in the app; a scenario keeps them.',
@@ -21,6 +21,7 @@ export const MODEL_FORMAT: readonly string[] = [
   'transitions (the funnel): [{ id, from: "<segment id>", to: "<segment id>", rate, move }] — each month rate% of last month’s people in from go to to; move true (default) takes them out of from, false counts them in both. Use it when one client type becomes another (community → builder → venture).',
   'fixedCosts: [{ id, label, value, step, startMonth, steps, per }] per month (the key resources: team, software, rent, legal, marketing). startMonth: from which month it is paid. steps: [{ fromMonth, value }] replace the value from that month on (a second facilitator from month 13). per: { of: "<segment id>" | "units", every } multiplies it by ceil(units ÷ every), one facilitator per 40 members. investment: [{ id, label, value, step }] one-off before month one.',
   'reserve (optional): { share, targetMonths, start } — a running balance. share % of every month’s turnover is set aside; the target is targetMonths months of that month’s total costs (12 = one year of costs); start is what is already held before month one. The app shows the reserve built up month by month against the target, and the month the target is reached, next to break even. The team turns the three numbers in the app; a scenario keeps them.',
+  'assumptions: an array of short sentences, the stated assumptions: what the calculation rests on that nobody can type as a number ("practices report their turnover honestly", "the grant is renewed in year two", "no VAT on membership fees"). A line may be an object { id, text }. The app shows them on the Assumptions tab above the numbers and rules it reads from the model itself; write the ones the story makes or that you had to make to fill a gap, and say which are yours.',
   'Numbers typed per month (new clients in a month, a funnel rate in a month) are not part of the definition: the team types them in the app.',
   'Formulas are plain arithmetic over ids: + - * / ( ) and numbers, plus month, units, newUnits, revenue, batches, and one function: lookup(<table id>, <expression>) reads a band table for the expression’s value, e.g. "lookup(lictable, turnover) * share / 100 / 12". Nothing else.',
   'Every number is a placeholder. Choose plausible values and say in help texts what they mean; never present them as the venture’s real figures. Ids are short, unique, lowercase.',
@@ -86,6 +87,7 @@ export const MODEL_EXAMPLE = {
   ],
   investment: [{ id: 'setup', label: 'Furnishing the studio', value: 6000, step: 500 }],
   reserve: { share: 5, targetMonths: 6, start: 0 },
+  assumptions: ['Members stay on a monthly contract, no annual discount', 'The venue keeps hosting the workshops at the current rate'],
 } as const;
 
 export const MODEL_SCHEMA_GUIDE = { format: MODEL_FORMAT, example: MODEL_EXAMPLE } as const;
@@ -100,6 +102,7 @@ export const MODEL_QUESTIONS: readonly string[] = [
   'The fixed monthly costs: team, software, rent, legal, marketing.',
   'The one-off investment before month one: formation, product build, launch.',
   'The currency, the horizon in months (36 is usual), and the word for a unit (members, customers, orders).',
+  'What are you assuming that is not a number: about behaviour, contracts, tax, a partner, a renewal? These become the stated assumptions.',
   'For the canvas: key partners, key activities, key resources, value propositions per segment, how customers are won and kept, channels — a few lines each, in the venture’s own words.',
 ];
 

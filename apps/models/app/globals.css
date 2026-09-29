@@ -38,4 +38,11 @@
   #canvas .canvas-cell .bg-surface-sunken { background: #e6e4de !important; }
   #canvas .canvas-cell .bg-ink { background: #111 !important; }
   #canvas .canvas-cell .ring-line { box-shadow: 0 0 0 1px #999 !important; }
+
+  /* The Assumptions tab prints as a list: a title, then the cards in two
+     columns, none of them cut in half. */
+  #assumptions { max-width: none !important; color: #111; zoom: 0.9; }
+  #assumptions .assumptions-title { display: block; padding: 0 2px 6px; margin-bottom: 10px; border-bottom: 2px solid #111; }
+  #assumptions .assumption-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #111 !important; border-radius: 0 !important; background: #fff !important; }
+  #assumptions .text-ink-muted, #assumptions .text-ink-subtle { color: #444 !important; }
 }

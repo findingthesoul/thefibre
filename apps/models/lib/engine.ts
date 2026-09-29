@@ -89,6 +89,10 @@ export type ModelDefinition = {
    *  what is already held before month one. Numbers, so the team turns them
    *  in the drawer and a scenario keeps them (state.reserve). */
   reserve?: { share?: number; targetMonths?: number; start?: number };
+  /** Stated assumptions: what the calculation rests on that nobody can type
+   *  as a number ("practices report their turnover honestly"). The numbers
+   *  and rules are read from the model itself (lib/assumptions.ts). */
+  assumptions?: (string | { id?: string; text: string })[];
 };
 
 export type ModelState = {
