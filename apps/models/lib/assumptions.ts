@@ -10,7 +10,7 @@
 // This file builds the first two from the definition and the state. Pure: the
 // words come in through `T`, so it runs in a test without a catalogue.
 
-import type { BandTable, CostKind, Generator, ModelDefinition, ModelState } from './engine';
+import { ASSUMPTION_STATUSES, type AssumptionStatus, type BandTable, type CostKind, type Generator, type ModelDefinition, type ModelState } from './engine';
 import { tablesUsedBy, usersOfTable } from './links';
 import { isSegment } from './structure';
 import type { UiKey } from './i18n-ui';
@@ -30,14 +30,35 @@ export type AssumptionRow = {
 };
 export type AssumptionGroup = { id: string; title: string; sub?: string; rows: AssumptionRow[] };
 export type Words = (key: UiKey, vars?: Record<string, string | number>) => string;
-export type Stated = { id?: string; text: string };
+export type Stated = { id?: string; text: string; section?: string; status?: AssumptionStatus };
+export type StatedSection = { title: string; items: { a: Stated; index: number; n: number }[] };
 
 const num = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const withUnit = (v: number, unit?: string) => `${num(v)}${unit ? ` ${unit}` : ''}`;
 const KIND: Record<CostKind, UiKey> = { perUnit: 'kind_per_unit', perNewUnit: 'kind_per_new_unit', perBatch: 'kind_per_batch', percentRevenue: 'kind_percent_revenue', fixed: 'kind_fixed', formula: 'kind_formula' };
 
 export const statedList = (def: ModelDefinition): Stated[] =>
-  (def.assumptions ?? []).map((a) => (typeof a === 'string' ? { text: a } : a)).filter((a) => typeof a.text === 'string');
+  (def.assumptions ?? [])
+    .map((a) => (typeof a === 'string' ? { text: a } : a))
+    .filter((a) => a && typeof a.text === 'string')
+    .map((a) => ({ ...a, section: typeof a.section === 'string' && a.section.trim() ? a.section.trim() : undefined, status: ASSUMPTION_STATUSES.includes(a.status as AssumptionStatus) ? a.status : undefined }));
+
+/** The stated assumptions under their headers, in the order the headers
+ *  first appear; lines without a header come first. `index` is the place in
+ *  the definition's list, `n` the number a reader sees, counted through. */
+export function statedSections(list: Stated[], skipEmpty = false): StatedSection[] {
+  const out: StatedSection[] = [];
+  list.forEach((a, index) => {
+    if (skipEmpty && !a.text) return;
+    const title = a.section ?? '';
+    let sec = out.find((x) => x.title === title);
+    if (!sec) { sec = { title, items: [] }; if (title === '') out.unshift(sec); else out.push(sec); }
+    sec.items.push({ a, index, n: 0 });
+  });
+  let n = 0;
+  out.forEach((sec) => sec.items.forEach((it) => { it.n = ++n; }));
+  return out;
+}
 
 function generatorGroup(def: ModelDefinition, state: ModelState, g: Generator, T: Words): AssumptionGroup {
   const st = state.generators[g.id] ?? {};
@@ -153,9 +174,13 @@ export function buildAssumptions(def: ModelDefinition, state: ModelState, opts: 
 }
 
 /** The whole list as plain text, to paste into a mail or a document. */
-export function assumptionsText(title: string, statedTitle: string, stated: Stated[], groups: AssumptionGroup[]): string {
+export function assumptionsText(title: string, statedTitle: string, stated: Stated[], groups: AssumptionGroup[], statusWord: (s: AssumptionStatus) => string = (s) => s): string {
   const out: string[] = [title, ''];
-  if (stated.length) { out.push(statedTitle); stated.forEach((a) => out.push(`- ${a.text}`)); out.push(''); }
+  statedSections(stated, true).forEach((sec) => {
+    out.push(sec.title || statedTitle);
+    sec.items.forEach(({ a, n }) => out.push(`${n}. ${a.text}${a.status ? ` [${statusWord(a.status)}]` : ''}`));
+    out.push('');
+  });
   groups.forEach((g) => {
     out.push(g.sub ? `${g.title} (${g.sub})` : g.title);
     g.rows.forEach((r) => out.push(`- ${r.label}: ${r.value}${r.note ? ` (${r.note})` : ''}${r.was ? ` [${r.was}]` : ''}`));

@@ -30,7 +30,7 @@ import { ColumnsDrawer } from './columns-drawer';
 import { SortablePanels } from './sortable-panels';
 import { PeriodsGrid } from './periods-grid';
 import { ScenariosPanel, type Scenario } from './scenarios';
-import { Assumptions } from './assumptions';
+import { Assumptions, type AssumptionsView } from './assumptions';
 
 type SavedInputs = Partial<ModelState> & { refMonth?: number; horizon?: number; scenarios?: Scenario[] };
 
@@ -77,9 +77,33 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // A shared link opens the tab it was copied from: /models/<id>?tab=numbers.
-  useEffect(() => { try { const q = new URLSearchParams(window.location.search).get('tab'); if (q === 'numbers' || q === 'canvas' || q === 'assumptions') setTab(q); } catch {} }, []);
   const [view, setView] = useState<View>('bep');
+  const [asmView, setAsmView] = useState<AssumptionsView>('list');
+  // The address carries where the person is: /models/<id>?tab=numbers&view=periods.
+  // A shared link opens there, and so does a refresh (Sjoerd, 2026-09-29:
+  // "after a refresh, please land on the tab/view that was open").
+  const placeRead = useRef(false);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const tb = q.get('tab'), vw = q.get('view');
+      if (tb === 'numbers' || tb === 'canvas' || tb === 'assumptions') setTab(tb);
+      if (tb === 'assumptions' && (vw === 'list' || vw === 'model')) setAsmView(vw);
+      else if (vw === 'bep' || vw === 'projection' || vw === 'periods' || vw === 'scenarios') setView(vw);
+    } catch {}
+    placeRead.current = true;
+  }, []);
+  useEffect(() => {
+    if (!placeRead.current) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      if (tab === 'numbers') url.searchParams.set('view', view);
+      else if (tab === 'assumptions') url.searchParams.set('view', asmView);
+      else url.searchParams.delete('view');
+      window.history.replaceState(window.history.state, '', url);
+    } catch {}
+  }, [tab, view, asmView]);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'conflict'>('idle');
   const updatedAt = useRef<string>(row.updated_at);
   const router = useRouter();
@@ -208,7 +232,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     router.push(`/models/${r.id}`);
   }
   async function copyLink() {
-    const url = `${window.location.origin}/models/${row.id}?tab=${tab}`;
+    const url = `${window.location.origin}/models/${row.id}?tab=${tab}${tab === 'numbers' ? `&view=${view}` : tab === 'assumptions' ? `&view=${asmView}` : ''}`;
     try { await navigator.clipboard.writeText(url); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { window.prompt(t(locale, 'copy_link'), url); }
   }
   function exportCsv() {
@@ -275,7 +299,7 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
 
       {tab === 'assumptions' && (
         <div className="mt-4">
-          <Assumptions model={def} state={state} horizon={horizon} refMonth={Math.min(refMonth, horizon)} locale={locale} editable={editable} onStated={(assumptions) => patchDef({ ...def, assumptions })} />
+          <Assumptions model={def} state={state} horizon={horizon} refMonth={Math.min(refMonth, horizon)} locale={locale} editable={editable} view={asmView} onView={setAsmView} onStated={(assumptions) => patchDef({ ...def, assumptions })} />
         </div>
       )}
 

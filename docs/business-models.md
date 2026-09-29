@@ -205,6 +205,28 @@ with the assumptions behind this calculation."_
 - The builder is pure and takes the words as a function, so it is tested
   without the catalogue (`assumptions.test.ts`).
 
+## Assumptions as a document, two views, and the address remembers (1.88.0)
+
+Sjoerd, 2026-09-29: _"Like HEADER - listed assumptions. Not a full box per
+one. Simpler. Less heavy."_ and _"maybe indeed with FROM THE MODEL view and
+an ASSUMPTION LIST view"_ and _"after a refresh, please land on the tab/view
+that was open."_
+
+- The tab has two views, chips like the Numbers tab: **Assumption list**
+  (the stated ones) and **From the model**. No cards: a header, a hairline,
+  the lines under it.
+- A stated assumption is `{ id, text, section?, status? }`. `section` is
+  the header it sits under; headers appear in the order they first occur,
+  lines without one come first; the list is numbered through
+  (`statedSections`). `status` is how sure it is: `real`, `guess`, `wrong`
+  (known wrong, not yet corrected), `pending` (decided, not yet in the
+  model). A line is edited in place: click it, change the sentence, the
+  header (existing headers are offered) and the status, Done.
+- The address carries the place: `?tab=numbers&view=periods`,
+  `?tab=assumptions&view=model`. It is rewritten with `replaceState` on
+  every change of tab or view, so a refresh and a copied link both open
+  where the person was.
+
 ## Versions
 
 Its own `VERSION` in `apps/models/app/(app)/layout.tsx` (0.1.0 from

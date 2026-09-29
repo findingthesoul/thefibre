@@ -92,8 +92,13 @@ export type ModelDefinition = {
   /** Stated assumptions: what the calculation rests on that nobody can type
    *  as a number ("practices report their turnover honestly"). The numbers
    *  and rules are read from the model itself (lib/assumptions.ts). */
-  assumptions?: (string | { id?: string; text: string })[];
+  assumptions?: (string | { id?: string; text: string; section?: string; status?: AssumptionStatus })[];
 };
+
+/** How sure a stated assumption is: a fact, a guess, known to be wrong and
+ *  not yet corrected, or decided but not yet in the model. */
+export type AssumptionStatus = 'real' | 'guess' | 'wrong' | 'pending';
+export const ASSUMPTION_STATUSES: AssumptionStatus[] = ['real', 'guess', 'wrong', 'pending'];
 
 export type ModelState = {
   settings: Record<string, number>;

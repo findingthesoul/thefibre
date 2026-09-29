@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultState, mergeState, type ModelDefinition } from './engine';
-import { assumptionsText, buildAssumptions, statedList, type Words } from './assumptions';
+import { assumptionsText, buildAssumptions, statedList, statedSections, type Words } from './assumptions';
 
 // The words are not under test: a key and its variables are enough to see
 // which sentence was chosen and what went into it.
@@ -69,8 +69,27 @@ describe('the assumptions list', () => {
   it('keeps the stated assumptions, strings or objects, and writes the whole list as text', () => {
     expect(statedList(def).map((a) => a.text)).toEqual(['Practices report their turnover honestly', 'Licences are paid in January']);
     const text = assumptionsText('OSC: assumptions', 'Stated', statedList(def), buildAssumptions(def, defaultState(def), { horizon: 36, refMonth: 12 }, T));
-    expect(text.startsWith('OSC: assumptions\n\nStated\n- Practices report their turnover honestly\n')).toBe(true);
+    expect(text.startsWith('OSC: assumptions\n\nStated\n1. Practices report their turnover honestly\n2. Licences are paid in January\n')).toBe(true);
     expect(text).toContain('Fellows (Facilitators in training)');
     expect(text).toContain('- Google accounts: 17 EUR / unit_month');
+  });
+
+  it('groups stated assumptions under their headers, numbered through, with how sure each is', () => {
+    const list = statedList({ ...def, assumptions: [
+      { text: 'Two base prices, both guesses', section: 'Regional pricing', status: 'guess' },
+      { text: 'Five years, sixty months', section: 'Horizon', status: 'real' },
+      'A line without a header',
+      { text: 'South Africa at 75%', section: 'Regional pricing' },
+      { text: '', section: 'Horizon' },
+      { text: 'Odd status', status: 'maybe' as never },
+    ] });
+    const secs = statedSections(list, true);
+    expect(secs.map((x) => x.title)).toEqual(['', 'Regional pricing', 'Horizon']);
+    expect(secs[0]!.items.map((i) => [i.n, i.a.text, i.a.status])).toEqual([[1, 'A line without a header', undefined], [2, 'Odd status', undefined]]);
+    expect(secs[1]!.items.map((i) => [i.n, i.index])).toEqual([[3, 0], [4, 3]]);
+    expect(secs[2]!.items.map((i) => i.a.text)).toEqual(['Five years, sixty months']);
+    const text = assumptionsText('T', 'Stated', list, [], (st) => st.toUpperCase());
+    expect(text).toContain('Regional pricing\n3. Two base prices, both guesses [GUESS]\n4. South Africa at 75%');
+    expect(statedSections(list).find((x) => x.title === 'Horizon')!.items.length).toBe(2);
   });
 });

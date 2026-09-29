@@ -21,7 +21,7 @@ export const MODEL_FORMAT: readonly string[] = [
   'transitions (the funnel): [{ id, from: "<segment id>", to: "<segment id>", rate, move }] — each month rate% of last month’s people in from go to to; move true (default) takes them out of from, false counts them in both. Use it when one client type becomes another (community → builder → venture).',
   'fixedCosts: [{ id, label, value, step, startMonth, steps, per }] per month (the key resources: team, software, rent, legal, marketing). startMonth: from which month it is paid. steps: [{ fromMonth, value }] replace the value from that month on (a second facilitator from month 13). per: { of: "<segment id>" | "units", every } multiplies it by ceil(units ÷ every), one facilitator per 40 members. investment: [{ id, label, value, step }] one-off before month one.',
   'reserve (optional): { share, targetMonths, start } — a running balance. share % of every month’s turnover is set aside; the target is targetMonths months of that month’s total costs (12 = one year of costs); start is what is already held before month one. The app shows the reserve built up month by month against the target, and the month the target is reached, next to break even. The team turns the three numbers in the app; a scenario keeps them.',
-  'assumptions: an array of short sentences, the stated assumptions: what the calculation rests on that nobody can type as a number ("practices report their turnover honestly", "the grant is renewed in year two", "no VAT on membership fees"). A line may be an object { id, text }. The app shows them on the Assumptions tab above the numbers and rules it reads from the model itself; write the ones the story makes or that you had to make to fill a gap, and say which are yours.',
+  'assumptions: an array of short sentences, the stated assumptions: what the calculation rests on that nobody can type as a number ("practices report their turnover honestly", "the grant is renewed in year two", "no VAT on membership fees"). A line may be an object { id, text, section, status }: section is a header that groups lines ("Regional pricing", "Volume and growth", "Pending, not yet in the model", "Where this is weakest"), in the order a reader needs them; status says how sure it is: "real" (a fact you were given), "guess" (a placeholder), "wrong" (known wrong, not yet corrected) or "pending" (decided, not yet in the model). The app shows them as a numbered list under their headers on the Assumptions tab, next to the numbers and rules it reads from the model itself; write the ones the story makes or that you had to make to fill a gap, and say which are yours.',
   'Numbers typed per month (new clients in a month, a funnel rate in a month) are not part of the definition: the team types them in the app.',
   'Formulas are plain arithmetic over ids: + - * / ( ) and numbers, plus month, units, newUnits, revenue, batches, and one function: lookup(<table id>, <expression>) reads a band table for the expression’s value, e.g. "lookup(lictable, turnover) * share / 100 / 12". Nothing else.',
   'Every number is a placeholder. Choose plausible values and say in help texts what they mean; never present them as the venture’s real figures. Ids are short, unique, lowercase.',
@@ -87,7 +87,11 @@ export const MODEL_EXAMPLE = {
   ],
   investment: [{ id: 'setup', label: 'Furnishing the studio', value: 6000, step: 500 }],
   reserve: { share: 5, targetMonths: 6, start: 0 },
-  assumptions: ['Members stay on a monthly contract, no annual discount', 'The venue keeps hosting the workshops at the current rate'],
+  assumptions: [
+    { text: 'Members stay on a monthly contract, no annual discount', section: 'Pricing', status: 'real' },
+    { text: 'A monthly fee of 40 is what comparable studios ask', section: 'Pricing', status: 'guess' },
+    { text: 'The venue keeps hosting the workshops at the current rate', section: 'Costs', status: 'guess' },
+  ],
 } as const;
 
 export const MODEL_SCHEMA_GUIDE = { format: MODEL_FORMAT, example: MODEL_EXAMPLE } as const;
