@@ -89,6 +89,8 @@ function bodyFromForm(formData: FormData) {
     default_location: strOrNull(formData.get('default_location')),
     is_active: formData.get('is_active') === 'on',
     is_public_listed: formData.get('is_public_listed') === 'on',
+    // '' means inherit the host's own language — the API turns it into null.
+    locale: strOrNull(formData.get('locale')),
     // approval_mode is a 3-way radio: 'default' (null = inherit), 'always'
     // (true), 'never' (false). Stored on meet_meeting_type.requires_approval.
     requires_approval: (() => {

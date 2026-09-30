@@ -25,6 +25,18 @@ const common: EmailCommon = {
 const BASE = 'https://meet.example.test/sjoerd-luteijn/personal-meeting';
 
 describe('the request-received mail', () => {
+  it('is written in the locale it is handed, not the sender\u2019s', () => {
+    const nl = bookingRequestReceived({ ...common, locale: 'nl' });
+    expect(nl.subject).toBe('Aanvraag ontvangen: personal meeting');
+    expect(nl.html).toContain('Je aanvraag ligt bij Sjoerd Luteijn.');
+    // The links are identical whatever the language — only the words change.
+    expect(nl.html).toContain(`${BASE}?reschedule=b1`);
+  });
+
+  it('falls back to English when no locale was resolved', () => {
+    expect(bookingRequestReceived(common).subject).toBe('Request received: personal meeting');
+  });
+
   it('offers a different time and a way out, in both parts', () => {
     const { html, text } = bookingRequestReceived(common);
     for (const body of [html, text]) {
@@ -43,6 +55,6 @@ describe('the request-received mail', () => {
     const { subject, html } = bookingRequestReceived(common);
     expect(subject).toBe('Request received: personal meeting');
     expect(html).toContain('Sjoerd Luteijn');
-    expect(html).toContain("once it's approved");
+    expect(html).toContain('once it\u2019s approved');
   });
 });

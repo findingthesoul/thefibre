@@ -57,6 +57,7 @@ import {
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
+import { isLocale, resolveEmailLocale, resolvePublicLocale, type Locale } from '@thefibre/shared';
 import { createMeetPaymentLink, meetPayButtonHtml } from '../lib/meet-payment-link.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
@@ -982,7 +983,13 @@ meetRoutes.post('/public/bookings', async (c) => {
     const hostName = hostUser?.full_name ?? hostRow?.slug ?? 'your host';
     // Same shape as every other booking mail, so the links come from the same
     // builders. The hand-written version this replaced carried none at all.
+    const requestLocales = await bookingLocales({
+      meetingTypeId: mt.id,
+      hostEmail,
+      inviteeEmail,
+    });
     const requestCommon: EmailCommon = {
+      locale: requestLocales.invitee,
       brand: await meetBrand(mt.workspace_id),
       inviteeName,
       inviteeEmail,
@@ -1147,7 +1154,13 @@ meetRoutes.post('/public/bookings', async (c) => {
   // the cancel link surfaces clearly.
   if (booking && hostRow) {
     const bookingBrand = await meetBrand(mt.workspace_id);
+    const bookingLocalePair = await bookingLocales({
+      meetingTypeId: mt.id,
+      hostEmail: hostUser?.email ?? null,
+      inviteeEmail: data.invitee_email,
+    });
     const common: EmailCommon = {
+      locale: bookingLocalePair.invitee,
       brand: bookingBrand,
       inviteeName: data.invitee_name,
       inviteeEmail: data.invitee_email,
@@ -1183,7 +1196,7 @@ meetRoutes.post('/public/bookings', async (c) => {
     }
     if (common.hostEmail) {
       try {
-        const host = bookingNotificationHost(common);
+        const host = bookingNotificationHost({ ...common, locale: bookingLocalePair.host });
         const sender3 = await meetSender(mt.workspace_id);
         await sendEmail({
           ...sender3,
@@ -1206,7 +1219,7 @@ meetRoutes.post('/public/bookings', async (c) => {
       for (const u of extraUsers ?? []) {
         if (!u.email || u.email === common.hostEmail) continue;
         try {
-          const m = bookingNotificationHost(common);
+          const m = bookingNotificationHost({ ...common, locale: bookingLocalePair.host });
           const sender4 = await meetSender(mt.workspace_id);
           await sendEmail({
             ...sender4,
@@ -1470,7 +1483,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
   const { data: booking, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, meeting_type_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, user_id, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -1528,7 +1541,13 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
   // Cancellation emails.
   if (mt && hostRow) {
     const emailBrand = await meetBrand(booking.workspace_id);
+    const cancelLocales = await bookingLocales({
+      meetingTypeId: booking.meeting_type_id,
+      hostEmail: hostUser?.email ?? null,
+      inviteeEmail: booking.invitee_email,
+    });
     const common: EmailCommon = {
+      locale: cancelLocales.invitee,
       brand: emailBrand,
       inviteeName: booking.invitee_name,
       inviteeEmail: booking.invitee_email,
@@ -1561,7 +1580,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
     }
     if (common.hostEmail) {
       try {
-        const m = bookingCancellation(common, 'host');
+        const m = bookingCancellation({ ...common, locale: cancelLocales.host }, 'host');
         const sender6 = await meetSender(booking.workspace_id);
         await sendEmail({
           ...sender6,
@@ -1713,7 +1732,13 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
   // Tell both sides, with the old time struck through.
   if (hostRow) {
     const emailBrand = await meetBrand(booking.workspace_id);
+    const movedLocales = await bookingLocales({
+      meetingTypeId: booking.meeting_type_id,
+      hostEmail: hostUser?.email ?? null,
+      inviteeEmail: booking.invitee_email,
+    });
     const common: EmailCommon = {
+      locale: movedLocales.invitee,
       brand: emailBrand,
       inviteeName: booking.invitee_name,
       inviteeEmail: booking.invitee_email,
@@ -1802,7 +1827,7 @@ meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
   const { data: b, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (name, description, default_location), host:host_id (timezone, slug, user:user_id (full_name, email))',
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (name, description, default_location), host:host_id (timezone, slug, user_id, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -2855,6 +2880,15 @@ async function paidNeedsStripe(
 }
 
 const MeetingTypeUpsert = z.object({
+  /** Public language override. NULL/absent = inherit the host's own.
+   *  Validated against the platform's locale list, so a typo cannot make a
+   *  booking page speak a language no catalog has. */
+  locale: z
+    .string()
+    .nullable()
+    .optional()
+    .refine((v) => v == null || v === '' || isLocale(v), { message: 'unknown locale' })
+    .transform((v) => (v === '' ? null : v)),
   slug: z
     .string()
     .min(2)
@@ -3468,6 +3502,59 @@ meetRoutes.post('/public/poll-votes', async (c) => {
 });
 
 // ===========================================================================
+/**
+ * Which language each side of a booking gets its mail in.
+ *
+ * Two answers, not one: an invitee in Germany and a host in the Netherlands
+ * should each read their own. The chain itself is `resolveEmailLocale` in
+ * @thefibre/shared — the single place any app asks what language a surface
+ * speaks (2026-09-30). This function only fetches what that chain needs.
+ *
+ * The SURFACE is the meeting type's own `locale` when it has one, else the
+ * host's language: the booking page somebody filled in is the best guess for
+ * a stranger we have no profile for.
+ */
+async function bookingLocales(args: {
+  meetingTypeId: string;
+  /** The host's EMAIL. `identity_profile` is keyed on email, not user_id —
+   *  running the select against production before shipping is what caught
+   *  that; TypeScript never reads a PostgREST string. */
+  hostEmail: string | null | undefined;
+  inviteeEmail: string | null | undefined;
+}): Promise<{ invitee: Locale; host: Locale }> {
+  const profileLocale = async (email: string | null | undefined) =>
+    email
+      ? (
+          await adminClient
+            .from('identity_profile')
+            .select('locale')
+            .eq('email', email)
+            .maybeSingle()
+        ).data
+      : null;
+  const [{ data: mtRow }, hostProfile, inviteeProfile] = await Promise.all([
+    adminClient
+      .from('meet_meeting_type')
+      .select('locale')
+      .eq('id', args.meetingTypeId)
+      .maybeSingle(),
+    profileLocale(args.hostEmail),
+    profileLocale(args.inviteeEmail),
+  ]);
+  const hostLocale = hostProfile?.locale ?? null;
+  const surface = resolvePublicLocale({
+    surfaceOverride: mtRow?.locale ?? null,
+    ownerProfile: hostLocale,
+  });
+  return {
+    invitee: resolveEmailLocale({
+      recipientProfile: inviteeProfile?.locale ?? null,
+      surface,
+    }),
+    host: resolveEmailLocale({ recipientProfile: hostLocale, surface }),
+  };
+}
+
 // Deferred confirmation side-effects.
 // Two flows write a booking with side-effects skipped:
 //   - Approval flow (requires_approval=true): host approves via /approve.
@@ -3553,7 +3640,13 @@ async function runConfirmationSideEffects(
 
   // Confirmation email — branded shell, same as the auto-confirm path.
   const emailBrand = await meetBrand(booking.workspace_id);
+  const confirmLocales = await bookingLocales({
+    meetingTypeId: booking.meeting_type_id,
+    hostEmail: hostUser?.email ?? null,
+    inviteeEmail: booking.invitee_email,
+  });
   const common: EmailCommon = {
+    locale: confirmLocales.invitee,
     brand: emailBrand,
     inviteeName: booking.invitee_name,
     inviteeEmail: booking.invitee_email,
@@ -3586,7 +3679,7 @@ async function runConfirmationSideEffects(
   }
   if (common.hostEmail) {
     try {
-      const m = bookingNotificationHost(common);
+      const m = bookingNotificationHost({ ...common, locale: confirmLocales.host });
       const sender11 = await meetSender(booking.workspace_id);
       await sendEmail({
         ...sender11,
@@ -3832,7 +3925,7 @@ async function loadBookingWithJoins(id: string) {
   return adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, user_id, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();

@@ -15,7 +15,7 @@ import {
   coerceSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
-import { t, type Locale } from '@/lib/i18n-ui';
+import { t, LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n-ui';
 import {
   createMeetingType,
   savePollSlots,
@@ -41,6 +41,7 @@ export type MeetingTypeFormValues = {
   default_location?: string | null;
   is_active?: boolean;
   is_public_listed?: boolean;
+  locale?: string | null;
   requires_approval?: boolean | null;
   team_id?: string | null;
   event_type?: string;
@@ -411,6 +412,22 @@ export function MeetingTypeForm({
               />
               <span>{t(locale, 'active_accept')}</span>
             </label>
+            {/* The language this meeting type speaks to the outside world:
+                its booking page and the mails its invitees get. Empty means
+                inherit your own — so changing your profile language moves
+                everything that has not been given an opinion of its own
+                (Sjoerd, 2026-09-30: "overall taal gebaseerd op profiel? En
+                dan per event type een subtaal"). */}
+            <SelectField
+              label={t(locale, 'public_language')}
+              name="locale"
+              defaultValue={initial.locale ?? ''}
+              options={[
+                { value: '', label: t(locale, 'language_inherit') },
+                ...LOCALES.map((l) => ({ value: l, label: LOCALE_LABELS[l] })),
+              ]}
+              hint={t(locale, 'public_language_hint')}
+            />
             {/* "Is this on my booking page?" is a Basics question, and it used
                 to live under Availability — a tab you open to set working
                 hours. Worse, it sat in the NON-poll branch, so a meeting poll

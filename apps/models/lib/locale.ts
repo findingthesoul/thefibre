@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { isLocale, toLocale, type Locale } from '@thefibre/shared';
+import { resolveUiLocale, type Locale } from '@thefibre/shared';
 import { COOKIE_LOCALE } from '@thefibre/shared/prefs';
 
 // The signed-in interface language (i18n P3). ONE user-level setting,
@@ -13,7 +13,8 @@ import { COOKIE_LOCALE } from '@thefibre/shared/prefs';
 
 export async function uiLocale(fallback?: string | null): Promise<Locale> {
   const store = await cookies();
-  const fromCookie = store.get(COOKIE_LOCALE)?.value;
-  if (isLocale(fromCookie)) return fromCookie;
-  return toLocale(fallback);
+  // The chain itself lives in @thefibre/shared — one answer to "which
+  // language is this surface in" for the whole family (2026-09-30). This
+  // file keeps only what is app-shaped: where the cookie comes from.
+  return resolveUiLocale({ cookie: store.get(COOKIE_LOCALE)?.value, profile: fallback });
 }

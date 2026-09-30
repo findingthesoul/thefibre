@@ -17,18 +17,25 @@
 // platform-level workspace locale concept exists (membership_settings.locale
 // is app-local to Membership).
 
-import { DEFAULT_LOCALE, makeT, toLocale, type I18nEntry, type Locale } from '@thefibre/shared';
+import { makeT, resolveEmailLocale, type I18nEntry, type Locale } from '@thefibre/shared';
 import { adminClient } from '../../db.js';
 
 /** user_profile-era name kept out on purpose — the profile SPoT is identity_profile. */
-export async function platformEmailLocale(email: string | null | undefined): Promise<Locale> {
-  if (!email) return DEFAULT_LOCALE;
+export async function platformEmailLocale(
+  email: string | null | undefined,
+  /** The language of the page this mail follows from, when there is one.
+   *  Platform lifecycle mail usually has no surface — hence optional. */
+  surface?: string | null,
+): Promise<Locale> {
+  if (!email) return resolveEmailLocale({ surface });
   const { data } = await adminClient
     .from('identity_profile')
     .select('locale')
     .eq('email', email)
     .maybeSingle();
-  return toLocale(data?.locale ?? null);
+  // The chain lives in @thefibre/shared: recipient's own language, then the
+  // surface, then English. One answer for every app (2026-09-30).
+  return resolveEmailLocale({ recipientProfile: data?.locale ?? null, surface });
 }
 
 const CATALOG = {

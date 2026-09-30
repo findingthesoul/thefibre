@@ -3683,6 +3683,30 @@ const CATALOG = {
     de: 'Dieser Workspace hat noch keine Meeting-Typen, also gibt es nichts, wofür du jemanden buchen kannst. Lege zuerst einen an.', // MT
     fr: 'Cet espace n’a pas encore de type de réunion, il n’y a donc rien pour lequel réserver quelqu’un. Crées-en un d’abord.', // MT
   },
+  public_language: {
+    en: 'Language for guests',
+    nl: 'Taal voor gasten',
+    es: 'Idioma para los invitados', // MT
+    pt: 'Idioma para os convidados', // MT
+    de: 'Sprache für Gäste', // MT
+    fr: 'Langue pour les invités', // MT
+  },
+  language_inherit: {
+    en: 'Same as my own language',
+    nl: 'Zelfde als mijn eigen taal',
+    es: 'La misma que mi idioma', // MT
+    pt: 'A mesma que o meu idioma', // MT
+    de: 'Wie meine eigene Sprache', // MT
+    fr: 'Comme ma propre langue', // MT
+  },
+  public_language_hint: {
+    en: 'The booking page and the emails your invitees get. Leave it as your own language unless this one meeting is in another.',
+    nl: 'De boekingspagina en de mails die je gasten krijgen. Laat het op je eigen taal staan, tenzij juist deze afspraak in een andere taal is.',
+    es: 'La página de reservas y los correos que reciben tus invitados. Déjalo en tu idioma salvo que esta reunión sea en otro.', // MT
+    pt: 'A página de marcação e os emails que os teus convidados recebem. Deixa no teu idioma, a não ser que esta reunião seja noutro.', // MT
+    de: 'Die Buchungsseite und die Mails an deine Gäste. Lass es bei deiner eigenen Sprache, außer dieses eine Meeting ist in einer anderen.', // MT
+    fr: 'La page de réservation et les e-mails que reçoivent tes invités. Laisse ta propre langue, sauf si cette réunion est dans une autre.', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

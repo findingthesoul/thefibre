@@ -7,6 +7,8 @@
 // the invitee sees a referenceable instant. We avoid trying to guess the
 // invitee's tz from the request.
 
+import type { Locale } from '@thefibre/shared';
+import { meetT } from './meet-booking-i18n.js';
 import {
   emailSignoff,
   legalFooterLine,
@@ -29,6 +31,11 @@ type Common = {
   bookingId: string;
   // Public URL of the Meet app (used to build cancel link).
   meetAppUrl: string;
+  /** Which language this mail is written in. Resolved by the CALLER through
+   *  resolveEmailLocale in @thefibre/shared — the templates render whatever
+   *  they are handed, which is why the same function serves an invitee in
+   *  Dutch and a host in German. Omitted → English. */
+  locale?: Locale;
   hostSlug: string;
   meetingTypeSlug: string;
   /** Pay-by-invoice bookings: e.g. "€60.00 — the host will send you an
@@ -153,16 +160,28 @@ export function shell(title: string, bodyHtml: string, brand?: EmailBrand): stri
 </body></html>`;
 }
 
+/** The mail's language, defaulting to English for a caller that has not
+ *  resolved one yet. */
+function loc(c: Common): Locale {
+  return c.locale ?? 'en';
+}
+
+/** The first name we greet somebody by — "" when we only have one word. */
+function firstName(full: string): string {
+  return full.split(' ')[0] ?? '';
+}
+
 function detailsHtml(c: Common): string {
   const rows: string[] = [];
-  rows.push(`<tr><td style="padding:6px 0;color:#737373;width:120px;font-size:12px;">What</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.meetingName)}</td></tr>`);
-  rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">When</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(range(c.startsAt, c.endsAt, c.hostTimezone))}</td></tr>`);
-  rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">With</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.hostName)}</td></tr>`);
+  const L = loc(c);
+  rows.push(`<tr><td style="padding:6px 0;color:#737373;width:120px;font-size:12px;">${escapeHtml(meetT(L, 'what'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.meetingName)}</td></tr>`);
+  rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'when'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(range(c.startsAt, c.endsAt, c.hostTimezone))}</td></tr>`);
+  rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'with_whom'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.hostName)}</td></tr>`);
   if (c.meetUrl) {
-    rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">Join</td><td style="padding:6px 0;font-size:14px;"><a href="${c.meetUrl}" style="color:#171717;">${escapeHtml(c.meetUrl)}</a></td></tr>`);
+    rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'join'))}</td><td style="padding:6px 0;font-size:14px;"><a href="${c.meetUrl}" style="color:#171717;">${escapeHtml(c.meetUrl)}</a></td></tr>`);
   }
   if (c.location) {
-    rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">Where</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.location)}</td></tr>`);
+    rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'where'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.location)}</td></tr>`);
   }
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:20px;">${rows.join('')}</table>`;
 }
@@ -177,13 +196,14 @@ export function escapeHtml(s: string): string {
 }
 
 function detailsText(c: Common): string {
+  const L = loc(c);
   const lines = [
-    `What:  ${c.meetingName}`,
-    `When:  ${range(c.startsAt, c.endsAt, c.hostTimezone)}`,
-    `With:  ${c.hostName}`,
+    `${meetT(L, 'what')}:  ${c.meetingName}`,
+    `${meetT(L, 'when')}:  ${range(c.startsAt, c.endsAt, c.hostTimezone)}`,
+    `${meetT(L, 'with_whom')}:  ${c.hostName}`,
   ];
-  if (c.meetUrl) lines.push(`Join:  ${c.meetUrl}`);
-  if (c.location) lines.push(`Where: ${c.location}`);
+  if (c.meetUrl) lines.push(`${meetT(L, 'join')}:  ${c.meetUrl}`);
+  if (c.location) lines.push(`${meetT(L, 'where')}: ${c.location}`);
   return lines.join('\n');
 }
 
@@ -192,25 +212,27 @@ export function bookingConfirmationInvitee(c: Common): {
   text: string;
   html: string;
 } {
-  const subject = `Confirmed: ${c.meetingName} with ${c.hostName}`;
+  const L = loc(c);
+  const first = firstName(c.inviteeName);
+  const subject = meetT(L, 'confirmed_subject', { meeting: c.meetingName, host: c.hostName });
   const cancel = cancelUrl(c);
-  const text = `Hi ${c.inviteeName.split(' ')[0] ?? ''},
+  const text = `${meetT(L, 'greeting', { first })}
 
-You're booked.
+${meetT(L, 'confirmed_text_lead')}
 
 ${detailsText(c)}
 ${c.paymentNote ? `\n${c.paymentNote}\n` : ''}
-Add to your calendar: ${icsUrl(c, 'invitee')}
-Need a different time? ${rescheduleUrl(c)}
-Need to cancel? ${cancel}
+${meetT(L, 'add_to_calendar_line', { url: icsUrl(c, 'invitee') })}
+${meetT(L, 'different_time_line', { url: rescheduleUrl(c) })}
+${meetT(L, 'need_cancel_line', { url: cancel })}
 
 ${emailSignoff()}`;
   const html = shell(
-    'Booking confirmed',
-    `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">You're booked, ${escapeHtml(c.inviteeName.split(' ')[0] ?? '')}.</h1>
+    meetT(L, 'confirmed_title'),
+    `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(meetT(L, 'confirmed_headline', { first }))}</h1>
 ${detailsHtml(c)}
 ${c.paymentNote ? `<p style="margin-top:20px;font-size:14px;color:#171717;">${escapeHtml(c.paymentNote)}</p>` : ''}
-<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'invitee')}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">Cancel</a></div>`,
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'invitee')}" style="color:#171717;">${escapeHtml(meetT(L, 'add_to_calendar'))}</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'reschedule'))}</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">${escapeHtml(meetT(L, 'cancel'))}</a></div>`,
     c.brand,
   );
   return { subject, text, html };
@@ -235,23 +257,25 @@ export function bookingRequestReceived(c: Common): {
   text: string;
   html: string;
 } {
-  const subject = `Request received: ${c.meetingName}`;
-  const text = `Hi ${c.inviteeName.split(' ')[0] ?? ''},
+  const L = loc(c);
+  const first = firstName(c.inviteeName);
+  const subject = meetT(L, 'requested_subject', { meeting: c.meetingName });
+  const text = `${meetT(L, 'greeting', { first })}
 
-Your booking request has been sent to ${c.hostName}. You'll get a confirmation email once it's approved.
+${meetT(L, 'requested_headline', { host: c.hostName })} ${meetT(L, 'requested_sub')}
 
 ${detailsText(c)}
 
-Need a different time? ${rescheduleUrl(c)}
-Changed your mind? ${cancelUrl(c)}
+${meetT(L, 'different_time_line', { url: rescheduleUrl(c) })}
+${meetT(L, 'requested_changed_mind', { url: cancelUrl(c) })}
 
 ${emailSignoff()}`;
   const html = shell(
-    'Request received',
-    `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">Your request is with ${escapeHtml(c.hostName)}.</h1>
-<div style="margin-top:6px;font-size:14px;color:#525252;">You'll get a confirmation email once it's approved.</div>
+    meetT(L, 'requested_title'),
+    `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(meetT(L, 'requested_headline', { host: c.hostName }))}</h1>
+<div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(meetT(L, 'requested_sub'))}</div>
 ${detailsHtml(c)}
-<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${rescheduleUrl(c)}" style="color:#171717;">Ask for a different time</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Withdraw request</a></div>`,
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${rescheduleUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'requested_ask_other_time'))}</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'requested_withdraw'))}</a></div>`,
     c.brand,
   );
   return { subject, text, html };
@@ -293,20 +317,21 @@ export function bookingCancellation(
   c: Common,
   audience: 'invitee' | 'host',
 ): { subject: string; text: string; html: string } {
+  const L = loc(c);
   const subject =
     audience === 'invitee'
-      ? `Cancelled: ${c.meetingName} with ${c.hostName}`
+      ? meetT(L, 'cancelled_subject_invitee', { meeting: c.meetingName, host: c.hostName })
       : `Cancelled: ${c.meetingName} — ${c.inviteeName}`;
   const headline =
     audience === 'invitee'
-      ? `Your booking with ${escapeHtml(c.hostName)} was cancelled.`
+      ? escapeHtml(meetT(L, 'cancelled_headline_invitee', { host: c.hostName }))
       : `${escapeHtml(c.inviteeName)} cancelled ${escapeHtml(c.meetingName)}.`;
   const text =
     audience === 'invitee'
-      ? `Your booking has been cancelled.\n\n${detailsText(c)}\n\n${emailSignoff()}`
+      ? `${meetT(L, 'cancelled_text_invitee')}\n\n${detailsText(c)}\n\n${emailSignoff()}`
       : `${c.inviteeName} cancelled their booking.\n\n${detailsText(c)}\n\n${emailSignoff()}`;
   const html = shell(
-    'Booking cancelled',
+    meetT(L, 'cancelled_title'),
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
 ${detailsHtml(c)}`,
     c.brand,
@@ -322,32 +347,35 @@ export function bookingRescheduled(
   previousStartsAt: Date,
 ): { subject: string; text: string; html: string } {
   const was = fmt(previousStartsAt, c.hostTimezone);
+  const L = loc(c);
   const subject =
     audience === 'invitee'
-      ? `Moved: ${c.meetingName} with ${c.hostName}`
+      ? meetT(L, 'moved_subject_invitee', { meeting: c.meetingName, host: c.hostName })
       : `Moved: ${c.meetingName} — ${c.inviteeName}`;
   const headline =
     audience === 'invitee'
-      ? `Your booking with ${escapeHtml(c.hostName)} moved.`
+      ? escapeHtml(meetT(L, 'moved_headline_invitee', { host: c.hostName }))
       : `${escapeHtml(c.inviteeName)} moved ${escapeHtml(c.meetingName)}.`;
   const text = `${
-    audience === 'invitee' ? 'Your booking has moved.' : `${c.inviteeName} moved their booking.`
+    audience === 'invitee'
+      ? meetT(L, 'moved_text_invitee')
+      : `${c.inviteeName} moved their booking.`
   }
 
-Was:   ${was}
+${meetT(L, 'was_label')}:   ${was}
 
 ${detailsText(c)}
 
-Add to your calendar: ${icsUrl(c, audience)}
-Need to cancel? ${cancelUrl(c)}
+${meetT(L, 'add_to_calendar_line', { url: icsUrl(c, audience) })}
+${meetT(L, 'need_cancel_line', { url: cancelUrl(c) })}
 
 ${emailSignoff()}`;
   const html = shell(
-    'Booking moved',
+    meetT(L, 'moved_title'),
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
-<div style="margin-top:6px;font-size:14px;color:#525252;">Was: <s>${escapeHtml(was)}</s></div>
+<div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(meetT(L, 'was_label'))}: <s>${escapeHtml(was)}</s></div>
 ${detailsHtml(c)}
-<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, audience)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, audience)}" style="color:#171717;">${escapeHtml(meetT(L, 'add_to_calendar'))}</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'cancel'))}</a></div>`,
     c.brand,
   );
   return { subject, text, html };

@@ -6,6 +6,69 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.89.0] — 2026-09-30 — one answer to "which language is this in" (Meet 2.18.0)
+
+"Ik dacht dat de hele app meertalig was. Kun je daar een SPoT voor maken?"
+(Sjoerd, 2026-09-30). He was right to expect it and right that it was not
+true: Meet's signed-in shell had spoken six languages for weeks while its
+public booking page and all four booking emails were hardcoded English. An
+invitee never sees the shell. The mail IS the product to them, and it was the
+half that was missing.
+
+### The SPoT
+
+`packages/shared/src/locale-resolution.ts` — three chains, one place, fifteen
+tests:
+
+- **the signed-in interface**: cookie → profile → English. Their choice and
+  nobody else's; a workspace does not decide what language you read your own
+  tools in.
+- **a public page**: the surface's own override → the owner's language →
+  optionally the visitor's browser → English. The override wins because it is
+  the most specific thing anyone has said. Accept-Language is last and
+  optional: a guess must never overrule a page whose language was chosen.
+- **an email**: the recipient's own language → the language of the page it
+  followed from → English. Note what is NOT in that chain — the sender's
+  interface language. A host reading Meet in Dutch is not a reason to write to
+  a German invitee in Dutch.
+
+The rules live there; the catalogs stay next to their screens. A translation
+is content and belongs beside what it serves; a resolution chain is a decision
+and belongs in one place. Every app's `uiLocale` and the platform's
+`platformEmailLocale` now call it instead of each carrying their own copy.
+
+`localeFromAcceptLanguage` honours quality values, because `fr;q=0.2, nl;q=0.9`
+means Dutch and reading left to right gets that exactly backwards.
+
+### Per meeting type, on top of your profile
+
+`meet_meeting_type.locale` — NULL means inherit, which is the point: change
+your profile language and everything that has no opinion of its own follows.
+The picker sits on Basics, next to the other two things that decide what the
+outside world sees.
+
+### Meet's booking emails, in six languages
+
+Confirmation, request-received, cancellation and moved — subjects, bodies,
+the What/When/With/Join/Where rows and the three action links. Each side gets
+its OWN language: the invitee's profile if we know them, otherwise the
+language of the page they booked on; the host always their own.
+
+### What is not done yet
+
+The public booking PAGES are still English — that is the next slice, and the
+larger one. And the host-notification mail keeps its English prose (its detail
+rows are localised), because the host reads the app in their own language
+already; its strings join the catalog with the other apps.
+
+### A latent 400, caught before shipping
+
+`identity_profile` is keyed on **email**, not `user_id`. The first version of
+the locale lookup selected on `user_id` and would have thrown on every booking
+email — typechecked, built, and wrong. Running each changed select against
+production before shipping is what caught it, which is exactly why that rule
+exists.
+
 ## [1.88.0] — 2026-09-29 — assumptions read like a document, and a refresh lands where you were
 
 Sjoerd, on the first Assumptions tab: *"Visually it can be more attractive.
