@@ -747,6 +747,24 @@ Two things to decide, neither of them code:
 
 Longer version in `ai-assistance-plan.md` §1.
 
+### 2026-09-30 — a custom domain, for enterprise
+
+Sjoerd, in chat: *"Custom account - for enterprise"*, then immediately
+*"sorry - custom domain"*. So: **a custom domain, for enterprise.**
+
+That is the whole item, in his words. Not scoped, not ranked, and he said
+nothing about which surface it covers.
+
+One fact worth having next to it, because it is checkable rather than a
+guess: **nothing in the repo has a per-workspace domain concept today.** A
+grep for `custom_domain` / `customDomain` across `apps/`, `packages/`,
+`supabase/` and `docs/` finds only Vercel's own
+`all_except_custom_domains` protection setting on `thefibre-my`, which is
+unrelated. Public addresses are fixed in `packages/shared/src/branding.ts`
+(`app.thethread.app`, `meet.thethread.app`, and so on), asserted by
+`branding.test.ts`. So this is new ground, not a setting somebody forgot to
+expose.
+
 ## Moved out
 
 _Items that graduated, with the date and destination._
