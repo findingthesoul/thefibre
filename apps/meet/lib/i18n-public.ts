@@ -20,6 +20,7 @@ export {
   LOCALES,
   DEFAULT_LOCALE,
   LOCALE_LABELS,
+  INTL_LOCALES,
   isLocale,
   toLocale,
   type Locale,
@@ -298,6 +299,23 @@ const CATALOG = {
     pt: 'Escolhe uma nova hora', // MT
     de: 'Neue Zeit wählen', // MT
     fr: 'Choisis un nouvel horaire', // MT
+  },
+
+  working: {
+    en: 'One moment…',
+    nl: 'Een moment…',
+    es: 'Un momento…', // MT
+    pt: 'Um momento…', // MT
+    de: 'Einen Moment…', // MT
+    fr: 'Un instant…', // MT
+  },
+  search_timezones: {
+    en: 'Search timezones…',
+    nl: 'Zoek tijdzones…',
+    es: 'Buscar zonas horarias…', // MT
+    pt: 'Procurar fusos horários…', // MT
+    de: 'Zeitzonen suchen…', // MT
+    fr: 'Rechercher des fuseaux…', // MT
   },
 
   // ── who pays ────────────────────────────────────────────────────────────

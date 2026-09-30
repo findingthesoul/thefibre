@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.90.1] — 2026-09-30 — the dates follow the page, and the button stops breaking (Meet 2.19.1)
+
+Two things the first pass missed, both visible on a Dutch booking page.
+
+**"Fri 2 Oct at 16:00" on a page that says "Bij welke hiervan kun je zijn?"**
+Every formatter passed `undefined` as its locale, which means the VISITOR's
+browser. That was the right answer when the page had no language of its own.
+It is the wrong one now: a date is a word on the page, and it reads in the
+page's language like every other word. Times, long dates, the calendar's month
+heading and the price all take the resolved locale.
+
+One formatter deliberately keeps `en-CA`: `dateKey`, which is not displaying
+anything — it is how you get YYYY-MM-DD out of `Intl`.
+
+**"Stemmen versturen" broke across two lines.** The action row put the
+time-zone picker, the 24h/AM-PM toggle and the button on one line with
+`justify-between`, which works while the label is two short English words. The
+row wraps now and the button neither shrinks nor wraps — on a narrow card it
+moves to its own line instead of folding in half.
+
+And the three in-flight button labels — "Booking…", "Confirming…",
+"Submitting…" — were still English inside translated buttons. One key,
+translated, for all three.
+
 ## [1.90.0] — 2026-09-30 — Meet's booking pages speak six languages (Meet 2.19.0)
 
 The slice the language work was for. Last release gave Meet a language setting

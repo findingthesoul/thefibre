@@ -9,7 +9,7 @@
 // prop selects which endpoint.
 
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
-import { publicT, type Locale } from '@/lib/i18n-public';
+import { publicT, INTL_LOCALES, type Locale } from '@/lib/i18n-public';
 import { useRouter } from 'next/navigation';
 import { Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -140,8 +140,12 @@ function dateKey(d: Date, tz: string): string {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
-function formatTime(d: Date, tz: string, clock: Clock): string {
-  return new Intl.DateTimeFormat(undefined, {
+// `undefined` here meant the VISITOR's browser, which is the wrong answer
+// once the page itself has a language: a Dutch booking page showed "Fri 2 Oct"
+// to anyone whose laptop was English (Sjoerd, 2026-09-30). Dates follow the
+// PAGE, like every other word on it.
+function formatTime(d: Date, tz: string, clock: Clock, L: Locale): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[L], {
     timeZone: tz,
     hour: '2-digit',
     minute: '2-digit',
@@ -149,11 +153,11 @@ function formatTime(d: Date, tz: string, clock: Clock): string {
   }).format(d);
 }
 
-function formatLongDate(dateStr: string, tz: string): string {
+function formatLongDate(dateStr: string, tz: string, L: Locale): string {
   // dateStr is YYYY-MM-DD (already in tz). Render in that tz.
   const [y, m, d] = dateStr.split('-').map(Number);
   if (!y || !m || !d) return dateStr;
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(INTL_LOCALES[L], {
     timeZone: tz,
     weekday: 'long',
     day: 'numeric',
@@ -456,7 +460,7 @@ function SlotPickerFlow({
           <p className="-mt-3 text-sm text-neutral-600">
             Currently{' '}
             <span className="line-through">
-              {new Intl.DateTimeFormat(undefined, {
+              {new Intl.DateTimeFormat(INTL_LOCALES[L], {
                 timeZone: tz,
                 weekday: 'long',
                 day: 'numeric',
@@ -504,7 +508,7 @@ function SlotPickerFlow({
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-neutral-900 pb-1">
-                    {formatLongDate(selectedDate, tz)}
+                    {formatLongDate(selectedDate, tz, L)}
                   </p>
                   {(slotsByDate.get(selectedDate) ?? []).map((s) => {
                     const isStaged = stagedSlot?.getTime() === s.getTime();
@@ -520,7 +524,7 @@ function SlotPickerFlow({
                               : 'border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50 hover:border-neutral-300'
                           }`}
                         >
-                          <span>{formatTime(s, tz, clock)}</span>
+                          <span>{formatTime(s, tz, clock, L)}</span>
                           {meta ? (
                             <span className="text-xs font-normal text-neutral-500">
                               {meta.remaining} of {meta.capacity} left
@@ -553,7 +557,7 @@ function SlotPickerFlow({
             value={tz}
             onChange={setTz}
             options={tzSelectOptions()}
-            searchPlaceholder="Search timezones…"
+            searchPlaceholder={publicT(L, 'search_timezones')}
           />
           <div className="ml-auto inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
             <button
@@ -589,7 +593,7 @@ function SlotPickerFlow({
         </div>
         <div className="mt-1 font-medium">
           {selectedSlot &&
-            new Intl.DateTimeFormat(undefined, {
+            new Intl.DateTimeFormat(INTL_LOCALES[L], {
               timeZone: tz,
               weekday: 'long',
               day: 'numeric',
@@ -664,7 +668,7 @@ function SlotPickerFlow({
               ? 'Moving…'
               : publicT(L, 'confirm_new_time')
             : pending
-              ? 'Booking…'
+              ? publicT(L, 'working')
               : publicT(L, 'confirm_booking')}
         </Button>
       </div>
@@ -690,7 +694,7 @@ function CalendarGrid({
   selectedDate: string | null;
   onSelect: (date: string) => void;
 }) {
-  const monthLabel = new Intl.DateTimeFormat('en-GB', {
+  const monthLabel = new Intl.DateTimeFormat(INTL_LOCALES[L], {
     month: 'long',
     year: 'numeric',
   }).format(new Date(displayed.year, displayed.month - 1, 1));
@@ -889,7 +893,7 @@ function OneOffFlow({
           {publicT(L, 'scheduled_for')}
         </div>
         <div className="mt-1 font-medium">
-          {new Intl.DateTimeFormat(undefined, {
+          {new Intl.DateTimeFormat(INTL_LOCALES[L], {
             timeZone: tz,
             weekday: 'long',
             day: 'numeric',
@@ -941,15 +945,19 @@ function OneOffFlow({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 text-sm">
+      {/* Wraps, and the button never shrinks. "Submit votes" is two short
+          words in English and "Stemmen versturen" is not — squeezed into the
+          leftover space it broke across two lines (Sjoerd, 2026-09-30). On a
+          narrow card the button now moves to its own row instead. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
           <SearchSelect
             className="w-64"
             value={tz}
             onChange={setTz}
             options={tzSelectOptions()}
-            searchPlaceholder="Search timezones…"
+            searchPlaceholder={publicT(L, 'search_timezones')}
           />
           <div className="inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
             <button
@@ -968,8 +976,8 @@ function OneOffFlow({
             </button>
           </div>
         </div>
-        <Button onClick={submit} disabled={pending}>
-          {pending ? 'Confirming…' : publicT(L, 'confirm_attendance')}
+        <Button onClick={submit} disabled={pending} className="shrink-0 whitespace-nowrap">
+          {pending ? publicT(L, 'working') : publicT(L, 'confirm_attendance')}
         </Button>
       </div>
     </div>
@@ -1083,7 +1091,7 @@ function PollFlow({
                   onChange={() => toggle(iso)}
                 />
                 <span>
-                  {new Intl.DateTimeFormat(undefined, {
+                  {new Intl.DateTimeFormat(INTL_LOCALES[L], {
                     timeZone: tz,
                     weekday: 'short',
                     day: 'numeric',
@@ -1127,15 +1135,19 @@ function PollFlow({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 text-sm">
+      {/* Wraps, and the button never shrinks. "Submit votes" is two short
+          words in English and "Stemmen versturen" is not — squeezed into the
+          leftover space it broke across two lines (Sjoerd, 2026-09-30). On a
+          narrow card the button now moves to its own row instead. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
           <SearchSelect
             className="w-64"
             value={tz}
             onChange={setTz}
             options={tzSelectOptions()}
-            searchPlaceholder="Search timezones…"
+            searchPlaceholder={publicT(L, 'search_timezones')}
           />
           <div className="inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
             <button
@@ -1154,8 +1166,8 @@ function PollFlow({
             </button>
           </div>
         </div>
-        <Button onClick={submit} disabled={pending}>
-          {pending ? 'Submitting…' : publicT(L, 'submit_votes')}
+        <Button onClick={submit} disabled={pending} className="shrink-0 whitespace-nowrap">
+          {pending ? publicT(L, 'working') : publicT(L, 'submit_votes')}
         </Button>
       </div>
     </div>

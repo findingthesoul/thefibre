@@ -6,7 +6,7 @@ import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { WorkspaceLine, type PublicWorkspace } from '../workspace-line';
 import { BookingFlow, type Reschedule } from './flow';
-import { publicT, toLocale, type Locale } from '@/lib/i18n-public';
+import { publicT, toLocale, INTL_LOCALES, type Locale } from '@/lib/i18n-public';
 import type { IntakeField } from '@/lib/intake';
 
 type Host = {
@@ -249,7 +249,7 @@ async function Card({
                   <li className="flex items-center gap-2.5">
                     <CreditCard className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
                     <span>
-                      {new Intl.NumberFormat(undefined, {
+                      {new Intl.NumberFormat(INTL_LOCALES[L], {
                         style: 'currency',
                         currency: (meetingType.price_currency ?? 'eur').toUpperCase(),
                       }).format(meetingType.price_cents / 100)}{' '}
