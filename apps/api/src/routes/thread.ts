@@ -41,6 +41,7 @@ import { resolvePerson } from '../lib/resolve-person.js';
 import { sendReceipt } from './purchases.js';
 import { createThreadPaymentLink, threadPayButtonHtml } from '../lib/thread-payment-link.js';
 import { userPersonalRoom } from '../lib/connections.js';
+import { createMeetingLink, isMintable } from '../lib/meeting-links.js';
 import {
   personalStripeAccount,
   workspaceStripeAccount,
@@ -1308,6 +1309,91 @@ export const EngagementCreate = z.object({
   rsvp_enabled: z.boolean().nullable().optional(),
 });
 
+/** The thread's timezone — Zoom stores one on the meeting, and a meeting an
+ *  hour out is worse than no meeting. */
+async function threadTimezone(threadId: string): Promise<string> {
+  const { data } = await adminClient
+    .from('thread_thread')
+    .select('timezone')
+    .eq('id', threadId)
+    .maybeSingle();
+  return (data?.timezone as string | undefined) ?? 'Europe/Amsterdam';
+}
+
+/** The organiser's own address. Google mints a Meet link only as part of a
+ *  calendar event, and an event needs somebody on it; a thread session has no
+ *  single invitee, so it goes on the organiser's own calendar — which is
+ *  where they would have put it by hand. */
+async function callerEmail(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  const { data } = await adminClient
+    .from('user')
+    .select('email')
+    .eq('id', userId)
+    .maybeSingle();
+  return (data?.email as string | undefined) ?? null;
+}
+
+/**
+ * A real meeting in the organiser's own account, for a session marked Zoom or
+ * Google Meet.
+ *
+ * Sjoerd, 2026-10-01: *"There are settings in the profile, the same as in
+ * meet... please use a single point of truth"* — after choosing Zoom on a
+ * session and finding nothing in his Zoom account. He was right: the
+ * connections have been a single point of truth since v0.13.107, and Thread
+ * asked them only for the personal room. `meeting_provider: 'zoom'` was a
+ * label — a name and an icon, with the organiser expected to paste their own
+ * link.
+ *
+ * Returns the URL, or a reason the caller turns into a sentence. It never
+ * invents a link and never quietly returns nothing, because a blank join
+ * link is not discovered until the session starts.
+ */
+async function mintMeetingUrl(opts: {
+  userId: string;
+  provider: string | null | undefined;
+  suppliedUrl: string | null | undefined;
+  title: string;
+  startsAt: string | null | undefined;
+  endsAt: string | null | undefined;
+  timezone: string;
+  organiserEmail: string | null;
+}): Promise<{ url?: string; refuse?: string }> {
+  // A link the organiser typed always wins: they may be reusing a standing
+  // room, or a meeting somebody else created.
+  if (opts.suppliedUrl?.trim()) return {};
+  if (!isMintable(opts.provider)) return {};
+  // Zoom and Google both need a real time. A session with no date yet is
+  // saved as-is and minted when it gets one.
+  if (!opts.startsAt || !opts.endsAt) return {};
+
+  const r = await createMeetingLink({
+    userId: opts.userId,
+    provider: opts.provider,
+    topic: opts.title,
+    startsAt: new Date(opts.startsAt),
+    endsAt: new Date(opts.endsAt),
+    timezone: opts.timezone,
+    organiserEmail: opts.organiserEmail,
+  });
+  if (r.ok) return { url: r.url };
+
+  // not_configured / not_connected REFUSE, because neither fixes itself and
+  // saving would leave a session that looks like it has a meeting and does
+  // not. `failed` does NOT refuse: it is a transient at somebody else's API,
+  // and being unable to add a session to a programme because Zoom is having
+  // an afternoon is a worse outcome than a link the organiser fills in.
+  if (r.reason === 'failed') return {};
+  const what = opts.provider === 'zoom' ? 'Zoom' : 'Google';
+  return {
+    refuse:
+      r.reason === 'not_configured'
+        ? `${what} is not available on this platform yet. Choose another option, or paste a link.`
+        : `Connect ${what} in Settings → Connections first, or paste a link.`,
+  };
+}
+
 // Activities must fall inside the thread's date window (Sjoerd 2026-07-02).
 // Message-family items are exempt — their whole point is firing before/after
 // the thread (relative + lifecycle triggers).
@@ -1396,6 +1482,20 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   const joined = (await calendarAudience(threadId)).length > 0;
   const status = joined ? 'draft' : (body.data.status ?? 'draft');
 
+  // A real meeting in the organiser's own account when they chose Zoom or
+  // Google Meet and did not bring a link.
+  const mintedNew = await mintMeetingUrl({
+    userId: ctx.userId,
+    provider: body.data.meeting_provider,
+    suppliedUrl: body.data.meeting_url,
+    title: body.data.title,
+    startsAt: body.data.starts_at,
+    endsAt: body.data.ends_at,
+    timezone: await threadTimezone(threadId),
+    organiserEmail: await callerEmail(ctx.userId),
+  });
+  if (mintedNew.refuse) return c.json({ error: mintedNew.refuse }, 400);
+
   const { data, error } = await db
     .from('thread_engagement')
     .insert({
@@ -1411,7 +1511,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       location: body.data.location ?? null,
       location_url: body.data.location_url ?? null,
       image_url: body.data.image_url ?? null,
-      meeting_url: body.data.meeting_url ?? null,
+      meeting_url: mintedNew.url ?? body.data.meeting_url ?? null,
       meeting_provider: body.data.meeting_provider ?? null,
       scheduled_at: body.data.scheduled_at ?? null,
       trigger_kind: body.data.trigger_kind ?? 'fixed',
@@ -1481,6 +1581,37 @@ threadRoutes.patch('/engagements/:id', async (c) => {
   if ('description' in enPatch) {
     enPatch.description = sanitizeRichText(enPatch.description as string | null);
   }
+
+  // Mint on the way through here too, so a session that becomes virtual — or
+  // that switches from a pasted link to Zoom — gets a real meeting without
+  // having to be deleted and made again. Every input falls back to the
+  // EXISTING row: a PATCH carries only what changed, so reading the provider
+  // from the body alone would decide "not virtual" on an edit that merely
+  // moved the time.
+  const nextProvider =
+    body.data.meeting_provider !== undefined
+      ? body.data.meeting_provider
+      : (existing.meeting_provider as string | null);
+  const nextUrl =
+    body.data.meeting_url !== undefined
+      ? body.data.meeting_url
+      : (existing.meeting_url as string | null);
+  const mintedEdit = await mintMeetingUrl({
+    userId: ctx.userId,
+    provider: nextProvider,
+    suppliedUrl: nextUrl,
+    title: body.data.title ?? (existing.title as string),
+    startsAt:
+      body.data.starts_at !== undefined
+        ? body.data.starts_at
+        : (existing.starts_at as string | null),
+    endsAt:
+      body.data.ends_at !== undefined ? body.data.ends_at : (existing.ends_at as string | null),
+    timezone: await threadTimezone(existing.thread_id as string),
+    organiserEmail: await callerEmail(ctx.userId),
+  });
+  if (mintedEdit.refuse) return c.json({ error: mintedEdit.refuse }, 400);
+  if (mintedEdit.url) enPatch.meeting_url = mintedEdit.url;
 
   const wasSession = isCalendarSession(existing);
   const wasState = calendarStateOf(existing);

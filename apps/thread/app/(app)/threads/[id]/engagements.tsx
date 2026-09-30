@@ -660,13 +660,29 @@ export function EngagementDialog({
                     )}
                   </p>
                 ) : (
-                  <TextField
-                    label={t(locale, 'meeting_link')}
-                    name="meeting_url"
-                    type="url"
-                    placeholder="https://…"
-                    defaultValue={engagement?.meeting_url ?? ''}
-                  />
+                  <>
+                    <TextField
+                      label={t(locale, 'meeting_link')}
+                      name="meeting_url"
+                      type="url"
+                      placeholder="https://…"
+                      defaultValue={engagement?.meeting_url ?? ''}
+                    />
+                    {/* Zoom and Google Meet are no longer just a label. Leave
+                        the field empty and the API creates a real meeting in
+                        the organiser's connected account (lib/meeting-links).
+                        Saying so here is the whole point: until 2026-10-01
+                        this looked identical to "custom link", so Sjoerd
+                        picked Zoom, pasted nothing, and found nothing in his
+                        Zoom account. */}
+                    {(provider === 'zoom' || provider === 'google_meet') && (
+                      <p className="text-xs text-ink-muted">
+                        {t(locale, 'link_created_for_you', {
+                          provider: provider === 'zoom' ? 'Zoom' : 'Google Meet',
+                        })}
+                      </p>
+                    )}
+                  </>
                 )}
               </>
             )}

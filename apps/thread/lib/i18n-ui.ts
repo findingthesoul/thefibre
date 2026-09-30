@@ -1390,6 +1390,16 @@ const CATALOG = {
     de: 'Für diese Person ist keine E-Mail hinterlegt. Trage unten eine ein, um sie anzumelden.', // MT
     fr: 'Cette personne n’a pas d’e-mail enregistré. Ajoutes-en un ci-dessous pour l’inscrire.', // MT
   },
+  // Shown under the meeting-link field for Zoom and Google Meet, which now
+  // create a real meeting rather than naming one.
+  link_created_for_you: {
+    en: 'Leave empty and we create the {provider} meeting in your connected account.',
+    nl: 'Laat leeg en we maken de {provider}-meeting aan in je gekoppelde account.',
+    es: 'Déjalo vacío y creamos la reunión de {provider} en tu cuenta conectada.', // MT
+    pt: 'Deixe vazio e criamos a reunião do {provider} na sua conta ligada.', // MT
+    de: 'Leer lassen — wir legen das {provider}-Meeting in deinem verbundenen Konto an.', // MT
+    fr: 'Laisse vide et nous créons la réunion {provider} dans ton compte connecté.', // MT
+  },
   dash_your_site: { en: 'Your site', nl: 'Je site', es: 'Tu sitio', pt: 'Seu site', de: 'Deine Website', fr: 'Ton site' }, // MT es/pt/de/fr
   site_tab_design: { en: 'Design', nl: 'Ontwerp', es: 'Diseño', pt: 'Design', de: 'Design', fr: 'Design' }, // MT es/pt/de/fr
   site_tab_brand: { en: 'Name & images', nl: 'Naam & beelden', es: 'Nombre e imágenes', pt: 'Nome e imagens', de: 'Name & Bilder', fr: 'Nom et images' }, // MT es/pt/de/fr

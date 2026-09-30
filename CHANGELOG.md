@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.93.0] — 2026-10-01 — Thread makes the meeting, instead of naming it (staging)
+
+Sjoerd, after choosing Zoom on a session: *"the other app (zoom account) said
+the thread did not use zoom"*. Then: *"There are settings in the profile, the
+same as in meet... please use a single point of truth"*.
+
+Both right. **`meeting_provider: 'zoom'` was a label** — a name and an icon,
+with the organiser expected to paste their own link. The word "zoom" appeared
+in Thread's entire backend exactly once, as a permitted value in an enum.
+Meet, from the same stored connection, has created real Zoom meetings since
+v0.59.0. One app asked the profile; the other only named it. And on screen the
+two were indistinguishable from "custom link", so picking Zoom looked like it
+had done something.
+
+**Now:** choose Zoom or Google Meet, leave the link empty, and the API creates
+a real meeting in the account that person connected — Zoom through their Zoom
+login, Google Meet as an event on their own calendar, which is where a
+facilitator would have put it anyway. A link they type still wins: they may be
+reusing a standing room, or a meeting somebody else made.
+
+**One place, not two.** `lib/meeting-links.ts` is the whole of it, and Meet's
+`createZoomForBooking` now calls it. Exactly one line of Meet's version was
+Meet-specific — a booking names a HOST and the connection is on the user
+behind it — so copying the other twenty into Thread would have made a second
+implementation of "create a Zoom meeting", including the alternative-hosts
+retry, which is precisely the kind of thing that gets fixed in one copy.
+
+**It refuses rather than saving a blank.** Not configured on this deployment,
+or not connected by this person, is a 400 with what to do about it, because
+neither fixes itself and a session that looks like it has a meeting and does
+not is discovered on the day. A transient failure at Zoom's end does NOT
+refuse — being unable to add a session because Zoom is having an afternoon is
+the worse outcome.
+
+**Zoom cannot work yet and that is not a code problem.** Production has no
+`ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` — the Zoom Marketplace app has never
+been registered. Google Meet works today; Zoom returns "not available on this
+platform yet" until those two secrets exist. Said out loud because the
+previous behaviour also produced nothing, and the difference between "nothing
+happened" and "nothing can happen" is the whole point.
+
+### The bug this nearly shipped with
+
+The first draft of the extraction returned an empty string where Meet expected
+Zoom's meeting id, on the assumption nothing read it. Meet stores it as
+`zoom_meeting_id` and reads it back to reschedule and to cancel — so a booking
+moved in The Fibre would have kept its original time in Zoom, silently. Found
+by checking the callers instead of trusting the comment I had just written;
+the helper now carries the provider's own id and a test names why.
+
+
 ## [1.92.1] — 2026-10-01 — a personal meeting room that actually reaches the invitee (Meet 2.21.1)
 
 "Today I had a meeting… the personal zoom room was not added to the iCal and

@@ -55,6 +55,7 @@ import {
   ZoomAlternativeHostsError,
 } from '../lib/zoom/client.js';
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
+import { createMeetingLink } from '../lib/meeting-links.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { meetT } from '../lib/email/meet-booking-i18n.js';
@@ -258,41 +259,33 @@ async function createZoomForBooking(args: {
   /** Co-hosts in the same Zoom org (collective bookings). */
   coHostEmails?: string[];
 }): Promise<{ meetingId: string; joinUrl: string } | null> {
-  if (!isZoomConfigured()) return null;
+  // The creating half now lives in lib/meeting-links.ts, shared with Thread
+  // (Sjoerd, 2026-10-01: "please use a single point of truth"). What stays
+  // here is the one Meet-specific line — a booking names a HOST, and the
+  // connection is on the user behind it.
+  //
+  // The alternative-hosts retry moved with it, deliberately: it was the
+  // behaviour most likely to be fixed in one copy and not the other.
   const uid = await hostUserId(args.hostId);
-  const token = await zoomAccessTokenForUser(uid);
-  if (!token) return null;
-  const base = {
+  if (!uid) return null;
+  const r = await createMeetingLink({
+    userId: uid,
+    provider: 'zoom',
     topic: args.topic,
-    startsAtIso: args.startsAt.toISOString(),
-    durationMinutes: args.durationMinutes,
+    startsAt: args.startsAt,
+    endsAt: new Date(args.startsAt.getTime() + args.durationMinutes * 60_000),
     timezone: args.timezone,
     agenda: args.agenda ?? null,
-  };
-  try {
-    const m = await createZoomMeeting(
-      token,
-      args.coHostEmails && args.coHostEmails.length > 0
-        ? { ...base, alternativeHosts: args.coHostEmails }
-        : base,
-    );
-    return { meetingId: m.meetingId, joinUrl: m.joinUrl };
-  } catch (e) {
-    // A co-host outside the host's Zoom org makes Zoom reject the whole
-    // call. Retry without them rather than losing the meeting — they still
-    // get the join link in the email (Suite's behaviour).
-    if (e instanceof ZoomAlternativeHostsError) {
-      try {
-        const m = await createZoomMeeting(token, base);
-        return { meetingId: m.meetingId, joinUrl: m.joinUrl };
-      } catch (e2) {
-        console.error('[meet zoom] create retry without co-hosts failed', e2);
-        return null;
-      }
-    }
-    console.error('[meet zoom] create failed (non-fatal)', e);
-    return null;
-  }
+    ...(args.coHostEmails?.length ? { coHostEmails: args.coHostEmails } : {}),
+  });
+  if (!r.ok) return null;
+  // The id matters: it is stored as `zoom_meeting_id` and read back by
+  // updateZoomMeeting / deleteZoomBooking, so a booking that is rescheduled
+  // or cancelled reaches Zoom. An earlier draft of this extraction returned
+  // an empty string here on the assumption nobody used it — they do, and the
+  // failure would have been silent: The Fibre would move the booking and
+  // Zoom would keep the old meeting.
+  return { meetingId: r.id ?? '', joinUrl: r.url };
 }
 
 async function moveZoomForBooking(
