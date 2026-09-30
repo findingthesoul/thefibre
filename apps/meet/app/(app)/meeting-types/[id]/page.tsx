@@ -19,6 +19,7 @@ import { ShareMeetingType } from './share';
 import { RetireMeetingType } from './retire';
 import { MEET_HOST } from '@/lib/public-host';
 import { PollVotesMatrix } from './votes';
+import { PollInvites } from './invite';
 
 type MT = MeetingTypeFormValues & {
   id: string;
@@ -97,15 +98,22 @@ export default async function EditMeetingTypePage({
     created_at: string;
     comment?: string | null;
   };
+  type PollInvite = { email: string; name: string; person_id: string | null; invited_at: string };
   let pollSlots: PollSlot[] = [];
+  let pollInvites: PollInvite[] = [];
   let pollVotes: PollVote[] = [];
   if (mt.event_type === 'poll') {
     try {
-      const poll = await apiFetch<{ slots: PollSlot[]; votes: PollVote[] }>(
+      const poll = await apiFetch<{
+        slots: PollSlot[];
+        votes: PollVote[];
+        invites?: PollInvite[];
+      }>(
         `/api/v1/meet/meeting-types/${mt.id}/poll`,
       );
       pollSlots = poll.slots;
       pollVotes = poll.votes;
+      pollInvites = poll.invites ?? [];
     } catch {
       // Non-fatal — just show empty matrix.
     }
@@ -188,8 +196,22 @@ export default async function EditMeetingTypePage({
           <p className="mt-2 text-sm text-ink-subtle max-w-2xl">
             {t(locale, 'votes_desc')}
           </p>
-          <div className="mt-4">
-            <PollVotesMatrix mtId={mt.id} slots={pollSlots} votes={pollVotes} locale={locale} />
+          <div className="mt-4 space-y-4">
+            {/* Asking comes before counting: the invite box sits above the
+                matrix because a poll with nobody invited has nothing to
+                count yet. */}
+            <PollInvites
+              mtId={mt.id}
+              alreadyInvited={pollInvites}
+              locale={locale}
+            />
+            <PollVotesMatrix
+              mtId={mt.id}
+              slots={pollSlots}
+              votes={pollVotes}
+              invites={pollInvites}
+              locale={locale}
+            />
           </div>
         </section>
       )}

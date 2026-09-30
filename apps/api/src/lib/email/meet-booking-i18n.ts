@@ -208,6 +208,40 @@ const CATALOG = {
     fr: 'Changé d’avis ? {url}', // MT
   },
 
+  // ── an invitation to a meeting poll ────────────────────────────────────
+  invite_subject: {
+    en: '{host} would like to find a time: {meeting}',
+    nl: '{host} wil een moment prikken: {meeting}', // MT
+    es: '{host} quiere encontrar una hora: {meeting}', // MT
+    pt: '{host} quer encontrar uma hora: {meeting}', // MT
+    de: '{host} möchte einen Termin finden: {meeting}', // MT
+    fr: '{host} cherche un créneau : {meeting}', // MT
+  },
+  invite_title: {
+    en: 'An invitation',
+    nl: 'Een uitnodiging', // MT
+    es: 'Una invitación', // MT
+    pt: 'Um convite', // MT
+    de: 'Eine Einladung', // MT
+    fr: 'Une invitation', // MT
+  },
+  invite_lead: {
+    en: '{host} is looking for a time that works for everyone for {meeting}.',
+    nl: '{host} zoekt een moment dat iedereen schikt voor {meeting}.', // MT
+    es: '{host} busca una hora que les venga bien a todos para {meeting}.', // MT
+    pt: '{host} procura uma hora que sirva a todos para {meeting}.', // MT
+    de: '{host} sucht eine Zeit, die allen passt, für {meeting}.', // MT
+    fr: '{host} cherche un horaire qui convienne à tous pour {meeting}.', // MT
+  },
+  invite_cta: {
+    en: 'Tell them when you can',
+    nl: 'Geef door wanneer je kunt', // MT
+    es: 'Di cuándo puedes', // MT
+    pt: 'Diz quando podes', // MT
+    de: 'Sag, wann du kannst', // MT
+    fr: 'Indique quand tu peux', // MT
+  },
+
   // ── cancellation, to the invitee ────────────────────────────────────────
   cancelled_subject_invitee: {
     en: 'Cancelled: {meeting} with {host}',

@@ -3715,6 +3715,86 @@ const CATALOG = {
     de: 'Kann bei keiner', // MT
     fr: 'Ne peut à aucune', // MT
   },
+  invite_people: {
+    en: 'Invite people',
+    nl: 'Mensen uitnodigen',
+    es: 'Invitar a personas', // MT
+    pt: 'Convidar pessoas', // MT
+    de: 'Leute einladen', // MT
+    fr: 'Inviter des personnes', // MT
+  },
+  invite_search_placeholder: {
+    en: 'Search a contact…',
+    nl: 'Zoek een contact…',
+    es: 'Buscar un contacto…', // MT
+    pt: 'Procurar um contacto…', // MT
+    de: 'Kontakt suchen…', // MT
+    fr: 'Rechercher un contact…', // MT
+  },
+  invite_message: {
+    en: 'Message (optional)',
+    nl: 'Bericht (optioneel)',
+    es: 'Mensaje (opcional)', // MT
+    pt: 'Mensagem (opcional)', // MT
+    de: 'Nachricht (optional)', // MT
+    fr: 'Message (facultatif)', // MT
+  },
+  invite_message_placeholder: {
+    en: 'A line about why you are asking — it goes in the invitation.',
+    nl: 'Een zin over waarom je het vraagt — die komt in de uitnodiging.',
+    es: 'Una línea sobre por qué lo preguntas: irá en la invitación.', // MT
+    pt: 'Uma linha sobre porque estás a perguntar — vai no convite.', // MT
+    de: 'Ein Satz dazu, warum du fragst — er steht in der Einladung.', // MT
+    fr: 'Une ligne sur la raison de ta demande — elle figure dans l’invitation.', // MT
+  },
+  invite_pick_someone: {
+    en: 'Pick at least one person to invite.',
+    nl: 'Kies minstens één persoon om uit te nodigen.',
+    es: 'Elige al menos una persona a la que invitar.', // MT
+    pt: 'Escolhe pelo menos uma pessoa para convidar.', // MT
+    de: 'Wähle mindestens eine Person zum Einladen.', // MT
+    fr: 'Choisis au moins une personne à inviter.', // MT
+  },
+  send_invitations: {
+    en: 'Send invitations',
+    nl: 'Uitnodigingen versturen',
+    es: 'Enviar las invitaciones', // MT
+    pt: 'Enviar os convites', // MT
+    de: 'Einladungen senden', // MT
+    fr: 'Envoyer les invitations', // MT
+  },
+  invitations_sent: {
+    en: '{n} sent.',
+    nl: '{n} verstuurd.',
+    es: '{n} enviadas.', // MT
+    pt: '{n} enviados.', // MT
+    de: '{n} gesendet.', // MT
+    fr: '{n} envoyées.', // MT
+  },
+  already_invited_n: {
+    en: '{n} already invited',
+    nl: '{n} al uitgenodigd',
+    es: '{n} ya invitadas', // MT
+    pt: '{n} já convidados', // MT
+    de: '{n} bereits eingeladen', // MT
+    fr: '{n} déjà invitées', // MT
+  },
+  invited_label: {
+    en: 'Invited',
+    nl: 'Uitgenodigd',
+    es: 'Invitado', // MT
+    pt: 'Convidado', // MT
+    de: 'Eingeladen', // MT
+    fr: 'Invité', // MT
+  },
+  no_answer_yet: {
+    en: 'No answer yet',
+    nl: 'Nog geen antwoord',
+    es: 'Sin respuesta todavía', // MT
+    pt: 'Ainda sem resposta', // MT
+    de: 'Noch keine Antwort', // MT
+    fr: 'Pas encore de réponse', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

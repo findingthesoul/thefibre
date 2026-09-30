@@ -57,6 +57,7 @@ import {
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
+import { meetT } from '../lib/email/meet-booking-i18n.js';
 import { isLocale, resolveEmailLocale, resolvePublicLocale, type Locale } from '@thefibre/shared';
 import { createMeetPaymentLink, meetPayButtonHtml } from '../lib/meet-payment-link.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
@@ -3344,7 +3345,14 @@ meetRoutes.get('/meeting-types/:id/poll', async (c) => {
       .select('voter_email, voter_name, slot_starts_at, created_at, comment')
       .eq('meeting_type_id', id),
   ]);
-  return c.json({ slots: slots ?? [], votes: votes ?? [] });
+  // Who was asked. Without this the host can only see who answered, and a
+  // poll's silence is only readable against the list of people invited.
+  const { data: invites } = await db
+    .from('meet_poll_invite')
+    .select('email, name, person_id, invited_at')
+    .eq('meeting_type_id', id)
+    .order('invited_at', { ascending: true });
+  return c.json({ slots: slots ?? [], votes: votes ?? [], invites: invites ?? [] });
 });
 
 // PUT /api/v1/meet/meeting-types/:id/poll-slots — replace candidate slots.
@@ -3377,6 +3385,133 @@ meetRoutes.put('/meeting-types/:id/poll-slots', async (c) => {
   const { error: iErr } = await adminClient.from('meet_poll_slot').insert(rows);
   if (iErr) return c.json({ error: iErr.message }, 500);
   return c.json({ ok: true, slots: rows });
+});
+
+const PollInviteBody = z.object({
+  invitees: z
+    .array(
+      z.object({
+        person_id: z.string().uuid().optional(),
+        email: z.string().email().toLowerCase(),
+        name: z.string().min(1).max(200),
+      }),
+    )
+    .min(1)
+    .max(50),
+  /** What the host wants to say. Kept on the row so a re-send says the same. */
+  message: z.string().max(4000).optional(),
+});
+
+// POST /api/v1/meet/meeting-types/:id/invites
+//
+// Ask people to a meeting poll (Sjoerd, 2026-09-30). The rows outlive the
+// send on purpose: a poll's real question is not "who voted" but "who have I
+// heard from", and silence only means something once you know who was asked.
+meetRoutes.post('/meeting-types/:id/invites', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const body = PollInviteBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const db = userClient(ctx.jwt);
+
+  // RLS decides whether this meeting type is theirs.
+  const { data: mt } = await db
+    .from('meet_meeting_type')
+    .select('id, slug, name, workspace_id, host_id, event_type, locale')
+    .eq('id', id)
+    .maybeSingle();
+  if (!mt) return c.json({ error: 'meeting type not found' }, 404);
+  if (mt.event_type !== 'poll') {
+    return c.json({ error: 'invites are for meeting polls', code: 'not_a_poll' }, 400);
+  }
+
+  const { data: hostRow } = await adminClient
+    .from('meet_host')
+    .select('slug, user:user_id (full_name, email)')
+    .eq('id', mt.host_id)
+    .maybeSingle();
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+  const hostName = hostUser?.full_name ?? hostRow?.slug ?? 'your host';
+  const message = body.data.message?.trim() || null;
+
+  // Re-inviting somebody is a re-send, not a duplicate — the unique key on
+  // (meeting_type_id, email) makes that an upsert rather than an error.
+  const rows = body.data.invitees.map((i) => ({
+    meeting_type_id: mt.id,
+    workspace_id: mt.workspace_id,
+    person_id: i.person_id ?? null,
+    email: i.email,
+    name: i.name,
+    message,
+    invited_by_user_id: ctx.userId,
+    invited_at: new Date().toISOString(),
+  }));
+  const { error: upErr } = await adminClient
+    .from('meet_poll_invite')
+    .upsert(rows, { onConflict: 'meeting_type_id,email' });
+  if (upErr) {
+    console.error('[poll-invites] upsert failed', {
+      code: upErr.code,
+      message: upErr.message,
+      details: upErr.details,
+      hint: upErr.hint,
+    });
+    return c.json({ error: upErr.message }, 500);
+  }
+
+  // The mail. Non-fatal per invitee: one bad address must not lose the rest,
+  // and the invite row stands either way — the host can see who was asked.
+  const pollUrl = `${meetAppUrl()}/${hostRow?.slug ?? ''}/${mt.slug}`;
+  const brand = await meetBrand(mt.workspace_id);
+  const sender = await meetSender(mt.workspace_id);
+  let sent = 0;
+  for (const i of body.data.invitees) {
+    // Each invitee reads it in THEIR language when we know it, else the
+    // poll's own — resolveEmailLocale, the one chain.
+    const { invitee: L } = await bookingLocales({
+      meetingTypeId: mt.id,
+      hostEmail: hostUser?.email ?? null,
+      inviteeEmail: i.email,
+    });
+    const first = i.name.split(' ')[0] ?? '';
+    try {
+      await sendEmail({
+        ...sender,
+        to: i.email,
+        subject: meetT(L, 'invite_subject', { host: hostName, meeting: mt.name }),
+        text: `${meetT(L, 'greeting', { first })}
+
+${meetT(L, 'invite_lead', { host: hostName, meeting: mt.name })}
+${message ? `\n${message}\n` : ''}
+${meetT(L, 'invite_cta')}: ${pollUrl}
+
+${emailSignoff()}`,
+        html: shell(
+          meetT(L, 'invite_title'),
+          `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(
+            meetT(L, 'invite_lead', { host: hostName, meeting: mt.name }),
+          )}</h1>${
+            message
+              ? `<p style="margin-top:16px;font-size:14px;color:#171717;white-space:pre-wrap;">${escapeHtml(message)}</p>`
+              : ''
+          }<p style="margin:24px 0 0;"><a href="${pollUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">${escapeHtml(
+            meetT(L, 'invite_cta'),
+          )}</a></p>`,
+          brand,
+        ),
+        replyTo: hostUser?.email ?? undefined,
+      });
+      sent += 1;
+    } catch (e) {
+      console.error('[poll-invites] email failed (non-fatal)', { to: i.email, e });
+    }
+  }
+
+  return c.json({ ok: true, invited: rows.length, sent });
 });
 
 // GET /api/v1/meet/meeting-types/:id/suggest-slots?count=3

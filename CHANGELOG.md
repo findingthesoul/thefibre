@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.92.0] — 2026-09-30 — you can ask people to a poll (Meet 2.21.0)
+
+"Kunnen we ook de opties voor genodigden toevoegen… denk aan het single point
+of truth search field dat we in connections elke keer gebruiken — zoeken of
+toevoegen… en dan een auto email… een berichten veld voor de uitnodiging"
+(Sjoerd, 2026-09-30).
+
+A meeting poll could be voted on by anyone with the link and asked of nobody.
+Now the editor has an invite box above the votes: pick contacts with the
+**shared `PersonCombobox`** — the same field Connections uses, searched
+server-side under your own RLS, so it can never surface somebody you could not
+already see — or type a name and an address for somebody who is not a contact
+yet. A poll is exactly when you reach outside your own list, so that is a
+first-class path rather than a fallback.
+
+A message field goes into the invitation. It is kept on the row, so a re-send
+says the same thing rather than quietly becoming a different invitation.
+
+Each invitee reads the mail in **their own** language when we know it, else
+the poll's — the same `resolveEmailLocale` chain as every other mail.
+
+### The rows outlive the send, and that is the point
+
+`meet_poll_invite` keeps who was asked. A poll's real question is not "who
+voted" but "who have I heard from", and silence only means something once you
+know who was asked. So the votes matrix now lists, under the table, the people
+who were invited and have not answered — as a list rather than as empty rows,
+because an empty row in that table reads as "said no to everything", which is
+a different answer entirely.
+
+Re-inviting somebody is a re-send, not a duplicate: the unique key on
+(meeting type, email) makes it an upsert. One bad address does not lose the
+rest — the send is per invitee and the invite row stands either way, so you
+can always see who was asked.
+
 ## [1.91.0] — 2026-09-30 — the pages after booking, and a poll that hears a no (Meet 2.20.0)
 
 ### The confirmation and cancel pages speak the language too

@@ -20,11 +20,15 @@ export function PollVotesMatrix({
   mtId,
   slots,
   votes,
+  invites = [],
   locale,
 }: {
   mtId: string;
   slots: Slot[];
   votes: Vote[];
+  /** Everyone asked. Somebody invited who has not voted is the whole reason
+   *  this list exists — silence only reads as silence against a list. */
+  invites?: { email: string; name: string }[];
   locale: Locale;
 }) {
   const [pending, start] = useTransition();
@@ -37,6 +41,10 @@ export function PollVotesMatrix({
   const voters = Array.from(voterMap.values()).sort((a, b) =>
     a.email.localeCompare(b.email),
   );
+  // Invited and not heard from. Listed under the table rather than as empty
+  // rows in it: they have not answered, so they have nothing to show in a
+  // column, and an empty row reads as "said no to everything".
+  const silent = invites.filter((i) => !voterMap.has(i.email));
 
   // Quick lookup: (email, slotISO) → true if voted.
   const voted = new Set<string>();
@@ -85,6 +93,7 @@ export function PollVotesMatrix({
   }
 
   return (
+    <div className="space-y-3">
     <div className="overflow-x-auto rounded-lg border border-line bg-surface-raised">
       <table className="w-full text-sm">
         <thead className="bg-surface-sunken text-left">
@@ -179,6 +188,22 @@ export function PollVotesMatrix({
           )}
         </tbody>
       </table>
+    </div>
+
+    {silent.length > 0 && (
+      <div className="rounded-lg border border-line bg-surface-sunken px-4 py-3 text-sm">
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+          {t(locale, 'no_answer_yet')}
+        </div>
+        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-ink-subtle">
+          {silent.map((i) => (
+            <li key={i.email}>
+              {i.name} <span className="text-ink-muted">{i.email}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
     </div>
   );
 }

@@ -326,3 +326,41 @@ export async function suggestPollSlots(
     return { error: formatApiError(e) };
   }
 }
+
+// ── Inviting people to a meeting poll ──────────────────────────────────────
+
+/** The app-bound half of the shared PersonCombobox: a server-side search
+ *  under this user's own RLS, so the picker can never surface somebody they
+ *  could not already see. */
+export async function searchPeople(
+  query: string,
+): Promise<{ id: string; first_name: string | null; last_name: string | null; email: string | null }[]> {
+  const q = query.trim();
+  try {
+    const r = await apiFetch<{
+      items: { id: string; first_name: string | null; last_name: string | null; email: string | null }[];
+    }>(`/api/v1/persons?limit=20${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+    return r.items ?? [];
+  } catch {
+    // A failed search is an empty list here on purpose: the field still lets
+    // you type a name and an address, which is the path that always works.
+    return [];
+  }
+}
+
+export async function sendPollInvites(
+  mtId: string,
+  invitees: { person_id?: string; email: string; name: string }[],
+  message?: string,
+): Promise<{ sent?: number; error?: string }> {
+  try {
+    const r = await apiFetch<{ invited: number; sent: number }>(
+      `/api/v1/meet/meeting-types/${mtId}/invites`,
+      { method: 'POST', body: JSON.stringify({ invitees, message }) },
+    );
+    revalidatePath(`/meeting-types/${mtId}`);
+    return { sent: r.sent };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
