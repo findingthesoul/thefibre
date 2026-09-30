@@ -994,7 +994,17 @@ meetRoutes.post('/public/bookings', async (c) => {
   // confirmation emails. Send a "request received" email pair instead and
   // exit the side-effects block early — the host will trigger the rest via
   // POST /meet/bookings/:id/approve.
-  let resolvedMeetUrl: string | null = null;
+  // A personal meeting room is a URL the host already holds — there is no
+  // meeting to create, so nothing in the booking flow ever went and fetched
+  // it, and a `personal_room` booking travelled with meet_url NULL. The link
+  // sat in Settings and reached nobody: not the calendar event, not the .ics,
+  // not the confirmation mail. Sjoerd, 2026-10-01, after a real meeting: "the
+  // personal zoom room was not added to the iCal and I could not find the
+  // zoom link."
+  let resolvedMeetUrl: string | null =
+    mt.conferencing_provider === 'personal_room'
+      ? await userPersonalRoom((hostRow as { user_id?: string | null } | null)?.user_id ?? null)
+      : null;
   // A paid booking never waits for approval: payment (or the invoice) is
   // the gate, the rule the Stripe path has always followed.
   if (effectiveRequiresApproval && !isPaidBooking && booking) {
@@ -1152,7 +1162,9 @@ meetRoutes.post('/public/bookings', async (c) => {
         attendeeName: data.invitee_name,
         extraAttendees: extras,
         withMeet,
-        location: zoomMeeting?.joinUrl ?? mt.default_location ?? null,
+        // resolvedMeetUrl, not just Zoom's: a personal room is already in it,
+        // and this line is what puts the link on the calendar entry.
+        location: resolvedMeetUrl ?? mt.default_location ?? null,
       });
       if (meetUrl) resolvedMeetUrl = meetUrl;
       await adminClient
@@ -3785,7 +3797,12 @@ async function runConfirmationSideEffects(
     : null;
   if (!mt || !hostRow) return { ok: false };
 
-  let meetUrl: string | null = null;
+  // Same as the direct path: the host's own room is a URL, not a meeting to
+  // create, and it has to be fetched or the booking carries nothing.
+  let meetUrl: string | null =
+    mt.conferencing_provider === 'personal_room'
+      ? await userPersonalRoom((hostRow as { user_id?: string | null }).user_id ?? null)
+      : null;
   if (mt.conferencing_provider === 'zoom') {
     const z = await createZoomForBooking({
       hostId: booking.host_id,

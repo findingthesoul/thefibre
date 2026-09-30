@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.92.1] — 2026-10-01 — a personal meeting room that actually reaches the invitee (Meet 2.21.1)
+
+"Today I had a meeting… the personal zoom room was not added to the iCal and
+I could not find the zoom link" (Sjoerd, 2026-10-01).
+
+Every other conferencing option CREATES something at booking time — Google
+Meet makes a conference, Zoom makes a meeting — and the booking flow stores
+the URL that comes back. A personal meeting room creates nothing: it is a URL
+the host already holds, sitting in Settings. So the booking flow never went
+and fetched it, and a `personal_room` booking was written with `meet_url`
+NULL. The link then reached nobody: not the calendar event, not the .ics, not
+the confirmation mail's Join row, not the confirmation page.
+
+`userPersonalRoom` was already imported into the route. It had simply never
+been called there.
+
+Both paths now resolve it — the direct booking and the deferred one that an
+approval or a payment goes through — and the calendar event's location takes
+the resolved URL rather than only Zoom's, which is the line that puts the link
+on the entry.
+
+### Five bookings on production were written without it
+
+All five `personal_room` bookings in production carry `meet_url` NULL,
+including one on **5 October that has not happened yet**. The code fix covers
+new bookings only: an existing row keeps its NULL, and the calendar event and
+email it already produced are unchanged. Repairing that booking is a data
+write against somebody's real appointment, so it is Sjoerd's call rather than
+something to do quietly.
+
 ## [1.92.0] — 2026-09-30 — you can ask people to a poll (Meet 2.21.0)
 
 "Kunnen we ook de opties voor genodigden toevoegen… denk aan het single point
