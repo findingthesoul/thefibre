@@ -109,6 +109,8 @@ export function EngagementDialog({
   threadEndsOn,
   requiresApproval,
   personalRoomUrl,
+  googleConnected = false,
+  zoomAvailable = false,
   canEditStructure = true,
   locked = false,
   threadAgendaOff = false,
@@ -124,6 +126,8 @@ export function EngagementDialog({
   requiresApproval?: boolean;
   /** Meet's personal room, shared across the Fibre apps. */
   personalRoomUrl?: string | null;
+  googleConnected?: boolean;
+  zoomAvailable?: boolean;
   /** Plan gate: false hides Delete (except on system messages, which stay
    *  deletable — they fall back to compiled emails) and Duplicate. */
   canEditStructure?: boolean;
@@ -155,7 +159,25 @@ export function EngagementDialog({
   const [locationMode, setLocationMode] = useState<'in_person' | 'virtual'>(
     engagement?.meeting_url || engagement?.meeting_provider ? 'virtual' : 'in_person',
   );
-  const [provider, setProvider] = useState<string>(engagement?.meeting_provider ?? 'custom');
+  // Default to something that WORKS for this person, rather than to "custom
+  // link" and a blank box. Sjoerd, 2026-10-01: *"the least should be: if
+  // there is a personal room.. it should work... if there is a google meet it
+  // should work"*.
+  //
+  // Order is by how little it asks of them: a personal room is a URL they
+  // already have, Google mints one silently, Zoom the same but only where the
+  // platform has a Zoom app at all. An existing engagement keeps whatever it
+  // was saved with — a default must never rewrite a choice already made.
+  const bestProvider = personalRoomUrl
+    ? 'personal_room'
+    : googleConnected
+      ? 'google_meet'
+      : zoomAvailable
+        ? 'zoom'
+        : 'custom';
+  const [provider, setProvider] = useState<string>(
+    engagement?.meeting_provider ?? bestProvider,
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -638,7 +660,13 @@ export function EngagementDialog({
                     className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
                   >
                     {providerOptions(locale).map((o) => {
-                      const disabled = o.value === 'personal_room' && !personalRoomUrl;
+                      // An option that cannot work is shown and disabled,
+                      // not hidden: "Zoom (not set up)" tells them why, an
+                      // absent Zoom tells them nothing.
+                      const disabled =
+                        (o.value === 'personal_room' && !personalRoomUrl) ||
+                        (o.value === 'zoom' && !zoomAvailable) ||
+                        (o.value === 'google_meet' && !googleConnected);
                       return (
                         <option key={o.value} value={o.value} disabled={disabled}>
                           {o.label}

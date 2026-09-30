@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.93.1] — 2026-10-01 — the online option is one you can actually hold (staging)
+
+Sjoerd, immediately after the previous release: *"the least should be: if
+there is a personal room.. it should work... if there is a google meet it
+should work"*.
+
+Both do now. What was still wrong is that **he had to pick, and picking wrong
+was invisible.** Marking a session virtual defaulted to "Custom link" and an
+empty box, and the five options looked identical whether or not the person
+could use them.
+
+So the editor asks what this organiser actually has. `GET /thread/me` now also
+answers `google_connected` and `zoom_available` — **booleans, never the
+tokens**: the editor needs to know THAT a connection exists, and a credential
+has no business leaving the API for a UI decision.
+
+**The default is now the option that costs the least to use**: a personal room
+if one is set (a URL they already have), else Google Meet (minted silently),
+else Zoom where the platform has a Zoom app at all, else a custom link. An
+engagement that already exists keeps what it was saved with — a default must
+never rewrite a choice somebody made.
+
+**An option that cannot work is shown and disabled, not hidden.** "Zoom (not
+set up)" tells you why nothing happens; a missing Zoom tells you nothing, and
+this whole thread of work started with something that silently did nothing.
+
+
 ## [1.93.0] — 2026-10-01 — Thread makes the meeting, instead of naming it (staging)
 
 Sjoerd, after choosing Zoom on a session: *"the other app (zoom account) said

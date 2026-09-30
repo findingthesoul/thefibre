@@ -223,6 +223,8 @@ export function ThreadTimeline({
   teams,
   certTemplates,
   personalRoomUrl,
+  googleConnected = false,
+  zoomAvailable = false,
   workspaceNote = null,
   workspaceSlug = null,
   canEditStructure = true,
@@ -238,6 +240,10 @@ export function ThreadTimeline({
   teams: TeamOption[];
   certTemplates: { id: string; name: string }[];
   personalRoomUrl: string | null;
+  /** Whether this organiser could actually hold a Google Meet / Zoom — used
+   *  to preselect an option that works rather than one that refuses. */
+  googleConnected?: boolean;
+  zoomAvailable?: boolean;
   /** The workspace's enrolment note, so a thread can see what it inherits. */
   workspaceNote?: string | null;
   /** The workspace's public slug — URL prefix for workspace-scoped threads. */
@@ -720,6 +726,8 @@ export function ThreadTimeline({
           threadEndsOn={program?.ends_on ?? null}
           requiresApproval={thread.requires_approval}
           personalRoomUrl={personalRoomUrl}
+          googleConnected={googleConnected}
+          zoomAvailable={zoomAvailable}
           canEditStructure={canEditStructure}
           locked={locked}
           threadAgendaOff={thread.public_agenda === false}

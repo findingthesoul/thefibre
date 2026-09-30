@@ -40,8 +40,14 @@ export default async function ThreadDetailPage({
     apiFetch<{ items: { id: string; name: string; archived_at: string | null }[] }>(
       '/api/v1/thread/certificate-templates',
     ).catch(() => ({ items: [] })),
-    apiFetch<{ personal_room_url: string | null }>('/api/v1/thread/me').catch(() => ({
+    apiFetch<{
+      personal_room_url: string | null;
+      google_connected?: boolean;
+      zoom_available?: boolean;
+    }>('/api/v1/thread/me').catch(() => ({
       personal_room_url: null,
+      google_connected: false,
+      zoom_available: false,
     })),
   
     apiFetch<{ items: { id: string; name: string; slug: string }[] }>(
@@ -97,6 +103,8 @@ export default async function ThreadDetailPage({
         // them but disappear from the picker.
         certTemplates={certTemplates.items.filter((t) => !t.archived_at)}
         personalRoomUrl={me.personal_room_url}
+        googleConnected={me.google_connected ?? false}
+        zoomAvailable={me.zoom_available ?? false}
         workspaceNote={brand.enrolment_note}
         workspaceSlug={brand.slug}
         canEditStructure={library.can_edit_structure}

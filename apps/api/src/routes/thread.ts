@@ -40,8 +40,9 @@ import { resolvePerson } from '../lib/resolve-person.js';
 // request time.
 import { sendReceipt } from './purchases.js';
 import { createThreadPaymentLink, threadPayButtonHtml } from '../lib/thread-payment-link.js';
-import { userPersonalRoom } from '../lib/connections.js';
+import { userPersonalRoom, userGoogleToken, userZoomToken } from '../lib/connections.js';
 import { createMeetingLink, isMintable } from '../lib/meeting-links.js';
+import { isZoomConfigured } from '../lib/zoom/client.js';
 import {
   personalStripeAccount,
   workspaceStripeAccount,
@@ -300,6 +301,14 @@ threadRoutes.get('/me', async (c) => {
     bio: profile?.bio ?? organiser.bio ?? null,
     photo_url: profile?.photo_url ?? organiser.photo_url ?? null,
     personal_room_url: await userPersonalRoom(ctx.userId),
+    // Which online options this person can actually use, so the editor can
+    // preselect one instead of making them pick and then discover it does not
+    // work. Sjoerd, 2026-10-01: *"the least should be: if there is a personal
+    // room.. it should work... if there is a google meet it should work"*.
+    // Booleans, never the tokens: the editor needs to know THAT a connection
+    // exists, and a credential must not leave the API for a UI decision.
+    google_connected: !!(await userGoogleToken(ctx.userId)),
+    zoom_available: isZoomConfigured() && !!(await userZoomToken(ctx.userId)),
     stripe_account_id: await personalStripeAccount(ctx.userId),
   });
 });
