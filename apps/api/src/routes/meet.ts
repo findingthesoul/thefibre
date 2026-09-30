@@ -1896,12 +1896,29 @@ meetRoutes.get('/public/bookings/:id', async (c) => {
   const { data, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, conferencing_provider, alternative_location, payment_status, stripe_invoice_url, meeting_type:meeting_type_id (name, duration_minutes, host:host_id (slug, timezone, user:user_id (full_name)))',
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, conferencing_provider, alternative_location, payment_status, stripe_invoice_url, meeting_type:meeting_type_id (name, duration_minutes, locale, host:host_id (slug, timezone, user:user_id (full_name, email)))',
     )
     .eq('id', id)
     .single();
   if (error || !data) return c.json({ error: 'booking not found' }, 404);
-  return c.json(data);
+  // The language the pages AFTER booking speak — the confirmation and the
+  // cancel screen. Same chain as the booking page itself, resolved here for
+  // the same reason: it needs the host's profile.
+  const bMt = Array.isArray(data.meeting_type) ? data.meeting_type[0] : data.meeting_type;
+  const bHost = bMt?.host ? (Array.isArray(bMt.host) ? bMt.host[0] : bMt.host) : null;
+  const bHostUser = bHost?.user ? (Array.isArray(bHost.user) ? bHost.user[0] : bHost.user) : null;
+  const { data: bHostProfile } = await adminClient
+    .from('identity_profile')
+    .select('locale')
+    .eq('email', (bHostUser as { email?: string } | null)?.email ?? '')
+    .maybeSingle();
+  return c.json({
+    ...data,
+    locale: resolvePublicLocale({
+      surfaceOverride: (bMt as { locale?: string | null } | null)?.locale ?? null,
+      ownerProfile: bHostProfile?.locale ?? null,
+    }),
+  });
 });
 
 // ===========================================================================
@@ -3324,7 +3341,7 @@ meetRoutes.get('/meeting-types/:id/poll', async (c) => {
       .order('starts_at', { ascending: true }),
     db
       .from('meet_poll_vote')
-      .select('voter_email, voter_name, slot_starts_at, created_at')
+      .select('voter_email, voter_name, slot_starts_at, created_at, comment')
       .eq('meeting_type_id', id),
   ]);
   return c.json({ slots: slots ?? [], votes: votes ?? [] });
@@ -3478,7 +3495,11 @@ const PublicPollVoteBody = z.object({
   meeting_type_id: z.string().uuid(),
   voter_email: z.string().email().toLowerCase(),
   voter_name: z.string().min(1).max(200),
-  slot_starts_ats: z.array(z.string().datetime()).min(1).max(5),
+  // Empty is now a real answer: "none of these work for me". The old floor of
+  // one made the poll only able to hear from people who could make it.
+  slot_starts_ats: z.array(z.string().datetime()).max(5),
+  /** Free text about the poll as a whole — "I can do Tuesdays after three". */
+  comment: z.string().max(2000).optional(),
 });
 meetRoutes.post('/public/poll-votes', async (c) => {
   const body = PublicPollVoteBody.safeParse(await c.req.json().catch(() => null));
@@ -3500,19 +3521,44 @@ meetRoutes.post('/public/poll-votes', async (c) => {
     .eq('meeting_type_id', data.meeting_type_id);
   const valid = new Set((candidates ?? []).map((s) => new Date(s.starts_at).toISOString()));
   const filtered = data.slot_starts_ats.filter((s) => valid.has(new Date(s).toISOString()));
-  if (filtered.length === 0) return c.json({ error: 'no valid slots ticked' }, 400);
+  const comment = data.comment?.trim() || null;
+  // Nothing ticked AND nothing said is not an answer — it is an empty form.
+  // Nothing ticked WITH a comment, or an explicit "none of these", is.
+  if (filtered.length === 0 && !comment && data.slot_starts_ats.length > 0) {
+    return c.json({ error: 'no valid slots ticked' }, 400);
+  }
   // Replace this voter's existing rows so re-submission overrides.
   await adminClient
     .from('meet_poll_vote')
     .delete()
     .eq('meeting_type_id', data.meeting_type_id)
     .eq('voter_email', data.voter_email);
-  const rows = filtered.map((s) => ({
-    meeting_type_id: data.meeting_type_id,
-    voter_email: data.voter_email,
-    voter_name: data.voter_name,
-    slot_starts_at: s,
-  }));
+  const rows: {
+    meeting_type_id: string;
+    voter_email: string;
+    voter_name: string;
+    slot_starts_at: string | null;
+    comment: string | null;
+  }[] =
+    filtered.length > 0
+      ? filtered.map((s) => ({
+          meeting_type_id: data.meeting_type_id,
+          voter_email: data.voter_email,
+          voter_name: data.voter_name,
+          slot_starts_at: s,
+          comment,
+        }))
+      : // "None of these": one row, no slot. A vote about the poll rather
+        // than about a time — see the migration for why it is shaped this way.
+        [
+          {
+            meeting_type_id: data.meeting_type_id,
+            voter_email: data.voter_email,
+            voter_name: data.voter_name,
+            slot_starts_at: null,
+            comment,
+          },
+        ];
   const { error: iErr } = await adminClient.from('meet_poll_vote').insert(rows);
   if (iErr) {
     console.error('[poll-votes] insert failed', iErr);

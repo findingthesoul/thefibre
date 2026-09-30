@@ -3,13 +3,16 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cancelBooking } from './actions';
+import { publicT, type Locale } from '@/lib/i18n-public';
 
 export function CancelForm({
   bookingId,
   hostSlug,
+  L,
 }: {
   bookingId: string;
   hostSlug: string;
+  L: Locale;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -19,7 +22,7 @@ export function CancelForm({
   if (done) {
     return (
       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
-        Booking cancelled. A confirmation email is on its way.
+        {publicT(L, 'cancelled_done')}
       </div>
     );
   }
@@ -42,11 +45,11 @@ export function CancelForm({
         }}
         className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
       >
-        {pending ? 'Cancelling…' : 'Cancel booking'}
+        {pending ? publicT(L, 'working') : publicT(L, 'cancel_button')}
       </button>
       {error && <div className="text-sm text-red-600">{error}</div>}
       <div className="text-xs text-neutral-500">
-        Changed your mind? Just close this page — nothing is cancelled until you confirm.
+        {publicT(L, 'cancel_nothing_yet')}
       </div>
     </div>
   );

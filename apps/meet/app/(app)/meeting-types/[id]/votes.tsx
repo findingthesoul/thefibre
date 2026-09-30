@@ -9,8 +9,11 @@ type Slot = { starts_at: string; ends_at: string };
 type Vote = {
   voter_email: string;
   voter_name: string;
-  slot_starts_at: string;
+  /** NULL when the voter answered "none of these work for me" — a vote about
+   *  the poll rather than about a slot. */
+  slot_starts_at: string | null;
   created_at: string;
+  comment?: string | null;
 };
 
 export function PollVotesMatrix({
@@ -38,7 +41,20 @@ export function PollVotesMatrix({
   // Quick lookup: (email, slotISO) → true if voted.
   const voted = new Set<string>();
   for (const v of votes) {
+    if (!v.slot_starts_at) continue; // a "none of these" row ticks nothing
     voted.add(`${v.voter_email}|${new Date(v.slot_starts_at).toISOString()}`);
+  }
+
+  // The people who said none of these times work, and anything anybody wrote.
+  // Without this the host sees a column of empty rows and cannot tell a
+  // "cannot make any of them" from somebody who never answered.
+  const cannotMakeAny = new Set(
+    votes.filter((v) => !v.slot_starts_at).map((v) => v.voter_email),
+  );
+  const comments = new Map<string, string>();
+  for (const v of votes) {
+    const c = v.comment?.trim();
+    if (c) comments.set(v.voter_email, c);
   }
 
   function tally(slotIso: string): number {
@@ -125,6 +141,19 @@ export function PollVotesMatrix({
                 <td className="px-4 py-3">
                   <div className="font-medium">{voter.name}</div>
                   <div className="text-xs text-ink-subtle">{voter.email}</div>
+                  {/* An empty row means one of two very different things:
+                      somebody who ticked nothing, and somebody who told you
+                      they cannot make any of it. Say which. */}
+                  {cannotMakeAny.has(voter.email) && (
+                    <div className="mt-1 text-xs text-amber-700">
+                      {t(locale, 'voter_none_of_these')}
+                    </div>
+                  )}
+                  {comments.get(voter.email) && (
+                    <div className="mt-1 max-w-xs text-xs text-ink-subtle italic whitespace-pre-wrap">
+                      “{comments.get(voter.email)}”
+                    </div>
+                  )}
                 </td>
                 {slots.map((s) => {
                   const iso = new Date(s.starts_at).toISOString();

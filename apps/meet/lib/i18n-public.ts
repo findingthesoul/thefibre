@@ -444,6 +444,275 @@ const CATALOG = {
     fr: 'Prévu le', // MT
   },
 
+  // ── after booking: the confirmation and cancel pages ────────────────────
+  request_received: {
+    en: 'Request received',
+    nl: 'Aanvraag ontvangen',
+    es: 'Solicitud recibida', // MT
+    pt: 'Pedido recebido', // MT
+    de: 'Anfrage erhalten', // MT
+    fr: 'Demande reçue', // MT
+  },
+  booking_confirmed: {
+    en: 'Booking confirmed',
+    nl: 'Afspraak bevestigd',
+    es: 'Reserva confirmada', // MT
+    pt: 'Marcação confirmada', // MT
+    de: 'Buchung bestätigt', // MT
+    fr: 'Réservation confirmée', // MT
+  },
+  request_is_in: {
+    en: 'Your request is in, {first}.',
+    nl: 'Je aanvraag staat genoteerd, {first}.',
+    es: 'Tu solicitud está enviada, {first}.', // MT
+    pt: 'O teu pedido foi enviado, {first}.', // MT
+    de: 'Deine Anfrage ist eingegangen, {first}.', // MT
+    fr: 'Ta demande est envoyée, {first}.', // MT
+  },
+  youre_booked: {
+    en: 'You’re booked, {first}.',
+    nl: 'Het staat, {first}.',
+    es: 'Ya está reservado, {first}.', // MT
+    pt: 'Está marcado, {first}.', // MT
+    de: 'Es steht, {first}.', // MT
+    fr: 'C’est réservé, {first}.', // MT
+  },
+  will_review: {
+    en: '{host} will review and confirm. You’ll get an email either way — usually within a day.',
+    nl: '{host} bekijkt het en bevestigt. Je krijgt hoe dan ook een mail — meestal binnen een dag.',
+    es: '{host} lo revisará y lo confirmará. Recibirás un correo en cualquier caso, normalmente en un día.', // MT
+    pt: '{host} vai rever e confirmar. Vais receber um email de qualquer forma — normalmente dentro de um dia.', // MT
+    de: '{host} sieht es sich an und bestätigt. Du bekommst so oder so eine Mail — meist innerhalb eines Tages.', // MT
+    fr: '{host} va l’examiner et confirmer. Tu recevras un e-mail dans tous les cas — généralement sous un jour.', // MT
+  },
+  the_host: {
+    en: 'The host',
+    nl: 'De host',
+    es: 'El anfitrión', // MT
+    pt: 'O anfitrião', // MT
+    de: 'Der Gastgeber', // MT
+    fr: 'L’hôte', // MT
+  },
+  your_host: {
+    en: 'your host',
+    nl: 'je host',
+    es: 'tu anfitrión', // MT
+    pt: 'o teu anfitrião', // MT
+    de: 'dein Gastgeber', // MT
+    fr: 'ton hôte', // MT
+  },
+  row_what: {
+    en: 'What',
+    nl: 'Wat',
+    es: 'Qué', // MT
+    pt: 'O quê', // MT
+    de: 'Was', // MT
+    fr: 'Quoi', // MT
+  },
+  row_when: {
+    en: 'When',
+    nl: 'Wanneer',
+    es: 'Cuándo', // MT
+    pt: 'Quando', // MT
+    de: 'Wann', // MT
+    fr: 'Quand', // MT
+  },
+  row_duration: {
+    en: 'Duration',
+    nl: 'Duur',
+    es: 'Duración', // MT
+    pt: 'Duração', // MT
+    de: 'Dauer', // MT
+    fr: 'Durée', // MT
+  },
+  row_with: {
+    en: 'With',
+    nl: 'Met',
+    es: 'Con', // MT
+    pt: 'Com', // MT
+    de: 'Mit', // MT
+    fr: 'Avec', // MT
+  },
+  row_where: {
+    en: 'Where',
+    nl: 'Waar',
+    es: 'Dónde', // MT
+    pt: 'Onde', // MT
+    de: 'Wo', // MT
+    fr: 'Où', // MT
+  },
+  email_on_its_way: {
+    en: 'A confirmation email is on its way to',
+    nl: 'Er is een bevestigingsmail onderweg naar',
+    es: 'Se está enviando un correo de confirmación a', // MT
+    pt: 'Está a caminho um email de confirmação para', // MT
+    de: 'Eine Bestätigungsmail ist unterwegs an', // MT
+    fr: 'Un e-mail de confirmation est en route vers', // MT
+  },
+  vat_invoice_emailed: {
+    en: 'A VAT invoice has been emailed too, and is also available here:',
+    nl: 'Er is ook een btw-factuur gemaild, en die staat hier:',
+    es: 'También se ha enviado una factura con IVA, disponible aquí:', // MT
+    pt: 'Também foi enviada uma fatura com IVA, disponível aqui:', // MT
+    de: 'Eine Rechnung mit MwSt. wurde ebenfalls gemailt und ist hier verfügbar:', // MT
+    fr: 'Une facture avec TVA a également été envoyée, et est disponible ici :', // MT
+  },
+  view_invoice_pdf: {
+    en: 'View invoice (PDF) ↗',
+    nl: 'Factuur bekijken (PDF) ↗',
+    es: 'Ver la factura (PDF) ↗', // MT
+    pt: 'Ver a fatura (PDF) ↗', // MT
+    de: 'Rechnung ansehen (PDF) ↗', // MT
+    fr: 'Voir la facture (PDF) ↗', // MT
+  },
+  receipt_emailed_no_invoice: {
+    en: 'A receipt has been emailed too. (The host’s Stripe account doesn’t have automatic invoicing enabled yet — ask them if you need a VAT invoice.)',
+    nl: 'Er is ook een bonnetje gemaild. (Het Stripe-account van de host heeft automatisch factureren nog niet aanstaan — vraag het even als je een btw-factuur nodig hebt.)',
+    es: 'También se ha enviado un recibo. (La cuenta de Stripe del anfitrión aún no tiene la facturación automática activada; pídesela si necesitas una factura con IVA.)', // MT
+    pt: 'Também foi enviado um recibo. (A conta Stripe do anfitrião ainda não tem faturação automática ativada — pede-lhe se precisares de uma fatura com IVA.)', // MT
+    de: 'Ein Beleg wurde ebenfalls gemailt. (Das Stripe-Konto des Gastgebers hat die automatische Rechnungsstellung noch nicht aktiviert — frag nach, wenn du eine Rechnung mit MwSt. brauchst.)', // MT
+    fr: 'Un reçu a également été envoyé. (Le compte Stripe de l’hôte n’a pas encore activé la facturation automatique — demande-lui si tu as besoin d’une facture avec TVA.)', // MT
+  },
+  chose_invoice: {
+    en: 'You chose to pay by invoice, so {host} will send it to you separately.',
+    nl: 'Je hebt gekozen voor betaling op factuur, dus {host} stuurt die apart naar je toe.',
+    es: 'Elegiste pagar por factura, así que {host} te la enviará por separado.', // MT
+    pt: 'Escolheste pagar por fatura, por isso {host} vai enviá-la em separado.', // MT
+    de: 'Du hast Zahlung per Rechnung gewählt, also schickt {host} sie dir separat.', // MT
+    fr: 'Tu as choisi de payer sur facture, donc {host} te l’enverra séparément.', // MT
+  },
+  add_to_calendar: {
+    en: 'Add to calendar',
+    nl: 'Aan agenda toevoegen',
+    es: 'Añadir al calendario', // MT
+    pt: 'Adicionar à agenda', // MT
+    de: 'Zum Kalender hinzufügen', // MT
+    fr: 'Ajouter à l’agenda', // MT
+  },
+  reschedule: {
+    en: 'Reschedule',
+    nl: 'Verzetten',
+    es: 'Reprogramar', // MT
+    pt: 'Remarcar', // MT
+    de: 'Verschieben', // MT
+    fr: 'Reprogrammer', // MT
+  },
+  cancel: {
+    en: 'Cancel',
+    nl: 'Annuleren',
+    es: 'Cancelar', // MT
+    pt: 'Cancelar', // MT
+    de: 'Absagen', // MT
+    fr: 'Annuler', // MT
+  },
+  back_to_booking_page: {
+    en: '← Back to {name}',
+    nl: '← Terug naar {name}',
+    es: '← Volver a {name}', // MT
+    pt: '← Voltar a {name}', // MT
+    de: '← Zurück zu {name}', // MT
+    fr: '← Retour à {name}', // MT
+  },
+  the_booking_page: {
+    en: 'the booking page',
+    nl: 'de boekingspagina',
+    es: 'la página de reservas', // MT
+    pt: 'a página de marcações', // MT
+    de: 'die Buchungsseite', // MT
+    fr: 'la page de réservation', // MT
+  },
+
+  // cancel page
+  cancel_booking_eyebrow: {
+    en: 'Cancel booking',
+    nl: 'Afspraak annuleren',
+    es: 'Cancelar la reserva', // MT
+    pt: 'Cancelar a marcação', // MT
+    de: 'Buchung absagen', // MT
+    fr: 'Annuler la réservation', // MT
+  },
+  booking_cancelled_eyebrow: {
+    en: 'Booking cancelled',
+    nl: 'Afspraak geannuleerd',
+    es: 'Reserva cancelada', // MT
+    pt: 'Marcação cancelada', // MT
+    de: 'Buchung abgesagt', // MT
+    fr: 'Réservation annulée', // MT
+  },
+  already_cancelled: {
+    en: 'This booking is already cancelled.',
+    nl: 'Deze afspraak is al geannuleerd.',
+    es: 'Esta reserva ya está cancelada.', // MT
+    pt: 'Esta marcação já está cancelada.', // MT
+    de: 'Dieser Termin ist bereits abgesagt.', // MT
+    fr: 'Cette réservation est déjà annulée.', // MT
+  },
+  cancel_this_booking: {
+    en: 'Cancel this booking?',
+    nl: 'Deze afspraak annuleren?',
+    es: '¿Cancelar esta reserva?', // MT
+    pt: 'Cancelar esta marcação?', // MT
+    de: 'Diesen Termin absagen?', // MT
+    fr: 'Annuler cette réservation ?', // MT
+  },
+  cancel_button: {
+    en: 'Cancel booking',
+    nl: 'Afspraak annuleren',
+    es: 'Cancelar la reserva', // MT
+    pt: 'Cancelar a marcação', // MT
+    de: 'Termin absagen', // MT
+    fr: 'Annuler la réservation', // MT
+  },
+  cancelled_done: {
+    en: 'Booking cancelled. A confirmation email is on its way.',
+    nl: 'Afspraak geannuleerd. Er is een bevestigingsmail onderweg.',
+    es: 'Reserva cancelada. Se está enviando un correo de confirmación.', // MT
+    pt: 'Marcação cancelada. Está a caminho um email de confirmação.', // MT
+    de: 'Termin abgesagt. Eine Bestätigungsmail ist unterwegs.', // MT
+    fr: 'Réservation annulée. Un e-mail de confirmation est en route.', // MT
+  },
+  cancel_nothing_yet: {
+    en: 'Changed your mind? Just close this page — nothing is cancelled until you confirm.',
+    nl: 'Toch niet? Sluit deze pagina gewoon — er is niets geannuleerd tot je bevestigt.',
+    es: '¿Cambiaste de idea? Cierra esta página: no se cancela nada hasta que confirmes.', // MT
+    pt: 'Mudaste de ideias? Fecha esta página — nada é cancelado até confirmares.', // MT
+    de: 'Doch nicht? Schließ diese Seite einfach — nichts wird abgesagt, bis du bestätigst.', // MT
+    fr: 'Changé d’avis ? Ferme cette page — rien n’est annulé tant que tu n’as pas confirmé.', // MT
+  },
+
+  none_of_these: {
+    en: 'None of these work for me',
+    nl: 'Geen van deze kan ik',
+    es: 'Ninguna me viene bien', // MT
+    pt: 'Nenhuma me serve', // MT
+    de: 'Keine davon passt mir', // MT
+    fr: 'Aucune ne me convient', // MT
+  },
+  poll_comment_label: {
+    en: 'Anything to add? (optional)',
+    nl: 'Iets toe te voegen? (optioneel)',
+    es: '¿Algo que añadir? (opcional)', // MT
+    pt: 'Algo a acrescentar? (opcional)', // MT
+    de: 'Noch etwas dazu? (optional)', // MT
+    fr: 'Quelque chose à ajouter ? (facultatif)', // MT
+  },
+  poll_comment_placeholder: {
+    en: 'e.g. I can do Tuesdays after three',
+    nl: 'bijv. dinsdagen na drieën kan ik wel',
+    es: 'p. ej. los martes después de las tres me van bien', // MT
+    pt: 'ex.: às terças depois das três consigo', // MT
+    de: 'z. B. dienstags nach drei ginge bei mir', // MT
+    fr: 'p. ex. les mardis après quinze heures me vont', // MT
+  },
+  poll_thanks: {
+    en: 'Thanks — your answer is in.',
+    nl: 'Dank je — je antwoord staat genoteerd.',
+    es: 'Gracias, tu respuesta está registrada.', // MT
+    pt: 'Obrigado — a tua resposta ficou registada.', // MT
+    de: 'Danke — deine Antwort ist da.', // MT
+    fr: 'Merci — ta réponse est enregistrée.', // MT
+  },
+
   // ── things that go wrong ────────────────────────────────────────────────
   err_could_not_load_slots: {
     en: 'Could not load slots.',

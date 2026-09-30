@@ -3707,6 +3707,14 @@ const CATALOG = {
     de: 'Die Buchungsseite und die Mails an deine Gäste. Lass es bei deiner eigenen Sprache, außer dieses eine Meeting ist in einer anderen.', // MT
     fr: 'La page de réservation et les e-mails que reçoivent tes invités. Laisse ta propre langue, sauf si cette réunion est dans une autre.', // MT
   },
+  voter_none_of_these: {
+    en: 'Can’t make any of these',
+    nl: 'Kan geen van deze',
+    es: 'No puede en ninguna', // MT
+    pt: 'Não pode em nenhuma', // MT
+    de: 'Kann bei keiner', // MT
+    fr: 'Ne peut à aucune', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

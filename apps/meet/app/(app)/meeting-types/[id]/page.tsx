@@ -92,8 +92,10 @@ export default async function EditMeetingTypePage({
   type PollVote = {
     voter_email: string;
     voter_name: string;
-    slot_starts_at: string;
+    /** NULL = "none of these work for me". */
+    slot_starts_at: string | null;
     created_at: string;
+    comment?: string | null;
   };
   let pollSlots: PollSlot[] = [];
   let pollVotes: PollVote[] = [];

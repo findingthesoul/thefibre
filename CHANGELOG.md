@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.91.0] — 2026-09-30 — the pages after booking, and a poll that hears a no (Meet 2.20.0)
+
+### The confirmation and cancel pages speak the language too
+
+The last two English screens on Meet's public side. `GET /public/bookings/:id`
+now carries a resolved `locale` — the meeting type's override, else the host's
+language — and both pages render from it, dates and all. The whole guest
+journey is now one language from the booking page to the cancellation.
+
+### "None of these work for me", and a comment field
+
+"Graag ook nog een knopje: ik kan geen van deze en een commentaar veld"
+(Sjoerd, 2026-09-30). A poll that only accepts ticks can only hear from people
+who can make it. Everyone else closes the tab, and the host sees silence —
+which looks exactly like never having asked.
+
+A guest can now say none of the times work, and write a line about why. The
+two contradict each other, so choosing one clears the other rather than
+leaving the host something to interpret.
+
+**The shape of it in the database matters.** `meet_poll_vote.slot_starts_at`
+became nullable: a "none of these" answer is a real vote about the POLL, not
+about a slot, so it is one row with no slot — rather than a magic timestamp or
+a second table every reader would have to remember. The table's unique
+constraint cannot express "one per voter" there, because in SQL NULL is not
+equal to NULL, so a partial unique index carries that half. Proved on staging:
+the row inserts, and a second one from the same voter comes back 409.
+
+The comment belongs to the voter, not to a slot — "I can do Tuesdays after
+three" is one sentence about the whole poll — so it is written onto each of
+that voter's rows and read from any one.
+
+**The host sees both.** On the votes matrix, somebody who ticked nothing and
+somebody who said they cannot make any of it used to render identically: an
+empty row. The second now says so, in amber, with whatever they wrote
+underneath it.
+
 ## [1.90.1] — 2026-09-30 — the dates follow the page, and the button stops breaking (Meet 2.19.1)
 
 Two things the first pass missed, both visible on a Dutch booking page.

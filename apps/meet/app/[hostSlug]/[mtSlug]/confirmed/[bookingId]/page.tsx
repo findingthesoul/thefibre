@@ -2,9 +2,11 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { publicT, toLocale, INTL_LOCALES } from '@/lib/i18n-public';
 import { When } from './when';
 
 type Confirmation = {
+  locale?: string | null;
   id: string;
   invitee_email: string;
   invitee_name: string;
@@ -64,57 +66,69 @@ export default async function ConfirmedPage({
     timeZoneName: 'short',
   }).format(starts);
 
+  const L = toLocale(booking.locale);
+
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
       <div className="mx-auto max-w-xl px-4 sm:px-6 py-12">
         <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="p-8 sm:p-10">
             <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-              {booking.status === 'pending_approval' ? 'Request received' : 'Booking confirmed'}
+              {booking.status === 'pending_approval'
+                ? publicT(L, 'request_received')
+                : publicT(L, 'booking_confirmed')}
             </div>
             <h1 className="mt-3 text-3xl font-medium tracking-tight">
               {booking.status === 'pending_approval'
-                ? `Your request is in, ${booking.invitee_name.split(' ')[0]}.`
-                : `You're booked, ${booking.invitee_name.split(' ')[0]}.`}
+                ? publicT(L, 'request_is_in', {
+                    first: booking.invitee_name.split(' ')[0] ?? '',
+                  })
+                : publicT(L, 'youre_booked', {
+                    first: booking.invitee_name.split(' ')[0] ?? '',
+                  })}
             </h1>
             {booking.status === 'pending_approval' && (
               <p className="mt-3 text-sm text-neutral-600 leading-relaxed">
-                {hostName ?? 'The host'} will review and confirm. You&apos;ll get
-                an email either way — usually within a day.
+                {publicT(L, 'will_review', {
+                  host: hostName ?? publicT(L, 'the_host'),
+                })}
               </p>
             )}
 
             <dl className="mt-8 space-y-5 text-sm">
-              <Row label="What" value={mt?.name ?? '—'} />
+              <Row label={publicT(L, 'row_what')} value={mt?.name ?? '—'} />
               <Row
-                label="When"
+                label={publicT(L, 'row_when')}
                 value={<When iso={booking.starts_at} fallback={whenInHostZone} />}
               />
               <Row
-                label="Duration"
-                value={mt ? `${mt.duration_minutes} minutes` : '—'}
+                label={publicT(L, 'row_duration')}
+                value={
+                  mt
+                    ? publicT(L, 'minutes_long', { n: String(mt.duration_minutes) })
+                    : '—'
+                }
               />
-              {hostName && <Row label="With" value={hostName} />}
+              {hostName && <Row label={publicT(L, 'row_with')} value={hostName} />}
               {booking.alternative_location && (
-                <Row label="Where" value={booking.alternative_location} />
+                <Row label={publicT(L, 'row_where')} value={booking.alternative_location} />
               )}
             </dl>
 
             <div className="mt-8 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700 leading-relaxed">
-              A confirmation email is on its way to{' '}
+              {publicT(L, 'email_on_its_way')}{' '}
               <span className="font-medium">{booking.invitee_email}</span>.
               {booking.payment_status === 'paid' &&
                 booking.stripe_invoice_url && (
                   <>
-                    {' '}A VAT invoice has been emailed too, and is also
-                    available here:{' '}
+                    {' '}{publicT(L, 'vat_invoice_emailed')}{' '}
                     <a
                       href={booking.stripe_invoice_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium underline underline-offset-2 hover:text-neutral-900"
                     >
-                      View invoice (PDF) ↗
+                      {publicT(L, 'view_invoice_pdf')}
                     </a>
                     .
                   </>
@@ -122,16 +136,15 @@ export default async function ConfirmedPage({
               {booking.payment_status === 'paid' &&
                 !booking.stripe_invoice_url && (
                   <>
-                    {' '}A receipt has been emailed too. (The host's
-                    Stripe account doesn&apos;t have automatic invoicing
-                    enabled yet — ask them if you need a VAT invoice.)
+                    {' '}{publicT(L, 'receipt_emailed_no_invoice')}
                   </>
                 )}
               {(booking.payment_status === 'invoice_pending' ||
                 booking.payment_status === 'invoice_sent') && (
                 <>
-                  {' '}You chose to pay by invoice, so {hostName ?? 'your host'} will
-                  send it to you separately.
+                  {' '}{publicT(L, 'chose_invoice', {
+                    host: hostName ?? publicT(L, 'your_host'),
+                  })}
                 </>
               )}
             </div>
@@ -142,20 +155,20 @@ export default async function ConfirmedPage({
                   href={`/${hostSlug}/${mtSlug}/confirmed/${bookingId}/calendar.ics`}
                   className="inline-flex items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
                 >
-                  Add to calendar
+                  {publicT(L, 'add_to_calendar')}
                 </a>
               )}
               <Link
                 href={`/${hostSlug}/${mtSlug}?reschedule=${bookingId}`}
                 className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50"
               >
-                Reschedule
+                {publicT(L, 'reschedule')}
               </Link>
               <Link
                 href={`/${hostSlug}/${mtSlug}/cancel/${bookingId}`}
                 className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
               >
-                Cancel
+                {publicT(L, 'cancel')}
               </Link>
             </div>
           </div>
@@ -165,7 +178,9 @@ export default async function ConfirmedPage({
               href={`/${hostSlug}`}
               className="text-sm text-neutral-600 hover:text-neutral-900 underline underline-offset-4"
             >
-              ← Back to {hostName ?? 'the booking page'}
+              {publicT(L, 'back_to_booking_page', {
+                name: hostName ?? publicT(L, 'the_booking_page'),
+              })}
             </Link>
           </div>
         </div>

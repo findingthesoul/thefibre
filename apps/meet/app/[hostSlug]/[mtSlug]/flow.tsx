@@ -1002,6 +1002,11 @@ function PollFlow({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [comment, setComment] = useState('');
+  // "None of these" is a separate act from ticking nothing: an empty form
+  // and an answer of "I can't make any of them" look identical otherwise,
+  // and the second one is the one the host needs to hear.
+  const [none, setNone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -1012,6 +1017,8 @@ function PollFlow({
     if (next.has(iso)) next.delete(iso);
     else next.add(iso);
     setPicked(next);
+    // You cannot both make Tuesday and make none of them.
+    if (next.size > 0) setNone(false);
   }
 
   function submit() {
@@ -1020,7 +1027,8 @@ function PollFlow({
       setError(publicT(L, 'err_name_email_required'));
       return;
     }
-    if (picked.size === 0) {
+    // Nothing ticked is fine when they said so, or when they wrote why.
+    if (picked.size === 0 && !none && !comment.trim()) {
       setError(publicT(L, 'err_tick_one_slot'));
       return;
     }
@@ -1032,7 +1040,8 @@ function PollFlow({
             meeting_type_id: meetingType.id,
             voter_email: email.trim().toLowerCase(),
             voter_name: name.trim(),
-            slot_starts_ats: Array.from(picked),
+            slot_starts_ats: none ? [] : Array.from(picked),
+            comment: comment.trim() || undefined,
           }),
         });
         setDone(true);
@@ -1055,7 +1064,7 @@ function PollFlow({
   if (done) {
     return (
       <div className="max-w-lg rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-        Thanks — your vote is in. We'll email you once the host confirms a time.
+        {publicT(L, 'poll_thanks')}
       </div>
     );
   }
@@ -1106,6 +1115,34 @@ function PollFlow({
           );
         })}
       </ul>
+
+      <label className="flex items-start gap-3 rounded-lg border border-neutral-200 p-3 text-sm hover:bg-neutral-50 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={none}
+          onChange={(e) => {
+            setNone(e.target.checked);
+            // Choosing "none" clears the ticks rather than leaving a
+            // contradiction on screen for the host to interpret.
+            if (e.target.checked) setPicked(new Set());
+          }}
+          className="mt-0.5"
+        />
+        <span>{publicT(L, 'none_of_these')}</span>
+      </label>
+
+      <div>
+        <Label htmlFor="p-comment">{publicT(L, 'poll_comment_label')}</Label>
+        <textarea
+          id="p-comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={3}
+          maxLength={2000}
+          placeholder={publicT(L, 'poll_comment_placeholder')}
+          className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+        />
+      </div>
 
       <div className="space-y-4">
         <div>
