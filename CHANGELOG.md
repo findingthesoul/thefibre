@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.90.0] — 2026-09-30 — Meet's booking pages speak six languages (Meet 2.19.0)
+
+The slice the language work was for. Last release gave Meet a language setting
+and translated its four booking emails; the pages a guest actually books on
+were still English, which made the setting half a promise.
+
+**`apps/meet/lib/i18n-public.ts`** — 48 keys in six locales, covering the host
+and team landing pages, the meeting-type page, and the whole booking flow:
+picking a date, the calendar, the time-zone line, your details, who pays and
+the invoice fields, a meeting poll's vote list, the one-off's fixed time, and
+every error a guest can hit — a slot that just went, a meeting already full, a
+booking that was cancelled while they were looking at it.
+
+Same typed-catalog rule as everywhere else: a key missing a locale fails
+typecheck. User CONTENT — a meeting type's name, its description, a host's bio
+— is never translated.
+
+**The API resolves the language, the page renders it.** `GET /public/host/:slug`
+and `GET /public/host/:slug/mt/:slug` now carry a `locale`, resolved through
+`resolvePublicLocale`: the meeting type's own override, else the host's
+language. The page never runs the chain, because the chain needs the host's
+profile and a public page has no business fetching one.
+
+### Still English
+
+The confirmation page and the cancel page — the two screens AFTER booking.
+They need the booking endpoint to carry a locale too, and that is the next
+step. The emails covering the same moment are already translated, so nothing
+a guest is told is lost; it is the screens that trail.
+
 ## [1.89.0] — 2026-09-30 — one answer to "which language is this in" (Meet 2.18.0)
 
 "Ik dacht dat de hele app meertalig was. Kun je daar een SPoT voor maken?"

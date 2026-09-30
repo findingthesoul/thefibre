@@ -9,6 +9,7 @@
 // prop selects which endpoint.
 
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
+import { publicT, type Locale } from '@/lib/i18n-public';
 import { useRouter } from 'next/navigation';
 import { Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,8 @@ type Props = {
   ownerKind: 'host' | 'team';
   hostTimezone: string;
   reschedule?: Reschedule | null;
+  /** The language this booking page speaks, resolved by the API. */
+  L: Locale;
   meetingType: {
     id: string;
     slug: string;
@@ -81,8 +84,10 @@ function usePayment(meetingType: Props['meetingType']) {
 
 function PaymentSection({
   payment,
+  L,
 }: {
   payment: ReturnType<typeof usePayment>;
+  L: Locale;
 }) {
   if (!payment.paid) return null;
   return (
@@ -91,8 +96,8 @@ function PaymentSection({
         <PayMethodSwitch
           value={payment.method}
           onChange={payment.setMethod}
-          label="Payment"
-          labels={{ online: 'Pay online', invoice: 'Receive an invoice' }}
+          label={publicT(L, 'payment_label')}
+          labels={{ online: publicT(L, 'pay_online'), invoice: publicT(L, 'receive_invoice') }}
         />
       )}
       {payment.method === 'invoice' && (
@@ -105,13 +110,13 @@ function PaymentSection({
         >
           <InvoiceBillingFields
             labelClassName="text-sm text-ink-subtle"
-            whoPays={{ label: 'Who pays?', myself: 'Myself', organisation: 'An organisation' }}
+            whoPays={{ label: publicT(L, 'who_pays'), myself: publicT(L, 'payer_myself'), organisation: publicT(L, 'payer_organisation') }}
             labels={{
               company: 'Company / organisation (for the invoice)',
-              address: 'Billing address',
-              postalCode: 'Postal code',
+              address: publicT(L, 'billing_address'),
+              postalCode: publicT(L, 'postal_code'),
               city: 'City',
-              country: 'Country',
+              country: publicT(L, 'country'),
               taxNo: 'Tax / VAT number (optional)',
             }}
           />
@@ -207,6 +212,7 @@ export function BookingFlow({
   hostTimezone,
   meetingType,
   reschedule,
+  L,
 }: Props) {
   if (meetingType.event_type === 'one_off') {
     return (
@@ -214,6 +220,7 @@ export function BookingFlow({
         ownerSlug={ownerSlug}
         meetingType={meetingType}
         hostTimezone={hostTimezone}
+        L={L}
       />
     );
   }
@@ -222,6 +229,7 @@ export function BookingFlow({
       <PollFlow
         meetingType={meetingType}
         hostTimezone={hostTimezone}
+        L={L}
       />
     );
   }
@@ -232,11 +240,13 @@ export function BookingFlow({
       hostTimezone={hostTimezone}
       meetingType={meetingType}
       reschedule={reschedule ?? null}
+      L={L}
     />
   );
 }
 
 function SlotPickerFlow({
+  L,
   ownerSlug,
   ownerKind,
   hostTimezone,
@@ -289,7 +299,7 @@ function SlotPickerFlow({
       .catch((e) => {
         if (cancelled) return;
         setSlotsError(
-          e instanceof PublicApiError ? `API ${e.status}` : 'Could not load slots.',
+          e instanceof PublicApiError ? `API ${e.status}` : publicT(L, 'err_could_not_load_slots'),
         );
       })
       .finally(() => {
@@ -369,16 +379,16 @@ function SlotPickerFlow({
         if (e instanceof PublicApiError) {
           const code = (e.body as { code?: string } | undefined)?.code;
           if (code === 'slot_unavailable' || code === 'slot_full') {
-            setError('That time just went. Please pick another.');
+            setError(publicT(L, 'err_slot_gone'));
           } else if (code === 'not_reschedulable') {
             setError('This meeting type can\'t be moved. Cancel and book again instead.');
           } else if (code === 'cancelled') {
-            setError('This booking was cancelled — book a new time instead.');
+            setError(publicT(L, 'err_booking_cancelled'));
           } else {
             setError(`Couldn't move it (${e.status}). Please try again.`);
           }
         } else {
-          setError('Network error. Please try again.');
+          setError(publicT(L, 'err_network_retry'));
         }
       }
     });
@@ -387,7 +397,7 @@ function SlotPickerFlow({
   function submit() {
     setError(null);
     if (!selectedSlot || !name.trim() || !email.trim()) {
-      setError('Name, email, and a time slot are required.');
+      setError(publicT(L, 'err_name_email_slot_required'));
       return;
     }
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -424,13 +434,13 @@ function SlotPickerFlow({
         if (e instanceof PublicApiError) {
           if (e.status === 409) {
             setError(
-              'This slot just filled up. Please pick a different time.',
+              publicT(L, 'err_slot_filled'),
             );
           } else {
             setError(`Couldn't book (${e.status}). Please try again.`);
           }
         } else {
-          setError('Network error. Please try again.');
+          setError(publicT(L, 'err_network_retry'));
         }
       }
     });
@@ -440,7 +450,7 @@ function SlotPickerFlow({
     return (
       <div className="space-y-6">
         <h2 className="text-base font-semibold tracking-tight text-neutral-900">
-          {reschedule ? 'Pick a new time' : 'Select a date & time'}
+          {reschedule ? publicT(L, 'pick_new_time') : publicT(L, 'select_date_time')}
         </h2>
         {reschedule && (
           <p className="-mt-3 text-sm text-neutral-600">
@@ -471,6 +481,7 @@ function SlotPickerFlow({
         ) : (
           <div className="grid gap-6 md:grid-cols-[1fr_220px]">
             <CalendarGrid
+              L={L}
               displayed={displayed}
               setDisplayed={setDisplayed}
               availableDates={availableDates}
@@ -484,11 +495,11 @@ function SlotPickerFlow({
             <div className="md:max-h-[360px] md:overflow-y-auto md:pr-1">
               {!selectedDate ? (
                 <p className="text-sm text-neutral-500 pt-4">
-                  Pick a date to see times.
+                  {publicT(L, 'pick_date_to_see_times')}
                 </p>
               ) : (slotsByDate.get(selectedDate) ?? []).length === 0 ? (
                 <p className="text-sm text-neutral-500 pt-4">
-                  No times on this day.
+                  {publicT(L, 'no_times_on_day')}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -536,7 +547,7 @@ function SlotPickerFlow({
 
         <div className="pt-4 border-t border-neutral-200 flex flex-wrap items-center gap-3 text-sm">
           <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
-          <span className="text-neutral-500">Time zone:</span>
+          <span className="text-neutral-500">{publicT(L, 'time_zone_label')}</span>
           <SearchSelect
             className="w-64"
             value={tz}
@@ -574,7 +585,7 @@ function SlotPickerFlow({
     <div className="max-w-lg">
       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm">
         <div className="text-neutral-500 text-xs uppercase tracking-wider">
-          Selected
+          {publicT(L, 'selected_label')}
         </div>
         <div className="mt-1 font-medium">
           {selectedSlot &&
@@ -598,19 +609,18 @@ function SlotPickerFlow({
           }}
           className="mt-2 text-xs underline text-neutral-600"
         >
-          Change time
+          {publicT(L, 'change_time')}
         </button>
       </div>
 
       {reschedule ? (
         <p className="mt-6 text-sm text-neutral-600 leading-relaxed">
-          We&apos;ll move this booking to the new time and email everyone the
-          updated details. Your answers — and any payment — carry over.
+          {publicT(L, 'reschedule_note')}
         </p>
       ) : (
       <div className="mt-6 space-y-4">
         <div>
-          <Label htmlFor="b-name">Your name</Label>
+          <Label htmlFor="b-name">{publicT(L, 'your_name')}</Label>
           <Input
             id="b-name"
             value={name}
@@ -619,7 +629,7 @@ function SlotPickerFlow({
           />
         </div>
         <div>
-          <Label htmlFor="b-email">Email</Label>
+          <Label htmlFor="b-email">{publicT(L, 'email_label')}</Label>
           <Input
             id="b-email"
             type="email"
@@ -637,7 +647,7 @@ function SlotPickerFlow({
             />
           </div>
         )}
-        <PaymentSection payment={payment} />
+        <PaymentSection payment={payment} L={L} />
       </div>
       )}
 
@@ -652,10 +662,10 @@ function SlotPickerFlow({
           {reschedule
             ? pending
               ? 'Moving…'
-              : 'Confirm new time'
+              : publicT(L, 'confirm_new_time')
             : pending
               ? 'Booking…'
-              : 'Confirm booking'}
+              : publicT(L, 'confirm_booking')}
         </Button>
       </div>
     </div>
@@ -666,12 +676,14 @@ function SlotPickerFlow({
 // Month-grid calendar — Monday-first, available days are clickable + dotted.
 // ──────────────────────────────────────────────────────────────────────────
 function CalendarGrid({
+  L,
   displayed,
   setDisplayed,
   availableDates,
   selectedDate,
   onSelect,
 }: {
+  L: Locale;
   displayed: { year: number; month: number };
   setDisplayed: (d: { year: number; month: number }) => void;
   availableDates: Set<string>;
@@ -719,7 +731,7 @@ function CalendarGrid({
           <button
             type="button"
             onClick={() => shiftMonth(-1)}
-            aria-label="Previous month"
+            aria-label={publicT(L, 'previous_month')}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
@@ -727,7 +739,7 @@ function CalendarGrid({
           <button
             type="button"
             onClick={() => shiftMonth(1)}
-            aria-label="Next month"
+            aria-label={publicT(L, 'next_month')}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
           >
             <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
@@ -788,10 +800,12 @@ function CalendarGrid({
 // ONE-OFF — single fixed time. No slot picker; just a Confirm Attendance CTA.
 // ──────────────────────────────────────────────────────────────────────────
 function OneOffFlow({
+  L,
   ownerSlug,
   meetingType,
   hostTimezone,
 }: {
+  L: Locale;
   ownerSlug: string;
   meetingType: Props['meetingType'];
   hostTimezone: string;
@@ -813,7 +827,7 @@ function OneOffFlow({
   function submit() {
     setError(null);
     if (!fixed || !name.trim() || !email.trim()) {
-      setError('Name and email are required.');
+      setError(publicT(L, 'err_name_email_required'));
       return;
     }
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -849,12 +863,12 @@ function OneOffFlow({
       } catch (e) {
         if (e instanceof PublicApiError) {
           if (e.status === 409) {
-            setError('This meeting is already full.');
+            setError(publicT(L, 'err_meeting_full'));
           } else {
             setError(`Couldn't book (${e.status}). Please try again.`);
           }
         } else {
-          setError('Network error. Please try again.');
+          setError(publicT(L, 'err_network_retry'));
         }
       }
     });
@@ -863,7 +877,7 @@ function OneOffFlow({
   if (!fixed) {
     return (
       <p className="text-sm text-neutral-500">
-        The host hasn't set a time for this meeting yet.
+        {publicT(L, 'no_time_set')}
       </p>
     );
   }
@@ -872,7 +886,7 @@ function OneOffFlow({
     <div className="max-w-lg space-y-6">
       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm">
         <div className="text-neutral-500 text-xs uppercase tracking-wider">
-          Scheduled for
+          {publicT(L, 'scheduled_for')}
         </div>
         <div className="mt-1 font-medium">
           {new Intl.DateTimeFormat(undefined, {
@@ -891,7 +905,7 @@ function OneOffFlow({
 
       <div className="space-y-4">
         <div>
-          <Label htmlFor="b-name">Your name</Label>
+          <Label htmlFor="b-name">{publicT(L, 'your_name')}</Label>
           <Input
             id="b-name"
             value={name}
@@ -900,7 +914,7 @@ function OneOffFlow({
           />
         </div>
         <div>
-          <Label htmlFor="b-email">Email</Label>
+          <Label htmlFor="b-email">{publicT(L, 'email_label')}</Label>
           <Input
             id="b-email"
             type="email"
@@ -918,7 +932,7 @@ function OneOffFlow({
             />
           </div>
         )}
-        <PaymentSection payment={payment} />
+        <PaymentSection payment={payment} L={L} />
       </div>
 
       {error && (
@@ -955,7 +969,7 @@ function OneOffFlow({
           </div>
         </div>
         <Button onClick={submit} disabled={pending}>
-          {pending ? 'Confirming…' : 'Confirm attendance'}
+          {pending ? 'Confirming…' : publicT(L, 'confirm_attendance')}
         </Button>
       </div>
     </div>
@@ -966,9 +980,11 @@ function OneOffFlow({
 // POLL — invitee ticks any subset of the host's candidate slots.
 // ──────────────────────────────────────────────────────────────────────────
 function PollFlow({
+  L,
   meetingType,
   hostTimezone,
 }: {
+  L: Locale;
   meetingType: Props['meetingType'];
   hostTimezone: string;
 }) {
@@ -993,11 +1009,11 @@ function PollFlow({
   function submit() {
     setError(null);
     if (!name.trim() || !email.trim()) {
-      setError('Name and email are required.');
+      setError(publicT(L, 'err_name_email_required'));
       return;
     }
     if (picked.size === 0) {
-      setError('Tick at least one slot you can attend.');
+      setError(publicT(L, 'err_tick_one_slot'));
       return;
     }
     start(async () => {
@@ -1014,7 +1030,7 @@ function PollFlow({
         setDone(true);
       } catch (e) {
         setError(
-          e instanceof PublicApiError ? `Couldn't submit (${e.status}).` : 'Network error.',
+          e instanceof PublicApiError ? `Couldn't submit (${e.status}).` : publicT(L, 'err_network'),
         );
       }
     });
@@ -1023,7 +1039,7 @@ function PollFlow({
   if (slots.length === 0) {
     return (
       <p className="text-sm text-neutral-500">
-        The host hasn't added candidate slots yet. Check back soon.
+        {publicT(L, 'no_candidate_slots')}
       </p>
     );
   }
@@ -1040,10 +1056,10 @@ function PollFlow({
     <div className="max-w-lg space-y-6">
       <div>
         <h2 className="text-base font-semibold tracking-tight text-neutral-900">
-          Which of these can you attend?
+          {publicT(L, 'which_can_you_attend')}
         </h2>
         <p className="mt-1 text-sm text-neutral-500">
-          Tick every slot that works. The host picks the winner from everyone's votes.
+          {publicT(L, 'tick_every_slot')}
         </p>
       </div>
 
@@ -1085,7 +1101,7 @@ function PollFlow({
 
       <div className="space-y-4">
         <div>
-          <Label htmlFor="p-name">Your name</Label>
+          <Label htmlFor="p-name">{publicT(L, 'your_name')}</Label>
           <Input
             id="p-name"
             value={name}
@@ -1094,7 +1110,7 @@ function PollFlow({
           />
         </div>
         <div>
-          <Label htmlFor="p-email">Email</Label>
+          <Label htmlFor="p-email">{publicT(L, 'email_label')}</Label>
           <Input
             id="p-email"
             type="email"
@@ -1139,7 +1155,7 @@ function PollFlow({
           </div>
         </div>
         <Button onClick={submit} disabled={pending}>
-          {pending ? 'Submitting…' : 'Submit votes'}
+          {pending ? 'Submitting…' : publicT(L, 'submit_votes')}
         </Button>
       </div>
     </div>

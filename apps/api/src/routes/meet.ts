@@ -368,7 +368,16 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
   );
 
   const userObj = Array.isArray(host.user) ? host.user[0] : host.user;
+  // The language this page speaks. Resolved HERE, not in the web app: the
+  // chain needs the host's profile, which the page has no business fetching,
+  // and one resolver for the whole family is the point (2026-09-30).
+  const { data: hostLocaleRow } = await adminClient
+    .from('identity_profile')
+    .select('locale')
+    .eq('email', userObj?.email ?? '')
+    .maybeSingle();
   return c.json({
+    locale: resolvePublicLocale({ ownerProfile: hostLocaleRow?.locale ?? null }),
     id: host.id,
     slug: host.slug,
     full_name: hostProfile?.display_name ?? userObj?.full_name ?? null,
@@ -424,7 +433,18 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
 
   const userObj = Array.isArray(host.user) ? host.user[0] : host.user;
   const mtHostProfile = await profileFor((host as { user_id?: string }).user_id ?? '');
+  const { data: mtHostLocale } = await adminClient
+    .from('identity_profile')
+    .select('locale')
+    .eq('email', userObj?.email ?? '')
+    .maybeSingle();
   return c.json({
+    // Override on the meeting type first, then the host's own language —
+    // resolvePublicLocale is the one chain (2026-09-30).
+    locale: resolvePublicLocale({
+      surfaceOverride: (mt as { locale?: string | null }).locale ?? null,
+      ownerProfile: mtHostLocale?.locale ?? null,
+    }),
     meeting_type: {
       ...mt,
       poll_slots: pollSlots,

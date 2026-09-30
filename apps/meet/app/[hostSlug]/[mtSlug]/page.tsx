@@ -6,6 +6,7 @@ import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { WorkspaceLine, type PublicWorkspace } from '../workspace-line';
 import { BookingFlow, type Reschedule } from './flow';
+import { publicT, toLocale, type Locale } from '@/lib/i18n-public';
 import type { IntakeField } from '@/lib/intake';
 
 type Host = {
@@ -43,11 +44,15 @@ type MeetingType = {
 };
 
 type HostMtResp = {
+  /** Resolved by the API: the meeting type's override, else the host's own
+   *  language. The page never runs the chain itself. */
+  locale?: string | null;
   host: Host;
   meeting_type: MeetingType;
   workspace?: PublicWorkspace | null;
 };
 type TeamMtResp = MeetingType & {
+  locale?: string | null;
   workspace?: PublicWorkspace | null;
   team: { id: string; slug: string; name: string; description: string | null };
   host: {
@@ -110,6 +115,7 @@ export default async function MeetingTypePage({
         workspace={asHost.workspace ?? null}
         meetingType={asHost.meeting_type}
         reschedule={reschedule}
+        L={toLocale(asHost.locale)}
       />
     );
   }
@@ -128,6 +134,7 @@ export default async function MeetingTypePage({
 
   return (
     <Card
+      L={toLocale(asTeam.locale)}
       ownerSlug={asTeam.team.slug}
       ownerKind="team"
       ownerName={asTeam.team.name}
@@ -153,6 +160,7 @@ async function Card({
   workspace,
   meetingType,
   reschedule,
+  L,
 }: {
   ownerSlug: string;
   ownerKind: 'host' | 'team';
@@ -164,6 +172,7 @@ async function Card({
   workspace: PublicWorkspace | null;
   meetingType: MeetingType;
   reschedule: Reschedule | null;
+  L: Locale;
 }) {
   // The host decides staging vs production for the footer link.
   const host = (await headers()).get('host');
@@ -178,7 +187,9 @@ async function Card({
                 className="text-xs text-neutral-500 hover:text-neutral-900 underline-offset-2 hover:underline"
               >
                 ←{' '}
-                {ownerKind === 'team' ? 'All meetings' : 'Back to ' + ownerName}
+                {ownerKind === 'team'
+                  ? publicT(L, 'all_meetings')
+                  : publicT(L, 'back_to', { name: ownerName })}
               </Link>
 
               <div className="mt-6 flex items-center gap-3">
@@ -206,16 +217,24 @@ async function Card({
               <ul className="mt-6 space-y-3 text-sm text-neutral-700">
                 <li className="flex items-center gap-2.5">
                   <Clock className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
-                  <span>{meetingType.duration_minutes} minutes</span>
+                  <span>
+                    {publicT(L, 'minutes_long', {
+                      n: String(meetingType.duration_minutes),
+                    })}
+                  </span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Video className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
-                  <span>{formatProvider(meetingType.conferencing_provider)}</span>
+                  <span>{formatProvider(meetingType.conferencing_provider, L)}</span>
                 </li>
                 {meetingType.event_type === 'group' && meetingType.capacity ? (
                   <li className="flex items-center gap-2.5">
                     <Users className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
-                    <span>Up to {meetingType.capacity} invitees per slot</span>
+                    <span>
+                      {publicT(L, 'up_to_invitees', {
+                        n: String(meetingType.capacity),
+                      })}
+                    </span>
                   </li>
                 ) : null}
                 {(meetingType.default_location || ownerLocation) && (
@@ -237,9 +256,9 @@ async function Card({
                       <span className="text-neutral-500">
                         {meetingType.payment_methods?.includes('invoice')
                           ? meetingType.payment_methods.includes('stripe')
-                            ? '— pay online or by invoice'
-                            : '— paid by invoice'
-                          : '— paid at checkout'}
+                            ? publicT(L, 'pay_online_or_invoice')
+                            : publicT(L, 'paid_by_invoice')
+                          : publicT(L, 'paid_at_checkout')}
                       </span>
                     </span>
                   </li>
@@ -260,13 +279,14 @@ async function Card({
                 hostTimezone={hostTimezone}
                 meetingType={meetingType}
                 reschedule={reschedule}
+                L={L}
               />
             </section>
           </div>
         </div>
 
         <footer className="mt-8 text-center text-xs text-neutral-400">
-          Powered by{' '}
+          {publicT(L, 'powered_by')}{' '}
           <Link
             href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL }, host)}
             className="underline"
@@ -279,21 +299,23 @@ async function Card({
   );
 }
 
-function formatProvider(p: string): string {
+function formatProvider(p: string, L: Locale): string {
   switch (p) {
     case 'google_meet':
-      return 'Google Meet — link in invite';
+      return publicT(L, 'provider_google_meet');
     case 'zoom':
-      return 'Zoom — link in invite';
+      return publicT(L, 'provider_zoom');
     case 'teams':
-      return 'Microsoft Teams — link in invite';
+      return publicT(L, 'provider_teams');
     case 'in_person':
-      return 'In person';
+      return publicT(L, 'provider_in_person');
     case 'personal_room':
-      return 'Personal meeting room';
+      return publicT(L, 'provider_personal_room');
     case 'none':
-      return 'No conferencing';
+      return publicT(L, 'provider_none');
     default:
+      // An unknown provider is a data value, not a phrase — show it as it is
+      // rather than inventing a translation for something we do not know.
       return p;
   }
 }

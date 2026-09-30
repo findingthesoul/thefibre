@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { publicT, toLocale, type Locale } from '@/lib/i18n-public';
 import { WorkspaceLine, type PublicWorkspace } from './workspace-line';
 
 type MeetingType = {
@@ -18,6 +19,9 @@ type MeetingType = {
 };
 
 type Host = {
+  /** Resolved by the API through resolvePublicLocale — the page never runs
+   *  the chain itself. */
+  locale?: string | null;
   id: string;
   slug: string;
   full_name: string | null;
@@ -31,6 +35,7 @@ type Host = {
 };
 
 type Team = {
+  locale?: string | null;
   id: string;
   slug: string;
   name: string;
@@ -54,7 +59,7 @@ export default async function RootSlugPage({
   } catch (e) {
     if (!(e instanceof PublicApiError) || e.status !== 404) throw e;
   }
-  if (host) return <HostView host={host} />;
+  if (host) return <HostView host={host} L={toLocale(host.locale)} />;
 
   // Fall back to team.
   let team: Team | null = null;
@@ -65,10 +70,10 @@ export default async function RootSlugPage({
     throw e;
   }
   if (!team) notFound();
-  return <TeamView team={team} />;
+  return <TeamView team={team} L={toLocale(team.locale)} />;
 }
 
-function HostView({ host }: { host: Host }) {
+function HostView({ host, L }: { host: Host; L: Locale }) {
   const photo = host.photo_url ?? host.avatar_url;
   return (
     <main className="min-h-screen bg-white text-neutral-900">
@@ -103,21 +108,21 @@ function HostView({ host }: { host: Host }) {
           </p>
         )}
 
-        <MeetingTypeList slug={host.slug} items={host.meeting_types} />
-        <Footer />
+        <MeetingTypeList slug={host.slug} items={host.meeting_types} L={L} />
+        <Footer L={L} />
       </div>
     </main>
   );
 }
 
-function TeamView({ team }: { team: Team }) {
+function TeamView({ team, L }: { team: Team; L: Locale }) {
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-2xl px-6 py-16">
         <WorkspaceLine workspace={team.workspace} className="mb-6" />
         <header>
           <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
-            Team
+            {publicT(L, 'team_label')}
           </div>
           <h1 className="mt-2 text-2xl font-medium tracking-tight">{team.name}</h1>
         </header>
@@ -126,8 +131,8 @@ function TeamView({ team }: { team: Team }) {
             {team.description}
           </p>
         )}
-        <MeetingTypeList slug={team.slug} items={team.meeting_types} />
-        <Footer />
+        <MeetingTypeList slug={team.slug} items={team.meeting_types} L={L} />
+        <Footer L={L} />
       </div>
     </main>
   );
@@ -136,18 +141,20 @@ function TeamView({ team }: { team: Team }) {
 function MeetingTypeList({
   slug,
   items,
+  L,
 }: {
   slug: string;
   items: MeetingType[];
+  L: Locale;
 }) {
   return (
     <section className="mt-12">
       <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
-        Book a meeting
+        {publicT(L, 'book_a_meeting')}
       </div>
       {items.length === 0 ? (
         <p className="mt-4 text-sm text-neutral-500">
-          No meeting types available yet.
+          {publicT(L, 'no_meeting_types')}
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-neutral-200 border border-neutral-200 rounded-lg overflow-hidden">
@@ -167,7 +174,7 @@ function MeetingTypeList({
                     )}
                   </div>
                   <div className="text-sm text-neutral-500 whitespace-nowrap">
-                    {mt.duration_minutes} min
+                    {publicT(L, 'minutes_short', { n: String(mt.duration_minutes) })}
                   </div>
                 </div>
               </Link>
@@ -179,7 +186,7 @@ function MeetingTypeList({
   );
 }
 
-async function Footer() {
+async function Footer({ L }: { L: Locale }) {
   // The host decides staging vs production when no env var says so.
   const host = (await headers()).get('host');
   return (
@@ -187,7 +194,7 @@ async function Footer() {
       {/* The product is The Thread; Meet is what this page is (Sjoerd,
           2026-09-23). The link goes to the front door, not back to the app
           the visitor is already standing in. */}
-      Powered by{' '}
+      {publicT(L, 'powered_by')}{' '}
       <Link
         className="underline"
         href={surfaceUrl('website', { NEXT_PUBLIC_WEBSITE_URL: process.env.NEXT_PUBLIC_WEBSITE_URL }, host)}
