@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.97.2] — 2026-10-01 — the launcher stays down when you were handed back with an explanation
+
+Since v1.84.0 an app that cannot serve you hands you back to The Fibre with a
+popup saying why. The Fibre's launcher overlay pops on entry too, and both are
+`fixed inset-0 z-50` — so the launcher landed on top of the explanation and
+intercepted its clicks. The sentence was visible and its button unpressable
+until you dismissed the launcher first. Shipped that way, and nobody saw it,
+because nothing had ever rendered that page.
+
+The launcher now stays down when somebody arrives with an explanation. Two
+modals at once is the wrong answer whichever one wins the stacking order: you
+did not ask to be on this page, so the sentence saying why comes first and the
+launcher waits for the next visit.
+
+Found by the e2e spec, which was failing for a shallower reason that hid this
+one: it said `getByRole('dialog')`, the launcher matches that too, and
+Playwright stopped on strict mode — two dialogs where one was expected —
+before it ever reached the intercepted click. Both locators are now scoped by
+text. `getByRole('dialog', { name })` is not available here: the shared Dialog
+renders its title in a header without `aria-labelledby`, so it has no
+accessible name to match on. Worth fixing in the Dialog one day; it would make
+every dialog in the family addressable by what it says it is.
+
 ## [1.97.1] — 2026-10-01 — the cancel page was two hours wrong (Meet 2.23.1)
 
 Found by the Thread chat during the Zoom end-to-end. The invitee CANCEL page

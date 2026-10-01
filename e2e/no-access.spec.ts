@@ -128,7 +128,16 @@ test.describe('Thread — no access in THIS workspace', () => {
 
     // The popup names the app that could not serve, and the workspace you are
     // in — the two facts that make the jump comprehensible.
-    const popup = page.getByRole('dialog');
+    //
+    // Scoped by its text, NOT `getByRole('dialog')` alone. The Fibre's
+    // LauncherOverlay is also role="dialog" aria-modal="true" and pops once
+    // per browser session, which is every fresh Playwright context — so the
+    // bare role matched two elements and the spec died on strict mode ("two
+    // dialogs where one is expected") rather than on anything being wrong
+    // with the page. `getByRole('dialog', { name })` is not the fix either:
+    // the shared Dialog renders its title in a header without
+    // aria-labelledby, so it has no accessible name to match on.
+    const popup = page.getByRole('dialog').filter({ hasText: 'Back in The Fibre' });
     await expect(popup).toBeVisible();
     await expect(popup).toContainText('The Thread');
     await expect(popup).toContainText(B);
@@ -141,8 +150,10 @@ test.describe('Thread — no access in THIS workspace', () => {
     await expect(popup).toBeHidden();
     await expect(page.locator('body')).toContainText(B);
 
-    // And the explanation does not replay on the next visit.
+    // And the explanation does not replay on the next visit. Scoped the same
+    // way: the launcher may legitimately be on screen here, and asserting no
+    // dialog at all would fail for the wrong reason.
     await page.reload();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('dialog').filter({ hasText: 'Back in The Fibre' })).toHaveCount(0);
   });
 });

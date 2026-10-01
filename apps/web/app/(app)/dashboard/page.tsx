@@ -123,6 +123,13 @@ export default async function Dashboard({
   const cookieStore = await cookies();
   const welcomeDone = cookieStore.get(COOKIE_WELCOME)?.value === 'done';
   const launcherOff = cookieStore.get(COOKIE_LAUNCHER)?.value === 'off';
+  // …and it stays down when somebody has just been handed back here by an app
+  // that could not serve them. Both are `fixed inset-0 z-50`, so the launcher
+  // covered the explanation and swallowed its button — visible, unclickable
+  // (caught by e2e on 2026-10-01, after v1.84.0 had already shipped). Two
+  // modals at once is the wrong answer regardless of stacking order: you did
+  // not ask to be here, so the sentence saying why comes first and the
+  // launcher waits for the next visit.
   const appsCollapsed = cookieStore.get(COOKIE_APPS_SECTION)?.value === 'collapsed';
   const launcherPending = cookieStore.get(COOKIE_LAUNCHER_PENDING)?.value === '1';
   // The digital facilitator: a fresh workspace (no activity yet) that has
@@ -200,7 +207,7 @@ export default async function Dashboard({
       )}
       {/* On entry the launcher pops above the page, dimmed backdrop —
           once per browser session; the same tiles stay inline below. */}
-      {!launcherOff && (
+      {!launcherOff && !sentHome && (
         <LauncherOverlay
           apps={launcherApps}
           soon={soonApps}
