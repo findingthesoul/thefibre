@@ -8,14 +8,12 @@
 // have to change (docs/data-protection-approach.md, P1) there was no single
 // place to change them, and nothing to say when one copy had drifted.
 //
-// THIS RELEASE MOVES THE CODE AND CHANGES NO BEHAVIOUR. Two things the copies
-// did that look wrong are carried over exactly as they were, and are pinned
-// by supabase-session.test.ts so the next release can change each on its own:
-// eight of the nine middleware matchers carry a doubled escape (`\\\\.` where
-// `\\.` was meant), so the "skip static files" clause matches nothing and the
-// session refresh runs on every image request (the ninth copy, the portal's,
-// is the correct one); and the platform app forwards a header copy taken
-// before the refresh.
+// One HAD drifted, in the other direction: eight of the nine middleware
+// matchers carried a doubled escape (`\\\\.` where `\\.` was meant), so the
+// "skip static files" clause matched nothing and the session refresh ran on
+// every image request. The ninth copy, the youngest, was the correct one.
+// v1.98.0 moved the code with that defect intact; v1.98.1 corrected it, and
+// supabase-session.test.ts now reads all nine.
 //
 // No Next and no Supabase dependency here, the same arrangement as
 // auth-callback.ts: the app hands in the primitives, this file decides what
@@ -183,8 +181,7 @@ type MiddlewareResponse = {
  * it is handed — that is how the rest of the pass sees the new token. (The
  * platform app's binding still reuses a header copy taken BEFORE the refresh,
  * as its own middleware always did: its server components render that one
- * request with the expired token and refresh a second time. Kept as it was
- * in this release; corrected in the next.)
+ * request with the expired token and refresh a second time.)
  *
  *   export const middleware = createSessionMiddleware({
  *     createClient: (url, key, options) => createServerClient(url, key, options),
@@ -236,33 +233,30 @@ export function createSessionMiddleware<Req extends MiddlewareRequest, Res exten
 }
 
 /**
- * The matcher eight apps' `config` carries today: everything except Next's
- * own static output — and, as intended, files by extension.
+ * The matcher every app's `config` carries: everything except Next's own
+ * static output and files by extension.
  *
- * AS INTENDED, NOT AS WRITTEN. The escape before the dot is doubled, so the
- * pattern asks for a literal backslash and the extension clause matches
- * nothing: `/brand/logo.png` runs the session refresh like a page does. It is
- * recorded here exactly as it is deployed, so that moving the middleware into
- * this module changes nothing; the correction is its own release.
- *
- * Next reads `config` STATICALLY, so each app writes its matcher out as a
- * literal and cannot import it. supabase-session.test.ts holds every app's
- * literal against what this module says it carries.
+ * Next reads `config` STATICALLY, so each app has to write this out as a
+ * literal and cannot import it — which is how eight copies came to carry a
+ * doubled escape that nothing noticed. supabase-session.test.ts holds every
+ * app's literal against this one; an app that needs more exclusions (the
+ * portal: its calendar feed and offline page) lists them in
+ * SESSION_MATCHER_EXTRAS and nowhere else.
  */
 export const SESSION_MATCHER =
-  '/((?!_next/static|_next/image|favicon.ico|.*\\\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)';
+  '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)';
 
-/**
- * The portal's own matcher: the correct escape, plus the paths that must
- * never touch auth — the calendar subscription (fetched by Google's servers
- * every few hours with no session and no business starting one), the offline
- * page and the service worker (which exist for when nothing can be reached).
- */
-export const SESSION_MATCHER_BY_APP: Record<string, string> = {
-  my: '/((?!_next/static|_next/image|favicon.ico|calendar/|offline.html|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
+/** Per app folder: extra path prefixes that must never touch auth. */
+export const SESSION_MATCHER_EXTRAS: Record<string, string[]> = {
+  // The calendar subscription is fetched by Google's servers every few hours
+  // with no session and no business starting one; the offline page and the
+  // service worker exist precisely for when nothing can be reached.
+  my: ['calendar/', 'offline.html', 'sw\\.js', 'manifest\\.webmanifest'],
 };
 
-/** The matcher an app folder carries. */
+/** The matcher literal an app folder must carry. */
 export function sessionMatcherFor(appFolder: string): string {
-  return SESSION_MATCHER_BY_APP[appFolder] ?? SESSION_MATCHER;
+  const extras = SESSION_MATCHER_EXTRAS[appFolder];
+  if (!extras?.length) return SESSION_MATCHER;
+  return SESSION_MATCHER.replace('favicon.ico|', `favicon.ico|${extras.join('|')}|`);
 }

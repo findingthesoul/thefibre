@@ -40,8 +40,6 @@ export const middleware = createSessionMiddleware({
 
 export const config = {
   matcher: [
-    // Unchanged in v1.98.0, including its doubled escape (which makes the
-    // static-file clause match nothing). The shared module documents it.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
   ],
 };

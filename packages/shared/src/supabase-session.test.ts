@@ -4,12 +4,9 @@
 // what they do to cookies — the behaviour nine apps used to carry a copy of.
 // The second reads the nine apps from disk, because a factory nobody calls
 // protects nothing: each app must bind to this module and must carry the
-// matcher literal this module says it does (Next reads `config` statically,
-// so the literal cannot be imported).
-//
-// v1.98.0 is a move, not a change: the matcher tests at the bottom PIN two
-// things that look wrong, exactly as they are deployed, so the release that
-// corrects them has a test to flip.
+// matcher literal this module says it should (Next reads `config`
+// statically, so the literal cannot be imported — which is how eight copies
+// came to hold a doubled escape for months).
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
@@ -18,7 +15,7 @@ import {
   createServerSupabase,
   createSessionMiddleware,
   SESSION_MATCHER,
-  SESSION_MATCHER_BY_APP,
+  SESSION_MATCHER_EXTRAS,
   sessionClientOptions,
   sessionCookie,
   sessionMatcherFor,
@@ -232,9 +229,9 @@ const matches = (matcher: string, path: string) => new RegExp(`^${matcher}$`).te
 
 /** The string a quoted TypeScript literal evaluates to. */
 function literal(source: string): string {
-  const m = /matcher:\s*\[\s*(?:\/\/[^\n]*\n\s*)*(['"])((?:(?!\1)[^\\]|\\.)*)\1/.exec(source);
-  if (!m) throw new Error('no quoted matcher literal found');
-  return m[2]!.replace(/\\(.)/g, '$1');
+  const m = /matcher:\s*\[\s*(?:\/\/[^\n]*\n\s*)*'((?:[^'\\]|\\.)*)'/.exec(source);
+  if (!m) throw new Error('no single-quoted matcher literal found');
+  return m[1]!.replace(/\\(.)/g, '$1');
 }
 
 describe('every app is bound to this module', () => {
@@ -281,37 +278,44 @@ describe('every app is bound to this module', () => {
   }
 });
 
-describe('the matcher, pinned as it is deployed', () => {
+describe('the matcher', () => {
   it('runs the session refresh on pages', () => {
     for (const path of ['/', '/dashboard', '/threads/abc/edit', '/auth/callback', '/api/rsvp', '/sjoerd/intro-call']) {
       expect(matches(SESSION_MATCHER, path), path).toBe(true);
     }
   });
 
-  it("skips Next's own static output and the favicon", () => {
-    for (const path of ['/favicon.ico', '/_next/static/chunks/main.js', '/_next/image']) {
+  it('does NOT run it on static files — the clause that matched nothing for months', () => {
+    for (const path of [
+      '/brand/the-thread.png',
+      '/logo.svg',
+      '/robots.txt',
+      '/sitemap.xml',
+      '/favicon.ico',
+      '/_next/static/chunks/main.js',
+      '/_next/image',
+    ]) {
       expect(matches(SESSION_MATCHER, path), path).toBe(false);
     }
   });
 
-  it('KNOWN DEFECT, carried over unchanged: it does not skip files by extension', () => {
-    // The clause is there and matches nothing, because the escape is doubled.
-    // v1.98.0 moves the middleware without changing which requests it runs
-    // on; the next release corrects the escape and flips these to false.
-    for (const path of ['/brand/the-thread.png', '/logo.svg', '/robots.txt', '/sitemap.xml']) {
-      expect(matches(SESSION_MATCHER, path), path).toBe(true);
-    }
-    expect(SESSION_MATCHER).toContain('.*\\\\.(?:');
+  it('the doubled escape, for the record, skipped none of them', () => {
+    const doubled = SESSION_MATCHER.replace('.*\\.(?:', '.*\\\\.(?:');
+    expect(doubled).not.toBe(SESSION_MATCHER);
+    expect(matches(doubled, '/brand/the-thread.png')).toBe(true);
+    expect(matches(doubled, '/robots.txt')).toBe(true);
   });
 
-  it("the portal's matcher is the correct one, and excludes its own paths", () => {
+  it("the portal's extras are excluded there and nowhere else", () => {
     const portal = sessionMatcherFor('my');
-    expect(Object.keys(SESSION_MATCHER_BY_APP)).toEqual(['my']);
-    for (const path of ['/calendar/abc123.ics', '/offline.html', '/sw.js', '/manifest.webmanifest', '/logo.png', '/robots.txt']) {
+    expect(Object.keys(SESSION_MATCHER_EXTRAS)).toEqual(['my']);
+    for (const path of ['/calendar/abc123.ics', '/offline.html', '/sw.js', '/manifest.webmanifest']) {
       expect(matches(portal, path), path).toBe(false);
     }
     expect(matches(portal, '/')).toBe(true);
     expect(matches(portal, '/soul/tickets')).toBe(true);
     expect(sessionMatcherFor('thread')).toBe(SESSION_MATCHER);
+    // Another app with a /calendar page keeps its session there.
+    expect(matches(SESSION_MATCHER, '/calendar/week')).toBe(true);
   });
 });
