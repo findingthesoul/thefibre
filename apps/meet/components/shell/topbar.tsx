@@ -6,6 +6,7 @@ import { UserMenu, type WorkspaceChoice } from './user-menu';
 import { AppSwitcher, type AppEntry } from './app-switcher';
 import { TodoButton } from './todo';
 import type { Prefs } from '@/lib/prefs-shared';
+import type { Locale } from '@/lib/i18n-ui';
 
 export function Topbar({
   todoEnabled = true,
@@ -16,6 +17,7 @@ export function Topbar({
   apps,
   portal,
   workspaces = [],
+  locale,
 }: {
   /** Whether this person wants the To do panel at all (Settings → Profile).
    *  Off hides the button entirely, and the open cookie is simply not read. */
@@ -28,6 +30,8 @@ export function Topbar({
   /** The participant portal, shown under its own heading in the switcher. */
   portal?: { url: string; name: string } | undefined;
   workspaces?: WorkspaceChoice[];
+  /** For the avatar menu's app-specific rows. */
+  locale: Locale;
 }) {
   return (
     <TopbarFrame
@@ -44,6 +48,7 @@ export function Topbar({
             theme={prefs.theme}
             sidebar={prefs.sidebar}
             workspaces={workspaces}
+            locale={locale}
           />
         </div>
       }

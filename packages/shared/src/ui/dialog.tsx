@@ -37,7 +37,14 @@ const SIZES: Record<NonNullable<Props['size']>, string> = {
   xl: 'max-w-3xl',
 };
 
+/** Every dialog currently open, innermost last. Module scope on purpose:
+ *  dialogs do not know about each other, and the one that must answer Escape
+ *  is simply the last one to have opened. */
+const OPEN_DIALOGS: object[] = [];
+
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md', headerActions }: Props) {
+  // Identity for this instance — an object, so two dialogs are never equal.
+  const token = useRef({}).current;
   const ref = useRef<HTMLDivElement>(null);
   const locale = useLocale();
 
@@ -81,11 +88,23 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     setDrag(0);
   }
 
-  // Escape closes. NOTE FOR ANYONE PUTTING A LAYER ON TOP OF THIS DIALOG:
-  // the listener is on `document` in the BUBBLE phase, and listeners on the
-  // same node fire in REGISTRATION order. This dialog opens first, so it
-  // registers first, so it wins — and no amount of stopPropagation from a
-  // later bubble listener can get in front of it.
+  // Escape closes the TOPMOST dialog, which needs saying because the obvious
+  // implementation closes the wrong one.
+  //
+  // Listeners on `document` fire in REGISTRATION order, so an outer dialog —
+  // open first, registered first — used to win over the dialog stacked on top
+  // of it. Escape then shut the one underneath and left the top one floating
+  // over a page whose parent had gone. That cost an hour in the visitor
+  // portal on 2026-09-09, and it came back the moment a dialog was opened
+  // from inside another dialog (Meet's onboarding, 2026-10-01).
+  //
+  // So open dialogs keep a stack, and only the last one acts. Order of
+  // registration stops mattering, which is the point: a component cannot know
+  // what somebody will stack on top of it later.
+  //
+  // NOTE FOR A LAYER THAT IS NOT A DIALOG — a dropdown, a popover — the old
+  // rule still applies to you: listen in the CAPTURE phase and call
+  // stopImmediatePropagation, or this handler will see the key first.
   //
   // The symptom when that bites points away from the cause: pressing Escape
   // with an overlay open closes the dialog UNDERNEATH and leaves the overlay
@@ -104,11 +123,25 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      // Only the dialog on top. Everything below it stays put.
+      if (OPEN_DIALOGS[OPEN_DIALOGS.length - 1] !== token) return;
+      onClose();
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, token]);
+
+  // Membership of the stack, kept in its own effect so it is pushed and
+  // popped exactly with open/close rather than with every onClose identity.
+  useEffect(() => {
+    if (!open) return;
+    OPEN_DIALOGS.push(token);
+    return () => {
+      const i = OPEN_DIALOGS.indexOf(token);
+      if (i !== -1) OPEN_DIALOGS.splice(i, 1);
+    };
+  }, [open, token]);
 
   // Lock scroll while open.
   useEffect(() => {

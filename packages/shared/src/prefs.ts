@@ -51,6 +51,29 @@ export const COOKIE_TODO = 'thefibre.todo';
 // the cookie exists so every app can read it before any API round-trip.
 // Value is one of the shared LOCALES; '' / absent = no preference. Here
 // since 2026-09-14: seven lib/locale.ts copies each declared it themselves.
+/**
+ * Whether an app's first-run "Get set up" card is showing.
+ *
+ * PER APP, unlike every other cookie here, and the exception is deliberate:
+ * dismissing Meet's onboarding says nothing about whether you have found your
+ * way around Thread. The others are preferences about YOU — your theme, your
+ * language, how you like the sidebar — and those travel. This one is about
+ * one app's first ten minutes, and it does not.
+ *
+ * So the name carries the app: `thefibre.getstarted.meet`. Use
+ * `getStartedCookie(app)` rather than writing the string, or the reader and
+ * the writer will disagree about the dot exactly once.
+ *
+ * Note what is NOT stored: which steps are done. Those are read from live
+ * state every time — a stored "completed" flag is a second copy of the truth
+ * and it is the copy that goes wrong. Only the dismissal is a preference.
+ */
+export type GetStartedMode = 'open' | 'dismissed';
+
+export function getStartedCookie(appSlug: string): string {
+  return `thefibre.getstarted.${appSlug}`;
+}
+
 export const COOKIE_LOCALE = 'thefibre.locale';
 
 /**

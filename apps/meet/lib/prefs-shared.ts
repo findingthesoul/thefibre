@@ -11,4 +11,9 @@ export {
   type Prefs,
   COOKIE_TODO,
   type TodoMode,
+  getStartedCookie,
+  type GetStartedMode,
 } from '@thefibre/shared/prefs';
+
+/** Meet's own first-run card. Per app on purpose — see prefs.ts. */
+export const COOKIE_GETSTARTED = 'thefibre.getstarted.meet';

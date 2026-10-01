@@ -5,8 +5,22 @@
 // Sjoerd, 2026-10-01: "can you build an onboarding. You come there for the
 // first time. Take someone through it."
 //
-// It is a list of what is still missing, not a wizard. Three reasons, and the
-// first is the one that decides the shape:
+// A POPUP that keeps turning up until you are set up — Sjoerd, 2026-10-01:
+// "onboading: frist time, until all is set.. and you can uncheck".
+//
+// That is a correction to what I built first, and the correction is right.
+// I had made closing it mean dismissing it, reasoning that nobody ticks a
+// "don't show again" box. But an onboarding that vanishes the first time you
+// close it abandons the person it exists for: you shut it to go and do step
+// one, and it never comes back to show you step two. So closing is just
+// closing — for this visit — and there is an explicit way to switch it off
+// for somebody who genuinely does not want it. The avatar menu brings it
+// back either way.
+//
+// It stops entirely once every step is done. Nothing to turn off by then.
+//
+// Still a list of what is missing rather than a wizard. Three reasons, and
+// the first decides the shape:
 //
 // 1. EVERY STEP IS DERIVED, never stored. "Have you connected a calendar" is
 //    answered by asking whether there is a token, not by a flag somebody set
@@ -25,10 +39,16 @@
 // reason, and a reason is what makes somebody bother.
 
 import Link from 'next/link';
-import { Check, ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Check, ArrowRight, BookOpen } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { MEET_HOST } from '@/lib/public-host';
+import { savePref } from '@/lib/prefs-actions';
+import { COOKIE_GETSTARTED } from '@/lib/prefs-shared';
 
 export type GetStartedState = {
   /** The host's own booking-page slug. */
@@ -38,6 +58,8 @@ export type GetStartedState = {
   hasAvailability: boolean;
   meetingTypeCount: number;
   bookingCount: number;
+  /** A connected Stripe account — what makes a paid meeting type possible. */
+  stripeConnected: boolean;
   /** A photo or a few words: a page with neither reads as unfinished. */
   hasProfile: boolean;
 };
@@ -54,10 +76,37 @@ type Step = {
 export function GetStarted({
   state,
   locale,
+  dismissed,
 }: {
   state: GetStartedState;
   locale: Locale;
+  /** Put away by hand. The STEPS stay derived; only this is remembered —
+   *  "I do not want to see this right now" is a preference, where "have you
+   *  connected a calendar" is a fact. Reachable again from the avatar menu
+   *  (Sjoerd, 2026-10-01: "not open onboarding everytime you come there… and
+   *  an onboarding element in the top right dropdown that opens it"). */
+  dismissed: boolean;
 }) {
+  const router = useRouter();
+  // Open on arrival unless it was put away. State, not a prop, so closing is
+  // instant — the cookie write catches up behind it.
+  const [open, setOpen] = useState(!dismissed);
+  // The second layer: the long version, on request only, so the first
+  // popup stays short enough to read (Sjoerd: "in: show me more - a
+  // second popup").
+  const [more, setMore] = useState(false);
+
+  // Closing is for this visit only. Switching it off is a separate, explicit
+  // act — the checkbox in the footer.
+  function close() {
+    setOpen(false);
+  }
+
+  async function turnOff() {
+    setOpen(false);
+    await savePref(COOKIE_GETSTARTED, 'dismissed');
+    router.refresh();
+  }
   const steps: Step[] = [
     {
       key: 'calendar',
@@ -92,6 +141,14 @@ export function GetStarted({
       cta: t(locale, 'ob_profile_cta'),
     },
     {
+      key: 'payments',
+      done: state.stripeConnected,
+      title: t(locale, 'ob_payments_title'),
+      why: t(locale, 'ob_payments_why'),
+      href: '/settings/payments',
+      cta: t(locale, 'ob_payments_cta'),
+    },
+    {
       key: 'share',
       done: state.bookingCount > 0,
       title: t(locale, 'ob_share_title'),
@@ -104,6 +161,8 @@ export function GetStarted({
   const remaining = steps.filter((s) => !s.done);
   // Done is done. The card does not linger as a row of ticks.
   if (remaining.length === 0) return null;
+  // Put away by hand — but not forgotten: the avatar menu brings it back.
+  if (dismissed) return null;
 
   // The next thing to do, singular. A list of five open tasks is a backlog;
   // one open task with the rest visible behind it is a path.
@@ -111,19 +170,35 @@ export function GetStarted({
   const doneCount = steps.length - remaining.length;
 
   return (
-    <section className="rounded-lg border border-line bg-surface-raised p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-base font-medium">{t(locale, 'ob_title')}</h2>
-        <span className="text-xs text-ink-muted">
-          {t(locale, 'ob_progress', {
-            done: String(doneCount),
-            total: String(steps.length),
-          })}
-        </span>
+    <Dialog
+      open={open}
+      onClose={close}
+      title={t(locale, 'ob_title')}
+      description={t(locale, 'ob_intro')}
+      size="lg"
+      footer={
+        <>
+          {/* The off switch, where somebody who does not want this will look
+              for it — beside the button that closes it, not hidden behind a
+              menu. Ticking it IS the act; there is no second confirm. */}
+          <label className="mr-auto flex items-center gap-2 text-sm text-ink-subtle">
+            <input type="checkbox" onChange={(e) => e.target.checked && void turnOff()} />
+            {t(locale, 'ob_dont_show_again')}
+          </label>
+          <Button type="button" onClick={close}>
+            {t(locale, 'ob_close')}
+          </Button>
+        </>
+      }
+    >
+      <div className="text-right text-xs text-ink-muted">
+        {t(locale, 'ob_progress', {
+          done: String(doneCount),
+          total: String(steps.length),
+        })}
       </div>
-      <p className="mt-1 text-sm text-ink-subtle">{t(locale, 'ob_intro')}</p>
 
-      <ol className="mt-4 space-y-2">
+      <ol className="mt-3 space-y-2">
         {steps.map((s) => {
           const isNext = s.key === next.key;
           return (
@@ -149,7 +224,22 @@ export function GetStarted({
                   </div>
                   {/* The reason only matters while the step is open. */}
                   {!s.done && (
-                    <p className="mt-0.5 text-xs text-ink-subtle">{s.why}</p>
+                    <>
+                      <p className="mt-0.5 text-xs text-ink-subtle">{s.why}</p>
+                      {/* One step gets a second paragraph: "meeting type" is
+                          the only piece of vocabulary here that somebody can
+                          arrive without, and the whole product hangs off it
+                          (Sjoerd: "maybe also explain a bit on meeting types"). */}
+                      {s.key === 'type' && (
+                        <button
+                          type="button"
+                          onClick={() => setMore(true)}
+                          className="mt-1.5 text-xs underline underline-offset-2 text-ink-subtle hover:text-ink"
+                        >
+                          {t(locale, 'ob_show_me_more')}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
                 {!s.done && (
@@ -184,6 +274,33 @@ export function GetStarted({
           </span>
         </div>
       )}
-    </section>
+      {/* The long version, stacked on the first. Escape closes THIS one and
+          leaves the onboarding standing — the shared Dialog keeps a stack so
+          the topmost answers the key. */}
+      <Dialog
+        open={more}
+        onClose={() => setMore(false)}
+        title={t(locale, 'ob_type_more_title')}
+        size="md"
+        footer={
+          <Button type="button" onClick={() => setMore(false)}>
+            {t(locale, 'ob_close')}
+          </Button>
+        }
+      >
+        <div className="space-y-3 text-sm text-ink-subtle leading-relaxed">
+          <p>{t(locale, 'ob_type_more_1')}</p>
+          <p>{t(locale, 'ob_type_more_2')}</p>
+          <p>{t(locale, 'ob_type_more_3')}</p>
+          <Link
+            href="/help"
+            className="inline-flex items-center gap-1.5 text-xs underline underline-offset-2 hover:text-ink"
+          >
+            <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {t(locale, 'ob_read_the_guide')}
+          </Link>
+        </div>
+      </Dialog>
+    </Dialog>
   );
 }

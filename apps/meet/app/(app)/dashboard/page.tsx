@@ -10,7 +10,9 @@ import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { QuickLinkRow, type QuickLink } from './quick-link';
 import { ClickableBookingRow } from '@/components/clickable-booking-row';
+import { cookies } from 'next/headers';
 import { GetStarted } from './get-started';
+import { COOKIE_GETSTARTED } from '@/lib/prefs-shared';
 
 type Me = {
   user: { full_name: string | null; email: string };
@@ -24,6 +26,7 @@ type Host = {
   working_hours?: unknown;
   photo_url?: string | null;
   bio?: string | null;
+  stripe_account_id?: string | null;
 };
 type Team = { id: string; slug: string; name: string; is_active: boolean };
 type MT = {
@@ -79,6 +82,8 @@ function isToday(iso: string): boolean {
 
 export default async function MeetDashboard() {
   const locale = await uiLocale();
+  // Read, not stored per step: only the dismissal is a preference.
+  const getStarted = (await cookies()).get(COOKIE_GETSTARTED)?.value;
   let me: Me | null = null;
   let host: Host | null = null;
   let mts: MT[] = [];
@@ -171,11 +176,11 @@ export default async function MeetDashboard() {
 
       {error && <ErrorBanner>{t(locale, 'couldnt_load_some', { error })}</ErrorBanner>}
 
-      {/* First five minutes. Derived from live state, so it disappears by
-          itself once there is nothing left to do — and comes back honestly if
-          somebody disconnects their calendar again. */}
-      <div className="mt-8">
-        <GetStarted
+      {/* First five minutes, as a popup on arrival. Derived from live state,
+          so it stops appearing once there is nothing left to do — and would
+          come back honestly if somebody disconnected their calendar again.
+          Renders no layout of its own: it is a dialog or it is nothing. */}
+      <GetStarted
           locale={locale}
           state={{
             slug: host?.slug ?? null,
@@ -186,9 +191,10 @@ export default async function MeetDashboard() {
             meetingTypeCount: mts.length,
             bookingCount: bookings.length,
             hasProfile: !!(host?.photo_url || host?.bio),
+            stripeConnected: !!host?.stripe_account_id,
           }}
-        />
-      </div>
+        dismissed={getStarted === 'dismissed'}
+      />
 
       {pageLinks.length > 0 && (
         <section className="mt-10">

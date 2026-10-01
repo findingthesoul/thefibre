@@ -6,6 +6,61 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.96.0] — 2026-10-01 — the onboarding, as Sjoerd actually described it (Meet 2.23.0)
+
+v1.95.0 put a Get-set-up card on Meet's dashboard. Three corrections later it
+is what he asked for, and each correction is worth keeping because each one
+says something the first version got wrong.
+
+**A popup, not a card.** *"Please - onboarding in a popup."* The shared
+`Dialog`, with its footer bar — not a per-app variant.
+
+**It keeps coming back until you are set up.** *"first time, until all is set..
+and you can uncheck."* I had made closing it mean dismissing it, reasoning
+that nobody ticks a "don't show again" box. That was wrong in the way that
+matters: you close it to go and do step one, and it never comes back to show
+you step two. Closing is now just closing, for this visit. Switching it off is
+a separate, explicit tick in the footer — and once every step is done it stops
+on its own, with nothing to turn off.
+
+**Stripe is a step**, phrased as the optional one it is: only needed if you
+charge, skip it if everything you offer is free.
+
+**"Show me more" opens a second popup** on the meeting-type step. *"(in: show
+me more - a second popup)."* Meeting type is the one piece of vocabulary
+somebody can arrive without, and the whole product hangs off it, so the short
+line stays short and the long version — what it is, that people book the type
+rather than your diary, how a poll differs — is one click away, with the Help
+page linked from there.
+
+**Reopened from the avatar menu.** `UserMenu` gained an optional `extraItems`
+so an app can add a row without forking the shared menu.
+
+### Escape used to close the wrong dialog
+
+Stacking the second popup on the first exposed a real bug in the shared
+`Dialog`, and it is the one its own header warned about: the Escape listener
+sits on `document` in the bubble phase, and listeners there fire in
+registration order — so the OUTER dialog, open first, won. Escape shut the
+onboarding and left the explanation floating over a page whose parent had
+gone. The same shape cost an hour in the visitor portal on 2026-09-09.
+
+Open dialogs now keep a stack and only the topmost one answers Escape. Order
+of registration stops mattering, which is the point: a component cannot know
+what somebody will stack on it later. A non-dialog layer — a dropdown, a
+popover — still needs capture phase and `stopImmediatePropagation`, and the
+header now says which rule applies to whom.
+
+### What is stored, and what is not
+
+Only the off switch. Which steps are done is read from live state every time —
+a Google token, non-empty working hours, a meeting type, a photo or a bio, a
+Stripe account, any booking. A stored "completed" flag is a second copy of the
+truth and it is the copy that goes wrong: disconnect your calendar and the app
+congratulates you anyway. The cookie is per app (`thefibre.getstarted.meet`),
+unlike every other preference here, because dismissing Meet's onboarding says
+nothing about whether you have found your way around Thread.
+
 ## [1.95.1] — 2026-10-01 — a runway: nothing lands or departs without clearance
 
 "Think of it as air traffic control. No one lands or departs without

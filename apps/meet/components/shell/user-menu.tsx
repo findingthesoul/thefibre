@@ -5,10 +5,13 @@
 // savePref, workspace switching, sign-out — as injected callbacks.
 
 import { useRouter } from 'next/navigation';
+import { Compass } from 'lucide-react';
 import { UserMenu as SharedUserMenu, type WorkspaceChoice } from '@thefibre/shared/ui/user-menu';
 import type { SidebarMode, Theme } from '@/lib/prefs-shared';
 import { browserSupabase } from '@/lib/supabase/client';
 import { savePref } from '@/lib/prefs-actions';
+import { COOKIE_GETSTARTED } from '@/lib/prefs-shared';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { switchWorkspace } from '@/lib/workspace-actions';
 
 export type { WorkspaceChoice };
@@ -20,11 +23,30 @@ export function UserMenu(props: {
   theme: Theme;
   sidebar: SidebarMode;
   workspaces?: WorkspaceChoice[];
+  locale: Locale;
 }) {
   const router = useRouter();
+  const { locale, ...rest } = props;
   return (
     <SharedUserMenu
-      {...props}
+      {...rest}
+      // An onboarding you put away has to be findable again, and the avatar
+      // menu is where people look for the thing they turned off. It sends
+      // you to the dashboard, because that is where the card lives — landing
+      // on a page with no card would be its own small lie.
+      extraItems={[
+        {
+          key: 'get-started',
+          icon: Compass,
+          label: t(locale, 'ob_reopen'),
+          onClick: () => {
+            void savePref(COOKIE_GETSTARTED, 'open').then(() => {
+              router.push('/dashboard');
+              router.refresh();
+            });
+          },
+        },
+      ]}
       onSavePref={savePref}
       onSidebarChanged={() => router.refresh()}
       onSwitchWorkspace={async (id) => {

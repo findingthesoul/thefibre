@@ -3952,6 +3952,110 @@ const CATALOG = {
     de: 'Seite ansehen', // MT
     fr: 'Voir la page', // MT
   },
+  ob_dismiss: {
+    en: 'Put this away',
+    nl: 'Even wegzetten',
+    es: 'Guardar esto', // MT
+    pt: 'Guardar isto', // MT
+    de: 'Weglegen', // MT
+    fr: 'Ranger ceci', // MT
+  },
+  ob_reopen: {
+    en: 'Get set up',
+    nl: 'Even instellen',
+    es: 'Pon todo a punto', // MT
+    pt: 'Começa a configurar', // MT
+    de: 'Kurz einrichten', // MT
+    fr: 'Mets tout en place', // MT
+  },
+  ob_read_the_guide: {
+    en: 'Read the full guide',
+    nl: 'Lees de volledige uitleg',
+    es: 'Leer la guía completa', // MT
+    pt: 'Ler o guia completo', // MT
+    de: 'Die ganze Anleitung lesen', // MT
+    fr: 'Lire le guide complet', // MT
+  },
+  ob_payments_title: {
+    en: 'Connect Stripe, if you charge',
+    nl: 'Koppel Stripe, als je iets rekent',
+    es: 'Conecta Stripe, si cobras', // MT
+    pt: 'Liga o Stripe, se cobras', // MT
+    de: 'Stripe verbinden, wenn du abrechnest', // MT
+    fr: 'Connecte Stripe, si tu factures', // MT
+  },
+  ob_payments_why: {
+    en: 'Only needed for paid meetings — people pay when they book, and the invoice goes out by itself. Skip it if everything you offer is free.',
+    nl: 'Alleen nodig voor betaalde afspraken — mensen betalen bij het boeken en de factuur gaat vanzelf de deur uit. Sla het over als alles wat je aanbiedt gratis is.',
+    es: 'Solo hace falta para reuniones de pago: la gente paga al reservar y la factura sale sola. Sáltatelo si todo lo que ofreces es gratis.', // MT
+    pt: 'Só é preciso para reuniões pagas — as pessoas pagam ao marcar e a fatura sai sozinha. Salta isto se tudo o que ofereces é grátis.', // MT
+    de: 'Nur für bezahlte Termine nötig — man zahlt beim Buchen und die Rechnung geht von selbst raus. Überspring es, wenn alles kostenlos ist.', // MT
+    fr: 'Utile seulement pour les rendez-vous payants — on paie en réservant et la facture part toute seule. Passe si tout ce que tu proposes est gratuit.', // MT
+  },
+  ob_payments_cta: {
+    en: 'Set up payments',
+    nl: 'Betalingen instellen',
+    es: 'Configurar los pagos', // MT
+    pt: 'Configurar pagamentos', // MT
+    de: 'Zahlungen einrichten', // MT
+    fr: 'Configurer les paiements', // MT
+  },
+  ob_close: {
+    en: 'Close',
+    nl: 'Sluiten',
+    es: 'Cerrar', // MT
+    pt: 'Fechar', // MT
+    de: 'Schließen', // MT
+    fr: 'Fermer', // MT
+  },
+  ob_dont_show_again: {
+    en: 'Don\u2019t show this again',
+    nl: 'Dit niet meer tonen',
+    es: 'No volver a mostrar esto', // MT
+    pt: 'N\u00e3o mostrar isto outra vez', // MT
+    de: 'Das nicht mehr anzeigen', // MT
+    fr: 'Ne plus afficher ceci', // MT
+  },
+  ob_show_me_more: {
+    en: 'Show me more',
+    nl: 'Laat me meer zien',
+    es: 'Mu\u00e9strame m\u00e1s', // MT
+    pt: 'Mostra-me mais', // MT
+    de: 'Mehr dazu', // MT
+    fr: 'En savoir plus', // MT
+  },
+  ob_type_more_title: {
+    en: 'What is a meeting type?',
+    nl: 'Wat is een afspraaktype?',
+    es: '\u00bfQu\u00e9 es un tipo de reuni\u00f3n?', // MT
+    pt: 'O que \u00e9 um tipo de reuni\u00e3o?', // MT
+    de: 'Was ist ein Meeting-Typ?',  // MT
+    fr: 'Qu\u2019est-ce qu\u2019un type de rendez-vous ?', // MT
+  },
+  ob_type_more_1: {
+    en: 'A meeting type is one kind of conversation you are willing to have: a half-hour intro, an hour of advice, a twenty-minute check-in. You describe it once — how long it lasts, where it happens, what it costs if anything — and it gets its own page and its own link.',
+    nl: 'Een afspraaktype is \u00e9\u00e9n soort gesprek dat je wilt voeren: een half uur kennismaken, een uur advies, twintig minuten bijpraten. Je beschrijft het \u00e9\u00e9n keer \u2014 hoe lang het duurt, waar het plaatsvindt, wat het eventueel kost \u2014 en het krijgt een eigen pagina en een eigen link.',
+    es: 'Un tipo de reuni\u00f3n es una clase de conversaci\u00f3n que quieres tener: media hora de presentaci\u00f3n, una hora de asesor\u00eda, veinte minutos de seguimiento. Lo describes una vez \u2014 cu\u00e1nto dura, d\u00f3nde ocurre, cu\u00e1nto cuesta si cuesta algo \u2014 y tiene su propia p\u00e1gina y su propio enlace.', // MT
+    pt: 'Um tipo de reuni\u00e3o \u00e9 um tipo de conversa que queres ter: meia hora de apresenta\u00e7\u00e3o, uma hora de aconselhamento, vinte minutos de ponto de situa\u00e7\u00e3o. Descreve-lo uma vez \u2014 quanto dura, onde acontece, quanto custa se custar \u2014 e fica com a sua pr\u00f3pria p\u00e1gina e liga\u00e7\u00e3o.', // MT
+    de: 'Ein Meeting-Typ ist eine Art Gespr\u00e4ch, die du f\u00fchren willst: eine halbe Stunde Kennenlernen, eine Stunde Beratung, zwanzig Minuten Austausch. Du beschreibst ihn einmal \u2014 wie lange er dauert, wo er stattfindet, was er gegebenenfalls kostet \u2014 und er bekommt eine eigene Seite und einen eigenen Link.', // MT
+    fr: 'Un type de rendez-vous est une sorte de conversation que tu veux avoir : une demi-heure de pr\u00e9sentation, une heure de conseil, vingt minutes de point. Tu le d\u00e9cris une fois \u2014 sa dur\u00e9e, son lieu, son prix s\u2019il en a un \u2014 et il obtient sa propre page et son propre lien.', // MT
+  },
+  ob_type_more_2: {
+    en: 'People book the type, not your diary. They see only the times you are actually free for that kind of meeting, so nobody has to ask when suits you, and nothing lands on top of something else.',
+    nl: 'Mensen boeken het type, niet je agenda. Ze zien alleen de tijden waarop je voor dat soort afspraak \u00e9cht vrij bent, dus niemand hoeft te vragen wanneer het schikt en er valt niets bovenop iets anders.',
+    es: 'La gente reserva el tipo, no tu agenda. Solo ve las horas en las que est\u00e1s realmente libre para ese tipo de reuni\u00f3n, as\u00ed que nadie tiene que preguntar cu\u00e1ndo te viene bien y nada se solapa.', // MT
+    pt: 'As pessoas marcam o tipo, n\u00e3o a tua agenda. S\u00f3 veem as horas em que est\u00e1s mesmo livre para esse tipo de reuni\u00e3o, por isso ningu\u00e9m tem de perguntar quando te d\u00e1 jeito e nada se sobrep\u00f5e.', // MT
+    de: 'Man bucht den Typ, nicht deinen Kalender. Sichtbar sind nur die Zeiten, zu denen du f\u00fcr diese Art Termin wirklich frei bist \u2014 niemand muss fragen, wann es dir passt, und nichts landet auf etwas anderem.', // MT
+    fr: 'On r\u00e9serve le type, pas ton agenda. On ne voit que les horaires o\u00f9 tu es vraiment libre pour ce genre de rendez-vous : personne n\u2019a \u00e0 demander quand \u00e7a t\u2019arrange, et rien ne se superpose.', // MT
+  },
+  ob_type_more_3: {
+    en: 'Most people start with one and add more later. A poll is a different sort: instead of offering your free times, you propose a few and let everyone say which they can make.',
+    nl: 'De meeste mensen beginnen met \u00e9\u00e9n en voegen er later meer toe. Een poll is een ander soort: in plaats van je vrije tijden aan te bieden, stel je er een paar voor en laat je iedereen zeggen wanneer ze kunnen.',
+    es: 'La mayor\u00eda empieza con uno y a\u00f1ade m\u00e1s despu\u00e9s. Una encuesta es otra cosa: en vez de ofrecer tus horas libres, propones unas cuantas y cada cual dice a cu\u00e1les puede.', // MT
+    pt: 'A maioria come\u00e7a com um e acrescenta mais depois. Uma sondagem \u00e9 outra coisa: em vez de ofereceres as tuas horas livres, prop\u00f5es algumas e cada um diz a quais pode.', // MT
+    de: 'Die meisten fangen mit einem an und erg\u00e4nzen sp\u00e4ter. Eine Umfrage ist etwas anderes: statt deine freien Zeiten anzubieten, schl\u00e4gst du ein paar vor und jeder sagt, wann er kann.', // MT
+    fr: 'La plupart commencent par un seul et en ajoutent ensuite. Un sondage est d\u2019une autre nature : au lieu de proposer tes cr\u00e9neaux libres, tu en proposes quelques-uns et chacun dit o\u00f9 il peut.', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

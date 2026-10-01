@@ -54,6 +54,7 @@ export function UserMenu({
   onSidebarChanged,
   onSwitchWorkspace,
   onSignOut,
+  extraItems = [],
 }: {
   email: string;
   fullName: string;
@@ -76,6 +77,23 @@ export function UserMenu({
    *  navigate home, refresh. Resolve with {error} to keep the menu open. */
   onSwitchWorkspace?: (id: string) => Promise<{ error?: string } | void>;
   onSignOut: () => Promise<void>;
+  /**
+   * App-specific rows, above the sidebar and theme blocks.
+   *
+   * Meet's "Get set up" is the first: an onboarding you dismissed has to be
+   * reachable again, and the avatar menu is where somebody looks for a thing
+   * they turned off (Sjoerd, 2026-10-01). Typed rather than a ReactNode slot
+   * so every app's extra row looks like every other row in this menu — the
+   * point of one shared menu is that it does not sprout six different
+   * item styles.
+   */
+  extraItems?: {
+    key: string;
+    icon: typeof UserIcon;
+    label: string;
+    href?: string;
+    onClick?: () => void;
+  }[];
 }) {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
@@ -223,6 +241,21 @@ export function UserMenu({
                   }
                   active={w.is_active}
                   onClick={() => pickWorkspace(w.id)}
+                />
+              ))}
+            </>
+          )}
+
+          {extraItems.length > 0 && (
+            <>
+              <Divider />
+              {extraItems.map((it) => (
+                <Item
+                  key={it.key}
+                  icon={it.icon}
+                  label={it.label}
+                  {...(it.href ? { href: it.href } : {})}
+                  {...(it.onClick ? { onClick: it.onClick } : {})}
                 />
               ))}
             </>
