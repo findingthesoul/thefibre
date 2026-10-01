@@ -43,7 +43,13 @@ import {
   userZoomToken,
   userZoomAccount,
   saveZoomConnection,
+  forgetZoomUser,
 } from '../lib/connections.js';
+import {
+  verifyZoomSignature,
+  zoomUrlValidationResponse,
+  parseZoomDeauthorization,
+} from '../lib/zoom/webhook.js';
 import {
   isZoomConfigured,
   zoomAuthorizeUrl,
@@ -2117,20 +2123,100 @@ meetRoutes.get('/zoom/auth-callback', async (c) => {
 
   // Which Zoom account this is — shown on the settings card so a user with
   // both a personal and a work Zoom can tell which one is wired up.
+  //
+  // No longer optional (2026-09-14). Zoom's deauthorization names the user by
+  // Zoom's id, and a connection saved without it could never be found and
+  // deleted when the user removes the app — a credential outliving consent,
+  // which Marketplace review fails. So if Zoom will not say who this is, the
+  // connect fails rather than storing a token nobody can later revoke.
   let accountEmail: string | null = null;
+  let zoomUserId: string;
   try {
-    accountEmail = (await fetchZoomUser(tokens.accessToken)).email;
+    const zoomUser = await fetchZoomUser(tokens.accessToken);
+    accountEmail = zoomUser.email ?? null;
+    zoomUserId = zoomUser.id;
+    if (!zoomUserId) throw new Error('Zoom returned no user id');
   } catch (e) {
-    console.error('[zoom/auth-callback] user fetch failed (non-fatal)', e);
+    console.error('[zoom/auth-callback] user fetch failed', e);
+    return c.redirect(`${settingsUrl}?zoom=error&reason=user`);
   }
 
-  const { error } = await saveZoomConnection(userId, tokens.refreshToken, accountEmail);
+  const { error } = await saveZoomConnection(userId, tokens.refreshToken, accountEmail, zoomUserId);
   if (error) {
     console.error('[zoom/auth-callback] save token', error);
     return c.redirect(`${settingsUrl}?zoom=error&reason=db`);
   }
   clearZoomTokenCache(userId);
   return c.redirect(`${settingsUrl}?zoom=connected`);
+});
+
+// POST /api/v1/meet/zoom/webhook — Zoom's Deauthorization Notification
+// Endpoint (Marketplace filing prep, 2026-09-14). Public: Zoom calls it with
+// no session, so it is in PUBLIC_PATHS and trusts nothing until the
+// signature says Zoom sent it.
+//
+// Order matters and is the whole design:
+//   1. No secret configured → 503, before reading anything.
+//   2. Verify x-zm-signature over the RAW body → 401 on any failure, BEFORE
+//      any database access. A public route that touches the database on an
+//      unverified request is a delete endpoint for anyone.
+//   3. endpoint.url_validation → answer the challenge.
+//   4. app_deauthorized → delete the user's Zoom data, for real.
+//   5. Anything else → 204, so Zoom does not retry events we do not use.
+//
+// Zoom counts a delivery as failed without a 200/204 inside three seconds,
+// so there is no slow work here: one update, one cache clear.
+meetRoutes.post('/zoom/webhook', async (c) => {
+  const secret = process.env.ZOOM_WEBHOOK_SECRET_TOKEN;
+  if (!secret) {
+    console.error('[zoom/webhook] ZOOM_WEBHOOK_SECRET_TOKEN is not set');
+    return c.json({ error: 'webhook not configured' }, 503);
+  }
+
+  const raw = await c.req.text();
+  const check = verifyZoomSignature({
+    secret,
+    rawBody: raw,
+    signature: c.req.header('x-zm-signature'),
+    timestamp: c.req.header('x-zm-request-timestamp'),
+  });
+  if (!check.ok) {
+    console.warn('[zoom/webhook] refused', check.reason);
+    return c.json({ error: 'invalid signature' }, 401);
+  }
+
+  let event: { event?: string; payload?: { plainToken?: unknown } };
+  try {
+    event = JSON.parse(raw);
+  } catch {
+    return c.json({ error: 'invalid JSON' }, 400);
+  }
+
+  if (event.event === 'endpoint.url_validation') {
+    const plainToken = event.payload?.plainToken;
+    if (typeof plainToken !== 'string' || !plainToken) {
+      return c.json({ error: 'plainToken missing' }, 400);
+    }
+    return c.json(zoomUrlValidationResponse(secret, plainToken), 200);
+  }
+
+  const deauth = parseZoomDeauthorization(event);
+  if (deauth) {
+    const { clearedUserIds, error } = await forgetZoomUser(deauth.userId);
+    if (error) {
+      // A 500 makes Zoom retry, which is what we want: the data is not gone.
+      console.error('[zoom/webhook] deauthorization delete failed', { zoomUserId: deauth.userId, error });
+      return c.json({ error: 'could not delete' }, 500);
+    }
+    for (const id of clearedUserIds) clearZoomTokenCache(id);
+    console.log('[zoom/webhook] deauthorized', {
+      zoomUserId: deauth.userId,
+      clearedConnections: clearedUserIds.length,
+    });
+    return c.body(null, 204);
+  }
+
+  return c.body(null, 204);
 });
 
 // POST /api/v1/meet/zoom/disconnect

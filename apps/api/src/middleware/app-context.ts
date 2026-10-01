@@ -134,6 +134,9 @@ const PUBLIC_PREFIXES = [
   // Zoom OAuth lands here with code+state; the state is a signed JWT that
   // carries the user, so the callback authenticates itself.
   '/api/v1/meet/zoom/auth-callback',
+  // Zoom's Deauthorization Notification Endpoint — Zoom calls it with no
+  // session; the handler verifies x-zm-signature before touching anything.
+  '/api/v1/meet/zoom/webhook',
   // Stripe webhook — signature-verified inside the handler.
   '/api/v1/meet/stripe-webhook',
   // The Thread public pages (organiser page, thread page, enrolment flow)

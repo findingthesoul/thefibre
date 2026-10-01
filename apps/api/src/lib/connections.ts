@@ -146,17 +146,56 @@ export async function hostZoomUserId(
   return data?.user_id ?? null;
 }
 
-/** Write the rotated token. `token: null` disconnects. */
+/**
+ * Write the rotated token. `token: null` disconnects.
+ *
+ * `zoomUserId` is Zoom's own id for the account (20260914220000) — the key
+ * Zoom's deauthorization arrives with. Pass it at connect time; token
+ * rotations leave it alone. Disconnecting clears it with everything else.
+ */
 export async function saveZoomConnection(
   userId: string,
   token: string | null,
   accountEmail?: string | null,
+  zoomUserId?: string | null,
 ): Promise<{ error: string | null }> {
   const patch: Record<string, unknown> = { user_id: userId, zoom_refresh_token: token };
-  if (token === null) patch.zoom_account_email = null;
-  else if (accountEmail !== undefined) patch.zoom_account_email = accountEmail;
+  if (token === null) {
+    patch.zoom_account_email = null;
+    patch.zoom_user_id = null;
+  } else {
+    if (accountEmail !== undefined) patch.zoom_account_email = accountEmail;
+    if (zoomUserId !== undefined) patch.zoom_user_id = zoomUserId;
+  }
   const { error } = await adminClient
     .from('user_connection')
     .upsert(patch, { onConflict: 'user_id' });
   return { error: error?.message ?? null };
+}
+
+/**
+ * Zoom says this Zoom user removed the app: delete what we hold for them.
+ *
+ * Marketplace review requires the data actually be gone, not the event
+ * acknowledged. So this clears the refresh token, the account email and the
+ * Zoom id on EVERY row carrying that id — one human may have connected the
+ * same Zoom account from more than one workspace — and returns the platform
+ * user ids it cleared, so the caller can drop their cached access tokens.
+ *
+ * Meeting links already written onto past bookings stay: they belong to the
+ * booking, not to the Zoom connection, and a host's booking history does not
+ * vanish because they uninstalled an integration.
+ */
+export async function forgetZoomUser(
+  zoomUserId: string,
+): Promise<{ clearedUserIds: string[]; error: string | null }> {
+  const { data, error } = await adminClient
+    .from('user_connection')
+    .update({ zoom_refresh_token: null, zoom_account_email: null, zoom_user_id: null })
+    .eq('zoom_user_id', zoomUserId)
+    .select('user_id');
+  return {
+    clearedUserIds: (data ?? []).map((r) => r.user_id as string),
+    error: error?.message ?? null,
+  };
 }

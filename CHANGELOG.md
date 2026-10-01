@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.94.0] — 2026-10-01 — a host who removes the app from Zoom is forgotten (staging)
+
+Sjoerd, setting Zoom up for the Marketplace: *"use production for the request
+of the zoom app marketplace so others can add their zoom."* A publicly listed
+Zoom app has to **delete a user's data when they remove it**, and Zoom's review
+tests that. We could not have: the connection stored the Zoom email but never
+Zoom's own id, so a deauthorization would have arrived for someone we had no
+way to find, and their refresh token would have outlived their consent.
+
+- **`POST /api/v1/meet/zoom/webhook`** is Zoom's Deauthorization Notification
+  Endpoint. Order is the design: no `ZOOM_WEBHOOK_SECRET_TOKEN` → 503; verify
+  `x-zm-signature` over the RAW body (constant-time, five-minute replay window)
+  → 401 before any database access; answer `endpoint.url_validation`; on
+  `app_deauthorized` delete for real; anything else 204 so Zoom doesn't retry.
+- **What is deleted:** the refresh token, account email and Zoom id, on every
+  `user_connection` row carrying that id (one person may connect the same Zoom
+  from more than one workspace). **What is kept, on purpose:** the personal-room
+  URL (a host typed it; Zoom granted nothing) and the join links already
+  written onto past bookings (they belong to the booking).
+- **Connect now stores the Zoom id and fails without it** — a token nobody can
+  later revoke is worse than no connection. Migration `user_connection.zoom_user_id`
+  (indexed, not unique). The one staging connection made before this existed is
+  disconnected and reconnected once.
+- Found while finishing it: the parked draft's route was not in the API's public
+  prefixes, so Zoom's call would have been refused before reaching the signature
+  check; and its migration was stamped 2026-09-14, older than everything applied
+  since. Both fixed. Setup is in `docs/deploy.md` § Zoom.
+
 ## [1.93.1] — 2026-10-01 — the online option is one you can actually hold (staging)
 
 Sjoerd, immediately after the previous release: *"the least should be: if

@@ -336,6 +336,27 @@ fly secrets set --stage ZOOM_CLIENT_ID="$ZOOM_CLIENT_ID" ZOOM_CLIENT_SECRET="$ZO
    until a host outside that Zoom account needs to connect
    (docs/zoom-marketplace-submission.md).
 
+**Deauthorization webhook (required before publishing).** A Marketplace app
+must delete a user's Zoom data when they remove the app. The endpoint is
+`POST /api/v1/meet/zoom/webhook` (same host as the callback). Setup, per
+Zoom app (development and production are separate apps with separate values):
+
+1. In the Zoom app → Features → Access, open **Event Subscriptions**, add the
+   endpoint `https://api.thethread.app/api/v1/meet/zoom/webhook` (staging: the
+   staging API host), and subscribe to **App Deauthorized**.
+2. Copy that page's **Secret Token** and set it, staged, as
+   `ZOOM_WEBHOOK_SECRET_TOKEN` (same `read -s` pattern as above; it is NOT the
+   Client Secret). Deploy, THEN click Validate in Zoom — validation needs the
+   secret already live.
+3. A connection made before migration `…_user_connection_zoom_user_id` carries
+   no Zoom id and can never be revoked by this endpoint; disconnect and
+   reconnect it once.
+
+What a deauthorization clears: the refresh token, account email and Zoom id in
+`user_connection` (every row with that id). It deliberately leaves the
+personal-room URL (typed by the host, not granted by Zoom) and the join links
+already written onto past bookings.
+
 Until those secrets exist, Settings → Integrations shows Zoom as "not set up
 on this server" and the Zoom option in the meeting-type form stays
 unselectable — nothing breaks, the feature is simply off. Each host then
