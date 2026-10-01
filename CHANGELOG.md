@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.95.1] — 2026-10-01 — a runway: nothing lands or departs without clearance
+
+"Think of it as air traffic control. No one lands or departs without
+permission and full safety checks." (Sjoerd, 2026-10-01.)
+
+Seven chats share one `staging`, and announcements between them lose races to
+pushes: on the same day one session lost three releases in a row, each a full
+re-roll, because `pnpm verify` takes minutes and staging moved underneath it.
+So the rule stopped being asked and started being checked.
+
+`scripts/runway.sh` keeps ONE clearance in the shared git directory, created
+with noclobber so two grants cannot both win. A session requests it with what
+it verified and — required, not optional — what it did NOT. The controller's
+`clear` refuses when the runway is busy, the commit is not built on current
+staging, a "docs" push touches code, or the range adds a migration version that
+collides with any worktree. `release.sh`, `deploy-api.sh` and `promote.sh` then
+refuse without it, and `release.sh` checks a second time after verify, because
+a base that moved during verify voids the clearance — the lost race refused
+instead of discovered. A pre-push hook covers a bare `git push`.
+
+Production is only granted with Sjoerd's own words, recorded in the log.
+
+Built to fail open, on purpose, after two peers asked for exactly that: the
+clearance expires after 45 minutes; the hook lets a push through if the
+control script itself crashes, and never gates a person at a terminal; and
+`RUNWAY_BYPASS="<reason>"` is named in every refusal and logged. A tower that
+leaves the lights red when it goes down is worse than the races.
+
+`scripts/runway.test.sh` (24 checks, in a throwaway origin) is in `pnpm
+verify`. `docs/runway.md` has the operating detail; CLAUDE.md rule 4 points at
+it and keeps Sjoerd's two quotes.
+
+Verified: the 24 mechanism checks, `bash -n` on all four edited scripts.
+**Not verified:** a real `release.sh` run with the new checks — this release is
+the first.
+
 ## [1.95.0] — 2026-10-01 — the first five minutes in Meet (Meet 2.22.0)
 
 "Can you build an onboarding. You come there for the first time. Take someone

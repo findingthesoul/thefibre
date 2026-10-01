@@ -25,6 +25,13 @@ if [[ ! "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 git fetch origin
+
+# ── Runway clearance (2026-10-01) ───────────────────────────────────────────
+# Nobody lands without it. Checked here for a fast refusal, and again after
+# `pnpm verify` and before the push, because verify takes minutes and the base
+# can move underneath it. See scripts/runway.sh and docs/runway.md.
+./scripts/runway.sh check --kind release
+
 ./scripts/release-guard.sh "$V"
 
 # Every version surface must already agree with $V — refuse a half-prepared
@@ -140,6 +147,9 @@ fi
 
 pnpm verify
 
+# Verify took minutes. Is the runway still ours, and has staging stood still?
+./scripts/runway.sh check --kind release
+
 # HEAD, not the ref named `main`. In the main checkout they are the same
 # commit. From a WORKTREE they are not: `main` is checked out in the main
 # checkout and is whatever that tree last had, so every gate above would
@@ -148,6 +158,7 @@ pnpm verify
 # sessions to take one for code work, so this was about to become the
 # normal path rather than the exception). HEAD is what the gates read.
 git push origin HEAD:staging
+./scripts/runway.sh land
 
 # ── After the push: did somebody take this number too? ──────────────────────
 #

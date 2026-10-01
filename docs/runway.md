@@ -1,0 +1,87 @@
+# Runway control
+
+Several chats share one repo and one `staging` branch. Sjoerd, 2026-10-01:
+*"Think of it as air traffic control. No one lands or departs without
+permission and full safety checks."* This is that, enforced by the scripts
+every landing and departure already goes through. The rule is in CLAUDE.md
+rule 4; this is how to operate it.
+
+## Vocabulary
+
+| Aviation | Here |
+|---|---|
+| Land | push to `staging` (`release.sh`, or a docs push) |
+| Depart | `deploy-api.sh staging|prod`, `promote.sh` (main) |
+| Clearance | one file in the SHARED git dir, `runway/clearance` |
+| Controller | the session that runs `clear`; a role, not a chat |
+
+One runway: **one clearance at a time.** It is created with noclobber, so two
+grants cannot both succeed.
+
+## As a pilot (any session that wants to land or deploy)
+
+```bash
+export RUNWAY_SESSION=meet          # who you are; per command, shells don't persist
+RUNWAY_SESSION=meet ./scripts/runway.sh request --kind release \
+  --sha <sha> --what "one line" \
+  --verified "typecheck, unit, real build" \
+  --unverified "nobody has seen the card rendered"
+```
+
+Then **wait**. Do not push. The controller replies "CLEARED" or says why not.
+When cleared, run your normal ritual: `RUNWAY_SESSION=meet ./scripts/release.sh`.
+It checks the clearance, runs `pnpm verify`, **checks again** (verify takes
+minutes), pushes, and calls `land`, which frees the runway.
+
+`--unverified` is mandatory. Write `nothing` only when that is true.
+
+Kinds: `release` (code → staging), `docs` (docs/`*.md` only → staging),
+`api-staging`, `api-prod`, `prod` (promote).
+
+## As the controller
+
+```bash
+./scripts/runway.sh queue                 # who is waiting; read their UNVERIFIED line
+./scripts/runway.sh status                # who holds the runway
+./scripts/runway.sh clear <name> --by <you>
+```
+
+`clear` refuses if the runway is busy, or if the commit isn't built on current
+`origin/staging`, or a `docs` request touches code, or the range adds
+migrations whose versions collide with any worktree
+(`scripts/check-migration-versions.mjs` reads every one — prune dead worktrees
+with `git worktree prune`). For `prod` and `api-prod` it also requires
+`--sjoerd-said "<his words>"` and logs them: **production is only his.**
+
+If staging moves between grant and landing, the clearance is **void** and the
+pilot rebases and requests again. That is the 2026-10-01 lost-race failure,
+refused instead of discovered.
+
+After a landing, the controller looks at it: `node scripts/smoke-staging.mjs`,
+and the surface that changed. The gate proves what it exercises; the pilot's
+`--unverified` line is the part of the claim nothing checked.
+
+## When the tower is down (read this at 02:00)
+
+- **The clearance expires on its own after 45 minutes.** A dead holder costs one
+  timeout. `./scripts/runway.sh status` shows how long is left;
+  `./scripts/runway.sh abort --by <you>` frees it now.
+- **The hook fails open** if `scripts/runway.sh` crashes (exit 70) or is missing
+  from an old checkout, and **never gates a person at a terminal** (a tty on
+  stderr and no `RUNWAY_SESSION`).
+- **Emergency override, no docs needed:** `RUNWAY_BYPASS="<reason>"` before the
+  command. It works, and it is written to the log, so it is visible later.
+  A bare `git push --no-verify` skips the hook but not `release.sh`.
+
+## State and log
+
+`$(git rev-parse --git-common-dir)/runway/` → `queue/`, `clearance`, `log`
+(REQUEST, CLEARED, LANDED, VOID, EXPIRED, BYPASS, ABORT). Untracked; shared by
+every worktree of this clone. Install the hook once per clone:
+`./scripts/runway.sh install-hook`.
+
+## What it does not do
+
+It cannot stop a session that deliberately bypasses it (that is what the log is
+for), and it cannot know whether a feature works. `scripts/runway.test.sh`
+exercises the mechanism in a throwaway repo.

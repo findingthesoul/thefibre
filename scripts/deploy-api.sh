@@ -143,6 +143,13 @@ fi
 
 git fetch -q origin
 
+# ── Runway clearance (2026-10-01) ───────────────────────────────────────────
+# Nobody departs without it. A dry run changes nothing, so it needs none.
+# api-prod is only ever granted on Sjoerd's own words, like promote.sh.
+if [ "$DRY" != "1" ]; then
+  ./scripts/runway.sh check --kind "api-$TARGET"
+fi
+
 # ── 1. What gets COMPILED INTO the image ────────────────────────────────────
 # The Dockerfile copies exactly three source trees (lines 15, 21, 28). Anything
 # uncommitted in them RUNS in production — incident 1.
@@ -350,4 +357,8 @@ else
   # The line a later session can read instead of re-deriving what a release
   # was meant to change.
   echo "deployed $SHORT_SHA as $RELEASE, probe: $ANSWER"
+fi
+
+if [ "$DRY" != "1" ]; then
+  ./scripts/runway.sh land
 fi

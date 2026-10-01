@@ -89,7 +89,12 @@ fi
 # abort the whole promotion one line before the push.
 API_CHANGED="$(git --no-pager diff --name-only origin/main.."$SHA" -- apps/api packages/shared)"
 
+# Production departs only on Sjoerd's words: the clearance for kind=prod is
+# granted with --sjoerd-said, which the log records. See scripts/runway.sh.
+./scripts/runway.sh check --kind prod
+
 git push origin "$SHA":main
+./scripts/runway.sh land
 echo "Promoted. Production is now $(git log --oneline -1 "$SHA")."
 
 # The push deploys the web apps (Vercel builds main) but NOT the API, which
