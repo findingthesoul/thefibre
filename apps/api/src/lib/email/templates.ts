@@ -70,8 +70,52 @@ function fmt(d: Date, tz: string): string {
   }
 }
 
+/**
+ * A booking's When line.
+ *
+ * It printed the WHOLE date on both sides — "Monday, 12 October 2026 at 13:30
+ * CEST → Monday, 12 October 2026 at 14:00 CEST" — which is wrong twice over.
+ * It repeats a date nobody needs twice, and the second half is a
+ * complete-looking date-time, so anything that truncates the line leaves the
+ * END standing alone where the start should be.
+ *
+ * That is not theoretical: Sjoerd screenshotted the moved-booking email on
+ * 2026-10-01 and its preview read "Booking moved; new date is Monday, 12
+ * October 2026 at 14:00 CEST" — the end time, presented as the new date, for
+ * a meeting that starts at 13:30. The body was correct; the preview was the
+ * tail of this string. It was first read as a preheader reading `ends_at`,
+ * which would have been a tidy explanation of a thing that does not exist:
+ * these emails have no preheader, and a mail client composes the preview from
+ * whatever text comes first.
+ *
+ * Same day — which every booking is — collapses to one date and a time span.
+ * A range that genuinely crosses midnight keeps both sides, because there the
+ * second date is information.
+ */
 function range(start: Date, end: Date, tz: string): string {
-  return `${fmt(start, tz)} → ${fmt(end, tz)}`;
+  const sameDay =
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz, dateStyle: 'short' }).format(start) ===
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz, dateStyle: 'short' }).format(end);
+  if (!sameDay) return `${fmt(start, tz)} → ${fmt(end, tz)}`;
+  // The end as a bare time, in the same zone, so the line reads
+  // "Monday, 12 October 2026 at 13:30 – 14:00 CEST".
+  const endTime = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: tz,
+  }).format(end);
+  const zone = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    timeZoneName: 'short',
+  })
+    .formatToParts(start)
+    .find((p) => p.type === 'timeZoneName')?.value;
+  const startFull = fmt(start, tz);
+  // fmt ends with the zone; drop it so it is not printed twice.
+  const startNoZone = zone && startFull.endsWith(zone)
+    ? startFull.slice(0, -zone.length).trimEnd()
+    : startFull;
+  return `${startNoZone} – ${endTime}${zone ? ` ${zone}` : ''}`;
 }
 
 function cancelUrl(c: Common): string {

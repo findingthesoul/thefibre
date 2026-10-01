@@ -6,6 +6,79 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.96.2] — 2026-10-01 — Zoom was two hours out, and nobody could have known (staging)
+
+Two bugs, found ten minutes apart by the same staging run, shipped together
+because the first one blocks re-running the test that found the second.
+
+### Zoom meetings were created and moved at the wrong time
+
+A Zoom booking rescheduled on staging to **13:30 Amsterdam** appeared in Zoom
+as **11:30**. Everything on our side was right and agreed: the `meet_booking`
+row, Google Calendar's event, the invitee's email. Zoom alone was out by the
+offset.
+
+Zoom accepts two forms of `start_time`, and the **pairing** is what matters:
+
+    "2026-10-12T11:30:00Z"   GMT — `timezone` is then ignored
+    "2026-10-12T13:30:00"    LOCAL wall clock, read in `timezone`
+
+We sent the GMT form — `startsAt.toISOString()`, milliseconds and all — AND a
+`timezone`. Zoom resolved that contradiction by reading the GMT digits as
+Amsterdam wall clock.
+
+`zoomLocalStart()` in `lib/zoom/client.ts` now produces the local form for
+both `createZoomMeeting` and `updateZoomMeeting`: no Z, no offset, no
+milliseconds. **The ambiguous combination is gone rather than resolved** — the
+fix does not depend on which half Zoom would have honoured, which is good,
+because that remains unknown (see below).
+
+**The CREATE was wrong too, and had been since the file was written.** The
+original booking went in at 14:00 CEST and Zoom would have held it at 12:00.
+Nothing ever surfaced it: Zoom was inert until the Marketplace app existed, so
+no meeting had ever been read back. Only a reschedule exposed it, and only
+because somebody opened Zoom's own detail page and compared.
+
+Eight tests pin the exact bytes, including the two a hard-coded offset gets
+wrong half the year: a DST boundary, and a late evening where the zone rolls
+the DATE — 23:30 UTC on the 12th is 01:30 on the **13th** in Amsterdam, so the
+old shape could put a meeting on the wrong day entirely.
+
+It reuses `utcToZonedParts` rather than adding a second implementation of
+date maths.
+
+### The moved-booking email showed the END time as the new date
+
+Its preview read *"Booking moved; new date is Monday, 12 October 2026 at
+14:00 CEST"* for a meeting starting at **13:30**.
+
+Diagnosed first as a preheader reading `ends_at`. **These emails have no
+preheader**, and nothing we send contains that sentence — grepping for it
+found nothing, which is what sent the search somewhere real. The When line
+printed the whole date on both sides:
+
+    Monday, 12 October 2026 at 13:30 CEST → Monday, 12 October 2026 at 14:00 CEST
+
+so its tail is a complete-looking date-time standing where a date belongs. A
+mail client builds a preview from the first text it finds and truncates; what
+survived was the end. "Booking moved" is our `<title>`, stitched on by Gmail —
+which is why the sentence read as ours and matched nothing we wrote.
+
+A same-day range — every booking — now collapses to one date and a time span:
+`Monday, 12 October 2026 at 13:30 – 14:00 CEST`. A range genuinely crossing
+midnight keeps both dates, because there the second one is information.
+
+### Still unproven
+
+The Zoom fix is reasoned from Zoom's documented contract plus the observed
+symptom. It has **not** been confirmed against live Zoom: that needs a Zoom
+access token, which needs client credentials that exist only as Fly secrets.
+The fresh booking in the next staging run is the proof, and it will be the
+first time anyone has ever checked what time a newly CREATED Zoom meeting
+actually lands at.
+
+
+
 ## [1.96.1] — 2026-10-01 — the support address is one that delivers (staging)
 
 Sjoerd, while setting up Zoom: *"branding change please"* — wanting

@@ -13,6 +13,7 @@
 //   meeting:write:meeting, meeting:update:meeting, meeting:delete:meeting,
 //   user:read:user
 
+import { utcToZonedParts } from '../availability/timezone.js';
 import { publicApiUrl } from '../public-url.js';
 
 export interface ZoomTokens {
@@ -127,6 +128,36 @@ export class ZoomAlternativeHostsError extends Error {
   }
 }
 
+/**
+ * The start time as Zoom actually wants it, given that we also send a
+ * `timezone`.
+ *
+ * Zoom accepts two forms, and the pairing matters:
+ *   "2026-10-12T11:30:00Z"   — GMT. `timezone` is then ignored.
+ *   "2026-10-12T13:30:00"    — LOCAL wall clock, read in `timezone`.
+ *
+ * We sent `startsAt.toISOString()` — "2026-10-12T11:30:00.000Z", the GMT form
+ * complete with milliseconds — AND a `timezone` of Europe/Amsterdam. Zoom read
+ * the 11:30 as Amsterdam wall clock, so every meeting it created or moved was
+ * off by the zone's offset. Found on 2026-10-01 by Sjoerd looking at the Zoom
+ * detail page after a staging reschedule: our row, Google Calendar and the
+ * emails all said 13:30 Amsterdam, and Zoom alone said 11:30.
+ *
+ * Pre-existing and never seen, because Zoom was inert until the Marketplace
+ * app existed — the create was wrong from the first line of this file and
+ * nothing had ever read a real Zoom meeting back.
+ *
+ * The fix is to stop sending the ambiguous combination rather than to guess
+ * which half Zoom will honour. We send the LOCAL form with no zone suffix and
+ * no milliseconds, which is the documented partner of `timezone` and leaves
+ * nothing to interpret.
+ */
+export function zoomLocalStart(startsAtIso: string, timeZone: string): string {
+  const p = utcToZonedParts(Date.parse(startsAtIso), timeZone);
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${p.year}-${two(p.month)}-${two(p.day)}T${two(p.hour)}:${two(p.minute)}:00`;
+}
+
 export async function createZoomMeeting(
   accessToken: string,
   args: CreateZoomMeetingArgs,
@@ -144,7 +175,7 @@ export async function createZoomMeeting(
     body: JSON.stringify({
       topic: args.topic,
       type: 2, // scheduled
-      start_time: args.startsAtIso,
+      start_time: zoomLocalStart(args.startsAtIso, args.timezone),
       duration: args.durationMinutes,
       timezone: args.timezone,
       agenda: args.agenda ?? undefined,
@@ -183,7 +214,7 @@ export async function updateZoomMeeting(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      start_time: args.startsAtIso,
+      start_time: zoomLocalStart(args.startsAtIso, args.timezone),
       duration: args.durationMinutes,
       timezone: args.timezone,
     }),
