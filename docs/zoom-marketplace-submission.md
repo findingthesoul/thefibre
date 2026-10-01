@@ -36,7 +36,7 @@ Setup steps for the app itself (redirect URL, secrets on Fly) live in
 | Privacy Policy | `https://thethread.app/privacy-policy` |
 | Terms of Use | `https://thethread.app/terms` |
 | Support URL | `https://thethread.app/support` |
-| Support email | `support@thefibre.app` |
+| Support email | `support@thefibre.app` (see note below: `hello@thethread.app` now exists and receives mail; switching is Sjoerd's call) |
 | Documentation URL | `https://meet.thethread.app/docs/zoom` |
 
 > The three legal/support pages are live (v0.18.2, moved to the thethread.app
@@ -49,10 +49,18 @@ Setup steps for the app itself (redirect URL, secrets on Fly) live in
 
 ## Basic information
 
-**App name:** `Meet by The Thread`
+**App name:** `The Thread` (decided 2026-10-01; the Marketplace app was created
+under this name)
 
-> Not "Fibre Meet". The Zoom Marketplace listing is a public surface, and the
-> public name is The Thread; "Fibre" appears nowhere a host can see.
+> Not "Meet by The Thread" and not "Fibre Meet". One Zoom app serves the whole
+> platform: Meet creates, moves and deletes meetings for bookings, and Thread
+> does the same for live sessions (v1.93.0, `lib/meeting-links.ts`). The
+> credentials live on the API, so a second app per product would only split a
+> review that has to be passed once. The Zoom Marketplace listing is a public
+> surface, and the public name is The Thread; "Fibre" appears nowhere a host
+> can see. If the long description below reads as Meet-only to a reviewer, add
+> one sentence: *"Hosts can also attach a Zoom meeting to a live session in a
+> Thread."* The scopes and calls are identical.
 
 **Short description (≤ 80 chars):**
 
@@ -170,8 +178,18 @@ Also state plainly:
 - [ ] Support page live at `https://thethread.app/support` ✓ (v0.68.2)
 - [ ] App icon uploaded (192×192 PNG — the Thread mark)
 - [ ] Short + long descriptions pasted into Basic Information
-- [ ] Redirect URL + OAuth allow list set to
-      `https://thefibre-api.fly.dev/api/v1/meet/zoom/auth-callback`
+- [x] Redirect URL = `https://api.thethread.app/api/v1/meet/zoom/auth-callback`
+      (the address a reviewer sees; production switches to it at the next API
+      deploy, `PUBLIC_API_URL` is staged). Allow list on the DEVELOPMENT app
+      holds that plus both fly.dev callbacks. **The Production tab is a
+      separate app with its own Client ID/Secret and its own redirect URL and
+      allow list: set `api.thethread.app` there, and put the production
+      credentials on the production Fly app only after approval.**
+- [ ] Event Subscription → **App Deauthorized** →
+      `https://api.thethread.app/api/v1/meet/zoom/webhook`, Secret Token set
+      as `ZOOM_WEBHOOK_SECRET_TOKEN` and deployed BEFORE clicking Validate
+      (docs/deploy.md § Zoom). Shipped v1.94.0. Zoom reviews that a removal
+      deletes the user's data.
 - [ ] Four scopes added, with the justifications above
 - [ ] Data-handling answers pasted
 - [ ] Test instructions pasted; test workspace login sent to the reviewer
