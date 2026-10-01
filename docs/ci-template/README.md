@@ -1,5 +1,7 @@
 # CI workflow (not yet installed)
 
+> **Historical (marked 2026-10-01).** CI is installed: `.github/workflows/ci.yml` and `nightly-contracts.yml`. This folder is the template it came from.
+
 `ci.yml` in this folder is ready to drop into `.github/workflows/` once a GitHub token with the `workflow` scope is available. The overnight session tried to install it but the existing PAT lacked the scope, so it lives here as a template.
 
 ## How to install (one-time)

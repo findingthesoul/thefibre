@@ -1,5 +1,7 @@
 # Fibre Meet — Architecture
 
+> **Superseded — do not use as a reference (marked 2026-10-01).** This describes Meet at v0.7 (May 2026). Since then: the domain moved to `meet.thethread.app` with a cross-apex sign-in hop, `routes/meet.ts` grew from about 2,300 to 5,700 lines, and Stripe payments, polls, Zoom, invoices and approvals were added. The folder tree below is still roughly right. For how Meet works today read `docs/system-handbook.md` and the code; for its tables, `docs/data-model.md`.
+
 _Last updated: 2026-05-16, v0.7.x_
 
 Fibre Meet is the booking app inside The Fibre. It's a Suite-class scheduler (Calendly-shaped) that's been re-anchored on Fibre's platform primitives:

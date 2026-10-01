@@ -1,5 +1,82 @@
 # Environments — a staging stack beside production
 
+## The two stacks today (audited against the code, 2026-10-01)
+
+Everything below this section is the record of how staging was stood up on
+2026-09-02. It is kept because it is the recipe for the next environment, and
+its gotcha list was paid for. Its counts, its flow ("straight to prod") and
+its costs describe that week. **This section is the current truth; where the
+diary below disagrees, the diary is history.**
+
+| | Production | Staging |
+|---|---|---|
+| Web | `thefibre.app` (platform); `app.` / `meet.` / `flow.` / `pulse.` / `membership.` / `connect.` / `models.` / `my.` on `thethread.app`; the marketing site on the apex | the same on `thefibre.tech`, with Thread on `thread.`; the marketing site has no staging deployment |
+| Vercel | ten projects, built from `main` | nine of them as Preview deployments bound to the `staging` branch |
+| API | Fly `thefibre-api`, `fra`, 1 GB | Fly `thefibre-api-staging`, `fra`, 512 MB |
+| Database and auth | Supabase `zfsyyokepyycefbxiblc` | Supabase `lukhyylwhhjyihqtghvw` (`supabase/.staging-ref`) |
+| Cookie domain | `.thefibre.app` for the platform project, `.thethread.app` for every other project | `.thefibre.tech` |
+| Stripe | live keys, four webhook endpoints | sandbox keys, the same four |
+| MCP connector | `mcp.thefibre.app` | `mcp.thefibre.tech` |
+
+- **Every change goes to staging first.** `./scripts/release.sh` pushes to
+  the `staging` branch only; production is a separate `./scripts/promote.sh`
+  that fast-forwards `main` to a staging commit, on the owner's word. Both
+  need a runway clearance. The procedure is `docs/runway.md` and
+  `docs/system-handbook.md` §10; the old "normal changes go straight to
+  prod" rhythm further down ended on 2026-09-12.
+- **The API is deployed separately**, with `./scripts/deploy-api.sh
+  staging|prod`, never a bare `fly deploy` (`docs/deploy.md`).
+- **Staging is not scale-to-zero any more.** Both Fly apps keep one machine
+  running (`min_machines_running = 1`, `auto_stop_machines = 'off'`), deploy
+  blue-green, and run the real schedulers and the real email hook. So
+  **staging can send real email**: whether it does depends on its
+  `RESEND_API_KEY` secret (unset means the mail is logged instead of sent,
+  `apps/api/src/lib/email/client.ts`), and there is no recipient allow-list.
+  Use `@example.com` addresses for fixtures.
+- **Staging holds two kinds of data**: seeded fixtures, and a scrambled copy
+  of one production workspace's SHAPE (`scripts/clone-prod-to-staging.mjs`:
+  names and addresses replaced, ids and structure kept). Treat it as
+  disposable but shared: several sessions test against it at once.
+- **CORS on staging is derived**, like production: the staging origins come
+  from the app registry when the API runs as `thefibre-api-staging`
+  (`apps/api/src/server.ts`). `CORS_ORIGINS` is for extras only.
+- **A staging page never links to production by accident**: `appUrl()` and
+  `surfaceUrl()` resolve sibling apps from the serving host, so a missing env
+  var no longer sends a `.tech` page to a production sibling.
+- **The env matrix is executable**: `node scripts/verify-vercel-env.mjs`
+  holds the expected value of every web env var per project and stack and
+  checks them. That file, not a table in a document, is the list.
+- **Local dev is three more things**: `pnpm dev` runs the API and ten Next
+  apps (ports 8080 and 3000 to 3009), against whichever Supabase project
+  `apps/api/.env` names. There is no local database in normal use.
+
+### The API's environment variables, by name
+
+Values live in Fly secrets (`fly secrets list -a <app>`); set them with
+`--stage` so they ride the next deploy.
+
+| Area | Names |
+|---|---|
+| Supabase | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_AUTH_HOOK_SECRET`, `API_JWT_AUDIENCE` |
+| Cross-app | `SSO_INTERNAL_SECRET` (also on every Vercel project), `PUBLIC_API_URL` (the address OAuth redirects are built from), `API_PUBLIC_URL` (the address in the MCP discovery documents — a different variable, read by different code), `CORS_ORIGINS`, `FIBRE_WEB_URL`, `MEET_APP_URL`, `THREAD_APP_URL`, `MEMBERSHIP_APP_URL` |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_CONNECT_CLIENT_ID`, `STRIPE_WEBHOOK_SECRET` (Meet), `STRIPE_THREAD_WEBHOOK_SECRET`, `STRIPE_MEMBERSHIP_WEBHOOK_SECRET`, `STRIPE_BILLING_WEBHOOK_SECRET` |
+| Email | `RESEND_API_KEY`, `EMAIL_FROM` |
+| Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_STATE_SECRET`; Wallet: `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SA_EMAIL`, `GOOGLE_WALLET_SA_KEY_PEM` |
+| Apple Wallet | `APPLE_WALLET_CERT_PEM`, `APPLE_WALLET_KEY_PEM`, `APPLE_WALLET_KEY_PASSPHRASE`, `APPLE_WALLET_WWDR_PEM`, `APPLE_WALLET_PASS_TYPE_ID`, `APPLE_WALLET_TEAM_ID` |
+| Zoom | `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`, `ZOOM_WEBHOOK_SECRET_TOKEN` |
+| Assistant | `ANTHROPIC_API_KEY`, `ASSISTANT_KEY_SECRET` (also encrypts every MCP grant's stored session: rotating it disconnects every connected assistant), `ASSISTANT_API_BASE` |
+| Circle | `CIRCLE_API_BASE` (optional; the token is per workspace, in the database) |
+
+The web projects' names are the `NEXT_PUBLIC_*` family
+(`API_BASE_URL`, `COOKIE_DOMAIN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and one
+`*_URL` per sibling app) plus `SSO_INTERNAL_SECRET`. The root `.env.example`
+is older than several of these; `grep -rhoE "process\.env\.[A-Z_]+" apps/api/src | sort -u`
+is the list that cannot go stale.
+
+---
+
+## The setup record (2026-09-02)
+
 _Written 2026-09-01 for the 2026-09-02 session. Sjoerd: "should we have a dev
 version and a live version?" The answer we settled on: **one staging
 environment, used for the three things that can actually hurt** — migrations
@@ -258,25 +335,20 @@ the same on day one).
 
 ## Phase 4 — the rhythm afterwards
 
-**Normal changes (UI, copy, docs, additive migrations):** straight to prod,
-exactly like today. Speed is a feature.
+**Superseded on 2026-09-12 and again on 2026-10-01.** The original rhythm was
+"normal changes straight to prod; three risky classes to staging first", with
+a two-push promote. Today EVERY change lands on staging first, production is
+a deliberate promotion, and both need a runway clearance — see the section at
+the top of this file, `docs/runway.md` and handbook §10. The three risky
+classes are still the ones to rehearse most carefully on staging:
 
-**The three risky classes — staging first, always:**
 1. migrations that ALTER/UPDATE existing data,
 2. anything touching money (Stripe, fees, the purchase ledger),
 3. anything touching auth/SSO/RLS helpers.
 
-The promote flow (same commit, two pushes):
-
-```bash
-git push origin main:staging   # staging builds; fly deploy -c fly.staging.toml if API changed
-# … smoke it (scripts/smoke-staging.mjs + eyeballs) …
-git push origin main           # Vercel prod
-fly deploy --remote-only       # prod API, if it changed
-```
-
-**Costs:** domain ~€10/yr · Fly staging ~€0–5/mo (scale-to-zero) · Supabase
-free · Vercel included · Stripe test mode free. **Total ≈ €5/mo.**
+**Costs** (2026-09-02 estimate, not re-measured): domain ~€10/yr, Supabase
+free tier, Vercel included, Stripe test mode free. Fly staging is no longer
+scale-to-zero, so it costs a small always-on machine.
 
 ## Gotchas (so tomorrow-us doesn't rediscover them)
 
@@ -292,9 +364,11 @@ free · Vercel included · Stripe test mode free. **Total ≈ €5/mo.**
   secrets are mode-specific too.
 - Free-tier Supabase pauses when idle — the first staging request of a day
   can take ~30s. That's the €0 trade.
-- Migration filenames: 14-digit timestamps, and check
-  `supabase migration list` for same-day collisions (bitten twice on
-  2026-09-01).
+- Migration filenames: 14-digit timestamps, and the fourteen digits ARE the
+  migration's identity, so never choose them by hand:
+  `./scripts/new-migration.sh <name>` picks a version free in every worktree
+  and `scripts/check-migration-versions.mjs` (in `pnpm verify`) refuses a
+  duplicate (bitten twice on 2026-09-01 and again, silently, on 2026-09-23).
 - **Each staging domain must be added to ITS OWN Vercel project** (bitten
   2026-09-03: all four app subdomains — meet/thread/flow/pulse.thefibre.tech
   — served the WEB app; Sjoerd reported "Meet and The Thread don't open on

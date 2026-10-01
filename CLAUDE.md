@@ -5,6 +5,7 @@ Read this before doing anything. Orientation document for whoever picks up this 
 ## Source of truth
 
 - **Orientation (start here):** [`docs/system-handbook.md`](docs/system-handbook.md) — the whole system for a programmer landing cold: architecture, structure, auth/SSO, payments, environments, version management, hard rules, doc map. Groom it when operational facts change (domains, env, release procedure).
+- **The short version, for somebody evaluating the system:** [`docs/technical-overview.md`](docs/technical-overview.md) — what it is, the stack, the size, how it is run, what is fragile. **The table map:** [`docs/data-model.md`](docs/data-model.md).
 - **Vision (current):** [`docs/fibre-technical-brief-v0.4.md`](docs/fibre-technical-brief-v0.4.md) — the canonical spec. Read §1 (vision), §2 (data wall + profile structure), §5 (data model with app-owned curator extensions), §6 (data ownership + minimisation), §13 (developer rules), §15 (principles).
 - **Previous brief:** [`docs/fibre-technical-brief-v0.3.md`](docs/fibre-technical-brief-v0.3.md) — kept in repo for traceability. **v0.4 supersedes for new work.**
 - **Operational plan:** [`docs/build-plan.md`](docs/build-plan.md) — what's queued, what's parked, gotchas.
@@ -16,7 +17,7 @@ If those contradict each other, the brief wins.
 
 ## Architecture in one paragraph
 
-Hono API at `:8080` reads Supabase (EU). Next.js 15 web at `:3000` calls the API for everything — **no direct Supabase from web** (brief §13). User signs in via Google OAuth; Supabase Auth mints a JWT; the API trusts that JWT for tenant + user resolution. RLS is the enforcement layer; the API is a thin convenience wrapper. The data wall (brief §2): platform owns identity + contact graph edges + activity events + enrolment state + consent. Each **app** owns its own content (separate schemas) AND the curator-data fields it justifies on persons/orgs (rows in shared tables tagged with `app_id`). Apps cross the wall only via the `activity` event log (type + subject, never body).
+Hono API at `:8080` reads Supabase (EU). Ten Next.js 15 apps (`:3000`–`:3009`) call the API for everything — **no direct Supabase from web** (brief §13); they use Supabase only to sign in. A user signs in via Google OAuth or an emailed code; Supabase Auth mints a JWT; the API trusts that JWT for tenant + user resolution. RLS is on every table and is the floor — but **most API routes act with the service-role client, which RLS does not see, so on those routes the tenant boundary is the route's own `workspace_id` filter** (handbook §2; two cross-workspace holes of that shape were found in September 2026). The data wall (brief §2): platform owns identity + contact graph edges + activity events + enrolment state + consent. Each **app** owns its own content (its own TABLE PREFIX — `thread_*`, `meet_*`, … — every table is in the `public` schema; there are no per-app schemas) AND the curator-data fields it justifies on persons/orgs (rows in shared tables tagged with `app_id`). Apps WRITE across the wall in two sanctioned places only: the `activity` event log (type + subject, never body) and the `purchase` money ledger.
 
 ## Two principles formalised in v0.4
 
@@ -297,9 +298,10 @@ second, drifting copy.
   project, and `apps/api/.env` is gitignored — so it exists in the main
   checkout and in no worktree. Two steps need it (`verify-public-api.mjs`,
   which throws a bare `Env file not found`, and `sync-app-names.mjs --check`,
-  which says COULD NOT CHECK). Since v1.28.1 the second of those runs THIRD in
-  the chain, so a missing file is refused in about a second instead of after
-  typecheck and the full suite. Run the release as
+  which says COULD NOT CHECK). Since v1.28.1 the second of those runs EARLY in
+  the chain — fifth today, after the version-residue, migration-version,
+  runway and service-worker checks and before typecheck — so a missing file
+  is refused in seconds instead of after typecheck and the full suite. Run the release as
   `FIBRE_ENV_FILE=/Users/sjoerdair/Projects/thefibre/apps/api/.env ./scripts/release.sh`.
   An absolute path is honoured; the check itself is read-only.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
@@ -520,24 +522,33 @@ prefer pointing at the thing that cannot lie.
 |---|---|
 | What shipped, and when | `CHANGELOG.md` |
 | What is queued | `docs/build-plan.md`, Open queue |
-| How the system is put together | `docs/system-handbook.md` |
+| How the system is put together | `docs/system-handbook.md`; the summary is `docs/technical-overview.md` |
+| Which tables exist and what they are for | `docs/data-model.md` (a map; the migrations are the truth) |
 | Which apps exist and their state | the `app` table — ask the catalogue, never a list in a file |
 | What is tested, and what that proves | `docs/testing-approach.md` |
+| How a change lands and deploys | `docs/runway.md`, handbook §10 |
 
-**The shape, as of this date.** Nine Next.js apps plus the Hono API. Live on
-`thethread.app` subdomains, with the platform itself still on `thefibre.app`;
-staging is the `thefibre.tech` twin. `fibre-learn` is registered in the
-catalogue but unreleased. `connections` is the app directory (port 3008)
-behind the catalogue slug `fibre-sales`, approved and live since 2026-09-13.
-Two packages sit beside the apps: `packages/shared` and, since v0.76.0,
-`packages/mcp` (the app-key contract as MCP tools, `docs/mcp.md`).
-`fot-planner` is a real external app running against the published contract in
-production — which is why `/api/v1/apps/*` stays additive-only in practice and
-not just in principle.
+**The shape, re-measured 2026-10-01 (v1.96.2; Sjoerd asked for all technical
+information to be brought up to date for a prospective technical partner).**
+Ten Next.js apps plus the Hono API: the platform (`apps/web`), Thread, Meet,
+Flow, Pulse, Members, Connect, Models, the participant portal (`apps/my`) and
+the marketing site (`apps/website`). Live on `thethread.app` subdomains, with
+the platform itself on `thefibre.app`; staging is the `thefibre.tech` twin.
+`fibre-learn` is registered in the catalogue with nothing built.
+`connections` is the app directory (port 3008) behind the catalogue slug
+`fibre-sales`, shown as "Connect". Two packages sit beside the apps:
+`packages/shared` and `packages/mcp` (the app-key contract as MCP tools,
+`docs/mcp.md`). `fot-planner` is a real external app running against the
+published contract in production — which is why `/api/v1/apps/*` stays
+additive-only in practice and not just in principle. About 250,000 lines of
+TypeScript, 141 tables, some 510 API endpoints.
 
-**Still genuinely not shipped:** retention-policy admin, cross-app erasure
-webhook handlers, Microsoft and LinkedIn OAuth, and the `api.thefibre.app`
-CNAME (the API still answers on `thefibre-api.fly.dev`).
+**Still genuinely not shipped:** retention-policy admin and the retention
+job, erasure automation (a request is a manual queue), Microsoft and
+LinkedIn sign-in, error tracking and alerting, and the second tier of the
+security roadmap (`docs/data-protection-approach.md` §5 has each item's
+status). The API answers on `thefibre-api.fly.dev` and on
+`api.thethread.app`.
 
 **One structural note for whoever grooms this file next.** The three "Where we
 left off" sections above run to about 180 lines and every session loads all of

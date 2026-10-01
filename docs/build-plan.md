@@ -5,7 +5,13 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md).
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.4.md`](fibre-technical-brief-v0.4.md).
 
-Current version: **v0.13.108**. Live in production at https://thefibre.app (web on Vercel/fra1), https://meet.thefibre.app (Fibre Meet on Vercel/fra1), https://thread.thefibre.app (The Thread skeleton on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
+**How to read this file (2026-10-01).** The **Open queue** just below is
+live and groomed on every ship: it is THE to-do list. Almost everything else
+in this file is the record of earlier phases, kept for the reasoning; its
+dates, versions and domains are those of the day it was written (the section
+heading below says 2026-07-07 and means it). For the current version read
+`package.json`; for where things run read `docs/system-handbook.md` §9; for
+what shipped read `CHANGELOG.md`.
 
 ---
 

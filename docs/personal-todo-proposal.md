@@ -1,5 +1,7 @@
 # A personal to-do list, across the apps — proposal
 
+> **Status (2026-10-01): BUILT.** The header below still says nothing is built. The personal to-do panel shipped: `user_task`, `apps/api/src/routes/my-tasks.ts`, `@thefibre/shared/ui/todo-panel`.
+
 **Status:** proposal, 2026-09-22. Nothing built. Decisions at the end.
 **Asked by Sjoerd:** *"Can a personal to do list be created over the whole app.
 So you can get to do's from connect and from the thread... etc... It creates a

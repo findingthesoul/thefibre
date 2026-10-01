@@ -1,5 +1,7 @@
 # Scale issues — known thresholds + mitigations
 
+> **Historical (marked 2026-10-01).** This calls itself a living document and describes the platform at v0.8.0 in May 2026: one seeded workspace and eight persons, with table names that have since changed. The current known limits are in `docs/technical-overview.md` §8.
+
 _Living doc. 2026-05-17 first cut. Updated whenever we hit something._
 
 Today (v0.8.0) The Fibre runs on 1 Supabase project + 1 small Fly machine and one seeded workspace. Everything's fast. This doc catalogues where we'll hit walls as workspaces grow, with a rough threshold + the mitigation we have in mind.

@@ -1,5 +1,7 @@
 # Platform billing — model + roadmap
 
+> **Superseded (marked 2026-10-01).** The per-seat model described here (Free / Pro €15 / Org €30) was replaced by per-workspace plans (Free / Starter / Pro / Enterprise). `docs/pricing-proposal.md` and `docs/productisation-proposal.md` are the record; `billing_plan` and `/admin/plans` are the truth.
+
 _Drafted 2026-05-17. Separate from the [Meet pricing roadmap](meet-pricing-roadmap.md):
 that one is about Meet **hosts** charging **invitees** through Stripe
 Connect. This one is about **The Fibre** charging **workspaces** to use

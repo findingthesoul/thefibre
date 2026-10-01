@@ -1,14 +1,37 @@
 # Deploying The Fibre
 
-Two services to deploy. Both can be done in ~15 minutes once you have the accounts set up.
+## How a change reaches users (the short version, 2026-10-01)
+
+Three kinds of thing get deployed, by three different mechanisms, and a
+release that touches more than one needs each of them:
+
+| What | How it deploys | Triggered by |
+|---|---|---|
+| **The ten web apps** (Vercel, `fra1`) | Vercel builds from the branch: `staging` → the `.tech` Preview deployments, `main` → production. A project builds only when its app, `packages/shared` or the lockfile changed (`scripts/vercel-ignore.mjs`) | `./scripts/release.sh` (pushes `staging`), `./scripts/promote.sh` (fast-forwards `main`) |
+| **The API** (Fly.io, `fra`) | `./scripts/deploy-api.sh staging\|prod` — blue-green, guarded | by hand, AFTER the release or promote |
+| **The database** (Supabase, Ireland) | `bash scripts/db-push-staging.sh` / `bash scripts/db-push-prod.sh` | by hand; staging at release, production BEFORE the promote |
+
+The order for production: migrations, then `promote.sh <sha>`, then
+`deploy-api.sh prod`. `promote.sh` refuses a range that adds migrations until
+it is told they are applied (`MIGRATIONS_ON_PROD=yes`).
+
+**Every landing and every deploy needs a runway clearance** (`release`,
+`docs`, `api-staging`, `api-prod`, `prod`); production kinds are granted only
+with the owner's own words. That procedure is [`docs/runway.md`](runway.md)
+and it is not repeated here. The release procedure itself (versions,
+changelog, the gate) is `docs/system-handbook.md` §10.
+
+The rest of this file is, in order: the one-time setup of each service (kept
+as the recipe, written when there were two services), the API deploy guard in
+detail, then each integration's deploy-time settings.
 
 ## What lives where
 
 | Component | Where | Region |
 |---|---|---|
-| Web (`apps/web`) | Vercel | `fra1` (Frankfurt) |
-| API (`apps/api`) | Fly.io | `fra` (Frankfurt) |
-| Database + Auth | Supabase | West EU (Ireland) — existing |
+| Web apps (`apps/web` and nine more) | Vercel, ten projects | `fra1` (Frankfurt) |
+| API (`apps/api`) | Fly.io, `thefibre-api` and `thefibre-api-staging` | `fra` (Frankfurt) |
+| Database + Auth + Storage | Supabase, one project per stack | West EU (Ireland) |
 
 The web is stateless. Personal data is processed *only* by the API on Fly.io — never on Vercel (brief §13 hard rule).
 
@@ -55,10 +78,12 @@ You already created a Vercel project named `thefibre` earlier. Fix the configura
 3. **Settings → Environment Variables** (add to **Production** and **Preview**):
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://zfsyyokepyycefbxiblc.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = (from Supabase dashboard → Settings → API)
-   - `NEXT_PUBLIC_API_BASE_URL` = `https://api.thefibre.app` (or the Fly app URL until DNS is wired; e.g. `https://thefibre-api.fly.dev`)
-   - `NEXT_PUBLIC_COOKIE_DOMAIN` = `.thefibre.app` — leading dot is intentional, that's what makes Supabase auth cookies valid for every `*.thefibre.app` subdomain so signing into `thefibre.app` also signs you into `meet.thefibre.app` and `thread.thefibre.app`. **Set this on EVERY app's Vercel project** (`thefibre`, `thefibre-meet`, `thefibre-thread`). Missing it on one project means users get prompted to re-login when switching subdomains.
+   - `NEXT_PUBLIC_API_BASE_URL` = `https://thefibre-api.fly.dev` (the value `scripts/verify-vercel-env.mjs` expects today)
+   - `NEXT_PUBLIC_COOKIE_DOMAIN` — the leading dot is intentional: it makes the Supabase auth cookie valid for every subdomain of that apex, so signing into one app signs you into its siblings. **Two values since the 2026-09-07 domain move:** `.thefibre.app` on the platform project (`thefibre`) and `.thethread.app` on EVERY other project; staging is `.thefibre.tech` throughout. A wrong value shows up as "PKCE code verifier not found" at sign-in. `node scripts/verify-vercel-env.mjs` checks every project.
    - `SSO_INTERNAL_SECRET` = match the value you set on Fly later (see below)
-   - `DEFAULT_WORKSPACE_ID` = `eaf096f8-59f8-45d0-b3e3-3d31c8ebffeb`
+   - one `NEXT_PUBLIC_<APP>_URL` per sibling app where the registry default is not wanted (`packages/shared/src/branding.ts`)
+
+   (`DEFAULT_WORKSPACE_ID` used to be listed here. Nothing reads it.)
 4. **Deployments tab → Redeploy.**
 
 > **First-login gotcha after enabling `NEXT_PUBLIC_COOKIE_DOMAIN`**: existing
@@ -110,7 +135,7 @@ fly secrets set \
   GOOGLE_CLIENT_ID="<paste from Supabase Auth → Google provider>" \
   GOOGLE_CLIENT_SECRET="<paste from Supabase Auth → Google provider>" \
   RESEND_API_KEY="<paste from Resend dashboard>" \
-  EMAIL_FROM="The Thread <noreply@thefibre.app>" \   # the public name; receipts and enrolment mail no longer read it (v0.75.19)
+  EMAIL_FROM="The Thread <noreply@thethread.app>" \   # the public name; receipts and enrolment mail no longer read it (v0.75.19)
   SSO_INTERNAL_SECRET="$(openssl rand -hex 32)"
 
 # First deploy
@@ -247,12 +272,27 @@ deploy from a clean worktree: `git worktree add /tmp/deploy <sha>`.
 
 ### Custom domain
 
+The API answers on `thefibre-api.fly.dev`. A custom name is a certificate
+plus a DNS record:
+
 ```bash
-fly certs add api.thefibre.app
-# Add the CNAME record Fly gives you at your registrar
+fly certs add api.thethread.app -a thefibre-api
+# Add the CNAME record Fly gives you at the registrar (TransIP)
 ```
 
-Then update the Vercel env var `NEXT_PUBLIC_API_BASE_URL` to `https://api.thefibre.app` and redeploy the web.
+`api.thethread.app` resolves to the production API and answers `/health`
+(probed 2026-10-01); `api.thefibre.app`, which older text names, does not
+exist. Two different settings decide which name the API TELLS others to use,
+and they are easy to confuse:
+
+- `PUBLIC_API_URL` — the address OAuth redirect URIs (Google, Zoom) are built
+  from (`apps/api/src/lib/public-url.ts`; default the fly.dev host).
+- `API_PUBLIC_URL` — the address in the MCP discovery documents
+  (`routes/mcp-discovery.ts`; default derived from the Host header).
+
+Changing either is a change to what third parties have registered: update the
+redirect URIs at Google and Zoom in the same step. The web apps' own
+`NEXT_PUBLIC_API_BASE_URL` is a third, independent setting.
 
 **The MCP connector address** (`https://mcp.thefibre.app`, staging
 `https://mcp.thefibre.tech`) is the same mechanism on a second hostname. The
@@ -276,7 +316,17 @@ Vercel.
 
 ### CORS
 
-The API uses Hono CORS with `origin: (origin) => isAllowedOrigin(origin) — allowlist, unknown origins blocked`, which allows any caller. Tighten this before opening to outside traffic: in `apps/api/src/server.ts`, restrict to the production web origins.
+The API is default-deny (`apps/api/src/server.ts`). The allow-list is derived
+from the app registry (`APPS` and `SURFACES` in `branding.ts`), plus
+localhost in development and Vercel preview hosts; on the staging Fly app the
+staging origins are derived the same way. `CORS_ORIGINS` adds extras for a
+transition window. `Access-Control-Allow-Origin: *` exists in exactly two
+places, both deliberate: Thread's three published read routes, and the
+OAuth/MCP endpoints a third-party client must reach. Adding a new app to the
+registry is what adds its origin; nobody edits a list.
+
+(This section used to say the CORS setting "allows any caller". It did not
+when that was written either.)
 
 ---
 
@@ -284,23 +334,37 @@ The API uses Hono CORS with `origin: (origin) => isAllowedOrigin(origin) — all
 
 No deploy needed — the project is already running. Two things to keep in sync:
 
-1. **Migrations.** Apply with `supabase db push` against the linked project. Run from any machine that has `supabase login` done and has `supabase link --project-ref zfsyyokepyycefbxiblc` set up.
-2. **Auth → Redirect URLs.** Add your prod URLs once Vercel is wired:
+1. **Migrations.** `bash scripts/db-push-staging.sh` (links staging, pushes,
+   and restores the production link when it exits) and
+   `bash scripts/db-push-prod.sh`. Never a bare `supabase db push`, and never
+   `pnpm db:migrate`: both push to whatever project the CLI happens to be
+   linked to. Create migrations with `./scripts/new-migration.sh <name>`.
+   After a production push, `supabase migration list` should show nothing
+   pending.
+2. **Auth → Redirect URLs.** One wildcard per apex the apps live on:
    - `https://thefibre.app/**`
-   - `https://*.thefibre.app/**`
+   - `https://*.thethread.app/**`
+   - (staging project) `https://thefibre.tech/**`, `https://*.thefibre.tech/**`
 3. **Auth → Hooks.** `Customize Access Token` must point at `public.custom_access_token_hook` — already enabled.
 
 ---
 
 ## Stripe (payments)
 
-Three webhook endpoints must exist in the Stripe dashboard (Developers →
-Webhooks), each with its own signing secret set on Fly:
+Four webhook endpoints must exist in the Stripe dashboard (Developers →
+Webhooks), each with its own signing secret set on Fly. Meet, Thread and
+Membership must be **Connect** endpoints (events on connected accounts);
+billing is a platform endpoint. The expected endpoints and events are data in
+`apps/api/scripts/lib/stripe-webhooks.mjs`:
+`node apps/api/scripts/verify-stripe-webhooks.mjs` audits an account against
+it and `register-stripe-webhooks.mjs --apply` creates what is missing and
+pushes the secrets to Fly.
 
 | Endpoint | Events | Fly secret |
 |---|---|---|
 | `https://thefibre-api.fly.dev/api/v1/meet/stripe-webhook` | `checkout.session.completed`, `checkout.session.expired`, `payment_intent.payment_failed` | `STRIPE_WEBHOOK_SECRET` |
 | `https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook` | `checkout.session.completed`, `checkout.session.expired` | `STRIPE_THREAD_WEBHOOK_SECRET` (falls back to `STRIPE_WEBHOOK_SECRET` if shared) |
+| `https://thefibre-api.fly.dev/api/v1/membership/stripe-webhook` | see `EXPECTED` in `lib/stripe-webhooks.mjs` (checkout, subscription and invoice events on connected accounts) | `STRIPE_MEMBERSHIP_WEBHOOK_SECRET` |
 | `https://thefibre-api.fly.dev/api/v1/billing/stripe-webhook` | `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed` | `STRIPE_BILLING_WEBHOOK_SECRET` (no fallback — deliberate) |
 
 The billing endpoint is the workspace's own Fibre subscription (platform
@@ -422,9 +486,13 @@ behind each grant; the same rotation rule applies. Migration
 
 ---
 
-`STRIPE_SECRET_KEY` is the platform key. Connected accounts are pasted per
-person/workspace in Settings → Payments (the platform SPoT:
-`user_profile.stripe_account_id` + `workspace.stripe_account_id`).
+`STRIPE_SECRET_KEY` is the platform key. A person or a workspace connects
+their Stripe account in Settings → Payments. The proper way is Stripe Connect
+OAuth (`lib/stripe/connect.ts`), which is switched on by
+`STRIPE_CONNECT_CLIENT_ID`; without that secret the screen falls back to
+pasting an account id, which records the id but grants the platform no
+permission on the account. All readers resolve the account through
+`apps/api/src/lib/payment-accounts.ts`.
 
 Without the Thread webhook, paid enrolments stay `pending` forever — the
 invoice-method path (mark-paid) is the only one that completes.
@@ -435,15 +503,30 @@ invoice-method path (mark-paid) is the only one that completes.
 
 1. Hit `https://thefibre.app` — should show the landing page
 2. Click **Sign in with Google** — should redirect through Google, back to `/auth/callback`, then to `/dashboard`
-3. The dashboard should list your apps (Fibre Meet, The Thread, Fibre Flow) — these come from the JWT's `app_memberships` claim
-4. Open Contacts — you should see the 8 seeded people. Open Marja → her profile tabs render including Fibre Meet (Change context) and Fibre Learn (Learning).
+3. The dashboard should list the apps your workspace has switched on and you hold a seat for — these come from the JWT's `app_memberships` claim
+4. Open Contacts — on a freshly seeded database (`apps/api/scripts/seed-ebbf.mjs`) you should see the seeded people, and a person's profile shows one tab per app that holds data on them.
 
 If the dashboard shows "Not linked to a workspace" or you get redirected back to `/`, that's the JWT custom-access-token hook not firing. Check Supabase Auth → Hooks.
+
+For a stack that already exists, the checks are scripts, not eyes:
+`node scripts/smoke-prod.mjs` / `node scripts/smoke-staging.mjs` (every domain
+serves its own app, the API is healthy, auth is enforced),
+`node scripts/verify-sso-hop.mjs [--prod]` (every app's SSO secret matches
+the API's), and the contract walks in `apps/api/scripts/verify-*.mjs`.
 
 ---
 
 ## Roll-back
 
 Vercel: Deployments tab → previous deployment → "Promote to Production".
-Fly: `fly releases` then `fly deploy --image <previous>`.
-Supabase: every schema change is a migration file in `supabase/migrations/`. To roll back, write an inverse migration (we don't auto-roll because every shipped version is meant to be additive — see brief §13).
+
+Fly: `fly releases -a <app>` then `fly deploy --image <previous> -a <app>`.
+This goes around `deploy-api.sh` and its guards, so it is an emergency move:
+say so on the runway (`RUNWAY_BYPASS="<reason>"` is logged) and verify with a
+request to the API, not by reading machine state. The normal way to undo an
+API change is to release the revert and deploy it.
+
+Git: production is a fast-forward of `main`. Never rewrite it. To undo, land
+a revert on staging and promote it.
+
+Supabase: every schema change is a migration file in `supabase/migrations/`. To roll back, write an inverse migration (we don't auto-roll because every shipped version is meant to be additive — see brief §13). There is no scripted backup-and-restore drill yet; Supabase's own backups are the only copy (`docs/data-protection-approach.md`, open item).

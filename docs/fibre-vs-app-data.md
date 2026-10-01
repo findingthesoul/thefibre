@@ -1,5 +1,7 @@
 # Fibre vs app data — the two-list contract
 
+> **Superseded (marked 2026-10-01).** Written in May 2026. `meet_team` and `meet_team_member` are listed here as Meet-owned; they are the platform tables `team` and `team_member`. The purchase ledger, the second sanctioned crossing of the data wall, did not exist yet. Use `docs/data-model.md` and `docs/system-handbook.md` §2.
+
 _Draft, 2026-05-17. Concretises §2 ("the data wall") of the technical brief._
 
 Two lists, kept apart. Everything in The Fibre is one or the other.

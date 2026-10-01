@@ -1,5 +1,7 @@
 # Fibre Flow — Data model & scaffolding plan
 
+> **Superseded (marked 2026-10-01).** A pre-build sketch. The name-mapping table of nine tables is still correct; the SQL in the body uses a `flow.` schema and columns that were never created, and `flow_favorite`, `flow_run_note` and `flow_run_note_mention` are missing. Use `docs/data-model.md`.
+
 *Companion to [`fibreflow-brief-v0.3.md`](fibreflow-brief-v0.3.md) and [`fibreflow-review.md`](fibreflow-review.md). Written 2026-05-17 against The Fibre at v0.10.0.*
 
 > **Terminology note.** "Platform" = **The Fibre** (the core). Fibre Flow is an app on top of The Fibre, the same way Fibre Meet is. `workspace`, `team`, `person`, `organisation`, `activity` are Fibre concepts; Flow uses them as-is.

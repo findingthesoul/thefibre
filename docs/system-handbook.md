@@ -6,44 +6,48 @@ orientation document: architecture, structure, design rules, conventions,
 version management, environments, and where everything lives. It links out to
 the deeper documents rather than duplicating them.
 
-**State as of v0.52.0 (2026-09-07).** If this document and
+**Facts audited against the code at v1.96.2 (2026-10-01).** The inventories
+in this file (apps, domains, counts, script names) are the part that goes
+stale; the architecture has aged well. Where a line here names a file that
+holds the truth, trust the file. If this document and
 `docs/fibre-technical-brief-v0.4.md` disagree, the brief wins on vision and
 data-model intent; this handbook wins on operational facts (domains, env vars,
-release procedure), because it is groomed on every ship.
+release procedure). A shorter, outward-facing summary for somebody evaluating
+the system is [`docs/technical-overview.md`](technical-overview.md); the table
+map is [`docs/data-model.md`](data-model.md).
 
 ---
 
 ## 1. What this is
 
-The Fibre is a **GDPR-native relationship platform** operated by Solidarity
-Lab B.V. (Rotterdam, EU-hosted). It is one product family:
+A **GDPR-native relationship platform** operated by Solidarity Lab B.V.
+(Rotterdam, EU-hosted). Publicly it is **The Thread**; "The Fibre" is the
+backstage platform name and the name of this repository. One product family,
+every member registered in `packages/shared/src/branding.ts`:
 
-- **The Fibre** (`fibre-platform`) — the backstage platform: identity,
-  contacts, organisations, programmes, activity, consent, workspaces,
-  billing, admin. https://thefibre.app
-- **Thread** (`the-thread`) — the flagship: learning journeys / events —
-  public enrolment pages, tickets, payments, scheduled messages,
-  certificates, participant portal (`/my`), website embeds.
-  https://app.thethread.app
-- **Meet** (`fibre-meet`) — scheduling/booking (rebuild of the old "Suite").
-  https://meet.thethread.app
-- **Flow** (`fibre-flow`) — people-flow state machine (pipelines, gates,
-  tasks, visual builder). https://flow.thethread.app
-- **Pulse** (`fibre-pulse`) — business planner / cashflow.
-  https://pulse.thethread.app
-- **Membership** (`membership`) — community subscriptions (tiers, renewals,
-  access grants, Circle/Google Workspace integrations; display name may
-  become "Hyve" — only branding changes, never the slug).
-  https://membership.thethread.app
-- `fibre-sales`, `fibre-learn` — registered slugs, **not built**
-  (`available: false` in the registry).
+| App (catalogue slug) | Directory | Production | What it is |
+|---|---|---|---|
+| **The Fibre** (`fibre-platform`) | `apps/web` | thefibre.app | The platform itself: identity, contacts, organisations, programmes, activity, consent, workspaces, members, teams, billing, admin |
+| **The Thread** (`the-thread`) | `apps/thread` | app.thethread.app | The flagship: learning journeys and events — public enrolment pages, tickets, payments, scheduled messages, certificates, website embeds |
+| **Meet** (`fibre-meet`) | `apps/meet` | meet.thethread.app | Scheduling and booking (the rebuild of the old "Suite"): meeting types, polls, paid bookings, Google Calendar, Zoom |
+| **Flow** (`fibre-flow`) | `apps/flow` | flow.thethread.app | People-flow state machine: pipelines, gates, tasks, visual builder |
+| **Pulse** (`fibre-pulse`) | `apps/pulse` | pulse.thethread.app | Business planner: cashflow, commitments, budgets |
+| **Members** (`membership`) | `apps/membership` | membership.thethread.app | Community subscriptions: tiers, renewals, access grants, Circle and Google Workspace integrations |
+| **Connect** (`fibre-sales`) | `apps/connections` | connect.thethread.app | A community landscape: where everybody stands and who needs attention. Not a CRM |
+| **Models** (`fibre-models`) | `apps/models` | models.thethread.app | Business model generators per team; a beta app |
+| My Thread (surface, no slug) | `apps/my` | my.thethread.app | The participant's own page across every app: tickets, memberships, invoices, calendar |
+| Website (surface, no slug) | `apps/website` | thethread.app | The marketing site |
+| `fibre-learn` | none | — | A registered slug with nothing built (`available: false`) |
 
-**Two apex domains, deliberately** (since v0.52.0, the "branding pivot"):
-fibre web lives on `thefibre.app`; the five delivery apps live on
-subdomains of `thethread.app` (Thread takes `app.`). The `thethread.app`
-apex itself serves the old standalone Thread V3 landing page (separate
-repo/Vercel project, being decommissioned — the landing must keep serving).
-Sessions cross the two apexes via the SSO hop (§6.3). Naming rationale:
+A slug never changes; a display name is branding and may (the slug
+`membership` shows as "Members", `fibre-sales` as "Connect"). The two
+surfaces without a slug send `X-App-ID: fibre-platform`.
+
+**Two apex domains, deliberately** (since v0.52.0, the "branding pivot"): the
+platform lives on `thefibre.app`; every other app lives on a subdomain of
+`thethread.app` (Thread takes `app.`), and the apex is the marketing site.
+Sessions cross the two apexes via the SSO hop (§6.3). Staging mirrors all of
+it on `thefibre.tech` (Thread is `thread.`, not `app.`). Naming rationale:
 `docs/naming-brief.md`.
 
 ---
@@ -51,27 +55,59 @@ Sessions cross the two apexes via the SSO hop (§6.3). Naming rationale:
 ## 2. Architecture in one paragraph
 
 A single **Hono API** (`apps/api`, port 8080, deployed on Fly.io) fronts a
-**Supabase** Postgres+Auth project (EU/Ireland). Six **Next.js 15** apps
+**Supabase** Postgres+Auth project (EU/Ireland). Ten **Next.js 15** apps
 (App Router, React 19) call the API for everything — **no app ever talks to
 Supabase data directly; only Supabase *Auth*** (sign-in, session cookies).
-The API is a thin convenience layer; **Row-Level Security is the real
-enforcement layer**. Users sign in via Google OAuth or email OTP through
-Supabase Auth; the API verifies the resulting JWT statelessly (JWKS) and a
-custom access-token hook stamps workspace/membership claims into it. The
-frontends are stateless (Vercel, `fra1`) and hold **no personal data** —
-every PII operation crosses into the EU API.
+Users sign in via Google OAuth or an emailed code through Supabase Auth (the
+participant portal offers the code only); the API verifies the resulting JWT
+statelessly (JWKS) and a custom access-token hook stamps workspace and
+membership claims into it. The frontends are stateless (Vercel, `fra1`) and
+hold **no personal data** — every PII operation crosses into the EU API.
+
+**Who enforces tenancy — read this before trusting "RLS does it".** RLS is
+on every table and is the floor: an anonymous or foreign session reads
+nothing, and `rls-floor.int.test.ts` proves that for every table on each run.
+But most API routes do their work with the **service-role client**
+(`adminClient`), which RLS never sees: 48 of 57 route modules import it,
+against 24 that use the user-scoped client. On those paths the tenancy
+boundary is the route's own `workspace_id` filter, written by hand. Two real
+holes of exactly this shape were found and closed in September 2026 (Thread's
+service-role writes, the person-merge route), each now pinned by an
+integration test that attacks from a second workspace
+(`thread-tenancy.int.test.ts`, `persons-merge-tenancy.int.test.ts`). The rule
+for new code: use `userClient(ctx.jwt)` when the caller's own rights are the
+question; when you must use `adminClient`, filter `workspace_id` explicitly
+and write the cross-workspace test.
+
+The API also accepts three credentials that are not a user session: **app
+keys** for external apps (§6.4), **MCP grant tokens** for a person's own AI
+assistant (§6.5), and **Circle sign-in tokens** (§6.5).
+
+There is **no queue and no worker**. Background work is six in-process ticks
+in `apps/api/src/server.ts` every five minutes (scheduled Thread messages,
+membership renewals and access syncs, usage meters, the Connect hygiene
+sweep, fee statements, filing finished to-dos), each under a database lease
+so two machines never run the same job (`lib/scheduler-lease.ts`).
 
 ### The data wall (brief §2)
 
 The platform owns: identity (person/organisation), the contact graph,
 activity events, enrolment state, consent. Each app owns its own content in
-its own table namespace (`thread_*`, `meet_*`, `flow_*`, `pulse_*`,
-`membership_*`) **plus** the curator-data fields it justifies on shared
-person/org tables (rows tagged `app_id`; RLS shows them only to members of
-that app). Apps cross the wall in exactly **two sanctioned places**:
+its own **table prefix** (`thread_*`, `meet_*`, `flow_*`, `pulse_*`,
+`membership_*`, `connections_*`, `models_*` — every table is in the `public`
+schema; there are no per-app schemas) **plus** the curator-data fields it
+justifies on shared person/org tables (rows tagged `app_id`; RLS shows them
+only to members of that app). Apps WRITE across the wall in exactly **two
+sanctioned places**:
 
 1. `activity` — append-only event log (type + subject, never content).
 2. `purchase` — the money ledger (§8).
+
+Three surfaces READ across it on purpose, because their whole job is the
+cross-app view of one person: Connect's landscape and attention queue
+(enrolments, memberships, commitments, flow runs), the participant portal
+(`routes/portal.ts`) and the personal to-do list (`routes/my-tasks.ts`). They
+read state, never another app's content body.
 
 **"The app justifies the field"**: no field exists on the platform without a
 registered app that needs it. When designing a field, name the app; if you
@@ -89,9 +125,10 @@ Browser ──cookie──▶ Next.js app (server component / server action)
                       │  middleware/app-context.ts: JWKS-verify, resolve
                       │  workspace + user, build RequestContext
                       ▼
-                    Supabase Postgres via userClient(jwt) → RLS applies
-                    (adminClient = service-role, only for webhooks/
-                     platform-internal work, always with explicit filters)
+                    Supabase Postgres, one of two ways:
+                      userClient(jwt)  → the caller's own rights; RLS applies
+                      adminClient      → service role; RLS does NOT apply, so
+                                         the route filters workspace_id itself
 ```
 
 ---
@@ -103,67 +140,107 @@ pnpm monorepo (`pnpm-workspace.yaml`), TypeScript everywhere.
 ```
 apps/
   api/            Hono API (the only thing that touches data)
-    src/routes/   one file per resource domain (~36 files)
-    src/lib/      cross-route logic: payments, email, plans, fees, google…
+    src/routes/   one module per resource domain (57 modules, ~510 endpoints)
+    src/lib/      cross-route logic: payments, email, plans, fees, google,
+                  zoom, mcp, assistant, scheduler lease, rows() …
     src/middleware/app-context.ts   auth + tenancy + app-key gate (§6.4)
-    scripts/      seed-ebbf.mjs, verify-external-app.mjs,
-                  verify-public-api.mjs, sync-stripe-plans.mjs, …
+    src/integration/   tests against the real staging database (§11)
+    scripts/      verify-*.mjs (contracts), audit-*.mjs, seeds, sync-stripe-plans
+    Dockerfile    the Fly image; copies each workspace package BY NAME
   web/            The Fibre (fibre-platform)     :3000
   meet/           Meet                           :3001
-  thread/         Thread                         :3002
+  thread/         The Thread                     :3002
   flow/           Flow                           :3003
   pulse/          Pulse                          :3004
-  membership/     Membership                     :3005
-  my/             Portal (my.thethread.app)      :3007
-  connections/    Connect                        :3008
-  models/         Business Models (beta)         :3009   docs/business-models.md
+  membership/     Members                        :3005
+  website/        Marketing site (thethread.app) :3006
+  my/             My Thread (my.thethread.app)   :3007
+  connections/    Connect (slug fibre-sales)     :3008
+  models/         Models (beta)                  :3009   docs/business-models.md
 packages/
   shared/         @thefibre/shared — THE shared package (§5)
+  mcp/            @thefibre/mcp — the app-key contract as MCP tools (docs/mcp.md)
 supabase/
-  migrations/     146+ SQL migrations — the schema's single source of truth
+  migrations/     235 SQL migrations, 141 tables — the schema's single source
+                  of truth (docs/data-model.md is the map)
+e2e/              Playwright specs against staging (pnpm test:e2e)
 docs/             briefs, proposals, runbooks (§13 doc map)
-scripts/          repo-level ops: verify-vercel-env.mjs, vercel-ignore.mjs,
-                  smoke-staging.mjs, db-push-{prod,staging}.sh
-CLAUDE.md         working notes for LLM sessions (gotchas, where-we-left-off)
+scripts/          release machinery: runway.sh, release.sh, release-guard.sh,
+                  next-version.mjs, promote.sh, deploy-api.sh,
+                  db-push-{prod,staging}.sh, new-migration.sh,
+                  check-*.mjs (migration versions, version residue, service
+                  worker, app versions), smoke-{prod,staging}.mjs,
+                  verify-vercel-env.mjs, verify-sso-hop.mjs, vercel-ignore.mjs
+fly.toml, fly.staging.toml     the API's two Fly apps
+.github/workflows/             ci.yml, nightly-contracts.yml
+CLAUDE.md         working notes for LLM sessions (rules, gotchas)
 CHANGELOG.md      the shipped record — every release has an entry
 docs/build-plan.md  the Open queue — THE to-do list, groomed on every ship
 ```
 
-Each Next.js app has the same internal shape: `app/` (App Router;
+The eight signed-in apps share one internal shape: `app/` (App Router;
 `(app)/` = signed-in chrome with sidebar/topbar, everything else public),
 `components/shell/` (thin shims over shared chrome), `lib/`
-(`api.ts` = apiFetch, `supabase/{client,server}.ts`, `prefs*.ts`,
-`available-apps.ts`, `locale.ts`, `i18n-ui.ts`). Several `lib/` files are
-**byte-identical across all six apps by design** — if you change one, change
-all six identically (check with `md5 -q apps/*/lib/<file>`).
+(`api.ts` = a binding of `@thefibre/shared/api-fetch`,
+`supabase/{client,server}.ts`, `prefs*.ts`, `locale.ts`, `i18n-ui.ts`).
+`apps/my` and `apps/website` are shaped differently (no `(app)/` group, no
+shell). **Some per-app files are byte-identical copies** — the two Supabase
+clients, `middleware.ts`, `tailwind.config.ts`, a handful of shell shims:
+34 groups, about 3,800 redundant lines when measured on 2026-10-01
+(`md5 -r apps/*/lib/supabase/server.ts`). Change one, change them all, or
+better, move it into shared; `docs/build-plan.md` carries the deduplication
+as an open item.
 
 ---
 
 ## 4. Database & RLS
 
+The table-by-table map, with owners, purposes and the eight relationships a
+newcomer must know, is [`docs/data-model.md`](data-model.md).
+
 - **Migrations only.** Schema lives in `supabase/migrations/*.sql`,
-  timestamped `YYYYMMDDHHMMSS_name.sql` (14 digits — shorter prefixes
-  collide same-day). Supabase tracks applied migrations **by filename** —
-  editing an applied file is a silent no-op on remote; write a new
-  migration instead.
-- Apply with `bash scripts/db-push-prod.sh` and `db-push-staging.sh`
-  (they link the right project, push, and relink prod).
+  timestamped `YYYYMMDDHHMMSS_name.sql`. Supabase tracks applied migrations
+  **by the fourteen digits** — editing an applied file is a silent no-op on
+  remote (write a new migration instead), and two files on one version means
+  the second is silently never applied. So: **create one with
+  `./scripts/new-migration.sh <name>`**, never by typing a timestamp;
+  `scripts/check-migration-versions.mjs` refuses a duplicate in `pnpm verify`.
+- Apply with `bash scripts/db-push-staging.sh` (at release; it relinks
+  production afterwards) and `bash scripts/db-push-prod.sh` (at promotion,
+  BEFORE the code that needs the change). Nothing applies migrations
+  automatically.
 - **RLS on every table.** Workspace-scoping mandatory; app-membership
-  scoping where curator data is involved. Helper functions exist
-  (`current_workspace_role()`, `is_super_admin()` — the latter reads
-  `public."user"` whose own policy touches only JWT claims; keep it
-  non-recursive).
+  scoping where curator data is involved. The helpers policies are built
+  from: `current_user_id()`, `current_workspace_id()`,
+  `current_workspace_role()`, `is_workspace_admin()`, `is_super_admin()`,
+  `is_platform_admin()`, `has_app_membership()`, `has_app_role()`,
+  `has_active_consent()`, `can_see_person()`, `can_see_organisation()`,
+  `can_see_activity()`, plus Pulse's and Meet's own. `is_super_admin()` reads
+  `public."user"`, whose own policy touches only JWT claims; keep it
+  non-recursive. Two catalogue tables (`app`, `billing_plan`) rely on
+  Supabase enabling RLS by default rather than on a migration statement — see
+  `docs/data-model.md`.
 - **Service-role-only tables** (credentials and machine state): RLS enabled
   with **no policies**, all access through the API's `adminClient` with
-  explicit filters — `oauth_client`, `oauth_code`, `sso_handoff`,
-  `user_connection`, `membership_settings`, `app_key`, etc.
+  explicit filters. Fifteen today: `app_key`, `oauth_client`, `oauth_code`,
+  `sso_handoff`, `user_connection`, `user_active_workspace`, `mcp_grant`,
+  `workspace_assistant`, `person_calendar_feed`, `scheduler_lease`,
+  `platform_setting`, `public_root_slug`, `membership_settings`,
+  `membership_reminder_send`, `hygiene_run`. "RLS on, no policy" is the
+  intended shape for these, not a missing policy.
+- **SECURITY DEFINER functions are born closed.** Default privileges revoke
+  execute from `public` and `anon` (`20260914171000`); a function that should
+  be callable is granted explicitly. `definer-functions.int.test.ts` probes
+  every one as anon and as a signed-in user against a reviewed allowlist
+  (§11.3b).
 - **Soft delete only** for personal data (`deleted_at`). Activity is
   append-only; corrections are new rows.
 - **Cursor pagination only.** Never offset.
 - Table namespaces: platform (`person`, `organisation`, `workspace`,
   `user`, `activity`, `enrolment`, `consent_record`, `billing_plan`,
   `purchase`, `signup_request`, …) and per-app prefixes (`thread_*`,
-  `meet_*`, `flow_*`, `pulse_*`, `membership_*`, `models_*`). In-family apps use
+  `meet_*`, `flow_*`, `pulse_*`, `membership_*`, `connections_*`,
+  `models_*`). In-family apps use
   platform tables **natively**; `app_entity_mapping` is for EXTERNAL apps
   only.
 - JWT `sub` is `auth.users.id`, **not** `public.user.id`. Use the
@@ -178,25 +255,33 @@ all six identically (check with `md5 -q apps/*/lib/<file>`).
 
 ## 5. The shared package — `@thefibre/shared`
 
-`packages/shared` compiles to `dist/` (plain `tsc`); every subpath is an
-explicit `exports` entry in its `package.json`. Apps depend on the build —
+`packages/shared` compiles to `dist/` (plain `tsc`); what apps may import is
+the `exports` map in its `package.json` (83 entries: the root `.` plus one
+per subpath). Apps depend on the BUILD, not the source —
 `pnpm --filter @thefibre/web... build` (the trailing `...` builds
-dependencies first; never hand-chain builds).
+dependencies first; never hand-chain builds), and after pulling a commit that
+adds anything to shared's public surface, `pnpm --filter @thefibre/shared
+build` before believing a typecheck error in some other app.
 
 The load-bearing modules:
 
 | Module | What it is |
 |---|---|
-| `branding.ts` | **THE domain/name registry.** `APPS[slug]` = name, tagline, `url` (prod default), `urlEnv` (env override key), `available`. `appUrl(slug, env)` is the only correct way to build an app URL. `ENTITY`, `FOOTER_LINKS`, `BRAND_ASSETS` (email chrome — deliberately stays on thefibre.app). A rename or domain move is this file + env. |
+| `branding.ts` | **THE domain/name registry.** `APPS[slug]` = name, tagline, `url` (prod default), `urlEnv` (env override key), `available`; `SURFACES` for the portal and the website. `appUrl(slug, env, host)` is the only correct way to build an app URL — the `host` argument keeps a page served from staging pointing at staging siblings. Also `stagingAppUrl`, `surfaceUrl`, `mcpConnectorUrl`, `appHomePath`, `APP_DISPLAY_ORDER`, `ENTITY` (legal entity; public name "The Thread"), `FOOTER_LINKS`, `BRAND_ASSETS`, `EMAIL_BRAND`. A rename or domain move is this file + env. |
+| `app-shell.ts` | `loadAppShell()` — every signed-in layout's one parallel load: who you are, which apps the workspace runs, which workspaces you may switch to. |
+| `api-fetch.ts` | `createApiFetch()` — each app's `lib/api.ts` is a binding of it; `ApiError`. |
+| `available-apps.ts` | `buildAppList()` — the app switcher's list, from the catalogue and the caller's seats. |
 | `sso-hop.ts` | Cross-apex SSO (§6.3): `crossAppHref()`, `createSsoHop/Land()`. |
-| `auth-callback.ts` | `createAuthCallback()` — the shared OAuth/OTP callback flow (five apps wire it; **web still has its own richer copy** with signup-status branches — fold before touching callbacks). |
+| `auth-callback.ts` | `createAuthCallback()` — the shared OAuth/OTP callback flow (eight apps wire it; **web still has its own richer copy** with signup-status branches — fold before touching callbacks). |
+| `security-headers.ts`, `root-layout.tsx`, `robots.ts` | One definition each of the response headers, the root metadata/icons and the crawler policy, used by every app's `next.config.mjs` and `app/`. |
+| `design/tokens.ts`, `ui/recipes.ts` | The colour role tokens and the recurring looks; `design/tokens.test.ts` fails a release that types a colour in an app (`docs/brand-design.md`, binding). |
 | `embed-loader.ts` | `buildEmbedLoader()` — origin-relative website-embed loader; Thread + Membership serve it at `/embed.js`. Iframe origin derives from the pasted `<script src>`; postMessage is origin-checked. Embeds are deliberately iframes (`docs/…` decision, don't propose web components again). |
 | `prefs.ts` | Cross-app preference cookie names/types. |
-| `i18n.ts`, `ui/i18n-ui.tsx`, `chrome-server-i18n.ts` | Six locales (en, nl, es, pt, de, fr), **typed catalogs** — a missing translation is a type error. `// MT` marks machine drafts. |
-| `ui/*` | The shared component library: app-switcher, topbar, sidebar-shell, user-menu, bottom-nav (mobile tab bar), dialog, button, fields, DateField/DateTimeField, settings, invoices, profile-form, toast, … |
+| `i18n.ts`, `locale-resolution.ts`, `ui/i18n-ui.tsx`, `ui/chrome-server-i18n.ts` | Six locales (en, nl, es, pt, de, fr), **typed catalogs** — a missing translation is a type error. `// MT` marks machine drafts (es, pt, de and fr are almost entirely machine-drafted and unreviewed). |
+| `ui/*` | The shared component library: app-switcher, topbar, sidebar-shell, user-menu, bottom-nav (mobile tab bar), dialog, button, fields, DateField/DateTimeField, settings, invoices, payment-methods, profile-form, help, todo-panel, assistant, toast, … |
 
 **Components-first rule (binding):** before building ANY UI surface, check
-`packages/shared/src/ui` and the other five apps. Use or extract the shared
+`packages/shared/src/ui` and the other apps. Use or extract the shared
 component; **never fork a per-app variant**. New recurring surfaces are BORN
 in shared with app-bound pieces (apiFetch, server actions) injected as props
 (`ui/invoices.tsx` is the pattern). Thread is design-leading when copies
@@ -212,16 +297,29 @@ Cancel·Save right, footer submits by form id.
 ### 6.1 Sign-in
 
 Supabase Auth: Google OAuth (`prompt: select_account`) or email OTP
-(8-digit code). Every app's `sign-in-button.tsx` builds
+(8-digit code). Those are the only two methods built: the API's
+`/sso/resolve` accepts `microsoft` and `linkedin` as provider names, but no
+frontend offers them. The participant portal (`apps/my`) offers the emailed
+code only. Each app's `sign-in-button.tsx` (`sign-in.tsx` in `apps/my`) builds
 `redirectTo = ${window.location.origin}/auth/callback` — origin-relative,
 nothing hardcoded. The callback (shared factory, §5) exchanges the PKCE
 code, then calls the API's `/api/v1/sso/access-check` and `/sso/resolve`
 (server-to-server, `X-SSO-Secret` header = `SSO_INTERNAL_SECRET`) to map
 the auth identity to a platform user/workspace, then `refreshSession()` so
-the access-token hook stamps claims. Participants (Thread `/my`, Membership
-portal) are ordinary Supabase users with **no workspace membership** — the
-callback's `publicPrefixes` option skips the access gate for those paths.
-Accounts auto-create at enrolment (email-only; verified at first sign-in).
+the access-token hook stamps claims. Participants (the My Thread portal,
+Thread `/my`, the Membership portal) are ordinary Supabase users with **no
+workspace membership** — the callback's `publicPrefixes` option skips the
+access gate for those paths (thread `['/my']`, membership
+`['/my', '/oauth-continue']`, my `['/']`). Accounts auto-create at enrolment
+(email-only; verified at first sign-in).
+
+**One human, several workspaces.** There is no foreign key from
+`public.user` to `auth.users`: a person in N workspaces has N `user` rows
+tied together by email, and the access-token hook picks which one a session
+acts as — the row named in `user_active_workspace` if there is one, else the
+oldest. Switching workspace is `POST /api/v1/auth/workspace` followed by a
+token refresh. The JWT's `sub` is `auth.users.id`; anything that references
+`user(id)` must use the `app_user_id` claim.
 
 External registrations: Google Cloud Console holds ONE redirect URI (the
 `…supabase.co/auth/v1/callback`) — app domains appear only as authorized
@@ -233,11 +331,12 @@ allowlist must contain each apex wildcard (`https://thefibre.app/**`,
 
 `@supabase/ssr` cookies, chunked `sb-<ref>-auth-token`, with
 `Domain = NEXT_PUBLIC_COOKIE_DOMAIN`. Production: `.thefibre.app` on the
-web project, `.thethread.app` on the five delivery apps; staging
+platform project only, `.thethread.app` on every other project; staging
 `.thefibre.tech`; local unset. Within an apex, sign-in on one app IS
 sign-in on all (silent SSO — the cookie just travels). The same env var
 scopes the **preference cookies** (`thefibre.theme`, `thefibre.sidebar`,
-`thefibre.locale`) written by the `savePref` server action
+`thefibre.locale`, and a few per-feature ones in `packages/shared/src/prefs.ts`;
+only the first three ride the SSO hop) written by the `savePref` server action
 (`lib/prefs-actions.ts` — server action on purpose: Safari ITP caps
 JS-set cookies at 7 days; not httpOnly because the no-flash `ThemeScript`
 reads it pre-paint).
@@ -267,11 +366,14 @@ Key properties: each apex holds its own session (never share one Supabase
 refresh-token family across apexes — rotation kills it); the real credential
 never enters a URL; the destination allowlist IS the branding registry;
 theme/sidebar/locale prefs ride along; failures degrade to the target's
-sign-in page. **`crossAppHref(current, target, env, next?)` is the only
+sign-in page. **`crossAppHref(current, target, env, next?, host?)` is the only
 correct way to link between apps** — it emits a plain URL same-apex and a
-hop link cross-apex. The app switcher (`lib/available-apps.ts`,
-`buildAppList({currentApp,…})`), the web dashboard cards, and the
-Membership/Pulse `profileHref` all use it.
+hop link cross-apex, and the serving `host` keeps a hop that starts on
+staging from landing on production. The app switcher
+(`@thefibre/shared/available-apps`, `buildAppList({currentApp,…})`), the web
+dashboard cards, and the Membership/Pulse/Connect `profileHref` all use it.
+Eight apps carry the `/sso/hop` and `/sso/land` routes; `scripts/verify-sso-hop.mjs`
+checks each app's shared secret against the API, on either stack.
 
 ### 6.4 App keys (external apps) and the API auth gate
 
@@ -282,11 +384,21 @@ Membership/Pulse `profileHref` all use it.
 - **App-key requests** (`app_key` table, sha256-stored, scoped to
   app×workspace): `ctx.userId` is `''`; use `actorUserId(ctx)` for user
   FKs and filter `workspace_id` explicitly — RLS is not acting for you.
-  Keys reach an explicit route allow-list (`APP_KEY_ROUTES`, default
-  deny); scopes are enforced against the app's manifest. Adding a scope is
-  a deploy (`lib/app-keys.ts`), not a migration — on purpose.
-- `PUBLIC_PATHS` / `PUBLIC_PREFIXES`: routes with their own auth story
-  (SSO secret, Stripe signatures, participant JWTs, public reads).
+  Tokens start `fibre_ak_`. Keys reach an explicit route allow-list
+  (`APP_KEY_ROUTES`, 37 method-and-path entries, default deny): the
+  `/apps/:slug/*` family including Thread (`routes/app-thread.ts`) and Flow
+  (`routes/app-flow.ts`) routes, `/apps/whoami`, and `/activities`. Scopes
+  (`lib/app-keys.ts`: read/write persons, organisations, activities,
+  programs; `write:curator_data`; `write:messages`; `read:flows`;
+  `write:flow_runs`; `read:enrolments`; `review:enrolments`) are enforced
+  against the app's manifest. Adding a scope is a deploy, not a migration —
+  on purpose.
+- `PUBLIC_PATHS` / `PUBLIC_PREFIXES`: routes with their own auth story —
+  the SSO secret, Stripe and Zoom signatures, the Supabase email hook's HMAC,
+  participant JWTs (`/me/`, `/membership/portal/`), the OAuth provider
+  (`/oauth/`), the MCP endpoint, OAuth callbacks carrying signed state, and
+  the public reads. A path listed there is NOT unauthenticated; it
+  authenticates in its own handler.
 - An **archived-workspace gate** (v0.51.2) blocks most routes for archived
   workspaces; `/auth /billing /profile /privacy /sso` are allowlisted so
   archived users can still reach Settings → Plan (and the hop still works).
@@ -296,15 +408,59 @@ External-app onboarding is self-serve: `POST /api/v1/apps/register`
 is `docs/building-on-the-fibre.md` — **read its §6 before touching anything
 under `/api/v1/apps/*`** (see §7 below).
 
-### 6.5 The Fibre as OAuth2 provider
+### 6.5 The Fibre as OAuth2 provider — Circle, and a person's own assistant
 
-`apps/api/src/routes/oauth-provider.ts` — minimal OAuth2 provider used for
-Circle.so community SSO (WP-OAuth preset): `/oauth/authorize` → membership
-app `/oauth-continue` (needs a Supabase session) → single-use 60s code →
-`/oauth/token` (15-min HS256 JWT on `SSO_INTERNAL_SECRET`) → `/oauth/me`,
-which only answers for ACTIVE/GRACE `membership_member` emails — a lapsed
-membership IS the revocation. Client registrations are DB rows
-(`oauth_client.redirect_uris`, exact-match).
+`apps/api/src/routes/oauth-provider.ts` serves two kinds of client.
+
+**Circle (community sign-in).** A minimal provider in the WP-OAuth shape:
+`/oauth/authorize` → membership app `/oauth-continue` (needs a Supabase
+session) → single-use 60s code → `/oauth/token` (15-min HS256 JWT on
+`SSO_INTERNAL_SECRET`) → `/oauth/me`, which only answers for ACTIVE/GRACE
+`membership_member` emails — a lapsed membership IS the revocation. Client
+registrations are DB rows (`oauth_client.redirect_uris`, exact-match).
+
+**MCP (a person's own AI assistant acting as them).** A person connects
+Claude or another MCP client to their account: dynamic registration of
+public clients (`POST /oauth/register`, per-IP limited), PKCE, consent in the
+platform app (`apps/web/app/(app)/connect`), a one-hour access token carrying
+a grant id, refresh tokens with a 90-day idle limit, and `/oauth/revoke`.
+Grants live in `mcp_grant` (service-role only; the session is stored
+encrypted) and are managed at Settings → Connections through
+`/api/v1/mcp-auth/*`. The endpoint itself is `/api/v1/mcp` and the root of
+any `mcp.*` host (`routes/mcp.ts`), with discovery under `/.well-known/`.
+Since v1.97.0 the address may also carry a workspace:
+`https://mcp.thefibre.app/<workspace-slug>` pins that grant's session to the
+named workspace (the access-token hook honours it), so one person can connect
+the same assistant to several workspaces.
+Scopes: `connections:read`, `thread:read`, `thread:write`, `models:read`,
+`models:write`; 120 calls a minute per grant. The tools are the same code as
+the app-key contract (`packages/mcp`), so the two cannot drift.
+`apps/api/scripts/verify-mcp-personal.mjs` walks the whole sign-in and a
+first tool call. Deep dives: `docs/mcp.md`,
+`docs/mcp-personal-access-plan.md`, and for end users
+`docs/using-your-own-assistant.md`.
+
+### 6.6 Integrations that hold somebody's credential
+
+All per-person credentials live in `user_connection` (service-role only) and
+are read through `apps/api/src/lib/connections.ts`:
+
+- **Google Calendar** — per-user OAuth (`calendar.events`,
+  `calendar.readonly`), used by Meet for availability and by Connect's
+  agenda. `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_STATE_SECRET`.
+- **Zoom** — per-user OAuth; Meet and Thread create, move and delete real
+  meetings (`lib/zoom/`, `lib/meeting-links.ts`). As of 2026-10-01 the
+  Marketplace app is in development mode: working end to end on staging,
+  switched off in production (no credentials there), and its
+  deauthorisation webhook is built and tested but has never been called by
+  Zoom. `docs/zoom-marketplace-submission.md` is the review packet.
+- **Google Workspace admin** and **Circle** are per-WORKSPACE credentials in
+  `membership_settings`, used by the membership scheduler to grant and
+  withdraw access.
+- **The in-app assistant** (`routes/assistant.ts`, `lib/assistant/`) calls
+  Anthropic with either the platform key (`ANTHROPIC_API_KEY`) or a
+  workspace's own key (`workspace_assistant`, encrypted). Without a key it
+  answers 503 and the panel stays hidden. `docs/assistant-in-app.md`.
 
 ---
 
@@ -318,14 +474,18 @@ membership IS the revocation. Client registrations are DB rows
 2. **Thread's three public read routes** (`/api/v1/thread/public/…`) are a
    published contract with `origin: '*'` CORS (reads only, no PII).
    `apps/api/scripts/verify-public-api.mjs` guards shapes, CORS and the
-   third-party rate limiting. Never widen the `*` CORS beyond the
-   `PUBLISHED_READ_PATHS` set.
+   third-party rate limiting. There are exactly two deliberate `origin: '*'`
+   sets in `server.ts`: these `PUBLISHED_READ_PATHS`, and the OAuth/MCP
+   endpoints a third-party client must reach (`/.well-known/*`,
+   `/oauth/register`, `/oauth/token`, `/oauth/revoke`, `/api/v1/mcp`).
+   Never add a third without the same argument written beside it.
 3. **CORS for everything else derives from the branding registry**
-   (`server.ts`: `PROD_ORIGINS = APP_IDS.map(appUrl)` — deliberately
-   env-less, so registry defaults ARE prod). Extra origins (staging `.tech`,
-   transition windows) ride the `CORS_ORIGINS` Fly secret. **Never
-   hand-write an origin list** — hand-written domain lists are this repo's
-   most-repeated bug class.
+   (`server.ts`: `PROD_ORIGINS` from `APPS` and `SURFACES` — deliberately
+   env-less, so registry defaults ARE prod; staging origins are derived the
+   same way and apply only on the staging Fly app). Extra origins for a
+   transition window ride the `CORS_ORIGINS` Fly secret. **Never hand-write
+   an origin list** — hand-written domain lists are this repo's most-repeated
+   bug class.
 4. **`/auth/me` is a published shape too, in practice.** Eight apps read it,
    so a local need answered there is a wide contract widened for one screen.
    Answer a situational question — may this user edit, does this workspace
@@ -333,6 +493,11 @@ membership IS the revocation. Client registrations are DB rows
    already calling. Connections' band-label endpoint returns `can_edit` for
    exactly this reason; Thread's dashboard takes a name and an email from
    `/me` and nothing else.
+5. **Two more contracts have a runnable check**: the personal MCP sign-in
+   and tool flow (`verify-mcp-personal.mjs`) and the Stripe webhook
+   configuration (`verify-stripe-webhooks.mjs`). Of all of these, only
+   `verify-public-api.mjs` runs inside `pnpm verify`; the others are run
+   after touching their area and in each stress round.
 
 ### Attach a person by an EXACT identifier, never by a name in prose
 
@@ -451,7 +616,7 @@ of this codebase, while one is somebody's taste.
 **Typed text carries no locale.** The six-locale typed catalogs are for
 CHROME. A sentence a person typed is content, and this codebase does not
 translate content — `connections_band_label` has one `label` column,
-`thread_organiser`'s `site_name` / `site_headline` / `site_intro` are plain
+`thread_settings`'s `site_name` / `site_headline` / `site_intro` are plain
 text. A workspace's own words are shown as they were written.
 
 Note what this does NOT rest on. It is not that we lack the visitor's
@@ -492,24 +657,57 @@ platform `purchase` table (the second sanctioned data-wall crossing) via
 A new payment method = a `method` value + a webhook that records purchases.
 
 - **Connect checkout** (Thread tickets, Meet paid bookings, Membership
-  joins): per-workspace Stripe accounts, plan-aware platform fee
-  (`lib/fees.ts`), success/cancel URLs built from `appUrl()`/
-  `THREAD_APP_URL`/`MEMBERSHIP_APP_URL` (env override → registry fallback).
-- **Platform billing** (workspace subscriptions): `routes/billing.ts`,
-  plans in `billing_plan` (edited at `/admin/plans`; gates always follow
-  `plan_id`, **prices never gate features**; call `forgetAllPlans()` after
-  any `billing_plan` write). Seats + metered overage exist (org seats,
-  usage meters). Catalogue order comes from `sortPlans`
-  (free→starter→pro→org, never by price).
+  joins). The money goes to a connected Stripe account, and WHICH account is
+  resolved per item, not per workspace (`lib/payment-accounts.ts`):
+  - Thread: the organiser's personal account, or the workspace account, or
+    the team lead's (`threadDestinationAccount`; `payment_destination` on the
+    thread, the team's `payout_destination`).
+  - Meet: the host's personal account.
+  - Membership: always the workspace account.
+
+  Success/cancel URLs come from `appUrl()` with `THREAD_APP_URL` /
+  `MEMBERSHIP_APP_URL` / `MEET_APP_URL` as env overrides.
+- **The platform fee** is plan-aware (`lib/fees.ts`): the columns are
+  `billing_plan.meet_paid_pct` / `meet_paid_cap_cents`, read through the RPC
+  `workspace_meet_fee`. The name says "meet"; every app uses it. Fallback 2%
+  capped at €2; zero when the destination is the platform's own account.
+  Each month `lib/fee-statements.ts` issues one VAT statement per workspace
+  for the fees taken (a `fibre-platform` ledger row, born `paid`), from the
+  scheduler under a lease and on demand via
+  `POST /api/v1/admin/fee-statements/run`.
+- **Connecting a Stripe account** is Standard OAuth (`lib/stripe/connect.ts`,
+  since 2026-09-24): `GET /workspace-billing/stripe/connect`, `/stripe/callback`,
+  `/stripe/status`, `POST /stripe/test-payment`, and the `/profile/stripe/*`
+  twins for a person. **It is dark until `STRIPE_CONNECT_CLIENT_ID` is set**
+  (`connect_available` is false and the UI falls back to a paste field, which
+  grants no permission). State is HMAC-signed with `SSO_INTERNAL_SECRET`.
+- **Platform billing** (workspace subscriptions): `routes/billing.ts`
+  (`/usage`, `/checkout`, `/switch`, `/cancel`, `/resume`, `/reactivate`,
+  `/portal`, `/stripe-webhook`), plans in `billing_plan` (edited at
+  `/admin/plans`; gates always follow `plan_id`, **prices never gate
+  features**; call `forgetAllPlans()` after any `billing_plan` write). Seats
+  and metered overage exist (org seats, usage meters). Catalogue order comes
+  from `sortPlans` (`free → starter → pro → org → beta`, never by price).
 - **Webhooks** all point at the Fly API host (domain moves don't touch
-  them): `/api/v1/{meet,thread,billing,membership}/stripe-webhook`, each
-  with its own secret. Signature-verified in-handler.
-- **Payments SPoT**: Stripe account ids + invoice details live on
-  `user_profile`/`workspace`; ALL readers go through
-  `apps/api/src/lib/payment-accounts.ts` (old app-local columns are read
-  fallbacks — never write them again). Same pattern for connections
-  (Google refresh tokens, room URLs): `lib/connections.ts` over
-  `user_connection`.
+  them): `/api/v1/{meet,thread,membership,billing}/stripe-webhook`,
+  signature-verified in-handler. Three are **Connect-mode** endpoints (meet,
+  thread, membership — events on connected accounts); billing is
+  platform-mode. Secrets: `STRIPE_WEBHOOK_SECRET` (Meet, and Thread's
+  fallback), `STRIPE_THREAD_WEBHOOK_SECRET`,
+  `STRIPE_MEMBERSHIP_WEBHOOK_SECRET`, `STRIPE_BILLING_WEBHOOK_SECRET`. The
+  expected endpoints and events are DATA in
+  `apps/api/scripts/lib/stripe-webhooks.mjs`; `verify-stripe-webhooks.mjs`
+  audits a Stripe account against it and `register-stripe-webhooks.mjs`
+  repairs it.
+- **Payments SPoT**: ALL readers go through
+  `apps/api/src/lib/payment-accounts.ts`. A person's account resolves
+  `identity_billing` (keyed by email) → `user_profile` → `thread_organiser`
+  → `meet_host`; a workspace's resolves `workspace` → `thread_settings`. The
+  app-local columns at the end of each chain are read fallbacks — never write
+  them again (one exception: `PATCH /workspace-billing` still clears
+  `thread_settings.stripe_account_id` so a disconnect sticks). Same pattern
+  for connections (Google refresh tokens, Zoom tokens, room URLs):
+  `lib/connections.ts` over `user_connection`.
 - Invoices render from the ledger (`lib/invoice-pdf.ts`, shared invoice
   UI); scheduler + webhook + payment-link flows converge on
   `finalizePaidEnrolment` / `sendTriggeredMessages` — extend those, never
@@ -524,16 +722,24 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 | | Production | Staging |
 |---|---|---|
-| Web/apps | thefibre.app + app./meet./flow./pulse./membership./models.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership./models.thefibre.tech |
-| API | `thefibre-api` (Fly, fra) → thefibre-api.fly.dev | `thefibre-api-staging` |
+| Platform (The Fibre) | thefibre.app | thefibre.tech |
+| Apps | app. (Thread) / meet. / flow. / pulse. / membership. / connect. / models. / my. on thethread.app | thread. / meet. / flow. / pulse. / membership. / connect. / models. / my. on thefibre.tech |
+| Marketing site | thethread.app (apex) | none — the website has no staging deployment |
+| MCP connector | mcp.thefibre.app | mcp.thefibre.tech |
+| API | `thefibre-api` (Fly, fra) → thefibre-api.fly.dev. The address the outside world is told to dial is `PUBLIC_API_URL` (`lib/public-url.ts`, default the fly.dev host); `api.thethread.app` is being introduced for it — read `fly secrets list -a thefibre-api`, not this line | `thefibre-api-staging` → thefibre-api-staging.fly.dev |
 | DB/Auth | Supabase `zfsyyokepyycefbxiblc` | Supabase `lukhyylwhhjyihqtghvw` |
-| Cookie domain | `.thefibre.app` (web) / `.thethread.app` (five apps) | `.thefibre.tech` |
+| Cookie domain | `.thefibre.app` (the platform) / `.thethread.app` (every other app) | `.thefibre.tech` |
 | Stripe | live keys | sandbox keys |
-| Deploy trigger | `git push origin main` | `git push origin main:staging` |
+| How code arrives | `./scripts/promote.sh` fast-forwards `main` to a staging commit; Vercel builds from `main` | `./scripts/release.sh` pushes to `staging`; Vercel builds Preview deployments bound to that branch |
+| How the API arrives | `./scripts/deploy-api.sh prod` (a separate step, after promote) | `./scripts/deploy-api.sh staging` (a separate step, after release) |
 
-- **Vercel**: the projects `thefibre`, `thefibre-{meet,thread,flow,pulse,
-  membership,my,connections,models}` (the list scripts/verify-vercel-env.mjs
-  holds), all in the `sjoerd-1708s-projects` scope. Domains are
+The hosts are DATA in `packages/shared/src/branding.ts` (`appUrl`,
+`stagingAppUrl`, `SURFACES`); read that file rather than this table when the
+two disagree. Every landing and departure needs a runway clearance — §10.
+
+- **Vercel**: ten projects, `thefibre`, `thefibre-website` and
+  `thefibre-{meet,thread,flow,pulse,membership,my,connections,models}` (the
+  list `scripts/verify-vercel-env.mjs` holds). Domains are
   attached per-project in Vercel (each domain to ITS OWN project — the
   2026-09-03 misroute lesson); DNS is at **TransIP** (A records
   `76.76.21.21` for the thethread subdomains; trailing dots on external
@@ -547,8 +753,12 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     inlined at BUILD time, so setting them changes nothing until a build
     runs. **"Redeploy manually" does not work** — the ignore step runs on
     dashboard and API-created deployments too, and cancels them the same
-    way (measured 2026-09-09 on `thefibre-my`). The only fix is a commit
-    that touches the app's folder, `packages/shared` or the lockfile.
+    way (measured 2026-09-09 on `thefibre-my`). Two fixes: a commit that
+    touches the app's folder, `packages/shared` or the lockfile; or, since
+    2026-09-15, setting `FIBRE_FORCE_BUILD=1` on the project for one build
+    (`scripts/vercel-ignore.mjs`). The app's own `package.json` and
+    `apps/web/lib/version.ts` are deliberately NOT trigger paths, or every
+    version bump would rebuild every app.
   - **A brand-new app's Vercel project can sit for a day without deploying.**
     Wire the project, env and domains perfectly and every push still skips
     until one touches a trigger path. `thefibre-my` served a 500 for a day
@@ -579,22 +789,74 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     it — one session nearly reported it as a broken production site.
 - **Env matrix** is machine-checked: `node scripts/verify-vercel-env.mjs`
   (values may be per-project functions — e.g. the two-apex cookie domain).
-- **Fly**: `fly deploy --remote-only` (prod) /
-  `fly deploy -c fly.staging.toml --remote-only`. Secrets via
-  `fly secrets set` (use `--stage` to defer to the next deploy). Fly
-  machine leases block force-destroys for ~15 min after a half-completed
-  deploy — wait it out.
+- **Fly (the API)**: deploy with `./scripts/deploy-api.sh staging|prod`,
+  never a bare `fly deploy`. The script refuses uncommitted or untracked
+  source (Fly ships the DISK, not the commit), refuses a HEAD that is not
+  `origin/staging` (staging) or `origin/main` (prod), and wants to be told
+  how the result will be checked (`--probe <path>`, `--behind-auth` or
+  `--no-visible-change`). Both apps run in `fra` with
+  `strategy = "bluegreen"`, `auto_stop_machines = 'off'` and
+  `min_machines_running = 1`; production is 1 GB, staging 512 MB. Because
+  blue-green overlaps two processes, every scheduled tick runs under a
+  persisted lease (`scheduler_lease`, `lib/scheduler-lease.ts`). Secrets via
+  `fly secrets set --stage` so they ride the next deploy instead of
+  restarting the machine. **A deploy that fails at the destroy step has
+  usually already cut over: re-run the deploy, never destroy machines by
+  hand** (`docs/deploy.md`). If the Depot builder will not provision, the
+  legacy builder (`--depot=false`) works.
 - **Smoke**: `scripts/smoke-staging.mjs` asserts every subdomain serves its
   own app by `<title>`, deriving subdomains from the web apex env — reuse
   the pattern for any domain work.
 - The old `*.thefibre.app` app subdomains are GONE (hard cut executed
   2026-09-07: detached from Vercel, transitional `CORS_ORIGINS` removed).
   Old Thread V3 decommission + TransIP record cleanup remain in
-  `docs/build-plan.md` item 0.
+  `docs/build-plan.md` (search "TransIP").
 
 ---
 
 ## 10. Version management & release procedure
+
+### 10.0 The whole thing on one screen
+
+```
+your worktree            staging                         production
+─────────────            ───────                         ──────────
+commit on your   ──▶  runway.sh request --kind release
+own branch            (controller: runway.sh clear)
+                      release.sh  ───────────────▶  origin/staging
+                        │  guard, version surfaces,     Vercel builds the
+                        │  pnpm verify, push            .tech previews
+                      db-push-staging.sh   (if migrations)
+                      deploy-api.sh staging (if apps/api or a package changed)
+                                 look at it on thefibre.tech
+                                                    ── Sjoerd says so ──▶
+                                                    db-push-prod.sh (migrations FIRST)
+                                                    promote.sh <sha>  ─▶ origin/main
+                                                    deploy-api.sh prod
+```
+
+Four facts carry most of it:
+
+1. **A release lands on `staging` only.** Production is a separate,
+   deliberate `promote.sh`, and only on Sjoerd's word.
+2. **Nothing lands or deploys without a runway clearance** (since
+   2026-10-01). One clearance at a time; `release.sh`, `promote.sh` and
+   `deploy-api.sh` refuse without it and a pre-push hook covers a bare push.
+   The procedure, the vocabulary and the 02:00 escape hatches are in
+   [`docs/runway.md`](runway.md); the binding rule is CLAUDE.md rule 4. This
+   section does not restate them.
+3. **Vercel builds the web apps from the branch; the API is a separate
+   deploy.** A release that changes `apps/api` is not live anywhere until
+   `deploy-api.sh` runs.
+4. **Migrations go before the code that needs them**, staging at release
+   and production at promotion.
+
+The rest of this section is the detail behind those four, followed by the
+rules that came out of specific incidents. The incident rules read like
+pedantry out of context; each one is a thing that went wrong, and the reason
+is kept beside the rule on purpose.
+
+### 10.1 Versions and the release commit
 
 - **One monorepo version** stamped in the `package.json` of **every
   workspace package** — root, every `apps/*`, every `packages/*` (shared and,
@@ -603,24 +865,34 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   Fibre works). `scripts/release.sh` derives that list and refuses a
   half-bumped release; this sentence used to say "nine" and was wrong twice.
   SemVer-ish: features bump minor, fixes bump patch.
-- **Per-app user-facing versions are decoupled**: Meet shows `v2.x`
-  (`apps/meet/app/(app)/layout.tsx`), Thread `v3.x`, Flow / Pulse / Membership
-  / Business Models their own constants in their layouts. Bump those only when app-specific
-  surfaces ship.
-- **Every release = one commit** containing: the code, the nine version
-  bumps, `version.ts`, and a `CHANGELOG.md` entry (top of file, dated,
-  narrative style — say *why*, record decisions and reversals explicitly).
-  Groom `docs/build-plan.md`'s Open queue in the same ship.
-- **After every ship** (standing authorization): push ONLY via
-  `./scripts/release.sh <version>` (guard → version consistency across every
-  workspace package — DERIVED from `apps/*/package.json` + root +
-  `packages/shared` since v0.68.20, never hand-listed, so an eighth app is
-  covered the moment it exists →
-  no staged leftovers → `pnpm verify` → push **`staging` only** — one
-  `set -e` script, born 2026-09-08 after a broken `&&` chain pushed past a
-  guard refusal). Then `bash scripts/db-push-staging.sh` if migrations.
-  Vercel deploys itself from the push. When debugging, first verify
-  deployed == committed.
+- **Per-app user-facing versions are decoupled**: each app shows its own
+  number in its sidebar, a `VERSION` constant in
+  `apps/<app>/app/(app)/layout.tsx` (My Thread: `apps/my/lib/version.ts`).
+  Thread is on `4.x`, Meet on `2.x` (it is the rebuild of Suite v1), Members
+  and Connect on `1.x`, Flow, Pulse and Business Models on their own lines.
+  Bump those only when app-specific surfaces ship.
+  `scripts/check-app-versions.mjs` (run by `release.sh`, warn-only) notices
+  an app whose source changed without its number moving.
+- **Every release = one commit** containing: the code, every version
+  surface (sixteen files today: fourteen `package.json` manifests,
+  `version.ts`, the CHANGELOG heading), and a `CHANGELOG.md` entry (top of
+  file, dated, narrative style — say *why*, record decisions and reversals
+  explicitly). The commit SUBJECT names the version too, and `release.sh`
+  refuses a subject that names a different one (§10.v). Groom
+  `docs/build-plan.md`'s Open queue in the same ship.
+- **Push ONLY via `./scripts/release.sh`** (the version argument is optional;
+  it is read from `package.json`). One `set -e` script, born 2026-09-08 after
+  a broken `&&` chain pushed past a guard refusal. What it does, in order:
+  runway clearance check → `release-guard.sh` (the number is not already
+  used) → every version surface agrees (the list is DERIVED from
+  `apps/*/package.json` + `packages/*/package.json` + root, never hand-kept)
+  → commit subject names the same version → no staged leftovers → HEAD is
+  built on `origin/staging` → `pnpm verify` → runway check AGAIN (verify
+  takes minutes and the base can move) → `git push origin HEAD:staging` →
+  `runway land` → changelog-order and app-version warnings. Then
+  `bash scripts/db-push-staging.sh` if the release carries migrations, and
+  `./scripts/deploy-api.sh staging` if it changes the API. Vercel builds the
+  web apps from the push. When debugging, first verify deployed == committed.
 
   **Production is promoted, not released** (2026-09-12). `release.sh` used to
   push `main` and `staging` together, so every release built every changed app
@@ -631,8 +903,10 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
   So: `./scripts/release.sh <version>` lands on staging. Look at it. Then
   `./scripts/promote.sh` fast-forwards main to whatever staging has, printing
-  the range and warning if it carries migrations that are not on production
-  yet. Fast-forward only: if main has commits staging does not, something
+  the range and STOPPING if it carries migrations until you confirm they are
+  on production (`MIGRATIONS_ON_PROD=yes`, after `bash scripts/db-push-prod.sh`).
+  It needs a `prod` runway clearance, which is only granted with Sjoerd's own
+  words. Fast-forward only: if main has commits staging does not, something
   reached production outside this flow and merging it here would be guesswork
   about whose work survives. `scripts/release-guard.sh` now reads the last
   released number from `origin/staging` for the same reason — main lags by
@@ -659,16 +933,26 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   filed four releases below 1.26.0 before anyone noticed. Find the newest
   version heading and go above it; that cannot drift.
 
-  It reads the last release from CHANGELOG on `origin/staging` — the same
-  source `release-guard.sh` reads, so the two cannot disagree — and stamps
+  It takes the HIGHEST version it can see — the CHANGELOG headings and the
+  manifest on `origin/staging`, the same sources `release-guard.sh` reads,
+  plus a peer's committed-but-unpushed release in local history — and stamps
   every `package.json`, `apps/web/lib/version.ts` and the heading. If you lose
   the race while preparing, `node scripts/next-version.mjs minor --amend`
   renumbers all of it and amends the commit; it keeps your title and only ever
   rewrites a heading that is NOT on the release branch. It will not choose
   patch vs minor for you, because that is a judgement about what changed.
 
-  `db-push-prod.sh` and `fly deploy` belong with the PROMOTION, not with the
-  release — migrations first, then the code that needs them.
+  `db-push-prod.sh` and `deploy-api.sh prod` belong with the PROMOTION, not
+  with the release — migrations first, then the code that needs them. And
+  after any promote, run `supabase migration list` against production: the
+  promote only sees migrations in ITS range, so one an earlier promote left
+  behind stays invisible (§11.3e).
+
+  **New migrations:** `./scripts/new-migration.sh <name>` picks a version
+  that is free in every worktree; never type the fourteen digits by hand.
+  `scripts/check-migration-versions.mjs` runs in `pnpm verify` and in the
+  runway's preflight and refuses a duplicate. The incident behind it is
+  further down this section.
 
   **`promote.sh` defaults to `origin/staging`, so the range you ANNOUNCE and
   the range you PROMOTE can differ.** Two facts produce it: the script takes
@@ -697,12 +981,15 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   before bumping a version; the refusal message now says so instead of the old
   advice to reconcile, which was right under the previous flow and wrong under
   this one.
-  **Docs-only exception** (agreed between sessions, 2026-09-08): a commit
-  touching ONLY `docs/**` / `*.md` — no code, no version surfaces — may
-  push directly (`git push origin main main:staging`) with a `docs:`
-  message prefix; there is no version to mislabel, which is the failure
-  the script prevents. Anything touching code or version surfaces goes
-  through the script, no exceptions.
+  **Docs-only exception** (agreed between sessions, 2026-09-08; amended
+  2026-09-12 and 2026-10-01): a commit touching ONLY `docs/**` / `*.md` — no
+  code, no version surfaces — skips `release.sh` and pushes with a `docs:`
+  prefix **to staging only** (`git push origin HEAD:staging`), under a
+  `--kind docs` runway clearance (the controller's preflight refuses a "docs"
+  request that touches code). Never to main: a docs commit on main gives main
+  a commit staging lacks, and `promote.sh` then refuses the next promotion.
+  Anything touching code or version surfaces goes through the script, no
+  exceptions.
 - **Multiple concurrent LLM sessions are normal** in this repo — and
   increasingly the default way Sjoerd works. The operative checklist lives
   in `CLAUDE.md` under **"Parallel SESSIONS — the serialization protocol"**,
@@ -711,9 +998,13 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   CLAUDE.md did not contain — it documented parallel *subagents* only, and a
   session duly reinvented the protocol from scratch.) The rules, in short:
   - The version files + CHANGELOG are the serialization point — **never
-    two sessions in a release at once**.
-  - Announce "RELEASING NOW" to the other sessions before a bump and
-    "released <sha>" after; `git pull` immediately before bumping.
+    two sessions in a release at once**. Since 2026-10-01 that is enforced,
+    not announced: request a clearance, wait for it, land
+    (`docs/runway.md`). Before that the rule was "announce RELEASING NOW",
+    and one session lost three races in a row to pushes that outran the
+    messages.
+  - `git merge --ff-only origin/staging` immediately before bumping — never a
+    main-tracking pull, because main lags by design.
   - **Stage explicit paths only, never `git add -A`** — the working tree
     is shared and may hold another session's mid-flight edits. Check
     `git status` column 1 for pre-staged entries; `git diff HEAD -- <file>`
@@ -1195,12 +1486,24 @@ the number again in `released <sha>` and treat the first one as provisional.
 Full rationale and roadmap: `docs/testing-approach.md`. This section is the
 operational summary.
 
-**Honest baseline:** no unit-test files, no test runner (deliberate
-early-stage trade). Today's safety net = the type system + executable
-contract checks + a full staging twin + disciplined manual loops. The
-guiding rule: **test the promises, not the plumbing** — contracts
-(published APIs, money, sign-in, RLS tenancy) get tests; UI plumbing gets
-types and render checks.
+**Where it stands:** four layers exist and run — a strict type system, unit
+tests (Vitest), integration tests against the real staging database, and
+Playwright against the staging stack — plus the executable contract checks.
+The counts are measured, not remembered, and live in ONE place:
+`docs/testing-approach.md`. The guiding rule: **test the promises, not the
+plumbing** — contracts (published APIs, money, sign-in, RLS tenancy) get
+tests; UI plumbing gets types and render checks. So coverage is deliberately
+uneven: the API, the shared package and Connect carry the unit tests; seven
+of the ten web apps have none.
+
+**What a green run does and does not mean.** It means the promises hold. It
+does not mean the screens are right (hence the render-check rule), and it
+does not mean an integration works: in one evening on 2026-10-01 three faults
+shipped through typecheck, unit tests and review, and all three were caught
+the same way — by reading the thing on the OTHER side (Zoom held every
+meeting two hours early; nothing had ever read a meeting back). **The
+system's agreement with itself is not evidence.** For anything that crosses
+to an external system, the check that counts reads it back from there.
 
 ### 11.1 Internal vs external testing
 
@@ -1230,16 +1533,22 @@ Two senses, both used:
    CORS, rate limiting), `scripts/smoke-staging.mjs` (each domain serves
    its own app by `<title>`), `scripts/verify-vercel-env.mjs` (the env
    matrix as executable truth).
-3. **Unit tests** (planned — Vitest): pure money/tenancy logic only —
-   `lib/fees.ts`, VAT, `lib/plan.ts` gating, `sso-hop.ts` sanitisation.
-4. **Integration tests** (planned): API routes against the staging DB with
-   a fixture workspace — the RLS matrix (workspace A must never read B;
-   app-key default deny), webhook idempotency, the handoff single-use race.
-   Real Postgres always — mocking the DB tests nothing, RLS is the point.
-5. **E2E smoke** (planned — Playwright on staging): ~10 golden paths (OTP
-   sign-in, dashboard, app switch incl. cross-apex hop, public thread page,
-   test-ticket enrolment through Stripe test checkout, /my, embed resize).
-   Kept ruthlessly small so it stays green and trusted.
+3. **Unit tests** — Vitest, `pnpm test` (`pnpm -r test`): pure logic —
+   fees, VAT, plan gating, `sso-hop.ts` sanitisation, membership intervals,
+   calendar invites, the MCP tool table, the design tokens, Connect's
+   components.
+4. **Integration tests** — `pnpm test:integration`: API routes run IN
+   PROCESS behind the real middleware against the **staging database**, with
+   throwaway workspaces and real minted sessions. The anon floor over every
+   table, the two-user cross-workspace RLS matrix, SECURITY DEFINER
+   exposure, tenancy attacks on service-role routes, purchase idempotency,
+   the SSO single-use race, the scheduler lease. Real Postgres always —
+   mocking the DB tests nothing, RLS is the point. Not in CI (it needs
+   staging credentials); `pnpm verify:full` runs it locally.
+5. **E2E** — Playwright, `pnpm test:e2e`, against the staging stack: golden
+   paths plus signed-in render checks. A session is obtained by minting a
+   single-use SSO handoff code for a fixture user (`e2e/helpers.ts`), so no
+   inbox or password is involved. Not in CI.
 6. **Manual/visual** — signed-in browser render check for every
    shell/chrome/layout change (typecheck-clean ≠ render-correct); the
    staging live-test loop is a first-class technique.
@@ -1370,7 +1679,11 @@ Unit tests can satisfy the rule by accident — `workspace-refs.test.ts` pairs
 another" — which is the argument for stating it: a rule followed by accident
 is not followed by the next test.
 
-### 11.3b Before a PROMOTE: check for migrations an earlier promote left behind
+### 11.3e Before a PROMOTE: check for migrations an earlier promote left behind
+
+*(Renumbered 2026-10-01: three sections had shared the number 11.3b. The
+definer-functions section keeps it, because code and other documents cite it
+by that number.)*
 
 `scripts/promote.sh` refuses when the range it is promoting **adds** a
 migration, unless `MIGRATIONS_ON_PROD=yes` says the push has been done. That
@@ -1407,7 +1720,7 @@ production does not have. Push before you promote:
 The same check is worth running after any promote somebody else made, for the
 same reason: nothing in the flow notices the gap on its own.
 
-### 11.3b An empty answer is a finding; a plausible one hides the same fault
+### 11.3f An empty answer is a finding; a plausible one hides the same fault
 
 **When a call comes back with nothing in it, that silence is the most
 informative thing you will get all day — go and read the log.** A plausible
@@ -1438,8 +1751,8 @@ happen.
 
 Same week, same lesson one level up: our own send log said "14 of 15 sent",
 which was true and told us nothing — the mail left correctly and the
-recipients' calendars declined it. See §11.1 on what our logs can and cannot
-witness. Both times the answer came from looking at the thing itself: the
+recipients' calendars declined it — our logs witness what we sent, never
+what the other side did with it (the opening of §11). Both times the answer came from looking at the thing itself: the
 server's log, and a rendered message in a real inbox.
 
 ### 11.3d A check that passes for the WRONG REASON looks exactly like one that passes
@@ -1453,14 +1766,14 @@ the line it printed was visibly not the one it meant to check.
 
 So: make the assertion name the exact thing under test (`DESCRIPTION:` INSIDE
 the `VEVENT`, for a session whose description you planted), and read what the
-check matched, not just whether it matched. Sibling of [11.3b] — an empty
+check matched, not just whether it matched. Sibling of §11.3f — an empty
 answer is a finding, a plausible one hides the fault — and of the
 enumeration rule in §10.x: all three are the same failure wearing different
 clothes, a green that could not have gone red.
 
 ### 11.3c A DEGRADED answer is worse than an empty one — and worst pointing the safe way
 
-§11.3b is about a call that returns NOTHING. This is its sibling and the more
+§11.3f is about a call that returns NOTHING. This is its sibling and the more
 dangerous half: a call that returns a plausible answer it invented.
 
 `const { data } = await q; return data ?? []` turns a database error into a
@@ -1495,45 +1808,54 @@ needs to throw. A default that alarms will at least be reported.
 This is not hypothetical in that file. It shipped with `from('"user"')`, which
 PostgREST answers PGRST205 to; the error fell into an empty list and the
 function reported "nothing blocks this" for every organiser on the platform
-(v1.55.0, fixed before release by running the selects — §11.1). The rule and
+(v1.55.0, fixed before release by running the selects against a real
+database — the "a PostgREST select is a string" rule in §10). The rule and
 the bug were found the same week, from opposite ends.
 
 ### 11.4 Release gates (run per release)
 
-0. `./scripts/release-guard.sh <intended-version>` — refuses a release
-   number that does not beat origin/main's newest CHANGELOG heading
-   (or a stale local). Born 2026-09-07 after three same-number
-   collisions between concurrent sessions: **history is the
-   serialization truth; announcements are courtesy.**
-1. `pnpm -r typecheck` — always.
+`release.sh` runs gates 0 and 1 itself; the rest are the releaser's.
+
+0. `./scripts/release-guard.sh` — refuses a release number that does not
+   beat the highest version on `origin/staging` (CHANGELOG headings and the
+   manifest). Born 2026-09-07 after three same-number collisions between
+   concurrent sessions: **history is the serialization truth; announcements
+   are courtesy.**
+1. `pnpm verify` — always. In order: version residue, migration versions,
+   the runway's own test, service-worker freshness, catalogue names against
+   `branding.ts`, `pnpm -r typecheck`, `pnpm -r test`, the production smoke,
+   and the public-API contract against production. In a worktree it needs
+   `FIBRE_ENV_FILE=<absolute path to apps/api/.env>`, because that file is
+   gitignored and exists only in the main checkout.
 2. The verify script for any touched contract area (`/api/v1/apps/*` →
    verify-external-app; Thread public/CORS → verify-public-api;
    env/domains → verify-vercel-env + smoke).
 3. Shell/layout change → signed-in render check.
 4. Money/auth change → staging rehearsal with test keys, then watch the
    API log during the first prod exercise.
-5. Migrations → applied to **both** DBs in the same ship.
-6. After deploy: prod smoke + read the Fly log.
+5. Migrations → applied to staging at the release (`db-push-staging.sh`)
+   and to production at the promotion, BEFORE the code (`db-push-prod.sh`).
+6. After an API deploy: the probe `deploy-api.sh` asked for, the smoke for
+   that stack, and the Fly log.
 
 The multi-session serialization protocol (§10) is part of testing: one
-release at a time and explicit-path staging keep other sessions'
+landing at a time and explicit-path staging keep other sessions'
 half-finished work out of the tested artifact.
 
-### 11.5 Adoption state
+### 11.5 What runs where
 
-Phase 0 is DONE (v0.53.0: `pnpm verify` = typecheck → `pnpm -r test` →
-scripts/smoke-prod.mjs → verify-public-api) and Phase 2 has STARTED
-(vitest in shared+api; 30 unit tests on sso-hop, branding, i18n,
-pricing + money extractions v0.54.0). Phase 1 is DONE (CI installed
-2026-09-07 — the token blocker was a phantom, SSH pushes carry no
-workflow-scope restriction; ci.yml = typecheck + tests + builds per push,
-nightly-contracts.yml = daily prod+staging smoke). Phase 3 STARTED
-v0.55.0 (`pnpm test:integration` vs staging: RLS anon-floor, purchase
-idempotency, handoff race). Phase 4 STARTED v0.56.0 (`pnpm test:e2e`:
-6 Playwright golden paths incl. a signed-in dashboard via a minted
-/sso/land code). Remaining pieces sequenced in `docs/testing-approach.md`
-§4 and tracked in build-plan 0a. Cost profile: tooling €0, CI ≈ free tier, the real cost is
-session time (front-loaded) plus ~2–5 min of gates per release.
+| | Where it runs | What it covers |
+|---|---|---|
+| `ci.yml` | GitHub, every push to `main` and `staging`, every PR | builds the packages, `pnpm -r typecheck`, `pnpm test`, then a real build of the platform app and the API. It does NOT build the other nine Next apps |
+| `nightly-contracts.yml` | GitHub, 04:17 UTC | the production and staging smokes |
+| `pnpm verify` | the releaser's machine, inside `release.sh` | gate 1 above |
+| integration and E2E | the developer's machine, against staging | not in CI — they need staging's service-role key |
+| the periodic stress round | a session, on request | every layer above plus the contract walks, the audits on both stacks and targeted hunts; records in `docs/stress-test-*.md` |
+
+CI is a second opinion, not the gate: it was red for two days in September
+without anyone noticing, because the gate people actually pass through is
+`pnpm verify`. Cost profile: tooling €0, CI within the free tier; the real
+cost is the two to five minutes of gates per release.
 
 ---
 
@@ -1544,8 +1866,25 @@ session time (front-loaded) plus ~2–5 min of gates per release.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 cd ~/Projects/thefibre
-pnpm dev          # api :8080 + six apps :3000-:3005
+pnpm install
+pnpm --filter @thefibre/shared build && pnpm --filter ./packages/mcp build
+pnpm dev          # every app's dev script in parallel: api :8080, web :3000,
+                  # meet :3001, thread :3002, flow :3003, pulse :3004,
+                  # membership :3005, website :3006, my :3007,
+                  # connections :3008, models :3009
+                  # the truth, when this comment has gone stale:
+                  #   grep -h '"dev"' apps/*/package.json
 ```
+
+Node 22 (the Dockerfile and CI both use it; `engines` says `>=20`), pnpm
+9.12 (pinned by `packageManager`). **There is no local database in normal
+use**: local dev talks to a hosted Supabase project through `apps/api/.env`
+— production on most machines, `apps/api/.env.staging` for staging
+(`FIBRE_ENV_FILE=.env.staging` selects it for the scripts). So a local write
+is a real write: use staging for anything that changes data. And
+**`pnpm db:migrate` is `supabase db push` against whatever project the CLI is
+linked to** — use `scripts/db-push-staging.sh` / `db-push-prod.sh`, which
+link explicitly, and never the bare alias.
 
 Only some apps have local `.env.local` (web has the full set incl.
 `SSO_INTERNAL_SECRET`); apps without one render public pages but can't
@@ -1685,7 +2024,7 @@ resolution for emails: `platformEmailLocale` is THE resolver.
 
 ### Mobile
 
-All six apps have the shared bottom tab bar + "More" sheet
+Every signed-in app and the portal have the shared bottom tab bar + "More" sheet
 (`ui/bottom-nav`); dialogs render as sheets below `sm`. Builders (Flow
 canvas, timeline editor) are deliberately desktop-first.
 
@@ -1696,7 +2035,11 @@ canvas, timeline editor) are deliberately desktop-first.
 | Rename an app / change a domain | `packages/shared/src/branding.ts` (+ env, Vercel domains, §9). Slugs NEVER change. |
 | Add a cross-app link | `crossAppHref` from `@thefibre/shared/sso-hop` |
 | Add an API route | `apps/api/src/routes/*.ts`, mount in `server.ts`; auth posture in `middleware/app-context.ts` |
-| New table / column | new migration; RLS policy; ask "which app justifies this field?" |
+| New table / column | `./scripts/new-migration.sh <name>`; enable RLS and write the policy in the same file; ask "which app justifies this field?"; `docs/data-model.md` |
+| Land a change on staging | `docs/runway.md`, then `./scripts/release.sh` (§10.0) |
+| Deploy the API | `./scripts/deploy-api.sh staging\|prod` (§9) |
+| A read whose EMPTY answer means something | `rows()` / `row()` / `count()` from `apps/api/src/lib/rows.ts`, never `data ?? []` (§11.3c) |
+| Colours, spacing, recurring looks | `docs/brand-design.md`; tokens and recipes in shared |
 | Money event | `purchase` ledger + `lib/fees.ts` + the relevant `*-payment-link.ts` / webhook |
 | Email | `apps/api/src/lib/email/*-templates.ts`; sender/branding from `branding.ts`; locale via `platformEmailLocale` |
 | New UI surface | `packages/shared/src/ui` first (§5 rule) |
@@ -1708,33 +2051,88 @@ canvas, timeline editor) are deliberately desktop-first.
 
 ## 13. Document map
 
+There are about a hundred files in `docs/`. Most are the record of a
+decision, written before the thing was built, and are NOT maintained
+afterwards. Read them for why; never for how the system behaves today. The
+classes below say which is which; a superseded document carries a banner at
+its top saying so.
+
+**Living — describes the system as it is, and is kept that way**
+
 | Document | Role |
 |---|---|
-| `docs/fibre-technical-brief-v0.4.md` | The canonical vision + data-model spec (v0.3 kept for traceability) |
-| `docs/building-on-the-fibre.md` | The app contract — everything an in-family or external app must obey |
-| `docs/brief-external-apps.md` | How third-party apps integrate (app keys, scopes, links) |
-| `docs/mcp.md` | The app-key contract as MCP tools for an AI assistant (`packages/mcp`) |
-| `docs/mcp-personal-access-plan.md` | Plan: The Fibre reached from a person's own Claude/ChatGPT, acting as that person (Connections first) |
-| `docs/build-plan.md` | **The** Open queue (to-do), groomed every ship |
+| `docs/technical-overview.md` | The outward-facing summary: what it is, the stack, the size, how it is run, what is fragile. Start here if you are evaluating the system |
+| `docs/system-handbook.md` | This file: the orientation for somebody about to change the code |
+| `docs/data-model.md` | Every table by owner, with the relationships a newcomer must know |
+| `docs/runway.md` | How a change lands and deploys: clearance, the controller, the escape hatches |
+| `docs/deploy.md` / `docs/environments.md` | The API and web deploy runbooks; the two stacks, their env vars and the gotchas that were paid for |
+| `docs/testing-approach.md` | How we test, the measured counts, and the principles each incident added |
+| `docs/data-protection-approach.md` | How data is protected: controls and where they live, the incident record, the gap roadmap, the incident runbook |
+| `docs/brand-design.md` | The binding UI rulebook: tokens, recipes, shared components |
+| `docs/build-plan.md` | **The** Open queue (to-do), groomed every ship. Its header and older sections are historical; the Open queue is live |
 | `CHANGELOG.md` | The shipped record, narrative per release |
-| `docs/deploy.md` / `docs/environments.md` | Prod / staging runbooks incl. every env var and hard-won gotcha |
-| `docs/naming-brief.md` | The branding pivot: Thread flagship, function names, Fibre backstage |
-| `docs/meet-architecture.md`, `docs/fibreflow-*.md`, `docs/membership-proposal.md`, `docs/fibre-pulse-proposal.md`, `docs/business-models.md` | Per-app deep dives |
-| `docs/invoices-and-roles-proposal.md`, `docs/pricing-proposal.md`, `docs/productisation-proposal.md` | Money: ledger, roles, tiers |
-| `docs/i18n-proposal.md` | Locale architecture |
-| `docs/spike-circle-sso.md` | The OAuth-provider spike |
-| `docs/spaces-proposal.md` | Plan: conversations in a space (Circle's functions mapped against ours). Parked — decisions first, §6 |
-| `docs/testing-approach.md` | How we test: internal/external testing, the layer stack, release gates, adoption roadmap |
-| `docs/data-protection-approach.md` | How we protect data: assets and threats, the controls that exist and where, the incident record, the gap roadmap, the per-change security gates, the incident runbook |
-| `CLAUDE.md` | LLM session working notes: hard rules, gotcha index, current state |
+| `CLAUDE.md` | Working notes every LLM session loads: hard rules, the multi-session protocol, the gotcha index |
+| `docs/business-models.md`, `docs/mcp.md`, `docs/assistant-in-app.md`, `docs/zoom-marketplace-submission.md`, `docs/connections-asks.md` | Deep dives that are current: the Models app, the MCP package, the in-app assistant, the Zoom review packet, and what the owner asked of Connect and what happened to it |
+
+**Reference — a contract, a decision or a setup guide that still holds**
+
+| Document | Role |
+|---|---|
+| `docs/fibre-technical-brief-v0.4.md` | The canonical vision and data-model intent. Its domains and app names are from May 2026 |
+| `docs/building-on-the-fibre.md` | The app contract — everything an in-family or external app must obey |
+| `docs/brief-thread-public-api.md` | The scope of Thread's three public read routes |
+| `docs/naming-brief.md`, `docs/brief-workspace-urls.md` | The branding pivot and the public URL grammar |
+| `docs/spike-circle-sso.md` | The Fibre as OAuth2 provider for Circle |
+| `docs/using-your-own-assistant.md` | The end-user manual for connecting a personal assistant |
+| `docs/my-portal-setup.md`, `docs/platform-billing-setup.md` (steps 1 to 5), `docs/setup-google-oauth.md` | Setup guides; the first is the template for adding a Vercel project |
+| `docs/cross-app-entity-mapping.md` (from "What actually shipped" down) | How external apps link their records to platform people |
+
+**Decided proposals — built; the doc explains why, and may describe an
+earlier shape**
+
+`invoices-and-roles-proposal.md` (ledger and roles), `pricing-proposal.md`
+and `productisation-proposal.md` (tiers), `membership-proposal.md`,
+`fibre-pulse-proposal.md`, `i18n-proposal.md`,
+`teams-as-access-groups-proposal.md`, `thread-rebuild-plan.md`,
+`visitor-portal-proposal.md` and `member-portal-plan.md`,
+`personal-todo-proposal.md`, `people-in-two-capacities-proposal.md`,
+`brief-external-apps.md`, `brief-workspace-threads.md`,
+`mcp-personal-access-plan.md`, `thethread-website-rewrite-plan.md`,
+`onboarding-proposal.md`, `meet-pricing-roadmap.md`.
+
+**Open proposals — not built**
+
+`spaces-proposal.md` (parked), `flow-as-a-building-block-proposal.md`,
+`google-workspace-provisioning.md` (only suspend and unsuspend exist).
+
+**Historical — a record of a day, a session or a superseded design**
+
+The `stress-test-*.md`, `launch-test-*.md`, `overnight-*.md`, `handover-*.md`
+and `session-summary-*.md` records; the `connections-*.md` design set other
+than `connections-asks.md`; the August `brief-*.md` series from the festival
+planner integration; `fibre-technical-brief-v0.3.md`; the `fibreflow-*.md`
+founding documents; `component-inventory.md`; `thread-split-map.md`;
+`cutover-suite-to-meet.md`; `meet-vs-suite-parity.md`.
+
+**Superseded — each now opens with a banner pointing at what replaced it**
+
+`meet-architecture.md`, `meet-api.md`, `meet-data-model.md`,
+`fibreflow-data-model.md`, `scale-issues.md`, `fibre-vs-app-data.md`,
+`permission-tiers-proposal.md`, `platform-billing-roadmap.md`,
+`ci-template/README.md`.
 
 ## 14. The hard rules (memorise these)
 
 1. **No personal data in Vercel** — every PII operation goes through the EU API.
 2. **`X-App-ID` on every API request** (user sessions).
 3. **RLS on every table**; workspace + app-membership scoping.
-4. **Soft delete only** for personal data; **activity is append-only**.
-5. **Cursor pagination only.**
+4. **Soft delete only** for personal data; **activity is append-only** —
+   type and subject only, corrections are new rows.
+5. **Cursor pagination only.** (CLAUDE.md also lists "connection pooling from
+   day one"; today the API reaches Postgres only through the Supabase client
+   over HTTP and holds no database connections of its own, so there is
+   nothing to pool. It becomes a rule again the day a direct driver is
+   added.)
 6. **`/api/v1/apps/*` and the Thread public reads are additive-only published contracts.**
 7. **Never hand-write a domain/origin/app list** — derive from the branding
    registry (`APP_IDS`/`appUrl`) or the `app` catalogue.
@@ -1742,5 +2140,11 @@ canvas, timeline editor) are deliberately desktop-first.
 9. **The app justifies the field** — no orphan data on the platform.
 10. **Stripe is rails, the ledger is the record.**
 11. **Shared components first; never fork a per-app UI variant.**
-12. **Explicit-path staging; one release at a time; CHANGELOG + build-plan
-    groomed in the same commit.**
+12. **Explicit-path staging; one landing at a time, by runway clearance;
+    CHANGELOG + build-plan groomed in the same commit.**
+13. **Production moves only on the owner's word** — `promote.sh` and
+    `deploy-api.sh prod` are cleared with his own sentence, which the runway
+    log records.
+14. **A service-role query filters `workspace_id` itself**, and a route that
+    takes ids from the request proves they belong to the caller's workspace
+    before it acts on them (§2).

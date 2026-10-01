@@ -1,5 +1,7 @@
 # Brief — workspace-scoped threads
 
+> **Status (2026-10-01): BUILT.** The header below says nothing here is built. Workspace-scoped threads shipped (`public_scope`, migration `20260907234500`). Note the lesson that followed: `team_id IS NULL` does not mean "personal"; ask `public_scope`.
+
 _Written 2026-09-05, from Sjoerd's question on the New-thread screen: "why is
 workspace not available (only personal and team)?" Design only — nothing here
 is built._

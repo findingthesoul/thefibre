@@ -1,5 +1,7 @@
 # The visitor portal — proposal
 
+> **Status (2026-10-01): BUILT.** The header below describes work still to come. The portal is live as `apps/my` (my.thethread.app), served by `apps/api/src/routes/portal.ts`.
+
 **Status:** D1, D2, D3 decided 2026-09-08. **API slice built and verified**
 (uncommitted). Portal surface + PWA + door capability still to come.
 D4, D5 open.

@@ -7,10 +7,21 @@ LLM-assisted) changing the system, and Sjoerd deciding where the next hour
 of security effort goes. Everything in §3 exists and has a path; everything
 in §5 does not yet, in the order it should.
 
-**The one-paragraph version.** The database is the enforcement layer: every
-table carries row-level security, every privileged function is closed to
-the public role by default, and the API is a thin gate in front of it that
-checks who is calling and as which app. Personal data lives in one place, in
+**Re-audited against the code on 2026-10-01 (v1.96.2).** Three statements in
+§3 were wrong and are corrected in place; §4 gains the incidents since
+adoption; §5 says which roadmap items are done. **None of P1 is done yet**,
+with one partial exception.
+
+**The one-paragraph version.** The database is the floor: every table
+carries row-level security, every privileged function is closed to the
+public and anonymous roles by default, and an anonymous or foreign session
+reads nothing — a test proves that for every table on each run. The API is
+the gate in front of it that checks who is calling and as which app. **But
+most API routes then act with the service-role client, which row-level
+security does not see**, so on those routes the tenant boundary is the
+route's own `workspace_id` filter. That is the system's most important
+security property to understand, and the two tenancy holes found so far were
+both of that shape (§4). Personal data lives in one place, in
 the EU, behind that gate; the web apps are stateless and hold nothing. Every
 credential the system mints is hashed, short-lived or single-use. And the
 rules are enforced by tests that fail, because the two incidents this
@@ -176,18 +187,37 @@ to extend rather than the place to fork.
 
 ### 3.4 The database
 
-- **RLS on every table** (hard rule 3): 206 policies over 190 migrations,
-  all `to authenticated`; the one anon policy inserts a pending sign-up
-  request and nothing else. Service-role-only tables (`sso_handoff`,
-  `user_connection`, `oauth_*`, `user_active_workspace`) have RLS on and no
-  policies at all.
+- **RLS on every table** (hard rule 3). Measured 2026-10-01: 141 tables over
+  235 migrations, 139 of them with an explicit `enable row level security`.
+  The two without one, `app` and `billing_plan`, rely on Supabase enabling
+  RLS on new tables by default; both live databases return zero rows for
+  them to an anonymous client (probed), but a database rebuilt from the
+  migrations alone might not, so an explicit migration is owed.
+- **Not every policy says `to authenticated`.** About 34 of the policies in
+  force have no `TO` clause and so apply to every role, the anonymous one
+  included. They are safe because their predicates read JWT claims
+  (`current_workspace_id()`, `current_user_id()`), which are null for an
+  anonymous caller, and the derived floor test
+  (`apps/api/src/integration/rls-floor.int.test.ts`) proves the effect for
+  every table. This document used to say "all `to authenticated`"; the SQL
+  never said that. The one policy that deliberately lets anon write inserts a
+  pending sign-up request and nothing else.
+- **Service-role-only tables** have RLS on and no policies at all, fifteen
+  today: `app_key`, `oauth_client`, `oauth_code`, `sso_handoff`,
+  `user_connection`, `user_active_workspace`, `mcp_grant`,
+  `workspace_assistant`, `person_calendar_feed`, `scheduler_lease`,
+  `platform_setting`, `public_root_slug`, `membership_settings`,
+  `membership_reminder_send`, `hygiene_run`.
 - **Tenancy from the token**: `current_workspace_id()` and
   `current_user_id()` read JWT claims; `is_workspace_admin()`,
   `can_see_person()` and friends decide visibility as the signed-in role.
 - **Definer functions born closed** (handbook §11.3b): every SECURITY
   DEFINER function is executable by `service_role` and, for the nine
   reviewed RLS helpers, by `authenticated`; by nobody else. The default
-  privileges make the next one the same. The allowlist in
+  privileges revoke `public` and `anon` only: **a new function is still born
+  executable by `authenticated`** and needs its own revoke unless a signed-in
+  user is meant to call it, which is what the guard below exists to catch.
+  The allowlist in
   `apps/api/scripts/lib/definer-probe.mjs` is the review record; the
   integration test and `audit-definer-functions.mjs` are the guard.
 - **Append-only where it matters**: `activity` (the data wall — type and
@@ -223,11 +253,14 @@ to extend rather than the place to fork.
 ### 3.7 Rights of the data subject
 
 - **Consent**: `consent_record` with purpose and legal basis, IP recorded,
-  revocable (`routes/privacy.ts`); `has_active_consent()` gates the cohort
-  directory and marketing.
-- **Access (Art. 15)**: `GET /privacy/export` assembles everything held
-  about the caller across sixteen categories with a manifest of what was
-  included.
+  revocable (`routes/privacy.ts`). The cohort directory and marketing are
+  gated by reading `consent_record` directly in `routes/thread.ts`; the SQL
+  helper `has_active_consent()` exists and nothing calls it.
+- **Access (Art. 15)**: `GET /privacy/export` assembles what is held about
+  the caller across nineteen categories with a manifest of what was
+  included. **It covers the platform tables and Meet bookings only.** It does
+  not yet include Thread enrolments and answers, purchases and invoices,
+  memberships, contact points, notes or Connect entries — an open gap (§5).
 - **Erasure (Art. 17)**: files a `data_subject_request` for a person to
   handle. *Automation is §5 P2; the append-only tables mean erasure is
   anonymisation, not deletion, and that needs a design.*
@@ -280,6 +313,39 @@ hope**. The guard tests in §3 exist because of these three.
 
 ---
 
+### Since this document was adopted
+
+Four more entries for the record, each with the control it produced:
+
+- **2026-09-23 — two production API deploys from the wrong working tree.**
+  One ran unreleased billing logic for minutes; untracked scripts that read
+  credentials were uploaded to the image builder. Fly ships the disk, not the
+  commit. Control: `scripts/deploy-api.sh` refuses uncommitted or untracked
+  source and a HEAD that is not the released commit.
+- **2026-09-25 — cross-workspace person merge and undo.** An admin of any
+  workspace could merge two persons of another by id, through a service-role
+  function that checked only that the two shared a workspace. Found by
+  review, in production for two weeks, no evidence of use. Control: the
+  routes prove both ids belong to the caller's workspace first;
+  `persons-merge-tenancy.int.test.ts` attacks from a second workspace.
+- **2026-09-27 — the anonymous-access floor test had been a hand list.**
+  Fourteen tables, none of the thirteen created in the previous fortnight,
+  the ones holding encrypted sessions and keys among them. Nothing was open;
+  nothing was checked. Control: the list is derived from the migrations.
+- **2026-10-01 — a hook rewrite dropped the case-insensitive email join.** A
+  migration re-created the access-token hook from an older shape, so a user
+  whose stored email has a capital got no workspace claims and row-level
+  security denied them everything. Caught on staging by the regression test
+  written for the first time it happened (`hook-case.int.test.ts`), before
+  production. Control: that test; and the lesson that a function re-created
+  in a migration must be re-created from its LATEST definition.
+
+Controls that exist and were not listed above: the deploy guard and the
+runway clearance (`docs/runway.md`); the scheduler lease; the Zoom
+deauthorisation webhook; `X-Robots-Tag: noindex` on everything that is not
+production; the scrambled production-to-staging clone
+(`scripts/clone-prod-to-staging.mjs`); CI on the staging branch.
+
 ## 5. Known gaps and the roadmap
 
 Groomed like everything else, via `docs/build-plan.md`. Priority is by
@@ -287,6 +353,56 @@ blast radius over cost.
 
 **P0 — landed with this document (v0.75.0):** security headers on every
 surface; the filter injection; the public-POST brake; Dependabot.
+
+**Status of everything below, checked against the code on 2026-10-01:**
+
+| Item | Status |
+|---|---|
+| P1.1 Content-Security-Policy | not done; only `frame-ancestors` is set |
+| P1.2 explicit cookie flags | not done; and there is no single shared server client to put them in — each app has its own copy |
+| P1.3 MFA for super admins | not done |
+| P1.4 log redaction | not done; about 47 log lines can carry an email address |
+| P1.5 admin action audit table | not done |
+| P1.6 Stripe event replay guard | not done; idempotency rests on the ledger's update-then-insert |
+| P1.7 app-key handler lint | not done |
+| P1.8 brakes keyed on the target | partial: the site contact form (per workspace), MCP (per grant) and the assistant (per user) are; coupons, portal codes and sign-up are still per IP |
+| P1.9 upload sniffing | not done; the declared type is trusted |
+| P1.10 backup and restore drill | not done; nothing scripted or documented |
+| P1.11 key rotation exercised | no evidence |
+| P1.12 local secrets out of `.env` | not done; scripts read `apps/api/.env`, which is production on most machines |
+| P2 SAST / `pnpm audit` in CI | not done |
+| P2 penetration test, access review, DPAs | no trace in the repository |
+| P2 erasure automation | not done, but a participant can now file a request from their own page and is shown what would be removed, kept and blocked (`lib/portal-erasure.ts`); processing it is still a manual queue with no staff view and no notification |
+| P2 retention job | not done; `retention_policy` has no reader |
+
+**Gaps found since, not on the original list:**
+
+- **Third-party credentials at rest are not encrypted**: Google and Zoom
+  refresh tokens in `user_connection`, the Circle token and the Google
+  Workspace credential in `membership_settings`. The tables are
+  service-role-only, and the encryption helper that protects assistant keys
+  and MCP sessions (`lib/secret-box.ts`) is not applied to them.
+- **The sub-processor list is incomplete.** The privacy policy names
+  Supabase, Fly.io, Vercel, Resend, Stripe, Google and Anthropic and says
+  there is nobody else. Zoom, Circle and Google Workspace directory sync
+  receive personal data when a workspace connects them and are not named.
+  The policy also promises erasure "within 30 days" while erasure is a manual
+  queue. Both are for the owner and a lawyer; the policy has not had legal
+  review.
+- **The data export is partial** (§3.7).
+- **Soft delete has exceptions**: a contact point is hard-deleted, and
+  deleting a thread deletes its programme and cascades to the platform
+  enrolments.
+- **No error tracking or alerting** exists anywhere in the stack. A security
+  event would be seen in Fly's log by someone looking.
+- **The service-role boundary has no mechanical proof**: no lint or test
+  shows that every route using the service-role client filters by workspace.
+  P1.7 covers the app-key routes only; the same question applies to all
+  forty-eight modules that use that client.
+- **A personal MCP grant holds an encrypted Supabase session** and can carry
+  write scopes (`thread:write`, `models:write`). `ASSISTANT_KEY_SECRET`
+  encrypts those sessions as well as workspace keys: rotating it disconnects
+  every connected assistant.
 
 **P1 — before the first paid enterprise workspace:**
 

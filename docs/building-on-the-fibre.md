@@ -29,7 +29,8 @@ negotiable.
 teams), the contact graph between them, the activity event log, enrolment
 state, and consent.
 
-**Each app owns** its own content — in its own schema if it is in-family, in
+**Each app owns** its own content — in its own table prefix (`thread_*`,
+`meet_*`, …; every table is in the `public` schema) if it is in-family, in
 its own database if it is external — and, on the platform side, only the
 specific curator-data fields it can justify.
 
@@ -168,7 +169,15 @@ closest thing an org has to a natural key) or `name`.
 
 `read:persons` · `write:persons` · `read:organisations` ·
 `write:organisations` · `read:activities` · `write:activities` ·
-`write:curator_data` · `read:flows` · `write:flow_runs`
+`write:curator_data` · `read:flows` · `write:flow_runs` · `read:programs` ·
+`write:programs` · `read:enrolments` · `review:enrolments` ·
+`write:messages`
+
+Fourteen, as of 2026-10-01; `APP_SCOPES` in `apps/api/src/lib/app-keys.ts` is
+the list, and its comments say why `write:flows` and `write:enrolments`
+deliberately do not exist. `write:messages` is separate from
+`write:programs` on purpose: creating or deleting a message-type engagement
+sends mail to people, so it needs its own grant.
 
 Ask for the narrowest set that works. Every scope is a thing an admin has to
 be comfortable granting, and an unused one is a reason to say no.
@@ -543,9 +552,15 @@ shape holds still.
 
 ### 6.3 How it is enforced
 
-`apps/api/scripts/verify-external-app.mjs` asserts the response shape of every
-app-facing route (`CONTRACT_SHAPES`, step 7b). Remove or rename a key and the
-run fails. The check earns its keep: it caught a wrong assumption on its very
+`apps/api/scripts/verify-external-app.mjs` asserts the response shape of the
+core app-facing routes (`CONTRACT_SHAPES`, step 7b): fifteen shapes covering
+whoami, links, the nine Flow shapes, a thread, an enrolment and an
+engagement. Remove or rename a key in one of those and the run fails. **It
+does not yet cover every route on the allow-list**: the manifest GET/PUT, the
+person and organisation resolvers, bulk links, templates, check-in,
+approve/decline and activities have no shape assertion, and `/hosts` and
+`/memberships` are not called at all. Treat those as additive-only by
+discipline until the script reaches them. The check earns its keep: it caught a wrong assumption on its very
 first execution.
 
 There is a matching `THE CONTRACT` block at the top of
@@ -622,13 +637,65 @@ Walks the whole path — register, approve, activate, mint, link a person *and*
 an organisation, emit activity, own runs on a flow it did not author, assert
 every published response shape, and lose everything on suspension.
 
-The opt-in is deliberate: there is one Supabase project, so the script always
-writes to a real workspace. It cleans up after itself, except for the two rows
+The opt-in is deliberate, because the script writes real rows. There are two
+Supabase projects, and the script goes wherever its environment points:
+`FIBRE_ENV_FILE` (default `.env`, which is PRODUCTION on most machines) and
+`FIBRE_API` (default `http://localhost:8080`). **Run it against staging**:
+
+```bash
+cd apps/api
+FIBRE_VERIFY_CONFIRM=1 FIBRE_ENV_FILE=.env.staging \
+  FIBRE_API=https://thefibre-api-staging.fly.dev node scripts/verify-external-app.mjs
+```
+
+It cleans up after itself, except for the two rows
 the platform's own rules make permanent — an append-only activity row, and the
 person it pins (soft-deleted). Read the script header before running it.
 
 **If you change anything in this document, run that script.** It is the
 executable version of the same claims.
+
+---
+
+## What this document does not cover yet (audited 2026-10-01)
+
+The allow-list an app key can reach is `APP_KEY_ROUTES` in
+`apps/api/src/middleware/app-context.ts` (37 method-and-path entries,
+default deny). These entries are reachable and are not described above. They
+are part of the published surface all the same, so the additive-only rule
+applies to them:
+
+| Route | Scope | Where |
+|---|---|---|
+| `POST /apps/:slug/memberships` | `write:organisations` | `routes/apps.ts` |
+| `POST /apps/:slug/thread/threads/:id/hosts` | `write:programs` | `routes/app-thread.ts` |
+| `GET /apps/:slug/thread/templates`, and publishing from a template | `read:programs` | `routes/app-thread.ts` |
+| `POST` / `GET /apps/:slug/thread/threads/:id/engagements`, `PATCH` / `DELETE /apps/:slug/thread/engagements/:id` | `write:programs`; a message-type engagement, and any `DELETE`, also needs `write:messages` | `routes/app-thread.ts` |
+| `GET /apps/:slug/thread/checkin/:code`, `POST /apps/:slug/thread/enrolments/:id/checkin` | `review:enrolments` | `routes/app-thread.ts`; enrolment rows carry `checkin_code` and `checked_in_at` |
+| `GET /api/v1/activities` | `read:activities` | `routes/activities.ts` |
+| `GET /apps/:slug/flow/runs`, `GET /apps/:slug/flow/runs/:id` | `read:flows` | `routes/app-flow.ts` |
+
+Things an integrator will ask that the text above does not answer:
+
+- **The base URL.** Production `https://thefibre-api.fly.dev` (also reachable
+  as `https://api.thethread.app`); staging
+  `https://thefibre-api-staging.fly.dev`. Develop against staging.
+- **Errors** are `application/problem+json`. The types an app key will meet:
+  `missing-scope`, `not-app-accessible` (the route is not on the allow-list),
+  `wrong-app` (the `:slug` is not the key's own app), `app-id-mismatch`.
+- **An archived workspace refuses app keys too.**
+- **Rate limits.** Registration is braked per IP. Calls made with an app key
+  are not rate limited today; do not rely on that staying true.
+- **The manifest `$schema` URL in the example does not resolve.** There is no
+  published JSON schema file yet; the manifest is validated by the API on
+  `PUT`.
+- **A person's own AI assistant is a different credential.** §5.6 describes
+  an assistant holding an APP KEY (`packages/mcp`). Since v0.85 a person can
+  also connect their own assistant through OAuth, and it then acts as that
+  PERSON within granted scopes, not as an app. See `docs/mcp.md` and
+  `docs/using-your-own-assistant.md`.
+- The in-family lists in §7 omit Members, Connect, Models and the participant
+  portal; `packages/shared/src/branding.ts` is the list.
 
 ---
 

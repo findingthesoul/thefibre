@@ -1,5 +1,7 @@
 # Fibre Meet — Data model
 
+> **Superseded (marked 2026-10-01).** `meet_team` and `meet_team_member` were renamed to the platform tables `team` and `team_member`; the Google refresh token moved to `user_connection`; Stripe is live, not pending; the poll tables, `meet_team_member_hours` and `person_meet_profile` are missing here. Use `docs/data-model.md`.
+
 _Last updated: 2026-05-16. All Meet tables in the `public` schema, prefixed `meet_`._
 
 This is a reference; for the running schema see the migration files in `supabase/migrations/`. Migrations are tracked by filename, not checksum — never edit an applied migration; write a fresh-timestamped one.

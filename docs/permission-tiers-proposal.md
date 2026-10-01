@@ -1,5 +1,7 @@
 # Permission tiers — resolved design
 
+> **Superseded (marked 2026-10-01).** Built as v0.9.0, then the vocabulary changed: the roles are `super_admin`, `admin` and `organiser` (`docs/invoices-and-roles-proposal.md`), not `admin` and `member`, and `meet_team` is now the platform table `team`. Kept for the reasoning.
+
 _v2, 2026-05-17. Reflects Sjoerd's answers to the first round of open questions._
 
 ## Mental model (brief-level)

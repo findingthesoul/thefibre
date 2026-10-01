@@ -1,5 +1,7 @@
 # Pricing — a proposal
 
+> **Status (2026-10-01): BUILT.** The header below still says nothing is built. The tiers, the plan catalogue (`billing_plan`, `/admin/plans`), the public pricing page and Stripe Billing shipped in September 2026 (v0.20 to v0.21 and after). This document is the reasoning; the live numbers are in the catalogue.
+
 **Status:** proposal, 2026-08-31. Nothing built. **Prices set by Sjoerd
 2026-08-31: Starter €19, Pro €49.** The rest of this argues for a shape and
 shows what it costs to run.

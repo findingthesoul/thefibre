@@ -12,17 +12,24 @@ strict type system, a handful of executable contract checks, a full staging
 twin and a disciplined manual loop bought more correctness per hour than a
 test suite would have while the product was still being discovered.
 
-**Where it actually stands (2026-09-27).** Counted by running them, not by
-reading the previous count (2026-09-15: 57 / 679, 13 / 93, 4 / 24;
-2026-09-25: 99 / 964, 17 / 133, 5 / 27):
+**Where it actually stands (2026-10-01, at v1.96.2).** Counted by running
+them, not by reading the previous count (2026-09-15: 57 / 679, 13 / 93,
+4 / 24; 2026-09-25: 99 / 964, 17 / 133, 5 / 27; 2026-09-27: 106 / 1020,
+19 / 273, 7 / 33):
 
-| Layer | Files | Tests |
-|---|---|---|
-| Unit (vitest) | 106 | 1020 |
-| Integration, real Postgres + RLS on staging | 19 | 273 |
-| End-to-end (Playwright, staging) | 7 | 33 |
+| Layer | Files | Tests | Runs where |
+|---|---|---|---|
+| Unit (vitest) | 117 | 1123 | `pnpm test`; inside `pnpm verify`; CI |
+| Integration, real Postgres + RLS on staging | 20 | 275 | `pnpm test:integration`; a developer's machine only |
+| End-to-end (Playwright, staging) | 7 | 35 | `pnpm test:e2e`; a developer's machine only |
 
-The integration jump is one file: `rls-floor.int.test.ts` now derives its
+**The unit tests are not spread evenly, and that is deliberate.** The API
+(55 files), Connect (31) and the shared package (26) carry them; `packages/mcp`,
+Models and My Thread have a few; the platform app, Thread, Meet, Flow, Pulse,
+Members and the website have none. Those apps rest on the type system, the
+shared components, the end-to-end pack and render checks.
+
+The September integration jump was one file: `rls-floor.int.test.ts` now derives its
 table list from the migrations (140 tables probed as anon) instead of a
 hand list of fourteen that had missed every table created after
 2026-09-14 — including the ones holding encrypted keys and tokens. Nothing
@@ -129,6 +136,32 @@ why §1.5's render-check rule is a rule and not a nicety.
    session that had just written the entry above. Frequency is the finding.
    When a tool answers with nothing, nothing is the least trustworthy answer
    it can give, and the cost of confirming is a single command.
+14. **The system's agreement with itself is not evidence.** On 2026-10-01
+   three faults shipped through typecheck, the unit tests and review, and all
+   three were caught the same way — by comparing against the EXTERNAL system
+   rather than our own output. Zoom had held every meeting two hours early
+   since the day that file was written, invisible because nothing had ever
+   read a meeting back; a reschedule looked perfect on our side; an email's
+   preview showed the end time as the date. Our database, our tests and our
+   logs agreed with each other and were wrong together. For anything that
+   crosses to another system — a calendar, a meeting provider, a payment
+   provider, a mail client — the check that counts reads the thing back from
+   the other side.
+15. **Assert the fixture's IDENTITY, not only its data.** The end-to-end
+   harness picked "the oldest confirmed account" from one page of fifty auth
+   users. When staging grew past fifty, the oldest account fell off the page
+   and the harness silently substituted a test member with three seats;
+   admin-only screens then "failed" and read as product regressions for an
+   hour (2026-09-27). A lookup must find the thing or fail, never return a
+   plausible neighbour — the same family as 9, in the test code itself.
+16. **A function re-created in a migration is re-created from its LATEST
+   definition.** `create or replace` replaces everything, including the fix
+   somebody added three migrations ago. On 2026-10-01 a hook rewrite started
+   from an older shape and dropped the case-insensitive email join; the
+   regression test from the first time (`hook-case.int.test.ts`) caught it
+   on staging. Before rewriting a function, `grep -l "function <name>"
+   supabase/migrations | tail -1` and start from that file — and run the
+   integration pack before the migration leaves staging.
 
 ---
 
@@ -193,20 +226,24 @@ From cheapest/always-on to most expensive/occasional:
    `scripts/verify-vercel-env.mjs` (the env matrix as executable truth:
    cookie domains per project, Supabase keys per scope). These are
    *executable documentation of promises*.
-3. **Unit tests** (to be added, §4) — pure functions only: `lib/fees.ts`,
+3. **Unit tests** (in place since v0.53; `pnpm test`) — pure functions only: `lib/fees.ts`,
    VAT math (`lib/vat*.ts`, `vies.ts` parsing), plan gating (`lib/plan.ts`),
    `sso-hop.ts` (`isCrossApex`, `crossAppHref`, `next` sanitisation),
    pricing rules, date/locale formatting. Runner: **Vitest** (fits the
    ESM/TS monorepo; one `vitest.config.ts` per package, `pnpm -r test`).
-4. **Integration tests** (to be added) — API routes against the **staging
-   database** with a dedicated fixture workspace: the RLS-critical paths
+4. **Integration tests** (in place since v0.55; `pnpm test:integration`;
+   routes run in process behind the real middleware with real minted
+   sessions) — API routes against the **staging
+   database** with throwaway fixture workspaces: the RLS-critical paths
    (a user of workspace A must never read workspace B; app-key default
    deny; archived-workspace gate), the money convergence points
    (`finalizePaidEnrolment`, `recordPurchase` idempotency on webhook
    retries), the SSO handoff (single-use claim race: redeem twice, second
    must fail).
-5. **E2E smoke** (to be added) — **Playwright**, headless, against staging
-   after every staging deploy: the golden paths only —
+5. **E2E** (in place since v0.56; `pnpm test:e2e`; signs in by minting a
+   single-use SSO handoff code for a fixture user, so no inbox is needed) —
+   **Playwright**, headless, against staging: golden paths plus signed-in
+   render checks. The original aim, still the bar for the golden paths —
    sign-in (OTP path — Google can't be automated), see dashboard, switch
    app (same-apex + cross-apex hop), public thread page renders, enrol
    with a test ticket through Stripe test checkout, /my shows the
@@ -280,7 +317,9 @@ of this checklist.)
 3. Shell/layout change → signed-in browser render check.
 4. Money/auth path change → staging rehearsal with Stripe test keys, then
    watch the API log during the first prod exercise.
-5. Migrations → applied to **both** databases in the same ship.
+5. Migrations → applied to staging at the release and to production at the
+   promotion, before the code that needs them (`db-push-staging.sh`,
+   `db-push-prod.sh`); `supabase migration list` on production afterwards.
 6. After deploy: prod smoke (domains by title), and read the Fly log.
 
 The multi-session serialization protocol (handbook §10) is part of testing

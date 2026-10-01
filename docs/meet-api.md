@@ -1,5 +1,7 @@
 # Fibre Meet — API reference
 
+> **Superseded — incomplete (marked 2026-10-01).** Every route listed here still exists, but this covers about half of Meet's API: it has no reschedule, calendar file, Zoom, Stripe webhook, poll, approve/reject or member-hours routes. The route list that cannot go stale is `apps/api/src/routes/meet.ts`.
+
 _Last updated: 2026-05-16. All routes mounted at `/api/v1/meet/...` from `apps/api/src/routes/meet.ts`._
 
 Auth model:
