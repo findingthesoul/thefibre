@@ -12,19 +12,19 @@ strict type system, a handful of executable contract checks, a full staging
 twin and a disciplined manual loop bought more correctness per hour than a
 test suite would have while the product was still being discovered.
 
-**Where it actually stands (2026-10-01, at v1.96.2).** Counted by running
+**Where it actually stands (2026-10-01, at v1.97.3).** Counted by running
 them, not by reading the previous count (2026-09-15: 57 / 679, 13 / 93,
 4 / 24; 2026-09-25: 99 / 964, 17 / 133, 5 / 27; 2026-09-27: 106 / 1020,
 19 / 273, 7 / 33):
 
 | Layer | Files | Tests | Runs where |
 |---|---|---|---|
-| Unit (vitest) | 117 | 1123 | `pnpm test`; inside `pnpm verify`; CI |
-| Integration, real Postgres + RLS on staging | 20 | 275 | `pnpm test:integration`; a developer's machine only |
+| Unit (vitest) | 126 | 1181 | `pnpm test`; inside `pnpm verify`; CI |
+| Integration, real Postgres + RLS on staging | 21 | 281 | `pnpm test:integration`; a developer's machine only |
 | End-to-end (Playwright, staging) | 7 | 35 | `pnpm test:e2e`; a developer's machine only |
 
 **The unit tests are not spread evenly, and that is deliberate.** The API
-(55 files), Connect (31) and the shared package (26) carry them; `packages/mcp`,
+(59 files), Connect (31) and the shared package (27) carry them; `packages/mcp`,
 Models and My Thread have a few; the platform app, Thread, Meet, Flow, Pulse,
 Members and the website have none. Those apps rest on the type system, the
 shared components, the end-to-end pack and render checks.
@@ -162,6 +162,28 @@ why §1.5's render-check rule is a rule and not a nicety.
    on staging. Before rewriting a function, `grep -l "function <name>"
    supabase/migrations | tail -1` and start from that file — and run the
    integration pack before the migration leaves staging.
+17. **Cleanup is code under test: read its answer, and check what is left.**
+   The integration harness's teardown was `await service.from('workspace')
+   .delete()` with nobody reading the result. On 2026-09-15 a migration made
+   that delete impossible (every workspace got its own organisation behind a
+   key that does not cascade) and for sixteen days every run left every
+   throwaway workspace behind: 406 on staging, the suite green throughout.
+   It was found by an audit taking 331 s there and 4.6 s on production, not
+   by a test. Two rules came out of it. A teardown statement reads its error
+   like any other statement. And each test file ends by ASKING THE DATABASE
+   whether what it made is gone (`apps/api/src/integration/staging.ts`),
+   by id rather than by a slug pattern, because other sessions' fixtures are
+   in flight on the same database. A test that writes `activity` cannot use
+   a throwaway workspace at all: the log is append-only and pins it, so it
+   uses a permanent fixture workspace and retires its people.
+18. **A list that follows something needs a test that reads the something.**
+   The v1.97.3 round found six of these in one sitting: allowed CORS methods
+   against the verbs routes register, dev origins against each app's
+   `package.json`, `.dockerignore` against `apps/`, the Dockerfile's COPY
+   lines against the API's workspace dependencies, tables against their
+   `enable row level security`, scheduler ticks against the lease. Each had
+   drifted, each failure was silent, and each test is a dozen lines that
+   read the other side from disk.
 
 ---
 

@@ -16,36 +16,9 @@
 // either. A table that exists is a table this probes, the same rule as the
 // definer guard (definer-probe.mjs) and release.sh's package list.
 
-import { readdirSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { publicTablesFromMigrations } from '../lib/migration-tables.js';
 import { anon, service } from './staging.js';
-
-const MIGRATIONS = resolve(import.meta.dirname, '../../../../supabase/migrations');
-
-/** Every table created in public by the migrations, minus those a later
- *  migration dropped. Order of application = filename order. */
-export function publicTablesFromMigrations(dir = MIGRATIONS): string[] {
-  const created = new Set<string>();
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
-  const create = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/gi;
-  const drop = /drop\s+table\s+(?:if\s+exists\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/gi;
-  const rename = /alter\s+table\s+(?:public\.)?"?([a-z_][a-z0-9_]*)"?\s+rename\s+to\s+"?([a-z_][a-z0-9_]*)"?/gi;
-  for (const f of files) {
-    const sql = readFileSync(resolve(dir, f), 'utf8')
-      // Strip -- comments so a table mentioned in prose is not "created".
-      .replace(/--[^\n]*/g, '');
-    for (const m of sql.matchAll(create)) created.add(m[1]!.toLowerCase());
-    for (const m of sql.matchAll(rename)) {
-      created.delete(m[1]!.toLowerCase());
-      created.add(m[2]!.toLowerCase());
-    }
-    for (const m of sql.matchAll(drop)) created.delete(m[1]!.toLowerCase());
-  }
-  return [...created].sort();
-}
 
 const TABLES = publicTablesFromMigrations();
 

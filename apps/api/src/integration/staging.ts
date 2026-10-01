@@ -53,6 +53,7 @@ export async function anyWorkspaceId(): Promise<string> {
 // ---------------------------------------------------------------------------
 
 import { randomUUID } from 'node:crypto';
+import { afterAll } from 'vitest';
 
 export type FixtureUser = {
   email: string;
@@ -72,8 +73,42 @@ export async function createThrowawayWorkspace(tag: string): Promise<string> {
     .select('id')
     .single();
   if (error) throw new Error(`workspace fixture failed: ${error.message}`);
+  trackThrowawayWorkspace(data.id as string, slug);
   return data.id as string;
 }
+
+// ---------------------------------------------------------------------------
+// Every throwaway workspace a test file makes must be gone when the file
+// ends. This is the check that was missing: registered here, at import, so it
+// is the FIRST afterAll of every file that uses this harness and therefore
+// the LAST to run (vitest unwinds hooks as a stack) — after the file's own
+// cleanup has had its turn. It asks the database, and a workspace that is
+// still there fails the file by name.
+//
+// It tracks ids, not a slug pattern, on purpose: several sessions run this
+// suite against the same staging database at once, and a count of
+// `int-test-%` would blame one run for another's fixtures in flight.
+// ---------------------------------------------------------------------------
+const throwaway = new Map<string, string>();
+
+/** For a test that inserts its own workspace instead of using the helper. */
+export function trackThrowawayWorkspace(id: string, slug: string): void {
+  throwaway.set(id, slug);
+}
+
+afterAll(async () => {
+  if (throwaway.size === 0) return;
+  const { data, error } = await service.from('workspace').select('id, slug').in('id', [...throwaway.keys()]);
+  if (error) throw new Error(`fixture check: could not ask staging what is left: ${error.message}`);
+  if (data && data.length > 0) {
+    throw new Error(
+      `this file left ${data.length} throwaway workspace(s) on staging: ` +
+        `${data.map((w) => w.slug).join(', ')}. Its cleanup ran and did not remove them — ` +
+        `something still references the workspace. Run the file alone and read the ` +
+        `[fixtures] lines above for the constraint.`,
+    );
+  }
+});
 
 export async function createFixtureUser(workspaceId: string, tag: string): Promise<FixtureUser> {
   // Lowercased on purpose: GoTrue lowercases auth emails, and the hook's
@@ -123,13 +158,67 @@ export async function createFixtureUser(workspaceId: string, tag: string): Promi
   return { email, authUserId: created.user.id, userId: row.id as string, accessToken, client };
 }
 
+// Cleanup that SAYS when it did not clean.
+//
+// Both helpers below discarded their result until 2026-10-01, and the suite
+// was green the whole time. Meanwhile, since 2026-09-15 — the day migration
+// 20260915060000 gave every workspace its own organisation, behind a foreign
+// key that does not cascade — `delete from workspace` had been refused for
+// EVERY throwaway workspace of EVERY run: 406 of them stood on staging, the
+// five-minute schedulers walked all of them, and the workspace-admins audit
+// took 331 s there against 4.6 s on production. Nothing reported it, because
+// the one statement that could was `await …delete()` with nobody reading the
+// answer. So: remove what pins the row, then read the answer.
+
 export async function deleteFixtureUser(u: FixtureUser): Promise<void> {
-  await service.from('user').delete().eq('id', u.userId);
-  await service.auth.admin.deleteUser(u.authUserId).catch(() => undefined);
+  const row = await service.from('user').delete().eq('id', u.userId);
+  if (row.error) console.warn(`[fixtures] user ${u.email} was NOT removed: ${row.error.message}`);
+  const auth = await service.auth.admin.deleteUser(u.authUserId);
+  if (auth.error) console.warn(`[fixtures] auth user ${u.email} was NOT removed: ${auth.error.message}`);
 }
 
-export async function deleteThrowawayWorkspace(id: string): Promise<void> {
-  await service.from('workspace').delete().eq('id', id);
+/**
+ * Remove a throwaway workspace and report whether it went.
+ *
+ * Says why when it could not; the file-level check above is what fails the
+ * run. (A workspace an enrolment touched is pinned for good by its
+ * append-only `activity` rows — such a test belongs in the permanent fixture
+ * workspace below, not in a throwaway one.)
+ */
+export async function deleteThrowawayWorkspace(id: string): Promise<boolean> {
+  const name = throwaway.get(id) ?? id;
+  const say = (what: string, r: { error: { message: string } | null }) => {
+    if (r.error) console.warn(`[fixtures] workspace ${name}: ${what}: ${r.error.message}`);
+  };
+  // What a workspace can still hold after a test's own cleanup, in the order
+  // the foreign keys allow. All of it belongs to a workspace that is about to
+  // be removed whole, so none of it is anybody's data.
+  //
+  // user ⇄ person point at each other (user.person_id, person.user_id), so
+  // neither can be deleted first: cut one side, then remove both.
+  say('unlinking users from persons', await service.from('user').update({ person_id: null }).eq('workspace_id', id));
+  say('persons NOT removed', await service.from('person').delete().eq('workspace_id', id));
+  say('users NOT removed', await service.from('user').delete().eq('workspace_id', id));
+  // The workspace's own organisation, created by trigger with the workspace.
+  // workspace.organisation_id is ON DELETE SET NULL, so the row lets go.
+  say('organisations NOT removed', await service.from('organisation').delete().eq('workspace_id', id));
+  const ws = await service.from('workspace').delete().eq('id', id).select('id');
+  if (ws.error) {
+    console.warn(`[fixtures] workspace ${name} was NOT removed: ${ws.error.message}`);
+    return false;
+  }
+  return (ws.data?.length ?? 0) === 1;
+}
+
+/** Throwaway workspaces still standing, oldest first — by the suite's own prefix. */
+export async function leakedThrowawayWorkspaces(): Promise<{ id: string; slug: string; created_at: string }[]> {
+  const { data, error } = await service
+    .from('workspace')
+    .select('id, slug, created_at')
+    .like('slug', 'int-test-%')
+    .order('created_at');
+  if (error) throw new Error(`leaked workspaces: ${error.message}`);
+  return (data ?? []) as { id: string; slug: string; created_at: string }[];
 }
 
 /** Decode a fixture session's JWT claims (no verification — staging is the oracle). */
@@ -165,7 +254,7 @@ export type PublicThreadFixture = {
  * 2026-09-07: seven throwaway shells had to be retired in place). Content
  * is cleaned per run; persons are soft-deleted (their activity pins them).
  */
-const ENROL_FIXTURE_WS_SLUG = 'int-enrol-fixtures';
+export const ENROL_FIXTURE_WS_SLUG = 'int-enrol-fixtures';
 
 export async function getPermanentFixtureWorkspace(slug: string): Promise<string> {
   const { data: existing } = await service
@@ -250,6 +339,34 @@ export async function createPublicThreadFixture(tag: string): Promise<PublicThre
   };
 }
 
+/**
+ * Retire the people an enrolment made in a PERMANENT fixture workspace: the
+ * person is soft-deleted (its `activity` rows pin it for good), the account
+ * that enrolling auto-created is removed, and so is its sign-in identity.
+ *
+ * Any test that enrols somebody belongs in a permanent workspace and ends
+ * with this. Two files used a throwaway workspace instead and left it behind
+ * on every run — 64 of the 406 that stood on staging on 2026-10-01.
+ */
+export async function retireParticipants(workspaceId: string, emails: string[]): Promise<void> {
+  const must = (label: string) => (r: { error: { message: string } | null }) => {
+    if (r.error) console.error(`[fixture cleanup] ${label}: ${r.error.message}`);
+  };
+  for (const email of emails) {
+    must('person soft-delete')(
+      await service
+        .from('person')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('workspace_id', workspaceId)
+        .eq('email', email),
+    );
+    must('user')(await service.from('user').delete().eq('workspace_id', workspaceId).eq('email', email));
+    const { data: listed } = await service.auth.admin.listUsers({ perPage: 1000 });
+    const au = listed?.users.find((a) => a.email?.toLowerCase() === email.toLowerCase());
+    if (au) await service.auth.admin.deleteUser(au.id).catch(() => undefined);
+  }
+}
+
 /** Clean the fixture's CONTENT out of the permanent workspace. Persons are
  *  soft-deleted (activity is append-only and pins them — hard delete is
  *  impossible by design); everything else goes. Errors are surfaced, not
@@ -263,19 +380,7 @@ export async function cleanupPublicThreadFixture(
   };
   must('thread_enrolment')(await service.from('thread_enrolment').delete().eq('thread_id', f.threadId));
   must('enrolment')(await service.from('enrolment').delete().eq('program_id', f.programId));
-  for (const email of participantEmails) {
-    must('person soft-delete')(
-      await service
-        .from('person')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('workspace_id', f.workspaceId)
-        .eq('email', email),
-    );
-    must('user')(await service.from('user').delete().eq('workspace_id', f.workspaceId).eq('email', email));
-    const { data: listed } = await service.auth.admin.listUsers({ perPage: 100 });
-    const au = listed?.users.find((a) => a.email?.toLowerCase() === email.toLowerCase());
-    if (au) await service.auth.admin.deleteUser(au.id).catch(() => undefined);
-  }
+  await retireParticipants(f.workspaceId, participantEmails);
   must('thread_thread')(await service.from('thread_thread').delete().eq('id', f.threadId));
   must('thread_organiser')(await service.from('thread_organiser').delete().eq('id', f.organiserId));
   must('program')(await service.from('program').delete().eq('id', f.programId));

@@ -1,8 +1,10 @@
 # The API image (apps/api/Dockerfile) copies only the root manifests,
-# apps/api and packages/shared. Everything below is uploaded to the Fly
-# builder on every deploy otherwise — the context was 4.1 GB (2.2 GB of it
-# .claude/). Keep it lean. Do NOT ignore: pnpm-lock.yaml, pnpm-workspace.yaml,
-# package.json, tsconfig.base.json, apps/api/**, packages/shared/**.
+# apps/api, packages/shared and packages/mcp. Everything below is uploaded to
+# the Fly builder on every deploy otherwise — the context was 4.1 GB (2.2 GB
+# of it .claude/). Keep it lean. Do NOT ignore: pnpm-lock.yaml,
+# pnpm-workspace.yaml, package.json, tsconfig.base.json, apps/api/**,
+# packages/shared/**, packages/mcp/** — every packages/* the API depends on is
+# COPYed by name in the Dockerfile and must stay out of this file.
 
 .claude/
 .git/
@@ -14,17 +16,28 @@ node_modules/
 .vercel/
 **/.vercel/
 
-# Sibling apps the API build never touches
+# Sibling apps the API build never touches. Hand-listed, and it had stopped at
+# the five apps that existed in July: membership, connections, my, models and
+# website (some 13 MB of source and images) rode to the builder on every
+# deploy until 2026-10-01. When an app is added, add it here.
 apps/web/
 apps/meet/
 apps/thread/
 apps/flow/
 apps/pulse/
+apps/membership/
+apps/connections/
+apps/my/
+apps/models/
+apps/website/
 
 # Non-build material
 docs/
 supabase/
 scratchpad/
+e2e/
+test-results/
+playwright-report/
 *.log
 # Docker ignore patterns are relative to the CONTEXT ROOT, so a bare `.env`
 # matched only /.env and left apps/api/.env in the context — and BuildKit

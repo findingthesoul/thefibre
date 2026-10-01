@@ -12,7 +12,7 @@
 // wrote none of them.
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { service } from './staging.js';
+import { deleteThrowawayWorkspace, service, trackThrowawayWorkspace } from './staging.js';
 import { seedFirstAdmin } from '../lib/first-admin.js';
 
 const made: string[] = [];
@@ -21,28 +21,38 @@ let userId: string;
 const email = `first-admin-${Date.now()}@example.test`;
 
 beforeAll(async () => {
+  const slug = `first-admin-${Date.now()}`;
   const { data, error } = await service
     .from('workspace')
-    .insert({ slug: `first-admin-${Date.now()}`, name: 'First admin fixture' })
+    .insert({ slug, name: 'First admin fixture' })
     .select('id')
     .single();
   if (error) throw new Error(`fixture workspace: ${error.message}`);
   wsId = data!.id as string;
   made.push(wsId);
+  trackThrowawayWorkspace(wsId, slug);
 
   const seeded = await seedFirstAdmin({ workspaceId: wsId, email, name: 'Ada Probe', sendInvite: false });
   userId = seeded.userId;
 });
 
 afterAll(async () => {
+  // Each answer is read. This block ran blind until 2026-10-01 and removed
+  // nothing it was written to remove.
+  const say = (what: string, r: { error: { message: string } | null }) => {
+    if (r.error) console.warn(`[fixtures] first-admin: ${what} NOT removed: ${r.error.message}`);
+  };
   if (userId) {
-    await service.from('app_membership').delete().eq('user_id', userId);
-    await service.from('workspace_member').delete().eq('user_id', userId);
+    say('app_membership', await service.from('app_membership').delete().eq('user_id', userId));
+    say('workspace_member', await service.from('workspace_member').delete().eq('user_id', userId));
   }
   for (const id of made) {
-    await service.from('person').delete().eq('workspace_id', id);
-    await service.from('user').delete().eq('workspace_id', id);
-    await service.from('workspace').delete().eq('id', id);
+    say('person', await service.from('person').delete().eq('workspace_id', id));
+    say('user', await service.from('user').delete().eq('workspace_id', id));
+    // The helper, not a bare delete: a workspace's own organisation pins it
+    // (staging.ts), and six `first-admin-*` workspaces stood on staging
+    // because this line never read its answer.
+    await deleteThrowawayWorkspace(id);
   }
 });
 

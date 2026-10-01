@@ -39,7 +39,8 @@ diary below disagrees, the diary is history.**
   disposable but shared: several sessions test against it at once.
 - **CORS on staging is derived**, like production: the staging origins come
   from the app registry when the API runs as `thefibre-api-staging`
-  (`apps/api/src/server.ts`). `CORS_ORIGINS` is for extras only.
+  (`apps/api/src/lib/cors-origins.ts`), apps and surfaces both since
+  v1.97.3. `CORS_ORIGINS` is for extras only and nothing should depend on it.
 - **A staging page never links to production by accident**: `appUrl()` and
   `surfaceUrl()` resolve sibling apps from the serving host, so a missing env
   var no longer sends a `.tech` page to a production sibling.
@@ -70,8 +71,9 @@ Values live in Fly secrets (`fly secrets list -a <app>`); set them with
 The web projects' names are the `NEXT_PUBLIC_*` family
 (`API_BASE_URL`, `COOKIE_DOMAIN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and one
 `*_URL` per sibling app) plus `SSO_INTERNAL_SECRET`. The root `.env.example`
-is older than several of these; `grep -rhoE "process\.env\.[A-Z_]+" apps/api/src | sort -u`
-is the list that cannot go stale.
+names all of them since v1.97.3, grouped by what each switches on, and
+`node scripts/check-env-example.mjs` compares it with every variable the
+running code reads (`--list` prints each name with a file that reads it).
 
 ---
 

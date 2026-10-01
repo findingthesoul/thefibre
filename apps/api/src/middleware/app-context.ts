@@ -94,9 +94,13 @@ declare module 'hono' {
   }
 }
 
+// Every entry here answers WITHOUT a credential, so every entry needs a route
+// behind it and a reason beside it. `/auth/login` and `/auth/refresh` stood at
+// the top of this list from phase 0 until 2026-10-01 with neither: sign-in is
+// Supabase's, the API never had those routes. Harmless as it stood (they
+// answered 404), but an unauthenticated slot waiting for whoever next adds a
+// route by that name is not something to leave lying around.
 const PUBLIC_PATHS = new Set([
-  '/api/v1/auth/login',
-  '/api/v1/auth/refresh',
   '/api/v1/sso/resolve', // gated by its own X-SSO-Secret header, not JWT
   '/api/v1/sso/access-check', // same — server-to-server, secret-gated
   '/api/v1/sso/handoff', // verifies the user's Supabase JWT itself (JWKS)

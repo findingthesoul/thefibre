@@ -104,5 +104,5 @@ echo "Promoted. Production is now $(git log --oneline -1 "$SHA")."
 if [ -n "$API_CHANGED" ]; then
   echo
   echo "This range changes the API. The push did not deploy it — Fly deploys only when told:"
-  echo "    fly deploy --remote-only"
+  echo "    ./scripts/deploy-api.sh prod"
 fi

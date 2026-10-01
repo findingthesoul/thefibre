@@ -70,7 +70,7 @@ flowchart LR
   the boundary in two places only: an append-only activity log (type and
   subject, never content) and a money ledger. Three surfaces read across it
   on purpose, because their job is one person's cross-app view.
-- **No queue and no worker.** Background work is six in-process jobs on a
+- **No queue and no worker.** Background work is seven in-process jobs on a
   five-minute tick, each under a database lease so two API machines never run
   the same job.
 - **Two apex domains.** The platform is on `thefibre.app`, everything else on
@@ -106,7 +106,7 @@ review.
 | TypeScript, apps and packages | about 250,000 lines, of which about 44,000 are translation catalogs |
 | API | 66,000 lines, 57 route modules, about 510 endpoints |
 | Database | 235 migrations, 141 tables, 222 row-level-security policies, 53 privileged functions |
-| Tests | 117 unit test files, 20 integration files, 7 end-to-end files |
+| Tests | 126 unit test files, 21 integration files, 7 end-to-end files |
 | Documentation | about 100 files, 25,000 lines; the changelog is another 22,000 |
 | History | 1,333 commits since 2026-05-12; about 850 releases; 920 commits in September 2026 alone |
 | Languages | English, Dutch, Spanish, Portuguese, German, French |

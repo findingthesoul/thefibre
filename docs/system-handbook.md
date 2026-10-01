@@ -83,11 +83,13 @@ The API also accepts three credentials that are not a user session: **app
 keys** for external apps (§6.4), **MCP grant tokens** for a person's own AI
 assistant (§6.5), and **Circle sign-in tokens** (§6.5).
 
-There is **no queue and no worker**. Background work is six in-process ticks
-in `apps/api/src/server.ts` every five minutes (scheduled Thread messages,
-membership renewals and access syncs, usage meters, the Connect hygiene
-sweep, fee statements, filing finished to-dos), each under a database lease
-so two machines never run the same job (`lib/scheduler-lease.ts`).
+There is **no queue and no worker**. Background work is seven in-process
+ticks in `apps/api/src/server.ts` every five minutes (scheduled Thread
+messages, membership renewals and access syncs, usage meters, the Connect
+hygiene sweep, fee statements, filing finished to-dos, the weekly VAT probe),
+each under a database lease so two processes never run the same job
+(`lib/scheduler-lease.ts`). `scheduler-wiring.test.ts` reads `server.ts` and
+refuses a tick fired outside the lease: the VAT probe was, until v1.97.3.
 
 ### The data wall (brief §2)
 
@@ -480,12 +482,15 @@ are read through `apps/api/src/lib/connections.ts`:
    `/oauth/register`, `/oauth/token`, `/oauth/revoke`, `/api/v1/mcp`).
    Never add a third without the same argument written beside it.
 3. **CORS for everything else derives from the branding registry**
-   (`server.ts`: `PROD_ORIGINS` from `APPS` and `SURFACES` — deliberately
-   env-less, so registry defaults ARE prod; staging origins are derived the
-   same way and apply only on the staging Fly app). Extra origins for a
-   transition window ride the `CORS_ORIGINS` Fly secret. **Never hand-write
-   an origin list** — hand-written domain lists are this repo's most-repeated
-   bug class.
+   (`apps/api/src/lib/cors-origins.ts`: production origins from `APPS` and
+   `SURFACES` — deliberately env-less, so registry defaults ARE prod; staging
+   origins, apps and surfaces both, are derived the same way and apply only
+   on the staging Fly app). Extra origins for a transition window ride the
+   `CORS_ORIGINS` Fly secret. **Never hand-write an origin list** —
+   hand-written domain lists are this repo's most-repeated bug class, and
+   since v1.97.3 `cors-origins.test.ts` holds both lists against what they
+   follow: the allowed methods against every verb a route registers, the dev
+   ports against every `apps/*/package.json`.
 4. **`/auth/me` is a published shape too, in practice.** Eight apps read it,
    so a local need answered there is a wide contract widened for one screen.
    Answer a situational question — may this user edit, does this workspace

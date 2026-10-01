@@ -21,6 +21,7 @@ export {
   EMAIL_BRAND,
   SURFACES,
   surfaceUrl,
+  stagingSurfaceUrl,
   type AppBrand,
 } from './branding.js';
 export type { SurfaceKey } from './branding.js';

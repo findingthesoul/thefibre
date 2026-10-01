@@ -6,11 +6,32 @@
 // history. A unit test cannot exercise any of that, because the whole point
 // is what the catalogue says and what the unique constraints do.
 //
-// Throwaway workspace, fixture rows cleaned by their own ids. Staging only,
-// per the harness rules.
+// A PERMANENT fixture workspace, fixture rows retired by their own ids.
+// Staging only, per the harness rules. It was a throwaway workspace until
+// 2026-10-01: the merge tests write `activity`, which is append-only and pins
+// the person and so the workspace, and fifty of them stood on staging — one
+// per run — because the cleanup never read its own answer.
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createThrowawayWorkspace, deleteThrowawayWorkspace, service } from './staging.js';
+import {
+  createThrowawayWorkspace,
+  deleteThrowawayWorkspace,
+  getPermanentFixtureWorkspace,
+  service,
+} from './staging.js';
+
+const MERGE_FIXTURE_WS_SLUG = 'int-merge-fixtures';
+
+/** Out of every list, for good: a person with activity cannot be removed. */
+async function retire(ids: string[]) {
+  if (!ids.length) return;
+  const { error } = await service
+    .from('person')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+    .is('deleted_at', null);
+  if (error) console.error(`[fixture cleanup] merge persons soft-delete: ${error.message}`);
+}
 
 let ws: string;
 let appId: string;
@@ -36,18 +57,25 @@ async function activityCount(personId: string) {
 }
 
 beforeAll(async () => {
-  ws = await createThrowawayWorkspace('merge');
+  ws = await getPermanentFixtureWorkspace(MERGE_FIXTURE_WS_SLUG);
+  // person_duplicate_candidates looks at the whole workspace, so anybody a
+  // crashed run left live would turn up as a candidate in this one.
+  const { data: stale, error } = await service
+    .from('person')
+    .select('id')
+    .eq('workspace_id', ws)
+    .is('deleted_at', null);
+  if (error) throw new Error(`merge fixtures: ${error.message}`);
+  await retire((stale ?? []).map((p) => p.id as string));
   const { data: app } = await service.from('app').select('id').eq('slug', 'fibre-platform').single();
   appId = app!.id as string;
 });
 
 afterAll(async () => {
-  if (madePeople.length) {
-    await service.from('activity').delete().in('person_id', madePeople);
-    await service.from('person_merge').delete().eq('workspace_id', ws);
-    await service.from('person').delete().in('id', madePeople);
-  }
-  if (ws) await deleteThrowawayWorkspace(ws);
+  // No `delete from activity`: the log is append-only even for the service
+  // role, and that statement had been refused on every run. The audit rows
+  // and the people are retired instead; the workspace stays.
+  if (madePeople.length) await retire(madePeople);
 });
 
 describe('merge_person', () => {

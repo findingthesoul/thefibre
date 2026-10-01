@@ -88,8 +88,19 @@ test.describe('Registrations → Add participant — the person search (v1.52.0)
     // its retry. The check is right; the budget was not.
     test.slow();
     await landSignedIn(page, HOSTS.thread, 'the-thread', EDITOR, /\/threads\//);
-    await page.locator('button[title="Registrations"], button[title="Registraties"]').click();
-    await page.getByRole('button', { name: /Add participant|Deelnemer toevoegen/ }).click();
+    // The editor is server-rendered, so the Registrations button is on the
+    // page before React has attached its handler, and a click in that window
+    // does nothing at all. Three runs in a row waited ninety seconds for a
+    // dialog that had never been asked to open (2026-10-01). So: click until
+    // the dialog answers. Each attempt clicks only while it is closed — once
+    // it is up, the button sits behind the overlay and a click would hang.
+    const registrations = page.locator('button[title="Registrations"], button[title="Registraties"]');
+    const add = page.getByRole('button', { name: /Add participant|Deelnemer toevoegen/ });
+    await expect(async () => {
+      if (!(await add.isVisible())) await registrations.click();
+      await expect(add).toBeVisible({ timeout: 4_000 });
+    }).toPass({ timeout: 45_000 });
+    await add.click();
 
     const form = page.locator('form#add-participant-form');
     await expect(form).toBeVisible();

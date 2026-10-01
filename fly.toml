@@ -15,10 +15,19 @@ primary_region = 'fra'
   # and every `fly secrets set` restarted it — a 15 s 502 window that a client
   # could hit (Fibre session, launch list). With bluegreen Fly boots the new
   # machine beside the old one, waits for its health checks, moves traffic,
-  # then destroys the old one. Still one machine at rest: the in-process
-  # schedulers (billing meter, fee statements, access syncs) have no leader
-  # lock, so `fly scale count 2` is NOT safe until they get one. Secrets:
-  # `fly secrets set --stage …` and let scripts/deploy-api.sh apply them.
+  # then destroys the old one. Secrets: `fly secrets set --stage …` and let
+  # scripts/deploy-api.sh apply them.
+  #
+  # Still one machine at rest. The in-process schedulers are no longer the
+  # reason: every tick runs under a lease (apps/api/src/lib/scheduler-lease.ts,
+  # same day), which is what makes the two-process window above safe. What a
+  # SECOND machine would still break is state held in one process's memory:
+  # the assistant's pending approvals (lib/assistant/pending.ts) would be
+  # confirmed on the machine that never saw them, an /admin/plans edit clears
+  # the plan cache on one machine only (the other serves the old plan for up
+  # to a minute), and the rate-limit windows count per machine. Settle those
+  # before `fly scale count 2`. (Corrected 2026-10-01: this comment said the
+  # schedulers had no lock for five days after they got one.)
   strategy = "bluegreen"
 
 [env]

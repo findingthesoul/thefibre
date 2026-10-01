@@ -1,10 +1,10 @@
 import { Hono, type Context } from 'hono';
-import { APP_IDS, appUrl, stagingAppUrl, SURFACES, surfaceUrl} from '@thefibre/shared';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { hit, clientIp } from './lib/rate-limit.js';
+import { CORS_ALLOW_METHODS, isAllowedOrigin } from './lib/cors-origins.js';
 import { appContext } from './middleware/app-context.js';
 import { authRoutes } from './routes/auth.js';
 import { personsRoutes } from './routes/persons.js';
@@ -88,76 +88,8 @@ app.use(
   }),
 );
 
-// CORS allowlist.
-//
-// Default-deny: only origins that match the workspace's subdomains and
-// optional dev hosts are reflected back. A reflective fallback to "*"
-// would defeat the purpose of credentials:true (browsers reject the
-// combination anyway), so we just don't set Access-Control-Allow-Origin
-// when the origin isn't recognised — the browser blocks the cross-site
-// request cleanly.
-//
-// Configurable via `CORS_ORIGINS` (comma-separated) for staging / extra
-// preview deploys. Empty `origin` (server-to-server, same-origin, native
-// fetch) is always allowed.
-// Derived from the app registry, NEVER hand-listed (the v0.39.1 rule): the
-// hand-written copy was missing membership.thefibre.tech on staging, which
-// CORS-blocked the join page during the 2026-09-05 payment rehearsal — the
-// third "new app forgotten in a list" bug. appUrl with no env = the
-// production origins; staging's extra .tech origins ride CORS_ORIGINS.
-const PROD_ORIGINS = new Set<string>([
-  ...APP_IDS.map((slug) => appUrl(slug)),
-  // Platform surfaces (branding.ts SURFACES) — same derived-never-listed rule.
-  ...(Object.keys(SURFACES) as (keyof typeof SURFACES)[]).map((k) => surfaceUrl(k)),
-]);
-
-// The staging stack's own origins, derived the same way and added ONLY on the
-// staging API. They used to ride the hand-written CORS_ORIGINS secret, which
-// is the shape of the bug the comment above describes — and it bit again on
-// 2026-09-21, when Connections was renamed Connect and its host moved: a
-// hand-written list cannot follow a rename, and the secret cannot even be
-// read back to check. Derived, it follows by itself.
-//
-// Gated on the app name so production's allowlist is not widened: a staging
-// page has no business making a credentialed call to the production API.
-// FLY_APP_NAME is injected by Fly; off Fly this is empty and the set is too.
-const STAGING_ORIGINS = new Set<string>(
-  process.env.FLY_APP_NAME === 'thefibre-api-staging'
-    ? APP_IDS.map((slug) => stagingAppUrl(slug))
-    : [],
-);
-const DEV_ORIGINS = new Set<string>([
-  'http://localhost:3000', // apps/web dev
-  'http://localhost:3001', // apps/meet dev
-  'http://localhost:3002', // apps/thread dev
-  'http://localhost:3003', // apps/flow dev
-  'http://localhost:3004', // apps/pulse dev
-  'http://localhost:3005', // apps/membership dev
-  'http://localhost:3007', // apps/my dev (3006 = apps/website, no API calls from the browser)
-  'http://localhost:3008', // apps/connections dev
-]);
-const EXTRA_ORIGINS = new Set<string>(
-  (process.env.CORS_ORIGINS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean),
-);
-
-// Match Vercel preview deploys like https://thefibre-web-git-feature-x-<hash>.vercel.app
-// Sjoerd's preview branches need to call the API; the public domain is
-// stable enough that we allowlist the entire *.vercel.app suffix only
-// for the projects we know we own.
-const VERCEL_PREVIEW_RE =
-  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse|thefibre-membership|thefibre-my|thefibre-connections|thefibre-models)-[a-z0-9-]+\.vercel\.app$/;
-
-function isAllowedOrigin(origin: string): boolean {
-  if (PROD_ORIGINS.has(origin)) return true;
-  if (STAGING_ORIGINS.has(origin)) return true;
-  if (DEV_ORIGINS.has(origin)) return true;
-  if (EXTRA_ORIGINS.has(origin)) return true;
-  if (VERCEL_PREVIEW_RE.test(origin)) return true;
-  return false;
-}
+// CORS allowlist: which origins and which methods — lib/cors-origins.ts,
+// where it can be tested (this file starts a listener on import).
 
 // ---------------------------------------------------------------------------
 // The Thread's public read API — open to any website.
@@ -262,7 +194,6 @@ const PUBLIC_POST_FAMILIES = [
   '/api/v1/me/',
   '/api/v1/signup-requests',
   '/api/v1/apps/register',
-  '/api/v1/auth/login',
 ];
 
 app.use('/api/v1/*', async (c, next) => {
@@ -296,7 +227,7 @@ const allowlistCors = cors({
     return isAllowedOrigin(origin) ? origin : '';
   },
   allowHeaders: ['Authorization', 'Content-Type', 'X-App-ID'],
-  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowMethods: CORS_ALLOW_METHODS,
   credentials: true,
 });
 
@@ -444,10 +375,12 @@ function runAllSchedulers() {
   // the view — never deleted (Sjoerd, 2026-09-23: "archive - not delete").
   // Idempotent and a single UPDATE.
   leased('file-finished-tasks', fileFinishedTasks, 'me/tasks');
+  // Weekly probe of Stripe Tax → the VAT table (its own guard reads the last
+  // run from platform settings). Under the lease since 2026-10-01: it was the
+  // one tick still fired bare, and its guard is read-then-write, so two
+  // processes in a blue-green window could both pass it, both probe Stripe
+  // and both mail the operator the same change.
+  leased('vat-sync', maybeSyncVatRates, 'vat-sync');
 }
 setTimeout(runAllSchedulers, 20_000);
-setInterval(() => {
-  // Piggyback: hourly-ish guard, weekly probe of Stripe Tax → VAT table.
-  void maybeSyncVatRates();
-  runAllSchedulers();
-}, SCHEDULER_INTERVAL_MS);
+setInterval(runAllSchedulers, SCHEDULER_INTERVAL_MS);

@@ -88,17 +88,34 @@ and a yearly Price, and writes the ids back onto the rows. Idempotent; rerun
 whenever prices change on /admin/plans (a changed amount deactivates the old
 Price and creates a new one). Checkout returns 503 until it has run once.
 
-## Step 6 — Enable Stripe Tax
+## Step 6 — VAT: our table charges, Stripe Tax only watches
 
-Stripe Tax handles VAT (NL + EU) automatically. Saves us from
-computing rates or filing reverse-charge ourselves.
+**Corrected 2026-10-01.** This step used to say Stripe Tax computes the VAT
+and that every Checkout session carries `automatic_tax: { enabled: true }`.
+The code does the opposite and has since 2026-09-04: every session sets
+`automatic_tax: { enabled: false }` (`routes/billing.ts`,
+`lib/vat-stripe.ts`). Following the old text changes nothing a customer is
+charged; it only misleads whoever reads it.
+
+How it works:
+
+- **The record is our own table**, edited at **/admin/vat**: one rate per
+  country. The API mirrors it into Stripe `tax_rate` objects at boot and
+  after every edit (`lib/vat-stripe.ts`, idempotent), and each Checkout
+  session attaches the rate for the buyer's country.
+- **Stripe Tax is a sensor, not the calculator.** Once a week the API asks
+  Stripe what it would charge per country (`lib/vat-sync.ts`); a difference
+  updates the table and emails the operator. Until Stripe Tax is activated
+  the probe fails quietly and the table simply stays as edited.
+
+To switch the sensor on (optional):
 
 1. **Settings → Tax → Activate tax calculation**.
 2. Add your **tax registration**: NL VAT number → fill in details.
-3. Pick the markets you collect tax in (NL + every EU country you
-   sell into — start with NL only if you want simple).
-4. On every Checkout session we create, set `automatic_tax: { enabled: true }`.
-   The code does this for you.
+3. Pick the markets you collect tax in.
+
+Whether the sensor is on or off, check the table at /admin/vat against the
+official rates before the first real charge.
 
 ## Step 7 — Configure the Billing portal
 

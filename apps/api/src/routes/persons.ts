@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
-import { rows } from '../lib/rows.js';
+import { count as countOf, rows } from '../lib/rows.js';
 import { resolvePerson, normaliseEmail } from '../lib/resolve-person.js';
 import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
 import { orIlike } from '../lib/postgrest-filter.js';
@@ -311,41 +311,51 @@ personsRoutes.get('/duplicates', async (c) => {
   // A pair somebody already answered is not asked again: "different people"
   // is a dismissed finding, "same person" an accepted one. The nightly sweep
   // and this page read the same rows (proposal §D).
-  const { data: answered } = await adminClient
-    .from('hygiene_finding')
-    .select('subject_id, related_id')
-    .eq('workspace_id', ctx.workspaceId)
-    .eq('kind', 'duplicate_person')
-    .in('status', ['dismissed', 'accepted']);
-  const done = new Set((answered ?? []).map((r) => pairOrder(r.subject_id as string, r.related_id as string).join(':')));
+  // Thrown, not coalesced: with this read failing, every pair somebody had
+  // already called "different people" came back to be asked again (§1.9).
+  const answered = rows(
+    'persons/duplicates: answered pairs',
+    await adminClient
+      .from('hygiene_finding')
+      .select('subject_id, related_id')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('kind', 'duplicate_person')
+      .in('status', ['dismissed', 'accepted']),
+  );
+  const done = new Set(answered.map((r) => pairOrder(r.subject_id as string, r.related_id as string).join(':')));
 
   const pairs = ((data ?? []) as { person_a: string; person_b: string; reason: string; score: number }[])
     .filter((p) => !done.has(pairOrder(p.person_a, p.person_b).join(':')));
+  if (pairs.length === 0) return c.json({ items: [] });
   const ids = [...new Set(pairs.flatMap((p) => [p.person_a, p.person_b]))];
-  const [{ data: people }, { data: points }, { data: orgs }] = ids.length
-    ? await Promise.all([
-        adminClient
-          .from('person')
-          .select('id, first_name, last_name, email, city, country, created_at, created_via')
-          .in('id', ids),
-        adminClient
-          .from('person_contact_point')
-          .select('person_id, kind, value, label, is_primary')
-          .in('person_id', ids),
-        adminClient
-          .from('org_membership')
-          .select('person_id, ended_at, organisation:org_id (name)')
-          .in('person_id', ids)
-          .is('ended_at', null),
-      ])
-    : [{ data: [] as Record<string, unknown>[] }, { data: [] as Record<string, unknown>[] }, { data: [] as Record<string, unknown>[] }];
+  // The two cards somebody compares before merging. A failed read here used
+  // to draw both people with no addresses and no organisation — exactly the
+  // evidence the decision is made on — so it throws instead.
+  const [peopleQ, pointsQ, orgsQ] = await Promise.all([
+    adminClient
+      .from('person')
+      .select('id, first_name, last_name, email, city, country, created_at, created_via')
+      .in('id', ids),
+    adminClient
+      .from('person_contact_point')
+      .select('person_id, kind, value, label, is_primary')
+      .in('person_id', ids),
+    adminClient
+      .from('org_membership')
+      .select('person_id, ended_at, organisation:org_id (name)')
+      .in('person_id', ids)
+      .is('ended_at', null),
+  ]);
+  const people = rows('persons/duplicates: people', peopleQ);
+  const points = rows('persons/duplicates: contact points', pointsQ);
+  const orgs = rows('persons/duplicates: organisations', orgsQ);
   const byId = new Map(
-    (people ?? []).map((p) => [
+    people.map((p) => [
       p.id as string,
       {
         ...p,
-        contact_points: (points ?? []).filter((x) => x.person_id === p.id),
-        organisations: (orgs ?? [])
+        contact_points: points.filter((x) => x.person_id === p.id),
+        organisations: orgs
           .filter((x) => x.person_id === p.id)
           .map((x) => (x.organisation as unknown as { name: string } | null)?.name)
           .filter(Boolean),
@@ -546,14 +556,18 @@ personsRoutes.get('/:id', async (c) => {
     .is('deleted_at', null)
     .single();
   if (error) return c.json({ error: error.message }, 404);
-  const { data: points } = await db
-    .from('person_contact_point')
-    .select('id, kind, value, label, org_id, is_primary, verified_at, organisation:org_id (id, name)')
-    .eq('person_id', data.id)
-    .order('kind')
-    .order('is_primary', { ascending: false })
-    .order('created_at');
-  return c.json({ ...data, contact_points: points ?? [] });
+  // Every address and number this person has. Empty must mean "none".
+  const points = rows(
+    'person: contact points',
+    await db
+      .from('person_contact_point')
+      .select('id, kind, value, label, org_id, is_primary, verified_at, organisation:org_id (id, name)')
+      .eq('person_id', data.id)
+      .order('kind')
+      .order('is_primary', { ascending: false })
+      .order('created_at'),
+  );
+  return c.json({ ...data, contact_points: points });
 });
 
 // PUT /persons/:id/contact-points — the whole list, as the editor holds it.
@@ -590,12 +604,14 @@ personsRoutes.put('/:id/contact-points', async (c) => {
     if (count !== orgIds.length) return c.json({ error: 'unknown organisation' }, 400);
   }
 
-  const { data: existing } = await adminClient
-    .from('person_contact_point')
-    .select('id, kind, value')
-    .eq('person_id', personId);
+  // What is there now decides what gets removed. Read failing = nothing
+  // removed and a 200: the address somebody deleted stayed, silently.
+  const existing = rows(
+    'person contact points: existing',
+    await adminClient.from('person_contact_point').select('id, kind, value').eq('person_id', personId),
+  );
   const keep = new Set(cleaned.points.map((p) => `${p.kind}:${p.value}`));
-  const gone = (existing ?? []).filter((r) => !keep.has(`${r.kind}:${r.value}`)).map((r) => r.id as string);
+  const gone = existing.filter((r) => !keep.has(`${r.kind}:${r.value}`)).map((r) => r.id as string);
 
   const { error: upErr } = await adminClient.from('person_contact_point').upsert(
     cleaned.points.map((p) => ({ ...p, person_id: personId, workspace_id: person.workspace_id })),
@@ -622,14 +638,17 @@ personsRoutes.put('/:id/contact-points', async (c) => {
   if (pErr) return c.json({ error: pErr.message }, 500);
   await adminClient.rpc('person_contact_point_remark', { p_person: personId });
 
-  const { data: points } = await db
-    .from('person_contact_point')
-    .select('id, kind, value, label, org_id, is_primary, verified_at, organisation:org_id (id, name)')
-    .eq('person_id', personId)
-    .order('kind')
-    .order('is_primary', { ascending: false })
-    .order('created_at');
-  return c.json({ items: points ?? [] });
+  const points = rows(
+    'person contact points: after save',
+    await db
+      .from('person_contact_point')
+      .select('id, kind, value, label, org_id, is_primary, verified_at, organisation:org_id (id, name)')
+      .eq('person_id', personId)
+      .order('kind')
+      .order('is_primary', { ascending: false })
+      .order('created_at'),
+  );
+  return c.json({ items: points });
 });
 
 // GET /api/v1/persons/:id/memberships
@@ -658,14 +677,17 @@ personsRoutes.get('/:id/memberships', async (c) => {
   if (pErr || !person) return c.json({ error: 'person not found' }, 404);
 
   // Current + historical org memberships.
-  const { data: orgRows } = await db
-    .from('org_membership')
-    .select(
-      'id, title, department, seniority_level, employment_type, is_primary, is_decision_maker, is_budget_holder, is_champion, started_at, ended_at, organisation:org_id (id, name, short_name, domain)',
-    )
-    .eq('person_id', personId)
-    .order('is_primary', { ascending: false })
-    .order('started_at', { ascending: false, nullsFirst: false });
+  const orgRows = rows(
+    'person profile: organisations',
+    await db
+      .from('org_membership')
+      .select(
+        'id, title, department, seniority_level, employment_type, is_primary, is_decision_maker, is_budget_holder, is_champion, started_at, ended_at, organisation:org_id (id, name, short_name, domain)',
+      )
+      .eq('person_id', personId)
+      .order('is_primary', { ascending: false })
+      .order('started_at', { ascending: false, nullsFirst: false }),
+  );
 
   let workspaceMember:
     | {
@@ -681,7 +703,7 @@ personsRoutes.get('/:id/memberships', async (c) => {
   let appMemberships: { app: { slug: string; name: string }; role: string }[] = [];
 
   if (person.user_id) {
-    const { data: wm } = await db
+    const { data: wm, error: wmErr } = await db
       .from('workspace_member')
       .select(
         'workspace_id, workspace_role, relationship_type, joined_at, workspace:workspace_id (id, name, slug)',
@@ -689,6 +711,8 @@ personsRoutes.get('/:id/memberships', async (c) => {
       .eq('user_id', person.user_id)
       .eq('workspace_id', ctx.workspaceId)
       .maybeSingle();
+    // No row is an answer (a contact with no seat here); an error is not.
+    if (wmErr) throw new Error(`person profile: workspace seat: ${wmErr.message}`);
     if (wm) {
       const ws = Array.isArray(wm.workspace) ? wm.workspace[0] : wm.workspace;
       workspaceMember = {
@@ -703,12 +727,13 @@ personsRoutes.get('/:id/memberships', async (c) => {
     // deactivated_at IS NULL). A leftover app_membership from before an
     // app was deactivated is not "access" today — it's dormant. Without
     // this filter the profile contradicts /settings/apps.
-    const { data: activeApps } = await db
-      .from('workspace_app')
-      .select('app_id')
-      .eq('workspace_id', ctx.workspaceId)
-      .is('deactivated_at', null);
-    const activeAppIds = new Set((activeApps ?? []).map((r) => r.app_id as string));
+    // Thrown for the same reason as the memberships below: an empty set here
+    // filters every membership out, and the profile says "no apps".
+    const activeApps = rows(
+      'person profile: active apps',
+      await db.from('workspace_app').select('app_id').eq('workspace_id', ctx.workspaceId).is('deactivated_at', null),
+    );
+    const activeAppIds = new Set(activeApps.map((r) => r.app_id as string));
 
     // Throws on a failed read: the profile's per-app tabs come from this, and
     // an empty answer removed every tab silently (§1.9).
@@ -731,7 +756,7 @@ personsRoutes.get('/:id/memberships', async (c) => {
   }
 
   return c.json({
-    org_memberships: orgRows ?? [],
+    org_memberships: orgRows,
     workspace_member: workspaceMember,
     app_memberships: appMemberships,
     has_account: !!person.user_id,
@@ -962,11 +987,12 @@ personsRoutes.get('/:id/meet', async (c) => {
   if (pErr || !person) return c.json({ error: 'person not found' }, 404);
 
   // Profile row — may not exist yet for a new contact.
-  const { data: profile } = await db
+  const { data: profile, error: profileErr } = await db
     .from('person_meet_profile')
     .select('host_notes, vip, blocked, invitee_timezone, updated_at')
     .eq('person_id', personId)
     .maybeSingle();
+  if (profileErr) throw new Error(`person meet: profile: ${profileErr.message}`);
 
   // Bookings the person has been an invitee on. Use email to match — that's
   // the join key Meet uses on the booking side (a single canonical contact
@@ -974,25 +1000,32 @@ personsRoutes.get('/:id/meet', async (c) => {
   const nowIso = new Date().toISOString();
   const baseSelect =
     'id, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (id, name, slug, host:host_id (slug, user:user_id (full_name)))';
-  const { data: upcoming } = await db
-    .from('meet_booking')
-    .select(baseSelect)
-    .eq('invitee_email', person.email ?? '')
-    .gte('ends_at', nowIso)
-    .order('starts_at', { ascending: true })
-    .limit(50);
-  const { data: past } = await db
-    .from('meet_booking')
-    .select(baseSelect)
-    .eq('invitee_email', person.email ?? '')
-    .lt('ends_at', nowIso)
-    .order('starts_at', { ascending: false })
-    .limit(50);
+  // "No bookings" is a statement about this person; a failed read is not.
+  const upcoming = rows(
+    'person meet: upcoming bookings',
+    await db
+      .from('meet_booking')
+      .select(baseSelect)
+      .eq('invitee_email', person.email ?? '')
+      .gte('ends_at', nowIso)
+      .order('starts_at', { ascending: true })
+      .limit(50),
+  );
+  const past = rows(
+    'person meet: past bookings',
+    await db
+      .from('meet_booking')
+      .select(baseSelect)
+      .eq('invitee_email', person.email ?? '')
+      .lt('ends_at', nowIso)
+      .order('starts_at', { ascending: false })
+      .limit(50),
+  );
 
   return c.json({
     profile: profile ?? null,
-    upcoming_bookings: upcoming ?? [],
-    past_bookings: past ?? [],
+    upcoming_bookings: upcoming,
+    past_bookings: past,
   });
 });
 
@@ -1108,10 +1141,21 @@ personsRoutes.get('/:id/apps', async (c) => {
     db.from('activity').select('app:app_id (slug)').in('person_id', await personAndMerged(personId)),
   ]);
 
+  // Each of these decides whether a TAB exists on the profile. One failing
+  // read used to remove its tab without a word, so each is named and thrown.
   const slugs = new Set<string>();
-  for (const q of [profQ, relQ, chgQ, lrnQ, billQ, meetProfQ, actQ]) {
-    for (const row of (q.data ?? []) as unknown as { app: { slug?: string } | { slug?: string }[] | null }[]) {
-      const app = Array.isArray(row.app) ? row.app[0] : row.app;
+  const sources = [
+    ['professional', profQ],
+    ['relationship context', relQ],
+    ['change context', chgQ],
+    ['learning', lrnQ],
+    ['billing', billQ],
+    ['meet profile', meetProfQ],
+    ['activity', actQ],
+  ] as const;
+  for (const [what, q] of sources) {
+    for (const r of rows(`person apps: ${what}`, q) as unknown as { app: { slug?: string } | { slug?: string }[] | null }[]) {
+      const app = Array.isArray(r.app) ? r.app[0] : r.app;
       if (app?.slug) slugs.add(app.slug);
     }
   }
@@ -1124,21 +1168,21 @@ personsRoutes.get('/:id/apps', async (c) => {
     .eq('id', personId)
     .maybeSingle();
   if (person?.email) {
-    const { count } = await db
-      .from('meet_booking')
-      .select('id', { count: 'exact', head: true })
-      .eq('invitee_email', person.email);
-    if ((count ?? 0) > 0) slugs.add('fibre-meet');
+    const bookings = countOf(
+      'person apps: meet bookings',
+      await db.from('meet_booking').select('id', { count: 'exact', head: true }).eq('invitee_email', person.email),
+    );
+    if (bookings > 0) slugs.add('fibre-meet');
   }
 
   // Membership's curator data IS the member row (no separate profile table —
   // tier/status/renewal live on membership_member). RLS-gated like the rest:
   // callers without the app see nothing, so no slug appears.
-  const { count: memberCount } = await db
-    .from('membership_member')
-    .select('id', { count: 'exact', head: true })
-    .eq('person_id', personId);
-  if ((memberCount ?? 0) > 0) slugs.add('membership');
+  const memberCount = countOf(
+    'person apps: membership',
+    await db.from('membership_member').select('id', { count: 'exact', head: true }).eq('person_id', personId),
+  );
+  if (memberCount > 0) slugs.add('membership');
 
   return c.json({ apps: Array.from(slugs).sort() });
 });

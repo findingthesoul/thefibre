@@ -28,6 +28,53 @@ the queue.
 
 _Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
 
+**Left open by the 2026-10-01 debug round (the lists that had stopped following).**
+Six things found and deliberately not changed, each a decision or somebody
+else's file:
+1. **The Vercel preview pattern in the API's CORS list is wider than it
+   reads** (`apps/api/src/lib/cors-origins.ts`). It allows any
+   `thefibre-<app>-*.vercel.app`, and Vercel project names are first come,
+   first served, so a stranger's project named `thefibre-my-anything` is an
+   allowed origin. Small exposure (the API authenticates by bearer token,
+   never by cookie), but it is not the allowlist it looks like. Decide: pin
+   the team suffix, or drop the pattern now that staging has real hostnames.
+   Nothing in the repo records a preview URL in use.
+2. **`http://localhost:30xx` is an allowed origin on the PRODUCTION API.**
+   Same low exposure, same reason. Gating it to non-production means a
+   developer can no longer point a local app at the production API; say
+   whether anyone should.
+3. **`scripts/check-env-example.mjs` is not a release gate.** It compares
+   `.env.example` with every variable the running code reads (56 on
+   2026-10-01, in agreement). In `pnpm verify` it would stop the file going
+   stale again; it would also make every new variable a gate for every
+   session. Sjoerd's or the coordinator's call.
+4. **A second API machine** is no longer blocked by the schedulers (they hold
+   a lease) but still by three things in process memory: the assistant's
+   pending approvals (`lib/assistant/pending.ts`), the plan cache cleared on
+   one machine only after an /admin/plans edit, and per-machine rate-limit
+   windows. `fly.toml` now says so.
+5. **`routes/thread.ts` still coalesces failed reads** in the bulk
+   certificate issue and a handful of list reads, the shape fixed in
+   `routes/persons.ts` this round. Left for the Thread chat, which has that
+   file open; the method is in the v1.97.3 changelog entry (probe every
+   select on both stacks first, then drive the routes with a real session).
+6. **406 leaked test workspaces stand on staging** (`int-test-*`, plus 9
+   `first-admin-*` and 22 `e2e-noaccess-*`), left by integration and browser
+   runs between 2026-09-15 and 2026-10-01 (cause and fix: v1.97.3). The suite
+   no longer adds to them. Removing the existing ones is a bulk delete on the
+   shared staging database, so it wants a yes: per workspace, cut
+   `user.person_id`, delete persons, users, organisations, then the
+   workspace (the order `deleteThrowawayWorkspace` in
+   `apps/api/src/integration/staging.ts` uses); the ones an enrolment touched
+   are pinned by `activity` and can only be renamed `retired-…`, as seven were
+   on 2026-09-07. Worth doing: the five-minute schedulers and the
+   workspace-admins audit walk every one of them (331 s on staging against
+   4.6 s on production). `e2e/no-access.spec.ts` still leaks two per run and
+   is the Fibre chat's to fix.
+Also noted, no decision needed: CI builds only `web` and `api`
+(`.github/workflows/ci.yml`); the other eight apps are built by Vercel on
+push, so a build break in them shows there and not in CI.
+
 **Models: a workspace with no teams is a dead end — decide the default home.**
 Sjoerd, 2026-09-29, after Festival of Trust (Models switched on, zero teams)
 gave his assistant an empty "which team?" and it guessed a soul.com team

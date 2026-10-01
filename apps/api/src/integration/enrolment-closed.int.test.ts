@@ -10,16 +10,20 @@
 // is that membership and manual adds keep working. So every test here has a
 // twin, and the twins are the ones that matter.
 //
-// Real sessions, real middleware, staging. Throwaway workspace.
+// Real sessions, real middleware, staging. The PERMANENT fixture workspace:
+// enrolling writes `activity`, which is append-only and pins the person and
+// therefore the workspace for good — this file used a throwaway one until
+// 2026-10-01 and left it standing on every run.
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import {
   createFixtureUser,
-  createThrowawayWorkspace,
   deleteFixtureUser,
-  deleteThrowawayWorkspace,
+  ENROL_FIXTURE_WS_SLUG,
+  getPermanentFixtureWorkspace,
+  retireParticipants,
   service,
   type FixtureUser,
 } from './staging.js';
@@ -34,11 +38,16 @@ let organiserSlug: string;
 let threadSlug: string;
 let threadAppId: string;
 const madeEnrolments: string[] = [];
+/** Everybody the public form enrolled, to be retired by address. */
+const madeEmails: string[] = [];
+/** Persons this file inserted itself. */
+const madePersons: string[] = [];
 
 /** The public enrol call, exactly as an outside caller makes it — no session,
  *  which is how the Festival of Trust planner submits (as the visitor, not as
  *  the app). */
 async function publicEnrol(email: string) {
+  madeEmails.push(email);
   return app.request('/api/v1/thread/public/enrol', {
     method: 'POST',
     headers: { 'X-App-ID': 'the-thread', 'Content-Type': 'application/json' },
@@ -80,7 +89,7 @@ beforeAll(async () => {
   const { data: appRow } = await service.from('app').select('id').eq('slug', 'the-thread').single();
   threadAppId = appRow!.id as string;
 
-  ws = await createThrowawayWorkspace('enrol-closed');
+  ws = await getPermanentFixtureWorkspace(ENROL_FIXTURE_WS_SLUG);
   organiserUser = await createFixtureUser(ws, 'enrol-closed');
   await service
     .from('workspace_member')
@@ -148,8 +157,11 @@ afterAll(async () => {
   await service.from('app_membership').delete().eq('user_id', organiserUser.userId);
   await service.from('workspace_member').delete().eq('user_id', organiserUser.userId);
   await deleteFixtureUser(organiserUser);
-  await service.from('organisation').delete().eq('workspace_id', ws);
-  await deleteThrowawayWorkspace(ws);
+  await retireParticipants(ws, madeEmails);
+  if (madePersons.length) {
+    await service.from('person').update({ deleted_at: new Date().toISOString() }).in('id', madePersons);
+  }
+  // The workspace stays — permanent by design.
 });
 
 describe('with sign-ups OPEN — the twin that proves the flag is not a lockout', () => {
@@ -219,6 +231,7 @@ describe('with sign-ups CLOSED', () => {
       .select('id')
       .single();
     if (pErr) throw new Error(`person: ${pErr.message}`);
+    madePersons.push(person!.id as string);
 
     const { data: enrolment, error: eErr } = await service
       .from('enrolment')

@@ -316,7 +316,7 @@ Vercel.
 
 ### CORS
 
-The API is default-deny (`apps/api/src/server.ts`). The allow-list is derived
+The API is default-deny (`apps/api/src/lib/cors-origins.ts`, tested beside it). The allow-list is derived
 from the app registry (`APPS` and `SURFACES` in `branding.ts`), plus
 localhost in development and Vercel preview hosts; on the staging Fly app the
 staging origins are derived the same way. `CORS_ORIGINS` adds extras for a

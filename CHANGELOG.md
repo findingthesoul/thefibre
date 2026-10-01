@@ -6,6 +6,119 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.97.3] — 2026-10-01 — the lists that had stopped following (staging)
+
+Sjoerd, preparing to show the system to a technical partner: *"update all
+technical information"*, then *"debug, then optimise the code, then debug
+again"*. This is the debug half. Re-auditing the documentation against the
+code turned up a row of small things that were each wrong for the same
+reason: a hand-written list that was meant to follow something else, with
+nothing checking that it did. Each is fixed and each now has a check that
+reads the other side.
+
+**A failed read no longer says "none" on a contact's profile.** Twenty-two reads
+in the contact routes coalesced a database error into an empty answer
+(`data ?? []`): a contact's addresses and numbers, their organisations, their
+Meet bookings, every per-app tab on the profile, and the two cards you compare
+before merging duplicates. A read that failed drew a person with no email, no
+bookings and no tabs, and nothing anywhere said so. One of them decided what
+to DELETE: saving contact points reads what exists to work out what was
+removed, and a failed read meant "nothing removed" and a green save. All of
+them throw now. Before changing any, every select was run read-only against
+staging and production, and the routes were then driven with a real staging
+session (`persons-reads.int.test.ts`, six cases) to be sure none had been
+failing quietly for an ordinary user, which would have turned a hidden tab
+into a broken page.
+
+**The API's allowed-origins and allowed-methods lists are tested.** They
+lived in `server.ts`, which starts a listener when imported and so has no
+test, and both had gone stale. PUT was missing from the allowed methods while
+twenty-seven PUT routes exist: harmless only because every caller happened to
+be a server action, and a browser call would have failed its preflight with
+nothing in any log. Models' dev port was missing from the localhost list (the
+fourth "new app forgotten in a list" bug in this file's history). The staging
+list was derived from the apps but not from the surfaces, so the participant
+portal worked on staging only because a hand-written Fly secret named it.
+Now in `lib/cors-origins.ts`: methods are checked against every verb a route
+registers, dev ports against every `apps/*/package.json`, staging includes
+the surfaces, and production is asserted to refuse every staging origin.
+
+**The weekly VAT probe runs under the scheduler lease.** It was the one tick
+still fired bare beside the leased ones, and its guard is read-then-write, so
+two processes in a blue-green deploy window could both pass it, both probe
+Stripe and both mail the same change. `scheduler-wiring.test.ts` reads
+`server.ts` and refuses any tick outside the lease, since the lease test
+proves the lease and could not see a job that was never behind it.
+
+**Row level security is declared for every table.** `app` and `billing_plan`
+never had `enable row level security` in any migration. Both are protected on
+the two live databases (an anonymous client reads zero rows, probed on both)
+because those projects were created with it on by default. A database rebuilt
+from this repository would have left both readable with the anon key every
+browser holds. Migration `20261001165521` says it; it is a no-op on staging
+and production. `rls-declared.test.ts` now derives every table from the
+migrations and refuses one that does not say it, without needing a database.
+
+**The Fly build context stops uploading five apps.** `.dockerignore` listed
+the five apps that existed in July; membership, connections, my, models and
+website rode to the builder on every deploy. `docker-context.test.ts` holds
+that list against `apps/`, and also checks that every workspace package the
+API depends on is COPYed in the Dockerfile, which is the v0.85.0 failure
+(builds locally, dies in the Fly image) turned from a note in CLAUDE.md into
+a test.
+
+**The integration suite cleans up after itself, and says so when it cannot.**
+Found because an audit took 331 seconds on staging and 4.6 on production:
+staging held 444 workspaces, 406 of them `int-test-*` throwaways. Every
+throwaway workspace of every run since 2026-09-15 had been left standing.
+That is the day a migration gave each workspace its own organisation behind a
+foreign key that does not cascade, so `delete from workspace` was refused
+from then on, and the cleanup helper was `await …delete()` with nobody
+reading the answer. The suite stayed green throughout; the five-minute
+schedulers on staging have been walking all of them. The same shape hid two
+more causes underneath (a user and a person that point at each other, so
+neither can be deleted first; and two files that enrol people in a throwaway
+workspace, which `activity` then pins for good).
+- The helper removes what pins the row, in the order the keys allow, and
+  reads every answer.
+- **Each test file now fails, by name, if a workspace it made is still there
+  when it ends.** The check is registered where the harness is imported, so
+  it runs after the file's own cleanup. It tracks ids, not a slug pattern,
+  because several sessions run this suite against one database at once.
+- The two activity-writing files (`person-merge`, `enrolment-closed`) moved
+  to permanent fixture workspaces and retire their people instead of trying
+  to delete an append-only log.
+- Run after the change: 21 files, 281 tests, no workspace left behind.
+**The 406 already there are NOT removed.** That is a bulk delete on the
+shared staging database; it is written up in the build plan for Sjoerd or the
+coordinator to run or wave through, not done in passing. The browser pack's
+`e2e/no-access.spec.ts` leaks the same way (22 `e2e-noaccess-*`) and belongs
+to the Fibre chat, which has been told.
+
+**Smaller, same family.**
+- Two paths, `/auth/login` and `/auth/refresh`, sat in the API's
+  no-credential list since phase 0 with no route behind them. Removed, with
+  the matching rate-limit entry.
+- `.env.example` named 30 variables; the running code reads 56. Rewritten,
+  grouped by what each switches on, and `scripts/check-env-example.mjs`
+  compares the two (not yet a release gate: that is a decision, noted in the
+  build plan).
+- `promote.sh` still closed by printing a bare `fly deploy`; it prints
+  `./scripts/deploy-api.sh prod`.
+- Both Fly configs said the schedulers have no lock, five days after they got
+  one, and `db.ts` said the service-role client is "never for end-user
+  requests" while 48 of 57 route modules use it for exactly that. Both now
+  say what is true, including what a second machine would still break.
+- `docs/platform-billing-setup.md` step 6 told the reader Stripe Tax computes
+  the VAT. The code has set `automatic_tax: false` since 2026-09-04; the
+  step now describes the table at /admin/vat that actually charges.
+
+**Not changed, and why.** The Vercel preview pattern in the CORS list matches
+any Vercel project whose name starts with one of ours; a dead alternative was
+removed and the rest is recorded in the build plan as a decision (pin it or
+drop it), because tightening it could cut off a preview somebody uses. Reads
+in `routes/thread.ts` with the same coalescing shape were left for the Thread
+chat, which has that file open.
 ## [1.97.2] — 2026-10-01 — the launcher stays down when you were handed back with an explanation
 
 Since v1.84.0 an app that cannot serve you hands you back to The Fibre with a
