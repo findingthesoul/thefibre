@@ -10,11 +10,21 @@ import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { QuickLinkRow, type QuickLink } from './quick-link';
 import { ClickableBookingRow } from '@/components/clickable-booking-row';
+import { GetStarted } from './get-started';
 
 type Me = {
   user: { full_name: string | null; email: string };
 };
-type Host = { id: string; slug: string };
+type Host = {
+  id: string;
+  slug: string;
+  // Read only by the Get-started card, which derives every step from live
+  // state rather than from a stored "onboarded" flag.
+  google_connected?: boolean;
+  working_hours?: unknown;
+  photo_url?: string | null;
+  bio?: string | null;
+};
 type Team = { id: string; slug: string; name: string; is_active: boolean };
 type MT = {
   id: string;
@@ -160,6 +170,25 @@ export default async function MeetDashboard() {
       <PageHeader title={t(locale, 'welcome', { name: firstName })} description={today} />
 
       {error && <ErrorBanner>{t(locale, 'couldnt_load_some', { error })}</ErrorBanner>}
+
+      {/* First five minutes. Derived from live state, so it disappears by
+          itself once there is nothing left to do — and comes back honestly if
+          somebody disconnects their calendar again. */}
+      <div className="mt-8">
+        <GetStarted
+          locale={locale}
+          state={{
+            slug: host?.slug ?? null,
+            googleConnected: !!host?.google_connected,
+            hasAvailability:
+              !!host?.working_hours &&
+              Object.keys(host.working_hours as Record<string, unknown>).length > 0,
+            meetingTypeCount: mts.length,
+            bookingCount: bookings.length,
+            hasProfile: !!(host?.photo_url || host?.bio),
+          }}
+        />
+      </div>
 
       {pageLinks.length > 0 && (
         <section className="mt-10">

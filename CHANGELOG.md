@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.95.0] — 2026-10-01 — the first five minutes in Meet (Meet 2.22.0)
+
+"Can you build an onboarding. You come there for the first time. Take someone
+through it." (Sjoerd, 2026-10-01.) And: Bookings and Meeting types swapped in
+the sidebar — you open Bookings every day and set meeting types up once, so
+the daily thing goes on top. The bottom bar follows, same list.
+
+**Get set up** sits on the dashboard: connect your calendar, say when you are
+available, make your first meeting type, put your face on it, share your link.
+Each step says what it is FOR rather than only what to do — "so Meet never
+offers a time you are already busy" is a reason, and a reason is what makes
+somebody bother.
+
+Three choices, and the first decides the shape:
+
+**Every step is derived, never stored.** "Have you connected a calendar" is
+answered by asking whether a token exists, not by a flag somebody set once. A
+stored flag is a second copy of the truth and it is the copy that goes wrong —
+you disconnect your calendar and the app still congratulates you. This
+component holds no state at all, which also means it comes back honestly if
+something is undone.
+
+**It is not a wizard.** Somebody who arrived to do one specific thing should
+be able to do it; a modal insisting on five steps first is in the way. It
+waits on the dashboard, with the next open step highlighted and the rest
+visible behind it — a path rather than a backlog.
+
+**It leaves.** When the last step is done the card is gone: not collapsed, not
+a persisting row of ticks. An onboarding that stays forever stops being
+onboarding and becomes furniture.
+
+Once there is a meeting type, your booking address is shown rather than
+described, with copy and visit beside it.
+
 ## [1.94.0] — 2026-10-01 — a host who removes the app from Zoom is forgotten (staging)
 
 Sjoerd, setting Zoom up for the Marketplace: *"use production for the request

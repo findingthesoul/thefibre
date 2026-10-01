@@ -3795,6 +3795,163 @@ const CATALOG = {
     de: 'Noch keine Antwort', // MT
     fr: 'Pas encore de réponse', // MT
   },
+  ob_title: {
+    en: 'Get set up',
+    nl: 'Even instellen',
+    es: 'Pon todo a punto', // MT
+    pt: 'Começa a configurar', // MT
+    de: 'Kurz einrichten', // MT
+    fr: 'Mets tout en place', // MT
+  },
+  ob_intro: {
+    en: 'Five things, and people can book you. This disappears when you are done.',
+    nl: 'Vijf dingen, en mensen kunnen je boeken. Dit verdwijnt zodra je klaar bent.',
+    es: 'Cinco cosas y ya podrán reservarte. Esto desaparece cuando termines.', // MT
+    pt: 'Cinco coisas e já te podem marcar. Isto desaparece quando acabares.', // MT
+    de: 'Fünf Dinge, dann kann man dich buchen. Das hier verschwindet, wenn du fertig bist.', // MT
+    fr: 'Cinq choses et on pourra te réserver. Ceci disparaît quand tu as fini.', // MT
+  },
+  ob_progress: {
+    en: '{done} of {total}',
+    nl: '{done} van {total}',
+    es: '{done} de {total}', // MT
+    pt: '{done} de {total}', // MT
+    de: '{done} von {total}', // MT
+    fr: '{done} sur {total}', // MT
+  },
+  ob_your_page: {
+    en: 'Your page:',
+    nl: 'Je pagina:',
+    es: 'Tu página:', // MT
+    pt: 'A tua página:', // MT
+    de: 'Deine Seite:', // MT
+    fr: 'Ta page :', // MT
+  },
+
+  ob_calendar_title: {
+    en: 'Connect your calendar',
+    nl: 'Koppel je agenda',
+    es: 'Conecta tu calendario', // MT
+    pt: 'Liga a tua agenda', // MT
+    de: 'Verbinde deinen Kalender', // MT
+    fr: 'Connecte ton agenda', // MT
+  },
+  ob_calendar_why: {
+    en: 'So Meet never offers a time you are already busy — and puts every booking straight into your calendar.',
+    nl: 'Zodat Meet nooit een tijd aanbiedt waarop je al bezet bent — en elke boeking meteen in je agenda zet.',
+    es: 'Para que Meet nunca ofrezca una hora en la que ya estás ocupado, y meta cada reserva en tu calendario.', // MT
+    pt: 'Para que o Meet nunca ofereça uma hora em que já estás ocupado — e coloque cada marcação na tua agenda.', // MT
+    de: 'Damit Meet nie eine Zeit anbietet, zu der du schon belegt bist — und jede Buchung direkt in deinen Kalender legt.', // MT
+    fr: 'Pour que Meet ne propose jamais un horaire où tu es déjà pris — et mette chaque réservation dans ton agenda.', // MT
+  },
+  ob_calendar_cta: {
+    en: 'Connect',
+    nl: 'Koppelen',
+    es: 'Conectar', // MT
+    pt: 'Ligar', // MT
+    de: 'Verbinden', // MT
+    fr: 'Connecter', // MT
+  },
+
+  ob_availability_title: {
+    en: 'Say when you are available',
+    nl: 'Geef aan wanneer je beschikbaar bent',
+    es: 'Indica cuándo estás disponible', // MT
+    pt: 'Diz quando estás disponível', // MT
+    de: 'Sag, wann du verfügbar bist', // MT
+    fr: 'Indique quand tu es disponible', // MT
+  },
+  ob_availability_why: {
+    en: 'Your working hours are the outer edge of what anyone can book. Without them, nobody can book anything.',
+    nl: 'Je werktijden zijn de buitengrens van wat iemand kan boeken. Zonder die tijden kan niemand iets boeken.',
+    es: 'Tu horario es el límite de lo que alguien puede reservar. Sin él, nadie puede reservar nada.', // MT
+    pt: 'O teu horário é o limite do que alguém pode marcar. Sem ele, ninguém pode marcar nada.', // MT
+    de: 'Deine Arbeitszeiten sind die äußere Grenze dessen, was jemand buchen kann. Ohne sie kann niemand etwas buchen.', // MT
+    fr: 'Tes horaires de travail sont la limite de ce qu’on peut réserver. Sans eux, personne ne peut rien réserver.', // MT
+  },
+  ob_availability_cta: {
+    en: 'Set hours',
+    nl: 'Tijden instellen',
+    es: 'Definir horario', // MT
+    pt: 'Definir horário', // MT
+    de: 'Zeiten festlegen', // MT
+    fr: 'Définir les horaires', // MT
+  },
+
+  ob_type_title: {
+    en: 'Make your first meeting type',
+    nl: 'Maak je eerste afspraaktype',
+    es: 'Crea tu primer tipo de reunión', // MT
+    pt: 'Cria o teu primeiro tipo de reunião', // MT
+    de: 'Lege deinen ersten Meeting-Typ an', // MT
+    fr: 'Crée ton premier type de rendez-vous', // MT
+  },
+  ob_type_why: {
+    en: 'A meeting type is what people actually book — a half-hour intro, an hour of advice. It gets its own page and link.',
+    nl: 'Een afspraaktype is wat mensen daadwerkelijk boeken — een half uur kennismaken, een uur advies. Het krijgt een eigen pagina en link.',
+    es: 'Un tipo de reunión es lo que la gente reserva: media hora de presentación, una hora de asesoría. Tiene su propia página y enlace.', // MT
+    pt: 'Um tipo de reunião é o que as pessoas marcam — meia hora de apresentação, uma hora de aconselhamento. Tem a sua própria página e ligação.', // MT
+    de: 'Ein Meeting-Typ ist das, was man tatsächlich bucht — eine halbe Stunde Kennenlernen, eine Stunde Beratung. Er bekommt eine eigene Seite und einen Link.', // MT
+    fr: 'Un type de rendez-vous est ce que les gens réservent — une demi-heure de présentation, une heure de conseil. Il a sa propre page et son lien.', // MT
+  },
+  ob_type_cta: {
+    en: 'Create one',
+    nl: 'Er een maken',
+    es: 'Crear uno', // MT
+    pt: 'Criar um', // MT
+    de: 'Einen anlegen', // MT
+    fr: 'En créer un', // MT
+  },
+
+  ob_profile_title: {
+    en: 'Put your face on it',
+    nl: 'Zet je gezicht erbij',
+    es: 'Pon tu cara', // MT
+    pt: 'Põe a tua cara', // MT
+    de: 'Zeig dein Gesicht', // MT
+    fr: 'Mets ton visage', // MT
+  },
+  ob_profile_why: {
+    en: 'A photo and a line about yourself. Your booking page is often the first thing someone sees of you.',
+    nl: 'Een foto en een zin over jezelf. Je boekingspagina is vaak het eerste wat iemand van je ziet.',
+    es: 'Una foto y una línea sobre ti. Tu página de reservas suele ser lo primero que alguien ve de ti.', // MT
+    pt: 'Uma foto e uma linha sobre ti. A tua página de marcações é muitas vezes a primeira coisa que alguém vê de ti.', // MT
+    de: 'Ein Foto und ein Satz über dich. Deine Buchungsseite ist oft das Erste, was jemand von dir sieht.', // MT
+    fr: 'Une photo et une ligne sur toi. Ta page de réservation est souvent la première chose qu’on voit de toi.', // MT
+  },
+  ob_profile_cta: {
+    en: 'Add it',
+    nl: 'Toevoegen',
+    es: 'Añadir', // MT
+    pt: 'Adicionar', // MT
+    de: 'Hinzufügen', // MT
+    fr: 'Ajouter', // MT
+  },
+
+  ob_share_title: {
+    en: 'Share your link',
+    nl: 'Deel je link',
+    es: 'Comparte tu enlace', // MT
+    pt: 'Partilha a tua ligação', // MT
+    de: 'Teile deinen Link', // MT
+    fr: 'Partage ton lien', // MT
+  },
+  ob_share_why: {
+    en: 'Nothing happens until somebody has the address. Put it in your signature, or send it to one person today.',
+    nl: 'Er gebeurt niets tot iemand het adres heeft. Zet het in je handtekening, of stuur het vandaag naar één iemand.',
+    es: 'No pasa nada hasta que alguien tenga la dirección. Ponla en tu firma o envíasela hoy a una persona.', // MT
+    pt: 'Nada acontece até alguém ter o endereço. Põe-no na tua assinatura ou envia-o hoje a uma pessoa.', // MT
+    de: 'Es passiert nichts, bis jemand die Adresse hat. Setz sie in deine Signatur oder schick sie heute einer Person.', // MT
+    fr: 'Rien ne se passe tant que personne n’a l’adresse. Mets-la dans ta signature ou envoie-la aujourd’hui à une personne.', // MT
+  },
+  ob_share_cta: {
+    en: 'See the page',
+    nl: 'Bekijk de pagina',
+    es: 'Ver la página', // MT
+    pt: 'Ver a página', // MT
+    de: 'Seite ansehen', // MT
+    fr: 'Voir la page', // MT
+  },
   cancel_booking: {
     en: 'Cancel this booking',
     nl: 'Deze boeking annuleren',

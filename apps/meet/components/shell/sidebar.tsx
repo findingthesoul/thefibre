@@ -33,9 +33,12 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
   },
   {
     label: 'Meet',
+    // Bookings first: it is what you open every day. Meeting types are what
+    // you set up once and revisit now and then, so they sit under the thing
+    // they produce (Sjoerd, 2026-10-01).
     items: [
-      { href: '/meeting-types', label: t(locale, 'nav_meeting_types'), icon: CalendarRange },
       { href: '/bookings', label: t(locale, 'nav_bookings'), icon: CalendarClock },
+      { href: '/meeting-types', label: t(locale, 'nav_meeting_types'), icon: CalendarRange },
     ],
   },
   {
