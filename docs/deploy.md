@@ -337,18 +337,25 @@ fly secrets set --stage ZOOM_CLIENT_ID="$ZOOM_CLIENT_ID" ZOOM_CLIENT_SECRET="$ZO
    (docs/zoom-marketplace-submission.md).
 
 **Deauthorization webhook (required before publishing).** A Marketplace app
-must delete a user's Zoom data when they remove the app. The endpoint is
-`POST /api/v1/meet/zoom/webhook` (same host as the callback). Setup, per
-Zoom app (development and production are separate apps with separate values):
+must delete a user's data when they remove the app. The endpoint is
+`POST /api/v1/meet/zoom/webhook` (same host as the callback). Where it is
+configured, learned the hard way on 2026-10-01: NOT under Features → Access →
+Event Subscriptions (the development app's "Add Events" list has no App
+Deauthorized), but on the **Production tab → Basic Information →
+Deauthorization Notification → Endpoint URL**. Zoom sends it only for the
+PRODUCTION version of the app; development apps never deliver it, so staging
+cannot receive a real one. Setup:
 
-1. In the Zoom app → Features → Access, open **Event Subscriptions**, add the
-   endpoint `https://api.thethread.app/api/v1/meet/zoom/webhook` (staging: the
-   staging API host), and subscribe to **App Deauthorized**.
-2. Copy that page's **Secret Token** and set it, staged, as
-   `ZOOM_WEBHOOK_SECRET_TOKEN` (same `read -s` pattern as above; it is NOT the
-   Client Secret). Deploy, THEN click Validate in Zoom — validation needs the
-   secret already live.
-3. A connection made before migration `…_user_connection_zoom_user_id` carries
+1. Promote the release that carries the webhook (v1.94.0) and apply its
+   migration to production first. Zoom validates the URL the moment it is saved
+   and production must answer.
+2. In the Production tab, copy the app's own **Secret Token** (Features →
+   Access; it is separate from the development app's) and set it, staged, as
+   `ZOOM_WEBHOOK_SECRET_TOKEN` on the production API (same `read -s` pattern as
+   above; it is NOT the Client Secret). Deploy.
+3. Then enter `https://api.thethread.app/api/v1/meet/zoom/webhook` as the
+   Endpoint URL and let Zoom validate it.
+4. A connection made before migration `…_user_connection_zoom_user_id` carries
    no Zoom id and can never be revoked by this endpoint; disconnect and
    reconnect it once.
 

@@ -185,11 +185,14 @@ Also state plainly:
       separate app with its own Client ID/Secret and its own redirect URL and
       allow list: set `api.thethread.app` there, and put the production
       credentials on the production Fly app only after approval.**
-- [ ] Event Subscription → **App Deauthorized** →
-      `https://api.thethread.app/api/v1/meet/zoom/webhook`, Secret Token set
-      as `ZOOM_WEBHOOK_SECRET_TOKEN` and deployed BEFORE clicking Validate
-      (docs/deploy.md § Zoom). Shipped v1.94.0. Zoom reviews that a removal
-      deletes the user's data.
+- [ ] Production tab → Basic Information → **Deauthorization Notification →
+      Endpoint URL** = `https://api.thethread.app/api/v1/meet/zoom/webhook`
+      (NOT Event Subscriptions: development apps have no such event and never
+      send it). Its own production Secret Token goes on the production API as
+      `ZOOM_WEBHOOK_SECRET_TOKEN`, deployed BEFORE the URL is saved, because
+      Zoom validates on save and production must already carry v1.94.0
+      (docs/deploy.md § Zoom). Zoom reviews that a removal deletes the user's
+      data.
 - [ ] Four scopes added, with the justifications above
 - [ ] Data-handling answers pasted
 - [ ] Test instructions pasted; test workspace login sent to the reviewer
