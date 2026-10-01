@@ -6316,6 +6316,14 @@ const CATALOG = {
     de: 'In Claude: Einstellungen → Connectors → Eigenen Connector hinzufügen, Adresse einfügen, dann auf Erlauben drücken, wenn The Fibre fragt. In Claude Code: claude mcp add --transport http thefibre {url}. Was du verbunden hast, steht unter Einstellungen → Verbindungen, wo du es auch wieder trennst.', // MT
     fr: 'Dans Claude : Paramètres → Connecteurs → Ajouter un connecteur personnalisé, colle l’adresse, puis appuie sur Autoriser quand The Fibre le demande. Dans Claude Code : claude mcp add --transport http thefibre {url}. Ce que tu as connecté figure sous Paramètres → Connexions, où tu peux le déconnecter.', // MT
   },
+  assistant_connector_workspace_note: {
+    en: 'This address connects {workspace} only. For another workspace, switch to it and copy its address here — each workspace is its own connector in Claude.',
+    nl: 'Dit adres koppelt alleen {workspace}. Voor een andere workspace: schakel ernaar over en kopieer hier het adres — elke workspace is in Claude een eigen koppeling.',
+    es: 'Esta dirección conecta solo {workspace}. Para otro espacio, cámbiate a él y copia aquí su dirección: cada espacio es su propio conector en Claude.', // MT
+    pt: 'Este endereço liga apenas {workspace}. Para outro espaço, mude para ele e copie aqui o endereço — cada espaço é o seu próprio conector no Claude.', // MT
+    de: 'Diese Adresse verbindet nur {workspace}. Für einen anderen Workspace wechsle dorthin und kopiere hier dessen Adresse — jeder Workspace ist in Claude ein eigener Connector.', // MT
+    fr: 'Cette adresse ne connecte que {workspace}. Pour un autre espace, passez-y et copiez ici son adresse — chaque espace est son propre connecteur dans Claude.', // MT
+  },
   assistant_connector_manage: {
     en: 'Connected assistants',
     nl: 'Gekoppelde assistenten',
@@ -6548,6 +6556,14 @@ const CATALOG = {
     pt: 'The Fibre não conhece este assistente. Peça-lhe para ligar de novo.', // MT
     de: 'The Fibre kennt diesen Assistenten nicht. Lass ihn erneut verbinden.', // MT
     fr: 'The Fibre ne connaît pas cet assistant. Demandez-lui de se reconnecter.', // MT
+  },
+  connect_not_member: {
+    en: 'This address is for the workspace {workspace}, and you are not a member of it. Ask an admin there to add you, or use the address of a workspace you belong to.',
+    nl: 'Dit adres hoort bij de workspace {workspace}, en daar ben je geen lid van. Vraag een beheerder daar om je toe te voegen, of gebruik het adres van een workspace waar je wel bij hoort.',
+    es: 'Esta dirección es del espacio {workspace}, y no eres miembro. Pide a un administrador que te añada, o usa la dirección de un espacio al que pertenezcas.', // MT
+    pt: 'Este endereço é do espaço {workspace}, de que não é membro. Peça a um administrador que o adicione, ou use o endereço de um espaço a que pertença.', // MT
+    de: 'Diese Adresse gehört zum Workspace {workspace}, in dem du kein Mitglied bist. Bitte dort einen Admin, dich hinzuzufügen, oder nutze die Adresse eines Workspace, zu dem du gehörst.', // MT
+    fr: 'Cette adresse est celle de l’espace {workspace}, dont vous n’êtes pas membre. Demandez à un administrateur de vous ajouter, ou utilisez l’adresse d’un espace auquel vous appartenez.', // MT
   },
   // ── Settings → Connections → assistants ───────────────────────────────
   assistants_title: {

@@ -25,11 +25,16 @@ type Status = {
   key_hint: string | null;
 };
 type UsageRow = { day: string; source: string; turns: number; input_tokens: number; output_tokens: number };
-type Me = { user: { id: string; is_super_admin?: boolean }; memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[] };
+type Me = {
+  user: { id: string; is_super_admin?: boolean };
+  memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
+  /** The workspace this session acts in — its slug makes the connector address per-workspace. */
+  workspace?: { id: string; slug: string; name: string } | null;
+};
 
 export default async function AssistantSettingsPage() {
   const locale = await uiLocale();
-  const connectorUrl = mcpConnectorUrl((await headers()).get('host'));
+  const host = (await headers()).get('host');
   const nf = new Intl.NumberFormat(INTL_LOCALES[locale]);
   const df = new Intl.DateTimeFormat(INTL_LOCALES[locale], { dateStyle: 'medium' });
 
@@ -43,6 +48,12 @@ export default async function AssistantSettingsPage() {
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
+
+  // The address is per WORKSPACE (2026-10-01): one Claude can hold several,
+  // each a distinct connector, and the connection is pinned to the workspace
+  // in the address rather than to whichever tab was open at Allow.
+  const connectorUrl = mcpConnectorUrl(host, undefined, me?.workspace?.slug ?? null);
+  const workspaceName = me?.workspace?.name ?? '';
 
   const isAdmin =
     !!me?.user.is_super_admin ||
@@ -86,6 +97,7 @@ export default async function AssistantSettingsPage() {
             <h3 className="text-sm font-medium text-ink">{t(locale, 'assistant_way_own_title')}</h3>
             <p className="text-sm text-ink-subtle">{t(locale, 'assistant_way_own_body')}</p>
             <ConnectorAddress locale={locale} url={connectorUrl} />
+            {workspaceName && <p className="text-xs text-ink-muted">{t(locale, 'assistant_connector_workspace_note', { workspace: workspaceName })}</p>}
             <p className="text-xs text-ink-muted">{t(locale, 'assistant_connector_steps', { url: connectorUrl })}</p>
             <Link href="/settings/connections" className="inline-block text-sm text-ink-subtle underline underline-offset-2 hover:text-ink">
               {t(locale, 'assistant_connector_manage')} →

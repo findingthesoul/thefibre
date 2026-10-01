@@ -16,16 +16,26 @@ This page is about the first one, your own assistant.
 
 ---
 
-## 1. Connecting, once
+## 1. Connecting, once per workspace
 
-The address is:
+The address is **per workspace**, and Settings → Assistant in The Fibre shows
+it for the workspace you have open, with a copy button. It looks like:
 
 ```
-https://mcp.thefibre.app
+https://mcp.thefibre.app/your-workspace-slug
 ```
 
-(On the test stack it is `https://mcp.thefibre.tech`. Settings → Assistant in
-The Fibre shows the right one with a copy button.)
+Why per workspace: Claude treats the address as the connector's identity, so
+one address per workspace lets a single Claude hold several workspaces side by
+side, each as its own connector — and the connection is tied to the workspace
+*in the address*, not to whichever tab happened to be open when you pressed
+Allow. To connect a second workspace, switch to it in The Fibre, copy its
+address, and add it as another connector. Name each connector for its
+workspace, since all of them offer the same tools.
+
+The plain `https://mcp.thefibre.app` still works and connects whatever
+workspace you have open at the moment you press Allow. (On the test stack the
+host is `mcp.thefibre.tech`.)
 
 **Claude on the web or in the desktop app.** Settings → Connectors → Add
 custom connector. Paste the address, give it a name ("The Fibre"). Claude
@@ -51,10 +61,12 @@ walked this path yet — if something stops, say so and it gets fixed.
 (an `mcpServers` entry with the address and OAuth). The Gemini app and
 website do not take custom connections at the time of writing.
 
-**The connection belongs to one workspace**: the one you had open in The
-Fibre when you pressed Allow. If you work in several workspaces, connect once
-per workspace, or switch back before asking. The assistant is told when the
-workspaces do not match.
+**The connection belongs to one workspace**: the one in the address (or, for
+the plain address, the one you had open when you pressed Allow). It stays
+with that workspace whatever you switch to in a browser. If you belong to
+several workspaces, add one connector per workspace; they coexist. An address
+for a workspace you are not a member of is refused on the Allow page — an
+address is not an invitation.
 
 **To disconnect**: Settings → Connections → Connected assistants →
 Disconnect. The assistant's next request is refused and it offers to sign in

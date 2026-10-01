@@ -49,10 +49,52 @@ export function isMcpHost(headers: Headers): boolean {
   return host.startsWith('mcp.');
 }
 
-/** Origin, endpoint path and resource identifier for THIS request's host. */
-export function mcpResource(headers: Headers): { origin: string; path: string; resource: string } {
+/**
+ * A per-workspace connector address: `https://mcp.thefibre.app/<workspace-slug>`.
+ *
+ * Sjoerd, 2026-10-01: Claude keys a connector by its URL and warned when he
+ * added a second workspace on the same address. One address per workspace
+ * makes each a distinct connector — and, more importantly, pins the
+ * connection to the workspace NAMED IN THE ADDRESS rather than to whichever
+ * Fibre tab was current when Allow was pressed (the trap of 2026-09-28).
+ * The slug is a path segment on an mcp.* host only; on the fly.dev host the
+ * endpoint stays at /api/v1/mcp and knows no slugs.
+ */
+const WORKSPACE_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+const RESERVED_SLUGS = new Set(['api', 'health', 'oauth', 'connect', 'settings', 'well-known']);
+export function isWorkspaceSlug(s: string | undefined | null): s is string {
+  return typeof s === 'string' && WORKSPACE_SLUG_RE.test(s) && !RESERVED_SLUGS.has(s);
+}
+
+/**
+ * The workspace slug named by an RFC 8707 `resource` value a client sent
+ * (which, for a slug address, is exactly our metadata `resource`:
+ * `https://mcp.<apex>/<slug>`), or null for the plain root/path addresses.
+ * Only an mcp.* host carries slugs; anything else is ignored, never trusted.
+ */
+export function slugFromResource(resource: string | undefined | null): { origin: string; slug: string } | null {
+  if (!resource) return null;
+  try {
+    const u = new URL(resource);
+    if (!u.hostname.toLowerCase().startsWith('mcp.')) return null;
+    const segs = u.pathname.split('/').filter(Boolean);
+    if (segs.length !== 1 || !isWorkspaceSlug(segs[0])) return null;
+    return { origin: u.origin, slug: segs[0]! };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Origin, endpoint path and resource identifier for THIS request's host —
+ * and, on an mcp.* host, for the workspace slug in the path when there is one.
+ * An access token is bound to exactly this `resource`, so a token for one
+ * workspace address never opens another.
+ */
+export function mcpResource(headers: Headers, slug?: string | null): { origin: string; path: string; resource: string } {
   const origin = publicOrigin(headers);
-  const path = isMcpHost(headers) ? '' : MCP_RESOURCE_PATH;
+  if (!isMcpHost(headers)) return { origin, path: MCP_RESOURCE_PATH, resource: `${origin}${MCP_RESOURCE_PATH}` };
+  const path = isWorkspaceSlug(slug) ? `/${slug}` : '';
   return { origin, path, resource: `${origin}${path}` };
 }
 
@@ -103,3 +145,12 @@ const resourceDoc = (c: { req: { raw: Request } }) => {
 };
 mcpDiscoveryRoutes.get('/.well-known/oauth-protected-resource', (c) => c.json(resourceDoc(c), 200, cacheable));
 mcpDiscoveryRoutes.get(`/.well-known/oauth-protected-resource${MCP_RESOURCE_PATH}`, (c) => c.json(resourceDoc(c), 200, cacheable));
+// RFC 9728 path-insertion for a per-workspace address: a client connected to
+// https://mcp.<apex>/<slug> is pointed here by the 401 challenge and reads a
+// `resource` that names that slug. Inert off the mcp host.
+mcpDiscoveryRoutes.get('/.well-known/oauth-protected-resource/:slug', (c, next) => {
+  const slug = c.req.param('slug');
+  if (!isMcpHost(c.req.raw.headers) || !isWorkspaceSlug(slug)) return next();
+  const { origin, path } = mcpResource(c.req.raw.headers, slug);
+  return c.json(protectedResourceMetadata(origin, path), 200, cacheable);
+});

@@ -404,7 +404,10 @@ oauthProviderRoutes.post('/token', async (c) => {
     if (!grant || (client_id && client_id !== grant.client_id)) {
       return c.json({ error: 'invalid_grant' }, 400);
     }
-    const resource = mcpResource(c.req.raw.headers).resource;
+    // A per-workspace grant remembers its canonical address; the token is bound
+    // to that, so it opens exactly the workspace it was made for. A plain grant
+    // keeps the host-derived audience it always had.
+    const resource = grant.resource ?? mcpResource(c.req.raw.headers).resource;
     const [access_token, refresh_token] = await Promise.all([signAccessToken(grant, resource), issueRefreshToken(grant)]);
     return c.json({ access_token, token_type: 'Bearer', expires_in: ACCESS_TOKEN_TTL_S, refresh_token, scope: grant.scopes.join(' ') });
   }
@@ -446,7 +449,7 @@ oauthProviderRoutes.post('/token', async (c) => {
 
     const grant = codeRow.grant_id ? await loadGrant(codeRow.grant_id as string) : null;
     if (!grant || grant.revoked_at) return c.json({ error: 'invalid_grant' }, 400);
-    const resource = mcpResource(c.req.raw.headers).resource;
+    const resource = grant.resource ?? mcpResource(c.req.raw.headers).resource;
     const [access_token, refresh_token] = await Promise.all([signAccessToken(grant, resource), issueRefreshToken(grant)]);
     return c.json({ access_token, token_type: 'Bearer', expires_in: ACCESS_TOKEN_TTL_S, refresh_token, scope: grant.scopes.join(' ') });
   }

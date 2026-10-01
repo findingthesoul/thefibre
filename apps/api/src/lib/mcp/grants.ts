@@ -42,10 +42,24 @@ export interface Grant {
   activated_at: string | null;
   last_used_at: string | null;
   revoked_at: string | null;
+  /**
+   * The canonical connector address this grant was made for, e.g.
+   * `https://mcp.thefibre.app/festival-of-trust-7va1` — the access token's
+   * audience. Null for a grant made on a plain address, whose audience is
+   * derived from the request host as it always was.
+   */
+  resource: string | null;
+  /**
+   * The dedicated Supabase session's id. The access-token hook pins a session
+   * listed here to THIS grant's workspace, whatever the person has active in
+   * a browser — so one Claude can hold several workspaces (2026-10-01). Null on
+   * grants made before that; filled in on their next refresh.
+   */
+  session_id: string | null;
 }
 
 const GRANT_SELECT =
-  'id, user_id, workspace_id, client_id, client_name, scopes, session_refresh_ciphertext, refresh_token_hash, refresh_token_expires_at, created_at, activated_at, last_used_at, revoked_at';
+  'id, user_id, workspace_id, client_id, client_name, scopes, session_refresh_ciphertext, refresh_token_hash, refresh_token_expires_at, created_at, activated_at, last_used_at, revoked_at, resource, session_id';
 
 function sha256hex(v: string): string {
   return createHash('sha256').update(v, 'utf8').digest('hex');
@@ -90,8 +104,13 @@ export async function createGrant(input: {
   clientId: string;
   clientName: string;
   scopes: McpScope[];
+  /** Canonical connector address (per-workspace), or null for a plain one. */
+  resource?: string | null;
 }): Promise<Grant> {
   const session = await mintDedicatedSession(input.email);
+  // The session's id is what lets the access-token hook pin THIS session to
+  // the grant's workspace, whatever the person has active in a browser.
+  const sid = claimsOf(session.access_token).session_id;
   const { data, error } = await adminClient
     .from('mcp_grant')
     .insert({
@@ -101,13 +120,20 @@ export async function createGrant(input: {
       client_name: input.clientName,
       scopes: input.scopes,
       session_refresh_ciphertext: encryptSecret(session.refresh_token),
+      resource: input.resource ?? null,
+      session_id: typeof sid === 'string' ? sid : null,
     })
     .select(GRANT_SELECT)
     .single();
   if (error || !data) throw new Error(`mcp_grant insert failed: ${error?.message}`);
   const grant = data as Grant;
-  // The session is fresh; keep its access token so the first call needs no refresh.
-  sessionCache.set(grant.id, { jwt: session.access_token, exp: session.expires_at * 1000 });
+  // The first token was minted BEFORE the grant row existed, so the hook could
+  // not pin it: it carries the person's active workspace. If that is not this
+  // grant's, do not cache it — the first call refreshes and gets a pinned one.
+  const firstWs = claimsOf(session.access_token).workspace_id;
+  if (!firstWs || firstWs === grant.workspace_id) {
+    sessionCache.set(grant.id, { jwt: session.access_token, exp: session.expires_at * 1000 });
+  }
   return grant;
 }
 
@@ -166,30 +192,50 @@ async function refreshSession(grant: Grant): Promise<string> {
     console.error(`[mcp] grant ${grant.id}: stored session unreadable — ${e instanceof Error ? e.message : e}`);
     throw new GrantError('session_lost', 'this connection needs to be made again');
   }
-  const { data, error } = await anonAuthClient().auth.refreshSession({ refresh_token: refreshToken });
-  if (error || !data.session) {
-    // Signed out everywhere, password changed, or the session was revoked on
-    // the Supabase side. The grant is dead; say so and make it visible.
-    // Logged with Supabase's reason: on 2026-09-27 a grant died 334 ms after
-    // a good call and nothing said why. (A browser sign-out used to be one
-    // cause — supabase-js signs out EVERY session by default, this one
-    // included; the apps now sign out with scope 'local'.)
-    console.warn(`[mcp] grant ${grant.id}: session refresh refused — ${error?.message ?? 'no session returned'}; revoking`);
-    await adminClient.from('mcp_grant').update({ revoked_at: new Date().toISOString() }).eq('id', grant.id).is('revoked_at', null);
-    throw new GrantError('session_lost', 'this connection has expired — connect again');
-  }
-  const s = data.session;
-  // Supabase rotated the refresh token; the old one is dead in ~10 s.
-  await adminClient
-    .from('mcp_grant')
-    .update({ session_refresh_ciphertext: encryptSecret(s.refresh_token), last_used_at: new Date().toISOString() })
-    .eq('id', grant.id);
+  // One refresh round trip: Supabase rotates the refresh token (the old one is
+  // dead in ~10 s), so the new one is stored before anything else is looked at.
+  const refreshOnce = async (token: string) => {
+    const { data, error } = await anonAuthClient().auth.refreshSession({ refresh_token: token });
+    if (error || !data.session) {
+      // Signed out everywhere, password changed, or the session was revoked on
+      // the Supabase side. The grant is dead; say so and make it visible.
+      // Logged with Supabase's reason: on 2026-09-27 a grant died 334 ms after
+      // a good call and nothing said why. (A browser sign-out used to be one
+      // cause — supabase-js signs out EVERY session by default, this one
+      // included; the apps now sign out with scope 'local'.)
+      console.warn(`[mcp] grant ${grant.id}: session refresh refused — ${error?.message ?? 'no session returned'}; revoking`);
+      await adminClient.from('mcp_grant').update({ revoked_at: new Date().toISOString() }).eq('id', grant.id).is('revoked_at', null);
+      throw new GrantError('session_lost', 'this connection has expired — connect again');
+    }
+    const next = data.session;
+    await adminClient
+      .from('mcp_grant')
+      .update({ session_refresh_ciphertext: encryptSecret(next.refresh_token), last_used_at: new Date().toISOString() })
+      .eq('id', grant.id);
+    return next;
+  };
 
-  // The grant is for ONE workspace. The access-token hook stamps whichever
-  // workspace the person has active; if they switched in The Fibre, this
-  // session follows them, and the grant must not (plan §3.1). Re-checked on
-  // every refresh, as membership is.
-  const claims = claimsOf(s.access_token);
+  let s = await refreshOnce(refreshToken);
+  let claims = claimsOf(s.access_token);
+
+  // A grant made before 2026-10-01 has no session_id on record, so the hook
+  // could not pin it and this token carries the person's ACTIVE workspace.
+  // Record the id now; if the workspace came out wrong, one more refresh runs
+  // the hook with the pin in place. Legacy grants heal themselves on first
+  // use instead of failing with workspace_switched.
+  if (!grant.session_id && typeof claims.session_id === 'string') {
+    await adminClient.from('mcp_grant').update({ session_id: claims.session_id }).eq('id', grant.id);
+    grant.session_id = claims.session_id;
+    if (claims.workspace_id && claims.workspace_id !== grant.workspace_id) {
+      s = await refreshOnce(s.refresh_token);
+      claims = claimsOf(s.access_token);
+    }
+  }
+
+  // The grant is for ONE workspace. With the session pinned in the hook this
+  // always holds; it stays as the assertion that makes a hook regression loud
+  // instead of a silent read from the wrong tenant (plan §3.1). Membership is
+  // re-checked on every refresh as well.
   if (claims.workspace_id && claims.workspace_id !== grant.workspace_id) {
     throw new GrantError(
       'workspace_switched',

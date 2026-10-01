@@ -210,7 +210,17 @@ Total: **three to four sessions**, P1 and P2 sequential, P3 and P4 short.
 
 The staging API is the server; nothing needs to be installed.
 
-**The address** (since v1.76, 2026-09-27) is the hostname alone:
+**Per-workspace addresses (since 2026-10-01).** `https://mcp.thefibre.app/<workspace-slug>`
+is the address to give out: each workspace is a distinct connector to Claude
+(which keys connectors by URL and refuses a duplicate), consent binds the grant
+to the workspace IN the address after a seat check, the access token's audience
+is that address, and `custom_access_token_hook` pins the grant's dedicated
+session to that workspace via `mcp_grant.session_id` — so several workspaces
+work in one Claude at once. Settings → Assistant prints the current
+workspace's address. Rollback for the hook: `supabase/rollbacks/`. The harness
+walks it with `FIBRE_MCP_HOST=https://mcp.thefibre.tech` (step 9).
+
+**The plain address** (since v1.76, 2026-09-27) is the hostname alone:
 `https://mcp.thefibre.app` on production, `https://mcp.thefibre.tech` on
 staging — the API serves the endpoint at the root of any `mcp.` host and
 names that root as the resource. Until the DNS records exist (a Fly cert plus

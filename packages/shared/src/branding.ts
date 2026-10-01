@@ -300,10 +300,17 @@ export function stagingAppUrl(slug: AppId): string {
  * hostname alone. Env override first (a stack whose DNS is not there yet can
  * print the Fly address), then the stack the page is served from.
  */
-export function mcpConnectorUrl(host?: string | null, env: Record<string, string | undefined> | undefined = ambientEnv()): string {
+export function mcpConnectorUrl(
+  host?: string | null,
+  env: Record<string, string | undefined> | undefined = ambientEnv(),
+  /** A workspace slug makes the address per-workspace: `…/festival-of-trust-7va1`.
+   *  One Claude can then hold several workspaces, each a distinct connector, and
+   *  the connection is pinned to the workspace in the address (2026-10-01). */
+  workspaceSlug?: string | null,
+): string {
   const fromEnv = env?.NEXT_PUBLIC_MCP_URL;
-  if (fromEnv && fromEnv.trim()) return fromEnv.trim().replace(/\/+$/, '');
-  return isStagingHost(host) ? `https://mcp.${STAGING_APEX}` : 'https://mcp.thefibre.app';
+  const base = fromEnv && fromEnv.trim() ? fromEnv.trim().replace(/\/+$/, '') : isStagingHost(host) ? `https://mcp.${STAGING_APEX}` : 'https://mcp.thefibre.app';
+  return workspaceSlug ? `${base}/${workspaceSlug}` : base;
 }
 
 /**

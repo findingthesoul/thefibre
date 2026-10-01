@@ -19,7 +19,7 @@ import { adminClient } from '../db.js';
 import { GrantError, grantFromAccessToken, sessionJwtFor } from '../lib/mcp/grants.js';
 import { clientIp, hit } from '../lib/rate-limit.js';
 import { appUrl } from '@thefibre/shared';
-import { isMcpHost, mcpResource } from './mcp-discovery.js';
+import { isMcpHost, isWorkspaceSlug, mcpResource } from './mcp-discovery.js';
 
 export const mcpRoutes = new Hono();
 
@@ -52,8 +52,10 @@ async function workspaceName(id: string): Promise<string> {
   return (data?.name as string | undefined) ?? 'your workspace';
 }
 
-export const mcpHandler = async (c: Context) => {
-  const { origin, path, resource } = mcpResource(c.req.raw.headers);
+export const mcpHandler = async (c: Context, slug?: string) => {
+  // On a per-workspace address the resource — and so the token audience —
+  // names the workspace; a token minted for one address never opens another.
+  const { origin, path, resource } = mcpResource(c.req.raw.headers, slug);
   const auth = c.req.header('authorization') ?? '';
   const m = /^Bearer\s+(\S+)$/i.exec(auth);
   if (!m) {
@@ -116,12 +118,24 @@ export const mcpHandler = async (c: Context) => {
   }
 };
 
-mcpRoutes.post('/', mcpHandler);
-mcpRoutes.get('/', mcpHandler);
-mcpRoutes.delete('/', mcpHandler);
+// The path-based endpoint (/api/v1/mcp) knows no workspace slug; a plain
+// wrapper so Hono's `next` is never mistaken for one.
+const plain = (c: Context) => mcpHandler(c);
+mcpRoutes.post('/', plain);
+mcpRoutes.get('/', plain);
+mcpRoutes.delete('/', plain);
 
 // The same endpoint at the ROOT of an mcp.* host (mcp-discovery.ts
 // isMcpHost): `https://mcp.thefibre.app` is the whole connector address.
 // Mounted at `/` in server.ts; inert on every other hostname.
 export const mcpRootRoutes = new Hono();
 mcpRootRoutes.on(['GET', 'POST', 'DELETE'], '/', async (c, next) => (isMcpHost(c.req.raw.headers) ? mcpHandler(c) : next()));
+// Per-workspace address: https://mcp.<apex>/<workspace-slug> (2026-10-01).
+// One path segment, slug-shaped, not a reserved word (/health falls through
+// to its own route). The grant behind the token was bound to this workspace
+// at consent; the audience check above makes the binding unforgeable.
+mcpRootRoutes.on(['GET', 'POST', 'DELETE'], '/:slug', async (c, next) => {
+  const slug = c.req.param('slug');
+  if (!isMcpHost(c.req.raw.headers) || !isWorkspaceSlug(slug)) return next();
+  return mcpHandler(c, slug);
+});

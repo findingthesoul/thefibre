@@ -103,8 +103,16 @@ async function personSession() {
 let clientId = null;
 let grantId = null;
 let verifyThreadId = null;
+// Step 9 (per-workspace address) makes its own client and grant on the mcp host.
+let slugClientId = null;
+let slugGrantId = null;
 
 async function cleanup() {
+  if (slugGrantId) await db.from('mcp_grant').delete().eq('id', slugGrantId);
+  if (slugClientId) {
+    await db.from('oauth_code').delete().eq('client_id', slugClientId);
+    await db.from('oauth_client').delete().eq('client_id', slugClientId);
+  }
   if (verifyThreadId) {
     // The draft thread the write step made: its engagements, the thread, its programme.
     const { data: t } = await db.from('thread_thread').select('program_id').eq('id', verifyThreadId).maybeSingle();
@@ -289,6 +297,93 @@ async function main() {
   check(dead.status === 401, 'the live access token is refused', `HTTP ${dead.status}`);
   const deadRefresh = await http('/api/v1/oauth/token', { method: 'POST', form: true, body: { grant_type: 'refresh_token', refresh_token: refresh, client_id: clientId } });
   check(deadRefresh.status === 400, 'and so is the refresh token', `HTTP ${deadRefresh.status}`);
+
+  // ---------------------------------------------------------------------------
+  // 9. A per-workspace address — https://mcp.<apex>/<workspace-slug> — walked
+  // on the mcp host (FIBRE_MCP_HOST, e.g. https://mcp.thefibre.tech), since
+  // slugs exist only there. Proves: the address challenges with its OWN
+  // document; consent binds the grant to the workspace IN the address and
+  // records the canonical resource + the session id the hook pins on; the
+  // token works at that address and is refused at the root; the consent page
+  // can name the workspace; an address for a workspace with no seat is refused.
+  // ---------------------------------------------------------------------------
+  const MCP = (process.env.FIBRE_MCP_HOST ?? '').replace(/\/+$/, '');
+  if (MCP) {
+    const { data: g0 } = await db.from('mcp_grant').select('workspace_id').eq('id', grantId).maybeSingle();
+    const { data: ws } = await db.from('workspace').select('id, slug, name').eq('id', g0?.workspace_id).maybeSingle();
+    const slug = ws?.slug;
+    const address = `${MCP}/${slug}`;
+    step(9, `Per-workspace address: ${address}`);
+    check(!!slug, 'the person’s workspace has a slug', slug);
+
+    const bare9 = await http(address, { method: 'POST', body: { jsonrpc: '2.0', id: 0, method: 'initialize', params: {} } });
+    const www9 = bare9.headers.get('www-authenticate') ?? '';
+    check(bare9.status === 401 && www9.includes(`/.well-known/oauth-protected-resource/${slug}"`), 'the slug address challenges with its own document', www9.match(/resource_metadata="([^"]+)"/)?.[1]);
+    check(!/invalid_token/.test(www9), 'a credential-less probe is "authorize here", not "bad token"');
+    const pr9 = await http(`${MCP}/.well-known/oauth-protected-resource/${slug}`);
+    check(pr9.status === 200 && pr9.body?.resource === address, 'that document names the per-workspace resource', pr9.body?.resource);
+    const junk = await http(`${MCP}/.well-known/oauth-protected-resource/health`);
+    check(junk.status === 404, 'a reserved word is not a workspace document', `HTTP ${junk.status}`);
+
+    const reg9 = await http(`${MCP}/api/v1/oauth/register`, {
+      method: 'POST',
+      body: { client_name: 'verify-mcp-personal (slug)', redirect_uris: [REDIRECT], token_endpoint_auth_method: 'none' },
+    });
+    slugClientId = reg9.body?.client_id ?? null;
+    check(reg9.status === 201 && !!slugClientId, 'registered on the mcp host', slugClientId);
+
+    const ver9 = b64url(randomBytes(32));
+    const chal9 = b64url(createHash('sha256').update(ver9).digest());
+    const authz9 = new URL(`${MCP}/api/v1/oauth/authorize`);
+    for (const [k, v] of Object.entries({ client_id: slugClientId, redirect_uri: REDIRECT, response_type: 'code', code_challenge: chal9, code_challenge_method: 'S256', scope: 'models:read', resource: address }))
+      authz9.searchParams.set(k, v);
+    const az9 = await http(authz9.toString());
+    const loc9 = az9.headers.get('location') ?? '';
+    check(az9.status === 302 && new URL(loc9).searchParams.get('resource') === address, '/authorize carries the resource to /connect', loc9.split('?')[0]);
+
+    const who9 = await http(`/api/v1/mcp-auth/client?client_id=${slugClientId}&resource=${encodeURIComponent(address)}`, { headers: { authorization: `Bearer ${jwt}`, 'x-app-id': 'fibre-platform' } });
+    check(who9.status === 200 && who9.body?.workspace?.slug === slug && who9.body?.workspace?.member === true, 'the consent page can name the address’s workspace, and the person has a seat', who9.body?.workspace?.name);
+
+    const noSeat = await http('/api/v1/mcp-auth/consent', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${jwt}`, 'x-app-id': 'fibre-platform' },
+      body: { client_id: slugClientId, redirect_uri: REDIRECT, code_challenge: chal9, code_challenge_method: 'S256', scope: 'models:read', resource: `${MCP}/no-such-workspace-zz9`, decision: 'approve' },
+    });
+    check(noSeat.status === 404, 'an address for a workspace that does not exist is refused, nothing minted', `HTTP ${noSeat.status}`);
+
+    const ok9 = await http('/api/v1/mcp-auth/consent', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${jwt}`, 'x-app-id': 'fibre-platform' },
+      body: { client_id: slugClientId, redirect_uri: REDIRECT, code_challenge: chal9, code_challenge_method: 'S256', scope: 'models:read', resource: address, decision: 'approve' },
+    });
+    const code9 = ok9.body?.redirect ? new URL(ok9.body.redirect).searchParams.get('code') : null;
+    check(ok9.status === 200 && !!code9, 'approve → a code', `HTTP ${ok9.status}`);
+    const { data: g9 } = await db.from('mcp_grant').select('id, workspace_id, resource, session_id').eq('client_id', slugClientId).maybeSingle();
+    slugGrantId = g9?.id ?? null;
+    check(g9?.workspace_id === ws?.id, 'the grant is bound to the workspace IN the address', g9?.workspace_id);
+    check(g9?.resource === address, 'and remembers the canonical address as its audience', g9?.resource);
+    check(typeof g9?.session_id === 'string', 'and records the session id the hook pins on', g9?.session_id ? 'present' : 'missing');
+
+    const tok9 = await http(`${MCP}/api/v1/oauth/token`, { method: 'POST', form: true, body: { grant_type: 'authorization_code', code: code9, client_id: slugClientId, redirect_uri: REDIRECT, code_verifier: ver9 } });
+    check(tok9.status === 200 && !!tok9.body?.access_token, 'token issued on the mcp host', `scope="${tok9.body?.scope}"`);
+    const access9 = tok9.body?.access_token;
+
+    const call = async (url, id) => {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${access9}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18' },
+        body: JSON.stringify({ jsonrpc: '2.0', id, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'verify', version: '0' } } }),
+      });
+      return { status: r.status, body: safeJson(await r.text()) };
+    };
+    const at9 = await call(address, 1);
+    check(at9.status === 200 && at9.body?.result?.serverInfo?.name === 'thefibre', 'initialize at the per-workspace address', at9.body?.result?.serverInfo?.version);
+    check((at9.body?.result?.instructions ?? '').includes(`"${ws?.name}"`), 'the instructions name THAT workspace', ws?.name);
+    const atRoot = await call(`${MCP}/`, 2);
+    check(atRoot.status === 401, 'the same token is refused at the root address — bound to its workspace', `HTTP ${atRoot.status}`);
+  } else {
+    console.log('\n── 9. skipped: set FIBRE_MCP_HOST=https://mcp.thefibre.tech to walk a per-workspace address');
+  }
 
   console.log('\n── cleanup');
   await cleanup();

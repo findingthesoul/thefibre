@@ -23,6 +23,8 @@ type ClientInfo = {
   logo_uri: string | null;
   redirect_hosts: string[];
   scopes: { scope: string; words: string }[];
+  /** The workspace a per-workspace address names, or null for a plain address. */
+  workspace: { id: string | null; name: string | null; slug: string; member: boolean } | null;
 };
 type Me = { workspace: { id: string; name: string } | null };
 
@@ -52,7 +54,9 @@ export default async function ConnectPage({
   if (complete) {
     try {
       [client, me] = await Promise.all([
-        apiFetch<ClientInfo>(`/api/v1/mcp-auth/client?client_id=${encodeURIComponent(params.client_id!)}${params.scope ? `&scope=${encodeURIComponent(params.scope)}` : ''}`),
+        apiFetch<ClientInfo>(
+          `/api/v1/mcp-auth/client?client_id=${encodeURIComponent(params.client_id!)}${params.scope ? `&scope=${encodeURIComponent(params.scope)}` : ''}${params.resource ? `&resource=${encodeURIComponent(params.resource)}` : ''}`,
+        ),
         apiFetch<Me>('/api/v1/auth/me'),
       ]);
     } catch (e) {
@@ -66,7 +70,13 @@ export default async function ConnectPage({
       {!complete && <ErrorBanner>{t(locale, 'connect_incomplete')}</ErrorBanner>}
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      {client && me && (
+      {client?.workspace && !client.workspace.member && (
+        // A per-workspace address for a workspace this person has no seat in.
+        // Say so and offer nothing: an address is not an invitation.
+        <ErrorBanner>{t(locale, 'connect_not_member', { workspace: client.workspace.name ?? client.workspace.slug })}</ErrorBanner>
+      )}
+
+      {client && me && (!client.workspace || client.workspace.member) && (
         <section className={`${CARD} mt-6 space-y-6 p-6`}>
           <div className="flex items-start gap-4">
             {client.logo_uri ? (
@@ -76,7 +86,9 @@ export default async function ConnectPage({
             <div>
               <p className="text-lg font-medium text-ink">{client.name}</p>
               <p className="text-sm text-ink-subtle">
-                {t(locale, 'connect_asks_for', { workspace: me.workspace?.name ?? '' })}
+                {/* The address's workspace when there is one — that is what the
+                    person is consenting to — else the one they have open. */}
+                {t(locale, 'connect_asks_for', { workspace: client.workspace?.name ?? me.workspace?.name ?? '' })}
               </p>
               <p className="mt-1 text-xs text-ink-muted">
                 {t(locale, 'connect_returns_to')} {client.redirect_hosts.join(', ')}

@@ -18,7 +18,36 @@ import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { createGrant, listGrants, revokeGrant } from '../lib/mcp/grants.js';
 import { loadClient, narrowScopes, redirectUriAllowed } from './oauth-provider.js';
-import type { McpScope } from './mcp-discovery.js';
+import { slugFromResource, type McpScope } from './mcp-discovery.js';
+
+/**
+ * The workspace a per-workspace connector address names, and whether this
+ * person has a seat there (a live user row for their email). Null when the
+ * address is a plain one — then consent binds to the current workspace, as
+ * it always did.
+ */
+async function pinnedWorkspace(
+  resource: string | undefined | null,
+  email: string,
+): Promise<{ id: string; name: string; slug: string; userId: string | null; resource: string } | { unknown: true; slug: string } | null> {
+  const pinned = slugFromResource(resource);
+  if (!pinned) return null;
+  const { data: ws } = await adminClient.from('workspace').select('id, name, slug').eq('slug', pinned.slug).maybeSingle();
+  if (!ws) return { unknown: true, slug: pinned.slug };
+  const { data: row } = await adminClient
+    .from('user')
+    .select('id')
+    .eq('email', email)
+    .eq('workspace_id', ws.id as string)
+    .is('deleted_at', null)
+    .maybeSingle();
+  return { id: ws.id as string, name: ws.name as string, slug: ws.slug as string, userId: (row?.id as string | undefined) ?? null, resource: `${pinned.origin}/${pinned.slug}` };
+}
+
+async function emailOf(authUserId: string): Promise<string | null> {
+  const { data } = await adminClient.auth.admin.getUserById(authUserId);
+  return data?.user?.email ?? null;
+}
 
 export const mcpAuthRoutes = new Hono();
 
@@ -43,6 +72,14 @@ mcpAuthRoutes.get('/client', async (c) => {
   const client = await loadClient(clientId);
   if (!client || client.kind !== 'mcp') return c.json({ error: 'unknown client' }, 404);
   const scopes = narrowScopes(c.req.query('scope'));
+  // A per-workspace address names the workspace the consent is FOR; the page
+  // shows that one, not whichever the person happens to have open.
+  let workspace: { id: string | null; name: string | null; slug: string; member: boolean } | null = null;
+  const email = await emailOf(ctx.authUserId);
+  const pinned = email ? await pinnedWorkspace(c.req.query('resource'), email) : null;
+  if (pinned) {
+    workspace = 'unknown' in pinned ? { id: null, name: null, slug: pinned.slug, member: false } : { id: pinned.id, name: pinned.name, slug: pinned.slug, member: !!pinned.userId };
+  }
   return c.json({
     client_id: client.client_id,
     name: client.name,
@@ -50,6 +87,7 @@ mcpAuthRoutes.get('/client', async (c) => {
     logo_uri: typeof client.metadata.logo_uri === 'string' ? client.metadata.logo_uri : null,
     redirect_hosts: [...new Set(client.redirect_uris.map((u) => new URL(u).host))],
     scopes: scopes.map((s) => ({ scope: s, words: SCOPE_WORDS[s as McpScope] })),
+    workspace,
   });
 });
 
@@ -86,20 +124,37 @@ mcpAuthRoutes.post('/consent', async (c) => {
 
   // The person's email, for the dedicated session. authUserId is the
   // auth.users id (the JWT sub); the grant itself is keyed on public.user.id.
-  const { data: authUser, error: uErr } = await adminClient.auth.admin.getUserById(ctx.authUserId);
-  const email = authUser?.user?.email;
-  if (uErr || !email) return c.json({ error: 'could not resolve your account email' }, 500);
+  const email = await emailOf(ctx.authUserId);
+  if (!email) return c.json({ error: 'could not resolve your account email' }, 500);
+
+  // Where the grant binds. A per-workspace address decides — the workspace in
+  // the address, and this person's user row THERE (a seat is per workspace,
+  // and the hook will pin the session to that row). No seat there, no grant:
+  // an address is not an invitation. A plain address binds to the current
+  // workspace, as before.
+  let userId = ctx.userId;
+  let workspaceId = ctx.workspaceId;
+  let resource: string | null = null;
+  const pinned = await pinnedWorkspace(b.resource, email);
+  if (pinned) {
+    if ('unknown' in pinned) return c.json({ error: `there is no workspace at that address (${pinned.slug})` }, 404);
+    if (!pinned.userId) return c.json({ error: `you are not a member of the workspace in that address (${pinned.name})` }, 403);
+    userId = pinned.userId;
+    workspaceId = pinned.id;
+    resource = pinned.resource;
+  }
 
   const scopes = narrowScopes(b.scope) as McpScope[];
   let grant;
   try {
     grant = await createGrant({
-      userId: ctx.userId,
+      userId,
       email,
-      workspaceId: ctx.workspaceId,
+      workspaceId,
       clientId: client.client_id,
       clientName: client.name,
       scopes,
+      resource,
     });
   } catch (e) {
     console.error('[mcp-auth] grant creation failed', e instanceof Error ? e.message : e);
@@ -124,7 +179,7 @@ mcpAuthRoutes.post('/consent', async (c) => {
     await revokeGrant(grant.id);
     return c.json({ error: 'could not mint code' }, 500);
   }
-  console.log(`[mcp-auth] grant ${grant.id} created: user=${ctx.userId} ws=${ctx.workspaceId} client=${client.client_id} scopes=${scopes.join(',')}`);
+  console.log(`[mcp-auth] grant ${grant.id} created: user=${userId} ws=${workspaceId}${resource ? ` resource=${resource}` : ''} client=${client.client_id} scopes=${scopes.join(',')}`);
   redirect.searchParams.set('code', code);
   return c.json({ redirect: redirect.toString() });
 });

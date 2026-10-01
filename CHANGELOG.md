@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.97.0] — 2026-10-01 — one Claude, several workspaces: an address per workspace (staging)
+
+Sjoerd: *"Can I connect several workspaces in one Claude?"* — then Claude
+warned that the address was already in use by another connector. Claude keys
+a connector by its URL. *"Do the proper fix."*
+
+- **The connector address is now per workspace:**
+  `https://mcp.thefibre.app/<workspace-slug>`. Each workspace is a distinct
+  connector to Claude, so the duplicate warning never appears — and the
+  connection is pinned to the workspace **named in the address**, not to
+  whichever Fibre tab happened to be current when Allow was pressed (the trap
+  of 2026-09-28). Settings → Assistant prints the current workspace's address
+  and says which workspace it connects. The plain `https://mcp.thefibre.app`
+  and the fly.dev path keep working exactly as before.
+- **Consent binds to the address's workspace.** `/connect` shows the workspace
+  the address names, and refuses with a clear line if you have no seat there:
+  an address is not an invitation. The grant is made on your user row IN that
+  workspace, and the access token is bound to that address, so a token for one
+  workspace never opens another or the root.
+- **A connection's session is pinned to its workspace — the real fix underneath.**
+  The sign-in hook stamped every token with the person's *current* workspace,
+  so with two workspaces connected, only the one matching the open tab kept
+  working past its hourly cache; the other refreshed into the wrong tenant and
+  was refused. `custom_access_token_hook` now pins a session that belongs to an
+  MCP grant to that grant's workspace (new `mcp_grant.session_id`, indexed);
+  for every other session its result is unchanged, shown by a before/after of
+  an ordinary sign-in's claims on staging. Grants made before this heal
+  themselves on first use. Migrations `20261001073558` + `20261001163423`;
+  rollback body kept in `supabase/rollbacks/`.
+- **Caught before production, on staging, by the stress-test session:** the
+  first hook rewrite (`073558`) was copied from the 2026-08-30 body and so
+  dropped the case-insensitive email join that `20260907190000` had added — a
+  person whose `public.user.email` carries a capital letter would have got a
+  token with no claims and been locked out by RLS. It was on **staging only**,
+  for under an hour; the regression test `hook-case.int.test.ts` went red there
+  and is green again after `163423`, which re-creates the hook from the
+  2026-09-07 body verbatim plus only the pin (whole-function diff: additions
+  only). Production never had it. Lesson filed: start a hook rewrite from the
+  LATEST migration that defines it, and prove "unchanged for everyone else"
+  with a mixed-case email as well as a lowercase one.
+- `scripts/claims-snapshot.mjs`: prints what the hook stamps for one person,
+  so a hook change can be shown harmless by diff rather than argued.
+
+
 ## [1.96.2] — 2026-10-01 — Zoom was two hours out, and nobody could have known (staging)
 
 Two bugs, found ten minutes apart by the same staging run, shipped together

@@ -48,7 +48,8 @@ function table(name: string) {
 vi.mock('../../db.js', () => ({ adminClient: { from: (n: string) => table(n) } }));
 
 const { pkceChallengeOf, pkceMatches, redirectUriAcceptable } = await import('./pkce.js');
-const { authorizationServerMetadata, protectedResourceMetadata, publicOrigin, mcpResource, isMcpHost, MCP_SCOPES } = await import('../../routes/mcp-discovery.js');
+const { authorizationServerMetadata, protectedResourceMetadata, publicOrigin, mcpResource, isMcpHost, isWorkspaceSlug, slugFromResource, mcpDiscoveryRoutes, MCP_SCOPES } =
+  await import('../../routes/mcp-discovery.js');
 const { signAccessToken, grantFromAccessToken, issueRefreshToken, grantFromRefreshToken, revokeGrant, resetGrantCachesForTests } = await import('./grants.js');
 const { mcpRootRoutes } = await import('../../routes/mcp.js');
 
@@ -222,13 +223,80 @@ describe('the connector at the root of an mcp.* host', () => {
     const grant = {
       id: 'g-1', user_id: 'u-1', workspace_id: 'ws-1', client_id: 'mcp_abc', client_name: 'Claude', scopes: ['connections:read' as const],
       session_refresh_ciphertext: 'x', refresh_token_hash: null, refresh_token_expires_at: null, created_at: new Date().toISOString(),
-      activated_at: null, last_used_at: null, revoked_at: null,
+      activated_at: null, last_used_at: null, revoked_at: null, resource: null, session_id: null,
     };
     rows.set('g-1', { ...grant });
     const token = await signAccessToken(grant, 'https://thefibre-api-staging.fly.dev/api/v1/mcp');
     const res = await mcpRootRoutes.request('/', { method: 'POST', headers: { ...mcpHost, authorization: `Bearer ${token}` }, body: '{}' });
     expect(res.status).toBe(401);
     expect(await grantFromAccessToken(token, 'https://thefibre-api-staging.fly.dev/api/v1/mcp')).not.toBeNull();
+  });
+});
+
+describe('per-workspace connector addresses (2026-10-01)', () => {
+  const mcpHost = { host: 'mcp.thefibre.tech' };
+  const SLUG = 'festival-of-trust-7va1';
+
+  it('knows a workspace slug from a reserved word or junk', () => {
+    expect(isWorkspaceSlug(SLUG)).toBe(true);
+    expect(isWorkspaceSlug('soul-com')).toBe(true);
+    for (const bad of ['api', 'health', 'oauth', 'connect', '', '-leading', 'Trailing-', 'Has_Underscore', 'UPPER', undefined, null]) {
+      expect(isWorkspaceSlug(bad as never), String(bad)).toBe(false);
+    }
+  });
+
+  it('reads the slug out of the RFC 8707 resource a client sends — only on an mcp.* host, only one segment', () => {
+    expect(slugFromResource(`https://mcp.thefibre.app/${SLUG}`)).toEqual({ origin: 'https://mcp.thefibre.app', slug: SLUG });
+    // The SDK's URL normalisation may add a trailing slash; same slug.
+    expect(slugFromResource(`https://mcp.thefibre.app/${SLUG}/`)?.slug).toBe(SLUG);
+    // The plain root address (what the SDK sends for it) is NOT a slug.
+    expect(slugFromResource('https://mcp.thefibre.app/')).toBeNull();
+    expect(slugFromResource('https://mcp.thefibre.app')).toBeNull();
+    // The fly.dev address knows no slugs, and a nested path is not one either.
+    expect(slugFromResource('https://thefibre-api.fly.dev/api/v1/mcp')).toBeNull();
+    expect(slugFromResource(`https://mcp.thefibre.app/${SLUG}/extra`)).toBeNull();
+    expect(slugFromResource('not a url')).toBeNull();
+    expect(slugFromResource(null)).toBeNull();
+  });
+
+  it('a slug makes the resource per-workspace on the mcp host, and is ignored elsewhere', () => {
+    const h = new Headers(mcpHost);
+    expect(mcpResource(h, SLUG)).toEqual({ origin: 'https://mcp.thefibre.tech', path: `/${SLUG}`, resource: `https://mcp.thefibre.tech/${SLUG}` });
+    expect(mcpResource(h).resource).toBe('https://mcp.thefibre.tech');
+    expect(mcpResource(h, 'health').resource).toBe('https://mcp.thefibre.tech');
+    expect(mcpResource(new Headers({ host: 'thefibre-api.fly.dev' }), SLUG).resource).toBe('https://thefibre-api.fly.dev/api/v1/mcp');
+  });
+
+  it('serves the path-inserted resource document for a slug, and nothing for junk or off-host', async () => {
+    const ok = await mcpDiscoveryRoutes.request(`/.well-known/oauth-protected-resource/${SLUG}`, { headers: mcpHost });
+    expect(ok.status).toBe(200);
+    const doc = (await ok.json()) as { resource: string; authorization_servers: string[] };
+    expect(doc.resource).toBe(`https://mcp.thefibre.tech/${SLUG}`);
+    expect(doc.authorization_servers).toEqual(['https://mcp.thefibre.tech']);
+    expect((await mcpDiscoveryRoutes.request('/.well-known/oauth-protected-resource/health', { headers: mcpHost })).status).toBe(404);
+    expect((await mcpDiscoveryRoutes.request(`/.well-known/oauth-protected-resource/${SLUG}`, { headers: { host: 'thefibre-api.fly.dev' } })).status).toBe(404);
+  });
+
+  it('the endpoint answers at /<slug>, and its challenge points at THAT workspace’s document', async () => {
+    const res = await mcpRootRoutes.request(`/${SLUG}`, { method: 'POST', headers: { ...mcpHost, 'content-type': 'application/json' }, body: '{}' });
+    expect(res.status).toBe(401);
+    expect(res.headers.get('www-authenticate')).toContain(`resource_metadata="https://mcp.thefibre.tech/.well-known/oauth-protected-resource/${SLUG}"`);
+    // A reserved word is not a workspace: it falls through to whatever owns it.
+    expect((await mcpRootRoutes.request('/health', { method: 'POST', headers: mcpHost, body: '{}' })).status).toBe(404);
+  });
+
+  it('a token for one workspace address never opens another, nor the root', async () => {
+    const grant = {
+      id: 'g-fot', user_id: 'u-fot', workspace_id: 'ws-fot', client_id: 'mcp_abc', client_name: 'Claude', scopes: ['models:read' as const],
+      session_refresh_ciphertext: 'x', refresh_token_hash: null, refresh_token_expires_at: null, created_at: new Date().toISOString(),
+      activated_at: null, last_used_at: null, revoked_at: null,
+      resource: `https://mcp.thefibre.tech/${SLUG}`, session_id: 'sess-1',
+    };
+    rows.set('g-fot', { ...grant });
+    const token = await signAccessToken(grant, grant.resource);
+    expect((await grantFromAccessToken(token, `https://mcp.thefibre.tech/${SLUG}`))?.id).toBe('g-fot');
+    expect(await grantFromAccessToken(token, 'https://mcp.thefibre.tech')).toBeNull();
+    expect(await grantFromAccessToken(token, 'https://mcp.thefibre.tech/soul-com')).toBeNull();
   });
 });
 
@@ -247,6 +315,8 @@ describe('our tokens', () => {
     activated_at: null,
     last_used_at: null,
     revoked_at: null,
+    resource: null,
+    session_id: null,
   };
 
   it('an access token names the grant and is bound to this resource', async () => {
