@@ -36,7 +36,7 @@ Setup steps for the app itself (redirect URL, secrets on Fly) live in
 | Privacy Policy | `https://thethread.app/privacy-policy` |
 | Terms of Use | `https://thethread.app/terms` |
 | Support URL | `https://thethread.app/support` |
-| Support email | `support@thefibre.app` (see note below: `hello@thethread.app` now exists and receives mail; switching is Sjoerd's call) |
+| Support email | `hello@thethread.app` (`ENTITY.supportEmail`; a Google group that delivers to Sjoerd) |
 | Documentation URL | `https://meet.thethread.app/docs/zoom` |
 
 > The three legal/support pages are live (v0.18.2, moved to the thethread.app

@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.96.1] — 2026-10-01 — the support address is one that delivers (staging)
+
+Sjoerd, while setting up Zoom: *"branding change please"* — wanting
+`hello@thethread.app` as the address people reach.
+
+`ENTITY.supportEmail` said `support@thethread.app`, and nothing ever received
+mail there: the only address that exists on that domain is the `hello@` Google
+group. So every surface that prints the constant pointed at a bounce — the
+auth and usage emails, the legal pages, invoices, the landing page, and the
+Zoom docs page a Marketplace reviewer is sent to read. It is now
+`hello@thethread.app`, in the one place it is defined, and every surface
+follows. If a separate `support@` is ever wanted, add it as an alias of the
+group first and change the constant after.
+
 ## [1.96.0] — 2026-10-01 — the onboarding, as Sjoerd actually described it (Meet 2.23.0)
 
 v1.95.0 put a Get-set-up card on Meet's dashboard. Three corrections later it

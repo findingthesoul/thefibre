@@ -49,8 +49,13 @@ export const ENTITY = {
   emailFromAddress: 'noreply@thethread.app',
   /** Address recipients should add to their address book to avoid spam filters. */
   whitelistEmail: 'hello@thethread.app',
-  /** Default reply-to / support address. */
-  supportEmail: 'support@thethread.app',
+  /** Default reply-to / support address. hello@ because it is the one that
+   *  delivers: a Google group on thethread.app that reaches Sjoerd
+   *  (2026-10-01). support@thethread.app was never a mailbox, so everything
+   *  that printed it (auth and usage emails, the legal pages, invoices, the
+   *  Zoom docs page a Marketplace reviewer reads) pointed at a bounce. Add a
+   *  support@ alias to the group before changing this back. */
+  supportEmail: 'hello@thethread.app',
 };
 
 /** URLs surfaced in the footer of public emails, and by the policy list a
