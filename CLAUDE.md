@@ -150,10 +150,48 @@ or when you genuinely need the peer's uncommitted state.
    column 1 for someone else's pre-staged entries before you commit.
    Before adding a shared-ownership file whole, `git diff HEAD -- <file>`
    and read what you'd be sweeping in.
-4. **One release at a time.** The version files + `CHANGELOG.md` are the
-   serialization point. Announce **`RELEASING NOW`** before a bump,
-   **`released <sha>`** after, and `git pull` immediately before bumping.
-   Never two sessions in a release at once.
+4. **One release at a time, through ONE lane** (Sjoerd, 2026-10-01 —
+   binding). The version files + `CHANGELOG.md` are the serialization point,
+   and from now on one session at a time holds it for everybody.
+
+   > *"When you have something to commit — bring it to the chat that is
+   > coordinating that and don't wait for separate answers of committing in
+   > one chat. Put all commits of all chats into one lane and just do it.
+   > Otherwise I need to constantly check all my chats to see who has what to
+   > commit. You should have a coordinator to prevent troubles but also to
+   > prevent dependency."*
+
+   **The split, because "commit" and "release" are different acts.**
+   - **Every session commits its OWN work**, on its own branch in its own
+     worktree. Committing races with nobody; it needs no coordinator and no
+     permission.
+   - **The coordinator does the version bump, the CHANGELOG, `release.sh`
+     and any API deploy.** That is the part that collides, and it is the only
+     part that has to be single-file.
+
+   **What you hand over**, in one message: the branch or sha, one line of
+   what it is, and **what you verified and what you did not**. The last part
+   is not optional. The coordinator runs the gate; it cannot know whether
+   your feature works, and a handover without it turns the coordinator into
+   a rubber stamp — which is worse than the races, because it looks fine.
+
+   **Never block on the coordinator.** It is the default route, not a gate.
+   If it does not answer and your work is ready, release it yourself and say
+   so. Sjoerd asked for a coordinator to *prevent* dependency, so a
+   coordinator that can stall everybody has failed at its own purpose. The
+   role is a role, not a chat: if the holder goes quiet, another session
+   announces it has taken it.
+
+   **Production is not in this.** `promote.sh` stays a deliberate decision of
+   Sjoerd's. The lane makes staging flow without him refereeing it; it does
+   not quietly make production automatic.
+
+   The old announce-and-hope protocol (`RELEASING NOW` / `released <sha>`,
+   `git pull` immediately before bumping) still applies **inside** the lane,
+   and is what a session uses when it releases without a coordinator. It was
+   not enough on its own: on 2026-10-01 one session lost three consecutive
+   races, each costing a full re-roll, because `pnpm verify` takes minutes
+   and staging moved underneath every attempt.
 5. **History is the truth; announcements are courtesy.** Messages land
    after the peer's current turn ends, so they can lose a race with a push.
    `scripts/release-guard.sh` is what actually stops a duplicate version
