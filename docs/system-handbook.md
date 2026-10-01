@@ -21,7 +21,7 @@ map is [`docs/data-model.md`](data-model.md).
 ## 1. What this is
 
 A **GDPR-native relationship platform** operated by Solidarity Lab B.V.
-(Rotterdam, EU-hosted). Publicly it is **The Thread**; "The Fibre" is the
+(the Netherlands, EU-hosted). Publicly it is **The Thread**; "The Fibre" is the
 backstage platform name and the name of this repository. One product family,
 every member registered in `packages/shared/src/branding.ts`:
 
@@ -163,7 +163,7 @@ packages/
   shared/         @thefibre/shared — THE shared package (§5)
   mcp/            @thefibre/mcp — the app-key contract as MCP tools (docs/mcp.md)
 supabase/
-  migrations/     235 SQL migrations, 141 tables — the schema's single source
+  migrations/     238 SQL migrations, 141 tables — the schema's single source
                   of truth (docs/data-model.md is the map)
 e2e/              Playwright specs against staging (pnpm test:e2e)
 docs/             briefs, proposals, runbooks (§13 doc map)

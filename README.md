@@ -2,7 +2,7 @@
 
 The platform behind **The Thread**: a GDPR-native, EU-hosted family of apps
 for people who run learning journeys, events, communities and the
-relationships around them. Operated by Solidarity Lab B.V. (Rotterdam).
+relationships around them. Operated by Solidarity Lab B.V. (the Netherlands).
 
 "The Fibre" is the name of the platform and of this repository. The public
 product name is "The Thread".

@@ -28,12 +28,14 @@ credentials and machine state, not a missing policy.
    (handbook §2). A table's policies protect it from a browser and from a
    user-scoped query; they do not protect it from a route that forgets its
    filter.
-3. **Two catalogue tables have no `enable row level security` statement in
-   any migration**: `app` and `billing_plan`. On both live databases an
-   anonymous client reads zero rows from each (probed 2026-10-01), because
-   Supabase enables RLS on new tables by default; a database rebuilt from the
-   migrations alone might not. `billing_plan` has no policy at all and is
-   read only through the API (`GET /api/v1/public/plans`).
+3. **Every table declares row level security in the migrations — since
+   v1.97.3.** Two catalogue tables, `app` and `billing_plan`, had no such
+   statement until then; the live databases protected them only because
+   Supabase enables RLS on new tables by default (an anonymous client read
+   zero rows from each, probed 2026-10-01). Migration `20261001165521` says
+   it, and `rls-declared.test.ts` refuses a new table that does not.
+   `billing_plan` has no policy at all, on purpose: it is read only through
+   the API (`GET /api/v1/public/plans`), as service role.
 
 ## The relationships a newcomer must know
 

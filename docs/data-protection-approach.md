@@ -187,12 +187,14 @@ to extend rather than the place to fork.
 
 ### 3.4 The database
 
-- **RLS on every table** (hard rule 3). Measured 2026-10-01: 141 tables over
-  235 migrations, 139 of them with an explicit `enable row level security`.
-  The two without one, `app` and `billing_plan`, rely on Supabase enabling
-  RLS on new tables by default; both live databases return zero rows for
-  them to an anonymous client (probed), but a database rebuilt from the
-  migrations alone might not, so an explicit migration is owed.
+- **RLS on every table** (hard rule 3). Measured 2026-10-01: 141 tables,
+  every one with an explicit `enable row level security` in the migrations
+  since v1.97.3. Two, `app` and `billing_plan`, had none until then and
+  relied on Supabase enabling RLS on new tables by default; both live
+  databases returned zero rows for them to an anonymous client (probed), but
+  a database rebuilt from the migrations alone would not have. Migration
+  `20261001165521` says it (a no-op on the live databases), and
+  `apps/api/src/lib/rls-declared.test.ts` refuses a table that does not.
 - **Not every policy says `to authenticated`.** About 34 of the policies in
   force have no `TO` clause and so apply to every role, the anonymous one
   included. They are safe because their predicates read JWT claims

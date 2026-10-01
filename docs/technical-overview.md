@@ -3,7 +3,8 @@
 For an engineer or a technical partner meeting this system for the first
 time: what it is, what it is built from, how big it is, how it is run, what
 is solid and what is fragile. Every number here was measured from the
-repository at v1.96.2 on 2026-10-01; none was copied from an older document.
+repository on 2026-10-01 (at v1.96.2; the test and migration counts again at
+v1.98.1); none was copied from an older document.
 
 If you are about to change code, read `docs/system-handbook.md` next. This
 document is the summary; that one is the manual.
@@ -12,7 +13,7 @@ document is the summary; that one is the manual.
 
 **The Thread** is a family of web apps for people who run learning journeys,
 events, communities and the relationships around them. It is operated by
-Solidarity Lab B.V. in Rotterdam, hosted in the EU, and designed around the
+Solidarity Lab B.V. in the Netherlands, hosted in the EU, and designed around the
 GDPR from the first migration. "The Fibre" is the platform underneath and the
 name of the repository.
 
@@ -59,9 +60,9 @@ flowchart LR
 - **One API, ten stateless frontends.** The frontends talk to Supabase only
   to sign in. Every read and write of data goes through the API, so personal
   data never sits in the frontend host.
-- **Multi-tenant by workspace.** Row-level security is on every table. An
-  anonymous or foreign session reads nothing, and a test proves that for
-  every table on each run.
+- **Multi-tenant by workspace.** Row-level security is on every table: a
+  test reads the migrations and refuses a table that does not declare it, and
+  another probes every table on staging as an anonymous client.
 - **Tenancy inside the API is mostly hand-written.** Most routes use the
   service-role database client, which bypasses row-level security, and filter
   by workspace in code. This is the single most important thing for a new
@@ -105,7 +106,7 @@ review.
 |---|---|
 | TypeScript, apps and packages | about 250,000 lines, of which about 44,000 are translation catalogs |
 | API | 66,000 lines, 57 route modules, about 510 endpoints |
-| Database | 235 migrations, 141 tables, 222 row-level-security policies, 53 privileged functions |
+| Database | 238 migrations, 141 tables, 222 row-level-security policies, 53 privileged functions |
 | Tests | 127 unit test files, 21 integration files, 8 end-to-end files |
 | Documentation | about 100 files, 25,000 lines; the changelog is another 22,000 |
 | History | 1,333 commits since 2026-05-12; about 850 releases; 920 commits in September 2026 alone |
