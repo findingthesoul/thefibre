@@ -10,27 +10,17 @@ import { createSessionMiddleware } from '@thefibre/shared/supabase-session';
 // Next requires THIS file at this path per app, and reads `config` statically,
 // so the matcher below has to be a literal here; supabase-session.test.ts
 // holds it against the shared one.
-const forwarded = new WeakMap<NextRequest, Headers>();
-
 export const middleware = createSessionMiddleware({
   createClient: (url, key, options) => createServerClient(url, key, options),
   // Expose the requested path+query to server components (the (app) layout
   // reads it to build a `next=` return URL when it bounces an unsigned visitor
   // to sign-in — without it, /connect's OAuth params were lost and a connected
   // assistant could never complete consent). headers() in a server component
-  // reads these rewritten request headers.
-  //
-  // The copy is taken ONCE per request and reused when the factory asks again
-  // after a refresh — exactly what this file did before it moved to the
-  // shared factory (v1.98.0 changes no behaviour). It means the header copy
-  // predates the refreshed cookie; the shared module says why that matters.
+  // reads these rewritten request headers. Built from the request each time
+  // it is called, so after a refresh the new session cookie rides along.
   respond: (request: NextRequest) => {
-    let requestHeaders = forwarded.get(request);
-    if (!requestHeaders) {
-      requestHeaders = new Headers(request.headers);
-      requestHeaders.set('x-fibre-path', request.nextUrl.pathname + request.nextUrl.search);
-      forwarded.set(request, requestHeaders);
-    }
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-fibre-path', request.nextUrl.pathname + request.nextUrl.search);
     return NextResponse.next({ request: { headers: requestHeaders } });
   },
   url: process.env.NEXT_PUBLIC_SUPABASE_URL,

@@ -198,8 +198,8 @@ describe('createSessionMiddleware', () => {
     const res = await h.middleware(h.request);
     expect(h.request.cookies.set).toHaveBeenCalledWith('sb', 'new');
     // The response that is returned was built AFTER the request was updated.
-    // (The platform app's binding deliberately defeats this for now by
-    // reusing a header copy, as its own middleware always did.)
+    // The platform app's own copy used to hand back headers copied before
+    // the refresh, so its server components rendered with the old token.
     expect(res.id).toBe(2);
     expect(res.sawCookies).toEqual(['sb=new']);
   });
@@ -276,6 +276,30 @@ describe('every app is bound to this module', () => {
       });
     });
   }
+});
+
+describe('the platform app forwards the request as it is AFTER a refresh', () => {
+  // Its binding is the only one that rewrites request headers (x-fibre-path,
+  // so a server component can build a `next=` return URL). Until v1.98.1 it
+  // copied the headers once per request and reused the copy when asked again
+  // after a refresh, so the copy predated the renewed session cookie: on the
+  // one request where the token was renewed, the page rendered with the
+  // expired one and renewed it a second time.
+  const source = read('web/middleware.ts');
+
+  it('builds the header copy inside respond, from the request it is handed', () => {
+    const respond = source.slice(source.indexOf('respond:'), source.indexOf('url: process.env'));
+    expect(respond).toContain('new Headers(request.headers)');
+    expect(respond).toContain("requestHeaders.set('x-fibre-path'");
+    expect(respond).toContain('NextResponse.next({ request: { headers: requestHeaders } })');
+  });
+
+  it('keeps no copy between calls', () => {
+    expect(source).not.toMatch(/WeakMap|new Map\(|forwarded/);
+    // Nothing declared outside the factory call that respond could close over.
+    const before = source.slice(0, source.indexOf('export const middleware'));
+    expect(before).not.toMatch(/^(const|let|var) /m);
+  });
 });
 
 describe('the matcher', () => {

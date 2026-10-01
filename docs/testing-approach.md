@@ -12,16 +12,16 @@ strict type system, a handful of executable contract checks, a full staging
 twin and a disciplined manual loop bought more correctness per hour than a
 test suite would have while the product was still being discovered.
 
-**Where it actually stands (2026-10-01, at v1.98.0).** Counted by running
+**Where it actually stands (2026-10-01, at v1.98.1).** Counted by running
 them, not by reading the previous count (2026-09-15: 57 / 679, 13 / 93,
 4 / 24; 2026-09-25: 99 / 964, 17 / 133, 5 / 27; 2026-09-27: 106 / 1020,
 19 / 273, 7 / 33):
 
 | Layer | Files | Tests | Runs where |
 |---|---|---|---|
-| Unit (vitest) | 127 | 1236 | `pnpm test`; inside `pnpm verify`; CI |
+| Unit (vitest) | 127 | 1238 | `pnpm test`; inside `pnpm verify`; CI |
 | Integration, real Postgres + RLS on staging | 21 | 281 | `pnpm test:integration`; a developer's machine only |
-| End-to-end (Playwright, staging) | 7 | 35 | `pnpm test:e2e`; a developer's machine only |
+| End-to-end (Playwright, staging) | 8 | 37 | `pnpm test:e2e`; a developer's machine only |
 
 **The unit tests are not spread evenly, and that is deliberate.** The API
 (59 files), Connect (31) and the shared package (28) carry them; `packages/mcp`,

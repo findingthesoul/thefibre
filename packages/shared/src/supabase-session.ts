@@ -177,11 +177,12 @@ type MiddlewareResponse = {
  * performs it as a side effect when the token is stale.
  *
  * `respond` builds the pass-through response from the request, and is called
- * AGAIN after a refresh, so what it builds should be derived from the request
+ * AGAIN after a refresh, so what it builds must be derived from the request
  * it is handed — that is how the rest of the pass sees the new token. (The
- * platform app's binding still reuses a header copy taken BEFORE the refresh,
- * as its own middleware always did: its server components render that one
- * request with the expired token and refresh a second time.)
+ * platform app used to reuse a header copy taken BEFORE the refresh; its
+ * server components then rendered that one request with the expired token
+ * and refreshed a second time. Rebuilding from the request removes that —
+ * corrected in v1.98.1, and the test file keeps that binding from caching.)
  *
  *   export const middleware = createSessionMiddleware({
  *     createClient: (url, key, options) => createServerClient(url, key, options),

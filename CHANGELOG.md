@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.1] — 2026-10-01 — two corrections the move made visible (staging)
+
+v1.98.0 moved the sign-in plumbing into one shared module and deliberately
+changed nothing. Reading nine copies side by side had shown two defects; they
+are corrected here, as two commits, so that each has its own test and reverts
+alone. If sign-in misbehaves after this release and not after v1.98.0, it is
+one of these two.
+
+**1. The session check no longer runs on static files.** Eight apps'
+middleware matcher carried a doubled escape (`\\\\.` where `\\.` was meant), so
+the clause excluding files by extension matched nothing. For a signed-in
+visitor the middleware's session check is a round trip to Supabase Auth, and
+it was being made for every image a page loads. The portal's copy, the
+youngest, had it right; all nine now carry one pattern, and
+`supabase-session.test.ts` holds each app's literal against the shared one
+(Next reads the matcher statically, so it cannot be imported, which is how
+eight copies drifted unnoticed).
+- **Which requests change:** in the platform app, Thread, Meet, Flow, Pulse,
+  Members, Connect and Models, a path ending in `.svg .png .jpg .jpeg .gif
+  .webp .ico .txt .xml` no longer runs the middleware: no session refresh and
+  no `Set-Cookie` on that response. No page or route with such an ending
+  reads a session (`robots.txt` and the open-graph images are public; checked
+  by listing them). Pages, actions and API routes are unchanged.
+- **Checked:** a local production build of Thread against the deployed
+  staging app. `/robots.txt` answered with a session cookie header before
+  and with none after; `/` and `/dashboard` are byte-identical.
+
+**2. The platform app's pages see the renewed session on the request that
+renews it.** Its middleware rewrites the request headers (to pass the
+requested path to server components), and it copied them once, before the
+refresh, and reused that copy afterwards. So on the one request per hour
+where a token is renewed, the browser received the new cookie but the page
+itself was handed the expired one, and a server-side client holding an
+expired token asks Supabase to renew it again. That second renewal can only
+succeed because Supabase tolerates a refresh token being presented twice
+within a few seconds, which is a grace window, not a design. (This is read
+from the code and from how the library behaves; nobody watched an hour-old
+session do it.) The copy is now taken from the request as it stands after
+the refresh, as the other eight apps always did.
+- **Which requests change:** in the platform app only, the first request
+  after an access token expires. Its server components now receive the
+  renewed cookie. Every other request is unchanged.
+- **Checked:** by test, not by eye. The factory test drives a refresh and
+  asserts the response handed back was built after the request was updated;
+  a second test reads the platform app's binding and refuses a header copy
+  kept between calls.
+
+**A test that makes the hour pass.** `e2e/session-refresh.spec.ts` signs in
+on staging, rewrites the session cookie's `expires_at` to an hour ago (the
+tokens untouched) and asks for a page. The middleware has to renew the
+session with the real refresh token, hand back a new cookie scoped to the
+apex, and the page has to stay signed in. It runs on Thread and on the
+platform app, and it passed against v1.98.0 on staging before either
+correction: the move renews sessions exactly as the nine copies did. It is
+the first automated check of the renewal itself; until now only people had
+ever waited the hour.
+
 ## [1.98.0] — 2026-10-01 — one copy of the sign-in plumbing, nothing else changed (staging)
 
 The optimise half of *"debug, then optimise the code, then debug again"*.
