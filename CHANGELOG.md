@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.97.1] — 2026-10-01 — the cancel page was two hours wrong (Meet 2.23.1)
+
+Found by the Thread chat during the Zoom end-to-end. The invitee CANCEL page
+rendered the booking time in the SERVER's zone — UTC — with no zone label,
+while the booking page, the confirmation, the emails, Google and Zoom all said
+the real one. Booking 5056fa87 showed "Tuesday, 13 October 2026 at 09:00"
+where the meeting is at 11:00 CEST.
+
+It is the one screen whose entire job is making somebody certain before they
+cancel, and it was telling them a time two hours out.
+
+**The same fault as the confirmation page, a week apart.** That one was
+`toLocaleString(undefined, …)` (2026-09-23); this one was
+`toLocaleString(locale, …)` with no `timeZone` at all. Both read as correct
+code. Both mean "the machine this runs on", and on a server that is UTC.
+
+So the fix is not another local repair. `formatWhenInZone` is now in
+`@thefibre/shared` with seven tests, and both pages use it — including a test
+that the same instant in three zones gives three different strings, which is
+the assertion a formatter ignoring its zone argument would fail and a review
+would not catch.
+
+Two decisions it carries, because both bugs needed both: pass the zone
+**explicitly**, and **name it** in the output. An unlabelled time is not a
+smaller truth, it is an ambiguous one.
+
+The cancel page also gained the client/server pair the confirmation page has
+had since v1.26.0: the host's zone server-side so the page is never blank,
+the reader's own once the browser has one, named either way. `When` moved to
+`components/` now that two pages need it.
+
+**Checked while in there**: the reschedule view passes its zone explicitly and
+was already right; no other invitee page formats a time without one. This bug
+is pre-existing and is on PRODUCTION now — nothing in v1.96.x touched that
+renderer.
+
 ## [1.97.0] — 2026-10-01 — one Claude, several workspaces: an address per workspace (staging)
 
 Sjoerd: *"Can I connect several workspaces in one Claude?"* — then Claude

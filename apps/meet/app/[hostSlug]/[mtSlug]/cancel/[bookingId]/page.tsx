@@ -1,8 +1,11 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { CancelForm } from './form';
+import { formatWhenInZone } from '@thefibre/shared';
 import { publicT, toLocale, INTL_LOCALES } from '@/lib/i18n-public';
+import { When } from '@/components/when';
 
 type Booking = {
   locale?: string | null;
@@ -17,6 +20,7 @@ type Booking = {
     duration_minutes: number;
     host: {
       slug: string;
+      timezone?: string | null;
       user: { full_name: string | null } | { full_name: string | null }[] | null;
     } | null;
   } | null;
@@ -48,6 +52,8 @@ export default async function CancelPage({
   const starts = new Date(booking.starts_at);
   const alreadyCancelled = booking.status === 'cancelled';
   const L = toLocale(booking.locale);
+  const hostZone = mt?.host?.timezone ?? 'UTC';
+  const whenInHostZone = formatWhenInZone(starts, hostZone, INTL_LOCALES[L]);
 
   return (
     <main className="min-h-screen bg-white text-neutral-900">
@@ -65,16 +71,18 @@ export default async function CancelPage({
 
         <dl className="mt-10 space-y-5 text-sm">
           <Row label={publicT(L, 'row_what')} value={mt?.name ?? '—'} />
+          {/* THE BUG, 2026-10-01: this read `starts.toLocaleString(locale, …)`
+              with no `timeZone`, which on a server means the SERVER's zone —
+              UTC. The page that exists to make somebody certain before they
+              cancel was showing a time two hours out, unlabelled, while the
+              booking page, the emails, Google and Zoom all said the real one.
+              Exactly the fault the confirmation page had a week earlier, in
+              the one renderer that never got the fix. Now the same pair as
+              there: the host's zone on the server, the reader's own once the
+              browser has one, and the zone NAMED either way. */}
           <Row
             label={publicT(L, 'row_when')}
-            value={starts.toLocaleString(INTL_LOCALES[L], {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            value={<When iso={booking.starts_at} fallback={whenInHostZone} />}
           />
           {hostName && <Row label={publicT(L, 'row_with')} value={hostName} />}
         </dl>
@@ -100,7 +108,7 @@ export default async function CancelPage({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="grid grid-cols-[120px_1fr] gap-4">
       <dt className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">

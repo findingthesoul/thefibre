@@ -2,6 +2,12 @@
 
 // When the meeting is, in the reader's OWN time zone.
 //
+// Lives in components/ rather than beside one page because TWO pages need it:
+// the confirmation and the cancel screen, which had the same bug a week apart
+// (2026-10-01). The formatting itself is formatWhenInZone in
+// @thefibre/shared — this file is only the client half that swaps the host's
+// zone for the reader's once the browser has one.
+//
 // The page is server-rendered, and `toLocaleString(undefined, …)` on a server
 // means the SERVER's zone — UTC on Fly. So a booking made for 09:00 in
 // Amsterdam read "07:00 AM" to the person who had just made it (Sjoerd,

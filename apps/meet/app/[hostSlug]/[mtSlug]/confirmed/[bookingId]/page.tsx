@@ -2,8 +2,9 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { formatWhenInZone } from '@thefibre/shared';
 import { publicT, toLocale, INTL_LOCALES } from '@/lib/i18n-public';
-import { When } from './when';
+import { When } from '@/components/when';
 
 type Confirmation = {
   locale?: string | null;
@@ -55,18 +56,9 @@ export default async function ConfirmedPage({
   // Server-side fallback: the HOST's zone, named. The browser replaces it
   // with the reader's own — see ./when.tsx for why this is not one string.
   const hostZone = mt?.host?.timezone ?? 'UTC';
-  const whenInHostZone = new Intl.DateTimeFormat('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: hostZone,
-    timeZoneName: 'short',
-  }).format(starts);
 
   const L = toLocale(booking.locale);
+  const whenInHostZone = formatWhenInZone(starts, hostZone, INTL_LOCALES[L]);
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">

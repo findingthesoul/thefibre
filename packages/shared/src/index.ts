@@ -25,6 +25,7 @@ export {
 } from './branding.js';
 export type { SurfaceKey } from './branding.js';
 export { absoluteUrl } from './absolute-url.js';
+export { formatWhenInZone } from './format-when.js';
 // THE language resolver — which language a surface is in, for every app.
 export {
   resolveUiLocale,
