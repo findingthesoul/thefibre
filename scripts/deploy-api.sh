@@ -243,15 +243,15 @@ else
       fi
       exit 1
     fi
+    # NO `exit 0` HERE. There was one until 2026-10-01, and it sat above the
+    # `runway.sh land` at the bottom of this file: a deploy probed by a script
+    # succeeded, printed its line and left its clearance standing, so the
+    # runway stayed busy until the clearance lapsed (found on the v1.97.3
+    # staging deploy; a production deploy had done the same earlier that
+    # day). Every success path now reaches the one ending below, and
+    # scripts/deploy-api.test.mjs refuses a success exit above it.
     ANSWER="$PROBE passed"
-    echo
-    if [ "$DRY" = "1" ]; then
-      echo "would deploy $SHORT_SHA, probe: $ANSWER"
-    else
-      echo "deployed $SHORT_SHA as $RELEASE, probe: $ANSWER"
-    fi
-    exit 0
-  fi
+  else
 
   case "$PROBE" in
     *\|*) : ;;
@@ -308,16 +308,11 @@ else
         fi
         exit 1
       fi
-      ANSWER="$URL answers $CODE_WANT"
-      echo
-      if [ "$DRY" = "1" ]; then
-        echo "would deploy $SHORT_SHA, probe: $ANSWER"
-      else
-        echo "deployed $SHORT_SHA as $RELEASE, probe: $ANSWER"
-      fi
-      exit 0 ;;
+      ANSWER="$URL answers $CODE_WANT" ;;
   esac
 
+  # The body probe, unless the status probe above already answered.
+  if [ -z "${ANSWER:-}" ]; then
   echo "Probing $URL for: $WANT"
   # Status AND body, because a miss has two very different causes and they
   # looked identical: a 404 (wrong URL) and a 200 that simply lacks the string
@@ -348,6 +343,8 @@ else
     exit 1
   fi
   ANSWER="$URL contains \"$WANT\" ($CODE)"
+  fi  # body probe
+  fi  # url probes (as opposed to a script)
 fi
 
 echo
@@ -357,6 +354,29 @@ else
   # The line a later session can read instead of re-deriving what a release
   # was meant to change.
   echo "deployed $SHORT_SHA as $RELEASE, probe: $ANSWER"
+fi
+
+# ── 5. How many machines are serving ────────────────────────────────────────
+# One, on both stacks, is what the code assumes: the assistant's pending
+# approvals, the plan cache and the rate-limit windows live in ONE process's
+# memory (fly.toml says which). The count is Fly state, not the toml: a new
+# app's first `fly deploy` defaults to two machines for availability, and a
+# blue-green deploy mirrors whatever count it finds — so staging ran two for
+# an unknown time and nothing said so until somebody read `fly status` on
+# 2026-10-01. A warning, not a refusal: the deploy has already happened.
+if [ "$DRY" != "1" ]; then
+  MACHINES="$(fly machines list ${CONFIG[@]+"${CONFIG[@]}"} --json 2>/dev/null \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const m=JSON.parse(s);console.log(m.filter(x=>x.state!=="destroyed").length)}catch{console.log("unknown")}})' \
+    || echo unknown)"
+  echo "machines serving $APP: $MACHINES"
+  if [ "$MACHINES" != "1" ] && [ "$MACHINES" != "unknown" ]; then
+    echo >&2
+    echo "WARNING: $APP is running $MACHINES machines, not 1." >&2
+    echo "  State held in one process's memory (assistant approvals, plan cache," >&2
+    echo "  rate-limit windows) is now split between them. If this is not on" >&2
+    echo "  purpose:   fly scale count 1 ${CONFIG[*]:-}" >&2
+    echo >&2
+  fi
 fi
 
 if [ "$DRY" != "1" ]; then

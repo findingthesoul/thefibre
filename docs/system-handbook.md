@@ -1835,7 +1835,8 @@ the bug were found the same week, from opposite ends.
    are courtesy.**
 1. `pnpm verify` — always. In order: version residue, migration versions,
    the runway's own test, service-worker freshness, catalogue names against
-   `branding.ts`, `pnpm -r typecheck`, `pnpm -r test`, the production smoke,
+   `branding.ts`, `pnpm -r typecheck`, `pnpm test` (every package, and since
+   v1.98.2 the release tooling's own tests in `scripts/`), the production smoke,
    and the public-API contract against production. In a worktree it needs
    `FIBRE_ENV_FILE=<absolute path to apps/api/.env>`, because that file is
    gitignored and exists only in the main checkout.

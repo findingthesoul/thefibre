@@ -138,9 +138,22 @@ fly secrets set \
   EMAIL_FROM="The Thread <noreply@thethread.app>" \   # the public name; receipts and enrolment mail no longer read it (v0.75.19)
   SSO_INTERNAL_SECRET="$(openssl rand -hex 32)"
 
-# First deploy
-fly deploy --remote-only
+# First deploy. --ha=false matters: on a NEW app Fly's first deploy creates
+# TWO machines for availability, and this API holds state in one process's
+# memory. Without the flag, follow with: fly scale count 1
+fly deploy --remote-only --ha=false
 ```
+
+**One machine per stack, and it is Fly state, not the toml.** The machine
+count is not written in `fly.toml`: a new app's first `fly deploy` makes two,
+and every blue-green deploy afterwards mirrors whatever count it finds. So a
+stack can run two machines indefinitely with nothing in the repository saying
+so, which is what staging did until somebody read `fly status` on
+2026-10-01. Two machines split the state that lives in one process's memory
+(the assistant's pending approvals, the plan cache after an /admin/plans
+edit, the rate-limit windows). `scripts/deploy-api.sh` prints the count after
+every deploy since v1.98.2 and warns when it is not 1; `fly scale count 1`
+(with `-c fly.staging.toml` for staging) puts it right.
 
 After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl https://thefibre-api.fly.dev/health` → `{"ok":true}`.
 
@@ -154,8 +167,9 @@ Setting a secret used to restart that machine too, so set secrets with
 `fly secrets set --stage NAME=… [-c fly.staging.toml]` and let the next
 `scripts/deploy-api.sh` apply them. The in-process schedulers run under a
 lease (`scheduler_lease`, lib/scheduler-lease.ts) so the moment both
-processes are up they cannot double-run a tick; the same lease is what makes
-`fly scale count 2` safe when a second machine is wanted.
+processes are up they cannot double-run a tick. The lease removes the
+schedulers as a reason against a second machine; the in-memory state listed
+above is what still stands against one.
 
 **If a blue-green deploy errors at the destroy step, RE-RUN THE DEPLOY. Never
 destroy machines by hand.** Learned on staging 2026-09-26 (Fibre session):

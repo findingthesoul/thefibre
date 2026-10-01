@@ -6,7 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
-## [1.98.1] — 2026-10-01 — two corrections the move made visible (staging)
+## [1.98.2] — 2026-10-01 — a deploy that succeeds frees the runway, and says how many machines it left (staging)
+
+Two things the v1.97.3 staging deploy turned up about the deploy script
+itself. Tooling only: no app and no API code changes, nothing to deploy.
+
+**A successful deploy could leave its clearance standing.** `deploy-api.sh`
+frees the runway on its last line. Two of its probe branches (a probe given
+as a script, and a `status:` probe) printed their result and ran `exit 0`
+above that line. The deploy succeeded, the runway stayed BUSY until the
+clearance lapsed, and nothing looked wrong. It happened on a production
+deploy and on a staging one on the same day before anybody connected them.
+Every success path now reaches the one ending.
+
+`scripts/deploy-api.test.mjs` runs the real script in a sandbox, with
+stand-ins on PATH for `fly`, `curl` and the runway, and asserts the one thing
+that matters for each path: was the runway freed. Five success paths deploy
+and land; the same five with `--dry-run` deploy nothing and deliberately do
+not land; a failing probe does not land, so the clearance stays for the fix.
+Run against the script as it was, exactly the two early-exit paths fail.
+
+**The deploy now says how many machines are serving, and warns when it is
+not one.** Staging was found running two API machines. The count is Fly's
+state, not the toml: a new app's first deploy makes two for availability,
+and every blue-green deploy afterwards mirrors what it finds, so it stayed
+two with nothing in the repository saying so. Two machines split what lives
+in one process's memory: the assistant's pending approvals, the plan cache
+after an edit on /admin/plans, the rate-limit windows. The script prints the
+count after every deploy and warns loudly when it is not 1; it does not
+refuse, because by then the deploy has happened. `docs/deploy.md` gains the
+`--ha=false` a first deploy needs, and no longer says the scheduler lease
+alone makes a second machine safe.
+
+**The release gate now runs the tests of the release tooling.** `pnpm verify`
+ran `pnpm -r test`, which walks the workspace packages and never reaches
+`scripts/*.test.mjs`. So the tests of `next-version`, `vercel-ignore`,
+`check-migration-versions` and now `deploy-api` ran only in CI, after the
+push they are meant to protect, or when somebody remembered. Found while
+writing this release's request, which claimed the gate had run the new test
+when it had not. `verify` now calls `pnpm test` (the packages, then the root
+runner): five more files, about four seconds.
+
+Not done here: scaling staging back to one. That is another chat's, under
+its own clearance. The machine-count line has run against the stub in the
+test and not yet at the end of a real deploy; the next API deploy is its
+first.
+
+ — 2026-10-01 — two corrections the move made visible (staging)
 
 v1.98.0 moved the sign-in plumbing into one shared module and deliberately
 changed nothing. Reading nine copies side by side had shown two defects; they

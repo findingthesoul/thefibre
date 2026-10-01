@@ -19,7 +19,7 @@ them, not by reading the previous count (2026-09-15: 57 / 679, 13 / 93,
 
 | Layer | Files | Tests | Runs where |
 |---|---|---|---|
-| Unit (vitest) | 127 | 1238 | `pnpm test`; inside `pnpm verify`; CI |
+| Unit (vitest) | 128 | 1253 | `pnpm test`; inside `pnpm verify`; CI |
 | Integration, real Postgres + RLS on staging | 21 | 281 | `pnpm test:integration`; a developer's machine only |
 | End-to-end (Playwright, staging) | 8 | 37 | `pnpm test:e2e`; a developer's machine only |
 
