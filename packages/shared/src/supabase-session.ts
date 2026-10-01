@@ -1,0 +1,268 @@
+// The session plumbing every app needs, once.
+//
+// Until v1.98.0 each of the nine signed-in apps carried its own copy of three
+// files — lib/supabase/server.ts, lib/supabase/client.ts and middleware.ts —
+// twenty-seven files holding one decision between them: how the session
+// cookie is set. The copies were byte-identical "by an explicit earlier
+// decision", which is another way of saying that the day the cookie's flags
+// have to change (docs/data-protection-approach.md, P1) there was no single
+// place to change them, and nothing to say when one copy had drifted.
+//
+// THIS RELEASE MOVES THE CODE AND CHANGES NO BEHAVIOUR. Two things the copies
+// did that look wrong are carried over exactly as they were, and are pinned
+// by supabase-session.test.ts so the next release can change each on its own:
+// eight of the nine middleware matchers carry a doubled escape (`\\\\.` where
+// `\\.` was meant), so the "skip static files" clause matches nothing and the
+// session refresh runs on every image request (the ninth copy, the portal's,
+// is the correct one); and the platform app forwards a header copy taken
+// before the refresh.
+//
+// No Next and no Supabase dependency here, the same arrangement as
+// auth-callback.ts: the app hands in the primitives, this file decides what
+// is done with them. The API never imports this module.
+//
+// ENV IS PASSED AS VALUES, never read here. Next inlines
+// `process.env.NEXT_PUBLIC_X` only where it is written out literally, so a
+// browser bundle that handed `process.env` to a library would hand it an
+// empty object. Each app's three-line binding writes the three names out.
+
+/** What every factory needs to know about the stack it runs on. */
+export type SessionConfig = {
+  url: string | undefined;
+  anonKey: string | undefined;
+  /** NEXT_PUBLIC_COOKIE_DOMAIN: the apex the session cookie is shared across
+   *  (so signing in to one app signs you in to its siblings). Unset on
+   *  localhost, where the cookie falls back to the current host. */
+  cookieDomain?: string | undefined;
+};
+
+type CookiePair = { name: string; value: string };
+type CookieToSet = { name: string; value: string; options: object };
+
+/** The options this module builds a server-side Supabase client with. */
+export type ServerClientOptions = {
+  cookieOptions?: { domain: string };
+  cookies: {
+    getAll(): CookiePair[];
+    setAll(toSet: CookieToSet[]): void;
+  };
+};
+
+/** The options this module builds a browser Supabase client with. */
+export type BrowserClientOptions = {
+  cookieOptions?: { domain: string };
+};
+
+// ---------------------------------------------------------------------------
+// THE decision. Everything below routes through these two functions; change
+// how the session cookie is scoped here and nowhere else.
+// ---------------------------------------------------------------------------
+
+/**
+ * Client-level cookie options. Spread, never `cookieOptions: undefined`:
+ * under exactOptionalPropertyTypes an explicit undefined is not an absent
+ * key, and @supabase/ssr's types say the key may be absent but never
+ * undefined — which broke every app's build on the dependency bump of
+ * 2026-09-23.
+ */
+export function sessionClientOptions(cookieDomain: string | undefined): { cookieOptions?: { domain: string } } {
+  return cookieDomain ? { cookieOptions: { domain: cookieDomain } } : {};
+}
+
+/** One cookie's options as Supabase asked for them, plus our domain. */
+export function sessionCookie<O extends object>(options: O, cookieDomain: string | undefined): O & { domain?: string } {
+  return { ...options, ...(cookieDomain ? { domain: cookieDomain } : {}) };
+}
+
+// ---------------------------------------------------------------------------
+// lib/supabase/server.ts
+// ---------------------------------------------------------------------------
+
+type CookieStore = {
+  getAll(): CookiePair[];
+  set(name: string, value: string, options: object): unknown;
+};
+
+/**
+ * The server-side client, for Server Components, Server Actions and Route
+ * Handlers:
+ *
+ *   import { cookies } from 'next/headers';
+ *   import { createServerClient } from '@supabase/ssr';
+ *   export const serverSupabase = createServerSupabase({
+ *     createClient: (url, key, options) => createServerClient(url, key, options),
+ *     cookies,
+ *     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+ *     anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+ *     cookieDomain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+ *   });
+ */
+export function createServerSupabase<C>(
+  deps: SessionConfig & {
+    createClient: (url: string, anonKey: string, options: ServerClientOptions) => C;
+    cookies: () => Promise<CookieStore>;
+  },
+): () => Promise<C> {
+  const domain = deps.cookieDomain || undefined;
+  return async function serverSupabase() {
+    const cookieStore = await deps.cookies();
+    return deps.createClient(deps.url!, deps.anonKey!, {
+      ...sessionClientOptions(domain),
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (toSet) => {
+          try {
+            for (const { name, value, options } of toSet) {
+              cookieStore.set(name, value, sessionCookie(options, domain));
+            }
+          } catch {
+            // Read-only Server Component context; silently ignore. A server
+            // component may read cookies and not write them — the refresh
+            // that needs writing happens in middleware (below) and in
+            // /auth/callback (a Route Handler).
+          }
+        },
+      },
+    });
+  };
+}
+
+// ---------------------------------------------------------------------------
+// lib/supabase/client.ts
+// ---------------------------------------------------------------------------
+
+/**
+ * The browser client:
+ *
+ *   import { createBrowserClient } from '@supabase/ssr';
+ *   export const browserSupabase = createBrowserSupabase({
+ *     createClient: (url, key, options) => createBrowserClient(url, key, options),
+ *     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+ *     anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+ *     cookieDomain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+ *   });
+ */
+export function createBrowserSupabase<C>(
+  deps: SessionConfig & {
+    createClient: (url: string, anonKey: string, options: BrowserClientOptions) => C;
+  },
+): () => C {
+  const domain = deps.cookieDomain || undefined;
+  return function browserSupabase() {
+    return deps.createClient(deps.url!, deps.anonKey!, sessionClientOptions(domain));
+  };
+}
+
+// ---------------------------------------------------------------------------
+// middleware.ts
+// ---------------------------------------------------------------------------
+
+type MiddlewareRequest = {
+  cookies: { getAll(): CookiePair[]; set(name: string, value: string): unknown };
+};
+type MiddlewareResponse = {
+  cookies: { set(name: string, value: string, options: object): unknown };
+};
+
+/**
+ * Keeps a signed-in session alive for server-rendered pages.
+ *
+ * A Supabase access token lasts an hour. The browser refreshes it in the
+ * background; a SERVER component cannot, because it may read cookies and not
+ * write them. So an hour after signing in, every server-rendered page asked
+ * for a session, got null, and threw its own 401: pages that caught it showed
+ * "API 401", pages that did not showed Next's "Application error". It read as
+ * an auth failure and was a refresh failure.
+ *
+ * Middleware is the one place in Next that can read the request's cookies AND
+ * write cookies onto the response, so the refresh belongs here. getUser()
+ * performs it as a side effect when the token is stale.
+ *
+ * `respond` builds the pass-through response from the request, and is called
+ * AGAIN after a refresh, so what it builds should be derived from the request
+ * it is handed — that is how the rest of the pass sees the new token. (The
+ * platform app's binding still reuses a header copy taken BEFORE the refresh,
+ * as its own middleware always did: its server components render that one
+ * request with the expired token and refresh a second time. Kept as it was
+ * in this release; corrected in the next.)
+ *
+ *   export const middleware = createSessionMiddleware({
+ *     createClient: (url, key, options) => createServerClient(url, key, options),
+ *     respond: (request: NextRequest) => NextResponse.next({ request }),
+ *     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+ *     anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+ *     cookieDomain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+ *   });
+ *   export const config = { matcher: ['…the literal in SESSION_MATCHER…'] };
+ */
+export function createSessionMiddleware<Req extends MiddlewareRequest, Res extends MiddlewareResponse>(
+  deps: SessionConfig & {
+    createClient: (
+      url: string,
+      anonKey: string,
+      options: ServerClientOptions,
+    ) => { auth: { getUser(): Promise<unknown> } };
+    respond: (request: Req) => Res;
+  },
+): (request: Req) => Promise<Res> {
+  const domain = deps.cookieDomain || undefined;
+  return async function middleware(request: Req) {
+    let response = deps.respond(request);
+    // A build with no Supabase configured (CI, a preview without env) still
+    // serves pages; there is simply no session to keep alive.
+    if (!deps.url || !deps.anonKey) return response;
+
+    const supabase = deps.createClient(deps.url, deps.anonKey, {
+      ...sessionClientOptions(domain),
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (toSet) => {
+          // Both halves matter: the request copy so the rest of this pass
+          // sees the new token, the response copy so the browser keeps it.
+          for (const { name, value } of toSet) request.cookies.set(name, value);
+          response = deps.respond(request);
+          for (const { name, value, options } of toSet) {
+            response.cookies.set(name, value, sessionCookie(options, domain));
+          }
+        },
+      },
+    });
+
+    // The refresh itself. Nothing is read from it — a signed-out visitor has
+    // nothing to refresh, and a public page must not be disturbed.
+    await supabase.auth.getUser();
+    return response;
+  };
+}
+
+/**
+ * The matcher eight apps' `config` carries today: everything except Next's
+ * own static output — and, as intended, files by extension.
+ *
+ * AS INTENDED, NOT AS WRITTEN. The escape before the dot is doubled, so the
+ * pattern asks for a literal backslash and the extension clause matches
+ * nothing: `/brand/logo.png` runs the session refresh like a page does. It is
+ * recorded here exactly as it is deployed, so that moving the middleware into
+ * this module changes nothing; the correction is its own release.
+ *
+ * Next reads `config` STATICALLY, so each app writes its matcher out as a
+ * literal and cannot import it. supabase-session.test.ts holds every app's
+ * literal against what this module says it carries.
+ */
+export const SESSION_MATCHER =
+  '/((?!_next/static|_next/image|favicon.ico|.*\\\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)';
+
+/**
+ * The portal's own matcher: the correct escape, plus the paths that must
+ * never touch auth — the calendar subscription (fetched by Google's servers
+ * every few hours with no session and no business starting one), the offline
+ * page and the service worker (which exist for when nothing can be reached).
+ */
+export const SESSION_MATCHER_BY_APP: Record<string, string> = {
+  my: '/((?!_next/static|_next/image|favicon.ico|calendar/|offline.html|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
+};
+
+/** The matcher an app folder carries. */
+export function sessionMatcherFor(appFolder: string): string {
+  return SESSION_MATCHER_BY_APP[appFolder] ?? SESSION_MATCHER;
+}

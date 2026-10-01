@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.97.3",
+  "version": "1.98.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -121,6 +121,10 @@
     "./slug": {
       "types": "./dist/slug.d.ts",
       "default": "./dist/slug.js"
+    },
+    "./supabase-session": {
+      "types": "./dist/supabase-session.d.ts",
+      "default": "./dist/supabase-session.js"
     },
     "./sso-hop": {
       "types": "./dist/sso-hop.d.ts",

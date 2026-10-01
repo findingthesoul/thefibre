@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.0] — 2026-10-01 — one copy of the sign-in plumbing, nothing else changed (staging)
+
+The optimise half of *"debug, then optimise the code, then debug again"*.
+This release MOVES code and changes no behaviour. It is deliberately alone:
+it is the sign-in path of all nine apps, and if sign-in breaks after it, the
+move is the cause and one commit reverts it.
+
+**What moved.** Each of the nine signed-in apps carried its own copy of three
+files: `lib/supabase/server.ts`, `lib/supabase/client.ts` and
+`middleware.ts`. Twenty-seven files holding one decision between them, how
+the session cookie is read, written and scoped. The copies were kept
+byte-identical by convention, which meant that the day the cookie's flags
+have to change (the security roadmap asks for exactly that) there was no
+single place to change them and nothing to say when a copy drifted. The
+bodies are now in `@thefibre/shared/supabase-session`
+(`createServerSupabase`, `createBrowserSupabase`,
+`createSessionMiddleware`), and each app's three files are bindings of a few
+lines that hand over Next's and Supabase's primitives and write the three
+env names out literally, because Next only inlines `NEXT_PUBLIC_*` where it
+can see the name. 972 lines out, 394 in. No new dependency in the shared
+package: the primitives are injected, as `auth-callback` already does.
+
+**How "nothing changed" was checked, and what that covers.**
+- The same request (a signed-out visitor carrying an expired, made-up
+  session cookie, which makes Supabase clear it through the middleware) was
+  sent to three apps as deployed on staging and to local production builds
+  of this tree pointed at the same Supabase project. The `Set-Cookie`
+  headers are identical byte for byte on Thread `/`, Thread `/robots.txt`,
+  the platform app `/` and `/dashboard` (a redirect, two cookies), and the
+  portal `/`; the portal's `/robots.txt` sets none on either side.
+- All nine apps build (`next build`), middleware included.
+- 55 unit tests on the factories and on the nine bindings read from disk:
+  every app binds to the module, carries the matcher the module says it
+  carries, and writes the env names literally.
+- NOT covered before landing: a real refresh of a live session (the check
+  above exercises the cookie CLEAR path, which is the same `setAll`), and a
+  browser signing in. That is what the end-to-end pack on staging and the
+  SSO hop check are for, after the push.
+
+**Two things that look wrong, carried over exactly and pinned by a test.**
+Reading nine copies side by side showed two defects. Neither is touched
+here; each gets its own commit in the next release so it can be reverted
+alone.
+1. Eight of the nine middleware matchers have a doubled escape, so the
+   clause meant to skip static files matches nothing and the session check
+   runs on every image request. (The portal's copy, the youngest, is
+   correct.) Confirmed on staging: Thread's `/robots.txt` answers with a
+   session cookie header.
+2. The platform app forwards a copy of the request headers taken before the
+   refresh, so on the one request where a token is renewed its server
+   components render with the expired one and renew a second time.
+
 ## [1.97.3] — 2026-10-01 — the lists that had stopped following (staging)
 
 Sjoerd, preparing to show the system to a technical partner: *"update all

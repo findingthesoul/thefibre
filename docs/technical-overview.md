@@ -106,7 +106,7 @@ review.
 | TypeScript, apps and packages | about 250,000 lines, of which about 44,000 are translation catalogs |
 | API | 66,000 lines, 57 route modules, about 510 endpoints |
 | Database | 235 migrations, 141 tables, 222 row-level-security policies, 53 privileged functions |
-| Tests | 126 unit test files, 21 integration files, 7 end-to-end files |
+| Tests | 127 unit test files, 21 integration files, 7 end-to-end files |
 | Documentation | about 100 files, 25,000 lines; the changelog is another 22,000 |
 | History | 1,333 commits since 2026-05-12; about 850 releases; 920 commits in September 2026 alone |
 | Languages | English, Dutch, Spanish, Portuguese, German, French |
@@ -234,9 +234,10 @@ it from us.
    types, render checks and the end-to-end suite.
 5. **Integration and end-to-end tests are outside CI.** CI builds two of the
    eleven deployables.
-6. **Two very large route modules** (Thread and Meet) and about 3,800 lines
+6. **Two very large route modules** (Thread and Meet) and some 3,000 lines
    of byte-identical per-app boilerplate that should live in the shared
-   package.
+   package. (The session plumbing, the part of it that mattered most, moved
+   there in v1.98.0.)
 7. **Four of six languages are machine-drafted** and marked for review.
 8. **The security roadmap's second tier is not done**: a content security
    policy, multi-factor sign-in for admins, log redaction, an admin audit

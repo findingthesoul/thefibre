@@ -1,65 +1,47 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
+import { createSessionMiddleware } from '@thefibre/shared/supabase-session';
 
-// Keeps a signed-in session alive for server-rendered pages.
+// Keeps a signed-in session alive for server-rendered pages: an access token
+// lasts an hour, and middleware is the one place in Next that can both read
+// the request's cookies and write the refreshed ones onto the response.
 //
-// A Supabase access token lasts an hour. The browser refreshes it in the
-// background; a SERVER component cannot, because it may read cookies and not
-// write them — lib/supabase/server.ts swallows that write and says so. So an
-// hour after signing in, every server-rendered page asked for a session, got
-// null, and threw its own 401: pages that caught it showed "API 401", pages
-// that did not showed Next's "Application error". It read as an auth failure
-// and was a refresh failure.
-//
-// Middleware is the one place in Next that can read the request's cookies AND
-// write cookies onto the response, so the refresh belongs here. getUser()
-// performs it as a side effect when the token is stale.
-//
-// The same file exists in all five apps. It is thirty lines of auth plumbing
-// that differ only by cookie domain; keep them identical.
+// The body is in @thefibre/shared/supabase-session, one copy for every app.
+// Next requires THIS file at this path per app, and reads `config` statically,
+// so the matcher below has to be a literal here; supabase-session.test.ts
+// holds it against the shared one.
+const forwarded = new WeakMap<NextRequest, Headers>();
 
-const COOKIE_DOMAIN = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
-
-export async function middleware(request: NextRequest) {
+export const middleware = createSessionMiddleware({
+  createClient: (url, key, options) => createServerClient(url, key, options),
   // Expose the requested path+query to server components (the (app) layout
   // reads it to build a `next=` return URL when it bounces an unsigned visitor
   // to sign-in — without it, /connect's OAuth params were lost and a connected
   // assistant could never complete consent). headers() in a server component
   // reads these rewritten request headers.
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-fibre-path', request.nextUrl.pathname + request.nextUrl.search);
-  let response = NextResponse.next({ request: { headers: requestHeaders } });
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) return response;
-
-  const supabase = createServerClient(url, anon, {
-    ...(COOKIE_DOMAIN ? { cookieOptions: { domain: COOKIE_DOMAIN } } : {}),
-    cookies: {
-      getAll: () => request.cookies.getAll(),
-      setAll: (toSet: { name: string; value: string; options: CookieOptions }[]) => {
-        // Both halves matter: the request copy so the rest of this pass sees
-        // the new token, the response copy so the browser keeps it.
-        for (const { name, value } of toSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request: { headers: requestHeaders } });
-        for (const { name, value, options } of toSet) {
-          response.cookies.set(name, value, {
-            ...options,
-            ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
-          });
-        }
-      },
-    },
-  });
-
-  // The refresh itself. Nothing is read from it — a signed-out visitor has
-  // nothing to refresh, and a public page must not be disturbed.
-  await supabase.auth.getUser();
-  return response;
-}
+  //
+  // The copy is taken ONCE per request and reused when the factory asks again
+  // after a refresh — exactly what this file did before it moved to the
+  // shared factory (v1.98.0 changes no behaviour). It means the header copy
+  // predates the refreshed cookie; the shared module says why that matters.
+  respond: (request: NextRequest) => {
+    let requestHeaders = forwarded.get(request);
+    if (!requestHeaders) {
+      requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-fibre-path', request.nextUrl.pathname + request.nextUrl.search);
+      forwarded.set(request, requestHeaders);
+    }
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  },
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  cookieDomain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+});
 
 export const config = {
   matcher: [
+    // Unchanged in v1.98.0, including its doubled escape (which makes the
+    // static-file clause match nothing). The shared module documents it.
     "/((?!_next/static|_next/image|favicon.ico|.*\\\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
   ],
 };

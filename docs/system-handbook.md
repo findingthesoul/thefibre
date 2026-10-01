@@ -186,12 +186,14 @@ The eight signed-in apps share one internal shape: `app/` (App Router;
 (`api.ts` = a binding of `@thefibre/shared/api-fetch`,
 `supabase/{client,server}.ts`, `prefs*.ts`, `locale.ts`, `i18n-ui.ts`).
 `apps/my` and `apps/website` are shaped differently (no `(app)/` group, no
-shell). **Some per-app files are byte-identical copies** — the two Supabase
-clients, `middleware.ts`, `tailwind.config.ts`, a handful of shell shims:
-34 groups, about 3,800 redundant lines when measured on 2026-10-01
-(`md5 -r apps/*/lib/supabase/server.ts`). Change one, change them all, or
-better, move it into shared; `docs/build-plan.md` carries the deduplication
-as an open item.
+shell). **Some per-app files are byte-identical copies** —
+`tailwind.config.ts`, a handful of shell shims: 34 groups, about 3,800
+redundant lines when measured on 2026-10-01. Change one, change them all,
+or better, move it into shared; `docs/build-plan.md` carries the
+deduplication as an open item. The first three groups went in v1.98.0: the
+two Supabase clients and `middleware.ts` are now bindings of
+`@thefibre/shared/supabase-session` (about 600 of those lines), and
+`supabase-session.test.ts` reads all nine apps to keep them bound.
 
 ---
 
@@ -274,6 +276,7 @@ The load-bearing modules:
 | `api-fetch.ts` | `createApiFetch()` — each app's `lib/api.ts` is a binding of it; `ApiError`. |
 | `available-apps.ts` | `buildAppList()` — the app switcher's list, from the catalogue and the caller's seats. |
 | `sso-hop.ts` | Cross-apex SSO (§6.3): `crossAppHref()`, `createSsoHop/Land()`. |
+| `supabase-session.ts` | **How the session cookie is read, written and scoped — the one copy** (§6.2): `createServerSupabase()`, `createBrowserSupabase()`, `createSessionMiddleware()`. Each app's `lib/supabase/{server,client}.ts` and `middleware.ts` are bindings; Next and Supabase are injected, env is passed as literal values. Change cookie flags HERE. |
 | `auth-callback.ts` | `createAuthCallback()` — the shared OAuth/OTP callback flow (eight apps wire it; **web still has its own richer copy** with signup-status branches — fold before touching callbacks). |
 | `security-headers.ts`, `root-layout.tsx`, `robots.ts` | One definition each of the response headers, the root metadata/icons and the crawler policy, used by every app's `next.config.mjs` and `app/`. |
 | `design/tokens.ts`, `ui/recipes.ts` | The colour role tokens and the recurring looks; `design/tokens.test.ts` fails a release that types a colour in an app (`docs/brand-design.md`, binding). |
@@ -332,7 +335,11 @@ allowlist must contain each apex wildcard (`https://thefibre.app/**`,
 ### 6.2 Session sharing within an apex
 
 `@supabase/ssr` cookies, chunked `sb-<ref>-auth-token`, with
-`Domain = NEXT_PUBLIC_COOKIE_DOMAIN`. Production: `.thefibre.app` on the
+`Domain = NEXT_PUBLIC_COOKIE_DOMAIN` — set in one place since v1.98.0,
+`packages/shared/src/supabase-session.ts`, which every app's Supabase clients
+and middleware are built from. As served on staging on 2026-10-01: `Path=/; SameSite=lax` plus
+the domain; no `Secure` and no `HttpOnly` (the browser client reads it),
+which is the cookie-flags item on the security roadmap. Production: `.thefibre.app` on the
 platform project only, `.thethread.app` on every other project; staging
 `.thefibre.tech`; local unset. Within an apex, sign-in on one app IS
 sign-in on all (silent SSO — the cookie just travels). The same env var

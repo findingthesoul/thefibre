@@ -1,18 +1,12 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserSupabase } from '@thefibre/shared/supabase-session';
 
-const COOKIE_DOMAIN = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
-
-export function browserSupabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      // Spread rather than `: undefined`. Under exactOptionalPropertyTypes,
-      // an explicit undefined is not the same as an absent key, and newer
-      // @supabase/ssr types say cookieOptions may be absent but never
-      // undefined — which broke every app's build on the dependency bump of
-      // 2026-09-23. Omitting the key says the same thing and always will.
-      ...(COOKIE_DOMAIN ? { cookieOptions: { domain: COOKIE_DOMAIN } } : {}),
-    },
-  );
-}
+// The browser Supabase client; the body is in @thefibre/shared/supabase-session
+// (see lib/supabase/server.ts). The env names are written out literally
+// because Next only inlines NEXT_PUBLIC_* where it can see the name.
+export const browserSupabase = createBrowserSupabase({
+  createClient: (url, key, options) => createBrowserClient(url, key, options),
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  cookieDomain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+});
