@@ -174,7 +174,7 @@ export function GetStarted({
       open={open}
       onClose={close}
       title={t(locale, 'ob_title')}
-      description={t(locale, 'ob_intro')}
+      description={t(locale, 'ob_intro', { n: String(steps.length) })}
       size="lg"
       footer={
         <>

@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.3] — 2026-10-02 — the onboarding counted to five and showed six (Meet 2.23.2)
+
+Spotted on production by the Zoom chat: the Get-set-up popup says "Five
+things, and people can book you" above a list of six and a counter reading
+"0 of 6". The list grew when Stripe joined it; the sentence did not.
+
+The fix is not "change five to six". The subtitle now takes the number from
+the same array the rows and the counter come from, so the three cannot
+disagree again. A number written into prose that something else counts will
+drift — it is the same failure as a hand-kept inventory, in one word.
+
+Also from that sighting, worth recording because it closes an unverified
+line: the popup **renders correctly on desktop on production**, with the
+"Don't show this again" checkbox and the "Show me more" link both present.
+Still unseen: the stacked second popup, Escape behaviour between the two, and
+the phone bottom sheet.
+
 ## [1.98.2] — 2026-10-01 — a deploy that succeeds frees the runway, and says how many machines it left (staging)
 
 Two things the v1.97.3 staging deploy turned up about the deploy script

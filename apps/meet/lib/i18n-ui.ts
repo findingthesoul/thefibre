@@ -3804,12 +3804,16 @@ const CATALOG = {
     fr: 'Mets tout en place', // MT
   },
   ob_intro: {
-    en: 'Five things, and people can book you. This disappears when you are done.',
-    nl: 'Vijf dingen, en mensen kunnen je boeken. Dit verdwijnt zodra je klaar bent.',
-    es: 'Cinco cosas y ya podrán reservarte. Esto desaparece cuando termines.', // MT
-    pt: 'Cinco coisas e já te podem marcar. Isto desaparece quando acabares.', // MT
-    de: 'Fünf Dinge, dann kann man dich buchen. Das hier verschwindet, wenn du fertig bist.', // MT
-    fr: 'Cinq choses et on pourra te réserver. Ceci disparaît quand tu as fini.', // MT
+    // {n} rather than a written-out number: the list grew from five to six
+    // when Stripe joined it and the prose still said "Five things" on
+    // production (spotted 2026-10-02). A number in a sentence that something
+    // else counts will drift, every time.
+    en: '{n} things, and people can book you. This disappears when you are done.',
+    nl: '{n} dingen, en mensen kunnen je boeken. Dit verdwijnt zodra je klaar bent.',
+    es: '{n} cosas y ya podr\u00e1n reservarte. Esto desaparece cuando termines.', // MT
+    pt: '{n} coisas e j\u00e1 te podem marcar. Isto desaparece quando acabares.', // MT
+    de: '{n} Dinge, dann kann man dich buchen. Das hier verschwindet, wenn du fertig bist.', // MT
+    fr: '{n} choses et on pourra te r\u00e9server. Ceci dispara\u00eet quand tu as fini.', // MT
   },
   ob_progress: {
     en: '{done} of {total}',
