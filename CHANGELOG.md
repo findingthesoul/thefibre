@@ -6,6 +6,60 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.8] — 2026-10-02 — your public page shows you (Thread 4.2.0)
+
+Thread's public organiser page read the organiser's own `display_name`,
+`bio` and `photo_url` columns. Nothing has written those since the profile
+became the platform's in September — the authed route has read the profile
+first since then, and Meet's public host page since 2026-09-05. This one was
+left behind, so what you type in Settings → Profile reached your booking page
+and your own settings and never your public Thread page.
+
+It fails by showing nothing, which is why it went a month unreported. Six
+organiser pages in production are publishing **no name at all**, including
+`/sjoerd` and `/festival-of-trust-7r4`. The page knows the slug and lists the
+threads; the person is simply missing from it.
+
+Measured before shipping, read-only against production — 10 organisers, 7
+pages change, every single change `null` → a real value, not one case of
+something different appearing:
+
+| page | starts showing | already published elsewhere |
+|---|---|---|
+| `/sjoerd` | name, bio, photo | yes — Meet host page `/sjoerd` |
+| `/sjoerd-luteijn` | bio, photo | yes — Meet host page `/sjoerd-luteijn` |
+| `/festival-of-trust-7r4` | name, bio, photo | yes — Meet host page `/sjoerd-luteijn-s3u` |
+| `/sjoerd-fibre-test-wub` | name | no Meet host page |
+| `/sjoerd-luteijn-vx3` | name | no Meet host page |
+| `/shootie-loetie-j95` | name | no Meet host page |
+| `/tahirih-michot-g88` | name | no Meet host page |
+
+Which is the shape of the decision, and why it shipped on Sjoerd's word
+rather than on ours: **no bio and no photo appears for anybody who has not
+already published both through Meet.** The four pages that gain something new
+gain a display name — the name the person typed into their own profile, on a
+page that already carries their slug and their threads.
+
+Split out of v1.98.6 deliberately. It is the same field, but a change of
+behaviour on live public pages has to be able to revert on its own, separate
+from the move that preceded it.
+
+### Verified
+- Before/after computed for every organiser in production, read-only, through
+  a local API against the production database: 10 organisers, 7 pages change,
+  by field 6 names / 3 bios / 3 photos, every one of them from `null`.
+- The public payload for `/festival-of-trust-7r4` carries the real profile
+  bio where it previously carried `bio: null`; `user_id`, which the lookup
+  needs, is not in the response.
+
+### Not verified
+- **Four people's names newly appear on public pages**: `sjoerd+fibre@`,
+  `sjoerd+fot@`, `refreshmiracle@me.com` and `tahirih@soul.com`. Three of them
+  are Sjoerd's own test identities; one is not. Nobody was asked individually;
+  the data is their own profile name and the judgement was Sjoerd's.
+- Costs three indexed lookups per public page render — the same price Meet
+  has paid for this since September. Not load-tested.
+
 ## [1.98.7] — 2026-10-02 — every bullet list we have ever rendered was missing its indent
 
 Found by looking at the thing rather than at the code. The bio release gave

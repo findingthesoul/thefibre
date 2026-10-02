@@ -36,7 +36,7 @@ the same instant, and the middle steps are data, not deploys:
   both: `organiser.bio` stays plain (rule 8 — an app outside this repo reads
   it) and a new `organiser.bio_html` carries the formatting.
   `packages/shared/src/bio-html.ts` holds the plain-or-HTML decision.
-- **A2 — the public organiser payload reads the platform profile**, the way
+- **A2 — DONE (v1.98.8).** The public organiser payload reads the platform profile, the way
   the authed route has since 20260901140000 and Meet's public host route
   since 2026-09-05. Thread's public one was left behind, so a bio written in
   Settings → Profile never reaches the organiser's own public page. Split out

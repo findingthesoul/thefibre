@@ -5335,13 +5335,49 @@ export async function performCheckinEnrolment(
 // in public a decision instead of a side effect of a migration.
 // ===========================================================================
 
-const PUBLIC_ORGANISER_SELECT = 'id, workspace_id, slug, display_name, bio, photo_url, timezone';
+// user_id is selected to FIND the platform profile (below) and, like
+// workspace_id, never returned — the mapper decides what goes out.
+const PUBLIC_ORGANISER_SELECT =
+  'id, user_id, workspace_id, slug, display_name, bio, photo_url, timezone';
+
+/**
+ * The organiser row with the platform profile laid over it.
+ *
+ * One profile per person, and it is the platform's (20260901140000): the
+ * organiser's own display_name / bio / photo_url columns are read fallbacks
+ * that nothing writes any more. The AUTHED organiser route has read it that
+ * way since then and Meet's public host route since 2026-09-05 — this public
+ * one did not, so a bio written in Settings → Profile reached the person's
+ * Meet booking page and their own settings page but never their public Thread
+ * page. Nobody reported it because it fails by showing nothing: in production
+ * today ZERO organiser rows carry a bio and the one person who has written
+ * one has it on the profile.
+ *
+ * Costs three indexed lookups on a public page render, which is the same
+ * price Meet already pays for the same correctness.
+ */
+async function organiserWithProfile<
+  T extends {
+    user_id?: string | null;
+    display_name: string | null;
+    bio: string | null;
+    photo_url: string | null;
+  },
+>(organiser: T): Promise<T> {
+  const profile = await profileFor(organiser.user_id ?? '');
+  return {
+    ...organiser,
+    display_name: profile?.display_name ?? organiser.display_name,
+    bio: profile?.bio ?? organiser.bio,
+    photo_url: profile?.photo_url ?? organiser.photo_url,
+  };
+}
 
 // Public URLs group by owner: personal threads live under the organiser's
 // slug, team threads under the TEAM's slug (Sjoerd 2026-07-02). One root
 // namespace, resolved organiser-first (Meet's pattern).
 type PublicOwner =
-  | { kind: 'organiser'; organiser: { id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; photo_url: string | null; timezone: string } }
+  | { kind: 'organiser'; organiser: { id: string; user_id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; photo_url: string | null; timezone: string } }
   | { kind: 'team'; team: { id: string; workspace_id: string; slug: string; name: string; description: string | null } }
   | { kind: 'workspace'; workspace: { id: string; slug: string; name: string } };
 
@@ -5464,7 +5500,7 @@ async function resolvePublicOwner(slug: string): Promise<PublicOwner | null> {
     .select(PUBLIC_ORGANISER_SELECT)
     .eq('slug', slug)
     .maybeSingle();
-  if (organiser) return { kind: 'organiser', organiser };
+  if (organiser) return { kind: 'organiser', organiser: await organiserWithProfile(organiser) };
   const { data: team } = await adminClient
     .from('team')
     .select('id, workspace_id, slug, name, description')
@@ -5597,6 +5633,7 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
     .eq('workspace_id', owner.workspace.id)
     .maybeSingle();
   if (!organiser) return c.json({ error: 'not found' }, 404);
+  const organiserOut = await organiserWithProfile(organiser);
 
   let q = adminClient
     .from('thread_thread')
@@ -5621,7 +5658,7 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
 
   return c.json({
     workspace: { slug: owner.workspace.slug, name: owner.workspace.name },
-    organiser: publicOrganiser({ kind: 'organiser', organiser }),
+    organiser: publicOrganiser({ kind: 'organiser', organiser: organiserOut }),
     threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
     // Additive (rule 8): the workspace's public site — theme and ingredients.
     site: await publicSite(owner.workspace.id),
