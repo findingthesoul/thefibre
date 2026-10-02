@@ -217,10 +217,9 @@ export default async function EmbedThreadPage({
                   />
                 )}
                 {a.description && (
-                  <div
-                    className="mt-0.5 text-sm text-ink-subtle leading-relaxed [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_a]:underline"
-                    // Rich text authored by workspace members in the editor.
-                    dangerouslySetInnerHTML={{ __html: a.description }}
+                  <RichText
+                    html={a.description}
+                    className="mt-0.5 text-sm text-ink-subtle leading-relaxed"
                   />
                 )}
                 <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-ink-muted">

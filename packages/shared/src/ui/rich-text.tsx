@@ -26,6 +26,27 @@
 // "if that ever changes". It has changed; the note is updated so nobody
 // reads the old one and concludes nothing guards it.
 
+/**
+ * The inner typography, in one string a test can read.
+ *
+ * Written `[&_ul,&_ol]:pl-5` until 2026-10-02, which generated NOTHING: that
+ * comma form is not a selector Tailwind emits here, so for as long as this
+ * component has existed every bullet list in organiser rich text rendered
+ * with `padding-left: 0` and its markers hanging outside the text column —
+ * the public thread page, the portal, and now the bio. Measured rather than
+ * guessed: `getComputedStyle(ul).paddingLeft` was `0px` while the class sat
+ * in the DOM. A class that is present and inert looks exactly like one that
+ * works, which is why the test reads this string instead of trusting it.
+ *
+ * The vertical rhythm for lists lives here too. Spacing is otherwise the
+ * caller's — a sheet and a public page differ in scale — but a list jammed
+ * against the paragraph above it is not a scale decision anybody made, and
+ * every caller setting paragraph margins and forgetting lists is the fork
+ * this file exists to prevent.
+ */
+export const RICH_TEXT_TYPOGRAPHY =
+  '[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:my-2 [&_ol]:my-2 [&_a]:underline';
+
 export function RichText({
   html,
   className = '',
@@ -38,7 +59,7 @@ export function RichText({
 }) {
   return (
     <div
-      className={`[&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_a]:underline ${className}`}
+      className={`${RICH_TEXT_TYPOGRAPHY} ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

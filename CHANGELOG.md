@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.7] — 2026-10-02 — every bullet list we have ever rendered was missing its indent
+
+Found by looking at the thing rather than at the code. The bio release gave
+me a reason to put a formatted bio on a page, so I did — bold, a list, two
+paragraphs — and the bullets sat outside the text column, flush against the
+left margin, in all six designs.
+
+The cause is one class that has never done anything:
+
+    [&_ul,&_ol]:pl-5
+
+Tailwind emits no rule for that comma form. The class is in the markup, it
+reads correctly, and `getComputedStyle(ul).paddingLeft` is `0px`. It has been
+there since the rich-text renderer was extracted into `@thefibre/shared`, so
+the surfaces that show organiser rich text — the public thread page, the
+embed, the visitor portal, and now a bio — have all been rendering lists with
+their markers hanging off the edge. Nobody filed it, because a slightly wrong
+list looks like a slightly wrong list and not like a missing CSS rule.
+
+The sharpest part: the EDITOR spells the same thing as two separate variants
+and is correct. So an organiser typing a list saw it indented, and everyone
+reading it did not.
+
+Fixed in `packages/shared/src/ui/rich-text.tsx` — `[&_ul]:pl-5 [&_ol]:pl-5`,
+and lists now take a margin above and below, because every caller sets
+paragraph spacing and no caller sets list spacing. Two hand-rolled copies of
+the same class list (the public thread page's agenda descriptions and the
+embed's) now use the shared `RichText` component, which is what it is for.
+
+Two guards, because fixing three copies does nothing about the fourth:
+`RICH_TEXT_TYPOGRAPHY` is exported so a test can read it, and a second test
+reads **the whole source tree** for any arbitrary variant with a comma in it
+and fails naming the file and line. It is a search, not a list of files — a
+list stops covering the app somebody adds next week.
+
+### Verified
+- Measured in the browser, before and after, on the same page: `padding-left`
+  `0px` → `20px`, list margins `0px` → `8px`, markers still `disc`. Looked at
+  it in two designs; the bullets now sit inside the column.
+- All six designs render a formatted bio (bold, list, paragraphs) — rendered
+  locally against production data, with a formatted bio injected, since no
+  stored bio is HTML yet.
+- The tree-wide guard proven by planting a comma variant in a real file: it
+  failed and named `apps/thread/lib/_guardprobe.ts:1`.
+
+### Not verified
+- **This changes how lists LOOK on four live surfaces**, not only in a bio:
+  the public thread page's agenda descriptions, the Webflow embed, the
+  visitor portal's detail view, and the bio. Every one of them gains an
+  indent and vertical space it did not have. That is the fix, but it is a
+  visible change to pages people are already reading.
+- Nothing looked at on staging or production for this change; the measurement
+  was local. Those three other surfaces were not opened — the fix is in the
+  one string they all read, and the guard asserts no copy of the old shape
+  survives, but I did not see them.
+
 ## [1.98.6] — 2026-10-02 — the bio learns formatting, and the public page learns to read it
 
 Sjoerd asked for a WYSIWYG on the profile bio, one editor shared by every
