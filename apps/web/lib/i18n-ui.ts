@@ -2237,12 +2237,12 @@ const CATALOG = {
     fr: 'Visioconférence', // MT
   },
   zoom_desc: {
-    en: 'Create a Zoom meeting automatically for every booking on a meeting type set to Zoom. The join link goes into the calendar event and the confirmation email.',
-    nl: 'Maakt automatisch een Zoom-meeting voor elke boeking op een afspraaktype dat op Zoom staat. De deelnamelink komt in de agenda-afspraak en de bevestigingsmail.',
-    es: 'Crea automáticamente una reunión de Zoom para cada reserva de un tipo de reunión configurado con Zoom. El enlace va en el evento del calendario y en el correo de confirmación.', // MT
-    pt: 'Cria automaticamente uma reunião Zoom para cada marcação de um tipo de reunião definido como Zoom. A ligação entra no evento do calendário e no e-mail de confirmação.', // MT
-    de: 'Legt für jede Buchung eines Meeting-Typs mit Zoom automatisch ein Zoom-Meeting an. Der Link steht im Kalendereintrag und in der Bestätigungsmail.', // MT
-    fr: 'Crée automatiquement une réunion Zoom pour chaque réservation d’un type de réunion réglé sur Zoom. Le lien figure dans l’événement du calendrier et dans l’e-mail de confirmation.', // MT
+    en: 'Create Zoom meetings automatically: for every booking on a meeting type set to Zoom in Meet, and for live sessions you set to Zoom in a Thread. The join link goes into the invitation and the confirmation email.',
+    nl: 'Maakt automatisch Zoom-meetings aan: voor elke boeking op een afspraaktype dat in Meet op Zoom staat, en voor live sessies die je in een Thread op Zoom zet. De deelnamelink komt in de uitnodiging en de bevestigingsmail.',
+    es: 'Crea reuniones de Zoom automáticamente: para cada reserva de un tipo de reunión configurado con Zoom en Meet, y para las sesiones en directo que configures con Zoom en un Thread. El enlace va en la invitación y en el correo de confirmación.', // MT
+    pt: 'Cria reuniões Zoom automaticamente: para cada marcação de um tipo de reunião definido como Zoom no Meet, e para as sessões em direto que definir como Zoom num Thread. A ligação entra no convite e no e-mail de confirmação.', // MT
+    de: 'Legt Zoom-Meetings automatisch an: für jede Buchung eines Meeting-Typs mit Zoom in Meet und für Live-Sitzungen, die du in einem Thread auf Zoom stellst. Der Link steht in der Einladung und in der Bestätigungsmail.', // MT
+    fr: 'Crée automatiquement des réunions Zoom : pour chaque réservation d’un type de réunion réglé sur Zoom dans Meet, et pour les sessions en direct que vous réglez sur Zoom dans un Thread. Le lien figure dans l’invitation et dans l’e-mail de confirmation.', // MT
   },
   zoom_connected_msg: {
     en: '✓ Connected.',
