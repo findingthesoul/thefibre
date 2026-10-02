@@ -44,7 +44,7 @@ the same instant, and the middle steps are data, not deploys:
   `photo_url` every public organiser page shows, so it has to be able to
   revert alone. Needs a production BEFORE/AFTER across ALL organisers — how
   many pages change name, photo or bio — before it is requested.
-- **B — convert the stored bios on STAGING.** Backup column first, restore
+- **B — convert the stored bios on STAGING.** Plan written and NOT executed: `docs/bio-rich-text-conversion.md` (why it is a script and not a migration, the four columns, the backup table, the restore proven on one row before the rest is touched, and the blocker — no staging credentials in this checkout). Backup column first, restore
   path proven BEFORE the update runs, row count and a sample before/after
   reported. Its own release.
 - **C — the same conversion on PRODUCTION**, on Sjoerd's own words, never in
