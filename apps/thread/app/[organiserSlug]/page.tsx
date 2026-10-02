@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import { bioToPlain } from '@thefibre/shared';
-import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicThreadListItem } from './threads-grid';
@@ -25,10 +23,10 @@ export async function generateMetadata({
   if (!data) return {};
   const title = data.site?.name ?? data.organiser.display_name ?? organiserSlug;
   // A meta description is plain text by definition — markup in it would be
-  // printed by search engines and social cards verbatim. bioToPlain leaves
-  // today's plain bios untouched and flattens tomorrow's HTML.
-  const description =
-    data.site?.headline ?? bioToPlain(data.organiser.bio, richTextToPlain) ?? undefined;
+  // printed by search engines and social cards verbatim. `organiser.bio` is
+  // published as plain text for exactly this kind of reader; the formatted
+  // version is `bio_html`, which only a renderer takes.
+  const description = data.site?.headline ?? data.organiser.bio ?? undefined;
   return {
     title,
     description,

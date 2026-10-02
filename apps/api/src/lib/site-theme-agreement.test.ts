@@ -91,3 +91,49 @@ describe('every list of site themes says the same thing', () => {
     expect(db).toContain('plain');
   });
 });
+
+// A theme is also a place a bio can go missing. Each of the six renderers
+// lays the bio out its own way, so the markup is six near-copies — and a
+// seventh theme gets written by copying one of them. Reviewing six blocks by
+// hand already nearly went wrong once: a pass that converted five of them
+// would have left one theme rendering no bio at all, invisible until an
+// organiser happened to select that design. So this asserts the property
+// rather than a count — whatever is in the registry renders the bio, and does
+// it through the one helper that knows plain text from HTML.
+describe('every theme renders the organiser bio', () => {
+  const src = read('../../../thread/app/[organiserSlug]/themes.tsx');
+
+  /** The registry maps a theme name to a component; find that component's
+   *  body by slicing from its declaration to the next top-level export. */
+  const bodyOf = (component: string): string => {
+    const start = src.indexOf(`export function ${component}(`);
+    if (start < 0) throw new Error(`${component} is in the registry but not declared`);
+    const rest = src.slice(start + 1);
+    const next = rest.search(/\nexport (function|const) /);
+    return next < 0 ? rest : rest.slice(0, next);
+  };
+
+  const components = Object.fromEntries(
+    src
+      .match(/export const THEMES = \{([\s\S]*?)\} as const;/)![1]
+      .split('\n')
+      .map((l) => l.match(/^\s*([a-z_]+):\s*([A-Za-z]+)\s*,/))
+      .filter(Boolean)
+      .map((m) => [m![1], m![2]]),
+  );
+
+  it('the registry maps every theme to a component we can find', () => {
+    expect(Object.keys(components).sort()).toEqual(db);
+  });
+
+  for (const theme of Object.keys(components)) {
+    it(`${theme} renders it, through bioToHtml`, () => {
+      const body = bodyOf(components[theme]);
+      // Not "mentions the bio somewhere": a renderer that interpolates the
+      // bio straight into JSX is the bug — it prints tags as characters the
+      // moment a bio is HTML. It has to go through the markup field.
+      expect(body).toContain('p.bioHtml');
+      expect(body).not.toMatch(/\{p\.bio\}/);
+    });
+  }
+});

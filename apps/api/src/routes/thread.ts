@@ -57,7 +57,7 @@ import {
   enrolmentPending,
   engagementMessage,
 } from '../lib/email/thread-templates.js';
-import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone } from '@thefibre/shared';
+import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone, bioToHtml, bioToPlain } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
 import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
 // Template visibility is one rule for all three kinds of template, so it
@@ -5354,7 +5354,18 @@ type PublicOrganiserOut = {
   id: string;
   slug: string;
   display_name: string | null;
+  /** PLAIN TEXT, always. This field has been published as a plain string
+   *  since v0.18.15 and an app outside this repo renders it as one — putting
+   *  markup in it would print tags on somebody else's page, which rule 8
+   *  counts as breaking the field just as hard as removing it. The bio is
+   *  becoming rich text, so the markup goes in `bio_html` instead and this
+   *  one is flattened. */
   bio: string | null;
+  /** The same bio AS MARKUP, for a renderer that wants the formatting — our
+   *  own organiser page does. Additive, so no existing caller notices. Null
+   *  when there is no bio; may be plain text wrapped in paragraphs while the
+   *  stored bios are still plain (see packages/shared/src/bio-html.ts). */
+  bio_html: string | null;
   photo_url: string | null;
   timezone: string;
 };
@@ -5366,6 +5377,7 @@ function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
       slug: owner.workspace.slug,
       display_name: owner.workspace.name,
       bio: null,
+      bio_html: null,
       photo_url: null,
       timezone: 'Europe/Amsterdam',
     };
@@ -5375,7 +5387,11 @@ function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
       id: owner.team.id,
       slug: owner.team.slug,
       display_name: owner.team.name,
+      // A team's description is a plain-text column with no editor on it, so
+      // bioToHtml only wraps it — but both fields stay populated so a reader
+      // does not have to know which kind of owner it got.
       bio: owner.team.description,
+      bio_html: bioToHtml(owner.team.description),
       photo_url: null,
       timezone: 'Europe/Amsterdam',
     };
@@ -5385,7 +5401,8 @@ function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
     id: o.id,
     slug: o.slug,
     display_name: o.display_name,
-    bio: o.bio,
+    bio: bioToPlain(o.bio, richTextToPlain),
+    bio_html: bioToHtml(o.bio),
     photo_url: o.photo_url,
     timezone: o.timezone,
   };

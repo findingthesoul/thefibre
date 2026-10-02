@@ -153,6 +153,32 @@ const SHAPES = {
 
 const INTERNAL = ['workspace_id', 'team_id', 'organiser_id', 'payment_destination'];
 
+// Fields this repo has ADDED to a published payload which production does not
+// serve yet — `pnpm verify` points at https://thefibre-api.fly.dev, so a new
+// field cannot be asserted in the release that introduces it; the API reaches
+// production days later, through promote + deploy-api.
+//
+// Listing one here is not a weaker check, it is a check of the other thing:
+// while the field is absent this says so without failing, and the moment
+// production serves it this FAILS and tells you to move it into SHAPES. So
+// the list cannot quietly become permanent — the deploy itself collects it.
+const PENDING = {
+  // added 2026-10-02 with the rich-text bio; `bio` stays plain beside it
+  organiser: ['bio_html'],
+};
+
+/** A pending field: silent-ish while absent, loud once it is live. */
+function checkPending(label, obj, keys) {
+  if (!obj || typeof obj !== 'object') return;
+  for (const k of keys) {
+    if (k in obj) {
+      check(false, `${label}.${k} is live`, `MOVE it into SHAPES.${label.split(' ').pop()} — production serves it now`);
+    } else {
+      console.log(`   · ${label}.${k} — published by this repo, not deployed yet`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
@@ -225,6 +251,7 @@ step(1, 'The three published routes keep their shape');
 const organiserRes = await get(`/api/v1/thread/public/organiser/${OWNER}`);
 check(organiserRes.status === 200, 'GET /public/organiser/:slug', `HTTP ${organiserRes.status}`);
 checkShape('organiser', organiserRes.body?.organiser, SHAPES.organiser);
+checkPending('organiser', organiserRes.body?.organiser, PENDING.organiser);
 checkShape('organiser thread', organiserRes.body?.threads?.[0], SHAPES.listItem);
 check(
   typeof organiserRes.body?.owner_kind === 'string',
@@ -236,6 +263,7 @@ const threadRes = await get(`/api/v1/thread/public/organiser/${OWNER}/thread/${T
 check(threadRes.status === 200, 'GET /public/organiser/:slug/thread/:slug', `HTTP ${threadRes.status}`);
 checkShape('thread', threadRes.body?.thread, SHAPES.thread);
 checkShape('thread organiser', threadRes.body?.organiser, SHAPES.organiser);
+checkPending('thread organiser', threadRes.body?.organiser, PENDING.organiser);
 if (threadRes.body?.thread?.agenda?.length) {
   checkShape('agenda item', threadRes.body.thread.agenda[0], SHAPES.agendaItem);
 }

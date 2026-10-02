@@ -22,7 +22,10 @@ export type PublicOrganiser = {
   id?: string;
   slug: string;
   display_name: string | null;
+  /** Plain text — a meta description, an OG image, an email. */
   bio?: string | null;
+  /** The same bio as markup, which is what a theme renders. */
+  bio_html?: string | null;
   photo_url?: string | null;
 };
 
@@ -57,7 +60,7 @@ export function OrganiserListing({
     <Theme
       site={resolved}
       name={name}
-      bio={organiser.bio ?? null}
+      bioHtml={organiser.bio_html ?? null}
       photoUrl={organiser.photo_url ?? null}
       baseSlug={baseSlug}
       ownerSlug={ownerSlug}

@@ -47,7 +47,6 @@
 // what both read from.
 
 import Link from 'next/link';
-import { bioToHtml } from '@thefibre/shared';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import { FOOTER_LINKS } from '@thefibre/shared';
 import type { PublicSite } from '@/lib/public-site';
@@ -59,7 +58,10 @@ export type ThemeProps = {
   site: PublicSite;
   /** The owner as displayed: an organiser's name, a team's, a workspace's. */
   name: string;
-  bio: string | null;
+  /** The organiser bio AS MARKUP, decided by the API (it publishes a plain
+   *  `bio` for callers that need text and a `bio_html` for renderers), so
+   *  no theme has to know whether a stored bio is still plain text. */
+  bioHtml: string | null;
   photoUrl: string | null;
   /** The slug thread links live under. */
   baseSlug: string;
@@ -97,9 +99,9 @@ export function PlainTheme(p: ThemeProps) {
           )}
           <div>
             <h1 className="text-2xl font-medium tracking-tight">{p.name}</h1>
-            {bioToHtml(p.bio) && (
+            {p.bioHtml && (
               <RichText
-                html={bioToHtml(p.bio)!}
+                html={p.bioHtml!}
                 className="mt-1 text-sm text-ink-subtle leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0"
               />
             )}
@@ -171,9 +173,9 @@ export function FestivalTheme(p: ThemeProps) {
               className="mt-6 max-w-xl text-lg leading-relaxed text-white/85"
             />
           ) : (
-            bioToHtml(p.bio) && (
+            p.bioHtml && (
               <RichText
-                html={bioToHtml(p.bio)!}
+                html={p.bioHtml!}
                 className="mt-6 max-w-xl text-lg leading-relaxed text-white/85 [&_p]:mb-3 [&_p:last-child]:mb-0"
               />
             )
@@ -221,9 +223,9 @@ export function CorporateTheme(p: ThemeProps) {
               className="mt-5 max-w-2xl text-base leading-relaxed text-ink-subtle"
             />
           ) : (
-            bioToHtml(p.bio) && (
+            p.bioHtml && (
               <RichText
-                html={bioToHtml(p.bio)!}
+                html={p.bioHtml!}
                 className="mt-5 max-w-2xl text-base leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
               />
             )
@@ -291,9 +293,9 @@ export function CommunityTheme(p: ThemeProps) {
               className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-subtle"
             />
           ) : (
-            bioToHtml(p.bio) && (
+            p.bioHtml && (
               <RichText
-                html={bioToHtml(p.bio)!}
+                html={p.bioHtml!}
                 className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
               />
             )
@@ -377,9 +379,9 @@ export function StudioTheme(p: ThemeProps) {
               className="mt-6 max-w-xl text-lg leading-relaxed text-ink-subtle"
             />
           ) : (
-            bioToHtml(p.bio) && (
+            p.bioHtml && (
               <RichText
-                html={bioToHtml(p.bio)!}
+                html={p.bioHtml!}
                 className="mt-6 max-w-xl text-lg leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
               />
             )
@@ -461,9 +463,9 @@ export function JournalTheme(p: ThemeProps) {
             className="mt-8 max-w-2xl text-base leading-[1.75] text-ink-subtle"
           />
         ) : (
-          bioToHtml(p.bio) && (
+          p.bioHtml && (
             <RichText
-              html={bioToHtml(p.bio)!}
+              html={p.bioHtml!}
               className="mt-8 max-w-2xl text-base leading-[1.75] text-ink-subtle [&_p]:mb-4 [&_p:last-child]:mb-0"
             />
           )

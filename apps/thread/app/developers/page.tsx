@@ -170,7 +170,12 @@ export default function DevelopersPage() {
               { name: 'organiser.id', type: 'uuid' },
               { name: 'organiser.slug', type: 'string' },
               { name: 'organiser.display_name', type: 'string | null' },
-              { name: 'organiser.bio', type: 'string | null' },
+              { name: 'organiser.bio', type: 'string | null', note: 'plain text' },
+              {
+                name: 'organiser.bio_html',
+                type: 'string | null',
+                note: 'the same bio as sanitised HTML, for rendering',
+              },
               { name: 'organiser.photo_url', type: 'string | null' },
               { name: 'organiser.timezone', type: 'IANA tz', note: 'e.g. Europe/Amsterdam' },
               {

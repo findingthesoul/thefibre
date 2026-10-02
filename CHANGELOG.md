@@ -6,6 +6,79 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.6] — 2026-10-02 — the bio learns formatting, and the public page learns to read it
+
+Sjoerd asked for a WYSIWYG on the profile bio, one editor shared by every
+app. This is the first of five steps and it contains no editor: every surface
+that SHOWS a bio is taught to render formatting before any bio contains any.
+Done the other way round, the first formatted bio prints `<p>` at people on a
+public page.
+
+So, the readers. Meet's booking page, Thread's organiser page in all six
+designs, and both settings pages now render the bio as markup. Each one goes
+through `packages/shared/src/bio-html.ts`, which decides whether a stored bio
+is already HTML or still plain text and, when it is plain, escapes it and
+turns its line breaks into paragraphs — so it renders exactly as it did
+before, and a bio that reads `I work with <people> in groups` stays a
+sentence instead of becoming markup.
+
+That file is scaffolding and says so in its first line. It exists because the
+data and the code cannot change in the same instant; once the stored bios
+have been converted it is deleted, and the plan for that (steps B–E) is in
+`docs/build-plan.md` rather than in somebody's head. A detector kept
+permanently is a guess that will eventually be wrong about one person's bio
+with nobody watching.
+
+**The published field keeps its promise.** `organiser.bio` has been a plain
+string on a public contract since v0.18.15 and an app outside this repo reads
+it; putting markup in it would print tags on their page, which rule 8 counts
+as breaking a field as hard as removing it. So the API now publishes both:
+`bio` flattened to text, and a new `bio_html` beside it for a renderer that
+wants the formatting. Additive, documented on /developers, and asserted by
+`verify-public-api.mjs`.
+
+**One thing found and deliberately left for the next release.** Thread's
+public organiser page reads the organiser's own `bio` / `display_name` /
+`photo_url` columns, which nothing has written since the profile became the
+platform's in September — so a bio written in Settings → Profile reaches the
+booking page and the settings page and never the person's own public page.
+The fix is one line of sourcing, but it changes what every organiser's public
+page shows for their name and photo too, so it ships on its own and can
+revert on its own. Which means: after this release the formatted bio renders
+correctly everywhere it is read, and on the Thread organiser page there is
+still nothing to read. That is the next release, not an oversight.
+
+The guard for the six designs is a test, not a careful pass: a theme that
+renders the bio any way other than through the markup field fails
+`site-theme-agreement.test.ts` by name, and a seventh theme cannot ship
+without one. This release nearly shipped with five of six converted.
+
+### Verified
+- `verify-public-api.mjs` green against production: the organiser shape
+  holds, and `bio_html` is reported as published-but-not-deployed. Which is
+  the other half of this release — `pnpm verify` points at the production
+  API, so a field added today cannot be asserted there until `deploy-api`
+  runs. Asserting it immediately failed the gate for everybody; leaving it
+  out left nothing watching it. It is now listed as PENDING: named while
+  absent, and a FAILURE the moment production serves it, saying to move it
+  into the published shape. The deploy collects the leftover instead of a
+  person remembering to.
+- Rendered the public organiser page at localhost against the production
+  database and looked at it: the one real bio in production renders as a
+  paragraph under the name, not as tags. Honest caveat — that render had the
+  NEXT release's sourcing fix applied locally, because on this release alone
+  the payload still carries `bio: null` for every organiser and there is
+  nothing to render.
+- The theme guard fails on exactly the theme broken on purpose, by name.
+- 13 unit tests on the plain/HTML split, including `<script>`, `onerror` and
+  `javascript:` arriving as plain text.
+
+### Not verified
+- No bio anywhere is HTML yet, so the formatted path has been exercised by
+  unit test and by `RichText` elsewhere, never by a real stored value. That
+  is step D.
+- The five other themes were looked at as markup, not rendered — the only
+  organiser in production uses `plain`.
 ## [1.98.5] — 2026-10-02 — the controller can say which request, and a commit that deletes is asked twice (staging)
 
 Two additions to the runway, both asked for by the controller after a day of

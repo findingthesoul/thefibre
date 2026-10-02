@@ -26,6 +26,40 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
+**The profile bio is mid-conversion to rich text (Release A shipped
+2026-10-02).** Sjoerd asked for a WYSIWYG on the profile bio, single point of
+truth. It ships in five steps because the data and the code cannot change in
+the same instant, and the middle steps are data, not deploys:
+
+- **A — readers first (DONE).** Every surface that shows a bio renders it as
+  markup, and every surface that needs text keeps text. The API publishes
+  both: `organiser.bio` stays plain (rule 8 — an app outside this repo reads
+  it) and a new `organiser.bio_html` carries the formatting.
+  `packages/shared/src/bio-html.ts` holds the plain-or-HTML decision.
+- **A2 — the public organiser payload reads the platform profile**, the way
+  the authed route has since 20260901140000 and Meet's public host route
+  since 2026-09-05. Thread's public one was left behind, so a bio written in
+  Settings → Profile never reaches the organiser's own public page. Split out
+  of A1 on the controller's call: it also changes which `display_name` and
+  `photo_url` every public organiser page shows, so it has to be able to
+  revert alone. Needs a production BEFORE/AFTER across ALL organisers — how
+  many pages change name, photo or bio — before it is requested.
+- **B — convert the stored bios on STAGING.** Backup column first, restore
+  path proven BEFORE the update runs, row count and a sample before/after
+  reported. Its own release.
+- **C — the same conversion on PRODUCTION**, on Sjoerd's own words, never in
+  the same step as code.
+- **D — flip the editor** in `packages/shared/src/ui/profile-form.tsx` so new
+  bios are written as HTML (the write path is already sanitised:
+  `apps/api/src/routes/profile.ts` runs `sanitizeRichText`).
+- **E — delete `packages/shared/src/bio-html.ts`.** This is the point of the
+  file. After C there is no plain text left to detect, and a detector left in
+  permanent code is a guess that will one day be wrong about somebody's bio
+  with nobody watching. Deleting it is not tidying — it is the step that ends
+  the guessing. The readers then take `bio_html` as the only shape, and the
+  API flattens for the plain field with `richTextToPlain`.
+
+
 _Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
 
 **Production: Models' sign-in secret does not match the API's.** Found
