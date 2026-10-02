@@ -470,10 +470,22 @@ printed the whole date on both sides:
 
     Monday, 12 October 2026 at 13:30 CEST → Monday, 12 October 2026 at 14:00 CEST
 
-so its tail is a complete-looking date-time standing where a date belongs. A
-mail client builds a preview from the first text it finds and truncates; what
-survived was the end. "Booking moved" is our `<title>`, stitched on by Gmail —
-which is why the sentence read as ours and matched nothing we wrote.
+so its tail is a complete-looking date-time standing where a date belongs,
+and what reads the email picks the LAST time-shaped thing it finds.
+
+**Corrected 2026-10-01, after seeing the rendered mail.** The sentence in the
+message list is an **Apple Intelligence summary** — generated prose, not our
+characters, and nothing to do with Gmail, a preheader, or truncation. The
+explanation first shipped here (a client truncating the first text it finds,
+with our `<title>` stitched on) was wrong, and wrong in a way that sends the
+next person to look at preheaders. Grepping for the reported sentence and
+finding nothing was the clue: it meant something else had WRITTEN that
+sentence, not that ours had been reassembled.
+
+The fix is unchanged and still right, for a reason the first account missed:
+collapsing the range removes the trailing "…at 14:00 CEST" the summariser was
+grabbing. The summary now names the date and no time, rather than the wrong
+time.
 
 A same-day range — every booking — now collapses to one date and a time span:
 `Monday, 12 October 2026 at 13:30 – 14:00 CEST`. A range genuinely crossing
