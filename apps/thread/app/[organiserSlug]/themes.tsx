@@ -47,6 +47,7 @@
 // what both read from.
 
 import Link from 'next/link';
+import { bioToHtml } from '@thefibre/shared';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import { FOOTER_LINKS } from '@thefibre/shared';
 import type { PublicSite } from '@/lib/public-site';
@@ -96,7 +97,12 @@ export function PlainTheme(p: ThemeProps) {
           )}
           <div>
             <h1 className="text-2xl font-medium tracking-tight">{p.name}</h1>
-            {p.bio && <p className="mt-1 text-sm text-ink-subtle leading-relaxed">{p.bio}</p>}
+            {bioToHtml(p.bio) && (
+              <RichText
+                html={bioToHtml(p.bio)!}
+                className="mt-1 text-sm text-ink-subtle leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0"
+              />
+            )}
           </div>
         </header>
 
@@ -165,7 +171,12 @@ export function FestivalTheme(p: ThemeProps) {
               className="mt-6 max-w-xl text-lg leading-relaxed text-white/85"
             />
           ) : (
-            p.bio && <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/85">{p.bio}</p>
+            bioToHtml(p.bio) && (
+              <RichText
+                html={bioToHtml(p.bio)!}
+                className="mt-6 max-w-xl text-lg leading-relaxed text-white/85 [&_p]:mb-3 [&_p:last-child]:mb-0"
+              />
+            )
           )}
           {p.threads.length > 0 && (
             <a
@@ -210,8 +221,11 @@ export function CorporateTheme(p: ThemeProps) {
               className="mt-5 max-w-2xl text-base leading-relaxed text-ink-subtle"
             />
           ) : (
-            p.bio && (
-              <p className="mt-5 max-w-2xl text-base leading-relaxed text-ink-subtle">{p.bio}</p>
+            bioToHtml(p.bio) && (
+              <RichText
+                html={bioToHtml(p.bio)!}
+                className="mt-5 max-w-2xl text-base leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
+              />
             )
           )}
         </div>
@@ -277,10 +291,11 @@ export function CommunityTheme(p: ThemeProps) {
               className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-subtle"
             />
           ) : (
-            p.bio && (
-              <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-subtle">
-                {p.bio}
-              </p>
+            bioToHtml(p.bio) && (
+              <RichText
+                html={bioToHtml(p.bio)!}
+                className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
+              />
             )
           )}
           {p.crumb && <div className="mt-6">{p.crumb}</div>}
@@ -362,8 +377,11 @@ export function StudioTheme(p: ThemeProps) {
               className="mt-6 max-w-xl text-lg leading-relaxed text-ink-subtle"
             />
           ) : (
-            p.bio && (
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-subtle">{p.bio}</p>
+            bioToHtml(p.bio) && (
+              <RichText
+                html={bioToHtml(p.bio)!}
+                className="mt-6 max-w-xl text-lg leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
+              />
             )
           )}
         </div>
@@ -443,8 +461,11 @@ export function JournalTheme(p: ThemeProps) {
             className="mt-8 max-w-2xl text-base leading-[1.75] text-ink-subtle"
           />
         ) : (
-          p.bio && (
-            <p className="mt-8 max-w-2xl text-base leading-[1.75] text-ink-subtle">{p.bio}</p>
+          bioToHtml(p.bio) && (
+            <RichText
+              html={bioToHtml(p.bio)!}
+              className="mt-8 max-w-2xl text-base leading-[1.75] text-ink-subtle [&_p]:mb-4 [&_p:last-child]:mb-0"
+            />
           )
         )}
       </header>

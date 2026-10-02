@@ -8,6 +8,8 @@
 // it — how many public threads are on it right now.
 
 import { ImageResponse } from 'next/og';
+import { bioToPlain } from '@thefibre/shared';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { EMAIL_BRAND } from '@thefibre/shared';
 import { publicFetch } from '@/lib/public-api';
 import { remoteImage } from '@/lib/og-image';
@@ -36,7 +38,9 @@ export default async function Image({
   ).catch(() => null);
 
   const name = data?.site?.name ?? data?.organiser.display_name ?? organiserSlug;
-  const headline = data?.site?.headline ?? data?.organiser.bio ?? null;
+  // Drawn into an image: tags would be painted as characters.
+  const headline =
+    data?.site?.headline ?? bioToPlain(data?.organiser.bio, richTextToPlain) ?? null;
   const count = data?.threads.length ?? 0;
 
   const [hero, logo, wordmark] = await Promise.all([
