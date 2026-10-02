@@ -61,6 +61,35 @@ After a landing, the controller looks at it: `node scripts/smoke-staging.mjs`,
 and the surface that changed. The gate proves what it exercises; the pilot's
 `--unverified` line is the part of the claim nothing checked.
 
+## Cadence: don't run behind, don't save up
+
+Sjoerd, 2026-10-02, as the controller relayed it to every chat: *"don't run
+behind, don't save up commits."* When he said it, staging was seven
+releases (eleven commits, 21 hours) ahead of production, and the day before
+one chat had held five finished commits it could not push. Both are the same
+problem: work that is done and not where it belongs. Three rules, the same
+for every chat:
+
+1. **Ready work is requested within about four hours**, not held. A commit
+   that waits is a rebase and a renumbering later.
+2. **Small releases, one theme each.** A move and a behaviour change never
+   share one, even when the change looks obviously right: split them so each
+   reverts alone (v1.98.0 and v1.98.1 are the worked example).
+3. **The controller watches staging minus production** and asks Sjoerd for a
+   promote before it reaches about five releases or 24 hours. A hotfix goes
+   at once. Production still moves only on his words.
+
+The measure, for anyone:
+
+```bash
+git fetch -q origin
+git rev-list --count origin/main..origin/staging                       # commits waiting for production
+git log --reverse --format='%h  %cr  %s' origin/main..origin/staging | head -1   # the oldest of them, and its age
+git log --oneline origin/main..origin/staging | grep -c ' v[0-9]'      # how many of those are releases
+```
+
+Zero on the first line means production is level with staging.
+
 ## When the tower is down (read this at 02:00)
 
 - **The clearance expires on its own after 45 minutes.** A dead holder costs one
