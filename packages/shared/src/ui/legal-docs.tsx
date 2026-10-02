@@ -278,7 +278,7 @@ export function TermsDoc() {
 // document (apps/thread/lib/policies.ts), so keep it TRUE: if the platform
 // starts doing something this page does not say, this page is the bug.
 // Bump POLICY_UPDATED and POLICIES[].version together when it changes.
-const POLICY_UPDATED = '2026-08-24';
+const POLICY_UPDATED = '2026-10-02';
 
 export function PrivacyDoc() {
   return (
@@ -400,6 +400,15 @@ export function PrivacyDoc() {
         <Row term="Google">
           Only if you choose it: signing in with a Google account, or connecting your calendar so
           Fibre Meet can read your availability. Disconnecting revokes it.
+        </Row>
+        <Row term="Zoom">
+          Only if a host chooses it: connecting their own Zoom account so that bookings and live
+          sessions create, move and delete Zoom meetings for them. We keep the connection — a token
+          that lets us act on that account, its email address and Zoom&rsquo;s own user id — and,
+          per booking or session, the meeting id and join link. We never read meeting content,
+          participants, recordings or chat. Disconnecting in the app, or removing the app in Zoom,
+          deletes the connection; join links already written onto past bookings stay with the
+          booking. The meeting itself is run by Zoom, under Zoom&rsquo;s own terms.
         </Row>
         <Row term="Anthropic">
           Only where the in-app assistant is switched on for your workspace (Settings →

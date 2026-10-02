@@ -26,7 +26,7 @@ export const POLICIES: Policy[] = [
     key: 'privacy',
     labelKey: 'policy_privacy',
     url: FOOTER_LINKS.privacy,
-    version: '2026-08-24',
+    version: '2026-10-02',
     required: true,
   },
 ];

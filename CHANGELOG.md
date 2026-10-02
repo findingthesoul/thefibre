@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.4] — 2026-10-02 — the privacy policy says what Zoom is (staging)
+
+Sjoerd, after the Zoom Marketplace submission: *"1. do it"* (the privacy
+paragraph I had flagged). Zoom's reviewers ask whether the policy names the
+Zoom connection and what is stored; it named Google, Stripe and the assistant
+but not Zoom, which is now a sub-processor in practice (a host can connect
+their own account, v1.94.0).
+
+One row in "6. Who else touches it": only if a host chooses it, what we keep
+(the connection token, the account email, Zoom's user id, and per booking the
+meeting id and join link), what we never read (content, participants,
+recordings, chat), and that disconnecting, or removing the app in Zoom, deletes
+the connection while join links already on past bookings stay with the booking.
+The wording is written from the code (what `saveZoomConnection` and
+`forgetZoomUser` actually store and delete), not from a lawyer.
+
+`POLICY_UPDATED` and `POLICIES[].version` moved together to 2026-10-02. The
+version is only recorded on an enrolment when someone signs up, so this does
+not ask anyone to re-accept, and **existing users and participants are not
+re-notified by this release**: only enrolments made from now on record the new
+version. **This is a legal page and it is still NOT
+lawyer-reviewed** (the source says so, as it did before this row).
+
 ## [1.98.3] — 2026-10-02 — the onboarding counted to five and showed six (Meet 2.23.2)
 
 Spotted on production by the Zoom chat: the Get-set-up popup says "Five
