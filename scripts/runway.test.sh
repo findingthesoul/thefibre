@@ -67,6 +67,45 @@ req a release
 expect_fail "a commit not built on staging is refused" $R clear a --by atc
 rm -f "$T/w/.git/runway/queue/"*
 
+echo "which request: several from one session"
+git fetch -q origin; git checkout -q -B pick1 origin/staging; echo p1 > pick1.txt; git add -A; git commit -qm p1
+P1="$(git rev-parse HEAD)"; req a release
+git checkout -q -B pick2 origin/staging; mkdir -p docs; echo p2 > docs/pick2.md; git add -A; git commit -qm p2
+P2="$(git rev-parse HEAD)"; sleep 1; req a docs
+# Captured first: `grep -q` closes the pipe early, and under pipefail the
+# writer's SIGPIPE would read as a failure of the thing being tested.
+Q="$($R queue)"
+grep -q "^#1  a  \[release\]  ${P1:0:8}" <<<"$Q" && ok "queue numbers its entries and shows each sha" || bad "queue numbers its entries and shows each sha"
+grep -q "^#2  a  \[docs\]  ${P2:0:8}" <<<"$Q" && ok "queue is oldest first" || bad "queue is oldest first"
+expect_fail "two different requests from one session and no --sha is refused, not guessed" $R clear a --by atc
+OUT="$($R clear a --by atc 2>&1 || true)"
+grep -q "${P1:0:8}" <<<"$OUT" && grep -q "${P2:0:8}" <<<"$OUT" && ok "the refusal lists the choices" || bad "the refusal lists the choices"
+expect_fail "--sha that matches nothing is refused" $R clear a --by atc --sha deadbeef
+expect_pass "--sha picks the OLDER request" $R clear a --by atc --sha "${P1:0:8}"
+grep -q "sha=$P1" "$T/w/.git/runway/clearance" && ok "the clearance is for the commit that was named" || bad "the clearance is for the commit that was named"
+[ "$(ls "$T/w/.git/runway/queue" | wc -l | tr -d ' ')" = 1 ] && ok "the other request is still waiting" || bad "the other request is still waiting"
+$R abort --by atc >/dev/null
+sleep 1; RUNWAY_SESSION=a $R request --kind docs --sha "$P2" --what "corrected wording" --verified v --unverified none >/dev/null
+expect_pass "one commit requested twice needs no --sha: the newest wording stands" $R clear a --by atc
+[ -z "$(ls "$T/w/.git/runway/queue")" ] && ok "and both entries for that commit are gone" || bad "and both entries for that commit are gone"
+$R abort --by atc >/dev/null
+
+echo "a commit that deletes what is on staging"
+git fetch -q origin; git checkout -q -B del origin/staging; git rm -q a.txt; mkdir -p docs; echo n > docs/new.md; git add -A; git commit -qm "removes a.txt"
+req a release
+expect_fail "a release that deletes a file on staging is refused" $R clear a --by atc
+OUT="$($R clear a --by atc 2>&1 || true)"
+grep -q "DELETES: a.txt" <<<"$OUT" && ok "the refusal names the deleted path" || bad "the refusal names the deleted path"
+expect_pass "--allow-delete is the controller saying it is meant" $R clear a --by atc --allow-delete
+grep -q "allow-delete" "$T/w/.git/runway/log" && ok "and that is in the log" || bad "and that is in the log"
+$R abort --by atc >/dev/null
+# A file the commit itself adds and removes again never shows as a deletion.
+git checkout -q -B addrm origin/staging; echo t > tmp.txt; git add -A; git commit -qm add; git rm -q tmp.txt; echo k > keep.txt; git add -A; git commit -qm "rm own file"
+req a release
+expect_pass "removing a file the same branch added is not a deletion" $R clear a --by atc
+$R abort --by atc >/dev/null
+rm -f "$T/w/.git/runway/queue/"*
+
 echo "production is Sjoerd's"
 git checkout -q work2; req a prod
 expect_fail "prod without --sjoerd-said is refused" $R clear a --by atc

@@ -16,6 +16,8 @@
 #   ./scripts/runway.sh queue                # who is waiting, and what they say
 #   ./scripts/runway.sh status               # who holds the runway now
 #   ./scripts/runway.sh clear <name> --by <controller>     # preflight + grant
+#       [--sha <sha>]        which of <name>'s requests, when there are several
+#       [--allow-delete]     the commit removes files that are on staging, on purpose
 #   RUNWAY_SESSION=<name> ./scripts/runway.sh land         # release.sh does this
 #   ./scripts/runway.sh abort [--by <controller>]          # free the runway
 #   ./scripts/runway.sh install-hook         # once per clone; covers all worktrees
@@ -26,8 +28,9 @@
 #
 # What this stops: a second session landing while one holds the runway, a push
 # built on a staging that has since moved (the three lost races of 2026-10-01),
-# a docs commit that is not docs, production without Sjoerd, and a handover
-# that says nothing about what was NOT verified.
+# a docs commit that is not docs, a commit that deletes files that are on
+# staging (unless the controller says that is meant), production without
+# Sjoerd, and a handover that says nothing about what was NOT verified.
 # What it cannot stop: a session that deliberately bypasses it. That path is
 # RUNWAY_BYPASS="<reason>", which works and is written to the log, so a bypass
 # is visible rather than silent.
@@ -104,10 +107,12 @@ cmd_request() {
 }
 
 cmd_queue() {
-  local any=0 f
+  # Oldest first, numbered: the order is the order of asking, and the sha is
+  # what `clear <name> --sha` takes when one session has several requests.
+  local any=0 f i=0
   for f in $(ls "$QUEUE" 2>/dev/null | sort); do
-    any=1
-    say "$(field session "$QUEUE/$f")  [$(field kind "$QUEUE/$f")]  $(field sha "$QUEUE/$f" | cut -c1-8)  $(field what "$QUEUE/$f")"
+    any=1; i=$((i + 1))
+    say "#$i  $(field session "$QUEUE/$f")  [$(field kind "$QUEUE/$f")]  $(field sha "$QUEUE/$f" | cut -c1-8)  $(field what "$QUEUE/$f")"
     say "    verified:   $(field verified "$QUEUE/$f")"
     say "    UNVERIFIED: $(field unverified "$QUEUE/$f")"
   done
@@ -125,21 +130,59 @@ cmd_status() {
 
 cmd_clear() {
   local name="${1:-}"; shift || true
-  local by="" minutes="$DEFAULT_MINUTES" kindopt="" said=""
+  local by="" minutes="$DEFAULT_MINUTES" kindopt="" said="" want="" allow_delete=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --by) by="$2"; shift 2 ;; --minutes) minutes="$2"; shift 2 ;;
       --kind) kindopt="$2"; shift 2 ;; --sjoerd-said) said="$2"; shift 2 ;;
+      --sha) want="$2"; shift 2 ;; --allow-delete) allow_delete=1; shift ;;
       *) die "unknown option $1" ;;
     esac
   done
-  [ -n "$name" ] || die "usage: clear <session> --by <controller>"
+  [ -n "$name" ] || die "usage: clear <session> --by <controller> [--sha <sha>]"
   [ -n "$by" ] || die "--by <controller>: who is granting this, for the log."
   if live_clearance; then
     die "runway busy: $(field session "$CLEARANCE") holds it for $(field kind "$CLEARANCE"). One at a time."
   fi
-  local entry; entry="$(ls "$QUEUE" 2>/dev/null | grep -- "-$name\$" | sort | tail -1 || true)"
-  [ -n "$entry" ] || die "$name has no request in the queue. They request first, with what they verified and did not."
+  # WHICH request. Until 2026-10-02 this took the session's NEWEST entry and
+  # nothing else, so a controller could not pick: with two requests waiting
+  # from one session it granted (and consumed) the wrong one twice in a day,
+  # once with a --kind meant for the other. Now: one entry is taken as before;
+  # several need --sha, and are listed rather than guessed at.
+  local entries entry="" e
+  entries="$(ls "$QUEUE" 2>/dev/null | grep -- "-$name\$" | sort || true)"
+  [ -n "$entries" ] || die "$name has no request in the queue. They request first, with what they verified and did not."
+  # Several entries for ONE commit are one request corrected in place (the
+  # wording changed, the commit did not): no choice to make, the newest stands.
+  if [ -z "$want" ]; then
+    local shas; shas="$(for e in $entries; do field sha "$QUEUE/$e"; done | sort -u)"
+    [ "$(printf '%s\n' "$shas" | wc -l | tr -d ' ')" != 1 ] || want="$shas"
+  fi
+  if [ -n "$want" ]; then
+    local matches=0
+    for e in $entries; do
+      case "$(field sha "$QUEUE/$e")" in "$want"*) entry="$e"; matches=$((matches + 1)) ;; esac
+    done
+    [ "$matches" -ge 1 ] || die "$name has no request for $want. Their requests: $(for e in $entries; do printf '%s [%s]  ' "$(field sha "$QUEUE/$e" | cut -c1-8)" "$(field kind "$QUEUE/$e")"; done)"
+    # The same sha asked for twice (a corrected request): the newest wording
+    # is the one that stands, and the older ones go with it.
+    if [ "$matches" -gt 1 ]; then
+      for e in $entries; do
+        case "$(field sha "$QUEUE/$e")" in "$want"*) [ "$e" = "$entry" ] || rm -f "$QUEUE/$e" ;; esac
+      done
+    fi
+  else
+    if [ "$(printf '%s\n' "$entries" | wc -l | tr -d ' ')" -gt 1 ]; then
+      {
+        echo "REFUSED: $name has several requests waiting; say which with --sha:"
+        for e in $entries; do
+          echo "    $(field sha "$QUEUE/$e" | cut -c1-8)  [$(field kind "$QUEUE/$e")]  $(field what "$QUEUE/$e")"
+        done
+      } >&2
+      exit 1
+    fi
+    entry="$entries"
+  fi
   local q="$QUEUE/$entry"
   local kind="${kindopt:-$(field kind "$q")}" sha; sha="$(field sha "$q")"
 
@@ -154,6 +197,21 @@ cmd_clear() {
       local files; files="$(git --no-pager diff --name-only "$ref" "$sha")"
       [ -n "$files" ] || die "${sha:0:8} changes nothing against $ref."
       say "Diff against $ref:"; printf '%s\n' "$files" | sed 's/^/    /'
+      # A commit that REMOVES files which are on staging. Almost never meant:
+      # it is what a rebase resolved the wrong way, or a branch cut before a
+      # peer's file landed, looks like — and a docs push is the push nobody
+      # reads. (2026-10-02: a docs commit appeared to delete a 149-line
+      # proposal another chat had just added.) Refused with the paths named;
+      # a deliberate removal is the controller's to wave through, in the log.
+      local deleted; deleted="$(git --no-pager diff --name-only --diff-filter=D "$ref" "$sha")"
+      if [ -n "$deleted" ]; then
+        if [ "$allow_delete" = 1 ]; then
+          say "Deletes files that are on $ref (allowed by $by):"; printf '%s\n' "$deleted" | sed 's/^/    /'
+        else
+          printf '%s\n' "$deleted" | sed 's/^/    DELETES: /' >&2
+          die "${sha:0:8} removes files that are on $ref. If that is meant, clear with --allow-delete; if not, the branch lost them in a rebase."
+        fi
+      fi
       if [ "$kind" = docs ]; then
         local bad; bad="$(printf '%s\n' "$files" | grep -vE '^docs/|\.md$' || true)"
         [ -z "$bad" ] || { printf '%s\n' "$bad" | sed 's/^/    NOT DOCS: /' >&2; die "kind=docs touches code. Request kind=release."; }
@@ -176,7 +234,7 @@ cmd_clear() {
   set +o noclobber
   local verified; verified="$(field verified "$q")"
   rm -f "$q"
-  logit "CLEARED session=$name kind=$kind sha=$sha base=$base by=$by minutes=$minutes${said:+ sjoerd-said=\"$said\"}"
+  logit "CLEARED session=$name kind=$kind sha=$sha base=$base by=$by minutes=$minutes${said:+ sjoerd-said=\"$said\"}$([ "$allow_delete" = 1 ] && echo " allow-delete" || true)"
   say "CLEARED: $name may land $kind ($minutes min). Base $(git rev-parse --short "$base"). Verified (their word): $verified"
 }
 

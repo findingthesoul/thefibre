@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.5] — 2026-10-02 — the controller can say which request, and a commit that deletes is asked twice (staging)
+
+Two additions to the runway, both asked for by the controller after a day of
+running it. Tooling only.
+
+**`clear <name> --sha <sha>`, and a numbered queue.** `clear` took a
+session's newest request and nothing else. With two requests waiting from
+one session, the controller could not pick, and twice in one day it granted
+and consumed the wrong one, once with a `--kind` meant for the other. Now
+`queue` numbers its entries oldest first and shows each commit; `clear`
+takes a lone request as before, refuses and lists them when one session has
+several for different commits, and takes the one named with `--sha`. Several
+entries for the same commit are one request corrected in place (I filed one
+three times yesterday to fix my own wording): the newest stands and the
+older ones go with it, no choice needed.
+
+**A commit that removes files which are on staging is refused, with the
+paths.** A branch that lost a peer's new file in a rebase looks, in a diff,
+exactly like a branch that deletes it, and a docs push is the push nobody
+reads: on 2026-10-02 a docs commit appeared to delete a 149-line proposal
+another chat had just added. `clear` now refuses a `release` or `docs`
+request whose diff against staging deletes anything, and names the paths. A
+removal that is meant is the controller's to allow with `--allow-delete`,
+and that is written to the log. A file a branch adds and removes again
+within itself never shows up.
+
+Fifteen new cases in `scripts/runway.test.sh`, which `pnpm verify` runs.
+
+**Not done, on purpose.** The controller also asked for the "built on current
+staging" rule to be relaxed for docs requests. That loosens a check Sjoerd
+asked for in his own words, so it is not a tooling tweak and not a peer's to
+grant; the controller withdrew it, and it waits for him.
+
+Also recorded in the build plan: production's Models project holds a sign-in
+secret that does not match the API's (found by the read-only checks after
+the promote; one Vercel value, Sjoerd's to set).
+
 ## [1.98.4] — 2026-10-02 — the privacy policy says what Zoom is (staging)
 
 Sjoerd, after the Zoom Marketplace submission: *"1. do it"* (the privacy

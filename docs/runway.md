@@ -41,10 +41,26 @@ Kinds: `release` (code → staging), `docs` (docs/`*.md` only → staging),
 ## As the controller
 
 ```bash
-./scripts/runway.sh queue                 # who is waiting; read their UNVERIFIED line
+./scripts/runway.sh queue                 # who is waiting, oldest first, numbered; read their UNVERIFIED line
 ./scripts/runway.sh status                # who holds the runway
 ./scripts/runway.sh clear <name> --by <you>
+./scripts/runway.sh clear <name> --by <you> --sha <sha>     # which request, when <name> has several
+./scripts/runway.sh clear <name> --by <you> --allow-delete  # the commit removes files on purpose
 ```
+
+**Which request.** When a session has one request waiting, `clear <name>`
+takes it. When it has several for different commits, `clear` refuses and
+lists them, and you name one with `--sha` (the eight characters `queue`
+prints are enough). Several entries for the SAME commit are one request
+whose wording was corrected: the newest stands and the older ones are
+dropped with it. Before 2026-10-02 `clear` silently took the newest entry
+whatever it was, and granted the wrong one twice in a day.
+
+**Deletions.** `clear` refuses a `release` or `docs` commit that removes
+files which are on staging, and prints the paths. That is almost never
+meant: it is what a rebase resolved the wrong way looks like, and a docs
+push is the push nobody reads. A deliberate removal needs
+`--allow-delete`, which is written to the log with your name.
 
 `clear` refuses if the runway is busy, or if the commit isn't built on current
 `origin/staging`, or a `docs` request touches code, or the range adds

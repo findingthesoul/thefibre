@@ -28,6 +28,24 @@ the queue.
 
 _Last groomed 2026-09-25 (stress round, `docs/stress-test-2026-09-25.md`).
 
+**Production: Models' sign-in secret does not match the API's.** Found
+2026-10-02 by the read-only checks after the promote: the cross-app hop into
+Models is refused by the production API with 403, where every other app (and
+all eight on staging) gets the correct 400 for a made-up code. The
+`thefibre-models` PRODUCTION Vercel project holds an `SSO_INTERNAL_SECRET`
+that is not the production API's. While it stands, walking into Models from
+The Fibre lands on the sign-in page, and signing in on Models ends on
+/no-access (its access check is refused the same way). Models is a beta app
+with `available: false`, so nobody is meeting this yet; it will bite the day
+it is switched on. The fix is one Vercel env value, Sjoerd's to set (the
+Vercel token the chats used has expired). **To verify:**
+`node scripts/verify-sso-hop.mjs --prod`, then read the production API log
+for the same seconds (`fly logs -a thefibre-api --no-tail | grep sso/redeem`):
+eight lines of 400 is right, a 403 names an app whose secret differs.
+`scripts/verify-vercel-env.mjs` is NOT the guard for this: it can say the
+variable exists, not that two secrets nobody can read back are equal, and
+the hop script's own exit code is always 0.
+
 **Left open by the 2026-10-01 debug round (the lists that had stopped following).**
 Six things found and deliberately not changed, each a decision or somebody
 else's file:
