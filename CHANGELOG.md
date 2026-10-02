@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.9] — 2026-10-02 — staging has an organiser to look at (staging)
+
+Test infrastructure only. No app or API code changes; nothing to deploy.
+
+Staging held no organiser whose public page anybody could open. Every public
+address there resolved to a workspace, so a change to the public organiser
+page could not be checked on staging at all, and a release that could not be
+probed was about to be filed as "no visible change". There is now one
+permanent organiser, made by the integration harness:
+
+- `https://thread.thefibre.tech/fixture-organiser`, with one public thread,
+  `fixture-thread`. The name is "Fixture Organiser (do not edit)", the
+  address is @example.com, and it lives in its own permanent workspace
+  (`int-public-fixtures`) where no other test's cleanup can reach it.
+- **It is shaped like the bug it exists to catch.** The name and the bio are
+  on the profile (`identity_profile`, keyed on email); the organiser row's
+  own name, bio and photo are NULL and are put back to NULL on every run.
+  That is how a real organiser is stored, and it is what the public page did
+  not read until v1.98.8. Code that reads only the organiser row answers
+  this fixture with no name, so a probe for the name fails on the old image
+  and passes on the new one. Checked against the staging API as deployed
+  when the fixture was made: name null, as it should be before that deploy.
+- `public-organiser-fixture.int.test.ts` keeps it alive and is the
+  regression test for that bug: it creates only what is missing, runs the
+  creation twice and counts one of each, fails if anybody fills in the
+  organiser row, and asserts the public route answers with the profile's
+  name and bio.
+
 ## [1.98.8] — 2026-10-02 — your public page shows you (Thread 4.2.0)
 
 Thread's public organiser page read the organiser's own `display_name`,

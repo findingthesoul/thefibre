@@ -387,3 +387,125 @@ export async function cleanupPublicThreadFixture(
   must('organiser user')(await service.from('user').delete().eq('id', f.userRowId));
   // The workspace stays — permanent by design (append-only activity).
 }
+
+// ---------------------------------------------------------------------------
+// The PERMANENT public organiser fixture (2026-10-02).
+//
+// Staging held no organiser a browser or a probe could look at: every public
+// address there resolved to a workspace, so a change to the public organiser
+// page could not be checked on staging at all, and a release that could not
+// be probed was about to be filed as "no visible change". This is one
+// organiser that is always there:
+//
+//   https://thread.thefibre.tech/fixture-organiser
+//   https://thefibre-api-staging.fly.dev/api/v1/thread/public/organiser/fixture-organiser
+//   …/api/v1/thread/public/organiser/fixture-organiser/thread/fixture-thread
+//
+// IT IS SHAPED LIKE THE BUG IT EXISTS TO CATCH. The name and the bio live on
+// the PROFILE (`identity_profile`, keyed on email) and the `thread_organiser`
+// row's own display_name / bio / photo_url are NULL — and are put back to
+// NULL on every run. That is how a real organiser's data is stored since
+// 20260901160000, and it is what the public page did not read until v1.98.8:
+// an image that only reads the organiser row answers this fixture with a
+// null name. Fill the organiser row "to be helpful" and the fixture answers
+// the same on the old code and the new, and proves nothing.
+//
+// Idempotent: looked up by its fixed keys, created only when missing, never
+// duplicated, never deleted. No real person: the address is @example.com and
+// the name says what it is. It lives in its own permanent workspace so that
+// no other test's cleanup can reach it.
+// ---------------------------------------------------------------------------
+
+export const PUBLIC_FIXTURE = {
+  workspaceSlug: 'int-public-fixtures',
+  email: 'fixture-organiser@example.com',
+  organiserSlug: 'fixture-organiser',
+  displayName: 'Fixture Organiser (do not edit)',
+  bio: 'A permanent test fixture on staging. Nobody real. The name and this text live on the profile, not on the organiser row, on purpose.',
+  programTitle: 'Fixture journey (do not edit)',
+  threadSlug: 'fixture-thread',
+} as const;
+
+export type PublicOrganiserFixture = {
+  workspaceId: string;
+  userId: string;
+  organiserId: string;
+  programId: string;
+  threadId: string;
+};
+
+export async function ensurePublicOrganiserFixture(): Promise<PublicOrganiserFixture> {
+  const F = PUBLIC_FIXTURE;
+  const need = <T>(what: string, r: { data: T | null; error: { message: string } | null }): T | null => {
+    if (r.error) throw new Error(`public fixture: ${what}: ${r.error.message}`);
+    return r.data;
+  };
+  const workspaceId = await getPermanentFixtureWorkspace(F.workspaceSlug);
+
+  // The seat.
+  let user = need('user', await service.from('user').select('id').eq('workspace_id', workspaceId).eq('email', F.email).maybeSingle());
+  if (!user) {
+    user = need('user insert', await service.from('user').insert({ workspace_id: workspaceId, email: F.email }).select('id').single());
+  }
+  const userId = user!.id as string;
+
+  // The profile: where the name and the bio LIVE.
+  need(
+    'identity_profile',
+    await service
+      .from('identity_profile')
+      .upsert({ email: F.email, display_name: F.displayName, bio: F.bio, photo_url: null }, { onConflict: 'email' })
+      .select('email')
+      .single(),
+  );
+
+  // The organiser: slug only. Its own name, bio and photo are NULL and stay NULL.
+  let organiser = need('organiser', await service.from('thread_organiser').select('id').eq('slug', F.organiserSlug).maybeSingle());
+  if (!organiser) {
+    organiser = need(
+      'organiser insert',
+      await service.from('thread_organiser').insert({ user_id: userId, workspace_id: workspaceId, slug: F.organiserSlug }).select('id').single(),
+    );
+  }
+  const organiserId = organiser!.id as string;
+  need(
+    'organiser reset',
+    await service.from('thread_organiser').update({ display_name: null, bio: null, photo_url: null }).eq('id', organiserId).select('id').single(),
+  );
+
+  // One public thread, so the page lists something.
+  const { data: app } = await service.from('app').select('id').eq('slug', 'the-thread').single();
+  let program = need('program', await service.from('program').select('id').eq('workspace_id', workspaceId).eq('title', F.programTitle).maybeSingle());
+  if (!program) {
+    program = need(
+      'program insert',
+      await service
+        .from('program')
+        .insert({ workspace_id: workspaceId, app_id: app!.id, title: F.programTitle, format: 'journey', status: 'active' })
+        .select('id')
+        .single(),
+    );
+  }
+  const programId = program!.id as string;
+
+  let thread = need('thread', await service.from('thread_thread').select('id').eq('organiser_id', organiserId).eq('slug', F.threadSlug).maybeSingle());
+  if (!thread) {
+    thread = need(
+      'thread insert',
+      await service
+        .from('thread_thread')
+        .insert({
+          workspace_id: workspaceId,
+          program_id: programId,
+          organiser_id: organiserId,
+          slug: F.threadSlug,
+          intention: 'A permanent fixture thread, so the fixture organiser has something to list.',
+          is_public_listed: true,
+          public_scope: 'personal',
+        })
+        .select('id')
+        .single(),
+    );
+  }
+  return { workspaceId, userId, organiserId, programId, threadId: thread!.id as string };
+}
