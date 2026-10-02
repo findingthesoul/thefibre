@@ -9,6 +9,7 @@ import {
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { GoogleConnect } from './google-connect';
+import { ZoomConnect } from './zoom-connect';
 import { PersonalRoomForm } from './personal-room';
 import { AssistantsConnected, type AssistantGrant } from './assistants';
 import { ThreadPromptCard } from './thread-prompt';
@@ -21,14 +22,18 @@ import { ThreadPromptCard } from './thread-prompt';
 type Connections = {
   google_connected: boolean;
   personal_room_url: string | null;
+  // Additive fields of /meet/connections; absent from an older API.
+  zoom_connected?: boolean;
+  zoom_account_email?: string | null;
+  zoom_configured?: boolean;
 };
 
 export default async function ConnectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ google?: string; reason?: string }>;
+  searchParams: Promise<{ google?: string; zoom?: string; reason?: string }>;
 }) {
-  const { google: googleStatus, reason } = await searchParams;
+  const { google: googleStatus, zoom: zoomStatus, reason } = await searchParams;
   const locale = await uiLocale();
   let conn: Connections | null = null;
   let grants: AssistantGrant[] = [];
@@ -60,6 +65,20 @@ export default async function ConnectionsPage({
                 statusParam={googleStatus ?? null}
                 reasonParam={reason ?? null}
                 locale={locale}
+              />
+            </div>
+          </section>
+
+          <section className="mt-12">
+            <SectionLabel>{t(locale, 'conferencing')}</SectionLabel>
+            <div className="mt-4">
+              <ZoomConnect
+                locale={locale}
+                connected={!!conn.zoom_connected}
+                accountEmail={conn.zoom_account_email ?? null}
+                configured={conn.zoom_configured !== false}
+                statusParam={zoomStatus ?? null}
+                reasonParam={reason ?? null}
               />
             </div>
           </section>

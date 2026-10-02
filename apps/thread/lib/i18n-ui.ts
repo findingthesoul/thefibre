@@ -815,6 +815,70 @@ const CATALOG = {
     de: 'Trennen', // MT
     fr: 'Déconnecter', // MT
   },
+  conferencing: {
+    en: 'Conferencing',
+    nl: 'Videobellen',
+    es: 'Videollamada', // MT
+    pt: 'Videoconferência', // MT
+    de: 'Konferenz', // MT
+    fr: 'Visioconférence', // MT
+  },
+  zoom_desc: {
+    en: 'Create a Zoom meeting automatically for every booking on a meeting type set to Zoom. The join link goes into the calendar event and the confirmation email.',
+    nl: 'Maakt automatisch een Zoom-meeting voor elke boeking op een afspraaktype dat op Zoom staat. De deelnamelink komt in de agenda-afspraak en de bevestigingsmail.',
+    es: 'Crea automáticamente una reunión de Zoom para cada reserva de un tipo de reunión configurado con Zoom. El enlace va en el evento del calendario y en el correo de confirmación.', // MT
+    pt: 'Cria automaticamente uma reunião Zoom para cada marcação de um tipo de reunião definido como Zoom. A ligação entra no evento do calendário e no e-mail de confirmação.', // MT
+    de: 'Legt für jede Buchung eines Meeting-Typs mit Zoom automatisch ein Zoom-Meeting an. Der Link steht im Kalendereintrag und in der Bestätigungsmail.', // MT
+    fr: 'Crée automatiquement une réunion Zoom pour chaque réservation d’un type de réunion réglé sur Zoom. Le lien figure dans l’événement du calendrier et dans l’e-mail de confirmation.', // MT
+  },
+  zoom_connected_msg: {
+    en: '✓ Connected.',
+    nl: '✓ Gekoppeld.',
+    es: '✓ Conectado.', // MT
+    pt: '✓ Ligado.', // MT
+    de: '✓ Verbunden.', // MT
+    fr: '✓ Connecté.', // MT
+  },
+  zoom_error_msg: {
+    en: 'Couldn’t connect{reason}. Try again, or check that your Zoom account still allows this app.',
+    nl: 'Koppelen mislukt{reason}. Probeer opnieuw of check of je Zoom-account deze app nog toestaat.',
+    es: 'No se pudo conectar{reason}. Inténtalo de nuevo o comprueba que tu cuenta de Zoom siga permitiendo esta app.', // MT
+    pt: 'Não foi possível ligar{reason}. Tente novamente ou verifique se a sua conta Zoom ainda permite esta app.', // MT
+    de: 'Verbindung fehlgeschlagen{reason}. Versuch es erneut oder prüfe, ob dein Zoom-Konto diese App noch zulässt.', // MT
+    fr: 'Connexion impossible{reason}. Réessaie ou vérifie que ton compte Zoom autorise toujours cette application.', // MT
+  },
+  zoom_start_failed: {
+    en: 'Could not start Zoom connect.',
+    nl: 'Kon de Zoom-koppeling niet starten.',
+    es: 'No se pudo iniciar la conexión con Zoom.', // MT
+    pt: 'Não foi possível iniciar a ligação ao Zoom.', // MT
+    de: 'Zoom-Verbindung konnte nicht gestartet werden.', // MT
+    fr: 'Impossible de démarrer la connexion Zoom.', // MT
+  },
+  connect_zoom: {
+    en: 'Connect Zoom',
+    nl: 'Zoom koppelen',
+    es: 'Conectar Zoom', // MT
+    pt: 'Ligar o Zoom', // MT
+    de: 'Zoom verbinden', // MT
+    fr: 'Connecter Zoom', // MT
+  },
+  zoom_not_configured: {
+    en: 'Zoom isn’t set up on this server yet. Ask your workspace admin.',
+    nl: 'Zoom is nog niet ingesteld op deze server. Vraag je workspace-beheerder.',
+    es: 'Zoom aún no está configurado en este servidor. Pregunta a la administración de tu espacio.', // MT
+    pt: 'O Zoom ainda não está configurado neste servidor. Fale com a administração do seu espaço.', // MT
+    de: 'Zoom ist auf diesem Server noch nicht eingerichtet. Frag deine Workspace-Admin.', // MT
+    fr: 'Zoom n’est pas encore configuré sur ce serveur. Demande à l’administration de ton espace.', // MT
+  },
+  zoom_account: {
+    en: 'Zoom account: {email}',
+    nl: 'Zoom-account: {email}',
+    es: 'Cuenta de Zoom: {email}', // MT
+    pt: 'Conta Zoom: {email}', // MT
+    de: 'Zoom-Konto: {email}', // MT
+    fr: 'Compte Zoom : {email}', // MT
+  },
   connect_google: {
     en: 'Connect Google',
     nl: 'Google koppelen',

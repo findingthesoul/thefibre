@@ -7,6 +7,7 @@ import {
   SectionLabel,
 } from '@/components/ui/page';
 import { GoogleConnect } from './google-connect';
+import { ZoomConnect } from './zoom-connect';
 import { PersonalRoomForm } from './personal-room';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -19,15 +20,19 @@ import { t } from '@/lib/i18n-ui';
 type Connections = {
   google_connected: boolean;
   personal_room_url: string | null;
+  // Additive fields of /meet/connections; absent from an older API.
+  zoom_connected?: boolean;
+  zoom_account_email?: string | null;
+  zoom_configured?: boolean;
 };
 
 export default async function ConnectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ google?: string; reason?: string }>;
+  searchParams: Promise<{ google?: string; zoom?: string; reason?: string }>;
 }) {
   const locale = await uiLocale();
-  const { google: googleStatus, reason } = await searchParams;
+  const { google: googleStatus, zoom: zoomStatus, reason } = await searchParams;
   let conn: Connections | null = null;
   let error: string | null = null;
   try {
@@ -53,6 +58,20 @@ export default async function ConnectionsPage({
                 locale={locale}
                 connected={conn.google_connected}
                 statusParam={googleStatus ?? null}
+                reasonParam={reason ?? null}
+              />
+            </div>
+          </section>
+
+          <section className="mt-12">
+            <SectionLabel>{t(locale, 'conferencing')}</SectionLabel>
+            <div className="mt-4">
+              <ZoomConnect
+                locale={locale}
+                connected={!!conn.zoom_connected}
+                accountEmail={conn.zoom_account_email ?? null}
+                configured={conn.zoom_configured !== false}
+                statusParam={zoomStatus ?? null}
                 reasonParam={reason ?? null}
               />
             </div>

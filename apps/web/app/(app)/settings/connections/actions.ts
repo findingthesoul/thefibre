@@ -37,6 +37,25 @@ export async function disconnectGoogle(): Promise<Result> {
   }
 }
 
+export async function startZoomAuth(): Promise<{ url?: string; error?: string }> {
+  try {
+    const r = await apiFetch<{ url: string }>('/api/v1/meet/zoom/auth-start?return=fibre');
+    return { url: r.url };
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}
+
+export async function disconnectZoom(): Promise<Result> {
+  try {
+    await apiFetch('/api/v1/meet/zoom/disconnect', { method: 'POST' });
+    revalidatePath('/settings/connections');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function updatePersonalRoom(url: string | null): Promise<Result> {
   try {
     await apiFetch('/api/v1/meet/connections', {

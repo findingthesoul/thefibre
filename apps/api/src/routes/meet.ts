@@ -92,6 +92,7 @@ import {
   ENTITY,
 } from '@thefibre/shared';
 import { platformFeeCents } from '../lib/fees.js';
+import { connectionsSettingsUrl, parseReturnTo } from '../lib/connections-return.js';
 
 const MEET = APPS['fibre-meet'];
 const PLATFORM = APPS['fibre-platform'];
@@ -2083,7 +2084,12 @@ meetRoutes.get('/zoom/auth-start', async (c) => {
   if (!isZoomConfigured()) {
     return c.json({ error: 'Zoom is not configured on this server', code: 'zoom_not_configured' }, 503);
   }
-  const state = await new SignJWT({ user_id: ctx.userId, workspace_id: ctx.workspaceId })
+  // Same as Google: the callback returns to whichever app started the flow.
+  const state = await new SignJWT({
+    user_id: ctx.userId,
+    workspace_id: ctx.workspaceId,
+    return_to: parseReturnTo(c.req.query('return')),
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('10m')
@@ -2101,16 +2107,20 @@ meetRoutes.get('/zoom/auth-callback', async (c) => {
   const url = new URL(c.req.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  const settingsUrl = `${appUrl('fibre-meet', process.env)}/settings/integrations`;
-  if (!code || !state) return c.redirect(`${settingsUrl}?zoom=error&reason=missing`);
+  // Until the state is verified there is no telling which app started the
+  // flow, so errors up to that point land on Meet, as they always did.
+  const meetSettingsUrl = connectionsSettingsUrl('meet', process.env);
+  if (!code || !state) return c.redirect(`${meetSettingsUrl}?zoom=error&reason=missing`);
 
   let userId: string;
+  let settingsUrl = meetSettingsUrl;
   try {
     const { payload } = await jwtVerify(state, stateSecret());
     userId = payload.user_id as string;
     if (!userId) throw new Error('bad state');
+    settingsUrl = connectionsSettingsUrl(payload.return_to, process.env);
   } catch {
-    return c.redirect(`${settingsUrl}?zoom=error&reason=state`);
+    return c.redirect(`${meetSettingsUrl}?zoom=error&reason=state`);
   }
 
   let tokens;

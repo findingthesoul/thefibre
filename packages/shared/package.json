@@ -162,6 +162,10 @@
       "types": "./dist/ui/button.d.ts",
       "default": "./dist/ui/button.js"
     },
+    "./ui/zoom-connection": {
+      "types": "./dist/ui/zoom-connection.d.ts",
+      "default": "./dist/ui/zoom-connection.js"
+    },
     "./ui/cert-view": {
       "types": "./dist/ui/cert-view.d.ts",
       "default": "./dist/ui/cert-view.js"
