@@ -54,9 +54,14 @@ from the move that preceded it.
 
 ### Not verified
 - **Four people's names newly appear on public pages**: `sjoerd+fibre@`,
-  `sjoerd+fot@`, `refreshmiracle@me.com` and `tahirih@soul.com`. Three of them
-  are Sjoerd's own test identities; one is not. Nobody was asked individually;
-  the data is their own profile name and the judgement was Sjoerd's.
+  `sjoerd+fot@`, `refreshmiracle@me.com` and `tahirih@soul.com`. **Corrected
+  after this release shipped**, on Sjoerd's own words: *"refreshmiracle is my
+  account"* and *"Tahirih is my friend - no rpoblem if things change now"*.
+  So it is three accounts of his own plus one person he has cleared by name —
+  not, as this entry first said, three of his and one stranger. The published
+  fact is unchanged: four display names appear, each the name its owner typed
+  into their own profile. What changed is that there is nobody in it who was
+  not asked.
 - Costs three indexed lookups per public page render — the same price Meet
   has paid for this since September. Not load-tested.
 
