@@ -27,6 +27,8 @@ export {
 export type { SurfaceKey } from './branding.js';
 export { absoluteUrl } from './absolute-url.js';
 export { formatWhenInZone } from './format-when.js';
+// Transitional, while a bio moves from plain text to rich text.
+export { bioToHtml, bioToPlain, looksLikeStoredHtml } from './bio-html.js';
 // THE language resolver — which language a surface is in, for every app.
 export {
   resolveUiLocale,

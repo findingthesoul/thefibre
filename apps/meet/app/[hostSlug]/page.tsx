@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { bioToHtml } from '@thefibre/shared';
+import { RichText } from '@thefibre/shared/ui/rich-text';
 import { publicT, toLocale, type Locale } from '@/lib/i18n-public';
 import { WorkspaceLine, type PublicWorkspace } from './workspace-line';
 
@@ -102,10 +104,17 @@ function HostView({ host, L }: { host: Host; L: Locale }) {
           </div>
         </header>
 
-        {host.bio && (
-          <p className="mt-8 text-neutral-700 leading-relaxed whitespace-pre-wrap">
-            {host.bio}
-          </p>
+        {/* The bio is becoming rich text. Until every stored bio has been
+            converted it may still be plain, so it goes through bioToHtml,
+            which escapes-and-wraps plain text and passes HTML through — see
+            packages/shared/src/bio-html.ts, which is scaffolding with a
+            demolition date. The output of the plain branch renders exactly as
+            the whitespace-pre-wrap above it did. */}
+        {bioToHtml(host.bio) && (
+          <RichText
+            html={bioToHtml(host.bio)!}
+            className="mt-8 text-neutral-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
+          />
         )}
 
         <MeetingTypeList slug={host.slug} items={host.meeting_types} L={L} />

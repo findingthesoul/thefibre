@@ -1,5 +1,7 @@
 'use client';
 
+import { bioToHtml } from '@thefibre/shared';
+import { RichText } from '@thefibre/shared/ui/rich-text';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
@@ -108,7 +110,11 @@ export function PublicPageForm({
           <div className="min-w-0">
             <div className="text-sm font-medium">{host.display_name ?? '—'}</div>
             <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-              {host.bio || t(locale, 'pp_no_bio')}
+              {bioToHtml(host.bio) ? (
+                <RichText html={bioToHtml(host.bio)!} className="[&_p]:mb-2 [&_p:last-child]:mb-0" />
+              ) : (
+                t(locale, 'pp_no_bio')
+              )}
             </p>
           </div>
         </div>

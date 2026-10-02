@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { sanitizeRichText } from '../lib/rich-text.js';
 import { z } from 'zod';
 import { isLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
@@ -87,6 +88,14 @@ profileRoutes.patch('/', async (c) => {
   const ctx = c.get('ctx');
 
   const { stripe_account_id, invoice_details, default_payment_methods, ...face } = body.data;
+
+  // The bio is becoming rich text, so it is cleaned where it ENTERS — the
+  // rule lib/rich-text.ts states and the reason it gives: the way out is
+  // eight surfaces and only one of them has to forget. Today every bio is
+  // still plain text, which DOMPurify leaves alone, so this is a no-op until
+  // the editor flips. `|| null` keeps an emptied bio empty rather than
+  // storing '<p></p>'.
+  if (typeof face.bio === 'string') face.bio = sanitizeRichText(face.bio);
 
   if (Object.keys(face).length) {
     const r = await saveProfile(ctx.userId, face);
