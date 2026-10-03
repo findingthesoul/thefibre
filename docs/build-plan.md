@@ -36,6 +36,15 @@ the same instant, and the middle steps are data, not deploys:
   both: `organiser.bio` stays plain (rule 8 — an app outside this repo reads
   it) and a new `organiser.bio_html` carries the formatting.
   `packages/shared/src/bio-html.ts` holds the plain-or-HTML decision.
+- **A1/A2 seen working on a DEPLOYED stack, 2026-10-03.** Until this, the
+  whole path had only ever run locally. On staging, with the permanent
+  `fixture-organiser` (name and bio on the PROFILE, the organiser row's own
+  columns NULL — the shape of the bug, so the fixture is also the regression
+  case): the API returns the name, the plain `bio` and a wrapped `bio_html`,
+  and the page renders them. A two-paragraph plain bio comes out as TWO `<p>`
+  elements, measured 31px apart, with no raw tags anywhere in the page text —
+  so the paragraph-splitting path is no longer unit-tests-only. One design
+  only: a theme is a workspace setting and switching it is a staging write.
 - **A2 — DONE (v1.98.8).** The public organiser payload reads the platform profile, the way
   the authed route has since 20260901140000 and Meet's public host route
   since 2026-09-05. Thread's public one was left behind, so a bio written in
