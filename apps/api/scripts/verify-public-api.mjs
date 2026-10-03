@@ -94,7 +94,9 @@ async function get(path, { origin, method = 'GET', headers = {} } = {}) {
 // --- the published shapes --------------------------------------------------
 
 const SHAPES = {
-  organiser: ['id', 'slug', 'display_name', 'bio', 'photo_url', 'timezone'],
+  // bio_html joined on 2026-10-03, the day production began serving it (it
+  // waited in PENDING below until then, as the comment there describes).
+  organiser: ['id', 'slug', 'display_name', 'bio', 'bio_html', 'photo_url', 'timezone'],
   listItem: [
     'id',
     'slug',
@@ -163,8 +165,14 @@ const INTERNAL = ['workspace_id', 'team_id', 'organiser_id', 'payment_destinatio
 // production serves it this FAILS and tells you to move it into SHAPES. So
 // the list cannot quietly become permanent — the deploy itself collects it.
 const PENDING = {
-  // added 2026-10-02 with the rich-text bio; `bio` stays plain beside it
-  organiser: ['bio_html'],
+  // Empty since 2026-10-03: `bio_html` (added 2026-10-02 with the rich-text
+  // bio) reached production and moved into SHAPES.organiser. The key stays so
+  // the two checkPending calls below keep working when the next field waits.
+  //
+  // What that day proved: an entry here blocks EVERYONE's gate the day
+  // production serves it, not only its author's. It is a promise to collect
+  // it that same day, in the session that deploys, not a parking spot.
+  organiser: [],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */

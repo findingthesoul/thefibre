@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.10] — 2026-10-03 — the release gate is green again: bio_html is a published field now (staging)
+
+A hotfix to the gate itself, one line of substance.
+
+`organiser.bio_html` was added on 2026-10-02 and listed as PENDING in the
+public-API contract check, because the gate runs against production and
+production did not serve it yet. When the second promote put it on
+production, the check did what it is built to do: it stopped passing and
+said "move it into SHAPES". Nobody was holding the file at that moment, so
+`pnpm verify` was red for every session for about an hour. The field is now
+in `SHAPES.organiser`, where a missing `bio_html` fails the gate from here
+on, and the pending list is empty. Nothing else changes.
+
 ## [1.98.9] — 2026-10-02 — staging has an organiser to look at (staging)
 
 Test infrastructure only. No app or API code changes; nothing to deploy.
