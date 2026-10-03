@@ -54,9 +54,16 @@ export function ProfileForm({
   /** Only for apps whose profile is a public page. */
   slug?: ProfileSlug;
   upload: (file: File) => Promise<string>;
+  /** `fieldErrors` is what the API already says and nobody showed: which
+   *  field was rejected and why. Optional, so a caller that has none is
+   *  unchanged. */
   onSave: (
     values: ProfileValues & { slug?: string },
-  ) => Promise<{ ok: boolean; error?: string | undefined }>;
+  ) => Promise<{
+    ok: boolean;
+    error?: string | undefined;
+    fieldErrors?: Record<string, string[] | undefined> | undefined;
+  }>;
   photoHint?: string;
   bioHint?: string;
   footer?: React.ReactNode;
@@ -68,6 +75,7 @@ export function ProfileForm({
   const [photoUrl, setPhotoUrl] = useState<string | null>(initial.photo_url);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
 
@@ -89,6 +97,7 @@ export function ProfileForm({
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setSaved(false);
     if (slug && !slugValue.trim()) return setError(chromeT(locale, 'pick_public_url'));
     start(async () => {
@@ -99,7 +108,15 @@ export function ProfileForm({
         timezone: timezone.trim() || 'Europe/Amsterdam',
         ...(slug ? { slug: slugValue.trim() } : {}),
       });
-      if (!r.ok) return setError(r.error ?? chromeT(locale, 'could_not_save'));
+      if (!r.ok) {
+        setFieldErrors(r.fieldErrors ?? {});
+        // A field-level reason is the useful one, so it becomes the message
+        // too; the bare status stays only when there is nothing better.
+        const first = Object.values(r.fieldErrors ?? {})
+          .flatMap((m) => m ?? [])
+          .find(Boolean);
+        return setError(first ?? r.error ?? chromeT(locale, 'could_not_save'));
+      }
       setSaved(true);
     });
   }

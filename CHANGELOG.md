@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.11] — 2026-10-03 — "API 400" was a bio one paragraph too long
+
+Sjoerd hit it on production while a Zoom reviewer was watching: paste a real
+bio into Settings → Profile, press Save, and the screen says `API 400`. No
+field, no reason, nothing to do about it.
+
+The server was working correctly. `PATCH /api/v1/profile` rejected the body
+in 3ms — before touching the database — because the bio exceeded the 2000
+characters the schema allowed, and it said so, in a `fieldErrors` object that
+names the field and the limit. The web action kept that object. The shared
+profile form had nowhere to put it, so it showed the status code instead.
+Three correct pieces and a number on the screen.
+
+**The form now shows what the API said.** The field-level reason becomes the
+message, so "A bio can be at most 8000 characters." is what you read. Every
+message in that schema is now written to be read by the person saving, rather
+than by whoever is reading the stack trace.
+
+**And the limit is 8000, not 2000.** It was set when a bio was plain text. A
+bio is becoming rich text — the same words wrapped in paragraphs, a list and
+a bold phrase run 10–20% longer — so a limit chosen for plain text would have
+started rejecting saves that worked the day before, once the editor flips.
+A written bio of the kind people paste in is 1,000–3,000 characters before
+any markup. Thread's organiser route carried its own 2000 for the same value;
+it now matches, because two limits on one bio means a save that works on one
+screen fails on the other.
+
+**One more, found while reading:** `timezone` was the only field in that
+schema that refused `null`, while every caller sends `timezone || null` when
+the picker is empty. Nobody had hit it. It is nullable now.
+
+### Verified
+- The 400 is in the production log at 09:01:42, 3ms, with a successful PATCH
+  from the same session a minute earlier — a schema rejection, not a broken
+  save path or a session problem.
+- Six tests asserting the schema accepts **what the form actually sends**: a
+  full payload, `null` for each field a caller empties, a 2,400-character bio,
+  and that same bio again once it is HTML. They fail against the old 2000 —
+  checked by putting it back.
+- The refusal messages are asserted by the words a person reads, not by the
+  failure being a failure.
+
+### Not verified
+- I did not see the rejected request body, so "the bio was over the limit" is
+  the strong inference and not a measurement: a 3ms rejection on a payload
+  whose only long field is the bio. The point of the change is that the next
+  one explains itself whichever field it is.
+- The error has not been rendered on a screen by anybody. It sets the same
+  state the existing error box already displayed, so the rendering path is
+  unchanged, but I have not signed in and looked.
+
 ## [1.98.10] — 2026-10-03 — the release gate is green again: bio_html is a published field now (staging)
 
 A hotfix to the gate itself, one line of substance.

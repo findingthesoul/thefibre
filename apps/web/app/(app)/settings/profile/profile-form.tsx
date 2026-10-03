@@ -55,7 +55,7 @@ export function ProfileForm({
           photo_url: v.photo_url,
           timezone: v.timezone || null,
         });
-        return { ok: !!r.ok, error: r.error };
+        return { ok: !!r.ok, error: r.error, fieldErrors: r.fieldErrors };
       }}
       footer={
         <p className="text-xs text-ink-muted">
