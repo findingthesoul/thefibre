@@ -199,3 +199,67 @@ export async function forgetZoomUser(
     error: error?.message ?? null,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Microsoft Teams. Same SPoT reasoning as Zoom: the refresh token is a
+// credential, so it lives on user_connection (service-role only) and every
+// reader comes through here. No meet_host fallback — it never existed.
+//
+// Every write here touches ONLY the teams_* columns. personal_room_url and the
+// Zoom and Google columns are other connections' state; an upsert that named
+// them would clobber a person's other integrations (teams.test.ts pins this).
+// ---------------------------------------------------------------------------
+
+/** The user's Microsoft refresh token, or null when they haven't connected. */
+export async function userTeamsToken(
+  userId: string | null | undefined,
+): Promise<string | null> {
+  if (!userId) return null;
+  const { data } = await adminClient
+    .from('user_connection')
+    .select('teams_refresh_token')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data?.teams_refresh_token ?? null;
+}
+
+/** Which Microsoft account is wired up (for the settings card). */
+export async function userTeamsAccount(
+  userId: string | null | undefined,
+): Promise<{ connected: boolean; email: string | null }> {
+  if (!userId) return { connected: false, email: null };
+  const { data } = await adminClient
+    .from('user_connection')
+    .select('teams_refresh_token, teams_account_email')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return {
+    connected: !!data?.teams_refresh_token,
+    email: data?.teams_account_email ?? null,
+  };
+}
+
+/**
+ * Write the rotated token. `token: null` disconnects and clears the account
+ * email and Graph id with it. Pass `accountEmail` / `teamsUserId` at connect
+ * time; token rotations leave them alone.
+ */
+export async function saveTeamsConnection(
+  userId: string,
+  token: string | null,
+  accountEmail?: string | null,
+  teamsUserId?: string | null,
+): Promise<{ error: string | null }> {
+  const patch: Record<string, unknown> = { user_id: userId, teams_refresh_token: token };
+  if (token === null) {
+    patch.teams_account_email = null;
+    patch.teams_user_id = null;
+  } else {
+    if (accountEmail !== undefined) patch.teams_account_email = accountEmail;
+    if (teamsUserId !== undefined) patch.teams_user_id = teamsUserId;
+  }
+  const { error } = await adminClient
+    .from('user_connection')
+    .upsert(patch, { onConflict: 'user_id' });
+  return { error: error?.message ?? null };
+}

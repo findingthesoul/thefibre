@@ -48,6 +48,8 @@ import {
   userZoomAccount,
   saveZoomConnection,
   forgetZoomUser,
+  userTeamsAccount,
+  saveTeamsConnection,
 } from '../lib/connections.js';
 import {
   verifyZoomSignature,
@@ -65,6 +67,13 @@ import {
   ZoomAlternativeHostsError,
 } from '../lib/zoom/client.js';
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
+import {
+  isTeamsConfigured,
+  teamsAuthorizeUrl,
+  exchangeCodeForTokens as exchangeTeamsCode,
+  fetchTeamsUser,
+} from '../lib/teams/client.js';
+import { clearTeamsTokenCache } from '../lib/teams/host.js';
 import { createMeetingLink } from '../lib/meeting-links.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { bookingIcalUid, bookingInviteAttachment } from '../lib/meet-invite.js';
@@ -2489,6 +2498,111 @@ meetRoutes.post('/zoom/disconnect', async (c) => {
   return c.json({ ok: true });
 });
 
+// ===========================================================================
+// Microsoft Teams OAuth — connect, callback, disconnect. Same shape as Zoom
+// above: auth-start is authenticated and returns the consent URL; the callback
+// is public but its `state` is a signed JWT carrying the user and the app that
+// started the flow (`return_to`). The credential lands in user_connection.
+//
+// There is no webhook: Microsoft has no deauthorization callback like Zoom's.
+// A person who removes the app in their Microsoft account just makes the next
+// refresh fail with invalid_grant, and lib/teams/host.ts clears the
+// connection then.
+// ===========================================================================
+
+// GET /api/v1/meet/teams/auth-start
+meetRoutes.get('/teams/auth-start', async (c) => {
+  const ctx = c.get('ctx');
+  if (!isTeamsConfigured()) {
+    return c.json({ error: 'Teams is not configured on this server', code: 'teams_not_configured' }, 503);
+  }
+  const state = await new SignJWT({
+    user_id: ctx.userId,
+    workspace_id: ctx.workspaceId,
+    return_to: parseReturnTo(c.req.query('return')),
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(stateSecret());
+  try {
+    return c.json({ url: teamsAuthorizeUrl(state) });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'oauth not configured';
+    return c.json({ error: msg }, 500);
+  }
+});
+
+// GET /api/v1/meet/teams/auth-callback — public (state is signed).
+meetRoutes.get('/teams/auth-callback', async (c) => {
+  const url = new URL(c.req.url);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  // Until the state is verified there is no telling which app started the
+  // flow, so errors up to that point land on Meet.
+  const meetSettingsUrl = connectionsSettingsUrl('meet', process.env);
+  if (!state) return c.redirect(`${meetSettingsUrl}?teams=error&reason=missing`);
+
+  let userId: string;
+  let settingsUrl = meetSettingsUrl;
+  try {
+    const { payload } = await jwtVerify(state, stateSecret());
+    userId = payload.user_id as string;
+    if (!userId) throw new Error('bad state');
+    settingsUrl = connectionsSettingsUrl(payload.return_to, process.env);
+  } catch {
+    return c.redirect(`${meetSettingsUrl}?teams=error&reason=state`);
+  }
+
+  // Microsoft sends error=access_denied (and others) INSTEAD of a code when
+  // the person declines, or when their tenant blocks user consent.
+  if (url.searchParams.get('error')) {
+    console.warn('[teams/auth-callback] refused', url.searchParams.get('error'));
+    return c.redirect(`${settingsUrl}?teams=error&reason=denied`);
+  }
+  if (!code) return c.redirect(`${settingsUrl}?teams=error&reason=missing`);
+
+  let tokens;
+  try {
+    tokens = await exchangeTeamsCode(code);
+  } catch (e) {
+    console.error('[teams/auth-callback] exchange', e);
+    return c.redirect(`${settingsUrl}?teams=error&reason=exchange`);
+  }
+
+  // Which Microsoft account this is. Not optional, for the Zoom reason: a
+  // connection saved without an id is a credential nobody can later trace to a
+  // person, so if Graph will not say who this is the connect fails instead.
+  let accountEmail: string | null = null;
+  let teamsUserId: string;
+  try {
+    const me = await fetchTeamsUser(tokens.accessToken);
+    accountEmail = me.email;
+    teamsUserId = me.id;
+    if (!teamsUserId) throw new Error('Graph returned no user id');
+  } catch (e) {
+    console.error('[teams/auth-callback] user fetch failed', e);
+    return c.redirect(`${settingsUrl}?teams=error&reason=user`);
+  }
+
+  const { error } = await saveTeamsConnection(userId, tokens.refreshToken, accountEmail, teamsUserId);
+  if (error) {
+    console.error('[teams/auth-callback] save token', error);
+    return c.redirect(`${settingsUrl}?teams=error&reason=db`);
+  }
+  clearTeamsTokenCache(userId);
+  return c.redirect(`${settingsUrl}?teams=connected`);
+});
+
+// POST /api/v1/meet/teams/disconnect
+meetRoutes.post('/teams/disconnect', async (c) => {
+  const ctx = c.get('ctx');
+  const { error } = await saveTeamsConnection(ctx.userId, null);
+  if (error) return c.json({ error }, 500);
+  clearTeamsTokenCache(ctx.userId);
+  return c.json({ ok: true });
+});
+
 // ---------------------------------------------------------------------------
 // Uploads — profile photos etc. Public `fibre-assets` bucket; 5MB cap, same
 // contract as the Thread uploads route (multipart "file" → { url }).
@@ -2572,12 +2686,16 @@ meetRoutes.get('/connections', async (c) => {
   const host = await ensureHostRow(ctx.userId, ctx.workspaceId);
   if (!host) return c.json({ error: 'failed to provision host' }, 500);
   const zoom = await userZoomAccount(ctx.userId);
+  const teams = await userTeamsAccount(ctx.userId);
   return c.json({
     google_connected: !!(await userGoogleToken(ctx.userId)),
     personal_room_url: await userPersonalRoom(ctx.userId),
     zoom_connected: zoom.connected,
     zoom_account_email: zoom.email,
     zoom_configured: isZoomConfigured(),
+    teams_connected: teams.connected,
+    teams_account_email: teams.email,
+    teams_configured: isTeamsConfigured(),
   });
 });
 

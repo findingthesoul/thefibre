@@ -171,6 +171,9 @@ const PUBLIC_PREFIXES = [
   // Zoom OAuth lands here with code+state; the state is a signed JWT that
   // carries the user, so the callback authenticates itself.
   '/api/v1/meet/zoom/auth-callback',
+  // Microsoft (Teams) OAuth lands here the same way: code+state, and the
+  // signed state carries the user.
+  '/api/v1/meet/teams/auth-callback',
   // Zoom's Deauthorization Notification Endpoint — Zoom calls it with no
   // session; the handler verifies x-zm-signature before touching anything.
   '/api/v1/meet/zoom/webhook',

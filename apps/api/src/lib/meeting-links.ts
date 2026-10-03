@@ -38,14 +38,17 @@ import {
   ZoomAlternativeHostsError,
 } from './zoom/client.js';
 import { zoomAccessTokenForUser } from './zoom/host.js';
+import { createTeamsMeeting, isTeamsConfigured } from './teams/client.js';
+import { teamsAccessTokenForUser } from './teams/host.js';
 import { userGoogleToken } from './connections.js';
 import { createEvent } from './google/client.js';
 
-/** Providers that can mint a link. `teams`, `personal_room` and `custom`
- *  cannot: Teams has no integration on this platform, a personal room is
- *  already a fixed URL read straight from the profile, and a custom link is
- *  by definition the organiser's own. */
-export type MintableProvider = 'zoom' | 'google_meet';
+/** Providers that can mint a link. `personal_room` and `custom` cannot: a
+ *  personal room is already a fixed URL read straight from the profile, and a
+ *  custom link is by definition the organiser's own. (`teams` joined the
+ *  mintable set when the Microsoft connection landed — a work or school
+ *  account connected through Settings, same as Zoom.) */
+export type MintableProvider = 'zoom' | 'google_meet' | 'teams';
 
 export type MintResult =
   /** `id` is the PROVIDER's own id for the meeting, when it has one. Meet
@@ -56,7 +59,7 @@ export type MintResult =
   | { ok: false; reason: 'not_configured' | 'not_connected' | 'failed' };
 
 export function isMintable(provider: string | null | undefined): provider is MintableProvider {
-  return provider === 'zoom' || provider === 'google_meet';
+  return provider === 'zoom' || provider === 'google_meet' || provider === 'teams';
 }
 
 export async function createMeetingLink(args: {
@@ -113,6 +116,27 @@ export async function createMeetingLink(args: {
         }
       }
       console.error('[meeting-links] zoom create failed', e);
+      return { ok: false, reason: 'failed' };
+    }
+  }
+
+  if (args.provider === 'teams') {
+    if (!isTeamsConfigured()) return { ok: false, reason: 'not_configured' };
+    const token = await teamsAccessTokenForUser(args.userId);
+    if (!token) return { ok: false, reason: 'not_connected' };
+    try {
+      // Instants, not wall clock: Graph takes UTC and there is no timezone
+      // field, so `args.timezone` has nothing to apply to (see
+      // teams/client.ts teamsInstant). Co-hosts are not passed either: a Graph
+      // online meeting is a join link, not an invitation.
+      const m = await createTeamsMeeting(token, {
+        topic: args.topic,
+        startsAt: args.startsAt,
+        endsAt: args.endsAt,
+      });
+      return { ok: true, url: m.joinUrl, id: m.meetingId };
+    } catch (e) {
+      console.error('[meeting-links] teams create failed', e);
       return { ok: false, reason: 'failed' };
     }
   }

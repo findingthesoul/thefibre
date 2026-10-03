@@ -1403,6 +1403,13 @@ async function mintMeetingUrl(opts: {
   // and being unable to add a session to a programme because Zoom is having
   // an afternoon is a worse outcome than a link the organiser fills in.
   if (r.reason === 'failed') return {};
+  // Teams is mintable in the API before it is connectable anywhere: there is no
+  // Teams card in Settings and no `teams_available` in the editor yet. Refusing
+  // here would turn "Teams + a blank link" — which saves today — into a save
+  // that fails with no way to fix it. Until the cards ship, Teams keeps its
+  // old behaviour (a label; the organiser's own link). Delete this line in the
+  // release that adds the Teams connect cards and the editor's availability.
+  if (opts.provider === 'teams') return {};
   const what = opts.provider === 'zoom' ? 'Zoom' : 'Google';
   return {
     refuse:

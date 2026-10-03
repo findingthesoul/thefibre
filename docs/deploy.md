@@ -461,6 +461,65 @@ on this server" and the Zoom option in the meeting-type form stays
 unselectable — nothing breaks, the feature is simply off. Each host then
 connects their own Zoom account once, at Settings → Integrations.
 
+## Microsoft Teams (conferencing)
+
+The API can create a real Teams meeting in a person's own Microsoft work or
+school account, the way it does for Zoom (`apps/api/src/lib/teams/`; Meet and
+Thread both mint through `lib/meeting-links.ts`). It needs one **Entra app
+registration**, already made:
+
+- **Multi-tenant** ("accounts in any organizational directory"). Personal
+  Microsoft accounts cannot create online meetings through Graph, so the
+  endpoints use the `organizations` tenant segment.
+- **Application (client) ID: `82bb742e-d336-414b-b1fa-38b5d27aefaa`** (a public
+  identifier, not a secret).
+- **Redirect URIs** (type Web), already registered:
+  `https://api.thethread.app/api/v1/meet/teams/auth-callback` (production) and
+  `https://thefibre-api-staging.fly.dev/api/v1/meet/teams/auth-callback`
+  (staging). The URI is built from `PUBLIC_API_URL`, so it must match the
+  registration byte for byte.
+- **Delegated permissions**, all consentable by the user without a tenant
+  admin: `OnlineMeetings.ReadWrite`, `User.Read`, and `offline_access`. No
+  application permission and no per-tenant application access policy.
+- The client secret is a **secret value** with an expiry in Entra (Certificates
+  & secrets). Note its expiry date somewhere: when it lapses every refresh
+  fails with `invalid_client`. The API deliberately does NOT clear people's
+  connections for that (only `invalid_grant` / `interaction_required` do), so
+  rotating the secret fixes everyone without a reconnect.
+
+Env vars, set STAGED and deployed through the guard, values read with `read -s`
+so they never reach shell history or a chat:
+
+```bash
+read -rs -p "TEAMS_CLIENT_ID: " TEAMS_CLIENT_ID; echo
+read -rs -p "TEAMS_CLIENT_SECRET: " TEAMS_CLIENT_SECRET; echo
+fly secrets set --stage TEAMS_CLIENT_ID="$TEAMS_CLIENT_ID" TEAMS_CLIENT_SECRET="$TEAMS_CLIENT_SECRET"   # add -c fly.staging.toml for staging
+./scripts/deploy-api.sh prod --probe "https://thefibre-api.fly.dev/api/v1/meet/teams/auth-callback | "   # or staging
+```
+
+**Production needs the migration pushed first.** The release adds
+`teams_refresh_token`, `teams_account_email` and `teams_user_id` to
+`user_connection` (`…_user_connection_teams`); until it is on the database,
+`GET /api/v1/meet/connections` and every connect attempt fail on the unknown
+column. Push the migration to production, then confirm with
+`supabase migration list` (the promote script cannot see an old gap).
+
+How it behaves: a person connects at `GET /api/v1/meet/teams/auth-start`
+(`?return=thread|fibre|meet` picks which app the browser returns to); Microsoft
+rotates the refresh token on every refresh and `lib/teams/host.ts` persists the
+new one each time. There is no deauthorization webhook as for Zoom: a person
+who removes the app simply makes the next refresh fail with `invalid_grant`,
+which clears their connection. Until the two env vars exist the connection
+reports `teams_configured: false` and nothing breaks.
+
+Graph limits worth knowing: creating, updating (`PATCH`, which always needs
+both start and end) and deleting an online meeting are documented for the
+delegated work or school case; there is no timezone field, so times are sent
+as UTC instants (`…Z`). The create call is documented as making an online
+meeting (a join link), not a calendar event; do not assume it invites anyone or
+lands on the host's Outlook calendar (not verified), which is why callers email
+the link themselves.
+
 ## The in-app assistant (`ANTHROPIC_API_KEY`)
 
 `docs/assistant-in-app.md`. One secret switches it on per environment:

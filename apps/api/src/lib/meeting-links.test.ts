@@ -17,6 +17,9 @@ const zoomAccessTokenForUser = vi.fn();
 const isZoomConfigured = vi.fn(() => true);
 const userGoogleToken = vi.fn();
 const createEvent = vi.fn();
+const createTeamsMeeting = vi.fn();
+const teamsAccessTokenForUser = vi.fn();
+const isTeamsConfigured = vi.fn(() => true);
 
 class FakeAltHostsError extends Error {}
 
@@ -27,6 +30,13 @@ vi.mock('./zoom/client.js', () => ({
 }));
 vi.mock('./zoom/host.js', () => ({
   zoomAccessTokenForUser: (...a: unknown[]) => zoomAccessTokenForUser(...a),
+}));
+vi.mock('./teams/client.js', () => ({
+  createTeamsMeeting: (...a: unknown[]) => createTeamsMeeting(...a),
+  isTeamsConfigured: () => isTeamsConfigured(),
+}));
+vi.mock('./teams/host.js', () => ({
+  teamsAccessTokenForUser: (...a: unknown[]) => teamsAccessTokenForUser(...a),
 }));
 vi.mock('./connections.js', () => ({
   userGoogleToken: (...a: unknown[]) => userGoogleToken(...a),
@@ -47,19 +57,23 @@ const WHEN = {
 beforeEach(() => {
   vi.clearAllMocks();
   isZoomConfigured.mockReturnValue(true);
+  isTeamsConfigured.mockReturnValue(true);
 });
 
 describe('which providers can mint at all', () => {
-  it('zoom and google meet can', () => {
+  it('zoom, google meet and teams can', () => {
     expect(isMintable('zoom')).toBe(true);
     expect(isMintable('google_meet')).toBe(true);
+    // Deliberately changed when the Microsoft connection landed: this used to
+    // assert Teams was NOT mintable because it had no integration here.
+    expect(isMintable('teams')).toBe(true);
   });
 
   it('the others cannot, and that is not a gap', () => {
-    // Teams has no integration here; a personal room IS already a fixed URL
-    // read from the profile; a custom link is the organiser's own by
-    // definition. Minting for these would mean inventing something.
-    for (const p of ['teams', 'personal_room', 'custom', null, undefined, '']) {
+    // A personal room IS already a fixed URL read from the profile; a custom
+    // link is the organiser's own by definition. Minting for these would mean
+    // inventing something.
+    for (const p of ['personal_room', 'custom', null, undefined, '']) {
       expect(isMintable(p)).toBe(false);
     }
   });
@@ -145,6 +159,69 @@ describe('zoom', () => {
     const r = await createMeetingLink({ userId: 'u1', provider: 'zoom', ...WHEN });
 
     expect(r).toEqual({ ok: false, reason: 'failed' });
+  });
+});
+
+describe('teams', () => {
+  it('creates the meeting in the connected account and returns the join URL and id', async () => {
+    teamsAccessTokenForUser.mockResolvedValue('tok');
+    createTeamsMeeting.mockResolvedValue({ meetingId: 'MSpk', joinUrl: 'https://teams.microsoft.com/l/meetup-join/x' });
+
+    const r = await createMeetingLink({ userId: 'u1', provider: 'teams', ...WHEN });
+
+    expect(r).toEqual({ ok: true, url: 'https://teams.microsoft.com/l/meetup-join/x', id: 'MSpk' });
+    expect(teamsAccessTokenForUser).toHaveBeenCalledWith('u1');
+  });
+
+  it('hands the two INSTANTS over, not a start and a duration in a zone', async () => {
+    teamsAccessTokenForUser.mockResolvedValue('tok');
+    createTeamsMeeting.mockResolvedValue({ meetingId: '1', joinUrl: 'u' });
+
+    await createMeetingLink({ userId: 'u1', provider: 'teams', ...WHEN });
+
+    expect(createTeamsMeeting.mock.calls[0]![1]).toEqual({
+      topic: 'Opening session',
+      startsAt: WHEN.startsAt,
+      endsAt: WHEN.endsAt,
+    });
+  });
+
+  it('says NOT CONFIGURED when the platform has no Microsoft app', async () => {
+    isTeamsConfigured.mockReturnValue(false);
+
+    const r = await createMeetingLink({ userId: 'u1', provider: 'teams', ...WHEN });
+
+    expect(r).toEqual({ ok: false, reason: 'not_configured' });
+    expect(teamsAccessTokenForUser).not.toHaveBeenCalled();
+  });
+
+  it('says NOT CONNECTED when this person has not linked Microsoft', async () => {
+    teamsAccessTokenForUser.mockResolvedValue(null);
+
+    const r = await createMeetingLink({ userId: 'u1', provider: 'teams', ...WHEN });
+
+    expect(r).toEqual({ ok: false, reason: 'not_connected' });
+    expect(createTeamsMeeting).not.toHaveBeenCalled();
+  });
+
+  it('a Graph error is a failure, not a silent empty link', async () => {
+    teamsAccessTokenForUser.mockResolvedValue('tok');
+    createTeamsMeeting.mockRejectedValue(new Error('403'));
+
+    const r = await createMeetingLink({ userId: 'u1', provider: 'teams', ...WHEN });
+
+    expect(r).toEqual({ ok: false, reason: 'failed' });
+  });
+
+  it('never touches the zoom or google paths', async () => {
+    teamsAccessTokenForUser.mockResolvedValue('tok');
+    createTeamsMeeting.mockResolvedValue({ meetingId: '1', joinUrl: 'u' });
+
+    await createMeetingLink({ userId: 'u1', provider: 'teams', ...WHEN });
+
+    expect(createZoomMeeting).not.toHaveBeenCalled();
+    expect(createEvent).not.toHaveBeenCalled();
+    expect(userGoogleToken).not.toHaveBeenCalled();
   });
 });
 
