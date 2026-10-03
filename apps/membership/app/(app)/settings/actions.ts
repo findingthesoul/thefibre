@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
 
-export type ActionResult = { ok?: boolean; error?: string };
+export type ActionResult<T = unknown> = { ok?: boolean; error?: string; data?: T };
 
 function formatApiError(e: unknown): string {
   if (!(e instanceof ApiError)) return 'unknown error';
@@ -96,4 +96,71 @@ export async function saveSeatPolicy(input: {
   allow_billed_seats: boolean;
 }): Promise<ActionResult> {
   return putSettings(input);
+}
+
+// ── member directory (docs/member-directory-spec.md slice 1) ──────────────
+//
+// The four workspace switches. `directory_default_category_id` is the one
+// that names another row, and the API re-checks it belongs to this
+// workspace: a foreign key proves a category exists, not that it is ours.
+
+export async function saveDirectorySettings(input: {
+  directory_visibility: 'everybody' | 'category';
+  directory_show_contact: boolean;
+  directory_show_category: boolean;
+  directory_default_category_id: string | null;
+}): Promise<ActionResult> {
+  const r = await putSettings(input);
+  revalidatePath('/settings/directory');
+  return r;
+}
+
+export async function createCategory(name: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const r = await apiFetch<{ id: string }>('/api/v1/membership/directory/categories', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+    revalidatePath('/settings/directory');
+    return { ok: true, data: { id: r.id } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+/** Rename, reorder or archive. Archive rather than delete: a category that
+ *  products still carry would otherwise take their categorisation with it,
+ *  and §9.3 then silently drops those members out of the directory. */
+export async function patchCategory(
+  id: string,
+  input: { name?: string; sort_order?: number; archived?: boolean },
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/directory/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+    revalidatePath('/settings/directory');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+/** Replace-in-full: the editor shows a set of checkboxes and saves a set. */
+export async function setProductCategories(
+  productId: string,
+  categoryIds: string[],
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/products/${productId}/categories`, {
+      method: 'PUT',
+      body: JSON.stringify({ category_ids: categoryIds }),
+    });
+    revalidatePath('/products');
+    revalidatePath('/settings/directory');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
 }

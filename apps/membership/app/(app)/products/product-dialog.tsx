@@ -7,6 +7,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { createProduct, patchProduct } from './actions';
+import { setProductCategories } from '../settings/actions';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { createGrant, deleteGrant } from '../access/actions';
 import { GRANT_KINDS, type Grant, type GrantKind as AccessKind } from '../access/types';
@@ -55,6 +56,8 @@ export function ProductDialog({
   currency: workspaceCurrency,
   threadOptions,
   grants,
+  categories,
+  productCategoryIds,
   locale,
   nextSortOrder,
   onClose,
@@ -65,6 +68,11 @@ export function ProductDialog({
   threadOptions: { slug: string; title: string }[];
   /** Access carried by THIS product (the product is the promise — 2026-09-05). */
   grants: Grant[];
+  /** The workspace's directory categories (slice 1). Empty = none defined
+   *  yet, and the section says so rather than showing an empty box. */
+  categories: import('../settings/shared').DirectoryCategory[];
+  /** The categories THIS product currently confers. */
+  productCategoryIds: string[];
   locale: Locale;
   /** Where a NEW product lands: the end of the list. Reordering is drag-and-drop on the list itself. */
   nextSortOrder: number;
@@ -89,6 +97,12 @@ export function ProductDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  // Directory categories save WITH the product, not immediately like access:
+  // they need no row of their own, and a half-saved set of checkboxes is the
+  // thing replace-in-full exists to avoid. A new product gets its id back
+  // from createProduct, so this works on create too.
+  const [categoryIds, setCategoryIds] = useState<string[]>(productCategoryIds);
+  const liveCategories = categories.filter((c) => !c.archived_at);
 
   // Access rows are saved IMMEDIATELY via the grants API (they need the
   // product row to exist) — optimistic local list, refresh on close.
@@ -211,11 +225,42 @@ export function ProductDialog({
       // Existing products keep their position; a new one joins at the end.
       sort_order: product ? (product.sort_order ?? 0) : nextSortOrder,
     };
-    const res = product ? await patchProduct(product.id, input) : await createProduct(input);
-    if (res.error) {
-      setError(res.error);
-      setBusy(false);
-      return;
+    // Split rather than a ternary into one variable: only createProduct
+    // returns an id, and a union of the two results makes `res.data.id`
+    // unreachable for the type checker.
+    let productId = product?.id;
+    if (product) {
+      const res = await patchProduct(product.id, input);
+      if (res.error) {
+        setError(res.error);
+        setBusy(false);
+        return;
+      }
+    } else {
+      const res = await createProduct(input);
+      if (res.error || !res.data) {
+        setError(res.error ?? t(locale, 'name_required'));
+        setBusy(false);
+        return;
+      }
+      productId = res.data.id;
+    }
+    // Categories, once we know the id. Only when the set actually changed,
+    // so editing a price does not rewrite the join table. A failure here is
+    // REPORTED and the dialog stays open: the product saved, and telling the
+    // admin "saved" while the categorisation silently did not is how a member
+    // goes missing from the directory with nothing to read about it.
+    const changed =
+      categoryIds.length !== productCategoryIds.length ||
+      categoryIds.some((id) => !productCategoryIds.includes(id));
+    if (productId && changed) {
+      const catRes = await setProductCategories(productId, categoryIds);
+      if (catRes.error) {
+        setError(t(locale, 'product_categories_save_failed', { error: catRes.error }));
+        setBusy(false);
+        router.refresh();
+        return;
+      }
     }
     onClose();
     router.refresh();
@@ -440,6 +485,39 @@ export function ProductDialog({
           >
             {t(locale, 'add_link')}
           </Button>
+        </div>
+
+        {/* Directory categories (slice 1). Checkboxes, not a searchable
+            multi-select: a community has a handful of categories, and the
+            shared SearchSelect is single-value and built "for any list too
+            long to scan". Unlike access below, this works on a NEW product —
+            it saves with the form. */}
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            {t(locale, 'product_categories_label')}
+          </label>
+          <p className="mb-2 text-sm text-ink-muted">{t(locale, 'product_categories_hint')}</p>
+          {liveCategories.length === 0 ? (
+            <p className="text-sm text-ink-muted">{t(locale, 'product_categories_none')}</p>
+          ) : (
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {liveCategories.map((c) => (
+                <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="accent-ink"
+                    checked={categoryIds.includes(c.id)}
+                    onChange={(e) =>
+                      setCategoryIds((prev) =>
+                        e.target.checked ? [...prev, c.id] : prev.filter((id) => id !== c.id),
+                      )
+                    }
+                  />
+                  <span className="text-ink">{c.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

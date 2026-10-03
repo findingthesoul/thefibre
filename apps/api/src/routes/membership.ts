@@ -169,6 +169,11 @@ const PutSettings = z.object({
   // Fibre-seat policy (2026-09-05): approve-or-auto, and the standing
   // consent for seats that bill above the plan allowance.
   fibre_seat_mode: z.enum(['auto', 'approve']).optional(),
+  // Member directory (docs/member-directory-spec.md §3.4).
+  directory_visibility: z.enum(['everybody', 'category']).optional(),
+  directory_show_contact: z.boolean().optional(),
+  directory_show_category: z.boolean().optional(),
+  directory_default_category_id: z.string().uuid().nullable().optional(),
   allow_billed_seats: z.boolean().optional(),
   // Default language of the community's public surfaces + member emails
   // (i18n P1). Per-member locale overrides it once known.
@@ -1458,7 +1463,7 @@ membershipRoutes.get('/settings', async (c) => {
   }
   const { data, error } = await adminClient
     .from('membership_settings')
-    .select('workspace_id, circle_api_token, circle_community_url, google_sa_json, google_admin_email, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at')
+    .select('workspace_id, circle_api_token, circle_community_url, google_sa_json, google_admin_email, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id')
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (error) return fail(c, 'get settings', error);
@@ -1472,6 +1477,10 @@ membershipRoutes.get('/settings', async (c) => {
     fibre_seat_mode: data?.fibre_seat_mode ?? 'approve',
     allow_billed_seats: data?.allow_billed_seats ?? false,
     locale: toLocale(data?.locale),
+    directory_visibility: data?.directory_visibility ?? 'everybody',
+    directory_show_contact: data?.directory_show_contact ?? false,
+    directory_show_category: data?.directory_show_category ?? false,
+    directory_default_category_id: data?.directory_default_category_id ?? null,
   });
 });
 
@@ -1491,11 +1500,195 @@ membershipRoutes.put('/settings', async (c) => {
   if (body.data.fibre_seat_mode !== undefined) row.fibre_seat_mode = body.data.fibre_seat_mode;
   if (body.data.allow_billed_seats !== undefined) row.allow_billed_seats = body.data.allow_billed_seats;
   if (body.data.locale !== undefined) row.locale = body.data.locale;
+  if (body.data.directory_visibility !== undefined) row.directory_visibility = body.data.directory_visibility;
+  if (body.data.directory_show_contact !== undefined) row.directory_show_contact = body.data.directory_show_contact;
+  if (body.data.directory_show_category !== undefined) row.directory_show_category = body.data.directory_show_category;
+  // The default category is the one directory field that names another ROW,
+  // and this route runs on adminClient, which RLS does not see — so the
+  // tenant boundary here is this check and nothing else. The foreign key
+  // cannot help: it proves the category exists, not that it is ours. Without
+  // this an admin could point their community's default at a category id
+  // belonging to someone else's, which is the exact shape of the two
+  // cross-workspace holes found in September 2026 (handbook §2).
+  if (body.data.directory_default_category_id !== undefined) {
+    const wanted = body.data.directory_default_category_id;
+    if (wanted !== null) {
+      const { data: cat, error: catErr } = await adminClient
+        .from('membership_directory_category')
+        .select('id')
+        .eq('id', wanted)
+        .eq('workspace_id', ctx.workspaceId)
+        .maybeSingle();
+      if (catErr) return fail(c, 'check default category', catErr);
+      if (!cat) return c.json({ error: 'no such category in this community' }, 404);
+    }
+    row.directory_default_category_id = wanted;
+  }
   const { error } = await adminClient
     .from('membership_settings')
     .upsert(row, { onConflict: 'workspace_id' });
   if (error) return fail(c, 'put settings', error);
   return c.json({ ok: true });
+});
+
+
+// ===========================================================================
+// MEMBER DIRECTORY — categories (docs/member-directory-spec.md slice 1).
+//
+// A category is the workspace's own vocabulary. A PRODUCT carries categories;
+// a member's categories are the union over what they hold; directory
+// visibility follows from that, so nobody administers a list of who may see
+// whom.
+//
+// A category is NOT a tier and must not be named after one: shown beside a
+// member it discloses which product they hold, and a product has a price.
+// That is why `directory_show_category` defaults false.
+//
+// userClient throughout — RLS does the scoping (20261002170643), the same way
+// the product routes above work. Nothing here reads a person.
+// ===========================================================================
+
+const CreateCategory = z.object({
+  name: z.string().trim().min(1).max(80),
+  sort_order: z.number().int().optional(),
+});
+const PatchCategory = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  sort_order: z.number().int().optional(),
+  archived: z.boolean().optional(),
+});
+
+membershipRoutes.get('/directory/categories', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('membership_directory_category')
+    .select('id, name, sort_order, archived_at, created_at')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) return fail(c, 'list categories', error);
+  const includeArchived = c.req.query('archived') === 'true';
+  return c.json({ items: (data ?? []).filter((r) => includeArchived || !r.archived_at) });
+});
+
+membershipRoutes.post('/directory/categories', async (c) => {
+  const body = CreateCategory.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('membership_directory_category')
+    .insert({ ...body.data, workspace_id: ctx.workspaceId })
+    .select('id')
+    .single();
+  // The unique index is case-insensitive per workspace: "Fellows" and
+  // "fellows" are one category typed twice, and a member filtered by the
+  // wrong one is invisible. Say so rather than returning a raw 23505.
+  if (error?.code === '23505') {
+    return c.json({ error: 'a category with that name already exists' }, 409);
+  }
+  if (error) return fail(c, 'create category', error);
+  return c.json({ id: data.id }, 201);
+});
+
+membershipRoutes.patch('/directory/categories/:id', async (c) => {
+  const body = PatchCategory.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { archived, ...rest } = body.data;
+  const patch: Record<string, unknown> = { ...rest };
+  if (archived !== undefined) patch.archived_at = archived ? new Date().toISOString() : null;
+  const { error } = await db
+    .from('membership_directory_category')
+    .update(patch)
+    .eq('id', c.req.param('id'));
+  if (error?.code === '23505') {
+    return c.json({ error: 'a category with that name already exists' }, 409);
+  }
+  if (error) return fail(c, 'patch category', error);
+  return c.json({ ok: true });
+});
+
+// Which categories a product confers. Replace-in-full rather than add/remove
+// one at a time: the editor shows a set of checkboxes and saves a set, and a
+// per-item API would make the screen and the data disagree halfway through.
+const SetProductCategories = z.object({
+  category_ids: z.array(z.string().uuid()).max(20),
+});
+
+membershipRoutes.get('/products/:id/categories', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('membership_product_category')
+    .select('category_id')
+    .eq('product_id', c.req.param('id'));
+  if (error) return fail(c, 'list product categories', error);
+  return c.json({ category_ids: (data ?? []).map((r) => r.category_id as string) });
+});
+
+membershipRoutes.put('/products/:id/categories', async (c) => {
+  const body = SetProductCategories.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const productId = c.req.param('id');
+
+  // Delete-then-insert under the caller's own RLS. The insert policy requires
+  // BOTH the product and every category to belong to this workspace, so a
+  // crafted category id from another community is refused by the database
+  // rather than by a check here that could be forgotten.
+  const { error: delErr } = await db
+    .from('membership_product_category')
+    .delete()
+    .eq('product_id', productId);
+  if (delErr) return fail(c, 'clear product categories', delErr);
+
+  const wanted = [...new Set(body.data.category_ids)];
+  if (wanted.length) {
+    const { error: insErr } = await db
+      .from('membership_product_category')
+      .insert(wanted.map((category_id) => ({ product_id: productId, category_id })));
+    if (insErr) return fail(c, 'set product categories', insErr);
+  }
+  return c.json({ ok: true, count: wanted.length });
+});
+
+/** Every product->category link in the workspace, in one read.
+ *
+ *  The products screen loads all of them and filters per product in the
+ *  client, which is how the GRANTS screen beside it already works — the
+ *  alternative is one request per product dialog opened, for a table that
+ *  holds a handful of rows per community. RLS scopes it. */
+membershipRoutes.get('/directory/product-categories', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('membership_product_category')
+    .select('product_id, category_id');
+  if (error) return fail(c, 'list product category links', error);
+  return c.json({ items: data ?? [] });
+});
+
+/** How many products carry no category — the number the admin screen shows.
+ *
+ *  §9.3: when `directory_default_category_id` is unset, a member holding only
+ *  uncategorised products is NOT listed and sees nobody. That fails closed,
+ *  which is right, and it is silent, which is not. A member missing from a
+ *  list is the empty that reads as working, so the count is the feature. */
+membershipRoutes.get('/directory/uncategorised-products', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const [products, links] = await Promise.all([
+    db.from('membership_product').select('id, name').is('archived_at', null),
+    db.from('membership_product_category').select('product_id'),
+  ]);
+  if (products.error) return fail(c, 'list products for count', products.error);
+  if (links.error) return fail(c, 'list links for count', links.error);
+  const linked = new Set((links.data ?? []).map((r) => r.product_id as string));
+  const items = (products.data ?? []).filter((p) => !linked.has(p.id as string));
+  return c.json({ count: items.length, items });
 });
 
 // ===========================================================================

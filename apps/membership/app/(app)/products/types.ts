@@ -28,3 +28,8 @@ export type Product = {
   sort_order: number | null;
   archived_at: string | null;
 };
+
+/** A product->category link for the member directory (slice 1). No
+ *  workspace_id: it is the product's, and two places able to disagree about
+ *  which workspace a link belongs to is worse than one join. */
+export type ProductCategoryLink = { product_id: string; category_id: string };

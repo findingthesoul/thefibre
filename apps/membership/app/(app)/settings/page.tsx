@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Globe, Plug, Code2, Percent } from 'lucide-react';
+import { Globe, Plug, Code2, Percent, Users } from 'lucide-react';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -42,6 +42,12 @@ export default async function SettingsPage() {
           icon: <Percent {...ICON} />,
           title: t(locale, 'st_pricing_title'),
           desc: t(locale, 'st_pricing_desc'),
+        },
+        {
+          href: '/settings/directory',
+          icon: <Users {...ICON} />,
+          title: t(locale, 'st_directory_title'),
+          desc: t(locale, 'st_directory_desc'),
         },
         {
           href: '/settings/embeds',

@@ -4,6 +4,8 @@ import { uiLocale } from '@/lib/locale';
 import { ProductsClient } from './products-client';
 import type { Product } from './types';
 import type { Grant } from '../access/types';
+import type { DirectoryCategory } from '../settings/shared';
+import type { ProductCategoryLink } from './types';
 
 export const metadata = { title: 'Products · Membership' };
 
@@ -41,11 +43,32 @@ export default async function ProductsPage() {
     .then((r) => r.items)
     .catch(() => [] as Grant[]);
 
+  // Directory categories (slice 1): the workspace's vocabulary, plus every
+  // product->category link in one read — the dialog filters per product, the
+  // same shape as grants above. Both fail soft: a product is still editable
+  // without them, it just cannot be categorised in that render.
+  const [categories, categoryLinks] = await Promise.all([
+    apiFetch<{ items: DirectoryCategory[] }>('/api/v1/membership/directory/categories')
+      .then((r) => r.items)
+      .catch(() => [] as DirectoryCategory[]),
+    apiFetch<{ items: ProductCategoryLink[] }>('/api/v1/membership/directory/product-categories')
+      .then((r) => r.items)
+      .catch(() => [] as ProductCategoryLink[]),
+  ]);
+
   const locale = await uiLocale();
 
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <ProductsClient products={products} currency={currency} threadOptions={threads} grants={grants} locale={locale} />
+      <ProductsClient
+        products={products}
+        currency={currency}
+        threadOptions={threads}
+        grants={grants}
+        categories={categories}
+        categoryLinks={categoryLinks}
+        locale={locale}
+      />
     </div>
   );
 }

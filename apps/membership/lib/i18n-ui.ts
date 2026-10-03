@@ -43,6 +43,22 @@ const CATALOG = {
     de: 'Abbrechen', // MT
     fr: 'Annuler', // MT
   },
+  add: {
+    en: 'Add',
+    nl: 'Toevoegen',
+    es: 'Anadir', // MT
+    pt: 'Adicionar', // MT
+    de: 'Hinzufugen', // MT
+    fr: 'Ajouter', // MT
+  },
+  rename: {
+    en: 'Rename',
+    nl: 'Naam wijzigen',
+    es: 'Renombrar', // MT
+    pt: 'Renomear', // MT
+    de: 'Umbenennen', // MT
+    fr: 'Renommer', // MT
+  },
   save: {
     en: 'Save',
     nl: 'Opslaan',
@@ -2146,6 +2162,192 @@ const CATALOG = {
     pt: 'Trechos de copiar e colar para mostrar níveis e receber adesões em qualquer site.', // MT
     de: 'Copy-Paste-Snippets, um Stufen zu zeigen und Beitritte auf jeder Website anzunehmen.', // MT
     fr: "Des extraits à copier-coller pour afficher les formules et recevoir des adhésions sur n'importe quel site.", // MT
+  },
+
+  // ── member directory (docs/member-directory-spec.md slice 1) ──────────
+  st_directory_title: {
+    en: 'Member directory',
+    nl: 'Ledenlijst',
+    es: 'Directorio de miembros', // MT
+    pt: 'Diretorio de membros', // MT
+    de: 'Mitgliederverzeichnis', // MT
+    fr: 'Annuaire des membres', // MT
+  },
+  st_directory_desc: {
+    en: 'Whether members see each other, and what they see.',
+    nl: 'Of leden elkaar zien, en wat ze zien.',
+    es: 'Si los miembros se ven entre si, y que ven.', // MT
+    pt: 'Se os membros se veem entre si, e o que veem.', // MT
+    de: 'Ob Mitglieder einander sehen, und was sie sehen.', // MT
+    fr: "Si les membres se voient entre eux, et ce qu'ils voient.", // MT
+  },
+  directory_desc: {
+    en: 'The member list: who appears in it, who can see it, and what it shows.',
+    nl: 'De ledenlijst: wie erin staat, wie hem kan zien en wat hij toont.',
+    es: 'La lista de miembros: quien aparece, quien puede verla y que muestra.', // MT
+    pt: 'A lista de membros: quem aparece, quem pode ve-la e o que mostra.', // MT
+    de: 'Die Mitgliederliste: wer darin steht, wer sie sehen kann und was sie zeigt.', // MT
+    fr: "La liste des membres : qui y figure, qui peut la voir et ce qu'elle montre.", // MT
+  },
+  directory_who_sees_whom: {
+    en: 'Who sees whom',
+    nl: 'Wie ziet wie',
+    es: 'Quien ve a quien', // MT
+    pt: 'Quem ve quem', // MT
+    de: 'Wer sieht wen', // MT
+    fr: 'Qui voit qui', // MT
+  },
+  directory_visibility_label: {
+    en: 'Who a member sees in the directory',
+    nl: 'Wie een lid ziet in de ledenlijst',
+    es: 'A quien ve un miembro en el directorio', // MT
+    pt: 'Quem um membro ve no diretorio', // MT
+    de: 'Wen ein Mitglied im Verzeichnis sieht', // MT
+    fr: "Qui un membre voit dans l'annuaire", // MT
+  },
+  directory_vis_everybody: {
+    en: 'Everybody sees everybody',
+    nl: 'Iedereen ziet iedereen',
+    es: 'Todos ven a todos', // MT
+    pt: 'Todos veem todos', // MT
+    de: 'Alle sehen alle', // MT
+    fr: 'Tout le monde voit tout le monde', // MT
+  },
+  directory_vis_category: {
+    en: 'Members see the members who share a category',
+    nl: 'Leden zien de leden met een gedeelde categorie',
+    es: 'Los miembros ven a los miembros que comparten una categoria', // MT
+    pt: 'Os membros veem os membros que compartilham uma categoria', // MT
+    de: 'Mitglieder sehen die Mitglieder mit einer gemeinsamen Kategorie', // MT
+    fr: 'Les membres voient les membres qui partagent une categorie', // MT
+  },
+  directory_default_category_label: {
+    en: 'Category for products that carry none',
+    nl: 'Categorie voor producten zonder categorie',
+    es: 'Categoria para los productos que no llevan ninguna', // MT
+    pt: 'Categoria para produtos que nao tem nenhuma', // MT
+    de: 'Kategorie fur Produkte ohne Kategorie', // MT
+    fr: "Categorie pour les produits qui n'en portent aucune", // MT
+  },
+  directory_default_category_hint: {
+    en: 'A product carrying no category confers this one. Left empty, a member with no category is not listed and sees nobody.',
+    nl: 'Een product zonder categorie geeft deze. Laat je dit leeg, dan staat een lid zonder categorie niet in de lijst en ziet het niemand.',
+    es: 'Un producto sin categoria otorga esta. Si lo dejas vacio, un miembro sin categoria no aparece y no ve a nadie.', // MT
+    pt: 'Um produto sem categoria concede esta. Se deixar vazio, um membro sem categoria nao aparece e nao ve ninguem.', // MT
+    de: 'Ein Produkt ohne Kategorie verleiht diese. Bleibt es leer, erscheint ein Mitglied ohne Kategorie nicht und sieht niemanden.', // MT
+    fr: "Un produit sans categorie confere celle-ci. Laisse vide, un membre sans categorie n'apparait pas et ne voit personne.", // MT
+  },
+  directory_default_none: {
+    en: 'None — not listed',
+    nl: 'Geen — niet in de lijst',
+    es: 'Ninguna — no aparece', // MT
+    pt: 'Nenhuma — nao aparece', // MT
+    de: 'Keine — nicht aufgefuhrt', // MT
+    fr: 'Aucune — non repertorie', // MT
+  },
+  directory_uncategorised_warning: {
+    en: '{count} products carry no category — members who hold only those will not appear in the directory, and will see nobody.',
+    nl: '{count} producten hebben geen categorie — leden die alleen die producten hebben, staan niet in de ledenlijst en zien niemand.',
+    es: '{count} productos no tienen categoria — los miembros que solo tengan esos no apareceran en el directorio y no veran a nadie.', // MT
+    pt: '{count} produtos nao tem categoria — os membros que tiverem apenas esses nao aparecerao no diretorio e nao verao ninguem.', // MT
+    de: '{count} Produkte haben keine Kategorie — Mitglieder, die nur diese halten, erscheinen nicht im Verzeichnis und sehen niemanden.', // MT
+    fr: "{count} produits ne portent aucune categorie — les membres qui n'ont que ceux-la n'apparaitront pas dans l'annuaire et ne verront personne.", // MT
+  },
+  directory_show_contact_label: {
+    en: 'Show contact details by default',
+    nl: 'Contactgegevens standaard tonen',
+    es: 'Mostrar los datos de contacto por defecto', // MT
+    pt: 'Mostrar os dados de contato por padrao', // MT
+    de: 'Kontaktdaten standardmassig zeigen', // MT
+    fr: 'Afficher les coordonnees par defaut', // MT
+  },
+  directory_show_contact_hint: {
+    en: 'The workspace default. Each member can hide their own; the workspace cannot show one a member has hidden.',
+    nl: 'De standaard voor de werkruimte. Elk lid kan de eigen gegevens verbergen; de werkruimte kan ze niet weer tonen.',
+    es: 'El valor por defecto del espacio. Cada miembro puede ocultar los suyos; el espacio no puede volver a mostrarlos.', // MT
+    pt: 'O padrao do espaco. Cada membro pode ocultar os seus; o espaco nao pode voltar a mostra-los.', // MT
+    de: 'Die Vorgabe des Workspace. Jedes Mitglied kann die eigenen verbergen; der Workspace kann sie nicht wieder zeigen.', // MT
+    fr: "La valeur par defaut de l'espace. Chaque membre peut masquer les siennes ; l'espace ne peut pas les reafficher.", // MT
+  },
+  directory_show_category_label: {
+    en: "Show a member's category beside their name",
+    nl: 'Categorienaam naast een lid tonen',
+    es: 'Mostrar la categoria de un miembro junto a su nombre', // MT
+    pt: 'Mostrar a categoria de um membro ao lado do nome', // MT
+    de: 'Die Kategorie eines Mitglieds neben dem Namen zeigen', // MT
+    fr: "Afficher la categorie d'un membre a cote de son nom", // MT
+  },
+  directory_show_category_hint: {
+    en: 'A category beside a name tells every other member what that member holds — and a product has a price. Off by default.',
+    nl: 'Een categorie naast een naam vertelt elk ander lid wat dat lid heeft — en een product heeft een prijs. Standaard uit.',
+    es: 'Una categoria junto a un nombre dice a los demas miembros que tiene ese miembro — y un producto tiene un precio. Desactivado por defecto.', // MT
+    pt: 'Uma categoria ao lado de um nome diz aos outros membros o que aquele membro tem — e um produto tem preco. Desativado por padrao.', // MT
+    de: 'Eine Kategorie neben einem Namen sagt allen anderen Mitgliedern, was dieses Mitglied halt — und ein Produkt hat einen Preis. Standardmassig aus.', // MT
+    fr: "Une categorie a cote d'un nom indique a tous les autres membres ce que ce membre detient — et un produit a un prix. Desactive par defaut.", // MT
+  },
+  directory_categories_title: {
+    en: 'Categories',
+    nl: 'Categorieen',
+    es: 'Categorias', // MT
+    pt: 'Categorias', // MT
+    de: 'Kategorien', // MT
+    fr: 'Categories', // MT
+  },
+  directory_categories_desc: {
+    en: "This community's own words. A product carries categories; a member's are the union of what they hold.",
+    nl: 'De eigen woorden van deze community. Een product draagt categorieen; die van een lid zijn alles wat het samen heeft.',
+    es: 'Las palabras propias de esta comunidad. Un producto lleva categorias; las de un miembro son la union de lo que tiene.', // MT
+    pt: 'As palavras proprias desta comunidade. Um produto carrega categorias; as de um membro sao a uniao do que ele tem.', // MT
+    de: 'Die eigenen Worte dieser Community. Ein Produkt tragt Kategorien; die eines Mitglieds sind die Vereinigung dessen, was es halt.', // MT
+    fr: "Les mots propres de cette communaute. Un produit porte des categories ; celles d'un membre sont l'union de ce qu'il detient.", // MT
+  },
+  directory_no_categories: {
+    en: 'No categories yet.',
+    nl: 'Nog geen categorieen.',
+    es: 'Aun no hay categorias.', // MT
+    pt: 'Ainda nao ha categorias.', // MT
+    de: 'Noch keine Kategorien.', // MT
+    fr: 'Pas encore de categories.', // MT
+  },
+  directory_new_category_ph: {
+    en: 'New category name',
+    nl: 'Naam van nieuwe categorie',
+    es: 'Nombre de la nueva categoria', // MT
+    pt: 'Nome da nova categoria', // MT
+    de: 'Name der neuen Kategorie', // MT
+    fr: 'Nom de la nouvelle categorie', // MT
+  },
+  product_categories_label: {
+    en: 'Directory categories',
+    nl: 'Categorieen voor de ledenlijst',
+    es: 'Categorias del directorio', // MT
+    pt: 'Categorias do diretorio', // MT
+    de: 'Verzeichnis-Kategorien', // MT
+    fr: "Categories de l'annuaire", // MT
+  },
+  product_categories_hint: {
+    en: 'Members who hold this product fall into these categories. Shown to other members only if the directory settings say so.',
+    nl: 'Leden met dit product vallen in deze categorieen. Alleen zichtbaar voor andere leden als de instellingen van de ledenlijst dat zeggen.',
+    es: 'Los miembros que tengan este producto entran en estas categorias. Solo se muestran a otros miembros si los ajustes del directorio lo indican.', // MT
+    pt: 'Os membros que tem este produto entram nestas categorias. Mostradas a outros membros so se as configuracoes do diretorio disserem.', // MT
+    de: 'Mitglieder mit diesem Produkt fallen in diese Kategorien. Anderen Mitgliedern nur gezeigt, wenn die Verzeichnis-Einstellungen das sagen.', // MT
+    fr: "Les membres qui detiennent ce produit entrent dans ces categories. Montrees aux autres membres seulement si les reglages de l'annuaire le disent.", // MT
+  },
+  product_categories_none: {
+    en: 'No categories yet — add them in Settings, Member directory.',
+    nl: 'Nog geen categorieen — voeg ze toe bij Instellingen, Ledenlijst.',
+    es: 'Aun no hay categorias — anadelas en Ajustes, Directorio de miembros.', // MT
+    pt: 'Ainda nao ha categorias — adicione-as em Configuracoes, Diretorio de membros.', // MT
+    de: 'Noch keine Kategorien — fuge sie unter Einstellungen, Mitgliederverzeichnis hinzu.', // MT
+    fr: "Pas encore de categories — ajoute-les dans Reglages, Annuaire des membres.", // MT
+  },
+  product_categories_save_failed: {
+    en: 'The product was saved, but its categories were not: {error}',
+    nl: 'Het product is opgeslagen, maar de categorieen niet: {error}',
+    es: 'El producto se guardo, pero sus categorias no: {error}', // MT
+    pt: 'O produto foi salvo, mas as categorias nao: {error}', // MT
+    de: 'Das Produkt wurde gespeichert, seine Kategorien nicht: {error}', // MT
+    fr: "Le produit a ete enregistre, mais pas ses categories : {error}", // MT
   },
 
   // ── join page settings ────────────────────────────────────────────────

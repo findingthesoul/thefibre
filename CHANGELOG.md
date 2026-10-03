@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.101.0] — 2026-10-04 — member directory slice 1: the vocabulary, and who sees whom
+
+The admin half of the member directory Sjoerd asked for — *"Members need to
+see each other… maybe some predefined categroies of interest"*. Slice 1 ships
+no member list: it ships the two things a list has to resolve against, so
+that slice 2 has nothing left to decide. `docs/member-directory-spec.md` is
+the plan; §9 records the four questions and how each was settled.
+
+**Categories are the workspace's own vocabulary.** A product carries
+categories; a member's categories are the union over the products they hold.
+Nobody administers a list of who may see whom — visibility follows from what
+people bought. Two new tables, `membership_directory_category` and
+`membership_product_category`, and a new Settings → Member directory screen
+that creates, renames and archives them, plus checkboxes on the product
+dialog.
+
+**The join table deliberately has no `workspace_id`.** It would let two
+places disagree about which workspace a row belongs to, and a CHECK cannot
+reach another table to stop it. The product already knows, so every policy
+asks the product — and the insert policy asks BOTH sides, so a legitimate
+admin holding their own product cannot link it to another community's
+category. That is the sharpest case in
+`directory-categories-tenancy.int.test.ts`, which pairs every denial with a
+positive control: with `has_app_membership('membership')` in all eight
+policies, a suite made only of denials would be green against a table with no
+policies at all.
+
+**Four workspace switches** on `membership_settings`:
+
+- `directory_visibility` — `everybody`, or `category` (a member sees the
+  members sharing a category with them).
+- `directory_show_contact` — the default for showing contact points. A member
+  may hide their own; the workspace cannot un-hide one.
+- `directory_show_category` — **off by default, and the reason is printed
+  beside the switch**: a category next to a member's name tells every other
+  member what that member holds, and a product has a price. "Soul Fellowship"
+  as a visible category tells the room who paid €2,000.
+- `directory_default_category_id` — which category a product carrying none
+  confers. Unset, an uncategorised member is **not listed and sees nobody** in
+  category mode. It fails closed, which is right, and it fails silently, which
+  is not — so the screen shows the count and names the products:
+  *"4 products carry no category — members who hold only those will not
+  appear in the directory."* A member missing from a list is exactly the empty
+  that reads as working.
+
+One hole found and closed before it ran: `directory_default_category_id` is
+written through the settings route, which uses the admin client, where RLS is
+blind — and a foreign key proves a category EXISTS, not that it is ours. The
+route now re-checks the workspace. Same shape as the two cross-workspace
+holes found in September.
+
+Checkboxes rather than a searchable multi-select, after looking: the shared
+`SearchSelect` is single-value and documented "for any list too long to
+scan", and a community has a handful of categories. No new shared component,
+no fork.
+
+Not in this slice, and not decided by it: the member list itself, the
+per-member opt-out, consent at join, and tags (slices 2–4). **Slice 3 is
+still blocked** on the merged-address mechanism — the portal resolves a
+viewer by `person.email` alone, so a member whose address was merged away
+cannot see the portal at all, directory included.
 ## [1.100.4] — 2026-10-04 — the heading button was working, and invisible
 
 Sjoerd pressed the heading button on his bio and reported it as broken: the

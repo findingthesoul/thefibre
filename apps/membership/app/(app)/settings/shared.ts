@@ -11,6 +11,30 @@ export type MembershipSettings = {
   join_page: Record<string, unknown>;
   /** Public page language (i18n P1) — optional until the API ships it. */
   locale?: string | null;
+  // ── member directory (docs/member-directory-spec.md §3.4) ──────────────
+  /** `everybody` = every member sees every member. `category` = a member
+   *  sees the members sharing at least one category with them. */
+  directory_visibility?: 'everybody' | 'category';
+  /** The workspace DEFAULT for showing contact points. Each member can still
+   *  turn their own off — the workspace cannot turn a member's back on. */
+  directory_show_contact?: boolean;
+  /** Whether a member's category NAME is shown beside them. Default false,
+   *  and the reason is in the UI next to the switch: a category beside a
+   *  member's name tells every other member what that member holds, and a
+   *  product has a price. */
+  directory_show_category?: boolean;
+  /** Which category a product carrying none confers (§9.3). Null = a member
+   *  with no category is not listed and sees nobody, in `category` mode. */
+  directory_default_category_id?: string | null;
+};
+
+/** A workspace's own directory vocabulary. Not a tier: see §9.2. */
+export type DirectoryCategory = {
+  id: string;
+  name: string;
+  sort_order: number | null;
+  archived_at: string | null;
+  created_at: string;
 };
 
 export async function loadSettings(): Promise<{
