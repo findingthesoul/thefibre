@@ -45,6 +45,19 @@ the same instant, and the middle steps are data, not deploys:
   elements, measured 31px apart, with no raw tags anywhere in the page text —
   so the paragraph-splitting path is no longer unit-tests-only. One design
   only: a theme is a workspace setting and switching it is a staging write.
+- **A2 is LIVE ON PRODUCTION since 2026-10-03** (API release 353, web
+  v1.98.10; Sjoerd ran the deploy). Looked at, not relayed: `/sjoerd` and
+  `/festival-of-trust-7r4` on app.thethread.app now show his name, his
+  photograph (a real 1587x2116 image, not a fallback initial) and his bio as
+  one paragraph, with no raw tags in the page text. `/sjoerd-luteijn` is the
+  soul.com workspace site, so the heading is that site's own and the image I
+  matched was its logo — the bio renders there too, but I did not confirm his
+  portrait appears on it. All three payloads carry `bio`, `bio_html`,
+  `display_name` and `photo_url`. Before this, all three published a slug and
+  a thread list with no person attached.
+- **Still unseen anywhere deployed:** a bio that is actually STORED as HTML.
+  Every bio in both databases is plain text; the markup is produced at read
+  time. That is step B, blocked on staging access.
 - **A2 — DONE (v1.98.8).** The public organiser payload reads the platform profile, the way
   the authed route has since 20260901140000 and Meet's public host route
   since 2026-09-05. Thread's public one was left behind, so a bio written in
