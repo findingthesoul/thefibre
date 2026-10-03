@@ -24,6 +24,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { PhotoField } from './photo-field.js';
 import { TextField, TextAreaField, SelectField, FIELD_TEXT } from './fields.js';
 import { SearchSelect } from './search-select.js';
+import { FIELD_LIMITS, tooLongMessage } from '../field-limits.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
 export type ProfileValues = {
@@ -76,6 +77,7 @@ export function ProfileForm({
   const [timezone, setTimezone] = useState(initial.timezone);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
+  const over = bio.length > FIELD_LIMITS.bio;
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
 
@@ -100,6 +102,20 @@ export function ProfileForm({
     setFieldErrors({});
     setSaved(false);
     if (slug && !slugValue.trim()) return setError(chromeT(locale, 'pick_public_url'));
+    // The same limit the API enforces, checked where the person can still do
+    // something about it. Before this, a bio one paragraph too long came back
+    // as `API 400` and the only remedy in reach was to shorten the bio —
+    // Sjoerd, 2026-10-03: that "creates a bad legacy", because the shortened
+    // text becomes the record.
+    if (bio.trim().length > FIELD_LIMITS.bio) {
+      setFieldErrors({ bio: [tooLongMessage('A bio', FIELD_LIMITS.bio)] });
+      return setError(tooLongMessage('A bio', FIELD_LIMITS.bio));
+    }
+    if (displayName.trim().length > FIELD_LIMITS.display_name) {
+      const m = tooLongMessage('A display name', FIELD_LIMITS.display_name);
+      setFieldErrors({ display_name: [m] });
+      return setError(m);
+    }
     start(async () => {
       const r = await onSave({
         display_name: displayName.trim(),
@@ -155,7 +171,26 @@ export function ProfileForm({
         rows={3}
         value={bio}
         onChange={(e) => touched(setBio)(e.target.value)}
-        hint={bioHint}
+        /* The count is ALWAYS here, next to the hint. It first appeared only
+           past 80% of the limit, on the reasoning that a counter over an
+           empty box is noise — Sjoerd asked for it outright, and he is right:
+           a count you cannot see until you are nearly in trouble is the same
+           mistake as a limit you cannot see at all. You should be able to
+           tell how much room you have while you are still deciding what to
+           write, not once it is too late to plan. */
+        hint={
+          <span className="flex items-baseline justify-between gap-3">
+            <span>{bioHint}</span>
+            <span className={`tabular-nums ${over ? 'text-red-700' : ''}`}>
+              {bio.length.toLocaleString('en-GB')} / {FIELD_LIMITS.bio.toLocaleString('en-GB')}
+            </span>
+          </span>
+        }
+        /* Red, under the field, in the same words the API would have used. */
+        errors={[
+          ...(over ? [tooLongMessage('A bio', FIELD_LIMITS.bio)] : []),
+          ...(fieldErrors.bio ?? []),
+        ]}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

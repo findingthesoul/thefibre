@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { FIELD_LIMITS, tooLongMessage } from '@thefibre/shared';
 import { sanitizeRichText } from '../lib/rich-text.js';
 import { z } from 'zod';
 import { isLocale } from '@thefibre/shared';
@@ -51,19 +52,25 @@ profileRoutes.get('/', async (c) => {
 // paragraph too long looked exactly like a broken server (2026-10-03, on a
 // production account, during a demo).
 export const ProfilePatch = z.object({
-  display_name: z.string().max(200, 'A display name can be at most 200 characters.').nullable().optional(),
-  // 8000, not 2000. The limit was set when a bio was plain text; it is
-  // becoming rich text, and markup spends characters — the same words wrapped
-  // in paragraphs, a list and a bold phrase can run 10-20% longer, so a bio
-  // that saved yesterday would start failing after the editor flips. A real
-  // written bio (the LinkedIn kind people paste in) is 1,000-3,000 characters
-  // before any of that.
-  bio: z.string().max(8000, 'A bio can be at most 8000 characters.').nullable().optional(),
-  photo_url: z.string().max(1000, 'That photo URL is too long.').nullable().optional(),
+  display_name: z
+    .string()
+    .max(FIELD_LIMITS.display_name, tooLongMessage('A display name', FIELD_LIMITS.display_name))
+    .nullable()
+    .optional(),
+  bio: z
+    .string()
+    .max(FIELD_LIMITS.bio, tooLongMessage('A bio', FIELD_LIMITS.bio))
+    .nullable()
+    .optional(),
+  photo_url: z
+    .string()
+    .max(FIELD_LIMITS.photo_url, tooLongMessage('A photo URL', FIELD_LIMITS.photo_url))
+    .nullable()
+    .optional(),
   // Nullable because the callers send `timezone || null` when the field is
   // empty. It was the only field here that refused null, which made an empty
   // picker a 400 with no explanation.
-  timezone: z.string().max(100).nullable().optional(),
+  timezone: z.string().max(FIELD_LIMITS.timezone).nullable().optional(),
   // ONE user-level UI/email language (i18n P2, D1). Validated against the
   // shared LOCALES so the list has a single source; null = no preference.
   locale: z

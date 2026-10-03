@@ -61,7 +61,7 @@ describe('when it does refuse, it says why in words', () => {
     expect(r.success).toBe(false);
     const message = r.success ? '' : r.error.flatten().fieldErrors.bio?.[0];
     // What the person reads. Not "Invalid input", not "String must contain…".
-    expect(message).toBe('A bio can be at most 8000 characters.');
+    expect(message).toBe('A bio can be at most 8,000 characters.');
   });
 
   it('puts the reason under the FIELD, which is what the form renders', () => {

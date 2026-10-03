@@ -57,7 +57,7 @@ import {
   enrolmentPending,
   engagementMessage,
 } from '../lib/email/thread-templates.js';
-import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone, bioToHtml, bioToPlain } from '@thefibre/shared';
+import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone, bioToHtml, bioToPlain, FIELD_LIMITS, tooLongMessage } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
 import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
 // Template visibility is one rule for all three kinds of template, so it
@@ -317,10 +317,14 @@ threadRoutes.get('/me', async (c) => {
 const OrganiserUpdate = z.object({
   slug: slugField.optional(),
   display_name: z.string().max(200).nullable().optional(),
-  // 8000, matching /api/v1/profile. The same bio can arrive at either route,
-  // and two limits on one value means a save that works on one screen fails
-  // on the other for a reason neither screen can explain.
-  bio: z.string().max(8000, 'A bio can be at most 8000 characters.').nullable().optional(),
+  // The same bio can arrive at either route, so both read the one number.
+  // Two limits on one value means a save that works on one screen fails on
+  // the other for a reason neither screen can explain.
+  bio: z
+    .string()
+    .max(FIELD_LIMITS.bio, tooLongMessage('A bio', FIELD_LIMITS.bio))
+    .nullable()
+    .optional(),
   photo_url: z.string().max(500).nullable().optional(),
   timezone: timeZoneField.optional(),
   // (stripe_account_id intentionally NOT accepted here — payments are a

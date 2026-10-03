@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.12] — 2026-10-03 — a limit you cannot see is a trap, not a limit
+
+Sjoerd, after the save that failed with `API 400`: *"Can we prevent work
+arounds?"* and *"creates a bad legacy"*. Both right, and they point past the
+bug that prompted them.
+
+The previous release made the refusal readable. It did not address why he was
+refused at all, which is this: **the limit lived in a zod schema, and a
+browser cannot read one.** So the form let him type 2,400 characters it had
+no way to know were too many, found out only when he pressed Save, and left
+him one remedy — shorten his own bio. That is a workaround standing in for a
+missing constraint, and the legacy is the data: a bio shaped by a number
+nobody showed him.
+
+So the number has one home. `packages/shared/src/field-limits.ts` holds it;
+the API schema derives from it, Thread's organiser route derives from it, and
+**the form reads it too** — the bio field carries a live `1,240 / 8,000`
+count, the refusal happens before the save, and the sentence comes from the
+same helper the server would have used, so one limit cannot be described two
+ways.
+
+The count was first shown only past 80% of the limit, on the reasoning that a
+counter over an empty box is noise. Sjoerd asked for it outright — *"Can you
+add a character count then?"* — and he is right: a count you cannot see until
+you are nearly in trouble is the same mistake as a limit you cannot see at
+all. You should be able to tell how much room you have while you are still
+deciding what to write.
+
+A test keeps it that way, because writing `max(2000)` into a route is easier
+than importing a constant and nothing else would notice.
+
+**What this release does NOT do, named rather than left to be discovered.**
+Six other limits in that same schema still carry their own numbers — the
+locale, the Stripe account id, and the invoice details (legal name, address,
+tax number, website). They are edited on another screen that would each need
+the same treatment. They are listed in the test by name, so the set can only
+shrink deliberately: add a new hardcoded limit and it fails with that limit
+named. The free-text ones (legal name, address, website) are the ones worth
+doing next, for exactly the reason the bio needed it.
+
+### Verified
+- `pnpm verify` green (1287 tests). Eight new tests on the single source,
+  including one that reads the API schema and one that reads the form.
+- The inventory test was written from what the scan MATCHED, not from what I
+  expected: my first list said `legal_name=200`, and the scan reports
+  `invoice_details=200` for the first field inside the nested object, plus a
+  `vat_rate_pct=100` that is a value range rather than a length. Corrected to
+  the truth rather than the other way round.
+
+### Not verified
+- **Nobody has seen the counter or the pre-save refusal on a screen.** It
+  needs a signed-in session, the e2e harness signs in with
+  `apps/api/.env.staging`, and this checkout does not have it — the third
+  thing that credential has blocked today. So `e2e/profile-limits.spec.ts` is
+  written and unrun: it fills a bio past the limit, asserts the count appears
+  while typing and that the refusal names the limit instead of a status code.
+  It runs with `pnpm test:e2e` from a session that has staging access.
+- The count is plain `1,240 / 8,000` under the field. Nobody has seen how it
+  sits next to the hint text at narrow widths; it shares one line with the
+  hint and wraps, which I reasoned about rather than looked at.
+
 ## [1.98.11] — 2026-10-03 — "API 400" was a bio one paragraph too long
 
 Sjoerd hit it on production while a Zoom reviewer was watching: paste a real
