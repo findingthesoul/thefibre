@@ -581,12 +581,31 @@ const CATALOG = {
     fr: 'Nom similaire', // MT
   },
   dup_keep_this: {
-    en: 'Keep this one',
-    nl: 'Deze houden',
-    es: 'Conservar este', // MT
-    pt: 'Manter este', // MT
-    de: 'Diesen behalten', // MT
-    fr: 'Garder celui-ci', // MT
+    en: 'Merge into this one',
+    nl: 'Samenvoegen in deze',
+    es: 'Fusionar en este', // MT
+    pt: 'Fundir neste', // MT
+    de: 'In diesen zusammenführen', // MT
+    fr: 'Fusionner dans celle-ci', // MT
+  },
+  // Shown under each card: the fields that record would GAIN. Empty for a
+  // record that gains nothing, which is itself the answer — it means the
+  // other one is the fuller record.
+  dup_gains: {
+    en: 'Gains from the other: {fields}',
+    nl: 'Krijgt erbij van de ander: {fields}',
+    es: 'Gana del otro: {fields}', // MT
+    pt: 'Ganha do outro: {fields}', // MT
+    de: 'Übernimmt vom anderen: {fields}', // MT
+    fr: 'Récupère de l’autre : {fields}', // MT
+  },
+  dup_gains_none: {
+    en: 'Gains nothing — the other record has nothing this one is missing.',
+    nl: 'Krijgt er niets bij — het andere record heeft niets wat hier ontbreekt.',
+    es: 'No gana nada: el otro registro no tiene nada que a este le falte.', // MT
+    pt: 'Não ganha nada — o outro registo não tem nada que falte a este.', // MT
+    de: 'Übernimmt nichts — der andere Eintrag hat nichts, was hier fehlt.', // MT
+    fr: 'Ne récupère rien — l’autre fiche n’a rien qui manque à celle-ci.', // MT
   },
   dup_reason_shared_address: {
     en: 'Share an address',
@@ -620,13 +639,17 @@ const CATALOG = {
     de: 'Verschiedene Menschen, gleicher Name', // MT
     fr: 'Personnes différentes, même nom', // MT
   },
+  // "Merge", not "keep" — the word the screen used described the mechanism
+  // (one row survives) rather than what happens to the data (nothing is
+  // discarded). Sjoerd read it as choose-one-lose-the-other and asked for
+  // merging to be an option, when it had been the behaviour since 2026-09-25.
   dup_pick_keep: {
-    en: 'Which record do you keep? The other one’s addresses, organisations, enrolments and invoices move onto it.',
-    nl: 'Welk record houd je? De adressen, organisaties, inschrijvingen en facturen van de ander verhuizen mee.',
-    es: '¿Qué registro conservas? Las direcciones, organizaciones, inscripciones y facturas del otro pasan a este.', // MT
-    pt: 'Que registo manténs? Os endereços, organizações, inscrições e faturas do outro passam para este.', // MT
-    de: 'Welchen Eintrag behältst du? Adressen, Organisationen, Anmeldungen und Rechnungen des anderen wandern mit.', // MT
-    fr: 'Quelle fiche gardes-tu ? Les adresses, organisations, inscriptions et factures de l’autre y sont transférées.', // MT
+    en: 'These two get merged into one. Which record do you keep as the main one? Nothing is thrown away: anything missing from it is filled in from the other, and a second email or phone is kept alongside the first.',
+    nl: 'Deze twee worden samengevoegd. Welk record houd je als het hoofdrecord? Er gaat niets verloren: wat erin ontbreekt wordt aangevuld vanuit het andere, en een tweede e-mailadres of telefoonnummer blijft naast het eerste bewaard.',
+    es: 'Estos dos se fusionan en uno. ¿Qué registro conservas como principal? No se descarta nada: lo que le falte se completa desde el otro, y un segundo correo o teléfono se guarda junto al primero.', // MT
+    pt: 'Estes dois são fundidos num só. Que registo manténs como principal? Nada é deitado fora: o que lhe faltar é preenchido a partir do outro, e um segundo email ou telefone fica guardado ao lado do primeiro.', // MT
+    de: 'Diese beiden werden zu einem zusammengeführt. Welchen Eintrag behältst du als den Haupteintrag? Nichts wird verworfen: was ihm fehlt, wird aus dem anderen ergänzt, und eine zweite E-Mail-Adresse oder Telefonnummer bleibt neben der ersten erhalten.', // MT
+    fr: 'Ces deux fiches sont fusionnées en une. Laquelle gardes-tu comme fiche principale ? Rien n’est jeté : ce qui lui manque est complété depuis l’autre, et un second e-mail ou téléphone est conservé à côté du premier.', // MT
   },
   dup_back: {
     en: 'Back',
@@ -653,8 +676,8 @@ const CATALOG = {
     fr: '1 doublon possible : même personne ou personnes différentes ? Vérifier', // MT
   },
   dup_keep_explainer: {
-    en: 'The other record is kept, soft-deleted, and everything attached to it moves across. Its past activity stays where it is and still shows on the timeline.',
-    nl: 'Het andere record blijft bestaan, zacht verwijderd, en alles wat eraan hangt verhuist mee. De activiteit blijft staan en is nog steeds zichtbaar in de tijdlijn.',
+    en: 'The other record is kept, soft-deleted, and everything attached to it moves across. Its past activity stays where it is and still shows on the timeline. Where both records have a different value for the same field, the one you keep wins and the other stays on the archived record.',
+    nl: 'Het andere record blijft bestaan, zacht verwijderd, en alles wat eraan hangt verhuist mee. De activiteit blijft staan en is nog steeds zichtbaar in de tijdlijn. Als beide records een ander antwoord hebben op hetzelfde veld, wint het record dat je houdt en blijft het andere op het gearchiveerde record staan.',
     es: 'El otro registro se conserva, borrado de forma suave, y todo lo asociado se traslada. Su actividad pasada permanece y sigue apareciendo en la línea de tiempo.', // MT
     pt: 'O outro registo mantém-se, apagado de forma suave, e tudo o que lhe está ligado passa para este. A atividade anterior fica onde está e continua a aparecer na cronologia.', // MT
     de: 'Der andere Eintrag bleibt erhalten, weich gelöscht, und alles daran Hängende wandert mit. Seine bisherige Aktivität bleibt, wo sie ist, und erscheint weiterhin im Verlauf.', // MT

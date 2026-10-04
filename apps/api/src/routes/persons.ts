@@ -363,13 +363,53 @@ personsRoutes.get('/duplicates', async (c) => {
     ]),
   );
 
+  // What each choice would GAIN. Sjoerd, 2026-10-04, reasonably reading the
+  // screen as choose-one-lose-the-other: the merge has filled the keeper's
+  // empty fields from the loser since 2026-09-25, and the page never said so.
+  //
+  // Answered by the database, from the same person_fillable_columns() the fill
+  // itself walks, rather than recomputed here from the seven fields this route
+  // happens to select — a preview that disagrees with the behaviour is worse
+  // than no preview, because it is believed.
+  //
+  // Not fatal: a failure here costs the explanatory line, not the page, and
+  // merging is still correct without it. That is the one place in this route
+  // where swallowing is right — the reads above throw, because a card drawn
+  // with no address is evidence somebody then decides on.
+  const gains = new Map<string, { a: string[]; b: string[] }>();
+  const previewQ = await adminClient.rpc('person_merge_fill_preview_pairs', {
+    p_pairs: pairs.map((p) => ({ a: p.person_a, b: p.person_b })),
+  });
+  if (previewQ.error) {
+    console.error('[persons/duplicates] fill preview failed', previewQ.error);
+  } else {
+    for (const r of (previewQ.data ?? []) as {
+      person_a: string;
+      person_b: string;
+      a_gains: string[] | null;
+      b_gains: string[] | null;
+    }[]) {
+      // Keyed in the orientation it was ASKED in — the function echoes the
+      // ids back as given, so a_gains always belongs to person_a here. Sorting
+      // the key would invite reading it back the other way round and quietly
+      // showing each record the other one's gains.
+      gains.set(`${r.person_a}:${r.person_b}`, { a: r.a_gains ?? [], b: r.b_gains ?? [] });
+    }
+  }
+
   return c.json({
-    items: pairs.map((p) => ({
-      reason: p.reason,
-      score: p.score,
-      a: byId.get(p.person_a) ?? { id: p.person_a },
-      b: byId.get(p.person_b) ?? { id: p.person_b },
-    })),
+    items: pairs.map((p) => {
+      const g = gains.get(`${p.person_a}:${p.person_b}`);
+      return {
+        reason: p.reason,
+        score: p.score,
+        a: byId.get(p.person_a) ?? { id: p.person_a },
+        b: byId.get(p.person_b) ?? { id: p.person_b },
+        /** Columns that gain a value if THIS one is the record you keep. */
+        a_gains: g?.a ?? [],
+        b_gains: g?.b ?? [],
+      };
+    }),
   });
 });
 

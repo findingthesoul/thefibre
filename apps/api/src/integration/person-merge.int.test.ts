@@ -254,6 +254,88 @@ describe('merge_person', () => {
     expect(back.email).toBe(`probe-a-${stamp}@example.com`);
   });
 
+  // The screen now PROMISES what a merge will fill in, and the promise is
+  // only worth making if it comes from the same place the merge does. This is
+  // the test that keeps them honest: predict, merge, compare. If someone adds
+  // a column to person_fillable_columns and only the fill learns about it,
+  // this goes red rather than the page quietly under-promising.
+  it('the preview names exactly the columns the merge then fills', async () => {
+    const stamp = Date.now();
+    const keep = (
+      await service
+        .from('person')
+        .insert({
+          workspace_id: ws,
+          first_name: 'Preview',
+          last_name: null, //  blank — the merge will fill it
+          email: `preview-a-${stamp}@example.com`, // held — must not move
+          phone: null, //      blank — the merge will fill it
+          city: null, //       blank — the merge will fill it
+        })
+        .select('id')
+        .single()
+    ).data!.id as string;
+    madePeople.push(keep);
+
+    const lose = (
+      await service
+        .from('person')
+        .insert({
+          workspace_id: ws,
+          first_name: 'Preview',
+          last_name: 'Vermeer',
+          email: `preview-b-${stamp}@example.com`,
+          phone: '+31611122233',
+          city: 'Deventer',
+        })
+        .select('id')
+        .single()
+    ).data!.id as string;
+    madePeople.push(lose);
+
+    // Ask BEFORE touching anything.
+    const predicted = (
+      await service.rpc('person_merge_fill_preview', { p_keep: keep, p_merge: lose })
+    ).data as string[];
+
+    const { error } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+    });
+    expect(error).toBeNull();
+
+    // `filled` is what the merge recorded itself doing, column by column.
+    const filled = (
+      await service
+        .from('person_merge')
+        .select('filled')
+        .eq('kept_person_id', keep)
+        .eq('merged_person_id', lose)
+        .single()
+    ).data!.filled as Record<string, unknown>;
+
+    // The WHOLE set, compared both ways round: a preview that misses a column
+    // under-promises, one that invents a column lies, and only an equality
+    // catches both.
+    //
+    // This originally excluded `_secondary` columns from the comparison, and
+    // that exclusion was hiding a real bug rather than accommodating one — the
+    // first version of the preview looked only at the KEEPER's contact points,
+    // so it never saw the second email the merge would rescue once the loser's
+    // points had been repointed. Filtering the disagreement out of the
+    // assertion would have shipped a screen that promised three fields and
+    // delivered four. Fixed in 20261004070803; the assertion is now total.
+    const actually = Object.keys(filled).sort();
+    expect([...predicted].sort()).toEqual(actually);
+
+    // And it was not vacuously empty — a test where both sides are [] would
+    // pass while the feature did nothing at all.
+    expect(actually).toContain('last_name');
+    expect(actually).toContain('email_secondary');
+    expect(actually.length).toBeGreaterThan(1);
+  });
+
   it('leaves activity where it is — the log is append-only — and resolves it on read', async () => {
     const keep = await makePerson('Marja', 'Bakker', `marja-${Date.now()}@example.com`);
     const dupe = await makePerson('M.', 'Bakker', `m-bakker-${Date.now()}@example.com`);

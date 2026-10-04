@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.100.0] — 2026-10-04 — the duplicates screen says it merges, and says what each choice gains
+
+Sjoerd: *"when there is an assumed duplicate, I also thought we could do merge
+(so address and phone numbers aren't lost) as one of the options. Not just a
+pref. Is this right?"*
+
+It already merged. `person_merge_fill_blanks` has filled the keeper's empty
+fields from the other record since 2026-09-25, and rescues a second email or
+phone into the `_secondary` slot. But the screen asked *"Which record do you
+keep?"* over a button saying **Keep this one**, which describes the mechanism —
+one row survives — rather than what happens to the data. Read plainly it says
+choose one and lose the other, so that is what it was taken to mean. A feature
+nobody can tell is running is not far from one that isn't.
+
+So the screen now says what it does: *"These two get merged into one. Which
+record do you keep as the main one? Nothing is thrown away…"*, the button reads
+**Merge into this one**, and each card carries the fields that record would
+gain — *"Gains from the other: last name, phone, city, second email"* — or says
+plainly that it gains nothing, which is itself the answer: the other record is
+the fuller one.
+
+The preview comes from the database, not from the seven fields this page
+happens to fetch: `person_merge_fill_preview` walks the same
+`person_fillable_columns()` the fill walks, and an integration test merges a
+real pair and asserts the preview named **exactly** the columns the merge then
+recorded. A preview that disagrees with the behaviour is worse than none,
+because it is believed.
+
+That test earned its keep immediately. Run against staging before shipping, it
+caught the preview promising three fields where the merge delivered four, then
+promising a second phone that would never arrive — both the same mistake:
+reasoning about the state in front of it rather than the state at the moment it
+was predicting. The merge repoints the loser's contact points onto the keeper
+*before* rescuing a second address, and fills blank fields *before* comparing
+against them.
+
+Three migrations, because each correction had to be its own: a migration
+already applied is tracked by filename, so editing one would leave staging and
+production running different definitions of the same function. **The process
+lesson, learned the awkward way: apply each fix's file and LAND it before
+applying the next.** All three went to staging within fifteen minutes while
+their files sat uncommitted, and a migration applied to a remote but absent
+from the repo makes `db push` refuse for every other checkout — two other
+sessions were queued behind migrations of their own. Benign here (additive
+`create or replace`), avoidable entirely.
+
+**Still true and now stated on the screen:** where both records hold a
+different value for the same field, the one you keep wins and the other stays
+on the archived record. Per-field choosing is not built; the explainer no
+longer implies it is.
+
 ## [1.99.3] — 2026-10-04 — a sweep for the test workspaces staging is carrying (staging)
 
 Tooling only; the sweep itself is a RUN, on Sjoerd's go, not this release.

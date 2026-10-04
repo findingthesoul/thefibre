@@ -27,6 +27,11 @@ export type DupPair = {
   score: number;
   a: DupPerson;
   b: DupPerson;
+  /** Column names each record would GAIN if it were the one kept. From the
+   *  database, which decides it with the same rules the merge then applies —
+   *  never recomputed here from the handful of fields this page fetches. */
+  a_gains?: string[];
+  b_gains?: string[];
 };
 
 export type MergeRow = {
@@ -37,6 +42,44 @@ export type MergeRow = {
   undone_at: string | null;
   dropped_rows: number;
 };
+
+// Column names are not words anybody should have to read. Only the ones a
+// merge can actually fill are listed; a column that appears here without a
+// label falls back to a de-underscored version of itself, which is ugly but
+// honest — better than silently dropping a field from a promise about what
+// moves.
+const FIELD_LABELS: Record<string, string> = {
+  email: 'email',
+  email_secondary: 'second email',
+  phone: 'phone',
+  phone_secondary: 'second phone',
+  first_name: 'first name',
+  last_name: 'last name',
+  address: 'address',
+  address_line1: 'address',
+  address_line2: 'address',
+  postcode: 'postcode',
+  city: 'city',
+  country: 'country',
+  notes: 'notes',
+  job_title: 'job title',
+  website: 'website',
+  linkedin_url: 'LinkedIn',
+  pronouns: 'pronouns',
+  languages: 'languages',
+};
+
+function fieldList(cols: string[]): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of cols) {
+    const label = FIELD_LABELS[c] ?? c.replace(/_/g, ' ');
+    if (seen.has(label)) continue;
+    seen.add(label);
+    out.push(label);
+  }
+  return out.join(', ');
+}
 
 function displayName(p: DupPerson) {
   const n = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
@@ -82,12 +125,15 @@ function sourceLabel(locale: Locale, via: string | null | undefined) {
 function PersonCard({
   person,
   locale,
+  gains,
   onKeep,
   busy,
   intlLocale,
 }: {
   person: DupPerson;
   locale: Locale;
+  /** Columns this record would gain if kept. */
+  gains?: string[] | undefined;
   /** Only once "Same person" was answered: keep this record. */
   onKeep: (() => void) | null;
   busy: boolean;
@@ -126,12 +172,22 @@ function PersonCard({
         {' · '}
         {sourceLabel(locale, person.created_via)}
       </div>
+      {/* What this record would GAIN — the sentence that makes "merge" true
+          rather than merely claimed. Shown only once the pair has been called
+          the same person, i.e. alongside the button it describes. */}
+      {onKeep && (
+        <div className="mt-3 text-xs text-ink-subtle">
+          {gains && gains.length > 0
+            ? t(locale, 'dup_gains', { fields: fieldList(gains) })
+            : t(locale, 'dup_gains_none')}
+        </div>
+      )}
       {onKeep && (
         <button
           type="button"
           onClick={onKeep}
           disabled={busy}
-          className="mt-3 w-full rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-line-strong disabled:opacity-50"
+          className="mt-2 w-full rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-line-strong disabled:opacity-50"
         >
           {t(locale, 'dup_keep_this')}
         </button>
@@ -232,6 +288,7 @@ export function DuplicatesClient({
               locale={locale}
               intlLocale={intlLocale}
               busy={pending}
+              gains={pair.a_gains}
               onKeep={choosing === key(pair) ? () => doMerge(pair, pair.a, pair.b) : null}
             />
             <PersonCard
@@ -239,6 +296,7 @@ export function DuplicatesClient({
               locale={locale}
               intlLocale={intlLocale}
               busy={pending}
+              gains={pair.b_gains}
               onKeep={choosing === key(pair) ? () => doMerge(pair, pair.b, pair.a) : null}
             />
           </div>
