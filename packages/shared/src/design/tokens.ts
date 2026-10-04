@@ -41,6 +41,7 @@ export const TOKEN_NAMES = [
   'booked', //          time that is already spoken for: an agenda block
   'paper', //           the warm ground of a printed document's summary band
   'sum', //             the figure a document exists to state, and its thanks
+  'staging', //         the bar that says "this is not the real thing"
 ] as const;
 
 export type TokenName = (typeof TOKEN_NAMES)[number];
@@ -84,6 +85,14 @@ export const LIGHT: Palette = {
   // palette had no warm accent at all, which is why the total had to carry
   // its weight through size alone.
   sum: '230 74 51',
+  // The one colour in the system that is not about the product. A staging
+  // deployment is pixel-identical to production, which is how somebody
+  // demonstrates to a client from the wrong stack, or reports a bug against
+  // data that does not exist. Blue because it is the one hue with no job
+  // here — it cannot be mistaken for `save`, for a warning, or for a brand.
+  // Same value in both modes on purpose: a chrome warning that changes with
+  // the theme is a chrome warning you stop noticing.
+  staging: '37 99 235',
 };
 
 export const DARK: Palette = {
@@ -107,6 +116,7 @@ export const DARK: Palette = {
   // both palettes, and deliberately the same value.
   paper: '234 230 219',
   sum: '230 74 51',
+  staging: '37 99 235',
 };
 
 /** `--ink: 17 20 24;` etc., for a CSS rule body. */

@@ -13,6 +13,7 @@
 
 import type { ReactNode } from 'react';
 import { ThemeScript } from './ui/theme-script.js';
+import { EnvironmentBar } from './ui/environment-bar.js';
 import { APPS, appUrl, tileArtUrl } from './branding.js';
 import type { AppId } from './index.js';
 
@@ -64,14 +65,23 @@ export function appIcons(
   return tile ? { icon: tile, apple: tile } : null;
 }
 
-export function createRootLayout() {
+/**
+ * @param vercelEnv `process.env.VERCEL_ENV`, passed in by the app rather than
+ *   read here — this package is bundled into browser builds and reads no
+ *   environment of its own. Omit it and the staging bar shows, which is the
+ *   safe direction: only the literal string 'production' takes it away.
+ */
+export function createRootLayout({ vercelEnv }: { vercelEnv?: string | undefined } = {}) {
   return function RootLayout({ children }: { children: ReactNode }) {
     return (
       <html lang="en" suppressHydrationWarning>
         <head>
           <ThemeScript />
         </head>
-        <body className="min-h-screen antialiased bg-surface text-ink">{children}</body>
+        <body className="min-h-screen antialiased bg-surface text-ink">
+          <EnvironmentBar vercelEnv={vercelEnv} />
+          {children}
+        </body>
       </html>
     );
   };

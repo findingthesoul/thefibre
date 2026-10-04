@@ -41,4 +41,4 @@ export const metadata: Metadata = {
 // theme_color, which is read from `--surface` in globals.css.
 export const viewport: Viewport = APP_VIEWPORT;
 
-export default createRootLayout();
+export default createRootLayout({ vercelEnv: process.env.VERCEL_ENV });

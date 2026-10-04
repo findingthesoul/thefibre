@@ -26,4 +26,4 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = APP_VIEWPORT;
 
-export default createRootLayout();
+export default createRootLayout({ vercelEnv: process.env.VERCEL_ENV });

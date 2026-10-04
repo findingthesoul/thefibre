@@ -1,3 +1,4 @@
+import { EnvironmentBar } from '@thefibre/shared/ui/environment-bar';
 import { appIcons, APP_VIEWPORT } from '@thefibre/shared/root-layout';
 // The Thread marketing site — its own root layout, deliberately NOT the
 // shared createRootLayout(): no ThemeScript (light-only is the brand), a
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen font-sans">
+        <EnvironmentBar vercelEnv={process.env.VERCEL_ENV} />
         <SiteNav />
         {children}
         <SiteFooter />

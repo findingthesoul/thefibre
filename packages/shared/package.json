@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.98.13",
+  "version": "1.99.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -345,6 +345,10 @@
     "./upload": {
       "types": "./dist/upload.d.ts",
       "default": "./dist/upload.js"
+    },
+    "./ui/environment-bar": {
+      "types": "./dist/ui/environment-bar.d.ts",
+      "default": "./dist/ui/environment-bar.js"
     }
   },
   "files": [

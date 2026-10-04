@@ -3,6 +3,6 @@ import { appMetadata, createRootLayout, APP_VIEWPORT } from '@thefibre/shared/ro
 
 export const metadata = appMetadata('fibre-models');
 
-export default createRootLayout();
+export default createRootLayout({ vercelEnv: process.env.VERCEL_ENV });
 
 export const viewport = APP_VIEWPORT;

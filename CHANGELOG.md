@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.99.0] — 2026-10-04 — staging wears a blue line so you always know which one you are looking at
+
+Sjoerd: *"place a 5px blue bar at the top of staging - to make it distinct
+from production."*
+
+Staging is a perfect copy — same design, same flows, same shapes — so the only
+thing telling it apart from the real product is a domain nobody reads while
+concentrating. The cost is real and recurring: a demo given from the wrong
+stack, a bug reported against data that does not exist, a "that's broken"
+about something fixed hours ago on the other one.
+
+One component, `@thefibre/shared/ui/environment-bar`, rendered once in every
+app — seven through `createRootLayout`, and by hand in the three with layouts
+of their own (the marketing site, Members, My Thread).
+
+**Which environment, asked rather than guessed.** Not the hostname: that is a
+second definition of "staging" that a new domain silently breaks. It asks the
+deployment, `isProductionDeployment(process.env.VERCEL_ENV)` — the same single
+source `robots.ts` has used since 2026-09-09. The asymmetry is the opposite of
+the robots one and deliberately so: there, unknown must mean "do not index";
+here the expensive mistake would be a blue line across PRODUCTION, so only the
+literal string `production` takes the bar away. A local dev server shows it
+too, which is correct — that is not production either. A test asserts the
+production case, and that a near-miss like `Production` or `prod` does not
+silence it.
+
+**Overlay, not a push.** Pushing the page down 5px would make staging a
+slightly different product to test on — every `h-dvh` shell, sticky header and
+bottom tab bar sitting 5px off, so a layout bug found there would not
+reproduce in production. It is `fixed` and `pointer-events-none`, so it
+changes nothing beneath it and cannot swallow a click.
+
+**Not in embeds.** Thread's embeds render inside an iframe on a customer's
+site. Everywhere else the bar is the point; there, a blue line across the top
+of a widget reads as a defect in their design rather than a note about ours.
+
+The colour is a role token, `staging`, in `design/tokens.ts` — blue because it
+is the one hue with no job in this system, so it cannot be mistaken for
+`save`, for a warning, or for a brand. The same value in both light and dark:
+a chrome warning that changes with the theme is one you stop noticing.
+
 ## [1.98.13] — 2026-10-04 — Zoom can be connected from the platform and from Thread (staging)
 
 Sjoerd, after setting up the Zoom connection: the platform's Settings →

@@ -1,3 +1,4 @@
+import { EnvironmentBar } from '@thefibre/shared/ui/environment-bar';
 import { APP_VIEWPORT } from '@thefibre/shared/root-layout';
 import type { Metadata } from 'next';
 import './globals.css';
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <ThemeScript />
       </head>
-      <body className="min-h-screen antialiased bg-surface text-ink">{children}</body>
+      <body className="min-h-screen antialiased bg-surface text-ink">
+        <EnvironmentBar vercelEnv={process.env.VERCEL_ENV} />
+        {children}
+      </body>
     </html>
   );
 }

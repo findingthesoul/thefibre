@@ -1,3 +1,4 @@
+import { EnvironmentBar } from '@thefibre/shared/ui/environment-bar';
 import { APP_VIEWPORT } from '@thefibre/shared/root-layout';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
@@ -59,6 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="h-dvh antialiased bg-surface text-ink">
+        <EnvironmentBar vercelEnv={process.env.VERCEL_ENV} />
         <RegisterServiceWorker />
         {session ? (
           <div className="flex h-full">
