@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.107.3] — 2026-10-06 — the tool that lets the guessing code be deleted
+
+Step B of the bio conversion (`docs/bio-rich-text-conversion.md`): the script
+and the backup table it writes to. **Nothing is converted by this release** —
+it ships the tool, and running it is a separate, reported operation.
+
+Why it exists at all is worth restating, because the visible benefit is zero:
+every bio renders correctly today whether it is plain text or HTML. The cost
+is that `bio-html.ts` has to GUESS which it is on every read, and that guess
+is what produced the bug where a bio typed from empty came back as literal
+`&lt;h3&gt;`. The guess can only be deleted when no plain text remains. So the
+conversion is not a fix; it is what makes a permanent trap removable.
+
+The script's resting state is `--count`: run it with no flag and it tells you
+about the data and changes nothing. `--one` converts the single most awkward
+row it can find — newlines, ampersands, length — then restores it from the
+backup and asserts it came back **byte-identical**, exiting non-zero and
+printing both strings if not. Only then does `--apply` touch the rest. A
+restore path that has never run is a belief, not a backup.
+
+The four source tables are derived from the readers (`lib/identity-profile.ts`,
+`routes/thread.ts`, `routes/meet.ts`), not from memory: a conversion that
+skips one leaves plain text behind a renderer that expects markup.
+
+### Verified
+- Against staging, read-only: 1 row would change — the page fixture's bio —
+  and the script names it as the row `--one` would take. The other three
+  tables hold no bios at all, which is information rather than a reason to
+  drop them from the list.
+- `check-migration-versions` passes: the backup table's version is free in
+  all twelve checkouts.
+
+**Renumbered before it ever ran.** The backup table's migration was dated
+20261004070749, written while this branch was parked. By the time it came up,
+three later migrations had landed on staging and production — and a plain
+`supabase db push` refuses a file dated before the remote's newest. An
+unapplied migration that waits goes stale on its own: its number is a claim
+about when it runs, and sitting still makes that claim false. It is
+20261006090100 now, with the reason in the file.
+
+### Not verified
+- **The script has never written anything.** `--one` and `--apply` have not
+  been run anywhere, because the backup table does not exist yet — the
+  migration ships here and is applied in the operation that follows.
+- Production currently holds two plain bios (the profile and a legacy
+  per-seat row, both Sjoerd's) and staging one. That was read earlier today;
+  bios convert themselves when their owner saves, so the numbers move on
+  their own.
 ## [1.107.2] — 2026-10-06 — a cost spread over a few months
 
 Sjoerd, building The Thread's model: *"The Thread has no way to spread a
