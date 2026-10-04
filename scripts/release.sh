@@ -18,13 +18,27 @@ cd "$(dirname "$0")/.."
 # place to get it wrong — and the "REFUSED: package.json is at X, not Y" that
 # followed was always a typo or a half-finished renumber, never a real
 # disagreement worth a gate.
-V="${1:-$(node -p "require('./package.json').version")}"
+#
+# EVERY SURFACE IS READ FROM HEAD, never from the working tree (2026-10-04).
+# This script pushes HEAD. It used to read the version files, version.ts and
+# the changelog heading from the files on disk — so with `next-version.mjs`
+# run and its stamps left UNCOMMITTED, every check passed on the tree and an
+# unstamped commit was pushed, and the script printed "Released 1.99.2" for a
+# commit titled "wip:" whose package.json said 1.99.1 and whose changelog
+# heading was still [NEXT] (4fab772a). What is checked must be what ships.
+head_file() { git show "HEAD:$1" 2>/dev/null; }
+head_version() { head_file "$1" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version??"")}catch{console.log("")}})'; }
+V="${1:-$(head_version package.json)}"
 if [[ ! "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "usage: release.sh [version]   (with none, package.json decides)" >&2
   exit 64
 fi
 
 git fetch origin
+
+# The shared main checkout stays on `main` (scripts/runway.sh check-checkout
+# says why). A worktree is exempt: its branch is its own.
+./scripts/runway.sh check-checkout
 
 # ── Runway clearance (2026-10-01) ───────────────────────────────────────────
 # Nobody lands without it. Checked here for a fast refusal, and again after
@@ -47,21 +61,55 @@ VERSION_FILES="package.json"
 for d in apps/*/ packages/*/; do
   [ -f "$d/package.json" ] && VERSION_FILES="$VERSION_FILES ${d}package.json"
 done
+# A stamp that is on disk and not in the commit is the 4fab772a failure in
+# one line: say so before anything else, because every message below would
+# otherwise be about a number the commit does not carry.
+UNCOMMITTED=""
+for f in $VERSION_FILES apps/web/lib/version.ts CHANGELOG.md; do
+  git diff --quiet HEAD -- "$f" 2>/dev/null || UNCOMMITTED="$UNCOMMITTED $f"
+done
+if [ -n "$UNCOMMITTED" ]; then
+  echo "REFUSED: version surfaces are changed on disk and NOT in the commit:" >&2
+  for f in $UNCOMMITTED; do echo "    $f" >&2; done
+  echo "  This script pushes HEAD. The stamps (next-version.mjs) are in the working" >&2
+  echo "  tree only, so HEAD would ship without them. Commit them:" >&2
+  echo "      node scripts/next-version.mjs patch --amend     # stamps AND amends" >&2
+  echo "  then put the version in the subject (git commit --amend) and re-run." >&2
+  exit 1
+fi
 for f in $VERSION_FILES; do
-  got=$(node -p "require('./$f').version")
+  got=$(head_version "$f")
   if [ "$got" != "$V" ]; then
-    echo "REFUSED: $f is at $got, not $V" >&2
+    echo "REFUSED: $f is at ${got:-nothing} in HEAD, not $V" >&2
     exit 1
   fi
 done
-grep -q "VERSION = '$V'" apps/web/lib/version.ts || {
-  echo "REFUSED: apps/web/lib/version.ts is not at $V" >&2
+# Each file is read ONCE into a variable and searched there, never
+# `git show … | grep -q`: with pipefail, grep -q closes the pipe at its first
+# match, git dies of SIGPIPE, and the pipeline FAILS on a file that has the
+# line. The changelog is 22,000 lines, so that is exactly what happened the
+# first time this script released itself (2026-10-04: "CHANGELOG.md in HEAD
+# has no [1.100.5] heading", for a heading on line 9). The sandbox test's
+# changelog was ten lines long and could not show it; it is long now.
+HEAD_VERSION_TS="$(head_file apps/web/lib/version.ts)"
+HEAD_CHANGELOG="$(head_file CHANGELOG.md)"
+grep -q "VERSION = '$V'" <<<"$HEAD_VERSION_TS" || {
+  echo "REFUSED: apps/web/lib/version.ts is not at $V in HEAD" >&2
   exit 1
 }
-grep -q "^## \[$V\]" CHANGELOG.md || {
-  echo "REFUSED: CHANGELOG.md has no [$V] heading" >&2
+grep -q "^## \[$V\]" <<<"$HEAD_CHANGELOG" || {
+  echo "REFUSED: CHANGELOG.md in HEAD has no [$V] heading" >&2
   exit 1
 }
+# …and it must be the TOP entry: a [NEXT] above it is an entry that will
+# never get a number once this lands on top of it.
+TOP_HEADING="$(awk '/^## \[/ && !/\[Unreleased\]/ { print; exit }' <<<"$HEAD_CHANGELOG")"
+case "$TOP_HEADING" in
+  "## [$V]"*) ;;
+  *) echo "REFUSED: the top CHANGELOG entry in HEAD is not [$V]:" >&2
+     echo "    $TOP_HEADING" >&2
+     exit 1 ;;
+esac
 
 # ── The commit subject is a version surface too ─────────────────────────────
 #
@@ -79,11 +127,21 @@ grep -q "^## \[$V\]" CHANGELOG.md || {
 # commit three releases later. The CHANGELOG is right, so the mismatch is
 # invisible until the two are compared.
 #
-# Docs commits and anything not announcing a version are ignored: this fires
-# only on a subject that NAMES one.
+# A subject that names NO version is refused too (2026-10-04). This used to
+# fire only on a subject that named a wrong one, on the reasoning that docs
+# commits pass through here — they do not; docs go by a bare push under a
+# docs clearance — and so a commit titled "wip:" was released as a version.
 subject=$(git log -1 --format=%s)
 said=$(printf '%s' "$subject" | grep -oE '^v[0-9]+\.[0-9]+\.[0-9]+' | tr -d v || true)
-if [ -n "${said:-}" ] && [ "$said" != "$V" ]; then
+if [ -z "${said:-}" ]; then
+  echo "REFUSED: the commit subject names no version; this release is $V" >&2
+  echo "  $subject" >&2
+  echo "  A release commit's subject starts \"v$V — …\". If this is unfinished" >&2
+  echo "  work, it is not a release yet:" >&2
+  echo "      git commit --amend    # put v$V in the subject, then re-run" >&2
+  exit 1
+fi
+if [ "$said" != "$V" ]; then
   echo "REFUSED: the commit subject says v$said, this release is $V" >&2
   echo "  $subject" >&2
   echo >&2

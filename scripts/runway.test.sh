@@ -24,6 +24,13 @@ git branch staging; git push -q origin staging; git fetch -q origin
 git checkout -q -b work origin/staging
 R=./scripts/runway.sh
 req() { RUNWAY_SESSION="$1" $R request --kind "$2" --what x --verified "typecheck" --unverified "render" >/dev/null; }
+# A commit shaped like a release: version in package.json, the same version as
+# the top changelog heading, and in the subject. The hook checks all three.
+# The changelog is LONG, like the real one (22,000 lines): a check that pipes
+# it through `grep -q` or `head -1` dies of SIGPIPE on a long file and passes
+# on a short one, which is how release.sh refused its own first release.
+HISTORY="$(i=0; while [ $i -lt 3000 ]; do echo "## [0.0.0-$i] — old"; echo "words words words words words words words words"; i=$((i + 1)); done)"
+rel() { printf '{ "name": "t", "version": "%s" }\n' "$1" > package.json; { printf '# Changelog\n\n## [Unreleased]\n\n## [%s] — t\n\n' "$1"; printf '%s\n' "$HISTORY"; } > CHANGELOG.md; echo "$1" > "rel-$1.txt"; git add -A; git commit -qm "v$1 — a release"; }
 
 echo "request"
 expect_fail "request without --unverified" env RUNWAY_SESSION=a $R request --kind release --what x --verified y
@@ -31,7 +38,7 @@ expect_fail "request without a session name" $R request --kind release --what x 
 
 echo "one runway, one clearance"
 expect_fail "check with no clearance" env RUNWAY_SESSION=a $R check --kind release
-echo c1 > code.txt; git add -A; git commit -qm c1
+rel 0.0.1
 req a release; req b release
 expect_pass "clear a" $R clear a --by atc
 expect_fail "clear b while a holds it" $R clear b --by atc
@@ -147,12 +154,54 @@ grep -q "LAND-REFUSED holder=a" "$T/w/.git/runway/log" && ok "and it is in the l
 OUT="$(RUNWAY_SESSION=a $R land 2>&1)"; grep -q "Landed. Runway free." <<<"$OUT" && ok "the holder still lands" || bad "the holder still lands"
 OUT="$(RUNWAY_SESSION=a $R land 2>&1)"; grep -q "Nothing to land" <<<"$OUT" && ok "landing a free runway says there is nothing to land" || bad "landing a free runway says there is nothing to land"
 
+echo "what may be pushed under a release clearance (4fab772a)"
+git fetch -q origin; git checkout -q -B wip1 origin/staging
+printf '# Changelog\n\n## [Unreleased]\n\n## [NEXT] — unfinished\n\n## [0.0.1] — t\n' > CHANGELOG.md; echo w > wip.txt; git add -A; git commit -qm "wip: the organiser page was built for a one-line bio"
+req a release; $R clear a --by atc >/dev/null
+OUT="$(RUNWAY_SESSION=a git push -q origin HEAD:staging 2>&1)" && bad "a wip: commit is refused even WITH a release clearance" || ok "a wip: commit is refused even WITH a release clearance"
+grep -q "release.sh" <<<"$OUT" && ok "and the refusal names ./scripts/release.sh" || bad "and the refusal names ./scripts/release.sh"
+git commit -q --amend -m "v0.0.2 — named, but the stamps never went in"
+OUT="$(RUNWAY_SESSION=a git push -q origin HEAD:staging 2>&1)" && bad "a subject with a version over a [NEXT] changelog is refused" || ok "a subject with a version over a [NEXT] changelog is refused"
+grep -q "half-stamped" <<<"$OUT" && ok "and it says half-stamped" || bad "and it says half-stamped"
+printf '{ "name": "t", "version": "0.0.2" }\n' > package.json; printf '# Changelog\n\n## [Unreleased]\n\n## [0.0.2] — t\n\n## [0.0.1] — t\n' > CHANGELOG.md; git add -A; git commit -q --amend -m "v0.0.3 — the subject is one number out"
+expect_fail "a subject naming a different version from package.json is refused" env RUNWAY_SESSION=a git push -q origin HEAD:staging
+git commit -q --amend -m "v0.0.2 — stamped, committed, named"
+expect_pass "the same commit, finished, goes through" env RUNWAY_SESSION=a git push -q origin HEAD:staging
+RUNWAY_SESSION=a $R land >/dev/null
+git fetch -q origin; git checkout -q -B docpush origin/staging; mkdir -p docs; echo d > docs/page.md; git add -A; git commit -qm "docs: a page"
+RUNWAY_SESSION=a $R request --kind docs --what d --verified v --unverified none >/dev/null; $R clear a --by atc >/dev/null
+expect_pass "a docs: commit under a DOCS clearance is not asked for a version" env RUNWAY_SESSION=a git push -q origin HEAD:staging
+RUNWAY_SESSION=a $R land >/dev/null
+
+echo "the lane"
+git fetch -q origin; git checkout -q -B lane1 origin/staging; mkdir -p apps/meet apps/thread; echo m > apps/meet/page.tsx; echo s > apps/thread/swept.tsx; rel 0.0.3
+RUNWAY_SESSION=a $R request --kind release --lane "apps/meet docs/meet-*.md" --what x --verified v --unverified none >/dev/null
+OUT="$($R clear a --by atc 2>&1 || true)"
+grep -q "OUTSIDE THE LANE: apps/thread/swept.tsx" <<<"$OUT" && ok "a path outside the declared lane is refused and named" || bad "a path outside the declared lane is refused and named"
+grep -q "OUTSIDE THE LANE: package.json\|OUTSIDE THE LANE: CHANGELOG.md" <<<"$OUT" && bad "the version surfaces are never out of lane" || ok "the version surfaces are never out of lane"
+grep -q "OUTSIDE THE LANE: apps/meet" <<<"$OUT" && bad "paths inside the lane pass" || ok "paths inside the lane pass"
+expect_pass "--allow-out-of-lane is the controller saying it is meant" $R clear a --by atc --allow-out-of-lane
+grep -q "allow-out-of-lane" "$T/w/.git/runway/log" && ok "and that is in the log" || bad "and that is in the log"
+$R abort --by atc >/dev/null
+req a release
+expect_pass "no lane declared = no lane check (opt-in)" $R clear a --by atc
+$R abort --by atc >/dev/null; rm -f "$T/w/.git/runway/queue/"*
+
+echo "the shared checkout stays on main"
+git checkout -q main 2>/dev/null
+expect_pass "the main checkout on main passes" $R check-checkout
+git checkout -q -B somebody-elses-branch
+expect_fail "the main checkout on another branch is refused" $R check-checkout
+git checkout -q main
+git worktree add -q "$T/wt" -b wt-branch origin/staging 2>/dev/null
+( cd "$T/wt" && mkdir -p scripts && cp "$SRC/runway.sh" scripts/runway.sh && ./scripts/runway.sh check-checkout ) >/dev/null 2>&1 && ok "a worktree on its own branch is exempt" || bad "a worktree on its own branch is exempt"
+git checkout -q work2
+
 echo "production is Sjoerd's"
 git checkout -q work2; req a prod
 expect_fail "prod without --sjoerd-said is refused" $R clear a --by atc
 expect_pass "prod with his words is granted" $R clear a --by atc --sjoerd-said "promote it"
 $R abort --by atc >/dev/null
-
 echo "expiry and escape hatches"
 git fetch -q origin; git checkout -q -B work3 origin/staging; echo c3 > code3.txt; git add -A; git commit -qm c3
 req a release; $R clear a --by atc --minutes 0 >/dev/null

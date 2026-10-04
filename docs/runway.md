@@ -123,13 +123,55 @@ Zero on the first line means production is level with staging.
 
 Staging: `./scripts/db-push-staging.sh`. Production:
 `./scripts/db-push-prod.sh`, on Sjoerd's words. **Never a bare
-`supabase db push`.** The CLI's link is machine-global and rests on
-PRODUCTION (the staging script links to staging, pushes, and puts the link
-back), so a bare push meant "for staging" writes to production and reports
-success. On 2026-10-03 exactly that bare command was handed to a chat as an
+`supabase db push`.** The CLI remembers one linked project per checkout
+(`supabase/.temp/project-ref`), and by convention it rests on PRODUCTION (the
+staging script links to staging, pushes, and puts the link back), so a bare
+push meant "for staging" writes to production and reports success. On 2026-10-03 exactly that bare command was handed to a chat as an
 instruction; the chat read `supabase/.temp/project-ref`, saw production, and
 refused. Read that file when in doubt: it names the project a bare command
 would hit.
+
+One guard since v1.99.4: `pnpm verify` refuses when this checkout's link is
+NOT resting on production (`scripts/check-supabase-link.mjs`). A staging push
+interrupted before its restore leaves it on staging, and the next bare push
+meant for production would then land on staging and say it worked.
+
+Not gated, and known: `db-push-prod.sh` itself needs no clearance, so a
+production schema change is the one production act the runway does not
+cover. A gate for it is built and parked (branch `stress-db-prod`); it would
+change how Sjoerd runs a production migration, so it waits for him.
+
+## What a release clearance does not cover
+
+**A clearance says who may land, not that the commit is a release.** On
+2026-10-04 `release.sh` printed "Released 1.99.2" and pushed a commit titled
+"wip:" whose `package.json` said 1.99.1 and whose changelog heading was
+still `[NEXT]`: the script pushes HEAD and had read every version surface
+from the files on disk, where the stamps sat uncommitted. Since v1.99.4:
+
+- `release.sh` reads every version surface from HEAD, refuses stamps that
+  are on disk and not in the commit, refuses a subject that names no
+  version, and refuses a `[NEXT]` entry left above the numbered one.
+- The pre-push hook is the second layer, for a bare `git push`: under a
+  `release` clearance the pushed commit's subject must start `v<version> `,
+  and that version must be `package.json`'s and the top changelog heading's.
+  Docs pushes under a `docs` clearance are not asked for a version.
+
+**The lane.** A request may declare `--lane "apps/meet docs/meet-*.md"`
+(prefixes or patterns, space-separated). `clear` then refuses a commit that
+changes anything outside it, naming the paths; the version surfaces and the
+changelog are exempt. A file swept in from another session's work shows in
+no changelog and no test run, and this is the one place it does.
+`--allow-out-of-lane` is the controller's logged override. No lane declared
+means no check: it is opt-in.
+
+**The shared checkout's branch is shared state**, like the stash stack and
+the migration history: three things that look local and are not. Never switch
+it; take a worktree for anything you'll commit. `release.sh` refuses to run
+in the main checkout when its branch is not `main` (`runway.sh
+check-checkout`); a worktree's branch is its own and is exempt. On 2026-10-04
+one chat switched the main checkout to its own branch and another chat's
+release then committed onto it, carrying two of its files.
 
 ## When the tower is down (read this at 02:00)
 

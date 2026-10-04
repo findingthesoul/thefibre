@@ -132,12 +132,13 @@ cmd_status() {
 
 cmd_clear() {
   local name="${1:-}"; shift || true
-  local by="" minutes="$DEFAULT_MINUTES" kindopt="" said="" want="" allow_delete=0
+  local by="" minutes="$DEFAULT_MINUTES" kindopt="" said="" want="" allow_delete=0 allow_lane=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --by) by="$2"; shift 2 ;; --minutes) minutes="$2"; shift 2 ;;
       --kind) kindopt="$2"; shift 2 ;; --sjoerd-said) said="$2"; shift 2 ;;
       --sha) want="$2"; shift 2 ;; --allow-delete) allow_delete=1; shift ;;
+      --allow-out-of-lane) allow_lane=1; shift ;;
       *) die "unknown option $1" ;;
     esac
   done
@@ -255,6 +256,35 @@ cmd_clear() {
         done
         [ -z "$overlap" ] || { printf '%s' "$overlap" >&2; die "${sha:0:8} touches paths an earlier request also changes. Clear that one first; the pilot then rebases and asks again."; }
       fi
+      # The lane. A request may declare one (--lane "apps/meet docs/meet-*.md"),
+      # and then every changed path must fall under one of its prefixes or
+      # match one of its patterns. A file swept into somebody's commit from
+      # another session's work is invisible in a changelog and in a test run;
+      # this is the one place it shows (2026-10-04: a release committed onto
+      # another chat's branch and carried two of its files). The version
+      # surfaces and the changelog belong to every release and are exempt.
+      # No lane declared = no check: the field is opt-in until sessions use it.
+      local lane; lane="$(field lane "$q")"
+      if [ -n "$lane" ]; then
+        local outside="" f pat hit
+        for f in $files; do
+          case "$f" in CHANGELOG.md|package.json|apps/*/package.json|packages/*/package.json|apps/web/lib/version.ts) continue ;; esac
+          hit=0
+          for pat in $lane; do
+            # shellcheck disable=SC2254
+            case "$f" in $pat|${pat%/}/*) hit=1; break ;; esac
+          done
+          [ "$hit" = 1 ] || outside="$outside$f"$'\n'
+        done
+        if [ -n "$outside" ]; then
+          if [ "$allow_lane" = 1 ]; then
+            say "Outside the declared lane ($lane), allowed by $by:"; printf '%s' "$outside" | sed 's/^/    /'
+          else
+            printf '%s' "$outside" | sed 's/^/    OUTSIDE THE LANE: /' >&2
+            die "${sha:0:8} changes paths outside its declared lane ($lane). If they are meant, clear with --allow-out-of-lane; if not, they were swept in from somebody else's work."
+          fi
+        fi
+      fi
       if printf '%s\n' "$files" | grep -q '^supabase/migrations/'; then
         say "Adds migrations: checking versions against every worktree."
         node scripts/check-migration-versions.mjs || die "migration version collision. Renumber with scripts/new-migration.sh."
@@ -273,7 +303,7 @@ cmd_clear() {
   set +o noclobber
   local verified; verified="$(field verified "$q")"
   rm -f "$q"
-  logit "CLEARED session=$name kind=$kind sha=$sha base=$base by=$by minutes=$minutes${said:+ sjoerd-said=\"$said\"}$([ "$allow_delete" = 1 ] && echo " allow-delete" || true)"
+  logit "CLEARED session=$name kind=$kind sha=$sha base=$base by=$by minutes=$minutes${said:+ sjoerd-said=\"$said\"}$([ "$allow_delete" = 1 ] && echo " allow-delete" || true)$([ "$allow_lane" = 1 ] && echo " allow-out-of-lane" || true)"
   say "CLEARED: $name may land $kind ($minutes min). Base $(git rev-parse --short "$base"). Verified (their word): $verified"
   [ "$stale" = 0 ] || say "NOTE: ${sha:0:8} is not on $ref. Rebase onto $ref before you push (the runway is yours meanwhile, so nothing moves under you); the pre-push check wants the rebased commit's parent at $(git rev-parse --short "$base")."
 }
@@ -360,6 +390,36 @@ cmd_hook() {
     # A docs push has its own clearance kind; accept either on staging.
     if [ "$kind" = release ] && [ -z "${RUNWAY_BYPASS:-}" ] && live_clearance && [ "$(field kind "$CLEARANCE")" = docs ]; then kind=docs; fi
     cmd_check --kind "$kind" >&2 || exit 1
+    # WHAT is being pushed. A clearance says who may land, not that the commit
+    # is a finished release: on 2026-10-04 a commit titled "wip:" went to
+    # staging under a release clearance with a bare `git push` — no version
+    # bump, its changelog heading still [NEXT] — and the next session's
+    # stamp then numbered itself above an entry that never got a number.
+    # release.sh checks all of this; the hook did not, and a bare push walks
+    # past release.sh. Docs pushes keep their own, looser shape.
+    if [ "$kind" = release ] && [ -z "${RUNWAY_BYPASS:-}" ]; then
+      local subject top pkg
+      subject="$(git log -1 --format=%s "$lsha" 2>/dev/null || true)"
+      # Read whole, then searched: a `git show | grep | head -1` on a
+      # 22,000-line changelog ends in SIGPIPE, and this function runs under
+      # pipefail with a trap that turns any failure into "let the push through".
+      local cl; cl="$(git show "$lsha:CHANGELOG.md" 2>/dev/null || true)"
+      top="$(awk '/^## \[/ && !/\[Unreleased\]/ { print; exit }' <<<"$cl")"
+      local pj; pj="$(git show "$lsha:package.json" 2>/dev/null || true)"
+      pkg="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' <<<"$pj" | sed -n '1p')"
+      case "$subject" in
+        v[0-9]*.[0-9]*.[0-9]*\ *) ;;
+        *) die "this push to staging is not a release: its subject is \"$subject\". A release is made by ./scripts/release.sh, never a bare push (it stamps the version and the changelog and runs the gate)." ;;
+      esac
+      case "$top" in
+        "## [$pkg]"*) ;;
+        *) die "this push to staging is half-stamped: package.json says $pkg and the top changelog heading is \"${top:-none}\". Run node scripts/next-version.mjs, then ./scripts/release.sh; never a bare push." ;;
+      esac
+      case "$subject" in
+        "v$pkg "*) ;;
+        *) die "this push to staging names one version in its subject (\"$subject\") and another in package.json ($pkg). Use ./scripts/release.sh." ;;
+      esac
+    fi
   done
 }
 
@@ -386,10 +446,26 @@ EOF
   say "Installed $h (applies to every worktree of this clone)."
 }
 
+# The shared checkout's BRANCH is shared state, like the stash stack and the
+# migration history: three things that look local and are not. A session that
+# switches it moves the ground under every other session working there, and
+# nothing warns them — the next release.sh run then commits onto somebody
+# else's branch (2026-10-04). A worktree's branch is its own; the main
+# checkout's is `main`, always.
+cmd_check_checkout() {
+  local gitdir common branch
+  gitdir="$(cd "$(git rev-parse --git-dir)" && pwd)"
+  common="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
+  [ "$gitdir" = "$common" ] || return 0          # a worktree: its branch is its own
+  branch="$(git symbolic-ref --quiet --short HEAD || echo "(detached)")"
+  [ "$branch" = main ] || die "the shared main checkout is on \"$branch\", not main. Somebody switched it; a release from here would commit onto their branch. Do not switch it back under them: ask who, and release from a worktree."
+}
+
 sub="${1:-}"; shift || true
 case "$sub" in
   request) cmd_request "$@" ;; queue) cmd_queue ;; status) cmd_status ;;
   clear) cmd_clear "$@" ;; check) cmd_check "$@" ;; land) cmd_land ;;
   abort) cmd_abort "$@" ;; hook) cmd_hook "$@" ;; install-hook) cmd_install_hook ;;
+  check-checkout) cmd_check_checkout ;;
   *) sed -n '2,32p' "$0"; exit 64 ;;
 esac

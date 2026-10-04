@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.101.1] — 2026-10-04 — what is checked is what ships (staging)
+
+Release tooling only. Four guards, each from something that went wrong in
+the last two days, each with a test that reproduces it.
+
+**`release.sh` checks the commit it pushes, not the files beside it.** On
+2026-10-04 it printed "Released 1.99.2 to STAGING" and pushed a commit titled
+"wip:" whose `package.json` said 1.99.1 and whose changelog heading was still
+`[NEXT]` (4fab772a). Nothing was bypassed. The script pushes HEAD and read
+every version surface from the working tree, where `next-version.mjs` had
+stamped them and nobody had committed; and its subject check fired only on a
+subject naming a wrong version, never on one naming none. The next session's
+stamp then numbered itself above an entry that never got a number. Now every
+surface is read from HEAD; stamps on disk and not in the commit are refused
+with the command that fixes it; a subject naming no version is refused; so
+is a `[NEXT]` entry above the numbered one. `scripts/release.test.mjs` runs
+the real script in a sandbox with exactly that commit and expects a refusal
+and an unmoved staging; against the script as it was, it releases.
+
+The first attempt to release this very change was refused by the new script
+itself, wrongly: "CHANGELOG.md in HEAD has no [1.100.5] heading", for a
+heading on line 9. The new check piped `git show` into `grep -q`; on a
+22,000-line changelog grep closes the pipe at its first match, git dies of
+SIGPIPE, and under pipefail that reads as "not found". The sandbox test's
+changelog was ten lines long and could not show it. Files are now read once
+and searched in memory, and both tests' changelogs are thousands of lines.
+
+**The pre-push hook is the second layer.** Under a `release` clearance, a
+bare `git push` to staging is refused unless the commit's subject starts
+`v<version> ` and that version is `package.json`'s and the top changelog
+heading's. A clearance says who may land, not that the commit is a release.
+
+**`pnpm verify` refuses a Supabase link left on staging.** The CLI's link is
+per checkout and rests on production by convention; a staging push
+interrupted before its restore leaves it on staging, and the next bare push
+meant for production would land there and report success.
+
+**The lane, and the shared checkout's branch.** `clear` refuses a commit
+that changes paths outside the lane its request declared (opt-in;
+`--allow-out-of-lane` is the controller's logged override), and `release.sh`
+refuses to run in the shared main checkout when its branch is not `main`.
+Both from the same incident: one chat switched the main checkout's branch,
+another's release committed onto it and carried two of its files.
+
+`docs/runway.md` describes all four, and corrects one sentence of mine: the
+Supabase link is per checkout, not machine-global.
+
+Built and deliberately NOT in this release: a runway clearance for
+`db-push-prod.sh`. It would add a step to how Sjoerd himself runs a
+production migration, and he has asked for no process changes for now. It is
+parked on a branch.
+
 ## [1.101.0] — 2026-10-04 — member directory slice 1: the vocabulary, and who sees whom
 
 The admin half of the member directory Sjoerd asked for — *"Members need to
