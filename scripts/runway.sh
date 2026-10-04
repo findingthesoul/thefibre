@@ -27,7 +27,9 @@
 #         prod (promote.sh; needs --sjoerd-said "<his words>" to be granted)
 #
 # What this stops: a second session landing while one holds the runway, a push
-# built on a staging that has since moved (the three lost races of 2026-10-01),
+# built on a staging that has since moved (the three lost races of 2026-10-01;
+# a DOCS-only commit may sit on a stale base and rebase at push time, since
+# the runway holds everyone else off meanwhile — Sjoerd's yes, 2026-10-03),
 # a docs commit that is not docs, a commit that deletes files that are on
 # staging (unless the controller says that is meant), production without
 # Sjoerd, and a handover that says nothing about what was NOT verified.
@@ -190,31 +192,68 @@ cmd_clear() {
   local ref base; ref="$(base_ref "$kind")"; base="$(git rev-parse "$ref")"
 
   # ── Preflight: cheap, and the ones that have actually bitten this repo ────
+  local stale=0
   case "$kind" in
     release|docs)
-      git merge-base --is-ancestor "$ref" "$sha" \
-        || die "${sha:0:8} is not built on $ref ($(git rev-parse --short "$ref")). Rebase or fast-forward onto it, request again."
-      local files; files="$(git --no-pager diff --name-only "$ref" "$sha")"
+      # The head rule. A RELEASE must sit on the current staging: a stale base
+      # ships stale code. A DOCS request need not (Sjoerd, 2026-10-03, relayed
+      # by the controller): the runway already guarantees nobody else lands
+      # while it holds a clearance, so a docs-only commit can be rebased at
+      # push time, and three sessions had each spent a round trip rebasing
+      # .md onto each other's .md. What a docs request on a stale base MUST
+      # not do is carry a path another waiting request also touches, or
+      # delete anything — both checked below.
+      if ! git merge-base --is-ancestor "$ref" "$sha"; then
+        [ "$kind" = docs ] || die "${sha:0:8} is not built on $ref ($(git rev-parse --short "$ref")). Rebase or fast-forward onto it, request again."
+        stale=1
+      fi
+      # The commit's OWN changes: from where it left the base branch. For a
+      # commit on the current head this is the plain diff against the head;
+      # for a stale docs commit it is only what it did, not what others did
+      # since — the diff that, taken against the head, made a branch look as
+      # if it deleted a peer's new file (2026-10-02).
+      local from; from="$(git merge-base "$ref" "$sha")"
+      local files; files="$(git --no-pager diff --name-only "$from" "$sha")"
       [ -n "$files" ] || die "${sha:0:8} changes nothing against $ref."
-      say "Diff against $ref:"; printf '%s\n' "$files" | sed 's/^/    /'
+      say "Changes ($( [ "$stale" = 1 ] && echo "own, from $(git rev-parse --short "$from"); base is stale" || echo "against $ref")):"; printf '%s\n' "$files" | sed 's/^/    /'
       # A commit that REMOVES files which are on staging. Almost never meant:
       # it is what a rebase resolved the wrong way, or a branch cut before a
       # peer's file landed, looks like — and a docs push is the push nobody
       # reads. (2026-10-02: a docs commit appeared to delete a 149-line
       # proposal another chat had just added.) Refused with the paths named;
       # a deliberate removal is the controller's to wave through, in the log.
-      local deleted; deleted="$(git --no-pager diff --name-only --diff-filter=D "$ref" "$sha")"
+      local deleted; deleted="$(git --no-pager diff --name-only --diff-filter=D "$from" "$sha")"
       if [ -n "$deleted" ]; then
-        if [ "$allow_delete" = 1 ]; then
+        if [ "$allow_delete" = 1 ] && [ "$stale" = 0 ]; then
           say "Deletes files that are on $ref (allowed by $by):"; printf '%s\n' "$deleted" | sed 's/^/    /'
         else
           printf '%s\n' "$deleted" | sed 's/^/    DELETES: /' >&2
+          [ "$stale" = 0 ] || die "${sha:0:8} removes files and is not on the current $ref. A stale docs commit may not delete anything; rebase onto $ref and request again."
           die "${sha:0:8} removes files that are on $ref. If that is meant, clear with --allow-delete; if not, the branch lost them in a rebase."
         fi
       fi
       if [ "$kind" = docs ]; then
         local bad; bad="$(printf '%s\n' "$files" | grep -vE '^docs/|\.md$' || true)"
         [ -z "$bad" ] || { printf '%s\n' "$bad" | sed 's/^/    NOT DOCS: /' >&2; die "kind=docs touches code. Request kind=release."; }
+        # Nobody else's lane: a path that an OLDER waiting request also changes
+        # (its own changes, measured the same way) is refused — first asked,
+        # first landed; the newer one rebases over the older's words once they
+        # are on staging and asks again. Only older entries count, or two
+        # requests on one page would each refuse the other and neither could
+        # land. Checked for docs only, because a release is already pinned to
+        # the head and lands before anyone else can.
+        local other opath overlap=""
+        for other in $(ls "$QUEUE" 2>/dev/null | sort); do
+          [ "$other" = "$entry" ] && break
+          local osha; osha="$(field sha "$QUEUE/$other")"
+          git rev-parse --verify --quiet "$osha^{commit}" >/dev/null || continue
+          local ofrom; ofrom="$(git merge-base "$(base_ref "$(field kind "$QUEUE/$other")")" "$osha" 2>/dev/null || true)"
+          [ -n "$ofrom" ] || continue
+          for opath in $(git --no-pager diff --name-only "$ofrom" "$osha"); do
+            printf '%s\n' "$files" | grep -qxF -- "$opath" && overlap="$overlap    $opath  (also in $(field session "$QUEUE/$other")'s ${osha:0:8})"$'\n'
+          done
+        done
+        [ -z "$overlap" ] || { printf '%s' "$overlap" >&2; die "${sha:0:8} touches paths an earlier request also changes. Clear that one first; the pilot then rebases and asks again."; }
       fi
       if printf '%s\n' "$files" | grep -q '^supabase/migrations/'; then
         say "Adds migrations: checking versions against every worktree."
@@ -236,6 +275,7 @@ cmd_clear() {
   rm -f "$q"
   logit "CLEARED session=$name kind=$kind sha=$sha base=$base by=$by minutes=$minutes${said:+ sjoerd-said=\"$said\"}$([ "$allow_delete" = 1 ] && echo " allow-delete" || true)"
   say "CLEARED: $name may land $kind ($minutes min). Base $(git rev-parse --short "$base"). Verified (their word): $verified"
+  [ "$stale" = 0 ] || say "NOTE: ${sha:0:8} is not on $ref. Rebase onto $ref before you push (the runway is yours meanwhile, so nothing moves under you); the pre-push check wants the rebased commit's parent at $(git rev-parse --short "$base")."
 }
 
 # check --kind K: exit 0 only when RUNWAY_SESSION holds a live clearance of that

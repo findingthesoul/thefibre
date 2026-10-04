@@ -62,12 +62,25 @@ meant: it is what a rebase resolved the wrong way looks like, and a docs
 push is the push nobody reads. A deliberate removal needs
 `--allow-delete`, which is written to the log with your name.
 
-`clear` refuses if the runway is busy, or if the commit isn't built on current
-`origin/staging`, or a `docs` request touches code, or the range adds
+`clear` refuses if the runway is busy, or if a `release` commit isn't built on
+current `origin/staging`, or a `docs` request touches code, or the range adds
 migrations whose versions collide with any worktree
 (`scripts/check-migration-versions.mjs` reads every one — prune dead worktrees
 with `git worktree prune`). For `prod` and `api-prod` it also requires
 `--sjoerd-said "<his words>"` and logs them: **production is only his.**
+
+**Docs may sit on a stale base; code may not** (Sjoerd, 2026-10-03). A
+`release` must be built on the current staging, because a stale base ships
+stale code. A `docs` request need not: the runway holds everyone else off
+while a clearance stands, so the pilot rebases the .md onto the head just
+before pushing and nothing moves underneath. Three sessions had each spent a
+round trip rebasing one .md onto another's. What a stale docs commit may NOT
+do: touch a path an EARLIER waiting request also changes (refused with the
+path; first asked, first landed, the later one rebases and asks again), or
+delete anything (refused, and `--allow-delete` does not rescue a stale one).
+The CLEARED line says "rebase onto origin/staging before you push" when it
+applies, and the diff shown is the commit's own changes from where it left
+the base, not a diff against the head.
 
 If staging moves between grant and landing, the clearance is **void** and the
 pilot rebases and requests again. That is the 2026-10-01 lost-race failure,
@@ -105,6 +118,18 @@ git log --oneline origin/main..origin/staging | grep -c ' v[0-9]'      # how man
 ```
 
 Zero on the first line means production is level with staging.
+
+## Migrations: always through the two scripts
+
+Staging: `./scripts/db-push-staging.sh`. Production:
+`./scripts/db-push-prod.sh`, on Sjoerd's words. **Never a bare
+`supabase db push`.** The CLI's link is machine-global and rests on
+PRODUCTION (the staging script links to staging, pushes, and puts the link
+back), so a bare push meant "for staging" writes to production and reports
+success. On 2026-10-03 exactly that bare command was handed to a chat as an
+instruction; the chat read `supabase/.temp/project-ref`, saw production, and
+refused. Read that file when in doubt: it names the project a bare command
+would hit.
 
 ## When the tower is down (read this at 02:00)
 

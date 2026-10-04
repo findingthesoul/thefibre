@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.99.1] — 2026-10-04 — docs may sit on a stale base; code may not (staging)
+
+Runway tooling. Sjoerd's yes, given in the coordinator chat on 2026-10-03
+and relayed by the controller; the loosening was proposed on 2026-10-02 and
+held back until he had said so, because it relaxes a check he asked for in
+his own words.
+
+**What changes.** A `docs` request is no longer refused for not being built
+on the current staging. The runway already guarantees nobody else lands
+while a clearance stands, so a docs-only commit can be rebased at push time
+with nothing moving underneath, and three sessions had each spent a round
+trip rebasing one .md onto another's. A `release` still must be built on
+the current head: a stale base there ships stale code, and that rule is
+unchanged, as are `api-*` and `prod`.
+
+**What a stale docs commit may not do**, each refused with the paths named:
+touch a path that an EARLIER waiting request also changes (first asked, first
+landed; the later one rebases over the first's words once they are on
+staging and asks again — only earlier requests count, or two requests on one
+page would each refuse the other and neither could land); or delete any
+file, and `--allow-delete` does not rescue a stale one. The diff the
+controller sees is the commit's own changes from where it left the base,
+not a diff against the head, which is the diff that made a branch look as if
+it deleted a peer's new file on 2026-10-02.
+
+The CLEARED line says "rebase onto origin/staging before you push" when it
+applies. Nine new cases in `scripts/runway.test.sh`; `docs/runway.md` and
+CLAUDE.md rule 4 describe the rule as it now is.
+
+Also in `docs/runway.md`, at the controller's request: migrations go through
+`db-push-staging.sh` and `db-push-prod.sh`, never a bare `supabase db push`,
+because the CLI's link rests on production.
+
 ## [1.99.0] — 2026-10-04 — staging wears a blue line so you always know which one you are looking at
 
 Sjoerd: *"place a 5px blue bar at the top of staging - to make it distinct

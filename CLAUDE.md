@@ -176,8 +176,10 @@ or when you genuinely need the peer's uncommitted state.
      controller into a rubber stamp — worse than the races, since it looks
      fine.
    - **The controller runs the preflight and grants one clearance at a time**:
-     your commit is built on the current staging, the diff is in your lane,
-     docs-only is really docs, migration versions are free in every worktree.
+     a release commit is built on the current staging (a docs-only commit may
+     sit on a stale base and rebase before the push — Sjoerd, 2026-10-03), the
+     diff is in your lane, docs-only is really docs, nothing is deleted
+     unawares, migration versions are free in every worktree.
      `release.sh`, `deploy-api.sh` and `promote.sh` then refuse without it,
      and re-check after `pnpm verify` because the base can move in those
      minutes. A pre-push hook covers a bare `git push` to staging or main.

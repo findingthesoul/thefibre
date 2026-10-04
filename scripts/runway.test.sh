@@ -106,6 +106,34 @@ expect_pass "removing a file the same branch added is not a deletion" $R clear a
 $R abort --by atc >/dev/null
 rm -f "$T/w/.git/runway/queue/"*
 
+echo "docs may sit on a stale base; code may not (Sjoerd, 2026-10-03)"
+git fetch -q origin; git checkout -q -B docs-stale origin/staging~1; mkdir -p docs; echo words > docs/stale-words.md; git add -A; git commit -qm "docs on a stale base"
+RUNWAY_SESSION=a $R request --kind docs --what d --verified v --unverified none >/dev/null
+OUT="$($R clear a --by atc 2>&1)" && ok "a docs commit on a stale base is cleared" || bad "a docs commit on a stale base is cleared"
+grep -q "Rebase onto origin/staging before you push" <<<"$OUT" && ok "and the CLEARED line says to rebase first" || bad "and the CLEARED line says to rebase first"
+grep -q "base is stale" <<<"$OUT" && ok "and the diff shown is the commit's own, not the head's" || bad "and the diff shown is the commit's own, not the head's"
+$R abort --by atc >/dev/null
+git checkout -q -B code-stale origin/staging~1; echo c > stale-code.txt; git add -A; git commit -qm "code on a stale base"
+req a release
+expect_fail "a release on a stale base is still refused" $R clear a --by atc
+rm -f "$T/w/.git/runway/queue/"*
+git checkout -q -B docs-stale-del origin/staging~1; git rm -q a.txt; mkdir -p docs; echo w > docs/w.md; git add -A; git commit -qm "stale docs that deletes"
+RUNWAY_SESSION=a $R request --kind docs --what d --verified v --unverified none >/dev/null
+expect_fail "a stale docs commit that deletes a file is refused" $R clear a --by atc
+expect_fail "and --allow-delete does not rescue a stale one" $R clear a --by atc --allow-delete
+rm -f "$T/w/.git/runway/queue/"*
+
+echo "two docs requests on one path"
+git checkout -q -B docs-x origin/staging; mkdir -p docs; echo one > docs/shared-page.md; git add -A; git commit -qm "x writes shared-page"; X="$(git rev-parse HEAD)"
+git checkout -q -B docs-y origin/staging; mkdir -p docs; echo two > docs/shared-page.md; echo y > docs/only-y.md; git add -A; git commit -qm "y writes shared-page too"; Y="$(git rev-parse HEAD)"
+RUNWAY_SESSION=a $R request --kind docs --sha "$X" --what x --verified v --unverified none >/dev/null
+RUNWAY_SESSION=b $R request --kind docs --sha "$Y" --what y --verified v --unverified none >/dev/null
+OUT="$($R clear b --by atc 2>&1 || true)"
+grep -q "docs/shared-page.md" <<<"$OUT" && grep -q "REFUSED" <<<"$OUT" && ok "the LATER docs request sharing a path with an earlier one is refused, path named" || bad "the LATER docs request sharing a path with an earlier one is refused, path named"
+expect_pass "the EARLIER request on that path is cleared: first asked, first landed" $R clear a --by atc
+$R abort --by atc >/dev/null
+rm -f "$T/w/.git/runway/queue/"*
+
 echo "production is Sjoerd's"
 git checkout -q work2; req a prod
 expect_fail "prod without --sjoerd-said is refused" $R clear a --by atc
