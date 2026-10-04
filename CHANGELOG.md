@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.101.2] — 2026-10-04 — the browser tests stop signing in as Sjoerd (staging)
+
+Test infrastructure. No app or API code changes; nothing to deploy.
+
+**Who the browser pack is.** Every signed-in spec signed in as "the oldest
+confirmed account on staging", which is Sjoerd's own. That was tolerable
+while the specs only looked; one had started typing 8,001 characters into
+the profile's bio field, and the member-directory slices need signed-in
+writes that must never happen as a real person. There are now two
+identities (`e2e/identities.ts`), both found by what they are and never by
+their position in a list:
+
+- **The fixture, the default.** `e2e-fixture@example.com`, an admin of its
+  own permanent workspace `e2e-fixtures`, every app on (Members included,
+  with a seat and no community seeded) and an admin seat in the platform.
+  Nobody real. It is made on first use, idempotently, and repaired if
+  partial. Every spec that writes, and every spec that needs no particular
+  data, runs as it.
+- **The owner, by name only.** The one super_admin seat of the `default`
+  workspace, for three read-only specs that need that workspace's real data
+  (a contact's invoices, the EBBF organisation, the year-agenda thread). An
+  owner sign-in writes one hand-off row and Supabase's own session records,
+  and nothing else. `scripts/e2e-identities.test.mjs`, in the release gate,
+  fails if any other spec signs in as the owner, if one of those three
+  presses anything that saves, or if anything resolves an account by "the
+  oldest row" again. Neither resolver falls back to another account.
+
+The whole pack as the fixture, against staging: 38 passed, 3 skipped. On the
+first run 36 passed and two failed, both because the fixture lacked an admin
+seat in the platform itself (Settings → Teams and → Apps send a non-admin
+away); it has one now.
+
+**The first write found a bug, and the spec that found it is marked.**
+`e2e/profile-bio-save.spec.ts` does what nobody had done on a deployed
+stack: empties the bio, types a line, a heading and a closing line, presses
+Save, reloads. The save works. The reload shows `<h3>A heading</h3><div>…`
+as TEXT. An editor that starts empty gives its first line as a bare text
+node; `packages/shared/src/bio-html.ts` counts a stored value as markup only
+when it OPENS with a block tag, so the whole bio is judged plain and
+escaped. Every person writing a first bio, and anyone who clears theirs,
+gets their own tags back as text, and a second Save stores them that way.
+It is `test.fixme` with that reason; the fix belongs to the bio code and
+removes the marker. Until then the editor should not go to production.
+
+**The sweep knows the fixtures.** `e2e-fixtures` joins the workspaces the
+staging sweep requires to exist and refuses to touch, and the two fixture
+accounts are never counted as orphan test identities. The rules moved to
+`apps/api/scripts/lib/sweep-rules.mjs` and are tested without a database.
+
+Also: `contact-invoices.spec.ts` found its workspace through "the oldest
+user" too; it now asks for the owner's workspace by name.
+
 ## [1.101.1] — 2026-10-04 — what is checked is what ships (staging)
 
 Release tooling only. Four guards, each from something that went wrong in

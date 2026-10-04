@@ -21,7 +21,7 @@ them, not by reading the previous count (2026-09-15: 57 / 679, 13 / 93,
 |---|---|---|---|
 | Unit (vitest) | 130 | 1264 | `pnpm test`; inside `pnpm verify`; CI |
 | Integration, real Postgres + RLS on staging | 22 | 286 | `pnpm test:integration`; a developer's machine only |
-| End-to-end (Playwright, staging) | 8 | 37 | `pnpm test:e2e`; a developer's machine only |
+| End-to-end (Playwright, staging) | 11 | 41 | `pnpm test:e2e`; a developer's machine only |
 
 **The unit tests are not spread evenly, and that is deliberate.** The API
 (59 files), Connect (31) and the shared package (28) carry them; `packages/mcp`,

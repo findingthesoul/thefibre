@@ -1,25 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { HOSTS, landSignedIn, stagingService } from './helpers.js';
+import { HOSTS, landSignedInAsOwner, stagingService } from './helpers.js';
+import { resolveOwnerIdentity } from './identities.js';
 
 // A contact's Invoices tab (v0.75.14), through the real signed-in screen on
 // STAGING. The filter was proven against PostgREST; this is the layer above
 // it — the tab appearing only when it has something to show, and the shared
 // invoices list rendering that person's rows.
 //
-// Fixtures are READ, never written: a person in the fixture user's own
-// workspace who has a purchase, and one who has none. If staging stops having
+// Fixtures are READ, never written: a person in the OWNER's workspace (the
+// `default` one, e2e/identities.ts) who has a purchase, and one who has none. If staging stops having
 // either, the test says so rather than passing on nothing.
 
 async function fixtureWorkspacePeople() {
   const service = stagingService();
-  const { data: users } = await service
-    .from('user')
-    .select('workspace_id')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: true })
-    .limit(1);
-  const workspaceId = users?.[0]?.workspace_id as string | undefined;
-  if (!workspaceId) throw new Error('e2e: no fixture user workspace on staging');
+  // The workspace by what it IS, not "the oldest user's": that lookup is how
+  // the pack once became a different person without anybody choosing it.
+  const { workspaceId } = await resolveOwnerIdentity(service);
 
   const { data: bought } = await service
     .from('purchase')
@@ -55,7 +51,7 @@ test.describe("a contact's invoices (v0.75.14)", () => {
     const { withInvoice } = await fixtureWorkspacePeople();
     expect(withInvoice, 'staging fixture workspace has no purchase with a person').toBeTruthy();
 
-    await landSignedIn(page, HOSTS.fibre, 'fibre-platform', `/contacts/${withInvoice!.person_id}`, /\/contacts\//);
+    await landSignedInAsOwner(page, HOSTS.fibre, 'fibre-platform', `/contacts/${withInvoice!.person_id}`, /\/contacts\//);
     const tab = page.locator(`a[href="/contacts/${withInvoice!.person_id}/invoices"]`);
     await expect(tab).toHaveCount(1);
 
@@ -69,7 +65,7 @@ test.describe("a contact's invoices (v0.75.14)", () => {
     const { withoutInvoiceId } = await fixtureWorkspacePeople();
     expect(withoutInvoiceId, 'staging fixture workspace has no person without a purchase').toBeTruthy();
 
-    await landSignedIn(page, HOSTS.fibre, 'fibre-platform', `/contacts/${withoutInvoiceId}`, /\/contacts\//);
+    await landSignedInAsOwner(page, HOSTS.fibre, 'fibre-platform', `/contacts/${withoutInvoiceId}`, /\/contacts\//);
     await expect(page.locator(`a[href="/contacts/${withoutInvoiceId}/invoices"]`)).toHaveCount(0);
   });
 });

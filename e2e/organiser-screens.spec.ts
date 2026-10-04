@@ -1,15 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { HOSTS, landSignedIn, stagingService } from './helpers.js';
+import { HOSTS, landSignedIn, landSignedInAsOwner, stagingService } from './helpers.js';
 
 // The organiser screens that shipped 2026-09-24/25 typechecked-only, on
 // STAGING, rendered by a real signed-in browser — the render check testing
 // approach §1.5 asks for and none of them had. Written by the stress round
 // of 2026-09-25 after four peers said the same thing: "nobody has seen it".
 //
-// Signed in as the fixture user (e2e/helpers.ts: the oldest confirmed
-// staging account), who organises the year-agenda thread in the default
-// workspace. Labels are matched in English OR Dutch because the fixture's
-// locale is theirs, not ours.
+// The three thread-editor checks sign in as the OWNER of the `default`
+// workspace (e2e/identities.ts), who organises the year-agenda thread there:
+// they need that thread and they only look. The Connections check needs no
+// data and runs as the fixture account like everything else. Labels are
+// matched in English OR Dutch because the owner's locale is theirs, not ours.
 
 const THREAD = 'f10cf77a-9ca5-4ffa-bc33-cce5d7dd73fe';
 const EDITOR = `/threads/${THREAD}`;
@@ -59,7 +60,7 @@ test.describe('Thread editor — calendar tray (v1.49.0/1.51.0)', () => {
   });
 
   test('the bar shows what is owed and opens the review dialog', async ({ page }) => {
-    await landSignedIn(page, HOSTS.thread, 'the-thread', EDITOR, /\/threads\//);
+    await landSignedInAsOwner(page, HOSTS.thread, 'the-thread', EDITOR, /\/threads\//);
     const bar = page.getByText(/not sent\./);
     await expect(bar).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Review and send' }).click();
@@ -74,7 +75,7 @@ test.describe('Thread editor — calendar tray (v1.49.0/1.51.0)', () => {
 
 test.describe('Thread editor — the ticket badge (v1.49.2)', () => {
   test('exactly one message says it sends the ticket', async ({ page }) => {
-    await landSignedIn(page, HOSTS.thread, 'the-thread', EDITOR, /\/threads\//);
+    await landSignedInAsOwner(page, HOSTS.thread, 'the-thread', EDITOR, /\/threads\//);
     const badge = page.getByText(/^(Sends the ticket|Stuurt het ticket)$/);
     await expect(badge.first()).toBeVisible({ timeout: 30_000 });
     await expect(badge).toHaveCount(1);
@@ -87,7 +88,7 @@ test.describe('Registrations → Add participant — the person search (v1.52.0)
     // the first run of the day timed out at the default 45 s and passed on
     // its retry. The check is right; the budget was not.
     test.slow();
-    await landSignedIn(page, HOSTS.thread, 'the-thread', EDITOR, /\/threads\//);
+    await landSignedInAsOwner(page, HOSTS.thread, 'the-thread', EDITOR, /\/threads\//);
     // The editor is server-rendered, so the Registrations button is on the
     // page before React has attached its handler, and a click in that window
     // does nothing at all. Three runs in a row waited ninety seconds for a

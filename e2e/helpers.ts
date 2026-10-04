@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { ensureFixtureIdentity, resolveOwnerIdentity } from './identities.js';
 
 export const HOSTS = {
   fibre: 'https://thefibre.tech',
@@ -68,27 +69,10 @@ async function authUserByEmailPaged(email: string): Promise<{ id: string; email:
   return null;
 }
 
-/** An existing staging user who holds a platform user row (so the
- *  auth-callback access-check passes): the OLDEST such account, which on
- *  staging is the super admin. Fails loudly if that account cannot be
- *  found rather than picking a different one. */
-async function fixtureUser(): Promise<{ id: string; email: string }> {
-  const service = stagingService();
-  const { data: users, error } = await service
-    .from('user')
-    .select('email')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: true })
-    .limit(1);
-  if (error) throw new Error(`e2e: fixture user lookup: ${error.message}`);
-  const email = String(users?.[0]?.email ?? '');
-  if (!email) throw new Error('e2e: no platform user row on staging');
-  const auth = await authUserByEmailPaged(email);
-  if (!auth || !auth.confirmed) {
-    throw new Error(`e2e: the oldest platform user (${email}) has no confirmed auth account`);
-  }
-  return { id: auth.id, email: auth.email };
-}
+// WHO signs in: e2e/identities.ts. The default is the FIXTURE account, which
+// is nobody; the owner of the `default` workspace is available by name, for
+// the three read-only specs that need that workspace's real data. This used
+// to be "the oldest confirmed account on staging", which is a real person.
 
 /** Mint a single-use handoff code and return the land URL that signs the
  *  browser in on `host` (60s TTL — navigate promptly). */
@@ -97,18 +81,18 @@ export async function signedInLandUrl(
   targetApp: string,
   next = '/dashboard',
 ): Promise<string> {
-  const service = stagingService();
-  const user = await fixtureUser();
-  const code = `e2e-${randomBytes(24).toString('base64url')}`;
-  const { error } = await service.from('sso_handoff').insert({
-    code,
-    user_id: user.id,
-    email: user.email,
-    target_app: targetApp,
-    expires_at: new Date(Date.now() + 60_000).toISOString(),
-  });
-  if (error) throw new Error(`e2e: could not mint handoff code: ${error.message}`);
-  return `${host}/sso/land?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`;
+  return signedInLandUrlFor(host, targetApp, await ensureFixtureIdentity(stagingService()), next);
+}
+
+/**
+ * The same, as the OWNER of the `default` workspace. READ-ONLY SPECS ONLY,
+ * and only the ones on the allow-list in scripts/e2e-identities.test.mjs,
+ * which fails the release gate for anybody else. The sign-in itself writes
+ * one sso_handoff row and Supabase Auth's session records, nothing more;
+ * what the spec does afterwards must write nothing at all.
+ */
+export async function ownerLandUrl(host: string, targetApp: string, next = '/dashboard'): Promise<string> {
+  return signedInLandUrlFor(host, targetApp, await resolveOwnerIdentity(stagingService()), next);
 }
 
 /**
@@ -164,8 +148,28 @@ export async function landSignedIn(
   next: string,
   arrived: RegExp,
 ): Promise<void> {
+  return land(page, () => signedInLandUrl(host, targetApp, next), next, arrived);
+}
+
+/** landSignedIn as the OWNER — see ownerLandUrl for who may call this. */
+export async function landSignedInAsOwner(
+  page: import('@playwright/test').Page,
+  host: string,
+  targetApp: string,
+  next: string,
+  arrived: RegExp,
+): Promise<void> {
+  return land(page, () => ownerLandUrl(host, targetApp, next), next, arrived);
+}
+
+async function land(
+  page: import('@playwright/test').Page,
+  url: () => Promise<string>,
+  next: string,
+  arrived: RegExp,
+): Promise<void> {
   for (let attempt = 1; attempt <= 2; attempt++) {
-    await page.goto(await signedInLandUrl(host, targetApp, next));
+    await page.goto(await url());
     try {
       await page.waitForURL(arrived, { timeout: 30_000 });
       // Arriving is not being alive. Every caller of this helper assumes it

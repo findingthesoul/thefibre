@@ -41,21 +41,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { loadEnv } from './lib/env.mjs';
+import { HARNESS, classify, isOrphanTestAccount } from './lib/sweep-rules.mjs';
 
 const STAGING_REF = 'lukhyylwhhjyihqtghvw';
 const DELETE = process.argv.includes('--delete');
 
-// ── The allow-list: slug pattern AND the name that harness writes ───────────
-const HARNESS = [
-  // Tags are mostly lower-case; two early ones were `rlsA` / `rlsB`.
-  { label: 'int-test-*', slug: /^int-test-[A-Za-z0-9-]+-[0-9a-f]{8}$/, name: /^Integration test /, source: 'apps/api/src/integration/staging.ts createThrowawayWorkspace' },
-  { label: 'e2e-noaccess-*', slug: /^e2e-noaccess-[0-9a-f]{8}$/, name: /^e2e no-access [AB] [0-9a-f]{6}$/, source: 'e2e/no-access.spec.ts makeFixture' },
-  { label: 'first-admin-*', slug: /^first-admin-[0-9]{13}$/, name: /^First admin fixture$/, source: 'apps/api/src/integration/workspace-first-admin.int.test.ts' },
-];
-
-// ── What must be there and must never be touched ────────────────────────────
-const PERMANENT = ['int-enrol-fixtures', 'int-public-fixtures', 'int-merge-fixtures', 'e2e-enrol-fixtures'];
-const REHEARSAL_PREFIX = 'ca0569d5'; // the Stripe rehearsal workspace, by id
+// The rules (allow-list, permanent fixtures) live in lib/sweep-rules.mjs,
+// where they are tested without a database.
 
 const { file, env } = loadEnv();
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -73,29 +65,15 @@ console.log(`Project: ${STAGING_REF} (staging), env file ${file}. ${DELETE ? 'DE
 
 // ── 1. Every workspace, classified ─────────────────────────────────────────
 const all = must('workspaces', await db.from('workspace').select('id, slug, name, created_at').order('created_at'));
-const permanentFound = all.filter((w) => PERMANENT.includes(w.slug));
-const missing = PERMANENT.filter((s) => !permanentFound.some((w) => w.slug === s));
-const rehearsal = all.find((w) => String(w.id).startsWith(REHEARSAL_PREFIX));
+const { candidates, nameMismatch, permanentFound, missing, illegal, rehearsal } = classify(all);
 console.log(`Workspaces: ${all.length}. Permanent fixtures found: ${permanentFound.map((w) => w.slug).join(', ') || 'none'}${rehearsal ? `; rehearsal ${rehearsal.slug}` : ''}.`);
 if (missing.length) {
   console.error(`REFUSED: permanent fixture(s) missing: ${missing.join(', ')}. Either this is not the staging database or the fixtures were lost; nothing is swept until that is understood.`);
   process.exit(2);
 }
-
-const candidates = [];
-const nameMismatch = [];
-for (const w of all) {
-  const rule = HARNESS.find((h) => h.slug.test(w.slug));
-  if (!rule) continue;
-  if (PERMANENT.includes(w.slug) || (rehearsal && w.id === rehearsal.id)) {
-    console.error(`REFUSED: the allow-list matched a permanent workspace (${w.slug}). The patterns are wrong; nothing is swept.`);
-    process.exit(2);
-  }
-  if (!rule.name.test(w.name ?? '')) {
-    nameMismatch.push({ ...w, label: rule.label });
-    continue;
-  }
-  candidates.push({ ...w, label: rule.label });
+if (illegal.length) {
+  console.error(`REFUSED: the allow-list matched a permanent workspace (${illegal.map((w) => w.slug).join(', ')}). The patterns are wrong; nothing is swept.`);
+  process.exit(2);
 }
 
 // Member and user counts, for the sample and for the record.
@@ -140,8 +118,7 @@ try {
     const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 });
     if (error) throw error;
     for (const u of data.users) {
-      const e = (u.email ?? '').toLowerCase();
-      if (e.endsWith('@example.com') && !seats.has(e)) orphanAuth += 1;
+      if (isOrphanTestAccount(u.email, seats)) orphanAuth += 1;
     }
     if (data.users.length < 1000) break;
     page += 1;
