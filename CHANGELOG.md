@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.105.0] — 2026-10-05 — member directory slice 2a: the member's own switch, off until they say
+
+Slice 1 gave a community its vocabulary. This gives a member the switch, and
+nothing lists anybody who has not touched it.
+
+`membership_directory_entry` holds one row per (workspace, person):
+`listed` defaulting to **false**, a nullable `show_contact` with three
+meanings — show, hide, or follow the community default — and `tags` for
+slice 4. The switch lives on my.thread's You tab, one per community, never
+one global flag: a profile is shared across communities, so a single switch
+would force somebody in three to hide from all three to hide from one.
+Turning it off is in the same place as turning it on, which is what makes it
+a choice rather than a door that opens one way (Art 7(3)).
+
+**`member_directory` joins the consent purposes**, separate from
+`cohort_directory`: agreeing to appear among your community is not agreeing
+to appear in a course cohort, and revoking one must not revoke the other. The
+record is written when the switch goes ON — not at join, where nothing has
+been consented to yet because the switch arrives off. Revoking writes
+`revoked_at` AND sets `listed = false`: the record is the evidence, the flag
+is the behaviour.
+
+**The choice is written to EVERY person row the proven email owns in that
+community**, which looks like belt-and-braces and is not. `merge_person`
+repoints foreign keys generically, but this table is unique on
+(workspace_id, person_id), so when both rows carry an entry only one can
+survive — the merge keeps the DESTINATION row and records the loss
+(`person-merge.int.test.ts`). With the default off, a choice stored on the
+losing row would silently un-list somebody who deliberately opted in.
+Measured before building for it: on production no address resolves to more
+than one person row in one workspace, and on staging all 51 cases are
+synthetic fixtures. So this is built ahead of the case rather than after it.
+
+**A member may only set a choice in a community that already knows them.**
+Not in the spec, added here: without it any signed-in address could write an
+entry into any workspace, and slice 3 would read it.
+
+Reading resolves duplicates the only way that cannot surprise anybody: listed
+if ANY row says so — open on the member's own choice — and the most
+restrictive `show_contact` wins, closed on visibility.
+
+No list is served yet. That is the point of shipping this alone: somebody can
+state their choice before anyone can see them, which is the right order for a
+choice that defaults to off.
+
+Also here: the regression check for the category picker, which asserts the
+section is visible WITHOUT scrolling rather than merely present, because
+present-and-off-screen was the bug.
+
 ## [1.103.3] — 2026-10-04 — a link to the page you just described
 
 Sjoerd: *"Where can I find a link to my profile page (there should be a visit

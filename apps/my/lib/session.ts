@@ -11,7 +11,9 @@ import { cache } from 'react';
 import { serverSupabase } from './supabase/server';
 import {
   fetchCalendarStatus,
+  fetchDirectoryChoices,
   fetchErasure,
+  type DirectoryChoice,
   fetchInvoices,
   fetchPortal,
   fetchProfile,
@@ -72,6 +74,16 @@ export const loadCalendarStatus = cache(async (): Promise<CalendarStatus> => {
 /** What removing this person's data would involve. Null when the call failed
  *  — the YOU tab then omits the section rather than offering a right it
  *  cannot describe accurately. */
+/** The member's directory choices, one per community that knows them. An
+ *  empty list means either "no communities" or "the call failed" — the YOU
+ *  page omits the section in both cases, because a privacy switch showing
+ *  the wrong state is worse than no switch. */
+export const loadDirectoryChoices = cache(async (): Promise<DirectoryChoice[]> => {
+  const s = await loadSession();
+  if (!s) return [];
+  return fetchDirectoryChoices(s.token);
+});
+
 export const loadErasure = cache(async (): Promise<ErasurePicture | null> => {
   const s = await loadSession();
   if (!s) return null;

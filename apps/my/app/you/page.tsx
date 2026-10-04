@@ -15,12 +15,19 @@ import { ArrowLeft } from 'lucide-react';
 import { ENTITY, surfaceUrl } from '@thefibre/shared';
 import { headers } from 'next/headers';
 import { reachableApps } from '@/lib/app-access';
-import { loadCalendarStatus, loadErasure, loadProfile, loadSession } from '@/lib/session';
+import {
+  loadCalendarStatus,
+  loadDirectoryChoices,
+  loadErasure,
+  loadProfile,
+  loadSession,
+} from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
 import { DetailsForm } from './details-form';
 import { CalendarCard } from './calendar-card';
+import { DirectoryCard } from './directory-card';
 import { RemoveData } from './remove-data';
 import { SignOutButton } from './sign-out-button';
 
@@ -33,6 +40,10 @@ export default async function YouPage() {
   const profile = await loadProfile();
   const calendar = await loadCalendarStatus();
   const erasure = await loadErasure();
+  // Empty when there are no communities OR when the call failed; the section
+  // is omitted either way, because a privacy switch showing a state we are
+  // not sure of is worse than no switch.
+  const directory = await loadDirectoryChoices();
   // Drives the sentence below: with no seat anywhere, 'back to the site' is
   // the only door there is and deserves explaining.
   const apps = await reachableApps((await headers()).get('host'));
@@ -72,6 +83,8 @@ export default async function YouPage() {
       )}
 
       <CalendarCard status={calendar} />
+
+      {directory.length > 0 && <DirectoryCard choices={directory} />}
 
       {/* Below the calendar and above the way out — last of the things you
           DO here, which is where a page puts the one you hope nobody needs.

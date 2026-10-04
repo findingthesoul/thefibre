@@ -1,9 +1,14 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
-import { markEmailProven, personIdsForProvenEmail } from '../lib/proven-email.js';
+import {
+  markEmailProven,
+  personIdsForProvenEmail,
+  personsForProvenEmail,
+} from '../lib/proven-email.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
@@ -378,4 +383,197 @@ membershipPortalRoutes.post('/me/portal-session', async (c) => {
     console.error('[membership/portal] billing portal session failed', e);
     return c.json({ error: 'could not open the payment portal — try again shortly' }, 502);
   }
+});
+
+/** Same shape as routes/membership.ts: the Postgres error goes to stderr
+ *  (code, details, hint), the caller gets the message. Reading the API log
+ *  first is the house rule for a save that will not save. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fail(c: any, where: string, error: { message: string; code?: string }) {
+  console.error(`[membership/portal] ${where}`, error);
+  return c.json({ error: error.message, code: error.code }, 500);
+}
+
+// ===========================================================================
+// MEMBER DIRECTORY — the member's own choice (spec §3.3, §4, §9.6, slice 2a).
+//
+// Opt-IN. `listed` defaults to false and nothing lists anybody until they say
+// so here. No list is served yet, deliberately: somebody can state their
+// choice before anyone can see them, which is the right order for a choice
+// that defaults to off.
+//
+// THREE THINGS THAT ARE NOT OBVIOUS:
+//
+// 1. The choice is written to EVERY person row the proven email owns in that
+//    workspace, not just one. `merge_person` repoints FKs generically, but
+//    this table is unique on (workspace_id, person_id), so when both rows
+//    carry an entry the merge keeps the DESTINATION and records the loss.
+//    With the default off, a choice on the losing row would silently un-list
+//    somebody who deliberately opted in.
+//
+// 2. A member may only set a choice in a workspace that already knows them.
+//    Without that check, any signed-in address could write an entry into any
+//    workspace — a row that slice 3 would then read.
+//
+// 3. The consent record is written when the switch goes ON, not at join. At
+//    join nothing has been consented to, because the switch arrives off, and
+//    a consent row for a switch nobody touched records something untrue.
+// ===========================================================================
+
+type DirectoryChoice = {
+  workspace_id: string;
+  workspace_name: string;
+  workspace_slug: string;
+  listed: boolean;
+  /** null = follow the workspace default, which is reported beside it. */
+  show_contact: boolean | null;
+  workspace_show_contact_default: boolean;
+};
+
+/** The workspaces this proven email is actually a member of, with the person
+ *  rows it owns in each. Membership is what authorises a choice. */
+async function memberWorkspaces(email: string): Promise<Map<string, string[]>> {
+  const persons = await personsForProvenEmail(email);
+  if (!persons.length) return new Map();
+  const personIds = persons.map((p) => p.id);
+
+  const members = rows(
+    'member portal: directory membership check',
+    await adminClient
+      .from('membership_member')
+      .select('workspace_id, person_id')
+      .in('person_id', personIds)
+      .is('deleted_at', null),
+  );
+
+  // Only workspaces that know them, and within those, EVERY person row they
+  // own there — including rows no membership points at, because a merge may
+  // keep any of them.
+  const memberWorkspaceIds = new Set(members.map((m) => m.workspace_id as string));
+  const byWorkspace = new Map<string, string[]>();
+  for (const p of persons) {
+    if (!memberWorkspaceIds.has(p.workspace_id)) continue;
+    const list = byWorkspace.get(p.workspace_id) ?? [];
+    list.push(p.id);
+    byWorkspace.set(p.workspace_id, list);
+  }
+  return byWorkspace;
+}
+
+membershipPortalRoutes.get('/me/directory', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  await markEmailProven(email);
+
+  const byWorkspace = await memberWorkspaces(email);
+  if (!byWorkspace.size) return c.json({ items: [] as DirectoryChoice[] });
+
+  const workspaceIds = [...byWorkspace.keys()];
+  const allPersonIds = [...byWorkspace.values()].flat();
+
+  const [workspaces, settings, entries] = await Promise.all([
+    adminClient.from('workspace').select('id, name, slug').in('id', workspaceIds),
+    adminClient
+      .from('membership_settings')
+      .select('workspace_id, directory_show_contact')
+      .in('workspace_id', workspaceIds),
+    adminClient
+      .from('membership_directory_entry')
+      .select('workspace_id, person_id, listed, show_contact')
+      .in('person_id', allPersonIds),
+  ]);
+  if (workspaces.error) return fail(c, 'directory: workspaces', workspaces.error);
+  if (settings.error) return fail(c, 'directory: settings', settings.error);
+  if (entries.error) return fail(c, 'directory: entries', entries.error);
+
+  const defaultShow = new Map(
+    (settings.data ?? []).map((s) => [s.workspace_id as string, Boolean(s.directory_show_contact)]),
+  );
+
+  const items: DirectoryChoice[] = (workspaces.data ?? []).map((w) => {
+    const mine = (entries.data ?? []).filter((e) => e.workspace_id === w.id);
+    // Duplicate person rows can disagree. Open on the member's own choice —
+    // listed if ANY row says so — and closed on visibility: the most
+    // restrictive show_contact wins. Neither resolution can surprise anybody.
+    const listed = mine.some((e) => e.listed === true);
+    const shown = mine.map((e) => e.show_contact).filter((v) => v !== null) as boolean[];
+    return {
+      workspace_id: w.id as string,
+      workspace_name: w.name as string,
+      workspace_slug: w.slug as string,
+      listed,
+      show_contact: shown.length ? shown.every(Boolean) : null,
+      workspace_show_contact_default: defaultShow.get(w.id as string) ?? false,
+    };
+  });
+
+  return c.json({ items });
+});
+
+const PatchDirectory = z.object({
+  workspace_id: z.string().uuid(),
+  listed: z.boolean().optional(),
+  show_contact: z.boolean().nullable().optional(),
+});
+
+membershipPortalRoutes.patch('/me/directory', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = PatchDirectory.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  await markEmailProven(email);
+
+  const byWorkspace = await memberWorkspaces(email);
+  const personIds = byWorkspace.get(body.data.workspace_id);
+  // Not a member there — or not a member any more. Refuse rather than create
+  // an entry slice 3 would read.
+  if (!personIds?.length) return c.json({ error: 'not a member of that community' }, 403);
+
+  const before = await adminClient
+    .from('membership_directory_entry')
+    .select('person_id, listed')
+    .eq('workspace_id', body.data.workspace_id)
+    .in('person_id', personIds);
+  if (before.error) return fail(c, 'directory: read before', before.error);
+  const wasListed = (before.data ?? []).some((e) => e.listed === true);
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.data.listed !== undefined) patch.listed = body.data.listed;
+  if (body.data.show_contact !== undefined) patch.show_contact = body.data.show_contact;
+
+  const { error: upsertErr } = await adminClient.from('membership_directory_entry').upsert(
+    personIds.map((person_id) => ({
+      workspace_id: body.data.workspace_id,
+      person_id,
+      ...patch,
+    })),
+    { onConflict: 'workspace_id,person_id' },
+  );
+  if (upsertErr) return fail(c, 'directory: save choice', upsertErr);
+
+  // The consent record follows the switch, and only when it CHANGES — so a
+  // member editing show_contact does not accumulate consent rows.
+  if (body.data.listed === true && !wasListed) {
+    const { error } = await adminClient.from('consent_record').insert(
+      personIds.map((person_id) => ({
+        person_id,
+        purpose_code: 'member_directory',
+        legal_basis: 'consent',
+        text_version: 'member-directory-v1',
+      })),
+    );
+    if (error) return fail(c, 'directory: record consent', error);
+  }
+  if (body.data.listed === false && wasListed) {
+    // Both: the record is the evidence, the flag is the behaviour (§4).
+    const { error } = await adminClient
+      .from('consent_record')
+      .update({ revoked_at: new Date().toISOString() })
+      .in('person_id', personIds)
+      .eq('purpose_code', 'member_directory')
+      .is('revoked_at', null);
+    if (error) return fail(c, 'directory: revoke consent', error);
+  }
+
+  return c.json({ ok: true });
 });

@@ -421,3 +421,52 @@ export async function requestErasure(reason: string | null): Promise<ErasurePict
   }
   return (await res.json()) as ErasurePicture;
 }
+
+// ── member directory (slice 2a) ───────────────────────────────────────────
+//
+// The member's own choice, per community. OPT-IN: `listed` is false until
+// they say otherwise, and nothing lists anybody who has not.
+
+export type DirectoryChoice = {
+  workspace_id: string;
+  workspace_name: string;
+  workspace_slug: string;
+  listed: boolean;
+  /** null = follow the community's default, which is reported beside it. */
+  show_contact: boolean | null;
+  workspace_show_contact_default: boolean;
+};
+
+/** Read server-side while the YOU page renders. Returns [] when the call
+ *  fails — the page then omits the section rather than showing a switch
+ *  whose state it does not know, which for a privacy control is the one
+ *  wrong thing to render. */
+export async function fetchDirectoryChoices(accessToken: string): Promise<DirectoryChoice[]> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/membership/portal/me/directory`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { items?: DirectoryChoice[] };
+    return body.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveDirectoryChoice(input: {
+  workspace_id: string;
+  listed?: boolean;
+  show_contact?: boolean | null;
+}): Promise<void> {
+  const res = await fetch('/api/directory', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not save that choice');
+  }
+}
