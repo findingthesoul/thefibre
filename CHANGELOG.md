@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.101.4] — 2026-10-04 — somebody has now saved a bio through the editor
+
+The regression test for v1.101.3 is live rather than pending:
+`e2e/profile-bio-save.spec.ts` loses its `fixme` and runs green against
+deployed staging.
+
+It is the first time anything has typed into the rich-text bio editor and
+pressed Save on a deployed stack. Type a paragraph, a heading and another
+paragraph; save; reload; the text and the heading are back in the editor, the
+form holds markup with an `<h3>` in it, the database row holds the same, and
+the counter reads what it read before. The spec puts the fixture's bio back by
+the row when it is done.
+
+Everything before this was the page as it loads. A load is not a save, and the
+one bug that mattered — a first bio coming back as literal `&lt;h3&gt;` — was
+invisible to every look precisely because looking does not type.
+
+### Verified
+- `npx playwright test --config e2e/playwright.config.ts profile-bio-save`
+  against staging, with the API at Fly v273 carrying the normaliser:
+  `1 passed (8.6s)`.
+- It is a real regression test, not a green by construction: the same spec was
+  RED on 2026-10-04 against staging at v1.101.1, which is what the `fixme`
+  recorded, and the integration case it mirrors still fails if the normaliser
+  is commented out of the write path.
+
+### Not verified
+- Chromium only. Firefox and Safari wrap a contenteditable differently and
+  neither has been tried; the normaliser is written not to care, which is a
+  claim about its design rather than a measurement.
+- One shape of bio: a paragraph, a heading, a paragraph. Lists, links and a
+  paste from a document go through the same path and have not been typed by
+  anybody.
+- It signs in as the fixture identity, which is nobody. Sjoerd's own bio has
+  still never been saved through the editor by anyone but him.
+
 ## [1.101.3] — 2026-10-04 — a bio typed from empty came back as literal <h3>
 
 The save fixture typed a bio from scratch on staging and found what no look

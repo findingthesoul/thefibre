@@ -19,7 +19,8 @@ import { E2E_FIXTURE } from './identities.js';
 
 const counter = /(\d[\d,]*) \/ 8,000/;
 
-// FIXME, and the marker is the finding. The first time this ran (2026-10-04,
+// The finding this spec was written for, kept because the history is the
+// point. The first time it ran (2026-10-04,
 // staging at v1.101.1) the save worked and the reload did not: the editor
 // came back showing `<h3>A heading</h3><div>…</div>` as TEXT. An editor that
 // starts empty gives its first line as a bare text node, so the stored value
@@ -29,9 +30,11 @@ const counter = /(\d[\d,]*) \/ 8,000/;
 // writing a first bio, and anyone who clears theirs. Pressing Save again
 // would then store the escaped tags for good.
 //
-// The fix is the bio code's owner's. Remove `.fixme` in the same release:
-// this spec is the regression test, and it is red until then.
-test.fixme('a bio typed with a heading is saved, and comes back as it was written', async ({ page }) => {
+// Fixed in v1.101.3: the shape is normalised where it is produced and again
+// where it is stored (packages/shared/src/rich-text-normalise.ts), so a value
+// always opens with a block and reads back as markup. The reader's detector
+// was deliberately NOT made cleverer. This spec is the regression test.
+test('a bio typed with a heading is saved, and comes back as it was written', async ({ page }) => {
   test.slow();
   const service = stagingService();
   const stamp = Date.now().toString(36);
