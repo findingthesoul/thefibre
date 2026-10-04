@@ -405,9 +405,12 @@ personsRoutes.get('/duplicates', async (c) => {
         score: p.score,
         a: byId.get(p.person_a) ?? { id: p.person_a },
         b: byId.get(p.person_b) ?? { id: p.person_b },
-        /** Columns that gain a value if THIS one is the record you keep. */
-        a_gains: g?.a ?? [],
-        b_gains: g?.b ?? [],
+        /** Columns that gain a value if THIS one is the record you keep.
+         *  OMITTED, not empty, when the preview could not be computed: an
+         *  empty array is the answer "nothing moves", and the screen says so
+         *  in words. Coalescing a failure into [] would put that sentence
+         *  under a record that is about to gain three fields. */
+        ...(g ? { a_gains: g.a, b_gains: g.b } : {}),
       };
     }),
   });

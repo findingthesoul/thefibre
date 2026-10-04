@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Undo2, ArrowRight } from 'lucide-react';
 import { ContactPointsView, type ContactPointValue } from '@thefibre/shared/ui/contact-points';
 import { countryName } from '@thefibre/shared/countries';
+import { mergeGains } from '@thefibre/shared';
 import { mergePeople, undoMerge, markDistinct } from './actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
@@ -139,6 +140,7 @@ function PersonCard({
   busy: boolean;
   intlLocale: string;
 }) {
+  const gainsState = mergeGains(gains);
   const points = person.contact_points ?? [];
   const place = [person.city, countryName(person.country)].filter(Boolean).join(', ');
   return (
@@ -175,10 +177,16 @@ function PersonCard({
       {/* What this record would GAIN — the sentence that makes "merge" true
           rather than merely claimed. Shown only once the pair has been called
           the same person, i.e. alongside the button it describes. */}
-      {onKeep && (
+      {/* Three states, not two — see mergeGains. Absent means nobody answered
+          (an older API, a failed preview) and renders as SILENCE; an empty
+          answer is a real finding and keeps its sentence. Rendering absent as
+          "Gains nothing" is how this read on staging before the API carrying
+          the preview was deployed: both records claimed to gain nothing while
+          one plainly had a phone and a city the other lacked. */}
+      {onKeep && gainsState.kind !== 'unknown' && (
         <div className="mt-3 text-xs text-ink-subtle">
-          {gains && gains.length > 0
-            ? t(locale, 'dup_gains', { fields: fieldList(gains) })
+          {gainsState.kind === 'list'
+            ? t(locale, 'dup_gains', { fields: fieldList(gainsState.fields) })
             : t(locale, 'dup_gains_none')}
         </div>
       )}

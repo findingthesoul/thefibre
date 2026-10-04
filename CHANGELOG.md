@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.100.3] — 2026-10-04 — "gains nothing" is a finding; not knowing is silence
+
+v1.100.0 put a line under each duplicate card saying which fields that record
+would gain. Looked at on staging, both cards announced *"Gains nothing — the
+other record has nothing this one is missing"* while one of them plainly had a
+phone and a city the other lacked.
+
+The surface cause was a deploy: the API carrying the preview had not shipped,
+so the field was absent. The defect was the page's, and it is the familiar one
+in a new place — an empty list and a missing list look identical in a falsy
+check and mean opposite things:
+
+- **nothing moves** is a real finding. It tells you the other record is the
+  fuller one, and it deserves its sentence.
+- **nobody answered** — an older API, a failed preview — is the absence of a
+  finding, and the honest rendering of it is nothing at all.
+
+So the decision moved into `packages/shared/src/merge-gains.ts` as three
+states, and the API now OMITS the field when the preview errors instead of
+coalescing it to `[]`, which would have printed "gains nothing" under a record
+about to gain three fields.
+
+It moved to shared for a reason worth recording: `apps/web` has no test
+script, so a test written beside that component would never have run. Two of
+the ten apps are in that position, and it is how a distinction like this rots
+without anyone noticing.
+
+Nothing that guarded v1.100.0 could have caught this — the gate was green, the
+integration test ran and passed, and the preview agreed with the merge across
+three shapes of real data. All true, and none of it exercises the rendering of
+data that did not arrive. Only looking at the page caught it.
+
 ## [1.100.2] — 2026-10-04 — the editor opened empty, and an empty editor is dangerous
 
 v1.100.1 put the rich-text editor on the profile bio. Opened on staging, it
