@@ -84,29 +84,36 @@ export function PlainTheme(p: ThemeProps) {
     <div className="min-h-screen bg-surface-sunken">
       <main className="mx-auto max-w-2xl px-6 py-16">
         {p.crumb}
+        {/* shrink-0 on both: the avatar is a flex child, and without it a
+            long display name squeezes a 64px circle into an oval. It did
+            exactly that on production — h-16 w-16 measured 48x64 — when the
+            bio still lived in this row. */}
         <header className="flex items-center gap-4">
           {p.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={p.photoUrl}
               alt={p.name}
-              className="h-16 w-16 rounded-full object-cover ring-1 ring-line"
+              className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line"
             />
           ) : (
-            <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-surface-raised ring-1 ring-line text-xl font-medium text-ink-subtle">
+            <span className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface-raised ring-1 ring-line text-xl font-medium text-ink-subtle">
               {p.name.slice(0, 1).toUpperCase()}
             </span>
           )}
-          <div>
-            <h1 className="text-2xl font-medium tracking-tight">{p.name}</h1>
-            {p.bioHtml && (
-              <RichText
-                html={p.bioHtml!}
-                className="mt-1 text-sm text-ink-subtle leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0"
-              />
-            )}
-          </div>
+          <h1 className="text-2xl font-medium tracking-tight">{p.name}</h1>
         </header>
+
+        {/* The bio is this page's CONTENT, not a caption under a name. It sat
+            inside the header beside the name at text-sm, so the one theme
+            where the bio is the whole page rendered it smallest — the other
+            five already give it its own block at text-base or larger. */}
+        {p.bioHtml && (
+          <RichText
+            html={p.bioHtml!}
+            className="mt-6 max-w-2xl text-base leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
+          />
+        )}
 
         <section className="mt-12">
           <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">Threads</h2>

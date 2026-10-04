@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [NEXT] — the organiser page was built for a one-line bio (Thread)
+
+Sjoerd put a real bio on his profile, opened his own page and said the design
+made no sense. He was right, and the cause is specific: of the six organiser
+themes, `plain` is the only one that never got updated when a bio stopped
+being one line.
+
+Measured on the live page rather than guessed at:
+
+- The avatar is `h-16 w-16` and was rendering **48×64**. It is a flex child
+  with no `shrink-0`, so eight paragraphs of bio beside it squeezed the
+  circle into an oval.
+- `items-center` on that row centred the avatar against its sibling. When the
+  sibling was a single line of bio that was right; with the bio grown to the
+  whole page it parked the photo halfway down the text.
+- The bio sat INSIDE the header, beside the name, at `text-sm
+  text-ink-subtle` — caption styling. The other five themes each give it its
+  own block at `text-base` or `text-lg`, with a max-width and wider paragraph
+  spacing. So the one theme where the bio IS the page was the one rendering
+  it smallest.
+
+The bio now has its own block below the header at `text-base`, and the header
+is the avatar and the name. `items-center` STAYS: once the bio leaves the
+row, the sibling is a one-line `<h1>` and centring is simply the ordinary
+avatar-and-name pattern. The vertical-centring symptom goes away because its
+cause does — fixing the symptom as well would have left the name hanging at
+the top of a 64px box. `shrink-0` stays on both the photo and the initial
+span, because a long display name would squash it again.
+
+Not fixed here, and worth naming so nobody reads the page as finished: the
+bio has **no headings at all** — zero `h1`–`h4` or `strong` across eight
+paragraphs. Section titles come through as `<p>About me<br>I am a
+co-founder…</p>`, because `bioToHtml` turns a single newline into a `<br>`
+and only a blank line into a new paragraph. The fix is the rich-text bio
+editor already planned as steps B–E in `docs/bio-rich-text-conversion.md`,
+not a heuristic that promotes short lines to headings — that would be wrong
+often, and wrong invisibly.
 ## [1.99.1] — 2026-10-04 — docs may sit on a stale base; code may not (staging)
 
 Runway tooling. Sjoerd's yes, given in the coordinator chat on 2026-10-03
