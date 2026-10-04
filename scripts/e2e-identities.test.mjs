@@ -17,6 +17,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { assertStagingProject, PRODUCTION_REF, STAGING_REF } from '../e2e/staging-guard.ts';
 
 const E2E = join(dirname(fileURLToPath(import.meta.url)), '..', 'e2e');
 const read = (f) => readFileSync(join(E2E, f), 'utf8');
@@ -78,7 +79,7 @@ describe('the default identity is the fixture', () => {
 
   it('signedInLandUrl goes through the fixture resolver, and only that', () => {
     const body = helpers.slice(helpers.indexOf('export async function signedInLandUrl('), helpers.indexOf('export async function ownerLandUrl('));
-    expect(body).toContain('ensureFixtureIdentity(stagingService())');
+    expect(body).toContain('ensureFixtureIdentity(stagingService(), stagingUrl)');
     expect(body).not.toMatch(/resolveOwnerIdentity|from\('user'\)/);
   });
 
@@ -103,5 +104,49 @@ describe('the default identity is the fixture', () => {
       const addresses = source.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}/g) ?? [];
       expect(addresses.filter((a) => !a.endsWith('@example.com'))).toEqual([]);
     }
+  });
+});
+
+describe('the fixture is a super admin on STAGING ONLY', () => {
+  const identities = read('identities.ts');
+
+  it('the guard lets the staging project through', () => {
+    expect(() => assertStagingProject(`https://${STAGING_REF}.supabase.co`, 'x')).not.toThrow();
+  });
+
+  it('the guard refuses the PRODUCTION project, by name', () => {
+    expect(() => assertStagingProject(`https://${PRODUCTION_REF}.supabase.co`, 'the fixture super-admin grant')).toThrow(
+      /REFUSED: the fixture super-admin grant is for the staging project .* points at PRODUCTION/,
+    );
+  });
+
+  it('the guard refuses anything that is merely "not production"', () => {
+    for (const url of ['https://someotherproject.supabase.co', '', undefined, null, 'not a url', `https://${STAGING_REF}.supabase.co.evil.example`, `https://evil.example/${STAGING_REF}.supabase.co`]) {
+      expect(() => assertStagingProject(url, 'x'), String(url)).toThrow(/REFUSED/);
+    }
+  });
+
+  it('nothing is written before the guard, and the grant sits directly behind its own', () => {
+    const build = identities.slice(identities.indexOf('async function build('), identities.indexOf('export function assertFixture('));
+    const firstGuard = build.indexOf('assertStagingProject(projectUrl');
+    const firstWrite = build.search(/\.(insert|update|upsert|createUser)\(/);
+    expect(firstGuard).toBeGreaterThan(-1);
+    expect(firstGuard, 'the guard comes before any write').toBeLessThan(firstWrite);
+    // The grant itself: the guard is the statement immediately before it.
+    const grant = build.indexOf('is_super_admin: true');
+    expect(grant).toBeGreaterThan(-1);
+    const before = build.slice(0, grant);
+    const lastGuard = before.lastIndexOf('assertStagingProject(projectUrl');
+    expect(before.slice(lastGuard).match(/\.(insert|update|upsert)\(/g)?.length, 'only the grant follows its guard').toBe(1);
+    // And is_super_admin is set nowhere else in the pack.
+    for (const f of [...specs, 'helpers.ts']) expect(read(f), f).not.toContain('is_super_admin');
+  });
+
+  it('the seeded purchases are on fixed refs and @example.com payers', () => {
+    expect(identities).toContain("item_ref: 'e2e-fixture-platform-paid'");
+    expect(identities).toContain("item_ref: 'e2e-fixture-invoice-pending'");
+    const payers = identities.match(/payer_email: '([^']+)'/g) ?? [];
+    expect(payers.length).toBe(2);
+    for (const p of payers) expect(p).toMatch(/@example\.com'/);
   });
 });

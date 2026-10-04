@@ -22,6 +22,8 @@ export const HOSTS = {
 };
 
 let cached: SupabaseClient | null = null;
+/** The project stagingService() connected to; handed to the fixture's guard. */
+let stagingUrl = '';
 export function stagingService(): SupabaseClient {
   if (cached) return cached;
   // Run from the repo root (`pnpm test:e2e`); Playwright transpiles this
@@ -37,6 +39,7 @@ export function stagingService(): SupabaseClient {
   if (!url.includes('lukhyylwhhjyihqtghvw')) {
     throw new Error(`e2e: refusing non-staging Supabase URL (${url})`);
   }
+  stagingUrl = url;
   cached = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY ?? '', {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -81,7 +84,7 @@ export async function signedInLandUrl(
   targetApp: string,
   next = '/dashboard',
 ): Promise<string> {
-  return signedInLandUrlFor(host, targetApp, await ensureFixtureIdentity(stagingService()), next);
+  return signedInLandUrlFor(host, targetApp, await ensureFixtureIdentity(stagingService(), stagingUrl), next);
 }
 
 /**

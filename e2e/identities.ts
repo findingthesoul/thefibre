@@ -33,6 +33,7 @@
 // workspace, and only the fixture's address, which is nobody's, is written out.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { assertStagingProject } from './staging-guard.js';
 
 export const E2E_FIXTURE = {
   email: 'e2e-fixture@example.com',
@@ -75,16 +76,18 @@ let fixturePromise: Promise<Identity> | null = null;
  * Looked up by fixed keys, never duplicated, never deleted. Memoised per
  * process, so a run pays for it once.
  */
-export function ensureFixtureIdentity(service: SupabaseClient): Promise<Identity> {
-  fixturePromise ??= build(service).catch((e) => {
+export function ensureFixtureIdentity(service: SupabaseClient, projectUrl: string): Promise<Identity> {
+  fixturePromise ??= build(service, projectUrl).catch((e) => {
     fixturePromise = null;
     throw e;
   });
   return fixturePromise;
 }
 
-async function build(service: SupabaseClient): Promise<Identity> {
+async function build(service: SupabaseClient, projectUrl: string): Promise<Identity> {
   const F = E2E_FIXTURE;
+  // Everything below writes. It writes to staging or it does not run.
+  assertStagingProject(projectUrl, 'the e2e fixture account');
 
   // The workspace.
   let ws = must('workspace', await service.from('workspace').select('id').eq('slug', F.workspaceSlug).maybeSingle());
@@ -170,6 +173,61 @@ async function build(service: SupabaseClient): Promise<Identity> {
       .upsert({ user_id: userRowId, app_id: platform!.id, role: 'admin' }, { onConflict: 'user_id,app_id' })
       .select('user_id'),
   );
+
+  // PLATFORM SUPER ADMIN, on staging only (Sjoerd, 2026-10-04: "fixture admin
+  // yes"). Without it nobody could look at /admin/* — the invoices list, the
+  // workspaces, the plans — except by signing in as him, and a sign-in is a
+  // minted session for a real person. The guard at the top of this function
+  // is what makes this line safe to have; it is asserted again here so that
+  // nobody can move the grant above the guard without tripping it.
+  assertStagingProject(projectUrl, 'the fixture super-admin grant');
+  must('super admin', await service.from('user').update({ is_super_admin: true }).eq('id', userRowId).select('id'));
+
+  // Two purchases in the fixture's own workspace, so the invoices screens
+  // have rows: one paid platform row (Stripe-style) and one pending
+  // invoice-method row (so "Send payment link" has something to act on).
+  // Fixed item_refs: the ledger is unique on (app_id, item_ref), so a second
+  // run finds them and writes nothing. The payers are @example.com.
+  const thread = apps.find((a) => a.slug === 'the-thread')!;
+  const seeds = [
+    {
+      app_id: platform!.id,
+      item_ref: 'e2e-fixture-platform-paid',
+      item_label: 'E2E fixture: platform subscription (do not edit)',
+      payer_name: 'E2E Payer One',
+      payer_email: 'e2e-payer-one@example.com',
+      amount_cents: 1900,
+      method: 'stripe',
+      status: 'paid',
+      paid_at: '2026-10-01T09:00:00Z',
+    },
+    {
+      app_id: thread.id,
+      item_ref: 'e2e-fixture-invoice-pending',
+      item_label: 'E2E fixture: ticket on invoice (do not edit)',
+      payer_name: 'E2E Payer Two',
+      payer_email: 'e2e-payer-two@example.com',
+      amount_cents: 12500,
+      method: 'invoice',
+      status: 'pending',
+      paid_at: null,
+    },
+  ];
+  for (const seed of seeds) {
+    const have = must(
+      `purchase ${seed.item_ref}`,
+      await service.from('purchase').select('id').eq('app_id', seed.app_id).eq('item_ref', seed.item_ref).maybeSingle(),
+    );
+    if (!have) {
+      must(
+        `purchase insert ${seed.item_ref}`,
+        await service
+          .from('purchase')
+          .insert({ ...seed, workspace_id: workspaceId, organiser_user_id: userRowId, currency: 'EUR' })
+          .select('id'),
+      );
+    }
+  }
 
   // One seat, so the token hook has nothing to choose between; said anyway.
   must(

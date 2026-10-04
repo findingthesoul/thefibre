@@ -21,7 +21,7 @@ them, not by reading the previous count (2026-09-15: 57 / 679, 13 / 93,
 |---|---|---|---|
 | Unit (vitest) | 130 | 1264 | `pnpm test`; inside `pnpm verify`; CI |
 | Integration, real Postgres + RLS on staging | 22 | 286 | `pnpm test:integration`; a developer's machine only |
-| End-to-end (Playwright, staging) | 11 | 41 | `pnpm test:e2e`; a developer's machine only |
+| End-to-end (Playwright, staging) | 12 | 50 | `pnpm test:e2e`; a developer's machine only |
 
 **The unit tests are not spread evenly, and that is deliberate.** The API
 (59 files), Connect (31) and the shared package (28) carry them; `packages/mcp`,
@@ -184,6 +184,24 @@ why §1.5's render-check rule is a rule and not a nicety.
    `enable row level security`, scheduler ticks against the lease. Each had
    drifted, each failure was silent, and each test is a dozen lines that
    read the other side from disk.
+
+
+**Who the browser pack signs in as, and what it can see (2026-10-04).** By
+default, the fixture account `e2e-fixture@example.com` (`e2e/identities.ts`):
+nobody real, an admin of its own permanent workspace `e2e-fixtures`, with a
+seat in every app, and on STAGING ONLY a platform super admin. So without
+signing in as a person the pack can open: every app's signed-in screens in
+an empty workspace; Settings (profile, teams, apps, members); the whole of
+`/admin/*` (invoices, workspaces, plans, economics, apps, VAT, access
+requests); the platform invoices list with one seeded paid platform
+purchase; and Thread's Invoices page with one seeded pending invoice-method
+purchase, which gives "Send payment link" a row to act on. The super-admin
+grant and the seeds sit behind `e2e/staging-guard.ts`, which refuses any
+project that is not the staging ref; production holds no trace of the
+fixture (checked by reading both stacks). What the fixture CANNOT see is
+another workspace's content from inside the apps: three read-only specs that
+need the `default` workspace's real data sign in as its owner, by name, on
+an allow-list the release gate enforces.
 
 ---
 

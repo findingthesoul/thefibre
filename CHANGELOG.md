@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.103.1] — 2026-10-04 — the admin screens can be looked at without signing in as Sjoerd (staging)
+
+Test infrastructure. No app or API code changes; nothing to deploy.
+
+Sjoerd, in the coordinator chat: *"fixture admin yes"*. The Fibre chat could
+not look at `/admin/invoices` or an invoice dialog on staging without
+minting a session for him: the fixture account was not a platform super
+admin, and its workspace had no purchases.
+
+- **The fixture is a platform super admin on staging, and only there.** The
+  grant is one line in the fixture's idempotent setup, directly behind
+  `e2e/staging-guard.ts`, which refuses unless the project being written to
+  is the staging one by its ref. "Not production" is not enough: an
+  unknown project is refused too. The release gate tests the guard against
+  the production ref and five other wrong answers, and checks that the grant
+  is the only write behind its guard and appears nowhere else in the pack.
+- **Two seeded purchases in the fixture's workspace**, on fixed `item_ref`s
+  so a second run writes nothing, with `@example.com` payers: one paid
+  platform row, one pending invoice-method row (so "Send payment link" has a
+  target).
+- **`e2e/admin-screens.spec.ts`** opens all seven `/admin/*` screens as the
+  fixture, finds the platform row in the platform invoices list and the
+  pending row on Thread's Invoices page. It only looks.
+
+Proof the grant ran on staging only, by reading both databases afterwards:
+staging has one fixture seat with `is_super_admin = true`, the workspace and
+both purchases; production has no fixture seat, no `e2e-fixtures` workspace
+and no seeded purchase, and its super admins are the three it had.
+
+One side effect to know: the seeded €19.00 paid row counts in staging's
+platform totals (the invoices header and `/admin/economics`). It is labelled
+as a fixture.
+
 ## [1.103.0] — 2026-10-04 — merging two records of one person no longer locks them out of their own portal
 
 A participant's portal answers for the one thing their sign-in proves: an
