@@ -38,3 +38,33 @@ describe('the shared rich-text typography', () => {
     expect(RICH_TEXT_TYPOGRAPHY).toMatch(/\[&_ol\]:my-\d/);
   });
 });
+
+// Tailwind's preflight sets `h1..h6 { font-size: inherit; font-weight:
+// inherit }`, so a heading renders exactly like a paragraph unless this
+// string puts it back. Sjoerd pressed the heading button on his bio, saw
+// nothing happen, and reported the button as broken — it was working, and
+// producing invisible headings in the editor and on the published page.
+//
+// Measured in the live editor before the fix: an <h3> computed to
+// `14px / 400`, identical to the <p> beside it.
+describe('a heading looks like a heading', () => {
+  it('gives every heading the sanitiser allows a size of its own', () => {
+    // apps/api/src/lib/rich-text.ts permits h1-h4, so all four can arrive.
+    for (const h of ['h1', 'h2', 'h3', 'h4']) {
+      expect(RICH_TEXT_TYPOGRAPHY, `${h} has no size`).toMatch(
+        new RegExp(`\\[&_${h}\\]:text-\\[1\\.\\d+em\\]`),
+      );
+      expect(RICH_TEXT_TYPOGRAPHY, `${h} has no weight`).toContain(`[&_${h}]:font-semibold`);
+    }
+  });
+
+  it('sizes them in em, so one string works at every scale', () => {
+    // A fixed px size would make a heading in a 14px form field the same size
+    // as one on a public page, which is the wrong relationship.
+    expect(RICH_TEXT_TYPOGRAPHY).not.toMatch(/\[&_h[1-4]\]:text-\[\d+px\]/);
+  });
+
+  it('gives a heading room above it, so it reads as a new section', () => {
+    expect(RICH_TEXT_TYPOGRAPHY).toMatch(/\[&_h3\]:mt-\d/);
+  });
+});

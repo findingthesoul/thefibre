@@ -44,8 +44,24 @@
  * every caller setting paragraph margins and forgetting lists is the fork
  * this file exists to prevent.
  */
-export const RICH_TEXT_TYPOGRAPHY =
-  '[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:my-2 [&_ol]:my-2 [&_a]:underline';
+export const RICH_TEXT_TYPOGRAPHY = [
+  '[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:my-2 [&_ol]:my-2',
+  '[&_a]:underline',
+  // Headings, because Tailwind's preflight sets `h1..h6 { font-size: inherit;
+  // font-weight: inherit }` — so an <h3> renders character-for-character like
+  // a paragraph unless something puts it back. Sjoerd pressed the heading
+  // button on his bio, saw nothing change, and reported the button as broken
+  // (2026-10-04). It was working: the heading was there and invisible, in the
+  // editor and on the published page alike.
+  //
+  // Sized in `em` on purpose: this one string is used at several scales (a
+  // sheet, a public page, a 14px form field), and a heading should be bigger
+  // than ITS OWN surroundings rather than a fixed 20px everywhere.
+  '[&_h1]:text-[1.4em] [&_h2]:text-[1.25em] [&_h3]:text-[1.15em] [&_h4]:text-[1.05em]',
+  '[&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_h4]:font-semibold',
+  '[&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-4 [&_h4]:mt-3',
+  '[&_h1]:mb-1 [&_h2]:mb-1 [&_h3]:mb-1 [&_h4]:mb-1',
+].join(' ');
 
 export function RichText({
   html,

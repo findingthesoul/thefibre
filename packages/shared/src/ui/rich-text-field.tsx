@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import type { Locale } from '../i18n.js';
 import { chromeT, type ChromeKey } from './i18n-ui.js';
+import { RICH_TEXT_TYPOGRAPHY } from './rich-text.js';
 
 type Command =
   | 'bold'
@@ -171,7 +172,7 @@ export function RichTextField({
       <span className="text-sm text-ink-subtle">{label}</span>
       <input type="hidden" name={name} value={html} />
       <div className="mt-1 rounded-md border border-line bg-surface-raised focus-within:border-line-strong">
-        <div className="flex items-center gap-0.5 border-b border-line px-1.5 py-1">
+        <div className="sticky top-0 z-10 flex items-center gap-0.5 rounded-t-md border-b border-line bg-surface-raised px-1.5 py-1">
           {TOOLS.map(({ command, icon: Icon, labelKey, stateful }) => (
             <button
               key={command}
@@ -206,7 +207,7 @@ export function RichTextField({
           onKeyUp={refreshActive}
           onMouseUp={refreshActive}
           style={{ minHeight }}
-          className="px-3 py-2 text-sm text-ink focus:outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
+          className={`px-3 py-2 text-sm text-ink focus:outline-none ${RICH_TEXT_TYPOGRAPHY}`}
         />
       </div>
       {hint && <span className="mt-1 block text-xs text-ink-muted">{hint}</span>}

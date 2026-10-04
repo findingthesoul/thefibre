@@ -112,6 +112,45 @@ export async function signedInLandUrl(
 }
 
 /**
+ * Wait until React has actually attached to the page.
+ *
+ * `waitForURL` means the document arrived, not that the app is alive. Until
+ * hydration runs, what you are looking at is server HTML: state-driven
+ * content is missing and nothing responds. On 2026-10-04 that cost most of a
+ * day — a contenteditable bio editor read as EMPTY because React renders no
+ * children into it on the server, and the measurement was taken before the
+ * client filled it. It was reported as a data-loss bug, a release was jumped
+ * to fix it, and there was nothing wrong.
+ *
+ * So every signed-in spec waits for this. The signal is a React fiber on a
+ * real element, not a sleep: a timeout is a guess that passes on a fast day
+ * and fails on a slow one.
+ *
+ * PASS A SELECTOR when you are about to measure one particular thing. In the
+ * App Router each client tree hydrates on its own, so "something on this page
+ * has a fiber" can be true while the component you care about has not
+ * attached yet — the page chrome is alive long before a settings form is.
+ * Waiting on the element you are going to read is the only wait that means
+ * what you want it to mean.
+ */
+export async function waitForHydration(
+  page: import('@playwright/test').Page,
+  selector = 'input, button, a, [contenteditable]',
+  timeout = 20_000,
+): Promise<void> {
+  await page.waitForFunction(
+    (sel) => {
+      for (const el of document.querySelectorAll(sel)) {
+        for (const k in el) if (k.startsWith('__react')) return true;
+      }
+      return false;
+    },
+    selector,
+    { timeout },
+  );
+}
+
+/**
  * Sign in and arrive at `next`, retrying ONCE when the landing did not take.
  * Found 2026-09-15: with two spec files signing the same fixture user in at
  * the same moment, one land occasionally ended signed out on the marketing
@@ -129,6 +168,9 @@ export async function landSignedIn(
     await page.goto(await signedInLandUrl(host, targetApp, next));
     try {
       await page.waitForURL(arrived, { timeout: 30_000 });
+      // Arriving is not being alive. Every caller of this helper assumes it
+      // can look at the page and believe what it sees.
+      await waitForHydration(page);
       return;
     } catch (e) {
       if (attempt === 2) throw e;

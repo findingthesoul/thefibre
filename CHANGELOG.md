@@ -6,6 +6,100 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.100.4] — 2026-10-04 — the heading button was working, and invisible
+
+Sjoerd pressed the heading button on his bio and reported it as broken: the
+line stayed the same size. It was not broken. Tailwind's preflight sets
+`h1..h6 { font-size: inherit; font-weight: inherit }`, so an `<h3>` renders
+character-for-character like a paragraph unless something puts the size back —
+and nothing did, in the editor or on the published page. Measured in the live
+editor before the fix: `<h3>` computed to `14px / 400`, identical to the `<p>`
+beside it. That is also why **bold** appeared to work and headings did not:
+preflight restores `strong`, and leaves headings flat.
+
+Headings now have size, weight and room above them, in **one** string shared
+by the editor and every reader — so what the editor shows is what the public
+page shows. Sized in `em` rather than `px`, because that string is used at
+several scales and a heading should be larger than its own surroundings
+rather than a fixed size everywhere.
+
+**The toolbar stays with you.** The second complaint was a small box scrolled
+inside; the box is not small — measured at 876px for his bio, growing with the
+content, no internal scrolling. What happens is that the toolbar scrolls off
+the top of the window while you are editing the end of a long bio, leaving you
+formatting with no controls. It is sticky now. Nothing else about the size
+changed, because nothing else needed to.
+
+---
+
+**v1.100.2 says the bio editor rendered empty and that typing in it would
+have destroyed a bio. That is wrong. There was no bug.**
+
+What actually happened: the check read the page immediately after the URL
+settled, which is before React hydrates. Until then what is on screen is
+server HTML, and a contenteditable is empty in server HTML by design — React
+renders no children into it. So the measurement was taken from a page that had
+not come alive yet, and reported as a broken editor.
+
+The same artefact produced an even larger false claim an hour earlier —
+"nothing on this page carries a React fiber, the page never hydrates". With a
+wait, everything carries one.
+
+Measured properly on staging, the editor holds the bio: 3,503 characters
+shown, 8 paragraphs, 6 line breaks, against 3,567 held by the form (the
+difference is the tags). It was like that before v1.100.2 as well.
+
+**What that false alarm cost:** a stop sent to the person whose bio it was,
+telling him not to type in his own profile; a release jumped ahead of another
+chat's queued fix; and a CHANGELOG entry asserting a data-loss bug that never
+existed. The entry is the worst of the three, because a shipped record is what
+the next session believes instead of re-deriving.
+
+**v1.100.2's code is kept, deliberately.** Seeding that retries until it takes
+and stops at the first keystroke is better than a one-shot mount effect even
+though the one-shot worked, and "never submit an empty bio over one nobody
+touched" is worth having regardless of what prompted it. Keeping code written
+for a bad reason is only acceptable when it stands up for a good one, and
+these two do.
+
+**The real defect was in how we look.** `waitForURL` means the document
+arrived, not that the app is alive, and every signed-in e2e spec here was
+reading pages in that window. `landSignedIn` now waits for hydration, and
+`waitForHydration(page, selector)` takes the element you are about to measure:
+in the App Router each client tree attaches separately, so "something on this
+page has a fiber" is true long before a settings form has one. That distinction
+is not pedantic — the first version of this fix waited for any fiber and the
+spec still failed.
+
+### Verified
+- The heading diagnosis was measured, not guessed: the deployed stylesheet
+  contains `h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}`, and a
+  heading injected into the live editor computed identically to a paragraph.
+  The sanitiser was ruled out first — it has allowed `h1`-`h4` all along.
+- Three tests on the heading typography: every heading the sanitiser permits
+  has a size and a weight, the sizes are relative so one string works at every
+  scale, and a heading has space above it.
+- `e2e/profile-editor.spec.ts` passes against staging with the wait, and
+  FAILED two runs earlier without it, on the same page and the same data, with
+  "the editor shows nothing while the form holds a bio". That pair is the whole
+  proof: the wait is the difference.
+- The editor's content was read after hydration: 8 paragraphs, 6 breaks,
+  first line intact, no raw tags anywhere.
+
+### Not verified
+- **The heading and sticky changes have not been SEEN.** They are in this
+  release and staging is running the one before it. The same look that found
+  the problem is what confirms the fix, and it comes after the deploy.
+- Thread's four editors share this component and Thread's public pages share
+  the typography. Both were typechecked; neither was opened. A sticky toolbar
+  inside a dialog sticks to the dialog, which is what you want, but I have not
+  watched one do it.
+- Only one signed-in screen has been looked at through the new wait. Other
+  specs inherit it via `landSignedIn`, but they have not been re-run here.
+- Nothing has been typed into the editor by anyone. Saving from it is still
+  unexercised — and until staging has a dedicated e2e account, a spec that
+  types would be typing into a real person's profile, which is why
+  `profile-limits.spec.ts` stays skipped.
 ## [1.100.3] — 2026-10-04 — "gains nothing" is a finding; not knowing is silence
 
 v1.100.0 put a line under each duplicate card saying which fields that record
