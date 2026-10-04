@@ -35,6 +35,15 @@ minutes), pushes, and calls `land`, which frees the runway.
 
 `--unverified` is mandatory. Write `nothing` only when that is true.
 
+**Quote the request text with single quotes** (or a heredoc). Inside double
+quotes the shell runs backticks and `$( )` before the script sees them, and
+a request arrives saying something you did not write. `request` prints the
+entry back as it was stored; read it. Two requests from one session in the
+same second are refused rather than one replacing the other: run it again.
+
+A rebuilt commit leaves its old request behind. Take it out yourself:
+`RUNWAY_SESSION=<you> ./scripts/runway.sh withdraw --sha <sha>`.
+
 Kinds: `release` (code → staging), `docs` (docs/`*.md` only → staging),
 `api-staging`, `api-prod`, `prod` (promote).
 

@@ -36,6 +36,44 @@ echo "request"
 expect_fail "request without --unverified" env RUNWAY_SESSION=a $R request --kind release --what x --verified y
 expect_fail "request without a session name" $R request --kind release --what x --verified y --unverified z
 
+echo "a request is never lost, and says what it stored"
+git checkout -q -B twice origin/staging; echo t > twice.txt; git add -A; git commit -qm twice
+OUT1="$(RUNWAY_SESSION=a $R request --kind docs --what "first" --verified v --unverified none 2>&1)"; RC1=$?
+OUT2="$(RUNWAY_SESSION=a $R request --kind docs --what "second, same second" --verified v --unverified none 2>&1)"; RC2=$?
+# Whichever second they fell in: if it was the same one, the second must be
+# refused and the first must survive; if the clock ticked, both are queued.
+N="$(ls "$T/w/.git/runway/queue" | wc -l | tr -d ' ')"
+if [ "$RC2" != 0 ]; then
+  grep -q "NOTHING was queued" <<<"$OUT2" && ok "two requests in one second: the second is REFUSED, loudly" || bad "two requests in one second: the second is REFUSED, loudly"
+  [ "$N" = 1 ] && grep -q "what=first" "$T/w/.git/runway/queue/"* && ok "and the first is intact" || bad "and the first is intact"
+else
+  [ "$N" = 2 ] && ok "two requests a second apart are both queued" || bad "two requests a second apart are both queued"
+  ok "(the clock ticked between them; the collision is forced below)"
+fi
+rm -f "$T/w/.git/runway/queue/"*
+# Force the collision: pre-create the file the next request will want, for
+# this second and the next (so a tick cannot dodge it).
+NOW="$(date +%s)"; echo "what=occupied" > "$T/w/.git/runway/queue/$NOW-a"; echo "what=occupied" > "$T/w/.git/runway/queue/$((NOW + 1))-a"
+OUT="$(RUNWAY_SESSION=a $R request --kind docs --what "would overwrite" --verified v --unverified none 2>&1)" && bad "a request onto an occupied entry is refused" || ok "a request onto an occupied entry is refused"
+grep -q "NOTHING was queued" <<<"$OUT" && ok "and says nothing was queued" || bad "and says nothing was queued"
+grep -q "what=occupied" "$T/w/.git/runway/queue/$NOW-a" && ok "and the entry that was there is untouched" || bad "and the entry that was there is untouched"
+rm -f "$T/w/.git/runway/queue/"*
+sleep 2
+OUT="$(RUNWAY_SESSION=a $R request --kind docs --lane "docs" --what 'text with `backticks` and $(dollars) kept as typed' --verified "v1" --unverified "u1" 2>&1)"
+grep -q "Stored as:" <<<"$OUT" && grep -q 'what:       text with `backticks` and $(dollars) kept as typed' <<<"$OUT" && grep -q "UNVERIFIED: u1" <<<"$OUT" && ok "request prints the entry back as stored" || bad "request prints the entry back as stored"
+
+echo "withdraw"
+SHA="$(git rev-parse HEAD)"
+expect_fail "withdraw without a sha is refused" env RUNWAY_SESSION=a $R withdraw
+expect_fail "b cannot withdraw a's request" env RUNWAY_SESSION=b $R withdraw --sha "${SHA:0:8}" --session a
+expect_fail "withdrawing a sha that is not queued is refused" env RUNWAY_SESSION=a $R withdraw --sha deadbeef
+expect_pass "a withdraws its own request by sha" env RUNWAY_SESSION=a $R withdraw --sha "${SHA:0:8}"
+[ -z "$(ls "$T/w/.git/runway/queue")" ] && ok "and the queue is empty" || bad "and the queue is empty"
+grep -q "WITHDRAWN session=a" "$T/w/.git/runway/log" && ok "and it is in the log" || bad "and it is in the log"
+sleep 1; RUNWAY_SESSION=a $R request --kind docs --what x --verified v --unverified none >/dev/null
+expect_pass "a controller withdraws for somebody with --by" $R withdraw --sha "${SHA:0:8}" --session a --by atc
+git checkout -q work
+
 echo "one runway, one clearance"
 expect_fail "check with no clearance" env RUNWAY_SESSION=a $R check --kind release
 rel 0.0.1

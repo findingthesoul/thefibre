@@ -13,6 +13,7 @@
 #
 #   RUNWAY_SESSION=<name> ./scripts/runway.sh request --kind release \
 #       --sha <sha> --what "..." --verified "..." --unverified "..."
+#   RUNWAY_SESSION=<name> ./scripts/runway.sh withdraw --sha <sha>   # drop your own stale request
 #   ./scripts/runway.sh queue                # who is waiting, and what they say
 #   ./scripts/runway.sh status               # who holds the runway now
 #   ./scripts/runway.sh clear <name> --by <controller>     # preflight + grant
@@ -98,14 +99,60 @@ cmd_request() {
   [ -n "$sha" ] || sha="$(git rev-parse HEAD)"
   git rev-parse --verify --quiet "$sha^{commit}" >/dev/null || die "$sha is not a commit this clone can see."
   sha="$(git rev-parse "$sha")"
+  # The entry's name is the second it was filed plus the session, so two
+  # requests from one session in the same second are the SAME file. Until
+  # 2026-10-04 the second silently replaced the first and both printed
+  # "Queued" (a docs request was lost that way). Created with noclobber now:
+  # the second is REFUSED, loudly, and nothing of the first is touched.
   local f="$QUEUE/$(now)-$name"
-  {
-    echo "session=$name"; echo "kind=$kind"; echo "sha=$sha"; echo "lane=$lane"
-    echo "what=$what"; echo "verified=$verified"; echo "unverified=$unverified"
-    echo "requested=$(now)"
-  } > "$f"
+  if ! ( set -o noclobber; {
+      echo "session=$name"; echo "kind=$kind"; echo "sha=$sha"; echo "lane=$lane"
+      echo "what=$what"; echo "verified=$verified"; echo "unverified=$unverified"
+      echo "requested=$(now)"
+    } > "$f" ) 2>/dev/null; then
+    die "$name already filed a request in this same second, and this one would have replaced it. NOTHING was queued for ${sha:0:8}. Run the request again."
+  fi
   logit "REQUEST session=$name kind=$kind sha=$sha what=$what"
   say "Queued: $name wants $kind for ${sha:0:8}. Wait for clearance; do not push."
+  # Read back FROM THE FILE, not from the arguments: what the controller will
+  # see is what is stored, and the shell may have changed the text on its way
+  # here (backticks and \$( ) inside double quotes RUN before this script sees
+  # them; a production request arrived mangled that way). Quote request text
+  # with single quotes.
+  say "Stored as:"
+  say "    kind:       $(field kind "$f")   sha: $(field sha "$f" | cut -c1-8)${lane:+   lane: $(field lane "$f")}"
+  say "    what:       $(field what "$f")"
+  say "    verified:   $(field verified "$f")"
+  say "    UNVERIFIED: $(field unverified "$f")"
+}
+
+# withdraw --sha <sha>: a pilot takes its OWN stale entries out of the queue
+# (a rebuilt commit leaves the old request behind, and the only way to remove
+# it used to be deleting a file in .git by hand). A controller may withdraw
+# for somebody with --session <name> --by <controller>. Logged either way.
+cmd_withdraw() {
+  local want="" who="${RUNWAY_SESSION:-}" by=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --sha) want="$2"; shift 2 ;; --session) who="$2"; shift 2 ;; --by) by="$2"; shift 2 ;;
+      *) die "unknown option $1" ;;
+    esac
+  done
+  [ -n "$want" ] || die "usage: RUNWAY_SESSION=<you> runway.sh withdraw --sha <sha>"
+  [ -n "$who" ] || die "set RUNWAY_SESSION=<your session name>, or --session <name> --by <controller>."
+  if [ "$who" != "${RUNWAY_SESSION:-}" ] && [ -z "$by" ]; then
+    die "that is $who's request, not yours. A controller withdraws for somebody with --by <controller>."
+  fi
+  local e n=0
+  for e in $(ls "$QUEUE" 2>/dev/null | grep -- "-$who\$" | sort || true); do
+    case "$(field sha "$QUEUE/$e")" in
+      "$want"*)
+        logit "WITHDRAWN session=$who kind=$(field kind "$QUEUE/$e") sha=$(field sha "$QUEUE/$e")${by:+ by=$by}"
+        rm -f "$QUEUE/$e"; n=$((n + 1)) ;;
+    esac
+  done
+  [ "$n" -gt 0 ] || die "$who has no request for $want in the queue."
+  say "Withdrawn: $n request(s) of $who for $want."
 }
 
 cmd_queue() {
@@ -466,6 +513,6 @@ case "$sub" in
   request) cmd_request "$@" ;; queue) cmd_queue ;; status) cmd_status ;;
   clear) cmd_clear "$@" ;; check) cmd_check "$@" ;; land) cmd_land ;;
   abort) cmd_abort "$@" ;; hook) cmd_hook "$@" ;; install-hook) cmd_install_hook ;;
-  check-checkout) cmd_check_checkout ;;
+  check-checkout) cmd_check_checkout ;; withdraw) cmd_withdraw "$@" ;;
   *) sed -n '2,32p' "$0"; exit 64 ;;
 esac

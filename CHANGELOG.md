@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.103.2] — 2026-10-04 — a request is never lost, and says what it stored (staging)
+
+Runway tooling. Three small things, each from a request that went wrong
+today.
+
+- **Two requests in one second no longer overwrite each other.** A queue
+  entry is named by the second it was filed plus the session, so a second
+  request from the same session in the same second was the same file: it
+  replaced the first, and both printed "Queued". A docs request was lost
+  that way. The file is created with noclobber now and the second request
+  is refused, saying nothing was queued.
+- **`request` prints the entry back as stored**, read from the file: kind,
+  commit, what, verified, unverified. A production request had arrived
+  mangled because backticks in its text ran in the shell before the script
+  saw them, and only reading the stored entry showed it. `docs/runway.md`
+  says to quote request text with single quotes.
+- **`runway.sh withdraw --sha <sha>`** lets a pilot take its own stale
+  request out of the queue (a rebuilt commit leaves the old one behind, and
+  the only way to remove it was deleting a file inside `.git`). A controller
+  can do it for somebody with `--session <name> --by <controller>`. Logged.
+
+Thirteen new cases in `scripts/runway.test.sh`, including the collision
+forced on purpose.
+
 ## [1.103.1] — 2026-10-04 — the admin screens can be looked at without signing in as Sjoerd (staging)
 
 Test infrastructure. No app or API code changes; nothing to deploy.
