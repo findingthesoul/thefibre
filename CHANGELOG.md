@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.98.13] — 2026-10-04 — Zoom can be connected from the platform and from Thread (staging)
+
+Sjoerd, after setting up the Zoom connection: the platform's Settings →
+Connections had no Zoom card (*"not there"*), and *"solve it"*. Zoom could only
+be connected from Meet, even though Thread now creates Zoom meetings too.
+
+- **A Zoom card on Settings → Connections in the platform and in Thread**, under a
+  new Conferencing heading, between Calendars and the personal meeting room.
+  One shared component (`@thefibre/shared/ui/zoom-connection`), strings and server
+  actions injected by each app; typed i18n in all six languages.
+- **The OAuth return goes back to the app that started it.** `/zoom/auth-start`
+  takes `?return=thread|fibre` (anything else is Meet), as Google's does; the
+  callback sends you back there. Errors before the signed state is verified still
+  land on Meet. `GET /meet/connections` already carried the Zoom fields.
+- **Meet's own card is deliberately unchanged** — adopting the shared one is a
+  release of its own, so a failure can be told apart.
+- **The personal meeting room stays its own section.** It is a URL a host typed,
+  not something Zoom granted; the Zoom card says nothing about it.
+- **Until Zoom approves the Marketplace app (in review since 2026-10-02), a host
+  outside Sjoerd's own Zoom account who presses Connect gets Zoom's own error
+  page.** That is expected, not a bug in this card; production already holds the
+  Zoom credentials.
+
 ## [1.98.12] — 2026-10-03 — a limit you cannot see is a trap, not a limit
 
 Sjoerd, after the save that failed with `API 400`: *"Can we prevent work
