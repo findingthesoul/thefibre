@@ -98,6 +98,19 @@ for itself:
 Until then step B is written and unexecuted — which is the correct state for
 it to be in, not a delay to work around.
 
+## The order changed: D shipped before B (2026-10-04)
+
+Written as A → B → C → D → E. It shipped A → D → B → C → E, and the reason is
+worth keeping: **nothing forced the bulk conversion to come first.** The
+readers take plain or HTML, the API sanitises on write, and the editor is
+seeded through `bioToHtml`, so a legacy bio converts the next time its owner
+saves — one at a time, by the person who wrote it, which is the gentlest
+migration there is.
+
+What that does NOT do is reach the bios of people who never open their profile
+again. So B and C are still required, and **E still depends on them**: the
+detector can only be deleted once no plain text remains.
+
 ## Step D, afterwards
 
 The editor flip in `packages/shared/src/ui/profile-form.tsx`, which is where

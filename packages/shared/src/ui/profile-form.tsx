@@ -25,6 +25,8 @@ import { PhotoField } from './photo-field.js';
 import { TextField, TextAreaField, SelectField, FIELD_TEXT } from './fields.js';
 import { SearchSelect } from './search-select.js';
 import { FIELD_LIMITS, tooLongMessage } from '../field-limits.js';
+import { bioToHtml } from '../bio-html.js';
+import { RichTextField } from './rich-text-field.js';
 import { chromeT, useLocale } from './i18n-ui.js';
 
 export type ProfileValues = {
@@ -72,7 +74,11 @@ export function ProfileForm({
   const locale = useLocale();
   const [displayName, setDisplayName] = useState(initial.display_name);
   const [slugValue, setSlugValue] = useState(slug?.value ?? '');
-  const [bio, setBio] = useState(initial.bio);
+  // Seeded through bioToHtml, not with the raw value: today's stored bios are
+  // still plain text, and dropping plain text into an HTML editor loses every
+  // line break the person typed. One helper decides that, here as everywhere
+  // else (packages/shared/src/bio-html.ts).
+  const [bio, setBio] = useState(bioToHtml(initial.bio) ?? '');
   const [photoUrl, setPhotoUrl] = useState<string | null>(initial.photo_url);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [error, setError] = useState<string | null>(null);
@@ -107,14 +113,17 @@ export function ProfileForm({
     // as `API 400` and the only remedy in reach was to shorten the bio —
     // Sjoerd, 2026-10-03: that "creates a bad legacy", because the shortened
     // text becomes the record.
+    // Field-level reasons go UNDER THE FIELD and nowhere else. Saying it in
+    // the banner as well put the same sentence on screen three times — found
+    // by the e2e spec on staging, which is the sort of thing only a rendered
+    // page tells you.
     if (bio.trim().length > FIELD_LIMITS.bio) {
-      setFieldErrors({ bio: [tooLongMessage('A bio', FIELD_LIMITS.bio)] });
-      return setError(tooLongMessage('A bio', FIELD_LIMITS.bio));
+      return setFieldErrors({ bio: [tooLongMessage('A bio', FIELD_LIMITS.bio)] });
     }
     if (displayName.trim().length > FIELD_LIMITS.display_name) {
-      const m = tooLongMessage('A display name', FIELD_LIMITS.display_name);
-      setFieldErrors({ display_name: [m] });
-      return setError(m);
+      return setFieldErrors({
+        display_name: [tooLongMessage('A display name', FIELD_LIMITS.display_name)],
+      });
     }
     start(async () => {
       const r = await onSave({
@@ -125,13 +134,12 @@ export function ProfileForm({
         ...(slug ? { slug: slugValue.trim() } : {}),
       });
       if (!r.ok) {
-        setFieldErrors(r.fieldErrors ?? {});
-        // A field-level reason is the useful one, so it becomes the message
-        // too; the bare status stays only when there is nothing better.
-        const first = Object.values(r.fieldErrors ?? {})
-          .flatMap((m) => m ?? [])
-          .find(Boolean);
-        return setError(first ?? r.error ?? chromeT(locale, 'could_not_save'));
+        const fields = r.fieldErrors ?? {};
+        setFieldErrors(fields);
+        // The banner is for a failure that belongs to no field. When the API
+        // named one, the field says it and the banner stays quiet.
+        const named = Object.values(fields).some((m) => m?.length);
+        return setError(named ? null : (r.error ?? chromeT(locale, 'could_not_save')));
       }
       setSaved(true);
     });
@@ -166,18 +174,13 @@ export function ProfileForm({
         </label>
       )}
 
-      <TextAreaField
+      <RichTextField
+        locale={locale}
         label={chromeT(locale, 'bio')}
-        rows={3}
-        value={bio}
-        onChange={(e) => touched(setBio)(e.target.value)}
-        /* The count is ALWAYS here, next to the hint. It first appeared only
-           past 80% of the limit, on the reasoning that a counter over an
-           empty box is noise — Sjoerd asked for it outright, and he is right:
-           a count you cannot see until you are nearly in trouble is the same
-           mistake as a limit you cannot see at all. You should be able to
-           tell how much room you have while you are still deciding what to
-           write, not once it is too late to plan. */
+        name="bio"
+        defaultValue={bio}
+        onHtmlChange={touched(setBio)}
+        minHeight={120}
         hint={
           <span className="flex items-baseline justify-between gap-3">
             <span>{bioHint}</span>
@@ -186,10 +189,11 @@ export function ProfileForm({
             </span>
           </span>
         }
-        /* Red, under the field, in the same words the API would have used. */
         errors={[
-          ...(over ? [tooLongMessage('A bio', FIELD_LIMITS.bio)] : []),
-          ...(fieldErrors.bio ?? []),
+          ...new Set([
+            ...(over ? [tooLongMessage('A bio', FIELD_LIMITS.bio)] : []),
+            ...(fieldErrors.bio ?? []),
+          ]),
         ]}
       />
 

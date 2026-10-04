@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.100.0",
+  "version": "1.100.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -289,6 +289,10 @@
     "./ui/rich-text": {
       "types": "./dist/ui/rich-text.d.ts",
       "default": "./dist/ui/rich-text.js"
+    },
+    "./ui/rich-text-field": {
+      "types": "./dist/ui/rich-text-field.d.ts",
+      "default": "./dist/ui/rich-text-field.js"
     },
     "./ui/search-select": {
       "types": "./dist/ui/search-select.d.ts",

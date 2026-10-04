@@ -6,6 +6,74 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.100.1] — 2026-10-04 — the bio gets the editor it was promised
+
+Sjoerd, on the production fix landing: *"it saves"* — and immediately after,
+*"no rich text editor though..."*. Fair. He asked for a WYSIWYG on the profile
+bio and so far had a plain box, a sanitiser, readers that can render markup,
+and no way to make any.
+
+The editor already existed: Thread has had one since the rebuild, used on four
+screens. So it was **moved, not copied** —
+`packages/shared/src/ui/rich-text-field.tsx` — and Thread's
+`components/ui/rich-text.tsx` is now a re-export shim, its four call sites
+untouched. One editor to fix when it is wrong, which is the rule this repo
+states and a second copy would quietly break. Its toolbar labels moved into
+the shared catalog in all six locales, taken from Thread's own translations
+rather than invented again.
+
+The bio field in the shared profile form is now that editor — bold, italic, a
+heading, lists, links — seeded through `bioToHtml`, so a bio that is still
+plain text keeps the line breaks the person typed instead of collapsing into
+one paragraph the moment it meets an HTML editor. The live `1,240 / 8,000`
+count stays, now counting the markup too, which is exactly why the limit was
+raised to 8,000 before any of this.
+
+**This is step D before step B, deliberately.** The plan in
+`docs/bio-rich-text-conversion.md` had the stored bios converted in bulk first
+and the editor flipped afterwards. The order is swapped because it turns out
+not to matter: the readers handle both shapes, the API has sanitised on write
+since v1.98.6, and the editor is seeded through `bioToHtml` — so a legacy
+plain bio becomes HTML the next time its owner saves, one at a time, by the
+person who wrote it. **B is still needed before E**: a bulk conversion is what
+reaches the bios of people who never open their profile again, and only once
+there is no plain text left can `bio-html.ts` be deleted.
+
+**Why this matters more than it looks.** On Sjoerd's real production bio there
+are no headings at all — eight paragraphs, and his section titles ("About me")
+arrive as `<p>About me<br>I am a co-founder…</p>`, because a single newline in
+plain text can only become a line break. No reader can repair that; the
+information was never there. The only way his page gets a heading is if he can
+make one. That is this release.
+
+**Also fixed, from the first real run of the e2e spec**: the refusal appeared
+on screen **three times** — once from the client-side guard, once from the
+API's answer to the same rule, and once in the banner. A field-level reason now
+goes under the field and nowhere else, and the banner is kept for failures that
+belong to no field. The spec asserts the count is exactly one.
+
+### Verified
+- `pnpm verify` green (1290 tests). Three new tests: Thread's path holds no
+  implementation (no `execCommand`, no `contentEditable`), the profile form
+  uses the editor and seeds it through `bioToHtml`, and every toolbar label
+  exists in all six locales.
+- The triple message was found by running `e2e/profile-limits.spec.ts` against
+  staging, not by reading the code — the client guard and the server produce
+  the same sentence by design, which is precisely why they printed twice.
+
+### Not verified
+- **Nobody has typed in this editor yet.** It is the moved component, so the
+  editing behaviour is the one Thread has used for months, but the profile
+  screen carrying it has not been opened. Writing this entry caught a second
+  thing: the e2e spec looked the bio field up by label and filled it, which
+  works on a textarea and not on a contenteditable with no accessible name.
+  The editor now carries an `aria-label` (it was an unlabelled textbox for a
+  screen reader too, which is the worse half of that bug) and the spec asks
+  for the textbox by name — but that spec has NOT been run against this
+  release, because the release is not deployed. It is the first thing I will
+  do when it is.
+- Whether an existing plain bio looks right when it opens in the editor, on a
+  real profile, is the first thing to look at after this deploys.
 ## [1.100.0] — 2026-10-04 — the duplicates screen says it merges, and says what each choice gains
 
 Sjoerd: *"when there is an assumed duplicate, I also thought we could do merge

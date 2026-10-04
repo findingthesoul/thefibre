@@ -812,6 +812,71 @@ const CHROME = {
     de: 'Wähle eine öffentliche URL.', // MT
     fr: 'Choisis une URL publique.', // MT
   },
+  // ── rich-text toolbar (ui/rich-text-field.tsx) ───────────────────────
+  heading: {
+    en: 'Heading',
+    nl: 'Kop',
+    es: 'Título', // MT
+    pt: 'Título', // MT
+    de: 'Überschrift', // MT
+    fr: 'Titre', // MT
+  },
+  bold: {
+    en: 'Bold',
+    nl: 'Vet',
+    es: 'Negrita', // MT
+    pt: 'Negrito', // MT
+    de: 'Fett', // MT
+    fr: 'Gras', // MT
+  },
+  italic: {
+    en: 'Italic',
+    nl: 'Cursief',
+    es: 'Cursiva', // MT
+    pt: 'Itálico', // MT
+    de: 'Kursiv', // MT
+    fr: 'Italique', // MT
+  },
+  bullet_list: {
+    en: 'Bullet list',
+    nl: 'Opsommingslijst',
+    es: 'Lista con viñetas', // MT
+    pt: 'Lista com marcadores', // MT
+    de: 'Aufzählung', // MT
+    fr: 'Liste à puces', // MT
+  },
+  numbered_list: {
+    en: 'Numbered list',
+    nl: 'Genummerde lijst',
+    es: 'Lista numerada', // MT
+    pt: 'Lista numerada', // MT
+    de: 'Nummerierte Liste', // MT
+    fr: 'Liste numérotée', // MT
+  },
+  rt_link: {
+    en: 'Link',
+    nl: 'Link',
+    es: 'Enlace', // MT
+    pt: 'Link', // MT
+    de: 'Link', // MT
+    fr: 'Lien', // MT
+  },
+  clear_formatting: {
+    en: 'Clear formatting',
+    nl: 'Opmaak wissen',
+    es: 'Quitar formato', // MT
+    pt: 'Limpar formatação', // MT
+    de: 'Formatierung entfernen', // MT
+    fr: 'Effacer la mise en forme', // MT
+  },
+  link_url: {
+    en: 'Link URL',
+    nl: 'Link-URL',
+    es: 'URL del enlace', // MT
+    pt: 'URL do link', // MT
+    de: 'Link-URL', // MT
+    fr: 'URL du lien', // MT
+  },
   bio: {
     en: 'Bio',
     nl: 'Bio',

@@ -16,7 +16,9 @@ test.describe('the profile form shows its own limits', () => {
   test('refuses an over-limit bio in words, before the save', async ({ page }) => {
     await landSignedIn(page, HOSTS.fibre, 'fibre-platform', '/settings/profile', /\/settings\/profile/);
 
-    const bio = page.getByLabel(/bio/i);
+    // A contenteditable, not a textarea — Playwright's fill() handles both,
+    // but only if the element can be found, hence the aria-label on it.
+    const bio = page.getByRole('textbox', { name: /bio/i });
     await expect(bio).toBeVisible();
     const original = await bio.inputValue();
 
@@ -34,8 +36,10 @@ test.describe('the profile form shows its own limits', () => {
 
       await page.getByRole('button', { name: /save|opslaan/i }).click();
 
-      // A sentence naming the limit, not a status code.
-      await expect(page.getByText(/at most 8,?000 characters/i)).toBeVisible();
+      // A sentence naming the limit, not a status code — and ONCE. It was
+      // on screen three times before this spec was first run: the client
+      // guard, the API's answer and the banner all saying the same thing.
+      await expect(page.getByText(/at most 8,?000 characters/i)).toHaveCount(1);
       await expect(page.getByText(/API 400/)).toHaveCount(0);
     } finally {
       // Leave the fixture's profile as we found it: this edits a real row.
@@ -48,7 +52,9 @@ test.describe('the profile form shows its own limits', () => {
     // 2,400 characters — what was rejected on production. The regression this
     // guards is somebody "tidying" the limit back down.
     await landSignedIn(page, HOSTS.fibre, 'fibre-platform', '/settings/profile', /\/settings\/profile/);
-    const bio = page.getByLabel(/bio/i);
+    // A contenteditable, not a textarea — Playwright's fill() handles both,
+    // but only if the element can be found, hence the aria-label on it.
+    const bio = page.getByRole('textbox', { name: /bio/i });
     const original = await bio.inputValue();
     try {
       await bio.fill('Zeriekzee, Netherlands. Co-founder. '.repeat(67));
