@@ -86,7 +86,7 @@ The member's own choices, per workspace. One row per (workspace, person).
 ```
 workspace_id   uuid not null references workspace(id)
 person_id      uuid not null references person(id) on delete cascade
-listed         boolean not null default true      -- opt-OUT (§4)
+listed         boolean not null default false     -- opt-IN (§9.6)
 show_contact   boolean                            -- NULL = inherit workspace default
 tags           text[] not null default '{}'       -- max 3, enforced in the API
 updated_at     timestamptz not null default now()
@@ -115,15 +115,21 @@ publish its members' phone numbers.
 
 ## 4. Consent
 
-Sjoerd decided opt-OUT: joining is where you agree, your profile is where you
-leave. `listed` therefore defaults to `true`.
+Sjoerd decided **always opt-in** (§9.6, 2026-10-04 — superseding his own
+earlier wording from the same day). `listed` therefore defaults to **false**.
+
+Joining is where the choice is OFFERED: the 'Community landscape' product
+adds a step to the enrolment process, and the switch there arrives OFF. The
+profile is where it can be changed either way afterwards, which is also what
+makes withdrawal as easy as giving it (Art 7(3)).
 
 That makes three obligations, and none of them is optional:
 
 1. **The join page says so, in the flow**, next to what the member agrees to
    — not only in a policy page. Wording belongs with the privacy statement
    (§8), which does not describe a directory today.
-2. **A `consent_record` is written at join**, `purpose_code =
+2. **A `consent_record` is written ON SWITCH-ON** (§9.6 — at join nothing has
+   been consented to yet, because the switch arrives off), `purpose_code =
    'member_directory'`, `legal_basis = 'consent'` — separate from
    `cohort_directory`, because agreeing to appear among your community is not
    agreeing to appear in a course cohort, and revoking one must not revoke
@@ -321,6 +327,134 @@ member who may see them, and one compromised member account can collect
 them. The mitigation if that ever matters is the relay in the proposal, which
 remains the better long-term answer.
 
+### 9.5 Two visibility switches, and why they are not a pair — RESOLVED: both, apart
+
+Sjoerd, 2026-10-04, looking at his own profile page: *"should there also be
+the buttons for what a person allows 'show a public page', 'show up in list
+of members'? Or are both not a choice and do they conflict with a design
+choice made earlier?"*
+
+Both should be a choice. They must not be drawn as a pair, and only one of
+them exists today.
+
+**"Show up in list of members" already exists in this plan** — it is slice 2,
+`membership_directory_entry.listed`, from his own earlier instruction
+(*"Maybe someone can state: visible in the list or not"*). No conflict.
+
+But the question exposes a SHAPE error in how it was about to be built. The
+profile is ONE thing — `identity_profile`, keyed by email, one bio everywhere
+(§9.1) — while membership is per workspace. A single switch on the profile
+would force somebody in three communities to hide from all three in order to
+hide from one. So:
+
+- the switch lives **per community**, on `membership_directory_entry`;
+- the profile may carry at most a global **"never list me anywhere"**
+  kill-switch above it, which wins over every per-community setting.
+
+**"Show a public page" does NOT exist, and that is the finding.**
+`thread_program.is_public_listed` is per THREAD, not per person. An
+organiser's page exists for anybody holding a slug, and since A2 (v1.98.8,
+production 2026-10-03) that page publishes display name, bio and photo
+automatically. Nobody opted in. Nothing improper has happened — of the seven
+pages that changed, three are Sjoerd's own accounts and he cleared the fourth
+name by hand — but the MECHANISM has no consent step, so the next person who
+writes a bio in Settings → Profile is published to the open internet without
+being asked.
+
+That sits against two decisions already made:
+
+- **"The app justifies the field"** (brief §13). A bio justified by *"my
+  public page shows me"* is data minimisation working. A bio published
+  *because a page exists by default* is the same field with the justification
+  removed.
+- **The consent model in §4**, which requires consent at join for the
+  NARROWER audience — the members of one community. The public page reaches
+  everyone and is indexable, and has no equivalent gate.
+
+**Why they are not a pair.** Two adjacent checkboxes read as symmetric, and
+somebody will switch one off and believe they are private. The audiences are
+not comparable: one is a community that admitted them, the other is the
+internet. They belong in different places, with different words, and the
+public one needs to say plainly that it means the open web.
+
+**The one part that is Sjoerd's, not ours:** what happens to pages that are
+ALREADY public. Defaulting the new switch off un-publishes live URLs people
+may have shared; defaulting it on grandfathers everyone in without ever
+asking. The recommendation is on-for-existing, explicit-for-new, with a
+one-time notice — but that is a consent call, not an engineering one, and it
+is recorded here undecided.
+
+## 9.6 The directory is a PRODUCT, and listing is always opt-in — Sjoerd, 2026-10-04
+
+Decided in two steps on the same day, and the second supersedes the first.
+Both are recorded, because the reasoning between them is the useful part.
+
+**First**, on the shape:
+
+> *"in the enrolment process, it is by default switched on and someone can
+> switch it off. Like a feature in the process (a product in a package). For
+> example: 'community landscape' as a product. Setting: default switched
+> on... and then it appears in the process."*
+
+**Then**, asked whether a default-on switch was safe for a community whose
+membership itself discloses a special category — a faith-linked community
+publishes religious affiliation by listing somebody, and this platform seeds
+EBBF, a Bahá'í business forum — he answered:
+
+> *"Always opt-in"*
+
+So the product framing stands and the default is reversed.
+
+### What ships
+
+"Community landscape" is a **feature of a package**, the way a Circle space
+or a seat is. A package carrying it makes a step appear in the enrolment
+process. At that step the listing switch is **OFF**, and the person switches
+it on. The same switch lives on my.thread afterwards, and reaching it there
+is as easy as reaching it at enrolment.
+
+### What this replaces
+
+- It supersedes his own default-on wording from earlier the same day. No
+  pre-ticked switch ships.
+- It supersedes the recommendation I had written in response to that
+  wording — a per-workspace "default on / explicit opt-in" setting. It is no
+  longer needed: always opt-in is one rule, and one rule that is right
+  everywhere beats a setting an admin can get wrong for a congregation.
+- §4's consent model returns rather than being replaced. §9.5's per-community
+  `listed` switch is unchanged. §9.3 is untouched — category resolution still
+  fails closed.
+
+### Why opt-in makes the lawful basis straightforward again
+
+An explicit switch-on is a "clear affirmative action" (Art 4(11)), which a
+pre-ticked box is not (Recital 32). So:
+
+- **Art 6(1)(a) consent** is the basis, and writing a `consent_record` row on
+  switch-on is correct — it records something that actually happened.
+- Where membership discloses a special category (religion, health, political
+  opinion), **Art 9(2)(a) explicit consent** is satisfied by the same action,
+  provided the step says in words what being listed means.
+- Withdrawal must be as easy as giving it (Art 7(3)) — hence the same switch
+  on my.thread, not a support request.
+
+Still unreviewed by a lawyer; same status as the privacy policy and terms.
+
+### The cost, stated so nobody quietly undoes it
+
+Opt-in means **fewer members are listed**, and a community's first directory
+may look nearly empty. That is the design working, not failing. The temptation
+a year from now will be to "fix" the empty directory by flipping the default,
+and that would walk straight back into a pre-ticked box with a consent row
+asserting something untrue.
+
+There are now TWO reasons a member does not appear — they have not opted in,
+or they hold no category (§9.3) — and from the outside both look identical.
+So the admin screen that counts uncategorised products should also show how
+many members have not opted in. Otherwise "the directory is empty" has two
+causes and no way to tell them apart, which is the same empty-that-reads-as-
+working trap §9.3 exists to avoid.
+
 ### Still genuinely Sjoerd's, and blocking
 
 **The merged-address mechanism** (§7.3). The portal resolves a viewer by
@@ -338,10 +472,16 @@ already inconvenienced.
 2. **The entry** — `membership_directory_entry`, the consent record at join,
    the switch on my.thread's You page. No list yet; a member can state their
    choice before anyone can see them, which is the right order for an
-   opt-out.
+   opt-out. The switch is **per community** (§9.5), not one global flag on
+   the profile.
 3. **The list** — the endpoint, the my.thread page, filtering by tag and
    location.
 4. **Tags** — last, because a filter over an empty vocabulary is not worth
    looking at.
 
 Each slice is one release and names its own lane before it starts.
+
+5. **The public-page switch** (§9.5) — NOT part of the directory, and listed
+   here only so it is not lost: it is a Thread change, it needs Sjoerd's
+   decision on existing pages first, and it is more urgent than slices 3–4
+   because A2 is already publishing profiles on production today.

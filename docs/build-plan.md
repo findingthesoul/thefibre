@@ -48,6 +48,29 @@ both the canonical entry (in The Fibre) AND its own Integrations.
   `/settings/calendars` — it chooses WHICH calendars, which is not connecting.
 - The shared `ZoomConnectionCard` (v1.98.13) and the API `?return=` parameter are
   the first half of this and stay useful either way.
+**A public organiser page publishes a profile with nobody opting in** (found
+2026-10-04, spec §9.5). `is_public_listed` is per THREAD; there is no
+per-person switch at all. Since A2 went to production on 2026-10-03, an
+organiser page publishes display name, bio and photo automatically, to the
+open web. Nothing improper has happened — of the seven pages that changed,
+three are Sjoerd's accounts and he cleared the fourth name himself — but the
+next person to write a bio in Settings → Profile is published without being
+asked, which is the opposite of "the app justifies the field". Needs: a
+per-person switch, wording that says plainly it means the open internet, and
+**Sjoerd's decision on pages that are already public** (default off
+un-publishes live URLs; default on grandfathers everyone in — recommendation
+is on-for-existing, explicit-for-new, with a one-time notice). Ranked above
+directory slices 3–4 because it is live today. The member-list switch is a
+DIFFERENT thing and must not be drawn beside it: one is a community, the
+other is the internet.
+
+**Member directory — slice 1 built, awaiting its release** (spec
+`docs/member-directory-spec.md`). Categories, the product link, the four
+workspace switches, the admin screen. Slice 2 is the entry + consent at join
++ the per-community switch; **slice 3 stays blocked** on the merged-address
+mechanism, which is still Sjoerd's to choose. Nothing of slice 1 has been
+rendered yet — the first look is the next thing after it reaches staging.
+
 
 **The profile bio is mid-conversion to rich text (Release A shipped
 2026-10-02).** Sjoerd asked for a WYSIWYG on the profile bio, single point of
