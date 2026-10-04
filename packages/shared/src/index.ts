@@ -85,6 +85,7 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 // subpath export './i18n' for the Next apps; re-exported here so the API
 // can keep importing from the root.
 export * from './field-limits.js';
+export * from './rich-text-normalise.js';
 export * from './i18n.js';
 export * from './invoice-model.js';
 export * from './plan-engagement.js';

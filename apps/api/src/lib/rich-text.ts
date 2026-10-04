@@ -17,6 +17,7 @@
 // drops that class on its own; the explicit lists are the belt).
 
 import DOMPurify from 'isomorphic-dompurify';
+import { normaliseRichTextBlocks } from '@thefibre/shared';
 
 /** Tags the toolbar emits, plus the ones a paste from Word or Docs brings. */
 const ALLOWED_TAGS = [
@@ -42,13 +43,25 @@ const ALLOWED_ATTR = ['href', 'target', 'rel', 'title'];
  */
 export function sanitizeRichText(html: string | null | undefined): string | null {
   if (html == null) return null;
-  const clean = DOMPurify.sanitize(html, {
+  // A FRAGMENT rather than a string, so the same parse that cleans can also
+  // fix the shape. A contenteditable that starts empty leaves its first line
+  // as a bare text node, and a stored value beginning with text is read back
+  // as plain text and escaped — `&lt;h3&gt;` on screen, and the next save
+  // stores that (found on staging by the save fixture, 2026-10-04). The rule
+  // lives in @thefibre/shared so the editor and this path cannot drift.
+  const fragment = DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     // A stored fragment, never a whole document.
     FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form', 'input'],
     FORBID_ATTR: ['style', 'srcset', 'formaction'],
+    RETURN_DOM_FRAGMENT: true,
   });
+  const doc = fragment.ownerDocument;
+  normaliseRichTextBlocks(fragment, doc);
+  const box = doc.createElement('div');
+  box.appendChild(fragment);
+  const clean = box.innerHTML;
   // Tags alone are not content: `<p><br></p>` is what an emptied editor
   // leaves behind, and it should read as nothing.
   const text = clean.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();

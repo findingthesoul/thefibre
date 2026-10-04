@@ -33,6 +33,7 @@ import {
 import type { Locale } from '../i18n.js';
 import { chromeT, type ChromeKey } from './i18n-ui.js';
 import { RICH_TEXT_TYPOGRAPHY } from './rich-text.js';
+import { normaliseRichTextBlocks } from '../rich-text-normalise.js';
 
 type Command =
   | 'bold'
@@ -141,9 +142,23 @@ export function RichTextField({
     return () => document.removeEventListener('selectionchange', onSelectionChange);
   }, [refreshActive]);
 
+  /**
+   * What leaves the editor, as opposed to what the browser happens to hold.
+   *
+   * Normalised on a CLONE: rewriting the live element while someone is typing
+   * would move their caret. The emitted value always starts with a block, so
+   * it reads back as HTML rather than being escaped as plain text.
+   */
+  function serialise(el: HTMLDivElement | null): string {
+    if (!el) return '';
+    const clone = el.cloneNode(true) as HTMLDivElement;
+    normaliseRichTextBlocks(clone, el.ownerDocument);
+    return clone.innerHTML;
+  }
+
   function sync() {
     userTyped.current = true;
-    const next = editorRef.current?.innerHTML ?? '';
+    const next = serialise(editorRef.current);
     setHtml(next);
     onHtmlChange?.(next);
   }

@@ -6,6 +6,98 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.101.3] — 2026-10-04 — a bio typed from empty came back as literal <h3>
+
+The save fixture typed a bio from scratch on staging and found what no look
+could: empty the field, type a line, Enter, Heading, type, Enter, type, Save.
+What was stored was
+
+    Fixture bio, first paragraph.<h3>A heading</h3><div>And a closing line.</div>
+
+A contenteditable that starts EMPTY does not wrap the first thing you type, so
+the value begins with a bare text node. `bio-html.ts` decides plain-versus-HTML
+by what a value STARTS with, saw text, and escaped the whole thing — so
+reopening the editor showed `&lt;h3&gt;` as characters, and the next Save
+stored the escaped text. A bio that already existed opens with `<p>` and never
+shows it, which is exactly why every look passed and only typing found it.
+
+**The shape is fixed at the source, in one place used by both halves.**
+`packages/shared/src/rich-text-normalise.ts` states what the output must be:
+a top-level `<div>` of inline content becomes a paragraph, a `<div>` of blocks
+is unwrapped, a run of loose text and inline elements becomes one paragraph,
+whitespace between blocks goes. The editor runs it on a CLONE when it hands
+over its content — rewriting the live element would move the caret — and the
+API runs it on DOMPurify's fragment inside the same parse that sanitises. Two
+implementations of one rule is how they drift, and this is a rule that cannot.
+
+Deliberately shape-agnostic: Chromium wraps in `<div>`, Firefox and Safari
+differ, and nobody has tried them. It describes the output rather than any
+browser's habits.
+
+**The reader's detector is untouched.** Guessing harder about plain versus
+HTML is how somebody's angle brackets end up executing; the answer is to stop
+producing values it has to guess about.
+
+---
+
+A release was waiting to put the rich-text editor on production, and the path
+from that editor to storage — `PATCH /api/v1/profile` → `sanitizeRichText` →
+stored → read back — **had never been exercised by any test.** Two files look
+like they cover it and do not: the public-organiser fixture test READS a bio
+and its markup but never writes (its bio is planted straight into the
+database), and `routes/profile-patch.test.ts` parses the schema in memory with
+no HTTP, no sanitiser and no database.
+
+So: `apps/api/src/integration/profile-bio-write.int.test.ts`, against the real
+staging Postgres with RLS on, as a **throwaway user in a throwaway
+workspace** — the e2e suite signs in as the oldest staging account, which
+belongs to a real person, and nothing that writes should go near it.
+
+Four things it asserts, all by reading the row back out of the database:
+
+- the formatting the toolbar can make survives — heading, bold, list;
+- a `<script>`, an `onerror` handler and a `javascript:` link do not, while
+  the surrounding text does;
+- an over-limit bio is refused with the sentence a person reads, **and is not
+  stored** — a refusal that still wrote would be the worst of both;
+- someone can empty their bio.
+
+**And a fact worth more than the test.** `pnpm verify` does not run the
+integration suite. The gate ends at `verify-public-api`; integration runs
+under `pnpm test:integration`, or `verify:full`. Every "verify green" reported
+on this work — four releases — excluded it. That does not make those greens
+false, but they were narrower than the word suggests, and the suite that holds
+the only tests touching real Postgres is the part they left out.
+
+### Verified
+- Six unit tests on the API half, including the exact string from the
+  reproduction — and one asserting a WELL-FORMED bio comes back identical,
+  because this must not reflow the bios already in the database.
+- The integration test grew that case and runs 5/5 against staging Postgres.
+  With the normaliser commented out it fails on it: `'Fixture bio, first
+  paragraph.<h3>A heading</h3><di: expected false to be true'` — that is
+  `looksLikeStoredHtml` saying the stored value would read back as plain text.
+- Ran against staging: `Test Files 1 passed (1) · Tests 5 passed (5)`.
+- Proven to be worth something, rather than green by construction: with
+  `sanitizeRichText` commented out of the route, the test FAILS on the stored
+  value — `expected '<p>hello</p><script>alert(1)</script>…' not to contain
+  '<script'`. Restored, it passes again. So it reads the database and the
+  sanitiser is what makes it green.
+- The throwaway user and workspace are removed in `afterAll`, through the
+  helpers that report a failed cleanup rather than swallowing it; no warning
+  appeared on either run.
+
+### Not verified
+- **The browser half is still unproven.** These tests run the API in process
+  against the staging database: they prove the code in this commit, not the
+  deployed staging API, and nothing here drives a real editor. The e2e save
+  spec that does is held `fixme` until this fix is deployed — a spec cannot go
+  green before the thing it tests exists — and its pass line is what should
+  gate putting the editor on production.
+- Only Chromium has typed into this editor. The normaliser is written not to
+  care, which is a claim about its design and not a measurement.
+- Four runs wrote to staging through the real route. They were a throwaway
+  account's own profile row and nobody else's.
 ## [1.101.2] — 2026-10-04 — the browser tests stop signing in as Sjoerd (staging)
 
 Test infrastructure. No app or API code changes; nothing to deploy.
