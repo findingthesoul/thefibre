@@ -65,6 +65,11 @@ import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
+import {
+  markEmailProven,
+  personIdsForProvenEmail,
+  personsForProvenEmail,
+} from '../lib/proven-email.js';
 import { enrolmentCanRespond, mergeById, resolveRsvpEnabled, ticketIsAdmissible } from '../lib/portal.js';
 import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
@@ -240,6 +245,18 @@ type Group = {
 portalRoutes.get('/portal', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
+
+  // The token in hand proves this person reads this mailbox — it was minted
+  // by Google or by the platform's 8-digit code, and nothing else mints one.
+  // Record that, so the address keeps reaching their records after a merge
+  // moves it off `person.email`.
+  //
+  // Here rather than at sign-in because the API never sees a sign-in: the
+  // session is minted by Supabase and first appears on a request like this
+  // one. Idempotent and narrow (it only touches unstamped rows), so the
+  // steady state is a no-op, and never fatal — a failure leaves the address
+  // unverified and the next visit stamps it.
+  await markEmailProven(email);
 
   // One person row per workspace that knows this email. This list is the
   // scope of everything below (lib/portal-agenda.ts holds the definition, so
@@ -800,13 +817,11 @@ portalRoutes.put('/portal/rsvp', async (c) => {
     return c.json({ error: 'engagement_id and response (coming|not_coming|none) required' }, 400);
   }
 
-  const { data: persons } = await adminClient
-    .from('person')
-    .select('id, workspace_id')
-    .eq('email', email);
-  const personByWorkspace = new Map(
-    (persons ?? []).map((p) => [p.workspace_id as string, p.id as string]),
-  );
+  // Their own address OR one they have PROVEN belongs to them — see
+  // lib/proven-email.ts. Asking `person.email` alone locked people out of
+  // their own portal the moment two of their records were merged.
+  const persons = await personsForProvenEmail(email);
+  const personByWorkspace = new Map(persons.map((p) => [p.workspace_id, p.id]));
   if (!personByWorkspace.size) return c.json({ error: 'not found' }, 404);
 
   // The item, its thread, and whether either of them asks.
@@ -927,12 +942,7 @@ portalRoutes.get('/invoices', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
 
-  const { data: persons } = await adminClient
-    .from('person')
-    .select('id')
-    .eq('email', email)
-    .is('deleted_at', null);
-  const personIds = (persons ?? []).map((p) => p.id as string);
+  const personIds = await personIdsForProvenEmail(email);
 
   type LedgerRow = Record<string, unknown> & { id: string };
   const [byPerson, byEmail] = await Promise.all([
@@ -988,12 +998,7 @@ portalRoutes.get('/invoices/:id/pdf', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
 
-  const { data: persons } = await adminClient
-    .from('person')
-    .select('id')
-    .eq('email', email)
-    .is('deleted_at', null);
-  const personIds = (persons ?? []).map((p) => p.id as string);
+  const personIds = await personIdsForProvenEmail(email);
 
   const { data: purchase } = await adminClient
     .from('purchase')

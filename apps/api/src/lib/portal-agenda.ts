@@ -13,6 +13,7 @@
 
 import { adminClient } from '../db.js';
 import { rows } from './rows.js';
+import { personIdsForProvenEmail } from './proven-email.js';
 import { resolveRsvpEnabled } from './portal.js';
 
 /**
@@ -30,13 +31,25 @@ import { resolveRsvpEnabled } from './portal.js';
 export async function personsForEmail(email: string): Promise<
   { id: string; first_name: string | null; last_name: string | null; email: string }[]
 > {
+  // WHICH rows this address belongs to is decided in one place
+  // (lib/proven-email.ts): the rows whose own `email` is it, plus the rows
+  // carrying it as a PROVEN contact point. Asking `person.email` alone was
+  // the merged-address lockout — tidy two records of one person into one and
+  // the address that lost stops reaching its own portal.
+  //
+  // This widens ERASURE too, and that is deliberate rather than overlooked:
+  // portal-erasure.ts builds its picture from this list, so without it a
+  // person whose records were merged could not erase the data that moved,
+  // which is the same lockout pointed the other way and the worse half of it.
+  const ids = await personIdsForProvenEmail(email);
+  if (!ids.length) return [];
   // Throws on a failed read: an empty answer here blanks the whole portal.
   const data = rows(
     'portal: persons for email',
     await adminClient
       .from('person')
       .select('id, first_name, last_name, email')
-      .eq('email', email)
+      .in('id', ids)
       .is('deleted_at', null),
   );
   return data as { id: string; first_name: string | null; last_name: string | null; email: string }[];

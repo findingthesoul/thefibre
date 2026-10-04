@@ -3,6 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
+import { markEmailProven, personIdsForProvenEmail } from '../lib/proven-email.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
@@ -113,13 +114,17 @@ membershipPortalRoutes.get('/me', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
 
+  // This token proves the holder reads this mailbox; record it, so the
+  // address still finds their memberships after a merge moves it off
+  // `person.email`. Same reasoning as routes/portal.ts.
+  await markEmailProven(email);
+
   // Every list on this page throws on a failed read (lib/rows.ts): a member
   // shown "no memberships" because a query broke is worse than an error.
-  const persons = rows(
-    'member portal: persons',
-    await adminClient.from('person').select('id').eq('email', email.toLowerCase()).is('deleted_at', null),
-  );
-  if (!persons.length) return c.json({ email, items: [], products: [] });
+  // WHICH persons this address may act for is the one shared rule in
+  // lib/proven-email.ts — their own address, or one they have proven.
+  const personIds = await personIdsForProvenEmail(email);
+  if (!personIds.length) return c.json({ email, items: [], products: [] });
 
   const members = rows(
     'member portal: memberships',
@@ -130,7 +135,7 @@ membershipPortalRoutes.get('/me', async (c) => {
        workspace:workspace_id (name, slug),
        tier:tier_id (name, price_cents_year, price_cents_month, currency)`,
       )
-      .in('person_id', persons.map((p) => p.id))
+      .in('person_id', personIds)
       .is('deleted_at', null)
       .order('started_at', { ascending: false }),
   );
@@ -160,7 +165,7 @@ membershipPortalRoutes.get('/me', async (c) => {
        product:product_id (name, description, links),
        workspace:workspace_id (name, slug)`,
       )
-      .in('person_id', persons.map((p) => p.id))
+      .in('person_id', personIds)
       .eq('status', 'paid')
       .order('created_at', { ascending: false }),
   );

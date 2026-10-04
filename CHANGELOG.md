@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.103.0] — 2026-10-04 — merging two records of one person no longer locks them out of their own portal
+
+A participant's portal answers for the one thing their sign-in proves: an
+address they receive mail at. Every lookup asked `person.email = <that
+address>`. Then two of their contact records were merged — the right thing to
+do with two records of one human — and the merge keeps ONE `person.email`,
+moving the other to `email_secondary` and the contact-point table. From that
+moment, signing in with the address that lost found nothing: their tickets,
+invoices and memberships sat on a row whose `email` column now said something
+else. **Tidying the data locked the person out.**
+
+So a lookup asks the wider question — which person rows does this address
+belong to — and `person_contact_point` already holds the answer.
+
+**Only PROVEN addresses, and that is the load-bearing line.** A contact point
+is ordinary curator data: any organiser can type any address onto any contact.
+If an unverified point granted portal access, typing `someone@else.com` onto a
+contact would hand whoever reads that mailbox their invoices and enrolments.
+An address reaches a person only once somebody has proven they receive mail
+there, by signing in with it — Google, or the platform's 8-digit code, which
+are the only two things that mint a session.
+
+`person_contact_point.verified_at` has existed since 2026-09-15 and was
+backfilled once at migration time. **Nothing has written it since**, so it has
+been going quietly stale from the day it was created; `markEmailProven` is
+what keeps it true, stamped where a token proves the address and nowhere else.
+Idempotent and narrow, so the steady state is a no-op and the timestamp never
+moves — "when was this proven" must not come to mean "when was it last looked
+at". No migration: the column was already there.
+
+One rule, one place — `lib/proven-email.ts` — because the alternative is six
+surfaces each re-deriving it and one of them forgetting the `verified_at`
+clause. Membership's portal slice calls `personIdsForProvenEmail`.
+
+**It widens erasure too, deliberately.** `portal-erasure` builds its picture
+from the same list, so without this a person whose records were merged could
+not erase the data that moved — the same lockout pointed the other way, and
+the worse half of it.
+
+Seven integration tests against real Postgres, and the first one asserts the
+security half: an unverified point reaches NOTHING. A suite that only proved
+the convenient half would pass just as happily against an implementation that
+dropped the `verified_at` clause entirely. The last one does a REAL
+`merge_person` rather than hand-placing a contact point, because the rule
+meeting the event that triggers it is the thing worth proving.
+
 ## [1.102.1] — 2026-10-04 — the category picker was there all along, 118px below the fold
 
 Sjoerd made four categories on staging and reported he could not select them
