@@ -547,6 +547,22 @@ const CATALOG = {
     de: 'Wo deine Veranstalterseite liegt und was sie zeigt.', // MT
     fr: 'Où vit ta page organisateur et ce qu’elle affiche.', // MT
   },
+  visit_page: {
+    en: 'Visit your page',
+    nl: 'Bekijk je pagina',
+    es: 'Ver tu página', // MT
+    pt: 'Ver a tua página', // MT
+    de: 'Deine Seite ansehen', // MT
+    fr: 'Voir ta page', // MT
+  },
+  visit_page_after_save: {
+    en: 'Save to open your page at the new address.',
+    nl: 'Sla op om je pagina op het nieuwe adres te openen.',
+    es: 'Guarda para abrir tu página en la nueva dirección.', // MT
+    pt: 'Guarda para abrir a tua página no novo endereço.', // MT
+    de: 'Speichere, um deine Seite unter der neuen Adresse zu öffnen.', // MT
+    fr: 'Enregistre pour ouvrir ta page à la nouvelle adresse.', // MT
+  },
   public_url: {
     en: 'Public URL',
     nl: 'Openbare URL',

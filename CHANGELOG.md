@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.103.3] — 2026-10-04 — a link to the page you just described
+
+Sjoerd: *"Where can I find a link to my profile page (there should be a visit
+page button)"*. Thread's Settings → Profile showed him the address of his
+public page and a preview of what it contains, and offered no way to go and
+look at it.
+
+A "Visit your page" link now sits beside the address field and under the
+preview — the two places you are looking when you want it.
+
+It links to the **saved** slug, and only while the field still matches it.
+Type a new address and the link is replaced by a line saying to save first: a
+link that 404s because you were mid-edit teaches people not to trust links.
+
+**The Fibre profile screen does not get one, deliberately.** Neither
+`/api/v1/profile` nor `/auth/me` carries a person's organiser slug — that is
+Thread's data, and putting it on the platform screen is a data-wall decision
+(brief §2) rather than something to add in passing. It goes to the proposal
+instead.
+
+### Verified
+- Thread typechecks; both new keys exist in all six locales.
+
+### Not verified
+- Nobody has clicked it. The screen is signed-in, and on staging that means a
+  real person's account. It is two placements of one `<a>` whose href is
+  built from the same `THREAD_ORIGIN` the page's own address line uses, which
+  is an argument and not a look.
 ## [1.103.2] — 2026-10-04 — a request is never lost, and says what it stored (staging)
 
 Runway tooling. Three small things, each from a request that went wrong

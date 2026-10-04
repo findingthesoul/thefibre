@@ -10,7 +10,7 @@ import type { OrganiserRow } from '@/lib/thread-types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n-ui';
 import { updateOrganiser } from '../actions';
-import { THREAD_HOST } from '@/lib/public-host';
+import { THREAD_HOST, THREAD_ORIGIN } from '@/lib/public-host';
 
 /**
  * The address, and a window onto the profile that fills the page.
@@ -48,6 +48,33 @@ export function PublicPageForm({
     });
   }
 
+  // Sjoerd, 2026-10-04: *"Where can I find a link to my profile page (there
+  // should be a visit page button)"*. The screen showed the address and a
+  // preview of what the page contains, and no way to go and look at it.
+  //
+  // Linked to the SAVED slug, and only while the field still matches it: an
+  // address being typed is not a page yet, and a link that 404s because you
+  // were mid-edit teaches people not to trust the link.
+  const savedSlug = organiser.slug?.trim() ?? '';
+  const unsavedEdit = slug.trim() !== savedSlug;
+  const visitHref = `${THREAD_ORIGIN}/${savedSlug}`;
+  const VisitLink = ({ className = '' }: { className?: string }) =>
+    !savedSlug ? null : unsavedEdit ? (
+      <span className={`text-xs text-ink-muted ${className}`}>
+        {t(locale, 'visit_page_after_save')}
+      </span>
+    ) : (
+      <a
+        href={visitHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink underline underline-offset-2 ${className}`}
+      >
+        {t(locale, 'visit_page')}
+        <ExternalLink size={12} strokeWidth={1.75} />
+      </a>
+    );
+
   return (
     <form onSubmit={onSubmit} className="mt-8 space-y-8 max-w-xl">
       <label className="block">
@@ -68,7 +95,10 @@ export function PublicPageForm({
             }}
           />
         </div>
-        <span className="mt-1 block text-xs text-ink-muted">{t(locale, 'public_url_hint')}</span>
+        <span className="mt-1 flex items-center justify-between gap-3">
+          <span className="text-xs text-ink-muted">{t(locale, 'public_url_hint')}</span>
+          <VisitLink className="shrink-0" />
+        </span>
       </label>
 
       <section className="border-t border-line pt-8">
@@ -100,6 +130,7 @@ export function PublicPageForm({
             </p>
           </div>
         </div>
+        <VisitLink className="mt-3" />
         <a
           href={fibreProfileUrl}
           className="mt-3 inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
