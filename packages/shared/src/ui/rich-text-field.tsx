@@ -80,6 +80,9 @@ export function RichTextField({
   minHeight?: number;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
+  /** Set on the first input. After this, the seeding effect never writes
+   *  again — an empty editor then means the person emptied it. */
+  const userTyped = useRef(false);
   // The initial HTML is written into the div IMPERATIVELY on mount (effect
   // below) — React renders an empty div and never patches its contents, so
   // no re-render can clobber the user's typing or reset the caret. (The
@@ -89,12 +92,28 @@ export function RichTextField({
   const [html, setHtml] = useState<string>(initialHtml.current);
   const [active, setActive] = useState<Partial<Record<Command, boolean>>>({});
 
+  // Seeding, and why it is not a one-shot mount effect.
+  //
+  // It was: `useEffect(..., [])` wrote the HTML once and trusted it to stay.
+  // On the profile screen it did not — the editor rendered EMPTY while the
+  // hidden input carried all 3,567 characters, so the field looked blank and
+  // saving it would have replaced a real bio with nothing (seen on staging,
+  // 2026-10-04; writing into the box by hand stuck, so nothing was clearing
+  // it afterwards — the write either never happened or went into a node that
+  // was then thrown away). Thread's four screens never showed it because
+  // their editors mount inside a dialog, well after hydration.
+  //
+  // So this runs after EVERY render until the content is actually in the
+  // element, and stops the moment somebody types. The two rules together are
+  // what make it safe:
+  //   - only ever fills an EMPTY editor, so it cannot overwrite anyone's work;
+  //   - never fills after the first keystroke, so clearing the field on
+  //     purpose stays cleared.
   useEffect(() => {
-    if (editorRef.current && initialHtml.current) {
-      editorRef.current.innerHTML = initialHtml.current;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const el = editorRef.current;
+    if (!el || userTyped.current || !initialHtml.current) return;
+    if (el.innerHTML === '') el.innerHTML = initialHtml.current;
+  });
 
   const refreshActive = useCallback(() => {
     const next: Partial<Record<Command, boolean>> = {};
@@ -122,6 +141,7 @@ export function RichTextField({
   }, [refreshActive]);
 
   function sync() {
+    userTyped.current = true;
     const next = editorRef.current?.innerHTML ?? '';
     setHtml(next);
     onHtmlChange?.(next);

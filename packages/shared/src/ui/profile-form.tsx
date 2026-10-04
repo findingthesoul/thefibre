@@ -20,7 +20,7 @@
 // platform profile, one the organiser row that overrides it), and pretending
 // otherwise would put an app's business in a shared component.
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { PhotoField } from './photo-field.js';
 import { TextField, TextAreaField, SelectField, FIELD_TEXT } from './fields.js';
 import { SearchSelect } from './search-select.js';
@@ -84,6 +84,11 @@ export function ProfileForm({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const over = bio.length > FIELD_LIMITS.bio;
+  /** What the bio was when the screen opened. Kept so an empty editor can
+   *  never submit over a bio nobody touched. */
+  const seededBio = useRef(bioToHtml(initial.bio) ?? '');
+  /** True once the editor has reported a change — i.e. somebody typed. */
+  const bioEdited = useRef(false);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
 
@@ -128,7 +133,14 @@ export function ProfileForm({
     start(async () => {
       const r = await onSave({
         display_name: displayName.trim(),
-        bio: bio.trim(),
+        // Never send an empty bio over a bio that was there when the screen
+        // opened and that nobody has touched. On 2026-10-04 the editor
+        // rendered blank on this screen while the value was intact in state;
+        // the state is what saves, so nothing was lost — but one layer should
+        // not be the only thing between a rendering fault and somebody's
+        // writing. A bio the person actually emptied still clears, because
+        // then `bioEdited` is true.
+        bio: !bioEdited.current && !bio.trim() && seededBio.current ? seededBio.current : bio.trim(),
         photo_url: photoUrl,
         timezone: timezone.trim() || 'Europe/Amsterdam',
         ...(slug ? { slug: slugValue.trim() } : {}),
@@ -179,7 +191,10 @@ export function ProfileForm({
         label={chromeT(locale, 'bio')}
         name="bio"
         defaultValue={bio}
-        onHtmlChange={touched(setBio)}
+        onHtmlChange={(v) => {
+          bioEdited.current = true;
+          touched(setBio)(v);
+        }}
         minHeight={120}
         hint={
           <span className="flex items-baseline justify-between gap-3">

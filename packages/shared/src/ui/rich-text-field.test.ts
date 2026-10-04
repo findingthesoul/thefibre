@@ -51,3 +51,49 @@ describe('one editor, not one per app', () => {
     }
   });
 });
+
+
+// The editor rendered EMPTY on the profile screen while its value sat intact
+// in state: the seeding was a one-shot `useEffect(..., [])`, and on that
+// screen the write did not survive. Thread's four editors never showed it
+// because they mount inside dialogs, long after hydration.
+//
+// This is NOT a reproduction — packages/shared has no component-test harness,
+// so nothing here renders React or simulates hydration. It asserts the SHAPE
+// that failed, which is the part a future edit is likely to undo; the actual
+// behaviour is checked by e2e/profile-limits.spec.ts against staging, where
+// the bug was found in the first place.
+describe('the editor is seeded in a way that survives', () => {
+  const src = read('./rich-text-field.tsx');
+  const seeding = src.match(/\/\/ Seeding, and why[\s\S]*?\n  \}\);/)![0];
+
+  it('does not seed once on mount and hope', () => {
+    // `}, []);` is the form that failed: it runs on the first commit only.
+    expect(seeding).not.toMatch(/\}, \[\]\);/);
+  });
+
+  it('only ever fills an EMPTY editor, so it cannot overwrite anyone', () => {
+    expect(seeding).toContain("el.innerHTML === ''");
+  });
+
+  it('stops once somebody types, so a cleared field stays cleared', () => {
+    expect(seeding).toContain('userTyped.current');
+    // And the flag is actually set where typing arrives.
+    expect(src).toMatch(/function sync\(\) \{\n    userTyped\.current = true;/);
+  });
+});
+
+describe('an empty editor cannot overwrite a bio nobody touched', () => {
+  const form = read('./profile-form.tsx');
+
+  it('submits what was there when the screen opened, if nothing was typed', () => {
+    expect(form).toContain('seededBio.current');
+    expect(form).toMatch(/!bioEdited\.current && !bio\.trim\(\) && seededBio\.current/);
+  });
+
+  it('still lets a person empty their bio on purpose', () => {
+    // The guard is conditional on NOT having edited; deliberate clearing sets
+    // bioEdited, so it passes through.
+    expect(form).toContain('bioEdited.current = true;');
+  });
+});

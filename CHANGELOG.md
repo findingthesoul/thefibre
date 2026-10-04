@@ -6,6 +6,65 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.100.2] — 2026-10-04 — the editor opened empty, and an empty editor is dangerous
+
+v1.100.1 put the rich-text editor on the profile bio. Opened on staging, it
+rendered with its toolbar, a counter correctly reading `3,567 / 8,000`, the
+form holding all 3,567 characters — **and a completely blank box**. Found by
+looking at the page, which is the only thing that could have found it.
+
+**Do not promote v1.100.1.**
+
+The seeding was a one-shot `useEffect(..., [])` that wrote the stored HTML
+into the editable div on mount and trusted it to stay. On this screen it did
+not. Thread's four editors never showed it: they mount inside dialogs, well
+after hydration.
+
+**Why a blank box is worse than it looks.** Saving it would have been
+harmless — the form submits React state, which was intact. The danger is that
+the natural response to an empty box is to type in it, and the first keystroke
+makes the editor report its own contents: one character, replacing a
+3,500-character bio. The hazard was typing, not saving, and the first warning
+given (including by me) said the opposite.
+
+Two layers now, because one of them should never be the only thing between a
+rendering fault and somebody's writing:
+
+- **The editor seeds until it takes.** The effect runs after every render
+  until the content is in the element, fills only an EMPTY editor so it can
+  never overwrite what someone has typed, and stops at the first keystroke so
+  a field emptied on purpose stays empty.
+- **The form will not submit an empty bio over a bio nobody touched.** If the
+  editor reported no change and the box is empty while there was a bio when
+  the screen opened, the original is what saves. Someone who genuinely clears
+  their bio still clears it, because then the editor did report a change.
+
+**Also disarmed:** `e2e/profile-limits.spec.ts` types into and saves the
+signed-in person's bio, and `e2e/helpers.ts` signs in as the oldest confirmed
+staging account — which is a real person's. It is skipped until staging has a
+dedicated e2e account. `e2e/profile-editor.spec.ts` replaces it for now and is
+read-only: it asserts the editor shows something whenever the form holds
+something, which is exactly the disagreement this release fixes.
+
+### Verified
+- `pnpm verify` green. Five tests on the shape that failed: the seeding is no
+  longer a one-shot mount effect, it fills only an empty editor, it stops once
+  somebody types, and the form's guard both exists and stays conditional on
+  nothing having been typed.
+- The bug itself was measured on staging, not inferred: hidden input 3,567
+  characters, editor `innerHTML` empty, 0 child nodes, and writing into the
+  box by hand stuck — so nothing was clearing it continuously.
+
+### Not verified
+- **The fix has not been seen working.** The same look that found the bug is
+  what will confirm it, and that needs this release deployed. First thing
+  after.
+- There is still no reproduction in a test: `packages/shared` has no
+  component-test harness, so nothing here renders React or simulates
+  hydration. The unit tests assert the shape; the e2e spec asserts the
+  behaviour against staging. A harness is its own piece of work and is filed,
+  not slipped into a hotfix.
+
 ## [1.100.1] — 2026-10-04 — the bio gets the editor it was promised
 
 Sjoerd, on the production fix landing: *"it saves"* — and immediately after,

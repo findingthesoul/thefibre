@@ -12,7 +12,13 @@ import { HOSTS, landSignedIn } from './helpers.js';
 // wrote it had no staging credentials to sign in with, so it is written here
 // rather than claimed. Run with the rest: `pnpm test:e2e`.
 
-test.describe('the profile form shows its own limits', () => {
+// SKIPPED until staging has a dedicated e2e account. This spec TYPES INTO
+// AND SAVES the signed-in person's bio, and helpers.ts signs in as the oldest
+// confirmed staging account — which is Sjoerd's. Writing a test bio over a
+// real person's writing, even with a restore afterwards, is not something to
+// leave armed in the suite. Un-skip it the moment the harness has its own
+// account; nothing else about it needs to change.
+test.describe.skip('the profile form shows its own limits', () => {
   test('refuses an over-limit bio in words, before the save', async ({ page }) => {
     await landSignedIn(page, HOSTS.fibre, 'fibre-platform', '/settings/profile', /\/settings\/profile/);
 
