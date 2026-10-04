@@ -17,5 +17,22 @@ export default defineConfig({
     baseURL: 'https://thefibre.tech',
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    // Safari, because Sjoerd uses Safari — every screenshot he sends is one —
+    // and because the only place browsers genuinely disagree here is text
+    // editing: a contenteditable is wrapped differently by each engine, which
+    // is exactly what produced the bio-save bug (v1.101.3). Asked on
+    // 2026-10-04 whether Safari should be checked every time, he said yes.
+    //
+    // Scoped to the editor and bio specs rather than the whole suite: running
+    // everything twice doubles the runtime for pages where no engine differs,
+    // and a suite people stop waiting for is a suite people stop running.
+    // Widen this list when a spec covers something engine-dependent.
+    {
+      name: 'webkit',
+      use: { browserName: 'webkit' },
+      testMatch: /profile-(bio-save|editor|limits)\.spec\.ts/,
+    },
+  ],
 });

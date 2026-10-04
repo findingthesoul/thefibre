@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.107.1] — 2026-10-06 — Safari is checked every time now
+
+Asked whether Safari should be in the suite rather than something somebody
+runs by hand, Sjoerd said yes. Every screenshot he sends is Safari, and the
+one place engines genuinely disagree here is text editing: a contenteditable
+is wrapped differently by each of them, which is exactly what produced the
+bio-save bug in v1.101.3.
+
+So `e2e/playwright.config.ts` gains a webkit project — **scoped to the editor
+and bio specs**, not the whole suite. Running everything twice doubles the
+runtime for pages where no engine differs, and a suite people stop waiting for
+is a suite people stop running. The list widens when a spec covers something
+engine-dependent.
+
+Until now the WebKit result was a one-off run from a config outside the repo:
+a point in time, not a guard. Nobody else's run included it.
+
+### Verified
+- Both specs, both engines, against staging: `4 passed (38.2s)` —
+  chromium and webkit each running profile-bio-save and profile-editor.
+
+### Not verified
+- Firefox. Gecko wraps a contenteditable differently again and nobody has
+  tried it; the normaliser is written not to care, which remains a claim about
+  its design rather than a measurement.
+- The webkit run needs its browser installed (`npx playwright install
+  webkit`). On a machine without it the project fails rather than skips, which
+  is the right way round but will surprise whoever hits it first.
 ## [1.107.0] — 2026-10-06 — a business model opens where you were
 
 Sjoerd: *"Please remember the page one was on in the Model (which tab and
