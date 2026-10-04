@@ -26,6 +26,29 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
+**Connections: ONE page, in the platform (Sjoerd chose it 2026-10-04).** Google,
+Zoom, Teams and the personal room are managed on three pages that read and
+write the same stored connection: Meet's `/settings/integrations`, Thread's
+`/settings/connections`, the platform's `/settings/connections`. He asked why
+there are two (really three) and chose "one real page in the platform; Meet and
+Thread open it". The settings index already supports this (`platformSettings`,
+the `hosted` list): Thread lists `connections` as hosted, Meet does not and shows
+both the canonical entry (in The Fibre) AND its own Integrations.
+
+- **Thread: do it with the Teams cards.** Drop `connections` from its `hosted`
+  list and make `/settings/connections` redirect through `crossAppHref`; delete
+  its copies of the Google/Zoom/personal-room components. The Teams card is built
+  ONCE, in the platform.
+- **Meet: HOLD until Zoom's Marketplace review is decided** (submitted
+  2026-10-02). The reviewer's test instructions send them through Meet's
+  Settings → Connections → Connect Zoom and `/docs/zoom` documents that path;
+  moving it mid-review could fail their test. After approval: redirect
+  `/settings/integrations` to the platform page, update `/docs/zoom` and Meet's
+  help guide, and default the OAuth callbacks to the platform. Keep Meet's
+  `/settings/calendars` — it chooses WHICH calendars, which is not connecting.
+- The shared `ZoomConnectionCard` (v1.98.13) and the API `?return=` parameter are
+  the first half of this and stay useful either way.
+
 **The profile bio is mid-conversion to rich text (Release A shipped
 2026-10-02).** Sjoerd asked for a WYSIWYG on the profile bio, single point of
 truth. It ships in five steps because the data and the code cannot change in
