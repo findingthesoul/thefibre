@@ -403,6 +403,39 @@ export function ProductDialog({
             </span>
           </label>
         </div>
+        {/* Directory categories (slice 1). Checkboxes, not a searchable
+            multi-select: a community has a handful of categories, and the
+            shared SearchSelect is single-value and built "for any list too
+            long to scan". Unlike access below, this works on a NEW product —
+            it saves with the form. */}
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            {t(locale, 'product_categories_label')}
+          </label>
+          <p className="mb-2 text-sm text-ink-muted">{t(locale, 'product_categories_hint')}</p>
+          {liveCategories.length === 0 ? (
+            <p className="text-sm text-ink-muted">{t(locale, 'product_categories_none')}</p>
+          ) : (
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {liveCategories.map((c) => (
+                <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="accent-ink"
+                    checked={categoryIds.includes(c.id)}
+                    onChange={(e) =>
+                      setCategoryIds((prev) =>
+                        e.target.checked ? [...prev, c.id] : prev.filter((id) => id !== c.id),
+                      )
+                    }
+                  />
+                  <span className="text-ink">{c.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium mb-1">{t(locale, 'characteristics')}</label>
           <textarea
@@ -485,39 +518,6 @@ export function ProductDialog({
           >
             {t(locale, 'add_link')}
           </Button>
-        </div>
-
-        {/* Directory categories (slice 1). Checkboxes, not a searchable
-            multi-select: a community has a handful of categories, and the
-            shared SearchSelect is single-value and built "for any list too
-            long to scan". Unlike access below, this works on a NEW product —
-            it saves with the form. */}
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            {t(locale, 'product_categories_label')}
-          </label>
-          <p className="mb-2 text-sm text-ink-muted">{t(locale, 'product_categories_hint')}</p>
-          {liveCategories.length === 0 ? (
-            <p className="text-sm text-ink-muted">{t(locale, 'product_categories_none')}</p>
-          ) : (
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {liveCategories.map((c) => (
-                <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="accent-ink"
-                    checked={categoryIds.includes(c.id)}
-                    onChange={(e) =>
-                      setCategoryIds((prev) =>
-                        e.target.checked ? [...prev, c.id] : prev.filter((id) => id !== c.id),
-                      )
-                    }
-                  />
-                  <span className="text-ink">{c.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
         </div>
 
         <div>

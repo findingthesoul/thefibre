@@ -2349,6 +2349,22 @@ const CATALOG = {
     de: 'Das Produkt wurde gespeichert, seine Kategorien nicht: {error}', // MT
     fr: "Le produit a ete enregistre, mais pas ses categories : {error}", // MT
   },
+  tier_confers_categories: {
+    en: 'In the member directory this tier gives: {names}. Categories are set on the product, not here.',
+    nl: 'In de ledenlijst geeft dit niveau: {names}. Categorieen stel je in op het product, niet hier.',
+    es: 'En el directorio de miembros este nivel da: {names}. Las categorias se definen en el producto, no aqui.', // MT
+    pt: 'No diretorio de membros este nivel da: {names}. As categorias sao definidas no produto, nao aqui.', // MT
+    de: 'Im Mitgliederverzeichnis gibt diese Stufe: {names}. Kategorien werden am Produkt gesetzt, nicht hier.', // MT
+    fr: "Dans l'annuaire des membres, cette formule donne : {names}. Les categories se definissent sur le produit, pas ici.", // MT
+  },
+  tier_confers_no_categories: {
+    en: 'None of these products carry a directory category yet. Categories are set on the product, not here.',
+    nl: 'Geen van deze producten heeft al een categorie voor de ledenlijst. Categorieen stel je in op het product, niet hier.',
+    es: 'Ninguno de estos productos tiene todavia una categoria de directorio. Las categorias se definen en el producto, no aqui.', // MT
+    pt: 'Nenhum destes produtos tem ainda uma categoria de diretorio. As categorias sao definidas no produto, nao aqui.', // MT
+    de: 'Keines dieser Produkte tragt bisher eine Verzeichnis-Kategorie. Kategorien werden am Produkt gesetzt, nicht hier.', // MT
+    fr: "Aucun de ces produits ne porte encore de categorie d'annuaire. Les categories se definissent sur le produit, pas ici.", // MT
+  },
 
   // ── join page settings ────────────────────────────────────────────────
   join_page_desc: {

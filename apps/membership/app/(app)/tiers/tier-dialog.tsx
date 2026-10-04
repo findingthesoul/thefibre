@@ -26,6 +26,8 @@ function centsToEuro(c: number | null): string {
 export function TierDialog({
   tier,
   products,
+  categories,
+  categoryLinks,
   currency: workspaceCurrency,
   locale,
   nextSortOrder,
@@ -33,6 +35,11 @@ export function TierDialog({
 }: {
   tier: Tier | null; // null = new
   products: Product[];
+  /** The workspace's directory categories, to SHOW what this tier confers.
+   *  Read-only: categories are set on the PRODUCT, so there is one place to
+   *  change them and two places can never disagree. */
+  categories: import('../settings/shared').DirectoryCategory[];
+  categoryLinks: import('../products/types').ProductCategoryLink[];
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
   locale: Locale;
   /** Where a NEW tier lands: the end of the list. Reordering is drag-and-drop on the list itself. */
@@ -62,6 +69,18 @@ export function TierDialog({
   const selectable = products.filter(
     (p) => !p.archived_at || productIds.has(p.id) || optionalIds.has(p.id),
   );
+
+  // The union over the products this tier includes or offers — the same rule
+  // the directory itself uses for a member (spec §5).
+  const conferredCategories = (() => {
+    const chosen = new Set<string>([...productIds, ...optionalIds]);
+    const wanted = new Set(
+      categoryLinks.filter((l) => chosen.has(l.product_id)).map((l) => l.category_id),
+    );
+    return categories
+      .filter((c) => !c.archived_at && wanted.has(c.id))
+      .map((c) => c.name);
+  })();
 
   function setProductState(id: string, state: 'off' | 'included' | 'optional') {
     setProductIds((prev) => {
@@ -305,6 +324,21 @@ export function TierDialog({
                 );
               })}
             </div>
+          )}
+          {/* What this tier confers in the member directory. Sjoerd made four
+              categories and asked why he could not pick them on a tier
+              (2026-10-04). He cannot, on purpose: a tier is a bundle, so it
+              passes on whatever its products carry. Saying that here answers
+              the question where it gets asked, instead of leaving a silence
+              that reads as a missing feature. */}
+          {categories.length > 0 && (
+            <p className="mt-2 text-xs text-ink-muted">
+              {conferredCategories.length > 0
+                ? t(locale, 'tier_confers_categories', {
+                    names: conferredCategories.join(', '),
+                  })
+                : t(locale, 'tier_confers_no_categories')}
+            </p>
           )}
         </div>
         {error && (

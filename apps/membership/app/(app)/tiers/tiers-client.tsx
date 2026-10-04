@@ -15,11 +15,15 @@ import type { WorkspaceCurrencies } from '@/lib/workspace-currency';
 export function TiersClient({
   tiers,
   products,
+  categories,
+  categoryLinks,
   currency,
   locale,
 }: {
   tiers: Tier[];
   products: Product[];
+  categories: import('../settings/shared').DirectoryCategory[];
+  categoryLinks: import('../products/types').ProductCategoryLink[];
   currency: WorkspaceCurrencies;
   locale: Locale;
 }) {
@@ -108,10 +112,10 @@ export function TiersClient({
       )}
 
       {creating && (
-        <TierDialog tier={null} products={products} currency={currency} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />
+        <TierDialog tier={null} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />
       )}
       {editing && (
-        <TierDialog tier={editing} products={products} currency={currency} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />
+        <TierDialog tier={editing} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />
       )}
     </>
   );

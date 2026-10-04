@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.102.1] — 2026-10-04 — the category picker was there all along, 118px below the fold
+
+Sjoerd made four categories on staging and reported he could not select them
+in products or tiers. Both halves of that turned out to be true for different
+reasons, and neither was a broken query.
+
+**Products: it worked.** All four categories rendered as checkboxes, in the
+right workspace, from a successful fetch. But the section sat **610px down a
+dialog whose visible area is 492px** — off-screen by about 118px, after
+Characteristics and Links, with nothing to suggest there was more below.
+Measured in the live staging DOM rather than guessed:
+
+    {offsetInsideDialog: 610, visibleAreaHeight: 492,
+     visibleWithoutScrolling: false, scrollableHeight: 872}
+
+A control nobody scrolls to is a control that does not exist, so the section
+moves above Characteristics. Position is the feature here, not decoration.
+
+**Tiers: there is no picker, on purpose** — and nothing said so. Categories
+attach to the PRODUCT (Sjoerd's own decision: *"In product: category(ies)
+is/are selected"*), and a tier is a bundle, so it confers whatever its
+products carry. One place to set them means two places can never disagree.
+But silence on the tier screen reads as a missing feature, so the tier dialog
+now states, read-only, which categories that tier gives — computed by the
+same union rule the directory itself uses for a member — or says plainly that
+none of its products carry one yet. Both lines end with "Categories are set
+on the product, not here."
+
+Nothing about the data or the permissions changed. What changed is that the
+answer is now where the question gets asked.
 ## [1.102.0] — 2026-10-04 — the platform's own invoices use the same screen as everyone else's, and a send says so
 
 Sjoerd, with /admin/invoices open beside Meet's Invoices page: *"this is the
