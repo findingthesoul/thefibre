@@ -421,7 +421,10 @@ export const PUBLIC_FIXTURE = {
   email: 'fixture-organiser@example.com',
   organiserSlug: 'fixture-organiser',
   displayName: 'Fixture Organiser (do not edit)',
-  bio: 'A permanent test fixture on staging. Nobody real. The name and this text live on the profile, not on the organiser row, on purpose.',
+  // TWO paragraphs, a blank line between them, on purpose: the paragraph
+  // split in bioToHtml is then exercised on a deployed stack, not only in its
+  // unit tests. The public payload must show two <p> elements.
+  bio: 'A permanent test fixture on staging. Nobody real.\n\nThe name and this text live on the profile, not on the organiser row, on purpose.',
   programTitle: 'Fixture journey (do not edit)',
   threadSlug: 'fixture-thread',
 } as const;

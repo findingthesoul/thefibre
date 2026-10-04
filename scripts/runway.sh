@@ -315,6 +315,19 @@ cmd_land() {
     logit "LANDED session=$(field session "$CLEARANCE") kind=$(field kind "$CLEARANCE") staging=$(git rev-parse --short origin/staging 2>/dev/null)"
     rm -f "$CLEARANCE"
     say "Landed. Runway free."
+    return 0
+  fi
+  # A landing that does not happen SAYS so. Until 2026-10-03 this function
+  # printed nothing and exited 0 when the caller was not the holder, so
+  # "finished but did not free the runway" looked exactly like "still
+  # running" from the outside, and a controller could only guess which.
+  # Still exit 0: the release or deploy that called this has already
+  # happened, and failing it now would misreport that.
+  if [ -f "$CLEARANCE" ]; then
+    say "NOT landed: the runway is held by $(field session "$CLEARANCE") for $(field kind "$CLEARANCE"), and you are ${name:-nobody (RUNWAY_SESSION is not set)}. It stays busy until the holder lands, the controller aborts, or it expires."
+    logit "LAND-REFUSED holder=$(field session "$CLEARANCE") kind=$(field kind "$CLEARANCE") caller=${name:-none}"
+  else
+    say "Nothing to land: the runway is already free."
   fi
 }
 

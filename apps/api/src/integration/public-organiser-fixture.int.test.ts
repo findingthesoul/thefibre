@@ -83,7 +83,11 @@ describe('the public organiser page reads the profile', () => {
     // THE assertion. Code that reads only the organiser row answers null here.
     expect(body.organiser.display_name).toBe(F.displayName);
     expect(body.organiser.bio).toBe(F.bio);
-    expect(body.organiser.bio_html ?? '').toContain('A permanent test fixture on staging.');
+    // Two paragraphs in, two <p> out: the split on a blank line, end to end.
+    const html = body.organiser.bio_html ?? '';
+    expect(html).toContain('A permanent test fixture on staging.');
+    expect(html.match(/<p[ >]/g)?.length, html).toBe(2);
+    expect(html).toMatch(/<\/p>\s*<p[ >]/);
     expect(body.organiser.photo_url).toBeNull();
     expect(body.threads.map((t) => t.slug)).toEqual([F.threadSlug]);
   });

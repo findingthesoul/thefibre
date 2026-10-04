@@ -380,5 +380,10 @@ if [ "$DRY" != "1" ]; then
 fi
 
 if [ "$DRY" != "1" ]; then
+  # land prints what it did: "Landed. Runway free." or "NOT landed: held by …".
+  # Then say it once more as the LAST line, so whoever is watching the runway
+  # can tell a deploy that is still running from one that finished without
+  # freeing it (2026-10-03: a clearance was aborted while this tail ran).
   ./scripts/runway.sh land
+  echo "deploy-api.sh finished. $(./scripts/runway.sh status)"
 fi

@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.99.3] — 2026-10-04 — a sweep for the test workspaces staging is carrying (staging)
+
+Tooling only; the sweep itself is a RUN, on Sjoerd's go, not this release.
+
+`apps/api/scripts/sweep-leaked-test-workspaces.mjs` removes the throwaway
+workspaces the test suites left on staging between 2026-09-11 and
+2026-10-01 (cause and fix: v1.97.3): 452 of the 467 workspaces there on
+2026-10-03. Sjoerd approved it on the terms the script enforces in code:
+opt-in (a slug pattern AND the name that harness writes, three patterns,
+nothing else), the permanent fixtures must exist and must never match,
+staging only (any other project ref is refused), a dry run by default that
+prints counts per pattern and a sample of ten with dates and member counts,
+deletion per workspace in the order the keys allow, and a workspace whose
+people are pinned by append-only `activity` is reported and left, never
+renamed. 43 orphan `@example.com` sign-in identities are counted and not
+touched; they were not part of the approval.
+
+Also in this release, test infrastructure: the staging fixture organiser's
+bio is now two paragraphs, so the paragraph split in the rich-text bio is
+exercised on a deployed stack and not only in unit tests; the fixture's test
+asserts two `<p>` elements in the public payload.
+
+**A landing that does not happen says so.** `runway.sh land` freed the runway
+only for its holder and, for anybody else, printed nothing and exited 0. So
+"finished but did not free the runway" looked exactly like "still running",
+and on 2026-10-03 a production deploy's clearance was aborted by the
+controller while the deploy's tail was probably still running, because BUSY
+could mean either. `land` now prints "NOT landed: the runway is held by X,
+and you are Y" (logged), or "Nothing to land" on a free runway, and
+`deploy-api.sh` ends by printing the runway's status as its last line. Seven
+new cases in `runway.test.sh`. The earlier report of a "landing gap" in the
+URL-probe branch was not one: every success path lands, and the test that
+proves it has not changed.
+
 ## [1.99.2] — 2026-10-04 — the organiser page was built for a one-line bio (Thread)
 
 Sjoerd put a real bio on his profile, opened his own page and said the design

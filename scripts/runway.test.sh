@@ -134,6 +134,19 @@ expect_pass "the EARLIER request on that path is cleared: first asked, first lan
 $R abort --by atc >/dev/null
 rm -f "$T/w/.git/runway/queue/"*
 
+echo "a landing that does not happen says so"
+git fetch -q origin; git checkout -q -B land1 origin/staging; echo l > land1.txt; git add -A; git commit -qm l1
+req a release; $R clear a --by atc >/dev/null
+OUT="$(RUNWAY_SESSION=b $R land 2>&1)"; RC=$?
+grep -q "NOT landed: the runway is held by a for release, and you are b" <<<"$OUT" && ok "land by somebody else says NOT landed, and who holds it" || bad "land by somebody else says NOT landed, and who holds it"
+[ "$RC" = 0 ] && ok "and still exits 0 (the deploy that called it has happened)" || bad "and still exits 0 (the deploy that called it has happened)"
+OUT="$($R land 2>&1)"
+grep -q "you are nobody (RUNWAY_SESSION is not set)" <<<"$OUT" && ok "land with no session name says that too" || bad "land with no session name says that too"
+$R status | grep -q "RUNWAY BUSY: a" && ok "and the runway is still a's" || bad "and the runway is still a's"
+grep -q "LAND-REFUSED holder=a" "$T/w/.git/runway/log" && ok "and it is in the log" || bad "and it is in the log"
+OUT="$(RUNWAY_SESSION=a $R land 2>&1)"; grep -q "Landed. Runway free." <<<"$OUT" && ok "the holder still lands" || bad "the holder still lands"
+OUT="$(RUNWAY_SESSION=a $R land 2>&1)"; grep -q "Nothing to land" <<<"$OUT" && ok "landing a free runway says there is nothing to land" || bad "landing a free runway says there is nothing to land"
+
 echo "production is Sjoerd's"
 git checkout -q work2; req a prod
 expect_fail "prod without --sjoerd-said is refused" $R clear a --by atc

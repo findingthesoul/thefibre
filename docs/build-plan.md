@@ -132,19 +132,29 @@ else's file:
    `routes/persons.ts` this round. Left for the Thread chat, which has that
    file open; the method is in the v1.97.3 changelog entry (probe every
    select on both stacks first, then drive the routes with a real session).
-6. **406 leaked test workspaces stand on staging** (`int-test-*`, plus 9
-   `first-admin-*` and 22 `e2e-noaccess-*`), left by integration and browser
-   runs between 2026-09-15 and 2026-10-01 (cause and fix: v1.97.3). The suite
-   no longer adds to them. Removing the existing ones is a bulk delete on the
-   shared staging database, so it wants a yes: per workspace, cut
-   `user.person_id`, delete persons, users, organisations, then the
-   workspace (the order `deleteThrowawayWorkspace` in
-   `apps/api/src/integration/staging.ts` uses); the ones an enrolment touched
-   are pinned by `activity` and can only be renamed `retired-…`, as seven were
-   on 2026-09-07. Worth doing: the five-minute schedulers and the
-   workspace-admins audit walk every one of them (331 s on staging against
-   4.6 s on production). `e2e/no-access.spec.ts` still leaks two per run and
-   is the Fibre chat's to fix.
+6. **Leaked test workspaces on staging: 452 of 467 on 2026-10-03** (408
+   `int-test-*`, 34 `e2e-noaccess-*`, 10 `first-admin-*`), left by
+   integration and browser runs between 2026-09-11 and 2026-10-01 (cause and
+   fix: v1.97.3). Sjoerd approved a sweep on 2026-10-03, staging only, "count
+   first and sample":
+   `FIBRE_ENV_FILE=.env.staging node apps/api/scripts/sweep-leaked-test-workspaces.mjs`
+   is the dry run (counts per harness pattern, the permanent fixtures it
+   found, a sample of ten) and `--delete` is the sweep. Opt-in only: slug
+   pattern AND the name the harness writes; refuses if a permanent fixture is
+   missing or matched, or if the env file is not staging's. Workspaces whose
+   people are pinned by `activity` are left and listed. Still to run on his
+   go. `e2e/no-access.spec.ts` still leaks two per run and is the Fibre
+   chat's to fix; 43 orphan `@example.com` auth users are counted and not
+   touched.
+7. **A PENDING field in `verify-public-api.mjs` blocks every release the
+   moment production serves it.** 2026-10-03: `organiser.bio_html` reached
+   production with the second promote, the contract check flipped from
+   "pending" to "move it into SHAPES" by design, and `pnpm verify` was red for
+   every session until the owning chat moved it. The design is right (the
+   list cannot go stale); the surprise is the problem. `deploy-api.sh prod`
+   should grep the PENDING list after a production deploy and tell the
+   deployer, in the same session, which entries to move. Not built; the
+   controller asked for it to be written down here first.
 Also noted, no decision needed: CI builds only `web` and `api`
 (`.github/workflows/ci.yml`); the other eight apps are built by Vercel on
 push, so a build break in them shows there and not in CI.
