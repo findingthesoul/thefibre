@@ -6,7 +6,7 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
-## [NEXT] — the organiser page was built for a one-line bio (Thread)
+## [1.99.2] — 2026-10-04 — the organiser page was built for a one-line bio (Thread)
 
 Sjoerd put a real bio on his profile, opened his own page and said the design
 made no sense. He was right, and the cause is specific: of the six organiser
