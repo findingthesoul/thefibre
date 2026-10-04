@@ -608,6 +608,27 @@ const CHROME = {
     de: 'Als bezahlt markiert.', // MT
     fr: 'Marqué comme payé.', // MT
   },
+  // Sent-confirmations name the ACTUAL recipient. Sjoerd, 2026-10-04, on
+  // Meet's invoice dialog: *"When clicking 'send payment link' it would be
+  // nice if it gives a check / confirmation."* The old wording said "sent to
+  // the payer", which tells you nothing you did not already assume and is
+  // exactly as true when the address is wrong.
+  payment_link_sent_to: {
+    en: 'Payment link sent to {email}',
+    nl: 'Betaallink verstuurd naar {email}',
+    es: 'Enlace de pago enviado a {email}', // MT
+    pt: 'Link de pagamento enviado para {email}', // MT
+    de: 'Zahlungslink gesendet an {email}', // MT
+    fr: 'Lien de paiement envoyé à {email}', // MT
+  },
+  invoice_sent_to: {
+    en: 'Invoice sent to {email}',
+    nl: 'Factuur verstuurd naar {email}',
+    es: 'Factura enviada a {email}', // MT
+    pt: 'Fatura enviada para {email}', // MT
+    de: 'Rechnung gesendet an {email}', // MT
+    fr: 'Facture envoyée à {email}', // MT
+  },
   payment_link_sent_ok: {
     en: 'Payment link sent to the payer.',
     nl: 'Betaallink verstuurd naar de betaler.',

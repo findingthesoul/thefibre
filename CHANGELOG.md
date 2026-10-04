@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.102.0] — 2026-10-04 — the platform's own invoices use the same screen as everyone else's, and a send says so
+
+Sjoerd, with /admin/invoices open beside Meet's Invoices page: *"this is the
+interface of meet. Why not the same in fibre (and hopefully in all the
+other)."*
+
+**Platform invoices, rebuilt on the shared area.** It was a fork — a
+hand-rolled table whose rows did not open, so the operator could see THAT a
+workspace paid and never the invoice itself. It now renders
+`@thefibre/shared/ui/invoices`, the same component Meet, Thread, Members and
+the contact/organisation tabs use: the same list, and the same dialog with the
+billed-to block, the lines, the total and the Stripe-hosted PDF. It also typed
+its own status-pill colours, which `docs/brand-design.md` forbids in an app;
+that went away with the fork.
+
+Three things the shared component learned, all optional and all additive:
+
+- **The management actions are optional**, and an absent one HIDES its button
+  rather than disabling it. The operator cannot "mark paid" a Stripe
+  subscription Stripe already collected — doing so would write a lie into the
+  ledger — and a refund belongs in Stripe, where the money is. A dead button
+  reads as broken software; a missing one reads as "not applicable here".
+- **`scopeOptions`** — a list that is not scoped Me/Team/Workspace at all says
+  so, and the chip row disappears rather than offering choices that do nothing.
+  The platform's invoices span every workspace; that is the whole point of them.
+- **`seller`** — one seller on every row, taken from the SAME place the
+  platform's receipts take it (`ENTITY`, as `routes/purchases.ts` does). Two
+  descriptions of who we are is how an invoice ends up in the wrong legal
+  entity's name, which has happened here before.
+
+Every existing caller passes all five actions and no new props, so Meet,
+Thread, Members and the Fibre tabs are untouched; all five apps typecheck.
+
+**And a send now tells you it sent.** Sjoerd, on Meet's dialog: *"When
+clicking 'send payment link' it would be nice if it gives a check /
+confirmation."* It did set a notice — at the bottom of the dialog, in small
+muted text, after the totals, in the same weight as the refund date, reading
+"sent to the payer". Indistinguishable from nothing happening, which is what
+it was taken for. Now the outcome carries its KIND (a failed send must not
+read like one that worked), it renders beside the buttons that caused it, the
+pressed button says "Sending…" while it works, and a success names the address
+it actually went to: *"Payment link sent to maria@example.org"*. The same for
+Resend invoice, and Email to… grew the matching check. An error stays on
+screen until the next action rather than timing out, because a failed send is
+the one outcome nobody should walk away from unknowingly.
+
+The admin endpoint's select widened to carry what the shared dialog draws.
+Validated against the real database before shipping, per the rule that a
+PostgREST select is a string TypeScript never reads.
+
 ## [1.101.4] — 2026-10-04 — somebody has now saved a bio through the editor
 
 The regression test for v1.101.3 is live rather than pending:

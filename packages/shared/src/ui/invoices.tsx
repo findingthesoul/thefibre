@@ -22,8 +22,11 @@ import {
   User,
   Users,
   Building2,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import { InvoiceDialog } from './invoice-dialog.js';
+import type { InvoiceSeller } from '../invoice-model.js';
 import { RefundConfirm } from './refund-confirm.js';
 import { INTL_LOCALES, type Locale } from '../i18n.js';
 import { chromeT, useLocale, type ChromeKey } from './i18n-ui.js';
@@ -103,11 +106,19 @@ type OpResult = { ok: boolean; error?: string };
  *  wrapper. Server-action references cross the client boundary fine. */
 export type InvoiceActions = {
   listPurchases: (args: ListPurchasesArgs) => Promise<ListResult>;
-  resendInvoice: (id: string) => Promise<OpResult>;
-  refundPurchase: (id: string) => Promise<OpResult>;
-  markPurchasePaid: (id: string) => Promise<OpResult>;
-  sendPaymentLink: (id: string) => Promise<OpResult>;
-  emailInvoice: (id: string, to: string) => Promise<OpResult>;
+  /** The management actions are OPTIONAL, and an absent one hides its button
+   *  rather than disabling it. Sjoerd, 2026-10-04, asking for the platform's
+   *  own invoices to use this component: the operator cannot "mark paid" a
+   *  Stripe subscription Stripe already collected, and a dead button that
+   *  does nothing when pressed is worse than no button — it reads as broken
+   *  software rather than as an action that does not apply here.
+   *
+   *  Every existing caller passes all five, so nothing changes for them. */
+  resendInvoice?: (id: string) => Promise<OpResult>;
+  refundPurchase?: (id: string) => Promise<OpResult>;
+  markPurchasePaid?: (id: string) => Promise<OpResult>;
+  sendPaymentLink?: (id: string) => Promise<OpResult>;
+  emailInvoice?: (id: string, to: string) => Promise<OpResult>;
 };
 
 // ---------------------------------------------------------------------------
@@ -184,6 +195,30 @@ function GhostBtn({
   );
 }
 
+/** The outcome of an action, said in place: a check for a send that worked,
+ *  a warning that stays for one that did not. Deliberately NOT a toast — a
+ *  toast times out, and the question "did that send?" is asked after the
+ *  moment has passed. */
+function ActionNotice({ notice }: { notice: { kind: 'ok' | 'error'; text: string } }) {
+  const ok = notice.kind === 'ok';
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      className={`mt-2 flex items-start gap-1.5 text-xs ${
+        ok ? 'text-ink-subtle' : 'text-red-700 dark:text-red-400'
+      }`}
+    >
+      {ok ? (
+        <Check size={14} className="mt-px shrink-0" aria-hidden />
+      ) : (
+        <AlertCircle size={14} className="mt-px shrink-0" aria-hidden />
+      )}
+      <span>{notice.text}</span>
+    </p>
+  );
+}
+
 export function InvoicesArea({
   defaultScope = 'me',
   teams,
@@ -192,6 +227,8 @@ export function InvoicesArea({
   actions,
   personId,
   orgId,
+  scopeOptions = ['me', 'team', 'workspace'],
+  seller,
 }: {
   teams: { id: string; name: string }[];
   /** Which app's sales to show first — the current app, typically. */
@@ -207,6 +244,16 @@ export function InvoicesArea({
   personId?: string;
   /** Narrow the area to what one organisation paid. */
   orgId?: string;
+  /** Which scope chips to offer. Default: all three. A caller whose list is
+   *  not scoped that way at all — the platform's own invoices, which span
+   *  every workspace — passes a single scope and the chip row disappears
+   *  rather than offering choices that do nothing. */
+  scopeOptions?: Scope[];
+  /** Who is SELLING, drawn in the dialog's From block. The apps leave this
+   *  out because the seller varies per row (an organiser, a workspace) and
+   *  the dialog resolves it; the platform's own invoices have exactly one
+   *  seller, Solidarity Lab B.V., on every row. */
+  seller?: InvoiceSeller;
 }) {
   const locale: Locale = useLocale();
   const intl = INTL_LOCALES[locale];
@@ -223,8 +270,26 @@ export function InvoicesArea({
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<PurchaseRow | null>(null);
   const [confirmRefund, setConfirmRefund] = useState<PurchaseRow | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  // The outcome of the last action, with its kind — not a bare string.
+  //
+  // Sjoerd, 2026-10-04, on Meet's invoice dialog: *"When clicking 'send
+  // payment link' it would be nice if it gives a check / confirmation."* It
+  // did set a notice, at the BOTTOM of the dialog, in small muted text, after
+  // the totals and below the fold on a short window — identical in weight to
+  // the refund date above it, and worded "sent to the payer", which says
+  // nothing you had not already assumed. Indistinguishable from nothing
+  // happening, which is what it was taken for.
+  //
+  // So: the kind travels with the text (a send that FAILED must not read like
+  // one that worked), it renders beside the buttons that caused it rather
+  // than at the far end of the dialog, and a success names the address it
+  // actually went to.
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // WHICH action is in flight, so only the button you pressed says so.
+  // `busy` alone disables every button and explains none of them, which on a
+  // slow send is indistinguishable from the click not registering.
+  const [sendingWhat, setSendingWhat] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A share link (`/invoices?invoice=<id>`) opens that invoice on arrival.
@@ -320,16 +385,25 @@ export function InvoicesArea({
     setLoadingMore(false);
   }
 
-  async function run(action: (id: string) => Promise<OpResult>, row: PurchaseRow, okMsg: string) {
+  async function run(
+    action: (id: string) => Promise<OpResult>,
+    row: PurchaseRow,
+    okMsg: string,
+    label?: string,
+  ) {
     setBusy(true);
+    setSendingWhat(label ?? null);
     setNotice(null);
     const r = await action(row.id);
     setBusy(false);
+    setSendingWhat(null);
     if (!r.ok) {
-      setNotice(r.error ?? chromeT(locale, 'generic_error'));
+      // Stays on screen until the next action: a failed send is the one
+      // outcome nobody should be able to walk away from unknowingly.
+      setNotice({ kind: 'error', text: r.error ?? chromeT(locale, 'generic_error') });
       return;
     }
-    setNotice(okMsg);
+    setNotice({ kind: 'ok', text: okMsg });
     // Refresh in place.
     const d = await load();
     if (d) {
@@ -339,7 +413,7 @@ export function InvoicesArea({
     }
   }
 
-  const scopes: { key: Scope; label: string; Icon: typeof User; disabled?: boolean }[] = [
+  const allScopes: { key: Scope; label: string; Icon: typeof User; disabled?: boolean }[] = [
     { key: 'me', label: chromeT(locale, 'scope_me'), Icon: User },
     { key: 'team', label: chromeT(locale, 'scope_team'), Icon: Users, disabled: teams.length === 0 },
     {
@@ -349,13 +423,15 @@ export function InvoicesArea({
       disabled: data ? !isAdmin : false,
     },
   ];
+  const scopes = allScopes.filter((x) => scopeOptions.includes(x.key));
 
   return (
     <div className="mt-6">
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="grid grid-cols-3 rounded-md border border-line overflow-hidden h-[36px] text-sm">
-          {scopes.map(({ key, label, Icon, disabled }) => (
+          {scopes.length > 1 &&
+            scopes.map(({ key, label, Icon, disabled }) => (
             <button
               key={key}
               type="button"
@@ -462,7 +538,7 @@ export function InvoicesArea({
         </div>
       )}
 
-      {notice && <p className="mt-3 text-xs text-ink-subtle">{notice}</p>}
+      {notice && <ActionNotice notice={notice} />}
       {error && (
         <p className="mt-4 text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
           {error}
@@ -546,6 +622,7 @@ export function InvoicesArea({
       {detail && (
         <InvoiceDialog
           purchase={detail}
+          {...(seller ? { seller } : {})}
           open
           onClose={() => setDetail(null)}
           pdfHref={`/invoices/${detail.id}/pdf`}
@@ -553,13 +630,17 @@ export function InvoicesArea({
           // open. No new route to build, and it lands the reader on the
           // document inside the product rather than on Stripe's copy of it.
           shareHref={`/invoices?invoice=${encodeURIComponent(detail.id)}`}
-          onEmail={async (to) => {
-            const r = await actions.emailInvoice(detail.id, to);
-            return r.ok ? null : (r.error ?? 'could not send');
-          }}
+          {...(actions.emailInvoice
+            ? {
+                onEmail: async (to: string) => {
+                  const r = await actions.emailInvoice!(detail.id, to);
+                  return r.ok ? null : (r.error ?? 'could not send');
+                },
+              }
+            : {})}
           actions={
             <>
-              {detail.status === 'paid' && (
+              {detail.status === 'paid' && actions.refundPurchase && (
                 <GhostBtn
                   leading={<RotateCcw size={14} />}
                   disabled={busy}
@@ -570,40 +651,67 @@ export function InvoicesArea({
               )}
               {detail.method === 'invoice' && detail.status === 'pending' && (
                 <>
+                  {actions.markPurchasePaid && (
                   <GhostBtn
                     leading={<BadgeEuro size={14} />}
                     disabled={busy}
                     onClick={() =>
-                      void run(actions.markPurchasePaid, detail, chromeT(locale, 'marked_paid_ok'))
+                      void run(actions.markPurchasePaid!, detail, chromeT(locale, 'marked_paid_ok'))
                     }
                   >
                     {chromeT(locale, 'mark_paid')}
                   </GhostBtn>
+                  )}
+                  {actions.sendPaymentLink && (
                   <GhostBtn
                     leading={<Link2 size={14} />}
                     disabled={busy}
                     onClick={() =>
                       void run(
-                        actions.sendPaymentLink,
+                        actions.sendPaymentLink!,
                         detail,
-                        chromeT(locale, 'payment_link_sent_ok'),
+                        // Named, not "the payer": the whole value of the
+                        // confirmation is seeing WHERE it went.
+                        detail.payer_email
+                          ? chromeT(locale, 'payment_link_sent_to', { email: detail.payer_email })
+                          : chromeT(locale, 'payment_link_sent_ok'),
+                        'payment_link',
                       )
                     }
                   >
-                    {chromeT(locale, 'send_payment_link')}
+                    {sendingWhat === 'payment_link'
+                      ? chromeT(locale, 'sending')
+                      : chromeT(locale, 'send_payment_link')}
                   </GhostBtn>
+                  )}
                 </>
               )}
-              {detail.stripe_invoice_url && (
+              {detail.stripe_invoice_url && actions.resendInvoice && (
                 <GhostBtn
                   leading={<Mail size={14} />}
                   disabled={busy}
                   onClick={() =>
-                    void run(actions.resendInvoice, detail, chromeT(locale, 'invoice_sent_ok'))
+                    void run(
+                      actions.resendInvoice!,
+                      detail,
+                      detail.payer_email
+                        ? chromeT(locale, 'invoice_sent_to', { email: detail.payer_email })
+                        : chromeT(locale, 'invoice_sent_ok'),
+                      'resend',
+                    )
                   }
                 >
-                  {chromeT(locale, 'resend_invoice')}
+                  {sendingWhat === 'resend'
+                    ? chromeT(locale, 'sending')
+                    : chromeT(locale, 'resend_invoice')}
                 </GhostBtn>
+              )}
+              {/* Beside the buttons that caused it — not at the far end of
+                  the dialog, where it was mistaken for nothing happening. */}
+              {notice && (
+                <div className="basis-full">
+                  <ActionNotice notice={notice} />
+                </div>
               )}
             </>
           }
@@ -624,7 +732,7 @@ export function InvoicesArea({
               {chromeT(locale, 'refunded_on', { date: fmtDate(detail.refunded_at) })}
             </div>
           )}
-          {notice && <p className="mt-1 text-ink-subtle">{notice}</p>}
+
         </InvoiceDialog>
       )}
 
@@ -639,7 +747,9 @@ export function InvoicesArea({
           onConfirm={() => {
             const row = confirmRefund;
             setConfirmRefund(null);
-            if (row) void run(actions.refundPurchase, row, chromeT(locale, 'reimbursed_ok'));
+            if (row && actions.refundPurchase) {
+              void run(actions.refundPurchase, row, chromeT(locale, 'reimbursed_ok'));
+            }
           }}
         />
       )}

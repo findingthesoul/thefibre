@@ -200,8 +200,13 @@ adminEconomicsRoutes.get('/invoices', async (c) => {
   // a fine problem to have.
   const { data, error } = await adminClient
     .from('purchase')
+    // Widened 2026-10-04 so this list can be rendered by the SAME component
+    // every other Invoices page uses (Sjoerd: "this is the interface of meet.
+    // Why not the same in fibre"). The extra columns are what the shared
+    // invoice dialog draws — the billed-to block, the lines, the split — and
+    // the app join is what its chips read. Same rows as before; more of each.
     .select(
-      'id, item_label, amount_cents, currency, status, method, paid_at, refunded_at, created_at, payer_name, payer_email, stripe_invoice_url, workspace:workspace_id (name, slug)',
+      'id, item_label, item_ref, amount_cents, currency, status, method, paid_at, refunded_at, created_at, payer_name, payer_email, stripe_invoice_url, billing, platform_fee_cents, vendor_share_cents, org_share_cents, organiser_user_id, team_id, workspace:workspace_id (name, slug), app:app_id (slug, name)',
     )
     .eq('app_id', app.id)
     .order('created_at', { ascending: false })

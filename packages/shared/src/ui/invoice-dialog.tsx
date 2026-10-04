@@ -12,6 +12,7 @@
 // needed from inside the shared package.
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { Check } from 'lucide-react';
 import { INTL_LOCALES } from '../i18n.js';
 import {
   invoiceModel,
@@ -223,6 +224,16 @@ export function InvoiceDialog({
                     : chromeT(locale, 'send')}
               </button>
             </div>
+            {/* Sjoerd, 2026-10-04: a send should "give a check / confirmation".
+                The button already flipped to "Sent", which is easy to miss on
+                a button you have stopped looking at — and it does not say
+                WHERE it went, which is the fact worth confirming. */}
+            {emailState === 'sent' && (
+              <p role="status" aria-live="polite" className="mt-1 flex items-start gap-1.5 text-xs text-ink-subtle">
+                <Check size={14} className="mt-px shrink-0" aria-hidden />
+                <span>{chromeT(locale, 'invoice_sent_to', { email: emailTo })}</span>
+              </p>
+            )}
             {emailError && <p className="mt-1 text-xs text-red-700">{emailError}</p>}
           </div>
         )}
