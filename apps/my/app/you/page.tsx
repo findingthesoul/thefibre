@@ -84,7 +84,17 @@ export default async function YouPage() {
 
       <CalendarCard status={calendar} />
 
-      {directory.length > 0 && <DirectoryCard choices={directory} />}
+      {directory === null ? (
+        // Say it. An omitted section looks like a page with nothing on it.
+        <section className="mt-8">
+          <h2 className="text-sm font-medium text-ink">Being found by other members</h2>
+          <p className="mt-2 rounded-2xl border border-line bg-surface px-4 py-3 text-xs text-ink-subtle">
+            We couldn&apos;t load this right now; your setting is unchanged.
+          </p>
+        </section>
+      ) : (
+        directory.length > 0 && <DirectoryCard choices={directory} />
+      )}
 
       {/* Below the calendar and above the way out — last of the things you
           DO here, which is where a page puts the one you hope nobody needs.

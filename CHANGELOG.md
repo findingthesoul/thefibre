@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.106.0] — 2026-10-05 — member directory slice 3: members can see each other
+
+The list Sjoerd asked for in one sentence — *"Members need to see each other.
+Can we create a list of members. With profiles. Ways to contact them."* —
+and the three slices before it existed so that nobody has to decide, on this
+page, who may see whom.
+
+**The spec had the central rule backwards, and it was caught by building
+against it.** §5 still said a candidate is `entry(M).listed IS NOT false`,
+with "no row = listed". That is the opt-out rule. §3.3 and §4 were corrected
+when "Always opt-in" was decided; §5 — the rule that actually decides who
+appears — was not. Implementing it as written would have listed **every
+existing member the moment this shipped**, without anyone being asked: the
+exact outcome always-opt-in was chosen to prevent, reached by following the
+specification. A missing row now means NOT listed, and there is deliberately
+**no backfill**, because a row written on somebody's behalf is a choice they
+did not make.
+
+**A workspace switch, default off** (`directory_enabled`). The directory is
+meant to be a product — "Community landscape" — and that product is slice 2b,
+shipping after this. Without the switch the list would simply appear for
+every community with the Members app: on by default, free, everywhere. The
+switch also makes "this community has no directory" a 404 rather than an
+empty list, because *no directory here* and *nobody here yet* are different
+answers and must not look alike.
+
+**The list endpoint** implements §5 exactly: active membership, listed, not
+soft-deleted; `everybody` mode or shared-category mode, where a person's
+categories are the union over the products they hold; contact details,
+LinkedIn and website returned **only** for members who chose to show them,
+and never as a separate lookup that could be walked. City and country are
+returned; region, street and postal code never are.
+
+**A runtime bug TypeScript could not see.** The first draft selected
+`person.photo_url` — a column that does not exist. A PostgREST select is a
+string the compiler never reads, so it typechecked and would have failed with
+a 400 in front of a member. Every new select in this slice was run against
+the real schema; a member's name, photo and bio come from `identity_profile`,
+keyed by email, which is the platform's one profile per human.
+
+**The my.thread members page** keeps four states apart: no directory here,
+we could not load it, you are not in the list, and here are the people.
+Collapsing any two is the empty that reads as working. The same fix lands on
+the You tab, where a failed load used to omit the privacy switch silently —
+right outcome, invisible reason.
+
+
 ## [1.105.0] — 2026-10-05 — member directory slice 2a: the member's own switch, off until they say
 
 Slice 1 gave a community its vocabulary. This gives a member the switch, and

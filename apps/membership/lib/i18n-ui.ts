@@ -2197,6 +2197,22 @@ const CATALOG = {
     de: 'Wer sieht wen', // MT
     fr: 'Qui voit qui', // MT
   },
+  directory_enabled_label: {
+    en: 'Turn the member directory on for this community',
+    nl: 'Zet de ledenlijst aan voor deze community',
+    es: 'Activar el directorio de miembros para esta comunidad', // MT
+    pt: 'Ativar o diretorio de membros para esta comunidade', // MT
+    de: 'Das Mitgliederverzeichnis fuer diese Community einschalten', // MT
+    fr: "Activer l'annuaire des membres pour cette communaute", // MT
+  },
+  directory_enabled_hint: {
+    en: 'Off until you turn it on. Members still choose for themselves whether they appear — this only decides whether the list exists at all.',
+    nl: 'Uit tot je het aanzet. Leden kiezen zelf of ze erin staan — dit bepaalt alleen of de lijst bestaat.',
+    es: 'Desactivado hasta que lo actives. Los miembros siguen eligiendo si aparecen — esto solo decide si la lista existe.', // MT
+    pt: 'Desativado ate voce ativar. Os membros continuam escolhendo se aparecem — isto so decide se a lista existe.', // MT
+    de: 'Aus, bis du es einschaltest. Mitglieder entscheiden weiterhin selbst, ob sie erscheinen — dies entscheidet nur, ob die Liste existiert.', // MT
+    fr: "Desactive jusqu'a ce que tu l'actives. Les membres choisissent toujours eux-memes s'ils apparaissent — ceci decide seulement si la liste existe.", // MT
+  },
   directory_visibility_label: {
     en: 'Who a member sees in the directory',
     nl: 'Wie een lid ziet in de ledenlijst',

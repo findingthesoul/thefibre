@@ -13,8 +13,13 @@
 // Everything it creates, it removes.
 
 import { expect, test } from '@playwright/test';
-import { HOSTS, landSignedIn, stagingService, waitForHydration } from './helpers.js';
-import { ensureFixtureIdentity } from './identities.js';
+import {
+  HOSTS,
+  fixtureIdentity,
+  landSignedIn,
+  stagingService,
+  waitForHydration,
+} from './helpers.js';
 
 const TAG = 'e2e-directory';
 let workspaceId = '';
@@ -23,7 +28,7 @@ let productId = '';
 
 test.beforeAll(async () => {
   const service = stagingService();
-  const identity = await ensureFixtureIdentity(service);
+  const identity = await fixtureIdentity();
   workspaceId = identity.workspaceId;
 
   const { data: cat, error: catErr } = await service

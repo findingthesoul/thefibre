@@ -105,6 +105,7 @@ export async function saveSeatPolicy(input: {
 // workspace: a foreign key proves a category exists, not that it is ours.
 
 export async function saveDirectorySettings(input: {
+  directory_enabled: boolean;
   directory_visibility: 'everybody' | 'category';
   directory_show_contact: boolean;
   directory_show_category: boolean;

@@ -12,6 +12,11 @@ export type MembershipSettings = {
   /** Public page language (i18n P1) — optional until the API ships it. */
   locale?: string | null;
   // ── member directory (docs/member-directory-spec.md §3.4) ──────────────
+  /** The community's own on/off (slice 3). False until an admin turns it on:
+   *  a community that never asked for a directory should not acquire one by
+   *  being upgraded. Slice 2b replaces this with the 'Community landscape'
+   *  product; the column survives as the workspace-level off. */
+  directory_enabled?: boolean;
   /** `everybody` = every member sees every member. `category` = a member
    *  sees the members sharing at least one category with them. */
   directory_visibility?: 'everybody' | 'category';

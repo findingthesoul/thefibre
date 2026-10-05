@@ -577,3 +577,256 @@ membershipPortalRoutes.patch('/me/directory', async (c) => {
 
   return c.json({ ok: true });
 });
+
+// ===========================================================================
+// MEMBER DIRECTORY — the list (spec §5, §6; slice 3).
+//
+// The first surface where one member can see another, so every rule that
+// decides who appears is here and nowhere else.
+//
+// A member is a candidate only when their entry says listed IS TRUE. A
+// MISSING row means NOT listed. That is the opposite of what §5 said until
+// 2026-10-05 — the spec still carried the opt-out rule after §3.3 and §4 had
+// been corrected, and implementing it as written would have listed every
+// existing member the moment this shipped, without anyone being asked.
+//
+// There is deliberately NO BACKFILL. A row written on somebody's behalf is a
+// choice they did not make.
+//
+// Visibility follows slice 1: 'everybody' sees everybody; 'category' sees
+// only members sharing a category, where a person's categories are the union
+// over the products they hold. An uncategorised member in category mode is
+// not listed AND sees nobody — it fails closed, which is why the admin
+// screen counts uncategorised products.
+// ===========================================================================
+
+type DirectoryMember = {
+  person_id: string;
+  display_name: string;
+  photo_url: string | null;
+  bio: string | null;
+  city: string | null;
+  country: string | null;
+  tags: string[];
+  /** Only when the workspace shows categories (§9.2). */
+  categories: string[];
+  /** Only when show(M) resolves true — never as a separate lookup. */
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  website_url: string | null;
+};
+
+/** Categories a set of people hold, by person: the union over the products
+ *  in their tier plus anything bought on its own (§5). */
+async function categoriesByPerson(
+  workspaceId: string,
+  personIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  if (!personIds.length) return out;
+
+  const [members, links, purchases] = await Promise.all([
+    adminClient
+      .from('membership_member')
+      .select('person_id, tier_id')
+      .eq('workspace_id', workspaceId)
+      .in('person_id', personIds)
+      .is('deleted_at', null),
+    adminClient.from('membership_product_category').select('product_id, category_id'),
+    adminClient
+      .from('membership_product_purchase')
+      .select('person_id, product_id')
+      .eq('workspace_id', workspaceId)
+      .in('person_id', personIds),
+  ]);
+  if (members.error) throw new Error(`directory categories (members): ${members.error.message}`);
+  if (links.error) throw new Error(`directory categories (links): ${links.error.message}`);
+  if (purchases.error) throw new Error(`directory categories (purchases): ${purchases.error.message}`);
+
+  const tierIds = [...new Set((members.data ?? []).map((m) => m.tier_id as string))];
+  const tierProducts = tierIds.length
+    ? await adminClient
+        .from('membership_tier_product')
+        .select('tier_id, product_id')
+        .in('tier_id', tierIds)
+    : { data: [], error: null };
+  if (tierProducts.error) {
+    throw new Error(`directory categories (tier products): ${tierProducts.error.message}`);
+  }
+
+  const catsOfProduct = new Map<string, string[]>();
+  for (const l of links.data ?? []) {
+    const list = catsOfProduct.get(l.product_id as string) ?? [];
+    list.push(l.category_id as string);
+    catsOfProduct.set(l.product_id as string, list);
+  }
+  const productsOfTier = new Map<string, string[]>();
+  for (const tp of tierProducts.data ?? []) {
+    const list = productsOfTier.get(tp.tier_id as string) ?? [];
+    list.push(tp.product_id as string);
+    productsOfTier.set(tp.tier_id as string, list);
+  }
+
+  const add = (personId: string, productId: string) => {
+    const set = out.get(personId) ?? new Set<string>();
+    for (const c of catsOfProduct.get(productId) ?? []) set.add(c);
+    out.set(personId, set);
+  };
+  for (const m of members.data ?? []) {
+    for (const p of productsOfTier.get(m.tier_id as string) ?? []) add(m.person_id as string, p);
+  }
+  for (const p of purchases.data ?? []) add(p.person_id as string, p.product_id as string);
+  return out;
+}
+
+membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  await markEmailProven(email);
+
+  const workspaceId = c.req.param('workspaceId');
+  const byWorkspace = await memberWorkspaces(email);
+  const viewerPersonIds = byWorkspace.get(workspaceId);
+  // Not a member there: the list does not exist for them. Same refusal as
+  // the write path, for the same reason.
+  if (!viewerPersonIds?.length) return c.json({ error: 'not a member of that community' }, 403);
+
+  const settings = await adminClient
+    .from('membership_settings')
+    .select('directory_enabled, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id')
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  if (settings.error) return fail(c, 'directory list: settings', settings.error);
+  // Off unless the community turned it on (slice 3). 404 rather than an empty
+  // list: "there is no directory here" and "the directory is empty" are
+  // different answers and must not look alike.
+  if (!settings.data?.directory_enabled) return c.json({ error: 'no member directory here' }, 404);
+
+  // The viewer must be listed themselves to see the list. Being in a
+  // directory and reading one are the same bargain.
+  const viewerEntry = await adminClient
+    .from('membership_directory_entry')
+    .select('person_id')
+    .eq('workspace_id', workspaceId)
+    .in('person_id', viewerPersonIds)
+    .eq('listed', true);
+  if (viewerEntry.error) return fail(c, 'directory list: viewer entry', viewerEntry.error);
+  if (!(viewerEntry.data ?? []).length) {
+    return c.json({ items: [], you_are_listed: false });
+  }
+
+  // Candidates: listed IS TRUE, active membership, person not soft-deleted.
+  const listed = await adminClient
+    .from('membership_directory_entry')
+    .select('person_id, show_contact, tags')
+    .eq('workspace_id', workspaceId)
+    .eq('listed', true);
+  if (listed.error) return fail(c, 'directory list: entries', listed.error);
+  const candidateIds = (listed.data ?? []).map((e) => e.person_id as string);
+  if (!candidateIds.length) return c.json({ items: [], you_are_listed: true });
+
+  const [activeMembers, persons] = await Promise.all([
+    adminClient
+      .from('membership_member')
+      .select('person_id')
+      .eq('workspace_id', workspaceId)
+      .in('person_id', candidateIds)
+      .eq('status', 'active')
+      .is('deleted_at', null),
+    adminClient
+      // person carries NO photo_url and NO bio — they live on
+      // identity_profile, keyed by EMAIL, which is the platform's one profile
+      // per human (§9.1, and the same source A2 taught the public organiser
+      // page to read). Checked against the real table: selecting
+      // person.photo_url is a runtime 400, and TypeScript never reads a
+      // PostgREST select string.
+      .from('person')
+      .select(
+        'id, first_name, last_name, preferred_name, email, phone, linkedin_url, website_url, city, country, deleted_at',
+      )
+      .in('id', candidateIds)
+      .is('deleted_at', null),
+  ]);
+  if (activeMembers.error) return fail(c, 'directory list: memberships', activeMembers.error);
+  if (persons.error) return fail(c, 'directory list: persons', persons.error);
+  const activeIds = new Set((activeMembers.data ?? []).map((m) => m.person_id as string));
+
+  // The profile half, by email. A member with no profile row still appears —
+  // with their person name and no photo — because being unlisted for want of
+  // a profile is not a choice anybody made.
+  const emails = [...new Set((persons.data ?? []).map((p) => p.email as string).filter(Boolean))];
+  const profiles = emails.length
+    ? await adminClient
+        .from('identity_profile')
+        .select('email, display_name, bio, photo_url')
+        .in('email', emails)
+    : { data: [], error: null };
+  if (profiles.error) return fail(c, 'directory list: profiles', profiles.error);
+  const profileOf = new Map(
+    (profiles.data ?? []).map((r) => [String(r.email).toLowerCase(), r]),
+  );
+
+  const cats = await categoriesByPerson(workspaceId, [...candidateIds, ...viewerPersonIds]);
+  const viewerCats = new Set<string>();
+  for (const id of viewerPersonIds) for (const c2 of cats.get(id) ?? []) viewerCats.add(c2);
+  const byCategory = settings.data.directory_visibility === 'category';
+
+  const categoryNames = settings.data.directory_show_category
+    ? await adminClient
+        .from('membership_directory_category')
+        .select('id, name')
+        .eq('workspace_id', workspaceId)
+    : { data: [], error: null };
+  if (categoryNames.error) return fail(c, 'directory list: category names', categoryNames.error);
+  const nameOf = new Map(
+    (categoryNames.data ?? []).map((r) => [r.id as string, r.name as string]),
+  );
+
+  const entryOf = new Map(
+    (listed.data ?? []).map((e) => [e.person_id as string, e]),
+  );
+  const items: DirectoryMember[] = [];
+  for (const p of persons.data ?? []) {
+    const id = p.id as string;
+    if (!activeIds.has(id)) continue;
+    if (viewerPersonIds.includes(id)) continue; // you are not a row in your own list
+    const mine = cats.get(id) ?? new Set<string>();
+    if (byCategory && ![...mine].some((x) => viewerCats.has(x))) continue;
+
+    const entry = entryOf.get(id);
+    const show =
+      entry?.show_contact !== null && entry?.show_contact !== undefined
+        ? Boolean(entry.show_contact)
+        : Boolean(settings.data.directory_show_contact);
+
+    const prof = profileOf.get(String(p.email ?? '').toLowerCase());
+    const fromPerson = [p.preferred_name || p.first_name, p.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    items.push({
+      person_id: id,
+      display_name: (prof?.display_name as string | null) || fromPerson || 'A member',
+      photo_url: (prof?.photo_url as string | null) ?? null,
+      bio: (prof?.bio as string | null) ?? null,
+      // City and country only — region, street and postal code are never
+      // returned by this surface (§5).
+      city: (p.city as string | null) ?? null,
+      country: (p.country as string | null) ?? null,
+      tags: (entry?.tags as string[] | undefined) ?? [],
+      categories: settings.data.directory_show_category
+        ? [...mine].map((x) => nameOf.get(x)).filter((n): n is string => Boolean(n))
+        : [],
+      email: show ? ((p.email as string | null) ?? null) : null,
+      phone: show ? ((p.phone as string | null) ?? null) : null,
+      // §5 counts LinkedIn and website as contact points, so they follow
+      // show(M) rather than riding along with the name.
+      linkedin_url: show ? ((p.linkedin_url as string | null) ?? null) : null,
+      website_url: show ? ((p.website_url as string | null) ?? null) : null,
+    });
+  }
+
+  items.sort((a, b) => a.display_name.localeCompare(b.display_name));
+  return c.json({ items, you_are_listed: true });
+});

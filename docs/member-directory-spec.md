@@ -150,10 +150,20 @@ Let `V` be the viewer's person row in this workspace, `M` a candidate.
 ```
 M is a candidate  ⟺  M.membership is active
                   ∧  M.person.deleted_at IS NULL
-                  ∧  entry(M).listed IS NOT false      -- no row = listed
+                  ∧  entry(M).listed IS TRUE           -- no row = NOT listed
 ```
-A missing `membership_directory_entry` row means listed — consistent with
-opt-out, and it means no backfill is needed for existing members.
+A missing `membership_directory_entry` row means **not listed** (§9.6).
+
+This inverted on 2026-10-04 and the old text survived two corrections — §3.3
+and §4 were fixed while this, the rule that actually decides who appears,
+still said `IS NOT false`. Caught while building slice 3 against it. Under the
+old rule every existing member would have been listed the moment the list
+shipped, without anyone being asked: the precise outcome "Always opt-in" was
+chosen to prevent, arrived at by implementing the specification.
+
+The old justification inverted with it. "No backfill is needed" was true of
+opt-out and is now the wrong goal — there must be **no backfill**, because a
+row written on somebody's behalf is a choice they did not make.
 
 **Categories** of a person = the union of categories on every product they
 hold: products included in their tier (`membership_tier_product`) plus any

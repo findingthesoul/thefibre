@@ -170,6 +170,7 @@ const PutSettings = z.object({
   // consent for seats that bill above the plan allowance.
   fibre_seat_mode: z.enum(['auto', 'approve']).optional(),
   // Member directory (docs/member-directory-spec.md §3.4).
+  directory_enabled: z.boolean().optional(),
   directory_visibility: z.enum(['everybody', 'category']).optional(),
   directory_show_contact: z.boolean().optional(),
   directory_show_category: z.boolean().optional(),
@@ -1463,7 +1464,7 @@ membershipRoutes.get('/settings', async (c) => {
   }
   const { data, error } = await adminClient
     .from('membership_settings')
-    .select('workspace_id, circle_api_token, circle_community_url, google_sa_json, google_admin_email, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id')
+    .select('workspace_id, circle_api_token, circle_community_url, google_sa_json, google_admin_email, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id, directory_enabled')
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (error) return fail(c, 'get settings', error);
@@ -1477,6 +1478,7 @@ membershipRoutes.get('/settings', async (c) => {
     fibre_seat_mode: data?.fibre_seat_mode ?? 'approve',
     allow_billed_seats: data?.allow_billed_seats ?? false,
     locale: toLocale(data?.locale),
+    directory_enabled: data?.directory_enabled ?? false,
     directory_visibility: data?.directory_visibility ?? 'everybody',
     directory_show_contact: data?.directory_show_contact ?? false,
     directory_show_category: data?.directory_show_category ?? false,
@@ -1500,6 +1502,7 @@ membershipRoutes.put('/settings', async (c) => {
   if (body.data.fibre_seat_mode !== undefined) row.fibre_seat_mode = body.data.fibre_seat_mode;
   if (body.data.allow_billed_seats !== undefined) row.allow_billed_seats = body.data.allow_billed_seats;
   if (body.data.locale !== undefined) row.locale = body.data.locale;
+  if (body.data.directory_enabled !== undefined) row.directory_enabled = body.data.directory_enabled;
   if (body.data.directory_visibility !== undefined) row.directory_visibility = body.data.directory_visibility;
   if (body.data.directory_show_contact !== undefined) row.directory_show_contact = body.data.directory_show_contact;
   if (body.data.directory_show_category !== undefined) row.directory_show_category = body.data.directory_show_category;

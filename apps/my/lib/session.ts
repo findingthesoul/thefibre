@@ -12,8 +12,10 @@ import { serverSupabase } from './supabase/server';
 import {
   fetchCalendarStatus,
   fetchDirectoryChoices,
+  fetchDirectoryMembers,
   fetchErasure,
   type DirectoryChoice,
+  type DirectoryList,
   fetchInvoices,
   fetchPortal,
   fetchProfile,
@@ -74,15 +76,27 @@ export const loadCalendarStatus = cache(async (): Promise<CalendarStatus> => {
 /** What removing this person's data would involve. Null when the call failed
  *  — the YOU tab then omits the section rather than offering a right it
  *  cannot describe accurately. */
-/** The member's directory choices, one per community that knows them. An
- *  empty list means either "no communities" or "the call failed" — the YOU
- *  page omits the section in both cases, because a privacy switch showing
- *  the wrong state is worse than no switch. */
-export const loadDirectoryChoices = cache(async (): Promise<DirectoryChoice[]> => {
+/** The member's directory choices, one per community that knows them.
+ *
+ *  Returns null when the call FAILED, as distinct from an empty list, which
+ *  means "no communities". Until 2026-10-05 both came back empty and the YOU
+ *  page omitted the section either way: the privacy outcome was right — no
+ *  switch is better than a switch showing a state we are unsure of — but it
+ *  looked exactly like a working page with nothing on it, which is the one
+ *  mistake this repo keeps catching. The page now says so instead. */
+export const loadDirectoryChoices = cache(async (): Promise<DirectoryChoice[] | null> => {
   const s = await loadSession();
   if (!s) return [];
   return fetchDirectoryChoices(s.token);
 });
+
+/** The member list of one community. Takes the workspace id from the page,
+ *  so it is not memoised across communities. */
+export async function loadDirectoryMembers(workspaceId: string): Promise<DirectoryList> {
+  const s = await loadSession();
+  if (!s) return { state: 'failed' };
+  return fetchDirectoryMembers(s.token, workspaceId);
+}
 
 export const loadErasure = cache(async (): Promise<ErasurePicture | null> => {
   const s = await loadSession();

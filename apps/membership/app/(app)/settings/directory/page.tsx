@@ -43,6 +43,7 @@ export default async function DirectorySettings() {
           </p>
         ) : (
           <DirectoryClient
+            enabled={settings?.directory_enabled ?? false}
             visibility={settings?.directory_visibility ?? 'everybody'}
             showContact={settings?.directory_show_contact ?? false}
             showCategory={settings?.directory_show_category ?? false}

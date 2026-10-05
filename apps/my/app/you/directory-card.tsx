@@ -20,6 +20,7 @@
 // all three in order to hide from one.
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { saveDirectoryChoice, type DirectoryChoice } from '@/lib/portal-api';
 
@@ -82,6 +83,17 @@ export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
                     ? 'Other members of this community can find you.'
                     : 'Nobody can find you here.'}
                 </span>
+                {/* Only once they are in it: the list exists for members who
+                    appear in it, so offering the door before they have opened
+                    it would be offering something that refuses them. */}
+                {c.listed && (
+                  <Link
+                    href={`/members/${c.workspace_id}`}
+                    className="mt-1 inline-block text-xs underline text-ink-muted hover:text-ink"
+                  >
+                    See the members of {c.workspace_name}
+                  </Link>
+                )}
               </span>
             </label>
 

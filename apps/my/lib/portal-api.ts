@@ -437,21 +437,25 @@ export type DirectoryChoice = {
   workspace_show_contact_default: boolean;
 };
 
-/** Read server-side while the YOU page renders. Returns [] when the call
- *  fails — the page then omits the section rather than showing a switch
- *  whose state it does not know, which for a privacy control is the one
- *  wrong thing to render. */
-export async function fetchDirectoryChoices(accessToken: string): Promise<DirectoryChoice[]> {
+/** Read server-side while the YOU page renders.
+ *
+ *  NULL means the call failed; [] means no communities. Both hide the
+ *  switches — a privacy control showing a state we are unsure of is the one
+ *  wrong thing to render — but only one of them is worth telling somebody
+ *  about, and a page cannot say which if both look the same. */
+export async function fetchDirectoryChoices(
+  accessToken: string,
+): Promise<DirectoryChoice[] | null> {
   try {
     const res = await fetch(`${baseUrl}/api/v1/membership/portal/me/directory`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',
     });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const body = (await res.json()) as { items?: DirectoryChoice[] };
     return body.items ?? [];
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -468,5 +472,54 @@ export async function saveDirectoryChoice(input: {
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new PortalApiError(res.status, body?.error ?? 'could not save that choice');
+  }
+}
+
+export type DirectoryMember = {
+  person_id: string;
+  display_name: string;
+  photo_url: string | null;
+  bio: string | null;
+  city: string | null;
+  country: string | null;
+  tags: string[];
+  categories: string[];
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  website_url: string | null;
+};
+
+export type DirectoryList =
+  | { state: 'ok'; items: DirectoryMember[]; you_are_listed: boolean }
+  | { state: 'none' }
+  | { state: 'failed' };
+
+/** The member list of one community.
+ *
+ *  THREE OUTCOMES, not two, and they must not be collapsed. `none` means
+ *  this community has no directory — a 404, a real answer. `failed` means we
+ *  could not find out. An empty `ok` means the directory exists and nobody
+ *  has opted in yet. A page that renders all three the same is the empty
+ *  that reads as working. */
+export async function fetchDirectoryMembers(
+  accessToken: string,
+  workspaceId: string,
+): Promise<DirectoryList> {
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/v1/membership/portal/me/directory/${encodeURIComponent(workspaceId)}/members`,
+      { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' },
+    );
+    if (res.status === 404 || res.status === 403) return { state: 'none' };
+    if (!res.ok) return { state: 'failed' };
+    const body = (await res.json()) as { items?: DirectoryMember[]; you_are_listed?: boolean };
+    return {
+      state: 'ok',
+      items: body.items ?? [],
+      you_are_listed: Boolean(body.you_are_listed),
+    };
+  } catch {
+    return { state: 'failed' };
   }
 }

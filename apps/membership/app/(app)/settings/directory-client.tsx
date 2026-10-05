@@ -23,6 +23,7 @@ const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
 
 export function DirectoryClient({
+  enabled: initialEnabled,
   visibility: initialVisibility,
   showContact: initialShowContact,
   showCategory: initialShowCategory,
@@ -31,6 +32,7 @@ export function DirectoryClient({
   uncategorised,
   locale,
 }: {
+  enabled: boolean;
   visibility: 'everybody' | 'category';
   showContact: boolean;
   showCategory: boolean;
@@ -41,6 +43,7 @@ export function DirectoryClient({
   locale: Locale;
 }) {
   const router = useRouter();
+  const [enabled, setEnabled] = useState(initialEnabled);
   const [visibility, setVisibility] = useState(initialVisibility);
   const [showContact, setShowContact] = useState(initialShowContact);
   const [showCategory, setShowCategory] = useState(initialShowCategory);
@@ -61,6 +64,7 @@ export function DirectoryClient({
     setError(null);
     setSaved(false);
     const r = await saveDirectorySettings({
+      directory_enabled: enabled,
       directory_visibility: visibility,
       directory_show_contact: showContact,
       directory_show_category: showCategory,
@@ -129,6 +133,24 @@ export function DirectoryClient({
           <h2 className="text-sm font-medium text-ink">{t(locale, 'directory_who_sees_whom')}</h2>
         </div>
         <div className="space-y-4 p-5">
+          {/* The community's own on/off. First, because every other control
+              on this screen is about a directory that does not exist until
+              this is on. */}
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+              className="mt-0.5 accent-ink"
+            />
+            <span>
+              <span className="text-ink">{t(locale, 'directory_enabled_label')}</span>
+              <span className="block text-xs text-ink-muted">
+                {t(locale, 'directory_enabled_hint')}
+              </span>
+            </span>
+          </label>
+
           <div>
             <label className="mb-1 block text-sm font-medium">
               {t(locale, 'directory_visibility_label')}

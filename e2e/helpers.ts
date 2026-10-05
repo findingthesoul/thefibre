@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { ensureFixtureIdentity, resolveOwnerIdentity } from './identities.js';
+import { ensureFixtureIdentity, resolveOwnerIdentity, type Identity } from './identities.js';
 
 export const HOSTS = {
   fibre: 'https://thefibre.tech',
@@ -19,6 +19,10 @@ export const HOSTS = {
   flow: 'https://flow.thefibre.tech',
   pulse: 'https://pulse.thefibre.tech',
   membership: 'https://membership.thefibre.tech',
+  /** The participant portal. Not an app with seats — a member signs in here
+   *  with an address some community knows, which is why the directory switch
+   *  lives here and not in the Members app. */
+  my: 'https://my.thefibre.tech',
 };
 
 let cached: SupabaseClient | null = null;
@@ -44,6 +48,20 @@ export function stagingService(): SupabaseClient {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return cached;
+}
+
+/**
+ * The fixture identity, for a spec that needs to SEED against it — a
+ * workspace id to hang rows on, or the address a person row must carry.
+ *
+ * Exists so no spec has to know the project URL the guard checks. That URL is
+ * private to this module on purpose: `assertStagingProject` is what stands
+ * between a seeding spec and production, and a guard is only as good as the
+ * number of places that can supply its argument.
+ */
+export async function fixtureIdentity(): Promise<Identity> {
+  const service = stagingService();
+  return ensureFixtureIdentity(service, stagingUrl);
 }
 
 /**
