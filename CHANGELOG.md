@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.106.1] — 2026-10-05 — a save that did nothing said it worked, and a list nobody could find
+
+Four fixes, three of them from Sjoerd using the thing on staging.
+
+**The silent discard, closed twice.** He switched the member directory on,
+was told it saved, and nothing was written. The web had shipped
+`directory_enabled` before the API knew the field, and **Zod strips unknown
+keys by default** — so the API accepted the body, returned 200, and dropped
+it. This had been predicted in writing as a risk of web-before-API ordering;
+it then happened to him, on staging, exactly as described.
+
+Closed on both sides, because the next one will not look like this one:
+`PutSettings` is now `.strict()`, so an unknown field is a 400 that NAMES it
+rather than a setting that will not stick; and the save re-reads what was
+stored and compares, reporting plainly if the server kept something other
+than what was sent. A new test asserts the two sides agree — every key the
+Membership screens post is a key the schema accepts — because each side
+passes its own tests perfectly while disagreeing.
+
+**Add member hung on "Saving…".** The member saved; the response did not
+return. The invitation email was awaited INSIDE the request: an
+`auth_user_exists` RPC, possibly a GoTrue `createUser`, then an SMTP round
+trip, all after the row was already written. The dialog waited on the email
+provider. The email is now detached, which loses nothing — its failure path
+only ever logged a warning — and a slow provider no longer looks like a
+broken save.
+
+**Members is the fifth menu item, with search** (Sjoerd: *"members should be
+a fifth category on the menu with a search field"*). The entry is always
+present rather than conditional — a nav that changes shape with data you
+cannot see is worse than one that answers honestly — and the page redirects
+to the single list, offers a picker when there are several, and says plainly
+when there are none. my.thread is English-only, so there is no catalog to
+add to.
+
+**The search deliberately cannot find a hidden email.** It looks at name,
+place, bio, tags and categories — what this viewer can already see — and
+never at contact details. Searching them would hand back exactly what a
+member withheld: typing a full address and getting one hit identifies its
+owner as surely as displaying it would.
+
+**`grace` counts as a member** (Sjoerd: *"grace yes"*). A grace period means
+a payment is late, not that somebody left; dropping them from the directory
+would turn a billing state they may not know about into a visible social
+one. `lapsed` and `cancelled` are still not listable. Spec §5 says the same
+thing in the same release, because code and spec disagreeing is how §5 came
+to carry the opt-out rule for a day after the decision reversed it.
+
+**A member list nobody could find.** It was reachable only from a link on the
+You card, and that link appears only once you are already listed. So a member
+who had not opted in had no way to discover the list existed. There is now a
+**Members** entry in my.thread's navigation, always present rather than
+conditional: a nav that changes shape with data you cannot see is worse than
+one that answers honestly. The page redirects to the single list, asks which
+when there are several, and says plainly when there are none.
+
+
 ## [1.106.0] — 2026-10-05 — member directory slice 3: members can see each other
 
 The list Sjoerd asked for in one sentence — *"Members need to see each other.

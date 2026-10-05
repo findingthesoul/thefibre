@@ -148,11 +148,17 @@ Let `V` be the viewer's person row in this workspace, `M` a candidate.
 
 **Listed:**
 ```
-M is a candidate  ⟺  M.membership is active
+M is a candidate  ⟺  M.membership is active OR grace
                   ∧  M.person.deleted_at IS NULL
                   ∧  entry(M).listed IS TRUE           -- no row = NOT listed
 ```
 A missing `membership_directory_entry` row means **not listed** (§9.6).
+
+`grace` counts (Sjoerd, 2026-10-05: *"grace yes"*). A grace period means a
+payment is late, not that somebody left: dropping them out of the directory
+would turn a billing state they may not know about into a visible social
+one, and it would read as the directory being broken rather than as a
+consequence. `lapsed` and `cancelled` are not listable.
 
 This inverted on 2026-10-04 and the old text survived two corrections — §3.3
 and §4 were fixed while this, the rule that actually decides who appears,

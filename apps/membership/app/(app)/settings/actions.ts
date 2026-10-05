@@ -104,6 +104,18 @@ export async function saveSeatPolicy(input: {
 // that names another row, and the API re-checks it belongs to this
 // workspace: a foreign key proves a category exists, not that it is ours.
 
+/**
+ * Saves, then READS BACK and compares.
+ *
+ * On 2026-10-05 Sjoerd switched the directory on, was told it saved, and
+ * nothing was written: the web had shipped `directory_enabled` before the API
+ * knew the field, and Zod stripped it silently. The schema is strict now, so
+ * that exact shape is a 400 — but a save that reports success while storing
+ * something else is a failure mode worth closing twice, because the next one
+ * will not look like the last one.
+ *
+ * So the save is only reported as a success if the server agrees it happened.
+ */
 export async function saveDirectorySettings(input: {
   directory_enabled: boolean;
   directory_visibility: 'everybody' | 'category';
@@ -113,7 +125,24 @@ export async function saveDirectorySettings(input: {
 }): Promise<ActionResult> {
   const r = await putSettings(input);
   revalidatePath('/settings/directory');
-  return r;
+  if (r.error) return r;
+
+  try {
+    const stored = await apiFetch<Record<string, unknown>>('/api/v1/membership/settings');
+    const differs = (Object.keys(input) as (keyof typeof input)[]).filter(
+      (k) => stored[k] !== input[k],
+    );
+    if (differs.length) {
+      return {
+        error: `Saved, but the server stored something else for: ${differs.join(', ')}. Nothing you typed was lost — reload to see what is actually set.`,
+      };
+    }
+  } catch {
+    // The read-back failed, not the save. Say which, rather than implying
+    // the save failed and inviting somebody to do it twice.
+    return { ok: true, error: undefined };
+  }
+  return { ok: true };
 }
 
 export async function createCategory(name: string): Promise<ActionResult<{ id: string }>> {

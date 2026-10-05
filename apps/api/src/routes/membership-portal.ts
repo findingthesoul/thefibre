@@ -428,6 +428,10 @@ type DirectoryChoice = {
   /** null = follow the workspace default, which is reported beside it. */
   show_contact: boolean | null;
   workspace_show_contact_default: boolean;
+  /** Whether this community has a directory at all (slice 3). The portal nav
+   *  needs it: a Members entry for somebody whose communities have no
+   *  directory is a door onto a 404. */
+  directory_enabled: boolean;
 };
 
 /** The workspaces this proven email is actually a member of, with the person
@@ -475,7 +479,7 @@ membershipPortalRoutes.get('/me/directory', async (c) => {
     adminClient.from('workspace').select('id, name, slug').in('id', workspaceIds),
     adminClient
       .from('membership_settings')
-      .select('workspace_id, directory_show_contact')
+      .select('workspace_id, directory_show_contact, directory_enabled')
       .in('workspace_id', workspaceIds),
     adminClient
       .from('membership_directory_entry')
@@ -488,6 +492,9 @@ membershipPortalRoutes.get('/me/directory', async (c) => {
 
   const defaultShow = new Map(
     (settings.data ?? []).map((s) => [s.workspace_id as string, Boolean(s.directory_show_contact)]),
+  );
+  const enabled = new Map(
+    (settings.data ?? []).map((s) => [s.workspace_id as string, Boolean(s.directory_enabled)]),
   );
 
   const items: DirectoryChoice[] = (workspaces.data ?? []).map((w) => {
@@ -504,6 +511,7 @@ membershipPortalRoutes.get('/me/directory', async (c) => {
       listed,
       show_contact: shown.length ? shown.every(Boolean) : null,
       workspace_show_contact_default: defaultShow.get(w.id as string) ?? false,
+      directory_enabled: enabled.get(w.id as string) ?? false,
     };
   });
 
@@ -732,7 +740,12 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
       .select('person_id')
       .eq('workspace_id', workspaceId)
       .in('person_id', candidateIds)
-      .eq('status', 'active')
+      // active AND grace. Sjoerd, 2026-10-05: "grace yes". Grace means a
+      // payment is late, not that somebody left the community — dropping
+      // them out of the directory would be a visible social consequence of a
+      // billing state they may not even know about, and it would read as the
+      // directory being broken. lapsed and cancelled are not listable.
+      .in('status', ['active', 'grace'])
       .is('deleted_at', null),
     adminClient
       // person carries NO photo_url and NO bio — they live on

@@ -16,19 +16,27 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, IdCard, Receipt, User } from 'lucide-react';
+import { CalendarDays, IdCard, Receipt, User, Users} from 'lucide-react';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
 import { Wordmark } from './wordmark';
 import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 
 // Time first, because "what is next" is the question the page exists to
 // answer. YOU last, because it is where you go once, not where you live.
+//
+// MEMBERS is always present rather than conditional, and that is deliberate.
+// Hiding it from people whose communities have no directory would mean the
+// nav changes shape depending on data they cannot see, and somebody told
+// "look under Members" would find no Members. The page answers honestly
+// instead: it redirects to the one list, asks which when there are several,
+// and says plainly when there are none.
 export const NAV: SidebarNavSection[] = [
   {
     items: [
       { href: '/', label: 'Next', icon: CalendarDays },
       { href: '/memberships', label: 'Memberships', icon: IdCard },
       { href: '/purchases', label: 'Purchases', icon: Receipt },
+      { href: '/members', label: 'Members', icon: Users },
       { href: '/you', label: 'You', icon: User },
     ],
   },

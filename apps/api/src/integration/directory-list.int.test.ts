@@ -228,6 +228,15 @@ describe('who appears', () => {
     expect(ids, 'a missing entry must mean not listed').not.toContain(neverTouched);
   });
 
+  it('DOES show a member in grace — a late payment is not leaving', async () => {
+    const inGrace = await makeMember('Grace', tierShared, true, null, 'grace');
+    const { body } = await call(`/api/v1/membership/portal/me/directory/${ws}/members`);
+    expect(
+      body.items.map((i: any) => i.person_id),
+      'grace counts (Sjoerd, 2026-10-05)',
+    ).toContain(inGrace);
+  }, 60_000);
+
   it('does NOT show a member who opted out, or one whose membership lapsed', async () => {
     const { body } = await call(`/api/v1/membership/portal/me/directory/${ws}/members`);
     const ids = body.items.map((i: any) => i.person_id);

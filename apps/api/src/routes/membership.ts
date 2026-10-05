@@ -158,7 +158,7 @@ const CreateGrant = z
     message: 'exactly one of product_id or tier_id',
   });
 
-const PutSettings = z.object({
+export const PutSettings = z.object({
   circle_api_token: z.string().max(500).optional().nullable(),
   // Google Workspace integration: the service-account key JSON (secret —
   // write-only, GET only echoes google_configured) + the delegation admin.
@@ -179,7 +179,17 @@ const PutSettings = z.object({
   // Default language of the community's public surfaces + member emails
   // (i18n P1). Per-member locale overrides it once known.
   locale: z.enum(LOCALES).optional(),
-});
+})
+  // STRICT, not stripping, and this cost somebody a real afternoon. Zod
+  // drops unknown keys by default, so when the web shipped `directory_enabled`
+  // before the API knew the field, the save was accepted, 200 was returned,
+  // the screen said saved — and nothing was written. Sjoerd set the switch,
+  // was told it worked, and the directory stayed off.
+  //
+  // A field this route does not know is now a 400 that NAMES it. A deploy
+  // ordering mistake becomes a loud error instead of a setting that silently
+  // will not stick.
+  .strict();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -957,7 +967,19 @@ membershipRoutes.post('/members', async (c) => {
 
   // Invite: the member-portal sign-in email. Auth account first (the join
   // flow's auto-create), then a workspace-branded note.
+  //
+  // DETACHED, and that is the fix for a real bug. Until 2026-10-05 this block
+  // was awaited before the response, so an admin adding a member with "send
+  // an invitation email" ticked waited on an auth_user_exists RPC, possibly a
+  // GoTrue createUser, and an SMTP round trip — with the member row ALREADY
+  // written. Sjoerd reported the dialog "keeps on hanging" on Saving…; the
+  // member had saved, and the response was being held by the email.
+  //
+  // Nothing is lost by detaching: the catch below only ever logged a warning,
+  // so a failure was never reported to the caller anyway. What changes is
+  // that a slow provider no longer looks like a broken save.
   if (invite && person?.email) {
+    void (async () => {
     try {
       const { data: hasAccount } = await adminClient.rpc('auth_user_exists', {
         p_email: person.email.toLowerCase(),
@@ -986,6 +1008,7 @@ membershipRoutes.post('/members', async (c) => {
     } catch (e) {
       console.warn('[membership] invite email failed', e);
     }
+    })();
   }
 
   return c.json({ id: data.id, ...(invoiceError ? { invoice_error: invoiceError } : {}) }, 201);

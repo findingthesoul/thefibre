@@ -435,6 +435,8 @@ export type DirectoryChoice = {
   /** null = follow the community's default, which is reported beside it. */
   show_contact: boolean | null;
   workspace_show_contact_default: boolean;
+  /** Whether this community has a member list at all. */
+  directory_enabled: boolean;
 };
 
 /** Read server-side while the YOU page renders.
