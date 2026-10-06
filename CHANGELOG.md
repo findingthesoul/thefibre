@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.109.1] — 2026-10-06 — the workspace role is returned by the endpoint that is actually asked
+
+v1.109.0 made `canManageWorkspace` read `workspace_role`, and added that field
+to `GET /auth/workspaces`. The settings pages ask `GET /auth/me`. So the field
+never arrived, the rule read `undefined`, and — failing closed, as designed —
+the hub hid Members, Teams and Apps from **everybody, including admins**. A
+workspace admin was still refused, which is the bug v1.109.0 existed to fix.
+
+Caught in the browser before it reached production: a throwaway workspace
+admin on staging still saw no entries. Asking the staging API directly showed
+the response had no `workspace_role` — and no `active_workspace_id` either,
+which is what named the mistake, since that field belongs to the OTHER
+endpoint. The field has moved to `/auth/me` and the handler it was added to is
+back as it was.
+
+Worth recording because the type system could not help here and no test
+caught it: both handlers live in `routes/auth.ts`, both end in
+`return c.json({…})`, and a field added to the wrong one compiles, passes
+every unit test, and returns 200. Only exercising the real endpoint showed it.
+
 ## [1.109.0] — 2026-10-06 — being an admin of the workspace is what lets you manage the workspace
 
 v1.108.0 stopped the settings hub offering doors a person could not open. It
