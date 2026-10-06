@@ -13,12 +13,27 @@ import { inviteMember } from './actions';
 const SELECT_CLASS =
   'mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none';
 
+export type InviteTeam = {
+  id: string;
+  name: string;
+  /** 'admins' | 'everyone' | null. The two automatic teams are SHOWN but not
+   *  pickable: Everyone is joined by being a member at all, and Admins
+   *  follows the workspace role. Showing them without a checkbox answers
+   *  "what will this person get?" without inviting an edit that the next
+   *  sync would silently undo. */
+  automatic: 'admins' | 'everyone' | null;
+};
+
 export function InviteDialog({
   appSlugs,
+  teams,
   locale,
   onClose,
 }: {
   appSlugs: AppSlug[];
+  /** The workspace's teams, including the two automatic ones so the dialog can
+   *  show that Everyone is not a choice. */
+  teams: InviteTeam[];
   locale: Locale;
   onClose: () => void;
 }) {
@@ -29,6 +44,7 @@ export function InviteDialog({
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState<'internal' | 'external'>('internal');
   const [grants, setGrants] = useState<Map<string, 'member' | 'admin'>>(() => new Map());
+  const [teamIds, setTeamIds] = useState<Set<string>>(() => new Set());
   // Also surfaces the API's 402 seat-limit message — it explains seats/allowance.
   const [error, setError] = useState<string | null>(null);
   // Set when the API answered "this adds a paid seat — confirm first". The
@@ -58,6 +74,7 @@ export function InviteDialog({
           name: name.trim() ? name.trim() : undefined,
           relationship_type: relationship,
           apps: [...grants.entries()].map(([slug, role]) => ({ slug, role })),
+          teams: [...teamIds],
         },
         accepting,
       );
@@ -133,9 +150,50 @@ export function InviteDialog({
           </select>
         </label>
 
+        {teams.length > 0 && (
+          <div>
+            <span className="text-sm text-ink-subtle">{t(locale, 'invite_teams')}</span>
+            <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'invite_teams_help')}</p>
+            <div className="mt-2 space-y-2">
+              {teams.map((team) =>
+                team.automatic === 'everyone' ? (
+                  // Shown, never a checkbox: everybody is in it, and a
+                  // checkbox would promise a choice that does not exist.
+                  <div key={team.id} className="flex items-center justify-between gap-4 text-sm">
+                    <span className="text-ink">{team.name}</span>
+                    <span className="text-xs text-ink-muted">
+                      {t(locale, 'invite_everyone_always')}
+                    </span>
+                  </div>
+                ) : team.automatic === 'admins' ? null : (
+                  <label key={team.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={teamIds.has(team.id)}
+                      onChange={(e) => {
+                        setSeatConfirm(null);
+                        setTeamIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(team.id);
+                          else next.delete(team.id);
+                          return next;
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-line"
+                    />
+                    <span className={teamIds.has(team.id) ? 'text-ink' : 'text-ink-muted'}>
+                      {team.name}
+                    </span>
+                  </label>
+                ),
+              )}
+            </div>
+          </div>
+        )}
+
         {appSlugs.length > 0 && (
           <div>
-            <span className="text-sm text-ink-subtle">{t(locale, 'nav_apps')}</span>
+            <span className="text-sm text-ink-subtle">{t(locale, 'invite_apps_exception')}</span>
             <div className="mt-2 space-y-2">
               {appSlugs.map((slug) => (
                 <label key={slug} className="flex items-center justify-between gap-4 text-sm">

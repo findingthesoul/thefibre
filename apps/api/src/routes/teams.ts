@@ -102,19 +102,21 @@ teamsRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
-  const { data, error } = await db
+  // `?with_automatic=1` opts IN to the two automatic teams. The default stays
+  // without them, so every existing caller — the team pickers in Thread, Meet
+  // and Models, and the Teams page — keeps hiding them without being changed.
+  // Only a screen that explains what they are should ask for them, which
+  // today is the invite dialog.
+  const withAutomatic = new URL(c.req.url).searchParams.get('with_automatic') === '1';
+
+  const q = db
     .from('team')
     .select(
-      'id, name, slug, description, is_active, is_published, created_at, members:team_member (user_id, status)',
+      'id, name, slug, description, is_active, is_published, created_at, automatic, members:team_member (user_id, status)',
     )
-      // The two automatic teams are hidden here until the slice that gives
-      // them a screen explaining what they are (docs/teams-two-automatic-teams.md).
-      // Until then they would appear as ordinary teams you can file work
-      // under, in workspaces where nobody created them — and Admins' member
-      // list looks editable while being a mirror, so an edit would be
-      // silently undone by the next sync. Slice 1 stays inert on purpose.
-    .is('automatic', null)
     .order('name', { ascending: true });
+
+  const { data, error } = await (withAutomatic ? q : q.is('automatic', null));
   if (error) {
     console.error('[teams] list', error);
     return c.json({ error: error.message }, 500);
@@ -149,6 +151,9 @@ teamsRoutes.get('/', async (c) => {
         // them would overstate who a grant reaches.
         member_count: members.filter((m) => m.status === 'active').length,
         is_published: t.is_published,
+        /** 'admins' | 'everyone' | null — so a screen that asked for these can
+         *  label them and refuse to treat them as ordinary teams. Additive. */
+        automatic: t.automatic ?? null,
         apps: appsByTeam.get(t.id) ?? [],
       };
     }),

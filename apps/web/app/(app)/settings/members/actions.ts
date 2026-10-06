@@ -14,6 +14,8 @@ export type InviteInput = {
   workspace_role?: 'super_admin' | 'admin' | 'organiser' | undefined;
   relationship_type?: 'internal' | 'external' | undefined;
   apps: ({ slug: string; role: 'member' | 'admin' } | string)[];
+  /** Team ids the person joins. The normal way in; `apps` is the exception. */
+  teams?: string[] | undefined;
 };
 
 export type InviteMemberResult = {

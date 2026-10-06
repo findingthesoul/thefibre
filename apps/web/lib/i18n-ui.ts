@@ -33,6 +33,42 @@ export {
 } from '@thefibre/shared/i18n';
 
 const CATALOG = {
+  // ── inviting somebody: teams first, apps as the exception ─────────────
+  // Sjoerd, 2026-10-06: inviting is picking somebody's teams. The app ticks
+  // stay underneath for "give them this one app and nothing else".
+  invite_teams: {
+    en: 'Teams',
+    nl: 'Teams',
+    es: 'Equipos', // MT
+    pt: 'Equipas', // MT
+    de: 'Teams', // MT
+    fr: 'Équipes', // MT
+  },
+  invite_teams_help: {
+    en: 'What someone can open follows from the teams they are in.',
+    nl: 'Wat iemand kan openen volgt uit de teams waarin die zit.',
+    es: 'Lo que alguien puede abrir se deriva de los equipos en los que está.', // MT
+    pt: 'O que alguém pode abrir decorre das equipas em que está.', // MT
+    de: 'Was jemand öffnen kann, ergibt sich aus den Teams, in denen die Person ist.', // MT
+    fr: 'Ce qu’une personne peut ouvrir découle des équipes dont elle fait partie.', // MT
+  },
+  invite_everyone_always: {
+    en: 'Everybody in this workspace is in it',
+    nl: 'Iedereen in deze workspace zit erin',
+    es: 'Todos en este espacio de trabajo están en él', // MT
+    pt: 'Toda a gente neste espaço de trabalho está nela', // MT
+    de: 'Alle in diesem Workspace sind darin', // MT
+    fr: 'Tout le monde dans cet espace de travail en fait partie', // MT
+  },
+  invite_apps_exception: {
+    en: 'Or give them a single app, outside any team',
+    nl: 'Of geef ze één losse app, buiten elk team om',
+    es: 'O dale una sola aplicación, fuera de cualquier equipo', // MT
+    pt: 'Ou dá-lhe uma única aplicação, fora de qualquer equipa', // MT
+    de: 'Oder gib ihnen eine einzelne App, außerhalb jedes Teams', // MT
+    fr: 'Ou donnez-lui une seule application, en dehors de toute équipe', // MT
+  },
+
   // ── sent home from another app ────────────────────────────────────────
   // An app that cannot serve you hands you back here rather than showing a
   // wall (Sjoerd, 2026-09-28). These are what the popup says. {app} is the

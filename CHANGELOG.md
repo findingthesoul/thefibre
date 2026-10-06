@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.0] — 2026-10-06 — inviting somebody is picking their teams
+
+Second slice of the teams redesign. Sjoerd: inviting somebody should be
+choosing which teams they are in, with the individual app ticks kept as the
+exception rather than the normal way in.
+
+The invite dialog now leads with **Teams**, under one sentence that says why —
+*"What someone can open follows from the teams they are in."* The app ticks
+stay underneath, relabelled as what they are: *"Or give them a single app,
+outside any team."*
+
+**Everyone is shown, and is not a checkbox.** Everybody in a workspace is in
+it, so a checkbox would promise a choice that does not exist, and unticking it
+would do nothing. It is listed with the plain fact beside it — "Everybody in
+this workspace is in it" — so the question "what will this person get?" is
+answered on the screen rather than in somebody's head. **Admins is not shown
+at all**: its membership follows the workspace role, and offering it on an
+invite form would invite an edit that the next sync silently undoes.
+
+The API takes the teams and then checks them, rather than trusting them: ids
+are scoped to the caller's workspace and the automatic ones are dropped, so a
+forged or stale id adds nobody to another workspace's team and nobody can be
+written into Admins through a request body. Passing an automatic id is
+accepted and ignored rather than refused — a caller asking for what already
+happens is not an error, and refusing would break the obvious UI of "show
+Everyone, send what is ticked".
+
+`GET /api/v1/teams` grew `?with_automatic=1`, an explicit opt-in. The default
+stays without them, so every existing caller — the pickers in Thread, Meet and
+Models, and the Teams page — keeps hiding them without being touched. One
+screen asks to see them: the one that explains what they are.
+
+Nine integration tests now cover the automatic teams, the new one asserting
+the scoping above: of an ordinary team, a team in ANOTHER workspace, Admins
+and Everyone, only the ordinary team is joined.
+
 ## [1.112.4] — 2026-10-06 — the booking page and the check asked different calendars
 
 Sjoerd moved his own meeting on staging, picked a time the page had just

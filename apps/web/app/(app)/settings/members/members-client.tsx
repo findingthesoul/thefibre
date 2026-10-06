@@ -7,7 +7,7 @@ import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { APPS, type AppSlug } from '@/lib/apps';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { MemberRowDialog } from './member-row-dialog';
-import { InviteDialog } from './invite-dialog';
+import { InviteDialog, type InviteTeam } from './invite-dialog';
 
 export type Member = {
   user_id: string;
@@ -48,10 +48,12 @@ function appsSummary(member: Member, locale: Locale): string {
 export function MembersClient({
   members,
   appSlugs,
+  teams,
   locale,
 }: {
   members: Member[];
   appSlugs: AppSlug[];
+  teams: InviteTeam[];
   locale: Locale;
 }) {
   const [adding, setAdding] = useState(false);
@@ -116,7 +118,14 @@ export function MembersClient({
         </div>
       </section>
 
-      {adding && <InviteDialog appSlugs={appSlugs} locale={locale} onClose={() => setAdding(false)} />}
+      {adding && (
+        <InviteDialog
+          appSlugs={appSlugs}
+          teams={teams}
+          locale={locale}
+          onClose={() => setAdding(false)}
+        />
+      )}
       {selected && (
         <MemberRowDialog
           member={selected}

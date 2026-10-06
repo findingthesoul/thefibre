@@ -160,6 +160,18 @@ const MemberInvite = z.object({
   relationship_type: z.enum(['internal', 'external']).default('internal'),
   apps: z.array(AppGrant).default([]),
   /**
+   * The teams this person joins. The normal way in (Sjoerd, 2026-10-06:
+   * inviting somebody is picking their teams), with `apps` kept below it as
+   * the exception for "give them this one app and nothing else".
+   *
+   * The two automatic teams are NOT taken from here: Everyone is joined by
+   * being a member at all, and Admins follows the workspace role. Passing
+   * either is accepted and ignored rather than refused — a caller asking for
+   * what already happens is not an error, and refusing would make the
+   * obvious UI (show Everyone ticked, send what is ticked) fail.
+   */
+  teams: z.array(z.string().uuid()).default([]),
+  /**
    * "If you go beyond a free seat, you accept the monthly extra pay" (Sjoerd,
    * 2026-09-04). When the invite would add a PAID seat, the first request
    * comes back 402 with `requires_seat_confirmation` + the server-computed
@@ -336,6 +348,28 @@ membersRoutes.post('/', async (c) => {
     },
     { onConflict: 'user_id,workspace_id' },
   );
+
+  // The teams they were invited into. Before syncAutomaticTeams, so one
+  // resolve covers both these and the automatic membership.
+  if (body.data.teams.length) {
+    // Scoped to this workspace, and automatic teams dropped: membership of
+    // those is decided by the workspace, not by a request body. A forged or
+    // stale id therefore adds nothing rather than adding somebody to another
+    // workspace's team.
+    const { data: ok } = await adminClient
+      .from('team')
+      .select('id')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('automatic', null)
+      .in('id', body.data.teams);
+    const ids = (ok ?? []).map((t) => t.id as string);
+    if (ids.length) {
+      await adminClient.from('team_member').upsert(
+        ids.map((team_id) => ({ team_id, user_id: u.id, role: 'member', status: 'active' })),
+        { onConflict: 'team_id,user_id' },
+      );
+    }
+  }
 
   // Everyone gains a member, and Admins may have too. Same one writer.
   await syncAutomaticTeams(ctx.workspaceId);

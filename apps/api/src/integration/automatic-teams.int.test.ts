@@ -193,6 +193,63 @@ describe('automatic teams', () => {
     await service.from('team').delete().eq('id', ordinary);
   });
 
+  // The invite slice's contract at the data layer: the teams named on an
+  // invite are joined, scoped to this workspace, and the automatic ones are
+  // ignored rather than written — their membership is decided by the
+  // workspace, never by a request body.
+  it('an invite joins the named teams, and cannot be used to write the automatic ones', async () => {
+    const teams = await ensureAutomaticTeams(ws);
+    const person = await member('organiser');
+
+    const ordinary = (
+      await service
+        .from('team')
+        .insert({
+          workspace_id: ws,
+          name: 'Invited into this',
+          slug: `int-inv-${randomUUID().slice(0, 8)}`,
+          is_active: true,
+        })
+        .select('id')
+        .single()
+    ).data!.id as string;
+
+    // A team in ANOTHER workspace: a forged or stale id must add nothing.
+    const other = await createThrowawayWorkspace('invite-other');
+    const foreign = (
+      await service
+        .from('team')
+        .insert({
+          workspace_id: other,
+          name: 'Not yours',
+          slug: `int-foreign-${randomUUID().slice(0, 8)}`,
+          is_active: true,
+        })
+        .select('id')
+        .single()
+    ).data!.id as string;
+
+    // Exactly what routes/members.ts does with body.teams.
+    const requested = [ordinary, foreign, teams.admins!, teams.everyone!];
+    const { data: allowed } = await service
+      .from('team')
+      .select('id')
+      .eq('workspace_id', ws)
+      .is('automatic', null)
+      .in('id', requested);
+    const ids = (allowed ?? []).map((t) => t.id as string);
+
+    expect(ids).toEqual([ordinary]);
+    expect(ids).not.toContain(foreign);
+    expect(ids).not.toContain(teams.admins);
+    expect(ids).not.toContain(teams.everyone);
+
+    await service.from('team').delete().eq('id', ordinary);
+    await service.from('team').delete().eq('id', foreign);
+    await deleteThrowawayWorkspace(other);
+    void person;
+  });
+
   it('refuses to delete an automatic team', async () => {
     const { data: team } = await service
       .from('team')

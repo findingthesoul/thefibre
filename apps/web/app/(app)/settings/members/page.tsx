@@ -11,6 +11,7 @@ import {
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { MembersClient, type Member } from './members-client';
+import type { InviteTeam } from './invite-dialog';
 
 type Me = {
   user: { id: string; is_super_admin?: boolean };
@@ -40,6 +41,7 @@ export default async function MembersPage() {
   let me: Me | null = null;
   let members: Member[] = [];
   let installed: WorkspaceApp[] = [];
+  let teams: InviteTeam[] = [];
   let error: string | null = null;
 
   try {
@@ -70,12 +72,20 @@ export default async function MembersPage() {
   }
 
   try {
-    const [membersRes, appsRes] = await Promise.all([
+    const [membersRes, appsRes, teamsRes] = await Promise.all([
       apiFetch<{ items: Member[] }>('/api/v1/members'),
       apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps'),
+      // with_automatic: the invite dialog is the one screen that explains
+      // what Everyone is, so it is the one place that asks to see it. Never
+      // fatal — the dialog without teams is the old dialog, which still
+      // works, rather than a page that will not load.
+      apiFetch<{ items: InviteTeam[] }>('/api/v1/teams?with_automatic=1').catch(() => ({
+        items: [] as InviteTeam[],
+      })),
     ]);
     members = membersRes.items;
     installed = appsRes.items;
+    teams = teamsRes.items;
   } catch (e) {
     if (!error) error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -102,7 +112,9 @@ export default async function MembersPage() {
 
       {error && <ErrorBanner>{t(locale, 'members_load_failed')} {error}</ErrorBanner>}
 
-      {!error && <MembersClient members={members} appSlugs={appSlugs} locale={locale} />}
+      {!error && (
+        <MembersClient members={members} appSlugs={appSlugs} teams={teams} locale={locale} />
+      )}
     </PageContainer>
   );
 }
