@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.108.0] — 2026-10-06 — a settings door you cannot open is no longer offered, and never refuses in silence
+
+Sjoerd, about a real person in a real workspace: Settings → "Apps" and
+Settings → "Members" *"don't respond when clicked: no navigation, no
+message."*
+
+They responded exactly as written. Both pages are admin-only and refused with
+`redirect('/settings')` — the page she was standing on. The browser went from
+/settings to /settings, so nothing moved and nothing was said. Reproduced on
+staging with a throwaway non-admin: asked for /settings/members, landed on
+/settings, heading "Settings". Teams had the same bug; it was never reported
+because nobody clicked it.
+
+Two faults, and both are fixed here:
+
+- **The hub offered doors that could not open.** `platformSettings` had no
+  notion of role, so every hub in the family listed Apps, Members and Teams to
+  everybody — and from Thread, Meet, Flow or Pulse those links hop across
+  apexes, so a non-admin clicking "Members" there landed on The Fibre's
+  settings page, which is worse than nothing happening. All eight hubs now ask
+  before drawing them.
+- **A refusal said nothing.** Reached directly — a bookmark, a pasted link —
+  the three pages now say that managing the workspace is for its admins, and
+  that an admin can grant it or do it for you.
+
+The hub and the page ask the SAME function, `canManageWorkspace` in
+`packages/shared/src/workspace-admin.ts`. A hub that decided what to show by
+different reasoning than the page that refuses is the same bug waiting to come
+back the next time either is edited. It fails CLOSED on facts it could not
+load: an admin loses one reload, rather than everyone being shown a dead
+entry.
+
+**What is deliberately NOT fixed here, because it is a product decision.**
+There are two notions of "admin" in this system and these pages use the
+second: `workspace_member.workspace_role in ('admin','super_admin')` is what
+the API means (see `isWorkspaceAdmin` in routes/connections-tags.ts) and what
+somebody sets when they make a person an admin of a workspace;
+`app_membership.role = 'admin'` on the fibre-platform app is what these pages
+have always checked. They are different fields and can disagree, so a person
+made a workspace admin in the ordinary way can still be refused — which is
+probably why the real person was. `/auth/me` does not currently return the
+workspace role at all. Changing which role owns Settings → Members is with
+Sjoerd; when he answers, `canManageWorkspace`'s body changes and nothing else
+does. That is the whole reason it is a function.
+
 ## [1.107.4] — 2026-10-06 — a migration older than staging's newest is refused before the push (staging)
 
 Tooling only; nothing a person using the apps can see.

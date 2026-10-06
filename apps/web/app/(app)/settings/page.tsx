@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
+import { canManageWorkspace } from '@thefibre/shared';
+import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -16,8 +18,18 @@ import { t } from '@/lib/i18n-ui';
 
 export const metadata = { title: 'Settings · The Fibre' };
 
+type Me = {
+  user: { is_super_admin?: boolean };
+  memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
+};
+
 export default async function SettingsPage() {
   const locale = await uiLocale();
+  // The hub asks the SAME question the admin-only pages ask, so it cannot
+  // offer a door that then refuses. A failed load means "not an admin" —
+  // canManageWorkspace fails closed, costing an admin one reload rather than
+  // showing everyone a dead entry.
+  const me = await apiFetch<Me>('/api/v1/auth/me').catch(() => null);
   const sections = platformSettings({
     locale,
     currentApp: 'fibre-platform',
@@ -43,6 +55,7 @@ export default async function SettingsPage() {
       'profile', 'workspace', 'members', 'teams', 'apps', 'assistant', 'plan',
       'payments', 'connections', 'about', 'privacy',
     ],
+    canManage: canManageWorkspace(me),
   });
 
   return (

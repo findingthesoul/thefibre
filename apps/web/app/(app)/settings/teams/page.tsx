@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { canManageWorkspace } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader, ErrorBanner } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
@@ -24,16 +24,23 @@ export default async function TeamsSettingsPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
-  const explicitAdmin =
-    me?.memberships?.some((m) => {
-      const app = Array.isArray(m.app) ? m.app[0] : m.app;
-      return app?.slug === 'fibre-platform' && m.role === 'admin';
-    }) ?? false;
-  const isWorkspaceAdmin = explicitAdmin || !!me?.user.is_super_admin;
+  const isWorkspaceAdmin = canManageWorkspace(me);
 
   // Same door as Settings → Members: deciding who may open what is an admin
-  // act. The API refuses regardless; this only saves the trip.
-  if (me && !isWorkspaceAdmin) redirect('/settings');
+  // act. The API refuses regardless; this only saves the trip — and now says
+  // so, instead of redirecting to the page the link was clicked from, which
+  // looked exactly like a dead link.
+  if (me && !isWorkspaceAdmin) {
+    return (
+      <PageContainer max="4xl">
+        <PageHeader title="Teams" description="Managing the workspace is for its admins." />
+        <p className="mt-6 text-sm text-ink-subtle">
+          Your account can use this workspace but not change its teams. An admin of this
+          workspace can give you that, or make the change for you.
+        </p>
+      </PageContainer>
+    );
+  }
 
   try {
     const r = await apiFetch<{

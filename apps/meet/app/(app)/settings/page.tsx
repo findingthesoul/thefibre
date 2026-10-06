@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Globe, Clock, CalendarDays, Plug } from 'lucide-react';
 import { appName, appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
+import { canManageWorkspace } from '@thefibre/shared';
+import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -10,7 +12,13 @@ const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
 export default async function SettingsIndex() {
   const locale = await uiLocale();
+  // Same question the admin-only pages ask, so the hub cannot offer a door
+  // that refuses (Sjoerd, 2026-10-06). Fails closed on a failed load.
+  const me = await apiFetch<{ user: { is_super_admin?: boolean }; memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[] }>(
+    '/api/v1/auth/me',
+  ).catch(() => null);
   const sections = platformSettings({
+    canManage: canManageWorkspace(me),
     locale,
     currentApp: 'fibre-meet',
     env: process.env,

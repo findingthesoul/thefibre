@@ -299,6 +299,7 @@ const CANON: Record<
  * `omit` drops entries an app genuinely has no business showing.
  */
 export function platformSettings({
+  canManage,
   currentApp,
   env,
   hosted = [],
@@ -313,14 +314,28 @@ export function platformSettings({
   env?: Record<string, string | undefined>;
   hosted?: PlatformSettingKey[];
   omit?: PlatformSettingKey[];
+  /** May this person manage the workspace? When FALSE, the entries that lead
+   *  to admin-only pages are not drawn at all.
+   *
+   *  Undefined keeps today's behaviour — every entry — so a hub that has not
+   *  been taught to ask is unchanged rather than silently stripped. Each hub
+   *  passes `canManageWorkspace(me)`; the pages behind these entries ask the
+   *  SAME function, so the hub cannot offer a door the page then refuses.
+   *  Sjoerd, 2026-10-06: Apps and Members "don't respond when clicked". */
+  canManage?: boolean | undefined;
   /** This app's own settings, shown between Workspace and The Fibre. */
   appSection?: SettingsSection;
   /** The signed-in interface language (i18n P3) — pass `await uiLocale()`. */
   locale?: Locale;
 }): SettingsSection[] {
+  // Doors that lead to an admin-only page. Listed here rather than guessed
+  // from the section, because `workspace` also holds entries anybody may use.
+  const ADMIN_ONLY: PlatformSettingKey[] = ['members', 'teams', 'apps'];
+  const hidden = canManage === false ? [...omit, ...ADMIN_ONLY] : omit;
+
   const pick = (section: 'you' | 'workspace' | 'platform') =>
     (Object.keys(CANON) as PlatformSettingKey[])
-      .filter((k) => CANON[k].section === section && !omit.includes(k))
+      .filter((k) => CANON[k].section === section && !hidden.includes(k))
       .map((k) => {
         const c = CANON[k];
         const isLocal = hosted.includes(k);

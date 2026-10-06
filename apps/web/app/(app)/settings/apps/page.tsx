@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { APPS, appUrl } from '@thefibre/shared';
+import { canManageWorkspace } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
@@ -106,16 +107,25 @@ export default async function WorkspaceAppsPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
-  const explicitAdmin =
-    me?.memberships?.some((m) => {
-      const app = Array.isArray(m.app) ? m.app[0] : m.app;
-      return app?.slug === 'fibre-platform' && m.role === 'admin';
-    }) ?? false;
-  const isWorkspaceAdmin = explicitAdmin || !!me?.user.is_super_admin;
+  const isWorkspaceAdmin = canManageWorkspace(me);
 
   if (me && !isWorkspaceAdmin) {
-    // Settings → Apps is admin-only. Non-admins go back to Settings.
-    redirect('/settings');
+    // NOT a redirect. It used to `redirect('/settings')`, which is the page
+    // the link was clicked FROM — so the browser went from /settings to
+    // /settings, nothing moved, nothing was said, and the entry looked
+    // broken (Sjoerd, 2026-10-06: Apps and Members "don't respond when
+    // clicked: no navigation, no message"). The hub no longer offers this
+    // door to people who cannot open it; this is what a direct link or an
+    // old bookmark gets, and it says which it is.
+    return (
+      <PageContainer max="4xl">
+        <PageHeader title="Apps" description="Managing the workspace is for its admins." />
+        <p className="mt-6 text-sm text-ink-subtle">
+          Your account can use this workspace but not change who is in it. An admin of this
+          workspace can give you that, or make the change for you.
+        </p>
+      </PageContainer>
+    );
   }
 
   try {
