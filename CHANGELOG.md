@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.110.1] — 2026-10-06 — Models can be granted to somebody, and the next app cannot go missing quietly
+
+Sjoerd, in Festival of Trust, with Models switched on and seven models already
+made in it: the member dialog listed Meet, Thread, Flow, Pulse, Membership and
+Connect, and no Models. The screen whose job is granting apps could not grant
+the app the workspace was using.
+
+Nothing was wrong with activation or with the API. `workspace_app` said Models
+was on, and `grantableSlugs()` asks the catalogue and included it — it filters
+on `status` and `kind`, never on whether an app is still in beta, so the beta
+hypothesis was wrong. The screens then filtered that correct answer through
+`APP_ORDER` in `apps/web/lib/apps.ts`, a hand-written list that had never heard
+of Models. **An app can be activated, granted and in daily use, and still be
+invisible on the screens that manage it.**
+
+The same list feeds the per-app tabs on every contact and organisation, so
+Models could not appear there either — one stale list, three surfaces, and
+only one of them reported.
+
+This is the allow-list rule from v0.14.0, which CLAUDE.md states outright:
+*"Never re-add a slug allow-list… Ask the catalogue."* `routes/members.ts`
+carries a comment saying it WAS this exact bug, with Pulse and Membership
+missing. It was fixed in the API and left in the web layer, where it waited for
+the next app.
+
+So Models is in the list — and, more to the point, `scripts/check-web-app-list.mjs`
+now runs in `pnpm verify` and refuses a release where that file has fallen
+behind the registry, naming the slugs and the screens that would lose them. The
+check was tested by removing an app and watching it fail, rather than by
+watching it pass.
+
+The file stays rather than being deleted: it does a second job the shared
+registry does not, recording which curator sub-resources each app owns on a
+person and an organisation. The check lives in the verify chain and not beside
+the file because `apps/web` has no test script, so a test written there would
+never have run.
+
 ## [1.110.0] — 2026-10-06 — every workspace has an Admins team and an Everyone team, kept true by one writer
 
 First slice of the teams redesign (docs/teams-two-automatic-teams.md, approved

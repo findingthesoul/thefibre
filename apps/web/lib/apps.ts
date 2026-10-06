@@ -12,6 +12,7 @@ export type AppSlug =
   | 'fibre-pulse'
   | 'membership'
   | 'fibre-sales'
+  | 'fibre-models'
   | 'fibre-learn';
 
 export type AppDescriptor = {
@@ -84,6 +85,20 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
     personSubResources: ['relationship', 'billing'],
     orgSubResources: ['relationship', 'billing'],
   },
+  'fibre-models': {
+    slug: 'fibre-models',
+    // Missing from this file until 2026-10-06, which is why Models had no row
+    // in the Members dialog and no tab on any profile even where the
+    // workspace had it switched on and people were using it — Sjoerd had
+    // made seven models in Festival of Trust and still could not grant the
+    // app to anybody. Activation asked the catalogue; these screens asked
+    // this list, and the list had not heard of Models.
+    label: 'Models',
+    // A business model belongs to a team, not to a person or an
+    // organisation, so it curates no profile fields.
+    personSubResources: [],
+    orgSubResources: [],
+  },
   'fibre-learn': {
     slug: 'fibre-learn',
     label: 'Learn',
@@ -100,6 +115,7 @@ export const APP_ORDER: AppSlug[] = [
   'fibre-pulse',
   'membership',
   'fibre-sales',
+  'fibre-models',
   'fibre-learn',
 ];
 
