@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.109.0] — 2026-10-06 — being an admin of the workspace is what lets you manage the workspace
+
+v1.108.0 stopped the settings hub offering doors a person could not open. It
+did not change WHO can open them, and that was the half that locked a real
+person out: she is an admin of her workspace, and Settings → Members refused
+her anyway.
+
+There are two notions of "admin" in this system, and these pages were reading
+the wrong one:
+
+- `workspace_member.workspace_role in ('admin','super_admin')` — what the API
+  means (`isWorkspaceAdmin` in routes/connections-tags.ts), and what somebody
+  sets when they make a person an admin of a workspace.
+- `app_membership.role = 'admin'` on the fibre-platform app — what the
+  settings pages checked, because `GET /auth/me` offered nothing else.
+
+Asked which should own those pages, Sjoerd: *"Workspace admin."* So `/auth/me`
+now returns `workspace_role` for the workspace the token is acting in
+(additive; anything ignoring it is unchanged), and `canManageWorkspace` reads
+it. One function's body changed and nothing else did, which is why it was a
+function.
+
+**A behaviour change, stated plainly rather than discovered.** Somebody who is
+admin of the fibre-platform APP but only an organiser in the workspace LOSES
+Settings → Members, Teams and Apps. That is the correction rather than a side
+effect — holding a role in an app never meant running the workspace — but it
+is a real loss for anyone in that state, and there is a test asserting it so
+nobody quietly conflates the two again.
+
+A platform super admin keeps their own path: they are not a member of every
+workspace and still have to be able to help inside one. The rule continues to
+fail CLOSED — an older API that does not send the field, a failed load, or no
+seat row all mean "not an admin", never "unknown, allow".
+
 ## [1.108.0] — 2026-10-06 — a settings door you cannot open is no longer offered, and never refuses in silence
 
 Sjoerd, about a real person in a real workspace: Settings → "Apps" and

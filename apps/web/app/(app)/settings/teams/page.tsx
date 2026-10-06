@@ -7,6 +7,8 @@ import { TeamsClient, type TeamRow, type GrantableApp } from './teams-client';
 
 type Me = {
   user: { id: string; is_super_admin?: boolean };
+  /** Role in the ACTIVE workspace — what decides who may manage it. */
+  workspace_role?: string | null;
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
 };
 

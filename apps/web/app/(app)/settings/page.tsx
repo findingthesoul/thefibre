@@ -20,6 +20,8 @@ export const metadata = { title: 'Settings · The Fibre' };
 
 type Me = {
   user: { is_super_admin?: boolean };
+  /** Role in the ACTIVE workspace — what decides who may manage it. */
+  workspace_role?: string | null;
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
 };
 

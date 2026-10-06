@@ -20,34 +20,35 @@
 //   decides what to show by different reasoning than the page that refuses is
 //   the bug waiting to come back the next time either is edited.
 //
-// A WARNING ABOUT THE DEFINITION BELOW, which is deliberately today's and not
-// necessarily the right one. There are two notions of "admin" in this system:
+// WHICH DEFINITION, settled. There are two notions of "admin" here:
 //
 //   workspace_member.workspace_role in ('admin','super_admin')  — what the
-//     API means by admin (see isWorkspaceAdmin in routes/connections-tags.ts),
-//     and what somebody sets when they make a person an admin of a workspace.
+//     API means (isWorkspaceAdmin in routes/connections-tags.ts), and what
+//     somebody sets when they make a person an admin of a workspace.
 //
 //   app_membership.role = 'admin' for the fibre-platform app — what these
-//     settings pages have always checked.
+//     settings pages checked until 2026-10-06, because /auth/me offered
+//     nothing else.
 //
-// They are different fields and they can disagree, so a person made a
-// workspace admin in the ordinary way can still be refused here. That is
-// probably why the real person was refused. Changing it is a product decision
-// (which role should own Settings → Members?) and is with Sjoerd; it is NOT
-// bundled into this fix, because hiding the entries and changing who may see
-// them are different changes and only one of them is obviously safe.
+// They are different fields and they disagreed, so a person made a workspace
+// admin in the ordinary way was refused by the settings pages. Asked which
+// should own them, Sjoerd: "Workspace admin." So this reads workspace_role,
+// matching the API, and /auth/me now returns it.
 //
-// When he answers, this function's BODY changes and nothing else does. That
-// is the whole reason it exists.
+// THE BEHAVIOUR CHANGE THIS CARRIES: somebody who is admin of the
+// fibre-platform APP but only an organiser in the workspace loses these
+// pages. That is the point rather than a side effect — their app role never
+// meant they ran the workspace — but it is a real loss for anyone in that
+// state and is called out in the changelog rather than left to be discovered.
 
 /** The slice of GET /auth/me this decision reads. Structural on purpose: the
  *  apps type their own `Me`, and all that matters is these two fields. */
 export type AdminFacts = {
   user: { is_super_admin?: boolean | null };
-  memberships?: {
-    app: { slug: string } | { slug: string }[] | null;
-    role?: string | null;
-  }[];
+  /** The person's role in the ACTIVE workspace, from GET /auth/me. Absent on
+   *  an older API, or null when they hold no seat row — both mean "not an
+   *  admin", never "unknown, allow". */
+  workspace_role?: string | null;
 };
 
 /**
@@ -60,11 +61,8 @@ export type AdminFacts = {
  */
 export function canManageWorkspace(me: AdminFacts | null | undefined): boolean {
   if (!me) return false;
+  // A platform super admin keeps their own path: they are not a member of
+  // every workspace and must still be able to help inside one.
   if (me.user?.is_super_admin) return true;
-  return (
-    me.memberships?.some((m) => {
-      const app = Array.isArray(m.app) ? m.app[0] : m.app;
-      return app?.slug === 'fibre-platform' && m.role === 'admin';
-    }) ?? false
-  );
+  return me.workspace_role === 'admin' || me.workspace_role === 'super_admin';
 }

@@ -19,7 +19,7 @@ export default async function SettingsPage() {
   const locale = await uiLocale();
   // Same question the admin-only pages ask, so the hub cannot offer a door
   // that refuses (Sjoerd, 2026-10-06). Fails closed on a failed load.
-  const me = await apiFetch<{ user: { is_super_admin?: boolean }; memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[] }>(
+  const me = await apiFetch<{ user: { is_super_admin?: boolean }; workspace_role?: string | null }>(
     '/api/v1/auth/me',
   ).catch(() => null);
   const sections = platformSettings({

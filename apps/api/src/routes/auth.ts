@@ -115,7 +115,32 @@ authRoutes.get('/workspaces', async (c) => {
     .eq('auth_user_id', ctx.authUserId)
     .maybeSingle();
 
+  // The person's role IN THE WORKSPACE THIS TOKEN IS ACTING IN — not their
+  // app memberships, which is a different question with a different answer.
+  //
+  // Added 2026-10-06. Settings → Members, Teams and Apps decided who may
+  // manage a workspace by reading `app_membership.role === 'admin'` on the
+  // fibre-platform app, because that was all this endpoint offered. The API
+  // itself has always meant `workspace_member.workspace_role` (see
+  // isWorkspaceAdmin in routes/connections-tags.ts). The two are different
+  // fields and can disagree, so somebody made a workspace admin in the
+  // ordinary way was still refused by the settings pages — which is what
+  // happened to a real person in Festival of Trust. Sjoerd, asked which one
+  // should own those pages: "Workspace admin."
+  //
+  // Null when there is no seat row at all. Callers must treat null as "not an
+  // admin" rather than "unknown, allow" — canManageWorkspace does.
+  const { data: seat } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+
   return c.json({
+    /** This person's role in the ACTIVE workspace: 'admin' | 'super_admin' |
+     *  'organiser' | null. Additive — nothing that ignores it changes. */
+    workspace_role: (seat?.workspace_role as string | undefined) ?? null,
     // The one this token is acting in — not the stored choice. If the two ever
     // disagree, what the token says is what the request will actually do.
     active_workspace_id: ctx.workspaceId,
