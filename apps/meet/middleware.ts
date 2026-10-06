@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSessionMiddleware } from '@thefibre/shared/supabase-session';
+import { tenantHostStep } from '@thefibre/shared/tenant-host';
+import { appUrl, stagingAppUrl } from '@thefibre/shared';
 
 // Keeps a signed-in session alive for server-rendered pages: an access token
 // lasts an hour, and middleware is the one place in Next that can both read
@@ -10,12 +12,32 @@ import { createSessionMiddleware } from '@thefibre/shared/supabase-session';
 // Next requires THIS file at this path per app, and reads `config` statically,
 // so the matcher below has to be a literal here; supabase-session.test.ts
 // holds it against the shared one.
+//
+// First step, before the session: a customer's own host (book.soul.com) for
+// the public booking pages — @thefibre/shared/tenant-host, docs/domain-package.md
+// part 2. On our own hosts it does nothing at all.
+const canonicalOrigin = appUrl('fibre-meet', { NEXT_PUBLIC_MEET_URL: process.env.NEXT_PUBLIC_MEET_URL });
 export const middleware = createSessionMiddleware({
   createClient: (url, key, options) => createServerClient(url, key, options),
   respond: (request: NextRequest) => NextResponse.next({ request }),
   url: process.env.NEXT_PUBLIC_SUPABASE_URL,
   anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   cookieDomain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+  before: tenantHostStep<NextRequest, NextResponse>({
+    app: 'fibre-meet',
+    canonicalOrigin,
+    ownHosts: [new URL(canonicalOrigin).host, new URL(stagingAppUrl('fibre-meet')).host],
+    apiBase: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080',
+    rewrite: (request, pathname, tenant) => {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname;
+      const headers = new Headers(request.headers);
+      headers.set('x-tenant-host', request.nextUrl.host);
+      headers.set('x-tenant-root', tenant.root_slug);
+      return NextResponse.rewrite(url, { request: { headers } });
+    },
+    redirect: (url) => NextResponse.redirect(url, 307),
+  }),
 });
 
 export const config = {

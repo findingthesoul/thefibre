@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.113.3",
+  "version": "1.113.4",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -353,6 +353,10 @@
     "./ui/environment-bar": {
       "types": "./dist/ui/environment-bar.d.ts",
       "default": "./dist/ui/environment-bar.js"
+    },
+    "./tenant-host": {
+      "types": "./dist/tenant-host.d.ts",
+      "default": "./dist/tenant-host.js"
     }
   },
   "files": [

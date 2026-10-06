@@ -13,6 +13,23 @@ describe('isTenantOrigin', () => {
     expect(isTenantOrigin('https://evil.example', now)).toBe(false);
     expect(isTenantOrigin('http://book.soul.com', now)).toBe(false);
   });
+
+  it('matches the exact origin only — no suffix, prefix or sub-host trap', () => {
+    const now = 2_000_000;
+    _setTenantOrigins(['https://book.soul.com'], now);
+    for (const o of [
+      'https://book.soul.com.evil.example', // our host as a prefix of theirs
+      'https://evil-book.soul.com', // ours as a suffix
+      'https://xbook.soul.com',
+      'https://sub.book.soul.com',
+      'https://book.soul.com:8443',
+      'https://soul.com',
+      'https://BOOK.SOUL.COM',
+    ]) {
+      expect(isTenantOrigin(o, now), o).toBe(false);
+    }
+    expect(isTenantOrigin('https://book.soul.com', now)).toBe(true);
+  });
 });
 
 describe('webRowPatchFromVercel', () => {

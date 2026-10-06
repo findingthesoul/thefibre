@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.4] — 2026-10-06 — the domain package, part 2 release 2: a customer host serves the public pages (staging)
+
+The apps now act on a registered web address (`docs/domain-package.md`
+part 2). Nothing changes for a request on our own hosts — old links keep
+working, untouched, forever.
+
+- **`@thefibre/shared/tenant-host`** — one rule for both apps: a request on a
+  host that is not ours asks the API what it serves (verified hosts only,
+  cached a minute each way, negative answers too; an API hiccup never
+  becomes an error page). For a verified tenant host: framework and
+  everyone-paths (`/_next`, `/api`, `/embed`, `/certificate`, …) pass;
+  signed-in and sign-in paths (`/my`, `/auth`, `/sso`, `/dashboard`,
+  `/settings`, `/invite`, …) 307 to the app's own origin, because the
+  session cookie lives on our apex and a sign-in on a foreign host silently
+  fails; a path already under the owner's root passes (the apps link
+  relatively with the segment); everything else is rewritten under the
+  owner's root — `book.soul.com/` is the owner page, `/intro` the booking
+  flow. The request carries `x-tenant-host` and `x-tenant-root` for later
+  polish. 14 unit cases.
+- `createSessionMiddleware` gains an optional `before` step; Meet's and
+  Thread's `middleware.ts` pass the tenant step, nothing else changes there
+  (the matcher test still holds them to the shared literal).
+- **Hourly re-check** (`lib/web-domain-recheck.ts`, leased in the
+  scheduler): every verified web host not checked in the last hour is read
+  back from Vercel; when the customer's DNS no longer points at us, or the
+  host is gone from the project, the row is demoted to pending — out of the
+  CORS allow-list within the minute and out of the middleware's answer at
+  once. The API authenticates from the Authorization header only, so a
+  re-pointed host could do nothing with credentialed CORS anyway; now it is
+  not allowed either. No-op without a Vercel token.
+- `tenant-origins` suffix-trap test: our host as a prefix or suffix of
+  theirs, a sub-host, a port, a case change — none is allowed.
+
+Verified: `pnpm verify` green. Not verified: a request on a real customer
+host (no `VERCEL_API_TOKEN` on Fly yet; the staging twin is release 4),
+production.
+
 ## [1.113.3] — 2026-10-06 — the domain package, part 2 release 1: a workspace registers its own web address (staging)
 
 The second half of `docs/domain-package.md` begins — the spec addendum is in

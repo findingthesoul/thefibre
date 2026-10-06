@@ -53,6 +53,7 @@ import { workspaceDomainRoutes } from './routes/workspace-domain.js';
 import { adminEmailDomainsRoutes } from './routes/admin-email-domains.js';
 import { publicDomainsRoutes } from './routes/public-domains.js';
 import { isTenantOrigin } from './lib/tenant-origins.js';
+import { runWebDomainRecheck } from './lib/web-domain-recheck.js';
 import { publicPlansRoutes } from './routes/public-plans.js';
 import { billingRoutes } from './routes/billing.js';
 import { adminEconomicsRoutes } from './routes/admin-economics.js';
@@ -393,6 +394,10 @@ function runAllSchedulers() {
   // processes in a blue-green window could both pass it, both probe Stripe
   // and both mail the operator the same change.
   leased('vat-sync', maybeSyncVatRates, 'vat-sync');
+  // A customer's own web host stays in the CORS allow-list only while its
+  // DNS still points at us: re-read from Vercel hourly, demote otherwise
+  // (docs/domain-package.md part 2). No-op without a Vercel token.
+  leased('web-domains', runWebDomainRecheck, 'domains/recheck');
   // Booking requests that were never answered: the earlier of 48h or their
   // own start time, then they expire and give the slot back. The counterpart
   // to the hold in v1.111.0 — without this, one unanswered request parks a

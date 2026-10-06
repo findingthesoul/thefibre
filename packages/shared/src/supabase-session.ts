@@ -201,11 +201,25 @@ export function createSessionMiddleware<Req extends MiddlewareRequest, Res exten
       options: ServerClientOptions,
     ) => { auth: { getUser(): Promise<unknown> } };
     respond: (request: Req) => Res;
+    /**
+     * Runs FIRST, before any session work. Returns `{ final }` to answer at
+     * once (a redirect), `{ respond }` to replace how the response is built
+     * for this request (a rewrite — the session cookies still ride on it),
+     * or null to change nothing. Used for a customer's own host
+     * (`@thefibre/shared/tenant-host`, docs/domain-package.md part 2).
+     */
+    before?: (request: Req) => Promise<{ final: Res } | { respond: (request: Req) => Res } | null>;
   },
 ): (request: Req) => Promise<Res> {
   const domain = deps.cookieDomain || undefined;
   return async function middleware(request: Req) {
-    let response = deps.respond(request);
+    let respond = deps.respond;
+    if (deps.before) {
+      const pre = await deps.before(request);
+      if (pre && 'final' in pre) return pre.final;
+      if (pre && 'respond' in pre) respond = pre.respond;
+    }
+    let response = respond(request);
     // A build with no Supabase configured (CI, a preview without env) still
     // serves pages; there is simply no session to keep alive.
     if (!deps.url || !deps.anonKey) return response;
@@ -218,7 +232,7 @@ export function createSessionMiddleware<Req extends MiddlewareRequest, Res exten
           // Both halves matter: the request copy so the rest of this pass
           // sees the new token, the response copy so the browser keeps it.
           for (const { name, value } of toSet) request.cookies.set(name, value);
-          response = deps.respond(request);
+          response = respond(request);
           for (const { name, value, options } of toSet) {
             response.cookies.set(name, value, sessionCookie(options, domain));
           }
