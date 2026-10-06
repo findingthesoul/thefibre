@@ -23,6 +23,7 @@ export const HOSTS = {
    *  with an address some community knows, which is why the directory switch
    *  lives here and not in the Members app. */
   my: 'https://my.thefibre.tech',
+  models: 'https://models.thefibre.tech',
 };
 
 let cached: SupabaseClient | null = null;
