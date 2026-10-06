@@ -5001,7 +5001,10 @@ meetRoutes.get('/teams', async (c) => {
   const db = userClient(ctx.jwt);
   const { data: memberships, error } = await db
     .from('team_member')
-    .select('role, team:team_id (id, slug, name, description, is_active, created_at)')
+    // `automatic` comes back so the two automatic teams can be dropped below.
+    // They cannot be filtered in the query here: this reads team_member and
+    // the team is an embedded join, so the filter has to happen after.
+    .select('role, team:team_id (id, slug, name, description, is_active, created_at, automatic)')
     .eq('user_id', ctx.userId)
     .eq('status', 'active');
   if (error) {
@@ -5016,7 +5019,13 @@ meetRoutes.get('/teams', async (c) => {
   const items = (memberships ?? [])
     .map((m) => {
       const t = Array.isArray(m.team) ? m.team[0] : m.team;
-      return t ? { ...t, my_role: m.role } : null;
+      // Hidden until the slice that gives them a screen explaining what they
+      // are: everybody is in Everyone, so without this every person in every
+      // workspace would suddenly see two teams they did not make, in a list
+      // meant for teams they chose to be part of.
+      if (!t || (t as { automatic?: string | null }).automatic) return null;
+      const { automatic: _automatic, ...rest } = t as Record<string, unknown>;
+      return { ...rest, my_role: m.role };
     })
     .filter((x): x is NonNullable<typeof x> => !!x);
   return c.json({ items });

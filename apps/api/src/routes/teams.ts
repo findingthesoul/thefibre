@@ -107,6 +107,13 @@ teamsRoutes.get('/', async (c) => {
     .select(
       'id, name, slug, description, is_active, is_published, created_at, members:team_member (user_id, status)',
     )
+      // The two automatic teams are hidden here until the slice that gives
+      // them a screen explaining what they are (docs/teams-two-automatic-teams.md).
+      // Until then they would appear as ordinary teams you can file work
+      // under, in workspaces where nobody created them — and Admins' member
+      // list looks editable while being a mirror, so an edit would be
+      // silently undone by the next sync. Slice 1 stays inert on purpose.
+    .is('automatic', null)
     .order('name', { ascending: true });
   if (error) {
     console.error('[teams] list', error);

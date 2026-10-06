@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.112.2] — 2026-10-06 — the automatic teams stay out of sight until there is a screen that explains them
+
+Guard (b) for the teams work, and the second half of what makes slice 1 safe
+to put on production on its own.
+
+Admins and Everyone are created the moment a workspace's membership changes.
+Without this they would appear in every list a person picks a team from —
+Thread's, Meet's, Models' and the Teams page in The Fibre — as ordinary teams
+you can file a model or a thread under, in workspaces where nobody created
+them and no screen says what they are. Worse on the Teams page: Admins' member
+list looks editable while being a mirror of the workspace's admins, so an edit
+would be silently undone by the next sync.
+
+So they are hidden from those four lists until the slice that gives them a
+screen. The teams exist, the membership stays true, and nothing in the product
+shows them. Slice 1 is inert on purpose.
+
+Meet is filtered after its query rather than inside it: that list reads
+`team_member` with the team as an embedded join, so the filter cannot be a
+`.is()` on the outer table.
+
+The test asserts both halves, and the second is the one that matters: an
+ordinary team is still listed. A filter that hid everything would satisfy "the
+automatic ones are hidden" while quietly emptying every team picker in the
+product.
+
 ## [1.112.1] — 2026-10-06 — the domain package, release 2: the API registers and checks a sender domain (staging)
 
 The second slice of `docs/domain-package.md`. Still nothing a workspace

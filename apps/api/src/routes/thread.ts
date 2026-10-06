@@ -1802,6 +1802,13 @@ threadRoutes.get('/teams', async (c) => {
     .select('id, name, slug')
     .eq('workspace_id', ctx.workspaceId)
     .eq('is_active', true)
+      // The two automatic teams are hidden here until the slice that gives
+      // them a screen explaining what they are (docs/teams-two-automatic-teams.md).
+      // Until then they would appear as ordinary teams you can file work
+      // under, in workspaces where nobody created them — and Admins' member
+      // list looks editable while being a mirror, so an edit would be
+      // silently undone by the next sync. Slice 1 stays inert on purpose.
+      .is('automatic', null)
     .order('name');
   if (error) return c.json({ error: error.message }, 500);
   let items = data ?? [];

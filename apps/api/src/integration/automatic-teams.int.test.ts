@@ -153,6 +153,46 @@ describe('automatic teams', () => {
     expect(after).toEqual([]);
   });
 
+  // Guard (b): slice 1 must be INERT until the slice that explains these
+  // teams. The second half of each assertion is the one that matters — a
+  // filter that hid everything would satisfy "the automatic ones are hidden"
+  // while emptying every team picker in the product.
+  it('the automatic teams are hidden from the lists people pick from', async () => {
+    await ensureAutomaticTeams(ws);
+    const ordinary = (
+      await service
+        .from('team')
+        .insert({
+          workspace_id: ws,
+          name: 'A real team',
+          slug: `int-real-${randomUUID().slice(0, 8)}`,
+          is_active: true,
+        })
+        .select('id')
+        .single()
+    ).data!.id as string;
+
+    // The shape each picker's query produces: active teams in this workspace
+    // that are not automatic.
+    const { data: shown } = await service
+      .from('team')
+      .select('id, automatic')
+      .eq('workspace_id', ws)
+      .eq('is_active', true)
+      .is('automatic', null);
+    const ids = (shown ?? []).map((t) => t.id as string);
+
+    expect(ids).toContain(ordinary);
+    const { data: autos } = await service
+      .from('team')
+      .select('id')
+      .eq('workspace_id', ws)
+      .not('automatic', 'is', null);
+    for (const a of autos ?? []) expect(ids).not.toContain(a.id as string);
+
+    await service.from('team').delete().eq('id', ordinary);
+  });
+
   it('refuses to delete an automatic team', async () => {
     const { data: team } = await service
       .from('team')
