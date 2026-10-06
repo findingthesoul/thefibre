@@ -47,7 +47,14 @@ address takes effect on every send — nothing else to flip.
 - **The gate on the send path.** `getWorkspaceBrand()` returns
   `fromAddress` only when a `workspace_domain` row of kind `email` is
   `verified` and matches the address's domain. The fallback in
-  `lib/email/client.ts` stays as the second net.
+  `lib/email/client.ts` stays as the second net. One exception, for the
+  workspaces that typed an address BEFORE this page existed and were
+  verified by hand in the Resend dashboard (festival-of-trust, the default
+  workspace, soul.com on production): a workspace with NO domain row keeps
+  the old behaviour — the address is tried, Resend decides. `POST
+  /api/v1/admin/email-domains/adopt` (super admin) turns the provider's
+  verified domains into rows for the workspaces sending from them; after
+  that the one rule applies to everyone.
 - **One sender helper.** `workspaceSender(workspaceId)` in
   `lib/workspace-brand.ts` returns `{fromName, fromAddress?, replyTo?}`;
   the five copies of that logic (Meet's `meetSender`, Thread's

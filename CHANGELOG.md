@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.112.1] — 2026-10-06 — the domain package, release 2: the API registers and checks a sender domain (staging)
+
+The second slice of `docs/domain-package.md`. Still nothing a workspace
+admin can click — that is release 3, the settings page — but every piece the
+page will call exists, and the send path already obeys the rule.
+
+- **`workspace_domain`** (migration `20261006133542`): a domain a workspace
+  has claimed, `kind` email (sender, Resend) or web (public pages, Vercel —
+  part 2 adds no table). One row per `(kind, host)`, so the second workspace
+  to claim a domain is refused rather than quietly sharing a sender. The
+  provider's answer — the DNS records to add, each with its own status — is
+  stored as given, never typed by hand. Service-role only; the API is the
+  door.
+- **`/api/v1/workspace-domain`** — `GET` the row and what the plan allows;
+  `POST /email {domain}` registers it with Resend (EU region) using the
+  server's key and stores the records; `POST /email/check` asks Resend to
+  verify (asynchronous on their side) and stores the per-record verdict;
+  `DELETE /email` removes both. Admin-or-above; the plan has to carry
+  `custom_sender_domain` (402 with the plan named, as everywhere). Resend's
+  "registered already" — a domain sitting in another Resend account, which is
+  soul.com's state — comes back as one plain sentence: it needs us, nothing
+  they add in DNS can change it.
+- **The rule on the send path.** `getWorkspaceBrand()` now hands out the
+  sender address only when the workspace's email domain for it is
+  `verified`; an unverified one means the platform address with the
+  workspace's name, without asking Resend and being refused on every mail.
+  A workspace with no domain row at all keeps the old behaviour (the address
+  is tried, client.ts falls back) — that is the workspaces verified by hand
+  in the dashboard before there were rows. Every one of the 34 send paths
+  that read the brand gets this for free.
+- **`workspaceSender(workspaceId)`** — the `{fromName, fromAddress?,
+  replyTo?}` spread that existed in five copies, once. Release 4 points the
+  copies and the eight paths that had none at it.
+- **`/api/v1/admin/email-domains`** (super admin) lists what the Resend
+  account behind this stack's key holds — names and statuses, never a
+  record or a key. Run on staging and production, it answers whether the two
+  keys are one team and where soul.com sits. `POST …/adopt` turns the
+  provider's verified domains into rows for the workspaces sending from them.
+- `lib/resend-domains.ts`: the four Resend Domains calls, transport injected,
+  nine unit cases; `lib/workspace-domain.ts`: the pure rules (what is a
+  domain, what is stored, how a DNS name is shown), eleven unit cases.
+
+Verified: `pnpm verify` green; migration applied to STAGING in the slot;
+after the staging API deploy, the admin list route read on STAGING. Not
+verified: a real verification round-trip (needs a domain whose DNS we can
+edit — release 3's staging test), and production (nothing promoted).
+
 ## [1.112.0] — 2026-10-06 — a request that is never answered lets go
 
 The release before this one made a booking request **hold** its slot, which

@@ -49,6 +49,8 @@ import { workspaceBillingRoutes } from './routes/workspace-billing.js';
 import { workspaceBrandRoutes } from './routes/workspace-brand.js';
 import { planRoutes } from './routes/plan.js';
 import { adminPlansRoutes } from './routes/admin-plans.js';
+import { workspaceDomainRoutes } from './routes/workspace-domain.js';
+import { adminEmailDomainsRoutes } from './routes/admin-email-domains.js';
 import { publicPlansRoutes } from './routes/public-plans.js';
 import { billingRoutes } from './routes/billing.js';
 import { adminEconomicsRoutes } from './routes/admin-economics.js';
@@ -318,8 +320,12 @@ v1.route('/workspace-brand', workspaceBrandRoutes);
 // The same handler under the name the screen actually has. /workspace-brand
 // stays because The Thread's settings page is written against it.
 v1.route('/workspace', workspaceBrandRoutes);
+// The workspace's own domains — sender domain now, web address later
+// (docs/domain-package.md). Its own file: it talks to a provider.
+v1.route('/workspace-domain', workspaceDomainRoutes);
 v1.route('/plan', planRoutes);
 v1.route('/admin/plans', adminPlansRoutes);
+v1.route('/admin/email-domains', adminEmailDomainsRoutes);
 v1.route('/public/plans', publicPlansRoutes);
 v1.route('/billing', billingRoutes);
 v1.route('/admin/economics', adminEconomicsRoutes);

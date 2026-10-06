@@ -15,7 +15,9 @@
 // a distinction that matters, or clearing a note would silently restore the
 // default.
 
+import { ENTITY } from '@thefibre/shared';
 import { adminClient } from '../db.js';
+import { senderDomainState } from './workspace-domain.js';
 
 export type WorkspaceBrand = {
   /** Replaces the platform wordmark at the top of the email. */
@@ -67,12 +69,44 @@ export async function getWorkspaceBrand(workspaceId: string): Promise<WorkspaceB
     if (error) console.warn('[workspace-brand] read failed', error.message);
     return EMPTY;
   }
+  // The address only once its domain is verified (docs/domain-package.md).
+  // Three states: the workspace has a verified email domain for it → send
+  // from it; has an UNVERIFIED one → not yet, the platform address goes out
+  // with the workspace's name and Resend is not asked and refused on every
+  // mail; has NO domain row at all → the behaviour before the domain page
+  // existed: the address is tried and client.ts falls back if refused. That
+  // last case is the workspaces verified by hand in the Resend dashboard
+  // before there were rows; the admin `adopt` route turns them into rows.
+  // A failed lookup must not block a send: it counts as "no row".
+  const typed = data.email_from_address ?? null;
+  const state = typed ? await senderDomainState(workspaceId, typed).catch(() => null) : null;
   return {
     logoUrl: data.brand_logo_url ?? null,
     fromName: data.email_from_name ?? legacy?.email_from_name ?? null,
-    fromAddress: data.email_from_address ?? null,
+    fromAddress: state === 'unverified' ? null : typed,
     replyTo: data.email_reply_to ?? null,
     note: data.enrolment_note ?? legacy?.email_footer_note ?? null,
+  };
+}
+
+/**
+ * Who a workspace's mail comes FROM — the three fields `sendEmail` takes,
+ * resolved once. The workspace's name when it has one, else the platform's
+ * public name — never whatever EMAIL_FROM happens to say (Sjoerd,
+ * 2026-09-15); the address only when its domain is verified (above); the
+ * reply-to when set. Five copies of this spread existed on 2026-10-06
+ * (Meet, Thread, receipts, Membership ×5, the sign-in code); each becomes
+ * `...(await workspaceSender(id))`, so the next rule lands in one place.
+ */
+export async function workspaceSender(
+  workspaceId: string | null | undefined,
+): Promise<{ fromName: string; fromAddress?: string; replyTo?: string }> {
+  if (!workspaceId) return { fromName: ENTITY.publicName };
+  const b = await getWorkspaceBrand(workspaceId);
+  return {
+    fromName: b.fromName ?? ENTITY.publicName,
+    ...(b.fromAddress ? { fromAddress: b.fromAddress } : {}),
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
   };
 }
 
