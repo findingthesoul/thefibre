@@ -12,7 +12,7 @@
 // reply-to themselves still live on the workspace row (PATCH /workspace);
 // the settings page saves both halves, this file owns the domain.
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
@@ -23,9 +23,16 @@ import {
   emailDomainOf,
   fullRecordName,
   normaliseHost,
+  rootBelongsToWorkspace,
   rowPatchFromResend,
+  webDomainsOf,
+  webRowPatchFromVercel,
+  type WebApp,
   type WorkspaceDomainRow,
 } from '../lib/workspace-domain.js';
+import { plainVercelError, vercelDomains, vercelProjectFor } from '../lib/vercel-domains.js';
+import { _setTenantOrigins } from '../lib/tenant-origins.js';
+import { verifiedWebOrigins } from '../lib/workspace-domain.js';
 
 export const workspaceDomainRoutes = new Hono();
 
@@ -53,27 +60,178 @@ function view(r: WorkspaceDomainRow | null) {
     verified_at: r.verified_at,
     checked_at: r.checked_at,
     created_at: r.created_at,
+    app: r.app,
+    root_slug: r.root_slug,
     records: (r.records ?? []).map((rec) => ({
       ...rec,
-      full_name: fullRecordName(rec.name, r.host),
+      // A web row's CNAME name IS the host; an email row's names are relative.
+      full_name: r.kind === 'web' ? rec.name : fullRecordName(rec.name, r.host),
     })),
   };
 }
 
 workspaceDomainRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
-  const [email, allowed] = await Promise.all([
+  const [email, web, allowed, allowedWeb] = await Promise.all([
     emailDomainOf(ctx.workspaceId),
+    webDomainsOf(ctx.workspaceId),
     can(ctx.workspaceId, 'custom_sender_domain'),
+    can(ctx.workspaceId, 'custom_domain'),
   ]);
   return c.json({
     email: view(email),
+    web: web.map((r) => view(r)),
     // What the page may offer: a workspace below Pro sees the explanation
     // and the plan link, not a form that 402s on submit.
     can_sender_domain: allowed,
-    can_web_domain: await can(ctx.workspaceId, 'custom_domain'),
+    can_web_domain: allowedWeb,
     provider_configured: resendDomains() !== null,
+    web_provider_configured: vercelDomains() !== null,
   });
+});
+
+// ── web hosts (part 2) ──────────────────────────────────────────────────────
+
+const WebBody = z.object({
+  host: z.string().min(3).max(253),
+  app: z.enum(['fibre-meet', 'the-thread']),
+  root_slug: z.string().min(1).max(80),
+});
+
+async function webGate(c: Context) {
+  const ctx = c.get('ctx');
+  if (!(await isAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json({ error: 'only a workspace admin can set up its web address' }, 403);
+  }
+  if (!(await can(ctx.workspaceId, 'custom_domain'))) {
+    const plan = await planFor(ctx.workspaceId);
+    return c.json({ error: needsPlan('Your own web address for the public pages', 'Enterprise'), plan: plan.name }, 402);
+  }
+  return null;
+}
+
+/** After any status change: the CORS allow-list must follow at once, not in
+ *  a minute — the admin presses Check and then opens the page. */
+async function refreshTenantOrigins(): Promise<void> {
+  try {
+    _setTenantOrigins(await verifiedWebOrigins());
+  } catch (e) {
+    console.warn('[workspace-domain] tenant origins refresh failed', e instanceof Error ? e.message : e);
+  }
+}
+
+workspaceDomainRoutes.post('/web', async (c) => {
+  const refused = await webGate(c);
+  if (refused) return refused;
+  const ctx = c.get('ctx');
+  const body = WebBody.safeParse(await c.req.json().catch(() => null));
+  const host = body.success ? normaliseHost(body.data.host) : null;
+  if (!body.success || !host) {
+    return c.json({ error: 'Enter a host like book.yourdomain.com, which app it shows, and the page it opens on.' }, 400);
+  }
+  const app: WebApp = body.data.app;
+  const root = body.data.root_slug.trim().toLowerCase();
+  if (!(await rootBelongsToWorkspace(app, ctx.workspaceId, root))) {
+    return c.json({ error: `"${root}" is not a page of this workspace in that app. Use the slug after the / on its public page.` }, 400);
+  }
+  const project = vercelProjectFor(app);
+  const provider = vercelDomains();
+  if (!provider || !project) return c.json({ error: 'Web hosting is not configured on this server.' }, 503);
+
+  const taken = row(
+    'workspace_domain taken?',
+    await adminClient.from('workspace_domain').select('workspace_id').eq('kind', 'web').eq('host', host).maybeSingle(),
+  ) as { workspace_id: string } | null;
+  if (taken) {
+    return c.json(
+      { error: taken.workspace_id === ctx.workspaceId ? 'This workspace already has that web address.' : 'Another workspace on this platform already uses this web address.' },
+      409,
+    );
+  }
+
+  let added;
+  try {
+    added = await provider.add(project, host);
+  } catch (e) {
+    console.warn('[workspace-domain] vercel add refused', host, e instanceof Error ? e.message : e);
+    const { status, error } = plainVercelError(e);
+    return c.json({ error }, status);
+  }
+  const cfg = await provider.config(host).catch(() => null);
+  const patch = webRowPatchFromVercel(host, added, cfg);
+  const { data, error } = await adminClient
+    .from('workspace_domain')
+    .insert({ workspace_id: ctx.workspaceId, kind: 'web', host, provider: 'vercel', app, root_slug: root, ...patch })
+    .select('*')
+    .single();
+  if (error) {
+    console.error('[workspace-domain] web insert failed', error);
+    await provider.remove(project, host).catch(() => undefined);
+    return c.json({ error: error.message }, 500);
+  }
+  await refreshTenantOrigins();
+  return c.json({ web: view(data as WorkspaceDomainRow) }, 201);
+});
+
+const WebHost = z.object({ host: z.string().min(3).max(253) });
+
+workspaceDomainRoutes.post('/web/check', async (c) => {
+  const refused = await webGate(c);
+  if (refused) return refused;
+  const ctx = c.get('ctx');
+  const body = WebHost.safeParse(await c.req.json().catch(() => null));
+  const host = body.success ? normaliseHost(body.data.host) : null;
+  const existing = host ? (await webDomainsOf(ctx.workspaceId)).find((r) => r.host === host) : undefined;
+  if (!existing?.app) return c.json({ error: 'No such web address on this workspace.' }, 404);
+  const project = vercelProjectFor(existing.app);
+  const provider = vercelDomains();
+  if (!provider || !project) return c.json({ error: 'Web hosting is not configured on this server.' }, 503);
+  try {
+    let d = await provider.get(project, existing.host);
+    // Ownership not yet proved: ask Vercel to look at the TXT again.
+    if (!d.verified) d = await provider.verify(project, existing.host).catch(() => d);
+    const cfg = await provider.config(existing.host).catch(() => null);
+    const patch = webRowPatchFromVercel(existing.host, d, cfg);
+    if (existing.verified_at) delete (patch as { verified_at?: string }).verified_at;
+    const { data, error } = await adminClient.from('workspace_domain').update(patch).eq('id', existing.id).select('*').single();
+    if (error) {
+      console.error('[workspace-domain] web check update failed', error);
+      return c.json({ error: error.message }, 500);
+    }
+    await refreshTenantOrigins();
+    return c.json({ web: view(data as WorkspaceDomainRow) });
+  } catch (e) {
+    console.warn('[workspace-domain] vercel check refused', existing.host, e instanceof Error ? e.message : e);
+    const { status, error } = plainVercelError(e);
+    return c.json({ error }, status);
+  }
+});
+
+workspaceDomainRoutes.delete('/web', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json({ error: 'only a workspace admin can remove its web address' }, 403);
+  }
+  const body = WebHost.safeParse(await c.req.json().catch(() => null));
+  const host = body.success ? normaliseHost(body.data.host) : null;
+  const existing = host ? (await webDomainsOf(ctx.workspaceId)).find((r) => r.host === host) : undefined;
+  if (!existing) return c.json({ ok: true, unchanged: true });
+  const provider = vercelDomains();
+  const project = existing.app ? vercelProjectFor(existing.app) : null;
+  if (provider && project) {
+    try {
+      await provider.remove(project, existing.host);
+    } catch (e) {
+      console.warn('[workspace-domain] vercel delete', existing.host, e instanceof Error ? e.message : e);
+    }
+  }
+  const { error } = await adminClient.from('workspace_domain').delete().eq('id', existing.id);
+  if (error) {
+    console.error('[workspace-domain] web delete failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  await refreshTenantOrigins();
+  return c.json({ ok: true });
 });
 
 const EmailBody = z.object({ domain: z.string().min(3).max(253) });

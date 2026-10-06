@@ -1237,6 +1237,69 @@ const CATALOG = {
     de: 'Dein Plan umfasst das Hosten der Buchungs- und Veranstaltungsseiten unter deiner eigenen Adresse (book.deinedomain.de). Diese Hälfte des Pakets wird gebaut und erscheint hier.', // MT
     fr: 'Ton forfait inclut l’hébergement des pages de réservation et d’événements sur ta propre adresse (book.tondomaine.com). Cette moitié du forfait est en construction ; elle apparaîtra ici.', // MT
   },
+  domain_web_intro: {
+    en: 'Your booking or event pages on an address of your own, e.g. book.yourdomain.com. Pick what it shows, type the host, add the record we give you. Your existing links keep working.',
+    nl: 'Je boekings- of evenementpagina’s op een eigen adres, bijv. boek.jouwdomein.nl. Kies wat het toont, typ de hostnaam, voeg het record toe dat wij geven. Je bestaande links blijven werken.',
+    es: 'Tus páginas de reservas o eventos en una dirección propia, p. ej. reservas.tudominio.com. Elige qué muestra, escribe el host y añade el registro que te damos. Tus enlaces actuales siguen funcionando.', // MT
+    pt: 'Suas páginas de reservas ou eventos em um endereço próprio, ex. agenda.seudominio.com. Escolha o que mostra, digite o host e adicione o registro que fornecemos. Seus links atuais continuam funcionando.', // MT
+    de: 'Deine Buchungs- oder Veranstaltungsseiten unter einer eigenen Adresse, z. B. buchen.deinedomain.de. Wähle, was sie zeigt, gib den Host ein, lege den Eintrag an, den wir dir geben. Bestehende Links funktionieren weiter.', // MT
+    fr: 'Tes pages de réservation ou d’événements sur une adresse à toi, ex. reservation.tondomaine.com. Choisis ce qu’elle affiche, saisis l’hôte, ajoute l’enregistrement fourni. Tes liens existants continuent de fonctionner.', // MT
+  },
+  domain_web_app: { en: 'What it shows', nl: 'Wat het toont', es: 'Qué muestra', pt: 'O que mostra', de: 'Was sie zeigt', fr: 'Ce qu’elle affiche' }, // MT es/pt/de/fr
+  domain_web_app_meet: { en: 'Booking pages (Meet)', nl: 'Boekingspagina’s (Meet)', es: 'Páginas de reservas (Meet)', pt: 'Páginas de reservas (Meet)', de: 'Buchungsseiten (Meet)', fr: 'Pages de réservation (Meet)' }, // MT es/pt/de/fr
+  domain_web_app_thread: { en: 'Event pages (The Thread)', nl: 'Evenementpagina’s (The Thread)', es: 'Páginas de eventos (The Thread)', pt: 'Páginas de eventos (The Thread)', de: 'Veranstaltungsseiten (The Thread)', fr: 'Pages d’événements (The Thread)' }, // MT es/pt/de/fr
+  domain_web_root: { en: 'Page it opens on', nl: 'Pagina waarop het opent', es: 'Página en la que abre', pt: 'Página em que abre', de: 'Seite, auf der sie öffnet', fr: 'Page d’ouverture' }, // MT es/pt/de/fr
+  domain_web_root_hint: {
+    en: 'The slug after the / on that public page: a host or team in Meet, a workspace, organiser or team in The Thread.',
+    nl: 'De slug na de / op die openbare pagina: een host of team in Meet, een werkruimte, organisator of team in The Thread.',
+    es: 'El slug después de la / en esa página pública: un host o equipo en Meet; un espacio, organizador o equipo en The Thread.', // MT
+    pt: 'O slug depois da / nessa página pública: um host ou equipe no Meet; um workspace, organizador ou equipe no The Thread.', // MT
+    de: 'Der Slug nach dem / auf dieser öffentlichen Seite: ein Host oder Team in Meet; ein Workspace, Organisator oder Team in The Thread.', // MT
+    fr: 'Le slug après la / sur cette page publique : un hôte ou une équipe dans Meet ; un espace, un organisateur ou une équipe dans The Thread.', // MT
+  },
+  domain_web_host: { en: 'Web address', nl: 'Webadres', es: 'Dirección web', pt: 'Endereço web', de: 'Webadresse', fr: 'Adresse web' }, // MT es/pt/de/fr
+  domain_web_host_hint: {
+    en: 'A subdomain of a domain you own, like book.yourdomain.com. Not the bare domain: your website stays where it is.',
+    nl: 'Een subdomein van een domein dat je bezit, zoals boek.jouwdomein.nl. Niet het blote domein: je website blijft waar hij is.',
+    es: 'Un subdominio de un dominio tuyo, como reservas.tudominio.com. No el dominio raíz: tu web se queda donde está.', // MT
+    pt: 'Um subdomínio de um domínio seu, como agenda.seudominio.com. Não o domínio raiz: seu site fica onde está.', // MT
+    de: 'Eine Subdomain einer Domain, die dir gehört, wie buchen.deinedomain.de. Nicht die nackte Domain: deine Website bleibt, wo sie ist.', // MT
+    fr: 'Un sous-domaine d’un domaine à toi, comme reservation.tondomaine.com. Pas le domaine nu : ton site reste où il est.', // MT
+  },
+  domain_web_register: { en: 'Register web address', nl: 'Webadres aanmelden', es: 'Registrar dirección web', pt: 'Registrar endereço web', de: 'Webadresse anmelden', fr: 'Enregistrer l’adresse web' }, // MT es/pt/de/fr
+  domain_web_needs_both: { en: 'Enter the web address and the page it opens on.', nl: 'Vul het webadres en de pagina in.', es: 'Indica la dirección web y la página.', pt: 'Informe o endereço web e a página.', de: 'Gib die Webadresse und die Seite an.', fr: 'Indique l’adresse web et la page.' }, // MT es/pt/de/fr
+  domain_web_remove_confirm: {
+    en: 'Remove this web address? Visitors to it will see nothing until it is registered again; our own address keeps working.',
+    nl: 'Dit webadres verwijderen? Bezoekers zien er niets meer tot je het opnieuw aanmeldt; ons eigen adres blijft werken.',
+    es: '¿Quitar esta dirección web? Quien la visite no verá nada hasta que la registres de nuevo; nuestra dirección sigue funcionando.', // MT
+    pt: 'Remover este endereço web? Quem o visitar não verá nada até registrá-lo novamente; nosso endereço continua funcionando.', // MT
+    de: 'Diese Webadresse entfernen? Besucher sehen dort nichts mehr, bis du sie wieder anmeldest; unsere eigene Adresse funktioniert weiter.', // MT
+    fr: 'Retirer cette adresse web ? Les visiteurs n’y verront rien jusqu’à un nouvel enregistrement ; notre adresse continue de fonctionner.', // MT
+  },
+  domain_web_verified_note: {
+    en: 'Live. Visitors to this address see the page you picked, with a certificate from our hosting provider.',
+    nl: 'Live. Bezoekers van dit adres zien de gekozen pagina, met een certificaat van onze hostingprovider.',
+    es: 'En vivo. Quien visite esta dirección ve la página elegida, con certificado de nuestro proveedor de hosting.', // MT
+    pt: 'No ar. Quem visita este endereço vê a página escolhida, com certificado do nosso provedor de hospedagem.', // MT
+    de: 'Live. Besucher dieser Adresse sehen die gewählte Seite, mit einem Zertifikat unseres Hosting-Anbieters.', // MT
+    fr: 'En ligne. Les visiteurs de cette adresse voient la page choisie, avec un certificat de notre hébergeur.', // MT
+  },
+  domain_web_unverified_note: {
+    en: 'Not live yet. Add the record(s) below at your DNS provider, then press Check. Until then this address shows nothing; our own address keeps working.',
+    nl: 'Nog niet live. Voeg onderstaande record(s) toe bij je DNS-beheerder en klik op Controleren. Tot dan toont dit adres niets; ons eigen adres blijft werken.',
+    es: 'Aún no está en vivo. Añade los registros de abajo en tu proveedor DNS y pulsa Comprobar. Hasta entonces esta dirección no muestra nada; la nuestra sigue funcionando.', // MT
+    pt: 'Ainda não está no ar. Adicione os registros abaixo no seu provedor DNS e pressione Verificar. Até lá este endereço não mostra nada; o nosso continua funcionando.', // MT
+    de: 'Noch nicht live. Lege die Einträge unten bei deinem DNS-Anbieter an und klicke auf Prüfen. Bis dahin zeigt diese Adresse nichts; unsere eigene funktioniert weiter.', // MT
+    fr: 'Pas encore en ligne. Ajoute les enregistrements ci-dessous chez ton fournisseur DNS, puis clique sur Vérifier. Jusque-là cette adresse n’affiche rien ; la nôtre continue de fonctionner.', // MT
+  },
+  domain_web_not_configured: {
+    en: 'Web hosting is not configured on this server, so a web address cannot be registered here yet.',
+    nl: 'Webhosting is op deze server niet ingericht, dus een webadres kan hier nog niet aangemeld worden.',
+    es: 'El hosting web no está configurado en este servidor, así que aún no se puede registrar una dirección web.', // MT
+    pt: 'A hospedagem web não está configurada neste servidor, então um endereço web ainda não pode ser registrado.', // MT
+    de: 'Webhosting ist auf diesem Server nicht eingerichtet, daher kann hier noch keine Webadresse angemeldet werden.', // MT
+    fr: 'L’hébergement web n’est pas configuré sur ce serveur ; une adresse web ne peut donc pas encore être enregistrée ici.', // MT
+  },
   domain_web_enterprise: {
     en: 'Hosting the booking and event pages on your own address (book.yourdomain.com) is part of Enterprise.',
     nl: 'De boekings- en evenementpagina’s op je eigen adres (book.jouwdomein.nl) hoort bij Enterprise.',

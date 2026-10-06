@@ -7,7 +7,16 @@ import { TextField } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 import { NOTICE, PILL, PILL_TONE, INSET, type PillTone } from '@thefibre/shared/ui/recipes';
-import { saveWorkspace, startSenderDomain, checkSenderDomain, removeSenderDomain } from '../actions';
+import {
+  saveWorkspace,
+  startSenderDomain,
+  checkSenderDomain,
+  removeSenderDomain,
+  startWebDomain,
+  checkWebDomain,
+  removeWebDomain,
+} from '../actions';
+import { SelectField } from '@/components/ui/field';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export type DnsRecord = {
@@ -21,18 +30,24 @@ export type DnsRecord = {
   status: string;
 };
 
+export type DomainRow = {
+  id: string;
+  host: string;
+  status: string;
+  verified_at: string | null;
+  checked_at: string | null;
+  records: DnsRecord[];
+  app: 'fibre-meet' | 'the-thread' | null;
+  root_slug: string | null;
+};
+
 export type DomainState = {
-  email: {
-    id: string;
-    host: string;
-    status: string;
-    verified_at: string | null;
-    checked_at: string | null;
-    records: DnsRecord[];
-  } | null;
+  email: DomainRow | null;
+  web?: DomainRow[] | undefined;
   can_sender_domain: boolean;
   can_web_domain: boolean;
   provider_configured: boolean;
+  web_provider_configured?: boolean | undefined;
 };
 
 export type WorkspaceSender = {
@@ -82,6 +97,76 @@ function CopyButton({ value, locale }: { value: string; locale: Locale }) {
     >
       {copied ? t(locale, 'domain_copied') : t(locale, 'domain_copy')}
     </Button>
+  );
+}
+
+/** One registered web host: what it shows, its status, the record(s) to add, Check, Remove. */
+function WebHostRow({
+  row,
+  locale,
+  pending,
+  canEdit,
+  run,
+}: {
+  row: DomainRow;
+  locale: Locale;
+  pending: boolean;
+  canEdit: boolean;
+  run: (label: string, action: () => Promise<{ ok?: boolean; error?: string | undefined }>) => void;
+}) {
+  const s = statusView(row.status);
+  return (
+    <div className={`${INSET} space-y-3 p-4`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-medium">{row.host}</span>
+        <span className={`${PILL} ${PILL_TONE[s.tone]}`}>{t(locale, s.key)}</span>
+        <span className="text-xs text-ink-muted">
+          → {row.app === 'the-thread' ? t(locale, 'domain_web_app_thread') : t(locale, 'domain_web_app_meet')} /{row.root_slug}
+        </span>
+        <Button type="button" variant="secondary" size="sm" disabled={pending || !canEdit} onClick={() => run(t(locale, 'domain_checked_notice'), () => checkWebDomain(row.host))}>
+          {pending ? t(locale, 'domain_checking') : t(locale, 'domain_check')}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={pending || !canEdit}
+          onClick={() => {
+            if (window.confirm(t(locale, 'domain_web_remove_confirm'))) run(t(locale, 'domain_removed_notice'), () => removeWebDomain(row.host));
+          }}
+        >
+          {t(locale, 'domain_remove')}
+        </Button>
+      </div>
+      <p className="text-sm text-ink-subtle">{t(locale, row.status === 'verified' ? 'domain_web_verified_note' : 'domain_web_unverified_note')}</p>
+      <table className="w-full text-sm">
+        <tbody>
+          {row.records.map((r, i) => {
+            const rs = statusView(r.status);
+            return (
+              <tr key={`${r.type}-${r.name}-${i}`} className="border-t border-line align-top">
+                <td className="py-2 pr-3 whitespace-nowrap">{r.type}</td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-start gap-2">
+                    <code className="break-all text-xs">{r.full_name}</code>
+                    <CopyButton value={r.full_name} locale={locale} />
+                  </div>
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-start gap-2">
+                    <code className="break-all text-xs">{r.value}</code>
+                    <CopyButton value={r.value} locale={locale} />
+                  </div>
+                </td>
+                <td className="py-2 whitespace-nowrap">
+                  <span className={`${PILL} ${PILL_TONE[rs.tone]}`}>{t(locale, rs.key)}</span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -259,9 +344,46 @@ export function DomainForm({ domain, sender, locale }: { domain: DomainState; se
         </form>
       </section>
 
-      <section className="space-y-3 border-t border-line pt-8">
+      <section className="space-y-6 border-t border-line pt-8">
         <SectionLabel>{t(locale, 'domain_web_section')}</SectionLabel>
-        <p className={NOTICE.info}>{t(locale, domain.can_web_domain ? 'domain_web_soon' : 'domain_web_enterprise')}</p>
+        {!domain.can_web_domain ? (
+          <p className={NOTICE.info}>{t(locale, 'domain_web_enterprise')}</p>
+        ) : (
+          <>
+            <p className="text-sm text-ink-subtle">{t(locale, 'domain_web_intro')}</p>
+            {domain.web_provider_configured === false && <p className={NOTICE.warning}>{t(locale, 'domain_web_not_configured')}</p>}
+            {(domain.web ?? []).map((w) => (
+              <WebHostRow key={w.id} row={w} locale={locale} pending={pending} canEdit={sender.editable && domain.web_provider_configured !== false} run={run} />
+            ))}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const host = String(fd.get('web_host') ?? '').trim();
+                const app = String(fd.get('web_app') ?? 'fibre-meet') as 'fibre-meet' | 'the-thread';
+                const root = String(fd.get('web_root') ?? '').trim();
+                if (!host || !root) return setError(t(locale, 'domain_web_needs_both'));
+                run(t(locale, 'saved_notice'), () => startWebDomain({ host, app, root_slug: root }));
+              }}
+              className="space-y-6"
+            >
+              <SelectField
+                label={t(locale, 'domain_web_app')}
+                name="web_app"
+                defaultValue="fibre-meet"
+                options={[
+                  { value: 'fibre-meet', label: t(locale, 'domain_web_app_meet') },
+                  { value: 'the-thread', label: t(locale, 'domain_web_app_thread') },
+                ]}
+              />
+              <TextField label={t(locale, 'domain_web_root')} name="web_root" placeholder="your-slug" hint={t(locale, 'domain_web_root_hint')} autoComplete="off" />
+              <TextField label={t(locale, 'domain_web_host')} name="web_host" placeholder="book.yourdomain.com" hint={t(locale, 'domain_web_host_hint')} autoComplete="off" />
+              <Button type="submit" disabled={pending || !sender.editable || domain.web_provider_configured === false}>
+                {pending ? t(locale, 'saving') : t(locale, 'domain_web_register')}
+              </Button>
+            </form>
+          </>
+        )}
       </section>
 
       {error && <p className={NOTICE.error}>{error}</p>}

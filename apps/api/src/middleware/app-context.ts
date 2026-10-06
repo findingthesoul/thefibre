@@ -179,6 +179,9 @@ const PUBLIC_PREFIXES = [
   // The Thread public pages (organiser page, thread page, enrolment flow)
   // + its Stripe webhook (signature-verified inside the handler).
   '/api/v1/thread/public/',
+  // What a customer's own host serves — asked by the apps' middleware for
+  // every request on a foreign host; nothing personal in the answer.
+  '/api/v1/public/domains/',
   '/api/v1/thread/stripe-webhook',
   // Platform-subscription webhook (routes/billing.ts) — signature-verified
   // inside the handler with its own secret.

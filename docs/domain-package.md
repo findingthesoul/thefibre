@@ -84,18 +84,98 @@ subdomain we own (`*.thefibre.tech`) rather than a customer's domain.
 
 ## Part 2 — own web address (after part 1)
 
-`book.soul.com` for Meet, `events.soul.com` for Thread, public pages only;
-signing in stays on our hosts. Same table (`kind 'web'`, provider
-`vercel`). The API adds the host to the right Vercel project (`POST
-/v10/projects/{id}/domains`), stores the CNAME target Vercel answers with
-(and the TXT when Vercel wants ownership proved), the page shows it with a
-copy button and a Check. Then: a host → workspace lookup in the Meet and
-Thread middleware (cached), rewriting `/` and `/{thread}` to the owner's
-paths; `publicOriginFor(workspace)` in every URL builder — mail, iCal
-feeds, payment-link redirects, Stripe success URLs, OG tags, embeds — so a
-link in a customer's mail carries the customer's host; the CORS allow-list
-learns verified tenant hosts; a staging twin; the smoke test. Size 4–6
-working days; the plan-key work and the table are done in part 1.
+Spec addendum, 2026-10-06, written against the code as it is (survey of the
+public route trees, middleware, CORS and URL builders of Meet and Thread).
+
+**What changes for a customer.** An Enterprise workspace admin opens
+Settings → Your domain → *Your web address*, picks WHAT the address shows
+(the booking pages of one Meet host or team, or the event pages of one
+Thread owner — workspace, organiser or team), types the host
+(`book.soul.com`), presses Register. The page shows one or two DNS
+records — a `CNAME book.soul.com → cname.vercel-dns.com`, plus a `TXT
+_vercel.soul.com` only when Vercel wants ownership of the apex proved (it
+asks when the apex is already in another Vercel account) — each with a
+Copy button, and a Check. Once Vercel says verified and the CNAME points
+at it, `https://book.soul.com/` shows the owner's page and
+`https://book.soul.com/<meeting-type>` the booking flow, with a
+certificate from Vercel, no action from us. Until then nothing is
+different anywhere. A workspace without `custom_domain` sees the sentence
+and the plan link, as for the sender. Nothing is visible to visitors until
+the host is verified.
+
+**Old links keep working forever.** The customer host is an ADDITIONAL
+door, never a move. `meet.thethread.app/<slug>/…` and
+`app.thethread.app/{owner}/{thread}` keep serving exactly as today; the
+rewrite only runs for requests that ARRIVE on a customer host. No
+redirect from our hosts to theirs, ever — a link in a two-year-old mail is
+a promise.
+
+**How a customer host is served.** One Vercel project per app serves both
+stacks (production on `main`, staging as the `staging` branch), so the
+host is attached to `thefibre-meet` or `thefibre-thread` by name, with
+`gitBranch: 'staging'` on the staging API. The app's `middleware.ts`
+(session refresh today, no host logic) gains one step: when the request
+host is not the app's own host (nor localhost nor a Vercel preview), it
+asks the API `GET /api/v1/public/domains/resolve?host=…` (public, cached
+60 s on both sides) and, for a verified row of this app, REWRITES the path
+by prefixing the owner's root slug — `/` → `/{root}`, `/{x}` →
+`/{root}/{x}` — unless the path already starts with `/{root}` (the apps'
+own links are relative with the segment, `/${hostSlug}/${mtSlug}/…`, so a
+second visit must not become `/{root}/{root}/…`). Reserved first segments
+on a customer host — `/my`, `/auth`, `/sso`, `/dashboard`, `/invite`,
+`/api`, `/_next` — are not rewritten: the signed-in and sign-in paths get a
+307 to the app's canonical origin, because the session cookie lives on
+`.thethread.app` and a sign-in on a foreign host would silently fail.
+Unknown host → pass through (Vercel would not route it to us anyway).
+The address bar shows `book.soul.com/soul/intro`; dropping the root
+segment from the apps' own relative links on a tenant host is a later
+polish, not a correctness issue.
+
+**CORS.** The public booking flow, enrol form, coupon check and contact
+form call the API from the BROWSER, and the allow-list in
+`lib/cors-origins.ts` is a static set built at import. It gains a second,
+dynamic check: verified web hosts from `workspace_domain`, refreshed every
+60 s. Nothing else about CORS changes.
+
+**Links in mail and redirects (the biggest piece).** Today every absolute
+URL comes from `appUrl()`: Meet has 13 `meetAppUrl()` sites in
+`routes/meet.ts` (Stripe success/cancel, poll, invite accept, request-
+expired and approval mails, and the five `meetAppUrl` template fields that
+fan out into cancel/reschedule/booking links), Thread has `threadAppUrl()`
+in Stripe redirects, the certificate URL, the portal's `threadPublicUrl`,
+the calendar feed and both payment-link modules. `publicOriginFor(app,
+rootSlug)` — a verified customer host for that owner, else the app's own
+origin — replaces every one, so a customer on `book.soul.com` gets mail
+whose links say `book.soul.com`. A guard test fails the release on a bare
+`meetAppUrl()`/`threadAppUrl()` in those files afterwards. Meet's chat
+agreed to this on 2026-10-06 and will sequence its mail i18n after it.
+Canonical `<link>` and OG URLs follow the same function.
+
+**Who does what.** The customer: one CNAME (and the TXT if asked) at their
+registrar, and the choice on the page. We: nothing by hand — the API
+registers the host with the server's Vercel token (`VERCEL_API_TOKEN`,
+team-scoped, plus `VERCEL_TEAM_ID`, on both Fly apps; Sjoerd's to set,
+dark until then exactly like mail without `RESEND_API_KEY`). Vercel issues
+and renews the certificate.
+
+**Staging twin.** `fixture-book.thefibre.tech` CNAME → `cname.vercel-dns.com`
+at TransIP (one record, Sjoerd's hands), registered through the staging
+page for the e2e fixture workspace; the e2e walks the host and asserts the
+owner page renders and the old `meet.thefibre.tech/<slug>` still does.
+Nothing goes near production before that passes.
+
+**Releases.**
+1. `workspace_domain` gains `app` and `root_slug` (migration); the Vercel
+   client (`lib/vercel-domains.ts`, token-injected, 9 unit cases, done);
+   `POST/DELETE /workspace-domain/web`, `POST /web/check`, public
+   `/public/domains/resolve`; the dynamic CORS check; the page's web
+   section. Gate: `custom_domain`. API deploy.
+2. The middleware step in Meet and Thread (rewrite + reserved redirects).
+3. `publicOriginFor()` across every builder, with the guard tests; Meet's
+   chat told the exact lines first.
+4. The staging twin e2e; docs; then Sjoerd decides on production.
+
+Size unchanged: 4–6 working days.
 
 ## Releases (small, one at a time)
 

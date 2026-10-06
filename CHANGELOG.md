@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.3] — 2026-10-06 — the domain package, part 2 release 1: a workspace registers its own web address (staging)
+
+The second half of `docs/domain-package.md` begins — the spec addendum is in
+that document (what changes for a customer, old links keep working forever,
+how a customer host is served, CORS, links in mail, who does what, the
+staging twin). This release registers the host and tells the apps what it
+serves; the apps do not act on it yet (release 2 is the middleware).
+
+- **Settings → Your domain → Your web address** (Enterprise): pick what the
+  address shows — the booking pages of one Meet host or team, or the event
+  pages of one Thread owner — type the host (`book.yourdomain.com`), press
+  Register. The API puts the host on the right Vercel project with the
+  server's token (`VERCEL_API_TOKEN`, `VERCEL_TEAM_ID`; on the staging API
+  as the `staging` branch) and shows the CNAME to add, plus Vercel's TXT
+  challenge when the apex is in another Vercel account. Check reads
+  Vercel's verdict; a host is `verified` for us only when Vercel accepts it
+  AND sees the customer's DNS pointing at it. Remove takes it off both.
+  Below Enterprise: one sentence. No Vercel token on the server: one
+  sentence. The root the admin names must be a page of THIS workspace in
+  THAT app, or the page says so.
+- `workspace_domain` gains `app` and `root_slug` for web rows (migration
+  `20261006144541`). `lib/vercel-domains.ts`: the five Vercel calls,
+  transport injected, nine unit cases. `routes/workspace-domain.ts`:
+  `POST/DELETE /web`, `POST /web/check`.
+- **`GET /api/v1/public/domains/resolve?host=`** — what a customer host
+  serves (app, owner root, workspace slug), verified hosts only, cached a
+  minute, no session. Release 2's middleware asks this.
+- **CORS learns verified customer hosts**: `lib/tenant-origins.ts`, a set
+  refreshed from the table at most once a minute and at once after any
+  Register/Check/Remove, beside the static registry-derived allow-list,
+  which stays pure. The public booking flow and enrol form call the API
+  from the browser, so without this a customer host would be blocked.
+
+Verified: `pnpm verify` green; 34 unit cases across the Vercel client, the
+row rules and the tenant origins. Not verified: a live Vercel call — the
+token is not on either Fly app yet (Sjoerd's to set); the page's web
+section looked at only through its types until the e2e of release 4 of
+this part.
+
 ## [1.113.2] — 2026-10-06
 
 Third slice of `docs/teams-two-automatic-teams.md`: the conversion for the

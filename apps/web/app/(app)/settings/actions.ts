@@ -140,6 +140,19 @@ export async function removeSenderDomain(): Promise<ActionResult> {
   return domainCall('/api/v1/workspace-domain/email', 'DELETE');
 }
 
+// The web address (part 2): the host, which app it shows, the page it opens on.
+export async function startWebDomain(input: { host: string; app: 'fibre-meet' | 'the-thread'; root_slug: string }): Promise<ActionResult> {
+  return domainCall('/api/v1/workspace-domain/web', 'POST', input);
+}
+
+export async function checkWebDomain(host: string): Promise<ActionResult> {
+  return domainCall('/api/v1/workspace-domain/web/check', 'POST', { host });
+}
+
+export async function removeWebDomain(host: string): Promise<ActionResult> {
+  return domainCall('/api/v1/workspace-domain/web', 'DELETE', { host });
+}
+
 /** The workspace itself — name, logo, invoices, the sender of its email. */
 export async function saveWorkspace(patch: Record<string, unknown>): Promise<ActionResult> {
   try {

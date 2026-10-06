@@ -17,8 +17,10 @@
 import { adminClient } from '../db.js';
 import { row, rows } from './rows.js';
 import type { ResendDomain, ResendRecord, ResendRecordStatus } from './resend-domains.js';
+import { VERCEL_CNAME_TARGET, type VercelDomainConfig, type VercelProjectDomain } from './vercel-domains.js';
 
 export type DomainKind = 'email' | 'web';
+export type WebApp = 'fibre-meet' | 'the-thread';
 
 export type WorkspaceDomainRow = {
   id: string;
@@ -32,6 +34,10 @@ export type WorkspaceDomainRow = {
   verified_at: string | null;
   checked_at: string | null;
   created_at: string;
+  /** web rows only: which app serves the host, and the owner root the
+   *  middleware prefixes paths with. */
+  app: WebApp | null;
+  root_slug: string | null;
 };
 
 const HOST = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
@@ -121,6 +127,124 @@ export function rowPatchFromResend(d: ResendDomain, now = new Date()): {
     records,
     checked_at: now.toISOString(),
     ...(d.status === 'verified' ? { verified_at: now.toISOString() } : {}),
+  };
+}
+
+// ── web hosts (part 2) ──────────────────────────────────────────────────────
+
+/** Every web host a workspace has claimed, newest first. */
+export async function webDomainsOf(workspaceId: string): Promise<WorkspaceDomainRow[]> {
+  return rows(
+    'workspace_domain web',
+    await adminClient
+      .from('workspace_domain')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('kind', 'web')
+      .order('created_at', { ascending: false }),
+  ) as WorkspaceDomainRow[];
+}
+
+export type ResolvedHost = { app: WebApp; root_slug: string; workspace_id: string };
+
+/**
+ * What a customer host serves — only when VERIFIED. The middleware asks this
+ * for every request on a foreign host (cached on both sides), so an
+ * unverified or unknown host answers null and the request passes through
+ * untouched.
+ */
+export async function resolveWebHost(host: string | null | undefined): Promise<ResolvedHost | null> {
+  const h = normaliseHost(host);
+  if (!h) return null;
+  const r = row(
+    'workspace_domain resolve',
+    await adminClient
+      .from('workspace_domain')
+      .select('app, root_slug, workspace_id, status')
+      .eq('kind', 'web')
+      .eq('host', h)
+      .maybeSingle(),
+  ) as { app: WebApp | null; root_slug: string | null; workspace_id: string; status: string } | null;
+  if (!r || r.status !== 'verified' || !r.app || !r.root_slug) return null;
+  return { app: r.app, root_slug: r.root_slug, workspace_id: r.workspace_id };
+}
+
+/** The verified web hosts, as origins — what CORS adds to its allow-list. */
+export async function verifiedWebOrigins(): Promise<string[]> {
+  const list = rows(
+    'workspace_domain verified web',
+    await adminClient.from('workspace_domain').select('host').eq('kind', 'web').eq('status', 'verified'),
+  ) as { host: string }[];
+  return list.map((r) => `https://${r.host}`);
+}
+
+/**
+ * Does this root belong to this workspace, in this app? Meet roots are a
+ * host slug or a team slug (unique per workspace, not globally — which is
+ * why the host must say which); Thread roots are the one global
+ * `public_root_slug` namespace, where the row names its workspace.
+ */
+export async function rootBelongsToWorkspace(app: WebApp, workspaceId: string, root: string): Promise<boolean> {
+  const slug = root.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(slug)) return false;
+  if (app === 'the-thread') {
+    const r = row(
+      'public_root_slug',
+      await adminClient.from('public_root_slug').select('workspace_id').eq('slug', slug).maybeSingle(),
+    ) as { workspace_id: string } | null;
+    return r?.workspace_id === workspaceId;
+  }
+  const [host, team] = await Promise.all([
+    adminClient.from('meet_host').select('id').eq('workspace_id', workspaceId).eq('slug', slug).maybeSingle(),
+    adminClient.from('team').select('id').eq('workspace_id', workspaceId).eq('slug', slug).maybeSingle(),
+  ]);
+  return Boolean(row('meet_host', host) || row('team', team));
+}
+
+/**
+ * What to store from Vercel's two answers. The host is `verified` for us
+ * only when Vercel both accepts it on the project (`verified`) AND sees the
+ * customer's DNS pointing at it (`!misconfigured`) — the first without the
+ * second is a host that 404s at the provider. The records shown are the
+ * CNAME every customer adds, plus the TXT challenge when Vercel asks for
+ * ownership of the apex to be proved.
+ */
+export function webRowPatchFromVercel(
+  host: string,
+  d: VercelProjectDomain,
+  cfg: VercelDomainConfig | null,
+  now = new Date(),
+): {
+  provider_id: string;
+  status: 'verified' | 'pending';
+  records: ResendRecord[];
+  checked_at: string;
+  verified_at?: string;
+} {
+  const dnsOk = cfg ? !cfg.misconfigured : false;
+  const verified = d.verified && dnsOk;
+  const records: ResendRecord[] = [
+    {
+      record: 'CNAME',
+      name: host,
+      type: 'CNAME',
+      value: cfg?.recommendedCNAME?.[0] ?? VERCEL_CNAME_TARGET,
+      status: dnsOk ? 'verified' : 'pending',
+    },
+    ...(d.verification ?? []).map((v) => ({
+      record: 'OWNERSHIP',
+      name: v.domain,
+      type: v.type,
+      value: v.value,
+      status: d.verified ? ('verified' as const) : ('pending' as const),
+    })),
+  ];
+  return {
+    provider_id: d.projectId ? `${d.projectId}:${d.name}` : d.name,
+    status: verified ? 'verified' : 'pending',
+    records,
+    checked_at: now.toISOString(),
+    ...(verified ? { verified_at: now.toISOString() } : {}),
   };
 }
 

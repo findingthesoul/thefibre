@@ -51,6 +51,8 @@ import { planRoutes } from './routes/plan.js';
 import { adminPlansRoutes } from './routes/admin-plans.js';
 import { workspaceDomainRoutes } from './routes/workspace-domain.js';
 import { adminEmailDomainsRoutes } from './routes/admin-email-domains.js';
+import { publicDomainsRoutes } from './routes/public-domains.js';
+import { isTenantOrigin } from './lib/tenant-origins.js';
 import { publicPlansRoutes } from './routes/public-plans.js';
 import { billingRoutes } from './routes/billing.js';
 import { adminEconomicsRoutes } from './routes/admin-economics.js';
@@ -154,7 +156,7 @@ for (const path of PUBLISHED_READ_PATHS) {
   app.use(path, publicReadCors);
   app.use(path, async (c, next) => {
     const origin = c.req.header('Origin');
-    if (!origin || isAllowedOrigin(origin)) return next();
+    if (!origin || isAllowedOrigin(origin) || isTenantOrigin(origin)) return next();
 
     const r = hit(
       `thread-public:${clientIp(c.req.raw.headers)}`,
@@ -226,7 +228,9 @@ const allowlistCors = cors({
   // (origin undefined) are unaffected.
   origin: (origin) => {
     if (!origin) return '';
-    return isAllowedOrigin(origin) ? origin : '';
+    // Our own origins (static, from the registry) or a customer's verified
+    // web host (dynamic, docs/domain-package.md part 2).
+    return isAllowedOrigin(origin) || isTenantOrigin(origin) ? origin : '';
   },
   allowHeaders: ['Authorization', 'Content-Type', 'X-App-ID'],
   allowMethods: CORS_ALLOW_METHODS,
@@ -323,6 +327,8 @@ v1.route('/workspace', workspaceBrandRoutes);
 // The workspace's own domains — sender domain now, web address later
 // (docs/domain-package.md). Its own file: it talks to a provider.
 v1.route('/workspace-domain', workspaceDomainRoutes);
+// What a customer host serves — asked by the apps' middleware, no session.
+v1.route('/public/domains', publicDomainsRoutes);
 v1.route('/plan', planRoutes);
 v1.route('/admin/plans', adminPlansRoutes);
 v1.route('/admin/email-domains', adminEmailDomainsRoutes);
