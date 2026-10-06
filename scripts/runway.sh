@@ -335,6 +335,20 @@ cmd_clear() {
       if printf '%s\n' "$files" | grep -q '^supabase/migrations/'; then
         say "Adds migrations: checking versions against every worktree."
         node scripts/check-migration-versions.mjs || die "migration version collision. Renumber with scripts/new-migration.sh."
+        # And against the ORDER on the base branch. `supabase db push` refuses a
+        # file that sorts before an already-applied one (unless --include-all),
+        # so a commit whose new migration is older than the newest on staging
+        # passed this preflight and failed at the push, after it was on staging
+        # (membership 2026-10-04, Meet 2026-10-06). Added files only: a file
+        # the commit carries because it is already on the base is history.
+        local newest; newest="$(git ls-tree --name-only "$ref" -- supabase/migrations/ | sed -n 's|.*/\([0-9]\{14\}\)_.*\.sql$|\1|p' | sort | tail -1)"
+        local added v late=""
+        added="$(git --no-pager diff --name-only --diff-filter=A "$from" "$sha" -- supabase/migrations/ || true)"
+        for f in $added; do
+          v="$(printf '%s\n' "$f" | sed -n 's|.*/\([0-9]\{14\}\)_.*\.sql$|\1|p')"
+          [ -n "$v" ] && [ -n "$newest" ] && [ "$v" \< "$newest" ] && late="$late    $v  $f   (newest on $ref: $newest)"$'\n'
+        done
+        [ -z "$late" ] || { printf '%s' "$late" | sed 's/^/    OLDER THAN STAGING:/' >&2; die "${sha:0:8} adds a migration older than the newest already on $ref; \`supabase db push\` would refuse it. Renumber with ./scripts/new-migration.sh and request again."; }
       fi
       ;;
     prod|api-prod)

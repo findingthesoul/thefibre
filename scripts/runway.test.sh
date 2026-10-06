@@ -151,6 +151,33 @@ expect_pass "removing a file the same branch added is not a deletion" $R clear a
 $R abort --by atc >/dev/null
 rm -f "$T/w/.git/runway/queue/"*
 
+echo "a migration older than the newest on staging"
+# Staging holds two migrations, one older than the other. (The mjs is stubbed
+# in this harness, so what is tested here is the clear preflight's own check.)
+git fetch -q origin; git checkout -q -B mig-base origin/staging; mkdir -p supabase/migrations
+echo 'select 1;' > supabase/migrations/20260201000000_older_on_staging.sql; echo 'select 2;' > supabase/migrations/20260301000000_newest_on_staging.sql
+rel 0.0.9   # shaped like a release, or the hook refuses the push
+req a release; $R clear a --by atc >/dev/null; RUNWAY_SESSION=a git push -q origin HEAD:staging; RUNWAY_SESSION=a $R land >/dev/null; git fetch -q origin
+git ls-tree --name-only origin/staging -- supabase/migrations/ | grep -q 20260301000000 && ok "staging holds the two migrations" || bad "staging holds the two migrations"
+git checkout -q -B mig-late origin/staging; echo 'select 3;' > supabase/migrations/20260215000000_late.sql; git add -A; git commit -qm "a late migration"
+req a release
+expect_fail "a release adding a migration older than staging's newest is refused" $R clear a --by atc
+OUT="$($R clear a --by atc 2>&1 || true)"
+grep -q "20260215000000" <<<"$OUT" && grep -q "20260301000000" <<<"$OUT" && ok "the refusal names both versions" || bad "the refusal names both versions"
+grep -q "new-migration.sh" <<<"$OUT" && ok "and says how to renumber" || bad "and says how to renumber"
+rm -f "$T/w/.git/runway/queue/"*
+git checkout -q -B mig-fresh origin/staging; echo 'select 4;' > supabase/migrations/20260401000000_fresh.sql; git add -A; git commit -qm "a newer migration"
+req a release
+expect_pass "a release adding a migration newer than staging's newest is cleared" $R clear a --by atc
+$R abort --by atc >/dev/null
+# The older file already on staging is never the problem — a commit that
+# carries it (every commit on the base does) and edits it is unaffected.
+git checkout -q -B mig-touch origin/staging; echo 'select 22;' > supabase/migrations/20260201000000_older_on_staging.sql; git add -A; git commit -qm "touches a migration that is on staging"
+req a release
+expect_pass "a migration already on staging is unaffected, however old" $R clear a --by atc
+$R abort --by atc >/dev/null
+rm -f "$T/w/.git/runway/queue/"*
+
 echo "docs may sit on a stale base; code may not (Sjoerd, 2026-10-03)"
 git fetch -q origin; git checkout -q -B docs-stale origin/staging~1; mkdir -p docs; echo words > docs/stale-words.md; git add -A; git commit -qm "docs on a stale base"
 RUNWAY_SESSION=a $R request --kind docs --what d --verified v --unverified none >/dev/null

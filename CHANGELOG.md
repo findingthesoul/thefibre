@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.107.4] — 2026-10-06 — a migration older than staging's newest is refused before the push (staging)
+
+Tooling only; nothing a person using the apps can see.
+
+Twice in three days (membership 2026-10-04, Meet 2026-10-06) a release
+carried a new migration whose 14-digit version was OLDER than the newest
+migration already on staging — a hand-picked timestamp, or a worktree cut
+before a peer's migration landed. Every gate passed. Then `supabase db push`
+(which `db-push-staging.sh` and `db-push-prod.sh` run plain) refused the
+file as out of order, after the commit was on staging with everybody
+building on it.
+
+- `scripts/check-migration-versions.mjs` — besides duplicates, now refuses a
+  migration in this checkout that is not on `origin/staging` and sorts before
+  the newest that is. The message names both versions and says to renumber
+  with `./scripts/new-migration.sh` (which never picks a version behind the
+  newest it can see). A file already on staging is never flagged, however
+  old. Runs in `pnpm verify`, so a release cannot carry one. Cannot read
+  `origin/staging` → exit 2, "not a pass", never mistaken for clean.
+- `scripts/runway.sh clear` — the same check in the preflight, on the files
+  the commit ADDS under `supabase/migrations/` against the base branch, so
+  the controller refuses it before the pilot runs the gate.
+- Tests: four unit cases on the ordering rule (`check-migration-versions.test.mjs`),
+  five harness cases in `runway.test.sh` (older refused and the refusal names
+  both versions and the remedy; newer cleared; already-on-staging unaffected).
+- `docs/runway.md` names the new refusal.
+
+Verified: `pnpm verify` green; the refusal was also provoked for real by
+dropping a `20261005230000_*.sql` into this checkout (refused, both versions
+named) and removing it again.
+
 ## [1.107.3] — 2026-10-06 — the tool that lets the guessing code be deleted
 
 Step B of the bio conversion (`docs/bio-rich-text-conversion.md`): the script

@@ -19,16 +19,31 @@
 // history, which lives outside the repo. So this check reads EVERY worktree's
 // supabase/migrations, not just this one's, and that is the whole point of it.
 //
-// Run by `pnpm verify`, so a release cannot carry a duplicate.
+// And a migration must never be OLDER than one already on staging.
+//
+// Supabase applies in version order, and a plain `supabase db push` (what
+// db-push-staging.sh and db-push-prod.sh run) REFUSES a file that sorts
+// before an already-applied one unless told --include-all. So a commit whose
+// new migration carries an older version than the newest on origin/staging
+// passed every gate and failed at the push — after it was on staging, where
+// everybody else then built on it (membership 2026-10-04, Meet 2026-10-06).
+// The cause is always the same: a hand-picked timestamp, or a worktree that
+// branched before a peer's migration landed. Here it is refused at verify,
+// naming both versions. `./scripts/new-migration.sh` never picks one behind
+// the newest it can see.
+//
+// Run by `pnpm verify`, so a release cannot carry a duplicate or an older one.
 //   node scripts/check-migration-versions.mjs
-// Exit 0 clean · 1 duplicate found · 2 could not look (never mistaken for clean).
+// Exit 0 clean · 1 duplicate or out of order · 2 could not look (never mistaken for clean).
 
 import { readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION = /^(\d{14})_.+\.sql$/;
+const STAGING = 'origin/staging';
 
 /** The clash test itself, separate from the filesystem so it can be tested:
  *  the SAME file seen in two checkouts is one migration, two DIFFERENT files
@@ -49,6 +64,40 @@ export function clashesIn(listing) {
     versions: seen.size,
     clashes: [...seen.entries()].filter(([, list]) => list.length > 1),
   };
+}
+
+/** The ordering test, also separate from git so it can be tested: a file in
+ *  this checkout that is NOT on staging and whose version sorts before the
+ *  newest that IS. A file already on staging is never late, whatever its
+ *  version — it is applied, and its number is history. */
+export function outOfOrder(localFiles, stagingFiles) {
+  const onStaging = new Set(stagingFiles.filter((f) => VERSION.test(f)));
+  let newest = null;
+  for (const f of onStaging) {
+    const v = VERSION.exec(f)[1];
+    if (newest === null || v > newest) newest = v;
+  }
+  const late = [];
+  if (newest !== null) {
+    for (const f of localFiles) {
+      const m = VERSION.exec(f);
+      if (!m || onStaging.has(f)) continue;
+      if (m[1] < newest) late.push({ file: f, version: m[1] });
+    }
+  }
+  return { newest, late };
+}
+
+/** Basenames of the migrations on origin/staging, as git holds them — the
+ *  local tree can be behind or ahead; the remote-tracking ref is what the
+ *  next push will be measured against. Throws when the ref is not there. */
+function stagingMigrations() {
+  const out = execFileSync('git', ['ls-tree', '--name-only', STAGING, '--', 'supabase/migrations/'], {
+    cwd: repo,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return out.split('\n').filter(Boolean).map((p) => p.split('/').pop());
 }
 
 /** Every checkout that can hold migrations: this repo, plus each worktree
@@ -100,7 +149,30 @@ if (RUN_AS_CLI) {
   const listing = dirs.map(({ label, dir }) => ({ label, files: readdirSync(dir) }));
   const { versions, clashes } = clashesIn(listing);
   if (clashes.length === 0) {
-    console.log(`migration versions: ${versions} unique across ${dirs.length} checkout(s)`);
+    // Ordering: THIS checkout's new files against what staging already holds.
+    // Only this checkout — a sibling worktree's unpushed file is its own
+    // session's problem, and its verify will say so.
+    let staging;
+    try {
+      staging = stagingMigrations();
+    } catch (e) {
+      console.error(`migration order: COULD NOT CHECK — ${STAGING} not readable here (${e.message.trim().split('\n')[0]})`);
+      console.error('This is not a pass. `git fetch origin staging` and run again.');
+      process.exit(2);
+    }
+    const { newest, late } = outOfOrder(listing[0].files, staging);
+    if (late.length > 0) {
+      console.error(`REFUSED: a new migration is OLDER than the newest already on ${STAGING}.`);
+      console.error('Supabase applies in version order, and `supabase db push` refuses a file that');
+      console.error('sorts before an applied one — so this would pass every gate and fail at the');
+      console.error('push, after it is on staging (membership 2026-10-04, Meet 2026-10-06).\n');
+      for (const e of late) console.error(`  ${e.version}   ${e.file}`);
+      console.error(`  newest on ${STAGING}: ${newest}\n`);
+      console.error('Renumber with ./scripts/new-migration.sh <name> (it never picks a version behind');
+      console.error('the newest it can see), move the SQL into the new file, delete the old one.');
+      process.exit(1);
+    }
+    console.log(`migration versions: ${versions} unique across ${dirs.length} checkout(s); none older than ${STAGING}'s newest${newest ? ` (${newest})` : ''}`);
     process.exit(0);
   }
 

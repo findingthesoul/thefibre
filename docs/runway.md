@@ -75,7 +75,13 @@ push is the push nobody reads. A deliberate removal needs
 current `origin/staging`, or a `docs` request touches code, or the range adds
 migrations whose versions collide with any worktree
 (`scripts/check-migration-versions.mjs` reads every one — prune dead worktrees
-with `git worktree prune`). For `prod` and `api-prod` it also requires
+with `git worktree prune`), or adds a migration whose version is OLDER than
+the newest already on staging. That last one: `supabase db push` refuses a
+file that sorts before an applied one, so such a commit used to pass every
+gate and fail at the push, after it was on staging (membership 2026-10-04,
+Meet 2026-10-06). `pnpm verify` refuses it too, naming both versions; the
+remedy is `./scripts/new-migration.sh`, which never picks a version behind
+the newest it can see. For `prod` and `api-prod` it also requires
 `--sjoerd-said "<his words>"` and logs them: **production is only his.**
 
 **Docs may sit on a stale base; code may not** (Sjoerd, 2026-10-03). A
