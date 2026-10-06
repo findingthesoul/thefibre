@@ -28,7 +28,7 @@ import { ssoRoutes } from './routes/sso.js';
 import { signupRequestsRoutes } from './routes/signup-requests.js';
 import { workspaceAppsRoutes } from './routes/workspace-apps.js';
 import { workspacesRoutes } from './routes/workspaces.js';
-import { meetRoutes } from './routes/meet.js';
+import { meetRoutes, runMeetRequestExpiry } from './routes/meet.js';
 import { flowRoutes } from './routes/flow.js';
 import { pulseRoutes } from './routes/pulse.js';
 import { membershipRoutes, runMembershipScheduler } from './routes/membership.js';
@@ -381,6 +381,12 @@ function runAllSchedulers() {
   // processes in a blue-green window could both pass it, both probe Stripe
   // and both mail the operator the same change.
   leased('vat-sync', maybeSyncVatRates, 'vat-sync');
+  // Booking requests that were never answered: the earlier of 48h or their
+  // own start time, then they expire and give the slot back. The counterpart
+  // to the hold in v1.111.0 — without this, one unanswered request parks a
+  // host's time for good. Idempotent: the flip is conditional on the row
+  // still being pending.
+  leased('meet-request-expiry', runMeetRequestExpiry, 'meet/request-expiry');
 }
 setTimeout(runAllSchedulers, 20_000);
 setInterval(runAllSchedulers, SCHEDULER_INTERVAL_MS);

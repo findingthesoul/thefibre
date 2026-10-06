@@ -402,7 +402,16 @@ export async function cleanupPublicThreadFixture(
 // availability generation — the only thing standing between two invitees and
 // the same seat is the capacity count, which is exactly the filter under
 // test. Nothing here is a real person; the addresses are @example.com.
+//
+// It lives in a PERMANENT workspace, like the thread fixtures, and for the
+// same reason: booking somebody writes an `activity` row, activity is
+// append-only (hard rule 5, enforced by a trigger), the row pins the person,
+// and the person pins the workspace. A throwaway workspace here cannot be
+// thrown away — the first version of this fixture used one and leaked it,
+// which the harness caught by name.
 // ---------------------------------------------------------------------------
+
+export const MEET_FIXTURE_WS_SLUG = 'int-meet-fixtures';
 
 export type MeetFixture = {
   workspaceId: string;
@@ -420,7 +429,7 @@ export async function createMeetFixture(
   tag: string,
   opts: { requiresApproval?: boolean; capacity?: number } = {},
 ): Promise<MeetFixture> {
-  const workspaceId = await createThrowawayWorkspace(`meet-${tag}`);
+  const workspaceId = await getPermanentFixtureWorkspace(MEET_FIXTURE_WS_SLUG);
   const hostEmail = `int-meet-${tag.toLowerCase()}-${randomUUID().slice(0, 8)}@example.com`;
   const { data: userRow, error: uErr } = await service
     .from('user')
@@ -496,21 +505,11 @@ export async function cleanupMeetFixture(
     await service.from('meet_meeting_type').delete().eq('id', f.meetingTypeId),
   );
   must('meet_host')(await service.from('meet_host').delete().eq('id', f.hostId));
-  // The invitees the booking endpoint created on the way in, and the
-  // activity rows that point at them.
-  if (inviteeEmails.length > 0) {
-    const { data: people } = await service
-      .from('person')
-      .select('id')
-      .eq('workspace_id', f.workspaceId)
-      .in('email', inviteeEmails);
-    for (const person of people ?? []) {
-      must('activity')(await service.from('activity').delete().eq('person_id', person.id));
-      must('person')(await service.from('person').delete().eq('id', person.id));
-    }
-  }
+  // The invitees the booking endpoint created on the way in. Soft-deleted,
+  // not removed: their activity rows cannot be deleted, so neither can they.
+  await retireParticipants(f.workspaceId, inviteeEmails);
   must('host user')(await service.from('user').delete().eq('id', f.userRowId));
-  must('workspace')(await service.from('workspace').delete().eq('id', f.workspaceId));
+  // The workspace stays — permanent by design, for the reason above.
 }
 
 // ---------------------------------------------------------------------------

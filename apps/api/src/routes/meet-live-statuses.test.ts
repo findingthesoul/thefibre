@@ -43,9 +43,14 @@ describe('LIVE_BOOKING_STATUSES is the only answer to "is this booking live"', (
     expect(values).toContain('confirmed');
     expect(values).toContain('pending_approval');
     // Cancelled has never blocked a slot and must not start. `rescheduled`
-    // is a historical terminal status, equally dead.
+    // is a historical terminal status, equally dead. And `expired` is the
+    // whole point of the expiry sweep: a request that ran out of time GIVES
+    // THE SLOT BACK, and it does so by not being named here. If it ever
+    // appears in this list, an unanswered request blocks a host's calendar
+    // forever and nothing else in the system would notice.
     expect(values).not.toContain('cancelled');
     expect(values).not.toContain('rescheduled');
+    expect(values).not.toContain('expired');
   });
 
   it('every status it names is one the database allows', () => {

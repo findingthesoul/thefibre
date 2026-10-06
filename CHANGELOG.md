@@ -6,6 +6,90 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.112.0] — 2026-10-06 — a request that is never answered lets go
+
+The release before this one made a booking request **hold** its slot, which
+is what a waiting invitee expects and what was missing when a real request
+was booked over. It also created the obvious hazard: a host who never answers
+would park somebody else's time for good, and the invitee would never learn
+that nothing was going to happen.
+
+So a request now lets go by itself, at **the earlier of 48 hours or the
+meeting's own start time** (Sjoerd: "expire ok"). Both halves of that rule
+matter. A request made three weeks out expires in two days, so the slot comes
+back while it is still worth something. A request made tonight for tomorrow
+morning expires tomorrow morning — never *after* its own meeting, which is
+the case a plain 48-hour rule gets wrong and the more common one, because
+people book soon.
+
+**`expired` is its own terminal status, not `cancelled`.** Cancelled is
+somebody's decision; expired is nobody's. They read differently to an invitee
+and they count differently later.
+
+**The slot comes back because of what the status is NOT.** `expired` is
+absent from `LIVE_BOOKING_STATUSES`, and all ten availability and capacity
+queries ask that one rule — so nothing else had to change for the time to be
+free, and the guard test now asserts that `expired` never appears in it.
+
+**Both sides are told, and the invitee can ask again in one click.** The link
+in their mail opens the picker on the same booking: moving an expired request
+revives it as a new pending request, keeping its id, its history and its
+ledger row rather than starting a second one beside it. Its time was released
+when it expired, so if somebody else took it meanwhile they are told it is
+gone — correctly, by the availability check that was always there.
+
+The sweep runs in the five-minute scheduler under a lease, like every other
+tick, and is safe to run twice: the flip is conditional on the row still
+being `pending_approval`, so a second runner — or a blue-green overlap —
+finds nothing to do and mails nobody. **A host who presses Approve in the
+same five minutes wins**; the sweep leaves that booking alone.
+
+The booking page learned the state too. It had two branches, and an expired
+request fell into the *else*: it told somebody whose request had run out that
+they were booked, and offered to add it to their calendar. And the "we'll get
+back to you" line now says the time is released if nobody answers in two
+days, because that is now true.
+
+**Also, from the mail audit** (a different session's finding, folded in
+here): nine Meet sends wrote `replyTo: host.email ?? undefined` *after*
+spreading the sender, which does not fall back to the workspace's own
+reply-to — it overwrites it with nothing. A host without an email address
+turned a branded workspace reply-to into none at all. Now `?? sender.replyTo`.
+
+### Verified
+- Six unit tests on the deadline, with the clock passed in as an argument,
+  not read: a far-off meeting gets 48 hours, a meeting sooner than that gets
+  its own start time, the boundary is inclusive to the millisecond, and a
+  meeting that began between two ticks is over.
+- Against the real staging API: a pending request blocks its slot (asserted
+  first, so the next step cannot pass for the wrong reason), and the same
+  slot becomes bookable once the request is `expired`. The status is read
+  back to prove the CHECK constraint and the code agree.
+- The reply-to guard scans every file under `apps/api/src` and names file and
+  line. Proven by reintroducing the pattern and watching it fail on
+  `routes/meet.ts:4094`.
+- `pnpm verify` green.
+
+### Not verified
+- **The sweep has not been watched running.** It fires from the in-process
+  scheduler on a five-minute lease, so proving the flip end to end means
+  waiting on a real tick against a real deadline. What is proven is the
+  arithmetic (unit), the wiring (the scheduler test reads server.ts), and
+  what the resulting status means to availability (integration). The step in
+  between — the sweep finding the row — rests on two typed queries and is the
+  thing to watch on staging first.
+- **Reviving an expired request by moving it is typed-wired and untested.**
+  The integration fixture is a one-off meeting type, and a one-off cannot be
+  rescheduled by design, so the revival path could not be exercised with it.
+  It goes through the same code as the pending re-ask, which is tested.
+- The expiry mails are hand-written English, like the decline mail beside
+  them, while the booking mails are localised in six languages. Deliberate
+  for now and worth fixing as one piece of work rather than one more mail at
+  a time.
+- An expired request disappears from the host's `/bookings` list unless they
+  ask for cancelled rows. They are emailed when it happens, so this is a
+  choice rather than an oversight, but it is a choice.
+
 ## [1.111.1] — 2026-10-06 — the domain package: the spec, and its Enterprise key (staging)
 
 Sjoerd, in the coordinator chat: "go domain package … like one package, for
@@ -36,6 +120,7 @@ nothing a workspace can click yet.
 Verified: `pnpm verify` green. Migration applied to STAGING in the release
 slot. Not verified: nothing renders differently anywhere yet except one new
 checkbox row on `/admin/plans`.
+
 
 ## [1.111.0] — 2026-10-06 — a request nobody answered held nothing
 

@@ -6,6 +6,7 @@ import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { adminClient, userClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { optionalUserId } from '../middleware/app-context.js';
+import { REQUEST_EXPIRY_HOURS, requestHasExpired } from '../lib/meet/request-expiry.js';
 import {
   isAdminRole,
   wouldOrphanWorkspace,
@@ -1191,7 +1192,7 @@ meetRoutes.post('/public/bookings', async (c) => {
         subject: invitee.subject,
         text: invitee.text,
         html: invitee.html,
-        replyTo: common.hostEmail ?? undefined,
+        replyTo: common.hostEmail ?? sender2.replyTo,
       });
     } catch (e) {
       console.error('[meet bookings] invitee email failed (non-fatal)', e);
@@ -1597,7 +1598,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
         subject: m.subject,
         text: m.text,
         html: m.html,
-        replyTo: common.hostEmail ?? undefined,
+        replyTo: common.hostEmail ?? sender5.replyTo,
       });
     } catch (e) {
       console.error('[meet bookings/cancel] invitee email failed (non-fatal)', e);
@@ -1742,8 +1743,15 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
     movedByHost = !!moverHost && moverHost.id === booking.host_id;
   }
   const wasPending = booking.status === 'pending_approval';
+  // A request that ran out of time (status `expired`) is asked again by
+  // moving it — that is what the link in the expiry email does. It keeps the
+  // booking's id, and therefore its history and its ledger row, instead of
+  // starting a second one beside it. Its slot was freed when it expired, so
+  // the availability check below is the real gate: if somebody else took the
+  // time in the meantime, the invitee is told it is gone, correctly.
+  const revived = booking.status === 'expired';
   const returnsToPending =
-    !movedByHost && booking.status === 'confirmed' && effectiveRequiresApproval;
+    (!movedByHost && booking.status === 'confirmed' && effectiveRequiresApproval) || revived;
   // A host moving a booking that was already pending leaves it pending: they
   // have moved the request, not answered it. Approve is still theirs to press.
   const needsApproval = wasPending || returnsToPending;
@@ -1777,6 +1785,9 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
   // calendar as though it were agreed — and `/approve` creates the event from
   // scratch, so leaving this one would give the host two. Withdraw it, and
   // clear the columns it was recorded in.
+  // An expired request never had an event to withdraw (it was never
+  // confirmed), so this does nothing for a revival — it is guarded on the
+  // columns, not on the branch, which is why that is safe.
   if (returnsToPending) {
     if (booking.google_event_id) {
       const unGToken = await hostGoogleToken(booking.host_id);
@@ -1883,7 +1894,7 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
         subject: m.subject,
         text: m.text,
         html: m.html,
-        replyTo: common.hostEmail ?? undefined,
+        replyTo: common.hostEmail ?? sender7.replyTo,
       });
     } catch (e) {
       console.error('[meet bookings/reschedule] invitee email failed (non-fatal)', e);
@@ -1930,6 +1941,8 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
     // the host again" are different things to tell somebody.
     needs_approval: needsApproval,
     returned_to_pending: returnsToPending,
+    /** True when this move brought an EXPIRED request back to life. */
+    revived,
     booking: {
       id: booking.id,
       starts_at: starts.toISOString(),
@@ -3695,7 +3708,7 @@ ${emailSignoff()}`,
           )}</a></p>`,
           brand,
         ),
-        replyTo: hostUser?.email ?? undefined,
+        replyTo: hostUser?.email ?? sender.replyTo,
       });
       sent += 1;
     } catch (e) {
@@ -3948,6 +3961,163 @@ async function bookingLocales(args: {
   };
 }
 
+// The request expiry sweep — the other half of the hold.
+//
+// A request awaiting approval blocks its slot. Left alone it would block it
+// forever: hosts do not always answer, and until now nothing in the system
+// ever told the invitee that nothing was going to happen. So a request lets
+// go by itself, at the earlier of 48 hours or its own start time (Sjoerd,
+// 2026-10-06: "expire ok"), both sides are told, and the slot comes back.
+//
+// Wired into the five-minute scheduler in server.ts, under a lease, like
+// every other tick. Safe to run twice: the flip is conditional on the row
+// still being `pending_approval`, so a second runner (or a blue-green
+// overlap) finds nothing to do and mails nobody.
+export async function runMeetRequestExpiry(): Promise<{ due: number; expired: number }> {
+  const now = new Date();
+  const ageCutoff = new Date(now.getTime() - REQUEST_EXPIRY_HOURS * 60 * 60 * 1000);
+
+  // TWO queries, merged by id, rather than one `.or()` string. The values
+  // here are timestamps this function computed, but PostgREST filter syntax
+  // is a string language and building it by interpolation is how an
+  // injectable filter gets written — so the pattern stays typed everywhere.
+  const [byAge, byStart] = await Promise.all([
+    adminClient
+      .from('meet_booking')
+      .select('id, created_at, starts_at')
+      .eq('status', 'pending_approval')
+      .lte('created_at', ageCutoff.toISOString())
+      .limit(500),
+    adminClient
+      .from('meet_booking')
+      .select('id, created_at, starts_at')
+      .eq('status', 'pending_approval')
+      .lte('starts_at', now.toISOString())
+      .limit(500),
+  ]);
+  if (byAge.error || byStart.error) {
+    // Loudly, and without flipping anything: a half-read sweep that expired
+    // whatever it happened to see would be worse than one that did nothing.
+    console.error('[meet request-expiry] could not read pending requests', {
+      byAge: byAge.error,
+      byStart: byStart.error,
+    });
+    return { due: 0, expired: 0 };
+  }
+
+  const candidates = new Map<string, { created_at: string; starts_at: string }>();
+  for (const row of [...(byAge.data ?? []), ...(byStart.data ?? [])]) {
+    candidates.set(row.id as string, {
+      created_at: row.created_at as string,
+      starts_at: row.starts_at as string,
+    });
+  }
+  // The deadline is decided by the pure function, not by the queries: the
+  // queries are a net, deliberately wider than the rule.
+  const due = [...candidates.entries()].filter(([, r]) =>
+    requestHasExpired(new Date(r.created_at), new Date(r.starts_at), now),
+  );
+
+  let expired = 0;
+  for (const [bookingId] of due) {
+    // Conditional on still being pending: between the read and here, the
+    // host may have pressed Approve. Expiring that booking would cancel a
+    // meeting both sides believe is happening.
+    const { data: flipped, error: fErr } = await adminClient
+      .from('meet_booking')
+      .update({ status: 'expired' })
+      .eq('id', bookingId)
+      .eq('status', 'pending_approval')
+      .select('id')
+      .maybeSingle();
+    if (fErr) {
+      console.error('[meet request-expiry] could not expire a request', { bookingId, error: fErr });
+      continue;
+    }
+    if (!flipped) continue; // answered in the meantime — correctly left alone
+    expired += 1;
+    await sendRequestExpiredMails(bookingId);
+  }
+
+  if (expired > 0) {
+    console.log(`[meet request-expiry] expired ${expired} of ${due.length} due request(s)`);
+  }
+  return { due: due.length, expired };
+}
+
+// Telling both sides a request ran out. Non-fatal throughout: the status is
+// already terminal and the slot is already free, so a failed mail must not
+// unwind that — but each failure says which side was not reached.
+async function sendRequestExpiredMails(bookingId: string): Promise<void> {
+  const { data: booking, error } = await loadBookingWithJoins(bookingId);
+  if (error || !booking) {
+    console.error('[meet request-expiry] expired booking not found for its mails', {
+      bookingId,
+      error,
+    });
+    return;
+  }
+  const mt = Array.isArray(booking.meeting_type) ? booking.meeting_type[0] : booking.meeting_type;
+  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+  if (!mt || !hostRow) return;
+
+  const hostTz = hostRow.timezone ?? 'UTC';
+  const hostName = hostUser?.full_name ?? hostRow.slug ?? 'your host';
+  const hostEmail = hostUser?.email ?? null;
+  const starts = new Date(booking.starts_at);
+  const when = formatWhen(starts, hostTz);
+  // The same link the booking mails carry: it opens the picker on this
+  // booking, so asking again keeps the row, its history and its ledger entry
+  // instead of starting a second one.
+  const askAgain = `${meetAppUrl()}/${encodeURIComponent(hostRow.slug ?? '')}/${encodeURIComponent(
+    mt.slug ?? '',
+  )}?reschedule=${encodeURIComponent(booking.id)}`;
+  const first = booking.invitee_name.split(' ')[0] ?? '';
+
+  try {
+    const sender = await meetSender(booking.workspace_id);
+    await sendEmail({
+      ...sender,
+      to: booking.invitee_email,
+      subject: `Your request expired: ${mt.name}`,
+      text: `Hi ${first},\n\n${hostName} did not answer your request for ${mt.name} (${when}), so it has expired and the time is free again.\n\nYou can ask for another time: ${askAgain}\n\n${emailSignoff()}`,
+      html: await meetEmailHtml(
+        booking.workspace_id,
+        'Your request expired',
+        `<p>Hi ${escapeHtml(first)},</p><p>${escapeHtml(hostName)} did not answer your request for <strong>${escapeHtml(mt.name)}</strong> (${escapeHtml(when)}), so it has expired and the time is free again.</p><p><a href="${askAgain}">Ask for another time →</a></p>`,
+      ),
+      replyTo: hostEmail ?? sender.replyTo,
+    });
+  } catch (e) {
+    console.error('[meet request-expiry] invitee email failed (non-fatal)', { bookingId, error: e });
+  }
+
+  if (hostEmail) {
+    try {
+      const sender = await meetSender(booking.workspace_id);
+      await sendEmail({
+        ...sender,
+        to: hostEmail,
+        subject: `Expired without an answer: ${mt.name} — ${booking.invitee_name}`,
+        text: `${booking.invitee_name} (${booking.invitee_email}) asked for ${mt.name} on ${when}. The request was not answered, so it has expired and the time is free again.\n\nIf you still want it, they can be asked to pick a time: ${askAgain}\n\n${emailSignoff()}`,
+        html: await meetEmailHtml(
+          booking.workspace_id,
+          'A request expired',
+          `<p><strong>${escapeHtml(booking.invitee_name)}</strong> (${escapeHtml(booking.invitee_email)}) asked for <strong>${escapeHtml(mt.name)}</strong> on ${escapeHtml(when)}.</p><p>It was not answered, so it has expired and the time is free again.</p><p><a href="${askAgain}">Pick a time with them →</a></p>`,
+        ),
+        replyTo: booking.invitee_email,
+      });
+    } catch (e) {
+      console.error('[meet request-expiry] host email failed (non-fatal)', { bookingId, error: e });
+    }
+  }
+}
+
 // Asking the host — the side-effects of a booking that sits in
 // `pending_approval`.
 //
@@ -4021,7 +4191,7 @@ async function runApprovalRequestSideEffects(
       subject: requested.subject,
       text: requested.text,
       html: requested.html,
-      replyTo: hostEmail ?? undefined,
+      replyTo: hostEmail ?? sender.replyTo,
     });
   } catch (e) {
     console.error('[meet approval-request] invitee email failed (non-fatal)', e);
@@ -4209,7 +4379,7 @@ async function runConfirmationSideEffects(
       subject: m.subject,
       text: m.text,
       html: m.html,
-      replyTo: common.hostEmail ?? undefined,
+      replyTo: common.hostEmail ?? sender10.replyTo,
     });
   } catch (e) {
     console.error('[meet confirm-side-effects] invitee email failed (non-fatal)', e);
@@ -4637,7 +4807,7 @@ meetRoutes.post('/bookings', async (c) => {
             'Payment',
             `<p>Hi ${escapeHtml(d.invitee_name.split(' ')[0] ?? '')},</p><p><strong>${escapeHtml(amount)}</strong> is due for ${escapeHtml(mt.name)}.</p>${meetPayButtonHtml(payUrl)}`,
           ),
-          replyTo: hostUser?.email ?? undefined,
+          replyTo: hostUser?.email ?? sender.replyTo,
         });
       } catch (e) {
         console.error('[meet host-booking] payment email failed (non-fatal)', e);
@@ -4743,7 +4913,7 @@ meetRoutes.post('/bookings/:id/reject', async (c) => {
           'Booking declined',
           `<p>Hi ${escapeHtml(booking.invitee_name.split(' ')[0] ?? '')},</p><p>${escapeHtml(hostName)} was unable to confirm your booking request for <strong>${escapeHtml(mt.name)}</strong>.</p>${body.data.reason ? `<p><em>${escapeHtml(body.data.reason)}</em></p>` : ''}`,
         ),
-        replyTo: hostUser?.email ?? undefined,
+        replyTo: hostUser?.email ?? sender12.replyTo,
       });
     } catch (e) {
       console.error('[meet bookings/reject] invitee email failed (non-fatal)', e);

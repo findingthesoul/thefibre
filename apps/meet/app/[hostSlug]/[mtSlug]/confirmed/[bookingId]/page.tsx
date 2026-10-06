@@ -59,6 +59,12 @@ export default async function ConfirmedPage({
 
   const L = toLocale(booking.locale);
   const whenInHostZone = formatWhenInZone(starts, hostZone, INTL_LOCALES[L]);
+  // A request nobody answered. It had no calendar event and its time has
+  // been given back, so this page must not offer to add it to a calendar or
+  // claim the booking stands — it used to say "you're booked" (the else of a
+  // two-way branch) for a meeting that was never going to happen.
+  const expired = booking.status === 'expired';
+  const firstName = booking.invitee_name.split(' ')[0] ?? '';
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -66,22 +72,29 @@ export default async function ConfirmedPage({
         <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="p-8 sm:p-10">
             <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-              {booking.status === 'pending_approval'
-                ? publicT(L, 'request_received')
-                : publicT(L, 'booking_confirmed')}
+              {expired
+                ? publicT(L, 'request_expired_eyebrow')
+                : booking.status === 'pending_approval'
+                  ? publicT(L, 'request_received')
+                  : publicT(L, 'booking_confirmed')}
             </div>
             <h1 className="mt-3 text-3xl font-medium tracking-tight">
-              {booking.status === 'pending_approval'
-                ? publicT(L, 'request_is_in', {
-                    first: booking.invitee_name.split(' ')[0] ?? '',
-                  })
-                : publicT(L, 'youre_booked', {
-                    first: booking.invitee_name.split(' ')[0] ?? '',
-                  })}
+              {expired
+                ? publicT(L, 'request_expired_title', { first: firstName })
+                : booking.status === 'pending_approval'
+                  ? publicT(L, 'request_is_in', { first: firstName })
+                  : publicT(L, 'youre_booked', { first: firstName })}
             </h1>
             {booking.status === 'pending_approval' && (
               <p className="mt-3 text-sm text-neutral-600 leading-relaxed">
                 {publicT(L, 'will_review', {
+                  host: hostName ?? publicT(L, 'the_host'),
+                })}
+              </p>
+            )}
+            {expired && (
+              <p className="mt-3 text-sm text-neutral-600 leading-relaxed">
+                {publicT(L, 'request_expired_body', {
                   host: hostName ?? publicT(L, 'the_host'),
                 })}
               </p>
@@ -142,7 +155,7 @@ export default async function ConfirmedPage({
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              {booking.status !== 'cancelled' && (
+              {booking.status !== 'cancelled' && !expired && (
                 <a
                   href={`/${hostSlug}/${mtSlug}/confirmed/${bookingId}/calendar.ics`}
                   className="inline-flex items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
@@ -150,18 +163,25 @@ export default async function ConfirmedPage({
                   {publicT(L, 'add_to_calendar')}
                 </a>
               )}
+              {/* On an expired request this is the ask-again link — the API
+                  revives the same booking rather than starting a second one,
+                  so the label is the only thing that changes. */}
               <Link
                 href={`/${hostSlug}/${mtSlug}?reschedule=${bookingId}`}
                 className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50"
               >
-                {publicT(L, 'reschedule')}
+                {expired ? publicT(L, 'pick_new_time') : publicT(L, 'reschedule')}
               </Link>
-              <Link
-                href={`/${hostSlug}/${mtSlug}/cancel/${bookingId}`}
-                className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-              >
-                {publicT(L, 'cancel')}
-              </Link>
+              {/* Nothing to cancel: an expired request is already over, and
+                  offering it reads as though the meeting still stands. */}
+              {!expired && (
+                <Link
+                  href={`/${hostSlug}/${mtSlug}/cancel/${bookingId}`}
+                  className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  {publicT(L, 'cancel')}
+                </Link>
+              )}
             </div>
           </div>
 

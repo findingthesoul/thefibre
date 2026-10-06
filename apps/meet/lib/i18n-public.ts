@@ -445,6 +445,32 @@ const CATALOG = {
   },
 
   // ── after booking: the confirmation and cancel pages ────────────────────
+  // A request that ran out of time. Without these three the page told an
+  // invitee whose request had expired that they were booked.
+  request_expired_eyebrow: {
+    en: 'Request expired',
+    nl: 'Aanvraag verlopen',
+    es: 'Solicitud caducada', // MT
+    pt: 'Pedido expirado', // MT
+    de: 'Anfrage abgelaufen', // MT
+    fr: 'Demande expirée', // MT
+  },
+  request_expired_title: {
+    en: 'This request wasn’t answered, {first}.',
+    nl: 'Deze aanvraag is niet beantwoord, {first}.',
+    es: 'Esta solicitud no fue respondida, {first}.', // MT
+    pt: 'Este pedido não foi respondido, {first}.', // MT
+    de: 'Diese Anfrage wurde nicht beantwortet, {first}.', // MT
+    fr: 'Cette demande est restée sans réponse, {first}.', // MT
+  },
+  request_expired_body: {
+    en: 'The time has been released, so it may now be taken. You can ask {host} for another one.',
+    nl: 'De tijd is weer vrijgegeven en kan inmiddels bezet zijn. Je kunt {host} om een andere tijd vragen.',
+    es: 'La hora se ha liberado, así que puede estar ocupada. Puedes pedirle otra a {host}.', // MT
+    pt: 'O horário foi libertado, pelo que pode já estar ocupado. Podes pedir outro a {host}.', // MT
+    de: 'Die Zeit ist wieder frei und kann inzwischen belegt sein. Du kannst {host} nach einer anderen fragen.', // MT
+    fr: 'Le créneau a été libéré et peut être pris. Tu peux en demander un autre à {host}.', // MT
+  },
   request_received: {
     en: 'Request received',
     nl: 'Aanvraag ontvangen',
@@ -477,13 +503,16 @@ const CATALOG = {
     de: 'Es steht, {first}.', // MT
     fr: 'C’est réservé, {first}.', // MT
   },
+  // The second sentence is new in the expiry release and is a promise the
+  // system now keeps: an unanswered request releases its time, and saying so
+  // is better than letting somebody wait on a slot nobody will confirm.
   will_review: {
-    en: '{host} will review and confirm. You’ll get an email either way — usually within a day.',
-    nl: '{host} bekijkt het en bevestigt. Je krijgt hoe dan ook een mail — meestal binnen een dag.',
-    es: '{host} lo revisará y lo confirmará. Recibirás un correo en cualquier caso, normalmente en un día.', // MT
-    pt: '{host} vai rever e confirmar. Vais receber um email de qualquer forma — normalmente dentro de um dia.', // MT
-    de: '{host} sieht es sich an und bestätigt. Du bekommst so oder so eine Mail — meist innerhalb eines Tages.', // MT
-    fr: '{host} va l’examiner et confirmer. Tu recevras un e-mail dans tous les cas — généralement sous un jour.', // MT
+    en: '{host} will review and confirm. You’ll get an email either way — usually within a day. If it isn’t answered within two days, the time is released.',
+    nl: '{host} bekijkt het en bevestigt. Je krijgt hoe dan ook een mail — meestal binnen een dag. Blijft het twee dagen onbeantwoord, dan komt de tijd weer vrij.',
+    es: '{host} lo revisará y lo confirmará. Recibirás un correo en cualquier caso, normalmente en un día. Si no se responde en dos días, la hora se libera.', // MT
+    pt: '{host} vai rever e confirmar. Vais receber um email de qualquer forma — normalmente dentro de um dia. Se não for respondido em dois dias, o horário é libertado.', // MT
+    de: '{host} sieht es sich an und bestätigt. Du bekommst so oder so eine Mail — meist innerhalb eines Tages. Bleibt sie zwei Tage unbeantwortet, wird die Zeit wieder frei.', // MT
+    fr: '{host} va l’examiner et confirmer. Tu recevras un e-mail dans tous les cas — généralement sous un jour. Sans réponse sous deux jours, le créneau est libéré.', // MT
   },
   the_host: {
     en: 'The host',
