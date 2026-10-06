@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.107.0] — 2026-10-06 — a business model opens where you were
+
+Sjoerd: *"Please remember the page one was on in the Model (which tab and
+which view), per user. When logging in and opening a model, it would be
+great if you get there immediately. Also when you refresh a page."*
+
+The refresh already worked through the address. This is the other half: The
+Fibre now remembers, per person and per model, which tab and which view
+were open, and opens the model there the next time, from any device, after
+a login, straight from the dashboard. A link that names a place still wins,
+so a colleague's shared view opens as shared. One small table, private to
+the person; the page renders the remembered place on the server, so nothing
+flashes.
+
 ## [1.106.1] — 2026-10-05 — a save that did nothing said it worked, and a list nobody could find
 
 Four fixes, three of them from Sjoerd using the thing on staging.
