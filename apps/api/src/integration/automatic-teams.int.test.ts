@@ -250,6 +250,38 @@ describe('automatic teams', () => {
     void person;
   });
 
+  // The hazard the conversion script gates on, written down so it cannot be
+  // rediscovered the hard way: putting somebody in a team re-resolves them,
+  // and re-resolving DELETES any app_membership owed to neither a direct tick
+  // nor a live team grant. A row written before teams became the access layer
+  // is exactly that, so a conversion silently takes those apps away.
+  //
+  // If this test ever fails because the row SURVIVES, syncUsers stopped
+  // deleting unowed rows — and the --apply gate in
+  // scripts/convert-workspaces-to-automatic-teams.ts can be relaxed.
+  it('a sync DELETES an app_membership owed to nothing — why the conversion refuses to run over one', async () => {
+    const person = await member('organiser');
+    const { data: app } = await service.from('app').select('id, slug').eq('slug', 'fibre-meet').maybeSingle();
+    expect(app, 'fibre-meet must exist for this fixture').toBeTruthy();
+
+    // Not is_direct, and no team grants it: owed to nothing the resolver sees.
+    await service
+      .from('app_membership')
+      .upsert(
+        { user_id: person, app_id: app!.id, role: 'member', is_direct: false },
+        { onConflict: 'user_id,app_id' },
+      );
+
+    await syncAutomaticTeams(ws);
+
+    const { data: after } = await service
+      .from('app_membership')
+      .select('app_id')
+      .eq('user_id', person)
+      .eq('app_id', app!.id);
+    expect(after ?? []).toHaveLength(0);
+  });
+
   it('refuses to delete an automatic team', async () => {
     const { data: team } = await service
       .from('team')

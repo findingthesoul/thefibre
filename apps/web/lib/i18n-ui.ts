@@ -1367,13 +1367,17 @@ const CATALOG = {
     de: 'Extern', // MT
     fr: 'Externe', // MT
   },
+  // Reworded 2026-10-06 with the dialog: it used to say "grant only the apps
+  // they need", which contradicted the screen underneath it the moment teams
+  // became the way in. A subtitle that disagrees with the form below it is
+  // worse than none.
   invite_blurb: {
-    en: 'Invite someone into the workspace and grant only the apps they need.',
-    nl: 'Nodig iemand uit in de werkruimte en geef alleen de apps die diegene nodig heeft.',
-    es: 'Invita a alguien al espacio de trabajo y concédele solo las apps que necesita.', // MT
-    pt: 'Convide alguém para o espaço de trabalho e conceda só os apps de que precisa.', // MT
-    de: 'Lade jemanden in den Workspace ein und gib nur die Apps frei, die er braucht.', // MT
-    fr: "Invite quelqu'un dans l'espace de travail et accorde-lui uniquement les apps nécessaires.", // MT
+    en: 'Invite someone into the workspace. What they can open follows from their teams.',
+    nl: 'Nodig iemand uit in de workspace. Wat diegene kan openen volgt uit hun teams.',
+    es: 'Invita a alguien al espacio de trabajo. Lo que puede abrir se deriva de sus equipos.', // MT
+    pt: 'Convida alguém para o espaço de trabalho. O que pode abrir decorre das suas equipas.', // MT
+    de: 'Lade jemanden in den Workspace ein. Was die Person öffnen kann, ergibt sich aus ihren Teams.', // MT
+    fr: "Invitez quelqu'un dans l'espace de travail. Ce qu'il peut ouvrir découle de ses équipes.", // MT
   },
   sending: {
     en: 'Sending…',
@@ -1415,13 +1419,15 @@ const CATALOG = {
     de: 'Admin', // MT
     fr: 'Admin', // MT
   },
+  // Now the footnote of the app-ticks section rather than the summary of the
+  // whole dialog, so it says what that section is FOR.
   no_access_by_default: {
-    en: 'No access by default — grant only what they need.',
-    nl: 'Standaard geen toegang — geef alleen wat nodig is.',
-    es: 'Sin acceso por defecto: concede solo lo necesario.', // MT
-    pt: 'Sem acesso por padrão — conceda só o necessário.', // MT
-    de: 'Standardmäßig kein Zugriff — gib nur frei, was nötig ist.', // MT
-    fr: "Aucun accès par défaut — accorde uniquement le nécessaire.", // MT
+    en: 'Only for exceptions: one app for one person, outside any team.',
+    nl: 'Alleen voor uitzonderingen: één app voor één persoon, buiten elk team om.',
+    es: 'Solo para excepciones: una app para una persona, fuera de cualquier equipo.', // MT
+    pt: 'Apenas para exceções: uma aplicação para uma pessoa, fora de qualquer equipa.', // MT
+    de: 'Nur für Ausnahmen: eine App für eine Person, außerhalb jedes Teams.', // MT
+    fr: "Uniquement pour les exceptions : une application pour une personne, en dehors de toute équipe.", // MT
   },
   seat_confirm_suffix: {
     en: 'Sending the invite confirms the extra monthly cost.',

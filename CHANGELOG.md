@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.2] — 2026-10-06
+
+Third slice of `docs/teams-two-automatic-teams.md`: the conversion for the
+workspaces that existed before the two automatic teams did, plus the wording
+on the invite screen that had not caught up with slice 2.
+
+- **`apps/api/scripts/convert-workspaces-to-automatic-teams.ts`** — gives
+  every existing workspace its Admins and Everyone teams. Dry run by default,
+  naming per workspace exactly who goes into each team; `--apply` does it and
+  writes an undo file; `--undo <file>` removes precisely those rows.
+  Production additionally needs `--production`. It is TypeScript, not another
+  `.mjs` script, because it calls `syncAutomaticTeams` — THE writer, the same
+  one an invite calls — so the conversion cannot drift from what a new
+  workspace gets. Everything it writes itself is the plan and the undo.
+- **It refuses rather than taking somebody's access.** Not an obvious hazard:
+  putting a person in a team re-resolves them, and re-resolving DELETES any
+  `app_membership` owed to neither a direct tick nor a live team grant — and a
+  row written before teams became the access layer is exactly that. So the dry
+  run counts those rows and `--apply` stops while any exist. There is no
+  `--force`: clearing them is a decision about real people's access. A new
+  integration case proves the deletion happens (10 in that file now), so if
+  the resolver ever stops deleting, the test says the gate can relax.
+- **Nobody's access changes on conversion day**, and that is measured rather
+  than promised: Everyone is created with no grants, so the resolver has
+  nothing to resolve, and the dry run prints the grant rows attached to any
+  automatic team — it refuses if that is not zero.
+- **The invite screen stops contradicting itself.** Since slice 2 the first
+  thing on it is teams, but the subtitle still described app ticks: now
+  "Invite someone into the workspace. What they can open follows from their
+  teams", and the line under the app ticks reads "Only for exceptions: one app
+  for one person, outside any team." Six locales.
+- **Run on staging:** dry run, applied (5 workspaces, 10 teams, 11
+  memberships, 0 grants, 0 revocations), undo exercised for real and the 11
+  memberships re-applied, drift check clean. **Production is unconverted** —
+  its dry run needs Sjoerd's word and its own look, not least because the
+  revocation count there is unknown; this session cannot read production.
+
 ## [1.113.1] — 2026-10-06 — the domain package, release 4: every workspace mail is from the workspace (staging)
 
 Fourth slice of `docs/domain-package.md`, API only. The audit behind
