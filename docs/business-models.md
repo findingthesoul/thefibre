@@ -227,6 +227,23 @@ that was open."_
   every change of tab or view, so a refresh and a copied link both open
   where the person was.
 
+## The model opens where you were (1.89.0)
+
+Sjoerd, 2026-10-06: _"Please remember the page one was on in the Model
+(which tab and which view), per user. When logging in and opening a model,
+it would be great if you get there immediately. Also when you refresh."_
+
+- `public.models_place` (migration `20261006090000_fibre_models_place.sql`):
+  one row per (user, model) with `tab` and `view`; RLS: own rows only.
+- `GET /api/v1/models/:id` returns `place` for the caller; `PUT
+  /api/v1/models/:id/place` upserts it. The page renders the remembered
+  place on the server, so there is no flash; the client writes the place 600
+  ms after every change of tab or view (`savePlace`, fire and forget).
+- Order of precedence on open: a place named in the address
+  (`?tab=&view=`) wins; otherwise the remembered place; otherwise the
+  canvas. A refresh reads the address, a login on another device reads the
+  row.
+
 ## Versions
 
 Its own `VERSION` in `apps/models/app/(app)/layout.tsx` (0.1.0 from

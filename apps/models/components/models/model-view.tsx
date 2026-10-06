@@ -19,7 +19,7 @@ import { defaultState, mergeState, summarize, itemObj, type CanvasBlockKey, type
 import type { Scope } from '@/lib/links';
 import { t, type Locale } from '@/lib/i18n-ui';
 import type { ModelRow } from '@/app/(app)/models/actions';
-import { saveInputs, updateModel, duplicateModel, modelUpdatedAt } from '@/app/(app)/models/actions';
+import { saveInputs, updateModel, duplicateModel, modelUpdatedAt, savePlace } from '@/app/(app)/models/actions';
 import { useRouter } from 'next/navigation';
 import { BusinessModelCanvas } from './canvas';
 import { CanvasEditor } from './canvas-editor';
@@ -56,7 +56,11 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
   const [state, setState] = useState<ModelState>(() => mergeState(defaultState(row.definition), saved));
   const [refMonth, setRefMonth] = useState<number>(typeof saved.refMonth === 'number' ? saved.refMonth : (row.definition.breakEvenMonth ?? 12));
   const [horizon, setHorizon] = useState<number>(typeof saved.horizon === 'number' ? saved.horizon : (row.definition.horizon ?? 36));
-  const [tab, setTab] = useState<Tab>('canvas');
+  // Open where this person was last time (the API remembers per person per
+  // model); the address, read below, wins when it names a place.
+  const remembered = useRef(row.place ?? null).current;
+  const placeSaved = useRef(false);
+  const [tab, setTab] = useState<Tab>(remembered?.tab ?? 'canvas');
   const [linkCopied, setLinkCopied] = useState(false);
   const [scenarios, setScenarios] = useState<Scenario[]>(Array.isArray(saved.scenarios) ? saved.scenarios.filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && x.inputs && typeof x.inputs === 'object') : []);
   // Undo: a snapshot before every change, back with the button or ⌘Z.
@@ -77,8 +81,8 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [view, setView] = useState<View>('bep');
-  const [asmView, setAsmView] = useState<AssumptionsView>('list');
+  const [view, setView] = useState<View>(remembered?.tab === 'numbers' && (remembered.view === 'bep' || remembered.view === 'projection' || remembered.view === 'periods' || remembered.view === 'scenarios') ? remembered.view : 'bep');
+  const [asmView, setAsmView] = useState<AssumptionsView>(remembered?.tab === 'assumptions' && (remembered.view === 'list' || remembered.view === 'model') ? remembered.view : 'list');
   // The address carries where the person is: /models/<id>?tab=numbers&view=periods.
   // A shared link opens there, and so does a refresh (Sjoerd, 2026-09-29:
   // "after a refresh, please land on the tab/view that was open").
@@ -103,7 +107,13 @@ export function ModelView({ model: row, locale }: { model: ModelRow; locale: Loc
       else url.searchParams.delete('view');
       window.history.replaceState(window.history.state, '', url);
     } catch {}
-  }, [tab, view, asmView]);
+    // And remembered for this person, so the next visit from anywhere starts here.
+    const place = { tab, view: tab === 'numbers' ? view : tab === 'assumptions' ? asmView : null };
+    if (remembered && remembered.tab === place.tab && (remembered.view ?? null) === place.view && !placeSaved.current) return;
+    placeSaved.current = true;
+    const h = setTimeout(() => { void savePlace(row.id, place); }, 600);
+    return () => clearTimeout(h);
+  }, [tab, view, asmView, row.id, remembered]);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'conflict'>('idle');
   const updatedAt = useRef<string>(row.updated_at);
   const router = useRouter();

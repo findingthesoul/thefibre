@@ -14,7 +14,7 @@ import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/s
 
 // Business Models has its own user-facing version, independent of the
 // monorepo cadence (new app, started at 0.1.0 on 2026-09-25).
-export const VERSION = '0.11.0';
+export const VERSION = '0.12.0';
 
 type Me = ShellMe & {
   user: { id: string; email: string; full_name: string | null };

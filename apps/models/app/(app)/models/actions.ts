@@ -17,7 +17,8 @@ export type ModelListItem = {
   updated_at: string;
   created_at: string;
 };
-export type ModelRow = ModelListItem & { definition: ModelDefinition; inputs: Record<string, unknown>; may_shape: boolean };
+export type ModelPlace = { tab: 'canvas' | 'numbers' | 'assumptions'; view: string | null };
+export type ModelRow = ModelListItem & { definition: ModelDefinition; inputs: Record<string, unknown>; may_shape: boolean; place?: ModelPlace | null };
 export type TeamChoice = { id: string; name: string; role: 'admin' | 'lead' | 'member' };
 
 function fail(e: unknown, fallback: string): { error: string } {
@@ -67,6 +68,13 @@ export async function modelUpdatedAt(id: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** The tab and view this person has open, remembered per person per model
+ *  so the next visit starts there. Fire and forget: a lost write costs one
+ *  landing, nothing more. */
+export async function savePlace(id: string, place: ModelPlace): Promise<void> {
+  try { await apiFetch(`/api/v1/models/${id}/place`, { method: 'PUT', body: JSON.stringify(place) }); } catch { /* the address still carries the place */ }
 }
 
 export async function saveInputs(id: string, inputs: Record<string, unknown>, ifUpdatedAt?: string): Promise<SaveResult> {

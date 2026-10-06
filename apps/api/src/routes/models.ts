@@ -213,11 +213,35 @@ modelsRoutes.get('/:id', async (c) => {
     return c.json({ error: error.message }, 500);
   }
   if (!data) return c.json({ error: 'not found' }, 404);
+  // Where this person last was in this model (models_place, RLS: own rows).
+  const { data: place } = await db.from('models_place').select('tab, view').eq('model_id', data.id).eq('user_id', ctx.userId).maybeSingle();
   return c.json({
     ...data,
     team: teamOf(data.team as TeamRef),
     may_shape: await mayShape(ctx.userId, ctx.workspaceId, data.team_id as string | null),
+    place: place ? { tab: place.tab as string, view: (place.view as string | null) ?? null } : null,
   });
+});
+
+// PUT /api/v1/models/:id/place — the tab and view this person has open, so
+// the next visit (any device, after a login) starts there. One row per
+// person per model; the model must be readable, which RLS on the read above
+// already decided for this caller.
+const Place = z.object({ tab: z.enum(['canvas', 'numbers', 'assumptions']), view: z.string().max(32).nullable().optional() });
+modelsRoutes.put('/:id/place', async (c) => {
+  const body = Place.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const { data: model } = await db.from('models_model').select('id').eq('id', id).is('deleted_at', null).maybeSingle();
+  if (!model) return c.json({ error: 'not found' }, 404);
+  const { error } = await db.from('models_place').upsert({ user_id: ctx.userId, model_id: id, tab: body.data.tab, view: body.data.view ?? null, updated_at: new Date().toISOString() }, { onConflict: 'user_id,model_id' });
+  if (error) {
+    console.error('[models] place', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ ok: true });
 });
 
 // PATCH /api/v1/models/:id — inputs from any member; the rest from leads and admins.
