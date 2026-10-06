@@ -181,6 +181,75 @@ acts. I would rather that than widen access by inference.
 
 ---
 
+## What was built, and the one thing to read before converting production
+
+*Added 2026-10-06 with v1.113.2 (`apps/api/scripts/convert-workspaces-to-automatic-teams.ts`).
+Option 1 above is what shipped: Everyone starts with nothing.*
+
+```
+cd apps/api
+npx tsx --env-file=.env.staging scripts/convert-workspaces-to-automatic-teams.ts            # dry run
+npx tsx --env-file=.env.staging scripts/convert-workspaces-to-automatic-teams.ts --apply    # and an undo file
+npx tsx --env-file=.env.staging scripts/convert-workspaces-to-automatic-teams.ts --undo <f> # take it back
+```
+
+`.env` is production and additionally needs `--production`. The script names
+the project it is on in its first line, and refuses anything that is neither
+staging nor production.
+
+It is TypeScript rather than another `.mjs` script because it calls
+`syncAutomaticTeams` — the same writer an invite calls — so a converted
+workspace cannot drift from a new one. The only things it computes itself are
+the plan it prints and the undo file. Note that `apps/api/tsconfig.json`
+includes `src/**` only, so nothing under `scripts/` is covered by
+`pnpm verify`; it was typechecked explicitly.
+
+### The conversion can take access away, and that is what the second gate is for
+
+Not obvious, and the reason the script measures before it writes. Putting
+somebody in a team calls `syncTeam` → `syncUsers`, and `syncUsers` is
+per-USER: it reads every `app_membership` row that person has and **deletes
+any row owed to neither a direct tick (`is_direct = true`) nor a live team
+grant** — not only rows belonging to the team that changed. So the dry run
+counts those rows, and `--apply` refuses while any exist. There is no
+`--force`: clearing them is a decision about real people's access.
+`src/integration/automatic-teams.int.test.ts` proves the deletion happens, so
+if the resolver ever stops deleting, that test says the gate can relax.
+
+**The mass sweep this suggests cannot happen, by design.** When
+`20260911120000_team_access_groups.sql` added `is_direct` it added it
+`not null default true`, which backfilled every row that existed — its own
+comment says every such row was a direct grant, that being the only way one
+could have been made until that day. Rows written since without naming
+`is_direct` land as true too, including `plan-apps.ts`, which upserts the
+whole plan grid on every sign-in. The only rows that can be false are ones
+`team-grants.ts` wrote itself, and sweeping those when their team stops
+granting the app is the feature working. So the expected count is zero — and
+the gate measures it rather than trusting the argument above.
+
+What IS new with these teams is the blast radius. Before, re-resolution
+touched the people in the team you edited; now any invite or role change
+re-resolves every member of the workspace, because Everyone's roster is every
+member. The deletion path itself has been live on production since
+2026-09-11 (`routes/teams.ts`, whenever a team's apps, its active flag or its
+roster change).
+
+### Where it has run
+
+**Staging: converted.** Dry run, `--apply` (5 workspaces, 10 teams, 11
+memberships, 0 grant rows on automatic teams, 0 revocations), `--undo`
+exercised for real (11 memberships removed, the dry run saw the same 11
+again), re-applied, drift check clean. The undo cannot remove the teams
+themselves — the database refuses to delete an automatic team — so it says so
+instead of pretending; they are empty and grant nothing.
+
+**Production: unconverted.** Its dry run is Sjoerd's to read, as its own
+operation. The line that decides it is `access a sync would TAKE`: anything
+above zero names a person losing a named app, and nothing is converted until
+that is understood.
+
+---
+
 ## Risks worth naming
 
 - **The conversion writes `app_membership` rows through the resolver.** Those
