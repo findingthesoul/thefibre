@@ -208,3 +208,48 @@ export function rankAssigneesForSlot(
   free.sort((a, b) => (loadByKey[a.hostKey] ?? 0) - (loadByKey[b.hostKey] ?? 0));
   return free.map((h) => h.hostKey);
 }
+
+/**
+ * Remove one interval from a busy list — the meeting being rescheduled.
+ *
+ * A reschedule already forgets the booking's own DATABASE row. Its Google
+ * Calendar event was not forgotten, because `freeBusy` answers with intervals
+ * and no event ids: the host's calendar still says "busy" at the old time, so
+ * the meeting blocked its own move, and with buffers it blocked the times
+ * around it too. Reported by a real invitee on 2026-10-06, who was told the
+ * time she picked had "just been taken".
+ *
+ * Carving the interval out rather than dropping any block that touches it is
+ * the whole point. Google merges adjacent events into one busy block, so a
+ * block overlapping the old slot may be partly somebody else's meeting; a
+ * block that merely CONTAINS the old slot must keep the parts either side.
+ *
+ * KNOWN LIMIT, and it cannot be fixed at this layer: if another event covers
+ * exactly the same minutes, freebusy gives one interval and nothing here can
+ * tell the two apart, so that time is freed. Distinguishing them needs the
+ * events API and a match on google_event_id, which is a different request and
+ * a different scope decision.
+ */
+export function subtractInterval(busy: Interval[], cut: Interval | null): Interval[] {
+  if (!cut) return busy;
+  const cutStart = cut.start.getTime();
+  const cutEnd = cut.end.getTime();
+  if (!(cutEnd > cutStart)) return busy;
+
+  const out: Interval[] = [];
+  for (const b of busy) {
+    const bStart = b.start.getTime();
+    const bEnd = b.end.getTime();
+    // No overlap: keep as it is.
+    if (bEnd <= cutStart || bStart >= cutEnd) {
+      out.push(b);
+      continue;
+    }
+    // The part before the cut, if any.
+    if (bStart < cutStart) out.push({ start: b.start, end: new Date(cutStart) });
+    // The part after the cut, if any.
+    if (bEnd > cutEnd) out.push({ start: new Date(cutEnd), end: b.end });
+    // Fully inside the cut: contributes nothing.
+  }
+  return out;
+}

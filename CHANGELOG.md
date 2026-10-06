@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.110.2] — 2026-10-06 — a meeting blocked its own move
+
+An invitee rescheduled a Meet booking on production and was told the time had
+just been taken. It had not: **the meeting she was moving was blocking its own
+new time.**
+
+A reschedule already forgot the booking's database row. It did not forget the
+booking's Google Calendar event — and `freeBusy` answers with intervals and no
+event ids, so the host's calendar still said "busy" at the old time. With the
+meeting type's buffers either side, that blocked the times around it too.
+
+The slot LIST had the same blind spot and worse: it never excluded the booking
+at all, so "move it half an hour later" was never offered in the first place.
+The two paths are separate code — the reschedule endpoint builds availability
+through `buildPerHostArgs`, the list through `hostFreeSlots`, each with its
+own copy of the same assembly. That is exactly why one of them had the
+exclusion and the other did not.
+
+Both now take the same option, and both carve the moving booking's own
+interval out of what Google returned. **Carved, not dropped:** Google merges
+adjacent events into a single busy block, so a block overlapping the old slot
+may be partly somebody else's meeting and has to keep the parts either side.
+The list is asked for it with `?reschedule=<booking id>`, matched against that
+meeting type's own bookings so an id from elsewhere changes nothing.
+
+**A limit that cannot be fixed at this layer, and is in the code:** if another
+event covers exactly the same minutes as the booking being moved, freebusy
+returns one interval and nothing here can tell them apart, so that time is
+freed. It only frees a time the host was already double-booked on. Telling
+them apart needs the events API and a match on `google_event_id` — a different
+request and a different scope decision.
+
+### Verified
+- 7 unit tests on the subtraction: an exact block disappears, an unrelated
+  block is untouched, a merged 09:00–12:00 block keeps 09–10 and 11–12, blocks
+  overlapping either edge keep their outside part, a touching block still
+  blocks, and a null or zero-length cut changes nothing.
+- `pnpm verify` green.
+
+### Not verified
+- **No end-to-end test and no reproduction.** There is no Meet fixture
+  anywhere in the integration suite — no host, no meeting type, no booking,
+  nothing with a calendar connected — so "a reschedule overlapping its own old
+  time is now allowed" has not been run by anything. The fix rests on the unit
+  tests and on typechecked wiring of two call sites.
+- Whether this is what the invitee hit is still unknown: it depends on whether
+  her new time overlapped her old one, which only she or the booking can say.
+
 ## [1.110.1] — 2026-10-06 — Models can be granted to somebody, and the next app cannot go missing quietly
 
 Sjoerd, in Festival of Trust, with Models switched on and seven models already

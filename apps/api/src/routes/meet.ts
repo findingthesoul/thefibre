@@ -19,6 +19,7 @@ import {
 import {
   generateSlots,
   generateMultiHostSlots,
+  subtractInterval,
   rankAssigneesForSlot,
   type Schedule as WorkingSchedule,
   type Interval as BusyInterval,
@@ -1331,6 +1332,11 @@ async function hostFreeSlots(
   from: Date,
   to: Date,
   now: Date,
+  /** The booking being MOVED, when this list is for a reschedule. Its own row
+   *  and its own calendar event must not count against it — otherwise the
+   *  times around somebody's current slot are simply never offered, and
+   *  "move it half an hour" is impossible (2026-10-06). */
+  opts?: { excludeBookingId?: string | null },
 ): Promise<{ slots: Date[]; groupCounts: Record<string, number> }> {
   // Busy intervals from existing meet_bookings for this host (any meeting
   // type). Confirmed only - cancelled bookings don't block.
@@ -1342,7 +1348,7 @@ async function hostFreeSlots(
     'meet availability: host bookings',
     await adminClient
       .from('meet_booking')
-      .select('starts_at, ends_at, meeting_type_id')
+      .select('id, starts_at, ends_at, meeting_type_id')
       .eq('host_id', host.id)
       .eq('status', 'confirmed')
       .gte('ends_at', from.toISOString())
@@ -1350,8 +1356,18 @@ async function hostFreeSlots(
   );
 
   const isGroup = mt.event_type === 'group';
+  // The booking being moved, matched against THIS meeting type so an id from
+  // somewhere else cannot quietly open a host's calendar up.
+  const moving =
+    (bookings ?? []).find(
+      (b) => opts?.excludeBookingId && b.id === opts.excludeBookingId && b.meeting_type_id === mt.id,
+    ) ?? null;
+  const movingInterval: BusyInterval | null = moving
+    ? { start: new Date(moving.starts_at), end: new Date(moving.ends_at) }
+    : null;
   const busy: BusyInterval[] = (bookings ?? [])
     .filter((b) => !(isGroup && b.meeting_type_id === mt.id))
+    .filter((b) => !(moving && b.id === moving.id))
     .map((b) => ({ start: new Date(b.starts_at), end: new Date(b.ends_at) }));
 
   const groupCounts: Record<string, number> = {};
@@ -1388,7 +1404,9 @@ async function hostFreeSlots(
         const gbusy = host.busy_includes_free
           ? await busyIncludingFree(slotsGToken, ids, from, to)
           : await freeBusy(slotsGToken, ids, from, to);
-        busy.push(...gbusy);
+        // The moving booking's own event is still on the calendar at the old
+        // time; carve it out rather than dropping blocks that touch it.
+        busy.push(...subtractInterval(gbusy, movingInterval));
       } catch (e) {
         console.error('[slots] freebusy failed (non-fatal)', e);
       }
@@ -1426,6 +1444,8 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
   const url = new URL(c.req.url);
   const fromParam = url.searchParams.get('from');
   const toParam = url.searchParams.get('to');
+  // `?reschedule=<booking id>`: this list is for somebody MOVING that booking.
+  const rescheduleId = url.searchParams.get('reschedule');
 
   const { data: host } = await adminClient
     .from('meet_host')
@@ -1486,7 +1506,9 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
       ? new Date(from.getTime() + MAX_WINDOW_MS)
       : to;
 
-  const { slots, groupCounts } = await hostFreeSlots(host, mt, from, cappedTo, now);
+  const { slots, groupCounts } = await hostFreeSlots(host, mt, from, cappedTo, now, {
+    excludeBookingId: rescheduleId,
+  });
   const isGroup = mt.event_type === 'group';
 
   const slotsIso = slots.map((d) => d.toISOString());
@@ -5474,10 +5496,19 @@ async function buildPerHostArgs(
   );
   const isGroup = mt.event_type === 'group';
   const busyByHost = new Map<string, BusyInterval[]>();
+  // The interval the excluded booking currently occupies. Kept because the
+  // DATABASE forgetting it is only half the job: its event is still in the
+  // host's Google calendar, and freebusy answers with intervals and no event
+  // ids, so the meeting blocked its own move (reported 2026-10-06 — "that
+  // time just went", on a reschedule).
+  let excludedInterval: BusyInterval | null = null;
   for (const b of bookings ?? []) {
     if (isGroup && b.meeting_type_id === mt.id) continue;
     // A booking being rescheduled must not block its own new time.
-    if (opts?.excludeBookingId && b.id === opts.excludeBookingId) continue;
+    if (opts?.excludeBookingId && b.id === opts.excludeBookingId) {
+      excludedInterval = { start: new Date(b.starts_at), end: new Date(b.ends_at) };
+      continue;
+    }
     const list = busyByHost.get(b.host_id) ?? [];
     list.push({ start: new Date(b.starts_at), end: new Date(b.ends_at) });
     busyByHost.set(b.host_id, list);
@@ -5531,7 +5562,11 @@ async function buildPerHostArgs(
           const gbusy = h.busy_includes_free
             ? await busyIncludingFree(hGToken, calendarIds, from, to)
             : await freeBusy(hGToken, calendarIds, from, to);
-          busy.push(...gbusy);
+          // Carve the moving booking's own event out of the calendar's answer.
+          // Carved rather than dropped: Google merges adjacent events into one
+          // block, so a block overlapping the old slot may be partly somebody
+          // else's meeting and must keep the parts either side.
+          busy.push(...subtractInterval(gbusy, excludedInterval));
         } catch (e) {
           console.error('[multi-host slots] freebusy failed', e);
         }

@@ -289,7 +289,11 @@ function SlotPickerFlow({
       slots: string[];
       slots_meta?: { starts_at: string; capacity: number; booked: number; remaining: number }[];
     }>(
-      `${slotsBasePath}?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+      // When moving a booking, tell the server which one: otherwise the
+      // person's own meeting counts as a conflict and the times around it are
+      // not offered at all.
+      `${slotsBasePath}?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to.toISOString())}` +
+        (reschedule ? `&reschedule=${encodeURIComponent(reschedule.bookingId)}` : ''),
     )
       .then((r) => {
         if (cancelled) return;
