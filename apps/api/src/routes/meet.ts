@@ -7,6 +7,7 @@ import { adminClient, userClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { optionalUserId } from '../middleware/app-context.js';
 import { REQUEST_EXPIRY_HOURS, requestHasExpired } from '../lib/meet/request-expiry.js';
+import { conflictCalendarIdsFor, type CalendarRow } from '../lib/meet/conflict-calendars.js';
 import {
   isAdminRole,
   wouldOrphanWorkspace,
@@ -589,7 +590,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency, round_robin_fairness, payment_methods',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency, round_robin_fairness, payment_methods, conflict_calendar_ids',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -1295,6 +1296,64 @@ type SlotMt = {
  * those are the caller's, because the public route and the poll suggester
  * want different things from the same slots.
  */
+/**
+ * Which Google calendars count as a conflict, per host.
+ *
+ * THE ONE PLACE. There used to be two, and they disagreed, which is how a
+ * time could be offered on the booking page and then refused on the way in
+ * (Sjoerd, 2026-10-06, rescheduling his own meeting on staging: "That time
+ * just went. Please pick another." — the page had just offered it):
+ *
+ *   - the slot LIST honoured the meeting type's own calendar choice
+ *     (`conflict_calendar_ids`), so his Zoom Test checked ONE calendar, his
+ *     own, exactly as configured;
+ *   - the reschedule CHECK ignored that choice and conflict-checked ALL of
+ *     them — his, the shared STUDIO calendar, the Dutch holidays, and his
+ *     friend's.
+ *
+ * So anything busy on a calendar he had deliberately excluded refused a move
+ * to a time the page had offered, and the message blamed the slot for being
+ * taken. Three meeting types on production carry such an override, so this
+ * was never only a staging problem.
+ *
+ * The rule, now stated once:
+ *   - the meeting type named calendars → use exactly the host's own rows
+ *     among them, whatever their role (naming one IS the decision, including
+ *     naming a calendar otherwise marked 'ignore');
+ *   - it named none → the host's `primary` and `conflict_check` calendars.
+ *
+ * Decided PER HOST, which neither old version did correctly: the ids in
+ * `conflict_calendar_ids` belong to the meeting type's OWNER, so on a team
+ * meeting type the other hosts match none of them. Filtering by id alone
+ * would have given those hosts no conflict checking at all, and they fall
+ * back to their own roles instead.
+ */
+async function conflictCalendarsByHost(
+  hostIds: string[],
+  mt: { conflict_calendar_ids?: string[] | null },
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (hostIds.length === 0) return out;
+  // Every calendar these hosts have, decided in memory afterwards: a host has
+  // a handful, and one query cannot disagree with itself.
+  const cals = rows(
+    'meet availability: host calendars',
+    await adminClient
+      .from('meet_calendar')
+      .select('id, host_id, google_calendar_id, role')
+      .in('host_id', hostIds),
+  );
+  for (const hostId of hostIds) {
+    // The rule itself is in lib/meet/conflict-calendars.ts, where it can be
+    // tested without a database — this function is only the fetch.
+    out.set(
+      hostId,
+      conflictCalendarIdsFor(hostId, (cals ?? []) as CalendarRow[], mt.conflict_calendar_ids),
+    );
+  }
+  return out;
+}
+
 async function hostFreeSlots(
   host: SlotHost,
   mt: SlotMt,
@@ -1354,19 +1413,7 @@ async function hostFreeSlots(
   // we use every primary / conflict_check calendar on the host.
   const slotsGToken = await userGoogleToken(host.user_id);
   if (slotsGToken) {
-    let calsQuery = adminClient
-      .from('meet_calendar')
-      .select('id, google_calendar_id, role')
-      .eq('host_id', host.id);
-    if (mt.conflict_calendar_ids && mt.conflict_calendar_ids.length > 0) {
-      calsQuery = calsQuery.in('id', mt.conflict_calendar_ids);
-    } else {
-      calsQuery = calsQuery.in('role', ['primary', 'conflict_check']);
-    }
-    const { data: cals } = await calsQuery;
-    const ids = (cals ?? [])
-      .map((c) => c.google_calendar_id)
-      .filter((id): id is string => !!id);
+    const ids = (await conflictCalendarsByHost([host.id], mt)).get(host.id) ?? [];
     if (ids.length > 0) {
       try {
         // Settings -> Calendars: "Events marked Free still block". Off by
@@ -5683,7 +5730,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, host_id, team_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, fixed_starts_at, fixed_ends_at, working_hours_override',
+      'id, host_id, team_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, fixed_starts_at, fixed_ends_at, working_hours_override, conflict_calendar_ids',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)
@@ -5845,6 +5892,12 @@ async function resolveAssigneeHostIds(mt: MeetingTypeForResolve): Promise<string
 }
 
 type MeetingTypeForArgs = MeetingTypeForResolve & {
+  /** The meeting type's own choice of conflict calendars. It was absent from
+   *  this type until 2026-10-06, which is the whole reason the availability
+   *  CHECK could not honour it while the slot LIST did — the field was not
+   *  missing from the query by accident, it was invisible to this side of the
+   *  code. See conflictCalendarsByHost. */
+  conflict_calendar_ids?: string[] | null;
   duration_minutes: number;
   buffer_before_minutes: number;
   buffer_after_minutes: number;
@@ -5909,20 +5962,10 @@ async function buildPerHostArgs(
     busyByHost.set(b.host_id, list);
   }
 
-  // GCal calendars per host — only the ones we conflict-check against.
-  // 'ignore' calendars are explicitly excluded.
-  const { data: cals } = await adminClient
-    .from('meet_calendar')
-    .select('host_id, google_calendar_id, role')
-    .in('host_id', hostIds)
-    .in('role', ['primary', 'conflict_check', 'write_target']);
-  const calsByHost = new Map<string, string[]>();
-  for (const c of cals ?? []) {
-    if (!c.google_calendar_id) continue;
-    const list = calsByHost.get(c.host_id) ?? [];
-    list.push(c.google_calendar_id);
-    calsByHost.set(c.host_id, list);
-  }
+  // The same resolver the slot list uses — see conflictCalendarsByHost for
+  // why that matters. This used to be its own query with its own role list,
+  // and the two answers differed.
+  const calsByHost = await conflictCalendarsByHost(hostIds, mt);
 
   // Per-team availability overrides for these hosts (team MTs only).
   const teamHours = new Map<string, WorkingSchedule>();

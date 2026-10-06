@@ -6,6 +6,81 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.112.4] — 2026-10-06 — the booking page and the check asked different calendars
+
+Sjoerd moved his own meeting on staging, picked a time the page had just
+offered him, and was told **"That time just went. Please pick another."**
+Again — but not for the reason fixed two releases ago. His old booking was a
+week away from the new time, so nothing was blocking its own move.
+
+**The booking page and the availability check were asking about different
+calendars.** His "Zoom Test" is configured to conflict-check one calendar,
+his own. The page honoured that and offered Friday 13:00. The check ignored
+it and conflict-checked all four of his calendars — his own, a shared STUDIO
+calendar, Dutch holidays, and a friend's. Anything busy on a calendar he had
+deliberately excluded refused a move to a time he had deliberately been
+offered, and the message blamed the slot.
+
+**It could not have worked.** `MeetingTypeForArgs` — the type the check's
+meeting type is declared as — had no `conflict_calendar_ids` property at all.
+The setting was not missing from one query by accident; it was invisible to
+that entire half of the code. Two of the three meeting-type selects feeding
+that path did not fetch the column either.
+
+So the rule now exists once, in `lib/meet/conflict-calendars.ts`, as data in
+and data out, and both paths ask it through one fetch. Stated plainly: a
+meeting type that NAMES calendars gets exactly those (naming one is the
+decision, including naming one otherwise marked `ignore`); one that names
+none gets the host's `primary` and `conflict_check` calendars.
+
+**It also fixes something neither old version had right.** The named ids
+belong to the meeting type's OWNER, so on a team meeting type the other hosts
+match none of them. Under the page's rule those hosts would have been given
+an empty conflict set — bookable over anything on their calendar. The rule is
+now decided per host, and a host with no named calendar of their own falls
+back to their own roles.
+
+`write_target` is deliberately left out of the default, where the check used
+to include it: adding it would quietly shrink the times every host is
+offered, and no row on either stack has that role.
+
+**This was live on production**, not only staging: three production meeting
+types carry a calendar override, so any reschedule on those refused times
+their own page offered.
+
+### Verified
+- 9 unit tests on the rule, with his four real calendars as the fixture: the
+  named-calendar case, the fallback, null and undefined, another host's
+  calendars never leaking in, a team-mate falling back to their own instead
+  of to nothing, `ignore` honoured when named and excluded when not, and
+  de-duplication.
+- A guard that fails if either availability path picks calendars by role on
+  its own, or stops using the resolver, or if the type loses the field —
+  proven by restoring the old query and watching it name `meet.ts:5963`.
+- **Three new reschedule tests against the deployed staging API**, the first
+  the suite has had: a 30-minute booking moves 15 minutes later — so the new
+  slot overlaps the old — for a confirmed booking AND for a
+  `pending_approval` one, which stays pending. Moving onto a DIFFERENT
+  invitee's pending slot is still refused, which is what proves the other two
+  did not pass because availability refuses nothing. This needed the fixture
+  to learn `one_on_one`: a one-off cannot be rescheduled by design, which is
+  why three releases touching reschedule had no end-to-end test.
+- Both changed meeting-type selects were run against staging; a select is a
+  string TypeScript never reads.
+- `pnpm verify` green.
+
+### Not verified
+- **Which of the three extra calendars is busy at 13:00 is unknown.** Reading
+  it needs Sjoerd's Google token, so the diagnosis rests on the code, on the
+  configuration (1 calendar vs 4), and on the page and the check having
+  demonstrably disagreed about an offered slot.
+- The calendar half of availability still has no end-to-end test: the fixture
+  host has no connected calendar, so freebusy never runs in these tests. That
+  covers this fix and the self-conflict fix from v1.110.2 alike, and it is
+  the gap to close next if anyone wants this area trustworthy.
+- Nothing here was checked against a real team meeting type with several
+  hosts; the per-host fallback is unit-tested only.
+
 ## [1.112.3] — 2026-10-06 — the domain package, release 3: Settings → Your domain (staging)
 
 The screen. Third slice of `docs/domain-package.md`; the first thing in the
@@ -35,6 +110,7 @@ web deploy. Not verified: a real Register → records → Check round-trip on a
 domain whose DNS we can edit (needs the staging API at v1.112.1, whose
 cutover is waiting on Sjoerd), and production.
 
+
 ## [1.112.2] — 2026-10-06 — the automatic teams stay out of sight until there is a screen that explains them
 
 Guard (b) for the teams work, and the second half of what makes slice 1 safe
@@ -60,6 +136,7 @@ The test asserts both halves, and the second is the one that matters: an
 ordinary team is still listed. A filter that hid everything would satisfy "the
 automatic ones are hidden" while quietly emptying every team picker in the
 product.
+
 
 ## [1.112.1] — 2026-10-06 — the domain package, release 2: the API registers and checks a sender domain (staging)
 

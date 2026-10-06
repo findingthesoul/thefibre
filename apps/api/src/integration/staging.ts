@@ -420,14 +420,29 @@ export type MeetFixture = {
   hostSlug: string;
   hostEmail: string;
   meetingTypeId: string;
-  /** The one-off's single slot, as ISO — a booking must match it exactly. */
+  meetingTypeSlug: string;
+  /** A bookable slot. For a one-off it is THE slot and a booking must match it
+   *  exactly; for a one_on_one it is a time inside the host's working hours. */
   startsAt: string;
   endsAt: string;
 };
 
 export async function createMeetFixture(
   tag: string,
-  opts: { requiresApproval?: boolean; capacity?: number } = {},
+  opts: {
+    requiresApproval?: boolean;
+    capacity?: number;
+    /**
+     * `one_off` (the default) is its own single slot: no working hours, no
+     * availability generation, so a booking's only gate is the capacity
+     * count — which is what the hold tests want to isolate.
+     *
+     * `one_on_one` generates slots from working hours, and is the only kind
+     * that can be RESCHEDULED (the API refuses to move a one-off, correctly:
+     * a one-off is its time). Reschedule tests need this one.
+     */
+    kind?: 'one_off' | 'one_on_one';
+  } = {},
 ): Promise<MeetFixture> {
   const workspaceId = await getPermanentFixtureWorkspace(MEET_FIXTURE_WS_SLUG);
   const hostEmail = `int-meet-${tag.toLowerCase()}-${randomUUID().slice(0, 8)}@example.com`;
@@ -439,13 +454,23 @@ export async function createMeetFixture(
   if (uErr || !userRow) throw new Error(`meet fixture user: ${uErr?.message}`);
 
   const hostSlug = `int-meet-${randomUUID().slice(0, 8)}`;
+  // UTC, and open every day, so a test's arithmetic is the test's own and not
+  // a daylight-saving puzzle. The fixture host has no Google token, so the
+  // only thing that can block a slot is another booking — which is the point:
+  // it isolates the database half of availability from the calendar half.
+  const allDay = { start: '09:00', end: '17:00' };
+  const openEveryDay = {
+    mon: [allDay], tue: [allDay], wed: [allDay], thu: [allDay],
+    fri: [allDay], sat: [allDay], sun: [allDay],
+  };
   const { data: host, error: hErr } = await service
     .from('meet_host')
     .insert({
       user_id: userRow.id,
       workspace_id: workspaceId,
       slug: hostSlug,
-      timezone: 'Europe/Amsterdam',
+      timezone: 'UTC',
+      working_hours: openEveryDay,
       requires_approval: false,
     })
     .select('id')
@@ -453,24 +478,27 @@ export async function createMeetFixture(
   if (hErr || !host) throw new Error(`meet fixture host: ${hErr?.message}`);
 
   // Far enough out that min_notice can never be the reason a booking is
-  // refused, and on a fixed minute so the equality check is exact.
+  // refused, and at 10:00 UTC — inside the working hours above, with room on
+  // both sides for a reschedule test to move it without leaving the window.
   const startsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-  startsAt.setUTCSeconds(0, 0);
-  startsAt.setUTCMinutes(0);
+  startsAt.setUTCHours(10, 0, 0, 0);
   const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
 
+  const kind = opts.kind ?? 'one_off';
+  const slug = kind === 'one_off' ? 'int-one-off' : 'int-one-on-one';
   const { data: mt, error: mErr } = await service
     .from('meet_meeting_type')
     .insert({
       workspace_id: workspaceId,
       host_id: host.id,
-      slug: 'int-one-off',
-      name: 'Integration one-off (do not edit)',
+      slug,
+      name: `Integration ${kind} (do not edit)`,
       duration_minutes: 30,
-      event_type: 'one_off',
+      event_type: kind,
       capacity: opts.capacity ?? 1,
-      fixed_starts_at: startsAt.toISOString(),
-      fixed_ends_at: endsAt.toISOString(),
+      ...(kind === 'one_off'
+        ? { fixed_starts_at: startsAt.toISOString(), fixed_ends_at: endsAt.toISOString() }
+        : {}),
       requires_approval: opts.requiresApproval ?? false,
       conferencing_provider: 'none',
       min_notice_minutes: 0,
@@ -486,6 +514,7 @@ export async function createMeetFixture(
     hostSlug,
     hostEmail,
     meetingTypeId: mt.id as string,
+    meetingTypeSlug: slug,
     startsAt: startsAt.toISOString(),
     endsAt: endsAt.toISOString(),
   };
