@@ -13,7 +13,7 @@ import { recordPurchase } from '../lib/purchases.js';
 import { sendReceipt } from './purchases.js';
 import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
 import { sendEmail } from '../lib/email/client.js';
-import { getWorkspaceBrand } from '../lib/workspace-brand.js';
+import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import {
   membershipWelcome,
@@ -1001,9 +1001,7 @@ membershipRoutes.post('/members', async (c) => {
           `<p>Hi ${escapeHtml(first)},</p><p>You are a member of <strong>${escapeHtml(communityName)}</strong> (${escapeHtml(tier?.name ?? 'membership')}). See your membership, invoices and payment details any time:</p><p style="margin:24px 0 0;"><a href="${MEMBERSHIP_APP_URL}/my" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">Open your membership</a></p><p style="margin-top:16px;color:#737373;font-size:13px;">Sign in with this email address.</p>`,
           { logoUrl: brand.logoUrl, name: brand.fromName },
         ),
-        ...(brand.fromName ? { fromName: brand.fromName } : {}),
-        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
-        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+        ...senderOf(brand),
       });
     } catch (e) {
       console.warn('[membership] invite email failed', e);
@@ -2307,9 +2305,7 @@ async function ensureMemberFromSubscription(
         subject: msg.subject,
         html: msg.html,
         text: msg.text,
-        ...(brand.fromName ? { fromName: brand.fromName } : {}),
-        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
-        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+        ...senderOf(brand),
       });
     }
   } catch (e) {
@@ -2399,7 +2395,7 @@ async function warnOnCardCountryMismatch(
 
 Nothing was blocked — this is a heads-up so you can review the membership if it looks off. You can change their country on the member (it reprices from the next renewal).`,
       html: '',
-      ...(brand.fromName ? { fromName: brand.fromName } : {}),
+      ...senderOf(brand),
     });
   }
 }
@@ -2526,9 +2522,7 @@ async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice)
       subject: msg.subject,
       html: msg.html,
       text: msg.text,
-      ...(brand.fromName ? { fromName: brand.fromName } : {}),
-      ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
-      ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+      ...senderOf(brand),
     });
   }
 }
@@ -2567,9 +2561,7 @@ async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscr
         subject: msg.subject,
         html: msg.html,
         text: msg.text,
-        ...(brand.fromName ? { fromName: brand.fromName } : {}),
-        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
-        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+        ...senderOf(brand),
       });
     }
   } catch (e) {
@@ -2896,9 +2888,7 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
         subject: msg.subject,
         html: msg.html,
         text: msg.text,
-        ...(brand.fromName ? { fromName: brand.fromName } : {}),
-        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
-        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+        ...senderOf(brand),
       });
       out.reminded += 1;
     } catch (e) {

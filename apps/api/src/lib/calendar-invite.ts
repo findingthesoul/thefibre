@@ -46,6 +46,7 @@ import {
 import { ENTITY } from '@thefibre/shared';
 import { platformFromAddress, sendEmail } from './email/client.js';
 import { calendarInviteEmail } from './email/thread-templates.js';
+import { workspaceSender } from './workspace-brand.js';
 
 /** The fields whose change is worth telling somebody about. Sjoerd set this
  *  list explicitly: date, time, place, existence — *"not when someone fixes a
@@ -415,6 +416,10 @@ export async function sendPendingChanges(args: {
           subject: mail.subject,
           text: mail.text,
           html: mail.html,
+          // The workspace's verified address when it has one; the organiser
+          // stays the name and the reply-to, because the invitation's
+          // ORGANIZER is them and a reply is to them.
+          ...(await workspaceSender(thread.workspace_id)),
           fromName: organiserName,
           replyTo: organiserEmail,
           attachments: [

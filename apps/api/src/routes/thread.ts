@@ -50,7 +50,7 @@ import {
   chargeAccountForItem,
   threadDestinationAccount,
 } from '../lib/payment-accounts.js';
-import { getWorkspaceBrand, noteFor } from '../lib/workspace-brand.js';
+import { getWorkspaceBrand, noteFor, senderOf, workspaceSender } from '../lib/workspace-brand.js';
 import {
   systemMessageDefaults,
   enrolmentConfirmation,
@@ -3001,7 +3001,9 @@ async function issueCertificate(
         threadTitle: title,
         locale: certLocale,
       });
-      await sendEmail({ to: person.email, ...msg });
+      // From the workspace, like every other mail about this thread (it went
+      // out as the platform until 2026-10-06 — docs/domain-package.md audit).
+      await sendEmail({ to: person.email, ...msg, ...(await workspaceSender(te.workspace_id)) });
     } catch (e) {
       console.warn('[thread/certificates] email failed', e);
     }
@@ -3654,7 +3656,7 @@ threadRoutes.post('/enrolments/:id/send-certificate', async (c) => {
   const { data: te } = await db
     .from('thread_enrolment')
     .select(
-      `id,
+      `id, workspace_id,
        person:person_id (first_name, email),
        thread:thread_id (slug, language, program:program_id (title)),
        certificate:thread_certificate (certificate_number)`,
@@ -3685,6 +3687,7 @@ threadRoutes.post('/enrolments/:id/send-certificate', async (c) => {
          <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0;">${escapeHtml(certT(loc, 'cert_footer', { number: cert.certificate_number }))}</p>`,
       ),
       text: `${certT(loc, 'cert_ready_sentence', { title })} ${certUrl}`,
+      ...(await workspaceSender(te.workspace_id)),
     });
   } catch (e) {
     console.error('[thread/certificates] send email failed', e);
@@ -3892,13 +3895,10 @@ async function threadEmailIdentity(thread: {
   return {
     note: noteFor(own, brand),
     brand: { logoUrl: brand.logoUrl, name: brand.fromName },
-    sender: {
-      // The workspace's name when it may set one, else The Thread — never
-      // whatever EMAIL_FROM happens to say (Sjoerd, 2026-09-15).
-      fromName: brand.fromName ?? ENTITY.publicName,
-      ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
-      ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
-    },
+    // The workspace's name when it may set one, else The Thread — never
+    // whatever EMAIL_FROM happens to say (Sjoerd, 2026-09-15); the address
+    // only once its domain is verified. One rule, in lib/workspace-brand.ts.
+    sender: senderOf(brand),
   };
 }
 
@@ -7238,7 +7238,7 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
     .select(
       `id, thread_id, title, type, description, content, status,
        trigger_kind, trigger_anchor, trigger_engagement_id, trigger_offset_days, trigger_time, scheduled_at,
-       thread:thread_id (id, timezone,
+       thread:thread_id (id, workspace_id, timezone,
          organiser:organiser_id (display_name),
          team:team_id (name),
          program:program_id (title, status, starts_on, ends_on))`,
@@ -7275,6 +7275,7 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
     threadTitle: string;
     organiserName: string;
     threadId: string;
+    workspaceId: string;
     startsOn: string | null;
   };
   const due: Due[] = [];
@@ -7319,6 +7320,7 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
     due.push({
       engagement: c,
       threadId: thread.id,
+      workspaceId: thread.workspace_id,
       threadTitle: program.title,
       organiserName: team?.name ?? organiser?.display_name ?? '',
       startsOn: program.starts_on ?? null,
@@ -7341,6 +7343,7 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
       )
       .eq('thread_id', d.threadId);
 
+    const sender = await workspaceSender(d.workspaceId);
     const dateLabel = d.startsOn
       ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
           new Date(d.startsOn),
@@ -7392,7 +7395,9 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
         threadTitle: d.threadTitle,
       });
       try {
-        await sendEmail({ to: person.email, ...msg });
+        // From the workspace, as the on-enrolment sends have been since v0.x;
+        // the scheduled ones went out as the platform until 2026-10-06.
+        await sendEmail({ to: person.email, ...msg, ...sender });
         sent += 1;
       } catch (e) {
         console.warn('[thread/scheduler] send failed', { engagement: d.engagement.id, e });

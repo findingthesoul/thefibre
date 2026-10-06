@@ -5,6 +5,7 @@ import { recordPurchase } from '../lib/purchases.js';
 import { autoMatchPurchases } from '../lib/pulse-ledger.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
+import { workspaceSender } from '../lib/workspace-brand.js';
 import {
   ensurePipelineFlow,
   ensureOpportunityRuns,
@@ -1043,6 +1044,8 @@ pulseRoutes.post('/commitments/:id/invoice', async (c) => {
           subject: `Invoice ${invoiceNo} — ${(cm as any).label}`,
           text: `Invoice ${invoiceNo}. Total ${fmt(totalCents)}.`,
           html: shell(`Invoice ${invoiceNo}`, body),
+          // An invoice from the workspace is from the workspace.
+          ...(await workspaceSender(ctx.workspaceId)),
         });
         sent = true;
       } catch (e) {

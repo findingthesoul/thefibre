@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.1] — 2026-10-06 — the domain package, release 4: every workspace mail is from the workspace (staging)
+
+Fourth slice of `docs/domain-package.md`, API only. The audit behind
+release 1 counted 55 send paths and found eight workspace mails that went
+out as the platform whatever the workspace had set, plus five copies of the
+sender logic. One rule now, read everywhere.
+
+- **Eight mails now carry the workspace's sender** (name; address once the
+  domain is verified; reply-to): Thread's certificate-issued and
+  send-certificate mails, Thread's SCHEDULED engagement messages (the
+  on-enrolment ones had it since v0.x), Thread's session .ics invitations
+  (the organiser stays the name and the reply-to — the invitation's
+  ORGANIZER is them; only the verified address is added), both payment-link
+  mails (Membership and Thread), Pulse's commitment invoice, and
+  Membership's card-country alert to the workspace's admins.
+- **`senderOf(brand)`** beside `workspaceSender(id)` in
+  `lib/workspace-brand.ts`: the spread that was written out in Thread,
+  receipts and five places in Membership is one call. Membership's fallback
+  changes with it: a workspace without a sender name now reads as The
+  Thread, as every other app's mail does, instead of whatever `EMAIL_FROM`
+  says. Three unit cases.
+- **Not changed, on purpose:** Meet's reply-to is the host's address (the
+  invitee talks to the host), and the sign-in code's own resolution in
+  `auth-hook.ts` (it decides whether a workspace fronts the mail at all).
+
+Verified: `pnpm verify` green; API typecheck. Not verified: a received
+mail from each of the eight paths — the sender rule is the same function
+the 34 existing paths already send with; nothing promoted.
+
 ## [1.113.0] — 2026-10-06 — inviting somebody is picking their teams
 
 Second slice of the teams redesign. Sjoerd: inviting somebody should be

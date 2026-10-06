@@ -104,5 +104,11 @@ working days; the plan-key work and the table are done in part 1.
 2. `workspace_domain` table, the Resend client, the routes, the gate in
    `getWorkspaceBrand`, `workspaceSender()`, unit tests — API deploy.
 3. Settings → Your domain page (apps/web), hub entry, i18n.
-4. The eight group-B mail paths and Meet's reply-to, with the owners.
+4. The eight group-B mail paths → `workspaceSender()` / `senderOf()` (done
+   2026-10-06: Thread certificates ×2, scheduled messages, .ics invites,
+   both payment-link mails, Pulse's invoice, Membership's admin alert; the
+   five inline copies collapsed). Meet's reply-to stays the host's, on
+   purpose: the invitee talks to the host. The sign-in code
+   (`auth-hook.ts`) keeps its own resolution — it chooses WHETHER a
+   workspace fronts the mail, which is a different question.
 5. Part 2.

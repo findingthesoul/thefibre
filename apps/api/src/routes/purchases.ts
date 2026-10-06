@@ -8,7 +8,7 @@
 import { Hono } from 'hono';
 import { appUrl, ENTITY, invoiceModel, type InvoicePurchase } from '@thefibre/shared';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
-import { getWorkspaceBrand } from '../lib/workspace-brand.js';
+import { getWorkspaceBrand, senderOf, workspaceSender } from '../lib/workspace-brand.js';
 import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
@@ -465,9 +465,7 @@ export async function sendReceipt(
       // (Sjoerd, 2026-09-15: "The Thread is the sender, with the name of the
       // actual receiver — organiser, workspace — below it"). Never whatever
       // EMAIL_FROM happens to say.
-      fromName: brand?.fromName ?? ENTITY.publicName,
-      ...(brand?.fromAddress ? { fromAddress: brand.fromAddress } : {}),
-      ...(brand?.replyTo ? { replyTo: brand.replyTo } : {}),
+      ...senderOf(brand),
       ...(attachments ? { attachments } : {}),
     });
   } catch (e) {
@@ -686,6 +684,7 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
         subject: `Payment link — ${p.item_label}`,
         html: receiptHtml(p, payButtonHtml(url), seller),
         text: `Pay online for ${p.item_label}: ${url}`,
+        ...(await workspaceSender(ctx.workspaceId)),
       });
     } catch (e) {
       console.error('[purchases] membership payment link email failed', e);
@@ -798,6 +797,7 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
         seller,
       ),
       text: `Pay online for ${p.item_label}: ${session.url}`,
+      ...(await workspaceSender(ctx.workspaceId)),
     });
   } catch (e) {
     console.error('[purchases] payment link failed', e);

@@ -102,11 +102,18 @@ export async function workspaceSender(
   workspaceId: string | null | undefined,
 ): Promise<{ fromName: string; fromAddress?: string; replyTo?: string }> {
   if (!workspaceId) return { fromName: ENTITY.publicName };
-  const b = await getWorkspaceBrand(workspaceId);
+  return senderOf(await getWorkspaceBrand(workspaceId));
+}
+
+/** The same, from a brand already in hand — for the call sites that fetched
+ *  it for the logo and the note and would otherwise fetch it twice. */
+export function senderOf(
+  b: WorkspaceBrand | null | undefined,
+): { fromName: string; fromAddress?: string; replyTo?: string } {
   return {
-    fromName: b.fromName ?? ENTITY.publicName,
-    ...(b.fromAddress ? { fromAddress: b.fromAddress } : {}),
-    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
+    fromName: b?.fromName ?? ENTITY.publicName,
+    ...(b?.fromAddress ? { fromAddress: b.fromAddress } : {}),
+    ...(b?.replyTo ? { replyTo: b.replyTo } : {}),
   };
 }
 
