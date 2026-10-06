@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.5] — 2026-10-06 — the domain package, part 2 release 3: links in mail carry the customer's host (staging)
+
+Third slice of part 2 (`docs/domain-package.md`), API only. A customer on
+`book.soul.com` whose confirmation mail linked to `meet.thethread.app` had
+the bug part 2 exists to fix, discovered later and by them (Meet's chat,
+2026-10-06). Every absolute public URL the API writes under an owner's root
+now asks `lib/public-origin.ts` — the owner's verified host when there is
+one, else the app's own origin, exactly as before. Our own hosts serve the
+same paths unchanged, so both URLs work; what changes is which one the
+customer's people see.
+
+- **Meet**: Stripe success/cancel, the poll link, the request-expired
+  "ask again" link, and the five template fields that fan out into cancel /
+  reschedule / booking links (`routes/meet.ts`), plus the payment-link
+  redirect (`lib/meet-payment-link.ts`).
+- **Thread**: the Stripe checkout base, the public thread list and the
+  participant's enrolment list (`routes/thread.ts`), the portal's thread
+  links (`routes/portal.ts`), the calendar feed (`lib/calendar-feed.ts`),
+  both payment-link builders (`lib/thread-payment-link.ts`,
+  `routes/purchases.ts`), and the workspace's Thread page link Meet shows.
+- **Stay on our own origin, on purpose:** the host's own admin links
+  (`/bookings` in the "Approval needed" mail), invite-accept links
+  (`/invite`), the participant portal (`/my`), check-in and certificate
+  URLs. The first three need the session cookie, which lives on our apex —
+  the tenant middleware sends them there anyway — and a verification URL
+  printed on a certificate must stay stable whatever a customer later does
+  with their DNS. Do not "fix" these.
+- `e2e/tenant-host.spec.ts`: the staging-twin walk (bare host = owner
+  page, `/<mt>` = booking flow, `/my` → canonical, the old link still
+  works). It SKIPS, saying so, until `E2E_TENANT_HOST` names a registered
+  host — never a pass on nothing. `docs/domain-package.md` lists what the
+  twin needs from Sjoerd.
+- **Guard test** (`lib/public-origin.guard.test.ts`): no `${meetAppUrl()}/${…}`
+  or `${threadAppUrl()}/${…}` owner-rooted URL may appear; the bare
+  `meetAppUrl()` calls that remain are exactly `/bookings` ×2 and `/invite`
+  ×2, so a new one has to be argued for rather than added; the lib builders
+  and the portal must use `publicOriginFor`.
+
+Verified: `pnpm verify` green. Not verified: a mail with a customer-host
+link (no verified web host exists yet — the staging twin is release 4).
+
 ## [1.113.4] — 2026-10-06 — the domain package, part 2 release 2: a customer host serves the public pages (staging)
 
 The apps now act on a registered web address (`docs/domain-package.md`

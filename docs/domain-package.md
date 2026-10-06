@@ -166,14 +166,25 @@ Nothing goes near production before that passes.
 
 **Releases.**
 1. `workspace_domain` gains `app` and `root_slug` (migration); the Vercel
-   client (`lib/vercel-domains.ts`, token-injected, 9 unit cases, done);
+   client (`lib/vercel-domains.ts`, token-injected, 9 unit cases);
    `POST/DELETE /workspace-domain/web`, `POST /web/check`, public
    `/public/domains/resolve`; the dynamic CORS check; the page's web
-   section. Gate: `custom_domain`. API deploy.
-2. The middleware step in Meet and Thread (rewrite + reserved redirects).
-3. `publicOriginFor()` across every builder, with the guard tests; Meet's
-   chat told the exact lines first.
-4. The staging twin e2e; docs; then Sjoerd decides on production.
+   section. Gate: `custom_domain`. — **v1.113.3, staging.**
+2. The middleware step in Meet and Thread (`@thefibre/shared/tenant-host`:
+   pass / 307 to canonical / rewrite under the root), the hourly Vercel
+   re-check that demotes a host whose DNS moved, the CORS suffix-trap
+   test. — **v1.113.4, staging.**
+3. `publicOriginFor()` across every owner-rooted builder, with the guard
+   test; Meet's chat told the exact lines first. `/bookings`, `/invite`,
+   `/my`, `/checkin`, `/certificate` stay on our origin on purpose. —
+   **v1.113.5, staging.**
+4. The staging twin: `e2e/tenant-host.spec.ts` (skips, saying so, until
+   `E2E_TENANT_HOST` names a registered host). Needs from Sjoerd:
+   `VERCEL_API_TOKEN` + `VERCEL_TEAM_ID` on `thefibre-api-staging`, and
+   `fixture-book.thefibre.tech CNAME cname.vercel-dns.com.` at TransIP;
+   then the host is registered through the page for the `default`
+   workspace's Meet host and the spec runs. Then Sjoerd decides on
+   production.
 
 Size unchanged: 4–6 working days.
 

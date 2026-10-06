@@ -13,7 +13,7 @@
 // confirmation without a Pay button rather than failing the whole booking:
 // the appointment is real whether or not Stripe is wired up.
 
-import { appUrl } from '@thefibre/shared';
+import { publicOriginFor } from './public-origin.js';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { chargeAccountForItem } from './payment-accounts.js';
@@ -53,7 +53,9 @@ export async function createMeetPaymentLink(p: {
     }
   }
 
-  const meetUrl = process.env.MEET_APP_URL ?? appUrl('fibre-meet', process.env);
+  // publicPath is `/{host}/{mt}`: the first segment is the owner root, and an
+  // owner with a verified host of their own gets it here (part 2).
+  const meetUrl = await publicOriginFor('fibre-meet', p.publicPath.split('/')[1] ?? null, process.env.MEET_APP_URL);
   const base = `${meetUrl}${p.publicPath}/confirmed/${p.bookingId}`;
 
   // Same plan-aware fee rule as checkout and the other payment links.

@@ -7,7 +7,7 @@
 // from the Invoices page. Null when payments aren't configured — the
 // invoice email simply goes out without a Pay button.
 
-import { appUrl } from '@thefibre/shared';
+import { publicOriginFor } from './public-origin.js';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { chargeAccountForItem } from './payment-accounts.js';
@@ -54,7 +54,6 @@ export async function createThreadPaymentLink(p: {
     thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
   const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
   const workspace = thread && (Array.isArray(thread.workspace) ? thread.workspace[0] : thread.workspace);
-  const threadUrl = process.env.THREAD_APP_URL ?? appUrl('the-thread', process.env);
   // Three owner kinds, not two: a workspace-scoped thread (team_id NULL,
   // public_scope 'workspace') lives under the WORKSPACE slug. `team ?? organiser`
   // sent its payers back to the organiser's address after paying.
@@ -64,6 +63,8 @@ export async function createThreadPaymentLink(p: {
     teamSlug: team?.slug ?? null,
     organiserSlug: organiser?.slug ?? null,
   });
+  // The owner's own host when verified, else ours (docs/domain-package.md part 2).
+  const threadUrl = await publicOriginFor('the-thread', ownerSlug, process.env.THREAD_APP_URL);
   const publicBase = `${threadUrl}/${ownerSlug}/${thread?.slug ?? ''}`;
 
   // Same plan-aware fee rule as checkout and the Invoices-page link (lib/fees).

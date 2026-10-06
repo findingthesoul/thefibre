@@ -74,6 +74,7 @@ import { createMeetPaymentLink, meetPayButtonHtml } from '../lib/meet-payment-li
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { platformFromAddress, sendEmail } from '../lib/email/client.js';
+import { publicOriginFor } from '../lib/public-origin.js';
 import { getWorkspaceBrand } from '../lib/workspace-brand.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
@@ -561,7 +562,7 @@ async function publicWorkspace(workspaceId: string): Promise<PublicWorkspace | n
   return {
     name: ws.name ?? null,
     logo_url: ws.brand_logo_url ?? null,
-    url: slug?.slug ? `${appUrl('the-thread', process.env)}/${slug.slug}` : null,
+    url: slug?.slug ? `${await publicOriginFor('the-thread', slug.slug)}/${slug.slug}` : null,
   };
 }
 
@@ -920,8 +921,10 @@ meetRoutes.post('/public/bookings', async (c) => {
     const grossCents = mt.price_cents!;
     const applicationFeeCents = await platformFeeCents(mt.workspace_id, grossCents, hostAccount);
 
-    const successUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success`;
-    const cancelUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}?stripe=cancelled&booking=${booking.id}`;
+    // The owner's own host when verified, else ours (docs/domain-package.md part 2).
+    const publicOrigin = await publicOriginFor('fibre-meet', ownerHost.slug ?? null);
+    const successUrl = `${publicOrigin}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success`;
+    const cancelUrl = `${publicOrigin}/${ownerHost.slug ?? 'host'}/${mt.slug}?stripe=cancelled&booking=${booking.id}`;
 
     try {
       const session = await stripe.checkout.sessions.create(
@@ -1177,7 +1180,7 @@ meetRoutes.post('/public/bookings', async (c) => {
       meetUrl: resolvedMeetUrl,
       location: mt.default_location ?? null,
       bookingId: booking.id,
-      meetAppUrl: meetAppUrl(),
+      meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug,
       paymentNote: isInvoiceBooking
@@ -1632,7 +1635,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
       meetUrl: booking.meet_url,
       location: booking.alternative_location ?? mt.default_location ?? null,
       bookingId: booking.id,
-      meetAppUrl: meetAppUrl(),
+      meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug ?? '',
     };
@@ -1928,7 +1931,7 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
       meetUrl: booking.meet_url,
       location: booking.alternative_location ?? mt.default_location ?? null,
       bookingId: booking.id,
-      meetAppUrl: meetAppUrl(),
+      meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug ?? '',
     };
@@ -3717,7 +3720,7 @@ meetRoutes.post('/meeting-types/:id/invites', async (c) => {
 
   // The mail. Non-fatal per invitee: one bad address must not lose the rest,
   // and the invite row stands either way — the host can see who was asked.
-  const pollUrl = `${meetAppUrl()}/${hostRow?.slug ?? ''}/${mt.slug}`;
+  const pollUrl = `${await publicOriginFor('fibre-meet', hostRow?.slug ?? null)}/${hostRow?.slug ?? ''}/${mt.slug}`;
   const brand = await meetBrand(mt.workspace_id);
   const sender = await meetSender(mt.workspace_id);
   let sent = 0;
@@ -4121,7 +4124,7 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
   // The same link the booking mails carry: it opens the picker on this
   // booking, so asking again keeps the row, its history and its ledger entry
   // instead of starting a second one.
-  const askAgain = `${meetAppUrl()}/${encodeURIComponent(hostRow.slug ?? '')}/${encodeURIComponent(
+  const askAgain = `${await publicOriginFor('fibre-meet', hostRow.slug ?? null)}/${encodeURIComponent(hostRow.slug ?? '')}/${encodeURIComponent(
     mt.slug ?? '',
   )}?reschedule=${encodeURIComponent(booking.id)}`;
   const first = booking.invitee_name.split(' ')[0] ?? '';
@@ -4221,7 +4224,7 @@ async function runApprovalRequestSideEffects(
     hostTimezone: hostTz,
     location: booking.alternative_location ?? mt.default_location ?? null,
     bookingId: booking.id,
-    meetAppUrl: meetAppUrl(),
+    meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
     hostSlug: hostRow.slug ?? '',
     meetingTypeSlug: mt.slug ?? '',
   };
@@ -4413,7 +4416,7 @@ async function runConfirmationSideEffects(
     meetUrl,
     location: booking.alternative_location ?? mt.default_location ?? null,
     bookingId: booking.id,
-    meetAppUrl: meetAppUrl(),
+    meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
     hostSlug: hostRow.slug ?? '',
     meetingTypeSlug: mt.slug ?? '',
   };

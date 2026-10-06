@@ -51,6 +51,7 @@ import {
   threadDestinationAccount,
 } from '../lib/payment-accounts.js';
 import { getWorkspaceBrand, noteFor, senderOf, workspaceSender } from '../lib/workspace-brand.js';
+import { publicOriginFor, publicOriginsFor } from '../lib/public-origin.js';
 import {
   systemMessageDefaults,
   enrolmentConfirmation,
@@ -6007,6 +6008,16 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     return true;
   });
   const prices = await ticketPrices(live.map((t) => t.id));
+  // One origin lookup per owner (docs/domain-package.md part 2): the map
+  // below is synchronous, so the owners' hosts are fetched first.
+  const originBySlug = await publicOriginsFor(
+    'the-thread',
+    live.map((t) => {
+      const o = Array.isArray(t.organiser) ? t.organiser[0] : t.organiser;
+      const tm = Array.isArray(t.team) ? t.team[0] : t.team;
+      return tm?.slug ?? o?.slug;
+    }),
+  );
   const items = live
     .map((t) => ({ ...t, ...effectivePrice(t, prices) }))
     .map((t) => {
@@ -6015,6 +6026,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
       const tm = Array.isArray(t.team) ? t.team[0] : t.team;
       // Team threads resolve under the team's slug, personal ones under the organiser's.
       const ownerSlug = tm?.slug ?? o?.slug;
+      const origin = originBySlug.get(ownerSlug ?? '') ?? threadAppUrl();
       return {
         id: t.id,
         slug: t.slug,
@@ -6036,7 +6048,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
           .map((row) => (Array.isArray(row.category) ? row.category[0] : row.category))
           .filter(Boolean)
           .map((cat) => ({ name: (cat as { name: string }).name, slug: (cat as { slug: string }).slug })),
-        url: `${threadAppUrl()}/${ownerSlug}/${t.slug}`,
+        url: `${origin}/${ownerSlug}/${t.slug}`,
       };
     })
     .sort((a, b) => (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999'));
@@ -6127,6 +6139,16 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
     }
   }
 
+  // One origin lookup per owner (docs/domain-package.md part 2), before the
+  // synchronous map below.
+  const originBySlug = await publicOriginsFor(
+    'the-thread',
+    (enrolments ?? []).map((e) => {
+      const t = Array.isArray(e.thread) ? e.thread[0] : e.thread;
+      const org = t && (Array.isArray(t.organiser) ? t.organiser[0] : t.organiser);
+      return t ? ownerSlugOf(t, org?.slug ?? null) : null;
+    }),
+  );
   const items = (enrolments ?? [])
     .map((e) => {
       const t = Array.isArray(e.thread) ? e.thread[0] : e.thread;
@@ -6134,6 +6156,8 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
       const prog = Array.isArray(t.program) ? t.program[0] : t.program;
       const org = Array.isArray(t.organiser) ? t.organiser[0] : t.organiser;
       const enr = Array.isArray(e.enrolment) ? e.enrolment[0] : e.enrolment;
+      const owner = ownerSlugOf(t, org?.slug ?? null);
+      const origin = originBySlug.get(owner ?? '') ?? threadAppUrl();
       return {
         thread_id: t.id,
         title: prog?.title ?? t.slug,
@@ -6145,7 +6169,7 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
         cover_url: t.cover_url,
         language: (t as { language?: string }).language ?? 'en',
         enrolment_status: enr?.status ?? 'enrolled',
-        url: `${threadAppUrl()}/${ownerSlugOf(t, org?.slug ?? null)}/${t.slug}`,
+        url: `${origin}/${owner}/${t.slug}`,
         enrolled_at: e.created_at,
         cohort: cohorts.get(t.id) ?? [],
       };
@@ -6835,7 +6859,8 @@ threadRoutes.post('/public/enrol', async (c) => {
     // Platform fee — same plan-aware rule as Meet, via lib/fees.
     const applicationFeeCents = await platformFeeCents(thread.workspace_id, finalPriceCents, destAccount);
 
-    const publicBase = `${threadAppUrl()}/${d.organiser_slug}/${thread.slug}`;
+    // The owner's own host when verified, else ours (part 2).
+    const publicBase = `${await publicOriginFor('the-thread', d.organiser_slug)}/${d.organiser_slug}/${thread.slug}`;
     try {
       const session = await stripe.checkout.sessions.create(
         {

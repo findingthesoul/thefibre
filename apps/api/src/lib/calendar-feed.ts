@@ -49,6 +49,7 @@ import {
 import { enrolmentCanRespond } from './portal.js';
 import { loadAgendaByThread, personsForEmail } from './portal-agenda.js';
 import { publicOwnerSlug } from './public-owner-slug.js';
+import { publicOriginFor } from './public-origin.js';
 
 /** Same window the portal page uses. The feed shows what the page shows. */
 const PAST_WINDOW_DAYS = 90;
@@ -273,7 +274,8 @@ export async function buildFeedForEmail(email: string): Promise<string> {
         teamSlug: t.teamSlug,
         organiserSlug: t.organiserSlug,
       });
-      const threadUrl = ownerSlug ? `${threadBase}/${ownerSlug}/${t.slug}` : null;
+      // The owner's own host when verified, else ours (docs/domain-package.md part 2).
+      const threadUrl = ownerSlug ? `${await publicOriginFor('the-thread', ownerSlug, threadBase)}/${ownerSlug}/${t.slug}` : null;
 
       for (const item of agenda.get(threadId) ?? []) {
         if (!item.starts_at) continue;

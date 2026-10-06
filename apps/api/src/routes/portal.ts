@@ -82,6 +82,7 @@ import {
 } from '../lib/calendar-feed.js';
 import { erasurePicture, fileErasureRequest } from '../lib/portal-erasure.js';
 import { appUrl, isLocale } from '@thefibre/shared';
+import { publicOriginFor } from '../lib/public-origin.js';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
@@ -128,8 +129,9 @@ export const portalRoutes = new Hono();
  * staging — neither bug is reachable without a session, which is exactly the
  * gap that verification existed to close.
  */
-function threadPublicUrl(ownerSlug: string, threadSlug: string): string {
-  return `${appUrl('the-thread', process.env)}/${ownerSlug}/${threadSlug}`;
+async function threadPublicUrl(ownerSlug: string, threadSlug: string): Promise<string> {
+  // The owner's own host when verified, else ours (docs/domain-package.md part 2).
+  return `${await publicOriginFor('the-thread', ownerSlug)}/${ownerSlug}/${threadSlug}`;
 }
 
 function walletAvailability(): { apple: boolean; google: boolean } {
@@ -490,7 +492,7 @@ portalRoutes.get('/portal', async (c) => {
         if (!ownerSlug) continue;
         threadUrlByKey.set(
           `${t.workspace_id as string}:${t.slug as string}`,
-          threadPublicUrl(ownerSlug, t.slug as string),
+          await threadPublicUrl(ownerSlug, t.slug as string),
         );
       }
     }
@@ -632,7 +634,7 @@ portalRoutes.get('/portal', async (c) => {
       cover_url: t.cover_url ?? null,
       enrolment_status: enr?.status ?? null,
       progress_pct: enr?.progress_pct ?? null,
-      url: threadPublicUrl(ownerSlug, t.slug as string),
+      url: await threadPublicUrl(ownerSlug, t.slug as string),
       organiser_name: org?.display_name ?? orgUser?.full_name ?? g.name ?? null,
       organiser_email: orgUser?.email ?? null,
       certificate: certByEnrolment.get(e.id as string) ?? null,

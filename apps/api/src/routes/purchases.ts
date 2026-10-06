@@ -9,6 +9,7 @@ import { Hono } from 'hono';
 import { appUrl, ENTITY, invoiceModel, type InvoicePurchase } from '@thefibre/shared';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { getWorkspaceBrand, senderOf, workspaceSender } from '../lib/workspace-brand.js';
+import { publicOriginFor } from '../lib/public-origin.js';
 import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
@@ -717,7 +718,6 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
   const organiser = thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
   const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
   const workspace = thread && (Array.isArray(thread.workspace) ? thread.workspace[0] : thread.workspace);
-  const threadUrl = process.env.THREAD_APP_URL ?? appUrl('the-thread', process.env);
   // Three owner kinds (lib/public-owner-slug.ts), same as the payment link
   // this resends; `team ?? organiser` dropped the workspace-scoped case.
   const ownerSlug = publicOwnerSlug({
@@ -726,6 +726,8 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
     teamSlug: team?.slug ?? null,
     organiserSlug: organiser?.slug ?? null,
   });
+  // The owner's own host when verified, else ours (docs/domain-package.md part 2).
+  const threadUrl = await publicOriginFor('the-thread', ownerSlug, process.env.THREAD_APP_URL);
   const publicBase = `${threadUrl}/${ownerSlug}/${thread?.slug ?? ''}`;
 
   // A resend must kill the previous session — the old link would stay
