@@ -22,6 +22,7 @@
 // only moment where refusing costs nothing.
 
 import { adminClient } from '../db.js';
+import { syncAutomaticTeams } from './automatic-teams.js';
 import { resolvePersonId } from './resolve-person.js';
 import { sendEmail } from './email/client.js';
 import { shell, escapeHtml } from './email/templates.js';
@@ -95,6 +96,10 @@ export async function seedFirstAdmin(args: {
     { onConflict: 'user_id,workspace_id' },
   );
   if (mErr) throw new Error(`first admin: membership failed — ${mErr.message}`);
+
+  // The workspace's first admin: create both automatic teams and put them in
+  // each. Everything later — invites, role changes — keeps them true.
+  await syncAutomaticTeams(args.workspaceId);
 
   // fibre-platform admin, explicitly.
   //

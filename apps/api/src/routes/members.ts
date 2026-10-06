@@ -16,6 +16,7 @@ import {
 } from '../lib/workspace-roles.js';
 import type { RequestContext } from '../middleware/app-context.js';
 import { syncUsers, inheritedByUser } from '../lib/team-grants.js';
+import { syncAutomaticTeams } from '../lib/automatic-teams.js';
 
 // ===========================================================================
 // Platform members management — THE single point of truth for who is in the
@@ -336,6 +337,9 @@ membersRoutes.post('/', async (c) => {
     { onConflict: 'user_id,workspace_id' },
   );
 
+  // Everyone gains a member, and Admins may have too. Same one writer.
+  await syncAutomaticTeams(ctx.workspaceId);
+
   // App grants — additive on invite (never strips grants the user already
   // holds from another workspace context).
   const wanted = normalizeGrants(body.data.apps);
@@ -444,6 +448,12 @@ membersRoutes.patch('/:userId', async (c) => {
     // The UI sends the full grant picture incl. roles — reconcile against it.
     await syncAppGrants(userId, normalizeGrants(body.data.apps));
   }
+
+  // The workspace's role just changed, so the Admins team is stale. ONE
+  // writer, called from every path that touches workspace_member — see
+  // lib/automatic-teams.ts. Missing a path leaves somebody holding
+  // admin-level app access after a demotion, which is silent.
+  await syncAutomaticTeams(ctx.workspaceId);
 
   return c.json({ ok: true });
 });

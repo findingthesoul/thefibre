@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.110.0] — 2026-10-06 — every workspace has an Admins team and an Everyone team, kept true by one writer
+
+First slice of the teams redesign (docs/teams-two-automatic-teams.md, approved
+by Sjoerd today). Schema, the writer and the drift check; the invite flow and
+the conversion of existing workspaces follow separately.
+
+**Admins** holds exactly the workspace's admins. **Everyone** holds every
+member, and what it grants is the baseline a newcomer gets. Nobody can be
+removed from Everyone — the moment it has exceptions, "what does a new person
+get?" stops having an answer, and the per-person exception already exists as a
+direct app tick.
+
+Identity lives in a column, not the name: a workspace will rename "Everyone"
+to "Alle leden", and matching on the name would stop finding the team exactly
+when protecting it matters. A unique index allows one of each per workspace,
+so a retry or two API instances racing on a new workspace cannot quietly
+produce two Everyone teams with a person in one of them.
+
+**The slugs are suffixed with the workspace, and that is load-bearing.**
+`public_root_slug.slug` is a PRIMARY KEY shared by workspaces, teams and
+organisers — one global namespace — and a team claims its slug even when
+unpublished. A team literally called `everyone` can therefore exist exactly
+once on the whole platform, and the second workspace to try would fail. Found
+while writing the spec, not while debugging a failed rollout.
+
+**One writer, plus a check that it was wired everywhere.** `syncAutomaticTeams`
+is called from every path that touches `workspace_member` — invite, role
+change, first admin. The alternative is each route maintaining it, which is
+how somebody keeps admin-level app access after being demoted, silently.
+Because "every path was found" is a claim rather than a fact,
+`driftingWorkspaces()` reports where the teams no longer match the workspace.
+It reports and never repairs: repairing on read would hide how often it
+happens, which is the number worth knowing.
+
+Deleting either team is refused in the DATABASE, not in a route, because a
+route is not the only thing that can issue a delete — while still allowing the
+cascade when the workspace itself goes, which would otherwise make every
+workspace undeletable. Both halves are asserted against real Postgres, and the
+first version of that cascade test passed for the wrong reason (an unrelated
+foreign key blocked the delete before the trigger ran).
+
+Seven integration tests, the load-bearing ones being about things going away:
+a demotion removes somebody from Admins and leaves them in Everyone; leaving
+the workspace removes them from both; the drift check sees a role changed
+behind the writer's back and stops seeing it after a sync.
+
 ## [1.109.1] — 2026-10-06 — the workspace role is returned by the endpoint that is actually asked
 
 v1.109.0 made `canManageWorkspace` read `workspace_role`, and added that field
