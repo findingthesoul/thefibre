@@ -5508,11 +5508,26 @@ async function resolvePublicOwner(slug: string): Promise<PublicOwner | null> {
     .eq('slug', slug)
     .maybeSingle();
   if (organiser) return { kind: 'organiser', organiser: await organiserWithProfile(organiser) };
+  // PUBLISHED only. `is_published` was added on 2026-09-11 so that an internal
+  // access group — a team made to let the bookkeeper into Pulse — would not
+  // also stand up a public page. Nothing ever enforced it: this resolver, and
+  // every other team lookup in the API, matched on `is_active` alone. So every
+  // internal team created since then has been serving a public page at
+  // app.thethread.app/{slug} with its name and description on it, which is a
+  // leak of what a workspace calls its internal groups and why.
+  //
+  // Found 2026-10-06 while asking whether the automatic Admins/Everyone teams
+  // were safe to create on production: they would have stood up two public
+  // pages per workspace. They are not the cause — this was already true.
+  //
+  // An unpublished team now 404s here, which is the intended behaviour and a
+  // deliberate change to what the public API answers.
   const { data: team } = await adminClient
     .from('team')
     .select('id, workspace_id, slug, name, description')
     .eq('slug', slug)
     .eq('is_active', true)
+    .eq('is_published', true)
     .maybeSingle();
   if (team) return { kind: 'team', team };
   return null;

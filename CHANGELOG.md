@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.110.3] — 2026-10-06 — an internal team no longer has a public page
+
+`team.is_published` was added on 2026-09-11 for one reason: creating a
+"Finance" team so the bookkeeper can open Pulse should not also stand up a
+public page at `app.thethread.app/finance`. **Nothing ever enforced it.**
+
+Every public team lookup matched on `is_active` alone — `resolvePublicOwner`
+in routes/thread.ts, which serves the public owner page, the workspace page,
+the thread page, the embeds and public enrolment, and Meet's three
+`/public/team/…` routes. So for five weeks every internal access group has
+been serving a public page carrying its name and description: what a workspace
+calls its internal groups, and why.
+
+Found while asking a different question — whether the automatic Admins and
+Everyone teams were safe to create on production. They would have stood up two
+public pages per workspace, which is how this surfaced; they are not the
+cause. It was already true of every internal team, including one in Sjoerd's
+own staging data.
+
+**A deliberate change to what the public API answers:** an unpublished team now
+404s on those routes. That is the intended behaviour and the whole point —
+`/api/v1/thread/public/*` stays additive-only for SHAPES, and this changes
+which rows are visible, not the shape of the answer. A team that should have a
+public page simply needs publishing, which is a switch on the team.
+
+Four integration tests, and they were written against the BROKEN API first:
+three failed and the control passed, which is the only way to know a test of
+this kind is testing anything. The control matters as much as the rest — a
+resolver that 404s everything would satisfy "an unpublished team 404s" while
+taking every real team page down.
+
 ## [1.110.2] — 2026-10-06 — a meeting blocked its own move
 
 An invitee rescheduled a Meet booking on production and was told the time had

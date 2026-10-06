@@ -5204,11 +5204,14 @@ meetRoutes.get('/public/team/:team_slug', async (c) => {
   const slug = c.req.param('team_slug');
   const { data: team, error } = await adminClient
     .from('team')
-    .select('id, slug, name, description, is_active, workspace_id')
+    .select('id, slug, name, description, is_active, is_published, workspace_id')
     .eq('slug', slug)
     .single();
   if (error || !team) return c.json({ error: 'team not found' }, 404);
   if (!team.is_active) return c.json({ error: 'team is inactive' }, 404);
+  // An internal access group has no public page — see resolvePublicOwner in
+  // routes/thread.ts for why this was unenforced everywhere until 2026-10-06.
+  if (!team.is_published) return c.json({ error: 'team not found' }, 404);
   const mts = rows(
     'public team page: meeting types',
     await adminClient
@@ -5237,10 +5240,12 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
   const mtSlug = c.req.param('mt_slug');
   const { data: team } = await adminClient
     .from('team')
-    .select('id, slug, name, description, is_active, workspace_id')
+    .select('id, slug, name, description, is_active, is_published, workspace_id')
     .eq('slug', teamSlug)
     .single();
-  if (!team || !team.is_active) return c.json({ error: 'team not found' }, 404);
+  if (!team || !team.is_active || !team.is_published) {
+    return c.json({ error: 'team not found' }, 404);
+  }
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
@@ -5281,10 +5286,10 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
 
   const { data: team } = await adminClient
     .from('team')
-    .select('id, workspace_id')
+    .select('id, workspace_id, is_published')
     .eq('slug', teamSlug)
     .single();
-  if (!team) return c.json({ error: 'team not found' }, 404);
+  if (!team || !team.is_published) return c.json({ error: 'team not found' }, 404);
 
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
