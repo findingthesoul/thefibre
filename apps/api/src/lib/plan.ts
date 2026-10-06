@@ -25,6 +25,12 @@ export type PlanFeature =
   | 'connections'
   | 'email_branding'
   | 'custom_sender_domain'
+  // Your own WEB address for the public pages (book.soul.com) — the second
+  // half of the domain package (docs/domain-package.md), Enterprise only.
+  // Deliberately not the same key as `custom_sender_domain` (Pro and up):
+  // one is DNS for mail, the other is a host we serve; Sjoerd priced them
+  // apart on 2026-10-06. Set on the rows by 20261006132941.
+  | 'custom_domain'
   | 'team_access_groups'
   | 'beta_apps'
   | 'app_keys'

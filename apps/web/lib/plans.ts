@@ -122,6 +122,12 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       },
       { key: 'email_branding', label: 'Your logo + sender name on email', kind: 'flag' },
       { key: 'custom_sender_domain', label: 'Your own sending domain', kind: 'flag' },
+      {
+        key: 'custom_domain',
+        label: 'Your own web address for public pages',
+        kind: 'flag',
+        note: 'book.yourdomain.com for the booking and event pages. The sending domain above is the other half of the domain package.',
+      },
       { key: 'team_access_groups', label: 'Teams decide app access', kind: 'flag' },
       { key: 'beta_apps', label: 'Gets new apps early, to test', kind: 'flag' },
       { key: 'app_keys', label: 'API keys', kind: 'flag' },

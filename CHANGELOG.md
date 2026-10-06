@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.111.1] — 2026-10-06 — the domain package: the spec, and its Enterprise key (staging)
+
+Sjoerd, in the coordinator chat: "go domain package … like one package, for
+enterprise". A workspace gets its mail sent from its own address and, later,
+its public pages on its own web address. Research that started it:
+`docs/soul-com-own-sender-and-domain.md`; the spec and the release plan:
+`docs/domain-package.md`. This release is the first and smallest slice —
+nothing a workspace can click yet.
+
+- **Pricing, decided.** Sending from your own address stays Pro and up
+  (`custom_sender_domain`, unchanged). Your own web address for the public
+  pages is a NEW plan key, `custom_domain`, Enterprise (`org`) only — and
+  `beta`, which is the org package with early apps and where soul.com sits.
+  Set on every plan row by `20261006132941`, declared in `lib/plan.ts`,
+  labelled on `/admin/plans` ("Your own web address for public pages") with
+  a note that the sending domain row is the other half of the package.
+  Nothing reads the key yet; the gate arrives with the pages it guards.
+- **The spec** (`docs/domain-package.md`): one settings page, Fibre →
+  Settings → Your domain; the API adds the domain at the mail provider with
+  the server's key and shows the DNS records with copy buttons and a Check;
+  the typed address takes effect only once the domain is verified, the
+  existing fallback stays until then. Part 2 is the web address through
+  Vercel's Domains API. The audit of 55 send paths is in there too: eight
+  workspace mails that still ignore the workspace sender, and Meet
+  overwriting the workspace reply-to on thirteen — fixed in their owners'
+  lanes once the shared `workspaceSender()` helper lands in release 2.
+
+Verified: `pnpm verify` green. Migration applied to STAGING in the release
+slot. Not verified: nothing renders differently anywhere yet except one new
+checkbox row on `/admin/plans`.
+
 ## [1.111.0] — 2026-10-06 — a request nobody answered held nothing
 
 A real invitee asked for a meeting on a type that requires the host's
