@@ -26,6 +26,59 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
+**Meet booking approval: ON STAGING, not promoted (v1.110.2 → v1.112.0,
+2026-10-06).** A real invitee hit three faults in one booking: rescheduling
+told her the time was taken (the meeting was blocking its own move), her
+request's slot was never held, and the host was never emailed about it. All
+three are fixed and on staging, in four releases:
+
+- v1.110.2 — a moving booking no longer counts against itself (its own Google
+  event is carved out of the host's busy set, in both the reschedule check and
+  the slot list, which were separate code).
+- v1.111.0 — `pending_approval` HOLDS the slot. Ten queries that each filtered
+  `status = 'confirmed'` now share one rule, `LIVE_BOOKING_STATUSES`.
+- v1.111.0 — moving a pending booking re-asks the host at the new time; an
+  invitee moving a CONFIRMED booking on an approval-required type returns it to
+  pending (the host's own move stays confirmed, recognised from a verified
+  bearer token, not a URL flag); a failed "approval needed" email is recorded
+  on `meet_booking.approval_notice_failed_at` and shown to the host.
+- v1.112.0 — requests EXPIRE at the earlier of 48h or their own start time, to
+  a terminal `expired` that frees the slot by not being in the hold rule. Both
+  sides are mailed; the invitee's link revives the same booking.
+
+**The hold must never reach production without the expiry** (controller's
+rule, 2026-10-01 runway). Both are on staging, so a single promotion carries
+both — do not cherry-pick v1.111.0.
+
+Witnessed on deployed staging, not just typechecked: a pending request refuses
+a second booking at its time and a cancelled one frees it (integration, the
+first Meet fixture the suite has ever had); a real sweep tick logged
+`expired 1 of 1 due request(s)` and the freed slot took a new booking; and the
+notice flag was written for real (`approval_notice_failed_at` set) because
+Resend refuses `@example.com`, which is the production fault's exact shape.
+
+Left over, smallest first:
+- **Watch one sweep tick on production** after promoting. Both stacks had ZERO
+  `pending_approval` rows when this shipped, so the first tick cannot
+  retroactively expire anyone's old request — checked, 2026-10-06.
+- **The expiry mails are hand-written English**, like the decline mail beside
+  them, while booking mails are localised in six languages. Worth doing as one
+  piece of work across Meet's mails rather than one mail at a time.
+- **Reviving an expired request by moving it is untested.** The integration
+  fixture is a one-off meeting type and a one-off cannot be rescheduled by
+  design; it needs a fixture with working hours. Same gap covers the
+  host-moves-stays-confirmed path, which needs a signed-in browser.
+- **Why the first host email never sent is still unknown.** Non-fatal by design
+  and nothing recorded it, so there is nothing left to read; the flag makes the
+  next one visible. The obvious candidate — mailing the wrong host after
+  round-robin — was checked and is not it.
+- **An expired request leaves the host's `/bookings` list** unless they ask for
+  cancelled rows. They are emailed when it happens. A choice, but a choice.
+- **Fixture mail never sends on staging** (Resend 422 on `example.com`), so the
+  mail *paths* are exercised and delivery is not. A test-mode address would fix
+  that for the whole suite.
+
+
 **Connections: ONE page, in the platform (Sjoerd chose it 2026-10-04).** Google,
 Zoom, Teams and the personal room are managed on three pages that read and
 write the same stored connection: Meet's `/settings/integrations`, Thread's
