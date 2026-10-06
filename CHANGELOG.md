@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.6] — 2026-10-06 — the Webflow list embed answered 500 for a workspace slug (staging)
+
+The Webflow list embed answered **500** for `?workspace=` — found by the
+stress chat on staging, and the same on production, because the value went
+into `.eq()` on a uuid column: a slug such as `default` came back as
+`invalid input syntax for type uuid`. The embed page catches that, so a
+customer's site showed "Couldn't load threads right now" where the listing
+should be — a polite, permanent blank. Nothing to do with `public_scope`,
+`team_id` or the `is_published` change in v1.110.3; this route filters
+`is_public_listed` and resolves no owner.
+
+- **An owner may be named by uuid or by its public slug** on
+  `GET /api/v1/thread/public/embed/threads` — `?workspace=` and `?team=`, the
+  way `?organiser=` already worked. Additive, so no published shape changes.
+  An owner that matches nothing is an empty listing rather than an error: a
+  widget showing nothing beats a widget showing database text. Organisations
+  have no slug, so a non-uuid `?org=` lists nothing.
+- **The route no longer says anything about the database.** It is public,
+  no-auth and CORS-open, and it was returning Postgres's own words to
+  whoever asked. One safe sentence now, with the status the cause deserves —
+  a rejected value is a 400 — and the full error in the log.
+- **`lib/ids.ts`** holds the one `isUuid`, with the reason it exists;
+  `routes/activities.ts` had the same regex inline for `?app_id=` and now
+  reads it from there. Three unit cases.
+- **Five integration cases** in `public-organiser-fixture.int.test.ts`,
+  against the permanent staging fixture: the uuid form lists the fixture
+  thread (asserted non-empty, since an empty list looks exactly like a
+  working one), the slug form answers the same, and each of
+  `workspace=default`, `team=default`, `org=default` and an unknown slug is a
+  200 with no items. The deployed staging API still answers 500 to the first
+  of those, which is the before-and-after on one database.
+
 ## [1.113.5] — 2026-10-06 — the domain package, part 2 release 3: links in mail carry the customer's host (staging)
 
 Third slice of part 2 (`docs/domain-package.md`), API only. A customer on

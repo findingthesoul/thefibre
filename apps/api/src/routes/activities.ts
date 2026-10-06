@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
 import { actorUserId, type RequestContext } from '../middleware/app-context.js';
 import { readManifestActivityTypes } from '../lib/app-manifest.js';
+import { isUuid } from '../lib/ids.js';
 
 export const activitiesRoutes = new Hono();
 
@@ -99,8 +100,7 @@ activitiesRoutes.get('/', async (c) => {
   }
   if (memberPersonIds) q = q.in('person_id', memberPersonIds);
   if (parsed.data.app_id) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.data.app_id);
-    if (isUuid) {
+    if (isUuid(parsed.data.app_id)) {
       q = q.eq('app_id', parsed.data.app_id);
     } else {
       const { data: app } = await db.from('app').select('id').eq('slug', parsed.data.app_id).single();

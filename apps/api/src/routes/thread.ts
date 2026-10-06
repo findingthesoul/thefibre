@@ -26,7 +26,8 @@ import {
 import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { actorUserId } from '../middleware/app-context.js';
-import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
+import { pgErrorBody, pgErrorMessage, pgErrorStatus } from '../lib/pg-error.js';
+import { isUuid } from '../lib/ids.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
 import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
@@ -5968,6 +5969,41 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     return c.json({ error: 'pass organiser, team, org or workspace' }, 400);
   }
 
+  // ?team, ?org and ?workspace name uuid columns, and a value that is not a
+  // uuid used to reach Postgres and come back as `22P02 invalid input syntax
+  // for type uuid` — a 500 on a public, no-auth, cross-origin route, carrying
+  // the database's own words to whoever asked. Anybody hand-writing the
+  // Webflow snippet with a SLUG (`data-workspace="default"`) got that: the
+  // embed page catches it, so their site showed "Couldn't load threads right
+  // now" where the listing should be — a polite, permanent blank.
+  //
+  // So a workspace or a team may be named by uuid OR by its public slug, the
+  // way ?organiser already is, and an unknown owner is an empty listing rather
+  // than an error — a widget showing nothing beats a widget showing a stack of
+  // database text. Organisations have no slug, so a non-uuid ?org can only be
+  // a mistake, and it lists nothing.
+  let resolvedTeamId = teamId;
+  if (teamId && !isUuid(teamId)) {
+    const { data: team } = await adminClient
+      .from('team')
+      .select('id')
+      .eq('slug', teamId)
+      .maybeSingle();
+    if (!team) return c.json({ items: [] });
+    resolvedTeamId = team.id as string;
+  }
+  let resolvedWorkspaceId = workspaceId;
+  if (workspaceId && !isUuid(workspaceId)) {
+    const { data: ws } = await adminClient
+      .from('workspace')
+      .select('id')
+      .eq('slug', workspaceId)
+      .maybeSingle();
+    if (!ws) return c.json({ items: [] });
+    resolvedWorkspaceId = ws.id as string;
+  }
+  if (orgId && !isUuid(orgId)) return c.json({ items: [] });
+
   let q = adminClient
     .from('thread_thread')
     .select(
@@ -5979,10 +6015,10 @@ threadRoutes.get('/public/embed/threads', async (c) => {
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true);
-  if (teamId) q = q.eq('team_id', teamId);
+  if (resolvedTeamId) q = q.eq('team_id', resolvedTeamId);
   if (orgId) q = q.eq('organisation_id', orgId);
   // Whole workspace: every public thread, personal and team alike.
-  if (workspaceId) q = q.eq('workspace_id', workspaceId);
+  if (resolvedWorkspaceId) q = q.eq('workspace_id', resolvedWorkspaceId);
   if (organiserSlug) {
     const { data: org } = await adminClient
       .from('thread_organiser')
@@ -5994,7 +6030,15 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   }
 
   const { data, error } = await q;
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    // Second layer, after the uuid check above: a 500 on this route reached
+    // somebody's website, and `error.message` put the database's own words in
+    // it. This route is public, no-auth and cross-origin, so it says one safe
+    // sentence with the status the cause deserves — a rejected value is a 400 —
+    // and the full error goes to the log, which is the first stop anyway.
+    console.error('[embed/threads] query failed', error);
+    return c.json({ error: pgErrorMessage(error) }, pgErrorStatus(error));
+  }
   const live = (data ?? []).filter((t) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
     if (!p || (p.status !== 'active' && p.status !== 'completed')) return false;
