@@ -142,6 +142,7 @@ export function buildAssumptions(def: ModelDefinition, state: ModelState, opts: 
     const now = state.fixed[f.id] ?? f.value;
     const notes = [
       f.startMonth && f.startMonth > 1 ? T('asm_from_month', { n: f.startMonth }) : '',
+      f.endMonth != null ? T('rel_until_month', { n: f.endMonth }) : '',
       f.per ? T('asm_per', { e: f.per.every, n: f.per.of === 'units' ? unit : name(f.per.of) }) : '',
       ...(f.steps ?? []).map((stp) => T('rel_step', { m: stp.fromMonth, v: withUnit(stp.value, cur) })),
     ].filter(Boolean);

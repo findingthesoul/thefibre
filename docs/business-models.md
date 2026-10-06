@@ -244,6 +244,19 @@ it would be great if you get there immediately. Also when you refresh."_
   canvas. A refresh reads the address, a login on another device reads the
   row.
 
+## A cost spread over a few months (1.107.2)
+
+Sjoerd, 2026-10-06: _"The Thread has no way to spread a cost over a few
+months after a launch. I built it as a one time cost in the launch month."_
+
+A fixed cost has `endMonth` next to `startMonth`: the last month it is paid,
+absent for the whole horizon. The engine pays it only inside the window
+(`project()`, the fixed-cost loop); `steps` and `per` still apply inside it.
+The key-resources editor has an "Until month" column (empty = ∞), the drawer
+and the Assumptions tab say "until month n", the format guide gives the
+launch example: 6,000 over three months after a launch in month 3 is
+`{ value: 2000, startMonth: 3, endMonth: 5 }`.
+
 ## Versions
 
 Its own `VERSION` in `apps/models/app/(app)/layout.tsx` (0.1.0 from

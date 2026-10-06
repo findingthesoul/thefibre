@@ -92,6 +92,7 @@ function buildGroups(def: ModelDefinition, state: ModelState, s: Summary, locale
       ...(def.fixedCosts ?? []).map((f) => ({ id: `fixed:${f.id}`, label: f.label, reading: `${fmtMoney(ref.fixedLines[f.id] ?? state.fixed[f.id] ?? f.value)} / ${mo}`, vars: [{ scope: 'fixed' as const, def: { ...f, unit: `${cur} / ${mo}${f.per ? ` ${t(locale, 'per_every')} ${f.per.every} ${f.per.of === 'units' ? unit : name(f.per.of)}` : ''}` }, value: state.fixed[f.id] ?? f.value }],
         relations: [
           ...(f.startMonth && f.startMonth > 1 ? [t(locale, 'rel_from_month', { n: f.startMonth })] : []),
+          ...(f.endMonth != null ? [t(locale, 'rel_until_month', { n: f.endMonth })] : []),
           ...(f.per ? [t(locale, 'rel_per', { n: f.per.of === 'units' ? unit : name(f.per.of), e: f.per.every, v: fmtMoney(ref.fixedLines[f.id] ?? 0), m: s.refMonth })] : []),
           ...(f.steps ?? []).map((st) => t(locale, 'rel_step', { m: st.fromMonth, v: fmtMoney(st.value) })),
         ], editRef: { kind: 'resources' as const } })),

@@ -154,4 +154,13 @@ describe('the engine', () => {
     const turned = mergeState(defaultState(def), { reserve: { share: 50 } });
     expect(summarize(def, turned).reserveMonth).toBe(1);
   });
+
+  it('a fixed cost with an end month is paid from its start month until that month, and not after', () => {
+    const def: ModelDefinition = { name: 't', horizon: 8, generators: [{ id: 'a', name: 'A', inputs: [{ id: 'start', label: 's', value: 10, step: 1 }], volume: { start: 'start' }, revenuePerUnit: 0 }],
+      fixedCosts: [{ id: 'launch', label: 'Launch campaign', value: 2000, step: 100, startMonth: 3, endMonth: 5 }, { id: 'team', label: 'Team', value: 100, step: 10 }] };
+    const months = summarize(def, defaultState(def)).months;
+    expect(months.map((m) => m.fixedLines.launch)).toEqual([0, 0, 2000, 2000, 2000, 0, 0, 0]);
+    expect(months.map((m) => m.fixedLines.team)).toEqual([100, 100, 100, 100, 100, 100, 100, 100]);
+    expect(months.reduce((a, m) => a + m.fixedCost, 0)).toBe(6000 + 800);
+  });
 });

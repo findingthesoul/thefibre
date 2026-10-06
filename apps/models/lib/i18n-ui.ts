@@ -207,6 +207,9 @@ const RAW = {
   status_wrong: ["known wrong", "bekend onjuist", "se sabe incorrecto", "sabidamente errado", "bekannt falsch", "erreur connue"],
   status_pending: ["pending", "nog te doen", "pendiente", "pendente", "ausstehend", "en attente"],
   done: ["Done", "Klaar", "Listo", "Concluído", "Fertig", "Terminé"],
+  until_month: ["Until month", "Tot en met maand", "Hasta el mes", "Até ao mês", "Bis Monat", "Jusqu’au mois"],
+  until_month_hint: ["The last month this cost is paid. Empty: for the whole horizon. With \"From month\" this spreads a cost over a few months.", "De laatste maand waarin deze kostenpost wordt betaald. Leeg: de hele horizon. Met \"Vanaf maand\" spreid je kosten over een paar maanden.", "El último mes en que se paga este coste. Vacío: todo el horizonte. Con \"Desde el mes\" reparte un coste en unos meses.", "O último mês em que este custo é pago. Vazio: todo o horizonte. Com \"A partir do mês\" espalha um custo por alguns meses.", "Der letzte Monat, in dem diese Kosten gezahlt werden. Leer: der ganze Horizont. Mit \"Ab Monat\" verteilt das Kosten über einige Monate.", "Le dernier mois où ce coût est payé. Vide : tout l’horizon. Avec « À partir du mois », cela étale un coût sur quelques mois."],
+  rel_until_month: ["until month {n}", "tot en met maand {n}", "hasta el mes {n}", "até ao mês {n}", "bis Monat {n}", "jusqu’au mois {n}"],
   // ── results ───────────────────────────────────────────────────────────
   kpi_break_even_month: ['Break even month', 'Break-evenmaand', 'Mes de equilibrio', 'Mês de equilíbrio', 'Break-even-Monat', 'Mois du seuil'],
   kpi_break_even_units: ['Break even {units}', 'Break-even {units}', 'Equilibrio en {units}', 'Equilíbrio em {units}', 'Break-even {units}', 'Seuil en {units}'],

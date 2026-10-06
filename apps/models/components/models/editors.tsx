@@ -284,14 +284,15 @@ export function ResourcesEditor({ open, def, locale, onSave, onClose }: { open: 
         <div>
           <Head action={<AddBtn label={t(locale, 'add_fixed_cost')} onClick={() => setFixed([...fixed, { ...newInput(fixed.map((f) => f.id), 'New fixed cost'), step: 50 }])} />}>{t(locale, 'fixed_cost_per_month')}</Head>
           <div className="mt-1.5 flex flex-col gap-1.5">
-            <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_4rem_4.5rem_1.25rem] gap-2 text-[10px] uppercase tracking-wider text-ink-muted"><span>{t(locale, 'label')}</span><span className="text-right">{t(locale, 'value')}</span><span className="text-right">{t(locale, 'step')}</span><span className="text-right">{t(locale, 'start_month')}</span><span /></div>
+            <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_4rem_4.5rem_4.5rem_1.25rem] gap-2 text-[10px] uppercase tracking-wider text-ink-muted"><span>{t(locale, 'label')}</span><span className="text-right">{t(locale, 'value')}</span><span className="text-right">{t(locale, 'step')}</span><span className="text-right">{t(locale, 'start_month')}</span><span className="text-right">{t(locale, 'until_month')}</span><span /></div>
             {fixed.map((f, i) => (
               <div key={f.id} className="rounded-md border border-line p-2">
-                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_4rem_4.5rem_1.25rem] items-center gap-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_4rem_4.5rem_4.5rem_1.25rem] items-center gap-2">
                   <Txt value={f.label} onChange={(label) => setF(i, { label })} />
                   <Num value={f.value} step={f.step ?? 50} onChange={(value) => setF(i, { value })} />
                   <Num value={f.step ?? 50} onChange={(step) => setF(i, { step })} />
                   <Num value={f.startMonth ?? 1} onChange={(m) => setF(i, { startMonth: Math.max(1, Math.round(m)) })} />
+                  <input type="number" min={1} step={1} value={f.endMonth ?? ''} placeholder="∞" title={t(locale, 'until_month_hint')} onChange={(e) => { const v = parseInt(e.target.value, 10); setF(i, { endMonth: Number.isFinite(v) && v >= 1 ? v : undefined }); }} className={`${FIELD_INPUT_CLASS} h-8 text-right tabular-nums`} />
                   <Del label={t(locale, 'remove')} onClick={() => setFixed(fixed.filter((_, j) => j !== i))} />
                 </div>
                 <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2">

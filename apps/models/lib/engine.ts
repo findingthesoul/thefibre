@@ -60,6 +60,10 @@ export const itemObj = (it: CanvasItem): { id?: string; text: string; segments?:
  *  Forge members). Both may combine. */
 export type FixedCost = NumberInput & {
   startMonth?: number;
+  /** The last month it is paid; absent = for the whole horizon. With
+   *  startMonth this spreads a cost over a few months: a launch of 6,000 over
+   *  three months is 2,000 from month 3 until month 5 (Sjoerd, 2026-10-06). */
+  endMonth?: number;
   steps?: { fromMonth: number; value: number }[];
   per?: { of: string | 'units'; every: number };
 };
@@ -443,7 +447,7 @@ export function project(model: ModelDefinition, state: ModelState, horizon?: num
       row.variableCost += amount;
     });
     (model.fixedCosts ?? []).forEach((f) => {
-      const amount = m >= (f.startMonth ?? 1) ? fixedAmount(f, state.fixed[f.id] ?? 0, m, row.units, unitsNow) : 0;
+      const amount = m >= (f.startMonth ?? 1) && (f.endMonth == null || m <= f.endMonth) ? fixedAmount(f, state.fixed[f.id] ?? 0, m, row.units, unitsNow) : 0;
       row.fixedLines[f.id] = amount;
       row.fixedCost += amount;
     });
