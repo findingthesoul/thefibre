@@ -1076,6 +1076,139 @@ const CATALOG = {
     de: 'Deine eigene Domain braucht SPF- und DKIM-Einträge. Bis sie verifiziert sind, gehen E-Mails trotzdem raus — von unserer Adresse, mit deinem Namen.', // MT
     fr: "Ton propre domaine a besoin d'enregistrements SPF et DKIM. En attendant leur vérification, les e-mails partent quand même — depuis notre adresse, avec ton nom.", // MT
   },
+  // Settings → Your domain (docs/domain-package.md).
+  domain_title: { en: 'Your domain', nl: 'Je domein', es: 'Tu dominio', pt: 'Seu domínio', de: 'Deine Domain', fr: 'Ton domaine' }, // MT es/pt/de/fr
+  domain_page_blurb: {
+    en: 'Send email from your own address, and later host your public pages on your own web address. One package; this is the first half.',
+    nl: 'Verstuur e-mail vanaf je eigen adres, en later je openbare pagina’s op je eigen webadres. Eén pakket; dit is de eerste helft.',
+    es: 'Envía correo desde tu propia dirección y, más adelante, publica tus páginas en tu propio dominio. Un paquete; esta es la primera mitad.', // MT
+    pt: 'Envie e-mail do seu próprio endereço e, mais tarde, publique suas páginas no seu próprio domínio. Um pacote; esta é a primeira metade.', // MT
+    de: 'Verschicke E-Mails von deiner eigenen Adresse, und später deine öffentlichen Seiten unter deiner eigenen Webadresse. Ein Paket; das ist die erste Hälfte.', // MT
+    fr: 'Envoie des e-mails depuis ta propre adresse, et plus tard héberge tes pages publiques sur ta propre adresse web. Un seul forfait ; voici la première moitié.', // MT
+  },
+  domain_sender_section: { en: 'Your sending domain', nl: 'Je verzenddomein', es: 'Tu dominio de envío', pt: 'Seu domínio de envio', de: 'Deine Versanddomain', fr: 'Ton domaine d’envoi' }, // MT es/pt/de/fr
+  domain_field_label: { en: 'Domain', nl: 'Domein', es: 'Dominio', pt: 'Domínio', de: 'Domain', fr: 'Domaine' }, // MT es/pt/de/fr
+  domain_field_hint: {
+    en: 'The part after the @ in your address — yourdomain.com, nothing else. We register it with our mail provider and show you the records to add.',
+    nl: 'Het deel na de @ in je adres — jouwdomein.nl, niets anders. Wij melden het aan bij onze mailprovider en tonen je welke records je toevoegt.',
+    es: 'La parte después de la @ de tu dirección: tudominio.com, nada más. Lo registramos con nuestro proveedor de correo y te mostramos los registros que añadir.', // MT
+    pt: 'A parte depois do @ no seu endereço — seudominio.com, nada mais. Registramos no nosso provedor de e-mail e mostramos os registros a adicionar.', // MT
+    de: 'Der Teil nach dem @ deiner Adresse — deinedomain.de, nichts weiter. Wir melden sie bei unserem Mailanbieter an und zeigen dir die Einträge zum Anlegen.', // MT
+    fr: 'La partie après le @ de ton adresse — tondomaine.com, rien d’autre. Nous l’enregistrons chez notre fournisseur de messagerie et t’affichons les enregistrements à ajouter.', // MT
+  },
+  domain_register: { en: 'Register domain', nl: 'Domein aanmelden', es: 'Registrar dominio', pt: 'Registrar domínio', de: 'Domain anmelden', fr: 'Enregistrer le domaine' }, // MT es/pt/de/fr
+  domain_records_intro: {
+    en: 'Add these records at your domain’s DNS provider, then press Check. Your website and your existing mail are not affected: everything sits on a subdomain or its own name.',
+    nl: 'Voeg deze records toe bij de DNS-beheerder van je domein en klik dan op Controleren. Je website en je bestaande mail worden niet geraakt: alles staat op een subdomein of een eigen naam.',
+    es: 'Añade estos registros en el proveedor DNS de tu dominio y pulsa Comprobar. Tu web y tu correo actual no se ven afectados: todo está en un subdominio o en su propio nombre.', // MT
+    pt: 'Adicione estes registros no provedor DNS do seu domínio e pressione Verificar. Seu site e seu e-mail atual não são afetados: tudo fica em um subdomínio ou nome próprio.', // MT
+    de: 'Lege diese Einträge beim DNS-Anbieter deiner Domain an und klicke dann auf Prüfen. Deine Website und deine bestehende Mail bleiben unberührt: alles liegt auf einer Subdomain oder einem eigenen Namen.', // MT
+    fr: 'Ajoute ces enregistrements chez le fournisseur DNS de ton domaine, puis clique sur Vérifier. Ton site et ta messagerie actuelle ne sont pas touchés : tout repose sur un sous-domaine ou un nom propre.', // MT
+  },
+  domain_record_type: { en: 'Type', nl: 'Type', es: 'Tipo', pt: 'Tipo', de: 'Typ', fr: 'Type' },
+  domain_record_name: { en: 'Name', nl: 'Naam', es: 'Nombre', pt: 'Nome', de: 'Name', fr: 'Nom' },
+  domain_record_value: { en: 'Value', nl: 'Waarde', es: 'Valor', pt: 'Valor', de: 'Wert', fr: 'Valeur' },
+  domain_record_status: { en: 'Status', nl: 'Status', es: 'Estado', pt: 'Status', de: 'Status', fr: 'Statut' },
+  domain_copy: { en: 'Copy', nl: 'Kopieer', es: 'Copiar', pt: 'Copiar', de: 'Kopieren', fr: 'Copier' },
+  domain_copied: { en: 'Copied', nl: 'Gekopieerd', es: 'Copiado', pt: 'Copiado', de: 'Kopiert', fr: 'Copié' },
+  domain_check: { en: 'Check', nl: 'Controleren', es: 'Comprobar', pt: 'Verificar', de: 'Prüfen', fr: 'Vérifier' },
+  domain_checking: { en: 'Checking…', nl: 'Controleren…', es: 'Comprobando…', pt: 'Verificando…', de: 'Prüfe…', fr: 'Vérification…' },
+  domain_checked_notice: {
+    en: 'Checked. Verification can take a few minutes after the records are in place; press Check again.',
+    nl: 'Gecontroleerd. Verificatie kan een paar minuten duren nadat de records staan; klik nog eens op Controleren.',
+    es: 'Comprobado. La verificación puede tardar unos minutos tras añadir los registros; pulsa Comprobar de nuevo.', // MT
+    pt: 'Verificado. A verificação pode levar alguns minutos após os registros estarem no lugar; pressione Verificar novamente.', // MT
+    de: 'Geprüft. Die Verifizierung kann nach dem Anlegen der Einträge ein paar Minuten dauern; klicke erneut auf Prüfen.', // MT
+    fr: 'Vérifié. La vérification peut prendre quelques minutes une fois les enregistrements en place ; clique à nouveau sur Vérifier.', // MT
+  },
+  domain_status_verified: { en: 'Verified', nl: 'Geverifieerd', es: 'Verificado', pt: 'Verificado', de: 'Verifiziert', fr: 'Vérifié' },
+  domain_status_pending: { en: 'Checking', nl: 'Wordt gecontroleerd', es: 'Comprobando', pt: 'Verificando', de: 'Wird geprüft', fr: 'En cours' },
+  domain_status_failed: { en: 'Not found yet', nl: 'Nog niet gevonden', es: 'Aún no encontrado', pt: 'Ainda não encontrado', de: 'Noch nicht gefunden', fr: 'Pas encore trouvé' },
+  domain_status_not_started: { en: 'Not checked', nl: 'Niet gecontroleerd', es: 'Sin comprobar', pt: 'Não verificado', de: 'Nicht geprüft', fr: 'Non vérifié' },
+  domain_remove: { en: 'Remove domain', nl: 'Domein verwijderen', es: 'Quitar dominio', pt: 'Remover domínio', de: 'Domain entfernen', fr: 'Retirer le domaine' }, // MT es/pt/de/fr
+  domain_remove_confirm: {
+    en: 'Remove this domain? Email goes back to our address with your name until you register one again.',
+    nl: 'Dit domein verwijderen? E-mail gaat weer vanaf ons adres met jouw naam tot je er weer een aanmeldt.',
+    es: '¿Quitar este dominio? El correo volverá a salir desde nuestra dirección con tu nombre hasta que registres uno de nuevo.', // MT
+    pt: 'Remover este domínio? O e-mail volta a sair do nosso endereço com o seu nome até você registrar um novamente.', // MT
+    de: 'Diese Domain entfernen? E-Mails gehen wieder von unserer Adresse mit deinem Namen raus, bis du eine neue anmeldest.', // MT
+    fr: 'Retirer ce domaine ? Les e-mails repartiront de notre adresse avec ton nom jusqu’à ce que tu en enregistres un autre.', // MT
+  },
+  domain_removed_notice: { en: 'Domain removed.', nl: 'Domein verwijderd.', es: 'Dominio quitado.', pt: 'Domínio removido.', de: 'Domain entfernt.', fr: 'Domaine retiré.' }, // MT es/pt/de/fr
+  domain_verified_note: {
+    en: 'Verified. Email from an address on this domain now goes out from that address.',
+    nl: 'Geverifieerd. E-mail vanaf een adres op dit domein gaat nu echt vanaf dat adres uit.',
+    es: 'Verificado. El correo desde una dirección de este dominio ya sale desde esa dirección.', // MT
+    pt: 'Verificado. E-mails de um endereço neste domínio agora saem desse endereço.', // MT
+    de: 'Verifiziert. E-Mails von einer Adresse auf dieser Domain gehen jetzt wirklich von dieser Adresse raus.', // MT
+    fr: 'Vérifié. Les e-mails depuis une adresse de ce domaine partent désormais de cette adresse.', // MT
+  },
+  domain_unverified_note: {
+    en: 'Not verified yet. Until it is, email goes out from our address with your name — nothing is lost.',
+    nl: 'Nog niet geverifieerd. Tot dan gaat e-mail vanaf ons adres met jouw naam — er gaat niets verloren.',
+    es: 'Aún sin verificar. Hasta entonces el correo sale desde nuestra dirección con tu nombre; no se pierde nada.', // MT
+    pt: 'Ainda não verificado. Até lá, o e-mail sai do nosso endereço com o seu nome — nada se perde.', // MT
+    de: 'Noch nicht verifiziert. Bis dahin gehen E-Mails von unserer Adresse mit deinem Namen raus — nichts geht verloren.', // MT
+    fr: 'Pas encore vérifié. Jusque-là, les e-mails partent de notre adresse avec ton nom — rien n’est perdu.', // MT
+  },
+  domain_sender_address_hint: {
+    en: 'An address on your verified domain. Any mailbox on it works — hello@, office@, your own.',
+    nl: 'Een adres op je geverifieerde domein. Elke mailbox erop werkt — hello@, office@, die van jezelf.',
+    es: 'Una dirección de tu dominio verificado. Vale cualquier buzón: hello@, office@, el tuyo.', // MT
+    pt: 'Um endereço no seu domínio verificado. Qualquer caixa funciona — hello@, office@, a sua.', // MT
+    de: 'Eine Adresse auf deiner verifizierten Domain. Jedes Postfach darauf geht — hello@, office@, dein eigenes.', // MT
+    fr: 'Une adresse sur ton domaine vérifié. N’importe quelle boîte convient — hello@, office@, la tienne.', // MT
+  },
+  domain_address_mismatch: {
+    en: 'This address is not on the domain you registered above, so it will not be used until that domain is registered and verified too.',
+    nl: 'Dit adres staat niet op het domein dat je hierboven aanmeldde; het wordt pas gebruikt als ook dat domein aangemeld en geverifieerd is.',
+    es: 'Esta dirección no está en el dominio registrado arriba; no se usará hasta que ese dominio también esté registrado y verificado.', // MT
+    pt: 'Este endereço não está no domínio registrado acima; só será usado quando esse domínio também estiver registrado e verificado.', // MT
+    de: 'Diese Adresse liegt nicht auf der oben angemeldeten Domain; sie wird erst genutzt, wenn auch diese Domain angemeldet und verifiziert ist.', // MT
+    fr: 'Cette adresse n’est pas sur le domaine enregistré ci-dessus ; elle ne sera utilisée que lorsque ce domaine sera aussi enregistré et vérifié.', // MT
+  },
+  domain_reply_to_hint: {
+    en: 'Where a reply lands. A shared address as sender and a person here is the usual arrangement.',
+    nl: 'Waar een antwoord terechtkomt. Een gedeeld adres als afzender en hier een persoon is de gebruikelijke opzet.',
+    es: 'Dónde llega una respuesta. Lo habitual: una dirección compartida como remitente y una persona aquí.', // MT
+    pt: 'Onde uma resposta chega. O comum: um endereço compartilhado como remetente e uma pessoa aqui.', // MT
+    de: 'Wo eine Antwort landet. Üblich: eine gemeinsame Adresse als Absender und hier eine Person.', // MT
+    fr: 'Où arrive une réponse. L’usage : une adresse partagée en expéditeur et une personne ici.', // MT
+  },
+  domain_needs_plan: {
+    en: 'Sending from your own domain is part of Pro and up. Your current plan does not include it.',
+    nl: 'Verzenden vanaf je eigen domein hoort bij Pro en hoger. Je huidige plan heeft het niet.',
+    es: 'Enviar desde tu propio dominio forma parte de Pro y superiores. Tu plan actual no lo incluye.', // MT
+    pt: 'Enviar do seu próprio domínio faz parte do Pro e superiores. Seu plano atual não inclui isso.', // MT
+    de: 'Versand von deiner eigenen Domain gehört zu Pro und höher. Dein aktueller Plan enthält es nicht.', // MT
+    fr: 'Envoyer depuis ton propre domaine fait partie de Pro et au-delà. Ton forfait actuel ne l’inclut pas.', // MT
+  },
+  domain_plan_link: { en: 'See your plan', nl: 'Bekijk je plan', es: 'Ver tu plan', pt: 'Ver seu plano', de: 'Deinen Plan ansehen', fr: 'Voir ton forfait' }, // MT es/pt/de/fr
+  domain_not_configured: {
+    en: 'Email is not configured on this server, so a domain cannot be registered here yet.',
+    nl: 'E-mail is op deze server niet ingericht, dus een domein kan hier nog niet aangemeld worden.',
+    es: 'El correo no está configurado en este servidor, así que aún no se puede registrar un dominio aquí.', // MT
+    pt: 'O e-mail não está configurado neste servidor, então um domínio ainda não pode ser registrado aqui.', // MT
+    de: 'E-Mail ist auf diesem Server nicht eingerichtet, daher kann hier noch keine Domain angemeldet werden.', // MT
+    fr: 'La messagerie n’est pas configurée sur ce serveur ; un domaine ne peut donc pas encore être enregistré ici.', // MT
+  },
+  domain_web_section: { en: 'Your web address', nl: 'Je webadres', es: 'Tu dirección web', pt: 'Seu endereço web', de: 'Deine Webadresse', fr: 'Ton adresse web' }, // MT es/pt/de/fr
+  domain_web_soon: {
+    en: 'Your plan includes hosting the booking and event pages on your own address (book.yourdomain.com). That half of the package is being built; it will appear here.',
+    nl: 'Je plan omvat het hosten van de boekings- en evenementpagina’s op je eigen adres (book.jouwdomein.nl). Die helft van het pakket wordt gebouwd en verschijnt hier.',
+    es: 'Tu plan incluye alojar las páginas de reservas y eventos en tu propia dirección (book.tudominio.com). Esa mitad del paquete está en construcción; aparecerá aquí.', // MT
+    pt: 'Seu plano inclui hospedar as páginas de reservas e eventos no seu próprio endereço (book.seudominio.com). Essa metade do pacote está sendo construída; aparecerá aqui.', // MT
+    de: 'Dein Plan umfasst das Hosten der Buchungs- und Veranstaltungsseiten unter deiner eigenen Adresse (book.deinedomain.de). Diese Hälfte des Pakets wird gebaut und erscheint hier.', // MT
+    fr: 'Ton forfait inclut l’hébergement des pages de réservation et d’événements sur ta propre adresse (book.tondomaine.com). Cette moitié du forfait est en construction ; elle apparaîtra ici.', // MT
+  },
+  domain_web_enterprise: {
+    en: 'Hosting the booking and event pages on your own address (book.yourdomain.com) is part of Enterprise.',
+    nl: 'De boekings- en evenementpagina’s op je eigen adres (book.jouwdomein.nl) hoort bij Enterprise.',
+    es: 'Alojar las páginas de reservas y eventos en tu propia dirección (book.tudominio.com) forma parte de Enterprise.', // MT
+    pt: 'Hospedar as páginas de reservas e eventos no seu próprio endereço (book.seudominio.com) faz parte do Enterprise.', // MT
+    de: 'Das Hosten der Buchungs- und Veranstaltungsseiten unter deiner eigenen Adresse (book.deinedomain.de) gehört zu Enterprise.', // MT
+    fr: 'Héberger les pages de réservation et d’événements sur ta propre adresse (book.tondomaine.com) fait partie d’Enterprise.', // MT
+  },
   enrolment_note_label: {
     en: 'Your words in the enrolment emails',
     nl: 'Jouw woorden in de inschrijfmails',

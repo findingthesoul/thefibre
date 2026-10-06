@@ -102,6 +102,22 @@ const SERVER_CHROME = {
     de: 'Name, Logo, Rechnungsdaten und der Absender seiner E-Mails.', // MT
     fr: 'Son nom, son logo, ses coordonnées de facturation et l’expéditeur de ses e-mails.', // MT
   },
+  st_domain_title: {
+    en: 'Your domain',
+    nl: 'Je domein',
+    es: 'Tu dominio', // MT
+    pt: 'Seu domínio', // MT
+    de: 'Deine Domain', // MT
+    fr: 'Ton domaine', // MT
+  },
+  st_domain_desc: {
+    en: 'Send email from your own address, and later host your public pages on your own web address.',
+    nl: 'Verstuur e-mail vanaf je eigen adres, en later je openbare pagina’s op je eigen webadres.',
+    es: 'Envía correo desde tu propia dirección y, más adelante, publica tus páginas en tu propio dominio web.', // MT
+    pt: 'Envie e-mail do seu próprio endereço e, mais tarde, publique suas páginas no seu próprio endereço web.', // MT
+    de: 'Verschicke E-Mails von deiner eigenen Adresse, und später deine öffentlichen Seiten unter deiner eigenen Webadresse.', // MT
+    fr: 'Envoie des e-mails depuis ta propre adresse, et plus tard héberge tes pages publiques sur ta propre adresse web.', // MT
+  },
   st_members_title: {
     en: 'Members',
     nl: 'Leden',

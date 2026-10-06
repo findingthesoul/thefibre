@@ -162,6 +162,7 @@ import {
   BookOpen,
   ShieldCheck,
   Sparkles,
+  Globe,
 } from 'lucide-react';
 
 export type PlatformSettingKey =
@@ -169,6 +170,7 @@ export type PlatformSettingKey =
   | 'connections'
   | 'payments'
   | 'workspace'
+  | 'domain'
   | 'members'
   | 'teams'
   | 'apps'
@@ -187,6 +189,7 @@ export const PLATFORM_SETTING_KEYS = [
   'connections',
   'payments',
   'workspace',
+  'domain',
   'members',
   'teams',
   'apps',
@@ -230,6 +233,13 @@ const CANON: Record<
     desc: 'Its name, logo, invoice details and the sender of its email.',
     icon: <Building2 {...ICON} />,
     path: '/settings/workspace',
+  },
+  domain: {
+    section: 'workspace',
+    title: 'Your domain',
+    desc: 'Send email from your own address, and later host your public pages on your own web address.',
+    icon: <Globe {...ICON} />,
+    path: '/settings/domain',
   },
   members: {
     section: 'workspace',
@@ -330,7 +340,7 @@ export function platformSettings({
 }): SettingsSection[] {
   // Doors that lead to an admin-only page. Listed here rather than guessed
   // from the section, because `workspace` also holds entries anybody may use.
-  const ADMIN_ONLY: PlatformSettingKey[] = ['members', 'teams', 'apps'];
+  const ADMIN_ONLY: PlatformSettingKey[] = ['members', 'teams', 'apps', 'domain'];
   const hidden = canManage === false ? [...omit, ...ADMIN_ONLY] : omit;
 
   const pick = (section: 'you' | 'workspace' | 'platform') =>

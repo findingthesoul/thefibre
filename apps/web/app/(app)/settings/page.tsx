@@ -54,7 +54,7 @@ export default async function SettingsPage() {
     // Meet to finish; the point is that the platform is where you can always
     // find it, not that it is the only door.
     hosted: [
-      'profile', 'workspace', 'members', 'teams', 'apps', 'assistant', 'plan',
+      'profile', 'workspace', 'domain', 'members', 'teams', 'apps', 'assistant', 'plan',
       'payments', 'connections', 'about', 'privacy',
     ],
     canManage: canManageWorkspace(me),

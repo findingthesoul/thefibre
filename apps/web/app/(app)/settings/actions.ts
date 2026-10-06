@@ -110,6 +110,36 @@ export async function syncLocaleCookie(dbLocale: string | null): Promise<ActionR
   return { ok: true };
 }
 
+// Your domain (docs/domain-package.md). The API talks to the mail provider
+// with the server's key; these three only carry the admin's click. The
+// error text is the API's own sentence — "already registered under another
+// account", "part of Pro" — because that is the one the admin can act on.
+async function domainCall(path: string, method: 'POST' | 'DELETE', body?: Record<string, unknown>): Promise<ActionResult> {
+  try {
+    await apiFetch(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const apiBody = e.body as { error?: string } | undefined;
+      return { error: typeof apiBody?.error === 'string' ? apiBody.error : `API ${e.status}` };
+    }
+    return unwrap(e);
+  }
+  revalidatePath('/settings/domain');
+  return { ok: true };
+}
+
+export async function startSenderDomain(domain: string): Promise<ActionResult> {
+  return domainCall('/api/v1/workspace-domain/email', 'POST', { domain });
+}
+
+export async function checkSenderDomain(): Promise<ActionResult> {
+  return domainCall('/api/v1/workspace-domain/email/check', 'POST');
+}
+
+export async function removeSenderDomain(): Promise<ActionResult> {
+  return domainCall('/api/v1/workspace-domain/email', 'DELETE');
+}
+
 /** The workspace itself — name, logo, invoices, the sender of its email. */
 export async function saveWorkspace(patch: Record<string, unknown>): Promise<ActionResult> {
   try {
@@ -122,6 +152,7 @@ export async function saveWorkspace(patch: Record<string, unknown>): Promise<Act
     return unwrap(e);
   }
   revalidatePath('/settings/workspace');
+  revalidatePath('/settings/domain');
   revalidatePath('/settings');
   return { ok: true };
 }

@@ -188,6 +188,20 @@ the app is reachable — only an external request is, and the tell is a request
 that never reaches the log. The `unauthorized` on destroy is unexplained
 (build plan).
 
+**The one exception, 2026-10-06: an UNROUTED new-image machine from a
+half-cutover may be destroyed; never one that serves.** A staging deploy lost
+the network mid-cutover and the re-run was refused by Fly with "found
+multiple image versions" — the re-run remedy above cannot run while two
+images exist. Before touching anything, PROVE which machine serves: send a
+few external requests with a marker in the query string and read `fly logs`
+for which `app[<id>]` logged them (eight of eight landed on the old-image
+machine; the new one, "started", checks passing, had taken nothing). The
+machine that logged nothing is the one Fly's own hint means by "unwanted
+image"; destroy that one by id, never by `--image`, never the one in the
+log, then re-run `deploy-api.sh` at the same sha. If the log shows BOTH
+taking traffic, destroy neither and ask. Decided by the controller, written
+here so the next person does not have to re-derive it at 02:00.
+
 **When the Depot builder is down, fall back to the legacy builder with
 `--depot=false` (2026-09-28).** For most of an hour, `deploy-api.sh` (which
 uses `fly deploy --remote-only`, Depot by default) hung at `Waiting for depot

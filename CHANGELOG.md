@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.112.3] — 2026-10-06 — the domain package, release 3: Settings → Your domain (staging)
+
+The screen. Third slice of `docs/domain-package.md`; the first thing in the
+package a workspace admin can click.
+
+- **Fibre → Settings → Your domain** (`/settings/domain`, admins; the hub
+  entry hides for everyone else like Members and Teams). Type the domain,
+  press Register: the API registers it with the mail provider and the page
+  shows the DNS records to add — type, full name and value each with a Copy
+  button, the provider's status per record — plus Check and Remove. Below
+  it, the sender address and reply-to (saved to the workspace as before),
+  with a hint when the address is not on the registered domain. Below that,
+  "Your web address": Enterprise, part 2, said in words. A workspace below
+  Pro sees why and a link to its plan, not a form that fails on submit; a
+  server without a mail key says so.
+- `platformSettings` gains the `domain` key (title + description in six
+  locales; the settings-i18n test covers it), with `Globe`. ~30 interface
+  strings in six locales, Dutch native, the rest `// MT`.
+- `e2e/domain-settings.spec.ts`: the page opens for the fixture (Free plan →
+  the plan explanation and the link), and the hub lists it.
+- `docs/deploy.md`: the half-cutover exception from today — an UNROUTED
+  new-image machine may be destroyed, never one that serves, and how to tell
+  (external probes with a marker, read which machine logged them).
+
+Verified: `pnpm verify` green; the two e2e cases against staging after the
+web deploy. Not verified: a real Register → records → Check round-trip on a
+domain whose DNS we can edit (needs the staging API at v1.112.1, whose
+cutover is waiting on Sjoerd), and production.
+
 ## [1.112.2] — 2026-10-06 — the automatic teams stay out of sight until there is a screen that explains them
 
 Guard (b) for the teams work, and the second half of what makes slice 1 safe
