@@ -283,6 +283,17 @@ const CATALOG = {
     de: 'Wartet auf Freigabe', // MT
     fr: 'En attente d’approbation', // MT
   },
+  // Shown to the HOST when the "approval needed" email to them failed. The
+  // request looks identical to one they have seen and not answered, so
+  // without this line the only honest explanation is invisible.
+  approval_notice_failed: {
+    en: 'We could not email you about this request — it may have been waiting unseen.',
+    nl: 'We konden je geen e-mail sturen over deze aanvraag — mogelijk stond die onopgemerkt te wachten.',
+    es: 'No pudimos enviarte un correo sobre esta solicitud: puede haber estado esperando sin que la vieras.', // MT
+    pt: 'Não conseguimos enviar-lhe um e-mail sobre este pedido — pode ter estado à espera sem ser visto.', // MT
+    de: 'Wir konnten dich zu dieser Anfrage nicht per E-Mail erreichen — sie hat möglicherweise unbemerkt gewartet.', // MT
+    fr: 'Nous n’avons pas pu t’envoyer d’e-mail à propos de cette demande — elle a peut-être attendu sans être vue.', // MT
+  },
 
   // ── settings index ────────────────────────────────────────────────────
   settings_desc: {

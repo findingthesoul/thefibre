@@ -372,10 +372,28 @@ function SlotPickerFlow({
     if (!selectedSlot || !reschedule) return;
     start(async () => {
       try {
+        // If whoever is moving this booking happens to be signed in, send a
+        // token the API can verify. It matters for one case: the HOST's own
+        // Reschedule button links to this very page, and a host moving their
+        // own meeting must not be asked to approve it afterwards. The API
+        // decides from the token, so a stranger sending nothing (the normal
+        // case) simply stays a stranger.
+        //
+        // Imported here rather than at the top of the file: an invitee who
+        // never presses this button should not download the auth client.
+        let auth: Record<string, string> = {};
+        try {
+          const { browserSupabase } = await import('@/lib/supabase/client');
+          const token = (await browserSupabase().auth.getSession()).data.session?.access_token;
+          if (token) auth = { Authorization: `Bearer ${token}` };
+        } catch {
+          // No session, or no auth client on this page. Both are fine.
+        }
         await publicFetch(
           `/api/v1/meet/public/bookings/${encodeURIComponent(reschedule.bookingId)}/reschedule`,
           {
             method: 'POST',
+            headers: auth,
             body: JSON.stringify({ starts_at: selectedSlot.toISOString() }),
           },
         );

@@ -6,6 +6,86 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.111.0] — 2026-10-06 — a request nobody answered held nothing
+
+A real invitee asked for a meeting on a type that requires the host's
+approval. The request landed in `pending_approval`, the host was never
+emailed, and while it waited **another meeting was booked on top of its
+slot.** Each of those three is a separate fault, and all three are addressed
+here.
+
+**The slot was never held.** Ten separate queries in Meet decide whether a
+time is taken or a seat is full, and every one of them filtered on
+`status = 'confirmed'`. A request awaiting an answer matched none of them, so
+it was invisible to availability, to capacity, and to round-robin load: the
+slot stayed on offer and the next person took it. On Sjoerd's call ("hold
+yes") pending now counts, and it counts in one place — `LIVE_BOOKING_STATUSES`
+— rather than in ten literals that can drift apart one at a time. `cancelled`
+and `rescheduled` still free the time; nothing changed there.
+
+Holding has a price: an unanswered request blocks a time. **That is only
+tolerable with an expiry, which is the next release, and the hold does not
+reach production without it.**
+
+**Moving a request now re-asks.** A pending booking that moves is a different
+request, so the host is asked again at the new time — and when the first ask
+never arrived, the invitee's "ask for another time" is the only thing in the
+system that will ever ask. The two mails were inline in the booking handler;
+they are now `runApprovalRequestSideEffects`, beside the confirmation
+equivalent, so the two paths cannot drift.
+
+**An invitee moving a CONFIRMED booking returns it to pending** when the
+meeting type requires approval (Sjoerd: "reapprove yes (only if a meeting
+requires approval)"). The host agreed to Tuesday, not Thursday. Its calendar
+event and Zoom meeting are withdrawn when that happens — a booking waiting
+for a yes must not sit in the host's calendar as agreed, and `/approve`
+creates the event from scratch, so leaving the old one would give the host
+two.
+
+**The host's own move stays confirmed** ("hosts stays ok"). That case needed
+more than a flag: the host's Reschedule button links to the same public page
+the invitee uses, so without a verified identity a host moving their own
+meeting would have been told to approve it. The route now reads an optional
+bearer token (`optionalUserId`) and recognises the host from the token. A
+`?as=host` parameter would have been three lines and a way for an invitee to
+skip the host's approval rule.
+
+**And when the host cannot be told, it says so.** The failed ask used to be a
+log line; a request nobody had seen looked exactly like one being ignored.
+`meet_booking.approval_notice_failed_at` records it, `/bookings` returns it,
+and the booking dialog tells the host that this request may have been waiting
+unseen. Cleared when a later ask succeeds, or when the host answers.
+
+### Verified
+- A new Meet integration fixture (host + one-off meeting type) and a test
+  against the real staging API: a request in `pending_approval` **refuses** a
+  second booking at the same time with `slot_full`, and cancelling it lets the
+  next booking through. Meet had no integration fixture at all until now,
+  which is why the reschedule fix a release ago shipped unproven.
+- A guard that fails if any booking query goes back to confirmed-only — it
+  names the file and line. Checked by breaking it both ways (restoring a
+  literal, and removing `pending_approval` from the constant) and watching it
+  fail on the right line.
+- `pnpm verify` green; all 13 packages typecheck.
+
+### Not verified
+- **Why the host was never emailed in the first place is still unknown.** The
+  send is non-fatal by design and nothing recorded the failure, so there is
+  nothing left to read. This release makes the NEXT one visible; it does not
+  explain that one. The create path was checked for the obvious candidate —
+  mailing the wrong host after round-robin — and it already loads the chosen
+  host, so that was not it.
+- The invitee's mail on a moved request is the existing localised "your
+  request is with the host" mail at the new time, deliberately: a new
+  template would have meant six locales of machine translation for one
+  sentence.
+- The host-move path (token recognised, booking stays confirmed) has no
+  automated test — it needs a signed-in browser, so it rests on the typed
+  wiring and on `optionalUserId` returning null for anything unverified.
+- Returning a confirmed booking to pending destroys its Zoom meeting, so the
+  invitee's old join link dies and re-approval issues a new one. Correct, but
+  not exercised against a real Zoom account.
+
 ## [1.110.3] — 2026-10-06 — an internal team no longer has a public page
 
 `team.is_published` was added on 2026-09-11 for one reason: creating a
@@ -36,6 +116,7 @@ three failed and the control passed, which is the only way to know a test of
 this kind is testing anything. The control matters as much as the rest — a
 resolver that 404s everything would satisfy "an unpublished team 404s" while
 taking every real team page down.
+
 
 ## [1.110.2] — 2026-10-06 — a meeting blocked its own move
 

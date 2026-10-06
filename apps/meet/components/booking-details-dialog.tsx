@@ -28,6 +28,9 @@ export type BookingForDialog = {
   status: string;
   meet_url?: string | null;
   alternative_location?: string | null;
+  /** Set when the "approval needed" email to the host failed, so a request
+   *  that was never actually seen does not look like one being ignored. */
+  approval_notice_failed_at?: string | null;
   /** The host this booking belongs to. Its slug is the first half of every
    *  public link for the booking — see `ownerSlug` below. */
   host?: { slug: string } | { slug: string }[] | null;
@@ -256,6 +259,11 @@ export function BookingDetailsDialog({
       }
     >
       <div className="space-y-4 text-sm">
+        {pendingApproval && booking.approval_notice_failed_at && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {t(locale, 'approval_notice_failed')}
+          </div>
+        )}
         <Row Icon={CalendarClock} label={t(locale, 'when')}>
           {fmt(starts, locale)} — {fmtTime(ends, locale)} ({minutes} min)
         </Row>

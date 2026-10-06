@@ -15,6 +15,9 @@ export type BookingRow = {
   status: string;
   meet_url: string | null;
   alternative_location: string | null;
+  /** Non-null when the host was never successfully emailed about a request
+   *  awaiting their approval — the dialog says so. */
+  approval_notice_failed_at?: string | null;
   meeting_type:
     | {
         id: string;

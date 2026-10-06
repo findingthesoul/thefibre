@@ -5,6 +5,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { adminClient, userClient } from '../db.js';
 import { rows } from '../lib/rows.js';
+import { optionalUserId } from '../middleware/app-context.js';
 import {
   isAdminRole,
   wouldOrphanWorkspace,
@@ -94,6 +95,28 @@ import {
 } from '@thefibre/shared';
 import { platformFeeCents } from '../lib/fees.js';
 import { connectionsSettingsUrl, parseReturnTo } from '../lib/connections-return.js';
+
+/**
+ * The booking statuses that are still LIVE — a booking that is happening, or
+ * one waiting for the host to say yes.
+ *
+ * Everything that asks "is this time taken", "is this slot full" or "how
+ * loaded is this host" asks THIS, not `status = 'confirmed'`. The difference
+ * is `pending_approval`, added 2026-10-06 on Sjoerd's "hold yes".
+ *
+ * Until then a request awaiting the host's answer counted for nothing: the
+ * slot stayed on offer and the next person could book straight over it. That
+ * is what a real invitee hit — her request sat unanswered while another
+ * meeting was put on top of it.
+ *
+ * Holding has a price: an unanswered request blocks a slot. That is only
+ * tolerable because requests expire (the earlier of 48h or the start time),
+ * which is why the hold must not reach production without the expiry.
+ *
+ * `cancelled` and `rescheduled` are terminal and free the time — a cancelled
+ * booking has never blocked anything, and that stays true.
+ */
+const LIVE_BOOKING_STATUSES = ['confirmed', 'pending_approval'] as const;
 
 const MEET = APPS['fibre-meet'];
 const PLATFORM = APPS['fibre-platform'];
@@ -607,15 +630,17 @@ meetRoutes.post('/public/bookings', async (c) => {
     if (starts0.toISOString() !== fixed) {
       return c.json({ error: 'starts_at does not match the fixed slot', code: 'wrong_fixed_time' }, 409);
     }
-    // Capacity check — reuse v0.11.1 semantics: count confirmed bookings on
-    // (mt.id, starts_at). If capacity is null, single-attendee (1) is the cap.
+    // Capacity check — reuse v0.11.1 semantics: count LIVE bookings on
+    // (mt.id, starts_at); see LIVE_BOOKING_STATUSES — a request awaiting
+    // approval holds its seat. If capacity is null, single-attendee (1) is
+    // the cap.
     const cap = mt.capacity && mt.capacity > 0 ? mt.capacity : 1;
     const { count: bookedCount, error: cntErr } = await adminClient
       .from('meet_booking')
       .select('id', { count: 'exact', head: true })
       .eq('meeting_type_id', mt.id)
       .eq('starts_at', starts0.toISOString())
-      .eq('status', 'confirmed');
+      .in('status', LIVE_BOOKING_STATUSES);
     if (cntErr) {
       console.error('[meet bookings] one-off capacity count failed', cntErr);
       return c.json({ error: 'capacity check failed' }, 500);
@@ -626,15 +651,16 @@ meetRoutes.post('/public/bookings', async (c) => {
   }
 
   // Group event types: enforce per-slot capacity. Multiple invitees share the
-  // same (meeting_type_id, starts_at) tuple; once `capacity` confirmed
-  // bookings exist for that tuple, reject with 409 "fully booked".
+  // same (meeting_type_id, starts_at) tuple; once `capacity` LIVE bookings
+  // exist for that tuple, reject with 409 "fully booked". Live includes a
+  // request awaiting approval — it is holding one of the seats.
   if (mt.event_type === 'group' && mt.capacity && mt.capacity > 0) {
     const { count: bookedCount, error: cntErr } = await adminClient
       .from('meet_booking')
       .select('id', { count: 'exact', head: true })
       .eq('meeting_type_id', mt.id)
       .eq('starts_at', starts0.toISOString())
-      .eq('status', 'confirmed');
+      .in('status', LIVE_BOOKING_STATUSES);
     if (cntErr) {
       console.error('[meet bookings] group capacity count failed', cntErr);
       return c.json({ error: 'capacity check failed' }, 500);
@@ -661,12 +687,14 @@ meetRoutes.post('/public/bookings', async (c) => {
         to: new Date(starts0.getTime() + 30 * 24 * 60 * 60 * 1000),
       };
       const args = await buildPerHostArgs(hostIds, mt, window.from, window.to, new Date());
-      // Count upcoming confirmed bookings per host as the "load".
+      // Count upcoming LIVE bookings per host as the "load" — a request
+      // this host has yet to answer is work already on their plate, so it
+      // counts; otherwise whoever is slowest to answer keeps being picked.
       const { data: counts } = await adminClient
         .from('meet_booking')
         .select('host_id')
         .in('host_id', hostIds)
-        .eq('status', 'confirmed')
+        .in('status', LIVE_BOOKING_STATUSES)
         .gte('starts_at', new Date().toISOString());
       const loadByKey: Record<string, number> = {};
       for (const r of counts ?? []) {
@@ -678,12 +706,13 @@ meetRoutes.post('/public/bookings', async (c) => {
       }
       // Which of the free hosts gets it is the team's choice (v0.59.0).
       // "Last assigned" is READ BACK off the bookings — there is no counter
-      // column to drift out of step with reality.
+      // column to drift out of step with reality. A pending request counts
+      // as an assignment; it was assigned, it just has not been answered.
       const { data: recent } = await adminClient
         .from('meet_booking')
         .select('host_id, created_at')
         .eq('meeting_type_id', mt.id)
-        .eq('status', 'confirmed')
+        .in('status', LIVE_BOOKING_STATUSES)
         .order('created_at', { ascending: false })
         .limit(200);
       const lastAssignedAt: Record<string, number> = {};
@@ -1009,70 +1038,9 @@ meetRoutes.post('/public/bookings', async (c) => {
   // A paid booking never waits for approval: payment (or the invoice) is
   // the gate, the rule the Stripe path has always followed.
   if (effectiveRequiresApproval && !isPaidBooking && booking) {
-    const hostEmail = hostUser?.email ?? null;
-    const inviteeName = data.invitee_name;
-    const inviteeEmail = data.invitee_email;
-    const hostName = hostUser?.full_name ?? hostRow?.slug ?? 'your host';
-    // Same shape as every other booking mail, so the links come from the same
-    // builders. The hand-written version this replaced carried none at all.
-    const requestLocales = await bookingLocales({
-      meetingTypeId: mt.id,
-      hostEmail,
-      inviteeEmail,
-    });
-    const requestCommon: EmailCommon = {
-      locale: requestLocales.invitee,
-      brand: await meetBrand(mt.workspace_id),
-      inviteeName,
-      inviteeEmail,
-      hostName,
-      hostEmail,
-      meetingName: mt.name,
-      startsAt: starts,
-      endsAt: ends,
-      hostTimezone: hostRow?.timezone ?? 'UTC',
-      location: mt.default_location ?? null,
-      bookingId: booking.id,
-      meetAppUrl: meetAppUrl(),
-      // The host's slug, as every other booking mail uses. A team meeting
-      // type keeps a host_id too, and the public route resolves it under
-      // either slug — checked against production before relying on it.
-      hostSlug: hostRow?.slug ?? '',
-      meetingTypeSlug: mt.slug,
-    };
-    try {
-      const sender0 = await meetSender(mt.workspace_id);
-      const requested = bookingRequestReceived(requestCommon);
-      await sendEmail({
-        ...sender0,
-        to: inviteeEmail,
-        subject: requested.subject,
-        text: requested.text,
-        html: requested.html,
-        replyTo: hostEmail ?? undefined,
-      });
-    } catch (e) {
-      console.error('[meet bookings] approval-pending invitee email failed (non-fatal)', e);
-    }
-    if (hostEmail) {
-      try {
-        const sender1 = await meetSender(mt.workspace_id);
-        await sendEmail({
-          ...sender1,
-          to: hostEmail,
-          subject: `Approval needed: ${mt.name} — ${inviteeName}`,
-          text: `${inviteeName} (${inviteeEmail}) requested ${mt.name} for ${formatWhen(starts, hostRow?.timezone ?? 'UTC')}.\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
-          html: await meetEmailHtml(
-            mt.workspace_id,
-            'Approval needed',
-            `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p>${escapeHtml(formatWhen(starts, hostRow?.timezone ?? 'UTC'))}</p><p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
-          ),
-          replyTo: inviteeEmail,
-        });
-      } catch (e) {
-        console.error('[meet bookings] approval-pending host email failed (non-fatal)', e);
-      }
-    }
+    // The two mails live in runApprovalRequestSideEffects, because moving a
+    // pending booking has to send exactly the same pair at the new time.
+    await runApprovalRequestSideEffects(booking.id);
     // Activity event: meeting_requested so the timeline shows the pending state.
     const { data: app } = await adminClient
       .from('app')
@@ -1339,7 +1307,8 @@ async function hostFreeSlots(
   opts?: { excludeBookingId?: string | null },
 ): Promise<{ slots: Date[]; groupCounts: Record<string, number> }> {
   // Busy intervals from existing meet_bookings for this host (any meeting
-  // type). Confirmed only - cancelled bookings don't block.
+  // type). LIVE bookings only - cancelled ones don't block, but a request
+  // awaiting the host's answer does (see LIVE_BOOKING_STATUSES).
   // Group MTs: bookings on this MT itself do NOT block, since the slot
   // stays open until capacity is reached. We track per-slot counts below.
   // A failed read here used to become "no bookings" - every taken slot
@@ -1350,7 +1319,7 @@ async function hostFreeSlots(
       .from('meet_booking')
       .select('id, starts_at, ends_at, meeting_type_id')
       .eq('host_id', host.id)
-      .eq('status', 'confirmed')
+      .in('status', LIVE_BOOKING_STATUSES)
       .gte('ends_at', from.toISOString())
       .lte('starts_at', to.toISOString()),
   );
@@ -1474,7 +1443,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
       .select('id', { count: 'exact', head: true })
       .eq('meeting_type_id', mt.id)
       .eq('starts_at', mt.fixed_starts_at)
-      .eq('status', 'confirmed');
+      .in('status', LIVE_BOOKING_STATUSES);
     const booked = count ?? 0;
     if (booked >= cap) return c.json({ slots: [], slots_meta: [] });
     const iso = new Date(mt.fixed_starts_at).toISOString();
@@ -1681,7 +1650,7 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, conferencing_provider, default_location, working_hours_override, conflict_calendar_ids',
+      'id, slug, host_id, team_id, event_type, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, conferencing_provider, default_location, working_hours_override, conflict_calendar_ids, requires_approval',
     )
     .eq('id', booking.meeting_type_id)
     .single();
@@ -1723,17 +1692,70 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
       .select('id', { count: 'exact', head: true })
       .eq('meeting_type_id', mt.id)
       .eq('starts_at', starts.toISOString())
-      .eq('status', 'confirmed')
+      .in('status', LIVE_BOOKING_STATUSES)
       .neq('id', booking.id);
     if ((count ?? 0) >= mt.capacity) {
       return c.json({ error: 'fully booked', code: 'slot_full' }, 409);
     }
   }
 
+  // ── Does the host have to say yes to the new time? ──────────────────────
+  //
+  // Three different moves arrive at this endpoint, and they are not the same
+  // event (Sjoerd, 2026-10-06: "reapprove yes (only if a meeting requires
+  // approval)" and "hosts stays ok"):
+  //
+  //  1. The invitee moves a booking still waiting for approval. The request
+  //     now stands at a different time, so the host has to be asked AGAIN —
+  //     and if the first ask never reached them, this is the only thing that
+  //     will ever ask.
+  //  2. The invitee moves a CONFIRMED booking on a meeting type that requires
+  //     approval. The host agreed to Tuesday, not to Thursday. It goes back to
+  //     pending_approval and is asked again.
+  //  3. The HOST moves it. They are the approver; their own move is the yes.
+  //     It stays confirmed and nobody is asked anything.
+  //
+  // Case 3 is why this route looks for a session at all: the host's own
+  // Reschedule button links to this same public page, so without a verified
+  // identity a host moving their own meeting would be told to approve it.
+  let effectiveRequiresApproval = false;
+  if (mt.requires_approval === true) {
+    effectiveRequiresApproval = true;
+  } else if (mt.requires_approval === false) {
+    effectiveRequiresApproval = false;
+  } else {
+    const { data: ownerHost } = await adminClient
+      .from('meet_host')
+      .select('requires_approval')
+      .eq('id', mt.host_id)
+      .maybeSingle();
+    effectiveRequiresApproval = !!ownerHost?.requires_approval;
+  }
+  const moverUserId = await optionalUserId(c);
+  let movedByHost = false;
+  if (moverUserId) {
+    const { data: moverHost } = await adminClient
+      .from('meet_host')
+      .select('id')
+      .eq('user_id', moverUserId)
+      .maybeSingle();
+    movedByHost = !!moverHost && moverHost.id === booking.host_id;
+  }
+  const wasPending = booking.status === 'pending_approval';
+  const returnsToPending =
+    !movedByHost && booking.status === 'confirmed' && effectiveRequiresApproval;
+  // A host moving a booking that was already pending leaves it pending: they
+  // have moved the request, not answered it. Approve is still theirs to press.
+  const needsApproval = wasPending || returnsToPending;
+
   const previousStartsAt = new Date(booking.starts_at);
   const { error: uErr } = await adminClient
     .from('meet_booking')
-    .update({ starts_at: starts.toISOString(), ends_at: ends.toISOString() })
+    .update({
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+      ...(returnsToPending ? { status: 'pending_approval' } : {}),
+    })
     .eq('id', booking.id);
   if (uErr) {
     console.error('[meet bookings/reschedule] update failed', uErr);
@@ -1751,8 +1773,46 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
       : hostRow.user
     : null;
 
+  // A booking that has gone back to pending must not stay in the host's
+  // calendar as though it were agreed — and `/approve` creates the event from
+  // scratch, so leaving this one would give the host two. Withdraw it, and
+  // clear the columns it was recorded in.
+  if (returnsToPending) {
+    if (booking.google_event_id) {
+      const unGToken = await hostGoogleToken(booking.host_id);
+      if (unGToken) {
+        try {
+          const { data: cal } = await adminClient
+            .from('meet_calendar')
+            .select('google_calendar_id')
+            .eq('host_id', booking.host_id)
+            .in('role', ['primary', 'write_target'])
+            .limit(1)
+            .maybeSingle();
+          await deleteEvent(
+            unGToken,
+            cal?.google_calendar_id ?? 'primary',
+            booking.google_event_id,
+          );
+        } catch (e) {
+          console.error(
+            '[meet bookings/reschedule] google delete on return-to-pending failed (non-fatal)',
+            e,
+          );
+        }
+      }
+    }
+    if (booking.zoom_meeting_id) {
+      await cancelZoomForBooking(booking.host_id, booking.zoom_meeting_id);
+    }
+    await adminClient
+      .from('meet_booking')
+      .update({ google_event_id: null, zoom_meeting_id: null, meet_url: null })
+      .eq('id', booking.id);
+  }
+
   // Move the calendar event in place — the invitee keeps the same join link.
-  if (booking.google_event_id) {
+  if (!returnsToPending && booking.google_event_id) {
     const gToken = await hostGoogleToken(booking.host_id);
     if (gToken) {
       try {
@@ -1774,7 +1834,7 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
       }
     }
   }
-  if (booking.zoom_meeting_id) {
+  if (!returnsToPending && booking.zoom_meeting_id) {
     await moveZoomForBooking(
       booking.host_id,
       booking.zoom_meeting_id,
@@ -1784,8 +1844,12 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
     );
   }
 
-  // Tell both sides, with the old time struck through.
-  if (hostRow) {
+  // Tell both sides, with the old time struck through — unless this move
+  // needs the host's yes, in which case the pair of mails to send is the ASK,
+  // not an announcement that it is settled.
+  if (needsApproval) {
+    await runApprovalRequestSideEffects(booking.id, { movedFrom: previousStartsAt });
+  } else if (hostRow) {
     const emailBrand = await meetBrand(booking.workspace_id);
     const movedLocales = await bookingLocales({
       meetingTypeId: booking.meeting_type_id,
@@ -1862,10 +1926,15 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
 
   return c.json({
     ok: true,
+    // Additive, and the page needs it: "moved" and "moved, now waiting for
+    // the host again" are different things to tell somebody.
+    needs_approval: needsApproval,
+    returned_to_pending: returnsToPending,
     booking: {
       id: booking.id,
       starts_at: starts.toISOString(),
       ends_at: ends.toISOString(),
+      status: needsApproval ? 'pending_approval' : booking.status,
     },
   });
 });
@@ -3879,6 +3948,145 @@ async function bookingLocales(args: {
   };
 }
 
+// Asking the host — the side-effects of a booking that sits in
+// `pending_approval`.
+//
+// Extracted from the create path on 2026-10-06, because it has a SECOND
+// caller: moving a pending booking. A request that moves has to be asked
+// again, at the new time — and when the first ask never reached the host,
+// the move is the invitee's only way to ask again at all.
+//
+// That is not hypothetical. A real request sat unanswered on production
+// while another meeting was booked on top of it, and nothing in the system
+// said whether the host had ever been told. So this function REPORTS whether
+// the host was reached, and records a failure on the booking rather than
+// swallowing it into a log line nobody reads.
+async function runApprovalRequestSideEffects(
+  bookingId: string,
+  opts?: { movedFrom?: Date | null },
+): Promise<{ ok: boolean; hostNotified: boolean }> {
+  const { data: booking, error } = await loadBookingWithJoins(bookingId);
+  if (error || !booking) {
+    console.error('[meet approval-request] booking not found', { bookingId, error });
+    return { ok: false, hostNotified: false };
+  }
+  const mt = Array.isArray(booking.meeting_type) ? booking.meeting_type[0] : booking.meeting_type;
+  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+  if (!mt || !hostRow) {
+    console.error('[meet approval-request] meeting type or host missing', { bookingId });
+    return { ok: false, hostNotified: false };
+  }
+
+  const starts = new Date(booking.starts_at);
+  const ends = new Date(booking.ends_at);
+  const hostEmail = hostUser?.email ?? null;
+  const hostTz = hostRow.timezone ?? 'UTC';
+  const locales = await bookingLocales({
+    meetingTypeId: booking.meeting_type_id,
+    hostEmail,
+    inviteeEmail: booking.invitee_email,
+  });
+  const common: EmailCommon = {
+    locale: locales.invitee,
+    brand: await meetBrand(booking.workspace_id),
+    inviteeName: booking.invitee_name,
+    inviteeEmail: booking.invitee_email,
+    hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
+    hostEmail,
+    meetingName: mt.name,
+    startsAt: starts,
+    endsAt: ends,
+    hostTimezone: hostTz,
+    location: booking.alternative_location ?? mt.default_location ?? null,
+    bookingId: booking.id,
+    meetAppUrl: meetAppUrl(),
+    hostSlug: hostRow.slug ?? '',
+    meetingTypeSlug: mt.slug ?? '',
+  };
+
+  // The invitee gets the same localised "your request is with the host" mail
+  // whether this is the first ask or a moved one — at the new time it is a
+  // true statement, and it carries the reschedule and withdraw links.
+  try {
+    const requested = bookingRequestReceived(common);
+    const sender = await meetSender(booking.workspace_id);
+    await sendEmail({
+      ...sender,
+      to: booking.invitee_email,
+      subject: requested.subject,
+      text: requested.text,
+      html: requested.html,
+      replyTo: hostEmail ?? undefined,
+    });
+  } catch (e) {
+    console.error('[meet approval-request] invitee email failed (non-fatal)', e);
+  }
+
+  // The host's ask. Unlike the invitee's mail this one is load-bearing: if it
+  // does not arrive, the request waits forever.
+  const moved = opts?.movedFrom ?? null;
+  let hostNotified = false;
+  if (!hostEmail) {
+    console.error(
+      '[meet approval-request] HOST HAS NO EMAIL — nobody can be asked to approve',
+      { bookingId, hostId: booking.host_id },
+    );
+  } else {
+    const movedText = moved
+      ? `\n\nThis request was moved. It was ${formatWhen(moved, hostTz)}.`
+      : '';
+    const movedHtml = moved
+      ? `<p style="color:#525252;">Moved from ${escapeHtml(formatWhen(moved, hostTz))}.</p>`
+      : '';
+    try {
+      const sender = await meetSender(booking.workspace_id);
+      await sendEmail({
+        ...sender,
+        to: hostEmail,
+        subject: `${moved ? 'Approval needed (moved)' : 'Approval needed'}: ${mt.name} — ${booking.invitee_name}`,
+        text: `${booking.invitee_name} (${booking.invitee_email}) requested ${mt.name} for ${formatWhen(starts, hostTz)}.${movedText}\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
+        html: await meetEmailHtml(
+          booking.workspace_id,
+          moved ? 'Approval needed (moved)' : 'Approval needed',
+          `<p><strong>${escapeHtml(booking.invitee_name)}</strong> (${escapeHtml(booking.invitee_email)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p>${escapeHtml(formatWhen(starts, hostTz))}</p>${movedHtml}<p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
+        ),
+        replyTo: booking.invitee_email,
+      });
+      hostNotified = true;
+    } catch (e) {
+      console.error(
+        '[meet approval-request] HOST WAS NOT ASKED — the approval email failed, so this request will wait until somebody notices it',
+        { bookingId, hostEmail, error: e },
+      );
+    }
+  }
+
+  // On the row, so it is visible in /bookings instead of only in a log.
+  // Cleared on success: a later ask that works should not keep flying the
+  // old failure.
+  const { error: flagErr } = await adminClient
+    .from('meet_booking')
+    .update({ approval_notice_failed_at: hostNotified ? null : new Date().toISOString() })
+    .eq('id', bookingId);
+  if (flagErr) {
+    // Unchecked, this is the quietest failure in the file: a missing column
+    // or a stale PostgREST schema cache would leave every unasked request
+    // looking perfectly normal, which is the exact bug this flag exists for.
+    console.error('[meet approval-request] could not record the notice outcome', {
+      bookingId,
+      hostNotified,
+      error: flagErr,
+    });
+  }
+
+  return { ok: true, hostNotified };
+}
+
 // Deferred confirmation side-effects.
 // Two flows write a booking with side-effects skipped:
 //   - Approval flow (requires_approval=true): host approves via /approve.
@@ -4465,7 +4673,9 @@ meetRoutes.post('/bookings/:id/approve', async (c) => {
   // Flip status first so subsequent fetches reflect the new state.
   const { error: uErr } = await adminClient
     .from('meet_booking')
-    .update({ status: 'confirmed' })
+    // The notice flag describes an unanswered ASK. Answered is answered,
+    // however the host found out about it.
+    .update({ status: 'confirmed', approval_notice_failed_at: null })
     .eq('id', id);
   if (uErr) {
     console.error('[meet bookings/approve] status flip failed', uErr);
@@ -4503,7 +4713,7 @@ meetRoutes.post('/bookings/:id/reject', async (c) => {
   }
   const { error: uErr } = await adminClient
     .from('meet_booking')
-    .update({ status: 'cancelled' })
+    .update({ status: 'cancelled', approval_notice_failed_at: null })
     .eq('id', id);
   if (uErr) return c.json({ error: uErr.message }, 500);
 
@@ -4575,7 +4785,7 @@ meetRoutes.get('/bookings', async (c) => {
       // /{team-or-host slug}/{mt slug}/…, and without the host's slug the
       // dialog could only build them for TEAM bookings — so a personal
       // booking, which is most of them, showed no actions at all.
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, host:host_id (slug), meeting_type:meeting_type_id (id, name, slug, team_id, event_type, team:team_id (id, name, slug))',
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, approval_notice_failed_at, host:host_id (slug), meeting_type:meeting_type_id (id, name, slug, team_id, event_type, team:team_id (id, name, slug))',
     )
     .eq('host_id', host.id);
 
@@ -4587,7 +4797,7 @@ meetRoutes.get('/bookings', async (c) => {
 
   // Pending_approval bookings are always shown (the host needs to act on
   // them). "Include cancelled" just toggles whether cancelled rows appear.
-  if (!includeCancelled) q = q.in('status', ['confirmed', 'pending_approval']);
+  if (!includeCancelled) q = q.in('status', LIVE_BOOKING_STATUSES);
 
   q = q
     .order('starts_at', { ascending: scope !== 'past' })
@@ -5309,7 +5519,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
       .select('id', { count: 'exact', head: true })
       .eq('meeting_type_id', mt.id)
       .eq('starts_at', mt.fixed_starts_at)
-      .eq('status', 'confirmed');
+      .in('status', LIVE_BOOKING_STATUSES);
     const booked = count ?? 0;
     if (booked >= cap) return c.json({ slots: [], slots_meta: [] });
     const iso = new Date(mt.fixed_starts_at).toISOString();
@@ -5367,7 +5577,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
       .from('meet_booking')
       .select('starts_at')
       .eq('meeting_type_id', mt.id)
-      .eq('status', 'confirmed')
+      .in('status', LIVE_BOOKING_STATUSES)
       .gte('starts_at', from.toISOString())
       .lte('starts_at', cappedTo.toISOString());
     const counts: Record<string, number> = {};
@@ -5486,7 +5696,8 @@ async function buildPerHostArgs(
     .in('id', hostIds);
   if (!hosts || hosts.length === 0) return [];
 
-  // All confirmed bookings touching the window for any of these hosts.
+  // All LIVE bookings touching the window for any of these hosts — which
+  // includes requests awaiting approval (see LIVE_BOOKING_STATUSES).
   // For group MTs we omit bookings on the MT itself — the slot stays open
   // (and shareable) until capacity is reached.
   const bookings = rows(
@@ -5495,7 +5706,7 @@ async function buildPerHostArgs(
       .from('meet_booking')
       .select('id, host_id, starts_at, ends_at, meeting_type_id')
       .in('host_id', hostIds)
-      .eq('status', 'confirmed')
+      .in('status', LIVE_BOOKING_STATUSES)
       .gte('ends_at', from.toISOString())
       .lte('starts_at', to.toISOString()),
   );

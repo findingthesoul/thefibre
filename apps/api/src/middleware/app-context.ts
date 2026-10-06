@@ -46,6 +46,39 @@ export type RequestContext = {
  * app rather than a person. Every user FK written from a route that app keys
  * can reach must go through this.
  */
+/**
+ * Who, if anyone, is signed in — for a PUBLIC route that behaves differently
+ * when the caller turns out to be somebody known.
+ *
+ * Public routes run outside `appContext`, so they normally see no identity at
+ * all. A booking's own uuid is the invitee's handle, and that is deliberate.
+ * But the same public page is where a HOST moves a booking (their Reschedule
+ * button links straight to it), and a host moving their own meeting must not
+ * be treated as an invitee asking for a new time.
+ *
+ * The authority comes from the token, never from the request shape: no bearer,
+ * an expired one, or a forged one all return null and the caller is treated as
+ * a stranger. A `?as=host` flag would have been three lines and a way for an
+ * invitee to skip the host's own approval rule.
+ *
+ * Returns `public.user.id` (the `app_user_id` claim), which is what FKs point
+ * at — NOT the JWT `sub`.
+ */
+export async function optionalUserId(c: Context): Promise<string | null> {
+  const header = c.req.header('authorization') ?? '';
+  const bearer = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : '';
+  if (!bearer || !jwks) return null;
+  try {
+    const { payload } = await jwtVerify(bearer, jwks, {
+      audience: process.env.API_JWT_AUDIENCE ?? 'authenticated',
+    });
+    const appUserId = payload.app_user_id as string | undefined;
+    return appUserId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function actorUserId(ctx: RequestContext): string | null {
   return ctx.auth === 'user' && ctx.userId ? ctx.userId : null;
 }

@@ -389,6 +389,131 @@ export async function cleanupPublicThreadFixture(
 }
 
 // ---------------------------------------------------------------------------
+// A Meet host with one meeting type (2026-10-06).
+//
+// Meet had no fixture at all, which is why the reschedule fix in v1.110.2
+// shipped with unit tests and no end-to-end proof. The approval rules are not
+// something to ship that way twice: whether a request awaiting a host's
+// answer holds its slot is a question only a real booking against a real
+// endpoint can answer.
+//
+// The meeting type is a ONE-OFF on purpose. A one-off is its own single slot,
+// so a booking against it needs no working hours, no Google token and no
+// availability generation — the only thing standing between two invitees and
+// the same seat is the capacity count, which is exactly the filter under
+// test. Nothing here is a real person; the addresses are @example.com.
+// ---------------------------------------------------------------------------
+
+export type MeetFixture = {
+  workspaceId: string;
+  userRowId: string;
+  hostId: string;
+  hostSlug: string;
+  hostEmail: string;
+  meetingTypeId: string;
+  /** The one-off's single slot, as ISO — a booking must match it exactly. */
+  startsAt: string;
+  endsAt: string;
+};
+
+export async function createMeetFixture(
+  tag: string,
+  opts: { requiresApproval?: boolean; capacity?: number } = {},
+): Promise<MeetFixture> {
+  const workspaceId = await createThrowawayWorkspace(`meet-${tag}`);
+  const hostEmail = `int-meet-${tag.toLowerCase()}-${randomUUID().slice(0, 8)}@example.com`;
+  const { data: userRow, error: uErr } = await service
+    .from('user')
+    .insert({ workspace_id: workspaceId, email: hostEmail, full_name: 'Int Meet Host' })
+    .select('id')
+    .single();
+  if (uErr || !userRow) throw new Error(`meet fixture user: ${uErr?.message}`);
+
+  const hostSlug = `int-meet-${randomUUID().slice(0, 8)}`;
+  const { data: host, error: hErr } = await service
+    .from('meet_host')
+    .insert({
+      user_id: userRow.id,
+      workspace_id: workspaceId,
+      slug: hostSlug,
+      timezone: 'Europe/Amsterdam',
+      requires_approval: false,
+    })
+    .select('id')
+    .single();
+  if (hErr || !host) throw new Error(`meet fixture host: ${hErr?.message}`);
+
+  // Far enough out that min_notice can never be the reason a booking is
+  // refused, and on a fixed minute so the equality check is exact.
+  const startsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  startsAt.setUTCSeconds(0, 0);
+  startsAt.setUTCMinutes(0);
+  const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
+
+  const { data: mt, error: mErr } = await service
+    .from('meet_meeting_type')
+    .insert({
+      workspace_id: workspaceId,
+      host_id: host.id,
+      slug: 'int-one-off',
+      name: 'Integration one-off (do not edit)',
+      duration_minutes: 30,
+      event_type: 'one_off',
+      capacity: opts.capacity ?? 1,
+      fixed_starts_at: startsAt.toISOString(),
+      fixed_ends_at: endsAt.toISOString(),
+      requires_approval: opts.requiresApproval ?? false,
+      conferencing_provider: 'none',
+      min_notice_minutes: 0,
+    })
+    .select('id')
+    .single();
+  if (mErr || !mt) throw new Error(`meet fixture meeting type: ${mErr?.message}`);
+
+  return {
+    workspaceId,
+    userRowId: userRow.id as string,
+    hostId: host.id as string,
+    hostSlug,
+    hostEmail,
+    meetingTypeId: mt.id as string,
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+  };
+}
+
+export async function cleanupMeetFixture(
+  f: MeetFixture,
+  inviteeEmails: string[] = [],
+): Promise<void> {
+  const must = (label: string) => (r: { error: { message: string } | null }) => {
+    if (r.error) console.error(`[fixture cleanup] ${label}: ${r.error.message}`);
+  };
+  must('meet_booking')(
+    await service.from('meet_booking').delete().eq('meeting_type_id', f.meetingTypeId),
+  );
+  must('meet_meeting_type')(
+    await service.from('meet_meeting_type').delete().eq('id', f.meetingTypeId),
+  );
+  must('meet_host')(await service.from('meet_host').delete().eq('id', f.hostId));
+  // The invitees the booking endpoint created on the way in, and the
+  // activity rows that point at them.
+  if (inviteeEmails.length > 0) {
+    const { data: people } = await service
+      .from('person')
+      .select('id')
+      .eq('workspace_id', f.workspaceId)
+      .in('email', inviteeEmails);
+    for (const person of people ?? []) {
+      must('activity')(await service.from('activity').delete().eq('person_id', person.id));
+      must('person')(await service.from('person').delete().eq('id', person.id));
+    }
+  }
+  must('host user')(await service.from('user').delete().eq('id', f.userRowId));
+  must('workspace')(await service.from('workspace').delete().eq('id', f.workspaceId));
+}
+
+// ---------------------------------------------------------------------------
 // The PERMANENT public organiser fixture (2026-10-02).
 //
 // Staging held no organiser a browser or a probe could look at: every public
