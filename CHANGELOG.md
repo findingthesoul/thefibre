@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.107.2] — 2026-10-06 — a cost spread over a few months
+
+Sjoerd, building The Thread's model: *"The Thread has no way to spread a
+cost over a few months after a launch. I built it as a one time cost in the
+launch month."*
+
+A fixed cost in Business Models now has an end month next to its start
+month. A launch campaign of 6,000 over the three months after a launch in
+month 3 is 2,000 a month from month 3 until month 5, and nothing after. The
+key-resources editor has the "Until month" column, the drawer and the
+Assumptions tab say "until month 5", the format guide tells an assistant the
+same, and the monthly projection shows the cost only inside its window.
+
+Also in this release: the browser test that proves a model reopens on the
+tab and view a person left it on, written for v1.107.0 and run green against
+staging before that release went into its production batch.
+
 ## [1.107.1] — 2026-10-06 — Safari is checked every time now
 
 Asked whether Safari should be in the suite rather than something somebody
