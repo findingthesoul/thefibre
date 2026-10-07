@@ -94,9 +94,19 @@ async function get(path, { origin, method = 'GET', headers = {} } = {}) {
 // --- the published shapes --------------------------------------------------
 
 const SHAPES = {
-  // bio_html joined on 2026-10-03, the day production began serving it (it
-  // waited in PENDING below until then, as the comment there describes).
-  organiser: ['id', 'slug', 'display_name', 'bio', 'bio_html', 'photo_url', 'timezone'],
+  // bio_html joined on 2026-10-03 and short_bio on 2026-10-07, each on the
+  // day production began serving it (both waited in PENDING below until then,
+  // as the comment there describes).
+  organiser: [
+    'id',
+    'slug',
+    'display_name',
+    'bio',
+    'bio_html',
+    'short_bio',
+    'photo_url',
+    'timezone',
+  ],
   listItem: [
     'id',
     'slug',
@@ -165,18 +175,18 @@ const INTERNAL = ['workspace_id', 'team_id', 'organiser_id', 'payment_destinatio
 // production serves it this FAILS and tells you to move it into SHAPES. So
 // the list cannot quietly become permanent — the deploy itself collects it.
 const PENDING = {
-  // Empty since 2026-10-03: `bio_html` (added 2026-10-02 with the rich-text
-  // bio) reached production and moved into SHAPES.organiser. The key stays so
-  // the two checkPending calls below keep working when the next field waits.
+  // Empty again since 2026-10-07. Two fields have passed through: `bio_html`
+  // (added 2026-10-02, collected 10-03) and `short_bio` (added 10-07,
+  // collected the same day, in batch 8 — the release that deployed it).
+  // The key stays so the two checkPending calls below keep working when the
+  // next field waits.
   //
-  // What that day proved: an entry here blocks EVERYONE's gate the day
+  // What both days proved: an entry here blocks EVERYONE's gate the moment
   // production serves it, not only its author's. It is a promise to collect
-  // it that same day, in the session that deploys, not a parking spot.
-  //
-  // `short_bio` — added 2026-10-07 (the short bio beside the full one;
-  // resolved through resolveShortBio). Move it into SHAPES.organiser the day
-  // `deploy-api.sh prod` ships it.
-  organiser: ['short_bio'],
+  // it that same day, in the session that deploys, not a parking spot. This
+  // collection was somebody else's field and somebody else's deploy; the gate
+  // does not care whose, which is the point of it going red for all of us.
+  organiser: [],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */

@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.114.2] — 2026-10-07
+
+Collecting `short_bio` into the published contract, the day production began
+serving it — batch 8, somebody else's field and somebody else's deploy. While
+it sat in `PENDING` the gate was correct to stay quiet; the moment production
+answered with it, `scripts/verify-public-api.mjs` was designed to go red for
+EVERYONE until somebody moved it, which is exactly what it did.
+
+- **`short_bio` moves from `PENDING` into `SHAPES.organiser`**, which is now 8
+  keys. `PENDING.organiser` is empty again, and its comment records both
+  fields that have passed through — `bio_html` on 2026-10-03, `short_bio`
+  today — so the next person can see the list is a promise to collect, not a
+  parking spot.
+- **Checked against production, not asserted:** `FIBRE_API=https://thefibre-api.fly.dev
+  node scripts/verify-public-api.mjs` → "organiser keeps its published keys — 8
+  keys". That check fails naming anything missing, so 8 keys means production
+  really does serve all eight, `short_bio` among them.
+
 ## [1.114.1] — 2026-10-07
 
 **A guest's booking confirmation now tells them their own time, and carries a
