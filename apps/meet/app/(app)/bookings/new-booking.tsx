@@ -7,17 +7,30 @@
 // The money question is the reason this is a dialog and not a single button:
 // for a paid meeting type, "I agreed this on the phone" and "they still owe
 // me" are different states, and the host is the only one who knows which.
+//
+// SEARCH FIRST (Sjoerd, 2026-10-07: the host could only type a name and an
+// address, never pick somebody already in the database). The invitee is
+// found with THE person picker, @thefibre/shared/ui/person-combobox, bound
+// to Meet's own server-side search (meeting-types/actions searchPeople, the
+// same binding the poll invites use). Picking fills name + email from the
+// record, and the API links the booking to that person by the address, so
+// recalling an address exactly is no longer how a booking finds its person.
+// Typing stays: somebody new is typed in, exactly as before — "add as new"
+// hands the typed text to the name field. Same shape as Thread's
+// add-participant dialog.
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
+import { PersonCombobox, type PersonOption } from '@thefibre/shared/ui/person-combobox';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { createHostBooking } from './actions';
+import { searchPeople } from '../meeting-types/actions';
 
 export type BookableType = {
   id: string;
@@ -42,6 +55,7 @@ export function NewBookingButton({
   const [mtId, setMtId] = useState(types[0]?.id ?? '');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [pickedId, setPickedId] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [payment, setPayment] = useState<'link' | 'invoice' | 'comp'>('link');
   const [notify, setNotify] = useState(true);
@@ -55,6 +69,33 @@ export function NewBookingButton({
           currency: (mt.price_currency ?? 'EUR').toUpperCase(),
         }).format(mt.price_cents! / 100)
       : null;
+
+  // What the picker last showed, so choosing a row can read that person's
+  // ADDRESS: the combobox hands back (id, label), and the address is the one
+  // field a booking cannot do without. Re-querying by label could match the
+  // wrong row or none.
+  const seen = useRef(new Map<string, PersonOption>());
+  async function searchAndRemember(q: string): Promise<PersonOption[]> {
+    const rows = await searchPeople(q);
+    for (const r of rows) seen.current.set(r.id, r);
+    return rows;
+  }
+
+  function pick(p: PersonOption | null, typed?: string) {
+    if (!p) {
+      // "Add as someone new": keep what they typed, they fill in the address.
+      setPickedId('');
+      if (typed) setName(typed);
+      return;
+    }
+    setPickedId(p.id);
+    setName([p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || '');
+    setEmail(p.email ?? '');
+    // A person can exist without an address (Connect creates them that way).
+    // Say which field is waiting rather than leaving a disabled Create button
+    // to explain itself.
+    setErr(p.email ? null : t(locale, 'person_has_no_email'));
+  }
 
   function submit() {
     setErr(null);
@@ -72,6 +113,7 @@ export function NewBookingButton({
         return;
       }
       setOpen(false);
+      setPickedId('');
       setName('');
       setEmail('');
       setStartsAt('');
@@ -135,19 +177,33 @@ export function NewBookingButton({
               label: `${x.name} · ${x.duration_minutes} min`,
             }))}
           />
-          <TextField
-            label={t(locale, 'name')}
-            name="invitee_name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+          {/* Most people a host books are already known, so the search is
+              first; the two fields below are what is submitted either way. */}
+          <PersonCombobox
+            label={t(locale, 'find_person')}
+            search={searchAndRemember}
+            value={pickedId}
+            onChange={(id, label) => pick(id ? (seen.current.get(id) ?? null) : null, label)}
+            onCreate={(typed) => pick(null, typed)}
+            createLabel={(typed) => t(locale, 'add_new_person', { name: typed })}
+            placeholder={t(locale, 'find_person_placeholder')}
+            searchPlaceholder={t(locale, 'find_person_placeholder')}
           />
-          <TextField
-            label={t(locale, 'email')}
-            name="invitee_email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <TextField
+              label={t(locale, 'name')}
+              name="invitee_name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <TextField
+              label={t(locale, 'email')}
+              name="invitee_email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">{t(locale, 'when')}</label>
             <DateTimeField value={startsAt} onChange={setStartsAt} />

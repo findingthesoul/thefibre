@@ -3638,6 +3638,40 @@ const CATALOG = {
     de: 'Meeting-Typ', // MT
     fr: 'Type de réunion', // MT
   },
+  // The search at the top of New booking (Sjoerd, 2026-10-07). It says FIND,
+  // because most people a host books are already known.
+  find_person: {
+    en: 'Find someone',
+    nl: 'Iemand zoeken',
+    es: 'Buscar a alguien', // MT
+    pt: 'Encontrar alguém', // MT
+    de: 'Jemanden finden', // MT
+    fr: 'Trouver quelqu’un', // MT
+  },
+  find_person_placeholder: {
+    en: 'Search by name or email…',
+    nl: 'Zoek op naam of e-mail…',
+    es: 'Busca por nombre o correo…', // MT
+    pt: 'Pesquise por nome ou e-mail…', // MT
+    de: 'Nach Name oder E-Mail suchen…', // MT
+    fr: 'Chercher par nom ou e-mail…', // MT
+  },
+  add_new_person: {
+    en: 'Add “{name}” as someone new',
+    nl: '“{name}” als nieuw persoon toevoegen',
+    es: 'Añadir a “{name}” como alguien nuevo', // MT
+    pt: 'Adicionar “{name}” como alguém novo', // MT
+    de: '“{name}” als neue Person hinzufügen', // MT
+    fr: 'Ajouter « {name} » comme nouvelle personne', // MT
+  },
+  person_has_no_email: {
+    en: 'This person has no email address on file. Add one below to book them.',
+    nl: 'Van deze persoon is geen e-mailadres bekend. Vul er hieronder een in om de afspraak te maken.',
+    es: 'Esta persona no tiene correo registrado. Añade uno abajo para reservar la cita.', // MT
+    pt: 'Esta pessoa não tem e-mail registado. Adicione um abaixo para fazer a marcação.', // MT
+    de: 'Für diese Person ist keine E-Mail hinterlegt. Trage unten eine ein, um den Termin anzulegen.', // MT
+    fr: 'Cette personne n’a pas d’e-mail enregistré. Ajoutes-en un ci-dessous pour créer le rendez-vous.', // MT
+  },
   host_booking_time_hint: {
     en: 'Your own time is yours to book — this is not checked against your availability.',
     nl: 'Je eigen tijd boek je zelf — dit wordt niet getoetst aan je beschikbaarheid.',

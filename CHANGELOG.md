@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.113.7] — 2026-10-07 — Meet's New booking finds the person you mean (Meet 2.25.2, staging)
+
+In Meet's **New booking** dialog the host could only type a name and an
+email address; there was no way to pick somebody already in the workspace
+(Sjoerd). So booking a known contact meant recalling their address exactly,
+and one character off quietly created a second person.
+
+- **The invitee is searched first**, with THE person picker
+  (`@thefibre/shared/ui/person-combobox`) bound to Meet's existing
+  server-side search (`searchPeople` in `meeting-types/actions.ts`, the same
+  binding the poll invites use — `/api/v1/persons` under the host's own RLS,
+  no direct Supabase). Picking somebody fills the name and their primary
+  email; the API already links a host booking to its person by that address,
+  so no API change.
+- **Typing a new person still works**: the two fields stay and are what is
+  submitted, and "Add “…” as someone new" hands the typed text to the name
+  field. A picked person with no address on file says so instead of leaving
+  Create greyed out.
+- Four new Meet catalog keys (`find_person`, `find_person_placeholder`,
+  `add_new_person`, `person_has_no_email`) in all six locales. Public booking
+  flow, emails and the API untouched.
+
 ## [1.113.6] — 2026-10-06 — the Webflow list embed answered 500 for a workspace slug (staging)
 
 The Webflow list embed answered **500** for `?workspace=` — found by the
