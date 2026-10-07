@@ -30,7 +30,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // no grant is ever created (Sjoerd, connecting Festival of Trust,
     // 2026-09-27/28). Other pages keep the plain bounce to the landing page.
     const path = (await headers()).get('x-fibre-path') ?? '';
-    if (path.startsWith('/connect')) redirect(`/sign-in?next=${encodeURIComponent(path)}`);
+    // `/integrations/*` joined `/connect` on 2026-10-08 for the same reason,
+    // from the other direction: Zoom's Marketplace review requires that the
+    // URL on our listing takes a signed-OUT visitor through sign-in and BACK
+    // to the page that connects Zoom. Bounced to the landing page, a reviewer
+    // is simply stranded — and the listing fails on that alone.
+    if (path.startsWith('/connect') || path.startsWith('/integrations')) {
+      redirect(`/sign-in?next=${encodeURIComponent(path)}`);
+    }
     redirect('/');
   }
 

@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.116.0] — 2026-10-08
+
+The Zoom Marketplace review (2026-10-08) requires that the URL on our listing
+takes somebody straight to connecting Zoom — signed in, the Connect button;
+signed OUT, through sign-in and BACK to it. The second half is what we did
+not have.
+
+- **`/integrations/zoom` on the platform** is that address, in production
+  `https://thefibre.app/integrations/zoom`. Signed out it goes to
+  `/sign-in?next=/integrations/zoom` and returns; signed in it is the Zoom
+  card and nothing else, so the Connect button is the first thing in view.
+  Not a second Zoom UI — the same `ZoomConnect` the Connections page renders.
+- **`/integrations/*` joins `/connect`** on the `(app)` layout's round-trip
+  list. Everything else still bounces an unsigned visit to the landing page,
+  deliberately; measured on a production build, `/settings/connections` → `/`
+  and `/integrations/zoom` → `/sign-in?next=…`.
+- **It is a published address.** Our settings layout is ours to rearrange and
+  a URL in somebody else's marketplace listing is not, which is the other
+  reason not to hand Zoom `/settings/connections`.
+- **`e2e/zoom-landing.spec.ts`** checks the signed-out round-trip from the
+  reviewer's own starting position. Written first as two tests, and the second
+  one PASSED against a 404 — a missing page's path is not `/` either — so it
+  is one test that checks the status before anything else.
+- **`docs/zoom-marketplace/README.md`** holds the review answers with their
+  sources: both OAuth redirect URLs read with `printenv PUBLIC_API_URL` on the
+  running Fly machines rather than guessed, the fact that staging and
+  production are on different Zoom apps (compared as hashes, values never
+  printed), and the reviewer's sign-in path — no password, no second factor,
+  an emailed code.
+- **Gallery images are NOT ready, and the reason is in that file.** The
+  producer exists (`e2e/zoom-gallery.spec.ts`, 1280×720, staging bar hidden)
+  but the e2e fixture cannot make marketplace images: its name is "do not
+  edit", it has no working hours so its booking page says "No availability",
+  and Zoom cannot even be CHOSEN by an account that has not connected it —
+  the picker disables the option, so that shot skips with its reason instead
+  of showing a greyed-out control. Staging's real Zoom connection belongs to
+  a real workspace and is deliberately not in any image. Which account to
+  photograph is Sjoerd's call.
+
 ## [1.115.0] — 2026-10-08
 
 **Meet installs as an app** — Sjoerd, 2026-10-07: "meet app go". Safari →

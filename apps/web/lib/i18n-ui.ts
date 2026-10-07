@@ -2497,6 +2497,34 @@ const CATALOG = {
     de: 'Konferenz', // MT
     fr: 'Visioconférence', // MT
   },
+  // The page Zoom's Marketplace listing links to (/integrations/zoom). Its own
+  // strings, because this one is read by somebody who has just arrived from
+  // Zoom and may never have seen The Fibre before — the settings page's
+  // heading ("Connections") means nothing to them.
+  zoom_page_title: {
+    en: 'Connect Zoom',
+    nl: 'Zoom koppelen',
+    es: 'Conectar Zoom', // MT
+    pt: 'Ligar o Zoom', // MT
+    de: 'Zoom verbinden', // MT
+    fr: 'Connecter Zoom', // MT
+  },
+  zoom_page_blurb: {
+    en: 'Link your Zoom account to The Fibre, so meetings are created for you and the join link reaches the people who booked.',
+    nl: 'Koppel je Zoom-account aan The Fibre, zodat meetings voor je worden aangemaakt en de deelnamelink bij de mensen komt die geboekt hebben.',
+    es: 'Vincula tu cuenta de Zoom con The Fibre para que las reuniones se creen solas y el enlace llegue a quienes han reservado.', // MT
+    pt: 'Associe a sua conta Zoom ao The Fibre, para que as reuniões sejam criadas automaticamente e a ligação chegue a quem marcou.', // MT
+    de: 'Verbinde dein Zoom-Konto mit The Fibre, damit Meetings automatisch entstehen und der Link bei den Buchenden ankommt.', // MT
+    fr: 'Reliez votre compte Zoom à The Fibre : les réunions sont créées pour vous et le lien parvient aux personnes qui ont réservé.', // MT
+  },
+  zoom_page_all_connections: {
+    en: 'All connections',
+    nl: 'Alle koppelingen',
+    es: 'Todas las conexiones', // MT
+    pt: 'Todas as ligações', // MT
+    de: 'Alle Verbindungen', // MT
+    fr: 'Toutes les connexions', // MT
+  },
   zoom_desc: {
     en: 'Create Zoom meetings automatically: for every booking on a meeting type set to Zoom in Meet, and for live sessions you set to Zoom in a Thread. The join link goes into the invitation and the confirmation email.',
     nl: 'Maakt automatisch Zoom-meetings aan: voor elke boeking op een afspraaktype dat in Meet op Zoom staat, en voor live sessies die je in een Thread op Zoom zet. De deelnamelink komt in de uitnodiging en de bevestigingsmail.',
