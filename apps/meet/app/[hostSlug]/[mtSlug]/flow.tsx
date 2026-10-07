@@ -443,6 +443,13 @@ function SlotPickerFlow({
               invitee_name: name.trim(),
               invitee_answers: answers,
               starts_at: selectedSlot.toISOString(),
+              // The zone this whole page has been showing them — their
+              // browser's, or whatever they picked in the selector above. It
+              // was on screen all along and never written down, so the
+              // confirmation could only speak in the host's zone: a guest in
+              // US Eastern was sent "22:00 CEST" for a 16:00 meeting
+              // (reported 2026-10-07).
+              invitee_timezone: tz,
               request_id: requestId,
               ...payment.bookingFields(),
             }),

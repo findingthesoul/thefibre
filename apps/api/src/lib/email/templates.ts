@@ -8,6 +8,7 @@
 // invitee's tz from the request.
 
 import type { Locale } from '@thefibre/shared';
+import { resolveTimeZone } from '@thefibre/shared';
 import { meetT } from './meet-booking-i18n.js';
 import {
   emailSignoff,
@@ -26,6 +27,10 @@ type Common = {
   startsAt: Date;
   endsAt: Date;
   hostTimezone: string;
+  /** The guest's own zone, as the booking recorded it. Absent for every
+   *  booking made before 2026-10-07, and for any path that cannot know it —
+   *  guest mail then reads in the host's zone, exactly as it did before. */
+  inviteeTimezone?: string | null;
   meetUrl?: string | null;
   location?: string | null;
   bookingId: string;
@@ -116,6 +121,70 @@ function range(start: Date, end: Date, tz: string): string {
     ? startFull.slice(0, -zone.length).trimEnd()
     : startFull;
   return `${startNoZone} – ${endTime}${zone ? ` ${zone}` : ''}`;
+}
+
+/**
+ * Whose clock the line is written in, and whose is worth adding in brackets.
+ *
+ * A real guest in US Eastern was sent "22:00–22:30 CEST" on 2026-10-07 and
+ * had to work out that it meant 16:00. The host's zone is the right one for
+ * the host's own mail and the wrong one for everybody else's, so the audience
+ * decides which goes first.
+ *
+ * The second zone is dropped when it would say the same thing — a guest in
+ * Paris booking an Amsterdam host reads "16:00 CEST", not "16:00 CEST (16:00
+ * CEST)". Compared on the rendered text rather than the offset, because two
+ * zones can share an offset and not a name, and the name is what the reader
+ * recognises.
+ *
+ * Both zones go through `resolveTimeZone`: a stored name that Intl rejects
+ * must not throw inside an email. A typo'd zone took every signed-in page
+ * down on 2026-09-28 for exactly that reason.
+ */
+function zonePair(
+  c: Common,
+  audience: 'invitee' | 'host',
+): { primary: string; secondary: string | null } {
+  const host = resolveTimeZone(c.hostTimezone);
+  const guest = c.inviteeTimezone ? resolveTimeZone(c.inviteeTimezone) : null;
+  if (audience === 'host' || !guest) return { primary: host, secondary: null };
+  const reads = (tz: string) => timeWithZone(c.startsAt, tz);
+  return { primary: guest, secondary: reads(guest) === reads(host) ? null : host };
+}
+
+/** "22:00 CEST" — a time and the zone it is in, no date. */
+function timeWithZone(d: Date, tz: string): string {
+  const time = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: tz,
+  }).format(d);
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZone: tz, timeZoneName: 'short' })
+    .formatToParts(d)
+    .find((part) => part.type === 'timeZoneName')?.value;
+  return zone ? `${time} ${zone}` : time;
+}
+
+/**
+ * The booking's When line, for one audience.
+ *
+ * The bracketed half carries the DATE too when the two zones disagree about
+ * which day it is — a 22:00 CEST meeting is the same evening in Amsterdam and
+ * the same afternoon in New York, but an evening booking for a guest in
+ * Auckland is the next morning there, and "(09:00 NZDT)" without a date is a
+ * nine-hour-early meeting as far as the reader can tell.
+ */
+export function bookingWhen(c: Common, audience: 'invitee' | 'host'): string {
+  const { primary, secondary } = zonePair(c, audience);
+  const main = range(c.startsAt, c.endsAt, primary);
+  if (!secondary) return main;
+  const dayIn = (tz: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz, dateStyle: 'short' }).format(c.startsAt);
+  const alsoReads =
+    dayIn(primary) === dayIn(secondary)
+      ? timeWithZone(c.startsAt, secondary)
+      : fmt(c.startsAt, secondary);
+  return `${main} (${alsoReads})`;
 }
 
 function cancelUrl(c: Common): string {
@@ -215,11 +284,11 @@ function firstName(full: string): string {
   return full.split(' ')[0] ?? '';
 }
 
-function detailsHtml(c: Common): string {
+function detailsHtml(c: Common, audience: 'invitee' | 'host'): string {
   const rows: string[] = [];
   const L = loc(c);
   rows.push(`<tr><td style="padding:6px 0;color:#737373;width:120px;font-size:12px;">${escapeHtml(meetT(L, 'what'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.meetingName)}</td></tr>`);
-  rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'when'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(range(c.startsAt, c.endsAt, c.hostTimezone))}</td></tr>`);
+  rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'when'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(bookingWhen(c, audience))}</td></tr>`);
   rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'with_whom'))}</td><td style="padding:6px 0;font-size:14px;">${escapeHtml(c.hostName)}</td></tr>`);
   if (c.meetUrl) {
     rows.push(`<tr><td style="padding:6px 0;color:#737373;font-size:12px;">${escapeHtml(meetT(L, 'join'))}</td><td style="padding:6px 0;font-size:14px;"><a href="${c.meetUrl}" style="color:#171717;">${escapeHtml(c.meetUrl)}</a></td></tr>`);
@@ -239,11 +308,11 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function detailsText(c: Common): string {
+function detailsText(c: Common, audience: 'invitee' | 'host'): string {
   const L = loc(c);
   const lines = [
     `${meetT(L, 'what')}:  ${c.meetingName}`,
-    `${meetT(L, 'when')}:  ${range(c.startsAt, c.endsAt, c.hostTimezone)}`,
+    `${meetT(L, 'when')}:  ${bookingWhen(c, audience)}`,
     `${meetT(L, 'with_whom')}:  ${c.hostName}`,
   ];
   if (c.meetUrl) lines.push(`${meetT(L, 'join')}:  ${c.meetUrl}`);
@@ -264,7 +333,7 @@ export function bookingConfirmationInvitee(c: Common): {
 
 ${meetT(L, 'confirmed_text_lead')}
 
-${detailsText(c)}
+${detailsText(c, 'invitee')}
 ${c.paymentNote ? `\n${c.paymentNote}\n` : ''}
 ${meetT(L, 'add_to_calendar_line', { url: icsUrl(c, 'invitee') })}
 ${meetT(L, 'different_time_line', { url: rescheduleUrl(c) })}
@@ -274,7 +343,7 @@ ${emailSignoff()}`;
   const html = shell(
     meetT(L, 'confirmed_title'),
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(meetT(L, 'confirmed_headline', { first }))}</h1>
-${detailsHtml(c)}
+${detailsHtml(c, 'invitee')}
 ${c.paymentNote ? `<p style="margin-top:20px;font-size:14px;color:#171717;">${escapeHtml(c.paymentNote)}</p>` : ''}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'invitee')}" style="color:#171717;">${escapeHtml(meetT(L, 'add_to_calendar'))}</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'reschedule'))}</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">${escapeHtml(meetT(L, 'cancel'))}</a></div>`,
     c.brand,
@@ -308,7 +377,7 @@ export function bookingRequestReceived(c: Common): {
 
 ${meetT(L, 'requested_headline', { host: c.hostName })} ${meetT(L, 'requested_sub')}
 
-${detailsText(c)}
+${detailsText(c, 'invitee')}
 
 ${meetT(L, 'different_time_line', { url: rescheduleUrl(c) })}
 ${meetT(L, 'requested_changed_mind', { url: cancelUrl(c) })}
@@ -318,7 +387,7 @@ ${emailSignoff()}`;
     meetT(L, 'requested_title'),
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(meetT(L, 'requested_headline', { host: c.hostName }))}</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(meetT(L, 'requested_sub'))}</div>
-${detailsHtml(c)}
+${detailsHtml(c, 'invitee')}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${rescheduleUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'requested_ask_other_time'))}</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'requested_withdraw'))}</a></div>`,
     c.brand,
   );
@@ -339,7 +408,7 @@ export function bookingNotificationHost(c: Common): {
   // booking, not the person clicking.
   const text = `${c.inviteeName} (${c.inviteeEmail}) booked ${c.meetingName}.
 
-${detailsText(c)}
+${detailsText(c, 'host')}
 
 Add to your calendar: ${icsUrl(c, 'host')}
 Need a different time? ${rescheduleUrl(c)}
@@ -350,7 +419,7 @@ ${emailSignoff()}`;
     'New booking',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(c.inviteeName)} booked ${escapeHtml(c.meetingName)}.</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(c.inviteeEmail)}</div>
-${detailsHtml(c)}
+${detailsHtml(c, 'host')}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'host')}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
     c.brand,
   );
@@ -372,12 +441,12 @@ export function bookingCancellation(
       : `${escapeHtml(c.inviteeName)} cancelled ${escapeHtml(c.meetingName)}.`;
   const text =
     audience === 'invitee'
-      ? `${meetT(L, 'cancelled_text_invitee')}\n\n${detailsText(c)}\n\n${emailSignoff()}`
-      : `${c.inviteeName} cancelled their booking.\n\n${detailsText(c)}\n\n${emailSignoff()}`;
+      ? `${meetT(L, 'cancelled_text_invitee')}\n\n${detailsText(c, audience)}\n\n${emailSignoff()}`
+      : `${c.inviteeName} cancelled their booking.\n\n${detailsText(c, audience)}\n\n${emailSignoff()}`;
   const html = shell(
     meetT(L, 'cancelled_title'),
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
-${detailsHtml(c)}`,
+${detailsHtml(c, audience)}`,
     c.brand,
   );
   return { subject, text, html };
@@ -390,7 +459,10 @@ export function bookingRescheduled(
   audience: 'invitee' | 'host',
   previousStartsAt: Date,
 ): { subject: string; text: string; html: string } {
-  const was = fmt(previousStartsAt, c.hostTimezone);
+  // The old time in the zone the reader is being written to, not the
+  // host's: an invitee told "was 22:00 CEST, is now 23:00 CEST" has to do
+  // the conversion twice.
+  const was = fmt(previousStartsAt, zonePair(c, audience).primary);
   const L = loc(c);
   const subject =
     audience === 'invitee'
@@ -408,7 +480,7 @@ export function bookingRescheduled(
 
 ${meetT(L, 'was_label')}:   ${was}
 
-${detailsText(c)}
+${detailsText(c, audience)}
 
 ${meetT(L, 'add_to_calendar_line', { url: icsUrl(c, audience) })}
 ${meetT(L, 'need_cancel_line', { url: cancelUrl(c) })}
@@ -418,7 +490,7 @@ ${emailSignoff()}`;
     meetT(L, 'moved_title'),
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(meetT(L, 'was_label'))}: <s>${escapeHtml(was)}</s></div>
-${detailsHtml(c)}
+${detailsHtml(c, audience)}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, audience)}" style="color:#171717;">${escapeHtml(meetT(L, 'add_to_calendar'))}</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'cancel'))}</a></div>`,
     c.brand,
   );

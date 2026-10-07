@@ -67,6 +67,7 @@ import {
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
 import { createMeetingLink } from '../lib/meeting-links.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
+import { bookingIcalUid, bookingInviteAttachment } from '../lib/meet-invite.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { meetT } from '../lib/email/meet-booking-i18n.js';
 import { isLocale, resolveEmailLocale, resolvePublicLocale, resolveShortBio, type Locale } from '@thefibre/shared';
@@ -95,6 +96,7 @@ import {
   appUrl,
   emailSignoff,
   ENTITY,
+  isTimeZone,
 } from '@thefibre/shared';
 import { platformFeeCents } from '../lib/fees.js';
 import { connectionsSettingsUrl, parseReturnTo } from '../lib/connections-return.js';
@@ -253,6 +255,42 @@ async function linkPersonIfMissing(
 }
 
 export const meetRoutes = new Hono();
+
+/**
+ * The guest's calendar invitation for a booking, built from the same object
+ * their email is built from — so the two can never disagree about when the
+ * meeting is.
+ *
+ * Attached to a guest's mail rather than linked, because a linked
+ * METHOD:PUBLISH file is what a phone offers to subscribe to instead of
+ * filing (a real guest's report, 2026-10-07). See lib/meet-invite.ts.
+ */
+function guestInvite(
+  c: EmailCommon,
+  method: 'REQUEST' | 'CANCEL',
+  sequence: number,
+  description?: string | null,
+): { filename: string; content: string; contentType: string } {
+  return bookingInviteAttachment(
+    {
+      bookingId: c.bookingId,
+      startsAt: c.startsAt,
+      endsAt: c.endsAt,
+      meetingName: c.meetingName,
+      description: description ?? null,
+      location: c.meetUrl ?? c.location ?? null,
+      hostName: c.hostName,
+      // ORGANIZER has to be an address, and a host without one is possible.
+      // The platform address is the honest stand-in: a reply reaches us, not
+      // nobody.
+      hostEmail: c.hostEmail ?? platformFromAddress(),
+      guestName: c.inviteeName,
+      guestEmail: c.inviteeEmail,
+      sequence,
+    },
+    method,
+  );
+}
 
 // Helper: state-signing secret for the Google OAuth flow.
 function stateSecret(): Uint8Array {
@@ -587,6 +625,14 @@ const CreateBookingBody = z.object({
   invitee_name: z.string().min(1).max(200),
   invitee_answers: z.record(z.unknown()).optional(),
   starts_at: z.string().datetime(),
+  // The guest's own zone, as the booking page resolved it (the browser's, or
+  // whatever they picked in the page's timezone selector). Optional, because
+  // an older page build or a direct API caller will not send it and a booking
+  // must not fail over it — the mail then reads in the host's zone, as it did
+  // before. Validated here rather than trusted: an unchecked timezone string
+  // took every signed-in page down on 2026-09-28, so a bad one is refused at
+  // the door AND survived at the render.
+  invitee_timezone: z.string().max(100).refine(isTimeZone, 'not a known timezone').optional(),
   request_id: z.string().min(8).max(80),
   // Paid meeting types only. Absent = the first method on offer.
   payment_method: z.enum(['stripe', 'invoice']).optional(),
@@ -836,6 +882,7 @@ meetRoutes.post('/public/bookings', async (c) => {
       invitee_email: data.invitee_email,
       invitee_name: data.invitee_name,
       invitee_answers: data.invitee_answers ?? null,
+      invitee_timezone: data.invitee_timezone ?? null,
       starts_at: starts.toISOString(),
       ends_at: ends.toISOString(),
       status: bookingStatus,
@@ -1189,6 +1236,8 @@ meetRoutes.post('/public/bookings', async (c) => {
       startsAt: starts,
       endsAt: ends,
       hostTimezone: hostRow.timezone ?? 'UTC',
+      // The guest reads their own clock first; null is the host zone, as before.
+      inviteeTimezone: data.invitee_timezone ?? null,
       meetUrl: resolvedMeetUrl,
       location: mt.default_location ?? null,
       bookingId: booking.id,
@@ -1209,6 +1258,12 @@ meetRoutes.post('/public/bookings', async (c) => {
         text: invitee.text,
         html: invitee.html,
         replyTo: common.hostEmail ?? sender2.replyTo,
+        // The invitation itself, attached. Only for a CONFIRMED booking: a
+        // pending one is not yet a meeting, and filing it in somebody's
+        // calendar would promise a slot the host has not agreed to.
+        ...(booking.status === 'confirmed'
+          ? { attachments: [guestInvite(common, 'REQUEST', 0)] }
+          : {}),
       });
     } catch (e) {
       console.error('[meet bookings] invitee email failed (non-fatal)', e);
@@ -1570,7 +1625,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
   const { data: booking, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, meeting_type_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, user_id, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, meeting_type_id, invitee_email, invitee_name, invitee_timezone, invite_sequence, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, user_id, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -1644,6 +1699,8 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
       startsAt: new Date(booking.starts_at),
       endsAt: new Date(booking.ends_at),
       hostTimezone: hostRow.timezone ?? 'UTC',
+      // The guest reads their own clock first; null is the host zone, as before.
+      inviteeTimezone: booking.invitee_timezone ?? null,
       meetUrl: booking.meet_url,
       location: booking.alternative_location ?? mt.default_location ?? null,
       bookingId: booking.id,
@@ -1661,6 +1718,11 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
         text: m.text,
         html: m.html,
         replyTo: common.hostEmail ?? sender5.replyTo,
+        // Takes the event out of their calendar instead of leaving an hour
+        // blocked for a meeting that is off. A CANCEL for a booking that
+        // never sent a REQUEST — anything made before 2026-10-07 — is simply
+        // ignored by the receiving calendar, which is the right outcome.
+        attachments: [guestInvite(common, 'CANCEL', booking.invite_sequence ?? 0)],
       });
     } catch (e) {
       console.error('[meet bookings/cancel] invitee email failed (non-fatal)', e);
@@ -1701,7 +1763,7 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
   const { data: booking, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location',
+      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, invitee_timezone, invite_sequence, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location',
     )
     .eq('id', id)
     .single();
@@ -1929,6 +1991,18 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
       hostEmail: hostUser?.email ?? null,
       inviteeEmail: booking.invitee_email,
     });
+    // The invitation's SEQUENCE, raised before it is sent.
+    //
+    // A calendar ignores an update numbered at or below the one it already
+    // holds — silently, so the guest simply keeps the old time and nothing
+    // about our side looks wrong. Persisted rather than derived, so the NEXT
+    // move is higher again; a read-then-write is safe here because a move is
+    // one person pressing one button, not a contended counter.
+    const movedSequence = (booking.invite_sequence ?? 0) + 1;
+    await adminClient
+      .from('meet_booking')
+      .update({ invite_sequence: movedSequence })
+      .eq('id', booking.id);
     const common: EmailCommon = {
       locale: movedLocales.invitee,
       brand: emailBrand,
@@ -1940,6 +2014,8 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
       startsAt: starts,
       endsAt: ends,
       hostTimezone: hostRow.timezone ?? 'UTC',
+      // The guest reads their own clock first; null is the host zone, as before.
+      inviteeTimezone: booking.invitee_timezone ?? null,
       meetUrl: booking.meet_url,
       location: booking.alternative_location ?? mt.default_location ?? null,
       bookingId: booking.id,
@@ -1957,6 +2033,10 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
         text: m.text,
         html: m.html,
         replyTo: common.hostEmail ?? sender7.replyTo,
+        // The moved event, as an update to the one they already hold. The
+        // bumped sequence is what makes a calendar accept it; at or below
+        // what it holds it is ignored and the guest keeps the old time.
+        attachments: [guestInvite(common, 'REQUEST', movedSequence)],
       });
     } catch (e) {
       console.error('[meet bookings/reschedule] invitee email failed (non-fatal)', e);
@@ -2026,7 +2106,7 @@ meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
   const { data: b, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (name, description, default_location), host:host_id (timezone, slug, user_id, user:user_id (full_name, email))',
+      'id, invitee_email, invitee_name, invitee_timezone, invite_sequence, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (name, description, default_location), host:host_id (timezone, slug, user_id, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -2040,9 +2120,12 @@ meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
     : null;
 
   const ics = buildBookingIcal({
-    // Deliberately a literal: the UID is a stable identifier calendars key
-    // on across updates and cancellations. It must never follow branding.
-    uid: `meet-${b.id}@thefibre.app`,
+    // The SAME uid the attached invitation carries (lib/meet-invite.ts), so
+    // a guest who used this download and then receives the invitation ends
+    // up with one event rather than two. Deliberately a literal in there: the
+    // uid is the identifier calendars key on across updates and
+    // cancellations, and it must never follow branding.
+    uid: bookingIcalUid(b.id),
     startsAt: new Date(b.starts_at),
     endsAt: new Date(b.ends_at),
     summary: bookingCalendarTitle(
@@ -4234,6 +4317,8 @@ async function runApprovalRequestSideEffects(
     startsAt: starts,
     endsAt: ends,
     hostTimezone: hostTz,
+    // The guest reads their own clock first; null is the host zone, as before.
+    inviteeTimezone: booking.invitee_timezone ?? null,
     location: booking.alternative_location ?? mt.default_location ?? null,
     bookingId: booking.id,
     meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
@@ -4425,6 +4510,8 @@ async function runConfirmationSideEffects(
     startsAt: new Date(booking.starts_at),
     endsAt: new Date(booking.ends_at),
     hostTimezone: hostRow.timezone ?? 'UTC',
+    // The guest reads their own clock first; null is the host zone, as before.
+    inviteeTimezone: booking.invitee_timezone ?? null,
     meetUrl,
     location: booking.alternative_location ?? mt.default_location ?? null,
     bookingId: booking.id,
@@ -4442,6 +4529,9 @@ async function runConfirmationSideEffects(
       text: m.text,
       html: m.html,
       replyTo: common.hostEmail ?? sender10.replyTo,
+      // Approval is when the meeting becomes real, so this is the first
+      // invitation — the request mail deliberately carries none.
+      attachments: [guestInvite(common, 'REQUEST', booking.invite_sequence ?? 0)],
     });
   } catch (e) {
     console.error('[meet confirm-side-effects] invitee email failed (non-fatal)', e);
@@ -4694,7 +4784,7 @@ async function loadBookingWithJoins(id: string) {
   return adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, user_id, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, invitee_timezone, invite_sequence, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, user_id, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();

@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.114.1] — 2026-10-07
+
+**A guest's booking confirmation now tells them their own time, and carries a
+calendar invitation they can actually file.** Both halves are live feedback
+from a real guest on production, 2026-10-07: a confirmation for a 22:00–22:30
+CEST call reached somebody in US Eastern, where it was 16:00, and said only
+CEST; and "Add to calendar … seems to require a subscription rather than
+generating a standard calendar invite."
+
+- **The guest's zone is stored on the booking.** The booking page always knew
+  it — it detects the browser's zone and offers a picker, because a slot list
+  has to be in the guest's own hours to be readable — and the POST that
+  created the booking dropped it. `meet_booking.invitee_timezone`, sent by
+  the page, validated at the door with `isTimeZone`, and survived at the
+  render if it is nonsense anyway: one unvalidated timezone took every
+  signed-in page down on 2026-09-28 because each layer trusted the other.
+- **Guest-facing mail reads in the guest's zone, with the host's in
+  brackets** — "Wednesday, 7 October 2026 at 16:00 – 16:30 GMT-4 (22:00
+  CEST)". All four: confirmation, approval-confirmed, moved and cancelled,
+  plus the old time on a moved booking. The bracket is dropped when it would
+  say the same thing twice, and carries the DATE as well when the two zones
+  disagree about the day. The host's own mail is unchanged.
+- **Bookings made before today have no stored zone and render exactly as they
+  do now**, in the host's zone. That is the safety property, and it has a
+  test.
+- **The invitation is attached, as METHOD:REQUEST.** The link in the mail
+  served a `METHOD:PUBLISH` file, and a PUBLISH calendar fetched from a URL is
+  precisely what a phone offers to SUBSCRIBE to — the guest's words were
+  literally what the file asked for. It now travels as an attachment, the way
+  Thread's session invitations already did, with the join link in LOCATION and
+  in the description. The download link stays for anyone who prefers it, and
+  shares the invitation's UID so nobody ends up with two events.
+- **A move updates that event and a cancellation removes it.**
+  `meet_booking.invite_sequence` rises on every reschedule, because a calendar
+  ignores an update numbered at or below the one it holds — silently, leaving
+  the guest trusting the old time. A pending request still carries no
+  invitation: nothing is agreed yet.
+- **Tests:** 9 unit cases for the When line, including 28 October 2026, which
+  sits between the EU and US clock changes where the two zones are five hours
+  apart instead of six; 10 for the invitation file; and one integration case
+  that runs the real booking route in process with the mail client recorded,
+  so the claim "the guest's confirmation carries an invitation" is checked
+  where it is actually made rather than only in the builder.
+
 ## [1.114.0] — 2026-10-07 — a short bio beside the full one (Meet 2.26.0, staging)
 
 Sjoerd: "short bio yes". Every person has a full bio — rich text, thousands
