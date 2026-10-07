@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.114.2",
+  "version": "1.115.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -25,6 +25,10 @@
     "./available-apps": {
       "types": "./dist/available-apps.d.ts",
       "default": "./dist/available-apps.js"
+    },
+    "./business-models": {
+      "types": "./dist/business-models.d.ts",
+      "default": "./dist/business-models.js"
     },
     "./certificate": {
       "types": "./dist/certificate.d.ts",
@@ -53,10 +57,6 @@
     "./embed-loader": {
       "types": "./dist/embed-loader.d.ts",
       "default": "./dist/embed-loader.js"
-    },
-    "./business-models": {
-      "types": "./dist/business-models.d.ts",
-      "default": "./dist/business-models.js"
     },
     "./i18n": {
       "types": "./dist/i18n.d.ts",
@@ -102,6 +102,10 @@
       "types": "./dist/prefs.d.ts",
       "default": "./dist/prefs.js"
     },
+    "./pwa": {
+      "types": "./dist/pwa.d.ts",
+      "default": "./dist/pwa.js"
+    },
     "./rich-text-plain": {
       "types": "./dist/rich-text-plain.d.ts",
       "default": "./dist/rich-text-plain.js"
@@ -122,13 +126,17 @@
       "types": "./dist/slug.d.ts",
       "default": "./dist/slug.js"
     },
+    "./sso-hop": {
+      "types": "./dist/sso-hop.d.ts",
+      "default": "./dist/sso-hop.js"
+    },
     "./supabase-session": {
       "types": "./dist/supabase-session.d.ts",
       "default": "./dist/supabase-session.js"
     },
-    "./sso-hop": {
-      "types": "./dist/sso-hop.d.ts",
-      "default": "./dist/sso-hop.js"
+    "./tenant-host": {
+      "types": "./dist/tenant-host.d.ts",
+      "default": "./dist/tenant-host.js"
     },
     "./todo-calls": {
       "types": "./dist/todo-calls.d.ts",
@@ -162,10 +170,6 @@
       "types": "./dist/ui/button.d.ts",
       "default": "./dist/ui/button.js"
     },
-    "./ui/zoom-connection": {
-      "types": "./dist/ui/zoom-connection.d.ts",
-      "default": "./dist/ui/zoom-connection.js"
-    },
     "./ui/cert-view": {
       "types": "./dist/ui/cert-view.d.ts",
       "default": "./dist/ui/cert-view.js"
@@ -193,6 +197,10 @@
     "./ui/embed-frame": {
       "types": "./dist/ui/embed-frame.d.ts",
       "default": "./dist/ui/embed-frame.js"
+    },
+    "./ui/environment-bar": {
+      "types": "./dist/ui/environment-bar.d.ts",
+      "default": "./dist/ui/environment-bar.js"
     },
     "./ui/fields": {
       "types": "./dist/ui/fields.d.ts",
@@ -238,6 +246,10 @@
       "types": "./dist/ui/marks.d.ts",
       "default": "./dist/ui/marks.js"
     },
+    "./ui/no-access-switch": {
+      "types": "./dist/ui/no-access-switch.d.ts",
+      "default": "./dist/ui/no-access-switch.js"
+    },
     "./ui/organisation-combobox": {
       "types": "./dist/ui/organisation-combobox.d.ts",
       "default": "./dist/ui/organisation-combobox.js"
@@ -253,10 +265,6 @@
     "./ui/page-loading": {
       "types": "./dist/ui/page-loading.d.ts",
       "default": "./dist/ui/page-loading.js"
-    },
-    "./ui/no-access-switch": {
-      "types": "./dist/ui/no-access-switch.d.ts",
-      "default": "./dist/ui/no-access-switch.js"
     },
     "./ui/payment-methods": {
       "types": "./dist/ui/payment-methods.d.ts",
@@ -346,17 +354,13 @@
       "types": "./dist/ui/user-menu.d.ts",
       "default": "./dist/ui/user-menu.js"
     },
+    "./ui/zoom-connection": {
+      "types": "./dist/ui/zoom-connection.d.ts",
+      "default": "./dist/ui/zoom-connection.js"
+    },
     "./upload": {
       "types": "./dist/upload.d.ts",
       "default": "./dist/upload.js"
-    },
-    "./ui/environment-bar": {
-      "types": "./dist/ui/environment-bar.d.ts",
-      "default": "./dist/ui/environment-bar.js"
-    },
-    "./tenant-host": {
-      "types": "./dist/tenant-host.d.ts",
-      "default": "./dist/tenant-host.js"
     }
   },
   "files": [

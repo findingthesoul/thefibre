@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { SURFACES } from '@thefibre/shared';
+import { appManifest } from '@thefibre/shared/pwa';
 
 // My Thread, installable.
 //
@@ -18,45 +19,24 @@ import { SURFACES } from '@thefibre/shared';
 // their own piece of work (the wallet passes are the other half of that
 // answer), deliberately not a footnote to this one.
 //
-// Shape copied from apps/connections/app/manifest.ts rather than invented —
-// same four icon files, same purposes, same reasoning about colour.
+// The shape was copied from apps/connections/app/manifest.ts rather than
+// invented, and on 2026-10-07 — when Meet would have been the fourth copy —
+// it moved to @thefibre/shared/pwa, where the colours are derived from the
+// tokens this file used to spell out.
 
 export default function manifest(): MetadataRoute.Manifest {
   const surface = SURFACES['my-portal'];
-  return {
+  return appManifest({
     name: surface.shortLabel,
-    short_name: surface.shortLabel,
     description: surface.tagline,
     // The timeline, not a landing page: an installed app opens on the thing
     // you installed it for.
-    start_url: '/',
-    // The whole app, so a ticket, a membership or an invoice opens inside the
-    // window rather than kicking out to a browser tab.
-    scope: '/',
-    display: 'standalone',
-    // READ from packages/shared/src/design/tokens.ts LIGHT, not chosen —
-    // this app takes every colour from the shared preset and its globals.css
-    // holds no values on purpose (docs/brand-design.md). The splash shows the
-    // ground behind cards, `surface-sunken` (247 247 244); the status bar sits
-    // against the page, `surface` (255 255 255).
-    //
-    // Light values only: a manifest carries one colour and the app follows the
-    // system theme, so dark mode gets a light splash for the instant before
-    // the page paints. Per-scheme colours are a meta-tag concern, not this.
-    background_color: '#f7f7f4',
-    theme_color: '#ffffff',
-    icons: [
-      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      // Cropped tighter: a maskable icon may be cut to a circle, and the
-      // lettering worth keeping is in the middle of the tile.
-      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
+    startUrl: '/',
     // Long-press the icon. The two things somebody opens this in a hurry to
     // do: show a ticket at a door, and check what they are part of.
     shortcuts: [
       { name: 'Next', short_name: 'Next', url: '/' },
       { name: 'Memberships', short_name: 'Memberships', url: '/memberships' },
     ],
-  };
+  }) as MetadataRoute.Manifest;
 }

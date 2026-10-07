@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.115.0] — 2026-10-08
+
+**Meet installs as an app** — Sjoerd, 2026-10-07: "meet app go". Safari →
+Add to Dock on a Mac, Add to Home Screen on an iPhone: its own icon, its own
+window, no browser chrome, opening on the dashboard.
+
+- **The shape is now shared.** Three apps were already installable (Connect,
+  My Thread, The Fibre) and each carried its own hand-written
+  `app/manifest.ts` — the same four icon files, the same purposes, the same
+  colour reasoning, three times, the third of which opened by admitting it was
+  copied from the first. Meet would have been the fourth, so it became
+  `appManifest` and `appleWebAppMetadata` in `@thefibre/shared/pwa` and the
+  other three now read from it. A fifth app is one call and two exports.
+- **The splash and status-bar colours are derived from the design tokens**
+  rather than typed as hex — `surface-sunken` and `surface`, which is what the
+  old comments already claimed they were. They come out byte-identical to what
+  shipped, and a test pins both facts. Connect keeps its own splash, because
+  its `globals.css` genuinely overrides that ground; it says so at the call
+  site rather than in a fourth copy of a colour.
+- **Meet's icons** come from its own Matisse tile — the image the launcher
+  and the tab already show — through `scripts/make-app-icons.sh`, which reads
+  the maskable ground out of the artwork instead of guessing it.
+- **Both spellings of the capable tag.** `appleWebApp.capable` is how you ask
+  Next for chrome-less, and Next 15 renders it as `mobile-web-app-capable`
+  only; the `apple-` prefixed name iOS has honoured since 2008 is no longer
+  emitted at all. Whether a given iPhone treats the new name as an alias is a
+  question about somebody's phone, and the answer being no looks exactly like
+  the bug — an icon that opens a browser tab. Both are written now.
+- **`scripts/check-pwa-icons.mjs` joins `pnpm verify`**, beside its sibling
+  `check-sw-freshness.mjs`. A manifest naming an icon that is not in
+  `public/` is a blank tile in somebody's Dock and nothing else goes wrong:
+  valid manifest, green build, perfect page. Derived on both sides — the apps
+  are every `apps/*/app/manifest.ts` that exists, the paths are read out of
+  the shared module — and checked by deleting an icon to watch it fail.
+- **Still not offline, deliberately.** No service worker: Safari does not need
+  one to offer Add to Dock, and a cache that held an authenticated page or an
+  API response would serve one person's data to the next on a shared device,
+  or quietly serve yesterday's. The freshness gate that already guards the one
+  worker in the repo is a reminder of what that costs to maintain.
+- **Checked on a real build, not the dev server.** The dev server answered
+  `/manifest.webmanifest` through Meet's `[hostSlug]` catch-all with a 500,
+  which would have meant an app that cannot be installed at all — it was a
+  stale process that predated the file. The production build registers it as
+  a static route, and serving that build returns the manifest as
+  `application/manifest+json`, all four icons 200, and every head tag iOS and
+  macOS read.
+
 ## [1.114.2] — 2026-10-07
 
 Collecting `short_bio` into the published contract, the day production began

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { APPS } from '@thefibre/shared';
+import { appManifest } from '@thefibre/shared/pwa';
 
 // The phone app — build-order step 7, the capture pillar.
 //
@@ -26,35 +27,16 @@ import { APPS } from '@thefibre/shared';
 
 export default function manifest(): MetadataRoute.Manifest {
   const brand = APPS['fibre-sales'];
-  return {
+  return appManifest({
     name: brand.name,
-    short_name: brand.shortName,
+    shortName: brand.shortName,
     description: brand.tagline,
-    start_url: '/today',
-    // Scope is the whole app, so tapping a person, a tag or the landscape
-    // from inside the installed app stays inside it rather than kicking out
-    // to a browser tab.
-    scope: '/',
-    display: 'standalone',
-    // READ from apps/connections/app/globals.css, not chosen. The status bar
-    // sits against the top bar, which is `--surface` (255 255 255); the splash
-    // shows before the content ground, which is `--surface-sunken`
-    // (238 241 246). A first draft of this file guessed a warm off-white that
-    // matches neither — the same mistake the icon generator made an hour
-    // earlier with a guessed background, and fixed the same way.
-    //
-    // Light values only: a manifest carries one colour, and the app follows the
-    // system theme, so dark mode gets a light splash for the instant before the
-    // page paints. Acceptable; per-scheme theme colours are a meta-tag concern.
-    background_color: '#eef1f6',
-    theme_color: '#ffffff',
-    icons: [
-      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      // Cropped tighter than the others: a maskable icon may be cut to a
-      // circle, and the shapes worth keeping are in the middle of the tile.
-      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
+    startUrl: '/today',
+    // THE ONE OVERRIDE in the family, and it is real: this app's globals.css
+    // sets `--surface-sunken: 238 241 246`, so the shared token would give it
+    // a splash in a colour it never paints. Read from there, not chosen — a
+    // first draft of this file guessed a warm off-white that matched neither.
+    backgroundColor: '#eef1f6',
     // Long-press the home-screen icon. The two things somebody opens this app
     // to do in a hurry: see who they are about to meet, and find a person to
     // write about.
@@ -62,5 +44,5 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: 'Today', short_name: 'Today', url: '/today' },
       { name: 'Write about someone', short_name: 'People', url: '/people' },
     ],
-  };
+  }) as MetadataRoute.Manifest;
 }
