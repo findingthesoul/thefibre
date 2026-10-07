@@ -59,7 +59,7 @@ import {
   enrolmentPending,
   engagementMessage,
 } from '../lib/email/thread-templates.js';
-import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone, bioToHtml, bioToPlain, FIELD_LIMITS, tooLongMessage } from '@thefibre/shared';
+import { appUrl, LOCALES, INTL_LOCALES, toLocale, ENTITY, isTimeZone, bioToHtml, bioToPlain, resolveShortBio, FIELD_LIMITS, tooLongMessage } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
 import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
 // Template visibility is one rule for all three kinds of template, so it
@@ -5379,12 +5379,15 @@ async function organiserWithProfile<
     bio: string | null;
     photo_url: string | null;
   },
->(organiser: T): Promise<T> {
+>(organiser: T): Promise<T & { short_bio: string | null }> {
   const profile = await profileFor(organiser.user_id ?? '');
   return {
     ...organiser,
     display_name: profile?.display_name ?? organiser.display_name,
     bio: profile?.bio ?? organiser.bio,
+    // Profile-only: thread_organiser never had a short bio, so there is no
+    // fallback column to read.
+    short_bio: profile?.short_bio ?? null,
     photo_url: profile?.photo_url ?? organiser.photo_url,
   };
 }
@@ -5393,7 +5396,7 @@ async function organiserWithProfile<
 // slug, team threads under the TEAM's slug (Sjoerd 2026-07-02). One root
 // namespace, resolved organiser-first (Meet's pattern).
 type PublicOwner =
-  | { kind: 'organiser'; organiser: { id: string; user_id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; photo_url: string | null; timezone: string } }
+  | { kind: 'organiser'; organiser: { id: string; user_id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; short_bio: string | null; photo_url: string | null; timezone: string } }
   | { kind: 'team'; team: { id: string; workspace_id: string; slug: string; name: string; description: string | null } }
   | { kind: 'workspace'; workspace: { id: string; slug: string; name: string } };
 
@@ -5418,6 +5421,13 @@ type PublicOrganiserOut = {
    *  when there is no bio; may be plain text wrapped in paragraphs while the
    *  stored bios are still plain (see packages/shared/src/bio-html.ts). */
   bio_html: string | null;
+  /** A few lines for a COMPACT spot — a meta description, a social card, a
+   *  sidebar. Plain text, at most FIELD_LIMITS.short_bio characters. The
+   *  person's own short bio when they wrote one, otherwise the opening of
+   *  `bio` cut at a word boundary with an ellipsis (resolveShortBio in
+   *  @thefibre/shared — the one place that rule lives). Null only when there
+   *  is no bio of either kind. Additive (rule 8): added 2026-10-07. */
+  short_bio: string | null;
   photo_url: string | null;
   timezone: string;
 };
@@ -5430,6 +5440,7 @@ function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
       display_name: owner.workspace.name,
       bio: null,
       bio_html: null,
+      short_bio: null,
       photo_url: null,
       timezone: 'Europe/Amsterdam',
     };
@@ -5444,6 +5455,7 @@ function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
       // does not have to know which kind of owner it got.
       bio: owner.team.description,
       bio_html: bioToHtml(owner.team.description),
+      short_bio: resolveShortBio({ bio: owner.team.description }),
       photo_url: null,
       timezone: 'Europe/Amsterdam',
     };
@@ -5455,6 +5467,7 @@ function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
     display_name: o.display_name,
     bio: bioToPlain(o.bio, richTextToPlain),
     bio_html: bioToHtml(o.bio),
+    short_bio: resolveShortBio({ short_bio: o.short_bio, bio: o.bio }),
     photo_url: o.photo_url,
     timezone: o.timezone,
   };

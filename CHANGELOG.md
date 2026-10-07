@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.114.0] — 2026-10-07 — a short bio beside the full one (Meet 2.26.0, staging)
+
+Sjoerd: "short bio yes". Every person has a full bio — rich text, thousands
+of characters, for their own page — and the spots where space is small
+either showed nothing about the host (the left column of a Meet booking
+page) or cut the full bio wherever the box ended (the social card). Now each
+person also has a **short bio**: plain text, a few lines, written in
+Settings → Profile.
+
+- **Storage.** `identity_profile.short_bio`, nullable text, beside
+  `display_name` / `bio` / `photo_url` (migration `20261007195741`, made by
+  `new-migration.sh`). RLS unchanged — the table's policies already cover it.
+  NULL means "not written".
+- **One limit, one home.** `FIELD_LIMITS.short_bio = 280` in
+  `packages/shared/src/field-limits.ts`. The API's profile PATCH reads it
+  (trimmed first, so invisible whitespace never counts; an emptied one is
+  stored as null) and refuses in words — "A short bio can be at most 280
+  characters." — under the field. The shared profile form counts against
+  the same number, as the bio's counter does, and refuses before the save.
+- **One fallback rule.** An empty short bio shows the opening of the full
+  bio instead: plain text whatever the stored form, flattened to one line,
+  cut at a word boundary to at most 200 characters with an ellipsis.
+  `resolveShortBio` in `packages/shared/src/short-bio.ts` is the only place
+  that rule lives; the API resolves it for every payload it serves, so a
+  page, a social card and a website outside this repo show the same words.
+- **Where it shows.** Meet's meeting-type page: a host line at the foot of
+  the left column (name + short bio). Meet's host page: the short bio under
+  the header, the full bio behind "More about {name}" when it says more
+  (`fullBioAddsMore`), so the meeting types are no longer pushed below the
+  fold. Thread's organiser page: the meta description and the social card
+  read the short bio first. The full bio stays on the organiser page itself.
+- **Public API, additive only.** `organiser.short_bio` joins the public
+  organiser payload (resolved, plain text, ≤ 280) and the developers page
+  documents it; `verify-public-api.mjs` carries it in PENDING until
+  production serves it — **move it into `SHAPES.organiser` the day
+  `deploy-api.sh prod` ships this**. Meet's public host and meeting-type
+  payloads gain `short_bio` the same way. No existing field changes.
+- **A failed read is not "no row".** `ensureProfile` provisioned a profile
+  whenever its read returned no data — including when the read FAILED, and
+  provisioning upserts on email, so it would have overwritten a person's
+  name, bio and photo with the seed. A select naming a column the database
+  does not have yet (this release's API ahead of its migration) is exactly
+  such a failure. It now throws instead; `profileFor` logs the failure.
+- i18n: `short_bio`, `short_bio_hint` (shared chrome) and `more_about` (Meet
+  public), all six locales, non-English marked `// MT`.
+- Tests: `short-bio.test.ts` (19 cases — own wins and is never cut, the
+  fallback cuts at a word within budget, HTML never leaks, null when there is
+  neither, `fullBioAddsMore`), `field-limits.test.ts` (the API schema and the
+  form both read the one number), `profile-patch.test.ts` (at the limit,
+  over it in words, trimming, optional for old callers).
+
+**Order matters.** The migration must reach a database before this API does
+— the profile selects name the new column. On staging it is applied with
+`db-push-staging.sh` inside the release clearance; production needs
+`db-push-prod.sh` before `deploy-api.sh prod`.
+
 ## [1.113.7] — 2026-10-07 — Meet's New booking finds the person you mean (Meet 2.25.2, staging)
 
 In Meet's **New booking** dialog the host could only type a name and an

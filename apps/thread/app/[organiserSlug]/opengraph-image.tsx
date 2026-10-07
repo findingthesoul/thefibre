@@ -8,7 +8,7 @@
 // it — how many public threads are on it right now.
 
 import { ImageResponse } from 'next/og';
-import { EMAIL_BRAND } from '@thefibre/shared';
+import { EMAIL_BRAND, excerptAtWord } from '@thefibre/shared';
 import { publicFetch } from '@/lib/public-api';
 import { remoteImage } from '@/lib/og-image';
 
@@ -17,7 +17,14 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 type Payload = {
-  organiser: { slug: string; display_name: string | null; bio: string | null; photo_url: string | null };
+  organiser: {
+    slug: string;
+    display_name: string | null;
+    bio: string | null;
+    /** Plain text, already resolved by the API; absent on an older API. */
+    short_bio?: string | null;
+    photo_url: string | null;
+  };
   threads: unknown[];
   site?: { name: string | null; logo_url: string | null; hero_url: string | null; headline: string | null } | null;
 };
@@ -38,7 +45,10 @@ export default async function Image({
   const name = data?.site?.name ?? data?.organiser.display_name ?? organiserSlug;
   // Drawn into an image: tags would be painted as characters. The published
   // `bio` is plain text (`bio_html` carries the markup), so it is safe here.
-  const headline = data?.site?.headline ?? data?.organiser.bio ?? null;
+  // A social card is the compact spot the short bio exists for: it comes
+  // first, the full bio only when an older API did not send one.
+  const headline =
+    data?.site?.headline ?? data?.organiser.short_bio ?? data?.organiser.bio ?? null;
   const count = data?.threads.length ?? 0;
 
   const [hero, logo, wordmark] = await Promise.all([
@@ -47,8 +57,8 @@ export default async function Image({
     remoteImage(EMAIL_BRAND.logoUrl),
   ]);
 
-  const shownHeadline =
-    headline && headline.length > 150 ? `${headline.slice(0, 148).trimEnd()}…` : headline;
+  // Cut at a word, never mid-word — the same excerpt rule as the short bio.
+  const shownHeadline = headline ? excerptAtWord(headline, 150) : headline;
   // Same two ladders as the thread card: the panel is half the frame with a
   // header image and the whole of it without.
   const nameSize = hero

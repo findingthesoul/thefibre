@@ -14,6 +14,9 @@ type Host = {
   slug: string;
   full_name: string | null;
   bio: string | null;
+  /** Resolved by the API (resolveShortBio). Optional: an API that predates
+   *  it omits it, and the column then simply shows no host line. */
+  short_bio?: string | null;
   photo_url: string | null;
   avatar_url: string | null;
   location: string | null;
@@ -110,6 +113,7 @@ export default async function MeetingTypePage({
         ownerName={asHost.host.full_name ?? asHost.host.slug}
         ownerAvatar={asHost.host.photo_url ?? asHost.host.avatar_url}
         ownerLocation={asHost.host.location}
+        ownerShortBio={asHost.host.short_bio ?? null}
         backHref={`/${asHost.host.slug}`}
         hostTimezone={asHost.host.timezone}
         workspace={asHost.workspace ?? null}
@@ -140,6 +144,7 @@ export default async function MeetingTypePage({
       ownerName={asTeam.team.name}
       ownerAvatar={null}
       ownerLocation={null}
+      ownerShortBio={null}
       backHref={`/${asTeam.team.slug}`}
       hostTimezone={'UTC'}
       workspace={asTeam.workspace ?? null}
@@ -155,6 +160,7 @@ async function Card({
   ownerName,
   ownerAvatar,
   ownerLocation,
+  ownerShortBio,
   backHref,
   hostTimezone,
   workspace,
@@ -167,6 +173,9 @@ async function Card({
   ownerName: string;
   ownerAvatar: string | null;
   ownerLocation: string | null;
+  /** The few lines about the host this narrow column has room for — never
+   *  the full bio, which lives on the host's own page. */
+  ownerShortBio: string | null;
   backHref: string;
   hostTimezone: string;
   workspace: PublicWorkspace | null;
@@ -269,6 +278,15 @@ async function Card({
                 <p className="mt-6 text-sm text-neutral-700 leading-relaxed whitespace-pre-wrap border-t border-neutral-200 pt-6">
                   {meetingType.description}
                 </p>
+              )}
+
+              {/* Who you are booking with, in a few lines. neutral-* like the
+                  rest of this card, which paints its own white ground. */}
+              {ownerShortBio && (
+                <div className="mt-6 border-t border-neutral-200 pt-6 text-sm leading-relaxed">
+                  <div className="font-medium text-neutral-900">{ownerName}</div>
+                  <p className="mt-1 text-neutral-600">{ownerShortBio}</p>
+                </div>
               )}
             </aside>
 

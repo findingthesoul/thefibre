@@ -32,6 +32,9 @@ import { chromeT, useLocale } from './i18n-ui.js';
 export type ProfileValues = {
   display_name: string;
   bio: string;
+  /** Plain text, a few lines for compact spots (FIELD_LIMITS.short_bio).
+   *  Empty = not written: readers show the opening of the bio instead. */
+  short_bio: string;
   photo_url: string | null;
   timezone: string;
 };
@@ -79,11 +82,15 @@ export function ProfileForm({
   // line break the person typed. One helper decides that, here as everywhere
   // else (packages/shared/src/bio-html.ts).
   const [bio, setBio] = useState(bioToHtml(initial.bio) ?? '');
+  const [shortBio, setShortBio] = useState(initial.short_bio);
   const [photoUrl, setPhotoUrl] = useState<string | null>(initial.photo_url);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const over = bio.length > FIELD_LIMITS.bio;
+  // Trimmed, as the API counts it: whitespace the person cannot see must not
+  // tip a short bio over its limit.
+  const shortOver = shortBio.trim().length > FIELD_LIMITS.short_bio;
   /** What the bio was when the screen opened. Kept so an empty editor can
    *  never submit over a bio nobody touched. */
   const seededBio = useRef(bioToHtml(initial.bio) ?? '');
@@ -125,6 +132,11 @@ export function ProfileForm({
     if (bio.trim().length > FIELD_LIMITS.bio) {
       return setFieldErrors({ bio: [tooLongMessage('A bio', FIELD_LIMITS.bio)] });
     }
+    if (shortBio.trim().length > FIELD_LIMITS.short_bio) {
+      return setFieldErrors({
+        short_bio: [tooLongMessage('A short bio', FIELD_LIMITS.short_bio)],
+      });
+    }
     if (displayName.trim().length > FIELD_LIMITS.display_name) {
       return setFieldErrors({
         display_name: [tooLongMessage('A display name', FIELD_LIMITS.display_name)],
@@ -141,6 +153,7 @@ export function ProfileForm({
         // writing. A bio the person actually emptied still clears, because
         // then `bioEdited` is true.
         bio: !bioEdited.current && !bio.trim() && seededBio.current ? seededBio.current : bio.trim(),
+        short_bio: shortBio.trim(),
         photo_url: photoUrl,
         timezone: timezone.trim() || 'Europe/Amsterdam',
         ...(slug ? { slug: slugValue.trim() } : {}),
@@ -185,6 +198,32 @@ export function ProfileForm({
           {slug.hint && <span className="mt-1 block text-xs text-ink-muted">{slug.hint}</span>}
         </label>
       )}
+
+      {/* Before the full bio: the line people read first, then the page they
+          read if they want more. Plain text on purpose — it is shown where a
+          formatted bio would not fit (Meet's booking column, a social card). */}
+      <TextAreaField
+        label={chromeT(locale, 'short_bio')}
+        name="short_bio"
+        rows={3}
+        value={shortBio}
+        onChange={(e) => touched(setShortBio)(e.target.value)}
+        hint={
+          <span className="flex items-baseline justify-between gap-3">
+            <span>{chromeT(locale, 'short_bio_hint')}</span>
+            <span className={`tabular-nums ${shortOver ? 'text-red-700' : ''}`}>
+              {shortBio.trim().length.toLocaleString('en-GB')} /{' '}
+              {FIELD_LIMITS.short_bio.toLocaleString('en-GB')}
+            </span>
+          </span>
+        }
+        errors={[
+          ...new Set([
+            ...(shortOver ? [tooLongMessage('A short bio', FIELD_LIMITS.short_bio)] : []),
+            ...(fieldErrors.short_bio ?? []),
+          ]),
+        ]}
+      />
 
       <RichTextField
         locale={locale}

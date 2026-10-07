@@ -906,6 +906,22 @@ const CHROME = {
     de: 'Bio', // MT
     fr: 'Bio', // MT
   },
+  short_bio: {
+    en: 'Short bio',
+    nl: 'Korte bio',
+    es: 'Bio breve', // MT
+    pt: 'Bio curta', // MT
+    de: 'Kurzbio', // MT
+    fr: 'Bio courte', // MT
+  },
+  short_bio_hint: {
+    en: 'A few lines for small spaces, like your booking pages. Left empty, the start of your bio is used.',
+    nl: 'Een paar regels voor kleine plekken, zoals je boekingspagina’s. Laat je het leeg, dan wordt het begin van je bio gebruikt.', // MT
+    es: 'Unas líneas para espacios pequeños, como tus páginas de reserva. Si lo dejas vacío, se usa el inicio de tu bio.', // MT
+    pt: 'Algumas linhas para espaços pequenos, como as suas páginas de marcação. Se ficar vazio, usa-se o início da sua bio.', // MT
+    de: 'Ein paar Zeilen für kleine Flächen, etwa deine Buchungsseiten. Leer gelassen, wird der Anfang deiner Bio verwendet.', // MT
+    fr: 'Quelques lignes pour les petits espaces, comme tes pages de réservation. Laissée vide, le début de ta bio est utilisé.', // MT
+  },
   photo: {
     en: 'Photo',
     nl: 'Foto',

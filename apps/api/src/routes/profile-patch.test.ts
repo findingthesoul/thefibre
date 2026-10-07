@@ -14,6 +14,7 @@ import { ProfilePatch } from './profile.js';
 const asFormSends = (over: Record<string, unknown> = {}) => ({
   display_name: 'Sjoerd',
   bio: 'A paragraph about me.',
+  short_bio: 'Facilitator. Listens for a living.',
   photo_url: null,
   timezone: 'Europe/Amsterdam',
   ...over,
@@ -28,7 +29,7 @@ describe('the profile save accepts what the form sends', () => {
     // `v.display_name || null`, `v.bio || null`, `v.timezone || null` — the
     // wrappers all do this. `timezone` refused null until 2026-10-03, which
     // made an empty picker a 400 with no explanation.
-    for (const field of ['display_name', 'bio', 'photo_url', 'timezone']) {
+    for (const field of ['display_name', 'bio', 'short_bio', 'photo_url', 'timezone']) {
       const r = ProfilePatch.safeParse(asFormSends({ [field]: null }));
       expect(r.success, `${field} must accept null`).toBe(true);
     }
@@ -71,5 +72,32 @@ describe('when it does refuse, it says why in words', () => {
     expect(flat?.fieldErrors.display_name?.[0]).toBe(
       'A display name can be at most 200 characters.',
     );
+  });
+});
+
+describe('the short bio', () => {
+  it('takes one at the limit', () => {
+    expect(ProfilePatch.safeParse(asFormSends({ short_bio: 's'.repeat(280) })).success).toBe(true);
+  });
+
+  it('refuses one over it, in words, under its own field', () => {
+    const r = ProfilePatch.safeParse(asFormSends({ short_bio: 's'.repeat(281) }));
+    expect(r.success).toBe(false);
+    expect(r.success ? null : r.error.flatten().fieldErrors.short_bio?.[0]).toBe(
+      'A short bio can be at most 280 characters.',
+    );
+  });
+
+  it('does not count whitespace the person cannot see', () => {
+    const r = ProfilePatch.safeParse(asFormSends({ short_bio: `  ${'s'.repeat(280)}\n ` }));
+    expect(r.success).toBe(true);
+    expect(r.success ? r.data.short_bio : null).toBe('s'.repeat(280));
+  });
+
+  it('is optional, so a caller that never sends it is unchanged', () => {
+    const { short_bio: _omit, ...without } = asFormSends();
+    const r = ProfilePatch.safeParse(without);
+    expect(r.success).toBe(true);
+    expect(r.success ? 'short_bio' in r.data : true).toBe(false);
   });
 });

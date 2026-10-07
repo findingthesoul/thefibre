@@ -62,6 +62,15 @@ export const ProfilePatch = z.object({
     .max(FIELD_LIMITS.bio, tooLongMessage('A bio', FIELD_LIMITS.bio))
     .nullable()
     .optional(),
+  // The short bio: plain text, a few lines for compact spots. Trimmed BEFORE
+  // the length check, so trailing whitespace the person cannot see never
+  // counts against them; an emptied one is stored as null below.
+  short_bio: z
+    .string()
+    .trim()
+    .max(FIELD_LIMITS.short_bio, tooLongMessage('A short bio', FIELD_LIMITS.short_bio))
+    .nullable()
+    .optional(),
   photo_url: z
     .string()
     .max(FIELD_LIMITS.photo_url, tooLongMessage('A photo URL', FIELD_LIMITS.photo_url))
@@ -117,6 +126,9 @@ profileRoutes.patch('/', async (c) => {
   // the editor flips. `|| null` keeps an emptied bio empty rather than
   // storing '<p></p>'.
   if (typeof face.bio === 'string') face.bio = sanitizeRichText(face.bio);
+  // Empty means "not written", which readers turn into the bio's opening
+  // (resolveShortBio). '' would read as written-and-blank.
+  if (face.short_bio === '') face.short_bio = null;
 
   if (Object.keys(face).length) {
     const r = await saveProfile(ctx.userId, face);

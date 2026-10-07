@@ -42,6 +42,7 @@ function strOrNull(v: FormDataEntryValue | null): string | null {
 export async function saveProfile(patch: {
   display_name: string | null;
   bio: string | null;
+  short_bio: string | null;
   photo_url: string | null;
   timezone: string | null;
 }): Promise<ActionResult> {

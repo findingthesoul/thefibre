@@ -20,6 +20,8 @@ import { t, type Locale } from '@/lib/i18n-ui';
 export type PublicProfile = {
   display_name: string | null;
   bio: string | null;
+  /** Optional on the type: an API that predates the column omits it. */
+  short_bio?: string | null;
   photo_url: string | null;
   timezone: string | null;
   /** UI + email language (i18n P2) — edited by LanguagePicker, not this form. */
@@ -42,6 +44,7 @@ export function ProfileForm({
       initial={{
         display_name: profile.display_name ?? '',
         bio: profile.bio ?? '',
+        short_bio: profile.short_bio ?? '',
         photo_url: profile.photo_url ?? null,
         timezone: profile.timezone ?? '',
       }}
@@ -52,6 +55,7 @@ export function ProfileForm({
         const r = await saveProfile({
           display_name: v.display_name || null,
           bio: v.bio || null,
+          short_bio: v.short_bio || null,
           photo_url: v.photo_url,
           timezone: v.timezone || null,
         });

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { APPS, ENTITY, surfaceUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
-import { bioToHtml } from '@thefibre/shared';
+import { bioToHtml, fullBioAddsMore } from '@thefibre/shared';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import { publicT, toLocale, type Locale } from '@/lib/i18n-public';
 import { WorkspaceLine, type PublicWorkspace } from './workspace-line';
@@ -29,6 +29,9 @@ type Host = {
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  /** Resolved by the API (resolveShortBio): the host's own short bio, else
+   *  the opening of `bio`. Optional because an API that predates it omits it. */
+  short_bio?: string | null;
   photo_url: string | null;
   location: string | null;
   timezone: string;
@@ -77,6 +80,15 @@ export default async function RootSlugPage({
 
 function HostView({ host, L }: { host: Host; L: Locale }) {
   const photo = host.photo_url ?? host.avatar_url;
+  const name = host.full_name ?? host.slug;
+  const bioHtml = bioToHtml(host.bio);
+  const shortBio = host.short_bio ?? null;
+  // A booking page is a compact spot (Sjoerd, 2026-10-07): the short bio is
+  // what a guest reads, beside the meeting types they came for. The full bio
+  // stays one click away rather than pushing the list below the fold — and
+  // is shown open, as before, when there is no short bio to stand in for it
+  // (an API that predates the field).
+  const moreToRead = shortBio ? fullBioAddsMore(shortBio, host.bio) : false;
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-2xl px-6 py-16">
@@ -86,7 +98,7 @@ function HostView({ host, L }: { host: Host; L: Locale }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photo}
-              alt={host.full_name ?? host.slug}
+              alt={name}
               className="h-20 w-20 rounded-full object-cover"
             />
           ) : (
@@ -104,17 +116,35 @@ function HostView({ host, L }: { host: Host; L: Locale }) {
           </div>
         </header>
 
+        {/* neutral-*, not the ink tokens, like everything else on this page:
+            the page paints its own white ground, and a token would follow
+            the visitor's dark theme onto it (light text on white). */}
+        {shortBio && (
+          <p className="mt-6 text-neutral-700 leading-relaxed">{shortBio}</p>
+        )}
+
         {/* The bio is becoming rich text. Until every stored bio has been
             converted it may still be plain, so it goes through bioToHtml,
             which escapes-and-wraps plain text and passes HTML through — see
             packages/shared/src/bio-html.ts, which is scaffolding with a
             demolition date. The output of the plain branch renders exactly as
             the whitespace-pre-wrap above it did. */}
-        {bioToHtml(host.bio) && (
+        {bioHtml && !shortBio && (
           <RichText
-            html={bioToHtml(host.bio)!}
+            html={bioHtml}
             className="mt-8 text-neutral-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
           />
+        )}
+        {bioHtml && moreToRead && (
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm text-neutral-500 hover:text-neutral-900 underline-offset-2 hover:underline">
+              {publicT(L, 'more_about', { name })}
+            </summary>
+            <RichText
+              html={bioHtml}
+              className="mt-4 text-neutral-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
+            />
+          </details>
         )}
 
         <MeetingTypeList slug={host.slug} items={host.meeting_types} L={L} />

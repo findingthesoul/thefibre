@@ -52,6 +52,14 @@ const CATALOG = {
     de: 'Noch keine Meeting-Typen verfügbar.', // MT
     fr: 'Aucun type de rendez-vous disponible pour l’instant.', // MT
   },
+  more_about: {
+    en: 'More about {name}',
+    nl: 'Meer over {name}', // MT
+    es: 'Más sobre {name}', // MT
+    pt: 'Mais sobre {name}', // MT
+    de: 'Mehr über {name}', // MT
+    fr: 'En savoir plus sur {name}', // MT
+  },
   minutes_short: {
     en: '{n} min',
     nl: '{n} min',

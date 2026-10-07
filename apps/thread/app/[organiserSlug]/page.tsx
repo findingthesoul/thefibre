@@ -17,7 +17,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { organiserSlug } = await params;
   const data = await publicFetch<{
-    organiser: { display_name: string | null; bio: string | null };
+    organiser: { display_name: string | null; bio: string | null; short_bio?: string | null };
     site?: { name: string | null; headline: string | null } | null;
   }>(`/api/v1/thread/public/organiser/${organiserSlug}`).catch(() => null);
   if (!data) return {};
@@ -26,7 +26,10 @@ export async function generateMetadata({
   // printed by search engines and social cards verbatim. `organiser.bio` is
   // published as plain text for exactly this kind of reader; the formatted
   // version is `bio_html`, which only a renderer takes.
-  const description = data.site?.headline ?? data.organiser.bio ?? undefined;
+  // The short bio first: a meta description is a compact spot, and search
+  // engines cut a long one wherever they like. Absent on an older API.
+  const description =
+    data.site?.headline ?? data.organiser.short_bio ?? data.organiser.bio ?? undefined;
   return {
     title,
     description,

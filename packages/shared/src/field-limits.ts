@@ -31,6 +31,12 @@ export const FIELD_LIMITS = {
    *  start refusing saves that worked the day before. A bio of the kind
    *  people paste in is 1,000–3,000 characters before any of that. */
   bio: 8000,
+  /** The SHORT bio — a few lines for compact spots (a Meet booking page's
+   *  left column, a meta description, a social card). Plain text, so no
+   *  markup headroom is needed: 280 is two or three sentences, the length a
+   *  person can read at a glance beside a calendar. When it is empty, readers
+   *  show the opening of the full bio instead (short-bio.ts). */
+  short_bio: 280,
   /** A person's display name. */
   display_name: 200,
   /** A stored asset URL. */

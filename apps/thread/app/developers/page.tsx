@@ -8,6 +8,7 @@
 // a field here, that script should have failed first.
 
 import type { Metadata } from 'next';
+import { FIELD_LIMITS } from '@thefibre/shared';
 import { THREAD_ORIGIN } from '@/lib/public-host';
 
 export const metadata: Metadata = {
@@ -175,6 +176,11 @@ export default function DevelopersPage() {
                 name: 'organiser.bio_html',
                 type: 'string | null',
                 note: 'the same bio as sanitised HTML, for rendering',
+              },
+              {
+                name: 'organiser.short_bio',
+                type: 'string | null',
+                note: `plain text, at most ${FIELD_LIMITS.short_bio} characters, for compact spots; the organiser’s own short bio, else the opening of bio cut at a word with an ellipsis`,
               },
               { name: 'organiser.photo_url', type: 'string | null' },
               { name: 'organiser.timezone', type: 'IANA tz', note: 'e.g. Europe/Amsterdam' },

@@ -15,6 +15,10 @@ import { adminClient } from '../db.js';
 export type IdentityProfile = {
   display_name: string | null;
   bio: string | null;
+  /** A few lines for compact spots, plain text; null = not written. Readers
+   *  that SHOW it go through resolveShortBio (@thefibre/shared), which falls
+   *  back to the opening of `bio`. */
+  short_bio: string | null;
   photo_url: string | null;
   timezone: string | null;
   /** UI + email language (i18n P2, D1) — one of LOCALES, null = no preference. */
@@ -28,6 +32,7 @@ export type IdentityProfile = {
 const EMPTY: IdentityProfile = {
   display_name: null,
   bio: null,
+  short_bio: null,
   photo_url: null,
   timezone: null,
   locale: null,
@@ -54,10 +59,10 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
   const email = await emailFor(userId);
   if (!email) return EMPTY;
 
-  const [{ data: identity }, { data: legacy }] = await Promise.all([
+  const [{ data: identity, error: identityError }, { data: legacy }] = await Promise.all([
     adminClient
       .from('identity_profile')
-      .select('display_name, bio, photo_url, timezone, locale, todo_enabled')
+      .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled')
       .eq('email', email)
       .maybeSingle(),
     adminClient
@@ -66,10 +71,17 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
       .eq('user_id', userId)
       .maybeSingle(),
   ]);
+  // Loud, not thrown: this feeds public pages, which should degrade rather
+  // than 500. But a select naming a column the database lacks (a release
+  // that reached an API before its migration) fails at RUNTIME and looks
+  // exactly like "this person has no profile" — say so in the log.
+  if (identityError) console.error('[profileFor] identity_profile read failed', identityError);
 
   return {
     display_name: identity?.display_name ?? legacy?.display_name ?? null,
     bio: identity?.bio ?? legacy?.bio ?? null,
+    // No legacy fallback — user_profile never had one (column born 20261007195741).
+    short_bio: identity?.short_bio ?? null,
     photo_url: identity?.photo_url ?? legacy?.photo_url ?? null,
     timezone: identity?.timezone ?? legacy?.timezone ?? null,
     // No legacy fallback — user_profile never had a locale (column born 20260906020000).
@@ -85,10 +97,17 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
   if (!email) throw new Error('no email for user');
   const existing = await adminClient
     .from('identity_profile')
-    .select('display_name, bio, photo_url, timezone, locale, todo_enabled')
+    .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled')
     .eq('email', email)
     .maybeSingle();
   if (existing.data) return { ...existing.data, email };
+  // A FAILED read is not "no row". Provisioning below upserts on email, so
+  // treating an error as absence would overwrite this person's name, bio and
+  // photo with the seed — e.g. when this select names a column the database
+  // does not have yet because the API deployed before its migration.
+  if (existing.error) {
+    throw new Error(`identity_profile read failed: ${existing.error.message}`);
+  }
 
   // Seeded from the seat's own name, and from the old per-seat profile if this
   // person had one — a new workspace should not hand somebody a blank face.
@@ -109,7 +128,7 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
   const { data: created, error } = await adminClient
     .from('identity_profile')
     .upsert(seed, { onConflict: 'email' })
-    .select('display_name, bio, photo_url, timezone, locale, todo_enabled')
+    .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled')
     .single();
   if (error || !created) throw new Error(error?.message ?? 'could not provision profile');
   return { ...created, email };

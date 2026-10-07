@@ -15,10 +15,10 @@ import { FIELD_LIMITS, tooLongMessage } from './field-limits.js';
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 describe('the limit has one home', () => {
-  it('the API profile schema derives the four face fields from it', () => {
+  it('the API profile schema derives the five face fields from it', () => {
     const src = read('../../../apps/api/src/routes/profile.ts');
     const schema = src.match(/export const ProfilePatch = z\.object\(\{([\s\S]*?)\n\}\)/)![1];
-    for (const field of ['bio', 'display_name', 'photo_url', 'timezone'] as const) {
+    for (const field of ['bio', 'short_bio', 'display_name', 'photo_url', 'timezone'] as const) {
       expect(schema, `${field} must read FIELD_LIMITS`).toContain(`FIELD_LIMITS.${field}`);
     }
   });
@@ -68,12 +68,25 @@ describe('the limit has one home', () => {
     // And refuses before the save rather than after it.
     expect(src).toMatch(/if \(bio\.trim\(\)\.length > FIELD_LIMITS\.bio\)/);
   });
+
+  it('the form counts and refuses the SHORT bio against the same number', () => {
+    const src = read('./ui/profile-form.tsx');
+    expect(src).toMatch(/if \(shortBio\.trim\(\)\.length > FIELD_LIMITS\.short_bio\)/);
+    // The counter shows the limit, so the person sees it before the save.
+    expect(src).toContain('FIELD_LIMITS.short_bio.toLocaleString');
+  });
 });
 
 describe('the sentence a person reads', () => {
   it('says the number, because "too long" leaves them guessing how much to cut', () => {
     expect(tooLongMessage('A bio', FIELD_LIMITS.bio)).toBe(
       'A bio can be at most 8,000 characters.',
+    );
+  });
+
+  it('says the short bio limit the same way', () => {
+    expect(tooLongMessage('A short bio', FIELD_LIMITS.short_bio)).toBe(
+      'A short bio can be at most 280 characters.',
     );
   });
 

@@ -172,7 +172,11 @@ const PENDING = {
   // What that day proved: an entry here blocks EVERYONE's gate the day
   // production serves it, not only its author's. It is a promise to collect
   // it that same day, in the session that deploys, not a parking spot.
-  organiser: [],
+  //
+  // `short_bio` — added 2026-10-07 (the short bio beside the full one;
+  // resolved through resolveShortBio). Move it into SHAPES.organiser the day
+  // `deploy-api.sh prod` ships it.
+  organiser: ['short_bio'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */

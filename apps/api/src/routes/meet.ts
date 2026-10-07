@@ -69,7 +69,7 @@ import { createMeetingLink } from '../lib/meeting-links.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { meetT } from '../lib/email/meet-booking-i18n.js';
-import { isLocale, resolveEmailLocale, resolvePublicLocale, type Locale } from '@thefibre/shared';
+import { isLocale, resolveEmailLocale, resolvePublicLocale, resolveShortBio, type Locale } from '@thefibre/shared';
 import { createMeetPaymentLink, meetPayButtonHtml } from '../lib/meet-payment-link.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
@@ -411,6 +411,13 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
     full_name: hostProfile?.display_name ?? userObj?.full_name ?? null,
     avatar_url: userObj?.avatar_url ?? null,
     bio: hostProfile?.bio ?? host.bio,
+    // The few lines a compact spot shows: the host's own short bio, else the
+    // opening of the bio above (resolveShortBio — the one place that rule
+    // lives). Additive.
+    short_bio: resolveShortBio({
+      short_bio: hostProfile?.short_bio,
+      bio: hostProfile?.bio ?? host.bio,
+    }),
     photo_url: hostProfile?.photo_url ?? host.photo_url,
     location: host.location,
     // timezone stays the HOST's — it anchors availability math.
@@ -485,6 +492,11 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
       full_name: mtHostProfile?.display_name ?? userObj?.full_name ?? null,
       avatar_url: userObj?.avatar_url ?? null,
       bio: mtHostProfile?.bio ?? host.bio,
+      // For the booking page's left column, where the full bio does not fit.
+      short_bio: resolveShortBio({
+        short_bio: mtHostProfile?.short_bio,
+        bio: mtHostProfile?.bio ?? host.bio,
+      }),
       photo_url: mtHostProfile?.photo_url ?? host.photo_url,
       location: host.location,
       timezone: host.timezone,
