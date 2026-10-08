@@ -84,7 +84,9 @@ export default async function MembersPage({
         </p>
       )}
 
-      {list.state === 'ok' && list.items.length > 0 && <MemberSearch members={list.items} />}
+      {list.state === 'ok' && list.items.length > 0 && (
+        <MemberSearch members={list.items} workspaceId={workspaceId} />
+      )}
 
     </PageShell>
   );

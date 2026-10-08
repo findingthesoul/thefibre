@@ -22,7 +22,14 @@ import { Search } from 'lucide-react';
 import type { DirectoryMember } from '@/lib/portal-api';
 import { MemberCard } from './member-card';
 
-export function MemberSearch({ members }: { members: DirectoryMember[] }) {
+export function MemberSearch({
+  members,
+  workspaceId,
+}: {
+  members: DirectoryMember[];
+  /** So each row can link to that member's page in this community. */
+  workspaceId: string;
+}) {
   const [q, setQ] = useState('');
 
   const shown = useMemo(() => {
@@ -58,7 +65,11 @@ export function MemberSearch({ members }: { members: DirectoryMember[] }) {
       ) : (
         <ul className="mt-4 space-y-3">
           {shown.map((m) => (
-            <MemberCard key={m.person_id} member={m} />
+            <MemberCard
+              key={m.person_id}
+              member={m}
+              href={`/members/${workspaceId}/${m.person_id}`}
+            />
           ))}
         </ul>
       )}

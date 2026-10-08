@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.121.0] — 2026-10-08
+
+Clicking a member in My Thread opens their page, with a back button — Sjoerd
+asked for it on 2026-10-04 and it has been owed since.
+
+- **`/members/[workspaceId]/[personId]`** in My Thread. The name and the
+  photo on each card are the links; the whole card is not, because a card
+  full of `mailto:` and `tel:` links inside another link is ambiguous to tap,
+  and on a phone that is most taps.
+- **It asks the LIST, and renders one row of it.** Who may see whom here is
+  eleven rules in order — signed in, a member of that community, the
+  community has a directory, YOU are listed, they are listed, their
+  membership is active or in grace, not soft-deleted, not you, and in
+  category mode you share a category; then contact details only if they chose
+  to show them. A detail page with its own query would repeat all of that,
+  and the day one of them drifts it shows somebody the list would have
+  hidden. So it has no query of its own: being more generous than the list is
+  not prevented by care, it is impossible.
+- **Lapsed, unlisted, another category, soft-deleted and "no such person" all
+  render the same sentence.** A page that told them apart would answer
+  questions about people the viewer may not ask about — "is she still a
+  member here?" is exactly what a lapsed member's absence withholds.
+- **A failed load is kept apart from an absent member**, so our outage never
+  reads as a statement about somebody's membership.
+- **`lib/directory-member.ts`** holds that decision with five unit cases,
+  because it is a privacy decision and one inside a server component cannot
+  be exercised at all.
+
 ## [1.120.1] — 2026-10-08
 
 The member dialog's own test, now that staging carries it: three cases in
