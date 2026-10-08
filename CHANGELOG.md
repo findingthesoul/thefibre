@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.121.1] — 2026-10-08
+
+The member page printed the person's name twice — once as the page title and
+again four lines below it, inside the card. Found by looking at the rendered
+page on staging, which is the only thing that would have found it: every
+assertion about the name passed happily with both of them on screen.
+
 ## [1.121.0] — 2026-10-08
 
 Clicking a member in My Thread opens their page, with a back button — Sjoerd

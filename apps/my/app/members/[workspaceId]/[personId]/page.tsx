@@ -108,8 +108,12 @@ export default async function MemberPage({
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-medium text-ink">{m.display_name}</h2>
-            {place && <p className="mt-0.5 text-sm text-ink-muted">{place}</p>}
+            {/* The name is NOT repeated here: PageShell's title is already
+                this person's name, and on a phone the two sat four lines
+                apart saying the same thing. Seen in the render check, which
+                is the only thing that would have shown it — every assertion
+                about the name passed with both of them on screen. */}
+            {place && <p className="text-sm text-ink-muted">{place}</p>}
             {(m.categories.length > 0 || m.tags.length > 0) && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {m.categories.map((c) => (
