@@ -11,11 +11,15 @@
 //    they are backstage tools, not part of the welcome parade.
 //  - RESPECTS deliberate deactivation: an app the workspace switched OFF
 //    stays off — we only create rows that never existed.
-//  - Every live user in the workspace gets app_membership (role member) for
-//    the activated apps, so nobody stares at a no-access page for an app
-//    their plan paid for.
+//  - The activated apps go to the workspace's EVERYONE team, once, at
+//    activation, so every MEMBER holds them and nobody stares at a no-access
+//    page for an app their plan paid for. Granted once and never
+//    re-asserted, because an admin who removes one has to be able to make it
+//    stay removed (Sjoerd, 2026-10-08: "meet thread via everyone").
 
 import { adminClient } from '../db.js';
+import { ensureAutomaticTeams } from './automatic-teams.js';
+import { syncTeam } from './team-grants.js';
 
 const ALWAYS = ['fibre-meet', 'the-thread'];
 
@@ -37,43 +41,51 @@ export async function ensurePlanApps(workspaceId: string): Promise<void> {
       .eq('workspace_id', workspaceId);
     const known = new Set((existing ?? []).map((r) => r.app_id));
 
-    const { data: users } = await adminClient
-      .from('user')
-      .select('id')
-      .eq('workspace_id', workspaceId)
-      .is('deleted_at', null);
-
-    // Activation, then ONE membership write for the whole grid.
+    // The baseline is a TEAM GRANT now, not a per-user write.
     //
-    // This used to be a nested loop doing an awaited upsert per (app, user).
-    // It runs on every single sign-in — sso/resolve calls it fire-and-forget
-    // — so a six-person workspace paid twelve sequential round trips each
-    // time somebody logged in, to write rows that almost always already
-    // existed. The grid is small and uniform, so it is one upsert.
-    const granted: { user_id: string; app_id: string; role: string }[] = [];
-
+    // Sjoerd, 2026-10-08: *"meet thread via everyone"*. Until today this
+    // upserted an app_membership row for every user in the workspace, on
+    // every sign-in — and that is exactly what made "remove Thread from
+    // Everyone" do nothing: the rows came straight back on the next sign-in,
+    // so the control an admin was given could not work. The grant is made
+    // ONCE, when the app is first activated here, and nothing re-asserts it.
+    //
+    // Two consequences, both deliberate, both changes:
+    //
+    //   MEMBERS, not every `user` row. The old grid granted to every live
+    //   user in the workspace, which includes PARTICIPANTS — people who
+    //   booked or enrolled and hold no seat. They were being given
+    //   app_membership for Meet and Thread. Everyone's roster is
+    //   workspace_member, so they are not granted any more. Nothing is taken
+    //   from those who already hold a row: that is the conversion script's
+    //   job, and it leaves non-members alone on purpose.
+    //
+    //   An app ALREADY activated here gets nothing, not even a repair. If its
+    //   grant was removed on purpose, re-adding it would be the very bug this
+    //   change exists to fix. `scripts/grant-plan-apps-to-everyone.ts` is the
+    //   deliberate way to put one back.
     for (const app of apps) {
-      if (!known.has(app.id)) {
-        const { error } = await adminClient
-          .from('workspace_app')
-          .insert({ workspace_id: workspaceId, app_id: app.id });
-        if (error && error.code !== '23505') {
-          console.error('[plan-apps] activate failed', app.slug, error.message);
-          // Skip THIS app's memberships, not the remaining apps.
-          continue;
-        }
-      }
-      for (const u of users ?? []) {
-        granted.push({ user_id: u.id, app_id: app.id, role: 'member' });
-      }
-    }
-
-    // Membership for everyone in the workspace, existing rows untouched.
-    if (granted.length) {
+      if (known.has(app.id)) continue;
       const { error } = await adminClient
-        .from('app_membership')
-        .upsert(granted, { onConflict: 'user_id,app_id', ignoreDuplicates: true });
-      if (error) console.error('[plan-apps] membership grant failed', error.message);
+        .from('workspace_app')
+        .insert({ workspace_id: workspaceId, app_id: app.id });
+      if (error && error.code !== '23505') {
+        console.error('[plan-apps] activate failed', app.slug, error.message);
+        continue;
+      }
+      const { everyone } = await ensureAutomaticTeams(workspaceId);
+      if (!everyone) continue;
+      const { error: gErr } = await adminClient
+        .from('team_app_grant')
+        .upsert(
+          { team_id: everyone, app_id: app.id, lead_is_app_admin: false },
+          { onConflict: 'team_id,app_id' },
+        );
+      if (gErr) {
+        console.error('[plan-apps] granting to Everyone failed', app.slug, gErr.message);
+        continue;
+      }
+      await syncTeam(everyone);
     }
 
   } catch (e) {

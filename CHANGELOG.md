@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.119.0] — 2026-10-08
+
+Sjoerd, 2026-10-08: *"meet thread via everyone"*. Meet and Thread become
+ordinary apps of the plan, held through the Everyone team — so an admin who
+removes one from Everyone really removes it.
+
+- **`lib/plan-apps.ts` grants to the TEAM, once.** It used to upsert an
+  `app_membership` row for every user in the workspace on every single
+  sign-in, and that is exactly why "remove Thread from Everyone" did nothing:
+  the rows came back at the next sign-in and no screen said why. The grant is
+  made when the app is first activated and never re-asserted. An app already
+  activated gets nothing, not even a repair — re-adding a grant somebody
+  removed on purpose is the bug this fixes.
+- **It is MEMBERS now, not every `user` row.** The old grid granted to every
+  live user in the workspace, which includes participants — people who booked
+  or enrolled and hold no seat. On staging that was 46 live user rows against
+  6 members. Everyone's roster is `workspace_member`, so participants are no
+  longer granted. Nothing is taken from anyone who already holds a row.
+- **`scripts/convert-direct-plan-apps-to-team.ts`** turns the existing direct
+  rows into team-derived ones. **It takes nothing away, and that is measured,
+  not hoped for**: each person's app set is recorded before and after, and the
+  run refuses to finish if any of them differs. The rule is stated rather than
+  guessed, because `app_membership` has no provenance column — the app is Meet
+  or Thread, the person is in Everyone AND Everyone grants it, and the role is
+  `member` (the automatic path only ever wrote `member`, so a `role=admin` row
+  was given by a person and carries app-admin rights a team grant does not).
+  Everything outside the rule is left alone AND NAMED with its reason:
+  app admins, participants, anyone not in Everyone.
+- **`plan-apps-removal.int.test.ts`** is the regression, in three cases
+  against staging Postgres: granted at activation, removed by an admin, and
+  still gone after the sign-in path's own call runs twice.
+- **Run on staging:** dry run (10 rows to convert, 4 left alone, all four
+  app admins), applied — 10 converted, **access taken: 0** — and the removal
+  proof green.
+
 ## [1.118.0] — 2026-10-08
 
 Sjoerd, after Zoom: *"take me step by step through microsoft teams
