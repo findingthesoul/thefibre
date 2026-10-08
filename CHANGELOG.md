@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.118.0] — 2026-10-08
+
+Sjoerd, after Zoom: *"take me step by step through microsoft teams
+connection."* The Microsoft side is his (an Entra app registered as
+multi-tenant, delegated `OnlineMeetings.ReadWrite`, `offline_access`,
+`User.Read`, both redirect addresses added); this is the API half. **Nothing a
+person can see changes yet**: there is no Teams card and no server has
+`TEAMS_CLIENT_ID`/`TEAMS_CLIENT_SECRET`, so Teams stays "not configured".
+
+- **`/meet/teams/auth-start`, `auth-callback`, `disconnect`**, shaped after
+  Zoom's: the signed state carries `return_to` (`thread|fibre|meet`), the
+  callback is a public path, and connecting FAILS without Microsoft's user id
+  (a token nobody can later revoke is worse than no connection).
+- **`lib/teams/{client,host}.ts`**: authorization-code flow against the
+  `organizations` authority (work and school accounts only: Microsoft documents
+  creating an online meeting as unsupported for personal accounts), the client
+  secret in the POST body, the rotated refresh token persisted on every
+  refresh, the connection cleared on `invalid_grant`/`interaction_required` but
+  NOT on `invalid_client` (that is our own secret expiring, not the person's
+  fault). Create, update and delete of a meeting are implemented only because
+  Microsoft's docs list each as supported for delegated work accounts. Times are
+  UTC instants with `Z`, pinned in a test — Zoom's two-hours-wrong bug was a
+  timezone mix-up and is not repeated.
+- **`teams` becomes a mintable provider** in `lib/meeting-links.ts`, beside Zoom
+  and Google Meet; their branches are untouched. **Thread's behaviour is
+  deliberately unchanged**: a Teams session with a blank link is NOT refused,
+  because there is no card to connect with; that exemption comes out in the
+  release that adds the cards.
+- **Migration `user_connection_teams`**: `teams_refresh_token`,
+  `teams_account_email`, `teams_user_id` (nullable, service-role-only table).
+  Staging via `scripts/db-push-staging.sh`; production only via
+  `scripts/db-push-prod.sh`, on Sjoerd's word, before any promote that carries
+  it. `GET /meet/connections` gains `teams_connected`, `teams_account_email`,
+  `teams_configured` (never tokens).
+- **Not verified**: no real Microsoft round trip has run (tests use a mocked
+  fetch). A Graph online meeting is a join link: it may not appear on the host's
+  calendar or invite anyone, which the booking wiring will have to deal with.
+  The privacy policy has no Microsoft row yet and must have one before this is
+  exposed on production.
+
 ## [1.117.0] — 2026-10-08
 
 Sjoerd, 2026-10-08: *"by default should have access to the apps that are part

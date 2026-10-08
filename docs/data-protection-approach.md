@@ -379,15 +379,18 @@ surface; the filter injection; the public-POST brake; Dependabot.
 
 **Gaps found since, not on the original list:**
 
-- **Third-party credentials at rest are not encrypted**: Google and Zoom
-  refresh tokens in `user_connection`, the Circle token and the Google
-  Workspace credential in `membership_settings`. The tables are
+- **Third-party credentials at rest are not encrypted**: Google, Zoom and
+  Microsoft refresh tokens in `user_connection`, the Circle token and the
+  Google Workspace credential in `membership_settings`. The tables are
   service-role-only, and the encryption helper that protects assistant keys
   and MCP sessions (`lib/secret-box.ts`) is not applied to them.
 - **The sub-processor list is incomplete.** The privacy policy names
-  Supabase, Fly.io, Vercel, Resend, Stripe, Google and Anthropic and says
-  there is nobody else. Zoom, Circle and Google Workspace directory sync
-  receive personal data when a workspace connects them and are not named.
+  Supabase, Fly.io, Vercel, Resend, Stripe, Google, Zoom, Microsoft and
+  Anthropic and says there is nobody else. Zoom was added when it shipped and
+  Microsoft with the Teams connection (2026-10-08), each before the
+  connection could carry anybody's data. **Circle and Google Workspace
+  directory sync are still missing** — both receive personal data when a
+  workspace connects them.
   The policy also promises erasure "within 30 days" while erasure is a manual
   queue. Both are for the owner and a lawyer; the policy has not had legal
   review.

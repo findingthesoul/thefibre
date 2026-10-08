@@ -463,6 +463,17 @@ are read through `apps/api/src/lib/connections.ts`:
   switched off in production (no credentials there), and its
   deauthorisation webhook is built and tested but has never been called by
   Zoom. `docs/zoom-marketplace-submission.md` is the review packet.
+- **Microsoft Teams** — per-user OAuth against Microsoft Graph, delegated
+  (`OnlineMeetings.ReadWrite`, `User.Read`, `offline_access`), multi-tenant,
+  WORK OR SCHOOL accounts only — a personal Microsoft account cannot create
+  an online meeting through Graph. Meet and Thread mint through the same
+  `lib/meeting-links.ts` as Zoom (`lib/teams/`). `TEAMS_CLIENT_ID` /
+  `TEAMS_CLIENT_SECRET`; until both exist the connection reports
+  `teams_configured: false` and nothing breaks. Microsoft rotates the refresh
+  token on every refresh, so `lib/teams/host.ts` persists the new one each
+  time; there is no deauthorisation webhook as Zoom has — a person who
+  removes the app makes the next refresh fail with `invalid_grant`, which
+  clears their connection. `docs/deploy.md` has the Entra registration.
 - **Google Workspace admin** and **Circle** are per-WORKSPACE credentials in
   `membership_settings`, used by the membership scheduler to grant and
   withdraw access.

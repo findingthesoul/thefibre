@@ -410,6 +410,16 @@ export function PrivacyDoc() {
           deletes the connection; join links already written onto past bookings stay with the
           booking. The meeting itself is run by Zoom, under Zoom&rsquo;s own terms.
         </Row>
+        <Row term="Microsoft">
+          Only if a host chooses it: connecting their own Microsoft work or school account so that
+          bookings and live sessions create, move and delete Teams meetings for them. The same
+          shape as Zoom above — we keep the connection (a token that lets us act on that account,
+          its email address and Microsoft&rsquo;s own user id) and, per booking or session, the
+          meeting id and join link. We never read meeting content, participants, recordings or
+          chat. Removing the app in Microsoft makes the connection fail and clears it; join links
+          already written onto past bookings stay with the booking. The meeting itself is run by
+          Microsoft, under their terms. Personal Microsoft accounts cannot be connected.
+        </Row>
         <Row term="Anthropic">
           Only where the in-app assistant is switched on for your workspace (Settings →
           Assistant). It is sent the titles, dates, statuses and counts of the things you ask
