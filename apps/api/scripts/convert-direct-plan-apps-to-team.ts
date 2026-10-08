@@ -83,9 +83,24 @@ function checkTarget(): void {
     console.error('REFUSED: neither the staging nor the production project.');
     process.exit(2);
   }
-  if (ref === PRODUCTION_REF && !ALLOW_PRODUCTION) {
-    console.error('REFUSED: that is production. Add --production if that is genuinely what you mean.');
+  // The gate guards the WRITE, not the look. A dry run reads and prints and
+  // changes nothing, so refusing it on production only costs somebody a
+  // round trip and teaches them to reach for --production out of habit —
+  // which is the opposite of what the flag is for. (It did exactly that on
+  // 2026-10-07, with the teams conversion; this is that lesson applied.)
+  //
+  // WRITES, not APPLY. `--undo` writes too, and the first version of this
+  // gate asked only about `--apply` — so `--undo <file>` against production
+  // would have written with no `--production` at all, after printing that it
+  // was a dry run. Caught in review before it shipped. A gate that names one
+  // of the two ways to write is worse than the blunt one it replaced.
+  const WRITES = APPLY || UNDOING;
+  if (ref === PRODUCTION_REF && WRITES && !ALLOW_PRODUCTION) {
+    console.error('REFUSED: that would WRITE to production. Add --production if you mean it.');
     process.exit(2);
+  }
+  if (ref === PRODUCTION_REF && !WRITES) {
+    console.log('(a dry run against production: it reads and prints, and writes nothing)');
   }
 }
 

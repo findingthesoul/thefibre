@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.119.1] — 2026-10-08
+
+A read-only dry run against production is no longer refused. Both conversion
+scripts gated on `--production` before `checkTarget` had looked at whether
+anything would be written, so `npx tsx … script.ts` with no flags — the
+command whose whole purpose is to show you what WOULD happen — stopped with
+REFUSED. It cost Sjoerd a round trip on 2026-10-07 with the teams conversion,
+and it teaches exactly the wrong habit: reaching for `--production` by
+reflex, on the run where it does not matter, so that it is already in your
+shell history for the run where it does.
+
+- The gate now guards the WRITE: production plus `--apply` still needs
+  `--production`; production without `--apply` reads, prints and says so.
+- The gate asks whether this run WRITES — `--apply` **or** `--undo`. The
+  first version of it named only `--apply`, which would have let
+  `--undo <file>` write to production with no `--production` at all, after
+  printing that it was a dry run. Caught in review before it shipped: a gate
+  that names one of the two ways to write is worse than the blunt one it
+  replaced. All four cases are exercised against a production-looking project
+  ref with a dummy key, so the refusal is proven without touching production.
+- `grant-plan-apps-to-everyone.ts` and `convert-direct-plan-apps-to-team.ts`.
+  The teams conversion that has already run keeps its old gate — there is
+  nothing left to run on it, and changing a script after its one job is risk
+  with no return.
+
 ## [1.119.0] — 2026-10-08
 
 Sjoerd, 2026-10-08: *"meet thread via everyone"*. Meet and Thread become
