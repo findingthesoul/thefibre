@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.120.1] — 2026-10-08
+
+The member dialog's own test, now that staging carries it: three cases in
+`e2e/member-dialog.spec.ts`, all passing against the deployed stack.
+
+- Teams appear ABOVE the apps (asserted on the order, not just on both being
+  present), Everyone and Admins read as fixed rows with the line that says
+  who decides them, and the apps section carries the exceptions line.
+- An app a team confers shows "via Everyone".
+- **The checkbox actually joins a team.** The dialog is optimistic — it ticks
+  at once and reverts on an error — so a test that only looks at the box
+  proves the box. This one makes an ordinary team (the fixture workspace has
+  none, which is why the first screenshot of this screen showed no checkbox
+  at all), ticks it, and asks the DATABASE whether the membership exists;
+  then unticks and asks again. It removes the team afterwards.
+
 ## [1.120.0] — 2026-10-08
 
 Opening a person in Settings → Members showed only per-app ticks and no teams
