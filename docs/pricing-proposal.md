@@ -1,6 +1,14 @@
 # Pricing — a proposal
 
 > **Status (2026-10-01): BUILT.** The header below still says nothing is built. The tiers, the plan catalogue (`billing_plan`, `/admin/plans`), the public pricing page and Stripe Billing shipped in September 2026 (v0.20 to v0.21 and after). This document is the reasoning; the live numbers are in the catalogue.
+>
+> **The prices below are the ones decided on 2026-08-31 and are NO LONGER
+> the live ones.** Read from `billing_plan` on 2026-10-08: **Starter €29/month
+> or €290/year, Pro €59/month or €590/year**, extra seats €8/month on both.
+> The €19 and €49 in the table and the argument below are left as they were
+> written — this document is the reasoning of a particular day, and a price
+> rise is not a typo to correct. Anywhere a live number is wanted, ask the
+> catalogue (`/admin/plans`), which is the only thing that cannot be stale.
 
 **Status:** proposal, 2026-08-31. Nothing built. **Prices set by Sjoerd
 2026-08-31: Starter €19, Pro €49.** The rest of this argues for a shape and
@@ -73,8 +81,8 @@ Prices ex-VAT, per workspace per month. Annual: two months free.
 
 | | **Free** | **Starter** | **Pro** | **Enterprise** |
 |---|---|---|---|---|
-| Price | €0 | **€19** | **€49** | talk to us |
-| Annual (2 months free) | €0 | €190/yr | €490/yr | — |
+| Price *(as decided 2026-08-31; live today: €29 / €59)* | €0 | **€19** | **€49** | talk to us |
+| Annual (2 months free) *(live today: €290 / €590)* | €0 | €190/yr | €490/yr | — |
 | Seats included | 1 | **2** | **5** | unlimited |
 | Extra seats | — | €8/seat/month | €8/seat/month | included |
 | Contacts | 250 | unlimited | unlimited | unlimited |
