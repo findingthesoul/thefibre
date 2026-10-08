@@ -20,6 +20,11 @@ export type Member = {
   /** Apps a team confers, and which team — so "why does she have Pulse?"
       is answerable from this screen (teams as access groups, 2026-09-11). */
   apps_via?: { slug: string; via: string[] }[];
+  /** The teams this person is in, this workspace's and active only, with the
+      automatic pair MARKED rather than removed: the dialog shows them as
+      fixed rows, because hiding them leaves an admin wondering why somebody
+      has an app no team on screen confers. Absent from an older API. */
+  teams?: { id: string; name: string; automatic: string | null }[];
 };
 
 // Role names are product vocabulary — the same words in every locale.
@@ -130,6 +135,7 @@ export function MembersClient({
         <MemberRowDialog
           member={selected}
           appSlugs={appSlugs}
+          workspaceTeams={teams}
           locale={locale}
           onClose={() => setSelected(null)}
         />

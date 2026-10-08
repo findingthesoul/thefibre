@@ -36,6 +36,25 @@ const CATALOG = {
   // ── inviting somebody: teams first, apps as the exception ─────────────
   // Sjoerd, 2026-10-06: inviting is picking somebody's teams. The app ticks
   // stay underneath for "give them this one app and nothing else".
+  // The member dialog's two additions (2026-10-08). Everything else on that
+  // screen reuses the invite dialog's words on purpose: two screens about the
+  // same decision should not teach two models.
+  member_admins_follows_role: {
+    en: 'Follows the workspace role above',
+    nl: 'Volgt de rol hierboven',
+    es: 'Sigue el rol indicado arriba', // MT
+    pt: 'Segue a função acima', // MT
+    de: 'Folgt der Rolle oben', // MT
+    fr: 'Suit le rôle ci-dessus', // MT
+  },
+  member_app_via: {
+    en: 'via {team}',
+    nl: 'via {team}',
+    es: 'vía {team}', // MT
+    pt: 'via {team}', // MT
+    de: 'über {team}', // MT
+    fr: 'via {team}', // MT
+  },
   invite_teams: {
     en: 'Teams',
     nl: 'Teams',

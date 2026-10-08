@@ -101,3 +101,37 @@ export async function removeMember(userId: string): Promise<{ ok?: boolean; erro
   revalidatePath('/settings/members');
   return { ok: true };
 }
+
+/**
+ * Put somebody in a team, or take them out of one — from the member dialog,
+ * which is where an admin thinks about one PERSON rather than one team.
+ *
+ * The two automatic teams are refused by the API (`adminOwnsTeam`, 2026-10-08)
+ * because the workspace decides who is in them: everybody is in Everyone, and
+ * Admins mirrors the workspace role. The dialog shows them as fixed rows and
+ * offers no control, so this should never be called with one — and if it ever
+ * is, the server says no and the sentence it returns is shown.
+ */
+export async function setTeamMembership(
+  teamId: string,
+  userId: string,
+  member: boolean,
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    if (member) {
+      await apiFetch(`/api/v1/teams/${encodeURIComponent(teamId)}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId, role: 'member' }),
+      });
+    } else {
+      await apiFetch(
+        `/api/v1/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`,
+        { method: 'DELETE' },
+      );
+    }
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+  revalidatePath('/settings/members');
+  return { ok: true };
+}

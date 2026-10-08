@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { APPS, type AppSlug } from '@/lib/apps';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { updateMember, type MemberPatch } from '../actions';
-import { removeMember } from './actions';
+import { removeMember, setTeamMembership } from './actions';
 import type { Member } from './members-client';
+import type { InviteTeam } from './invite-dialog';
 
 const SELECT_CLASS =
   'mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none';
@@ -19,11 +20,16 @@ const SELECT_CLASS =
 export function MemberRowDialog({
   member,
   appSlugs,
+  workspaceTeams,
   locale,
   onClose,
 }: {
   member: Member;
   appSlugs: AppSlug[];
+  /** Every team in the workspace, including the automatic pair — the same
+   *  list the invite dialog gets. Which of them THIS person is in comes from
+   *  `member.teams`. */
+  workspaceTeams: InviteTeam[];
   locale: Locale;
   onClose: () => void;
 }) {
@@ -38,6 +44,49 @@ export function MemberRowDialog({
   const [grants, setGrants] = useState<Map<string, string>>(
     () => new Map(member.apps.map((a) => [a.slug, a.role])),
   );
+  const [teamIds, setTeamIds] = useState<Set<string>>(
+    () => new Set((member.teams ?? []).map((t) => t.id)),
+  );
+
+  /** Which team confers an app, for the note beside it. The API resolves
+   *  this (`apps_via`); the dialog never works it out from the team list,
+   *  because a team can grant an app a person ALSO has a direct tick for and
+   *  only the resolver knows which way round that lands. */
+  const viaBySlug = new Map(
+    (member.apps_via ?? []).map((v) => [v.slug, v.via.filter(Boolean)] as const),
+  );
+
+  // The automatic pair is shown, never offered: the workspace decides who is
+  // in them (everybody, and whoever holds the admin role), and the API
+  // refuses a membership write on either. Admins appears only when this
+  // person is actually in it — an unticked row for a team they cannot be put
+  // into is a control that does nothing.
+  const inAutomatic = new Set(
+    (member.teams ?? []).filter((t) => t.automatic).map((t) => t.automatic as string),
+  );
+  const everyoneTeam = workspaceTeams.find((t) => t.automatic === 'everyone');
+  const adminsTeam = workspaceTeams.find((t) => t.automatic === 'admins');
+  const ordinaryTeams = workspaceTeams.filter((t) => !t.automatic);
+
+  function onTeam(teamId: string, join: boolean) {
+    const prev = new Set(teamIds);
+    const next = new Set(teamIds);
+    if (join) next.add(teamId);
+    else next.delete(teamId);
+    setTeamIds(next);
+    setError(null);
+    start(async () => {
+      const r = await setTeamMembership(teamId, member.user_id, join);
+      if (r.error) {
+        setTeamIds(prev);
+        setError(r.error);
+      } else {
+        // The apps a team confers follow from the server, so the row's
+        // "via" notes are only right after a refresh.
+        router.refresh();
+      }
+    });
+  }
 
   function patch(p: MemberPatch, revert: () => void) {
     setError(null);
@@ -144,14 +193,67 @@ export function MemberRowDialog({
           </select>
         </label>
 
+        {/* TEAMS FIRST. What somebody can open follows from the teams they are
+            in; the app ticks underneath are the exception. The invite dialog
+            was arranged this way in v1.113.0 and says the same words — two
+            screens about the same decision should not teach two models. */}
+        {workspaceTeams.length > 0 && (
+          <div>
+            <span className="text-sm text-ink-subtle">{t(locale, 'invite_teams')}</span>
+            <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'invite_teams_help')}</p>
+            <div className="mt-2 space-y-2">
+              {everyoneTeam && (
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-ink">{everyoneTeam.name}</span>
+                  <span className="text-xs text-ink-muted">
+                    {t(locale, 'invite_everyone_always')}
+                  </span>
+                </div>
+              )}
+              {adminsTeam && inAutomatic.has('admins') && (
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-ink">{adminsTeam.name}</span>
+                  <span className="text-xs text-ink-muted">
+                    {t(locale, 'member_admins_follows_role')}
+                  </span>
+                </div>
+              )}
+              {ordinaryTeams.map((team) => (
+                <label key={team.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={teamIds.has(team.id)}
+                    disabled={pending}
+                    onChange={(e) => onTeam(team.id, e.target.checked)}
+                    className="h-4 w-4 rounded border-line"
+                  />
+                  <span className={teamIds.has(team.id) ? 'text-ink' : 'text-ink-muted'}>
+                    {team.name}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         {appSlugs.length > 0 && (
           <div>
             <span className="text-sm text-ink-subtle">{t(locale, 'nav_apps')}</span>
+            <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'no_access_by_default')}</p>
             <div className="mt-2 space-y-2">
               {appSlugs.map((slug) => (
                 <label key={slug} className="flex items-center justify-between gap-4 text-sm">
                   <span className={grants.has(slug) ? 'text-ink' : 'text-ink-muted'}>
                     {APPS[slug].label}
+                    {/* WHY they have it. Without this an admin looking at a
+                        ticked app cannot tell a deliberate exception from
+                        something a team handed out, and taking the tick away
+                        would appear to do nothing. */}
+                    {(viaBySlug.get(slug)?.length ?? 0) > 0 && (
+                      <span className="ml-2 text-xs text-ink-muted">
+                        {t(locale, 'member_app_via', { team: viaBySlug.get(slug)!.join(', ') })}
+                      </span>
+                    )}
                   </span>
                   {/* — = no access · Member = uses the app · Admin = manages
                       the app's content without workspace admin (RLS

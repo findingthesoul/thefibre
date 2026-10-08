@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.120.0] — 2026-10-08
+
+Opening a person in Settings → Members showed only per-app ticks and no teams
+at all — on a platform where teams became the way in (Sjoerd, 2026-10-08).
+The dialog now leads with them.
+
+- **Teams, above the app ticks**, with the same words the invite dialog uses:
+  two screens about the same decision should not teach two models. Ordinary
+  teams are checkboxes that join or leave on the spot; the automatic pair is
+  shown and not offered — Everyone says "everybody in this workspace is in
+  it", and Admins appears, when the person is in it, saying it follows the
+  workspace role. The API refuses a membership write on either, so the screen
+  is not the only thing holding that line.
+- **Each app a team confers says "via &lt;team&gt;"**. Without it an admin
+  looking at a ticked app cannot tell a deliberate exception from something a
+  team handed out — and taking the tick away would appear to do nothing. The
+  note comes from the API's `apps_via`, which the resolver computes; the
+  dialog never works it out from the team list, because only the resolver
+  knows how a direct tick and a team grant on the same app land.
+- **`GET /api/v1/members` gains `teams` per person** (additive): this
+  workspace's active teams only, with the automatic pair marked rather than
+  filtered, since hiding them leaves an admin wondering why somebody has an
+  app no team on screen confers. A team of another workspace cannot leak in
+  through somebody who belongs to both — `team_member` has no workspace
+  column, so the filter is explicit.
+- **The app ticks keep their heading and gain the line that says what they
+  are for**: "Only for exceptions: one app for one person, outside any team."
+
 ## [1.119.1] — 2026-10-08
 
 A read-only dry run against production is no longer refused. Both conversion

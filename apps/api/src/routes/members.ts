@@ -128,6 +128,35 @@ membersRoutes.get('/', async (c) => {
     appsByUser.set(g.user_id, list);
   }
 
+  // Which TEAMS each person is in. Additive (rule 8), and the thing the
+  // member dialog is built on: an admin who opens a person wants to see the
+  // way in — the teams — before the per-app exceptions underneath them.
+  //
+  // The automatic pair comes back with the rest, marked, rather than being
+  // filtered out: the dialog SHOWS them, as fixed rows with a line saying
+  // who decides them. Hiding them would leave an admin wondering why
+  // somebody has an app that no team on screen confers.
+  const teamRows = rows(
+    'members: team memberships',
+    await adminClient
+      .from('team_member')
+      .select('user_id, team:team_id (id, name, automatic, workspace_id, is_active)')
+      .eq('status', 'active')
+      .in('user_id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000']),
+  );
+  const teamsByUser = new Map<string, { id: string; name: string; automatic: string | null }[]>();
+  for (const row of teamRows) {
+    const team = Array.isArray(row.team) ? row.team[0] : row.team;
+    // Another workspace's team can reach this list through a person who
+    // belongs to both — `team_member` has no workspace column of its own, so
+    // the filter has to be here. An inactive team confers nothing and is not
+    // shown either.
+    if (!team || team.workspace_id !== ctx.workspaceId || team.is_active === false) continue;
+    const list = teamsByUser.get(row.user_id) ?? [];
+    list.push({ id: team.id, name: team.name, automatic: team.automatic ?? null });
+    teamsByUser.set(row.user_id, list);
+  }
+
   // Which of those apps a team confers, and which team — so an admin can see
   // WHY somebody has Pulse without hunting through the Teams page.
   const inherited = await inheritedByUser(userIds);
@@ -145,6 +174,7 @@ membersRoutes.get('/', async (c) => {
         relationship_type: m.relationship_type,
         joined_at: m.joined_at,
         apps: appsByUser.get(m.user_id) ?? [],
+        teams: teamsByUser.get(m.user_id) ?? [],
         apps_via: (inherited.get(m.user_id) ?? [])
           .map((g) => ({ slug: slugById.get(g.app_id) ?? null, via: g.via }))
           .filter((g): g is { slug: string; via: string[] } => !!g.slug),
