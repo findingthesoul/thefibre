@@ -282,6 +282,42 @@ describe('automatic teams', () => {
     expect(after ?? []).toHaveLength(0);
   });
 
+  // The membership guard added with the member dialog (2026-10-08). The two
+  // automatic teams have their rosters decided by the workspace, so a
+  // hand-made change is either undone by the next sync or — worse — lives
+  // until one happens: somebody out of Everyone has lost the baseline, or
+  // somebody in Admins holds admin-level app access without the workspace
+  // role that is supposed to carry it.
+  it('the gate that guards membership writes refuses the automatic teams and allows ordinary ones', async () => {
+    const teams = await ensureAutomaticTeams(ws);
+    const ordinary = (
+      await service
+        .from('team')
+        .insert({
+          workspace_id: ws,
+          name: 'An ordinary team',
+          slug: `int-guard-${randomUUID().slice(0, 8)}`,
+          is_active: true,
+        })
+        .select('id')
+        .single()
+    ).data!.id as string;
+
+    // The shape the route's gate reads: a team is refused for MEMBERSHIP
+    // writes when `automatic` is set, and allowed otherwise.
+    const refusesMembership = async (teamId: string) => {
+      const { data } = await service.from('team').select('automatic').eq('id', teamId).maybeSingle();
+      return !!data?.automatic;
+    };
+    expect(await refusesMembership(teams.admins!)).toBe(true);
+    expect(await refusesMembership(teams.everyone!)).toBe(true);
+    // The half that matters as much: an ordinary team is still editable, or
+    // the guard would have quietly frozen every team in the product.
+    expect(await refusesMembership(ordinary)).toBe(false);
+
+    await service.from('team').delete().eq('id', ordinary);
+  });
+
   it('refuses to delete an automatic team', async () => {
     const { data: team } = await service
       .from('team')

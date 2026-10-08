@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { can, planFor, needsPlan, type PlanFeature } from '../lib/plan.js';
 import { userClient, adminClient } from '../db.js';
 import { ensurePipelineFlow } from '../lib/pulse-pipeline.js';
+import { ensureAutomaticTeams } from '../lib/automatic-teams.js';
+import { syncTeam } from '../lib/team-grants.js';
 
 export const workspaceAppsRoutes = new Hono();
 
@@ -151,6 +153,34 @@ workspaceAppsRoutes.post('/', async (c) => {
   if (mErr) {
     console.error('[workspace-apps POST] membership upsert', mErr);
     // Non-fatal: the app is activated; an admin can re-toggle to retry.
+  }
+
+  // EVERYBODY gets it, not only the admin who switched it on.
+  //
+  // Sjoerd, 2026-10-08: *"by default should have access to the apps that are
+  // part of the plan. Not set it manually. Only change it manually."* So the
+  // app joins the workspace's Everyone team, and the grant resolver hands it
+  // to every member — which is also what keeps the baseline from rotting: a
+  // one-off script could fill Everyone today, and the next app anybody
+  // activated would be missing from it for ever.
+  //
+  // Non-fatal, like the membership upsert above: the app is activated either
+  // way, and `scripts/grant-plan-apps-to-everyone.ts` is the net underneath —
+  // its dry run names anything that was missed.
+  try {
+    const { everyone } = await ensureAutomaticTeams(ctx.workspaceId);
+    if (everyone) {
+      const { error: gErr } = await adminClient
+        .from('team_app_grant')
+        .upsert(
+          { team_id: everyone, app_id: app.id, lead_is_app_admin: false },
+          { onConflict: 'team_id,app_id' },
+        );
+      if (gErr) throw new Error(gErr.message);
+      await syncTeam(everyone);
+    }
+  } catch (e) {
+    console.error('[workspace-apps POST] granting to Everyone failed', e);
   }
 
   return c.json({ ok: true, app, workspace_app: wapp });

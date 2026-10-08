@@ -82,17 +82,38 @@ async function adminOwnsTeam(
   userId: string,
   workspaceId: string,
   teamId: string,
-): Promise<{ ok: true } | { ok: false; status: 403 | 404; error: string }> {
+  /** Pass `true` on a route that writes MEMBERSHIP. The two automatic teams
+   *  have theirs decided by the workspace — Everyone is everybody and Admins
+   *  mirrors the workspace role — so a hand-made change there is either
+   *  undone by the next sync or, worse, lives until one happens. */
+  opts: { membership?: boolean } = {},
+): Promise<{ ok: true } | { ok: false; status: 400 | 403 | 404; error: string }> {
   if (!isAdminRole(await callerRole(userId, workspaceId))) {
     return { ok: false, status: 403, error: 'workspace admin only' };
   }
   const { data: team } = await adminClient
     .from('team')
-    .select('id, workspace_id')
+    .select('id, workspace_id, automatic')
     .eq('id', teamId)
     .maybeSingle();
   if (!team || team.workspace_id !== workspaceId) {
     return { ok: false, status: 404, error: 'team not found' };
+  }
+  // The guard the invite route already had, now on the other door. Without
+  // it an admin could remove somebody from Everyone — losing the baseline
+  // every newcomer is supposed to get — or put them in Admins, which hands
+  // out admin-level app access without the workspace role that is supposed
+  // to carry it. The member dialog (2026-10-08) is the screen that makes
+  // this reachable, and a screen is not a boundary.
+  if (opts.membership && team.automatic) {
+    return {
+      ok: false,
+      status: 400,
+      error:
+        team.automatic === 'admins'
+          ? 'who is in Admins follows the workspace role — change that instead'
+          : 'everybody in the workspace is in Everyone; it has no exceptions',
+    };
   }
   return { ok: true };
 }
@@ -441,7 +462,7 @@ const MemberAdd = z.object({
 teamsRoutes.post('/:id/members', async (c) => {
   const ctx = c.get('ctx');
   const id = c.req.param('id');
-  const gate = await adminOwnsTeam(ctx.userId, ctx.workspaceId, id);
+  const gate = await adminOwnsTeam(ctx.userId, ctx.workspaceId, id, { membership: true });
   if (!gate.ok) return c.json({ error: gate.error }, gate.status);
 
   const body = MemberAdd.safeParse(await c.req.json().catch(() => null));
@@ -486,7 +507,7 @@ teamsRoutes.delete('/:id/members/:userId', async (c) => {
   const ctx = c.get('ctx');
   const id = c.req.param('id');
   const userId = c.req.param('userId');
-  const gate = await adminOwnsTeam(ctx.userId, ctx.workspaceId, id);
+  const gate = await adminOwnsTeam(ctx.userId, ctx.workspaceId, id, { membership: true });
   if (!gate.ok) return c.json({ error: gate.error }, gate.status);
 
   const { error } = await adminClient

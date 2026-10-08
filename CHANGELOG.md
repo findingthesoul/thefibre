@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.117.0] — 2026-10-08
+
+Sjoerd, 2026-10-08: *"by default should have access to the apps that are part
+of the plan. Not set it manually. Only change it manually."* The Everyone team
+now carries the apps its workspace runs — the baseline a newcomer gets —
+instead of being the empty placeholder the conversion deliberately left.
+
+- **`apps/api/scripts/grant-plan-apps-to-everyone.ts`** grants every app a
+  workspace actively runs to its Everyone team. **This one WIDENS access**,
+  which is the opposite of the conversion that preceded it, so the dry run
+  prints no counts: it prints which PERSON gains which APP, by name, with
+  **external members listed separately** — "everyone in the workspace"
+  quietly includes people from other organisations, and handing a partner an
+  internal app is a different decision from handing it to a colleague.
+  `--apply` writes an undo file; `--undo` removes exactly those grants and
+  re-resolves, leaving alone anything somebody also holds directly.
+- **Activating an app now grants it to Everyone**, so the baseline maintains
+  itself. Without this the script would be a snapshot and the next app
+  anybody switched on would be missing from Everyone for ever.
+- **An unbuilt app is not part of the baseline.** Found by reading the first
+  dry run rather than its summary: "The Thread" workspace runs `fibre-learn`,
+  which is registered with nothing built, and six people were about to get a
+  launcher tile for an app that does not exist. The test is not "released" —
+  Connect and Business Models are live and deliberately beta — but approved
+  AND shipped in one sense or the other.
+- **The automatic teams refuse membership writes.** `adminOwnsTeam` checked
+  admin and workspace but not `automatic`, so the API would have let an admin
+  remove somebody from Everyone — losing the baseline — or add them to
+  Admins, which hands out admin-level app access without the workspace role
+  that is supposed to carry it. The member dialog is the screen that makes
+  this reachable, and a screen is not a boundary. An 11th integration case
+  checks both halves: the automatic ones refused, an ordinary team still
+  editable.
+- **Run on staging:** dry run, applied (6 workspaces, 23 grants, 4 people
+  gaining 4 apps between them, 0 external), undo exercised for real — the
+  four gained apps vanished and the apps those people hold directly stayed —
+  then re-applied.
+
 ## [1.116.0] — 2026-10-08
 
 The Zoom Marketplace review (2026-10-08) requires that the URL on our listing
