@@ -6,6 +6,7 @@ import { rows } from '../lib/rows.js';
 import { isAdminRole } from '../lib/workspace-roles.js';
 import { can, needsPlan } from '../lib/plan.js';
 import { syncTeam, syncUsers } from '../lib/team-grants.js';
+import { mayEditTeamApps, teamAppsRefusal } from '../lib/team-app-editing.js';
 
 // ===========================================================================
 // Platform teams — the SPoT endpoint (build-plan 10b, decided 2026-07-07).
@@ -157,6 +158,10 @@ teamsRoutes.get('/', async (c) => {
     appsByTeam.set(g.team_id, list);
   }
 
+  // Read once, not per team: `can` is a database-backed lookup and the list
+  // can hold dozens of rows.
+  const planAllowsGrants = await can(ctx.workspaceId, 'team_access_groups');
+
   return c.json({
     items: (data ?? []).map((t) => {
       const members = Array.isArray((t as { members?: unknown }).members)
@@ -175,10 +180,16 @@ teamsRoutes.get('/', async (c) => {
         /** 'admins' | 'everyone' | null — so a screen that asked for these can
          *  label them and refuse to treat them as ordinary teams. Additive. */
         automatic: t.automatic ?? null,
+        /** May THIS team's apps be edited? The automatic teams are editable
+         *  on every plan (2026-10-09); custom teams follow the plan. Additive
+         *  and per-team, because `can_edit_grants` below is one answer for the
+         *  whole workspace and re-meaning it would break every caller that
+         *  reads it as "this workspace has the Pro feature". */
+        can_edit_apps: mayEditTeamApps(t, planAllowsGrants),
         apps: appsByTeam.get(t.id) ?? [],
       };
     }),
-    can_edit_grants: await can(ctx.workspaceId, 'team_access_groups'),
+    can_edit_grants: planAllowsGrants,
     is_admin: isAdminRole(await callerRole(ctx.userId, ctx.workspaceId)),
     grantable: await grantableApps(ctx.workspaceId),
   });
@@ -270,7 +281,7 @@ teamsRoutes.get('/:id', async (c) => {
 
   const { data: team } = await adminClient
     .from('team')
-    .select('id, slug, name, description, is_active, is_published, created_at, workspace_id')
+    .select('id, slug, name, description, is_active, is_published, created_at, workspace_id, automatic')
     .eq('id', id)
     .maybeSingle();
   if (!team || team.workspace_id !== ctx.workspaceId) {
@@ -291,6 +302,7 @@ teamsRoutes.get('/:id', async (c) => {
       .select('app_id, lead_is_app_admin, app:app_id (slug, name)')
       .eq('team_id', id),
   );
+  const detailPlanAllows = await can(ctx.workspaceId, 'team_access_groups');
 
   return c.json({
     team: {
@@ -301,6 +313,10 @@ teamsRoutes.get('/:id', async (c) => {
       is_active: team.is_active,
       is_published: team.is_published,
       created_at: team.created_at,
+      /** 'admins' | 'everyone' | null. The list has carried this since the
+       *  automatic teams landed; the detail did not, so this screen could not
+       *  tell the reader WHY its apps are editable without a Pro plan. */
+      automatic: team.automatic ?? null,
     },
     members: (members ?? []).map((m) => {
       const u = Array.isArray(m.user) ? m.user[0] : m.user;
@@ -321,7 +337,9 @@ teamsRoutes.get('/:id', async (c) => {
         lead_is_app_admin: g.lead_is_app_admin,
       };
     }),
-    can_edit_grants: await can(ctx.workspaceId, 'team_access_groups'),
+    can_edit_grants: detailPlanAllows,
+    /** This team specifically — see the list route. */
+    can_edit_apps: mayEditTeamApps(team, detailPlanAllows),
     is_admin: isAdminRole(await callerRole(ctx.userId, ctx.workspaceId)),
     grantable: await grantableApps(ctx.workspaceId),
   });
@@ -393,9 +411,17 @@ teamsRoutes.put('/:id/apps', async (c) => {
   const gate = await adminOwnsTeam(ctx.userId, ctx.workspaceId, id);
   if (!gate.ok) return c.json({ error: gate.error }, gate.status);
 
-  if (!(await can(ctx.workspaceId, 'team_access_groups'))) {
-    return c.json({ error: needsPlan('Giving teams app access', 'Pro') }, 402);
-  }
+  // The automatic teams are editable on every plan, custom teams are not —
+  // and this asks the SAME function the list and detail responses used to
+  // decide whether to offer the control. Two copies of this condition is how
+  // a screen comes to offer an edit that the route answers with a 402.
+  const { data: thisTeam } = await adminClient
+    .from('team')
+    .select('automatic')
+    .eq('id', id)
+    .maybeSingle();
+  const refusal = teamAppsRefusal(thisTeam ?? {}, await can(ctx.workspaceId, 'team_access_groups'));
+  if (refusal) return c.json({ error: needsPlan(refusal, 'Pro') }, 402);
 
   const body = GrantsPut.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);

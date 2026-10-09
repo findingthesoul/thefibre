@@ -19,6 +19,12 @@ type TeamDetailResponse = {
   apps: { app_id: string; slug: string | null; name: string | null; lead_is_app_admin: boolean }[];
   grantable: GrantableApp[];
   can_edit_grants: boolean;
+  /** This team specifically (2026-10-09): the automatic teams are editable on
+   *  every plan. Optional, and that matters — the web and the API deploy
+   *  separately, so a browser can hold this page before the API has the
+   *  field. Absent must fall back to the workspace answer, or a Pro
+   *  workspace would find the editor gone for the minutes in between. */
+  can_edit_apps?: boolean;
 };
 
 export default async function TeamDetailPage({
@@ -83,7 +89,7 @@ export default async function TeamDetailPage({
               .filter((a): a is typeof a & { slug: string } => !!a.slug)
               .map((a) => ({ slug: a.slug, lead_is_app_admin: a.lead_is_app_admin }))}
             grantable={detail.grantable ?? []}
-            canEditGrants={!!detail.can_edit_grants}
+            canEditGrants={detail.can_edit_apps ?? !!detail.can_edit_grants}
             workspaceMembers={workspaceMembers}
             locale={locale}
           />

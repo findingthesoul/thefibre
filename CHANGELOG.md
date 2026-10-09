@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.124.0] — 2026-10-09
+
+The apps a newcomer gets are editable on every plan — and reachable at all.
+
+Sjoerd, 2026-10-09. Everyone's grants ARE the baseline: what a person who
+joins this workspace can open on their first day. A workspace that cannot
+edit them cannot answer that question, and the answer sits frozen at whatever
+the first app activation happened to set. That is not a feature to sell.
+Making a team to give ONE group a different set of apps is, and custom teams
+stay on Pro exactly as before.
+
+Two things were in the way, and the second was the bigger one:
+
+- **The plan gate was per workspace.** `PUT /teams/:id/apps` asked whether the
+  workspace had `team_access_groups` and refused with a 402 for every team.
+  It now asks about the team in front of it.
+- **The Teams page never showed the automatic teams.** It lists with
+  `automatic is null`, so Everyone and Admins were not on it. The screen that
+  exists to say what a newcomer gets did not contain them, and the only way to
+  change the baseline was a script. They have their own section now, with a
+  sentence saying what they are.
+
+**One rule, two callers.** `lib/team-app-editing.ts` holds it, and both the
+offer (`can_edit_apps` in the list and detail responses) and the refusal (the
+402) call the same function. This is not tidiness: a screen that offers an
+edit the route then refuses is two implementations of one rule, which is the
+shape that shipped this morning in v1.123.1 — a settings screen offering to
+open a page the server had just been told to hide. An integration case asserts
+the two agree by ASKING both for every team, rather than restating the rule a
+third time and passing whatever they do.
+
+`can_edit_grants` is untouched and still means what it meant: does this
+workspace have the Pro feature. The per-team answer is a new field beside it,
+because re-meaning a field a caller already reads breaks that caller as hard
+as deleting it. The web reads the new field and falls back to the old one when
+it is absent — the web and the API deploy separately, and without the fallback
+a Pro workspace would find the editor missing for the minutes in between.
+
 ## [1.123.2] — 2026-10-09
 
 Two links on The Thread's public-page screen were printed as one word.

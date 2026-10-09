@@ -22,6 +22,11 @@ export type TeamRow = {
   is_published: boolean;
   member_count: number;
   apps: { slug: string; name: string; lead_is_app_admin: boolean }[];
+  /** 'admins' | 'everyone' for the two maintained teams, null for a team
+   *  somebody made. Optional: an API that predates it simply sends none, and
+   *  then every team reads as a custom one, which is what this page did
+   *  before. */
+  automatic?: string | null;
 };
 
 export function TeamsClient({
@@ -37,6 +42,14 @@ export function TeamsClient({
 }) {
   const [creating, setCreating] = useState(false);
 
+  // Separated rather than mixed into one list: these two are not teams
+  // somebody made, they cannot be renamed or emptied, and the apps they carry
+  // answer a different question — what a NEWCOMER gets, rather than what one
+  // group may open.
+  const isAutomatic = (t: TeamRow) => t.automatic === 'admins' || t.automatic === 'everyone';
+  const automatic = teams.filter(isAutomatic);
+  const custom = teams.filter((t) => !isAutomatic(t));
+
   return (
     <>
       <section className="mt-10">
@@ -50,11 +63,11 @@ export function TeamsClient({
           </Button>
         </div>
 
-        {teams.length === 0 ? (
+        {custom.length === 0 ? (
           <EmptyState>{t(locale, 'no_teams_yet')}</EmptyState>
         ) : (
           <ListGroup>
-            {teams.map((team) => (
+            {custom.map((team) => (
               <ListRow
                 key={team.id}
                 href={`/settings/teams/${team.id}`}
@@ -65,10 +78,30 @@ export function TeamsClient({
           </ListGroup>
         )}
 
+        {/* About CUSTOM teams only. The two below are editable on every plan,
+            so showing this under them would say the opposite of what is
+            true. */}
         {!canEditGrants && grantable.length > 0 && (
           <p className="mt-4 text-sm text-ink-muted">{t(locale, 'team_grants_need_pro')}</p>
         )}
       </section>
+
+      {automatic.length > 0 && (
+        <section className="mt-10">
+          <SectionLabel>{t(locale, 'teams_automatic_title')}</SectionLabel>
+          <p className="mt-2 text-sm text-ink-muted">{t(locale, 'teams_automatic_blurb')}</p>
+          <ListGroup>
+            {automatic.map((team) => (
+              <ListRow
+                key={team.id}
+                href={`/settings/teams/${team.id}`}
+                primary={team.name}
+                secondary={summarise(team, locale)}
+              />
+            ))}
+          </ListGroup>
+        </section>
+      )}
 
       {creating && <CreateTeamDialog locale={locale} onClose={() => setCreating(false)} />}
     </>

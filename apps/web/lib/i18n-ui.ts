@@ -6537,6 +6537,25 @@ const CATALOG = {
     de: 'Teams über App-Zugriff entscheiden zu lassen, gehört zu Pro. Details unter Einstellungen → Tarif.', // MT
     fr: 'Laisser les équipes décider de l\'accès aux apps fait partie de Pro. Détails dans Réglages → Formule.', // MT
   },
+  // The two automatic teams, shown on the Teams page from 2026-10-09 so the
+  // baseline a newcomer gets is reachable rather than only editable by a
+  // script.
+  teams_automatic_title: {
+    en: 'What everyone gets',
+    nl: 'Wat iedereen krijgt',
+    es: 'Lo que recibe todo el mundo', // MT
+    pt: 'O que toda a gente recebe', // MT
+    de: 'Was alle bekommen', // MT
+    fr: 'Ce que tout le monde reçoit', // MT
+  },
+  teams_automatic_blurb: {
+    en: 'Everybody here is in Everyone, and your admins are in Admins. The apps you give these two are what a new person starts with — on any plan.',
+    nl: 'Iedereen hier zit in Iedereen, en je beheerders in Beheerders. De apps die je deze twee geeft, zijn waar een nieuw persoon mee begint — op elk abonnement.',
+    es: 'Todo el mundo aquí está en Todos, y tus administradores en Administradores. Las apps que des a estos dos son con las que empieza una persona nueva, en cualquier plan.', // MT
+    pt: 'Toda a gente aqui está em Todos, e os seus administradores em Administradores. As apps que der a estes dois são aquilo com que uma pessoa nova começa — em qualquer plano.', // MT
+    de: 'Alle hier sind in Alle, und deine Admins in Admins. Die Apps, die du diesen beiden gibst, sind das, womit eine neue Person startet — in jedem Tarif.', // MT
+    fr: 'Tout le monde ici est dans Tout le monde, et vos admins dans Admins. Les apps que vous donnez à ces deux-là sont ce avec quoi une nouvelle personne démarre — quelle que soit la formule.', // MT
+  },
   team_widen_warning: {
     en: 'people in this team receive these apps as soon as you save.',
     nl: 'mensen in dit team krijgen deze apps zodra je opslaat.',

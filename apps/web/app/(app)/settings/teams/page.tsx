@@ -49,7 +49,10 @@ export default async function TeamsSettingsPage() {
       items: TeamRow[];
       grantable: GrantableApp[];
       can_edit_grants: boolean;
-    }>('/api/v1/teams');
+      // `with_automatic=1` opts IN to Everyone and Admins. This page hid them
+      // until 2026-10-09, which meant the apps a NEW person gets could only be
+      // changed by a script — the thing they exist to express was unreachable.
+    }>('/api/v1/teams?with_automatic=1');
     teams = r.items;
     grantable = r.grantable ?? [];
     canEditGrants = !!r.can_edit_grants;
