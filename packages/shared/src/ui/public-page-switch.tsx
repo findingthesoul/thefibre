@@ -49,6 +49,7 @@ export function PublicPageSwitch({
   page,
   pageUrl,
   onChange,
+  showAddress = true,
 }: {
   /** Null when this person has no organiser row — most people. Renders
    *  nothing, because there is no page to decide about. */
@@ -57,6 +58,13 @@ export function PublicPageSwitch({
    *  switch about nothing. */
   pageUrl: (slug: string) => string;
   onChange: (published: boolean) => Promise<{ ok: boolean; error?: string | undefined }>;
+  /** False where the screen ALREADY shows the address — The Thread's
+   *  Settings → Public page has it in an editable field with a Visit link
+   *  right there, and printing it twice in two different widgets reads as
+   *  two different addresses. The Fibre's profile has no other copy, so it
+   *  keeps the default. This is the one thing that differs between the two
+   *  screens, which is why it is a prop and not a second component. */
+  showAddress?: boolean;
 }) {
   const locale = useLocale();
   const [published, setPublished] = useState<boolean | null>(page?.is_published ?? null);
@@ -106,7 +114,7 @@ export function PublicPageSwitch({
         </span>
       </label>
 
-      {on && (
+      {on && showAddress && (
         <p className="mt-3 break-all text-xs text-ink-muted">
           <a
             href={pageUrl(page.slug)}

@@ -184,6 +184,11 @@ export type OrganiserRow = OrganiserCore & {
   timezone: string;
   stripe_account_id: string | null;
   vendor_cut_percent: number;
+  /** Does this person want a public page at all (2026-10-08)? NULL means the
+   *  row predates the question and is grandfathered as published. Optional on
+   *  the type because an API that predates the column omits it, and a
+   *  settings screen must not break against one. */
+  is_published?: boolean | null;
 };
 
 /** PostgREST join normalizer: object-or-array → object. */

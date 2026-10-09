@@ -3,6 +3,7 @@ import { appUrl } from '@thefibre/shared';
 import type { OrganiserRow } from '@/lib/thread-types';
 import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
 import { PublicPageForm } from './form';
+import { PublicPageCard } from './public-page-card';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 
@@ -26,6 +27,12 @@ export default async function PublicPageSettings() {
         title={t(locale, 'settings_public_page')}
         description={t(locale, 'public_page_desc')}
       />
+      {/* Whether there is a page at all comes BEFORE its address: a person
+          who wants no page should not have to read a form about naming it
+          first. `is_published` is optional on the type, and `?? null` is the
+          grandfathered state, so an API that predates the column shows the
+          card as on — which is what is true of those pages. */}
+      <PublicPageCard page={{ slug: organiser.slug, is_published: organiser.is_published ?? null }} />
       <PublicPageForm
         locale={locale}
         organiser={organiser}

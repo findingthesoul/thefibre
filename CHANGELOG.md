@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.123.0] — 2026-10-09
+
+The publish switch on the screen that is about the public page — and the save
+it was shipped without a test for.
+
+v1.122.0 put the switch on The Fibre's Settings → Profile, which is where a
+profile is edited. But the screen somebody opens when they are thinking about
+their public page is The Thread's Settings → Public page: it shows the
+address, what the page contains, and a link to go and look at it. That is
+where "should this page exist at all" belongs, so it is there now, above the
+address — a person who wants no page should not have to read a form about
+naming it first.
+
+Same shared component, one prop different: The Thread's screen already shows
+the address in an editable field with a Visit link, so the card does not print
+a second copy. And the save goes through `PATCH /api/v1/profile`, the same
+writer The Fibre calls, NOT a second path through `/api/v1/thread/me` — the
+column sits on `thread_organiser` so a Thread route could have reached it,
+which is exactly the two-writers-one-field shape this codebase keeps paying
+for.
+
+**The test that was missing.** v1.122.0 tested the read gate five ways and the
+WRITE path not at all: `public_page_published` existed in three files and no
+test. That is the wrong half to leave bare — the gate is machinery nobody
+touches, the save is the thing a person does, and a switch that reads
+correctly and does not store fails completely while looking fine until the
+next page load. Seven integration cases now cover it, including the three
+that would be silent: a profile save that is not about the page must not
+answer a question nobody asked; the write must not reach anybody else's row
+(if that `user_id` filter were ever dropped, this endpoint would publish or
+unpublish every organiser in the database, and a test watching only its own
+row would still pass); and `/thread/me` must keep carrying the flag, since
+that is what The Thread's card renders from and it arrives today only because
+that query selects `*`.
+
+The Thread's own sidebar version goes to 4.3.0 — it gained a card somebody
+sees, which is what that constant is for.
+
 ## [1.122.0] — 2026-10-09
 
 A person can switch their public page off, and is told it exists.
