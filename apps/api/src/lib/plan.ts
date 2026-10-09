@@ -31,6 +31,12 @@ export type PlanFeature =
   // one is DNS for mail, the other is a host we serve; Sjoerd priced them
   // apart on 2026-10-06. Set on the rows by 20261006132941.
   | 'custom_domain'
+  // Park scheduled mail past the monthly allowance instead of sending it
+  // (docs/free-plan-limits-and-meet-tiers.md, "hold and ask"). OFF on every
+  // plan row until Sjoerd has seen what scripts/count-over-limits.ts says
+  // about production — the feature changes what real customers' events do, so
+  // it is switched on deliberately and per plan, never by shipping the code.
+  | 'email_hold'
   | 'team_access_groups'
   | 'beta_apps'
   | 'app_keys'

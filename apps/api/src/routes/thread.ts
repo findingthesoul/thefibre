@@ -114,6 +114,7 @@ import { zonedTimeToUtc } from '../lib/availability/timezone.js';
 import { publicApiUrl } from '../lib/public-url.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { messageTokens, substituteTokens } from '../lib/message-tokens.js';
+import { capState, holdMessage } from '../lib/email-cap.js';
 
 const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? createRemoteJWKSet(
@@ -7219,7 +7220,27 @@ export async function sendTriggeredMessages(opts: {
   });
   const substitute = (s: string) => substituteTokens(s, tokens);
 
+  // Past the monthly allowance on a plan that does not bill for overage, this
+  // mail WAITS rather than going out — and is recorded, so releasing it later
+  // sends it. Asked once for the whole batch; see lib/email-cap.ts for why it
+  // can only ever hold what thread_message_send counts.
+  const capWorkspaceId = (ownerThread?.workspace_id as string | undefined) ?? '';
+  const cap = capWorkspaceId ? await capState(capWorkspaceId) : null;
+
   for (const m of messages) {
+    if (cap?.hold) {
+      // Held BEFORE the dedup insert, so the message is not recorded as sent.
+      // If the hold itself fails, holdMessage returns false and we fall
+      // through and send: losing somebody's message because our parking lot
+      // was unavailable is worse than one message over the allowance.
+      const held = await holdMessage({
+        workspaceId: capWorkspaceId,
+        engagementId: m.id as string,
+        personId: opts.personId,
+        email: opts.email,
+      });
+      if (held) continue;
+    }
     // Dedup: one send per (engagement, person). Insert first — if the row
     // already exists, skip (idempotent under retries).
     const { error: logErr } = await adminClient.from('thread_message_send').insert({
@@ -7408,6 +7429,9 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
     threadId: string;
     workspaceId: string;
     startsOn: string | null;
+    /** The moment it came due. Carried so a HELD message remembers when it
+     *  should have gone, rather than when a cron noticed it. */
+    dueAt: string;
   };
   const due: Due[] = [];
   for (const c of candidates ?? []) {
@@ -7452,6 +7476,7 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
       engagement: c,
       threadId: thread.id,
       workspaceId: thread.workspace_id,
+      dueAt: dueAt.toISOString(),
       threadTitle: program.title,
       organiserName: team?.name ?? organiser?.display_name ?? '',
       startsOn: program.starts_on ?? null,
@@ -7475,6 +7500,9 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
       .eq('thread_id', d.threadId);
 
     const sender = await workspaceSender(d.workspaceId);
+    // Same gate as the lifecycle path, once per due element rather than once
+    // per recipient.
+    const dueCap = await capState(d.workspaceId);
     const dateLabel = d.startsOn
       ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
           new Date(d.startsOn),
@@ -7488,6 +7516,21 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
       // (review 2026-07-05: invited used to receive everything).
       const enrStatus = enr?.status ?? null;
       if (!person?.email || enrStatus === 'dropped' || enrStatus === 'invited') continue;
+
+      if (dueCap.hold) {
+        // `due_at` is the moment the organiser scheduled, not now — release
+        // sends in the order they wrote, and the 72h lookback that would
+        // otherwise discard this is exactly what the hold row exists to
+        // survive.
+        const held = await holdMessage({
+          workspaceId: d.workspaceId,
+          engagementId: d.engagement.id as string,
+          personId: person.id as string,
+          email: person.email as string,
+          dueAt: new Date(d.dueAt),
+        });
+        if (held) continue;
+      }
 
       // Insert-first dedup — same mechanism as the lifecycle sends.
       const { error: logErr } = await adminClient.from('thread_message_send').insert({

@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.126.0] — 2026-10-10
+
+Hold-and-ask, part one: the parking, switched off.
+
+docs/free-plan-limits-and-meet-tiers.md chose "hold and ask" over a hard stop
+because it is the only option where our pricing decision does not damage the
+customer's event. This is the mechanism, and **it is inert as shipped** — a
+new plan feature key, `email_hold`, is off on every plan row, so nothing
+holds anything until somebody turns it on at /admin/plans.
+
+**Why it is a table rather than "don't send yet".** The obvious
+implementation is to skip the send and let the scheduler retry. That silently
+loses the mail: `SCHEDULER_LOOKBACK_MS` is 72 hours, and anything older is
+never sent, deliberately. So a workspace that hit its cap on Friday and
+upgraded on Tuesday would find the queue it was promised had evaporated —
+destroying the one promise the option was chosen for. `thread_message_hold`
+records that the message CAME DUE and was parked, keyed the same way
+`thread_message_send` is: one row per (engagement, person), so a message is
+either sent or held and never both.
+
+**What can be held is what is counted, and that is structural.** Transactional
+mail — sign-in codes, invoices, booking confirmations — writes no
+`thread_message_send` row, is not counted toward the allowance, and so cannot
+be held by this code even in principle. It is not an exemption list somebody
+could extend; it falls out of holding exactly what is measured.
+
+**It never holds a plan that bills for overage.** A paid plan has already
+answered "what happens past the cap" — it bills, at an agreed rate. Parking a
+paying customer's mail and asking them to click a button would be a worse
+product and a refund conversation. Free is the plan whose overage price is
+NULL, which the rest of the code already reads as "soft, nothing bills"; this
+makes it also mean "and nothing sends past it".
+
+Two independent guards keep it off: the feature key, and the fact that `can()`
+fails open for a workspace with no subscription while the unknown plan's
+allowance is null — and a null allowance never holds. Both are tested.
+
+**Not built yet, and the reason this cannot be switched on:** releasing. Mail
+that parks with no way out is worse than mail that sends. The release path
+has to reuse the scheduler's send rather than grow a second copy of it, which
+is its own piece of work, with the admin notification and the button. The key
+stays off until those exist and until Sjoerd has seen what
+`count-over-limits.ts` says about production.
 ## [1.125.1] — 2026-10-10
 
 The release gate was a coin flip on a busy machine.
