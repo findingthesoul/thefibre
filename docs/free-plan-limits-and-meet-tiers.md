@@ -99,10 +99,26 @@ Not guessed — this is a read-only count for Sjoerd to run against production:
 cd ~/Projects/thefibre/apps/api && npx tsx --env-file=.env scripts/count-over-limits.ts
 ```
 
-*(That script does not exist yet; it is one of the things to build with
-whichever option above is chosen. It must count per workspace: scheduled
-messages this month against the allowance, storage against it, and months
-since last activity.)*
+It exists now (2026-10-09), and it is deliberately the FIRST thing built,
+before any of the three options above. `--all` lists every workspace rather
+than only the ones over something; `--csv` prints it for a sheet.
+
+It writes nothing — there is no `--apply` and no `--production` flag, because
+every statement in it is a select. It counts per workspace: `thread_message_send`
+rows this calendar month against the email allowance, storage against the
+storage allowance, and months since the newest `activity` row against
+`retention_months`. It reaches all of those through the product's own
+`planFor`, `emailsSentBetween` and `storageUsage`, so it cannot drift from
+what Settings → Plan and the warning emails already say.
+
+It prints how far through the month it is, because "150 of 200" means
+different things on the 3rd and the 28th, and a bare count would be read as
+"nobody is close".
+
+**Against staging on 2026-10-09:** 125 workspaces, 122 of them on Free, and
+nothing over any limit. Staging holds only two counted sends all-time, so that
+zero says little about production — which is exactly why the script needs to
+be run there before the behaviour changes.
 
 ---
 

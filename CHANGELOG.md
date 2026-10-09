@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.125.0] — 2026-10-09
+
+Count who the Free email cap would touch, before building the cap.
+
+`apps/api/scripts/count-over-limits.ts` — read-only, no `--apply`, no
+`--production` flag, because every statement in it is a select. Per workspace
+it reports `thread_message_send` rows this calendar month against the email
+allowance, storage against the storage allowance, and months since the newest
+`activity` row against `retention_months`.
+
+It is built FIRST, before the hold-and-ask behaviour it exists to inform,
+because that behaviour changes what real customers' events do. How many
+workspaces it would touch is not a thing to estimate from staging — it is a
+thing to count on the database it would happen on, and then a decision for
+Sjoerd rather than for the code.
+
+Two deliberate properties:
+
+- **It measures through the product's own `planFor`, `emailsSentBetween` and
+  `storageUsage`** rather than its own queries, so it cannot drift from what
+  Settings → Plan and the warning emails already tell people.
+- **Transactional mail is not counted, and the comment says why it must never
+  be.** Sign-in codes, invoices and booking confirmations have no
+  `thread_message_send` row, so they are not merely exempt from the cap —
+  they are not measured at all. A later "let's count all mail" would quietly
+  make a sign-in code a billable event. The hold feature inherits that
+  boundary by holding exactly what this counts.
+
+It also prints how far through the month it is, because 150 of 200 means
+different things on the 3rd and the 28th.
+
+Against staging: 125 workspaces, 122 on Free, nothing over any limit — and
+staging holds two counted sends all-time, so that zero is worth nothing as a
+prediction. The measure itself was checked against those two rows rather than
+trusted: it counts them, and narrowing the window to a future date returns
+zero, so a zero elsewhere is a real zero and not a broken join.
+
 ## [1.124.1] — 2026-10-09
 
 The team page told an admin a Remove button would end somebody's employment.
