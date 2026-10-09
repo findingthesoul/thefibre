@@ -140,14 +140,21 @@ export function PublicPageForm({
             </p>
           </div>
         </div>
-        <VisitLink className="mt-3" />
-        <a
-          href={fibreProfileUrl}
-          className="mt-3 inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
-        >
-          {t(locale, 'edit_profile_in_fibre')}
-          <ExternalLink size={12} strokeWidth={1.75} />
-        </a>
+        {/* Stacked, because both of these are inline-level and sat on one
+            line with nothing between them — "Visit your page⧉Edit your
+            profile in The Fibre". Fixed at this call site rather than in
+            VisitLink: its other use is inside a flex row, where a block
+            would break the layout. */}
+        <div className="mt-3 flex flex-col items-start gap-2">
+          <VisitLink />
+          <a
+            href={fibreProfileUrl}
+            className="inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+          >
+            {t(locale, 'edit_profile_in_fibre')}
+            <ExternalLink size={12} strokeWidth={1.75} />
+          </a>
+        </div>
         <p className="mt-2 text-xs text-ink-muted">{t(locale, 'one_profile_note')}</p>
       </section>
 

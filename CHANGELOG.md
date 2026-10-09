@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.123.2] — 2026-10-09
+
+Two links on The Thread's public-page screen were printed as one word.
+
+`Visit your page⧉Edit your profile in The Fibre` — both inline-level, both
+given a top margin that does nothing to an inline element, so they sat on one
+line with no space between them. It predates the publish switch and was
+visible in every screenshot of that screen; the switch only made it worse, by
+replacing the first one with a whole sentence when the page is off.
+
+Stacked at the call site rather than in the component, because the same link
+is used inside a flex row further up, where a block would break the row.
+
 ## [1.123.1] — 2026-10-09
 
 The Thread's public-page screen offered to open a page it had just switched
