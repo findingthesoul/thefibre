@@ -43,8 +43,38 @@ profileRoutes.get('/', async (c) => {
     billingFor(ctx.userId),
   ]);
   if (!profile) return c.json({ error: 'failed to provision profile' }, 500);
-  return c.json({ ...profile, ...billing });
+  return c.json({ ...profile, ...billing, public_page: await publicPageFor(ctx.userId) });
 });
+
+/**
+ * This person's public organiser page, if they have one at all.
+ *
+ * Most people do not: `thread_organiser` rows exist for people who organise,
+ * and for workspace admins whose workspace published a thread through an
+ * external app (routes/app-thread.ts), which is how somebody ends up with a
+ * public page they never asked for. Null here means there is no page and
+ * nothing to decide.
+ *
+ * `is_published: null` is the state that matters — the row predates the
+ * question (2026-10-08), the page IS public right now, and this person has
+ * not been told. The settings screen shows them the notice on that.
+ */
+async function publicPageFor(
+  userId: string,
+): Promise<{ slug: string; is_published: boolean | null } | null> {
+  const { data, error } = await adminClient
+    .from('thread_organiser')
+    .select('slug, is_published')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) {
+    // Never fatal to the profile: a settings page that will not load because
+    // of one optional card is worse than a card that is missing.
+    console.error('[profile GET] public page lookup failed', error.message);
+    return null;
+  }
+  return data ? { slug: data.slug as string, is_published: data.is_published as boolean | null } : null;
+}
 
 // Every message here is written to be READ BY THE PERSON SAVING. A zod
 // default ("String must contain at most 2000 character(s)") reached the
@@ -110,6 +140,10 @@ export const ProfilePatch = z.object({
     .nullable()
     .optional(),
   default_payment_methods: z.array(z.enum(['stripe', 'invoice'])).nullable().optional(),
+  /** The public page switch. Not nullable on the way in: a person answering
+   *  says yes or no, and "back to never having been asked" is not an answer
+   *  anybody gives. */
+  public_page_published: z.boolean().optional(),
 });
 
 profileRoutes.patch('/', async (c) => {
@@ -117,7 +151,8 @@ profileRoutes.patch('/', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
 
-  const { stripe_account_id, invoice_details, default_payment_methods, ...face } = body.data;
+  const { stripe_account_id, invoice_details, default_payment_methods, public_page_published, ...face } =
+    body.data;
 
   // The bio is becoming rich text, so it is cleaned where it ENTERS — the
   // rule lib/rich-text.ts states and the reason it gives: the way out is
@@ -133,6 +168,20 @@ profileRoutes.patch('/', async (c) => {
   if (Object.keys(face).length) {
     const r = await saveProfile(ctx.userId, face);
     if (r.error) return c.json({ error: r.error }, 500);
+  }
+
+  if (public_page_published !== undefined) {
+    // Scoped to THIS person's row by user_id. The column is theirs to set and
+    // nobody else's — there is no admin path to publish somebody's page for
+    // them, deliberately.
+    const { error } = await adminClient
+      .from('thread_organiser')
+      .update({ is_published: public_page_published })
+      .eq('user_id', ctx.userId);
+    if (error) {
+      console.error('[profile PATCH] public page switch failed', error.message);
+      return c.json({ error: 'could not change your public page' }, 500);
+    }
   }
 
   const billing: Record<string, unknown> = {};

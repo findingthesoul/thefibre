@@ -260,3 +260,22 @@ export async function saveTodoEnabled(enabled: boolean): Promise<ActionResult> {
     return { ok: false, ...unwrap(e) };
   }
 }
+
+/**
+ * Switch this person's public organiser page on or off.
+ *
+ * Their own row only — the API scopes it by the caller's user id, and there
+ * is deliberately no admin path to publish somebody else's page for them.
+ */
+export async function setPublicPage(published: boolean): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ public_page_published: published }),
+    });
+  } catch (e) {
+    return unwrap(e);
+  }
+  revalidatePath('/settings/profile');
+  return { ok: true };
+}

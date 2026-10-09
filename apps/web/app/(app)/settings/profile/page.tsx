@@ -1,3 +1,4 @@
+import { appUrl } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader, ErrorBanner } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
@@ -90,6 +91,7 @@ export default async function ProfileSettingsPage() {
             }
             email={me.user.email}
             locale={locale}
+            threadAppUrl={appUrl('the-thread', process.env)}
           />
           <LanguagePicker initial={profile?.locale ?? null} locale={locale} />
           <LauncherPref initialShow={launcherShow} locale={locale} />

@@ -5403,7 +5403,20 @@ async function organiserWithProfile<
 // slug, team threads under the TEAM's slug (Sjoerd 2026-07-02). One root
 // namespace, resolved organiser-first (Meet's pattern).
 type PublicOwner =
-  | { kind: 'organiser'; organiser: { id: string; user_id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; short_bio: string | null; photo_url: string | null; timezone: string } }
+  | {
+      kind: 'organiser';
+      organiser: {
+        id: string;
+        user_id: string;
+        workspace_id: string;
+        slug: string;
+        display_name: string | null;
+        bio: string | null;
+        short_bio: string | null;
+        photo_url: string | null;
+        timezone: string;
+      };
+    }
   | { kind: 'team'; team: { id: string; workspace_id: string; slug: string; name: string; description: string | null } }
   | { kind: 'workspace'; workspace: { id: string; slug: string; name: string } };
 
@@ -5640,6 +5653,35 @@ function effectivePrice(
 threadRoutes.get('/public/organiser/:slug', async (c) => {
   const owner = await resolvePublicOwner(c.req.param('slug'));
   if (!owner) return c.json({ error: 'not found' }, 404);
+  // A person who has said no has no page (2026-10-08). THE SAME 404 as a slug
+  // that does not exist, deliberately: a different status, or any body that
+  // said "this page is private", would confirm that the person is here, which
+  // is the thing the switch is for.
+  //
+  // `false` ONLY. NULL means the row predates the question and is
+  // grandfathered as published until they are asked — see the column comment.
+  // And this gate is on THIS route alone: /{slug}/{threadSlug} resolves the
+  // same owner and stays reachable, or switching your page off would break
+  // every enrolment link you have ever sent.
+  //
+  // ITS OWN QUERY, not a column on PUBLIC_ORGANISER_SELECT — and that is the
+  // interesting part. That select is shared by the organiser page, the thread
+  // page and the workspace-scoped page, so naming a new column in it makes
+  // ALL of them 404 against a database where the migration has not run yet:
+  // a PostgREST select naming a missing column fails at runtime and the row
+  // resolves as null. This repo has shipped that exact gap before (v0.87.1,
+  // MCP code promoted without its table). Asking separately means an old
+  // database degrades to "published", which is what it already does today,
+  // instead of taking every public page down. The deploy order still matters
+  // and is written in the CHANGELOG — but it is no longer load-bearing.
+  if (owner.kind === 'organiser') {
+    const { data: pub } = await adminClient
+      .from('thread_organiser')
+      .select('is_published')
+      .eq('id', owner.organiser.id)
+      .maybeSingle();
+    if (pub?.is_published === false) return c.json({ error: 'not found' }, 404);
+  }
 
   let q = adminClient
     .from('thread_thread')

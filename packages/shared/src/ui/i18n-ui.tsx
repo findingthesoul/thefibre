@@ -43,6 +43,60 @@ export function useLocale(): Locale {
 }
 
 const CHROME = {
+  // ── the public page switch (2026-10-08) ──────────────────────────────
+  // A person's own page at /{slug} was published without them choosing it;
+  // these are the words that ask.
+  public_page_title: {
+    en: 'Your public page',
+    nl: 'Je openbare pagina',
+    es: 'Tu página pública', // MT
+    pt: 'A sua página pública', // MT
+    de: 'Deine öffentliche Seite', // MT
+    fr: 'Votre page publique', // MT
+  },
+  public_page_on: {
+    en: 'Anyone with the address can see this page.',
+    nl: 'Iedereen met het adres kan deze pagina zien.',
+    es: 'Cualquiera que tenga la dirección puede ver esta página.', // MT
+    pt: 'Qualquer pessoa com o endereço pode ver esta página.', // MT
+    de: 'Wer die Adresse hat, kann diese Seite sehen.', // MT
+    fr: 'Toute personne disposant de l’adresse peut voir cette page.', // MT
+  },
+  public_page_off: {
+    en: 'Your page is off. The address shows nothing, as if it were never there.',
+    nl: 'Je pagina staat uit. Het adres toont niets, alsof hij er nooit was.',
+    es: 'Tu página está desactivada. La dirección no muestra nada, como si nunca hubiera existido.', // MT
+    pt: 'A sua página está desligada. O endereço não mostra nada, como se nunca tivesse existido.', // MT
+    de: 'Deine Seite ist aus. Die Adresse zeigt nichts, als wäre sie nie da gewesen.', // MT
+    fr: 'Votre page est désactivée. L’adresse n’affiche rien, comme si elle n’avait jamais existé.', // MT
+  },
+  // Shown ONCE, to people whose page was already public before anybody asked
+  // them. It says what is true rather than apologising for it.
+  public_page_notice: {
+    en: 'This page has been public since before we asked. It is yours to keep or switch off.',
+    nl: 'Deze pagina is al openbaar sinds voordat we het vroegen. Jij bepaalt of hij blijft of uitgaat.',
+    es: 'Esta página ha sido pública desde antes de que te lo preguntáramos. Tú decides si se queda o se apaga.', // MT
+    pt: 'Esta página é pública desde antes de lhe termos perguntado. É sua para manter ou desligar.', // MT
+    de: 'Diese Seite ist öffentlich, seit bevor wir gefragt haben. Du entscheidest, ob sie bleibt oder ausgeht.', // MT
+    fr: 'Cette page est publique depuis avant que nous ne posions la question. À vous de la garder ou de la désactiver.', // MT
+  },
+  // The one thing people fear when they read "switch off".
+  public_page_threads_note: {
+    en: 'Switching it off does not touch your threads: every link you have shared keeps working.',
+    nl: 'Uitzetten raakt je threads niet: elke link die je hebt gedeeld blijft werken.',
+    es: 'Desactivarla no afecta a tus threads: todos los enlaces que has compartido siguen funcionando.', // MT
+    pt: 'Desligá-la não afeta os seus threads: todas as ligações que partilhou continuam a funcionar.', // MT
+    de: 'Das Ausschalten betrifft deine Threads nicht: Jeder geteilte Link funktioniert weiter.', // MT
+    fr: 'La désactiver ne touche pas vos threads : tous les liens partagés continuent de fonctionner.', // MT
+  },
+  public_page_switch_on: {
+    en: 'Show my page',
+    nl: 'Toon mijn pagina',
+    es: 'Mostrar mi página', // MT
+    pt: 'Mostrar a minha página', // MT
+    de: 'Meine Seite zeigen', // MT
+    fr: 'Afficher ma page', // MT
+  },
   // ── shell ────────────────────────────────────────────────────────────
   help: {
     en: 'Help',

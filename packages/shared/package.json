@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.121.1",
+  "version": "1.122.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -285,6 +285,10 @@
     "./ui/profile-form": {
       "types": "./dist/ui/profile-form.d.ts",
       "default": "./dist/ui/profile-form.js"
+    },
+    "./ui/public-page-switch": {
+      "types": "./dist/ui/public-page-switch.d.ts",
+      "default": "./dist/ui/public-page-switch.js"
     },
     "./ui/recipes": {
       "types": "./dist/ui/recipes.d.ts",

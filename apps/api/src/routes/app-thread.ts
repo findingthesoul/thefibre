@@ -321,6 +321,12 @@ async function deriveWorkspaceOrganiser(
       workspace_id: workspaceId,
       slug,
       display_name: workspace.name,
+      // NOT PUBLISHED. This row is created because an external app published
+      // a thread for this workspace — the admin never asked for a public page
+      // of their own, and until 2026-10-08 they got one anyway, with their
+      // name on it. Their threads are reachable either way; the gate is on
+      // the organiser page alone.
+      is_published: false,
     })
     .select('id')
     .single();

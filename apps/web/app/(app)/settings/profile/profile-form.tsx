@@ -1,8 +1,9 @@
 'use client';
 
 import { ProfileForm as SharedProfileForm } from '@thefibre/shared/ui/profile-form';
+import { PublicPageSwitch, type PublicPage } from '@thefibre/shared/ui/public-page-switch';
 import { uploadAsset } from '@/lib/upload';
-import { saveProfile } from '../actions';
+import { saveProfile, setPublicPage } from '../actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
 /**
@@ -28,18 +29,28 @@ export type PublicProfile = {
   locale?: string | null;
   /** The To do panel's on/off — edited by TodoPref, not this form. */
   todo_enabled?: boolean;
+  /** This person's public organiser page, when they have one. Null for the
+   *  many people who do not, and absent from an API that predates it. */
+  public_page?: PublicPage | null;
 };
 
 export function ProfileForm({
   profile,
   email,
   locale,
+  threadAppUrl,
 }: {
   profile: PublicProfile;
   email: string;
   locale: Locale;
+  /** Where an organiser page lives, so the switch can show the address.
+   *  Optional: the welcome flow renders this form too, and somebody being
+   *  welcomed has no page to decide about — nor any business being asked
+   *  about one before they have arrived. */
+  threadAppUrl?: string;
 }) {
   return (
+    <>
     <SharedProfileForm
       initial={{
         display_name: profile.display_name ?? '',
@@ -67,5 +78,17 @@ export function ProfileForm({
         </p>
       }
     />
+    {/* BELOW the form, not inside it: this is about a page some people have
+        and most do not, and the shared form is about the profile every
+        person has. It renders nothing when there is no page. */}
+    <PublicPageSwitch
+      page={threadAppUrl ? (profile.public_page ?? null) : null}
+      pageUrl={(slug) => `${threadAppUrl ?? ''}/${slug}`}
+      onChange={async (published) => {
+        const r = await setPublicPage(published);
+        return { ok: !!r.ok, error: r.error };
+      }}
+    />
+    </>
   );
 }

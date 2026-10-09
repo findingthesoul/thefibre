@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.122.0] — 2026-10-09
+
+A person can switch their public page off, and is told it exists.
+
+The page at `/{slug}` publishes somebody's name, bio and photo. Nobody opted
+in to that, and for most of them nobody asked: `routes/app-thread.ts` creates
+the organiser row, slug and all, the first time an external app publishes a
+thread for their workspace. The page is a side effect of somebody else's API
+call.
+
+So there is now a switch, on Settings → Profile in The Fibre — the one place
+a profile is edited. It is born in `packages/shared` rather than in the app,
+because The Thread's Settings → Public page is where somebody actually goes to
+look at their page and the switch is owed there next; that is a separate
+release, not a claim this one gets to make.
+
+`thread_organiser.is_published` has three states and the third is what makes
+it safe to ship: `true` they said yes, `false` they said no (and what the API
+now writes for a new row), `NULL` the row predates the question. NULL is
+treated as PUBLISHED, because that is what is true today — every page that
+works this morning keeps working, and nobody's page goes dark without them
+being told. NULL also means "not yet asked", so the notice
+appears the next time they open that screen and their answer replaces it.
+Consent collected by asking, one person at a time, instead of a script
+deciding for them.
+
+Switching it off does not touch the threads underneath. `resolvePublicOwner`
+is shared by `/{slug}` and every `/{slug}/{threadSlug}`, so gating the
+resolver would 404 every enrolment link an organiser has ever sent; the gate
+is on the organiser page route alone, with its own query, and the card says so
+in words — because the fear that it breaks sent links is exactly why someone
+leaves up a page they do not want.
+
+Four of the five integration cases pass without the column, which is the
+fail-open design working rather than a gap in the tests: a database that has
+not had the migration keeps serving pages.
+
 ## [1.121.1] — 2026-10-08
 
 The member page printed the person's name twice — once as the page title and
