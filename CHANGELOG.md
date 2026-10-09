@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.123.1] — 2026-10-09
+
+The Thread's public-page screen offered to open a page it had just switched
+off.
+
+Found by looking at the screen on staging rather than by a test, which is the
+only way it could have been found: every assertion about the switch passed,
+and the switch was right. The thing beside it was wrong. With the page off,
+`Visit your page` — twice on that screen — still rendered as a link, pointing
+at the address that now deliberately answers 404. A person who switches their
+page off and then clicks the link sitting next to the switch learns that the
+switch did not work. It did; the screen was contradicting it.
+
+The link withdraws itself now and says why, which is the treatment that screen
+already gave the other state where the address exists but leads nowhere — a
+slug edited and not yet saved. Same shape, same place, one more reason.
+
+It needed a second fix to be true: the rest of that screen renders from the
+organiser row, and a server action does not refresh the client route in this
+flow (a gotcha CLAUDE.md has carried since v0.3.11), so `revalidatePath` alone
+left the old link on screen. The card asks for the refresh itself.
+
 ## [1.123.0] — 2026-10-09
 
 The publish switch on the screen that is about the public page — and the save

@@ -563,6 +563,18 @@ const CATALOG = {
     de: 'Speichere, um deine Seite unter der neuen Adresse zu öffnen.', // MT
     fr: 'Enregistre pour ouvrir ta page à la nouvelle adresse.', // MT
   },
+  // Offered next to the Visit link when the page is switched OFF. The link
+  // itself is withdrawn: following it reaches the deliberate 404, and a
+  // screen that offers what the server refuses teaches people the switch did
+  // not work.
+  visit_page_when_off: {
+    en: 'Your page is off, so there is nothing to open.',
+    nl: 'Je pagina staat uit, dus er is niets te openen.',
+    es: 'Tu página está desactivada, así que no hay nada que abrir.', // MT
+    pt: 'A sua página está desligada, por isso não há nada para abrir.', // MT
+    de: 'Deine Seite ist aus, es gibt also nichts zu öffnen.', // MT
+    fr: 'Votre page est désactivée, il n’y a donc rien à ouvrir.', // MT
+  },
   public_url: {
     en: 'Public URL',
     nl: 'Openbare URL',

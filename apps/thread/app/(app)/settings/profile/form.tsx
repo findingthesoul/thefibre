@@ -58,8 +58,18 @@ export function PublicPageForm({
   const savedSlug = organiser.slug?.trim() ?? '';
   const unsavedEdit = slug.trim() !== savedSlug;
   const visitHref = `${THREAD_ORIGIN}/${savedSlug}`;
+  // Switched OFF is the same kind of state as mid-edit: there is an address,
+  // and following it right now reaches the 404 the switch asks for. So it
+  // gets the same treatment the unsaved edit already had — the link is
+  // withdrawn and replaced by the reason. Offering a link the server refuses
+  // is how somebody concludes the switch did not take.
+  const pageIsOff = organiser.is_published === false;
   const VisitLink = ({ className = '' }: { className?: string }) =>
-    !savedSlug ? null : unsavedEdit ? (
+    !savedSlug ? null : pageIsOff ? (
+      <span className={`text-xs text-ink-muted ${className}`}>
+        {t(locale, 'visit_page_when_off')}
+      </span>
+    ) : unsavedEdit ? (
       <span className={`text-xs text-ink-muted ${className}`}>
         {t(locale, 'visit_page_after_save')}
       </span>
