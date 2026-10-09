@@ -6540,6 +6540,46 @@ const CATALOG = {
   // The two automatic teams, shown on the Teams page from 2026-10-09 so the
   // baseline a newcomer gets is reachable rather than only editable by a
   // script.
+  // Taking somebody OUT OF A TEAM. Distinct from remove_member_msg, which is
+  // the Members page's workspace removal — the team page was showing that one
+  // (2026-10-09), so an admin clicking "Remove" on a team was told they were
+  // removing the person from the workspace and ending their billing. The
+  // route only ever deleted the team_member row.
+  remove_from_team: {
+    en: 'Remove from team',
+    nl: 'Uit team verwijderen',
+    es: 'Quitar del equipo', // MT
+    pt: 'Remover da equipa', // MT
+    de: 'Aus Team entfernen', // MT
+    fr: 'Retirer de l’équipe', // MT
+  },
+  remove_from_team_msg: {
+    en: 'Take {name} out of this team? They stay in the workspace and keep anything granted to them directly — only what this team opens goes away.',
+    nl: '{name} uit dit team halen? Diegene blijft in de werkruimte en houdt alles wat direct is toegekend — alleen wat dit team opent vervalt.',
+    es: '¿Sacar a {name} de este equipo? Sigue en el espacio de trabajo y conserva lo que se le haya dado directamente; solo se pierde lo que abre este equipo.', // MT
+    pt: 'Tirar {name} desta equipa? Continua no espaço de trabalho e mantém o que lhe foi dado diretamente — só se perde o que esta equipa abre.', // MT
+    de: '{name} aus diesem Team nehmen? Die Person bleibt im Workspace und behält alles direkt Zugewiesene — nur was dieses Team öffnet, fällt weg.', // MT
+    fr: 'Retirer {name} de cette équipe ? La personne reste dans l’espace de travail et garde ce qui lui a été attribué directement — seul ce que cette équipe ouvre disparaît.', // MT
+  },
+  // Why the automatic teams have no Add or Remove. The route refuses those
+  // writes (adminOwnsTeam, membership), so offering them was a button that
+  // could only ever return a 400.
+  team_members_everyone_note: {
+    en: 'Everybody in this workspace is in Everyone — it has no exceptions. Somebody who needs more than the baseline gets it with a direct tick on the Members page.',
+    nl: 'Iedereen in deze werkruimte zit in Iedereen — zonder uitzonderingen. Wie meer nodig heeft dan de basis, krijgt dat met een directe vink op de pagina Leden.',
+    es: 'Todo el mundo en este espacio está en Todos, sin excepciones. Quien necesite más que la base lo recibe con una marca directa en la página de Miembros.', // MT
+    pt: 'Toda a gente neste espaço está em Todos — sem exceções. Quem precisa de mais do que a base recebe-o com uma marca direta na página de Membros.', // MT
+    de: 'Alle in diesem Workspace sind in Alle — ohne Ausnahmen. Wer mehr als die Basis braucht, bekommt das mit einem direkten Häkchen auf der Mitglieder-Seite.', // MT
+    fr: 'Tout le monde dans cet espace est dans Tout le monde — sans exception. Qui a besoin de plus que la base l’obtient par une coche directe sur la page Membres.', // MT
+  },
+  team_members_admins_note: {
+    en: 'Who is in Admins follows the workspace role. Change the role on the Members page and this follows.',
+    nl: 'Wie in Beheerders zit, volgt de rol in de werkruimte. Pas de rol aan op de pagina Leden, dan volgt dit vanzelf.',
+    es: 'Quién está en Administradores sigue el rol del espacio de trabajo. Cambia el rol en la página de Miembros y esto lo sigue.', // MT
+    pt: 'Quem está em Administradores segue o papel no espaço de trabalho. Mude o papel na página de Membros e isto acompanha.', // MT
+    de: 'Wer in Admins ist, folgt der Workspace-Rolle. Ändere die Rolle auf der Mitglieder-Seite, dann folgt das hier.', // MT
+    fr: 'Qui est dans Admins suit le rôle dans l’espace de travail. Changez le rôle sur la page Membres et ceci suit.', // MT
+  },
   teams_automatic_title: {
     en: 'What everyone gets',
     nl: 'Wat iedereen krijgt',

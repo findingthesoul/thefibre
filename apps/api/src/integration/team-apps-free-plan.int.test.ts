@@ -82,6 +82,18 @@ beforeAll(async () => {
   everyoneId = teams.everyone ?? '';
   if (!everyoneId) throw new Error('no Everyone team was created');
 
+  // ensureAutomaticTeams CREATES the teams; syncAutomaticTeams is what fills
+  // them. Without this the removal case below asserts that nobody was removed
+  // from a team that was empty to begin with — which passes while proving
+  // nothing. (It did, on the first run.)
+  const { error: tmErr } = await service
+    .from('team_member')
+    .upsert(
+      { team_id: everyoneId, user_id: user.userId, role: 'member', status: 'active' },
+      { onConflict: 'team_id,user_id' },
+    );
+  if (tmErr) throw new Error(`team_member: ${tmErr.message}`);
+
   const { data: custom, error: cErr } = await service
     .from('team')
     .insert({ workspace_id: workspaceId, name: 'A team somebody made', slug: `int-teamapps-${workspaceId.slice(0, 8)}` })
@@ -109,6 +121,46 @@ afterAll(async () => {
   if (user) await deleteFixtureUser(user);
   if (workspaceId) await deleteThrowawayWorkspace(workspaceId);
 }, 90_000);
+
+// The OTHER half of what the Teams page now shows for these two teams.
+//
+// The page became reachable for Everyone and Admins on 2026-10-09, and it
+// arrived carrying Add and Remove buttons — controls the route refuses
+// outright. Nothing tested that refusal, so the screen and the route could
+// have disagreed in either direction without a failing test.
+describe('membership of the automatic teams', () => {
+  it('refuses to take somebody out of Everyone, and leaves them in it', async () => {
+    const res = await call(`/${everyoneId}/members/${user.userId}`, { method: 'DELETE' });
+    expect(res.status).toBe(400);
+    const { data } = await service
+      .from('team_member')
+      .select('user_id')
+      .eq('team_id', everyoneId)
+      .eq('user_id', user.userId);
+    expect(data?.length, 'a refused removal must not have removed anybody').toBe(1);
+  });
+
+  it('refuses to add somebody to Everyone', async () => {
+    const res = await call(`/${everyoneId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: user.userId, role: 'member' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  // The refusal is about the automatic teams, not about membership writes in
+  // general — otherwise this would be a much bigger regression wearing the
+  // same test.
+  it('still allows membership changes on a team somebody made', async () => {
+    const add = await call(`/${customId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: user.userId, role: 'member' }),
+    });
+    expect(add.status, await add.clone().text()).toBe(200);
+    const remove = await call(`/${customId}/members/${user.userId}`, { method: 'DELETE' });
+    expect(remove.status, await remove.clone().text()).toBe(200);
+  });
+});
 
 describe('editing a team’s apps on the Free plan', () => {
   it('allows it for Everyone — the baseline is not a paid feature', async () => {

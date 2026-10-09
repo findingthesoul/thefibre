@@ -18,6 +18,10 @@ export type TeamDetail = {
   description: string | null;
   is_active: boolean;
   is_published: boolean;
+  /** 'admins' | 'everyone' for the two maintained teams. Optional, so a web
+   *  build that lands before the API has the field treats them as ordinary
+   *  teams — which is what this page did before. */
+  automatic?: string | null;
 };
 
 export type TeamMember = {
@@ -53,6 +57,7 @@ export function TeamDetailClient({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const isAutomatic = team.automatic === 'admins' || team.automatic === 'everyone';
 
   const [published, setPublished] = useState(team.is_published);
   const [grants, setGrants] = useState<Map<string, boolean>>(
@@ -189,15 +194,28 @@ export function TeamDetailClient({
       <section>
         <div className="flex items-center justify-between gap-4">
           <SectionLabel>{t(locale, 'team_members_label')}</SectionLabel>
-          <Button
-            size="sm"
-            leading={<UserPlus size={14} strokeWidth={1.75} />}
-            onClick={() => setAdding(true)}
-            disabled={pending}
-          >
-            {t(locale, 'add_to_team')}
-          </Button>
+          {/* No Add or Remove on the automatic teams. The route refuses those
+              writes outright (adminOwnsTeam with membership), so the buttons
+              could only ever return a 400 — and this page became reachable
+              for these two teams on 2026-10-09, which is what put a futile
+              control on screen. */}
+          {!isAutomatic && (
+            <Button
+              size="sm"
+              leading={<UserPlus size={14} strokeWidth={1.75} />}
+              onClick={() => setAdding(true)}
+              disabled={pending}
+            >
+              {t(locale, 'add_to_team')}
+            </Button>
+          )}
         </div>
+
+        {isAutomatic && (
+          <p className="mt-2 text-sm text-ink-muted">
+            {t(locale, team.automatic === 'admins' ? 'team_members_admins_note' : 'team_members_everyone_note')}
+          </p>
+        )}
 
         {members.length === 0 ? (
           <EmptyState>{t(locale, 'no_team_members_yet')}</EmptyState>
@@ -212,14 +230,16 @@ export function TeamDetailClient({
                   m.role === 'lead' ? t(locale, 'team_role_lead') : t(locale, 'team_role_member')
                 }
                 trailing={
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => setRemoving(m)}
-                  >
-                    {t(locale, 'remove_ellipsis')}
-                  </Button>
+                  isAutomatic ? undefined : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => setRemoving(m)}
+                    >
+                      {t(locale, 'remove_ellipsis')}
+                    </Button>
+                  )
                 }
               />
             ))}
@@ -271,11 +291,16 @@ export function TeamDetailClient({
         open={!!removing}
         onCancel={() => setRemoving(null)}
         onConfirm={() => removing && onRemove(removing)}
-        title={t(locale, 'remove_member')}
-        message={t(locale, 'remove_member_msg', {
+        /* remove_member_msg belongs to the Members page, where removing
+           somebody really does take them out of the workspace and end their
+           billing. This route deletes a team_member row and nothing else, so
+           that copy told an admin something untrue about what the button was
+           about to do. */
+        title={t(locale, 'remove_from_team')}
+        message={t(locale, 'remove_from_team_msg', {
           name: removing?.full_name ?? removing?.email ?? '',
         })}
-        confirmLabel={t(locale, 'remove_member')}
+        confirmLabel={t(locale, 'remove_from_team')}
         destructive
         pending={pending}
       />

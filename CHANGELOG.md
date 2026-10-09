@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.124.1] — 2026-10-09
+
+The team page told an admin a Remove button would end somebody's employment.
+
+Both of these were found by opening the screen that v1.124.0 had just made
+reachable, and neither would have failed a test.
+
+**The dangerous one, and it predates today.** On a team page, `Remove…` opened
+a dialog reading *"Remove {name} from this workspace? They lose access to the
+workspace and its apps… If this seat is billed, it stops billing from the next
+period."* The route it calls deletes one `team_member` row and nothing else.
+That copy belongs to the Members page, where it is true, and the team page had
+been borrowing it. An admin reading it would either refuse to click a harmless
+button or click it believing they had just offboarded somebody. It now says
+what the button does: out of the team, still in the workspace, keeping anything
+granted directly.
+
+**The one v1.124.0 caused.** Making Everyone and Admins reachable brought
+their `Add someone` and `Remove…` buttons on screen — and the route refuses
+membership writes on those two teams outright, because Everyone has no
+exceptions and Admins follows the workspace role. Offered, then refused with a
+400: the exact shape the release before it added a shared rule to prevent, one
+screen away. The buttons are gone for those two, replaced by the sentence
+saying where membership actually comes from.
+
+Three integration cases now cover the refusal, which nothing tested: it
+refuses a removal from Everyone AND leaves the person in it, it refuses an
+addition, and it still allows both on a team somebody made — so a regression
+that broke membership everywhere could not pass as this rule working. The
+first of those three failed honestly on its first run: the fixture created the
+automatic teams without filling them, so "nobody was removed" was true of an
+empty team.
+
 ## [1.124.0] — 2026-10-09
 
 The apps a newcomer gets are editable on every plan — and reachable at all.
