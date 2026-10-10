@@ -121,6 +121,7 @@ import {
   markReleased,
   workspacesWithWaitingHolds,
 } from '../lib/email-cap.js';
+import { claimSend, recordSendResult } from '../lib/send-record.js';
 
 const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? createRemoteJWKSet(
@@ -7247,19 +7248,17 @@ export async function sendTriggeredMessages(opts: {
       });
       if (held) continue;
     }
-    // Dedup: one send per (engagement, person). Insert first — if the row
-    // already exists, skip (idempotent under retries).
-    const { error: logErr } = await adminClient.from('thread_message_send').insert({
-      engagement_id: m.id,
-      person_id: opts.personId,
+    // Dedup: one send per (engagement, person), claimed BEFORE the transport
+    // is tried so overlapping runs cannot mail twice. `claimed` also covers a
+    // previous attempt that FAILED and still has tries left — before
+    // 2026-10-10 a failed send was indistinguishable from a sent one and the
+    // message was silently lost (lib/send-record.ts).
+    const claim = await claimSend({
+      engagementId: m.id as string,
+      personId: opts.personId,
       email: opts.email,
     });
-    if (logErr) {
-      if (logErr.code !== '23505') {
-        console.warn('[thread] message send log failed', logErr);
-      }
-      continue; // already sent (or unlogable) — don't email twice
-    }
+    if (claim !== 'claimed') continue;
     const body = substitute(
       renderMessageBody(m.type, (m.content ?? {}) as Record<string, unknown>, m.description),
     );
@@ -7284,11 +7283,18 @@ export async function sendTriggeredMessages(opts: {
       ticket,
       locale: opts.locale ?? 'en',
     });
+    let delivered = false;
     try {
       await sendEmail({ to: opts.email, ...msg, ...identity.sender });
+      delivered = true;
     } catch (e) {
       console.warn('[thread] triggered message send failed', { engagement: m.id, e });
     }
+    await recordSendResult({
+      engagementId: m.id as string,
+      personId: opts.personId,
+      sent: delivered,
+    });
   }
 }
 
@@ -7508,20 +7514,18 @@ export async function releaseHeldMessages(
       continue;
     }
 
-    // Insert FIRST — see the note above about the scheduler racing us.
-    const { error: logErr } = await adminClient.from('thread_message_send').insert({
-      engagement_id: held.engagement_id,
-      person_id: held.person_id,
-      email: person.email,
+    // Claim FIRST — see the note above about the scheduler racing us. A claim
+    // of `already-sent` is that race resolving in the scheduler's favour,
+    // which is the correct outcome and not an error.
+    const claim = await claimSend({
+      engagementId: held.engagement_id,
+      personId: held.person_id,
+      email: person.email as string,
     });
-    if (logErr) {
-      if (logErr.code === '23505') {
-        alreadySent += 1;
-        await markReleased(held.id);
-        continue;
-      }
-      console.warn('[thread/release] send log failed', logErr);
-      continue; // leave it waiting; the next sweep tries again
+    if (claim === 'already-sent' || claim === 'given-up') {
+      alreadySent += 1;
+      await markReleased(held.id);
+      continue;
     }
 
     const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
@@ -7540,10 +7544,16 @@ export async function releaseHeldMessages(
         : '',
       sender,
     });
+    await recordSendResult({
+      engagementId: held.engagement_id,
+      personId: held.person_id,
+      sent: ok,
+    });
     if (ok) released += 1;
-    // Marked released either way: the send row is already written, so a retry
-    // would see 23505 and skip, and leaving it waiting would only make the
-    // next sweep walk it again to reach the same place.
+    // Marked released either way. The send row now carries the verdict, so a
+    // failure is retried by the ordinary scheduler rather than by walking
+    // this queue again — and leaving the hold waiting would only make the
+    // next sweep arrive at the same place.
     await markReleased(held.id);
   }
 
@@ -7726,29 +7736,29 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
         if (held) continue;
       }
 
-      // Insert-first dedup — same mechanism as the lifecycle sends.
-      const { error: logErr } = await adminClient.from('thread_message_send').insert({
-        engagement_id: d.engagement.id,
-        person_id: person.id,
-        email: person.email,
+      // Same claim as the lifecycle sends, including the retry of a previous
+      // failure.
+      const claim = await claimSend({
+        engagementId: d.engagement.id as string,
+        personId: person.id as string,
+        email: person.email as string,
       });
-      if (logErr) {
-        if (logErr.code !== '23505') console.warn('[thread/scheduler] send log failed', logErr);
-        continue;
-      }
+      if (claim !== 'claimed') continue;
 
-      if (
-        await sendEngagementEmail({
-          engagement: d.engagement as EngagementForSend,
-          person,
-          threadTitle: d.threadTitle,
-          organiserName: d.organiserName,
-          dateLabel,
-          sender,
-        })
-      ) {
-        sent += 1;
-      }
+      const delivered = await sendEngagementEmail({
+        engagement: d.engagement as EngagementForSend,
+        person,
+        threadTitle: d.threadTitle,
+        organiserName: d.organiserName,
+        dateLabel,
+        sender,
+      });
+      await recordSendResult({
+        engagementId: d.engagement.id as string,
+        personId: person.id as string,
+        sent: delivered,
+      });
+      if (delivered) sent += 1;
     }
   }
 

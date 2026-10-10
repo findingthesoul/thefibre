@@ -323,6 +323,21 @@ export async function seatAvailable(
  * It carries no workspace of its own, so the count reaches one through the
  * engagement's thread. !inner makes the join a filter rather than a
  * left-join that would count every workspace's mail as this one's.
+ *
+ * SENT ones only (2026-10-10). Since the row gained a verdict, a row with
+ * `failed_at` set is a message the transport REFUSED — it exists so the send
+ * can be retried and so a message that never arrived leaves a trace, not
+ * because anything was delivered. Counting those would charge a paying
+ * customer overage for mail that did not go (usage-meters.ts bills from this
+ * number), warn people at 80% of an allowance they have not used, and hold a
+ * Free workspace's queue early. The billing one is the reason this filter is
+ * not optional.
+ *
+ * DEPLOY ORDER: this select names `failed_at`, so the migration must be on a
+ * database before an API that runs this reaches it. On one that lacks the
+ * column the query errors, the catch below logs and returns 0, and the
+ * workspace reads as having sent nothing — no false charges and no false
+ * holds, but also no warnings. Wrong, and wrong in the safe direction.
  */
 export async function emailsSentBetween(
   workspaceId: string,
@@ -336,6 +351,7 @@ export async function emailsSentBetween(
       head: true,
     })
     .eq('engagement.thread.workspace_id', workspaceId)
+    .is('failed_at', null)
     .gte('sent_at', from.toISOString());
   if (to) q = q.lt('sent_at', to.toISOString());
   const { count, error } = await q;

@@ -6,6 +6,66 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.128.0] — 2026-10-10
+
+A scheduled message whose send FAILED was recorded as sent, and lost.
+
+Found by watching a real send fail on the deployed staging API, which is the
+only way it could have been found: Resend refused the address, the log said
+`0 email(s) sent`, and the `thread_message_send` row written a moment earlier
+stayed — marking as delivered a message nobody would ever receive. The next
+tick skipped it, because that row IS the dedup.
+
+**This has been true since the table existed, and it is live on production.** A
+provider outage, a bounced domain, an expired key: the participant never gets
+the mail, nobody is told, and a log line is the only trace. On a thread whose
+reminders go out at 09:00 before an event, you hear about it from an attendee.
+
+The row now carries a verdict. `failed_at` null means sent, exactly as
+before; non-null means the transport refused it, and the next tick may try
+again until `attempts` reaches three — after which it stops, and the row is
+the standing record of a message that never arrived. Three, because the
+failures worth retrying are transient, and a permanently bad address would
+otherwise be retried every five minutes for the whole 72-hour lookback: some
+800 rejected calls ending in the same silence.
+
+`lib/send-record.ts` holds `claimSend` and `recordSendResult`, and all three
+senders use them — the triggered lifecycle sends, the dated scheduler, and the
+hold release. They are deliberately NOT one shared "send": those three build
+genuinely different messages (the lifecycle one attaches a ticket and the
+workspace's brand) and merging the rendering is how a ticket attachment gets
+lost. What they share is the bookkeeping, which is where the bug was.
+
+Three integration cases, run against the real scheduler and the real database
+with only the transport scripted: a transport that refuses once delivers on
+the retry and **exactly once** across three ticks; one that always refuses
+stops at three attempts, never arrives, and leaves `failed_at` and the count
+behind; and a message that simply sends is untouched, with one attempt and no
+failure, as before any of this existed.
+
+**And it must not count as an email the workspace sent.** `emailsSentBetween`
+counted every row, so a refused message would have charged a paying customer
+overage for mail that never left (`usage-meters.ts` bills straight off that
+number), warned people at 80% of an allowance they had not used, and held a
+Free workspace's queue early. It now counts only rows with no `failed_at`. Two
+integration cases pin it in both directions: a failed send does not move the
+number, and a delivered one does — the second because a filter that excluded
+everything would pass the first on its own.
+
+> **PROMOTE RULE — migration before code.** `20261010110454` must be on
+> production BEFORE this API ships. `emailsSentBetween` now names `failed_at`
+> in its select, and PostgREST fails the whole query on a database that lacks
+> the column: the catch logs and returns 0, so every workspace would read as
+> having sent nothing — no overage billed, no warnings, no holds. Wrong, and
+> wrong in the safe direction, but wrong. `promote.sh` applies migrations
+> first; this is the release where that ordering is load-bearing rather than
+> habitual.
+
+Existing rows are backfilled to `failed_at = null`, which reads as sent. That
+is true of every one that went and unknowable for any that did not — the
+backfill cannot invent history it does not have. From here forward the
+difference is recorded.
+
 ## [1.127.0] — 2026-10-10
 
 Hold-and-ask, part two: letting the queue go.
