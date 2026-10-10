@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.125.1] — 2026-10-10
+
+The release gate was a coin flip on a busy machine.
+
+`pnpm verify` refused three releases of one inert commit on 2026-10-10. The
+commit was never the reason: every package suite passed — shared 381, api 660,
+connections 340 — and the failures were four tests in the ROOT scripts runner,
+all `Error: Test timed out in 5000ms`, each having blocked for the same ~1169
+seconds. Not the network; a `git fetch` measured 1.6s.
+
+Every test `vitest.config.ts` reaches spawns processes: a sandbox git repo,
+then `release.sh`, `deploy-api.sh` or `next-version.mjs` inside it. Vitest's
+default five seconds is a fair limit for a unit test and a coin flip for one
+that shells out — a couple of seconds on an idle machine, minutes on a busy
+one, with nothing wrong either way. They now get three minutes.
+
+What that does and does not buy, stated plainly because the distinction
+matters: it does NOT rescue a machine at load average 36, and nothing would —
+that was three `pnpm dev` instances running for 7½ days plus an abandoned
+worktree dev server, which is a different problem with a different fix. What
+it removes is the randomness at ordinary load. A busy machine now gives a
+*slow* gate instead of an arbitrary one, and a test that genuinely hangs still
+fails, in three minutes rather than never.
+
+Narrow on purpose. The root runner includes only `scripts/*.test.mjs`, so no
+package's tests are touched — in particular connections, which failed twice
+early on and whose failing test names were lost before they could be read. It
+passes now, and nothing here pretends to have diagnosed it.
+
+The whole episode, and how to tell this apart from a real failure before
+re-running anything, is `docs/testing-approach.md` §6.
+
 ## [1.125.0] — 2026-10-09
 
 Count who the Free email cap would touch, before building the cap.
