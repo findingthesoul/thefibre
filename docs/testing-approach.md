@@ -366,3 +366,74 @@ The multi-session serialization protocol (handbook §10) is part of testing
 too: one release at a time, explicit-path staging, and post-commit import
 resolution checks are what keep *other people's* half-finished work out of
 your tested artifact.
+
+## 6. When the gate fails and the code is innocent (2026-10-10)
+
+`pnpm verify` refused three releases of one inert commit in a row, and the
+commit was never the reason. Written down because the next session to hit it
+will otherwise spend the same hours, and because the first instinct — re-run
+and hope — is the wrong one.
+
+**The signature.** A different test failed each time, and never with an
+assertion about behaviour:
+
+| run | what failed | shape |
+|---|---|---|
+| release.sh | `@thefibre/connections` | 2 failed, only **24 of 31 files ran**, 7 errors, 516s for a suite that takes 6.5s alone |
+| release.sh | `@thefibre/connections` | 2 failed of 282 |
+| `pnpm verify` | `scripts/release.test.mjs` | 2 failed, both `Test timed out in 5000ms` |
+
+Connections passed alone (6.5s), passed inside a full `pnpm -r test` (11.4s),
+and failed only under the gate. Nothing was reproducible.
+
+**The cause was the machine.** Load average **46.58 / 38.57 / 23.63** on a
+32 GB Mac with 24.2 GB resident. Three `pnpm dev` instances had been running
+for 7½ days — each starts *every* app's dev script — plus an abandoned API dev
+server inside a `.claude/worktrees/*` checkout that a `grep "pnpm dev"` does
+not catch. Under that load a five-second timeout is a coin flip, and one test
+reported `5286756ms`: 88 minutes against a 5-second limit, which is not work,
+it is a starved process.
+
+**How to tell this apart from a real failure, before you re-run anything:**
+
+- `uptime`. A load average near the core count means the gate is unreliable
+  and nothing it says is evidence.
+- Does the failure name an **assertion**, or a **timeout / a file that did not
+  run**? The second is the machine talking.
+- Does it fail the **same way twice**? A real break is reproducible; this is
+  not.
+- `ps -eo pid,etime,command | grep -E "pnpm dev|tsx.*watch"` — stale dev
+  servers, including ones in worktrees.
+
+**Capture the whole output.** The first two failures were diagnosed from a
+summary because the run was piped through `tail` while being written to a
+file, so every assertion and error went in the bin and the third run had to be
+spent recovering what the first two already knew. Redirect, never pipe, when
+the output is the evidence.
+
+**And do not add to the load while diagnosing it.** Running test suites in the
+background to investigate a load-sensitive failure is measuring a thing by
+making it worse; some of the peak above was exactly that.
+
+The underlying weakness is real and outlives the stale processes: several
+tests do genuine work against vitest's default five-second timeout —
+`scripts/release.test.mjs` spawns a sandbox git repo and runs a shell script
+inside it, and Connections' jsdom setup is over half its runtime. Giving those
+honest timeouts turns a busy machine into a *slow* gate rather than a random
+one, which is the difference between a gate you can trust and one you learn to
+re-run.
+
+**How it ended.** The root runner got `testTimeout: 180_000` in v1.125.1 —
+only `vitest.config.ts`, which reaches `scripts/*.test.mjs` and nothing else.
+The evidence that it works came from the run that still failed: in that
+attempt the four script tests which had timed out in every previous one all
+passed, 9 files and 80 tests, and connections passed too. It failed instead on
+a single line of the production smoke test, `API /health — fetch failed` — a
+connection-level error from the machine, with production verified healthy
+(200 in 90ms) moments later. That is the pattern this whole section is about,
+arriving one last time in a different costume.
+
+Connections was never diagnosed and nothing was changed there. It failed twice
+early, its failing test names were lost to a truncated capture, and it has
+passed every run since. If it fails again, capture the whole output before
+touching anything.
