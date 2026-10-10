@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.127.0] — 2026-10-10
+
+Hold-and-ask, part two: letting the queue go.
+
+Part one could park a message. Parking without releasing is worse than not
+parking, so this is what had to exist before `email_hold` could be switched on
+anywhere. It is still off on every plan row.
+
+**Releasing reuses the scheduler's send.** That block was inline; it is now
+`sendEngagementEmail`, called by both paths. Not tidiness — this file already
+carries the scar. The scheduler once had its own copy of the token map, that
+copy was missing `{start_date}`, and a message timed relative to the start
+date mailed participants the literal token. A release path with its own
+rendering would be the third copy and would drift the same way. It lives in
+`routes/thread.ts` rather than the lib because the renderer is local to that
+file, and moving it would make the two files import each other.
+
+**The row is soft-released** (hard rule 4): `released_at` is stamped and the
+row stays, because it is the only answer to "did everything we parked
+actually go out?". The address is nulled in the same write, because
+`thread_message_send` records it from then on and a second copy of somebody's
+email earns nothing (brief §6). A new migration, since editing the applied one
+is a no-op on a database that already has it.
+
+**A month turn and an upgrade both work, and neither is hooked.** The
+scheduler recomputes the cap each tick for any workspace with something
+waiting and releases the moment it stops holding — so it never has to know
+*why* the cap stopped applying, and a third reason later is handled for free.
+A queue that empties only when somebody remembers it exists is the 72-hour
+bug in a different hat.
+
+**The dedup is insert-first, and the race is real.** After a month turn, a
+held message still inside its 72-hour window can be mailed by the ordinary
+scheduler while its hold row is still waiting; releasing afterwards would send
+it twice. Whichever path arrives first writes the `thread_message_send` row
+and the other sees 23505 and stands down.
+
+Seven integration cases. Three of them guard the LIVE path the extraction
+touched: a due scheduled message still goes out with `{start_date}` rendered
+as a date and the raw token absent from subject, text and html; the dedup
+survives a second tick; and nothing is parked while the cap does not apply.
+That file mocks the email transport and nothing else — the database, RLS, the
+scheduler and the renderer are real — because the body is otherwise
+unobservable, and asserting only that a send row appeared is exactly the gap
+that let the `{start_date}` bug ship.
+
+Still unbuilt, and still why the key stays off: the mail telling a workspace
+how many are waiting, and the button. Until those exist, holding would be
+silent.
+
 ## [1.126.0] — 2026-10-10
 
 Hold-and-ask, part one: the parking, switched off.

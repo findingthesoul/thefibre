@@ -147,12 +147,16 @@ export async function holdMessage(opts: {
   return true;
 }
 
-/** How many messages this workspace has waiting. */
+/** How many messages this workspace has WAITING. Released rows stay in the
+ *  table for ever (hard rule 4), so every read here filters them out — a
+ *  count that included them would climb for ever and tell somebody they had
+ *  thousands of messages parked when they had none. */
 export async function heldCount(workspaceId: string): Promise<number> {
   const { count, error } = await adminClient
     .from('thread_message_hold')
     .select('*', { count: 'exact', head: true })
-    .eq('workspace_id', workspaceId);
+    .eq('workspace_id', workspaceId)
+    .is('released_at', null);
   if (error) {
     console.warn('[email-cap] held count failed', error.message);
     return 0;
@@ -168,12 +172,14 @@ export type HeldMessage = {
   due_at: string;
 };
 
-/** What is waiting, oldest first — the order the organiser scheduled. */
+/** What is waiting, oldest first — the order the organiser scheduled, not the
+ *  order a cron happened to notice. */
 export async function heldMessages(workspaceId: string, limit = 500): Promise<HeldMessage[]> {
   const { data, error } = await adminClient
     .from('thread_message_hold')
     .select('id, engagement_id, person_id, email, due_at')
     .eq('workspace_id', workspaceId)
+    .is('released_at', null)
     .order('due_at', { ascending: true })
     .limit(limit);
   if (error) {
@@ -183,8 +189,41 @@ export async function heldMessages(workspaceId: string, limit = 500): Promise<He
   return (data ?? []) as HeldMessage[];
 }
 
-/** Forget a hold once its message has actually gone out. */
-export async function dropHold(id: string): Promise<void> {
-  const { error } = await adminClient.from('thread_message_hold').delete().eq('id', id);
-  if (error) console.warn('[email-cap] could not drop a released hold', error.message);
+/**
+ * Mark a hold released, and let go of the address.
+ *
+ * NOT a delete. The row carries person_id and email, so removing it is a hard
+ * delete of personal data, which hard rule 4 forbids — and the row is the
+ * only answer to "did everything we parked actually go out?". The email is
+ * nulled in the same write because `thread_message_send` records it from here
+ * on, and a second copy of somebody's address earns nothing (brief §6).
+ */
+export async function markReleased(id: string): Promise<void> {
+  const { error } = await adminClient
+    .from('thread_message_hold')
+    .update({ released_at: new Date().toISOString(), email: null })
+    .eq('id', id);
+  if (error) console.warn('[email-cap] could not mark a hold released', error.message);
+}
+
+/**
+ * Every workspace with something still waiting.
+ *
+ * The scheduler sweeps these each tick and releases any whose cap no longer
+ * applies. That is what makes a month turn or an upgrade ACTUALLY free the
+ * queue: without it, holds sit for ever once the workspace stops holding,
+ * because nothing would ever look at them again. A queue that empties only
+ * when somebody remembers it exists is the same bug as the 72-hour lookback
+ * wearing a different hat.
+ */
+export async function workspacesWithWaitingHolds(): Promise<string[]> {
+  const { data, error } = await adminClient
+    .from('thread_message_hold')
+    .select('workspace_id')
+    .is('released_at', null);
+  if (error) {
+    console.warn('[email-cap] waiting-hold sweep failed', error.message);
+    return [];
+  }
+  return [...new Set((data ?? []).map((r) => r.workspace_id as string))];
 }

@@ -114,7 +114,13 @@ import { zonedTimeToUtc } from '../lib/availability/timezone.js';
 import { publicApiUrl } from '../lib/public-url.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { messageTokens, substituteTokens } from '../lib/message-tokens.js';
-import { capState, holdMessage } from '../lib/email-cap.js';
+import {
+  capState,
+  holdMessage,
+  heldMessages,
+  markReleased,
+  workspacesWithWaitingHolds,
+} from '../lib/email-cap.js';
 
 const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? createRemoteJWKSet(
@@ -7382,6 +7388,194 @@ async function issueDueCertificates(engagementId: string, threadId: string): Pro
   return issued;
 }
 
+/** The shape a send needs from an engagement row. */
+type EngagementForSend = {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  content: unknown;
+};
+
+/**
+ * Turn one engagement into one email and send it.
+ *
+ * Extracted from the scheduler on 2026-10-10 so RELEASING a held message
+ * could reuse it instead of growing a second copy. That matters more than it
+ * sounds: the scheduler's token map and the triggered path's had already
+ * drifted apart once, and the copy that drifted was missing {start_date} — so
+ * a message timed relative to the start date, the exact case that token
+ * exists for, mailed the literal token to participants. A release path with
+ * its own rendering would be the third copy and would drift the same way.
+ *
+ * Returns whether it went, so callers can count. It swallows the send error
+ * for the same reason the scheduler always has: one bad address must not stop
+ * the rest of the batch.
+ */
+async function sendEngagementEmail(opts: {
+  engagement: EngagementForSend;
+  person: { first_name?: string | null; last_name?: string | null; email: string };
+  threadTitle: string;
+  organiserName: string;
+  dateLabel: string;
+  sender: Record<string, unknown>;
+}): Promise<boolean> {
+  const { engagement, person } = opts;
+  const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email;
+  const tokens = messageTokens({
+    name,
+    firstName: person.first_name ?? null,
+    threadTitle: opts.threadTitle,
+    organiserName: opts.organiserName,
+    dateLabel: opts.dateLabel,
+  });
+  const substitute = (s: string) => substituteTokens(s, tokens);
+  const body = substitute(
+    renderMessageBody(
+      engagement.type,
+      (engagement.content ?? {}) as Record<string, unknown>,
+      engagement.description,
+    ),
+  );
+  const msg = engagementMessage({
+    title: substitute(engagement.title),
+    bodyText: body,
+    threadTitle: opts.threadTitle,
+  });
+  try {
+    // From the workspace, as the on-enrolment sends have been since v0.x; the
+    // scheduled ones went out as the platform until 2026-10-06.
+    await sendEmail({ to: person.email, ...msg, ...opts.sender });
+    return true;
+  } catch (e) {
+    console.warn('[thread/send] engagement email failed', { engagement: engagement.id, e });
+    return false;
+  }
+}
+
+/**
+ * Send what a workspace had parked, oldest first.
+ *
+ * Lives here rather than in lib/email-cap.ts for one reason: sending is
+ * `sendEngagementEmail` above, which needs `renderMessageBody`, and that is
+ * local to this file. Putting the release in the lib would mean either moving
+ * the renderer or writing a second one, and a second renderer is exactly what
+ * the extraction was for. (It would also make the two files import each
+ * other.)
+ *
+ * THE DEDUP IS INSERT-FIRST, like both send paths, and here it is doing real
+ * work rather than being a formality. A held message whose month has turned
+ * can be picked up by the ordinary scheduler — it is unsent, and if it is
+ * still inside the 72-hour window the scheduler will mail it — while its hold
+ * row is still waiting. Without insert-first, releasing afterwards would send
+ * the same message a second time. With it, whichever path arrives first
+ * writes the `thread_message_send` row and the other sees 23505 and stands
+ * down.
+ */
+export async function releaseHeldMessages(
+  workspaceId: string,
+): Promise<{ released: number; alreadySent: number }> {
+  const waiting = await heldMessages(workspaceId);
+  if (!waiting.length) return { released: 0, alreadySent: 0 };
+
+  const sender = await workspaceSender(workspaceId);
+  let released = 0;
+  let alreadySent = 0;
+
+  for (const held of waiting) {
+    const { data: eng } = await adminClient
+      .from('thread_engagement')
+      .select(
+        'id, type, title, description, content, thread:thread_id (id, workspace_id, program:program_id (title, starts_on), organiser:organiser_id (display_name), team:team_id (name))',
+      )
+      .eq('id', held.engagement_id)
+      .maybeSingle();
+    const thread = eng ? (Array.isArray(eng.thread) ? eng.thread[0] : eng.thread) : null;
+    // A thread deleted since the message was parked: nothing to send and
+    // nothing to wait for, so let the row go rather than retrying for ever.
+    if (!eng || !thread || thread.workspace_id !== workspaceId) {
+      await markReleased(held.id);
+      continue;
+    }
+
+    const { data: person } = await adminClient
+      .from('person')
+      .select('id, first_name, last_name, email')
+      .eq('id', held.person_id)
+      .maybeSingle();
+    if (!person?.email) {
+      await markReleased(held.id);
+      continue;
+    }
+
+    // Insert FIRST — see the note above about the scheduler racing us.
+    const { error: logErr } = await adminClient.from('thread_message_send').insert({
+      engagement_id: held.engagement_id,
+      person_id: held.person_id,
+      email: person.email,
+    });
+    if (logErr) {
+      if (logErr.code === '23505') {
+        alreadySent += 1;
+        await markReleased(held.id);
+        continue;
+      }
+      console.warn('[thread/release] send log failed', logErr);
+      continue; // leave it waiting; the next sweep tries again
+    }
+
+    const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+    const organiser = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+    const team = Array.isArray(thread.team) ? thread.team[0] : thread.team;
+    const startsOn = program?.starts_on ?? null;
+    const ok = await sendEngagementEmail({
+      engagement: eng as unknown as EngagementForSend,
+      person,
+      threadTitle: program?.title ?? '',
+      organiserName: team?.name ?? organiser?.display_name ?? '',
+      dateLabel: startsOn
+        ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+            new Date(startsOn),
+          )
+        : '',
+      sender,
+    });
+    if (ok) released += 1;
+    // Marked released either way: the send row is already written, so a retry
+    // would see 23505 and skip, and leaving it waiting would only make the
+    // next sweep walk it again to reach the same place.
+    await markReleased(held.id);
+  }
+
+  return { released, alreadySent };
+}
+
+/**
+ * Let go of any queue whose cap no longer applies.
+ *
+ * This is what makes a MONTH TURN and an UPGRADE both work without hooking
+ * either one: the cap is recomputed here every tick, and the moment
+ * `capState` stops saying hold — because `used` reset on the 1st, because
+ * somebody moved to a plan that bills for overage, or because the feature was
+ * switched off — the waiting messages go out. Nobody presses anything, and
+ * nothing has to know WHY the cap stopped applying.
+ */
+async function releaseWhereNoLongerHeld(): Promise<number> {
+  let released = 0;
+  for (const workspaceId of await workspacesWithWaitingHolds()) {
+    const cap = await capState(workspaceId);
+    if (cap.hold) continue;
+    const r = await releaseHeldMessages(workspaceId);
+    if (r.released || r.alreadySent) {
+      console.log(
+        `[thread/release] ${workspaceId}: ${r.released} sent, ${r.alreadySent} already sent`,
+      );
+    }
+    released += r.released;
+  }
+  return released;
+}
+
 export async function runThreadMessageScheduler(): Promise<{ due: number; sent: number }> {
   const now = Date.now();
 
@@ -7543,38 +7737,17 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
         continue;
       }
 
-      const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email;
-      // Same map as the triggered path. Before this shared it, the
-      // scheduler's copy had no {start_date} — so a message timed relative to
-      // the start date, the exact case that token is FOR, mailed the literal
-      // token to participants.
-      const tokens = messageTokens({
-        name,
-        firstName: person.first_name,
-        threadTitle: d.threadTitle,
-        organiserName: d.organiserName,
-        dateLabel,
-      });
-      const substitute = (s: string) => substituteTokens(s, tokens);
-      const body = substitute(
-        renderMessageBody(
-          d.engagement.type,
-          (d.engagement.content ?? {}) as Record<string, unknown>,
-          d.engagement.description,
-        ),
-      );
-      const msg = engagementMessage({
-        title: substitute(d.engagement.title),
-        bodyText: body,
-        threadTitle: d.threadTitle,
-      });
-      try {
-        // From the workspace, as the on-enrolment sends have been since v0.x;
-        // the scheduled ones went out as the platform until 2026-10-06.
-        await sendEmail({ to: person.email, ...msg, ...sender });
+      if (
+        await sendEngagementEmail({
+          engagement: d.engagement as EngagementForSend,
+          person,
+          threadTitle: d.threadTitle,
+          organiserName: d.organiserName,
+          dateLabel,
+          sender,
+        })
+      ) {
         sent += 1;
-      } catch (e) {
-        console.warn('[thread/scheduler] send failed', { engagement: d.engagement.id, e });
       }
     }
   }
@@ -7582,6 +7755,17 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
   if (due.length || sent) {
     console.log(`[thread/scheduler] ${due.length} due engagement(s), ${sent} email(s) sent`);
   }
+
+  // After sending, let go of anything whose cap has stopped applying. Last,
+  // deliberately: a workspace that is still over its allowance should have
+  // this tick's messages counted before we ask whether it is still holding,
+  // and a release that threw must not cost the ordinary sends above.
+  try {
+    await releaseWhereNoLongerHeld();
+  } catch (e) {
+    console.error('[thread/release] sweep failed', e);
+  }
+
   return { due: due.length, sent };
 }
 
