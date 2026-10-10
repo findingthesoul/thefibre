@@ -10,6 +10,7 @@ import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { QuickLinkRow, type QuickLink } from './quick-link';
 import { ClickableBookingRow } from '@/components/clickable-booking-row';
+import { JoinMeetingLink } from '@/components/join-meeting-link';
 import { cookies } from 'next/headers';
 import { GetStarted } from './get-started';
 import { COOKIE_GETSTARTED } from '@/lib/prefs-shared';
@@ -48,6 +49,11 @@ type Booking = {
   starts_at: string;
   ends_at: string;
   status: string;
+  /** Already returned by GET /meet/bookings; it was simply not declared here,
+   *  so this page could not offer the Join link even though the data was in
+   *  hand. Optional, so an API that somehow omits it degrades to no button
+   *  rather than a crash. */
+  meet_url?: string | null;
   // `host` and the meeting type's slug/event_type are not read on this page —
   // they ride through into BookingDetailsDialog, which builds the Reschedule
   // and Cancel links from them. Declared here so the row cannot be passed on
@@ -313,15 +319,23 @@ function BookingRow({ booking, locale }: { booking: Booking; locale: Locale }) {
   }).format(ends)}`;
   return (
     <ClickableBookingRow booking={booking} as="li" className="px-5 py-4 text-sm" locale={locale}>
-      <div className="font-medium">
-        {booking.invitee_name}
-        <span className="text-ink-subtle font-normal">
-          {' · '}
-          {mtName(booking)}
-        </span>
-      </div>
-      <div className="mt-1 text-xs text-ink-muted">
-        {dateStr} · {timeStr}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-medium">
+            {booking.invitee_name}
+            <span className="text-ink-subtle font-normal">
+              {' · '}
+              {mtName(booking)}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-ink-muted">
+            {dateStr} · {timeStr}
+          </div>
+        </div>
+        {/* The dashboard is where somebody actually looks just before a call,
+            so the link belongs here at least as much as on the Bookings list.
+            It renders nothing when there is nothing to join. */}
+        <JoinMeetingLink booking={booking} locale={locale} className="shrink-0" />
       </div>
     </ClickableBookingRow>
   );

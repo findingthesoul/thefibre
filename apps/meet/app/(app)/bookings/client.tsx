@@ -4,6 +4,7 @@ import { useMemo, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { List, LayoutGrid, CalendarDays, MapPin } from 'lucide-react';
 import { ClickableBookingRow } from '@/components/clickable-booking-row';
+import { JoinMeetingLink } from '@/components/join-meeting-link';
 import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export type BookingRow = {
@@ -228,6 +229,11 @@ function BookingItem({ b, locale }: { b: BookingRow; locale: Locale }) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {/* First in the cluster because it is the only thing here you ACT
+              on; the chips beside it are labels. It renders nothing for a
+              cancelled, unapproved, finished or link-less booking — see
+              canJoinMeeting. */}
+          <JoinMeetingLink booking={b} locale={locale} />
           <span
             className={`text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 ${
               b.status === 'cancelled'

@@ -29,6 +29,9 @@ export { absoluteUrl } from './absolute-url.js';
 export { formatWhenInZone } from './format-when.js';
 // Transitional, while a bio moves from plain text to rich text.
 export { bioToHtml, bioToPlain, looksLikeStoredHtml } from './bio-html.js';
+// Joining a meeting from a list: which service, and whether the link is
+// worth offering yet (2026-10-10).
+export { meetingProvider, canJoinMeeting, type MeetingProvider } from './meeting-join.js';
 export { resolveShortBio, excerptAtWord, fullBioAddsMore, SHORT_BIO_FALLBACK_CHARS } from './short-bio.js';
 // THE language resolver — which language a surface is in, for every app.
 export {

@@ -3454,6 +3454,42 @@ const CATALOG = {
     de: 'Team {name}', // MT
     fr: 'Équipe {name}', // MT
   },
+  // The row's Join button names the service where we can tell, so somebody
+  // glancing at their phone between meetings knows which app is about to
+  // open (2026-10-10). `join_short` is the fallback for a link we cannot
+  // place — a self-hosted room, a dial-in page.
+  join_short: {
+    en: 'Join',
+    nl: 'Deelnemen',
+    es: 'Unirse', // MT
+    pt: 'Entrar', // MT
+    de: 'Beitreten', // MT
+    fr: 'Rejoindre', // MT
+  },
+  join_zoom: {
+    en: 'Join Zoom',
+    nl: 'Zoom openen',
+    es: 'Unirse a Zoom', // MT
+    pt: 'Entrar no Zoom', // MT
+    de: 'Zoom beitreten', // MT
+    fr: 'Rejoindre Zoom', // MT
+  },
+  join_teams: {
+    en: 'Join Teams',
+    nl: 'Teams openen',
+    es: 'Unirse a Teams', // MT
+    pt: 'Entrar no Teams', // MT
+    de: 'Teams beitreten', // MT
+    fr: 'Rejoindre Teams', // MT
+  },
+  join_google_meet: {
+    en: 'Join Meet',
+    nl: 'Meet openen',
+    es: 'Unirse a Meet', // MT
+    pt: 'Entrar no Meet', // MT
+    de: 'Meet beitreten', // MT
+    fr: 'Rejoindre Meet', // MT
+  },
   join_meeting: {
     en: 'Join meeting',
     nl: 'Deelnemen aan meeting',

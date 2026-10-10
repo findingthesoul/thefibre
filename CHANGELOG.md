@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.129.0] — 2026-10-10
+
+The meeting link, on the booking row.
+
+Sjoerd, 2026-10-09: *"It would be nice to have the link (for zoom/teams/meet)
+in the overview for easy access."* It already existed — inside the booking's
+details dialog, two taps and a dialog away. On a phone between meetings that
+is the difference between joining and fumbling, which is what "easy access"
+means here.
+
+It is now on the row itself, in **Bookings** and on the dashboard's **Today /
+Next up**, which is where somebody actually looks just before a call. The
+dashboard needed one line: `GET /meet/bookings` has always returned
+`meet_url`; that page's own type simply never declared it, so the data was in
+hand and unreachable.
+
+**It names the service where it can** — Join Zoom, Join Teams, Join Meet, and
+plain Join otherwise. `meetingProvider()` reads the URL's HOST, never the
+string: a Teams call whose link carries the word "zoom" in a query parameter
+must not be renamed, and `zoom.us.evil.example` must not borrow the name.
+Both are asserted rather than assumed.
+
+**It knows when not to appear.** `canJoinMeeting(booking, now)` says no for
+cancelled, for still-awaiting-approval, for already-ended and for no URL — and
+deliberately yes BEFORE the start time, because people join early and hosts
+open the room ahead of the hour. A button that refuses until the exact minute
+is wrong precisely when somebody is being punctual. `now` is an argument, not
+a wall-clock read, so the rule cannot pass in CI and fail at 01:00 here.
+
+Two details that are the whole reason this is a component rather than three
+lines of JSX. The row already has an onClick that opens the details dialog, so
+a nested link fires BOTH — the meeting opens and the dialog opens behind it,
+and you come back from your call to a dialog you never asked for; it stops the
+click. And it is a 44px tap target under `sm`, because this is tapped on a
+phone while the chips beside it are only labels.
+
+Meet's own version goes to 2.28.0.
+
 ## [1.128.0] — 2026-10-10
 
 A scheduled message whose send FAILED was recorded as sent, and lost.
