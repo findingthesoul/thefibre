@@ -75,6 +75,35 @@ describe('what sendEmail hands to Resend', () => {
     expect(String(sent[0]!.text)).toContain('You are enrolled.');
   });
 
+  // The log line is the only way to answer "is staging marking its mail?"
+  // from outside, so it is worth an assertion — including that it carries
+  // NEITHER the subject NOR the recipient.
+  it('says so in the log on staging, without the subject or the recipient', async () => {
+    process.env.FLY_APP_NAME = 'thefibre-api-staging';
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => {
+      lines.push(a.map(String).join(' '));
+    });
+    await sendEmail(MSG);
+    spy.mockRestore();
+
+    const marked = lines.filter((l) => l.includes('marked as a staging test'));
+    expect(marked).toHaveLength(1);
+    expect(marked[0]).not.toContain(MSG.subject);
+    expect(marked[0]).not.toContain(MSG.to);
+  });
+
+  it('says nothing on production', async () => {
+    process.env.FLY_APP_NAME = 'thefibre-api';
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => {
+      lines.push(a.map(String).join(' '));
+    });
+    await sendEmail(MSG);
+    spy.mockRestore();
+    expect(lines.filter((l) => l.includes('marked as a staging test'))).toHaveLength(0);
+  });
+
   // The marking must not disturb anything else about the envelope.
   it('leaves the sender, recipient and attachments alone on staging', async () => {
     process.env.FLY_APP_NAME = 'thefibre-api-staging';

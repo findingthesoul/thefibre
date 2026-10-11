@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.135.1] — 2026-10-11
+
+"Is staging marking its mail?" is now answerable without a mailbox.
+
+v1.135.0 shipped the marking, and the obvious next question was whether it was
+actually happening. It was not answerable: `sendEmail` posts to Resend
+silently when a key is set, so a real staging send produced two lines in the
+Fly log — the request in, a 200 out — and nothing about the message. The only
+places the answer existed were an inbox and the Resend dashboard, neither of
+which the person asking could reach from a terminal.
+
+One line now, when a message is marked: `[email] marked as a staging test`.
+
+**No subject and no recipient in it.** A subject is *"Your ticket for
+<thread>"* and a recipient is a person; neither belongs in a log to answer a
+yes-or-no question. The no-key branch beside it does print both, and that is a
+different bargain — it runs only where there is no key at all, which is a
+developer's own machine, and there the content is the entire point.
+
+Asserted both ways, because a log line nobody checks is a log line that stops
+being written: one line on staging, none on production, and the staging one
+contains neither the subject nor the address.
+
 ## [1.135.0] — 2026-10-11
 
 Email from staging says it is from staging.

@@ -87,6 +87,17 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
       html: markHtml(msg.html),
       text: markText(msg.text),
     };
+    // One line, so "is staging marking its mail?" is answerable from the Fly
+    // log instead of from a mailbox nobody here can read. Asked exactly that
+    // on the day this shipped, and the honest answer was that the send path
+    // posts silently when a key is set, so nothing observable happened.
+    //
+    // NO SUBJECT AND NO RECIPIENT. A subject is "Your ticket for <thread>"
+    // and a recipient is a person; neither belongs in a log to answer a
+    // yes/no question. The no-key branch below does print both, and that is
+    // a different bargain: it runs only where there is no key, which is a
+    // developer's own machine, and there the content IS the point.
+    console.log('[email] marked as a staging test');
   }
 
   const key = process.env.RESEND_API_KEY;
