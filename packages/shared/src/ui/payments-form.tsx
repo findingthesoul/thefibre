@@ -35,6 +35,7 @@ import { Button } from './button.js';
 import { FIELD_TEXT } from './fields.js';
 import { Tabs } from './tabs.js';
 import { InfoHint } from './info-hint.js';
+import { FIELD_LIMITS, tooLongMessage } from '../field-limits.js';
 
 export type InvoiceDetails = {
   legal_name?: string;
@@ -351,6 +352,25 @@ function AccountSection({
       setError(s.errKeepOneMethod);
       return;
     }
+    // maxLength above stops somebody TYPING past these. This is the belt:
+    // a paste, an autofill or a value put there programmatically can still
+    // arrive over the limit, and the person should hear it here rather than
+    // as an API 400 with a number nobody showed them. Same constants, so the
+    // two halves cannot describe one limit two ways.
+    const tooLong = (
+      [
+        [account.trim(), FIELD_LIMITS.stripe_account_id, 'A Stripe account id'],
+        [legalName.trim(), FIELD_LIMITS.legal_name, 'A legal name'],
+        [taxNo.trim(), FIELD_LIMITS.tax_no, 'A tax number'],
+        [website.trim(), FIELD_LIMITS.website, 'A website'],
+        [address.trim(), FIELD_LIMITS.address, 'An address'],
+      ] as const
+    ).find(([value, limit]) => value.length > limit);
+    if (tooLong) {
+      setError(tooLongMessage(tooLong[2], tooLong[1]));
+      return;
+    }
+
     const details: InvoiceDetails = {};
     if (legalName.trim()) details.legal_name = legalName.trim();
     if (address.trim()) details.address = address.trim();
@@ -544,6 +564,7 @@ function AccountSection({
             <input
               value={account}
               onChange={(e) => setAccount(e.target.value)}
+              maxLength={FIELD_LIMITS.stripe_account_id}
               placeholder="acct_…"
               className={`${INPUT} font-mono`}
               autoComplete="off"
@@ -556,6 +577,7 @@ function AccountSection({
               <input
                 value={legalName}
                 onChange={(e) => setLegalName(e.target.value)}
+                maxLength={FIELD_LIMITS.legal_name}
                 placeholder="Solidarity Lab B.V."
                 className={INPUT}
               />
@@ -565,6 +587,7 @@ function AccountSection({
               <input
                 value={taxNo}
                 onChange={(e) => setTaxNo(e.target.value)}
+                maxLength={FIELD_LIMITS.tax_no}
                 placeholder="NL123456789B01"
                 className={INPUT}
               />
@@ -575,6 +598,7 @@ function AccountSection({
             <input
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
+              maxLength={FIELD_LIMITS.website}
               placeholder="soul.com"
               className={INPUT}
               autoComplete="off"
@@ -586,6 +610,7 @@ function AccountSection({
             <textarea
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              maxLength={FIELD_LIMITS.address}
               rows={2}
               className={`${INPUT} max-w-none`}
             />

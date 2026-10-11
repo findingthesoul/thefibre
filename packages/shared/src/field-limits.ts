@@ -43,6 +43,41 @@ export const FIELD_LIMITS = {
   photo_url: 1000,
   /** An IANA time zone name; the longest real one is ~32 characters. */
   timezone: 100,
+
+  // ── Billing details ──────────────────────────────────────────────────────
+  // Typed on Settings → Payments, which is one shared form rendered by Meet,
+  // Membership, Pulse, Thread and the platform. These were the last limits
+  // the API knew and the person typing did not, which is the whole complaint
+  // this module exists for: the field accepted the text, the save returned
+  // 400, and the only remedy within reach was to shorten what they had
+  // written.
+
+  /** The seller name printed on an invoice — a company name with its legal
+   *  form, occasionally a long one ("… coöperatie U.A."). */
+  legal_name: 200,
+  /** The seller address block. Multi-line, so it is the longest of these: a
+   *  street, a postcode and a city, sometimes a country and a PO box. */
+  address: 500,
+  /** A VAT or company registration number. The longest real formats run to
+   *  about 20 characters; 60 leaves room for a label somebody types in front
+   *  of it ("VAT: NL0012345B01"). */
+  tax_no: 60,
+  /** The seller website, printed under the address on the invoice. */
+  website: 200,
+  /** A Stripe account id — `acct_` and 16–24 characters, pasted rather than
+   *  typed. The regex on it is the real check; this is the length guard. */
+  stripe_account_id: 64,
+  /**
+   * A locale code: `en`, `nl`, `pt-BR`. Here so the schema stops writing its
+   * own number, NOT because anybody can type past it — it is chosen from a
+   * select, and the real validation is membership of LOCALES.
+   *
+   * So this one gets no form-side check. A length refusal on a dropdown is
+   * theatre: it can never fire, and a reader would have to work that out
+   * before trusting anything else here. The home is worth having; the
+   * ceremony is not.
+   */
+  locale: 8,
 } as const;
 
 export type FieldLimit = keyof typeof FIELD_LIMITS;

@@ -24,33 +24,66 @@ describe('the limit has one home', () => {
   });
 
   it('names the fields in that schema that STILL write their own number', () => {
-    // Not an exemption list — an inventory. These are the limits this change
-    // did not reach: the billing details and the locale, which are edited on
-    // other screens that would each need the same treatment. Listing them
-    // means the set can only shrink on purpose: add a new hardcoded limit and
-    // this fails with it named, rather than the list quietly growing.
+    // Not an exemption list — an inventory, and it has done its job: the six
+    // it named on 2026-10-03 (locale, stripe_account_id, and the four billing
+    // details) are gone, each now reading FIELD_LIMITS. What is left is ONE
+    // entry, and it is not a length at all.
     //
-    // The ones a person types freely (legal_name, address, website) are the
-    // ones worth doing next, for exactly the reason the bio needed it.
+    // Listing them means the set can only shrink on purpose: add a new
+    // hardcoded limit and this fails with it named, rather than the list
+    // quietly growing.
     const src = read('../../../apps/api/src/routes/profile.ts');
     const schema = src.match(/export const ProfilePatch = z\.object\(\{([\s\S]*?)\n\}\)/)![1];
     const stillLocal = [...schema.matchAll(/(\w+): z\s*[\s\S]{0,40}?\.max\((\d+)/g)].map(
       (m) => `${m[1]}=${m[2]}`,
     );
-    // Written from what the scan MATCHED, not from what I expected it to:
-    // my first list said `legal_name=200`, and the scan reports the nested
-    // object's own name (`invoice_details`) for the first field inside it.
-    // `vat_rate_pct=100` is a value range rather than a length and is in the
-    // list only because the same `.max()` spells both.
-    expect(stillLocal).toEqual([
-      'locale=8',
-      'stripe_account_id=64',
-      'invoice_details=200',
-      'address=500',
-      'tax_no=60',
-      'website=200',
-      'vat_rate_pct=100',
-    ]);
+    // `vat_rate_pct=100` is a VALUE RANGE — a percentage can be 0 to 100 —
+    // and appears here only because `.max()` spells both a length and a
+    // bound. Sharing it with the form would mean teaching FIELD_LIMITS, whose
+    // whole subject is "how many characters", to also mean "how large a
+    // number", and a module that means two things is how the next person gets
+    // it wrong. It stays.
+    expect(stillLocal).toEqual(['vat_rate_pct=100']);
+  });
+
+  it('the billing details and the account id derive theirs', () => {
+    const src = read('../../../apps/api/src/routes/profile.ts');
+    const schema = src.match(/export const ProfilePatch = z\.object\(\{([\s\S]*?)\n\}\)/)![1];
+    for (const field of [
+      'legal_name',
+      'address',
+      'tax_no',
+      'website',
+      'stripe_account_id',
+      'locale',
+    ] as const) {
+      expect(schema, `${field} must read FIELD_LIMITS`).toContain(`FIELD_LIMITS.${field}`);
+    }
+  });
+
+  it('the BILLING form reads them too, and stops the typing', () => {
+    const src = read('./ui/payments-form.tsx');
+    // maxLength is the clearest refusal there is: the character never
+    // arrives, so there is nothing to explain afterwards.
+    for (const field of [
+      'legal_name',
+      'address',
+      'tax_no',
+      'website',
+      'stripe_account_id',
+    ] as const) {
+      expect(src, `${field} must cap its input from FIELD_LIMITS`).toContain(
+        `maxLength={FIELD_LIMITS.${field}}`,
+      );
+    }
+    // And the belt, for a value that was pasted or put there programmatically
+    // rather than typed.
+    expect(src).toContain('tooLongMessage(');
+
+    // `locale` deliberately has NO form check: it is chosen from a select, so
+    // a length refusal could never fire. Asserted so the absence reads as a
+    // decision rather than an omission.
+    expect(src).not.toContain('FIELD_LIMITS.locale');
   });
 
   it("Thread's organiser schema derives the bio from the same one", () => {

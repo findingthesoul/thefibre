@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.147.0] — 2026-10-11
+
+The last six limits the API knew and the person typing did not.
+
+Sjoerd, 2026-10-03, after a save failed with `API 400` and the only remedy
+within his reach was to shorten his own bio: *"creates a bad legacy"*. That
+produced `FIELD_LIMITS` and an inventory test naming the limits the change had
+not reached — `locale`, `stripe_account_id`, and the four billing details
+(legal_name, address, tax_no, website). All six now read the same number as
+the form.
+
+**The clearest refusal is the character that never arrives.** Each typed field
+carries `maxLength` from the same constant, so there is nothing to explain
+afterwards — you cannot get into the state that needs a message. The
+before-save check stays as the belt, for a value pasted, autofilled or put
+there programmatically, which `maxLength` does not stop.
+
+**One form, five apps.** `packages/shared/src/ui/payments-form.tsx` is THE
+billing form — Meet, Membership, Pulse, Thread and the platform all render it
+— so this reached every screen that types these fields rather than five
+screens one at a time.
+
+### Two things deliberately NOT done
+
+`locale` gets a home in FIELD_LIMITS, so the schema stops writing its own
+number, and **no form check**. It is chosen from a select: a length refusal
+there can never fire, and a reader would have to work that out before trusting
+anything else in the file. The test asserts its absence, so the gap reads as a
+decision rather than an oversight.
+
+`vat_rate_pct=100` stays hardcoded and is now the only entry left in the
+inventory. It is a VALUE RANGE — a percentage runs 0 to 100 — and appears
+there only because `.max()` spells both a length and a bound. Sharing it would
+mean teaching FIELD_LIMITS, whose whole subject is how many characters, to
+also mean how large a number, and a module that means two things is how the
+next person gets it wrong.
+
+### The guard
+
+The inventory shrank from seven entries to one, and it can only shrink on
+purpose: a limit written back as a literal fails the test **with the field
+named**. Mutation-checked — putting `tax_no` back to `.max(60)` reports
+`[ 'tax_no=60', 'vat_rate_pct=100' ]` against the expected one, and the
+companion case fails with "tax_no must read FIELD_LIMITS".
+
 ## [1.146.0] — 2026-10-11
 
 Merging two records of one company silently lost its address, its LinkedIn

@@ -145,7 +145,7 @@ export const ProfilePatch = z.object({
   // shared LOCALES so the list has a single source; null = no preference.
   locale: z
     .string()
-    .max(8)
+    .max(FIELD_LIMITS.locale)
     .nullable()
     .optional()
     .refine((v) => v == null || isLocale(v), 'unsupported locale'),
@@ -155,16 +155,34 @@ export const ProfilePatch = z.object({
   // Payments SPoT (personal level) — every app reads these.
   stripe_account_id: z
     .string()
-    .max(64)
+    .max(
+      FIELD_LIMITS.stripe_account_id,
+      tooLongMessage('A Stripe account id', FIELD_LIMITS.stripe_account_id),
+    )
     .regex(/^(acct_[A-Za-z0-9]+)?$/, 'Must be a Stripe account id like acct_…')
     .nullable()
     .optional(),
   invoice_details: z
     .object({
-      legal_name: z.string().max(200).optional(),
-      address: z.string().max(500).optional(),
-      tax_no: z.string().max(60).optional(),
-      website: z.string().max(200).optional(),
+      // The same numbers the form counts against (FIELD_LIMITS), so a save
+      // the browser allowed cannot be refused here for a length nobody was
+      // shown.
+      legal_name: z
+        .string()
+        .max(FIELD_LIMITS.legal_name, tooLongMessage('A legal name', FIELD_LIMITS.legal_name))
+        .optional(),
+      address: z
+        .string()
+        .max(FIELD_LIMITS.address, tooLongMessage('An address', FIELD_LIMITS.address))
+        .optional(),
+      tax_no: z
+        .string()
+        .max(FIELD_LIMITS.tax_no, tooLongMessage('A tax number', FIELD_LIMITS.tax_no))
+        .optional(),
+      website: z
+        .string()
+        .max(FIELD_LIMITS.website, tooLongMessage('A website', FIELD_LIMITS.website))
+        .optional(),
       vat_registered: z.boolean().optional(),
       vat_rate_pct: z.number().min(0).max(100).nullable().optional(),
     })
