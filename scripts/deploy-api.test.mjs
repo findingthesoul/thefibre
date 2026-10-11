@@ -60,6 +60,16 @@ while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; -w) fmt="$2"; shift
 [ -n "$fmt" ] && printf '200'
 exit 0`,
   );
+  // A git WRAPPER rather than a stub — the sandbox needs real git for the
+  // repo work. It records the environment of a `fetch` and then delegates,
+  // which is what lets the timeout test below assert behaviour instead of
+  // grepping the script's own source for the string it is supposed to set.
+  const REAL_GIT = execFileSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  stub(
+    'git',
+    `if [ "$1" = "fetch" ]; then echo "git fetch GIT_SSH_COMMAND=\${GIT_SSH_COMMAND:-UNSET}" >> "${dir}/calls.log"; fi
+exec ${REAL_GIT} "$@"`,
+  );
   chmodSync(join(dir, 'scripts/runway.sh'), 0o755);
   chmodSync(join(dir, 'scripts/deploy-api.sh'), 0o755);
 
@@ -92,6 +102,7 @@ exit 0`,
     return {
       code: r.status,
       out: `${r.stdout}\n${r.stderr}`,
+      calls,
       deployed: /^fly deploy/m.test(calls),
       landed: /^runway land/m.test(calls),
     };
@@ -155,6 +166,38 @@ describe('deploy-api.sh says how many machines are serving', () => {
     expect(r.out).toContain('WARNING: thefibre-api-staging is running 2 machines, not 1.');
     expect(r.code).toBe(0);
     expect(r.landed).toBe(true);
+  });
+});
+
+// A deploy that HANGS looks exactly like a deploy that is working, and it
+// holds the runway while it does — so nobody else can land either. A plain
+// `git fetch` over SSH waits on the TCP default: about 55 minutes when the
+// connection stalls rather than refuses (a dropped VPN, a network change
+// mid-command). Bounded, it gives up in about a minute.
+describe('the fetch cannot hang for an hour', () => {
+  const { run } = sandbox();
+
+  it('runs its fetch with a bounded SSH command', () => {
+    const r = run('staging', '--no-visible-change');
+    const fetches = r.calls.split('\n').filter((l) => l.startsWith('git fetch '));
+    expect(fetches.length, r.calls).toBeGreaterThan(0);
+
+    // EVERY fetch, not just one of them: a second unbounded fetch added later
+    // would reintroduce the hang while this test stayed green.
+    for (const line of fetches) {
+      expect(line, 'a fetch ran without GIT_SSH_COMMAND').not.toContain('UNSET');
+      expect(line).toContain('ConnectTimeout=15');
+      expect(line).toContain('ServerAliveInterval=15');
+      expect(line).toContain('ServerAliveCountMax=4');
+    }
+  });
+
+  // The bound is useless if a failed fetch takes the deploy down with it: the
+  // freshness checks below it fail loudly and specifically on a stale ref,
+  // which is a better message than a bare git error.
+  it('does not abort the deploy when the fetch fails', () => {
+    const r = run('staging', '--no-visible-change');
+    expect(r.code, r.out).toBe(0);
   });
 });
 

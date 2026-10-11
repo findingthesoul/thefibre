@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.136.0] — 2026-10-11
+
+Four gates that were wrong today, from today's mistakes.
+
+All four cost a real round trip in the last two days, and none of them
+announced itself — which is the quality they share and the reason they are
+worth a release rather than a note.
+
+**`land` only lands what actually reached the ref.** It asked one question —
+*are you the holder?* — so a release whose PUSH had failed still recorded
+LANDED and freed the runway. It happened twice in one day, once because
+`RUNWAY_SESSION` was set inline rather than exported so the pre-push hook
+refused while the script carried on. The log then claimed a version was on
+staging that was on nobody's staging, which is worse than the race the runway
+exists to prevent: a false record gets trusted.
+
+The test is **did the ref move**, and that is not the obvious test. Checking
+only whether the cleared sha is an ancestor refuses a perfectly good landing
+whenever the commit was amended after clearance — a rebase onto a moved
+staging, or the `--amend` that renumbering after a lost race requires. The
+sha is then a different object that never reaches the ref while the release
+went out fine. Found by writing the ancestor-only version first and watching
+it fail four existing cases. So: the sha is on the ref, OR the ref moved since
+the base — either is a landing; neither is not. It fails open on everything it
+cannot resolve, and the refusal keeps the slot rather than silently freeing it.
+
+**A lane is space-separated globs, and `request` now says so.** A comma leaves
+a trailing one on every pattern, so the lane matches NOTHING and reads as
+"your whole diff is out of lane" with no hint why — refused outright, because
+no lane wants a comma. Brackets are warned about instead of refused:
+`apps/thread/app/[organiserSlug]` is a CHARACTER CLASS matching one character
+from that set, not a directory, but a bracket could in principle be meant.
+Three refusals on one request on 2026-10-11, all of this shape.
+
+**`deploy-api.sh` cannot hang for an hour.** Its `git fetch` waited on the TCP
+default, so a stalled connection — a dropped VPN, a network change
+mid-command — sat for about 55 minutes while holding the runway, and a deploy
+that is hanging looks exactly like one that is working. `ConnectTimeout` bounds
+the handshake and the keepalives bound a connection that opened and went
+quiet: roughly a minute to give up. A failed fetch no longer aborts the
+deploy, because the freshness checks below it fail far more specifically than
+a bare git error.
+
+**`apps/api/scripts` is typechecked.** It was not: the api tsconfig includes
+`src/**/*.ts` only, so the scripts that convert data, grant roles and sweep
+workspaces all shipped unchecked — the worst place for a type error to wait,
+since they run once, by hand, against a real database, usually in a hurry.
+Zero errors today, and it is not vacuous: a deliberate one is caught.
+
+**The `.mjs` scripts are deliberately left out**, measured rather than
+assumed. `checkJs` on them gives 483 errors under this project's settings and
+still 118 with strict, noImplicitAny and strictNullChecks all off — and almost
+none are defects: 166 implicit-any parameters and 93 "object literal may only
+specify known properties" where TypeScript infers a shape from a seed script's
+first insert and objects to the second. Annotating 25 untyped scripts to buy
+that is not today's trade, and a skip-list would be worse, because a skip-list
+in a gate fails open and goes stale in silence.
+
+The tests live where their subject lives: the runway's two in
+`scripts/runway.test.sh`, which `pnpm verify` already runs, and the fetch's in
+`scripts/deploy-api.test.mjs`. A second harness for one of them would be the
+second drifting copy this repo keeps warning about. The fetch one asserts on a
+`git` WRAPPER that records its environment, not on the script's own source, so
+it tests the behaviour; mutation-checked, as was the land rule.
+
 ## [1.135.1] — 2026-10-11
 
 "Is staging marking its mail?" is now answerable without a mailbox.

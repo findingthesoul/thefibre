@@ -96,6 +96,34 @@ cmd_request() {
   # Not optional, on purpose: a handover that omits this turns the controller
   # into a rubber stamp, which is worse than the races (CLAUDE.md rule 4).
   [ -n "$unverified" ] || die "--unverified: what you did NOT check. Say \"nothing\" only if that is true."
+
+  # A LANE IS SPACE-SEPARATED GLOBS, and getting that wrong is silent.
+  # `clear` loops `for pat in $lane` and matches each with a shell `case`, so:
+  #
+  #   commas    every pattern keeps a trailing "," and matches NOTHING, which
+  #             reads as "your whole diff is out of lane" with no hint why.
+  #             Refused, because there is no lane for which a comma is right.
+  #
+  #   brackets  "apps/thread/app/[organiserSlug]" is a CHARACTER CLASS — it
+  #             matches one character from the set {o,r,g,a,n,i,s,e,S,l,u}, not
+  #             that directory. Warned rather than refused: a bracket could in
+  #             principle be meant, and the controller can still clear it.
+  #
+  # Both cost a real round trip on 2026-10-11 — three refusals on one request.
+  case "$lane" in
+    *,*) die "--lane is SPACE-separated, not comma-separated: a comma leaves it on every pattern and the lane then matches nothing.
+    Build it from the commit instead of from memory:
+        git show --name-only --format= <sha> | sort
+    and pass the paths separated by spaces." ;;
+  esac
+  case "$lane" in
+    *'['*|*']'*)
+      say "WARNING: a lane entry contains [ or ], which a shell glob reads as a CHARACTER CLASS, not a literal path."
+      say "  \"apps/thread/app/[organiserSlug]\" matches one character from that set — not the directory."
+      say "  Use a plain prefix such as \"apps/thread/app\" unless you really mean a class."
+      ;;
+  esac
+
   [ -n "$sha" ] || sha="$(git rev-parse HEAD)"
   git rev-parse --verify --quiet "$sha^{commit}" >/dev/null || die "$sha is not a commit this clone can see."
   sha="$(git rev-parse "$sha")"
@@ -403,6 +431,55 @@ abort_quiet() { logit "VOID session=$(field session "$CLEARANCE") kind=$(field k
 cmd_land() {
   local name="${RUNWAY_SESSION:-}"
   if [ -f "$CLEARANCE" ] && { [ "$(field session "$CLEARANCE")" = "$name" ] || [ -n "${RUNWAY_BYPASS:-}" ]; }; then
+    # DID IT ACTUALLY LAND? Until 2026-10-11 this asked only "are you the
+    # holder", so a release whose PUSH had failed still recorded LANDED and
+    # freed the runway. It happened twice in one day — once because
+    # RUNWAY_SESSION was set inline rather than exported, so the pre-push hook
+    # refused while the script carried on to this line. The log then said a
+    # version had landed that was on nobody's staging, which is worse than the
+    # race it was invented to prevent: a false record is trusted.
+    #
+    # "NOTHING LANDED" means the REF DID NOT MOVE. That is the test, and it
+    # took one wrong version to find out why: checking only whether the
+    # cleared sha is an ancestor of the ref refuses a legitimate landing
+    # whenever the commit was amended after clearance — a rebase onto a moved
+    # staging, or the `--amend` that renumbering after a lost race requires.
+    # The sha is then a different object that never reaches the ref, and the
+    # release went out perfectly.
+    #
+    # So two accepts and one refusal:
+    #   the cleared sha IS on the ref   → landed (the ordinary case)
+    #   the ref has MOVED since `base`  → something landed, amended or not
+    #   neither                         → nothing landed
+    #
+    # A deploy kind pushes nothing and legitimately leaves the ref where it
+    # was; its sha was already on the ref when it was cleared, so the first
+    # accept covers it.
+    #
+    # FAILS OPEN, like the rest of this file: it refuses only when it can
+    # positively tell BOTH that the commit is absent and that the ref has not
+    # moved. No network, a shallow clone, a bypass, a clearance without a
+    # base — all land as before rather than stranding somebody holding a slot
+    # they cannot free.
+    local lsha lref lbase
+    lsha="$(field sha "$CLEARANCE")"
+    lbase="$(field base "$CLEARANCE")"
+    lref="$(base_ref "$(field kind "$CLEARANCE")")"
+    git fetch -q origin 2>/dev/null || true
+    if [ -z "${RUNWAY_BYPASS:-}" ] && [ -n "$lsha" ] && [ -n "$lbase" ] \
+      && git rev-parse --verify --quiet "$lsha^{commit}" >/dev/null 2>&1 \
+      && git rev-parse --verify --quiet "$lref" >/dev/null 2>&1 \
+      && ! git merge-base --is-ancestor "$lsha" "$lref" 2>/dev/null \
+      && [ "$(git rev-parse "$lref" 2>/dev/null)" = "$lbase" ]; then
+      logit "LAND-REFUSED-NOT-ON-REF session=$name sha=$lsha ref=$lref"
+      say "NOTHING LANDED: $lref is still exactly where it was when you were cleared, and ${lsha:0:8} is not on it."
+      say "  The runway stays YOURS — nothing was freed and nothing was recorded as landed."
+      say "  Usually the push failed. Check that RUNWAY_SESSION was EXPORTED, not set inline:"
+      say "      export RUNWAY_SESSION=$name     # the pre-push hook cannot see an inline one"
+      say "  Push again, then run land again. Or abort the clearance if you are giving up."
+      return 0
+    fi
+
     logit "LANDED session=$(field session "$CLEARANCE") kind=$(field kind "$CLEARANCE") staging=$(git rev-parse --short origin/staging 2>/dev/null)"
     rm -f "$CLEARANCE"
     say "Landed. Runway free."

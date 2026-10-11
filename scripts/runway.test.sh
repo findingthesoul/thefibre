@@ -216,6 +216,20 @@ OUT="$($R land 2>&1)"
 grep -q "you are nobody (RUNWAY_SESSION is not set)" <<<"$OUT" && ok "land with no session name says that too" || bad "land with no session name says that too"
 $R status | grep -q "RUNWAY BUSY: a" && ok "and the runway is still a's" || bad "and the runway is still a's"
 grep -q "LAND-REFUSED holder=a" "$T/w/.git/runway/log" && ok "and it is in the log" || bad "and it is in the log"
+# Push it first: since 2026-10-11 land refuses a sha that never reached the
+# ref, so "the holder lands" is only true of a holder whose commit is really
+# there. Before that, this block landed a commit nobody had pushed — which is
+# exactly the false landing the check now prevents, written into a test.
+# Land it for real. Since 2026-10-11 land refuses a sha that never reached the
+# ref, so "the holder lands" is only true of a holder whose commit is really
+# there — before that, this block landed a commit nobody had pushed, which is
+# the false landing the check now prevents, written into a test.
+#
+# The push needs a release-SHAPED commit, because the hook refuses a bare one
+# under a release clearance (tested above). That is the realistic order too:
+# release.sh commits, pushes, then lands.
+rel 9.9.9
+RUNWAY_SESSION=a git push -q origin HEAD:staging
 OUT="$(RUNWAY_SESSION=a $R land 2>&1)"; grep -q "Landed. Runway free." <<<"$OUT" && ok "the holder still lands" || bad "the holder still lands"
 OUT="$(RUNWAY_SESSION=a $R land 2>&1)"; grep -q "Nothing to land" <<<"$OUT" && ok "landing a free runway says there is nothing to land" || bad "landing a free runway says there is nothing to land"
 
@@ -275,6 +289,66 @@ expect_pass "RUNWAY_BYPASS passes" env RUNWAY_BYPASS="test" $R check --kind rele
 grep -q BYPASS "$T/w/.git/runway/log" && ok "bypass is logged" || bad "bypass is logged"
 expect_pass "bypass lets a push through the hook" env RUNWAY_BYPASS=test git push -q origin HEAD:staging
 expect_fail "deleting staging is refused" git push -q origin :staging
+
+echo "a lane is space-separated globs"
+# Both of these cost a real round trip on 2026-10-11, and neither announced
+# itself: a comma leaves every pattern unmatched and reads as "your whole diff
+# is out of lane".
+git fetch -q origin; git checkout -q -B lanes origin/staging; echo l > lane.txt; git add -A; git commit -qm lanes
+OUT="$(RUNWAY_SESSION=a $R request --kind release --lane "apps/api, apps/web" --what x --verified v --unverified n 2>&1)" \
+  && bad "a comma-separated lane is refused" || ok "a comma-separated lane is refused"
+grep -q "SPACE-separated" <<<"$OUT" && ok "and says so in those words" || bad "and says so in those words"
+[ -z "$(ls -A "$T/w/.git/runway/queue")" ] && ok "and nothing was queued" || bad "and nothing was queued"
+rm -f "$T/w/.git/runway/queue/"*
+
+# A bracket is a character class, not a directory — warned, not refused,
+# because it could in principle be meant.
+OUT="$(RUNWAY_SESSION=a $R request --kind release --lane "apps/thread/app/[organiserSlug]" --what x --verified v --unverified n 2>&1)" \
+  && ok "a bracketed lane is allowed through" || bad "a bracketed lane is allowed through"
+grep -q "CHARACTER CLASS" <<<"$OUT" && ok "but warns that it is a character class" || bad "but warns that it is a character class"
+rm -f "$T/w/.git/runway/queue/"*
+$R abort --by atc >/dev/null 2>&1 || true
+
+echo "land only lands what actually reached the ref"
+# The failure this prevents: a release whose PUSH failed still recorded
+# LANDED and freed the runway, so the log claimed a version was on staging
+# that was on nobody's staging.
+git fetch -q origin; git checkout -q -B unpushed origin/staging
+echo u > unpushed.txt; git add -A; git commit -qm "v9.9.9 — never pushed"
+UNPUSHED="$(git rev-parse HEAD)"
+RUNWAY_SESSION=a $R request --kind release --sha "$UNPUSHED" --lane "unpushed.txt" --what x --verified v --unverified n >/dev/null 2>&1
+$R clear a --by atc --allow-out-of-lane >/dev/null 2>&1 || $R clear a --by atc >/dev/null 2>&1
+if [ -f "$T/w/.git/runway/clearance" ]; then
+  OUT="$(RUNWAY_SESSION=a $R land 2>&1)"
+  grep -q "NOTHING LANDED" <<<"$OUT" && ok "land refuses a sha that never reached the ref" || bad "land refuses a sha that never reached the ref"
+  [ -f "$T/w/.git/runway/clearance" ] && ok "and the runway stays held, not silently freed" || bad "and the runway stays held, not silently freed"
+  grep -q "LAND-REFUSED-NOT-ON-REF" "$T/w/.git/runway/log" && ok "and the refusal is logged" || bad "and the refusal is logged"
+  grep -q "export RUNWAY_SESSION" <<<"$OUT" && ok "and names the usual cause" || bad "and names the usual cause"
+
+  # Now push it for real: the SAME clearance must land.
+  git push -q origin HEAD:staging 2>/dev/null || RUNWAY_BYPASS=test git push -q origin HEAD:staging
+  OUT="$(RUNWAY_SESSION=a $R land 2>&1)"
+  grep -q "Landed" <<<"$OUT" && ok "and lands once the commit is really there" || bad "and lands once the commit is really there"
+  [ -f "$T/w/.git/runway/clearance" ] && bad "and frees the runway" || ok "and frees the runway"
+
+  # THE CASE THAT MAKES THE RULE "did the ref move", not "is the sha there".
+  # A commit amended after clearance — a rebase onto a moved staging, or the
+  # --amend that renumbering after a lost race needs — is a different object
+  # that never reaches the ref, while the release went out perfectly. An
+  # ancestor-only check refuses that, and refusing a landing that happened is
+  # the same false record, pointed the other way.
+  git fetch -q origin; git checkout -q -B amended origin/staging
+  echo am > amended.txt; git add -A; git commit -qm "v9.9.10 — before the amend"
+  RUNWAY_SESSION=a $R request --kind release --sha "$(git rev-parse HEAD)" --what x --verified v --unverified n >/dev/null 2>&1
+  $R clear a --by atc >/dev/null 2>&1
+  rel 9.9.10                                  # rewrites the commit: a NEW sha
+  RUNWAY_SESSION=a git push -q origin HEAD:staging
+  OUT="$(RUNWAY_SESSION=a $R land 2>&1)"
+  grep -q "Landed" <<<"$OUT" && ok "an AMENDED commit that really landed still lands" || bad "an AMENDED commit that really landed still lands"
+  [ -f "$T/w/.git/runway/clearance" ] && bad "and frees the runway after an amend" || ok "and frees the runway after an amend"
+else
+  bad "land test: could not obtain a clearance to test with"
+fi
 
 echo
 [ "$fails" = 0 ] && { echo "runway: all passed"; exit 0; } || { echo "runway: $fails failed"; exit 1; }

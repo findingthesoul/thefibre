@@ -141,7 +141,24 @@ if [ "$ANSWERS" -eq 0 ]; then
   exit 64
 fi
 
-git fetch -q origin
+# A FETCH THAT CANNOT HANG FOR AN HOUR.
+#
+# Plain `git fetch` over SSH waits on the TCP default. When the connection
+# stalls rather than refuses — a dropped VPN, a network change mid-command,
+# GitHub having a moment — it sits there for about 55 minutes, and a deploy
+# that is hanging looks exactly like a deploy that is working. It holds the
+# runway the whole time, so nobody else can land either, and the clearance
+# expires underneath it.
+#
+# ConnectTimeout bounds the handshake; the keepalives bound a connection that
+# opened and then went quiet. 15s × 4 missed replies ≈ a minute to give up,
+# against 55. Set only for this command, so nothing else inherits it.
+#
+# `|| true` is deliberate: this fetch feeds the freshness checks below, which
+# fail loudly and specifically on a stale ref. A bare network blip should not
+# abort a deploy with a git error nobody can act on.
+GIT_SSH_COMMAND='ssh -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4' \
+  git fetch -q origin || echo "WARN: git fetch did not complete — the checks below read whatever refs this clone already had." >&2
 
 # ── Runway clearance (2026-10-01) ───────────────────────────────────────────
 # Nobody departs without it. A dry run changes nothing, so it needs none.

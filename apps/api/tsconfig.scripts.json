@@ -1,0 +1,34 @@
+{
+  // The operational scripts, typechecked.
+  //
+  // They were not. `apps/api/tsconfig.json` includes `src/**/*.ts` only, so
+  // every script in this folder shipped unchecked — and these are the ones
+  // that convert data, grant roles and sweep workspaces. A script is the
+  // worst place for a type error to wait, because it runs once, by hand,
+  // against a real database, usually in a hurry.
+  //
+  // TYPESCRIPT ONLY, and the .mjs scripts are deliberately left out. Turning
+  // on checkJs for them was measured on 2026-10-11 rather than guessed: 483
+  // errors under this project's strict settings, and still 118 with strict,
+  // noImplicitAny and strictNullChecks all off. Almost none are defects —
+  // 166 implicit-any parameters and 93 "object literal may only specify known
+  // properties" where TypeScript infers a narrow shape from a seed script's
+  // first insert and then objects to the second. Annotating 25 untyped
+  // scripts to buy that is not a trade worth making today, and an exemption
+  // list would be worse: a skip-list in a gate fails open and goes stale
+  // silently. If the .mjs scripts are ever converted, widen this include and
+  // delete this paragraph.
+  //
+  // `src/middleware/app-context.ts` is in the include because it carries the
+  // `declare module 'hono'` augmentation that types `c.get('ctx')`. Without
+  // it the scripts' transitive imports of src resolve `ctx` as unknown and
+  // produce 90 errors that say nothing about the scripts.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.ts", "src/middleware/app-context.ts"],
+  "exclude": []
+}
