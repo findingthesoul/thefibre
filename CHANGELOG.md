@@ -6,6 +6,76 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.139.0] — 2026-10-11
+
+The fixture leak, found properly and given a sweep that will not take
+somebody's demo account with it.
+
+Staging had **78 `int-test-*` workspaces**. The instruction was to fix the
+merge and enrol-closed fixtures. Neither needed fixing — and finding that out
+was most of the work.
+
+**Broken down by prefix and date**, the 78 are: merge 51 and enrol-closed 15,
+both of which stopped on 1 October; then dirpage 4, proven-email 2, degrade 2,
+split 1, meetlook 1, meet-hold 1. Both merge files were run: 14 cases, nothing
+left behind. `enrolment-closed` uses the permanent fixture workspace and
+`retireParticipants` correctly. So 66 of the 78 are HISTORY from files
+somebody had already fixed, and fixing them again would have been work that
+changed nothing while looking thorough.
+
+**What actually still leaked was `proven-email`,** which nobody had named.
+Reproduced, and the database named the constraint rather than a guess:
+`person_merge.merged_person_id` references `person`, so a workspace that ever
+merged two people cannot delete its persons and therefore cannot delete
+itself. (The guess was `person_contact_point`, and it was wrong.) Fixed in
+`deleteThrowawayWorkspace` rather than in the one test, because it is a gap in
+the helper every file relies on — then checked the other way round by removing
+the fix and re-running `person-merge`, which stayed clean. So this repairs
+`proven-email` and is not what repaired the big one.
+
+**The leak was never silent.** The file-level check throws, by name, with the
+constraint in the output. `proven-email` had been failing its own run since 4
+October and the failure was being lived with — the gate worked and nobody was
+reading it.
+
+### The sweep
+
+`apps/api/scripts/sweep-int-test-fixtures.mjs`. **Dry by default**; `--apply`
+is the only way anything is written. It refuses any project that is not
+staging, by project ref rather than by a flag somebody could pass wrongly —
+production has no int-test fixtures, so a sweep there could only ever delete
+something real.
+
+**Two buckets, and the second is not optional.** A workspace with `activity`
+rows can never be hard-deleted — append-only, trigger-enforced even against
+the service role — so those are retired in place: stripped, persons
+soft-deleted, archived. `resolvePublicOwner` skips an archived workspace, so a
+retired fixture answers no public URL.
+
+**It deletes the workspace whole and never the teams first.** When a delete is
+refused the tempting move is to clear its children and retry, and the
+automatic Admins/Everyone teams are the first thing to hand. A half-deleted
+workspace whose teams are gone is worse than an intact one that was refused.
+
+**Accounts it must never touch are named in the source**, found by reading
+`e2e/` rather than from a remembered list — which turned up three permanent
+identities beyond the one that had been named. Every `e2e-` account is spared
+including the per-run ones, deliberately: deleting one buys tidiness and costs
+a broken run, possibly a CONCURRENT one, since several sessions share this
+database and a run in flight looks exactly like an abandoned fixture.
+
+**And it separates orphans made by the SUITE from ones made BY HAND.** The
+first pass would have swept `tess-bakker@example.com` and two dated
+`rehearsal-*` accounts in among forty-four machine-named `int-*` ones, where
+nobody reading a list of forty-seven would have picked them out. Mechanically
+orphaned says nothing about whether something is wanted. Hand-made accounts
+are listed under "somebody's to decide" and left alone.
+
+`--keep <slug>` spares a fixture, on the command line rather than in the
+source so it is re-decided rather than inherited, printed on every run — and a
+`--keep` matching NOTHING prints a warning, because a stale slug protecting an
+id that no longer exists looks exactly like protection in a log.
+
 ## [1.138.0] — 2026-10-11
 
 Every invoice email now says where to read it again.

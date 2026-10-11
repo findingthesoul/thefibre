@@ -197,6 +197,15 @@ export async function deleteThrowawayWorkspace(id: string): Promise<boolean> {
   // user ⇄ person point at each other (user.person_id, person.user_id), so
   // neither can be deleted first: cut one side, then remove both.
   say('unlinking users from persons', await service.from('user').update({ person_id: null }).eq('workspace_id', id));
+  // `person_merge` keeps a row per merge, pointing at the person that was
+  // merged AWAY — so a workspace that ever merged two people cannot delete
+  // its persons, and therefore cannot delete itself. It was refusing
+  // silently in the sense that mattered: the file DID fail, loudly, and the
+  // failure was simply lived with, which is how two int-test workspaces a
+  // week accumulated (77 of them by 2026-10-11).
+  //
+  // Workspace-scoped, so it clears directly rather than by person id.
+  say('merge history NOT removed', await service.from('person_merge').delete().eq('workspace_id', id));
   say('persons NOT removed', await service.from('person').delete().eq('workspace_id', id));
   say('users NOT removed', await service.from('user').delete().eq('workspace_id', id));
   // The workspace's own organisation, created by trigger with the workspace.
