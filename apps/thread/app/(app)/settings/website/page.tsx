@@ -1,4 +1,9 @@
-// Settings → Website — the workspace's public face, in one screen.
+// Settings → Organisation page — the workspace's public face, in one screen.
+//
+// Renamed 2026-10-11 (docs/person-and-organisation-pages.md, Q3): this was
+// "Website", which never said whose. The editor, the columns and the URL are
+// unchanged; what is new is the switch at the bottom, so a workspace that
+// wants no public page at all can say so.
 //
 // Sjoerd, 2026-09-11: three design styles at workspace level, plus the
 // ingredients a site is made of. This is where both are chosen; the themes
@@ -14,6 +19,7 @@ import { buttonClassName } from '@thefibre/shared/ui/button';
 import { PageContainer, PageHeader, Breadcrumb, ErrorBanner } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
+import { OrganisationPageCard } from './organisation-page-card';
 import { WebsiteForm, type SiteSettings } from './form';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +34,7 @@ export default async function WebsiteSettingsPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
-  const { url: publicUrl, workspaceName } = await publicSite();
+  const { url: publicUrl, workspaceName, slug } = await publicSite();
 
   return (
     <PageContainer max="3xl">
@@ -66,6 +72,11 @@ export default async function WebsiteSettingsPage() {
           publicUrl={publicUrl}
           workspaceName={workspaceName}
         />
+      )}
+      {/* Only when the workspace HAS a slug: a switch about a page with no
+          address is a switch about nothing. */}
+      {settings && slug && (
+        <OrganisationPageCard slug={slug} isPublished={settings.site_is_published ?? null} />
       )}
     </PageContainer>
   );

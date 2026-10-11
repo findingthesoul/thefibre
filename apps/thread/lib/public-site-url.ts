@@ -9,7 +9,14 @@
 import { apiFetch } from '@/lib/api';
 import { THREAD_ORIGIN } from '@/lib/public-host';
 
-export async function publicSite(): Promise<{ url: string | null; workspaceName: string | null }> {
+export async function publicSite(): Promise<{
+  url: string | null;
+  workspaceName: string | null;
+  /** The slug the site is served under — the organisation page's switch has
+   *  to name the page it is about, and re-deriving it from `url` would be a
+   *  second place for the fallback rule above to be got wrong. */
+  slug: string | null;
+}> {
   const brand = await apiFetch<{ slug: string | null; name: string | null }>(
     '/api/v1/workspace-brand',
   ).catch(() => ({ slug: null, name: null }));
@@ -17,5 +24,5 @@ export async function publicSite(): Promise<{ url: string | null; workspaceName:
     brand.slug ??
     (await apiFetch<{ slug: string }>('/api/v1/thread/me').catch(() => null))?.slug ??
     null;
-  return { url: slug ? `${THREAD_ORIGIN}/${slug}` : null, workspaceName: brand.name };
+  return { url: slug ? `${THREAD_ORIGIN}/${slug}` : null, workspaceName: brand.name, slug };
 }

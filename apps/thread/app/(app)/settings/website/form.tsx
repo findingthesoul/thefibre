@@ -34,6 +34,9 @@ export type SiteSettings = {
   site_contact_enabled: boolean | null;
   site_contact_email: string | null;
   site_contact_intro: string | null;
+  /** Read here only so the page below the form can show the switch; the form
+   *  itself does not edit it. Three states — see the column comment. */
+  site_is_published: boolean | null;
 };
 
 const THEMES: { value: SiteTheme; labelKey: UiKey; descKey: UiKey }[] = [

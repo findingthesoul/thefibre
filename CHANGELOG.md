@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.132.0] — 2026-10-11
+
+A workspace can say it wants no public organisation page — and "Website" is now
+called what it is.
+
+Slice 2 of four (`docs/person-and-organisation-pages.md` §4). Sjoerd, looking
+at `/sjoerd`: *"half me the person, half me the organiser, confusing. Maybe
+these are two things."* They are, and this is the half that gives the
+organisation its own name and its own answer.
+
+**The switch is the same switch.** A person could already say no to their own
+page (2026-10-08). A workspace can now say it about its organisation page, and
+it is the SAME component — `PublicPageSwitch` gained a `kind`, not a sibling.
+Three states, the third being the one that matters: `true` yes, `false` no,
+and **NULL means nobody has been asked and the page is grandfathered as
+published**. A switch defaulting to off would have taken every live
+organisation page down on the day it shipped, to ask a question nobody had
+been asked yet.
+
+**The gate is on the page route alone**, not in `resolvePublicOwner` — which
+is a correction to this slice's own plan, caught by reading the person's
+migration before copying it. That resolver is shared by `/{slug}` and every
+`/{slug}/{threadSlug}` beneath it, so gating it there would 404 every
+enrolment link ever sent under a workspace's address. Switching your
+organisation page off does not unpublish your threads, and there is a case
+asserting exactly that.
+
+It asks its own small query rather than naming the column in the shared
+select, for the reason the organiser switch already documents: a select naming
+a column the database does not have yet fails at runtime and resolves the row
+as null, which would take every public page down instead of degrading to
+"published". A database without the migration still serves.
+
+**Settings → Website is now Settings → Organisation page.** Same editor, same
+columns, same URL (`docs/…` Q3, decided as recommended). "Website" never said
+whose, and whose is the entire question.
+
+Six cases, and the first is the one the slice owes: a workspace nobody was
+asked about still serves. So does one with **no settings row at all** — an
+older workspace that never opened the editor has none, and null must read as
+published rather than as refused. That case exists because `maybeSingle()`
+returning null is a second, quieter way to mean "never asked", and it would
+have been easy to prove only the loud one.
+
+**Nothing changes on `/sjoerd`.** That is slice 4.
+
 ## [1.131.2] — 2026-10-11
 
 "3 seats left" and "This slot is full." no longer argue with each other.

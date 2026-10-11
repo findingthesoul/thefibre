@@ -1306,21 +1306,25 @@ const CATALOG = {
   },
 
   // ── settings → website (the workspace's public site) ──────────────────
+  // Renamed 2026-10-11 (docs/person-and-organisation-pages.md, Q3). Same
+  // editor, same columns, same URL — "Website" never said WHOSE, and the
+  // whole point of the split is that a person's page and the organisation's
+  // are two things. The key keeps its name so every caller is unchanged.
   settings_website: {
-    en: 'Website',
-    nl: 'Website',
-    es: 'Sitio web', // MT
-    pt: 'Site', // MT
-    de: 'Website', // MT
-    fr: 'Site web', // MT
+    en: 'Organisation page',
+    nl: 'Pagina van je organisatie',
+    es: 'Página de la organización', // MT
+    pt: 'Página da organização', // MT
+    de: 'Seite der Organisation', // MT
+    fr: 'Page de l’organisation', // MT
   },
   settings_website_desc: {
-    en: 'How your public pages look, and what surrounds them.',
-    nl: 'Hoe je openbare pagina’s eruitzien, en wat eromheen staat.',
-    es: 'Cómo se ven tus páginas públicas y qué las rodea.', // MT
-    pt: 'Como suas páginas públicas aparecem e o que as cerca.', // MT
-    de: 'Wie deine öffentlichen Seiten aussehen und was sie umgibt.', // MT
-    fr: 'À quoi ressemblent tes pages publiques et ce qui les entoure.', // MT
+    en: 'Your organisation’s own public page: how it looks, what it says, and whether it is on.',
+    nl: 'De eigen openbare pagina van je organisatie: hoe hij eruitziet, wat erop staat, en of hij aanstaat.',
+    es: 'La página pública propia de tu organización: cómo se ve, qué dice y si está activa.', // MT
+    pt: 'A página pública da sua organização: como aparece, o que diz e se está ligada.', // MT
+    de: 'Die eigene öffentliche Seite deiner Organisation: wie sie aussieht, was sie sagt und ob sie an ist.', // MT
+    fr: 'La page publique de votre organisation : son apparence, son contenu, et si elle est active.', // MT
   },
   site_design: {
     en: 'Design',

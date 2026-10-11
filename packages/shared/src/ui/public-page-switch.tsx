@@ -45,11 +45,42 @@ export function publicPageState(is_published: boolean | null): {
   return { on: is_published !== false, notice: is_published === null };
 }
 
+/**
+ * Whose page this switch is about.
+ *
+ * The MECHANICS are identical for a person and a workspace — three states,
+ * NULL grandfathered as published, the gate on the page route alone so
+ * shared links keep working — so only the words differ. A second component
+ * would be a second place for the three-state rule to be got wrong, which is
+ * the whole reason this one is shared.
+ */
+export type PageKind = 'person' | 'organisation';
+
+const WORDS = {
+  person: {
+    title: 'public_page_title',
+    on: 'public_page_on',
+    off: 'public_page_off',
+    notice: 'public_page_notice',
+    note: 'public_page_threads_note',
+    switchOn: 'public_page_switch_on',
+  },
+  organisation: {
+    title: 'org_page_title',
+    on: 'org_page_on',
+    off: 'org_page_off',
+    notice: 'org_page_notice',
+    note: 'org_page_threads_note',
+    switchOn: 'org_page_switch_on',
+  },
+} as const;
+
 export function PublicPageSwitch({
   page,
   pageUrl,
   onChange,
   showAddress = true,
+  kind = 'person',
 }: {
   /** Null when this person has no organiser row — most people. Renders
    *  nothing, because there is no page to decide about. */
@@ -65,8 +96,11 @@ export function PublicPageSwitch({
    *  keeps the default. This is the one thing that differs between the two
    *  screens, which is why it is a prop and not a second component. */
   showAddress?: boolean;
+  /** Default 'person', so every existing caller is unchanged. */
+  kind?: PageKind;
 }) {
   const locale = useLocale();
+  const w = WORDS[kind];
   const [published, setPublished] = useState<boolean | null>(page?.is_published ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -90,11 +124,11 @@ export function PublicPageSwitch({
 
   return (
     <section className="mt-10 rounded-2xl border border-line bg-surface p-5">
-      <h2 className="text-sm font-medium text-ink">{chromeT(locale, 'public_page_title')}</h2>
+      <h2 className="text-sm font-medium text-ink">{chromeT(locale, w.title)}</h2>
 
       {neverAsked && (
         <p className="mt-2 rounded-xl bg-surface-sunken px-3 py-2 text-xs text-ink-subtle">
-          {chromeT(locale, 'public_page_notice')}
+          {chromeT(locale, w.notice)}
         </p>
       )}
 
@@ -107,9 +141,9 @@ export function PublicPageSwitch({
           className="mt-0.5 h-4 w-4 rounded border-line"
         />
         <span className="min-w-0">
-          <span className="block text-sm text-ink">{chromeT(locale, 'public_page_switch_on')}</span>
+          <span className="block text-sm text-ink">{chromeT(locale, w.switchOn)}</span>
           <span className="mt-0.5 block text-xs text-ink-muted">
-            {on ? chromeT(locale, 'public_page_on') : chromeT(locale, 'public_page_off')}
+            {on ? chromeT(locale, w.on) : chromeT(locale, w.off)}
           </span>
         </span>
       </label>
@@ -131,7 +165,7 @@ export function PublicPageSwitch({
           they do not want: that switching it off will break the links they
           have sent. It does not — the gate is on this page alone. */}
       <p className="mt-3 text-xs text-ink-muted">
-        {chromeT(locale, 'public_page_threads_note')}
+        {chromeT(locale, w.note)}
       </p>
 
       {error && (

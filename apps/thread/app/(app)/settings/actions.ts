@@ -41,6 +41,21 @@ export async function setPublicPage(published: boolean): Promise<Result> {
   }
 }
 
+/** The same question, asked of the workspace about its organisation page.
+ *  Goes through the settings route the rest of that screen already uses. */
+export async function setOrganisationPage(published: boolean): Promise<Result> {
+  try {
+    await apiFetch('/api/v1/thread/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ site_is_published: published }),
+    });
+    revalidatePath('/settings/website');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 // --- Connections (user-level SPoT; data lives behind /api/v1/meet) -------
 
 export async function startGoogleAuth(): Promise<{ url?: string; error?: string }> {

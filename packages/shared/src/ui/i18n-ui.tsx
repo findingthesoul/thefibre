@@ -97,6 +97,58 @@ const CHROME = {
     de: 'Meine Seite zeigen', // MT
     fr: 'Afficher ma page', // MT
   },
+  // ── the same switch, asked of a workspace (2026-10-11) ───────────────
+  // The organisation's page at /{workspaceSlug} gets the same three states
+  // and the same grandfathering, so only the words differ — which is why
+  // PublicPageSwitch takes a `kind` rather than being copied.
+  org_page_title: {
+    en: 'Your organisation page',
+    nl: 'De pagina van je organisatie',
+    es: 'La página de tu organización', // MT
+    pt: 'A página da sua organização', // MT
+    de: 'Die Seite deiner Organisation', // MT
+    fr: 'La page de votre organisation', // MT
+  },
+  org_page_on: {
+    en: 'Anyone with the address can see your organisation page.',
+    nl: 'Iedereen met het adres kan de pagina van je organisatie zien.',
+    es: 'Cualquiera que tenga la dirección puede ver la página de tu organización.', // MT
+    pt: 'Qualquer pessoa com o endereço pode ver a página da sua organização.', // MT
+    de: 'Wer die Adresse hat, kann die Seite deiner Organisation sehen.', // MT
+    fr: 'Toute personne disposant de l’adresse peut voir la page de votre organisation.', // MT
+  },
+  org_page_off: {
+    en: 'Your organisation page is off. The address shows nothing, as if it were never there.',
+    nl: 'De pagina van je organisatie staat uit. Het adres toont niets, alsof hij er nooit was.',
+    es: 'La página de tu organización está desactivada. La dirección no muestra nada, como si nunca hubiera existido.', // MT
+    pt: 'A página da sua organização está desligada. O endereço não mostra nada, como se nunca tivesse existido.', // MT
+    de: 'Die Seite deiner Organisation ist aus. Die Adresse zeigt nichts, als wäre sie nie da gewesen.', // MT
+    fr: 'La page de votre organisation est désactivée. L’adresse n’affiche rien, comme si elle n’avait jamais existé.', // MT
+  },
+  org_page_notice: {
+    en: 'This page has been public since before we asked. It is yours to keep or switch off.',
+    nl: 'Deze pagina is al openbaar sinds voordat we het vroegen. Jij bepaalt of hij blijft of uitgaat.',
+    es: 'Esta página ha sido pública desde antes de que lo preguntáramos. Tú decides si se queda o se apaga.', // MT
+    pt: 'Esta página é pública desde antes de termos perguntado. É sua para manter ou desligar.', // MT
+    de: 'Diese Seite ist öffentlich, seit bevor wir gefragt haben. Du entscheidest, ob sie bleibt oder ausgeht.', // MT
+    fr: 'Cette page est publique depuis avant que nous ne posions la question. À vous de la garder ou de la désactiver.', // MT
+  },
+  org_page_threads_note: {
+    en: 'Switching it off does not touch your threads: every link you have shared keeps working.',
+    nl: 'Uitzetten raakt je threads niet: elke link die je hebt gedeeld blijft werken.',
+    es: 'Desactivarla no afecta a tus threads: todos los enlaces que has compartido siguen funcionando.', // MT
+    pt: 'Desligá-la não afeta os seus threads: todas as ligações que partilhou continuam a funcionar.', // MT
+    de: 'Das Ausschalten betrifft deine Threads nicht: Jeder geteilte Link funktioniert weiter.', // MT
+    fr: 'La désactiver ne touche pas vos threads : tous les liens partagés continuent de fonctionner.', // MT
+  },
+  org_page_switch_on: {
+    en: 'Show our organisation page',
+    nl: 'Toon de pagina van onze organisatie',
+    es: 'Mostrar la página de nuestra organización', // MT
+    pt: 'Mostrar a página da nossa organização', // MT
+    de: 'Die Seite unserer Organisation zeigen', // MT
+    fr: 'Afficher la page de notre organisation', // MT
+  },
   // ── shell ────────────────────────────────────────────────────────────
   help: {
     en: 'Help',

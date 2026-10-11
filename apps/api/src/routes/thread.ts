@@ -461,6 +461,10 @@ const SettingsUpdate = z.object({
   site_contact_enabled: z.boolean().optional(),
   site_contact_email: z.string().email().max(200).nullable().optional(),
   site_contact_intro: z.string().max(1000).nullable().optional(),
+  // Three states, and nullable() is load-bearing: NULL means nobody has been
+  // asked yet and the page is grandfathered as published. A workspace that
+  // has answered sends true or false; the column comment is the full story.
+  site_is_published: z.boolean().nullable().optional(),
 });
 
 threadRoutes.patch('/settings', async (c) => {
@@ -5689,6 +5693,21 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
       .eq('id', owner.organiser.id)
       .maybeSingle();
     if (pub?.is_published === false) return c.json({ error: 'not found' }, 404);
+  }
+
+  // The same question, asked of a workspace about its organisation page
+  // (2026-10-11). Everything above applies unchanged: the same 404 as a slug
+  // that does not exist, `false` only because NULL is grandfathered as
+  // published, this route alone so threads under the address stay reachable,
+  // and its own query so a database without the column degrades to published
+  // rather than taking every organisation page down.
+  if (owner.kind === 'workspace') {
+    const { data: site } = await adminClient
+      .from('thread_settings')
+      .select('site_is_published')
+      .eq('workspace_id', owner.workspace.id)
+      .maybeSingle();
+    if (site?.site_is_published === false) return c.json({ error: 'not found' }, 404);
   }
 
   let q = adminClient
