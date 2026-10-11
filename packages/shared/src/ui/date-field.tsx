@@ -80,12 +80,13 @@ function sameDay(a: Date, b: Date): boolean {
 
 function PopoverShell({
   anchor,
-  width,
+  width: wanted,
   height,
   onClose,
   children,
 }: {
   anchor: DOMRect;
+  /** What the content would LIKE. Capped to the viewport below. */
   width: number;
   height: number;
   onClose: () => void;
@@ -108,10 +109,18 @@ function PopoverShell({
     };
   }, [onClose]);
 
-  const top =
+  // Never wider than the screen. A popover that asks for 436px on a 375px
+  // phone cannot be positioned anywhere that helps — whatever `left` is, the
+  // overhang is off the edge and the page does not scroll sideways, so those
+  // controls are simply unreachable. (The date-and-time picker's time column
+  // was exactly that: 69px of it, including every time button, off-screen.)
+  const width = Math.min(wanted, window.innerWidth - 16);
+  const top = Math.max(
+    8,
     anchor.bottom + height + 8 > window.innerHeight && anchor.top - height - 8 > 0
       ? anchor.top - height - 8
-      : anchor.bottom + 8;
+      : anchor.bottom + 8,
+  );
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 12));
 
   return (
@@ -354,12 +363,12 @@ function DateTimePopover({
 
   return (
     <PopoverShell anchor={anchor} width={436} height={384} onClose={onClose}>
-      <div className="flex items-stretch gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-stretch gap-3">
         <MonthGrid selected={selected} min={min} max={max} onPick={onPickDate} />
-        <div className="w-[96px] shrink-0 border-l border-line pl-3 relative">
+        <div className="w-full sm:w-[96px] shrink-0 border-t sm:border-t-0 sm:border-l border-line pt-3 sm:pt-0 sm:pl-3 relative">
           <div
             ref={listRef}
-            className="absolute inset-y-0 left-3 right-0 overflow-y-auto pr-1 flex flex-col gap-0.5"
+            className="max-h-40 overflow-y-auto pr-1 grid grid-cols-4 gap-1 sm:absolute sm:inset-y-0 sm:left-3 sm:right-0 sm:max-h-none sm:flex sm:flex-col sm:gap-0.5"
           >
             {times.map((t) => {
               const isSelected = hasValue && t === time;

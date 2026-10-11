@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.131.1] — 2026-10-11
+
+On a phone, the time half of the date-and-time picker was off the screen.
+
+Found while looking at Meet's New booking dialog at 375px, which is what the
+phone look is for. The popover asks for 436px. The phone is 375. The shell
+already clamped where it sits — `Math.min(anchor.left, innerWidth - width -
+12)` — but it clamped the POSITION while the WIDTH stayed whatever was asked
+for, and when the asked-for width is wider than the screen there is no
+position that helps: `left` pins to 8 and the remaining 69px hangs off the
+right edge. The page does not scroll sideways, so every time button was
+simply unreachable.
+
+Measured, not guessed: popover right edge at 444px in a 375px viewport,
+`document.scrollWidth` 375.
+
+Two changes, because capping alone would not have been enough:
+
+1. **The shell is never wider than the screen it is on.** It also no longer
+   positions itself above the top of the window.
+2. **Below `sm` the picker stacks.** 292px of calendar beside a 96px column of
+   times does not fit a phone at any width, so the times now sit UNDER the
+   calendar as a four-wide grid — which is the shape a thumb wants anyway.
+   At `sm` and up nothing changes.
+
+**This was not new.** `DateTimeField` is the shared picker, so Thread's
+timeline, engagements, coupons and tickets, Meet's meeting types and new
+booking, Connections' notes and the platform's relationship editor all had
+it. The field itself was done over in the mobile round — 16px text, a short
+date on a phone — and the popover it opens was missed, which is the ordinary
+way a responsive pass leaves something behind: the thing you can see gets
+looked at, and the thing that only appears after a tap does not.
+
+Worth knowing: a phone user was not completely stuck, because picking a date
+defaults the time to 09:00. They could book — just never at any other time.
+
 ## [1.131.0] — 2026-10-11
 
 Several people into one meeting, in one go — and the host may overfill the room.
