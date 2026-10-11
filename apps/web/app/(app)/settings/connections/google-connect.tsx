@@ -44,7 +44,13 @@ export function GoogleConnect({
 
   return (
     <div className="rounded-lg border border-line bg-surface-raised p-5">
-      <div className="flex items-baseline justify-between gap-6">
+      {/* Stacks on a phone, side by side from sm up — the same fix the
+          shared ProviderConnectionCard got in v1.153.2. Three copies of this
+          card predate that component and were never ported, so all three had
+          the same bug: the button column kept its width and squeezed the
+          description to about half. Seen at 375 on staging. The port itself
+          is a separate job; this is the bug. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
         <div className="min-w-0">
           <div className="font-medium">Google Calendar</div>
           <div className="text-sm text-ink-subtle mt-1">{t(locale, 'google_calendar_blurb')}</div>
@@ -61,7 +67,7 @@ export function GoogleConnect({
           )}
           {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 self-stretch sm:self-auto">
           {connected ? (
             <Button
               type="button"

@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.153.3] — 2026-10-12
+
+The Google Calendar card stacks on a phone too — three copies of it.
+
+v1.153.2 fixed the shared `ProviderConnectionCard`, which is Zoom and
+Microsoft Teams. Looking at the result at 375px showed the Google Calendar
+card beside it still crushing its own text — because it is **not** that
+component. Three hand-written copies predate it, one per app: Meet's
+`settings/google.tsx`, Thread's and The Fibre's `google-connect.tsx`. All
+three carried the identical `flex items-baseline justify-between` at every
+width, and all three are fixed the same way.
+
+That is the whole finding: the fix had been applied to the component, and the
+screen still had the bug, because a quarter of the cards on it were never
+ported. It took looking at the page rather than at the component.
+
+**Not done here:** porting those three to `ProviderConnectionCard`, which is
+what should eventually happen — Google's card has its own connect flow and no
+disconnect, so it is a real change rather than a deletion, and doing it blind
+while fixing a layout bug is how an unrelated regression gets in. Queued.
+
 ## [1.153.2] — 2026-10-12
 
 The connection cards stack on a phone instead of crushing their own text.
