@@ -229,6 +229,14 @@ export function DuplicatesClient({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Said after a merge that went ahead WITHOUT asking, because the comparison
+   * could not be fetched. Not an error — the merge is exactly the one this
+   * screen made before the per-field step existed, and it is undoable. But a
+   * silent one would leave somebody believing they had been asked and had no
+   * conflicts, which is a different and false thing.
+   */
+  const [notice, setNotice] = useState<string | null>(null);
   // Pairs the person has dealt with in this session. The API recomputes from
   // the database on reload; this only stops a merged pair flashing back
   // before the refresh lands.
@@ -277,8 +285,19 @@ export function DuplicatesClient({
    */
   function chooseKeeper(pair: DupPair, keep: DupPerson, drop: DupPerson) {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const res = await mergeConflicts(keep.id, drop.id);
+      if (res.error) {
+        // Merge anyway — that is this screen's behaviour from before the step
+        // existed, and refusing because a comparison failed would be worse.
+        // But SAY SO: a silent merge here is indistinguishable from "we
+        // compared them and there was nothing to decide", which is not what
+        // happened.
+        setNotice(t(locale, 'dup_conflict_unavailable', { name: displayName(keep) }));
+        await runMerge(pair, keep, drop);
+        return;
+      }
       const conflicts = res.conflicts ?? [];
       if (!conflicts.length) {
         await runMerge(pair, keep, drop);
@@ -307,6 +326,7 @@ export function DuplicatesClient({
 
   function doMerge(pair: DupPair, keep: DupPerson, drop: DupPerson, choices?: MergeChoices) {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       await runMerge(pair, keep, drop, choices);
     });
@@ -333,6 +353,15 @@ export function DuplicatesClient({
       {error && (
         <div className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
           {error}
+        </div>
+      )}
+
+      {/* Deliberately NOT the danger styling: nothing went wrong for the
+          person, and dressing an explanation as a failure invites them to
+          undo a merge that is perfectly good. */}
+      {notice && (
+        <div className="rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm text-ink-subtle">
+          {notice}
         </div>
       )}
 

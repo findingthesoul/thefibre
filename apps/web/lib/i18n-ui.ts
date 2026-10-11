@@ -698,6 +698,18 @@ const CATALOG = {
   // other one is the fuller record.
   // The per-field merge step. Shown only where the two records actually
   // disagree — a blank on one side is a free gain, not a question.
+  // Said after a merge that went ahead without asking, because the comparison
+  // could not be fetched. Not a failure — the merge is the one this screen
+  // made before the step existed, and it is undoable — so it explains rather
+  // than alarms.
+  dup_conflict_unavailable: {
+    en: 'Couldn’t compare the two records, so they were merged the usual way: {name}’s answers were kept where both had one. Undo below if that is not what you wanted.',
+    nl: 'Kon de twee records niet vergelijken, dus ze zijn op de gebruikelijke manier samengevoegd: de antwoorden van {name} zijn aangehouden waar beide iets hadden. Hieronder ongedaan maken als dat niet de bedoeling was.',
+    es: 'No se pudieron comparar los dos registros, así que se combinaron de la forma habitual: se conservaron las respuestas de {name} donde ambos tenían una. Deshaz abajo si no era lo que querías.', // MT
+    pt: 'Não foi possível comparar os dois registos, por isso foram juntados da forma habitual: ficaram as respostas de {name} onde ambos tinham uma. Anula abaixo se não era o que querias.', // MT
+    de: 'Die beiden Datensätze konnten nicht verglichen werden, also wurden sie wie gewohnt zusammengeführt: Wo beide etwas hatten, bleiben die Angaben von {name}. Unten rückgängig machen, falls das nicht gewollt war.', // MT
+    fr: "Impossible de comparer les deux fiches, elles ont donc été fusionnées comme d'habitude : les réponses de {name} ont été conservées là où les deux en avaient une. Annulez ci-dessous si ce n'était pas voulu.", // MT
+  },
   dup_conflict_intro: {
     en: 'These two say different things. Pick the one that is right; the rest is filled in either way.',
     nl: 'Deze twee zeggen iets anders. Kies welke klopt; de rest wordt sowieso aangevuld.',

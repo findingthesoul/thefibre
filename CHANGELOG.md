@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.149.1] — 2026-10-11
+
+A merge that went ahead WITHOUT asking now says so.
+
+v1.149.0 fetches what the two records disagree about before merging, and
+merges straight away when they agree. If that lookup FAILS it also merges
+straight away — which is right, because it is exactly the merge this screen
+made before the step existed, and it is undoable; refusing to merge because a
+comparison could not be fetched would be the worse answer.
+
+But it did it silently, and a silent merge there is indistinguishable from
+"we compared them and there was nothing to decide". That is a different claim,
+and a false one.
+
+So it explains: *"Couldn't compare the two records, so they were merged the
+usual way: {name}'s answers were kept where both had one. Undo below if that
+is not what you wanted."*
+
+Deliberately NOT the danger styling. Nothing went wrong for the person, and
+dressing an explanation as a failure invites somebody to undo a merge that is
+perfectly good.
+
 ## [1.149.0] — 2026-10-11
 
 The duplicates screen now asks which value is right, where the two records
