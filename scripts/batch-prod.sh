@@ -192,6 +192,18 @@ if grep -q 'ZOOM_MARKETPLACE_PENDING = true' apps/api/src/lib/zoom-pending.ts 2>
   say "  zoom notice: ZOOM_MARKETPLACE_PENDING is true at this sha — checking the exemption"
   # Run from apps/api: only that package resolves @supabase/supabase-js, and
   # FIBRE_ENV_FILE is inherited so a staging dry run checks staging.
+  STACK="production"
+  if [ "${FIBRE_ENV_FILE:-.env}" != ".env" ]; then
+    STACK="the stack in ${FIBRE_ENV_FILE}"
+    # Worth saying plainly, because the combination is a hybrid: only the
+    # GATE follows FIBRE_ENV_FILE. db-push-prod.sh, promote.sh and the API
+    # deploy all target production whatever it says — they are pinned to the
+    # production project ref and to origin/main. So a rehearsal pointed at
+    # staging checks the staging flag against a plan that would touch
+    # production, and nobody should have to infer that from a filename.
+    say "  (FIBRE_ENV_FILE is set, so only THIS GATE reads $STACK —"
+    say "   the database, promote and API steps always mean production)"
+  fi
   FLAGGED="$( cd apps/api && node scripts/zoom-flagged-workspaces.mjs 2>&1 || true )"
   if printf '%s' "$FLAGGED" | grep -q '^name='; then
     printf '%s\n' "$FLAGGED" | sed -n 's/^name=/    flagged: /p'
@@ -204,10 +216,25 @@ if grep -q 'ZOOM_MARKETPLACE_PENDING = true' apps/api/src/lib/zoom-pending.ts 2>
     printf '%s\n' "$FLAGGED" | sed -n 's/^error=/    /p'
   else
     GATE_FAIL="zoom"
-    say "  NO WORKSPACE on production carries zoom_notice_hidden."
+    say "  NO WORKSPACE on $STACK carries zoom_notice_hidden."
   fi
 else
   say "  zoom notice: the flag is off at this sha — gate retired, delete it"
+fi
+
+# What actually happened differs between a real sitting and a rehearsal, and
+# every message below has to say the true one. A dry run pushed nothing;
+# claiming "the database IS updated" there is false, and a safety message that
+# misstates what happened teaches people to skim it. Computed once, above both
+# stop branches, because the first version of this fix lived inside the second
+# branch and left the first one saying the wrong thing.
+if [ "$DRY" = 1 ]; then
+  STATE="  Nothing was written anywhere — this was a dry run. In a real
+  sitting the database would be updated by now, and nothing promoted."
+else
+  STATE="  The database IS updated. Nothing was promoted and nothing was
+  deployed. That is a safe place to stand: the schema is additive and the
+  code now on production ignores it."
 fi
 
 if [ "$GATE_FAIL" = "zoom-lookup" ]; then
@@ -215,7 +242,7 @@ if [ "$GATE_FAIL" = "zoom-lookup" ]; then
 
 BATCH STOPPED at preflight gates: the exemption could not be CHECKED.
 
-  The database IS updated. Nothing was promoted and nothing was deployed.
+$STATE
 
   This is not "the flag is missing" — it is "nobody looked". The reason is
   printed above; usually apps/api/.env is absent or its credentials are stale.
@@ -229,9 +256,7 @@ if [ -n "$GATE_FAIL" ]; then
 
 BATCH STOPPED at preflight gates: the Zoom reviewer's workspace is not exempt.
 
-  The database IS updated. Nothing was promoted and nothing was deployed.
-  That is a safe place to stand: the schema is additive and the code now on
-  production ignores it.
+$STATE
 
   The notice would otherwise tell the Zoom Marketplace reviewer that the
   integration he is reviewing is "still under request" and that he should use

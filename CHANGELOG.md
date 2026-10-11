@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.155.1] — 2026-10-12
+
+The batch's gate message tells the truth about what it did.
+
+Found by rehearsing it. Stopping at the preflight gate printed *"The database
+IS updated. Nothing was promoted and nothing was deployed"* — correct in a
+real sitting, and **false in a dry run**, which writes nothing anywhere. It
+also said "NO WORKSPACE on production carries the flag" while reading staging,
+because the stack was hardcoded.
+
+Both now say what actually happened: a dry run reports that nothing was
+written and what a real sitting would have done by that point, and the gate
+names the stack it looked at.
+
+The same sentence appeared in the "could not CHECK the exemption" branch too,
+and the first version of this fix missed it — the switch was defined inside
+the second stop branch, so the first one still said the wrong thing. Two
+copies of a sentence, one of them corrected, which is the ordinary way a
+correction half-lands. It is computed once now, above both branches, and that
+branch has its own test.
+
+One more thing surfaced on the way: a rehearsal pointed at staging is a
+HYBRID. `FIBRE_ENV_FILE` steers only the gate's lookup — the database push,
+the promote and the API deploy are pinned to the production project and to
+`origin/main` whatever it says. The script now says that out loud when the
+variable is set, instead of leaving it to be inferred from a filename.
+
+Small, and worth its own release: this is the message somebody reads at the
+moment a production sitting has stopped half way. A safety message that
+misstates what happened is how people learn to skim safety messages.
+
 ## [1.155.0] — 2026-10-12
 
 The production sitting is one command.

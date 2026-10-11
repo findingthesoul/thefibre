@@ -331,7 +331,7 @@ describe('a dry run, all the way through', () => {
   // supabase, no fly, no push. The only stub is the gate's lookup, because
   // the gate's two OUTCOMES are the point.
 
-  function fullSandbox({ flagged, pendingFlag = 'true' } = {}) {
+  function fullSandbox({ flagged, pendingFlag = 'true', lookupFails = false } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'batch-walk-'));
     const git = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe' });
 
@@ -353,7 +353,11 @@ describe('a dry run, all the way through', () => {
     // is about what the gate DOES with the answer.
     writeFileSync(
       join(dir, 'apps/api/scripts/zoom-flagged-workspaces.mjs'),
-      flagged ? `console.log('name=Zoom review (zoom-review)');\n` : '',
+      lookupFails
+        ? `console.log('error=cannot read apps/api/.env: ENOENT');\n`
+        : flagged
+          ? `console.log('name=Zoom review (zoom-review)');\n`
+          : '',
     );
 
     git('init', '-q', '-b', 'staging');
@@ -368,11 +372,18 @@ describe('a dry run, all the way through', () => {
     return { dir, head };
   }
 
-  function dryRun(dir, sha) {
+  /** A dry run with the environment PINNED.
+   *
+   *  FIBRE_ENV_FILE is inherited by anything run under `pnpm verify`, which
+   *  exports it — so a test that lets it through measures whatever the
+   *  release happened to set, and the gate named that file instead of
+   *  "production". Same class as the shared-runway flakiness above: a test
+   *  that reads ambient state passes until somebody's environment differs. */
+  function dryRun(dir, sha, env = {}) {
     return spawnSync('./scripts/batch-prod.sh', [sha, '--dry-run'], {
       cwd: dir,
       encoding: 'utf8',
-      env: { ...process.env, RUNWAY_SESSION: '' },
+      env: { ...process.env, RUNWAY_SESSION: '', FIBRE_ENV_FILE: '.env', ...env },
     });
   }
 
@@ -435,12 +446,56 @@ describe('a dry run, all the way through', () => {
     expect(r.stderr).toMatch(/BATCH STOPPED at preflight gates/);
     // The three things the message must carry: where it stopped, that the
     // stop is safe, and the exact command to fix it.
-    expect(r.stderr).toMatch(/database IS updated/);
-    expect(r.stderr).toMatch(/Nothing was promoted and nothing was deployed/);
+    // A dry run wrote nothing, and the message must say THAT rather than
+    // the real-sitting sentence. A safety message that misstates what
+    // happened teaches people to skim it.
+    expect(r.stderr).toMatch(/Nothing was written anywhere — this was a dry run/);
+    expect(r.stderr).not.toMatch(/The database IS updated/);
     expect(r.stderr).toMatch(/zoom-notice-optout\.mjs/);
     expect(r.stderr).toMatch(/re-run this same command/);
     // It must NOT have reached the promote.
     expect(r.stdout).not.toMatch(/MIGRATIONS_ON_PROD/);
+  });
+
+  it('says the same true thing when the exemption cannot be CHECKED', () => {
+    // The branch the first version of the truthful-message fix missed. STATE
+    // was defined inside the second stop branch, so this one still carried
+    // the real-sitting sentence verbatim — two copies of a sentence, one of
+    // them fixed, which is the ordinary way a correction half-lands.
+    //
+    // "Nobody looked" must also never read as "the flag is missing": they
+    // send a person to do completely different things.
+    // The stub goes in BEFORE the sandbox commits: writing it afterwards
+    // leaves the tree dirty and the script stops at Checkout instead, which
+    // is what the first version of this test measured.
+    const { dir, head } = fullSandbox({ lookupFails: true });
+    const r = dryRun(dir, head);
+
+    expect(r.status).not.toBe(0);
+    expect(r.stdout).toMatch(/COULD NOT CHECK the exemption/);
+    expect(r.stderr).toMatch(/could not be CHECKED/);
+    expect(r.stderr).toMatch(/This is not "the flag is missing" — it is "nobody looked"/);
+    // The same truthfulness as the other branch.
+    expect(r.stderr).toMatch(/Nothing was written anywhere — this was a dry run/);
+    expect(r.stderr).not.toMatch(/The database IS updated/);
+  });
+
+  it('names the stack it looked at, so a rehearsal cannot read as production', () => {
+    // The gate used to say "on production" whatever it had just queried. A
+    // staging dry run therefore reported a production fact, which is the kind
+    // of small untruth that makes somebody trust the next one.
+    const { dir, head } = fullSandbox({ flagged: false });
+    const prod = dryRun(dir, head);
+    expect(prod.stdout).toMatch(/NO WORKSPACE on production carries/);
+
+    const staging = dryRun(dir, head, { FIBRE_ENV_FILE: '.env.staging' });
+    expect(staging.stdout).toMatch(/NO WORKSPACE on the stack in \.env\.staging carries/);
+    // NOT a blanket "production must not appear": the database step really
+    // does mean production even here, because db-push-prod.sh is pinned to
+    // the production project ref and FIBRE_ENV_FILE steers only the gate.
+    // The script says so rather than leaving it to be inferred.
+    expect(staging.stdout).toMatch(/only THIS GATE reads the stack in \.env\.staging/);
+    expect(staging.stdout).toMatch(/always mean production/);
   });
 
   it('retires the gate on its own when the flag goes false', () => {
