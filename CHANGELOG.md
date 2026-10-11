@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.149.0] — 2026-10-11
+
+The duplicates screen now asks which value is right, where the two records
+disagree.
+
+Slice 2 of four. Slice 1 taught the database to take a per-field decision;
+this is the step that collects one. Sjoerd asked for it with the screen
+itself: until now the record you kept always won, so the other one's phone
+number was simply dropped.
+
+### It only asks when there is something to ask
+
+Choosing which record to keep now looks first at what the two disagree about.
+**No disagreement and the merge happens on that click**, exactly as before —
+the common case stays one press, and the step a person never needed never
+appears.
+
+A blank on one side is not a disagreement. The merge has filled those since
+2026-09-25 and the screen already says so on the gains line; turning a free
+gain into a question would be a worse screen, not a more careful one.
+
+### The keeper is pre-selected, and that is the safety
+
+Pressing *Merge with these answers* without touching anything produces exactly
+the merge that would have happened before this existed. Somebody who does not
+engage with the step cannot be surprised by it — the same reason the API
+treats an unnamed column as today's behaviour.
+
+### Asked for one pair, not for all of them
+
+The conflict VALUES are the records themselves, so they are fetched for the
+pair somebody actually opened rather than shipped for every suggested pair on
+the page. A dozen pairs on screen is a dozen pairs of people's details not
+sent to a browser that will look at one of them.
+
+**A failed lookup merges without choices rather than blocking.** That is what
+this screen did until today, and refusing to merge because a preview could not
+be fetched would be a worse answer than merging the way it always has.
+
+### Born in shared
+
+`MergeConflictChoices` lives in `@thefibre/shared` because organisations get
+the same step in slice 4, and a second copy is where the two drift. It is
+presentational — no state, no fetching, no app named — and it takes the field
+vocabulary from the caller.
+
+One small tidy while there: the column-name table had its fallback written
+twice, so a single-column lookup and the gains sentence could have disagreed
+about what to call a column. One `fieldLabel`, used by both.
+
 ## [1.148.0] — 2026-10-11
 
 Merging two people can now be told, per field, which value wins. This is the

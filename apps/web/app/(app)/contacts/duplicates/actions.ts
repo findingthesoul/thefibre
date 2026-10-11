@@ -17,12 +17,59 @@ function unwrap(e: unknown): MergeResult {
   return { error: 'Unknown error' };
 }
 
-/** Merge `mergeId` into `keepId`. Reversible — see undoMerge. */
-export async function mergePeople(keepId: string, mergeId: string): Promise<MergeResult> {
+/** One disagreement between the two records, as the API returns it. */
+export type Conflict = { name: string; keep_value: unknown; merge_value: unknown };
+
+/**
+ * What the two records disagree about, if you keep `keepId`.
+ *
+ * Asked for the pair somebody actually opened, not for every suggested pair
+ * on the page: the conflict VALUES are the records themselves, and shipping
+ * both halves of a dozen pairs to a browser that will look at one of them is
+ * not a thing to do with personal data.
+ *
+ * A failure costs the per-field step, not the merge. The caller falls back to
+ * merging without choices, which is what this screen did before the step
+ * existed — a worse outcome than asking, and a much better one than refusing
+ * to merge because a preview could not be fetched.
+ */
+export async function mergeConflicts(
+  keepId: string,
+  mergeId: string,
+): Promise<{ conflicts?: Conflict[]; error?: string | undefined }> {
+  try {
+    const r = await apiFetch<{ conflicts: Conflict[] }>(
+      `/api/v1/persons/merge-conflicts?keep=${encodeURIComponent(keepId)}&merge=${encodeURIComponent(mergeId)}`,
+    );
+    return { conflicts: r.conflicts ?? [] };
+  } catch (e) {
+    return unwrap(e);
+  }
+}
+
+/**
+ * Merge `mergeId` into `keepId`. Reversible — see undoMerge.
+ *
+ * `choices` names a SIDE per column, never a value, which is what stops this
+ * being a way to write an arbitrary field. Omitted or empty = the behaviour
+ * since 2026-09-25: the keeper wins and only its blanks are filled.
+ */
+export async function mergePeople(
+  keepId: string,
+  mergeId: string,
+  choices?: Record<string, 'keep' | 'merge'>,
+): Promise<MergeResult> {
   try {
     await apiFetch('/api/v1/persons/merge', {
       method: 'POST',
-      body: JSON.stringify({ keep_id: keepId, merge_id: mergeId }),
+      body: JSON.stringify({
+        keep_id: keepId,
+        merge_id: mergeId,
+        // Sent only when somebody actually chose something: an empty object
+        // is the same as nothing, and not sending it keeps the request
+        // identical to the one this screen has always made.
+        ...(choices && Object.keys(choices).length ? { choices } : {}),
+      }),
     });
   } catch (e) {
     return unwrap(e);

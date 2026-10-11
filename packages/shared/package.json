@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.148.0",
+  "version": "1.149.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -265,6 +265,10 @@
     "./ui/page-loading": {
       "types": "./dist/ui/page-loading.d.ts",
       "default": "./dist/ui/page-loading.js"
+    },
+    "./ui/merge-conflicts": {
+      "types": "./dist/ui/merge-conflicts.d.ts",
+      "default": "./dist/ui/merge-conflicts.js"
     },
     "./ui/payment-methods": {
       "types": "./dist/ui/payment-methods.d.ts",

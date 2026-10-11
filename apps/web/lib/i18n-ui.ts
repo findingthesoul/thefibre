@@ -696,6 +696,40 @@ const CATALOG = {
   // Shown under each card: the fields that record would GAIN. Empty for a
   // record that gains nothing, which is itself the answer — it means the
   // other one is the fuller record.
+  // The per-field merge step. Shown only where the two records actually
+  // disagree — a blank on one side is a free gain, not a question.
+  dup_conflict_intro: {
+    en: 'These two say different things. Pick the one that is right; the rest is filled in either way.',
+    nl: 'Deze twee zeggen iets anders. Kies welke klopt; de rest wordt sowieso aangevuld.',
+    es: 'Estos dos dicen cosas distintas. Elige el correcto; el resto se completa igualmente.', // MT
+    pt: 'Estes dois dizem coisas diferentes. Escolhe o que está certo; o resto é preenchido na mesma.', // MT
+    de: 'Diese beiden sagen etwas anderes. Wähl das Richtige; der Rest wird ohnehin ergänzt.', // MT
+    fr: "Ces deux-là ne disent pas la même chose. Choisissez ce qui est juste ; le reste est complété de toute façon.", // MT
+  },
+  dup_conflict_keeping: {
+    en: 'Keeping: {name}',
+    nl: 'Behouden: {name}',
+    es: 'Se conserva: {name}', // MT
+    pt: 'Mantém-se: {name}', // MT
+    de: 'Behalten: {name}', // MT
+    fr: 'Conservé : {name}', // MT
+  },
+  dup_conflict_other: {
+    en: 'From: {name}',
+    nl: 'Van: {name}',
+    es: 'De: {name}', // MT
+    pt: 'De: {name}', // MT
+    de: 'Von: {name}', // MT
+    fr: 'De : {name}', // MT
+  },
+  dup_conflict_merge: {
+    en: 'Merge with these answers',
+    nl: 'Samenvoegen met deze keuzes',
+    es: 'Combinar con estas respuestas', // MT
+    pt: 'Juntar com estas respostas', // MT
+    de: 'Mit diesen Antworten zusammenführen', // MT
+    fr: 'Fusionner avec ces réponses', // MT
+  },
   dup_gains: {
     en: 'Gains from the other: {fields}',
     nl: 'Krijgt erbij van de ander: {fields}',

@@ -7,7 +7,12 @@ import { Undo2, ArrowRight } from 'lucide-react';
 import { ContactPointsView, type ContactPointValue } from '@thefibre/shared/ui/contact-points';
 import { countryName } from '@thefibre/shared/countries';
 import { mergeGains } from '@thefibre/shared';
-import { mergePeople, undoMerge, markDistinct } from './actions';
+import {
+  MergeConflictChoices,
+  type MergeChoices,
+  type MergeConflict,
+} from '@thefibre/shared/ui/merge-conflicts';
+import { mergePeople, undoMerge, markDistinct, mergeConflicts } from './actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
 export type DupPerson = {
@@ -70,11 +75,17 @@ const FIELD_LABELS: Record<string, string> = {
   languages: 'languages',
 };
 
+/** One column, as a word. The same table fieldList reads, so the per-field
+ *  step and the gains sentence cannot call one column two things. */
+function fieldLabel(column: string): string {
+  return FIELD_LABELS[column] ?? column.replace(/_/g, ' ');
+}
+
 function fieldList(cols: string[]): string {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const c of cols) {
-    const label = FIELD_LABELS[c] ?? c.replace(/_/g, ' ');
+    const label = fieldLabel(c);
     if (seen.has(label)) continue;
     seen.add(label);
     out.push(label);
@@ -224,6 +235,20 @@ export function DuplicatesClient({
   const [done, setDone] = useState<Set<string>>(new Set());
   // The pair whose answer was "same person" — now choosing which to keep.
   const [choosing, setChoosing] = useState<string | null>(null);
+  /**
+   * The per-field step, open for one pair at a time.
+   *
+   * It appears ONLY when the two records actually disagree. No conflicts and
+   * the merge happens on the click that chose the keeper, exactly as it did
+   * before this step existed — the common case stays one press.
+   */
+  const [conflictStep, setConflictStep] = useState<{
+    pairKey: string;
+    keep: DupPerson;
+    drop: DupPerson;
+    conflicts: MergeConflict[];
+    choices: MergeChoices;
+  } | null>(null);
 
   function doDistinct(pair: DupPair) {
     setError(null);
@@ -240,16 +265,50 @@ export function DuplicatesClient({
 
   const key = (p: DupPair) => `${p.a.id}|${p.b.id}|${p.reason}`;
 
-  function doMerge(pair: DupPair, keep: DupPerson, drop: DupPerson) {
+  /**
+   * Chose which record to keep. Ask what the two disagree about BEFORE
+   * merging: if they agree about everything, there is nothing to ask and the
+   * merge happens on this click.
+   *
+   * A failed lookup merges without choices rather than blocking. That is the
+   * behaviour this screen had until today, and refusing to merge because a
+   * preview could not be fetched would be a worse answer than merging the way
+   * it always has.
+   */
+  function chooseKeeper(pair: DupPair, keep: DupPerson, drop: DupPerson) {
     setError(null);
     startTransition(async () => {
-      const res = await mergePeople(keep.id, drop.id);
-      if (res.error) {
-        setError(res.error);
+      const res = await mergeConflicts(keep.id, drop.id);
+      const conflicts = res.conflicts ?? [];
+      if (!conflicts.length) {
+        await runMerge(pair, keep, drop);
         return;
       }
-      setDone((s) => new Set(s).add(key(pair)));
-      router.refresh();
+      setConflictStep({ pairKey: key(pair), keep, drop, conflicts, choices: {} });
+    });
+  }
+
+  async function runMerge(
+    pair: DupPair,
+    keep: DupPerson,
+    drop: DupPerson,
+    choices?: MergeChoices,
+  ) {
+    const res = await mergePeople(keep.id, drop.id, choices);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    setConflictStep(null);
+    setChoosing(null);
+    setDone((s) => new Set(s).add(key(pair)));
+    router.refresh();
+  }
+
+  function doMerge(pair: DupPair, keep: DupPerson, drop: DupPerson, choices?: MergeChoices) {
+    setError(null);
+    startTransition(async () => {
+      await runMerge(pair, keep, drop, choices);
     });
   }
 
@@ -297,7 +356,7 @@ export function DuplicatesClient({
               intlLocale={intlLocale}
               busy={pending}
               gains={pair.a_gains}
-              onKeep={choosing === key(pair) ? () => doMerge(pair, pair.a, pair.b) : null}
+              onKeep={choosing === key(pair) ? () => chooseKeeper(pair, pair.a, pair.b) : null}
             />
             <PersonCard
               person={pair.b}
@@ -305,9 +364,53 @@ export function DuplicatesClient({
               intlLocale={intlLocale}
               busy={pending}
               gains={pair.b_gains}
-              onKeep={choosing === key(pair) ? () => doMerge(pair, pair.b, pair.a) : null}
+              onKeep={choosing === key(pair) ? () => chooseKeeper(pair, pair.b, pair.a) : null}
             />
           </div>
+
+          {/* Both answered, differently — so ask, rather than silently keeping
+              one. The keeper is pre-selected, so pressing Merge without
+              touching anything does exactly what this screen did before. */}
+          {conflictStep?.pairKey === key(pair) && (
+            <>
+              <MergeConflictChoices
+                conflicts={conflictStep.conflicts}
+                choices={conflictStep.choices}
+                onChange={(choices) =>
+                  setConflictStep((st) => (st ? { ...st, choices } : st))
+                }
+                labelFor={(column) => fieldLabel(column)}
+                keepHeading={t(locale, 'dup_conflict_keeping', {
+                  name: displayName(conflictStep.keep),
+                })}
+                mergeHeading={t(locale, 'dup_conflict_other', {
+                  name: displayName(conflictStep.drop),
+                })}
+                intro={t(locale, 'dup_conflict_intro')}
+                disabled={pending}
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    doMerge(pair, conflictStep.keep, conflictStep.drop, conflictStep.choices)
+                  }
+                  disabled={pending}
+                  className="rounded-md border border-line-strong px-3 py-1.5 text-xs font-medium hover:bg-surface-sunken disabled:opacity-50"
+                >
+                  {t(locale, 'dup_conflict_merge')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConflictStep(null)}
+                  disabled={pending}
+                  className="text-xs text-ink-subtle underline"
+                >
+                  {t(locale, 'dup_back')}
+                </button>
+              </div>
+            </>
+          )}
 
           {/* The question (Sjoerd, 2026-09-15): same person with different
               roles, or different people with the same name? */}
