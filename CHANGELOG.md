@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.153.2] — 2026-10-12
+
+The connection cards stack on a phone instead of crushing their own text.
+
+`ProviderConnectionCard` — the one card behind Google, Zoom and Microsoft
+Teams in Meet, Thread and The Fibre — was `flex items-baseline
+justify-between` at every width. The button column kept its size, so on a
+phone the text was squeezed into three or four words a line.
+
+Nobody had noticed because the descriptions are short. Adding the Zoom review
+notice turned that column into a paragraph and it read like a ribbon, which is
+the only reason this was found: it was seen at 375px on staging while checking
+something else.
+
+Now it stacks below `sm` and sits side by side above it.
+
 ## [1.153.1] — 2026-10-12
 
 The Zoom notice's exemption flag had nowhere to live. Found by measuring.

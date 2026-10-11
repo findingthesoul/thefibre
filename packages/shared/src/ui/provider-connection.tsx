@@ -132,7 +132,13 @@ export function ProviderConnectionCard({
 
   return (
     <div className="rounded-lg border border-line bg-surface-raised p-5">
-      <div className="flex items-baseline justify-between gap-6">
+      {/* Stacks on a phone, side by side from sm up.
+          Until 2026-10-12 this was `flex items-baseline justify-between` at
+          every width, so the button column kept its size and squeezed the
+          text into three or four words a line. Nobody had noticed because the
+          descriptions are short; adding the Zoom review notice made a
+          paragraph of it and it read like a ribbon. Seen at 375 on staging. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
         <div className="min-w-0">
           {/* The product name: not translated. */}
           <div className="font-medium">{name}</div>
@@ -155,7 +161,7 @@ export function ProviderConnectionCard({
           {notice && !connected && <div className={`mt-3 ${NOTICE.info}`}>{notice}</div>}
           {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 self-stretch sm:self-auto">
           {connected ? (
             <Button
               type="button"
