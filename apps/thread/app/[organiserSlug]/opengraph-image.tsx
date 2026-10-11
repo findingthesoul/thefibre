@@ -26,6 +26,7 @@ type Payload = {
     photo_url: string | null;
   };
   threads: unknown[];
+  owner_kind?: 'organiser' | 'team' | 'workspace';
   site?: { name: string | null; logo_url: string | null; hero_url: string | null; headline: string | null } | null;
 };
 
@@ -42,13 +43,19 @@ export default async function Image({
     `/api/v1/thread/public/organiser/${organiserSlug}`,
   ).catch(() => null);
 
-  const name = data?.site?.name ?? data?.organiser.display_name ?? organiserSlug;
+  // Same rule as the title beside it: a person's card carries the person.
+  const isPerson = (data?.owner_kind ?? 'workspace') === 'organiser';
+  const name = isPerson
+    ? (data?.organiser.display_name ?? organiserSlug)
+    : (data?.site?.name ?? data?.organiser.display_name ?? organiserSlug);
   // Drawn into an image: tags would be painted as characters. The published
   // `bio` is plain text (`bio_html` carries the markup), so it is safe here.
   // A social card is the compact spot the short bio exists for: it comes
   // first, the full bio only when an older API did not send one.
   const headline =
-    data?.site?.headline ?? data?.organiser.short_bio ?? data?.organiser.bio ?? null;
+    isPerson
+      ? (data?.organiser.short_bio ?? data?.organiser.bio ?? null)
+      : (data?.site?.headline ?? data?.organiser.short_bio ?? data?.organiser.bio ?? null);
   const count = data?.threads.length ?? 0;
 
   const [hero, logo, wordmark] = await Promise.all([

@@ -21,17 +21,31 @@ export async function generateMetadata({
   const data = await publicFetch<{
     organiser: { display_name: string | null; bio: string | null; short_bio?: string | null };
     site?: { name: string | null; headline: string | null } | null;
+    owner_kind?: 'organiser' | 'team' | 'workspace';
   }>(`/api/v1/thread/public/organiser/${organiserSlug}`).catch(() => null);
   if (!data) return {};
-  const title = data.site?.name ?? data.organiser.display_name ?? organiserSlug;
+  // WHOSE page this is decides whose NAME goes on it. A person's page stopped
+  // wearing the organisation's clothes in v1.134.0, but the title and the
+  // social card kept preferring the site's name and headline — so a pasted
+  // link to /{person} still arrived announcing the organisation, which is the
+  // same confusion in the one place it travels furthest. Found by looking at
+  // the browser tab after the split shipped.
+  //
+  // An older API sends no owner_kind; defaulting to 'workspace' keeps the
+  // previous behaviour for anything it serves.
+  const isPerson = (data.owner_kind ?? 'workspace') === 'organiser';
+  const title = isPerson
+    ? (data.organiser.display_name ?? organiserSlug)
+    : (data.site?.name ?? data.organiser.display_name ?? organiserSlug);
   // A meta description is plain text by definition — markup in it would be
   // printed by search engines and social cards verbatim. `organiser.bio` is
   // published as plain text for exactly this kind of reader; the formatted
   // version is `bio_html`, which only a renderer takes.
   // The short bio first: a meta description is a compact spot, and search
   // engines cut a long one wherever they like. Absent on an older API.
-  const description =
-    data.site?.headline ?? data.organiser.short_bio ?? data.organiser.bio ?? undefined;
+  const description = isPerson
+    ? (data.organiser.short_bio ?? data.organiser.bio ?? undefined)
+    : (data.site?.headline ?? data.organiser.short_bio ?? data.organiser.bio ?? undefined);
   return {
     title,
     description,

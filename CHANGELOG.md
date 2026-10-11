@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.134.1] — 2026-10-11
+
+The split reached the page, but not the browser tab.
+
+Found by looking at the after screenshot of v1.134.0 and noticing the tab
+still said **Acme Co** above a page that was entirely Robin Maker. The title
+and the social card had kept preferring the site's name and headline, so a
+pasted link to `/{person}` still arrived announcing the organisation — the
+same confusion, in the one place it travels furthest, because a link in a
+message is seen by people who never open it.
+
+`generateMetadata` and the OG card now follow the owner, the way the page
+does: a person's page carries the person's name and their short bio, an
+organisation's carries the site's name and headline. An older API sends no
+`owner_kind`, and the default keeps the previous behaviour for anything it
+serves.
+
+Worth saying because it is the lesson rather than the bug: slice 4 was
+verified by a before/after screenshot, and the screenshot is what caught
+this. The page body was right in the payload, in the integration cases and in
+the render — and the title lives outside all three.
+
 ## [1.134.0] — 2026-10-11
 
 A person's page is the person. The organisation's page is the organisation.
