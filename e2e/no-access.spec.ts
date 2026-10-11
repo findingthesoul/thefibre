@@ -135,15 +135,22 @@ test.describe('Thread — no access in THIS workspace', () => {
     // The popup names the app that could not serve, and the workspace you are
     // in — the two facts that make the jump comprehensible.
     //
-    // Scoped by its text, NOT `getByRole('dialog')` alone. The Fibre's
-    // LauncherOverlay is also role="dialog" aria-modal="true" and pops once
-    // per browser session, which is every fresh Playwright context — so the
-    // bare role matched two elements and the spec died on strict mode ("two
-    // dialogs where one is expected") rather than on anything being wrong
-    // with the page. `getByRole('dialog', { name })` is not the fix either:
-    // the shared Dialog renders its title in a header without
-    // aria-labelledby, so it has no accessible name to match on.
-    const popup = page.getByRole('dialog').filter({ hasText: 'Back in The Fibre' });
+    // Selected BY ITS ACCESSIBLE NAME, which is also the point of asserting
+    // it this way: The Fibre's LauncherOverlay is role="dialog" too and pops
+    // once per browser session — every fresh Playwright context — so a bare
+    // `getByRole('dialog')` matches two elements and dies on strict mode
+    // ("two dialogs where one is expected"), which looks like a page bug and
+    // is not.
+    //
+    // Until 2026-10-11 the only way round that was `.filter({ hasText })`,
+    // because the shared Dialog had NO accessible name: `role="dialog"` with
+    // the title in a plain `<h2>` and no aria-labelledby. The comment here
+    // said so, and was a bug report nobody had filed — a screen reader
+    // announced "dialog" and stopped, for every dialog in every app. Fixed in
+    // the shared component, so this reads the way it should have all along,
+    // and a regression would fail HERE, in a real browser's accessibility
+    // tree, which is the only place the name genuinely exists.
+    const popup = page.getByRole('dialog', { name: 'Back in The Fibre' });
     await expect(popup).toBeVisible();
     await expect(popup).toContainText('The Thread');
     await expect(popup).toContainText(B);
@@ -160,6 +167,6 @@ test.describe('Thread — no access in THIS workspace', () => {
     // way: the launcher may legitimately be on screen here, and asserting no
     // dialog at all would fail for the wrong reason.
     await page.reload();
-    await expect(page.getByRole('dialog').filter({ hasText: 'Back in The Fibre' })).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Back in The Fibre' })).toHaveCount(0);
   });
 });

@@ -6,6 +6,68 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.145.2] — 2026-10-11
+
+Two quality items. One of them had been reported in a comment for weeks
+without anyone reading it as a report.
+
+### No dialog in any app had an accessible name
+
+`role="dialog"` with a heading inside it is not a name. Without
+`aria-labelledby` the computed name is empty, so a screen reader announces
+"dialog" and stops — for the save dialogs, the confirmations, the sheets,
+every one of them, in every app.
+
+The evidence was already written down. `e2e/no-access.spec.ts` could not use
+`getByRole('dialog', { name })` and filtered by text instead, with a comment
+explaining that the shared Dialog "renders its title in a header without
+aria-labelledby, so it has no accessible name to match on". That is a bug
+report. It sat in a test file, phrased as a workaround.
+
+The title now has an id and the dialog points at it; a description, when
+there is one, gets the same through `aria-describedby`. `useId`, not a
+counter: two dialogs are open at once often enough that the component already
+keeps a stack for Escape, and their ids must not collide — including between
+a server render and the client that hydrates it. **Pointed at only when there
+IS a description**, because an id naming an element that was never rendered
+leaves the reader announcing nothing where the author promised something.
+
+Five cases, rendered for real. The name is resolved the way the accessibility
+tree does it — follow the attribute to the element, read its text — rather
+than asserting the attribute exists, and that distinction is load-bearing:
+mutation-checked twice, once by removing the attribute and once by leaving it
+pointing at an id that is never rendered. The second is the one a weaker test
+waves through, and it fails here.
+
+`e2e/no-access.spec.ts` now selects by the accessible name, so a regression
+fails in a real browser's accessibility tree, which is the only place the name
+genuinely exists. Its comment is rewritten from a workaround into what
+happened.
+
+**This is the first renderable test in `packages/shared`.** It needed jsdom
+and react-dom as devDeps and a vitest config supplying the automatic JSX
+runtime — `oxc`, not `esbuild`, because Vite 8 ignores the esbuild setting and
+fails on raw JSX with a message pointing nowhere near the config. All of that
+is the pattern already proven next door in apps/connections. jsdom is per-file
+rather than global: the pure tests are the majority and should not each pay
+for a DOM.
+
+### Seven apps had no test script
+
+flow, meet, membership, pulse, thread, web and website — so a test written in
+any of them would never have run. Nothing was being skipped today: all seven
+have zero test files, and every app that does have tests (api, connections,
+my, models) already had a script. The gap was entirely latent, which is
+exactly the kind found the day somebody writes a test and believes the green.
+
+`--passWithNoTests`, and that flag is not decoration: vitest exits non-zero on
+"No test files found", so seven scripts without it would have turned
+`pnpm -r test` red for the whole monorepo the moment they existed. Checked by
+removing it from one and watching that app exit 1.
+
+`pnpm -r test` is green with all seven in place: 1,549 tests across 164 files,
+plus seven "no test files" that now pass instead of failing.
+
 ## [1.145.1] — 2026-10-11
 
 The switch-back button in v1.145.0 looked like it did nothing. It recorded the

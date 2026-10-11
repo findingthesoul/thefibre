@@ -5,7 +5,7 @@
 // ported from The Thread's — the pinned Fibre SPoT: footer bar outside the
 // scroll area; destructive left, Cancel · Save right).
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './button.js';
 import { chromeT, useLocale } from './i18n-ui.js';
@@ -45,6 +45,22 @@ const OPEN_DIALOGS: object[] = [];
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md', headerActions }: Props) {
   // Identity for this instance — an object, so two dialogs are never equal.
   const token = useRef({}).current;
+  // The dialog's ACCESSIBLE NAME. `role="dialog"` with a heading inside is not
+  // enough: without aria-labelledby the name is empty, so a screen reader
+  // announces "dialog" and nothing else, and every dialog in every app sounds
+  // identical. The title is already rendered — this points at it.
+  //
+  // The tell was in the test suite before anyone looked at the markup:
+  // e2e/no-access.spec.ts could not use `getByRole('dialog', { name })` and
+  // had to filter by text, with a comment explaining why. That comment was a
+  // bug report nobody had read as one.
+  //
+  // useId, not a hand-rolled counter: two dialogs can be open at once (the
+  // stack below exists because of it) and the ids must not collide, including
+  // across a server render and the client one that hydrates it.
+  const baseId = useId();
+  const titleId = `${baseId}-title`;
+  const descriptionId = `${baseId}-description`;
   const ref = useRef<HTMLDivElement>(null);
   const locale = useLocale();
 
@@ -159,6 +175,11 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
+      // Only when there IS one: pointing at an element that was never
+      // rendered leaves the description empty, which reads worse than having
+      // none at all.
+      {...(description ? { 'aria-describedby': descriptionId } : {})}
       // `fixed`, and NOT in a portal — which is a live footgun worth knowing
       // about before you place a dialog. An ancestor with `opacity` below 1,
       // a `transform` or a `filter` becomes the containing block for a fixed
@@ -204,9 +225,15 @@ export function Dialog({ open, onClose, title, description, children, footer, si
             className="absolute inset-x-0 top-2 mx-auto h-1 w-10 rounded-full bg-line-strong sm:hidden"
           />
           <div className="min-w-0">
-            <h2 className="text-base font-medium">{title}</h2>
+            <h2 id={titleId} className="text-base font-medium">
+              {title}
+            </h2>
             {/* A div, not a p: a description may be a row of links. */}
-            {description && <div className="mt-0.5 text-sm text-ink-subtle">{description}</div>}
+            {description && (
+              <div id={descriptionId} className="mt-0.5 text-sm text-ink-subtle">
+                {description}
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-3">
             {headerActions}

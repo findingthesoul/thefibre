@@ -609,12 +609,18 @@ importers:
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
+      jsdom:
+        specifier: 30.0.1
+        version: 30.0.1(@noble/hashes@1.8.0)
       lucide-react:
         specifier: ^0.460.0
         version: 0.460.0(react@19.2.6)
       react:
         specifier: ^19.0.0
         version: 19.2.6
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.6(react@19.2.6)
       typescript:
         specifier: ^5.6.0
         version: 5.9.3

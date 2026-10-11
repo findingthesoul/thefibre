@@ -1,12 +1,13 @@
 {
   "name": "@thefibre/web",
-  "version": "1.145.1",
+  "version": "1.145.2",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "next": "^15.0.0",
