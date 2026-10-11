@@ -30,6 +30,7 @@ export type EmailMessage = {
 };
 
 import { defaultEmailFrom } from '@thefibre/shared';
+import { markHtml, marksMailAsTest, markSubject, markText } from './test-marking.js';
 
 function fromAddress(): string {
   return defaultEmailFrom(process.env);
@@ -70,6 +71,24 @@ async function post(key: string, body: Record<string, unknown>): Promise<Respons
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
+  // Marked HERE and nowhere else. Every email the platform sends passes
+  // through this function, so a template cannot forget and a new one cannot
+  // arrive unmarked — which is the whole reason the marking lives at the
+  // transport rather than in the dozen files that compose messages.
+  //
+  // Production is untouched: marksMailAsTest asks positively whether this is
+  // the staging API, so on production this is a no-op and the bytes that
+  // reach Resend are the bytes the template produced. See test-marking.ts for
+  // why the default points this way and not the environment bar's way.
+  if (marksMailAsTest(process.env)) {
+    msg = {
+      ...msg,
+      subject: markSubject(msg.subject),
+      html: markHtml(msg.html),
+      text: markText(msg.text),
+    };
+  }
+
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     console.log('[email] RESEND_API_KEY unset — would send:', {

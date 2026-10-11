@@ -6,6 +6,75 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.135.0] — 2026-10-11
+
+Email from staging says it is from staging.
+
+> Sjoerd, holding a sandbox receipt: **"Is this a test or is it real?"**
+
+He could not tell, and neither could I. Staging is a perfect copy, so a
+staging receipt is byte-for-byte a production receipt with different numbers
+in it. The blue bar solved this for PAGES; mail leaves the building and
+arrives in the same inbox as the real thing, with no bar and no address bar
+to check.
+
+Staging mail now carries `[STAGING] ` on the subject and an amber band at the
+top of the message: *"Test email from the staging environment — not a real
+transaction."*
+
+**Marked at the transport, not in the templates.** Every email the platform
+sends passes through `sendEmail`, so no template has to remember and a new one
+cannot arrive unmarked. There are a dozen files composing messages in that
+folder; asking each to opt in is asking the thirteenth to forget.
+
+**The default is the OPPOSITE of the environment bar's, on purpose.** The bar
+treats anything not positively production as staging — unknown shows the bar,
+because the expensive mistake there is a blue line across the real product and
+`VERCEL_ENV=production` is guaranteed where it matters. This asks POSITIVELY
+whether it is the staging API and marks nothing otherwise, because the
+expensive mistake here is somebody else's: `[STAGING]` on a real customer's
+receipt tells a paying person their transaction may not have happened. Same
+reasoning, opposite conclusion, because the cost is different.
+
+The signal is `FLY_APP_NAME`, which the API already uses to know its own stack
+(`lib/cors-origins.ts` grants staging origins on exactly that test). One
+definition, not a second one a rename could break in only one place.
+
+**The banner goes INSIDE `<body>`.** Content before `<html>` is at the mercy
+of whatever each client's sanitiser does with it, and the one client this must
+survive is the one somebody is squinting at while asking whether the email is
+real.
+
+**The plain-text part gets the same sentence**, which was not in the ask.
+Without it, whether a test email looks like a test depends on which half of
+the multipart message the reader's client chooses to show.
+
+**The test that matters asserts the request body handed to Resend**, field by
+field, on production: not "no prefix" but the identical string. The helpers
+being right is not the same promise as the wiring being right — a regression
+that marked unconditionally inside `sendEmail` would pass every assertion
+about the helpers. Checked by mutation rather than by green: making the gate
+true for any `FLY_APP_NAME` turns four cases red.
+
+**The gap, stated rather than hidden:** mail from a local dev server is NOT
+marked, because off Fly the app name is empty and empty is not positively
+staging. Local dev has no `RESEND_API_KEY` and sends nothing, so this bites
+only a developer who sets a real key locally. Covering them would mean marking
+on "not positively production", which is the one thing this refuses to do.
+
+**Sign-in codes ARE covered**, which is worth stating because it is the
+reasonable thing to assume otherwise. Supabase Auth does not send them: its
+"Send Email" webhook calls `routes/auth-hook.ts`, which renders the message
+from our own templates and sends it through `sendEmail` like everything else.
+Every action takes that path — there is no branch where Supabase falls back to
+its own template.
+
+The residual risk there is CONFIGURATION, not code: if that webhook were ever
+disabled on staging, Supabase would send its own unmarked template and nothing
+in this repo would notice. That is a dashboard setting, the same class of
+thing as `custom_access_token_hook`, and it is named here so the next person
+looking for an unmarked staging email checks it rather than this file.
+
 ## [1.134.1] — 2026-10-11
 
 The split reached the page, but not the browser tab.
