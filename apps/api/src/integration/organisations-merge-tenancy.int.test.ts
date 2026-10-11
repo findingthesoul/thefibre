@@ -115,6 +115,9 @@ afterAll(async () => {
     await step('organisation_merge', () =>
       service.from('organisation_merge').delete().in('workspace_id', [wsA, wsB]),
     );
+    await step('organisation_distinct', () =>
+      service.from('organisation_distinct').delete().in('workspace_id', [wsA, wsB]),
+    );
     await step('organisation', () => service.from('organisation').delete().in('id', orgs));
   }
   await step('fixture user', async () => {
@@ -289,8 +292,82 @@ describe('GET /organisations/duplicates', () => {
   });
 });
 
+describe('POST /organisations/duplicates/distinct', () => {
+  it('refuses a pair of another workspace, and writes nothing', async () => {
+    const a = await org(wsB, 'Distinct Theirs One BV', { domain: 'distinct-theirs.example' });
+    const b = await org(wsB, 'Distinct Theirs Two BV', { domain: 'distinct-theirs.example' });
+
+    const r = await call(adminA, 'POST', '/duplicates/distinct', { a_id: a, b_id: b });
+    expect(r.status).toBe(404);
+
+    // Nothing planted, in EITHER workspace: the row's workspace_id comes from
+    // the caller, so a missing guard would leave A holding a dismissal that
+    // names two of B's organisations.
+    const { count } = await service
+      .from('organisation_distinct')
+      .select('a_id', { count: 'exact', head: true })
+      .in('workspace_id', [wsA, wsB]);
+    expect(count).toBe(0);
+  });
+
+  it('refuses a pair that straddles the two workspaces', async () => {
+    const mine = await org(wsA, 'Distinct Straddle A BV');
+    const theirs = await org(wsB, 'Distinct Straddle B BV');
+    const r = await call(adminA, 'POST', '/duplicates/distinct', { a_id: mine, b_id: theirs });
+    expect(r.status).toBe(404);
+    const { count } = await service
+      .from('organisation_distinct')
+      .select('a_id', { count: 'exact', head: true })
+      .in('workspace_id', [wsA, wsB]);
+    expect(count).toBe(0);
+  });
+
+  it('remembers the answer, and the pair stops being proposed', async () => {
+    const one = await org(wsA, 'Distinct Mine One BV', { domain: 'distinct-mine.example' });
+    const two = await org(wsA, 'Distinct Mine Two BV', { domain: 'distinct-mine.example' });
+
+    // Proposed first — otherwise "no longer proposed" proves nothing, which
+    // is exactly how a vacuous version of this test would read.
+    const before = await call(adminA, 'GET', '/duplicates');
+    expect(before.status).toBe(200);
+    const pairKey = (i: { a: { id: string }; b: { id: string } }) =>
+      [i.a.id, i.b.id].sort().join('|');
+    const want = [one, two].sort().join('|');
+    const { items: proposed } = (await before.json()) as {
+      items: { a: { id: string }; b: { id: string } }[];
+    };
+    expect(proposed.map(pairKey)).toContain(want);
+
+    const r = await call(adminA, 'POST', '/duplicates/distinct', { a_id: two, b_id: one });
+    expect(r.status).toBe(200);
+
+    // Stored in the order the table's CHECK requires, whichever way round it
+    // was sent — and it was sent the other way round on purpose.
+    const [lo, hi] = [one, two].sort();
+    const { data: row } = await service
+      .from('organisation_distinct')
+      .select('a_id, b_id')
+      .eq('workspace_id', wsA)
+      .eq('a_id', lo)
+      .eq('b_id', hi)
+      .maybeSingle();
+    expect(row).not.toBeNull();
+
+    const after = await call(adminA, 'GET', '/duplicates');
+    const { items: still } = (await after.json()) as {
+      items: { a: { id: string }; b: { id: string } }[];
+    };
+    expect(still.map(pairKey)).not.toContain(want);
+
+    // Saying it twice is not an error — the queue is a page somebody may
+    // double-click.
+    const again = await call(adminA, 'POST', '/duplicates/distinct', { a_id: one, b_id: two });
+    expect(again.status).toBe(200);
+  });
+});
+
 describe('the admin gate', () => {
-  it('refuses an organiser of the caller’s own workspace on all five routes', async () => {
+  it('refuses an organiser of the caller’s own workspace on all six routes', async () => {
     // Not a tenancy question but the same routes' other gate: an organiser
     // may not merge even inside their own workspace, because a merge rewrites
     // memberships, billing and a verified domain.
@@ -315,6 +392,18 @@ describe('the admin gate', () => {
         (await call(organiser, 'GET', `/merge-conflicts?keep=${keep}&merge=${lose}`)).status,
       ).toBe(403);
       expect((await call(organiser, 'GET', '/merges')).status).toBe(403);
+      const distinct = await call(organiser, 'POST', '/duplicates/distinct', {
+        a_id: keep,
+        b_id: lose,
+      });
+      expect(distinct.status).toBe(403);
+      // Refused, not merely answered: no dismissal was written.
+      const { count: planted } = await service
+        .from('organisation_distinct')
+        .select('a_id', { count: 'exact', head: true })
+        .eq('workspace_id', wsA)
+        .in('a_id', [keep, lose]);
+      expect(planted).toBe(0);
 
       const undo = await call(organiser, 'POST', `/merges/${merge_id}/undo`);
       expect(undo.status).toBe(403);

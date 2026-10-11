@@ -1,7 +1,8 @@
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, CopyCheck } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { ButtonLink } from '@/components/ui/button';
 import { PageContainer, PageHeader, EmptyState, ErrorBanner } from '@/components/ui/page';
+import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -40,16 +41,51 @@ export default async function OrganisationsPage({
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
+  // Not while searching: a nudge about the whole workspace under a filtered
+  // list is about something the person is not looking at.
+  let possibleDuplicates = 0;
+  if (!q) {
+    try {
+      const d = await apiFetch<{ items: unknown[] }>('/api/v1/organisations/duplicates?limit=50');
+      possibleDuplicates = d.items.length;
+    } catch {
+      // Not an admin, or the queue is unavailable: no notice. Deliberately
+      // silent — an organiser is not being told about a page they may not
+      // open.
+    }
+  }
+
   return (
     <PageContainer>
       <PageHeader
         title={t(locale, 'nav_organisations')}
         actions={
-          <ButtonLink href="/organisations/new" leading={<Plus size={14} strokeWidth={2.25} />}>
-            {t(locale, 'add_organisation')}
-          </ButtonLink>
+          <div className="flex items-center gap-2">
+            {/* Admin-gated in the API; a non-admin who follows it is told so
+                rather than shown an empty queue. */}
+            <ButtonLink
+              href="/organisations/duplicates"
+              variant="secondary"
+              leading={<CopyCheck size={14} strokeWidth={2} />}
+            >
+              {t(locale, 'dup_find')}
+            </ButtonLink>
+            <ButtonLink href="/organisations/new" leading={<Plus size={14} strokeWidth={2.25} />}>
+              {t(locale, 'add_organisation')}
+            </ButtonLink>
+          </div>
         }
       />
+
+      {possibleDuplicates > 0 && (
+        <a href="/organisations/duplicates" className={`mt-6 block hover:underline ${NOTICE.info}`}>
+          {possibleDuplicates === 1
+            ? t(locale, 'odup_nudge_one')
+            : t(locale, 'odup_nudge', {
+                n: possibleDuplicates >= 50 ? '50+' : possibleDuplicates,
+              })}
+        </a>
+      )}
 
       <form className="mt-6 relative" action="/organisations">
         <Search size={15} strokeWidth={1.75} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />

@@ -271,6 +271,54 @@ organisationsRoutes.get('/duplicates', async (c) => {
   });
 });
 
+const OrgPairBody = z.object({
+  a_id: z.string().uuid(),
+  b_id: z.string().uuid(),
+});
+
+// POST /organisations/duplicates/distinct — "No, these are different
+// companies." Remembered; the pair is never proposed again.
+//
+// organisation_distinct has existed since 2026-09-23 and the candidates
+// function has always honoured it; until now nothing could write a row, so
+// the queue could only ever be merged away, never answered.
+organisationsRoutes.post('/duplicates/distinct', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const body = OrgPairBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  // The same tenancy check the merge carries, and needed for the same
+  // reason even though this route writes no organisation: the insert runs as
+  // the service role with a workspace_id taken from the CALLER, so without
+  // it an admin of any workspace could plant rows naming two organisations
+  // of another — and, because the row's workspace is theirs and not the
+  // victim's, silently dismiss nothing while leaving referencing rows in
+  // their own workspace pointing at somebody else's organisations.
+  if (!(await bothOrgsInWorkspace(ctx.workspaceId, body.data.a_id, body.data.b_id))) {
+    return c.json({ error: 'organisation not found' }, 404);
+  }
+
+  // The table's own CHECK is a_id < b_id, so the pair is ordered here rather
+  // than relying on the order somebody's browser happened to send.
+  const [a, b] = [body.data.a_id, body.data.b_id].sort();
+  const { error } = await adminClient.from('organisation_distinct').upsert(
+    {
+      workspace_id: ctx.workspaceId,
+      a_id: a,
+      b_id: b,
+      decided_by: ctx.userId || null,
+    },
+    { onConflict: 'workspace_id,a_id,b_id' },
+  );
+  if (error) {
+    console.error('[organisations/duplicates/distinct] failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ ok: true });
+});
+
 // GET /organisations/merge-conflicts?keep=&merge= — what the two records
 // disagree about, which is the question a per-field merge has to ask.
 //

@@ -938,6 +938,137 @@ const CATALOG = {
     de: 'von einer App verknüpft', // MT
     fr: 'lié par une application', // MT
   },
+  // ── Organisation duplicates ───────────────────────────────────────────────
+  // The organisation queue reuses every key it honestly can — dup_title,
+  // dup_none, dup_keep_this, the whole dup_conflict_* family, dup_back,
+  // dup_recent_merges, dup_undo, dup_dropped_rows, dup_find. These are the
+  // ones that would be a lie about organisations if they said "person", plus
+  // the four reasons, which the candidates function names in words of its own.
+  odup_intro: {
+    en: 'Two records that may be the same organisation. Nothing is merged until you choose which one to keep, and every merge can be undone.',
+    nl: 'Twee records die dezelfde organisatie kunnen zijn. Er wordt niets samengevoegd tot jij kiest welke je houdt, en elke samenvoeging is terug te draaien.',
+    es: 'Dos registros que podrían ser la misma organización. No se fusiona nada hasta que elijas cuál conservar, y toda fusión se puede deshacer.', // MT
+    pt: 'Dois registos que podem ser a mesma organização. Nada é unido até escolheres qual manter, e cada união pode ser desfeita.', // MT
+    de: 'Zwei Einträge, die dieselbe Organisation sein könnten. Es wird nichts zusammengeführt, bis du wählst, welcher bleibt, und jede Zusammenführung lässt sich rückgängig machen.', // MT
+    fr: 'Deux fiches qui pourraient être la même organisation. Rien n’est fusionné tant que vous n’avez pas choisi laquelle garder, et toute fusion est réversible.', // MT
+  },
+  odup_admins_only: {
+    en: 'Only workspace admins can review duplicate organisations — merging changes who the members belong to and which billing details apply.',
+    nl: 'Alleen workspace-beheerders kunnen dubbele organisaties beoordelen — samenvoegen verandert bij wie de leden horen en welke factuurgegevens gelden.',
+    es: 'Solo los administradores pueden revisar organizaciones duplicadas: fusionar cambia a quién pertenecen los miembros y qué datos de facturación se aplican.', // MT
+    pt: 'Só administradores podem rever organizações duplicadas — unir altera a quem pertencem os membros e que dados de faturação se aplicam.', // MT
+    de: 'Nur Workspace-Admins können doppelte Organisationen prüfen — Zusammenführen ändert, zu wem die Mitglieder gehören und welche Rechnungsdaten gelten.', // MT
+    fr: 'Seuls les administrateurs peuvent examiner les organisations en double : fusionner change à qui appartiennent les membres et quelles coordonnées de facturation s’appliquent.', // MT
+  },
+  odup_question: {
+    en: 'Same organisation, or two different ones?',
+    nl: 'Dezelfde organisatie, of twee verschillende?',
+    es: '¿La misma organización o dos distintas?', // MT
+    pt: 'A mesma organização ou duas diferentes?', // MT
+    de: 'Dieselbe Organisation oder zwei verschiedene?', // MT
+    fr: 'La même organisation, ou deux différentes ?', // MT
+  },
+  odup_same_org: {
+    en: 'Same organisation, written twice',
+    nl: 'Dezelfde organisatie, twee keer ingevoerd',
+    es: 'La misma organización, escrita dos veces', // MT
+    pt: 'A mesma organização, escrita duas vezes', // MT
+    de: 'Dieselbe Organisation, zweimal erfasst', // MT
+    fr: 'La même organisation, saisie deux fois', // MT
+  },
+  odup_different_orgs: {
+    en: 'Different organisations, similar name',
+    nl: 'Verschillende organisaties, vergelijkbare naam',
+    es: 'Organizaciones distintas, nombre parecido', // MT
+    pt: 'Organizações diferentes, nome semelhante', // MT
+    de: 'Verschiedene Organisationen, ähnlicher Name', // MT
+    fr: 'Organisations différentes, nom similaire', // MT
+  },
+  odup_pick_keep: {
+    en: 'These two get merged into one. Which record do you keep as the main one? Nothing is thrown away: anything missing from it is filled in from the other, and the members, relationships and pages of both end up on the one you keep.',
+    nl: 'Deze twee worden één. Welk record houd je als het hoofdrecord? Niets gaat weg: wat erin ontbreekt wordt uit het andere aangevuld, en de leden, relaties en pagina’s van beide komen bij het record dat je houdt.',
+    es: 'Estos dos se fusionan en uno. ¿Cuál conservas como principal? No se descarta nada: lo que le falte se completa desde el otro, y los miembros, las relaciones y las páginas de ambos acaban en el que conservas.', // MT
+    pt: 'Estes dois tornam-se um. Qual manténs como principal? Nada é descartado: o que lhe faltar é preenchido a partir do outro, e os membros, relações e páginas de ambos ficam no que manténs.', // MT
+    de: 'Diese zwei werden eins. Welchen Eintrag behältst du als Haupteintrag? Nichts geht verloren: was dort fehlt, wird aus dem anderen ergänzt, und die Mitglieder, Beziehungen und Seiten beider landen bei dem, den du behältst.', // MT
+    fr: 'Ces deux fiches n’en feront qu’une. Laquelle gardez-vous comme principale ? Rien n’est perdu : ce qui lui manque est complété depuis l’autre, et les membres, relations et pages des deux se retrouvent sur celle que vous gardez.', // MT
+  },
+  // The four reasons, exactly as organisation_duplicate_candidates names them.
+  // Mapped from its own English words rather than from a code, because that is
+  // what the function returns; an unmapped reason falls back to its raw text.
+  odup_reason_same_domain: {
+    en: 'Same website domain',
+    nl: 'Zelfde websitedomein',
+    es: 'Mismo dominio web', // MT
+    pt: 'Mesmo domínio do site', // MT
+    de: 'Gleiche Website-Domain', // MT
+    fr: 'Même domaine de site', // MT
+  },
+  odup_reason_same_name: {
+    en: 'Same name',
+    nl: 'Zelfde naam',
+    es: 'Mismo nombre', // MT
+    pt: 'Mesmo nome', // MT
+    de: 'Gleicher Name', // MT
+    fr: 'Même nom',
+  },
+  odup_reason_contains: {
+    en: 'One name contains the other',
+    nl: 'De ene naam bevat de andere',
+    es: 'Un nombre contiene al otro', // MT
+    pt: 'Um nome contém o outro', // MT
+    de: 'Ein Name enthält den anderen', // MT
+    fr: 'Un nom contient l’autre', // MT
+  },
+  odup_reason_similar_name: {
+    en: 'Similar name',
+    nl: 'Vergelijkbare naam',
+    es: 'Nombre parecido', // MT
+    pt: 'Nome semelhante', // MT
+    de: 'Ähnlicher Name', // MT
+    fr: 'Nom similaire', // MT
+  },
+  // How many people sit under each side — the single most useful number when
+  // deciding which record is the real one.
+  odup_people: {
+    en: '{n} people',
+    nl: '{n} mensen',
+    es: '{n} personas', // MT
+    pt: '{n} pessoas', // MT
+    de: '{n} Personen', // MT
+    fr: '{n} personnes', // MT
+  },
+  odup_people_one: {
+    en: '1 person',
+    nl: '1 persoon',
+    es: '1 persona', // MT
+    pt: '1 pessoa', // MT
+    de: '1 Person', // MT
+    fr: '1 personne', // MT
+  },
+  odup_people_none: {
+    en: 'nobody yet',
+    nl: 'nog niemand',
+    es: 'nadie todavía', // MT
+    pt: 'ainda ninguém', // MT
+    de: 'noch niemand', // MT
+    fr: 'personne pour l’instant', // MT
+  },
+  odup_nudge: {
+    en: '{n} organisations may be duplicated. Review them →',
+    nl: '{n} organisaties lijken dubbel. Bekijk ze →',
+    es: '{n} organizaciones podrían estar duplicadas. Revísalas →', // MT
+    pt: '{n} organizações podem estar duplicadas. Rever →', // MT
+    de: '{n} Organisationen könnten doppelt sein. Prüfen →', // MT
+    fr: '{n} organisations sont peut-être en double. Les examiner →', // MT
+  },
+  odup_nudge_one: {
+    en: 'Two organisations may be the same one. Review →',
+    nl: 'Twee organisaties kunnen dezelfde zijn. Bekijk →',
+    es: 'Dos organizaciones podrían ser la misma. Revisar →', // MT
+    pt: 'Duas organizações podem ser a mesma. Rever →', // MT
+    de: 'Zwei Organisationen könnten dieselbe sein. Prüfen →', // MT
+    fr: 'Deux organisations pourraient n’en être qu’une. Examiner →', // MT
+  },
   dup_find: {
     en: 'Find duplicates',
     nl: 'Dubbelen zoeken',

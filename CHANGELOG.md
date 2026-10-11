@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.151.0] — 2026-10-12
+
+Organisations → Duplicates: a screen, and the answer "no, these are two".
+
+v1.150.0 built the engine and the door. This is the room. The queue sits
+behind a **Find duplicates** button on Organisations and a notice that counts
+what is waiting, exactly where the same two things sit on Contacts.
+
+Each pair shows both records side by side — name, legal name when it differs,
+website domain, where they are, **how many people sit under each**, and when
+each was created. That people count is the most useful number on the page:
+when two records for one organisation exist, it is usually the one with the
+members that is the real one.
+
+Then the question, which is the same question the person screen asks and for
+the same reason: **same organisation written twice, or two different ones with
+similar names?** Answer the first and you choose which record to keep; answer
+the second and the pair is remembered and never proposed again.
+
+**That second answer needed a new route.** `organisation_distinct` has existed
+since 2026-09-23 and the duplicate finder has always honoured it — but nothing
+could ever write a row, so the queue could only be merged away, never
+answered. A pair of genuinely different organisations with similar names came
+back every time anybody opened the page. `POST
+/organisations/duplicates/distinct` writes it, ordering the pair to suit the
+table's own `a_id < b_id` check rather than trusting the order a browser sent.
+
+Choosing a keeper asks what the two disagree about, and the per-field chooser
+is the **same component** the person screen uses, unchanged — both values side
+by side, keeper pre-selected, one tap to take the other. Where they agree
+about everything, the merge happens on the click that chose the keeper, so the
+ordinary case is still one press. Where the comparison cannot be fetched the
+merge goes ahead the plain way and the screen says so, which is the behaviour
+v1.149.1 argued for on the person side.
+
+The gate is honest about itself: an organiser who opens the page is told that
+merging changes who the members belong to and which billing details apply —
+not shown an empty queue, which would be a lie that looks like calm.
+
+Verified in a browser rather than claimed: `e2e/org-duplicates.spec.ts` seeds
+a real pair on staging, asserts both records are on the page BY NAME, opens
+the per-field step, takes the merged record's city over the keeper's answer,
+and then reads the database to confirm the chosen value arrived and that undo
+put the old one back. An empty queue renders identically to a working one, so
+the pair is asserted present before anything is clicked.
+
 ## [1.150.0] — 2026-10-11
 
 Organisations can be merged, and the merge can be told which value wins.
