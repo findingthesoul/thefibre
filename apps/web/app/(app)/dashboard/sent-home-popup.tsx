@@ -29,6 +29,7 @@
 import { useState, useTransition } from 'react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { buttonClassName } from '@thefibre/shared/ui/button';
+import { browserSupabase } from '@/lib/supabase/client';
 
 export type SwitchTarget = {
   id: string;
@@ -44,6 +45,7 @@ export function SentHomePopup({
   body,
   dismiss,
   askAdmin,
+  labelRetry,
   targets = [],
   onSwitch,
 }: {
@@ -52,6 +54,9 @@ export function SentHomePopup({
   dismiss: string;
   /** "Ask an admin of {workspace} to give you access to {app}." */
   askAdmin?: string | undefined;
+  /** Shown when the token could not be re-minted; the choice is recorded, so
+   *  pressing again is the right advice. */
+  labelRetry?: string | undefined;
   /** Empty for the ordinary case; the popup then looks exactly as before. */
   targets?: SwitchTarget[];
   /** Records the workspace choice. Resolves to an error string, or null. */
@@ -81,9 +86,27 @@ export function SentHomePopup({
         setError(err);
         return;
       }
-      // A FULL load, not a router push: the workspace lives in the access
-      // token, and this is a cross-apex address anyway. Going there afresh is
-      // the only way the app renders with the workspace just chosen.
+      // RECORDING the choice is only half of it. The workspace lives in the
+      // ACCESS TOKEN, and the API says so in its own answer
+      // (`refresh_required: true`) — so without this the browser carries the
+      // old token to the app, the app sees the workspace they were just
+      // rescued from, and bounces them straight back here.
+      //
+      // Measured on staging 2026-10-11, and it looked exactly like the button
+      // doing nothing: the choice WAS recorded, the hop WAS made, and The
+      // Thread sent them back because its token still said the old workspace.
+      // The same two-step is in the user menu; this is the second caller.
+      try {
+        await browserSupabase().auth.refreshSession();
+      } catch {
+        // The choice is recorded either way. Going on with a stale token
+        // would land them back here, so stop and let them press again.
+        setError(labelRetry ?? null);
+        return;
+      }
+      // A FULL load, not a router push: the workspace lives in the token and
+      // the target is another app. Going there afresh is the only way it
+      // renders with the workspace just chosen.
       window.location.href = t.href;
     });
   }

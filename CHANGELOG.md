@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.145.1] — 2026-10-11
+
+The switch-back button in v1.145.0 looked like it did nothing. It recorded the
+choice, hopped to the app, and the app sent you straight back.
+
+Found by pressing it on staging, which is the only way it could have been
+found: every part succeeded. `switchWorkspace` recorded the workspace, the
+navigation happened, and The Thread bounced the person back to The Fibre —
+because **the workspace lives in the ACCESS TOKEN**, and recording the choice
+does not re-mint one. The browser carried the old token to the app, the app
+read the workspace the person had just been rescued from, and did exactly
+what it is supposed to do with it.
+
+The API has always said so in its own answer — `refresh_required: true` from
+`POST /auth/workspace` — and the user menu has always honoured it with
+`refreshSession()`. This was the second caller of that two-step and it only
+did the first half.
+
+So the button now records, re-mints, and only then hops. If the re-mint
+fails the hop is abandoned rather than attempted with a stale token, because
+that lands the person back where they started with nothing explaining why;
+the choice is recorded either way, so the honest advice is to press again,
+and that is what it says.
+
+A reminder that the tell was invisible from the code: the button worked, the
+action worked, the navigation worked, and the result was a loop back to the
+same popup with its older wording — which read as the button being inert.
+
 ## [1.145.0] — 2026-10-11
 
 Switching workspace in The Fibre and then opening an app you have no seat in

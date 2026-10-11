@@ -159,6 +159,14 @@ const CATALOG = {
     de: 'Oder bitte eine Admin von {workspace}, dir Zugang zu {app} zu geben.', // MT
     fr: "Ou demandez à une personne administratrice de {workspace} de vous donner accès à {app}.", // MT
   },
+  sent_home_switch_retry: {
+    en: 'Your workspace was changed, but the app could not be opened. Try the button again.',
+    nl: 'Je workspace is gewijzigd, maar de app kon niet worden geopend. Probeer de knop opnieuw.',
+    es: 'Se cambió tu espacio de trabajo, pero no se pudo abrir la app. Vuelve a pulsar el botón.', // MT
+    pt: 'O teu espaço de trabalho mudou, mas não foi possível abrir a app. Carrega no botão outra vez.', // MT
+    de: 'Dein Workspace wurde gewechselt, die App konnte aber nicht geöffnet werden. Versuch die Schaltfläche noch einmal.', // MT
+    fr: "Votre espace de travail a été changé, mais l'application n'a pas pu être ouverte. Réessayez le bouton.", // MT
+  },
   sent_home_no_session: {
     en: "{app} couldn't tell who you are, so we brought you back here. Your workspace hasn't changed.",
     nl: '{app} kon niet vaststellen wie je bent, dus we hebben je hierheen teruggebracht. Je workspace is niet veranderd.',

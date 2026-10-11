@@ -248,6 +248,7 @@ export default async function Dashboard({
           }
           dismiss={t(locale, 'sent_home_dismiss')}
           targets={switchTargets}
+          labelRetry={t(locale, 'sent_home_switch_retry')}
           askAdmin={
             switchTargets.length || (sentHome.chosen && sentHome.reason === 'no-access')
               ? t(locale, 'sent_home_ask_admin', {
