@@ -186,6 +186,28 @@ why §1.5's render-check rule is a rule and not a nicety.
    read the other side from disk.
 
 
+19. **A fixture may not create the shape the product is supposed to create.**
+   2026-10-12: the Zoom notice's per-workspace exemption was stored in
+   `workspace_app.settings` on the `fibre-platform` app row. Four integration
+   tests passed, both exemptions were mutation-checked, and the mechanism did
+   not work at all — `fibre-platform` NEVER gets a `workspace_app` row,
+   because the platform is not an app a workspace activates. Zero of 130
+   staging workspaces have one. The tests passed because the helper did
+   `insert` when it found no row, so every one of them read back a row only
+   the test had made.
+
+   A fixture that invents the shape under test proves the test, not the
+   product. Fixtures may create the things a PERSON creates — a workspace, a
+   person, an organisation — and must only ever UPDATE the rows the product
+   maintains. If a fixture has to insert something to make the code under
+   test find it, that is the finding: ask whether the thing exists in
+   production at all. Here, asking took one query and the answer was no.
+
+   It was caught by a browser look that tried to set the flag on a real
+   workspace, which is also §1.5's point: the render check is where
+   assumptions meet the stack.
+
+
 **Who the browser pack signs in as, and what it can see (2026-10-04).** By
 default, the fixture account `e2e-fixture@example.com` (`e2e/identities.ts`):
 nobody real, an admin of its own permanent workspace `e2e-fixtures`, with a

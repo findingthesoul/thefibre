@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.154.0] — 2026-10-12
+
+A script to hand Sjoerd for the Zoom reviewer's workspace.
+
+`apps/api/scripts/zoom-notice-optout.mjs` sets the one flag that hides the
+"Zoom is still waiting for approval" notice from a single workspace — the
+reviewer's, so the review he is conducting is not told the integration is
+unapproved.
+
+**It looks before it writes, because nobody knows for certain what that
+workspace is called.** A pasted `UPDATE` that matches nothing succeeds
+silently with zero rows; this prints the workspace it found — name, slug, when
+it was made, the flag's current value, and the email address of every member —
+and says plainly that those addresses should be the reviewer's and nobody
+else's. Then it refuses on 0 matches and on more than 1, dry-runs unless
+`--apply`, has `--undo`, says which project it is about to touch every time,
+and reads the row back afterwards rather than trusting that the update
+returned no error.
+
+Proven on staging against throwaway fixtures, every path: no match refuses
+(exit 1), two matches refuse and list both (exit 1), the dry run writes
+nothing, `--apply` sets it and reads back true, running it again says
+"already set: nothing to do", and `--undo --apply` reads back false.
+
+Also: **`docs/testing-approach.md` gains principle 19** — *a fixture may not
+create the shape the product is supposed to create*. That is the lesson from
+v1.153.1, where four tests passed against a mechanism that did not exist
+because the helper inserted the row it then read. Fixtures may create what a
+person creates and must only update what the product maintains; a fixture that
+has to insert something for the code under test to find it has found the bug.
+
 ## [1.153.3] — 2026-10-12
 
 The Google Calendar card stacks on a phone too — three copies of it.
