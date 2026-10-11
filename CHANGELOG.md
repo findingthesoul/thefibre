@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.137.0] — 2026-10-11
+
+A member can read their own invoice, not just download it.
+
+> Sjoerd, 2026-10-04: a person should be able to *"see his/her invoice online
+> (in my.thread - thus login)"*.
+
+my.thread's Purchases tab listed a row and a PDF link. To find out what they
+had actually been charged for, a member had to download a file. The document
+is on the screen now, and `/purchases/<id>` opens straight to one.
+
+**The same dialog the organiser sees.** `InvoiceDialog` is the canonical
+viewer for the whole family and is read-only by default — `actions`,
+`onEmail` and the rest are optional, so the participant build omits them and
+gets share, download and print with no management affordance anywhere near
+it. Reimburse and mark-paid are absent because they were never passed, not
+because they are hidden behind a role check that could be got wrong. A
+portal-only copy would have been a second answer to *what does an invoice
+look like*, on the one document where buyer and seller must be looking at the
+same thing.
+
+**The seller comes from `sellerForSale`** — the same resolver the receipt
+email and the PDF already use, so the From block on a member's screen cannot
+disagree with the one on their emailed copy. Resolved once per distinct
+(app, workspace, organiser) rather than once per row, because a member with
+eight tickets from one organiser is the ordinary case.
+
+**The deep link has no ownership rule of its own, and that is the design.**
+`/purchases/<id>` renders the list with that invoice's dialog open, and the
+list is already nothing but the signed-in member's own rows — the API matches
+`person_id` OR `payer_email` against their verified address. An id belonging
+to somebody else is simply not among them: no dialog, no message, the same
+screen a nonexistent id gets. A second ownership check in the page could
+disagree with the first; the one in the API is the one that actually guards
+the data, so it is the only one.
+
+Which puts the whole of that decision in one route, and there is now a test
+there that says so. The case that matters is *another person's invoice is not
+in the list* — if it ever goes green-to-red, a forwarded link opens somebody
+else's money. Mutation-checked rather than trusted: removing the owner filter
+from the person-side query turns exactly that case red.
+
+**Sign-in, never a token** (Sjoerd's own framing: *"thus login"*). No
+per-invoice magic link, because an invoice URL gets forwarded and quoted, and
+a tokenised one would make every forward a disclosure of somebody's payment
+history. A uuid names nothing by itself, and opens nothing without the
+recipient's own sign-in.
+
+The payload gained `method`, `payer_name`, `payer_email`, `billing` and
+`seller` — all of it the member's own data about their own purchase.
+`organiser_user_id` is selected for the seller lookup and deliberately never
+returned: whose user id ran the sale is the workspace's business, not the
+buyer's, and there is a case asserting it does not appear in the response.
+
+The PDF link stays beside the new one. Opening the document is an addition,
+not a replacement: somebody who came to file a receipt wants the file.
+
 ## [1.136.0] — 2026-10-11
 
 Four gates that were wrong today, from today's mistakes.

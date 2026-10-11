@@ -103,6 +103,21 @@ export type PortalInvoice = {
   created_at: string;
   paid_at: string | null;
   stripe_invoice_url: string | null;
+  // The document itself (2026-10-11). Until now the member saw a row and a
+  // PDF link and could never read the invoice on screen. These are what the
+  // shared InvoiceDialog needs; all optional, so an older API degrades to
+  // exactly today's list rather than to a broken dialog.
+  method?: string;
+  payer_name?: string;
+  payer_email?: string | null;
+  billing?: unknown;
+  seller?: {
+    legal_name?: string;
+    address?: string;
+    tax_no?: string;
+    website?: string;
+    logo_url?: string | null;
+  } | null;
 };
 
 /** One thing a membership includes. `url` null means "you have this, and we

@@ -241,7 +241,7 @@ type ReceiptPurchase = {
   billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string; subtotal_cents?: number | null; tax_cents?: number | null; tax_label?: string | null } | null;
 };
 
-type SellerDetails = {
+export type SellerDetails = {
   legal_name?: string;
   address?: string;
   tax_no?: string;

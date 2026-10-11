@@ -85,7 +85,10 @@ import { appUrl, isLocale } from '@thefibre/shared';
 import { publicOriginFor } from '../lib/public-origin.js';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
-import { sellerForSale } from './purchases.js';
+// THE seller resolver, not a copy of it: the same function the receipt email,
+// the invoice PDF and now the member's own invoice list all use, so the From
+// block cannot differ between a member's screen and their emailed copy.
+import { sellerForSale, type SellerDetails } from './purchases.js';
 import { threadSlugFromConfig } from '../lib/thread-access.js';
 
 /** A product's `links` column, read defensively — it is jsonb and a product
@@ -935,10 +938,32 @@ type PortalInvoice = {
   created_at: string;
   paid_at: string | null;
   stripe_invoice_url: string | null;
+  // ── what the DOCUMENT needs (2026-10-11) ───────────────────────────────
+  // The list showed a row and a PDF link; a member could never read the
+  // invoice itself. These are the fields InvoicePurchase wants so the shared
+  // dialog — the same one Thread, Meet and the platform open — can render it
+  // here too, read-only.
+  //
+  // All of it is the member's OWN data about their own purchase: their name,
+  // their billing block, how they paid. Nothing about the seller's internals
+  // and nothing about anybody else is added by this.
+  method: string;
+  payer_name: string;
+  payer_email: string | null;
+  billing: unknown;
+  /** Who sold it, composed by the SAME resolver the receipt email and the
+   *  PDF use (sellerForSale) — personal-first for Thread and Meet, the
+   *  workspace for Membership. A second rule here would be a second answer
+   *  to "whose invoice is this", on the one document where that must not
+   *  vary. */
+  seller: SellerDetails | null;
 };
 
+// `organiser_user_id` is selected for the SELLER LOOKUP ONLY and never
+// returned: whose user id ran the sale is the workspace's business, not the
+// buyer's.
 const INVOICE_SELECT =
-  'id, workspace_id, item_label, amount_cents, currency, status, created_at, paid_at, stripe_invoice_url, person_id, payer_email, app:app_id (slug, name)';
+  'id, workspace_id, item_label, amount_cents, currency, status, method, created_at, paid_at, stripe_invoice_url, person_id, payer_name, payer_email, billing, organiser_user_id, app:app_id (slug, name)';
 
 portalRoutes.get('/invoices', async (c) => {
   const email = await participantEmailFromAuth(c);
@@ -967,6 +992,32 @@ portalRoutes.get('/invoices', async (c) => {
     .in('id', workspaceIds);
   const nameOf = new Map((workspaces ?? []).map((w) => [w.id as string, w.name as string]));
 
+  // Sellers, resolved ONCE per distinct (app, workspace, organiser) rather
+  // than once per row: a member with eight tickets from one organiser is the
+  // ordinary case, and sellerForSale is three queries each time.
+  const sellerKey = (r: LedgerRow) => {
+    const app = one(r.app as never) as { slug: string } | null;
+    return `${app?.slug ?? ''}|${r.workspace_id as string}|${(r.organiser_user_id as string) ?? ''}`;
+  };
+  const sellers = new Map<string, SellerDetails | null>();
+  await Promise.all(
+    [...new Set(rows.map(sellerKey))].map(async (key) => {
+      const [appSlug, workspaceId, organiserUserId] = key.split('|');
+      try {
+        sellers.set(
+          key,
+          await sellerForSale(appSlug ?? '', workspaceId ?? '', organiserUserId || null),
+        );
+      } catch (e) {
+        // Never fatal: an invoice with no From block is still the invoice,
+        // and a member looking for what they paid should not meet an error
+        // because a workspace has not filled in its address.
+        console.error('[portal invoices] seller lookup failed', e);
+        sellers.set(key, null);
+      }
+    }),
+  );
+
   const items: PortalInvoice[] = rows
     .map((r) => {
       const app = one(r.app as never) as { slug: string; name: string } | null;
@@ -981,6 +1032,11 @@ portalRoutes.get('/invoices', async (c) => {
         created_at: r.created_at as string,
         paid_at: (r.paid_at as string | null) ?? null,
         stripe_invoice_url: (r.stripe_invoice_url as string | null) ?? null,
+        method: (r.method as string) ?? 'invoice',
+        payer_name: (r.payer_name as string) ?? '',
+        payer_email: (r.payer_email as string | null) ?? null,
+        billing: (r.billing as unknown) ?? null,
+        seller: sellers.get(sellerKey(r)) ?? null,
       };
     })
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
