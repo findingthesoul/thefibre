@@ -342,6 +342,20 @@ cmd_clear() {
       local lane; lane="$(field lane "$q")"
       if [ -n "$lane" ]; then
         local outside="" f pat hit
+        # NOGLOB while splitting these two lists. Both `$files` and `$lane` are
+        # unquoted ON PURPOSE — that is how they split on whitespace into
+        # items — but unquoting also invites PATHNAME EXPANSION, and that was
+        # a real bug (2026-10-11): `apps/web/app/(app)/settings/connections/*`
+        # expanded against the CONTROLLER's working directory into the files
+        # that happened to be there, so the lane stopped being a pattern and
+        # became a list. A file the release ADDS exists only in the requesting
+        # worktree, so it matched nothing and was refused as "OUTSIDE THE
+        # LANE" while being squarely inside it. A new file could never pass a
+        # glob lane, which is precisely when a lane matters most.
+        #
+        # `$files` needs the same guard for the same reason: a path is data
+        # from git, and a `*` or `?` in one must be matched, not expanded.
+        set -f
         for f in $files; do
           case "$f" in CHANGELOG.md|package.json|apps/*/package.json|packages/*/package.json|apps/web/lib/version.ts) continue ;; esac
           hit=0
@@ -351,6 +365,7 @@ cmd_clear() {
           done
           [ "$hit" = 1 ] || outside="$outside$f"$'\n'
         done
+        set +f
         if [ -n "$outside" ]; then
           if [ "$allow_lane" = 1 ]; then
             say "Outside the declared lane ($lane), allowed by $by:"; printf '%s' "$outside" | sed 's/^/    /'

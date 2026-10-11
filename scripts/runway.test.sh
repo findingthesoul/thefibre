@@ -266,6 +266,42 @@ req a release
 expect_pass "no lane declared = no lane check (opt-in)" $R clear a --by atc
 $R abort --by atc >/dev/null; rm -f "$T/w/.git/runway/queue/"*
 
+echo "a lane pattern is a PATTERN, not a list of files on this disk"
+# The bug this pins (2026-10-11): `for pat in $lane` was unquoted, so bash
+# applied PATHNAME EXPANSION to each pattern before matching it. The lane was
+# then not a pattern but a list of whatever happened to exist in the
+# CONTROLLER's checkout — and a file the release ADDS exists only in the
+# requesting worktree. So a brand-new file could never match a glob lane, and
+# the refusal said "OUTSIDE THE LANE" about a path squarely inside it.
+#
+# Two checkouts, because that is the only place it shows: the request is made
+# where the new file exists, the clear is run where it does not. Worktrees
+# share one object database and one .git/runway, which is how the controller
+# clears a sha it cannot see on disk.
+git fetch -q origin; git checkout -q -B globlane origin/staging
+rm -rf "$T/ctl"; git worktree add -q --detach "$T/ctl" origin/staging
+# The controller's disk carries a SIBLING under the same glob and never the
+# new file. Untracked on purpose: what matters is only what bash can see when
+# it expands, and this keeps the setup independent of what staging contains.
+mkdir -p "$T/ctl/apps/web/parts"; echo o > "$T/ctl/apps/web/parts/old.tsx"
+# The release adds a NEW file under that glob, plus one plainly outside it.
+mkdir -p apps/web/parts apps/other
+echo n > apps/web/parts/new.tsx; echo s > apps/other/stray.tsx; rel 0.0.9
+RUNWAY_SESSION=a $R request --kind release --lane "apps/web/parts/*" --what x --verified v --unverified none >/dev/null
+OUT="$(cd "$T/ctl" && ./scripts/runway.sh clear a --by atc 2>&1 || true)"
+# The decoy first. Without it the two assertions below pass whenever the lane
+# check does not run at all — which is exactly how the first version of this
+# test passed against the unfixed script and proved nothing.
+grep -q "OUTSIDE THE LANE: apps/other/stray.tsx" <<<"$OUT" \
+  && ok "(the lane check ran: a genuinely out-of-lane file is named)" \
+  || bad "(the lane check did not run — the assertions below would be vacuous)"
+grep -q "OUTSIDE THE LANE: apps/web/parts/new.tsx" <<<"$OUT" \
+  && bad "a NEW file under a glob lane is INSIDE the lane" \
+  || ok "a NEW file under a glob lane is INSIDE the lane"
+$R abort --by atc >/dev/null 2>&1 || true
+git worktree remove -f "$T/ctl" 2>/dev/null || true
+rm -f "$T/w/.git/runway/queue/"*
+
 echo "the shared checkout stays on main"
 git checkout -q main 2>/dev/null
 expect_pass "the main checkout on main passes" $R check-checkout

@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.142.1] — 2026-10-11
+
+A lane in the runway control was not a pattern. It was a list of whatever
+happened to exist on the controller's disk — so a file a release ADDS could
+never pass a glob lane.
+
+`for pat in $lane` was unquoted. That is deliberate for the word splitting,
+which is how a space-separated lane becomes items, but unquoting also invites
+PATHNAME EXPANSION: bash replaced each pattern with the files matching it in
+the **controller's** working directory before any comparison happened.
+
+The consequence only appears across two checkouts, which is why it survived
+this long. The request is made in the worktree where the new file exists; the
+clear is run in the main checkout, where it does not. So
+`apps/web/app/(app)/settings/connections/*` became the eight files already
+sitting there, the ninth — the one being added — matched none of them, and
+the refusal read `OUTSIDE THE LANE: …/teams-connect.tsx` about a path
+squarely inside its lane. **A new file could never pass a glob lane, which is
+exactly when a lane is doing the most work.** Cost a round trip on v1.142.0.
+
+`set -f` around the match, restored after. `$files` is wrapped by the same
+guard for the same reason: a path is data out of git, and a `*` or `?` in one
+must be matched, not expanded.
+
+The fix is three lines. **The test is the part worth reading**, because the
+first version of it passed against the unfixed script and proved nothing: it
+asserted that a given path was absent from the refusal, and the path was
+absent because the lane check never ran at all — the clear had already failed
+for an unrelated reason. Two greps for "not present", both green, zero
+coverage. Exactly the shape of "an empty list looks like a working one".
+
+So the test now carries a decoy: the release also adds a file that is
+genuinely outside the lane, and the first assertion is that the refusal NAMES
+it. If that fails, the lane check did not run and the real assertion beneath
+it would be meaningless — so the test says so in those words instead of going
+green. It is built from two real checkouts (`git worktree add`), since that
+is the only arrangement where the bug exists, and the controller's disk
+carries an untracked sibling file under the same glob — what bash can see
+when it expands is the whole mechanism.
+
+Verified red before green: with the decoy in place the new case FAILS on the
+unfixed script and passes after, and the rest of the suite is unchanged.
+
 ## [1.142.0] — 2026-10-11
 
 Microsoft Teams had a complete backend and no way to connect it. Settings →
