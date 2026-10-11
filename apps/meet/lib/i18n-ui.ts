@@ -3458,6 +3458,69 @@ const CATALOG = {
   // glancing at their phone between meetings knows which app is about to
   // open (2026-10-10). `join_short` is the fallback for a link we cannot
   // place — a self-hosted room, a dial-in page.
+  // Booking several people into one slot (2026-10-09). Each becomes its own
+  // booking, so "seats" is literal: one per person.
+  add_another_person: {
+    en: 'Add to this meeting',
+    nl: 'Aan deze meeting toevoegen',
+    es: 'Añadir a esta reunión', // MT
+    pt: 'Adicionar a esta reunião', // MT
+    de: 'Zu diesem Meeting hinzufügen', // MT
+    fr: 'Ajouter à cette réunion', // MT
+  },
+  // The deliberate way past the seat count. The route allows a host to
+  // overbook; the dialog must not be stricter than the route, so this exists
+  // rather than a cap that silently disagrees with the server.
+  add_anyway: {
+    en: 'Add anyway',
+    nl: 'Toch toevoegen',
+    es: 'Añadir igualmente', // MT
+    pt: 'Adicionar mesmo assim', // MT
+    de: 'Trotzdem hinzufügen', // MT
+    fr: 'Ajouter quand même', // MT
+  },
+  over_capacity_warning: {
+    en: '{people} people for {seats} seats — over capacity, on purpose.',
+    nl: '{people} mensen voor {seats} plekken — bewust boven de capaciteit.',
+    es: '{people} personas para {seats} plazas: por encima del aforo, a propósito.', // MT
+    pt: '{people} pessoas para {seats} lugares — acima da lotação, de propósito.', // MT
+    de: '{people} Personen für {seats} Plätze — bewusst über der Kapazität.', // MT
+    fr: '{people} personnes pour {seats} places — au-delà de la capacité, volontairement.', // MT
+  },
+  seats_left: {
+    en: '{left} seats left',
+    nl: 'nog {left} plekken',
+    es: 'quedan {left} plazas', // MT
+    pt: 'restam {left} lugares', // MT
+    de: 'noch {left} Plätze', // MT
+    fr: 'il reste {left} places', // MT
+  },
+  slot_is_full: {
+    en: 'This slot is full.',
+    nl: 'Dit tijdslot is vol.',
+    es: 'Esta franja está llena.', // MT
+    pt: 'Este horário está cheio.', // MT
+    de: 'Dieser Termin ist voll.', // MT
+    fr: 'Ce créneau est complet.', // MT
+  },
+  // Shown when some were booked and some were not — the bookings that worked
+  // are KEPT, and this says who to deal with.
+  some_did_not_fit: {
+    en: 'Booked, except for these:',
+    nl: 'Geboekt, behalve deze:',
+    es: 'Reservado, excepto estos:', // MT
+    pt: 'Marcado, exceto estes:', // MT
+    de: 'Gebucht, außer diesen:', // MT
+    fr: 'Réservé, sauf ceux-ci :', // MT
+  },
+  booking_failed: {
+    en: 'The booking could not be made.',
+    nl: 'De boeking kon niet worden gemaakt.',
+    es: 'No se pudo crear la reserva.', // MT
+    pt: 'Não foi possível criar a marcação.', // MT
+    de: 'Die Buchung konnte nicht erstellt werden.', // MT
+    fr: 'La réservation n’a pas pu être créée.', // MT
+  },
   join_short: {
     en: 'Join',
     nl: 'Deelnemen',

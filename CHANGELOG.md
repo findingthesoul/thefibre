@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.131.0] — 2026-10-11
+
+Several people into one meeting, in one go — and the host may overfill the room.
+
+Sjoerd, 2026-10-09: in Meet → Bookings → New booking the host books SEVERAL
+people into the same meeting at once; for a group type each takes a seat,
+capacity is respected, and each gets their own confirmation and join link.
+
+Most of that already existed. Capacity was already enforced per
+(meeting_type_id, starts_at), and every attendee was already a booking of its
+own — which is what makes a confirmation and a join link per person. So the
+feature is the dialog calling the existing path once per guest, NOT a bulk
+endpoint. A bulk endpoint would have to re-state the capacity rule, and a
+second copy of a rule is a copy that will drift.
+
+**The dialog now uses the shared `PersonCombobox` as a multi-select**, so
+somebody already in the workspace is picked rather than retyped, and the
+guests appear as removable chips.
+
+**What is new underneath is one number, asked by three callers.**
+`slotSeats()` counts a slot's capacity, what is taken and what is left — once.
+The public booking route reads it, the host's dialog reads it through a new
+`GET /meet/slot-seats`, and the host route reads nothing because it does not
+have to:
+
+> *"host can overbook"* — Sjoerd, 2026-10-11
+
+So the policies differ on purpose, and they differ on top of the same count:
+
+- The **public** page refuses past the limit. A stranger filling in a form
+  cannot put a fourth body in a room that holds three.
+- The **host** route accepts past it. The host is looking at their own room
+  and knows whether a fourth chair fits; software that argued with them about
+  it would simply be worked around.
+- The **dialog** shows how many seats are left, disables *Add another person*
+  at zero, and offers one explicit **Add anyway** with a warning naming both
+  numbers.
+
+That last part is why this is not the usual "offered X then refused X" bug.
+The dialog is not guessing at a limit the server keeps secretly; it reads the
+server's own count and then lets the host override it deliberately, because
+the server will take the override. The seat count also keeps counting past
+capacity rather than clamping, so a host who goes over can see by how much.
+
+The integration cases pin both halves — the host accepted past the limit AND
+the booking actually written, the public path still refused with `slot_full`
+and nothing written. The easy mistake from here is for somebody to "fix" the
+host route back to a 409; it will now fail a test that says, in words, that
+this was a decision.
+
 ## [1.130.1] — 2026-10-11
 
 Pulse's Mark paid saved the invoice and left the old one on screen.

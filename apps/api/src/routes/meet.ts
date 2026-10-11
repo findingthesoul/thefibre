@@ -704,18 +704,9 @@ meetRoutes.post('/public/bookings', async (c) => {
     // (mt.id, starts_at); see LIVE_BOOKING_STATUSES — a request awaiting
     // approval holds its seat. If capacity is null, single-attendee (1) is
     // the cap.
-    const cap = mt.capacity && mt.capacity > 0 ? mt.capacity : 1;
-    const { count: bookedCount, error: cntErr } = await adminClient
-      .from('meet_booking')
-      .select('id', { count: 'exact', head: true })
-      .eq('meeting_type_id', mt.id)
-      .eq('starts_at', starts0.toISOString())
-      .in('status', LIVE_BOOKING_STATUSES);
-    if (cntErr) {
-      console.error('[meet bookings] one-off capacity count failed', cntErr);
-      return c.json({ error: 'capacity check failed' }, 500);
-    }
-    if ((bookedCount ?? 0) >= cap) {
+    const seats = await slotSeats(mt.id as string, mt.capacity as number | null, starts0.toISOString());
+    if (!seats) return c.json({ error: 'capacity check failed' }, 500);
+    if (seats.left <= 0) {
       return c.json({ error: 'fully booked', code: 'slot_full' }, 409);
     }
   }
@@ -725,17 +716,9 @@ meetRoutes.post('/public/bookings', async (c) => {
   // exist for that tuple, reject with 409 "fully booked". Live includes a
   // request awaiting approval — it is holding one of the seats.
   if (mt.event_type === 'group' && mt.capacity && mt.capacity > 0) {
-    const { count: bookedCount, error: cntErr } = await adminClient
-      .from('meet_booking')
-      .select('id', { count: 'exact', head: true })
-      .eq('meeting_type_id', mt.id)
-      .eq('starts_at', starts0.toISOString())
-      .in('status', LIVE_BOOKING_STATUSES);
-    if (cntErr) {
-      console.error('[meet bookings] group capacity count failed', cntErr);
-      return c.json({ error: 'capacity check failed' }, 500);
-    }
-    if ((bookedCount ?? 0) >= mt.capacity) {
+    const seats = await slotSeats(mt.id as string, mt.capacity as number, starts0.toISOString());
+    if (!seats) return c.json({ error: 'capacity check failed' }, 500);
+    if (seats.left <= 0) {
       return c.json({ error: 'fully booked', code: 'slot_full' }, 409);
     }
   }
@@ -4931,6 +4914,77 @@ const HostBooking = z.object({
 // own time: they are looking at the calendar, and a booking refused because
 // the slot "isn't offered" would be the tool arguing with the person. The UI
 // warns about a clash; the API takes the instruction.
+/**
+ * How many seats a slot has, how many are taken, and how many are left.
+ *
+ * ONE implementation, because two screens ask this question for opposite
+ * reasons: the booking POST asks to REFUSE, and the host's New-booking dialog
+ * asks in order to OFFER (it shows "3 seats left" and will not let the host
+ * pick a fourth person). A dialog that computed this itself would be a second
+ * copy of the capacity rule, and the copy that drifts is always the one
+ * nobody is watching — which is the shape of two bugs this codebase has paid
+ * for this week.
+ *
+ * `capacity` null or 0 means a single attendee: that is the existing
+ * semantics of the POST and is not changed here.
+ *
+ * LIVE includes a booking awaiting approval. It is holding a seat, and a host
+ * who is told four seats are free when one is spoken for will double-book a
+ * room.
+ */
+async function slotSeats(
+  meetingTypeId: string,
+  capacity: number | null,
+  startsAtIso: string,
+): Promise<{ capacity: number; taken: number; left: number } | null> {
+  const cap = capacity && capacity > 0 ? capacity : 1;
+  const { count, error } = await adminClient
+    .from('meet_booking')
+    .select('id', { count: 'exact', head: true })
+    .eq('meeting_type_id', meetingTypeId)
+    .eq('starts_at', startsAtIso)
+    .in('status', LIVE_BOOKING_STATUSES);
+  if (error) {
+    console.error('[meet] slot capacity count failed', error);
+    return null;
+  }
+  const taken = count ?? 0;
+  return { capacity: cap, taken, left: Math.max(0, cap - taken) };
+}
+
+/**
+ * GET /api/v1/meet/slot-seats?meeting_type_id=…&starts_at=…
+ *
+ * What the New-booking dialog asks before offering a multi-select. Sharing a
+ * number the client cannot otherwise see is what lets the form refuse a sixth
+ * person BEFORE the host types five names and loses two of them to a 409.
+ */
+meetRoutes.get('/slot-seats', async (c) => {
+  const ctx = c.get('ctx');
+  const meetingTypeId = c.req.query('meeting_type_id') ?? '';
+  const startsAt = c.req.query('starts_at') ?? '';
+  if (!meetingTypeId || !startsAt) {
+    return c.json({ error: 'meeting_type_id and starts_at are required' }, 400);
+  }
+  const when = new Date(startsAt);
+  if (Number.isNaN(when.getTime())) return c.json({ error: 'starts_at is not a time' }, 400);
+
+  // Scoped to the caller's workspace — a seat count tells you somebody else
+  // has a meeting at a given minute, which is not this workspace's business.
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select('id, capacity, event_type, workspace_id')
+    .eq('id', meetingTypeId)
+    .maybeSingle();
+  if (!mt || mt.workspace_id !== ctx.workspaceId) {
+    return c.json({ error: 'meeting type not found' }, 404);
+  }
+
+  const seats = await slotSeats(mt.id as string, mt.capacity as number | null, when.toISOString());
+  if (!seats) return c.json({ error: 'capacity check failed' }, 500);
+  return c.json({ ...seats, event_type: mt.event_type });
+});
+
 meetRoutes.post('/bookings', async (c) => {
   const ctx = c.get('ctx');
   const body = HostBooking.safeParse(await c.req.json().catch(() => null));

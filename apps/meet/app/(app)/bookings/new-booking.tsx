@@ -19,7 +19,7 @@
 // hands the typed text to the name field. Same shape as Thread's
 // add-participant dialog.
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { TextField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, type Locale } from '@/lib/i18n-ui';
-import { createHostBooking } from './actions';
+import { createHostBooking, slotSeats } from './actions';
 import { searchPeople } from '../meeting-types/actions';
 
 export type BookableType = {
@@ -59,6 +59,25 @@ export function NewBookingButton({
   const [startsAt, setStartsAt] = useState('');
   const [payment, setPayment] = useState<'link' | 'invoice' | 'comp'>('link');
   const [notify, setNotify] = useState(true);
+  /** Everybody else going into the SAME slot. Sjoerd, 2026-10-09: the host
+   *  books several people into one meeting at once. Each becomes its own
+   *  booking — one seat, one confirmation, one join link — because that is
+   *  already what the API does per person, and a bulk endpoint would be a
+   *  second copy of the capacity rule. */
+  const [guests, setGuests] = useState<{ name: string; email: string }[]>([]);
+  /** What the slot has left, straight from the API. Null until a meeting type
+   *  and a time are both chosen, or when the lookup fails — in which case the
+   *  form stops capping rather than guessing a number. */
+  const [seats, setSeats] = useState<{ left: number; capacity: number } | null>(null);
+  const [partial, setPartial] = useState<string[] | null>(null);
+  /** The host has said, explicitly, to go past the seats.
+   *
+   *  The dialog caps at the seat count by default, but it must not be
+   *  STRICTER than the route: a cap the host cannot get past while the API
+   *  would accept the booking is the same offer-versus-enforcement split as
+   *  a button that offers what the server refuses, just pointing the other
+   *  way. So the cap is a default, and this is the door out of it. */
+  const [overCapacity, setOverCapacity] = useState(false);
 
   const mt = types.find((x) => x.id === mtId) ?? null;
   const paid = !!(mt?.price_cents && mt.price_cents > 0);
@@ -97,31 +116,112 @@ export function NewBookingButton({
     setErr(p.email ? null : t(locale, 'person_has_no_email'));
   }
 
+  // Ask the API how many seats this slot has left, so the form can refuse a
+  // seventh person BEFORE the host types six names and loses one to a 409.
+  // The number is the API's, not a guess: the same slotSeats() the booking
+  // route enforces with.
+  useEffect(() => {
+    let alive = true;
+    if (!mtId || !startsAt) {
+      setSeats(null);
+      return;
+    }
+    const when = new Date(startsAt);
+    if (Number.isNaN(when.getTime())) {
+      setSeats(null);
+      return;
+    }
+    setOverCapacity(false);
+    slotSeats(mtId, when.toISOString()).then((r) => {
+      if (!alive) return;
+      setSeats(r && typeof r.left === 'number' ? { left: r.left, capacity: r.capacity } : null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [mtId, startsAt]);
+
+  /** Everybody this submit will try to book: the people already added, plus
+   *  whatever is still sitting in the two fields. */
+  function allGuests(): { name: string; email: string }[] {
+    const typed = name.trim() && email.trim() ? [{ name: name.trim(), email: email.trim() }] : [];
+    const out = [...guests, ...typed];
+    // One booking per person, so the same address twice is a mistake rather
+    // than two seats.
+    return out.filter((g, i) => out.findIndex((o) => o.email.toLowerCase() === g.email.toLowerCase()) === i);
+  }
+
+  function addGuest(person?: { name: string; email: string }) {
+    const g = person ?? { name: name.trim(), email: email.trim() };
+    if (!g.name || !g.email) return;
+    if (guests.some((x) => x.email.toLowerCase() === g.email.toLowerCase())) return;
+    setGuests((xs) => [...xs, g]);
+    setName('');
+    setEmail('');
+    setPickedId('');
+    setErr(null);
+  }
+
   function submit() {
     setErr(null);
+    setPartial(null);
+    const people = allGuests();
+    if (!people.length) return;
     startTransition(async () => {
-      const r = await createHostBooking({
-        meeting_type_id: mtId,
-        invitee_name: name.trim(),
-        invitee_email: email.trim(),
-        starts_at: new Date(startsAt).toISOString(),
-        payment: paid ? payment : undefined,
-        notify,
-      });
-      if (r.error) {
-        setErr(r.error);
+      const when = new Date(startsAt).toISOString();
+      const missed: string[] = [];
+      let booked = 0;
+      // ONE AT A TIME, through the existing path. Sequential rather than
+      // parallel on purpose: the capacity check and the insert are not one
+      // transaction, so five simultaneous requests for three seats could all
+      // read "space free" before any of them writes. In sequence each sees
+      // the previous one's booking.
+      for (const g of people) {
+        const r = await createHostBooking({
+          meeting_type_id: mtId,
+          invitee_name: g.name,
+          invitee_email: g.email,
+          starts_at: when,
+          payment: paid ? payment : undefined,
+          notify,
+        });
+        if (r.error) missed.push(`${g.name} (${g.email}) — ${r.error}`);
+        else booked += 1;
+      }
+
+      if (booked === 0) {
+        setErr(missed[0] ?? t(locale, 'booking_failed'));
+        return;
+      }
+      router.refresh();
+      if (missed.length) {
+        // Booked who fitted and SAY who did not. The host is usually standing
+        // in front of somebody; half an answer they can act on beats an error
+        // that undoes the four bookings that worked.
+        setPartial(missed);
+        setGuests([]);
+        setName('');
+        setEmail('');
+        setPickedId('');
         return;
       }
       setOpen(false);
+      setGuests([]);
       setPickedId('');
       setName('');
       setEmail('');
       setStartsAt('');
-      router.refresh();
+      setPartial(null);
     });
   }
 
-  const ready = !!mtId && name.trim() && email.trim() && startsAt;
+  const ready = !!mtId && !!startsAt && allGuests().length > 0;
+  /** True when the slot cannot take another person. `seats` null means the
+   *  API did not answer — the form then does NOT cap, because refusing on a
+   *  number we do not have would block a booking the API would accept. */
+  const atCapacity = seats !== null && allGuests().length >= seats.left;
+  /** Blocked only while the host has NOT overridden. */
+  const full = atCapacity && !overCapacity;
 
   return (
     <>
@@ -204,6 +304,93 @@ export function NewBookingButton({
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
+
+          {/* More than one person into the same slot. Each becomes its own
+              booking with its own confirmation and join link — the API makes
+              one per person, and that is what a seat IS. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={!name.trim() || !email.trim() || full}
+              onClick={() => addGuest()}
+            >
+              {t(locale, 'add_another_person')}
+            </Button>
+            {seats && (
+              <span className="text-xs text-ink-muted">
+                {t(locale, 'seats_left', { left: String(seats.left) })}
+              </span>
+            )}
+            {full && (
+              <>
+                <span className="text-xs text-ink-muted">{t(locale, 'slot_is_full')}</span>
+                {/* The route ALLOWS a host to go past capacity (meet.ts: the
+                    host booking path makes no capacity check, deliberately —
+                    "you are looking at the calendar"). So the dialog offers
+                    the same thing, once, on purpose, rather than pretending
+                    to a limit the server does not keep. */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!name.trim() || !email.trim()}
+                  onClick={() => {
+                    setOverCapacity(true);
+                    addGuest();
+                  }}
+                >
+                  {t(locale, 'add_anyway')}
+                </Button>
+              </>
+            )}
+          </div>
+
+          {overCapacity && seats && allGuests().length > seats.left && (
+            <p className="text-xs text-amber-700">
+              {t(locale, 'over_capacity_warning', {
+                people: String(allGuests().length),
+                seats: String(seats.left),
+              })}
+            </p>
+          )}
+
+          {guests.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {guests.map((g) => (
+                <li
+                  key={g.email}
+                  className="inline-flex items-center gap-2 rounded-md border border-line bg-surface-sunken px-2 py-1 text-xs"
+                >
+                  <span className="truncate max-w-[12rem]">
+                    {g.name} <span className="text-ink-muted">{g.email}</span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t(locale, 'remove')}
+                    className="text-ink-muted hover:text-ink"
+                    onClick={() => setGuests((xs) => xs.filter((x) => x.email !== g.email))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Booked who fitted, and says plainly who did not — rather than
+              rolling back the ones that worked. */}
+          {partial && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <p className="font-medium">{t(locale, 'some_did_not_fit')}</p>
+              <ul className="mt-1 list-disc pl-4">
+                {partial.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium mb-1.5">{t(locale, 'when')}</label>
             <DateTimeField value={startsAt} onChange={setStartsAt} />
