@@ -19,7 +19,19 @@ import { HOSTS, landSignedIn, waitForHydration } from './helpers.js';
 test('the bio editor opens with the stored bio in it', async ({ page }) => {
   await landSignedIn(page, HOSTS.fibre, 'fibre-platform', '/settings/profile', /\/settings\/profile/);
 
-  const editor = page.getByRole('textbox', { name: /bio/i });
+  // THE RICH EDITOR, named exactly.
+  //
+  // `{ name: /bio/i }` used to be enough and stopped being so when a "Short
+  // bio" textarea joined the profile form: the regex then matched BOTH it and
+  // the contenteditable, and Playwright's strict mode failed with "resolved to
+  // 2 elements" — which reads like the editor being broken and is nothing of
+  // the kind. Found 2026-10-11 by running the whole fixture suite; two specs
+  // had been red since the short-bio field landed.
+  //
+  // An exact name is also the honest selector: these specs are about the rich
+  // editor specifically, and a loose match that happens to find it today is one
+  // field away from finding something else.
+  const editor = page.getByRole('textbox', { name: 'Bio', exact: true });
   await expect(editor).toBeVisible();
   // The editor's OWN tree, not just something on the page: the chrome
   // hydrates well before this form does, and reading in between is exactly

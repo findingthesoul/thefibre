@@ -24,7 +24,19 @@ test.describe.skip('the profile form shows its own limits', () => {
 
     // A contenteditable, not a textarea — Playwright's fill() handles both,
     // but only if the element can be found, hence the aria-label on it.
-    const bio = page.getByRole('textbox', { name: /bio/i });
+    // THE RICH EDITOR, named exactly.
+    //
+    // `{ name: /bio/i }` used to be enough and stopped being so when a "Short
+    // bio" textarea joined the profile form: the regex then matched BOTH it and
+    // the contenteditable, and Playwright's strict mode failed with "resolved to
+    // 2 elements" — which reads like the editor being broken and is nothing of
+    // the kind. Found 2026-10-11 by running the whole fixture suite; two specs
+    // had been red since the short-bio field landed.
+    //
+    // An exact name is also the honest selector: these specs are about the rich
+    // editor specifically, and a loose match that happens to find it today is one
+    // field away from finding something else.
+    const bio = page.getByRole('textbox', { name: 'Bio', exact: true });
     await expect(bio).toBeVisible();
     const original = await bio.inputValue();
 
@@ -60,7 +72,7 @@ test.describe.skip('the profile form shows its own limits', () => {
     await landSignedIn(page, HOSTS.fibre, 'fibre-platform', '/settings/profile', /\/settings\/profile/);
     // A contenteditable, not a textarea — Playwright's fill() handles both,
     // but only if the element can be found, hence the aria-label on it.
-    const bio = page.getByRole('textbox', { name: /bio/i });
+    const bio = page.getByRole('textbox', { name: 'Bio', exact: true });
     const original = await bio.inputValue();
     try {
       await bio.fill('Zeriekzee, Netherlands. Co-founder. '.repeat(67));

@@ -51,7 +51,19 @@ test('a bio typed with a heading is saved, and comes back as it was written', as
 
   try {
     await landSignedIn(page, HOSTS.fibre, 'fibre-platform', '/settings/profile', /\/settings\/profile/);
-    const editor = page.getByRole('textbox', { name: /bio/i });
+    // THE RICH EDITOR, named exactly.
+    //
+    // `{ name: /bio/i }` used to be enough and stopped being so when a "Short
+    // bio" textarea joined the profile form: the regex then matched BOTH it and
+    // the contenteditable, and Playwright's strict mode failed with "resolved to
+    // 2 elements" — which reads like the editor being broken and is nothing of
+    // the kind. Found 2026-10-11 by running the whole fixture suite; two specs
+    // had been red since the short-bio field landed.
+    //
+    // An exact name is also the honest selector: these specs are about the rich
+    // editor specifically, and a loose match that happens to find it today is one
+    // field away from finding something else.
+    const editor = page.getByRole('textbox', { name: 'Bio', exact: true });
     await expect(editor).toBeVisible();
     await waitForHydration(page, '[contenteditable]');
 
@@ -94,7 +106,7 @@ test('a bio typed with a heading is saved, and comes back as it was written', as
 
     // And it comes back: a fresh load, after hydration, shows what was written.
     await page.reload();
-    const again = page.getByRole('textbox', { name: /bio/i });
+    const again = page.getByRole('textbox', { name: 'Bio', exact: true });
     await expect(again).toBeVisible();
     await waitForHydration(page, '[contenteditable]');
     await expect(again).toContainText(first);

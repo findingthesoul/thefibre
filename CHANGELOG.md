@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.145.4] — 2026-10-11
+
+Tests only. Ran every e2e spec that signs in as the fixture — seventeen of
+the twenty, skipping by name the three the repo's own allow-list reserves for
+the real workspace owner — and two had been quietly red.
+
+**Not from anything in the last releases.** `getByRole('textbox', { name:
+/bio/i })` matched a single control until a **"Short bio" textarea** joined
+the profile form; after that the loose regex matched both it and the rich
+contenteditable, and Playwright's strict mode failed with "resolved to 2
+elements". That reads like the bio editor being broken and is nothing of the
+kind.
+
+Named exactly now — `{ name: 'Bio', exact: true }` — in all FIVE places it
+appeared, not only the two that were failing. The other three are in a
+`describe.skip`d spec, so they were not red; they were a trap armed for
+whoever un-skips it. A loose match that happens to find the right control
+today is one field away from finding something else.
+
+### The run
+
+Seventeen specs, all of them actually executed: 46 passed, 2 failed (the two
+above, now green), 1 flaky that passed on retry (`admin-screens` waiting on
+an invoice row), 7 skipped — and the skips are all deliberate and declared:
+`profile-limits` is `describe.skip`, `tenant-host` skips without the tenant
+env vars, `zoom-gallery` has a conditional, and `help-pages` skips a seat the
+fixture does not hold.
+
+Three specs were NOT run and must be run by somebody who can: the owner
+allow-list — `contact-invoices`, `org-names`, `organiser-screens` — which
+sign in as a real person.
+
 ## [1.145.3] — 2026-10-11
 
 Tests only. `no-access.spec.ts` had been red since v1.145.0 and I had not run
