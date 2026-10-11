@@ -66,7 +66,7 @@ export default async function MembershipAppLayout({
   // workspace is left exactly as it was. The Fibre says what happened.
   if (!shell.hasAccess) {
     redirect(
-      sentHomeUrl({ reason: 'no-access', from: 'membership', workspace: shell.me.workspace?.name ?? null }, process.env, host),
+      sentHomeUrl({ reason: 'no-access', from: 'membership', workspace: shell.me.workspace?.name ?? null, chosen: shell.activeIsChosen }, process.env, host),
     );
   }
 

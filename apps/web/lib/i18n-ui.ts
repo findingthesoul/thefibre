@@ -128,6 +128,37 @@ const CATALOG = {
     de: 'Deine Organisator-Seite in {app} gehört zu einem anderen Workspace. Eine Person hat genau eine Organisator-Seite, sie kann hier also nicht neu angelegt werden — wechsle in den Workspace, in dem sie liegt, oder bitte darum, sie zu verschieben. Dein Workspace ist unverändert.', // MT
     fr: "Votre page d'organisateur dans {app} appartient à un autre espace de travail. Une personne n'a qu'une seule page d'organisateur, elle ne peut donc pas être recréée ici — passez à l'espace de travail où elle se trouve, ou demandez qu'elle soit déplacée. Votre espace de travail n'a pas changé.", // MT
   },
+  // The person SWITCHED into a workspace this app cannot serve. Different
+  // news from "the app isn't switched on here": they made a choice a moment
+  // ago, so the sentence names the choice and the offer is a way back rather
+  // than an apology. The workspace choice is global — one per person — so
+  // switching in The Fibre moves every app, seat or not.
+  sent_home_no_access_chosen: {
+    en: "You switched to {workspace}. {app} isn't part of your access there, so we brought you back here.",
+    nl: 'Je bent overgestapt naar {workspace}. {app} hoort daar niet bij je toegang, dus we hebben je hierheen teruggebracht.',
+    es: 'Has cambiado a {workspace}. {app} no forma parte de tu acceso allí, así que te trajimos de vuelta aquí.', // MT
+    pt: 'Mudaste para {workspace}. O {app} não faz parte do teu acesso lá, por isso trouxemos-te de volta aqui.', // MT
+    de: 'Du bist zu {workspace} gewechselt. {app} gehört dort nicht zu deinem Zugang, deshalb haben wir dich hierher zurückgebracht.', // MT
+    fr: "Vous êtes passé à {workspace}. {app} ne fait pas partie de votre accès là-bas, nous vous avons donc ramené ici.", // MT
+  },
+  // ONE button, BOTH halves: the workspace moves and the app opens. The label
+  // has to say both, because what happens must be what was read.
+  sent_home_open_in: {
+    en: 'Open {app} in {workspace}',
+    nl: 'Open {app} in {workspace}',
+    es: 'Abrir {app} en {workspace}', // MT
+    pt: 'Abrir o {app} em {workspace}', // MT
+    de: '{app} in {workspace} öffnen', // MT
+    fr: 'Ouvrir {app} dans {workspace}', // MT
+  },
+  sent_home_ask_admin: {
+    en: 'Or ask an admin of {workspace} to give you access to {app}.',
+    nl: 'Of vraag een beheerder van {workspace} om je toegang te geven tot {app}.',
+    es: 'O pide a una persona administradora de {workspace} que te dé acceso a {app}.', // MT
+    pt: 'Ou peça a quem administra {workspace} que te dê acesso ao {app}.', // MT
+    de: 'Oder bitte eine Admin von {workspace}, dir Zugang zu {app} zu geben.', // MT
+    fr: "Ou demandez à une personne administratrice de {workspace} de vous donner accès à {app}.", // MT
+  },
   sent_home_no_session: {
     en: "{app} couldn't tell who you are, so we brought you back here. Your workspace hasn't changed.",
     nl: '{app} kon niet vaststellen wie je bent, dus we hebben je hierheen teruggebracht. Je workspace is niet veranderd.',

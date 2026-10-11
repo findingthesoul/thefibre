@@ -92,7 +92,33 @@ authRoutes.get('/workspaces', async (c) => {
   }
 
   const rows = await myMemberships(ctx);
-  const usable = await usableWorkspaces(ctx.appId, rows);
+  // `?app=<slug>` asks "which of MY workspaces run THAT app", rather than the
+  // one doing the asking. The Fibre needs it: when an app hands somebody back
+  // because it cannot serve them where they are, the popup that explains it
+  // renders on the platform, and the platform's own X-App-ID would answer
+  // "all of them" (fibre-platform is not an app a workspace activates).
+  //
+  // Safe to take from a caller, including from a query string somebody
+  // edited: `usableWorkspaces` only ever consults THIS person's membership
+  // rows, so the answer is which of their own workspaces run that app. It
+  // describes; it grants nothing.
+  //
+  // Validated against the catalogue, and an unknown slug falls back to the
+  // ASKING app rather than to an empty list — because empty means "none of
+  // your workspaces run it", which is a different and misleading answer to
+  // give about an app that does not exist. Never a hardcoded list of slugs:
+  // asking the catalogue is the rule (CLAUDE.md, v0.14.0).
+  const asked = c.req.query('app');
+  let forApp = ctx.appId;
+  if (asked) {
+    const { data: known } = await adminClient
+      .from('app')
+      .select('slug')
+      .eq('slug', asked)
+      .maybeSingle();
+    if (known?.slug) forApp = known.slug as string;
+  }
+  const usable = await usableWorkspaces(forApp, rows);
 
   // The CHOICE, as recorded when somebody last switched — which is not always
   // what this token carries.

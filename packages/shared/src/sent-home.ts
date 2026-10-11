@@ -43,6 +43,22 @@ export type SentHomeParams = {
   from: string;
   /** The workspace you were standing in, by name. Display only. */
   workspace?: string | null;
+  /**
+   * You SWITCHED to that workspace on purpose, rather than merely being in
+   * it. The two need different sentences and different offers:
+   *
+   *   not chosen — "{app} isn't switched on in {workspace}", which is news
+   *     about the workspace and nothing you did.
+   *   chosen — "You switched to {workspace}. {app} isn't part of your access
+   *     there." That is news about a choice you just made, and the useful
+   *     answer is a way back, not an apology.
+   *
+   * The workspace choice is GLOBAL — one per person, preferred by the
+   * access-token hook on every mint — so switching in The Fibre eventually
+   * moves every app, seat or not. This flag is what lets the app that cannot
+   * serve you say so honestly instead of pretending the workspace is at fault.
+   */
+  chosen?: boolean;
 };
 
 /**
@@ -60,6 +76,7 @@ export function sentHomeUrl(
   const base = appUrl('fibre-platform', env, host);
   const q = new URLSearchParams({ sent_home: params.reason, from: params.from });
   if (params.workspace) q.set('in', params.workspace);
+  if (params.chosen) q.set('chose', '1');
   return `${base}/dashboard?${q.toString()}`;
 }
 
@@ -69,6 +86,7 @@ export function readSentHome(search: {
   sent_home?: string | string[];
   from?: string | string[];
   in?: string | string[];
+  chose?: string | string[];
 }): SentHomeParams | null {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const reason = one(search.sent_home);
@@ -76,5 +94,8 @@ export function readSentHome(search: {
   if (reason !== 'no-access' && reason !== 'no-session' && reason !== 'organiser-elsewhere')
     return null;
   if (!from) return null;
-  return { reason, from, workspace: one(search.in) ?? null };
+  // Only the exact '1' this package writes. These parameters cross an apex
+  // and are display-only, so anything else is treated as not chosen — the
+  // plainer copy is the safe one to fall back to.
+  return { reason, from, workspace: one(search.in) ?? null, chosen: one(search.chose) === '1' };
 }

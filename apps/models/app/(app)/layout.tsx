@@ -41,7 +41,7 @@ export default async function ModelsAppLayout({ children }: { children: React.Re
   // workspace is left exactly as it was. The Fibre says what happened.
   if (!shell.hasAccess) {
     redirect(
-      sentHomeUrl({ reason: 'no-access', from: 'fibre-models', workspace: shell.me.workspace?.name ?? null }, process.env, host),
+      sentHomeUrl({ reason: 'no-access', from: 'fibre-models', workspace: shell.me.workspace?.name ?? null, chosen: shell.activeIsChosen }, process.env, host),
     );
   }
   const { me, apps } = shell;

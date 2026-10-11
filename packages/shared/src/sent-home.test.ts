@@ -49,7 +49,7 @@ describe('readSentHome', () => {
   it('round-trips what sentHomeUrl wrote', () => {
     const url = new URL(sentHomeUrl({ reason: 'no-access', from: 'fibre-meet', workspace: 'The Thread' }, ENV));
     const back = readSentHome(Object.fromEntries(url.searchParams));
-    expect(back).toEqual({ reason: 'no-access', from: 'fibre-meet', workspace: 'The Thread' });
+    expect(back).toEqual({ reason: 'no-access', from: 'fibre-meet', workspace: 'The Thread', chosen: false });
   });
 
   it('is null for an ordinary visit', () => {
@@ -69,6 +69,7 @@ describe('readSentHome', () => {
         reason,
         from: 'the-thread',
         workspace: null,
+        chosen: false,
       });
     }
   });
@@ -81,6 +82,7 @@ describe('readSentHome', () => {
       reason: 'organiser-elsewhere',
       from: 'the-thread',
       workspace: 'soul.com',
+      chosen: false,
     });
   });
 
@@ -93,6 +95,44 @@ describe('readSentHome', () => {
       reason: 'no-access',
       from: 'the-thread',
       workspace: null,
+      chosen: false,
     });
   });
+
+  // "They chose this workspace" travels as its own flag, because it changes
+  // both the sentence and what is offered — a way back, rather than an
+  // apology about a workspace.
+  it('carries the chosen flag, and omits it when not chosen', () => {
+    const chosen = new URL(
+      sentHomeUrl({ reason: 'no-access', from: 'the-thread', workspace: 'soul.com', chosen: true }, ENV),
+    );
+    expect(chosen.searchParams.get('chose')).toBe('1');
+    const not = new URL(
+      sentHomeUrl({ reason: 'no-access', from: 'the-thread', workspace: 'soul.com' }, ENV),
+    );
+    expect(not.searchParams.has('chose')).toBe(false);
+  });
+
+  it('round-trips chosen', () => {
+    const url = new URL(
+      sentHomeUrl({ reason: 'no-access', from: 'the-thread', workspace: 'soul.com', chosen: true }, ENV),
+    );
+    expect(readSentHome(Object.fromEntries(url.searchParams))).toEqual({
+      reason: 'no-access',
+      from: 'the-thread',
+      workspace: 'soul.com',
+      chosen: true,
+    });
+  });
+
+  // These parameters cross an apex and anybody can edit them. Only the exact
+  // '1' this package writes counts — anything else falls back to the plainer
+  // copy, which is the safe direction to be wrong in.
+  it('treats any other chose value as not chosen', () => {
+    for (const v of ['true', 'yes', '0', '', '1 ', '01']) {
+      const back = readSentHome({ sent_home: 'no-access', from: 'the-thread', chose: v });
+      expect(back?.chosen, `chose=${JSON.stringify(v)} must not read as chosen`).toBe(false);
+    }
+  });
+
 });

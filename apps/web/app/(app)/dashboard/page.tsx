@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
 import { APPS, APP_IDS, APP_DISPLAY_ORDER, TILE_FILES, appName, appHomePath, readSentHome, type AppId } from '@thefibre/shared';
-import { SentHomePopup } from './sent-home-popup';
+import { SentHomePopup, type SwitchTarget } from './sent-home-popup';
+import { switchWorkspace } from '@/lib/workspace-actions';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
@@ -82,6 +83,40 @@ export default async function Dashboard({
   // why in the URL (packages/shared/src/sent-home.ts). Display only — nothing
   // is granted on the strength of these, and the workspace is untouched.
   const sentHome = readSentHome(await searchParams);
+
+  // When the person SWITCHED into a workspace the app cannot serve, offer the
+  // workspaces where it does work. The list is NOT taken from the URL — those
+  // parameters crossed an apex and anybody can edit them — it is asked for
+  // server-side, scoped to this person's own memberships, via `?app=`.
+  //
+  // One button per workspace, and each means BOTH halves: record the choice,
+  // then open that app there. The label says so, so nothing happens that was
+  // not read first.
+  let switchTargets: SwitchTarget[] = [];
+  if (sentHome?.chosen && sentHome.reason === 'no-access' && APP_IDS.includes(sentHome.from as AppId)) {
+    const fromApp = sentHome.from as AppId;
+    try {
+      const r = await apiFetch<{
+        active_workspace_id?: string | null;
+        workspaces?: { id: string; name: string | null; has_app: boolean }[];
+      }>(`/api/v1/auth/workspaces?app=${encodeURIComponent(fromApp)}`);
+      switchTargets = (r.workspaces ?? [])
+        .filter((w) => w.has_app && w.id !== r.active_workspace_id)
+        .map((w) => ({
+          id: w.id,
+          name: w.name ?? '',
+          href: crossAppHref('fibre-platform', fromApp, process.env, appHomePath(fromApp)),
+          label: t(locale, 'sent_home_open_in', {
+            app: appName(fromApp),
+            workspace: w.name ?? '',
+          }),
+        }));
+    } catch {
+      // No offer rather than a broken one: the sentence alone is still true
+      // and still useful, and this is the page somebody was just thrown to.
+      switchTargets = [];
+    }
+  }
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: { session } } = await supabase.auth.getSession();
@@ -193,7 +228,12 @@ export default async function Dashboard({
           body={
             sentHome.reason === 'no-session'
               ? t(locale, 'sent_home_no_session', { app: appName(sentHome.from as AppId) })
-              : sentHome.reason === 'organiser-elsewhere'
+              : sentHome.reason === 'no-access' && sentHome.chosen
+                ? t(locale, 'sent_home_no_access_chosen', {
+                    app: appName(sentHome.from as AppId),
+                    workspace: sentHome.workspace ?? '',
+                  })
+                : sentHome.reason === 'organiser-elsewhere'
                 ? t(locale, 'sent_home_organiser_elsewhere', {
                     app: appName(sentHome.from as AppId),
                   })
@@ -207,6 +247,20 @@ export default async function Dashboard({
                     })
           }
           dismiss={t(locale, 'sent_home_dismiss')}
+          targets={switchTargets}
+          askAdmin={
+            switchTargets.length || (sentHome.chosen && sentHome.reason === 'no-access')
+              ? t(locale, 'sent_home_ask_admin', {
+                  app: appName(sentHome.from as AppId),
+                  workspace: sentHome.workspace ?? '',
+                })
+              : undefined
+          }
+          onSwitch={async (id: string) => {
+            'use server';
+            const r = await switchWorkspace(id);
+            return r.error ?? null;
+          }}
         />
       )}
       {/* On entry the launcher pops above the page, dimmed backdrop —

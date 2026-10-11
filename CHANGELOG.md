@@ -6,6 +6,70 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.145.0] — 2026-10-11
+
+Switching workspace in The Fibre and then opening an app you have no seat in
+threw you out with the wrong explanation. Now it names what you did and
+offers the way back.
+
+**Why it happens at all, which is not a bug.** The workspace choice is
+GLOBAL — one `user_active_workspace` per person — and the access-token hook
+prefers it on every mint, with no idea which app is asking. So switching in
+The Fibre eventually moves every app into that workspace, seat or not. That
+is what Sjoerd asked for (*"It should stay in the workspace until I switch"*);
+his complaint was apps disagreeing, not one workspace across the family. The
+hook cannot do better: a token mint has no app context, so it cannot prefer
+"a workspace where this person has a seat for whoever is asking".
+
+What was wrong was the sentence at the end of it. The app handed you back to
+The Fibre saying *"{app} isn't switched on in {workspace}"* — news about a
+workspace, as though something were missing there. The truth is that **you
+switched a moment ago, and this app is not part of your access where you
+went.** That is news about a choice, and the useful answer is a way back.
+
+So the popup now has a second shape:
+
+> You switched to {workspace}. {app} isn't part of your access there, so we
+> brought you back here.
+>
+> **[ Open The Thread in soul.com ]**
+>
+> Or ask an admin of {workspace} to give you access to {app}.
+
+**One button, both halves.** Each offer records the workspace choice AND opens
+the app there. Not two steps, and not an automatic hop bolted onto a switch —
+the label says both things, so what happens is what was read before clicking.
+Automatic workspace movement is the surprise this whole area exists to stop.
+
+The plain copy stays for the ordinary case. `loadAppShell` now reports
+`activeIsChosen` — a choice exists AND it is the token's workspace — so
+"never switched at all" is not mistaken for a deliberate move.
+
+### The list is asked for, not taken from the link
+
+The popup renders on The Fibre, which does not know which workspaces run The
+Thread: `has_app` is computed from the X-App-ID of the asking app, and the
+platform's own answer is "all of them".
+
+The app could have passed the list in the URL. It does not. Those parameters
+cross an apex and anybody can edit them, and this repo has a standing rule
+against putting tenant data in query strings — `in=<name>` is already one
+name; a list of names and ids is a different order of the same mistake.
+
+Instead `GET /auth/workspaces` takes an additive optional `?app=<slug>`:
+*which of MY workspaces run that app.* `usableWorkspaces` only ever consults
+the caller's own membership rows, so it describes and grants nothing, and the
+answer is computed server-side from memberships rather than trusted from a
+link somebody could have edited. The slug is validated against the catalogue
+— never a hardcoded list — and an unknown one falls back to the ASKING app
+rather than to an empty list, because "none of your workspaces run it" is a
+different and misleading thing to say about an app that does not exist.
+
+`chose=1` is the only value read as chosen; anything else falls back to the
+plainer copy, which is the safe direction to be wrong in. A failed lookup
+offers nothing rather than something broken — the sentence alone is still
+true, and this is a page somebody was just thrown to.
+
 ## [1.144.1] — 2026-10-11
 
 v1.144.0 moved the token to the right workspace and then showed the wrong one

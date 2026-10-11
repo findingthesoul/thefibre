@@ -65,6 +65,9 @@ export type AppShell<Me extends ShellMe, X extends Thunks> =
       /** Identifies THIS disagreement, so one attempt can be remembered
        *  across the reload that resolving it causes. Null when not stale. */
       staleWorkspaceKey: string | null;
+      /** The token is acting in a workspace this person SWITCHED to on
+       *  purpose — not merely the one they happened to land in. */
+      activeIsChosen: boolean;
       extras: Resolved<X>;
     }
   | { ok: false; reason: 'no-session' | 'no-access' };
@@ -94,6 +97,7 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
   // see ui/workspace-sync.tsx. Without it a refresh that fails to move the
   // token reloads forever.
   let staleKey: string | null = null;
+  let activeIsChosen = false;
   let extraValues: unknown[];
   try {
     [me, apps, workspaces, ...extraValues] = await Promise.all([
@@ -129,6 +133,12 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
               chosen?.has_app,
           );
           staleKey = stale ? `${r.active_workspace_id}->${r.chosen_workspace_id}` : null;
+          // Did this person deliberately switch INTO the workspace the token
+          // is acting in? False when they have never switched at all, which
+          // is the ordinary case and must keep its own, plainer explanation.
+          activeIsChosen = Boolean(
+            r.chosen_workspace_id && r.chosen_workspace_id === r.active_workspace_id,
+          );
           // `has_app` normally hides workspaces where this app would bounce
           // you. The CHOSEN one is kept regardless: if the person is in a
           // workspace this app cannot serve, saying so is the honest answer —
@@ -168,6 +178,7 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
      */
     staleWorkspace: stale,
     staleWorkspaceKey: staleKey,
+    activeIsChosen,
     extras: resolved,
   };
 }

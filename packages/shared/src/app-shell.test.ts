@@ -148,4 +148,21 @@ describe('loadAppShell', () => {
     ).toBe(false);
   });
 
+
+  // activeIsChosen — "they switched here on purpose", which decides whether
+  // the app that cannot serve them blames the workspace or names the choice.
+  it('activeIsChosen is true only when the choice IS the token\'s workspace', async () => {
+    const here = await loadAppShell({ apiFetch: fakeApi(withChoice('w1', true)), appSlug: 'the-thread' });
+    expect(here.ok && here.activeIsChosen).toBe(true);
+
+    const elsewhere = await loadAppShell({ apiFetch: fakeApi(withChoice('w2', true)), appSlug: 'the-thread' });
+    expect(elsewhere.ok && elsewhere.activeIsChosen).toBe(false);
+  });
+
+  // Never switched at all is NOT a choice, and must keep the plainer copy.
+  it('activeIsChosen is false when nothing was ever chosen', async () => {
+    const shell = await loadAppShell({ apiFetch: fakeApi(withChoice(null, true)), appSlug: 'the-thread' });
+    expect(shell.ok && shell.activeIsChosen).toBe(false);
+  });
+
 });
