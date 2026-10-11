@@ -6,6 +6,69 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.146.0] — 2026-10-11
+
+Merging two records of one company silently lost its address, its LinkedIn
+page, its abbreviation and its former names.
+
+`merge_organisation` carried a hand-written list of EIGHT columns from the
+merged record into the kept one's blanks. Correct for the columns that existed
+when it was written in September, and silently wrong for every one added
+since. Measured against the live schema rather than counted in the migration:
+`organisation` has 28 columns, and **thirteen of them are content the merge
+dropped on the floor** — street, postal_code, region, linkedin_url,
+short_name, other_names, sector, industry, org_type, size_band,
+operating_countries among them.
+
+Person merge stopped working this way on 2026-09-25, for exactly this reason
+and with exactly this argument: a list of names is correct for the columns
+somebody remembered and wrong for the first one they did not. Organisations
+never caught up. The rule is now what a fillable column IS — text-ish, array
+and jsonb content; never a boolean, timestamp or uuid; never a name ending
+_at / _by / _id / _hash / _token; never anything under a unique constraint,
+because moving an identifier is a collision or an impersonation.
+
+Two exclusions are named, each with a reason rather than a memory:
+`search_names` is maintained by a trigger, so writing it is a no-op the
+trigger immediately overwrites; and generated columns cannot be written at
+all, which the person version does not yet guard against.
+
+### The fill was only half of it
+
+`merge_organisation` recorded what it MOVED and what it DROPPED, and
+`unmerge_organisation` restored both — but it recorded **nothing about what it
+filled**, so an undo left those values on the kept row for good. Widening the
+fill from 8 columns to 20 without fixing that would have made the undo lossier
+in exact proportion to the improvement: a worse bug than the one being fixed.
+
+So the audit gains a `filled` column holding `{before, after}` per column, and
+undo reverses it **only where the column still holds what the merge wrote**.
+Merge fills a blank street; an admin corrects that street by hand; somebody
+undoes the merge — the correction survives. An undo is meant to reverse the
+merge, not the afternoon's work. Merges made before this restore nothing,
+which is the truth rather than a silent partial.
+
+### The test exists to fail
+
+A derived rule is a guess about names nobody has chosen yet, so the first case
+asserts the EXACT set of twenty. A new organisation column arrives as a red
+build and whoever added it decides: list it, or name it so the rule excludes
+it. The failure is the feature — the same shape as the person-merge test.
+
+Five more: a previously-dropped column now fills; an answer the kept row
+already had is never overwritten; merge → undo puts a filled blank back to
+blank; a value a human corrected after the merge SURVIVES the undo; and the
+audit records both halves.
+
+All four functions are born closed — `revoke all … from public, anon,
+authenticated`, execute granted to service_role for the two new helpers —
+which the standing definer guard checks rather than takes on trust.
+
+One prediction checked rather than assumed: `org_type`, `size_band`, `sector`
+and `industry` are `text` with CHECK constraints, not enums. An enum would
+have been excluded by the type rule, and the expected list would have been
+wrong in a way the test could not have told me from a real failure.
+
 ## [1.145.4] — 2026-10-11
 
 Tests only. Ran every e2e spec that signs in as the fixture — seventeen of
