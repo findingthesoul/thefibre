@@ -117,6 +117,17 @@ const CATALOG = {
     de: '{app} ist in deinem aktuellen Workspace nicht eingeschaltet, deshalb haben wir dich hierher zurückgebracht. Dein Workspace ist unverändert.', // MT
     fr: "{app} n'est pas activé dans l'espace de travail où vous êtes, nous vous avons donc ramené ici. Votre espace de travail n'a pas changé.", // MT
   },
+  // Says nothing about WHICH workspace, on purpose — naming it would tell
+  // this workspace where somebody else belongs. The API's own 403 withholds
+  // it for the same reason, and an integration test asserts that.
+  sent_home_organiser_elsewhere: {
+    en: "Your organiser page in {app} belongs to a different workspace. One person has one organiser page, so it can't be created again here — switch to the workspace it lives in, or ask for it to be moved. Your workspace hasn't changed.",
+    nl: 'Je organisatorpagina in {app} hoort bij een andere workspace. Eén persoon heeft één organisatorpagina, dus die kan hier niet opnieuw worden aangemaakt — wissel naar de workspace waar hij staat, of vraag of hij verplaatst kan worden. Je workspace is niet veranderd.',
+    es: 'Tu página de organizador en {app} pertenece a otro espacio de trabajo. Una persona tiene una sola página de organizador, así que no se puede crear otra aquí: cambia al espacio de trabajo donde está, o pide que la muevan. Tu espacio de trabajo no ha cambiado.', // MT
+    pt: 'A tua página de organizador em {app} pertence a outro espaço de trabalho. Uma pessoa tem uma só página de organizador, por isso não pode ser criada de novo aqui — muda para o espaço de trabalho onde está, ou pede que seja movida. O teu espaço de trabalho não mudou.', // MT
+    de: 'Deine Organisator-Seite in {app} gehört zu einem anderen Workspace. Eine Person hat genau eine Organisator-Seite, sie kann hier also nicht neu angelegt werden — wechsle in den Workspace, in dem sie liegt, oder bitte darum, sie zu verschieben. Dein Workspace ist unverändert.', // MT
+    fr: "Votre page d'organisateur dans {app} appartient à un autre espace de travail. Une personne n'a qu'une seule page d'organisateur, elle ne peut donc pas être recréée ici — passez à l'espace de travail où elle se trouve, ou demandez qu'elle soit déplacée. Votre espace de travail n'a pas changé.", // MT
+  },
   sent_home_no_session: {
     en: "{app} couldn't tell who you are, so we brought you back here. Your workspace hasn't changed.",
     nl: '{app} kon niet vaststellen wie je bent, dus we hebben je hierheen teruggebracht. Je workspace is niet veranderd.',

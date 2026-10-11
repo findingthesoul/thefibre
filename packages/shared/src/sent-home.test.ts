@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { sentHomeUrl, readSentHome } from './sent-home.js';
+import { sentHomeUrl, readSentHome, type SentHomeReason } from './sent-home.js';
+
+// The union and the runtime guard in readSentHome are two separate lists of
+// the same thing, and nothing made them agree: a reason added to the type was
+// still refused at the door, so the app would redirect and The Fibre would
+// show nothing. Caught in review of 'organiser-elsewhere' — the union, the
+// guard and the popup copy are three places, and the first version of that
+// change updated one.
+//
+// `Record<SentHomeReason, true>` is the forcing function: adding a member to
+// the union makes THIS OBJECT fail to typecheck until it is listed here, and
+// the test below then makes the guard accept it.
+const EVERY_REASON: Record<SentHomeReason, true> = {
+  'no-access': true,
+  'no-session': true,
+  'organiser-elsewhere': true,
+};
 
 const ENV = { NEXT_PUBLIC_FIBRE_URL: 'https://thefibre.tech' };
 
@@ -44,6 +60,28 @@ describe('readSentHome', () => {
   // input, not trusted state. An unknown reason must not reach the popup.
   it('refuses a reason it does not know', () => {
     expect(readSentHome({ sent_home: 'something-else', from: 'the-thread' })).toBeNull();
+  });
+
+  it('accepts every reason the type allows', () => {
+    for (const reason of Object.keys(EVERY_REASON) as SentHomeReason[]) {
+      const back = readSentHome({ sent_home: reason, from: 'the-thread' });
+      expect(back, `readSentHome refuses '${reason}', which the type allows`).toEqual({
+        reason,
+        from: 'the-thread',
+        workspace: null,
+      });
+    }
+  });
+
+  it('round-trips the organiser-elsewhere reason', () => {
+    const url = new URL(
+      sentHomeUrl({ reason: 'organiser-elsewhere', from: 'the-thread', workspace: 'soul.com' }, ENV),
+    );
+    expect(readSentHome(Object.fromEntries(url.searchParams))).toEqual({
+      reason: 'organiser-elsewhere',
+      from: 'the-thread',
+      workspace: 'soul.com',
+    });
   });
 
   it('refuses a reason with no app', () => {

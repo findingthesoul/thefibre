@@ -193,14 +193,18 @@ export default async function Dashboard({
           body={
             sentHome.reason === 'no-session'
               ? t(locale, 'sent_home_no_session', { app: appName(sentHome.from as AppId) })
-              : sentHome.workspace
-                ? t(locale, 'sent_home_no_access', {
-                    app: appName(sentHome.from as AppId),
-                    workspace: sentHome.workspace,
-                  })
-                : t(locale, 'sent_home_no_access_unknown_workspace', {
+              : sentHome.reason === 'organiser-elsewhere'
+                ? t(locale, 'sent_home_organiser_elsewhere', {
                     app: appName(sentHome.from as AppId),
                   })
+                : sentHome.workspace
+                  ? t(locale, 'sent_home_no_access', {
+                      app: appName(sentHome.from as AppId),
+                      workspace: sentHome.workspace,
+                    })
+                  : t(locale, 'sent_home_no_access_unknown_workspace', {
+                      app: appName(sentHome.from as AppId),
+                    })
           }
           dismiss={t(locale, 'sent_home_dismiss')}
         />

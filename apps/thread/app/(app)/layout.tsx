@@ -9,6 +9,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { ThreadAssistant } from '@/components/shell/assistant';
 import { assistantEnabled } from '@/lib/assistant-actions';
+import { organiserBlock } from '@/lib/organiser-block';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
@@ -17,7 +18,7 @@ import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/s
 // The Thread is the rebuild of thethread-v3, so its user-facing version
 // starts at 3.0.0 — independent of the monorepo cadence in package.json,
 // same rule as Meet's v2.x. See CLAUDE.md "Version bumps".
-const VERSION = '4.6.1';
+const VERSION = '4.6.2';
 
 // A strict subtype of ShellMe: what this layout actually reads. Extend here,
 // never loosen the shared shape.
@@ -44,10 +45,24 @@ export default async function ThreadAppLayout({
   // (packages/shared/src/app-shell.ts explains the measured cost of the old
   // sequential chain).
   const host = (await headers()).get('host');
-  const shell = await loadAppShell<Me, { prefs: typeof readPrefs; assistant: typeof assistantEnabled }>({
+  const shell = await loadAppShell<
+    Me,
+    {
+      prefs: typeof readPrefs;
+      assistant: typeof assistantEnabled;
+      organiser: typeof organiserBlock;
+    }
+  >({
     apiFetch,
     appSlug: 'the-thread',
-    extras: { prefs: () => readPrefs(), assistant: () => assistantEnabled() },
+    extras: {
+      prefs: () => readPrefs(),
+      assistant: () => assistantEnabled(),
+      // Rides the same Promise.all rather than being a fifth sequential
+      // round trip. See lib/organiser-block.ts for why it is here and not
+      // in the four pages that each needed it.
+      organiser: () => organiserBlock(),
+    },
   });
   // No standing at all (a 401 from /auth/me) means a PARTICIPANT: a Fibre
   // account from enrolling or joining, and a seat in no app. Their place is
@@ -66,6 +81,21 @@ export default async function ThreadAppLayout({
   if (!shell.hasAccess) {
     redirect(
       sentHomeUrl({ reason: 'no-access', from: 'the-thread', workspace: shell.me.workspace?.name ?? null }, process.env, host),
+    );
+  }
+
+  // One organiser page per person, ever — and this person's is in another
+  // workspace. Nothing in The Thread can fix that, so the same treatment as
+  // the case above: handed back to The Fibre, workspace untouched, and The
+  // Fibre says what happened. Checked AFTER hasAccess, because a missing seat
+  // is the more basic answer and the one to give first.
+  if (shell.extras.organiser === 'elsewhere') {
+    redirect(
+      sentHomeUrl(
+        { reason: 'organiser-elsewhere', from: 'the-thread', workspace: shell.me.workspace?.name ?? null },
+        process.env,
+        host,
+      ),
     );
   }
 

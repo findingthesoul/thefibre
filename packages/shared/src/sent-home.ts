@@ -27,7 +27,14 @@ export type SentHomeReason =
   /** The workspace you are in does not run this app, or you hold no seat in it. */
   | 'no-access'
   /** The app could not load who you are at all. */
-  | 'no-session';
+  | 'no-session'
+  /** The Thread only: this person's one organiser page belongs to a different
+   *  workspace. `thread_organiser.user_id` is unique GLOBALLY, so it cannot be
+   *  created again here and nobody can resolve it from inside the app — a
+   *  human has to move it or switch workspace. Deliberately says nothing about
+   *  WHICH workspace: that would tell this workspace where somebody else
+   *  belongs (the same reason the API's own 403 withholds it). */
+  | 'organiser-elsewhere';
 
 export type SentHomeParams = {
   reason: SentHomeReason;
@@ -66,7 +73,8 @@ export function readSentHome(search: {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const reason = one(search.sent_home);
   const from = one(search.from);
-  if (reason !== 'no-access' && reason !== 'no-session') return null;
+  if (reason !== 'no-access' && reason !== 'no-session' && reason !== 'organiser-elsewhere')
+    return null;
   if (!from) return null;
   return { reason, from, workspace: one(search.in) ?? null };
 }

@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.141.0] — 2026-10-11
+
+The 403 that v1.140.0 taught the API to say was reaching nobody. The Thread
+rendered it as **"Application error: a server-side exception has occurred"**.
+
+v1.140.0 was half a fix, and this is the half that was missing. The status and
+the sentence were right; four pages then called `/api/v1/thread/me` without
+catching a 403 — settings/profile, settings/categories, settings/embeds and
+threads/new — so the person got a crash page. From their side that is
+indistinguishable from the 500 it replaced, which was the entire point of
+changing it.
+
+Found by looking, not by reasoning: the release request for v1.140.0 said in
+as many words that the browser side was unverified and that *"if the app shows
+a blank screen on 403 the message never reaches anybody"*. It does not show a
+blank screen. It shows a crash.
+
+**The check is now in the layout, not in the pages.** Six pages call that
+endpoint and two of them already had their own `.catch`; fixing the other four
+would be four edits today and a fifth page forgetting next year. The layout is
+the one place that cannot be forgotten.
+
+So the same treatment the other unservable cases already get (Sjoerd,
+2026-09-28: *"In any other case of an error or mistake, go back to the fibre,
+but never switch workspace automatically"* — and *"a comment in a popup"*):
+handed back to The Fibre, workspace untouched, and The Fibre explains it. New
+`sent_home` reason `organiser-elsewhere`, with copy in six locales.
+
+**The popup names no workspace** — not which one the page lives in. Saying so
+would be friendlier and would tell this workspace where somebody else belongs.
+The API's 403 withholds it for the same reason and a test asserts that; the
+popup now matches.
+
+The probe is **incapable of throwing**. It runs in the layout of every Thread
+page, so an unexpected error shape there would take the whole app down to fix
+an edge case; anything it does not recognise returns null, which is exactly
+today's behaviour. It rides the shell's existing `Promise.all`, parallel with
+three calls already in flight, so it costs no wall-clock time.
+
+### Caught while in there: two lists of the same thing
+
+`SentHomeReason` and the runtime guard inside `readSentHome` were separate
+hand-maintained lists, with nothing holding them together. A reason added to
+the type alone would pass every check, redirect the person, and show them a
+Fibre with no popup on it — a silent dead end.
+
+There is now a `Record<SentHomeReason, true>` that **fails to typecheck** until
+a new reason is listed, and a test that then forces the guard to accept it.
+Mutation-checked: reverting the guard to its old two reasons turns it red with
+the message it was written to give.
+
 ## [1.140.0] — 2026-10-11
 
 Opening The Thread told some people "failed to provision organiser", with a
