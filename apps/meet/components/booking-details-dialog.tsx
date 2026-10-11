@@ -250,7 +250,7 @@ export function BookingDetailsDialog({
               href={booking.meet_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink-strong text-white px-3 py-1.5 text-sm font-medium hover:bg-ink"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink text-ink-inverse px-3 py-1.5 text-sm font-medium hover:opacity-90"
             >
               {t(locale, 'join_meeting')} <ExternalLink className="h-3.5 w-3.5" />
             </a>

@@ -23,6 +23,16 @@
 // chips. `min-h-[44px]` on small screens is the usual iOS target; the row's
 // own chips are decorative and can stay small, but a thing you TAP while
 // walking cannot.
+//
+// ---------------------------------------------------------------------------
+// bg-ink / text-ink-inverse, and NOT bg-ink-strong
+// ---------------------------------------------------------------------------
+// `ink-strong` does not exist. It is not in TOKEN_NAMES, so Tailwind emits no
+// rule for it and the background comes out TRANSPARENT — which is how the
+// first version of this button shipped as near-black text on a near-black
+// page, measured at rgba(0,0,0,0) over rgb(13,15,18) in dark mode. Invisible,
+// with every test passing. `ink` is documented in tokens.ts as "primary text,
+// and the default primary button"; `ink-inverse` as "text on an ink ground".
 
 import { ExternalLink } from 'lucide-react';
 import { meetingProvider, canJoinMeeting } from '@thefibre/shared';
@@ -61,7 +71,7 @@ export function JoinMeetingLink({
       rel="noreferrer noopener"
       onClick={(e) => e.stopPropagation()}
       aria-label={label}
-      className={`inline-flex min-h-[44px] sm:min-h-0 items-center gap-1.5 rounded-md bg-ink-strong px-3 py-1.5 text-xs font-medium text-surface-raised hover:bg-ink ${className}`}
+      className={`inline-flex min-h-[44px] sm:min-h-0 items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-ink-inverse hover:opacity-90 ${className}`}
     >
       {label}
       <ExternalLink className="h-3 w-3" strokeWidth={1.75} />

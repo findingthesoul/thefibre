@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.129.1] — 2026-10-11
+
+The Join button was invisible, and the row it sits on was crushed on a phone.
+
+Both found by looking at the screen at 375px with a fixture Zoom booking —
+neither would ever have failed a test, and v1.129.0 shipped yesterday with all
+11 of its unit cases green.
+
+**Invisible, measured rather than squinted at:** background `rgba(0, 0, 0, 0)`
+— transparent — with text `rgb(23, 26, 31)` on a page of `rgb(13, 15, 18)`.
+Near-black on near-black in dark mode. The cause is that **`bg-ink-strong`
+does not exist**: it is not in `TOKEN_NAMES`, so Tailwind emits no rule and
+the class silently does nothing. It was copied from the booking dialog's own
+Join button, which has the same pair and the same fault — fixed here too,
+since it is the same feature. Both now use `bg-ink` / `text-ink-inverse`,
+which `tokens.ts` documents as "primary text, and the default primary button"
+and "text on an ink ground".
+
+**Crushed, also measured:** at 375px the booking row is 293px wide, and its
+right-hand cluster is `shrink-0` at 187px — leaving the invitee's name and the
+date **fifty pixels** and seven wrapped lines. The Join button was 102px of
+that cluster, so this release caused it. The row wraps now: a `basis-48` floor
+on the text column pushes the cluster onto its own line when there is no room.
+Text 50px → 253px, seven lines → two, row height 180 → 124. At `sm` and above
+nothing changes.
+
+A near-miss worth recording, because it is the same mistake twice in five
+minutes: the layout fix was first tested by setting Tailwind CLASSES on the
+live DOM, and nothing moved — JIT only ships rules for classes it saw at build
+time, so an injected class is as inert as a misspelt one. Measuring the
+computed style is the only thing that tells you either way.
+
 ## [1.129.0] — 2026-10-10
 
 The meeting link, on the booking row.

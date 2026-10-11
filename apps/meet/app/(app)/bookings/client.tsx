@@ -207,8 +207,13 @@ function BookingItem({ b, locale }: { b: BookingRow; locale: Locale }) {
   const ends = new Date(b.ends_at);
   return (
     <ClickableBookingRow booking={b} as="li" className="px-5 py-4 text-sm" locale={locale}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      {/* Wraps on a phone. Measured on staging at 375px: this cluster is
+          187px and shrink-0, which left the name and date 50px and seven
+          wrapped lines. `basis-48` gives the text a real floor, so the
+          cluster drops to its own line rather than crushing it; at sm+ there
+          is room and both sit on one line as before. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1 basis-48">
           <div className="font-medium">
             {b.invitee_name}
             {mt && (
