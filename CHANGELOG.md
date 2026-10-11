@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.129.2] — 2026-10-11
+
+A colour that does not exist now fails the release.
+
+`ink-strong` was used **six times** across Meet and The Fibre and was never a
+token. Tailwind says nothing about an unknown class — it emits no rule — so
+`bg-ink-strong` rendered a button with a TRANSPARENT background. One shipped
+to staging on 2026-10-11 as near-black text on a near-black page, measured at
+`rgba(0, 0, 0, 0)` over `rgb(13, 15, 18)`, with every test green and the
+markup reading perfectly. It was found by a person looking at a phone-sized
+screen, which is not a guard anybody can rely on twice.
+
+The remaining five are fixed: the "Open in Fibre" button in Meet's contact row
+(the same transparent-ground, white-text pair, so invisible on a light
+surface), and four `Value` components that silently inherited a colour instead
+of taking `ink`.
+
+**And the gap is closed.** `tokens.test.ts` already failed a release when an
+app ADDED a colour; it now also fails when an app uses one that does not
+EXIST. Every `bg-`/`text-`/`border-`/`ring-`/`fill-`/`stroke-` class in
+`apps/` and `packages/` whose name belongs to one of our families — `ink`,
+`surface`, `line` — must be in `TOKEN_NAMES`.
+
+Three things it deliberately does NOT do, each because the alternative would
+make it noise:
+
+- It ignores Tailwind's own palette. `text-red-700` and `bg-white` are not the
+  design system's business, and flagging them would bury the real finding.
+- It skips `apps/website`, the same exclusion the rest of that file already
+  makes: the marketing site has its own light-only brand language and defines
+  `surface-warm` and `surface-paper` in its own config. Scanning it reported
+  seven false alarms, which is how a test teaches people to ignore it.
+- It strips comments before matching, so a line *explaining* a bad token is
+  not read as using one — the fix above left exactly such comments behind.
+
+Checked in both directions rather than trusted: reintroducing `bg-ink-strong`
+fails the suite and names the file; removing it again passes 23 of 23.
+
 ## [1.129.1] — 2026-10-11
 
 The Join button was invisible, and the row it sits on was crushed on a phone.

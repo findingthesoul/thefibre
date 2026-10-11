@@ -189,7 +189,7 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 function Value({ children }: { children: React.ReactNode }) {
-  return <div className="text-ink-strong">{children}</div>;
+  return <div className="text-ink">{children}</div>;
 }
 function Muted({ children }: { children: React.ReactNode }) {
   return <span className="text-ink-muted">{children}</span>;

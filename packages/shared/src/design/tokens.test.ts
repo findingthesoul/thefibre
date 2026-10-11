@@ -101,3 +101,73 @@ describe('every token is reachable from Tailwind', () => {
     expect(missing, 'tokens with no Tailwind class').toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A colour that does not EXIST (2026-10-11)
+// ---------------------------------------------------------------------------
+// The guard above stops an app ADDING a colour. Nothing stopped an app USING
+// one that was never defined — and Tailwind is silent about it: an unknown
+// class simply produces no rule, so `bg-ink-strong` rendered a TRANSPARENT
+// button. On 2026-10-11 that shipped to staging as near-black text on a
+// near-black page, measured at rgba(0,0,0,0) over rgb(13,15,18), with every
+// test green and the markup reading perfectly. It was found by a person
+// looking at a phone-sized screen, which is not a repeatable guard.
+//
+// `ink-strong` had been in the repo SIX times, including two buttons.
+//
+// This fails the release instead.
+describe('every colour used is a colour that exists', () => {
+  // Only the token-shaped ones. An app may legitimately say `text-red-700` or
+  // `bg-white` — Tailwind's own palette is not the design system's business
+  // here. What this catches is a name that LOOKS like one of ours (an
+  // `ink-`/`surface-`/`line-` family member, or a bare role) and is not.
+  const FAMILIES = ['ink', 'surface', 'line'];
+  const known = new Set<string>(TOKEN_NAMES);
+
+  /** Strip comments, so a line EXPLAINING a bad token is not read as using
+   *  one — this file's own fix left exactly such comments behind. */
+  function withoutComments(src: string): string {
+    return src
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .split('\n')
+      .map((l) => l.replace(/\/\/.*$/, ''))
+      .join('\n');
+  }
+
+  function* sourceFiles(dir: string): Generator<string> {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.next') continue;
+      // The same exclusion the rest of this file uses: the marketing site has
+      // its own light-only brand language and defines its own `surface-warm`
+      // and `surface-paper` in its own tailwind.config.ts. Those are real
+      // there and absent from TOKEN_NAMES by design, so scanning it would
+      // report seven false alarms and teach the next person to ignore this
+      // test — which is worse than not having it.
+      if (dir === APPS_DIR && OWN_DESIGN.has(e.name)) continue;
+      const p = join(dir, e.name);
+      if (e.isDirectory()) yield* sourceFiles(p);
+      else if (/\.(tsx?|css)$/.test(e.name)) yield p;
+    }
+  }
+
+  it('uses no bg-/text-/border- colour outside TOKEN_NAMES', () => {
+    const bad: string[] = [];
+    for (const root of [APPS_DIR, join(ROOT, 'packages')]) {
+      for (const file of sourceFiles(root)) {
+        const src = withoutComments(readFileSync(file, 'utf8'));
+        // bg-ink-strong, text-surface-raised, border-line-strong, …
+        for (const m of src.matchAll(/\b(?:bg|text|border|ring|fill|stroke|from|to|via)-([a-z]+(?:-[a-z]+)*)\b/g)) {
+          const name = m[1]!;
+          const family = name.split('-')[0]!;
+          if (!FAMILIES.includes(family)) continue; // not ours to police
+          if (known.has(name)) continue;
+          bad.push(`${file.slice(ROOT.length + 1)}: ${m[0]}`);
+        }
+      }
+    }
+    expect(
+      [...new Set(bad)],
+      'these name a design token that does not exist, so Tailwind emits NO rule and the element renders with no colour at all',
+    ).toEqual([]);
+  });
+});
