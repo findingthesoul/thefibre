@@ -4,6 +4,8 @@ import { randomBytes } from 'node:crypto';
 import { promises as dns } from 'node:dns';
 import { userClient, adminClient } from '../db.js';
 import { orIlike } from '../lib/postgrest-filter.js';
+import { rows } from '../lib/rows.js';
+import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
 
 
 /**
@@ -148,6 +150,273 @@ organisationsRoutes.post('/', async (c) => {
     return c.json({ error: error.message, code: error.code }, 500);
   }
   return c.json(data, 201);
+});
+
+// ---------------------------------------------------------------------------
+// Duplicates: find them, merge them, undo the merge.
+//
+// The organisation half of the person routes above /persons/:id. Same gate,
+// same tenancy check, same reasons — written here rather than shared because
+// the two walk different tables, but the COMMENTS are deliberately the same
+// so that the next person to add a third merge finds the warning twice.
+//
+// Registered BEFORE /:id — Hono matches in registration order, so a literal
+// segment declared after a parameter one is unreachable: GET /duplicates
+// would arrive as organisation id "duplicates" and answer 404 for a route
+// that exists. Keep new literal segments above that line.
+//
+// Admin-gated throughout. Merging rewrites who owns a membership, a billing
+// record and a verified domain; that is not an organiser-level act.
+// ---------------------------------------------------------------------------
+
+async function isWorkspaceAdmin(ctx: { userId: string; workspaceId: string }) {
+  return isAdminRole(await callerWorkspaceRole(ctx));
+}
+
+const ADMINS_ONLY = { error: 'admins only' } as const;
+
+/** Are BOTH ids live organisations of this workspace? The service-role RPCs
+ *  below do not know who is asking, so the route has to.
+ *
+ *  This is the one function in this block worth reading twice.
+ *  merge_organisation refuses only a merge ACROSS two workspaces, and it runs
+ *  as the service role, so it cannot tell the caller's workspace from anybody
+ *  else's: both ids are in one workspace, just not necessarily theirs. Without
+ *  this check an admin of any workspace could merge — and, since
+ *  20261011202050 copies content between them, read the content of — two
+ *  organisations of another workspace by id. That exact hole was found in the
+ *  person routes on 2026-09-25. */
+async function bothOrgsInWorkspace(workspaceId: string, a: string, b: string): Promise<boolean> {
+  if (a === b) return false;
+  const { count, error } = await adminClient
+    .from('organisation')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .in('id', [a, b]);
+  if (error) throw new Error(`organisation lookup failed: ${error.message}`);
+  return count === 2;
+}
+
+const OrgDuplicatesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+// GET /organisations/duplicates — the review queue. Proposes; never acts.
+organisationsRoutes.get('/duplicates', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const parsed = OrgDuplicatesQuery.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+
+  const { data, error } = await adminClient.rpc('organisation_duplicate_candidates', {
+    p_workspace: ctx.workspaceId,
+    p_limit: parsed.data.limit,
+  });
+  if (error) {
+    console.error('[organisations/duplicates] rpc failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+
+  type Candidate = {
+    a_id: string; a_name: string; a_domain: string | null; a_people: number;
+    b_id: string; b_name: string; b_domain: string | null; b_people: number;
+    reason: string; score: number;
+  };
+  const pairs = (data ?? []) as Candidate[];
+  if (pairs.length === 0) return c.json({ items: [] });
+
+  // The candidates function already carries name, domain and how many people
+  // each side holds. These are the rest of the evidence somebody decides on —
+  // one read for every organisation named, not one per pair. Thrown rather
+  // than coalesced: a failed read here would draw both cards with no legal
+  // name and no address, which is the comparison itself.
+  const ids = [...new Set(pairs.flatMap((p) => [p.a_id, p.b_id]))];
+  const extra = rows(
+    'organisations/duplicates: compared fields',
+    await adminClient
+      .from('organisation')
+      .select('id, legal_name, city, country, website, created_at')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('deleted_at', null)
+      .in('id', ids),
+  );
+  const byId = new Map(extra.map((o) => [o.id as string, o]));
+  const side = (id: string, name: string, domain: string | null, people: number) => ({
+    id,
+    name,
+    domain,
+    people: Number(people),
+    legal_name: byId.get(id)?.legal_name ?? null,
+    city: byId.get(id)?.city ?? null,
+    country: byId.get(id)?.country ?? null,
+    website: byId.get(id)?.website ?? null,
+    created_at: byId.get(id)?.created_at ?? null,
+  });
+
+  return c.json({
+    items: pairs
+      // A pair this workspace cannot see both halves of is not shown. The
+      // candidates function is already workspace-scoped so it should not
+      // happen — but a card drawn from a row that is not there is a card
+      // somebody then presses Merge on.
+      .filter((p) => byId.has(p.a_id) && byId.has(p.b_id))
+      .map((p) => ({
+        reason: p.reason,
+        score: p.score,
+        a: side(p.a_id, p.a_name, p.a_domain, p.a_people),
+        b: side(p.b_id, p.b_name, p.b_domain, p.b_people),
+      })),
+  });
+});
+
+// GET /organisations/merge-conflicts?keep=&merge= — what the two records
+// disagree about, which is the question a per-field merge has to ask.
+//
+// Its own endpoint rather than a field on /duplicates: the conflict VALUES
+// only travel for the pair somebody actually opened, instead of shipping both
+// records of every suggested pair to a browser that will look at one.
+organisationsRoutes.get('/merge-conflicts', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const keep = c.req.query('keep');
+  const merge = c.req.query('merge');
+  if (!keep || !merge) return c.json({ error: 'keep and merge are required' }, 400);
+
+  // See bothOrgsInWorkspace: the RPC knows only that the pair shares *a*
+  // workspace, so without this an admin of any workspace could read the
+  // compared values of two organisations of another by id.
+  if (!(await bothOrgsInWorkspace(ctx.workspaceId, keep, merge))) {
+    return c.json({ error: 'organisation not found' }, 404);
+  }
+
+  const { data, error } = await adminClient.rpc('organisation_merge_conflicts', {
+    p_keep: keep,
+    p_merge: merge,
+  });
+  if (error) {
+    console.error('[organisations/merge-conflicts] failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ conflicts: data ?? [] });
+});
+
+const OrgMergeBody = z.object({
+  keep_id: z.string().uuid(),
+  merge_id: z.string().uuid(),
+  /**
+   * Per-column decisions: `{ "street": "merge", "city": "keep" }`.
+   *
+   * A SIDE, never a value — the same line the person merge draws. A merge
+   * that accepted values would be an arbitrary field writer: whoever may
+   * merge could set any fillable column of any organisation to anything,
+   * through an endpoint that applies none of the validation the profile
+   * routes do. Naming a side means it can only ever choose between two values
+   * that already exist on the two records.
+   *
+   * Omitted = the behaviour since 20261011202050: blanks filled, keeper wins.
+   */
+  choices: z.record(z.string(), z.enum(['keep', 'merge'])).optional(),
+});
+
+// POST /organisations/merge — repoints every FK, soft-deletes the merged row.
+// Returns the audit id, which is the handle for undoing it.
+organisationsRoutes.post('/merge', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const body = OrgMergeBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  if (!(await bothOrgsInWorkspace(ctx.workspaceId, body.data.keep_id, body.data.merge_id))) {
+    return c.json({ error: 'organisation not found' }, 404);
+  }
+
+  const { data, error } = await adminClient.rpc('merge_organisation', {
+    p_keep: body.data.keep_id,
+    p_merge: body.data.merge_id,
+    p_actor: ctx.userId || null,
+    // The function validates these too and raises on a column a merge may not
+    // carry, or a value that is not keep/merge. Passed through rather than
+    // filtered here: silently dropping a choice is how somebody's decision
+    // disappears without anybody learning that it did, and a raise arrives as
+    // a 400 with the column named.
+    p_choices: body.data.choices ?? {},
+  });
+  if (error) {
+    console.error('[organisations/merge] failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+    // The function raises for the refusals a caller can act on — same
+    // workspace, not already deleted, a column a merge may not carry — so
+    // pass the wording through rather than flattening them all to 500.
+    return c.json({ error: error.message }, 400);
+  }
+  return c.json({ merge_id: data as string }, 201);
+});
+
+// POST /organisations/merges/:id/undo — put it back.
+organisationsRoutes.post('/merges/:id/undo', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  // The merge row has to be this workspace's BEFORE the RPC runs:
+  // unmerge_organisation, as the service role, would happily put back another
+  // workspace's merge. The audit row carries its own workspace, so this is
+  // the whole tenancy check for an undo.
+  const { count: owned } = await adminClient
+    .from('organisation_merge')
+    .select('id', { count: 'exact', head: true })
+    .eq('id', c.req.param('id'))
+    .eq('workspace_id', ctx.workspaceId);
+  if (owned !== 1) return c.json({ error: 'merge not found' }, 404);
+
+  const { error } = await adminClient.rpc('unmerge_organisation', {
+    p_merge_id: c.req.param('id'),
+    p_actor: ctx.userId || null,
+  });
+  if (error) {
+    console.error('[organisations/merges/undo] failed', error);
+    return c.json({ error: error.message }, 400);
+  }
+  return c.json({ ok: true });
+});
+
+// GET /organisations/merges — what has been merged, and what can still be undone.
+organisationsRoutes.get('/merges', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const { data, error } = await adminClient
+    .from('organisation_merge')
+    .select('id, kept_org_id, merged_org_id, merged_at, merged_by, undone_at, dropped')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('merged_at', { ascending: false })
+    .limit(100);
+  if (error) return c.json({ error: error.message }, 500);
+
+  return c.json({
+    items: (data ?? []).map((m) => ({
+      id: m.id,
+      kept_org_id: m.kept_org_id,
+      merged_org_id: m.merged_org_id,
+      merged_at: m.merged_at,
+      merged_by: m.merged_by,
+      undone_at: m.undone_at,
+      // How much a merge actually cost: rows a unique constraint would not
+      // let move. Surfaced so nobody has to guess what was lost.
+      dropped_rows: Array.isArray(m.dropped)
+        ? (m.dropped as { rows?: unknown[] }[]).reduce(
+            (n, d) => n + (Array.isArray(d.rows) ? d.rows.length : 0),
+            0,
+          )
+        : 0,
+    })),
+  });
 });
 
 organisationsRoutes.get('/:id', async (c) => {

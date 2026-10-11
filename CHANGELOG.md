@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.150.0] — 2026-10-11
+
+Organisations can be merged, and the merge can be told which value wins.
+
+The person side of this shipped over v1.147–v1.149. The organisation side had
+the whole engine and no door: `merge_organisation` has existed since
+2026-09-23 and v1.146.0 taught it to carry every column rather than the eight
+somebody once typed — but nothing in the API ever called it. The only way to
+merge two organisations was to connect to the database.
+
+So the five routes exist now, and they are per-field from the start rather
+than gaining it later:
+
+- **`GET /organisations/duplicates`** — the review queue. Pairs matched on
+  domain or on a folded name, each side carrying its legal name, city,
+  country, website and how many people it holds. Proposes; never acts.
+- **`GET /organisations/merge-conflicts`** — only what the two records
+  disagree about, and only for the pair somebody opened. Blank-versus-filled
+  is not a conflict; that is the existing fill and needs no decision.
+- **`POST /organisations/merge`** — optionally with `choices`, which name a
+  SIDE per column and never a value.
+- **`POST /organisations/merges/:id/undo`** and **`GET /organisations/merges`**
+  — the undo and the record of what a merge cost, including rows a unique
+  constraint would not let move.
+
+A choice names a side because the alternative is an arbitrary field writer:
+a merge that accepted values would let whoever may merge set any fillable
+column of any organisation to anything, through an endpoint applying none of
+the validation the profile routes do. Naming a side means it can only ever
+pick between two values that already exist on the two records.
+
+**The tenancy guard was written and tested before the routes were.**
+`merge_organisation`, `unmerge_organisation` and the conflicts function all
+run as the service role and assert only that the two organisations share *a*
+workspace — never the caller's. A route that checks "is the caller an admin?"
+and then hands the body's UUIDs to the RPC therefore lets an admin of one
+workspace merge any two organisations of another by id, read the values they
+disagree about, and put back any of that workspace's merges. That is the hole
+the stress round found in the person routes on 2026-09-25, and it is
+reproducible here by copying three lines and leaving one out. So
+`bothOrgsInWorkspace` and `organisations-merge-tenancy.int.test.ts` came
+first, and the test asserts both halves: the refusal, and that a legitimate
+admin can still merge, compare and undo inside their own workspace — because
+a guard that refuses everything passes a one-sided test.
+
+All five are registered above `/organisations/:id`. Hono matches in
+registration order, so `GET /duplicates` declared after it would arrive as an
+organisation with the id "duplicates" and answer 404 for a route that exists.
+
+The screen comes next; this is the engine and the door.
+
 ## [1.149.1] — 2026-10-11
 
 A merge that went ahead WITHOUT asking now says so.
