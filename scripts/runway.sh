@@ -19,12 +19,17 @@
 #   ./scripts/runway.sh clear <name> --by <controller>     # preflight + grant
 #       [--sha <sha>]        which of <name>'s requests, when there are several
 #       [--allow-delete]     the commit removes files that are on staging, on purpose
+#   ./scripts/runway.sh clearance            # the live clearance, as KEY=VALUE
 #   RUNWAY_SESSION=<name> ./scripts/runway.sh land         # release.sh does this
 #   ./scripts/runway.sh abort [--by <controller>]          # free the runway
 #   ./scripts/runway.sh install-hook         # once per clone; covers all worktrees
 #
 # Kinds:  release (release.sh -> staging)   docs (docs-only push to staging)
 #         api-staging / api-prod (deploy-api.sh)
+#         batch-prod (scripts/batch-prod.sh: ONE clearance covering the whole
+#           production sitting — db push, promote and the API deploy. Needs
+#           --sjoerd-said like any production grant, and satisfies the `prod`
+#           and `api-prod` checks so those scripts need no special case.)
 #         prod (promote.sh; needs --sjoerd-said "<his words>" to be granted)
 #
 # What this stops: a second session landing while one holds the runway, a push
@@ -74,6 +79,11 @@ live_clearance() {
 base_ref() {
   case "$1" in
     prod|api-prod) echo origin/main ;;
+    # batch-prod spans db push -> promote -> api deploy, and the PROMOTE moves
+    # origin/main half way through. So the thing that must hold still for a
+    # whole sitting is origin/STAGING: the commit being promoted. Checking
+    # main would void the clearance at the exact moment the batch succeeds.
+    batch-prod)    echo origin/staging ;;
     *)             echo origin/staging ;;
   esac
 }
@@ -90,7 +100,7 @@ cmd_request() {
     esac
   done
   [ -n "$name" ] || die "set RUNWAY_SESSION=<your session name> (e.g. RUNWAY_SESSION=meet)."
-  case "$kind" in release|docs|api-staging|api-prod|prod) ;; *) die "--kind must be release|docs|api-staging|api-prod|prod." ;; esac
+  case "$kind" in release|docs|api-staging|api-prod|prod|batch-prod) ;; *) die "--kind must be release|docs|api-staging|api-prod|prod|batch-prod." ;; esac
   [ -n "$what" ] || die "--what: one line on what this is."
   [ -n "$verified" ] || die "--verified: what you checked. Say \"nothing\" if so."
   # Not optional, on purpose: a handover that omits this turns the controller
@@ -207,10 +217,14 @@ cmd_status() {
 
 cmd_clear() {
   local name="${1:-}"; shift || true
+  # A sitting is db push + promote + a Fly deploy; 45 minutes is the window
+  # for a single landing and is not enough. Defaulted here rather than left to
+  # the controller to remember, and still overridable with --minutes.
   local by="" minutes="$DEFAULT_MINUTES" kindopt="" said="" want="" allow_delete=0 allow_lane=0
+  local minutes_given=0
   while [ $# -gt 0 ]; do
     case "$1" in
-      --by) by="$2"; shift 2 ;; --minutes) minutes="$2"; shift 2 ;;
+      --by) by="$2"; shift 2 ;; --minutes) minutes="$2"; minutes_given=1; shift 2 ;;
       --kind) kindopt="$2"; shift 2 ;; --sjoerd-said) said="$2"; shift 2 ;;
       --sha) want="$2"; shift 2 ;; --allow-delete) allow_delete=1; shift ;;
       --allow-out-of-lane) allow_lane=1; shift ;;
@@ -394,8 +408,9 @@ cmd_clear() {
         [ -z "$late" ] || { printf '%s' "$late" | sed 's/^/    OLDER THAN STAGING:/' >&2; die "${sha:0:8} adds a migration older than the newest already on $ref; \`supabase db push\` would refuse it. Renumber with ./scripts/new-migration.sh and request again."; }
       fi
       ;;
-    prod|api-prod)
+    prod|api-prod|batch-prod)
       [ -n "$said" ] || die "production needs --sjoerd-said \"<his words>\". It is Sjoerd's decision, not the lane's."
+      [ "$kind" != "batch-prod" ] || [ "$minutes_given" = 1 ] || minutes=90
       ;;
     api-staging) ;;
   esac
@@ -410,6 +425,23 @@ cmd_clear() {
   logit "CLEARED session=$name kind=$kind sha=$sha base=$base by=$by minutes=$minutes${said:+ sjoerd-said=\"$said\"}$([ "$allow_delete" = 1 ] && echo " allow-delete" || true)$([ "$allow_lane" = 1 ] && echo " allow-out-of-lane" || true)"
   say "CLEARED: $name may land $kind ($minutes min). Base $(git rev-parse --short "$base"). Verified (their word): $verified"
   [ "$stale" = 0 ] || say "NOTE: ${sha:0:8} is not on $ref. Rebase onto $ref before you push (the runway is yours meanwhile, so nothing moves under you); the pre-push check wants the rebased commit's parent at $(git rev-parse --short "$base")."
+}
+
+# clearance: print the live clearance as KEY=VALUE lines, for a script that
+# has to act on it. Read-only; exits 1 when the runway is free.
+#
+# batch-prod.sh uses this for two things: to run AS the holder (the clearance
+# is held by a chat, the sitting is run by a person in a terminal), and to
+# print back the words Sjoerd is quoted as having said before it touches
+# production. Both belong to the person at the keyboard, not to the script.
+cmd_clearance() {
+  live_clearance || { echo "none" >&2; return 1; }
+  printf 'session=%s\n' "$(field session "$CLEARANCE")"
+  printf 'kind=%s\n'    "$(field kind "$CLEARANCE")"
+  printf 'sha=%s\n'     "$(field sha "$CLEARANCE")"
+  printf 'base=%s\n'    "$(field base "$CLEARANCE")"
+  printf 'said=%s\n'    "$(field said "$CLEARANCE")"
+  printf 'minutes_left=%s\n' "$(( ( $(field expires "$CLEARANCE") - $(now) ) / 60 ))"
 }
 
 # check --kind K: exit 0 only when RUNWAY_SESSION holds a live clearance of that
@@ -430,10 +462,20 @@ cmd_check() {
   Controller: ./scripts/runway.sh queue   (emergency only: RUNWAY_BYPASS=\"<reason>\", logged)"
   [ "$(field session "$CLEARANCE")" = "$name" ] \
     || die "runway is held by $(field session "$CLEARANCE") for $(field kind "$CLEARANCE"). Wait your turn."
-  [ "$(field kind "$CLEARANCE")" = "$kind" ] \
-    || die "your clearance is for $(field kind "$CLEARANCE"), not $kind."
+  # A `batch-prod` clearance satisfies the production departures it exists to
+  # cover, and nothing else. Today the controller grants `prod`, waits for the
+  # promote to land, then grants `api-prod` — and that second wait is half the
+  # reason Sjoerd was pressing Run four times. One clearance, three steps,
+  # still his words to grant.
+  local have; have="$(field kind "$CLEARANCE")"
+  local ok=0
+  [ "$have" = "$kind" ] && ok=1
+  case "$have:$kind" in batch-prod:prod|batch-prod:api-prod) ok=1 ;; esac
+  [ "$ok" = 1 ] || die "your clearance is for $have, not $kind."
   git fetch -q origin
-  local ref base; ref="$(base_ref "$kind")"; base="$(field base "$CLEARANCE")"
+  # The base belongs to the CLEARANCE's kind, not the step's: a batch-prod
+  # clearance is pinned to origin/staging even while promote.sh asks as `prod`.
+  local ref base; ref="$(base_ref "$have")"; base="$(field base "$CLEARANCE")"
   [ "$(git rev-parse "$ref")" = "$base" ] || {
     abort_quiet "base moved"
     die "$ref moved since you were cleared ($(git rev-parse --short "$ref") != ${base:0:8}). Somebody landed first. Clearance void: rebase and request again."
@@ -445,6 +487,19 @@ abort_quiet() { logit "VOID session=$(field session "$CLEARANCE") kind=$(field k
 
 cmd_land() {
   local name="${RUNWAY_SESSION:-}"
+  # A batch-prod clearance spans THREE departures, and promote.sh calls `land`
+  # the moment it has pushed. Freeing it there left main promoted, the API not
+  # deployed and the runway free — the exact half-cutover batch-prod.sh exists
+  # to prevent, and invisible to a test that calls `check` one step at a time.
+  # So the batch holds its own clearance until batch-prod.sh says it is
+  # finished. Fails SAFE: a script that forgets to release it leaves the
+  # runway busy until the clearance expires, rather than stranding a sitting
+  # halfway through.
+  if [ -f "$CLEARANCE" ] && [ "$(field kind "$CLEARANCE")" = "batch-prod" ] \
+     && [ "${RUNWAY_BATCH_FINAL:-}" != "1" ]; then
+    say "Runway still held: the production sitting is not finished (batch-prod)."
+    return 0
+  fi
   if [ -f "$CLEARANCE" ] && { [ "$(field session "$CLEARANCE")" = "$name" ] || [ -n "${RUNWAY_BYPASS:-}" ]; }; then
     # DID IT ACTUALLY LAND? Until 2026-10-11 this asked only "are you the
     # holder", so a release whose PUSH had failed still recorded LANDED and
@@ -618,6 +673,7 @@ sub="${1:-}"; shift || true
 case "$sub" in
   request) cmd_request "$@" ;; queue) cmd_queue ;; status) cmd_status ;;
   clear) cmd_clear "$@" ;; check) cmd_check "$@" ;; land) cmd_land ;;
+  clearance) cmd_clearance ;;
   abort) cmd_abort "$@" ;; hook) cmd_hook "$@" ;; install-hook) cmd_install_hook ;;
   check-checkout) cmd_check_checkout ;; withdraw) cmd_withdraw "$@" ;;
   *) sed -n '2,32p' "$0"; exit 64 ;;

@@ -6,6 +6,99 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.155.0] — 2026-10-12
+
+The production sitting is one command.
+
+Sjoerd, 2026-10-12: *"every time I have to put 4 times the RUN button... Can't
+we make the batch go in one run"*. Four, because the sitting was four commands
+with two waits in it — and one of those waits existed only because the `prod`
+clearance did not cover the API deploy, so the controller had to grant a
+second clearance after the promote landed.
+
+    ./scripts/batch-prod.sh <sha> [--dry-run]
+
+Clearance → fast-forward and assert `origin/staging == <sha>` → push
+migrations to production → re-read the remote history and refuse if any local
+migration is still missing → **preflight gates** → promote → deploy the API
+from a detached worktree at `<sha>`. One line at the end to screenshot; on a
+failure, one line naming the step and stating that nothing after it ran.
+
+**Production is still his.** The new `batch-prod` clearance needs
+`--sjoerd-said` exactly like `prod` and `api-prod`, and the script prints his
+quoted words back before it touches anything. What changed is the number of
+grants, not who grants them. The clearance is held by a chat while the sitting
+is run by a person, so the script reads the holder, acts as it, and records
+`$USER` in what it deploys.
+
+**The gates run after the database push, not before it** — the opposite of
+where a gate belongs, for a reason worth keeping. The first gate asks whether
+a column *that the same sitting creates* has been set for one workspace. A
+gate running before the push would ask about a column that does not exist and
+refuse for ever, while looking exactly like a gate working. Failing there
+leaves the database updated and nothing promoted or deployed, which is safe
+because the schema is additive and the running code ignores it; the script
+says so, says what to do, and the re-run skips the push as already applied.
+
+Each gate names what removes it and reads its condition from the source at
+`<sha>` rather than keeping a copy, so turning a flag off cannot leave a gate
+stuck on. Today there is one: the Zoom reviewer's workspace must be exempt
+before the notice reaches production. It prints the workspaces it found by
+name, because "something matched" is not what anybody should confirm.
+
+Re-running after a failure is safe by construction: the push skips what is
+applied, the gates are read-only, `promote.sh` already exits cleanly with
+"Nothing to promote", and the API deploy is last.
+
+`db-push-prod.sh` gains an opt-in `--yes`, so the batch runs without a prompt
+while a person typing the bare command still gets one — being asked "push
+these to production?" is the last cheap chance to notice the wrong ones.
+
+`scripts/batch-prod.test.mjs`, 23 tests. The widening stops where it should:
+a `batch-prod` clearance satisfies the promote and the API deploy and
+**nothing on staging**, a `release` clearance still cannot reach production,
+an `api-prod` clearance does not cover the promote. And a dry run is walked
+end to end in a sandbox where `origin/staging` is ours — which is the only way
+this script can rehearse itself, since it refuses a sha that is not on staging
+and it is not on staging until it lands.
+
+**Four defects were caught before this shipped, and three of them by review
+rather than by the tests that were supposed to cover them.**
+
+1. **The half-cutover the script exists to prevent.** `promote.sh` calls
+   `runway.sh land` four lines after its clearance check. Under a `batch-prod`
+   clearance that `land` was accepted — right holder, cleared sha now on the
+   ref — and deleted the clearance. The API deploy then asked for `api-prod`,
+   found nothing, and refused: main promoted, API not deployed, runway free.
+   A `batch-prod` clearance is now released only by `batch-prod.sh` at the
+   end. The first ten tests could not see this because each called `check`
+   once; the defect only exists in the SEQUENCE.
+2. **The migration-gap check was vacuous.** It grepped the whole
+   `supabase migration list` output, which is a `Local | Remote | Time` table
+   — so every version matched its own Local column and the check passed for a
+   migration missing remotely. It asked "is this migration known here", which
+   is never in doubt. It parses the Remote column now, proven with a fixture
+   listing containing a local-only row.
+3. **Nothing granted the 90 minutes.** `clear` defaults to 45 unless
+   `--minutes` is passed, so the window depended on the controller
+   remembering. It is the default for `batch-prod` now — and that has a test,
+   because the first version of the change had none and a mutation removing
+   the default passed everything.
+4. **Found by the rehearsal itself:** under `set -o pipefail`, reading the
+   clearance before the promote carried `runway.sh`'s exit status, and
+   `clearance` exits 1 when the runway is free — so `set -e` killed the script
+   **silently**, with no message and no step name, immediately before the
+   promote. In a real sitting it would have fired exactly when the clearance
+   had expired mid-way, which is the moment most needing a clear message.
+   That case now stops with one.
+
+A fifth, found by the release gate itself: two of these tests ran
+`batch-prod.sh` in the real checkout, where it reads the SHARED runway
+clearance — so they passed only while the runway happened to be free and
+failed during every release, including the one shipping them. They run in a
+sandbox now. A gate that fails randomly is worse than no gate, because people
+learn to re-run it.
+
 ## [1.154.0] — 2026-10-12
 
 A script to hand Sjoerd for the Zoom reviewer's workspace.

@@ -45,7 +45,60 @@ A rebuilt commit leaves its old request behind. Take it out yourself:
 `RUNWAY_SESSION=<you> ./scripts/runway.sh withdraw --sha <sha>`.
 
 Kinds: `release` (code → staging), `docs` (docs/`*.md` only → staging),
-`api-staging`, `api-prod`, `prod` (promote).
+`api-staging`, `api-prod`, `prod` (promote), `batch-prod` (the whole
+production sitting — see below).
+
+## The production sitting: one command, one clearance
+
+Sjoerd, 2026-10-12: *"every time I have to put 4 times the RUN button... Can't
+we make the batch go in one run"*. Four presses, because the sitting was four
+commands with two waits — and one wait existed only because the `prod`
+clearance did not cover the API deploy, so the controller had to grant
+`api-prod` after the promote landed.
+
+    ./scripts/batch-prod.sh <sha> [--dry-run]
+
+in his own terminal, from the main checkout. It does: clearance → fast-forward
+and assert `origin/staging == <sha>` → `db-push-prod --yes` → re-read the
+remote migration history → **preflight gates** → promote → API deploy from a
+detached worktree at `<sha>`. One line at the end he can screenshot; on a
+failure, one line naming the step and saying nothing after it ran.
+
+**`batch-prod` is a production kind**, so granting it needs `--sjoerd-said`
+exactly like `prod` and `api-prod`. It satisfies the `prod` and `api-prod`
+checks, which is how one clearance covers three departures without
+`promote.sh` or `deploy-api.sh` learning anything new. Its base is
+`origin/STAGING`, not main: the promote moves main half way through, and a
+clearance pinned to main would void itself at the moment the batch succeeds.
+
+**Grant it for 90 minutes.** Before it starts the promote the script re-reads
+the time left and refuses under 30, saying so. Stopping before the promote is
+safe; stopping between the promote and the API deploy is the one bad place,
+and a long window alone does not rule that out.
+
+**The clearance is held by a chat and the sitting is run by a person.** The
+script reads the holder and acts as it, prints Sjoerd's quoted words back
+before touching anything, and records `$USER` in what it deploys. Any terminal
+here could already consume a production clearance — today he types
+`RUNWAY_SESSION=controller` himself — so this widens nothing.
+
+### Preflight gates, and why they are not first
+
+Conditions about production DATA that must hold before production CODE goes
+out. They run **after the database push and before the promote**, which is the
+opposite of where a gate usually belongs, for a reason worth keeping: the
+first gate asks whether a column THAT THE SAME SITTING CREATES has been set.
+A gate running before the push would ask about a column that does not exist
+and refuse for ever — and would look exactly like the gate working.
+
+A gate failing there leaves the database updated and nothing promoted or
+deployed. That is a safe place to stand, because our schema changes are
+additive and the code on production ignores what it does not know. The script
+says so, names what to do, and the re-run skips the push as already applied.
+
+Each gate names what removes it, and reads its condition from the source at
+`<sha>` rather than keeping a copy — so turning the underlying flag off cannot
+leave a gate stuck on.
 
 ## As the controller
 
@@ -155,6 +208,13 @@ Not gated, and known: `db-push-prod.sh` itself needs no clearance, so a
 production schema change is the one production act the runway does not
 cover. A gate for it is built and parked (branch `stress-db-prod`); it would
 change how Sjoerd runs a production migration, so it waits for him.
+
+Narrowed since 2026-10-12: a push made as part of `batch-prod.sh` IS behind a
+clearance, because the script refuses to run at all without one. A bare
+`./scripts/db-push-prod.sh` still is not. The script passes `--yes`, which is
+opt-in for exactly this reason — a person typing the bare command still gets
+the prompt, because being asked "push these to production?" is the last cheap
+chance to notice the wrong ones.
 
 ## What a release clearance does not cover
 

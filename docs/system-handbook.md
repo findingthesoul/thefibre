@@ -760,6 +760,14 @@ The hosts are DATA in `packages/shared/src/branding.ts` (`appUrl`,
 `stagingAppUrl`, `SURFACES`); read that file rather than this table when the
 two disagree. Every landing and departure needs a runway clearance — §10.
 
+**The production sitting is one command**, since 2026-10-12:
+`./scripts/batch-prod.sh <sha>` does the migration push, the preflight gates,
+the promote and the API deploy under a single `batch-prod` clearance — which
+is still granted on Sjoerd's own words, like any production act. It replaced
+four commands with two waits in between, one of which existed only because
+the old `prod` clearance did not cover the API deploy. `docs/runway.md` has
+the ordering and why the gates sit between the push and the promote.
+
 - **Vercel**: ten projects, `thefibre`, `thefibre-website` and
   `thefibre-{meet,thread,flow,pulse,membership,my,connections,models}` (the
   list `scripts/verify-vercel-env.mjs` holds). Domains are
