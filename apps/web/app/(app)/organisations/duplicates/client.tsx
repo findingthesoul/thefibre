@@ -378,7 +378,15 @@ export function OrgDuplicatesClient({
             </>
           )}
 
-          {choosing === key(pair) ? (
+          {/* Once the per-field step is open, the keeper HAS been chosen — so
+              the explainer asking which record to keep, and its Back, are
+              answering a question that is no longer on screen. Leaving them
+              there put two "Back" links a few millimetres apart, one closing
+              the step and one leaving the choice, and on a phone the stale
+              paragraph sits directly under "Merge with these answers". Seen
+              in the browser at both widths; the person screen has the same
+              pair and should lose it in the shared extraction. */}
+          {choosing === key(pair) && conflictStep?.pairKey !== key(pair) ? (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <p className="text-xs text-ink-muted flex-1">{t(locale, 'odup_pick_keep')}</p>
               <button
@@ -390,7 +398,7 @@ export function OrgDuplicatesClient({
                 {t(locale, 'dup_back')}
               </button>
             </div>
-          ) : (
+          ) : conflictStep?.pairKey === key(pair) ? null : (
             <div className="mt-3">
               <p className="text-sm font-medium">{t(locale, 'odup_question')}</p>
               <div className="mt-2 flex flex-wrap gap-2">

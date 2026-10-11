@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.151.1] — 2026-10-12
+
+The duplicates screen stops asking a question it has already been answered.
+
+Found by looking at it, which is the only way this one could have been found:
+every test passed and the screen was wrong.
+
+Once you have chosen which organisation to keep, the per-field step opens —
+and underneath it the screen still showed *"These two get merged into one.
+Which record do you keep as the main one?"* with its own **Back**, plus the
+original *Same organisation / Different organisations* buttons. So there were
+two Back links a few millimetres apart, one closing the step and one leaving
+the choice, under a paragraph asking something that had just been decided. On
+a phone it is worse: the stale paragraph sits directly beneath *Merge with
+these answers*, which is the button somebody is reaching for.
+
+Both are now hidden while the step is open, and `org-duplicates.spec.ts`
+asserts it — the explainer hidden, the question hidden, and exactly one Back
+in the block. The assertion was confirmed to FAIL against the build without
+the fix before the fix shipped, so it is testing the thing it claims to.
+
+**The person screen at `/contacts/duplicates` has the same pair of Backs.** It
+is left alone here rather than fixed twice: 66% of the two screens is already
+line-for-line identical, and the queued extraction of a shared
+`DuplicatesQueue` is where this belongs — fixing it in two places first is
+how the copies drift further apart.
+
 ## [1.151.0] — 2026-10-12
 
 Organisations → Duplicates: a screen, and the answer "no, these are two".
