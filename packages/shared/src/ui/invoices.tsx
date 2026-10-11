@@ -12,7 +12,7 @@
 // actions.ts ('use server' wrappers over the purchases API — those must
 // live in the app because they bake in its session + X-App-ID).
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   BadgeEuro,
   Link2,
@@ -229,6 +229,7 @@ export function InvoicesArea({
   orgId,
   scopeOptions = ['me', 'team', 'workspace'],
   seller,
+  renderMarkPaid,
 }: {
   teams: { id: string; name: string }[];
   /** Which app's sales to show first — the current app, typically. */
@@ -254,6 +255,25 @@ export function InvoicesArea({
    *  the dialog resolves it; the platform's own invoices have exactly one
    *  seller, Solidarity Lab B.V., on every row. */
   seller?: InvoiceSeller;
+  /**
+   * Replace the mark-paid ACTION with the caller's own flow.
+   *
+   * Pulse needs two things before it can settle an invoice — the date the
+   * money arrived and which bank account it landed on (Sjoerd: "when mark as
+   * paid, you need to connect a bank account and a date") — and that is why
+   * Pulse had its own 659-line copy of this whole area. Widening
+   * `markPurchasePaid` with those fields would push one app's bank accounts
+   * into every other app's contract, so instead the caller supplies the
+   * interaction and this component keeps the list, the search, the scopes and
+   * the detail dialog.
+   *
+   * `done(refresh)` closes the caller's flow; pass true when something was
+   * written and the list should reload.
+   *
+   * When present it takes precedence over `actions.markPurchasePaid`. A
+   * caller that gives neither shows no Mark paid button at all.
+   */
+  renderMarkPaid?: (row: PurchaseRow, done: (refresh?: boolean) => void) => ReactNode;
 }) {
   const locale: Locale = useLocale();
   const intl = INTL_LOCALES[locale];
@@ -270,6 +290,8 @@ export function InvoicesArea({
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<PurchaseRow | null>(null);
   const [confirmRefund, setConfirmRefund] = useState<PurchaseRow | null>(null);
+  /** The row whose mark-paid the CALLER is handling (see renderMarkPaid). */
+  const [markPaidRow, setMarkPaidRow] = useState<PurchaseRow | null>(null);
   // The outcome of the last action, with its kind — not a bare string.
   //
   // Sjoerd, 2026-10-04, on Meet's invoice dialog: *"When clicking 'send
@@ -651,13 +673,21 @@ export function InvoicesArea({
               )}
               {detail.method === 'invoice' && detail.status === 'pending' && (
                 <>
-                  {actions.markPurchasePaid && (
+                  {(renderMarkPaid || actions.markPurchasePaid) && (
                   <GhostBtn
                     leading={<BadgeEuro size={14} />}
                     disabled={busy}
-                    onClick={() =>
-                      void run(actions.markPurchasePaid!, detail, chromeT(locale, 'marked_paid_ok'))
-                    }
+                    onClick={() => {
+                      // The caller's own flow wins where there is one: Pulse
+                      // asks for a date and a bank account before settling.
+                      if (renderMarkPaid) setMarkPaidRow(detail);
+                      else
+                        void run(
+                          actions.markPurchasePaid!,
+                          detail,
+                          chromeT(locale, 'marked_paid_ok'),
+                        );
+                    }}
                   >
                     {chromeT(locale, 'mark_paid')}
                   </GhostBtn>
@@ -738,6 +768,15 @@ export function InvoicesArea({
 
       {/* Refund confirm — the shared component; Meet's booking detail
           renders the same one. */}
+      {/* The caller's own mark-paid, in the same layer as this area's other
+          dialogs. `done(true)` reloads the list, because settling an invoice
+          changes the row it came from. */}
+      {markPaidRow &&
+        renderMarkPaid?.(markPaidRow, (refresh) => {
+          setMarkPaidRow(null);
+          if (refresh) void load();
+        })}
+
       {confirmRefund && (
         <RefundConfirm
           target={confirmRefund}

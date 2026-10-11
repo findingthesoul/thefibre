@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.130.0] — 2026-10-11
+
+Pulse's Invoices stop being a copy of everyone else's.
+
+It was 659 lines beginning *"Copied from The Thread's invoices lane"*, and it
+had already drifted — the same ledger, the same rows, a different screen.
+Sjoerd, on the platform's own invoices: *"same ledger = single point of truth,
+but the UI is a fork."* It is 254 lines now, and the 405 that went were the
+list, the search, the scope chips, the app chips and the detail dialog that
+four other apps already share.
+
+**What was genuinely Pulse's is kept.** Before Pulse can settle an invoice it
+needs the date the money arrived and the bank account it landed on (Sjoerd:
+*"when mark as paid, you need to connect a bank account and a date"*) —
+the API snapshots the balance and settles the matching plan line. Nothing else
+in the fork was different on purpose.
+
+So `InvoicesArea` gained ONE optional prop, `renderMarkPaid(row, done)`, and
+Pulse injects its own dialog through it. The shared area keeps the list and
+the detail; the app contributes the part that is actually its own. The
+alternative — widening the shared `markPurchasePaid` with a date and an
+account — would have put Pulse's bank accounts into every other app's
+contract, which is how a shared component becomes a union of everybody's
+special cases.
+
+Pulse passes no `markPurchasePaid` at all now, deliberately: it cannot settle
+an invoice from an id alone, and offering both doors would leave two ways to
+do one thing.
+
+One behaviour preserved that is easy to lose in a port: the account is
+OPTIONAL. *"Don't record"* is a real answer — an invoice can be paid in a way
+Pulse is not tracking, and requiring an account would make the honest choice
+impossible and the dishonest one easy.
+
+(The other half of this job, the platform's own Invoices page, turned out to
+be already done: v1.102.0 made it a 43-line wrapper over the same component.)
+
 ## [1.129.2] — 2026-10-11
 
 A colour that does not exist now fails the release.
