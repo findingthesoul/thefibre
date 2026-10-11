@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.144.1] — 2026-10-11
+
+v1.144.0 moved the token to the right workspace and then showed the wrong one
+anyway. Found by looking at it on staging, which is the only reason it was
+found.
+
+**The measurement.** Fixture in two workspaces, token minted in A, choice
+flipped to B by hand, page reloaded. The cookie's own claim said
+`workspace_id` = B, minted 22 seconds earlier — so the refresh had fired and
+the token had moved, exactly as designed. The page still rendered **WS Sync
+A**, and only corrected itself on the next navigation. So the person saw the
+wrong workspace once more, which is the entire symptom this change exists to
+remove. A unit test could not have caught it: every piece was behaving.
+
+`router.refresh()` raced the cookie write. The fix is a full document load,
+which cannot race, and costs nothing in practice because this path runs at
+most once per mount and only when the two genuinely disagree.
+
+### Which opened a worse hole, so it is guarded
+
+A document load **remounts everything and resets an in-memory guard.** So a
+refresh that did NOT move the token — hook picks the same workspace, anything
+unforeseen — would reload, remount, see the same disagreement, refresh,
+reload, **forever, in every app, for everybody it happened to.** An infinite
+reload loop is far worse than the stale workspace being fixed.
+
+So the shell now also returns `staleWorkspaceKey`, the exact pair
+(`<active>-><chosen>`), and the reader records it in `sessionStorage` before
+it acts. A disagreement that will not resolve is attempted **once** and then
+left alone; a later, genuinely different switch has a different key and is
+still fixed.
+
+### And the guard had a hole, which is the real lesson
+
+The first version of it wrapped the storage access and said that a browser
+refusing `sessionStorage` would "fall back to the per-mount guard". **That is
+no fallback at all** — the per-mount guard is exactly what a document reload
+resets. So in a private window with site data blocked, a refresh that failed
+to move the token would have reloaded forever: precisely the failure the
+guard was written to prevent, reintroduced by the sentence meant to handle
+its edge case. Caught in review, not by a test, and not by me.
+
+It fails CLOSED now. When the pair cannot be persisted the token is still
+refreshed — harmless, and the next ordinary navigation picks it up — and
+**the reload does not happen**. The workspace corrects itself one navigation
+later instead of never, and nobody is trapped.
+
+The decision moved into `planWorkspaceSync`, a pure function, because that is
+the part with rules worth testing and this package has no DOM test setup.
+Eight cases, including storage that refuses to write, storage that refuses to
+be read, and no storage at all; mutation-checked by restoring the fail-open
+version, which turns three of them red.
+
+That is twice in one change that a guard was needed not for the thing being
+fixed but for the fix's own failure mode, and both times the dangerous
+version was the one that read more simply.
+
 ## [1.144.0] — 2026-10-11
 
 Sjoerd: *"Apps remember their own workspace. It swaps back."* They do, and

@@ -121,6 +121,7 @@ describe('loadAppShell', () => {
   it('is not stale when the token is already in the chosen workspace', async () => {
     const shell = await loadAppShell({ apiFetch: fakeApi(withChoice('w1', true)), appSlug: 'the-thread' });
     expect(shell.ok && shell.staleWorkspace).toBe(false);
+    if (shell.ok) expect(shell.staleWorkspaceKey).toBeNull();
   });
 
   it('is not stale when nothing was ever chosen', async () => {
@@ -131,6 +132,9 @@ describe('loadAppShell', () => {
   it('is stale when the choice is elsewhere AND this app can serve it there', async () => {
     const shell = await loadAppShell({ apiFetch: fakeApi(withChoice('w2', true)), appSlug: 'the-thread' });
     expect(shell.ok && shell.staleWorkspace).toBe(true);
+    // The key names THIS disagreement, so the reader can attempt it once and
+    // not reload forever if it does not resolve.
+    if (shell.ok) expect(shell.staleWorkspaceKey).toBe('w1->w2');
   });
 
   // The one that protects somebody rather than tidying something: refreshing

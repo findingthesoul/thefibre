@@ -110,7 +110,7 @@ export default async function ConnectionsAppLayout({
       {/* Ends a token/choice workspace disagreement by refreshing the
           session once on mount. Renders nothing. See
           @thefibre/shared/ui/workspace-sync. */}
-      <WorkspaceSync stale={shell.staleWorkspace} />
+      <WorkspaceSync stale={shell.staleWorkspace} syncKey={shell.staleWorkspaceKey} />
     <div className="h-dvh flex bg-surface">
       {/* Records the section you are in, so opening Connect brings you back
           to it (Sjoerd, 2026-09-22). Renders nothing. */}

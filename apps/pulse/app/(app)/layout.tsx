@@ -86,7 +86,7 @@ export default async function PulseAppLayout({
       {/* Ends a token/choice workspace disagreement by refreshing the
           session once on mount. Renders nothing. See
           @thefibre/shared/ui/workspace-sync. */}
-      <WorkspaceSync stale={shell.staleWorkspace} />
+      <WorkspaceSync stale={shell.staleWorkspace} syncKey={shell.staleWorkspaceKey} />
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">

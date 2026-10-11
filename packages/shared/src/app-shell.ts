@@ -62,6 +62,9 @@ export type AppShell<Me extends ShellMe, X extends Thunks> =
       workspaces: ShellWorkspace[];
       /** Membership held AND app activated for this workspace (platform: always). */
       hasAccess: boolean;
+      /** Identifies THIS disagreement, so one attempt can be remembered
+       *  across the reload that resolving it causes. Null when not stale. */
+      staleWorkspaceKey: string | null;
       extras: Resolved<X>;
     }
   | { ok: false; reason: 'no-session' | 'no-access' };
@@ -86,6 +89,11 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
   let apps: ShellWorkspaceApp[];
   let workspaces: ShellWorkspace[];
   let stale = false;
+  // The exact disagreement, as "<active>-><chosen>". The reader stores it so
+  // that one that does NOT resolve is attempted once and then left alone —
+  // see ui/workspace-sync.tsx. Without it a refresh that fails to move the
+  // token reloads forever.
+  let staleKey: string | null = null;
   let extraValues: unknown[];
   try {
     [me, apps, workspaces, ...extraValues] = await Promise.all([
@@ -120,6 +128,7 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
               r.chosen_workspace_id !== r.active_workspace_id &&
               chosen?.has_app,
           );
+          staleKey = stale ? `${r.active_workspace_id}->${r.chosen_workspace_id}` : null;
           // `has_app` normally hides workspaces where this app would bounce
           // you. The CHOSEN one is kept regardless: if the person is in a
           // workspace this app cannot serve, saying so is the honest answer —
@@ -158,6 +167,7 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
      * their own workspace.
      */
     staleWorkspace: stale,
+    staleWorkspaceKey: staleKey,
     extras: resolved,
   };
 }
