@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.145.3] — 2026-10-11
+
+Tests only. `no-access.spec.ts` had been red since v1.145.0 and I had not run
+it — found by running it for a different reason.
+
+v1.145.0 taught the sent-home popup to tell two situations apart: somebody who
+SWITCHED into a workspace the app cannot serve, and somebody who merely ended
+up there. This spec's fixture sets `user_active_workspace` to B deliberately,
+to make B the workspace the token resolves to — which also makes B a workspace
+the person chose. So it has always been on the chosen side, and since v1.145.0
+it correctly gets the chosen copy. The spec was still asserting the other
+sentence.
+
+Nothing about the page was wrong. The assertion was.
+
+Updated to the copy that belongs to its own fixture, plus the switch-back
+button it should now be offered. **The load-bearing assertion is untouched and
+never depended on the wording**: after dismissing, the chrome must still say
+B. Being sent home is not a switch, and the new offers are buttons somebody
+has to press.
+
+The honest part: I shipped v1.145.0, ran the three checks asked of me, and did
+not re-run the existing spec covering the very popup I had changed. The checks
+covered the new path; this spec covered the old one. "I tested the thing I
+built" is not the same as "I ran the tests that already existed."
+
+### What the run proved on the way
+
+The failure output carried the evidence for the OTHER half of v1.145.2:
+`getByRole('dialog', { name: 'Back in The Fibre' })` resolved — fourteen
+times, against `aria-labelledby="_R_…-title"`. The accessible name computes in
+a real browser's accessibility tree, which is the only place it genuinely
+exists and the one thing a jsdom test cannot prove. Confirmed again by opening
+a dialog directly: the attribute resolves to "Back in The Fibre",
+`aria-describedby` is absent where no description was passed, and the card
+renders exactly as before.
+
 ## [1.145.2] — 2026-10-11
 
 Two quality items. One of them had been reported in a comment for weeks

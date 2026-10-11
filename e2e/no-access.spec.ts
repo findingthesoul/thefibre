@@ -155,12 +155,31 @@ test.describe('Thread — no access in THIS workspace', () => {
     await expect(popup).toContainText('The Thread');
     await expect(popup).toContainText(B);
 
-    // The load-bearing assertion: B is STILL the workspace. Being sent home
-    // is not a switch. If this ever goes green while the chrome says A, the
-    // rule has been broken somewhere upstream.
-    await expect(popup).toContainText("workspace hasn't changed");
+    // THE CHOSEN COPY, and that is correct for this fixture — which is worth
+    // spelling out, because this assertion used to be the OTHER sentence and
+    // went red on 2026-10-11 without the page being wrong.
+    //
+    // `makeFixture` sets `user_active_workspace` to B deliberately, to make B
+    // the workspace the token resolves to. That also makes B a workspace this
+    // person CHOSE, and since v1.145.0 the popup tells the two apart: "you
+    // switched here and this app is not part of your access" rather than "the
+    // app isn't switched on here". The fixture has always been on the chosen
+    // side; only the copy learned to say so.
+    //
+    // The plainer sentence is still covered — by a person who never switched,
+    // which this fixture is not. Keeping that case means NOT making this one
+    // pretend to be it.
+    await expect(popup).toContainText("isn't part of your access there");
+    // And the way back is offered: A is where The Thread works.
+    await expect(popup.getByRole('button', { name: `Open The Thread in ${A}` })).toBeVisible();
+
     await popup.getByRole('button', { name: 'Got it' }).click();
     await expect(popup).toBeHidden();
+    // THE LOAD-BEARING ASSERTION, and it never depended on the wording: B is
+    // STILL the workspace. Being sent home is not a switch, and nothing on
+    // that popup moved anybody — the offers are buttons somebody has to
+    // press. If this goes green while the chrome says A, the rule has been
+    // broken upstream.
     await expect(page.locator('body')).toContainText(B);
 
     // And the explanation does not replay on the next visit. Scoped the same
