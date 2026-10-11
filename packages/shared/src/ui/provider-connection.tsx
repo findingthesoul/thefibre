@@ -22,7 +22,8 @@
 // disconnect is reported through `onDisconnected` instead of calling
 // router.refresh() itself.
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type ReactNode } from 'react';
+import { NOTICE } from './recipes.js';
 import { Button } from './button.js';
 
 export type ProviderConnectionLabels = {
@@ -50,6 +51,7 @@ export function ProviderConnectionCard({
   connected,
   accountEmail,
   configured,
+  notice,
   statusParam,
   reasonParam,
   labels,
@@ -64,6 +66,20 @@ export function ProviderConnectionCard({
   accountEmail: string | null;
   /** False when the server has no app credentials for this provider. */
   configured: boolean;
+  /**
+   * A note shown beside the Connect button while NOT connected.
+   *
+   * Added for the Zoom Marketplace review (2026-10-12): until Zoom approves
+   * the app, connecting may not work, and somebody with a meeting to run
+   * needs to be told what to do instead rather than left pressing a button.
+   * Provider-agnostic on purpose — this card also draws Teams and Google,
+   * and any of them can be in this state.
+   *
+   * REMOVE WHEN THE ZOOM MARKETPLACE APP IS PUBLISHED, along with
+   * apps/api/src/lib/zoom-pending.ts. Whether it appears is NOT decided
+   * here: the API decides and the call sites pass it.
+   */
+  notice?: ReactNode;
   /** `?zoom=` / `?teams=` from the callback redirect. */
   statusParam: string | null;
   /** `?reason=` from the callback redirect. */
@@ -131,6 +147,12 @@ export function ProviderConnectionCard({
           {!configured && !connected && (
             <div className="mt-3 text-sm text-ink-subtle">{labels.notConfigured}</div>
           )}
+          {/* Only while disconnected: it explains what to do INSTEAD of
+              connecting, which is not advice for somebody already connected.
+              NOTICE.info from the recipes, so it carries no colour of its
+              own — a warning-coloured box here would read as a fault in
+              their account rather than a state of ours. */}
+          {notice && !connected && <div className={`mt-3 ${NOTICE.info}`}>{notice}</div>}
           {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
         </div>
         <div className="shrink-0">

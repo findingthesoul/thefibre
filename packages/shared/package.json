@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.152.0",
+  "version": "1.153.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -93,6 +93,10 @@
     "./participant-auth-i18n": {
       "types": "./dist/participant-auth-i18n.d.ts",
       "default": "./dist/participant-auth-i18n.js"
+    },
+    "./zoom-pending-i18n": {
+      "types": "./dist/zoom-pending-i18n.d.ts",
+      "default": "./dist/zoom-pending-i18n.js"
     },
     "./payments-i18n": {
       "types": "./dist/payments-i18n.d.ts",

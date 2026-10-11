@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { profileFor } from '../lib/identity-profile.js';
+import { showZoomPendingNotice } from '../lib/zoom-pending.js';
 import { z } from 'zod';
 import { SignJWT, jwtVerify } from 'jose';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
@@ -2679,6 +2680,11 @@ meetRoutes.get('/connections', async (c) => {
     teams_connected: teams.connected,
     teams_account_email: teams.email,
     teams_configured: isTeamsConfigured(),
+    // Additive, and temporary: see lib/zoom-pending.ts, which is the single
+    // switch. The apps that draw a Zoom Connect button render what this says
+    // rather than deciding for themselves — the two people who must not see
+    // the notice are identified by things an app has no business knowing.
+    zoom_pending_notice: await showZoomPendingNotice(ctx),
   });
 });
 
@@ -3258,6 +3264,11 @@ meetRoutes.get('/me', async (c) => {
     teams_connected: teams.connected,
     teams_account_email: teams.email,
     teams_configured: isTeamsConfigured(),
+    // Additive, and temporary: see lib/zoom-pending.ts, which is the single
+    // switch. The apps that draw a Zoom Connect button render what this says
+    // rather than deciding for themselves — the two people who must not see
+    // the notice are identified by things an app has no business knowing.
+    zoom_pending_notice: await showZoomPendingNotice(ctx),
   });
 });
 

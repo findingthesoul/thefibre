@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.153.0] — 2026-10-12
+
+The Zoom Connect button now says Zoom hasn't approved us yet.
+
+Sjoerd, 2026-10-12: *"for zoom - as long as it is not connected... make a
+comment at the connect button for all usr (except me), that this is still
+under request, and they should use GOOOGLE or the personal zoom room link at
+thre botom."*
+
+So beside the Connect button, while disconnected, in six languages: *"Zoom is
+still waiting for approval from Zoom itself, so connecting may not work yet.
+Use Google Meet instead, or paste your personal Zoom room link in the field
+further down this page."* It names what to do, not only what is wrong — a
+notice that reports a problem and stops leaves somebody with a meeting to
+run. **The Connect button still works.** This is a comment, not a gate.
+
+All three apps that draw that button — Meet, Thread and The Fibre — already
+share one card, so the notice went in once, and the wording is one shared
+file rather than eighteen strings across three catalogues.
+
+**Two people must not see it, and they are different kinds of exception.**
+
+*Sjoerd*, by role — `public."user".is_super_admin`, read from the database on
+every request, never an email address in an app.
+
+*The Zoom Marketplace reviewer.* He is testing the very integration this
+notice calls unapproved; telling him it is still under request and to use
+Google instead would undermine the review being waited on. **His account is
+named nowhere in this codebase.** His workspace carries a flag —
+`workspace_app.settings.zoom_notice = 'off'` on the platform app row, an
+existing per-workspace jsonb, so no migration and no new table for something
+that is coming out again.
+
+That exemption **fails towards showing the notice**: an absent row or a failed
+read means the notice appears. Which is the right way round for everyone
+except the one person it must not reach — so **the flag has to be set on
+production before this is promoted, not after.** An exemption consulted too
+late protects nobody.
+
+The decision is made once, server-side, and reported as `zoom_pending_notice`
+on `/meet/connections` and `/meet/me`. The apps render what they are told,
+because the two exemptions turn on things an app has no business knowing, and
+three copies of that logic would be three chances to get it wrong.
+
+**To remove it when Zoom approves:** set `ZOOM_MARKETPLACE_PENDING` to `false`
+in `apps/api/src/lib/zoom-pending.ts`. One API deploy and the notice is gone
+everywhere; the web apps follow the flag and need no deploy of their own. The
+file says so in a box, and lists what to delete afterwards.
+
 ## [1.152.0] — 2026-10-12
 
 A manual for merging duplicate organisations — and the contacts one now names

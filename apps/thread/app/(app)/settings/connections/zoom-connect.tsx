@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ZoomConnectionCard } from '@thefibre/shared/ui/zoom-connection';
 import type { Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
+import { zoomPendingNotice } from '@thefibre/shared/zoom-pending-i18n';
 import { startZoomAuth, disconnectZoom } from '../actions';
 
 // The shared Zoom card with this app's strings and server actions injected.
@@ -12,6 +13,7 @@ export function ZoomConnect({
   connected,
   accountEmail,
   configured,
+  pendingNotice,
   statusParam,
   reasonParam,
 }: {
@@ -19,6 +21,9 @@ export function ZoomConnect({
   connected: boolean;
   accountEmail: string | null;
   configured: boolean;
+  /** The API's answer to "should this person be told Zoom is still in
+   *  review?". Not decided here — see apps/api/src/lib/zoom-pending.ts. */
+  pendingNotice?: boolean;
   statusParam: string | null;
   reasonParam: string | null;
 }) {
@@ -28,6 +33,7 @@ export function ZoomConnect({
       connected={connected}
       accountEmail={accountEmail}
       configured={configured}
+      notice={pendingNotice ? zoomPendingNotice(locale) : undefined}
       statusParam={statusParam}
       reasonParam={reasonParam}
       labels={{

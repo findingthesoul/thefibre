@@ -11,6 +11,7 @@
 // The look is Meet's card (apps/meet/.../integrations/zoom.tsx), which still
 // has its own copy; port it to this when next touched.
 
+import type { ReactNode } from 'react';
 import {
   ProviderConnectionCard,
   type ProviderConnectionLabels,
@@ -29,6 +30,9 @@ export function ZoomConnectionCard(props: {
   statusParam: string | null;
   /** `?reason=` from the callback redirect. */
   reasonParam: string | null;
+  /** Shown beside Connect while disconnected — see ProviderConnectionCard.
+   *  Temporary, for the Zoom Marketplace review. */
+  notice?: ReactNode;
   labels: ZoomConnectionLabels;
   onStart: () => Promise<{ url?: string; error?: string }>;
   onDisconnect: () => Promise<{ ok: boolean; error?: string }>;

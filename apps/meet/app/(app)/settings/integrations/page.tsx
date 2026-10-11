@@ -18,6 +18,8 @@ type Host = {
   zoom_connected?: boolean;
   zoom_account_email?: string | null;
   zoom_configured?: boolean;
+  /** Temporary, while the Zoom Marketplace app is in review. */
+  zoom_pending_notice?: boolean;
   teams_connected?: boolean;
   teams_account_email?: string | null;
   teams_configured?: boolean;
@@ -64,7 +66,12 @@ export default async function IntegrationsPage({
           <section className="mt-12">
             <SectionLabel>{t(locale, 'tab_conferencing')}</SectionLabel>
             <div className="mt-4">
+          {/* Zoom is still in Marketplace review, so Connect may not work
+              yet. The API decides who is told — super admins and the
+              reviewer's workspace are not. REMOVE WHEN THE ZOOM MARKETPLACE
+              APP IS PUBLISHED (apps/api/src/lib/zoom-pending.ts). */}
               <ZoomConnect
+                pendingNotice={host?.zoom_pending_notice === true}
                 connected={!!host.zoom_connected}
                 accountEmail={host.zoom_account_email ?? null}
                 configured={host.zoom_configured !== false}
