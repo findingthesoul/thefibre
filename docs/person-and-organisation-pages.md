@@ -1,7 +1,10 @@
 # The person's page and the organisation's page
 
-**Status: proposal. Nothing here is built.** Written 2026-10-11 from the code
-as it stands, for Sjoerd to decide.
+**Status: DECIDED, not built.** Written 2026-10-11 from the code as it stands.
+Sjoerd answered on 2026-10-11 — *"pages: all recommendations"* — so Q1 to Q6
+below are settled exactly as each recommendation reads. The questions are kept
+rather than deleted, because the reasoning is the record of why, and §4 turns
+the answers into slices.
 
 > Sjoerd, 2026-10-04, looking at `app.thethread.app/sjoerd`: the soul.com logo,
 > the line *"courses… by soul.com"*, and underneath it his own first-person
@@ -20,8 +23,11 @@ split would look like, and the questions only he can answer.
 ## 1. What is on the page today, and where each piece comes from
 
 `/{slug}` is **one route** serving three kinds of owner. `resolvePublicOwner`
-tries organiser, then team, then workspace, and the same handler renders
-whichever it finds. So `/sjoerd` and `/soul-com` are the same endpoint with
+tries **workspace first**, then organiser, then team, and the same handler
+renders whichever it finds. (Corrected 2026-10-11, re-reading
+`thread.ts:5546`: this document first said organiser-then-team-then-workspace,
+which is backwards. The order matters for the collision rule below — a
+workspace WINS a contested slug, it does not lose it.) So `/sjoerd` and `/soul-com` are the same endpoint with
 different owners — which is the first half of why they feel like one thing.
 
 ### The person half
@@ -149,7 +155,11 @@ on the company page can have exactly that.
 
 ---
 
-## 3. Open questions — each needs Sjoerd
+## 3. The questions, and the answers
+
+**All six were answered as recommended** (Sjoerd, 2026-10-11: *"pages: all
+recommendations"*). Each recommendation below is therefore the decision; the
+wording is left as written so the reasoning survives with it.
 
 **Q1. Is being listed on the organisation page a separate opt-in from having a
 personal page?**
@@ -199,3 +209,74 @@ was read from the code on 2026-10-11 rather than remembered; the three
 "already exists" findings in §1 are the reason this is smaller than it looks,
 and they are also the most likely things to be wrong if somebody reads this
 months from now. Check them before building.
+
+
+---
+
+## 4. The slices
+
+Four releases, in this order. Each one is whole: nothing offers a switch that
+a later release would make true, because "offered X then refused X" is two
+code paths and this codebase has paid for that shape more than once.
+
+**What a visitor sees on `/sjoerd` is named per slice**, because that is the
+thing Sjoerd will be looking at.
+
+### Slice 1 — the decisions, written down (docs only)
+This document. No migration, no code, **nothing changes on `/sjoerd`**.
+Pushes to `staging` with a `docs:` prefix like any docs commit.
+
+### Slice 2 — the organisation page gets a name and a switch
+- **Migration** (one, `thread_settings`): `site_is_published boolean`, nullable.
+  NULL is grandfathered as PUBLISHED (Q6), because every workspace page that
+  serves today must keep serving the day this ships.
+- **API**: `resolvePublicOwner`'s workspace branch honours it, so a workspace
+  that says no 404s — the switch and the gate in the same release.
+- **Thread → Settings → Website is renamed** to the organisation page (Q3),
+  and gains the switch. Same editor, same columns, clearer name.
+- **On `/sjoerd`: nothing changes.** On `/{workspaceSlug}`: nothing changes
+  either, unless somebody switches it off.
+
+### Slice 3 — the people, and their opt-in
+- **Migration** (one, `thread_organiser`): `listed_on_org_page boolean`,
+  nullable. **NULL means NOT listed** (Q1) — the opposite grandfathering from
+  `is_published`, and deliberately so: that switch protected pages that already
+  existed, this one must not publish a staff directory nobody agreed to.
+- **The Fibre → Settings → Profile** gains the question, beside the existing
+  publish switch, since both are "what of me is public".
+- **The organisation page gains its people section**, reading that column, and
+  **does not link to anyone whose own page is unpublished** (Q2).
+- **On `/sjoerd`: nothing changes.** On `/{workspaceSlug}`: a people section
+  appears — empty for everybody on day one, which is the point.
+
+### Slice 4 — the split itself
+- **No migration.** Every column this needs already exists.
+- The person's page stops rendering the organisation's logo, headline, intro,
+  hero and footer, **keeps the theme** (Q4), and gains a link out: *I run these
+  with …*. **Q5 is a list, not a field** — every organisation the person
+  publishes threads for, derived from their `thread_thread` rows'
+  `workspace_id`. Worth stating plainly because §3 flagged Q5 as the one most
+  likely to need a data-model change: re-read on 2026-10-11, it does not.
+  `thread_organiser.user_id` is globally unique, so one person has one
+  organiser row, and each of their threads carries its own `workspace_id` — so
+  the set of organisations is derivable and nothing needs to be stored.
+- **On `/sjoerd`: this is the visible one.** The soul.com logo, headline,
+  intro, hero and footer leave; his name, photo, *About me*, timezone and
+  threads stay; the theme stays; a link to `/soul-com` appears. Same URL, same
+  threads, same enrolment links.
+- **Sjoerd looks at this on staging before it is promoted.** It is the change
+  he asked for and the one where "is this right?" can only be answered by
+  looking.
+
+### What is deliberately NOT in any slice
+- **No slug migration.** Every address that works today keeps working (§2).
+- **`site_contact_email` stays out of the public payload.** It is not in it
+  today and the split must not quietly add it.
+- **No second editor for the logo.** Q3 is a rename precisely so there is one
+  place a logo is set.
+
+### Checks each slice owes
+Slices 2 and 3 each add a column that decides whether something is public, so
+each needs an integration case proving the DEFAULT — a workspace that has
+never been asked still serves, a person who has never been asked is not
+listed. Slice 4 is visual and owes a staging look rather than an assertion.
