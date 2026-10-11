@@ -463,9 +463,55 @@ personsRoutes.post('/duplicates/distinct', async (c) => {
   return c.json({ ok: true });
 });
 
+// GET /persons/merge-conflicts?keep=&merge= — what the two records disagree
+// about, which is the question a per-field merge has to ask.
+//
+// Its own endpoint rather than a field on /duplicates, and that is a data
+// decision rather than a lazy one: the conflict VALUES only travel for the
+// pair somebody actually opened, instead of shipping both records of every
+// suggested pair to a browser that will look at one of them.
+personsRoutes.get('/merge-conflicts', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const keep = c.req.query('keep');
+  const merge = c.req.query('merge');
+  if (!keep || !merge) return c.json({ error: 'keep and merge are required' }, 400);
+
+  // The same tenancy check the merge itself carries, for the same reason: the
+  // RPC runs as the service role and knows only that the pair shares *a*
+  // workspace, so without this an admin of any workspace could read two
+  // people of another by id. (Stress round, 2026-09-25.)
+  if (!(await bothInWorkspace(ctx.workspaceId, keep, merge))) {
+    return c.json({ error: 'person not found' }, 404);
+  }
+
+  const { data, error } = await adminClient.rpc('person_merge_conflicts', {
+    p_keep: keep,
+    p_merge: merge,
+  });
+  if (error) {
+    console.error('[persons/merge-conflicts] failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ conflicts: data ?? [] });
+});
+
 const MergeBody = z.object({
   keep_id: z.string().uuid(),
   merge_id: z.string().uuid(),
+  /**
+   * Per-column decisions: `{ "phone": "merge", "city": "keep" }`.
+   *
+   * A SIDE, never a value. A merge that accepted values would be an arbitrary
+   * field writer — whoever may merge could set any fillable column of any
+   * person to anything, through an endpoint that applies none of the
+   * validation the profile routes do. Naming a side means it can only ever
+   * choose between two values that already exist on the two records.
+   *
+   * Omitted = the behaviour since 2026-09-25: blanks filled, keeper wins.
+   */
+  choices: z.record(z.string(), z.enum(['keep', 'merge'])).optional(),
 });
 
 // POST /persons/merge — repoints every FK, soft-deletes the merged row.
@@ -491,6 +537,12 @@ personsRoutes.post('/merge', async (c) => {
     p_keep: body.data.keep_id,
     p_merge: body.data.merge_id,
     p_actor: ctx.userId || null,
+    // The function validates these too, and raises on a column a merge may
+    // not carry or a value that is not keep/merge. Passed through rather than
+    // filtered here: silently dropping a choice is how somebody's decision
+    // disappears without anybody learning that it did, and a raise arrives as
+    // a 400 with the column named below.
+    p_choices: body.data.choices ?? {},
   });
   if (error) {
     console.error('[persons/merge] failed', {

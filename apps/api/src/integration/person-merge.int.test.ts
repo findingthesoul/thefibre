@@ -548,4 +548,181 @@ describe('person_duplicate_candidates', () => {
     const keys = pairs.map((p) => [p.person_a, p.person_b, p.reason].join('|'));
     expect(new Set(keys).size).toBe(keys.length);
   });
+
+  // ── Per-field choices (20261011210332) ────────────────────────────────────
+  //
+  // Sjoerd asked that the person merging decide, per field, which value wins
+  // where both records answered. Until now the keeper always won and only its
+  // blanks were filled, so the other record's phone number was simply dropped.
+  //
+  // A choice names a SIDE, never a value — the merge can only ever pick
+  // between two values that already exist on the two records, so the endpoint
+  // cannot be used to write an arbitrary one.
+
+  /** Two people who disagree about three fields and agree about a fourth. */
+  async function conflictingPair(stamp: number) {
+    const keep = await makePerson('Conflict', 'Keeper', `ck-${stamp}@example.com`);
+    await service
+      .from('person')
+      .update({ phone: '+3110000001', city: 'Amsterdam', region: null })
+      .eq('id', keep);
+    const lose = await makePerson('Conflict', 'Loser', `cl-${stamp}@example.com`);
+    await service
+      .from('person')
+      .update({ phone: '+3120000002', city: 'Rotterdam', region: 'Zuid-Holland' })
+      .eq('id', lose);
+    return { keep, lose };
+  }
+
+  const read = async (id: string) => {
+    const { data } = await service.from('person').select('*').eq('id', id).single();
+    return data as Record<string, unknown>;
+  };
+
+  it('says what the two records disagree about, and not what they do not', async () => {
+    const { keep, lose } = await conflictingPair(Date.now());
+    const { data, error } = await service.rpc('person_merge_conflicts', {
+      p_keep: keep,
+      p_merge: lose,
+    });
+    expect(error).toBeNull();
+    const names = ((data ?? []) as { name: string }[]).map((r) => r.name).sort();
+
+    // phone and city: both answered, differently. last_name too.
+    expect(names).toContain('phone');
+    expect(names).toContain('city');
+    // region: the keeper is blank, so it is a FILL, not a conflict — no
+    // decision is needed and the screen must not ask for one.
+    expect(names, 'a blank on one side is a fill, not a conflict').not.toContain('region');
+    // first_name is identical on both; agreement is not a conflict either.
+    expect(names, 'identical answers are not a disagreement').not.toContain('first_name');
+  });
+
+  it('without choices, behaves exactly as it did — keeper wins, blanks fill', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 1);
+    await service.rpc('merge_person', { p_keep: keep, p_merge: lose, p_actor: null });
+
+    const after = await read(keep);
+    expect(after.phone, 'the keeper answered, so the keeper wins').toBe('+3110000001');
+    expect(after.city).toBe('Amsterdam');
+    expect(after.region, 'blank on the keeper, so it fills').toBe('Zuid-Holland');
+  });
+
+  it('takes the merged record\'s value for a column chosen as "merge"', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 2);
+    await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+      p_choices: { phone: 'merge' },
+    });
+
+    const after = await read(keep);
+    expect(after.phone, 'chosen from the merged record').toBe('+3120000002');
+    expect(after.city, 'not chosen, so unchanged').toBe('Amsterdam');
+  });
+
+  // THE ONE THAT MAKES UNDO SAFE. The keeper's value is now something a merge
+  // can overwrite, so `before` is a real value rather than always blank — and
+  // the undo has to put it back.
+  it('undo restores a value the choice overwrote', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 3);
+    const { data: mergeId } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+      p_choices: { phone: 'merge', city: 'merge' },
+    });
+    expect((await read(keep)).phone).toBe('+3120000002');
+
+    const { error } = await service.rpc('unmerge_person', {
+      p_merge_id: mergeId as string,
+      p_actor: null,
+    });
+    expect(error).toBeNull();
+
+    const after = await read(keep);
+    expect(after.phone, 'the keeper had this before the merge').toBe('+3110000001');
+    expect(after.city).toBe('Amsterdam');
+  });
+
+  // And the protection that already existed must survive the new path: an
+  // undo reverses the merge, not the afternoon's work.
+  it('undo leaves a chosen value a human corrected afterwards', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 4);
+    const { data: mergeId } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+      p_choices: { phone: 'merge' },
+    });
+    await service.from('person').update({ phone: '+3130000003' }).eq('id', keep);
+
+    await service.rpc('unmerge_person', { p_merge_id: mergeId as string, p_actor: null });
+
+    expect(
+      (await read(keep)).phone,
+      'an undo reverses the merge, not a correction made since',
+    ).toBe('+3130000003');
+  });
+
+  it('an explicit "keep" suppresses even the blank fill', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 5);
+    await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+      p_choices: { region: 'keep' },
+    });
+    expect(
+      (await read(keep)).region,
+      'an explicit instruction is honoured literally rather than second-guessed',
+    ).toBeNull();
+  });
+
+  // Silently ignoring a decision is how somebody's choice disappears without
+  // anybody learning that it did. Both refusals name the column.
+  it('refuses a column a merge may not carry', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 6);
+    const { error } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+      p_choices: { workspace_id: 'merge' },
+    });
+    expect(error, 'tenancy is not a field anybody chooses').not.toBeNull();
+    expect(error!.message).toContain('workspace_id');
+  });
+
+  it('refuses a choice that is neither keep nor merge', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 7);
+    const { error } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+      p_choices: { phone: 'theirs' },
+    });
+    expect(error).not.toBeNull();
+    expect(error!.message).toContain('phone');
+  });
+
+  it('keeps the decisions on the audit row, not only their result', async () => {
+    const { keep, lose } = await conflictingPair(Date.now() + 8);
+    const { data: mergeId } = await service.rpc('merge_person', {
+      p_keep: keep,
+      p_merge: lose,
+      p_actor: null,
+      p_choices: { phone: 'merge', city: 'keep' },
+    });
+    const { data } = await service
+      .from('person_merge')
+      .select('choices, filled')
+      .eq('id', mergeId as string)
+      .single();
+    expect(data!.choices).toEqual({ phone: 'merge', city: 'keep' });
+    // city was chosen as keep, so nothing was written for it.
+    expect(Object.keys((data!.filled ?? {}) as object)).toContain('phone');
+    expect(Object.keys((data!.filled ?? {}) as object)).not.toContain('city');
+  });
+
 });

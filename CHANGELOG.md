@@ -6,6 +6,83 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.148.0] — 2026-10-11
+
+Merging two people can now be told, per field, which value wins. This is the
+database half — no screen yet, and nothing changes until a caller sends
+choices.
+
+Sjoerd asked for this with the duplicates screen: today the keeper always wins
+and only its BLANKS are filled from the record being merged away, so where
+both records have a phone number the other one is simply dropped.
+
+### A choice names a SIDE, never a value
+
+`{"phone": "merge"}`, not `{"phone": "+31 6 …"}`. This is the security line of
+the whole feature, so it is written into the migration rather than left to be
+inferred from a type.
+
+A merge that accepted values would be an arbitrary field writer: whoever may
+merge could set any fillable column of any person to anything, through an
+endpoint applying none of the validation the profile routes do — FIELD_LIMITS,
+the contact-point normalisation, all of it. Naming a side means the merge can
+only ever choose between two values that already exist on the two records, and
+it makes the audit self-evidently right, because `after` is whichever side was
+named.
+
+### The audit needed no change at all
+
+`filled` was already `{column: {before, after}}`, and undo already restores
+`before` only where the column still holds `after`. Until now `before` was
+always blank, because only blanks were filled; with a choice it becomes
+whatever the keeper actually had, and the same rule puts it back — including
+the protection that an edit made since the merge wins over the undo. Checked
+in the existing function rather than assumed, which is why `unmerge_person` is
+untouched by this.
+
+### Three cases, and the default one is unchanged
+
+- **no choice** — fill only if the keeper is blank. Byte-identical to
+  2026-09-25, so the existing route, the existing tests and anybody who never
+  opens the new screen are unaffected.
+- **merge** — take the other record's value even over an answer.
+- **keep** — do nothing at all, including no blank fill. An explicit
+  instruction is honoured literally rather than second-guessed.
+
+An unknown column, or a value that is not keep/merge, **raises and names the
+column**. Silently ignoring a decision is how somebody's choice disappears
+without anyone learning that it did.
+
+### What the screen will ask
+
+`person_merge_conflicts` returns the columns where both records answered and
+the answers differ — the questions a per-field merge has to ask. A blank on
+one side is NOT a conflict: that is the existing fill, it needs no decision,
+and the gains line already says so.
+
+Its own endpoint rather than a field on `/duplicates`, and that is a data
+decision: the conflict values travel only for the pair somebody actually
+opened, instead of shipping both records of every suggested pair to a browser
+that will look at one. It carries the same tenancy check the merge does, for
+the same reason — the RPC runs as the service role and knows only that the
+pair shares *a* workspace.
+
+### Why merge_person is copied forward
+
+2026-09-25 deliberately did not do this, hanging the fill on a trigger to
+avoid carrying 150 lines of FK discovery into a new file. That reasoning still
+holds and the trigger stays — but a trigger reads the ROW, and the choices
+have to get onto the row, which only the INSERT can do.
+
+So the function is reproduced with exactly two edits, both marked. The copy
+was made by extracting the text rather than retyping it, and then **diffed
+against the original**: the 126-line FK walk, the self-merge guard, the
+append-only handling and the unique-violation branch are byte-identical. The
+three-argument version is dropped first, because a fourth parameter with a
+default would otherwise leave two candidates for a three-argument call and
+Postgres answers that with "function is not unique" — at call time, in
+production, not in the migration.
+
 ## [1.147.0] — 2026-10-11
 
 The last six limits the API knew and the person typing did not.
