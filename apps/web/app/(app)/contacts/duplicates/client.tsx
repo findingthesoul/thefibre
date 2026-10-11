@@ -443,7 +443,21 @@ export function DuplicatesClient({
 
           {/* The question (Sjoerd, 2026-09-15): same person with different
               roles, or different people with the same name? */}
-          {choosing === key(pair) ? (
+          {/* REMOVE IN THE DuplicatesQueue EXTRACTION — this guard and its
+              twin in organisations/duplicates/client.tsx are the same fix in
+              two files, and the shared component should carry it once.
+              Until then both files keep it, because skipping one is what
+              makes the copies drift.
+
+              What it fixes: once the per-field step is open the keeper HAS
+              been chosen, so this explainer and the Same/Different buttons
+              are asking something already decided — and their Back sat a few
+              millimetres from the step's own Back, one closing the step and
+              one leaving the choice. At phone width the stale paragraph
+              landed directly under "Merge with these answers". Found by
+              looking at the organisation twin on staging at 1280 and 375;
+              every test passed. (v1.151.1 there, v1.151.2 here.) */}
+          {choosing === key(pair) && conflictStep?.pairKey !== key(pair) ? (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <p className="text-xs text-ink-muted flex-1">{t(locale, 'dup_pick_keep')}</p>
               <button
@@ -455,7 +469,7 @@ export function DuplicatesClient({
                 {t(locale, 'dup_back')}
               </button>
             </div>
-          ) : (
+          ) : conflictStep?.pairKey === key(pair) ? null : (
             <div className="mt-3">
               <p className="text-sm font-medium">{t(locale, 'dup_question')}</p>
               <div className="mt-2 flex flex-wrap gap-2">

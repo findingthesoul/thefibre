@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.151.2] — 2026-10-12
+
+The same fix for the people duplicates screen, which has had it longer.
+
+v1.151.1 stopped the organisation queue asking which record to keep while the
+per-field step was already open. `/contacts/duplicates` has had the identical
+problem since the step shipped in v1.149.0 — two **Back** links a few
+millimetres apart, one closing the step and one leaving the choice, under a
+paragraph asking something already decided, and on a phone that paragraph
+sitting directly beneath *Merge with these answers*.
+
+It was tempting to let this wait for the shared component the two screens are
+queued to be folded into. That was the wrong call and it is not the one taken
+here: the extraction is queued, not scheduled, and meanwhile this is the
+screen people actually use. Putting the guard in both files keeps the copies
+identical — skipping one is what makes them drift.
+
+Both guards carry **REMOVE IN THE DuplicatesQueue EXTRACTION** so whoever
+does that refactor deletes them rather than porting them twice.
+
+New: `e2e/person-duplicates.spec.ts`, the first browser test of the people
+queue. It seeds a pair sharing an email address, opens the per-field step and
+asserts the explainer, both answer buttons and the second Back are gone — then
+that Back still closes the step, because a guard that hides the way out would
+be a worse bug than the one it fixes. Confirmed to FAIL against the build
+without the fix, naming the stale paragraph.
+
 ## [1.151.1] — 2026-10-12
 
 The duplicates screen stops asking a question it has already been answered.

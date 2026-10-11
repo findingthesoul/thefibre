@@ -384,8 +384,9 @@ export function OrgDuplicatesClient({
               there put two "Back" links a few millimetres apart, one closing
               the step and one leaving the choice, and on a phone the stale
               paragraph sits directly under "Merge with these answers". Seen
-              in the browser at both widths; the person screen has the same
-              pair and should lose it in the shared extraction. */}
+              in the browser at both widths. REMOVE IN THE DuplicatesQueue
+              EXTRACTION: the person screen carries the identical guard
+              (v1.151.2), and the shared component should carry it once. */}
           {choosing === key(pair) && conflictStep?.pairKey !== key(pair) ? (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <p className="text-xs text-ink-muted flex-1">{t(locale, 'odup_pick_keep')}</p>
