@@ -1,4 +1,5 @@
 import { OrgPeople, type OrgPerson } from './org-people';
+import { OrgLinks, type OrgLink } from './org-links';
 // The public listing page body, shared between its two addresses
 // (docs/brief-workspace-urls.md):
 //
@@ -37,6 +38,8 @@ export function OrganiserListing({
   workspace = null,
   site = null,
   people = [],
+  organisations = [],
+  ownerKind = 'organiser',
   // ENGLISH, like `EMPTY` in themes.tsx a few lines away, and for the same
   // reason: the page SHELL has no locale. The public catalogue is reached
   // per THREAD (threads-grid resolves th.language), and a workspace page is
@@ -44,6 +47,8 @@ export function OrganiserListing({
   // would look translated without being translatable. When the shell gains a
   // language, this and EMPTY move together.
   peopleTitle = 'People',
+  // English for the same reason — see the note above.
+  organisationsTitle = 'Runs these with',
 }: {
   organiser: PublicOrganiser;
   threads: PublicThreadListItem[];
@@ -61,9 +66,53 @@ export function OrganiserListing({
   people?: OrgPerson[];
   /** The heading above them, from the public page's own catalogue. */
   peopleTitle?: string;
+  /** The organisations a PERSON runs threads with. Empty on every other kind
+   *  of page, and empty on an older API. */
+  organisations?: OrgLink[];
+  /** The heading above the organisations. */
+  organisationsTitle?: string;
+  /** Which of the three this page is. Drives the one decision below that
+   *  cannot be made from the data alone: whether to wear the organisation's
+   *  clothes. */
+  ownerKind?: 'organiser' | 'team' | 'workspace';
 }) {
   const name = organiser.display_name ?? organiser.slug;
-  const resolved = site ?? PLAIN_SITE;
+
+  // ── THE SPLIT (docs/person-and-organisation-pages.md §2) ────────────────
+  //
+  // Sjoerd, 2026-10-04, reading his own page: the soul.com logo, the line
+  // "courses… by soul.com", and underneath it his own first-person About me.
+  // "Half me the person, half me the organiser, confusing. Maybe these are
+  // two things."
+  //
+  // They are. A PERSON's page keeps the THEME — a visual language says
+  // "related to", not "belongs to" — and sheds every ingredient that belongs
+  // to the organisation: logo, site name, headline, intro, hero, footer and
+  // the site's own links and contact page.
+  //
+  // Everything then falls back to the person by itself, because the themes
+  // already read `site.headline ?? p.name`, `site.logo_url ?? p.photoUrl`
+  // and `site.name ?? ownerName`. Blanking the wrapper is the whole change;
+  // no theme needed a line.
+  //
+  // The URL does not move and the threads do not move. What changes is what
+  // surrounds them, which is exactly what he said was confusing.
+  const wrapper = site ?? PLAIN_SITE;
+  const resolved =
+    ownerKind === 'organiser'
+      ? {
+          ...wrapper,
+          name: null,
+          logo_url: null,
+          hero_url: null,
+          headline: null,
+          intro: null,
+          footer_note: null,
+          links: [],
+          contact_enabled: false,
+          contact_intro: null,
+        }
+      : wrapper;
   const Theme = THEMES[resolved.theme] ?? THEMES.plain;
 
   // On /{workspace}/{organiser} the nav's home link and the contact page
@@ -80,7 +129,13 @@ export function OrganiserListing({
       baseSlug={baseSlug}
       ownerSlug={ownerSlug}
       threads={threads}
-      people={<OrgPeople people={people} title={peopleTitle} />}
+      below={
+        ownerKind === 'organiser' ? (
+          <OrgLinks organisations={organisations} label={organisationsTitle} />
+        ) : (
+          <OrgPeople people={people} title={peopleTitle} />
+        )
+      }
       crumb={
         workspace ? (
           <nav className="mb-8 text-sm">

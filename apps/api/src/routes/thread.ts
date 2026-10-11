@@ -5468,6 +5468,65 @@ async function orgPagePeople(workspaceId: string): Promise<
   return out.sort((a, b) => (a.display_name ?? '').localeCompare(b.display_name ?? ''));
 }
 
+/**
+ * The organisations a person publishes threads for.
+ *
+ * Q5, and the question the proposal was least sure about: a person who runs
+ * threads for two workspaces. The answer is a LIST, and it needs no column —
+ * `thread_organiser.user_id` is globally unique, so one person has one
+ * organiser row, and each of their threads carries its own `workspace_id`.
+ * A single "their organisation" field would have had to invent an answer.
+ *
+ * `linked` repeats the rule the people section uses, pointed the other way:
+ * an organisation whose own page is switched off is NAMED but not linked,
+ * because a link to a deliberate 404 is worse than no link. The fact that
+ * somebody runs threads with an organisation is not the secret; the
+ * organisation's page being off is a separate choice about that page.
+ *
+ * Archived workspaces are left out entirely — `resolvePublicOwner` skips
+ * them, so a link would 404 with nothing to say about it.
+ */
+async function organisationsOf(
+  organiserId: string,
+): Promise<{ slug: string; name: string | null; linked: boolean }[]> {
+  const { data: threads, error } = await adminClient
+    .from('thread_thread')
+    .select('workspace_id')
+    .eq('organiser_id', organiserId)
+    .eq('is_public_listed', true);
+  if (error) {
+    console.error('[public page] organisations lookup failed', error.message);
+    return [];
+  }
+  const ids = [...new Set((threads ?? []).map((t) => t.workspace_id as string))];
+  if (ids.length === 0) return [];
+
+  const { data: workspaces, error: wErr } = await adminClient
+    .from('workspace')
+    .select('id, slug, name')
+    .in('id', ids)
+    .is('archived_at', null);
+  if (wErr) {
+    console.error('[public page] organisation workspaces lookup failed', wErr.message);
+    return [];
+  }
+  // One query for all their sites, not one per workspace.
+  const { data: sites } = await adminClient
+    .from('thread_settings')
+    .select('workspace_id, site_is_published')
+    .in('workspace_id', ids);
+  const off = new Set(
+    (sites ?? []).filter((r) => r.site_is_published === false).map((r) => r.workspace_id as string),
+  );
+  return (workspaces ?? [])
+    .map((w) => ({
+      slug: w.slug as string,
+      name: (w.name as string | null) ?? null,
+      linked: !off.has(w.id as string),
+    }))
+    .sort((a, b) => (a.name ?? a.slug).localeCompare(b.name ?? b.slug));
+}
+
 // Public URLs group by owner: personal threads live under the organiser's
 // slug, team threads under the TEAM's slug (Sjoerd 2026-07-02). One root
 // namespace, resolved organiser-first (Meet's pattern).
@@ -5799,6 +5858,12 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     // caller never has to tell "nobody said yes" from "this is not that kind
     // of page" — the second is what owner_kind is for.
     people: owner.kind === 'workspace' ? await orgPagePeople(owner.workspace.id) : [],
+    // The mirror of `people`, on a PERSON's page: who they run threads with.
+    // The two are never both populated, which is the split in one line — a
+    // person's page says who they work with, an organisation's says who works
+    // there.
+    organisations:
+      owner.kind === 'organiser' ? await organisationsOf(owner.organiser.id) : [],
   });
 });
 

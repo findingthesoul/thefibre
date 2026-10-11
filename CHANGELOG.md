@@ -6,6 +6,60 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.134.0] — 2026-10-11
+
+A person's page is the person. The organisation's page is the organisation.
+
+Slice 4 of four, and the only one a visitor sees
+(`docs/person-and-organisation-pages.md` §2).
+
+> Sjoerd, 2026-10-04, looking at his own page: the soul.com logo, the line
+> *"courses… by soul.com"*, and underneath it his own first-person *About me*.
+> **"Half me the person, half me the organiser, confusing."** And: **"Maybe
+> these are two things."**
+
+They are. On `/{person}` the organisation's logo, site name, headline, intro,
+hero, footer, nav links and contact page now go. What stays is the person's
+own name, photo, bio and threads — **and the theme**, because a visual
+language says *related to*, not *belongs to*, and dropping it would make the
+two pages look like unrelated products.
+
+**No migration, and almost no new rendering code.** Blanking the wrapper was
+the whole change: the themes already read `site.headline ?? name`,
+`site.logo_url ?? photoUrl` and `site.name ?? ownerName`, so everything falls
+back to the person by itself. Not one of the six themes needed a line.
+
+**What the page gains is the honest version of the relationship**: a link
+out, *Runs these with Acme Co*. That is Q5 answered, and answered as a LIST —
+a person can run threads for two organisations, and the proposal flagged this
+as the question most likely to force a data-model change. It does not.
+`thread_organiser.user_id` is globally unique, so one person has one organiser
+row, and each of their threads carries its own `workspace_id`. The set is
+derived. A single "their organisation" field would have had to invent an
+answer.
+
+An organisation whose own page is switched off is **named but not linked** —
+the people section's rule pointed the other way. That somebody works with them
+is not the secret; that organisation's page being off is a separate choice
+about that page.
+
+**One slot, not two.** The six themes render one `below` slot: an
+organisation's people on one kind of page, a person's organisations on the
+other. They are never both populated, which is the split in one line.
+
+**What does NOT change**, and was checked rather than assumed:
+
+- The URL. `/{person}` is still `/{person}`; every link anyone has sent works.
+- The threads, and every enrolment link beneath them.
+- `/{workspace}/{person}` — the person INSIDE a workspace — keeps the
+  wrapper, deliberately. The root of that URL is the organisation, there is a
+  *"← back to the workspace"* crumb above it, and a visitor there is inside
+  the organisation's site looking at one of its people. The confusion being
+  undone is a person's OWN address wearing somebody else's logo.
+- The `plain` theme, which never wore the organisation's clothes in the first
+  place — it is the only one of the six that renders no nav and no footer, so
+  pages on it look the same before and after.
+
 ## [1.133.0] — 2026-10-11
 
 An organisation's page can show its people — and nobody is on it until they

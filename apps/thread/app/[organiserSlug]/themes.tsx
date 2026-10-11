@@ -71,12 +71,15 @@ export type ThemeProps = {
   threads: PublicThreadListItem[];
   /** Rendered above everything: the "← back to the workspace" line. */
   crumb?: React.ReactNode;
-  /** The organisation's people, rendered under the threads. A SLOT rather
-   *  than data, so the six themes below do not each grow their own copy of
-   *  a people section that would then drift apart — each one only decides
-   *  where it sits. Absent on a person's page, which is the point of the
-   *  split: a person's page is the person speaking. */
-  people?: React.ReactNode;
+  /** Rendered under the threads. A SLOT rather than data, so the six themes
+   *  below do not each grow their own copy of a section that would then
+   *  drift apart — each one only decides where it sits.
+   *
+   *  On an ORGANISATION's page it holds its people; on a PERSON's page it
+   *  holds the organisations they run threads with. The two never appear
+   *  together, which is the split in one line, and is why one slot is
+   *  honest rather than a shortcut. */
+  below?: React.ReactNode;
 };
 
 const EMPTY = 'Nothing public right now.';
@@ -125,7 +128,7 @@ export function PlainTheme(p: ThemeProps) {
           <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">Threads</h2>
           {p.threads.length === 0 && <p className="mt-3 text-sm text-ink-subtle">{EMPTY}</p>}
           <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} />
-        {p.people}
+        {p.below}
         </section>
 
         <footer className="mt-16 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
@@ -209,7 +212,7 @@ export function FestivalTheme(p: ThemeProps) {
         <h2 className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">Programme</h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
         <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="poster" />
-        {p.people}
+        {p.below}
       </main>
 
       <SiteFooter site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
@@ -257,7 +260,7 @@ export function CorporateTheme(p: ThemeProps) {
         <h2 className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">Upcoming</h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
         <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="row" />
-        {p.people}
+        {p.below}
       </main>
 
       <SiteFooter site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
@@ -324,7 +327,7 @@ export function CommunityTheme(p: ThemeProps) {
         <h2 className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">What’s on</h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
         <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} />
-        {p.people}
+        {p.below}
       </main>
 
       <SiteFooter site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
@@ -437,7 +440,7 @@ export function StudioTheme(p: ThemeProps) {
         </h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
         <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="poster" />
-        {p.people}
+        {p.below}
       </main>
 
       <SiteFooter site={p.site} ownerSlug={p.ownerSlug} ownerName={p.name} />
@@ -497,7 +500,7 @@ export function JournalTheme(p: ThemeProps) {
           </h2>
           {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
           <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="row" />
-        {p.people}
+        {p.below}
         </div>
       </main>
 

@@ -95,6 +95,14 @@ export default async function PublicThreadPage({
       baseSlug={listing.workspace.slug}
       workspace={listing.workspace}
       site={listing.site ?? null}
+      // ownerKind is left at its default, so this page KEEPS the
+      // organisation's wrapper while /{person} sheds it (slice 4,
+      // docs/person-and-organisation-pages.md). Deliberate, not an
+      // oversight: the root of this URL is the WORKSPACE, and a visitor here
+      // is inside the organisation's site looking at one of its people —
+      // there is even a "← back to the workspace" crumb above. The
+      // confusion the split undoes is a person's OWN address wearing
+      // somebody else'''s logo, which is a different page.
     />
   );
 }

@@ -5,6 +5,7 @@ import type { PublicThreadListItem } from './threads-grid';
 import { OrganiserListing, type PublicOrganiser } from './organiser-listing';
 import type { PublicSite } from '@/lib/public-site';
 import type { OrgPerson } from './org-people';
+import type { OrgLink } from './org-links';
 
 // The first URL segment is any public owner slug — workspace, team or
 // organiser (docs/brief-workspace-urls.md D3: one namespace, workspaces
@@ -52,6 +53,8 @@ export default async function PublicOrganiserPage({
     // Additive: absent on an older API, which renders no people section
     // rather than an empty one.
     people?: OrgPerson[];
+    organisations?: OrgLink[];
+    owner_kind?: 'organiser' | 'team' | 'workspace';
   };
   try {
     data = await publicFetch(`/api/v1/thread/public/organiser/${organiserSlug}`);
@@ -67,6 +70,11 @@ export default async function PublicOrganiserPage({
       baseSlug={data.organiser.slug}
       site={data.site ?? null}
       people={data.people ?? []}
+      organisations={data.organisations ?? []}
+      // An older API sends no owner_kind. Defaulting to 'organiser' would
+      // strip the wrapper from workspace pages served by it, so the default
+      // here is the one that changes nothing.
+      ownerKind={data.owner_kind ?? 'workspace'}
     />
   );
 }
