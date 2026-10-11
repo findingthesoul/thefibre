@@ -407,6 +407,22 @@ export function InvoicesArea({
     setLoadingMore(false);
   }
 
+  /**
+   * Re-read the current page and put it on screen, keeping an open detail
+   * dialog pointed at the same row.
+   *
+   * `load` only FETCHES — it returns a page and sets nothing. Calling it and
+   * dropping the result leaves the screen on stale rows, which is what
+   * happened to the caller-supplied mark-paid below before this existed.
+   */
+  async function refresh() {
+    const d = await load();
+    if (!d) return;
+    setData(d);
+    setItems(d.items);
+    setDetail((prev) => (prev ? (d.items.find((i) => i.id === prev.id) ?? null) : null));
+  }
+
   async function run(
     action: (id: string) => Promise<OpResult>,
     row: PurchaseRow,
@@ -426,13 +442,7 @@ export function InvoicesArea({
       return;
     }
     setNotice({ kind: 'ok', text: okMsg });
-    // Refresh in place.
-    const d = await load();
-    if (d) {
-      setData(d);
-      setItems(d.items);
-      setDetail((prev) => (prev ? (d.items.find((i) => i.id === prev.id) ?? null) : null));
-    }
+    await refresh();
   }
 
   const allScopes: { key: Scope; label: string; Icon: typeof User; disabled?: boolean }[] = [
@@ -772,9 +782,9 @@ export function InvoicesArea({
           dialogs. `done(true)` reloads the list, because settling an invoice
           changes the row it came from. */}
       {markPaidRow &&
-        renderMarkPaid?.(markPaidRow, (refresh) => {
+        renderMarkPaid?.(markPaidRow, (changed) => {
           setMarkPaidRow(null);
-          if (refresh) void load();
+          if (changed) void refresh();
         })}
 
       {confirmRefund && (

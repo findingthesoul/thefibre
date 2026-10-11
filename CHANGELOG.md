@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.130.1] — 2026-10-11
+
+Pulse's Mark paid saved the invoice and left the old one on screen.
+
+Found by looking at it on staging, which is the only reason it is in this
+release and not in production. Marking the €1,250 invoice paid wrote
+everything correctly — `status: paid`, `paid_at` the 9th of October because
+that is the date I picked, a €1,250.00 balance snapshot on the Triodos
+account dated the 9th — and then the screen went on saying **Pending**. A
+reload showed Paid. So the money was recorded and the person was told it was
+not.
+
+The cause is a two-line trap in the shared area. `load()` FETCHES a page and
+returns it; it sets no state. Every existing caller went through `run()`,
+which called `load()` and then applied the result. The `done(true)` callback
+I added for Pulse's own mark-paid called `load()` and dropped what it
+returned — a fetch whose answer nobody read.
+
+`refresh()` now does the fetching and the applying together, and both paths
+call it. There is no longer a way to reload the list and forget to show it.
+
+**Not covered by a test**, and worth saying plainly: `packages/shared` has no
+DOM test setup, and adding jsdom and a testing library for this one assertion
+would tax every release afterwards. It was verified in the browser instead —
+Pulse marks paid and the row, the totals and the dialog all turn over
+without a reload, and Meet, which already went through `run()`, behaves
+exactly as it did before.
+
 ## [1.130.0] — 2026-10-11
 
 Pulse's Invoices stop being a copy of everyone else's.
