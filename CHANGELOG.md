@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.138.0] — 2026-10-11
+
+Every invoice email now says where to read it again.
+
+Slice B, and the other half of *"see his/her invoice online (in my.thread -
+thus login)"*. A receipt, an invoice and a payment-link email all now carry
+**See this invoice in My Thread (sign in)**, pointing at `/purchases/<id>` —
+the deep link v1.137.0 built.
+
+**One place, so no email can forget.** The button is added inside
+`receiptHtml`, which every receipt, invoice and payment-link email already
+passes through. The alternative was threading an argument through
+`sendReceipt` and the payment-link path separately: two places to get right
+today, three the next time somebody adds an email. Same reasoning as the
+staging-mail marking living at the transport.
+
+**The label says "sign in" rather than letting somebody discover it on
+arrival.** A link that promises an invoice and delivers an auth wall reads as
+a broken link, and the person who gives up is the one who needed their
+receipt.
+
+**Secondary, not a second solid button.** On an unpaid invoice the Pay button
+is the thing to press; two filled buttons of equal weight make a person stop
+and choose. This one is for the copy somebody looks for weeks later.
+
+**The host is derived, and the two stacks are right for DIFFERENT reasons** —
+which is the thing to know before changing either, and it was checked against
+the live apps rather than assumed:
+
+- **Production** has no `NEXT_PUBLIC_MY_URL`, so `surfaceUrl` falls back to
+  the constant in `branding.ts` and resolves `my.thethread.app`.
+- **Staging** has the secret set, and that secret is the ONLY thing keeping a
+  staging receipt off the production portal — an email has no request host, so
+  the `isStagingHost` fallback that saves every page-rendered link cannot help
+  here. This is the same shape as the bug that comment already records: the
+  first caller without the variable was the API, building a calendar address,
+  and it handed out a production URL from the staging stack.
+
+Both directions are asserted, not just production. A test that pinned only
+production would stay green if staging quietly started pointing at production
+too — and then everybody checking staging would be reading the live database's
+invoices.
+
+**No token in the link, and a test that says so.** An invoice email is
+forwarded to a bookkeeper, quoted in a reply, left in a shared inbox and
+screenshotted; a token in that URL would make every one of those a disclosure
+of somebody's payment history, to whoever ends up holding it, for as long as
+it lives. The assertion is specific — no query string at all, nothing matching
+token/key/sig/jwt/auth, and a pathname of exactly `/purchases/<id>`.
+
+A row with no id loses the button rather than rendering one pointing at
+`/purchases/undefined`, which would be a broken promise in a real receipt.
+
+Mutation-checked rather than trusted: emptying the button in `receiptHtml`
+turns three cases red. The helpers being right is not the same promise as the
+email carrying it — a distinction this session has already paid for once.
+
 ## [1.137.0] — 2026-10-11
 
 A member can read their own invoice, not just download it.

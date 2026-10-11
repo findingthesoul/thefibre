@@ -13,6 +13,7 @@ import { publicOriginFor } from '../lib/public-origin.js';
 import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
+import { invoiceOnlineButtonHtml } from '../lib/invoice-online-link.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
@@ -230,6 +231,11 @@ async function loadForAction(
 }
 
 type ReceiptPurchase = {
+  /** Every caller passes a full ledger row; the type simply never said so.
+   *  Named now because the "see it online" button needs it, and optional
+   *  because a caller that genuinely has no id should lose the button, not
+   *  render one pointing at `/purchases/undefined`. */
+  id?: string;
   payer_name: string;
   payer_email: string | null;
   item_label: string;
@@ -336,7 +342,18 @@ const EMAIL_METHOD: Record<string, string> = {
   free: 'Free (discount code)',
 };
 
-function receiptHtml(
+/**
+ * The receipt-styled email body — and since 2026-10-11, the ONE place the
+ * "see this invoice online" button is added.
+ *
+ * Here rather than at the call sites, for the reason the staging-mail marking
+ * is at the transport: every receipt, invoice and payment-link email already
+ * passes through this function, so no caller has to remember and a new one
+ * cannot arrive without it. The alternative was threading an argument through
+ * sendReceipt and the payment-link path separately, which is two places to
+ * get right today and three the next time somebody adds an email.
+ */
+export function receiptHtml(
   p: ReceiptPurchase,
   buttonHtml: string,
   seller?: SellerDetails,
@@ -398,7 +415,8 @@ function receiptHtml(
          )}</td>
        </tr>
      </table>
-     ${buttonHtml}`,
+     ${buttonHtml}
+     ${p.id ? invoiceOnlineButtonHtml(p.id) : ''}`,
     brand ?? undefined,
   );
 }
