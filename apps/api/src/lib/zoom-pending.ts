@@ -28,42 +28,39 @@ import type { RequestContext } from '../middleware/app-context.js';
 export const ZOOM_MARKETPLACE_PENDING = true;
 
 /**
- * Workspaces that must NOT see the notice, beyond super admins.
+ * Is this workspace exempt?
  *
- * Stored as `workspace_app.settings.zoom_notice = 'off'` on the workspace's
- * PLATFORM app row — an existing per-workspace jsonb (20260514160000), so
- * this needs no migration and no new table for something that is coming out
- * again.
+ * One reader: the Zoom Marketplace reviewer. He is testing the very
+ * integration this notice says is unapproved, and telling him it is still
+ * under request — and to use Google instead — would undermine the review
+ * being waited on. His account is NOT named anywhere in this codebase; his
+ * workspace carries `zoom_notice_hidden`, and the flag is what is read.
  *
- * It exists for one reader: the Zoom Marketplace reviewer. He is testing the
- * very integration this notice says is unapproved, and telling him it is
- * still under request — and to use Google instead — would undermine the
- * review he is conducting. His account is NOT named anywhere in this
- * codebase; his workspace carries a flag, and the flag is what is read.
+ * The flag is a column on `workspace` (20261011230252) rather than the
+ * `workspace_app.settings` jsonb this first used. That first choice was
+ * wrong and measuring it is how it was found: ZERO of 130 staging workspaces
+ * have a `fibre-platform` workspace_app row, because the platform is not an
+ * app a workspace activates. The flag had nowhere to live, and the test
+ * passed only because its own fixture created the row it then read.
  *
- * FAILS TOWARDS SHOWING THE NOTICE. If this read fails, or the row is absent,
- * the notice shows. That is the right way round for everybody except the
- * reviewer — which is why the flag must be set on production BEFORE this
- * reaches it, not afterwards. An exemption list that is consulted after the
- * fact protects nobody (docs/testing-approach: exemption lists fail open).
+ * FAILS TOWARDS SHOWING THE NOTICE. If this read fails, the notice shows.
+ * That is the right way round for everybody except the reviewer — which is
+ * why the flag must be set on production BEFORE the API carrying this
+ * reaches it. (The API, not the promote: a promoted web app talking to an
+ * older API is told nothing and renders nothing.) An exemption consulted
+ * after the fact protects nobody.
  */
 async function workspaceOptedOut(workspaceId: string): Promise<boolean> {
   const { data, error } = await adminClient
-    .from('workspace_app')
-    .select('settings, app:app_id(slug)')
-    .eq('workspace_id', workspaceId)
-    .is('deactivated_at', null);
+    .from('workspace')
+    .select('zoom_notice_hidden')
+    .eq('id', workspaceId)
+    .maybeSingle();
   if (error) {
-    console.error('[zoom-pending] workspace_app read failed', error);
+    console.error('[zoom-pending] workspace read failed', error);
     return false;
   }
-  const rows = (data ?? []) as unknown as {
-    settings: Record<string, unknown> | null;
-    app: { slug: string } | null;
-  }[];
-  return rows.some(
-    (r) => r.app?.slug === 'fibre-platform' && r.settings?.['zoom_notice'] === 'off',
-  );
+  return data?.zoom_notice_hidden === true;
 }
 
 /**

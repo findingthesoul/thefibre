@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.153.1] — 2026-10-12
+
+The Zoom notice's exemption flag had nowhere to live. Found by measuring.
+
+v1.153.0 stored "this workspace does not get the Zoom notice" in
+`workspace_app.settings` on the `fibre-platform` app row, chosen to avoid a
+migration for something temporary. It does not work, and the reason is not
+subtle: **`fibre-platform` never gets a `workspace_app` row.** The platform is
+not an app a workspace activates — only the-thread, fibre-meet, membership and
+the rest ever get rows. Zero of 130 workspaces on staging have one, and the
+`settings` jsonb is empty on all 89 rows that do exist.
+
+**The integration test passed anyway**, because its own helper created the row
+it then read. That is the whole lesson: a fixture that invents the shape under
+test proves the test, not the product. It was caught when the browser probe
+tried to set the flag on a real workspace and the row was not there.
+
+The flag is now `workspace.zoom_notice_hidden` — `workspace` being the one
+table with exactly one row per workspace. Narrowly named rather than a general
+settings bag, because a settings column is a design decision that deserves its
+own thought, and inventing one in passing for a temporary notice is how
+general-purpose bags fill with things nobody can later attribute.
+
+Nothing user-visible changes: the notice behaved identically before and after,
+since the lookup it depended on simply never found anything. What changes is
+that the exemption can now actually be set — which matters, because the one
+person it exists for is the Zoom Marketplace reviewer.
+
+Dropping it when Zoom approves is in the migration's own comment.
+
 ## [1.153.0] — 2026-10-12
 
 The Zoom Connect button now says Zoom hasn't approved us yet.

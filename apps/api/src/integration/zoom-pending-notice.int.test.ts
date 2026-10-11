@@ -45,38 +45,23 @@ async function connections(user: FixtureUser) {
   return (await r.json()) as { zoom_pending_notice?: boolean };
 }
 
-/** Set or clear the per-workspace opt-out, where it actually lives:
- *  `workspace_app.settings` on the PLATFORM app row (20260514160000). No new
- *  table and no migration for something that is coming out again. */
+/**
+ * Set or clear the per-workspace opt-out, where it actually lives: a column
+ * on `workspace` (20261011230252).
+ *
+ * The first version of this helper wrote to `workspace_app.settings` for the
+ * platform app — and CREATED that row when it was missing, which it always
+ * is: zero of 130 staging workspaces have one, because the platform is not an
+ * app a workspace activates. The test passed and the mechanism did not work.
+ * A fixture that invents the shape under test proves the test, not the
+ * product; this one only updates a row that the workspace already has.
+ */
 async function setWorkspaceOptOut(on: boolean) {
-  const { data: platform, error: appErr } = await service
-    .from('app')
-    .select('id')
-    .eq('slug', 'fibre-platform')
-    .single();
-  if (appErr) throw new Error(`app lookup: ${appErr.message}`);
-
-  const { data: row, error: rowErr } = await service
-    .from('workspace_app')
-    .select('id')
-    .eq('workspace_id', ws)
-    .eq('app_id', platform!.id)
-    .maybeSingle();
-  if (rowErr) throw new Error(`workspace_app lookup: ${rowErr.message}`);
-
-  const settings = on ? { zoom_notice: 'off' } : {};
-  if (row) {
-    const { error } = await service
-      .from('workspace_app')
-      .update({ settings })
-      .eq('id', row.id as string);
-    if (error) throw new Error(`workspace_app update: ${error.message}`);
-  } else {
-    const { error } = await service
-      .from('workspace_app')
-      .insert({ workspace_id: ws, app_id: platform!.id, settings });
-    if (error) throw new Error(`workspace_app insert: ${error.message}`);
-  }
+  const { error } = await service
+    .from('workspace')
+    .update({ zoom_notice_hidden: on })
+    .eq('id', ws);
+  if (error) throw new Error(`workspace update: ${error.message}`);
 }
 
 async function setSuperAdmin(on: boolean) {
@@ -90,10 +75,14 @@ async function setSuperAdmin(on: boolean) {
 beforeAll(async () => {
   const { appContext } = await import('../middleware/app-context.js');
   const { meetRoutes } = await import('../routes/meet.js');
+  const { workspaceBrandRoutes } = await import('../routes/workspace-brand.js');
   app = new Hono();
   const v1 = new Hono();
   v1.use('*', appContext);
   v1.route('/meet', meetRoutes);
+  // Mounted so the last test can try to set the flag through a real PATCH
+  // the way a workspace admin could.
+  v1.route('/workspace-brand', workspaceBrandRoutes);
   app.route('/api/v1', v1);
 
   ws = await createThrowawayWorkspace('zoom-notice');
@@ -111,7 +100,6 @@ afterAll(async () => {
     }
   };
   await step('meet_host', () => service.from('meet_host').delete().eq('workspace_id', ws));
-  await step('workspace_app', () => service.from('workspace_app').delete().eq('workspace_id', ws));
   await step('fixture user', async () => {
     if (member) await deleteFixtureUser(member);
   });
@@ -139,6 +127,41 @@ describe('zoom_pending_notice', () => {
     await setSuperAdmin(false);
     await setWorkspaceOptOut(true);
     expect((await connections(member)).zoom_pending_notice).toBe(false);
+  });
+
+  it('cannot be set through the workspace PATCH by an admin', async () => {
+    // The flag decides what ONE person is shown during a review Sjoerd is
+    // waiting on, so it must not be reachable from the API surface a
+    // workspace admin has. The PATCH body is a zod object and zod strips
+    // unknown keys — this asserts that rather than trusting it, because the
+    // protection is a library default nobody declared on purpose, and the
+    // day somebody adds `.passthrough()` for an unrelated reason it would go
+    // away silently.
+    await setWorkspaceOptOut(false);
+    const admin = member;
+    const r = await app.request('/api/v1/workspace-brand', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${admin.accessToken}`,
+        'X-App-ID': 'fibre-platform',
+        'Content-Type': 'application/json',
+      },
+      // A plausible value beside a legitimate one: a body that is ONLY the
+      // forbidden key might be rejected wholesale and prove nothing.
+      body: JSON.stringify({ enrolment_note: 'hello', zoom_notice_hidden: true }),
+    });
+    // Whether the PATCH itself succeeds is not the point and depends on the
+    // plan gates in that route; what matters is the column.
+    expect([200, 403]).toContain(r.status);
+
+    const { data } = await service
+      .from('workspace')
+      .select('zoom_notice_hidden')
+      .eq('id', ws)
+      .single();
+    expect(data?.zoom_notice_hidden).toBe(false);
+    // And the notice is still shown, which is the consequence that matters.
+    expect((await connections(member)).zoom_pending_notice).toBe(true);
   });
 
   it('comes back as soon as the opt-out is cleared', async () => {
