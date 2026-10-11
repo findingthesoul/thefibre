@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.140.0] — 2026-10-11
+
+Opening The Thread told some people "failed to provision organiser", with a
+500. It was never a server fault.
+
+`thread_organiser.user_id` is UNIQUE GLOBALLY — one organiser page per
+person, ever. So somebody who already has one, opening The Thread in a second
+workspace, hit a handler that: looked for their row through RLS, which hides
+another workspace's; decided this was a first visit; tried to create one;
+collided on `user_id`; and then **retried five times with a different random
+slug**, because a unique violation arrives as the same error code whatever
+collided. The slug was never the thing colliding. Five attempts later it gave
+up and returned a 500 with a sentence nobody could act on.
+
+Reproduced first, so the fix answers the real cause rather than the symptom:
+the 500 was observed, then the collision identified, then the status changed.
+Changing the code alone would have turned a loud failure into a quiet wrong
+answer, which is worse — a 500 at least gets looked at.
+
+**Two situations now, both 403, with different sentences**, because they need
+different things done about them:
+
+- *the row is in THIS workspace and RLS hid it* — they are not a member of
+  The Thread here: "Ask an admin here to add you to it, then reload."
+- *the row is in ANOTHER workspace* — "One person has one organiser page, so
+  it cannot be created again here — switch to the workspace it lives in, or
+  ask for it to be moved."
+
+Which of the two is decided by ASKING the table rather than parsing a
+constraint name out of an error string, which is a second way to be wrong
+about something the database will simply answer.
+
+**Neither message names the other workspace, its slug or its id.** "Your page
+is at `<slug>`" would be friendlier and would tell this workspace which other
+one somebody belongs to.
+
+A genuine slug collision still retries, which is what the loop was always for.
+
+**And the co-organiser path gets the same treatment**: adding somebody whose
+organiser page lives elsewhere now says so, with 409, instead of "could not
+provision organiser profile". Found by the typecheck, which refused the new
+return type at a second call site I had not looked at.
+
+While there: that path also ran `select('email, full_name')` on the `user`
+table with no `.eq` and no consumer — reading every user in the database on
+every co-organiser add and throwing the result away. Removed.
+
+Five cases, the first of which failed before the fix and passes after. One of
+them asserts the handler's own `no_thread_access` code rather than the status,
+because the middleware returns 403 too and only one of the two can tell you
+what to do — checked, and it is the handler that answers.
+
 ## [1.139.0] — 2026-10-11
 
 The fixture leak, found properly and given a sweep that will not take

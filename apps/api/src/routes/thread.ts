@@ -191,10 +191,24 @@ const THREAD_RESERVED = new Set<string>([
  *  suffix; since 2026-09-09 the public root namespace is unique platform-
  *  wide, so an unlucky suffix is now a real (if rare) failure rather than a
  *  silent duplicate — retry it instead of 500ing someone's sign-in. */
+/** What happened, rather than just whether it worked.
+ *
+ *  `null` used to mean three different things and the handler turned all of
+ *  them into a 500. Two of them are not server faults at all. */
+type Provisioned =
+  | { ok: true; organiser: { id: string } }
+  /** This person already has their one organiser row, in a workspace that is
+   *  not this one. No slug can fix that and no retry should try. */
+  | { ok: false; reason: 'elsewhere' }
+  /** The row is in THIS workspace but RLS would not show it to them — they
+   *  are not a member of The Thread here. */
+  | { ok: false; reason: 'no-access' }
+  | { ok: false; reason: 'failed' };
+
 async function provisionOrganiser(
   userId: string,
   workspaceId: string,
-): Promise<{ id: string } | null> {
+): Promise<Provisioned> {
   const { data: u } = await adminClient
     .from('user')
     .select('email, full_name')
@@ -217,14 +231,42 @@ async function provisionOrganiser(
       })
       .select('*')
       .single();
-    if (data) return data;
+    if (data) return { ok: true, organiser: data };
     if (error?.code !== '23505') {
       console.error('[thread] organiser provision failed', error);
-      return null;
+      return { ok: false, reason: 'failed' };
     }
+
+    // 23505 IS NOT ONE THING HERE, and treating it as one is what produced a
+    // 500 on an ordinary situation. `thread_organiser.user_id` is UNIQUE
+    // GLOBALLY — one organiser row per person, ever — so a person who
+    // already has one collides with the SAME code a slug collision gives.
+    // The loop then retried five times with a different random slug, which
+    // could never help, because the slug was never what collided.
+    //
+    // Asked rather than parsed: reading the constraint name out of an error
+    // string is a second way to be wrong when the table can simply be
+    // consulted.
+    const { data: existing } = await adminClient
+      .from('thread_organiser')
+      .select('workspace_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (existing) {
+      // In THIS workspace means the row exists and RLS hid it from them:
+      // they are not a member of The Thread here. Somewhere else means their
+      // one identity belongs to another workspace. Different situations,
+      // different sentences, both the person's to resolve and neither a
+      // server fault.
+      return {
+        ok: false,
+        reason: existing.workspace_id === workspaceId ? 'no-access' : 'elsewhere',
+      };
+    }
+    // A genuine slug collision: retry, which is what the loop is for.
   }
   console.error('[thread] organiser provision gave up after five slug attempts', { userId });
-  return null;
+  return { ok: false, reason: 'failed' };
 }
 
 function isReserved(slug: string): boolean {
@@ -289,8 +331,39 @@ threadRoutes.get('/me', async (c) => {
     // First visit — provision an organiser row with a sensible default slug.
     // Admin client for the same PostgREST order-of-checks reason as meet/me.
     const created = await provisionOrganiser(ctx.userId, ctx.workspaceId);
-    if (!created) return c.json({ error: 'failed to provision organiser' }, 500);
-    organiser = created;
+    if (!created.ok) {
+      // 403, not 500. A 500 says WE broke; these say the person is asking
+      // for something they are not entitled to here, which is a different
+      // thing to be told and a different thing to do about it. The message
+      // matters more than the code: nobody can act on "failed to provision
+      // organiser", and both of these need a human to move something.
+      //
+      // Neither message names the other workspace, its slug or its id. "Your
+      // page is at <slug>" would be friendlier and would tell this workspace
+      // which other one somebody belongs to.
+      if (created.reason === 'no-access') {
+        return c.json(
+          {
+            error:
+              'You do not have access to The Thread in this workspace. Ask an admin here to add you to it, then reload.',
+            code: 'no_thread_access',
+          },
+          403,
+        );
+      }
+      if (created.reason === 'elsewhere') {
+        return c.json(
+          {
+            error:
+              'Your organiser page belongs to a different workspace. One person has one organiser page, so it cannot be created again here — switch to the workspace it lives in, or ask for it to be moved.',
+            code: 'organiser_elsewhere',
+          },
+          403,
+        );
+      }
+      return c.json({ error: 'failed to provision organiser' }, 500);
+    }
+    organiser = created.organiser;
   }
 
   // Connection + payment settings are user-level SPoTs shared across the
@@ -2377,12 +2450,29 @@ threadRoutes.post('/threads/:id/members', async (c) => {
     .eq('user_id', body.data.user_id)
     .maybeSingle();
   if (!organiser) {
-    const { data: u } = await adminClient
-      .from('user')
-      .select('email, full_name')
+    // (A `select('email, full_name')` with no `.eq` and no consumer sat here
+    // until 2026-10-11: it read the WHOLE user table on every co-organiser
+    // add and threw the result away. provisionOrganiser looks the person up
+    // itself.)
     const created = await provisionOrganiser(body.data.user_id, thread.workspace_id);
-    if (!created) return c.json({ error: 'could not provision organiser profile' }, 500);
-    organiser = created;
+    if (!created.ok) {
+      // This lookup used the admin client, so an existing row would have been
+      // found above — these reasons mean somebody else created one in the
+      // same moment. Say which rather than "could not provision", because the
+      // person doing the adding can act on one of them and not the other.
+      if (created.reason === 'elsewhere') {
+        return c.json(
+          {
+            error:
+              'That person already has an organiser page in a different workspace, and one person has only one. They cannot be added as an organiser here until it is moved.',
+            code: 'organiser_elsewhere',
+          },
+          409,
+        );
+      }
+      return c.json({ error: 'could not provision organiser profile' }, 500);
+    }
+    organiser = created.organiser;
   }
 
   const { data, error } = await adminClient
