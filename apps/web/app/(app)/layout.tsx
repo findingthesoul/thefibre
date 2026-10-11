@@ -10,6 +10,7 @@ import { Topbar } from '@/components/shell/topbar';
 import { ArchivedGate } from '@/components/archived-gate';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
+import { WorkspaceSync } from '@/components/shell/workspace-sync';
 import { APPS, SURFACES, surfaceUrl, tileArtUrl } from '@thefibre/shared';
 import { VERSION } from '@/lib/version';
 
@@ -95,6 +96,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <LocaleProvider locale={locale}>
+      {/* Ends a token/choice workspace disagreement by refreshing the
+          session once on mount. Renders nothing. See
+          @thefibre/shared/ui/workspace-sync. */}
+      <WorkspaceSync stale={shell.staleWorkspace} />
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">

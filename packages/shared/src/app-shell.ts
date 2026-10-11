@@ -101,11 +101,24 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
           // whenever a switch happened in ANOTHER app: this apex holds its own
           // token and keeps the workspace it was minted with, for up to an
           // hour, while showing that workspace's data as if nothing had
-          // changed. Recorded here; the chrome ends it.
+          // changed.
+          //
+          // GATED ON has_app, and that gate is the whole safety of ending it.
+          // The access-token hook stamps the CHOSEN workspace whatever app is
+          // asking, so refreshing the token to end the disagreement moves this
+          // app into that workspace — and if the person holds no seat for this
+          // app there, the shell's own access check then hands them straight
+          // back to The Fibre. That turns a cosmetic staleness into being
+          // thrown out of the app they just opened, which is worse than the
+          // thing being fixed. So when the chosen workspace cannot run this
+          // app, the token is left exactly as it is: the person goes on
+          // working where they can work, and the two simply disagree.
+          const chosen = (r.workspaces ?? []).find((w) => w.id === r.chosen_workspace_id);
           stale = Boolean(
             r.chosen_workspace_id &&
               r.active_workspace_id &&
-              r.chosen_workspace_id !== r.active_workspace_id,
+              r.chosen_workspace_id !== r.active_workspace_id &&
+              chosen?.has_app,
           );
           // `has_app` normally hides workspaces where this app would bounce
           // you. The CHOSEN one is kept regardless: if the person is in a
@@ -133,7 +146,17 @@ export async function loadAppShell<Me extends ShellMe = ShellMe, X extends Thunk
     apps,
     workspaces,
     hasAccess: hasMembership && activated,
-    /** This app's token is acting in a workspace the person has since left. */
+    /**
+     * This app's token is acting in a workspace other than the one the person
+     * last chose, AND this app can serve them in the chosen one.
+     *
+     * True means "a session refresh would fix this safely" — see
+     * ui/workspace-sync.tsx, which is what acts on it. Until 2026-10-11 this
+     * was computed and read by nobody: the API returned both halves so a
+     * client could "notice the disagreement and end it", and no client ended
+     * it, which is the whole of the bug Sjoerd described as apps remembering
+     * their own workspace.
+     */
     staleWorkspace: stale,
     extras: resolved,
   };

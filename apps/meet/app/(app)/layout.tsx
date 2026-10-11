@@ -9,6 +9,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
+import { WorkspaceSync } from '@/components/shell/workspace-sync';
 import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
@@ -95,6 +96,10 @@ export default async function MeetAppLayout({
 
   return (
     <LocaleProvider locale={locale}>
+      {/* Ends a token/choice workspace disagreement by refreshing the
+          session once on mount. Renders nothing. See
+          @thefibre/shared/ui/workspace-sync. */}
+      <WorkspaceSync stale={shell.staleWorkspace} />
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">

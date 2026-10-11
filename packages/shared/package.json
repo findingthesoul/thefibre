@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.143.0",
+  "version": "1.144.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -365,6 +365,10 @@
     "./ui/provider-connection": {
       "types": "./dist/ui/provider-connection.d.ts",
       "default": "./dist/ui/provider-connection.js"
+    },
+    "./ui/workspace-sync": {
+      "types": "./dist/ui/workspace-sync.d.ts",
+      "default": "./dist/ui/workspace-sync.js"
     },
     "./ui/zoom-connection": {
       "types": "./dist/ui/zoom-connection.d.ts",

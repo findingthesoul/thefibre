@@ -10,6 +10,7 @@ import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
+import { WorkspaceSync } from '@/components/shell/workspace-sync';
 import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 
 // Business Models has its own user-facing version, independent of the
@@ -60,6 +61,10 @@ export default async function ModelsAppLayout({ children }: { children: React.Re
 
   return (
     <LocaleProvider locale={locale}>
+      {/* Ends a token/choice workspace disagreement by refreshing the
+          session once on mount. Renders nothing. See
+          @thefibre/shared/ui/workspace-sync. */}
+      <WorkspaceSync stale={shell.staleWorkspace} />
       <div className="h-dvh flex bg-surface">
         <div className="hidden md:block shrink-0 print:hidden">
           <Sidebar mode={prefs.sidebar} version={VERSION} brandTileSrc={tileArtUrl('fibre-models', process.env)} />

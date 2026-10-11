@@ -97,4 +97,51 @@ describe('loadAppShell', () => {
     expect(shell.ok).toBe(true);
     if (shell.ok) expect(shell.workspaces).toEqual([]);
   });
+
+  // staleWorkspace — the token's workspace against the one last chosen.
+  //
+  // It is gated on has_app, and that gate is the point. A true here makes the
+  // app refresh its session (ui/workspace-sync.tsx), and the access-token hook
+  // stamps the CHOSEN workspace whatever app is asking — so saying true for a
+  // workspace this app cannot serve would throw the person out of the app they
+  // just opened, to fix a cosmetic disagreement. These four cases are the
+  // whole truth table that matters.
+  const withChoice = (chosen: string | null, w2HasApp: boolean) => ({
+    ...ANSWERS,
+    '/api/v1/auth/workspaces': {
+      active_workspace_id: 'w1',
+      chosen_workspace_id: chosen,
+      workspaces: [
+        { id: 'w1', name: 'W', slug: 'w', is_active: true, has_app: true },
+        { id: 'w2', name: 'X', slug: 'x', is_active: false, has_app: w2HasApp },
+      ],
+    },
+  });
+
+  it('is not stale when the token is already in the chosen workspace', async () => {
+    const shell = await loadAppShell({ apiFetch: fakeApi(withChoice('w1', true)), appSlug: 'the-thread' });
+    expect(shell.ok && shell.staleWorkspace).toBe(false);
+  });
+
+  it('is not stale when nothing was ever chosen', async () => {
+    const shell = await loadAppShell({ apiFetch: fakeApi(withChoice(null, true)), appSlug: 'the-thread' });
+    expect(shell.ok && shell.staleWorkspace).toBe(false);
+  });
+
+  it('is stale when the choice is elsewhere AND this app can serve it there', async () => {
+    const shell = await loadAppShell({ apiFetch: fakeApi(withChoice('w2', true)), appSlug: 'the-thread' });
+    expect(shell.ok && shell.staleWorkspace).toBe(true);
+  });
+
+  // The one that protects somebody rather than tidying something: refreshing
+  // here would move this app into w2, where they hold no seat for it, and the
+  // shell's own access check would then hand them back to The Fibre.
+  it('is NOT stale when this app cannot serve the chosen workspace', async () => {
+    const shell = await loadAppShell({ apiFetch: fakeApi(withChoice('w2', false)), appSlug: 'the-thread' });
+    expect(
+      shell.ok && shell.staleWorkspace,
+      'a refresh here would bounce the person out of the app they just opened',
+    ).toBe(false);
+  });
+
 });

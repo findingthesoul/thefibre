@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.144.0] — 2026-10-11
+
+Sjoerd: *"Apps remember their own workspace. It swaps back."* They do, and
+this ends it — by refreshing a stale token, not by carrying anything through
+the hop.
+
+**The hop was not the problem.** Switching workspace has always recorded the
+choice in `user_active_workspace`, behind a membership check; the access-token
+hook has always preferred it; and the cross-apex hop mints a brand-new session
+through that hook. So a hop already lands in the chosen workspace. Adding a
+workspace parameter to it would have been building something that works.
+
+What actually happens is that **a token is not re-minted when you simply open
+an app that already has a session.** Production has two cookie domains —
+`thefibre.app` for the platform, `thethread.app` for the delivery apps — so
+those are two independent sessions. Switch in one, open the other, and the
+second is still carrying the workspace its token was minted with, for up to an
+hour. Nothing is lost in transit. The token is old.
+
+`routes/auth.ts` says returning both halves "is what lets a client notice the
+disagreement and end it". `loadAppShell` has computed `staleWorkspace` —
+chosen ≠ active — since it was written. **Nothing read it.** Every app ignored
+it. So: the detection existed, the fix was one `refreshSession()` away, and
+the two were never connected. This connects them.
+
+### The gate that matters more than the fix
+
+`staleWorkspace` is now also **gated on `has_app`**, and that is the part to
+read twice. The hook stamps the chosen workspace whatever app is asking, so
+refreshing the token to end a disagreement moves THIS app into that
+workspace — and if the person holds no seat for this app there, the shell's
+own access check hands them straight back to The Fibre. That would turn a
+cosmetic staleness into being thrown out of the app they just opened, which is
+worse than the thing being fixed.
+
+So when the chosen workspace cannot run this app, the token is left exactly as
+it is: the person goes on working where they can work, and the two quietly
+disagree. Four cases cover the truth table, and the gate is mutation-checked —
+removing it turns the protective one red with the sentence it was written to
+give.
+
+### Three guards in the component, each for a worse failure
+
+- **Once per mount**, with the flag set BEFORE the await, so a re-render while
+  the first call is in flight cannot start a second.
+- **Mount and navigation only** — never a timer, never on focus — so it cannot
+  call `router.refresh()` underneath somebody halfway through typing into a
+  form that is already open. A page that is open stays as it is.
+- **Silent on failure.** If the refresh does not work the app carries on in the
+  workspace it was already showing, which is today's behaviour. There is
+  nothing here for a person to act on.
+
+Born in `@thefibre/shared` with the app-bound pieces injected, per the
+components-first rule; each of the eight apps has the same four-line binding
+supplying its own browser Supabase client and router.
+
+### What is NOT proven
+
+Staging cannot reproduce this. Every staging app is a `*.thefibre.tech`
+subdomain — one apex, one shared cookie — so the two-session arrangement that
+causes the staleness does not exist there. The logic is covered by unit tests
+and the stale branch can be forced by hand, but the real proof is switching
+workspace in The Fibre and opening Thread **on production**, and that has not
+happened yet.
+
 ## [1.143.0] — 2026-10-11
 
 Meet gets the same Microsoft Teams card, and gives up its private copy of the

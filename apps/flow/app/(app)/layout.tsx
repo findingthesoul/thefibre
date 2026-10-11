@@ -10,6 +10,7 @@ import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { headers } from 'next/headers';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
+import { WorkspaceSync } from '@/components/shell/workspace-sync';
 import { APPS, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 
 // Fibre Flow has its own user-facing version, independent of the monorepo
@@ -81,6 +82,10 @@ export default async function FlowAppLayout({
 
   return (
     <LocaleProvider locale={locale}>
+      {/* Ends a token/choice workspace disagreement by refreshing the
+          session once on mount. Renders nothing. See
+          @thefibre/shared/ui/workspace-sync. */}
+      <WorkspaceSync stale={shell.staleWorkspace} />
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">

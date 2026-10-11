@@ -11,6 +11,7 @@ import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@thefibre/shared/available-apps';
 import { loadAppShell, type ShellMe } from '@thefibre/shared/app-shell';
+import { WorkspaceSync } from '@/components/shell/workspace-sync';
 import { APPS, appUrl, SURFACES, surfaceUrl, tileArtUrl, sentHomeUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
@@ -106,6 +107,10 @@ export default async function ConnectionsAppLayout({
 
   return (
     <LocaleProvider locale={locale}>
+      {/* Ends a token/choice workspace disagreement by refreshing the
+          session once on mount. Renders nothing. See
+          @thefibre/shared/ui/workspace-sync. */}
+      <WorkspaceSync stale={shell.staleWorkspace} />
     <div className="h-dvh flex bg-surface">
       {/* Records the section you are in, so opening Connect brings you back
           to it (Sjoerd, 2026-09-22). Renders nothing. */}
