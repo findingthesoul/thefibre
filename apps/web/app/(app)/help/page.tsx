@@ -45,6 +45,7 @@ function sections(locale: Locale): HelpSection[] {
 const GUIDES = [
   { slug: 'add_person', href: '/contacts/new' },
   { slug: 'duplicates', href: '/contacts/duplicates' },
+  { slug: 'org_duplicates', href: '/organisations/duplicates' },
   { slug: 'org_domain', href: '/organisations' },
   { slug: 'members', href: '/settings/members' },
   { slug: 'apps', href: '/settings/apps' },

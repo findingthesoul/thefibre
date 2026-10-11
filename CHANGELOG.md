@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.152.0] — 2026-10-12
+
+A manual for merging duplicate organisations — and the contacts one now names
+buttons that exist.
+
+**New guide:** *Find and merge duplicate organisations*, beside the contacts
+one in Help, in all six languages. It describes the screen as it actually
+behaves: the four reasons a pair is proposed, the people count that usually
+settles which record is real, "Different organisations, similar name" as a
+lasting dismissal rather than a hide, and the per-field step — both answers
+side by side, the keeper already chosen so pressing straight through does the
+ordinary merge, each answer saying which record it came from on a phone, and
+one Back.
+
+**And the contacts guide was wrong.** `help/page.tsx` has carried the
+instruction for a year — *"Every button named exists on the page the guide
+links to"* — and the guide was telling people to press **"Keep this one"**
+while the button has said **"Merge into this one"**, in all six languages. It
+also stopped at choosing a keeper and never mentioned the per-field step,
+which shipped in v1.149.0 after the guide was written. Both fixed.
+
+**`apps/web/lib/help-guides.test.ts` is why this will not happen again.** It
+asserts that every control a duplicates guide quotes carries that exact label
+in the catalog, in all six locales. It found **eighteen** mismatches on its
+first run, most of them already in the contacts guide and none of them
+visible to a typechecker — "Duplikate finden" where the button says "Dubletten
+finden", "Recente samenvoegingen" where the heading says "Recent samengevoegd",
+"Atrás" where the button says "Volver", and so on.
+
+It reports every mismatch in a case at once rather than throwing on the first,
+because fixing them one failure per run is how a short job becomes a long one
+— and how a correct label gets "corrected" into a wrong one on the way past,
+which happened twice while writing this.
+
+The test cannot prove a button is on screen; it proves the two strings agree.
+That is the half that silently rots.
+
 ## [1.151.2] — 2026-10-12
 
 The same fix for the people duplicates screen, which has had it longer.
