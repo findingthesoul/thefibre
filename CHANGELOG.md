@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.131.2] — 2026-10-11
+
+"3 seats left" and "This slot is full." no longer argue with each other.
+
+Spotted in the phone look at the New booking dialog. With three seats in the
+slot and three people picked, the line read:
+
+> 3 seats left · This slot is full.
+
+Both halves were true and they contradicted each other on sight, because one
+counts the ROOM and the other counts the PEOPLE PICKED FOR IT, and nothing on
+screen said which was which. A host reading that has to work out that the
+software is not broken.
+
+One line now, with three states:
+
+- nobody picked yet, or room to spare — **"3 seats left"**, as before;
+- picked up to the limit — **"3 of 3 seats filled"**, and the separate "This
+  slot is full." is gone;
+- past the limit, after *Add anyway* — the seat line goes quiet and the
+  existing over-capacity warning carries it, because "seats left" describes a
+  room that no longer fits the situation.
+
+Six languages, as usual. `slot_is_full` is deleted rather than left unused.
+
 ## [1.131.1] — 2026-10-11
 
 On a phone, the time half of the date-and-time picker was off the screen.

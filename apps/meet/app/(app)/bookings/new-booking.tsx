@@ -68,7 +68,7 @@ export function NewBookingButton({
   /** What the slot has left, straight from the API. Null until a meeting type
    *  and a time are both chosen, or when the lookup fails — in which case the
    *  form stops capping rather than guessing a number. */
-  const [seats, setSeats] = useState<{ left: number; capacity: number } | null>(null);
+  const [seats, setSeats] = useState<{ left: number; taken: number; capacity: number } | null>(null);
   const [partial, setPartial] = useState<string[] | null>(null);
   /** The host has said, explicitly, to go past the seats.
    *
@@ -134,7 +134,11 @@ export function NewBookingButton({
     setOverCapacity(false);
     slotSeats(mtId, when.toISOString()).then((r) => {
       if (!alive) return;
-      setSeats(r && typeof r.left === 'number' ? { left: r.left, capacity: r.capacity } : null);
+      setSeats(
+        r && typeof r.left === 'number'
+          ? { left: r.left, taken: r.taken, capacity: r.capacity }
+          : null,
+      );
     });
     return () => {
       alive = false;
@@ -222,6 +226,10 @@ export function NewBookingButton({
   const atCapacity = seats !== null && allGuests().length >= seats.left;
   /** Blocked only while the host has NOT overridden. */
   const full = atCapacity && !overCapacity;
+  /** Past the limit, not merely at it — the warning below says this, so the
+   *  seat line stays quiet rather than reporting a room that no longer
+   *  describes the situation. */
+  const over = seats !== null && allGuests().length > seats.left;
 
   return (
     <>
@@ -318,14 +326,24 @@ export function NewBookingButton({
             >
               {t(locale, 'add_another_person')}
             </Button>
-            {seats && (
+            {/* ONE line about seats, never two. It used to print "3 seats
+                left" and "This slot is full." side by side — both true, the
+                first about the room and the second about the people picked
+                for it, and together they read like the software arguing with
+                itself. Past the limit the line goes quiet and the warning
+                below carries it. */}
+            {seats && !over && (
               <span className="text-xs text-ink-muted">
-                {t(locale, 'seats_left', { left: String(seats.left) })}
+                {atCapacity
+                  ? t(locale, 'seats_filled', {
+                      filled: String(seats.taken + allGuests().length),
+                      total: String(seats.capacity),
+                    })
+                  : t(locale, 'seats_left', { left: String(seats.left) })}
               </span>
             )}
             {full && (
               <>
-                <span className="text-xs text-ink-muted">{t(locale, 'slot_is_full')}</span>
                 {/* The route ALLOWS a host to go past capacity (meet.ts: the
                     host booking path makes no capacity check, deliberately —
                     "you are looking at the calendar"). So the dialog offers

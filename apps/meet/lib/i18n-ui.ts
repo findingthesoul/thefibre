@@ -3495,13 +3495,16 @@ const CATALOG = {
     de: 'noch {left} Plätze', // MT
     fr: 'il reste {left} places', // MT
   },
-  slot_is_full: {
-    en: 'This slot is full.',
-    nl: 'Dit tijdslot is vol.',
-    es: 'Esta franja está llena.', // MT
-    pt: 'Este horário está cheio.', // MT
-    de: 'Dieser Termin ist voll.', // MT
-    fr: 'Ce créneau est complet.', // MT
+  // Replaces a separate "This slot is full.": beside "{left} seats left" the
+  // two read as a contradiction, because one counts the room and the other
+  // counts the people picked for it. One line says both.
+  seats_filled: {
+    en: '{filled} of {total} seats filled',
+    nl: '{filled} van {total} plekken bezet',
+    es: '{filled} de {total} plazas ocupadas', // MT
+    pt: '{filled} de {total} lugares ocupados', // MT
+    de: '{filled} von {total} Plätzen belegt', // MT
+    fr: '{filled} places sur {total} occupées', // MT
   },
   // Shown when some were booked and some were not — the bookings that worked
   // are KEPT, and this says who to deal with.
