@@ -253,6 +253,78 @@ export type E2eThreadFixture = {
   cleanup: (participantEmails?: string[]) => Promise<void>;
 };
 
+/**
+ * Remove throwaway workspaces a browser spec made, and SAY when it could not.
+ *
+ * Every spec that signs a fixture in and then deletes its workspace needs the
+ * same list of pins, and the list is not guessable. On 2026-10-11 a new spec
+ * discarded its delete results and left FIFTEEN workspaces standing on
+ * staging; the same cleanup shape was in no-access.spec.ts. Three pins did
+ * it, and the first two are the ones nobody expects:
+ *
+ *   * `sso_match_log` — written when a session lands through /sso/land, which
+ *     is how every browser spec here signs in. It references `user(id)`, and
+ *     `deleteThrowawayWorkspace` (apps/api/src/integration/staging.ts) does
+ *     NOT clear it, because the integration fixtures never sign in that way.
+ *     So this pin is specific to the Playwright suite.
+ *   * `organisation` — created BY TRIGGER with every workspace since
+ *     20260915060000. `workspace.organisation_id` is ON DELETE SET NULL, but
+ *     `organisation.workspace_id` points back and holds the workspace.
+ *   * `user` ⇄ `person` — they reference each other, so neither can go
+ *     first: cut `user.person_id`, remove the persons, then the users.
+ *
+ * A leak is not cosmetic. The five-minute schedulers walk every workspace on
+ * staging; 406 abandoned ones once took the workspace-admins audit from 4.6 s
+ * to 331 s.
+ *
+ * THROWS with everything that was left behind, rather than returning a
+ * boolean nobody reads — the mistake that let the leak run. Call it from
+ * afterAll in a way that still cleans every fixture before it reports (a
+ * sequential `await cleanup(a); await cleanup(b)` skips b when a throws).
+ */
+export async function removeThrowawayWorkspaces(opts: {
+  workspaceIds: string[];
+  userIds: string[];
+  authUserIds: string[];
+}): Promise<void> {
+  const service = stagingService();
+  const wsIds = opts.workspaceIds.filter(Boolean);
+  const userIds = opts.userIds.filter(Boolean);
+  if (!wsIds.length) return;
+  const left: string[] = [];
+  const go = async (what: string, r: PromiseLike<{ error: { message: string } | null }>) => {
+    const { error } = await r;
+    if (error) left.push(`${what}: ${error.message}`);
+  };
+
+  if (userIds.length) {
+    await go('app_membership', service.from('app_membership').delete().in('user_id', userIds));
+    await go('workspace_member', service.from('workspace_member').delete().in('user_id', userIds));
+    await go('sso_match_log', service.from('sso_match_log').delete().in('user_id', userIds));
+    await go('unlink person', service.from('user').update({ person_id: null }).in('id', userIds));
+  }
+  for (const id of wsIds) {
+    await go('person_merge', service.from('person_merge').delete().eq('workspace_id', id));
+    await go('person', service.from('person').delete().eq('workspace_id', id));
+  }
+  if (userIds.length) await go('user', service.from('user').delete().in('id', userIds));
+  for (const authId of opts.authUserIds.filter(Boolean)) {
+    const r = await service.auth.admin.deleteUser(authId);
+    if (r.error) left.push(`auth user: ${r.error.message}`);
+  }
+  await go('workspace_app', service.from('workspace_app').delete().in('workspace_id', wsIds));
+  await go('organisation', service.from('organisation').delete().in('workspace_id', wsIds));
+  await go('workspace', service.from('workspace').delete().in('id', wsIds));
+
+  // Read back. "No error" is not "gone": a delete that matches nothing
+  // returns no error at all, which is how a silent leak looks from here.
+  const { data: still } = await service.from('workspace').select('slug').in('id', wsIds);
+  if (still?.length) left.push(`workspaces still standing: ${still.map((w) => w.slug).join(', ')}`);
+  if (left.length) {
+    throw new Error(`throwaway fixtures were NOT fully removed from staging:\n  ${left.join('\n  ')}`);
+  }
+}
+
 export async function createPublicThread(tag: string): Promise<E2eThreadFixture> {
   const service = stagingService();
   const rand = randomBytes(4).toString('hex');

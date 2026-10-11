@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { HOSTS, stagingService } from './helpers.js';
+import { HOSTS, removeThrowawayWorkspaces, stagingService } from './helpers.js';
 
 // Opening an app the workspace does not run (v1.83.x). Two rounds of history
 // here, and the second replaced the first:
@@ -96,14 +96,20 @@ async function landUrl(f: Fixture, next: string): Promise<string> {
   return `${HOSTS.thread}/sso/land?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`;
 }
 
+// This discarded every delete result until 2026-10-11 and leaked both of its
+// workspaces on every run: signing in through /sso/land writes an
+// `sso_match_log` row that pins the user, and the trigger-made `organisation`
+// pins the workspace. Neither was cleared, and nothing said so. The pin list
+// and the readback now live in removeThrowawayWorkspaces.
 async function cleanup(f: Fixture) {
   const s = stagingService();
-  await s.from('user_active_workspace').delete().eq('auth_user_id', f.authUserId);
-  await s.from('app_membership').delete().in('user_id', [f.userA, f.userB]);
-  await s.from('workspace_member').delete().in('user_id', [f.userA, f.userB]);
-  await s.from('user').delete().in('id', [f.userA, f.userB]);
-  await s.auth.admin.deleteUser(f.authUserId).catch(() => undefined);
-  await s.from('workspace').delete().in('id', [f.wsA, f.wsB]);
+  const aw = await s.from('user_active_workspace').delete().eq('auth_user_id', f.authUserId);
+  if (aw.error) throw new Error(`user_active_workspace was not removed: ${aw.error.message}`);
+  await removeThrowawayWorkspaces({
+    workspaceIds: [f.wsA, f.wsB],
+    userIds: [f.userA, f.userB],
+    authUserIds: [f.authUserId],
+  });
 }
 
 test.describe('Thread — no access in THIS workspace', () => {

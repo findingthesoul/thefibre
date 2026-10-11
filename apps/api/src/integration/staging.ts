@@ -205,6 +205,25 @@ export async function deleteThrowawayWorkspace(id: string): Promise<boolean> {
   // week accumulated (77 of them by 2026-10-11).
   //
   // Workspace-scoped, so it clears directly rather than by person id.
+  // A fixture that signed in through /sso/land has an `sso_match_log` row
+  // pointing at its user, and that reference blocks the user delete below —
+  // so it blocks the workspace. The integration fixtures mint their session
+  // with verifyOtp and never hit that route, which is why this was missing
+  // for as long as it was; the Playwright suite does hit it, and leaked two
+  // workspaces per run of no-access.spec.ts until 2026-10-11. Cleared here
+  // too, so the one helper handles a fixture signed in either way.
+  const signedIn = await service.from('user').select('id').eq('workspace_id', id);
+  if (signedIn.error) {
+    console.warn(`[fixtures] workspace ${name}: could not list users: ${signedIn.error.message}`);
+  } else if (signedIn.data?.length) {
+    say(
+      'sso match log NOT removed',
+      await service
+        .from('sso_match_log')
+        .delete()
+        .in('user_id', signedIn.data.map((u) => u.id as string)),
+    );
+  }
   say('merge history NOT removed', await service.from('person_merge').delete().eq('workspace_id', id));
   say('persons NOT removed', await service.from('person').delete().eq('workspace_id', id));
   say('users NOT removed', await service.from('user').delete().eq('workspace_id', id));

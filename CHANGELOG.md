@@ -6,6 +6,100 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.141.1] — 2026-10-11
+
+Tests only. Two browser checks for v1.141.0, and the fixture leak they
+exposed in the suite that runs them.
+
+### The two checks
+
+The fix in v1.141.0 runs in the layout of EVERY Thread page, so "the 403
+person now gets a popup" was only half an answer. The other half is that
+nobody else notices, and a false positive there would bounce every organiser
+out of the app — a far worse bug than the one being fixed.
+
+`e2e/organiser-elsewhere.spec.ts`, against staging, both passing:
+
+- **an ordinary organiser is left completely alone** — Thread access and
+  organiser row in the same workspace, landing on `/threads`,
+  `/settings/profile` and `/threads/new`: no redirect, and no crash page. The
+  crash string is asserted by name, because that is what the bug looked like.
+- **the elsewhere person is handed back** to The Fibre with the popup, naming
+  The Thread, saying "one organiser page", saying the workspace has not
+  changed, and naming neither the other workspace nor its id.
+
+They are real discrimination rather than two green ticks: same code path,
+opposite fixture shapes, opposite outcomes.
+
+### What building them turned up
+
+**The branch is only reachable from data the app cannot create.**
+`thread_organiser.user_id` is UNIQUE and references `public.user(id)` — and
+`public.user` is PER WORKSPACE. The access-token hook picks one of those rows
+and the token's workspace is by construction that row's workspace, so every
+row the app writes has `organiser.workspace_id` equal to its user's. A person
+with rows in two workspaces has two different user ids, which cannot collide.
+
+The first version of the fixture did it the natural way — a user row in each
+workspace — and **passed for the wrong reason**: no collision, no 403, nothing
+reproduced. The only shape that reaches the branch is one user row with an
+organiser row filed under another workspace, which takes data moved
+underneath the app. On staging, 0 of 6 organiser rows have that skew (the one
+that did was this session's own fixture, checked by slug before concluding
+anything). Recorded in the spec so the next person does not re-derive it.
+
+That does not make v1.140.0 or v1.141.0 wrong — a 500 for a person asking for
+something they cannot have was wrong either way, and the five-slug retry loop
+was genuinely broken. It makes their reach smaller than the entries implied.
+
+### The leak, which is the part worth keeping
+
+The new spec's first cleanup **discarded every delete result and left fifteen
+workspaces standing on staging** — the same failure the int-test fixture
+sweep was written for that morning, reproduced within the hour. Three pins,
+and the first two are the ones nobody expects:
+
+- **`sso_match_log`** — written when a session lands through `/sso/land`,
+  which is how every browser spec here signs in. It references `user(id)`.
+  `deleteThrowawayWorkspace` never cleared it, because the integration
+  fixtures mint their session with `verifyOtp` and never touch that route.
+- **`organisation`** — created BY TRIGGER with every workspace since
+  `20260915060000`. `workspace.organisation_id` is ON DELETE SET NULL, but
+  `organisation.workspace_id` points back and holds the workspace.
+- **`user` ⇄ `person`** — they reference each other, so neither goes first.
+
+`no-access.spec.ts` had the same cleanup shape and had been leaking **two
+workspaces per run since 2026-09-27**: 22 of them are standing. Not swept
+here — the sweep script only covers `int-` prefixes, and widening it is its
+own job, not a thing to do quietly inside a test release.
+
+So the pin list and the reporting now live ONCE, in
+`removeThrowawayWorkspaces` (`e2e/helpers.ts`), used by both specs, and it
+**throws with what it could not remove** instead of returning a boolean
+nobody reads. It also **reads back**: "no error" is not "gone", because a
+delete matching nothing returns no error at all, which is exactly what a
+silent leak looks like from the calling side. `deleteThrowawayWorkspace`
+clears `sso_match_log` too, so one helper handles a fixture signed in either
+way.
+
+Verified by running both specs and then asking staging: no `e2e-orgelse-` or
+`e2e-noaccess-` workspace created today survives.
+
+A second mistake of the same family, in the first `afterAll`: the two
+cleanups were awaited in sequence, so the first one reporting a failure
+skipped the second and leaked its workspace. A cleanup that reports has to be
+sequenced so reporting cannot prevent the rest of the cleanup.
+
+### Not in this release
+
+The browser crash pages seen while writing this were **not** the product:
+hand-injected auth cookies produce `Invalid UTF-8 sequence` inside
+`getClaims`, which renders identically to the bug and is visible only in the
+Vercel runtime log. Twenty minutes went into "the ordinary organiser crashes
+too", which would have been a false alarm of the worst kind. The lesson is the
+one this repo keeps relearning — read the server log, not the screen — plus a
+new one: do not hand-roll a session when the suite already has a real one.
+
 ## [1.141.0] — 2026-10-11
 
 The 403 that v1.140.0 taught the API to say was reaching nobody. The Thread
