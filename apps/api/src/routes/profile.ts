@@ -59,9 +59,28 @@ profileRoutes.get('/', async (c) => {
  * question (2026-10-08), the page IS public right now, and this person has
  * not been told. The settings screen shows them the notice on that.
  */
-async function publicPageFor(
-  userId: string,
-): Promise<{ slug: string; is_published: boolean | null } | null> {
+async function publicPageFor(userId: string): Promise<{
+  slug: string;
+  is_published: boolean | null;
+  /** The SECOND, different question: do they want to appear on their
+   *  organisation's page? NULL means never asked, and for this one that is
+   *  treated as NO — see the column comment, and the migration for why the
+   *  two defaults on this table point opposite ways. */
+  listed_on_org_page: boolean | null;
+} | null> {
+  // TWO QUERIES, and the second one is allowed to fail.
+  //
+  // Measured on staging before the column existed (2026-10-11): naming
+  // `listed_on_org_page` in THIS select made the whole lookup fail, the catch
+  // below returned null, and the profile screen lost BOTH switches — the new
+  // listing AND the publish switch people already had. A 200 with a control
+  // silently missing is worse than an error, because nobody investigates it.
+  //
+  // It is the trap the organiser publish switch already documents in
+  // routes/thread.ts: a PostgREST select naming a column the database does
+  // not have fails at runtime and the row resolves as null. The fix there was
+  // the same — ask separately, so an old database degrades to a sane answer
+  // instead of losing everything in the same breath.
   const { data, error } = await adminClient
     .from('thread_organiser')
     .select('slug, is_published')
@@ -73,7 +92,19 @@ async function publicPageFor(
     console.error('[profile GET] public page lookup failed', error.message);
     return null;
   }
-  return data ? { slug: data.slug as string, is_published: data.is_published as boolean | null } : null;
+  if (!data) return null;
+  // Its own query. An error here means the migration has not run, and NULL is
+  // the right answer anyway: before the column exists, nobody is listed.
+  const { data: listing } = await adminClient
+    .from('thread_organiser')
+    .select('listed_on_org_page')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return {
+    slug: data.slug as string,
+    is_published: data.is_published as boolean | null,
+    listed_on_org_page: (listing?.listed_on_org_page as boolean | null | undefined) ?? null,
+  };
 }
 
 // Every message here is written to be READ BY THE PERSON SAVING. A zod
@@ -144,6 +175,9 @@ export const ProfilePatch = z.object({
    *  says yes or no, and "back to never having been asked" is not an answer
    *  anybody gives. */
   public_page_published: z.boolean().optional(),
+  /** Appearing on your organisation's page is its own answer, so it is its
+   *  own field rather than a second meaning for the one above. */
+  listed_on_org_page: z.boolean().optional(),
 });
 
 profileRoutes.patch('/', async (c) => {
@@ -151,7 +185,14 @@ profileRoutes.patch('/', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
 
-  const { stripe_account_id, invoice_details, default_payment_methods, public_page_published, ...face } =
+  const {
+    stripe_account_id,
+    invoice_details,
+    default_payment_methods,
+    public_page_published,
+    listed_on_org_page,
+    ...face
+  } =
     body.data;
 
   // The bio is becoming rich text, so it is cleaned where it ENTERS — the
@@ -181,6 +222,20 @@ profileRoutes.patch('/', async (c) => {
     if (error) {
       console.error('[profile PATCH] public page switch failed', error.message);
       return c.json({ error: 'could not change your public page' }, 500);
+    }
+  }
+
+  if (listed_on_org_page !== undefined) {
+    // Same scoping, same reason: theirs to set and nobody else's. An admin
+    // cannot add somebody to the organisation page, which is the entire
+    // point of asking.
+    const { error } = await adminClient
+      .from('thread_organiser')
+      .update({ listed_on_org_page })
+      .eq('user_id', ctx.userId);
+    if (error) {
+      console.error('[profile PATCH] org listing switch failed', error.message);
+      return c.json({ error: 'could not change your listing' }, 500);
     }
   }
 

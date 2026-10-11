@@ -5411,6 +5411,63 @@ async function organiserWithProfile<
   };
 }
 
+/**
+ * The people listed on an organisation's public page.
+ *
+ * ONLY those who said yes. `listed_on_org_page` is NULL for everybody who has
+ * never been asked and NULL means NOT listed — the opposite default from the
+ * publish switch on the same table, and the reason is in the migration: these
+ * organiser rows are created automatically the first time an external app
+ * publishes a thread for a workspace, so grandfathering NULL as listed would
+ * publish a staff directory out of people who never asked for an account.
+ *
+ * `linked` is the Q2 decision, and it is a separate thing from being listed:
+ * somebody can want to appear on their organisation's page while their own
+ * page is switched off. A link to a deliberate 404 is worse than no link, so
+ * they appear as text. `is_published === false` only — NULL is grandfathered
+ * as published, exactly as the page route treats it.
+ *
+ * Never exposes either flag. The page says who is on it; it does not say who
+ * declined, which would be the listing leaking the thing it is for.
+ */
+async function orgPagePeople(workspaceId: string): Promise<
+  {
+    slug: string;
+    display_name: string | null;
+    short_bio: string | null;
+    photo_url: string | null;
+    linked: boolean;
+  }[]
+> {
+  const { data, error } = await adminClient
+    .from('thread_organiser')
+    .select('id, user_id, workspace_id, slug, display_name, bio, photo_url, timezone, is_published')
+    .eq('workspace_id', workspaceId)
+    .eq('listed_on_org_page', true);
+  if (error) {
+    // Never fatal to the page: an organisation page that will not load
+    // because of one optional section is worse than a section that is
+    // missing — and before the migration runs, this select names a column
+    // the database does not have.
+    console.error('[public page] org people lookup failed', error.message);
+    return [];
+  }
+  const out = [];
+  for (const row of data ?? []) {
+    const withProfile = await organiserWithProfile(row);
+    out.push({
+      slug: row.slug as string,
+      display_name: withProfile.display_name,
+      short_bio: withProfile.short_bio,
+      photo_url: withProfile.photo_url,
+      linked: row.is_published !== false,
+    });
+  }
+  // By name, so the order is somebody's name rather than whoever was created
+  // first — a creation-ordered staff list reads as a hierarchy nobody chose.
+  return out.sort((a, b) => (a.display_name ?? '').localeCompare(b.display_name ?? ''));
+}
+
 // Public URLs group by owner: personal threads live under the organiser's
 // slug, team threads under the TEAM's slug (Sjoerd 2026-07-02). One root
 // namespace, resolved organiser-first (Meet's pattern).
@@ -5736,6 +5793,12 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     owner_kind: owner.kind,
     // Additive (rule 8): the workspace's public site — theme and ingredients.
     site: await publicSite(ownerWorkspaceId(owner)),
+    // The people, on an ORGANISATION page only. A person's own page is the
+    // person speaking; listing their colleagues there would be the confusion
+    // this whole split exists to undo. Always an array, never absent, so a
+    // caller never has to tell "nobody said yes" from "this is not that kind
+    // of page" — the second is what owner_kind is for.
+    people: owner.kind === 'workspace' ? await orgPagePeople(owner.workspace.id) : [],
   });
 });
 

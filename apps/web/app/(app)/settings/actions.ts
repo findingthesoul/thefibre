@@ -279,3 +279,21 @@ export async function setPublicPage(published: boolean): Promise<ActionResult> {
   revalidatePath('/settings/profile');
   return { ok: true };
 }
+
+/**
+ * The OTHER question: appearing on your organisation's page. Same scoping and
+ * the same absence of an admin path — nobody can put somebody else on a
+ * company page, which is the whole reason it is asked.
+ */
+export async function setOrgListing(listed: boolean): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ listed_on_org_page: listed }),
+    });
+  } catch (e) {
+    return unwrap(e);
+  }
+  revalidatePath('/settings/profile');
+  return { ok: true };
+}

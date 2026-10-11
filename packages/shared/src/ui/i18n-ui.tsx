@@ -141,6 +141,50 @@ const CHROME = {
     de: 'Das Ausschalten betrifft deine Threads nicht: Jeder geteilte Link funktioniert weiter.', // MT
     fr: 'La désactiver ne touche pas vos threads : tous les liens partagés continuent de fonctionner.', // MT
   },
+  // ── appearing on the organisation's page (2026-10-11) ───────────────
+  // The second question, and the one with the opposite default: nobody is on
+  // this listing until they say so.
+  org_listing_title: {
+    en: 'On your organisation’s page',
+    nl: 'Op de pagina van je organisatie',
+    es: 'En la página de tu organización', // MT
+    pt: 'Na página da sua organização', // MT
+    de: 'Auf der Seite deiner Organisation', // MT
+    fr: 'Sur la page de votre organisation', // MT
+  },
+  org_listing_switch_on: {
+    en: 'List me on my organisation’s page',
+    nl: 'Vermeld mij op de pagina van mijn organisatie',
+    es: 'Incluirme en la página de mi organización', // MT
+    pt: 'Listar-me na página da minha organização', // MT
+    de: 'Mich auf der Seite meiner Organisation nennen', // MT
+    fr: 'M’afficher sur la page de mon organisation', // MT
+  },
+  org_listing_on: {
+    en: 'Your name, photo and short bio appear on it.',
+    nl: 'Je naam, foto en korte bio staan erop.',
+    es: 'Tu nombre, foto y biografía breve aparecen en ella.', // MT
+    pt: 'O seu nome, foto e biografia breve aparecem nela.', // MT
+    de: 'Dein Name, Foto und Kurzbio erscheinen darauf.', // MT
+    fr: 'Votre nom, votre photo et votre courte bio y figurent.', // MT
+  },
+  org_listing_off: {
+    en: 'You do not appear on it.',
+    nl: 'Je staat er niet op.',
+    es: 'No apareces en ella.', // MT
+    pt: 'Não aparece nela.', // MT
+    de: 'Du erscheinst nicht darauf.', // MT
+    fr: 'Vous n’y figurez pas.', // MT
+  },
+  // The obvious wrong guess is that one switch implies the other.
+  org_listing_note: {
+    en: 'Separate from your own page: you can have one without appearing here, or appear here with your own page switched off.',
+    nl: 'Los van je eigen pagina: je kunt er een hebben zonder hier te staan, of hier staan terwijl je eigen pagina uitstaat.',
+    es: 'Independiente de tu propia página: puedes tener una sin aparecer aquí, o aparecer aquí con tu página desactivada.', // MT
+    pt: 'Independente da sua própria página: pode ter uma sem aparecer aqui, ou aparecer aqui com a sua página desligada.', // MT
+    de: 'Unabhängig von deiner eigenen Seite: Du kannst eine haben, ohne hier zu stehen, oder hier stehen, während deine Seite aus ist.', // MT
+    fr: 'Indépendant de votre propre page : vous pouvez en avoir une sans figurer ici, ou figurer ici avec votre page désactivée.', // MT
+  },
   org_page_switch_on: {
     en: 'Show our organisation page',
     nl: 'Toon de pagina van onze organisatie',

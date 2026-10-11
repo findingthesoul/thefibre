@@ -4,6 +4,7 @@ import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicThreadListItem } from './threads-grid';
 import { OrganiserListing, type PublicOrganiser } from './organiser-listing';
 import type { PublicSite } from '@/lib/public-site';
+import type { OrgPerson } from './org-people';
 
 // The first URL segment is any public owner slug — workspace, team or
 // organiser (docs/brief-workspace-urls.md D3: one namespace, workspaces
@@ -44,7 +45,14 @@ export default async function PublicOrganiserPage({
 }) {
   const { organiserSlug } = await params;
 
-  let data: { organiser: PublicOrganiser; threads: PublicThreadListItem[]; site?: PublicSite };
+  let data: {
+    organiser: PublicOrganiser;
+    threads: PublicThreadListItem[];
+    site?: PublicSite;
+    // Additive: absent on an older API, which renders no people section
+    // rather than an empty one.
+    people?: OrgPerson[];
+  };
   try {
     data = await publicFetch(`/api/v1/thread/public/organiser/${organiserSlug}`);
   } catch (e) {
@@ -58,6 +66,7 @@ export default async function PublicOrganiserPage({
       threads={data.threads}
       baseSlug={data.organiser.slug}
       site={data.site ?? null}
+      people={data.people ?? []}
     />
   );
 }

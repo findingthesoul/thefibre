@@ -3,7 +3,8 @@
 import { ProfileForm as SharedProfileForm } from '@thefibre/shared/ui/profile-form';
 import { PublicPageSwitch, type PublicPage } from '@thefibre/shared/ui/public-page-switch';
 import { uploadAsset } from '@/lib/upload';
-import { saveProfile, setPublicPage } from '../actions';
+import { OrgListingSwitch } from '@thefibre/shared/ui/org-listing-switch';
+import { saveProfile, setPublicPage, setOrgListing } from '../actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
 /**
@@ -31,7 +32,10 @@ export type PublicProfile = {
   todo_enabled?: boolean;
   /** This person's public organiser page, when they have one. Null for the
    *  many people who do not, and absent from an API that predates it. */
-  public_page?: PublicPage | null;
+  // The API returns both answers in one object. PublicPage is the shape the
+  // switch needs; the listing rides along beside it rather than being pushed
+  // into that type, because the switch has no business knowing about it.
+  public_page?: (PublicPage & { listed_on_org_page?: boolean | null }) | null;
 };
 
 export function ProfileForm({
@@ -86,6 +90,21 @@ export function ProfileForm({
       pageUrl={(slug) => `${threadAppUrl ?? ''}/${slug}`}
       onChange={async (published) => {
         const r = await setPublicPage(published);
+        return { ok: !!r.ok, error: r.error };
+      }}
+    />
+    {/* The second question, beneath the first because that is the order
+        somebody thinks about it in: do I have a page, and separately, am I
+        on my organisation's. Both render only for people who have an
+        organiser row at all. */}
+    <OrgListingSwitch
+      listing={
+        profile.public_page
+          ? { listed: profile.public_page.listed_on_org_page ?? null }
+          : null
+      }
+      onChange={async (listed) => {
+        const r = await setOrgListing(listed);
         return { ok: !!r.ok, error: r.error };
       }}
     />

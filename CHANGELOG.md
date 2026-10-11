@@ -6,6 +6,77 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.133.0] — 2026-10-11
+
+An organisation's page can show its people — and nobody is on it until they
+say so.
+
+Slice 3 of four (`docs/person-and-organisation-pages.md` §4). A workspace page
+was a logo and a list of threads, with no sense that an organisation is
+people. Now it has a people section, each person linking to their own page.
+
+**`thread_organiser.listed_on_org_page`, and NULL means NOT listed.** That is
+the opposite default from `is_published` on the very same table, and the
+opposite-ness is the whole point:
+
+- `is_published` grandfathers NULL as published, because those pages were
+  already serving and switching them off without asking would take live pages
+  down.
+- This listing has never existed and nobody is on it. Grandfathering NULL as
+  listed would **publish a staff directory on the day it ships** — out of rows
+  that `routes/app-thread.ts` creates automatically the first time an external
+  app publishes a thread for a workspace. Those are people who never asked for
+  an account, let alone to appear on a company page.
+
+The column is nullable rather than `not null default false` so the question
+can be asked once rather than assumed answered.
+
+**Two switches, two components, on purpose.** Appearing on your organisation's
+page is a different act from having a page of your own, so it is a separate
+question with its own answer — and `OrgListingSwitch` is a sibling of
+`PublicPageSwitch` rather than a second checkbox inside it, because the two
+have opposite defaults and one widget holding both would invite exactly the
+mistake the opposite defaults exist to prevent. The copy says so out loud:
+*"you can have one without appearing here, or appear here with your own page
+switched off."*
+
+**Listed, but with their own page off, appears as text.** Not as a link to a
+deliberate 404 (Q2). The API decides it and sends `linked`, so the renderer
+never re-derives it from a published flag it has no business seeing. Neither
+flag is ever in the payload — publishing them would leak who declined, which
+is the opposite of asking.
+
+The six themes got a SLOT, not six people sections. Each theme decides where
+it sits; none of them owns a copy that could drift.
+
+Seven cases. The two that matter most are the default — never asked is not
+listed — and the pair that pins Q2: listed AND not linked, asserted
+separately, because "absent" would satisfy a careless check for "not linked".
+A person's own page carries no people at all, which is the split in one
+assertion.
+
+**It degrades without its migration, and that was MEASURED, not assumed.**
+Staging did not have the column yet, so the new code was run against it
+first. The organisation page answered 200 with an empty people section, as
+intended — but `GET /api/v1/profile` came back with `public_page: null`, which
+meant the profile screen lost BOTH switches, including the publish switch
+people already had. A 200 with a control silently missing is worse than an
+error, because nobody investigates it.
+
+It was the trap the organiser publish switch already documents one file over:
+a PostgREST select naming a column the database does not have fails at
+runtime and resolves the row as null. The lookup is two queries now, and the
+second is allowed to fail — before the column exists, *nobody is listed* is
+both the safe answer and the true one. Re-measured after the fix: the
+switches survive and the listing reads NULL.
+
+So there is no promote rule to remember. The one window that still bites is
+an API deployed BEFORE its migration and somebody ticking the new switch in
+those minutes — they get a plain error rather than a silent no-op, and the
+deploy order (migration, then API) is what closes it.
+
+**Nothing changes on `/sjoerd`.** That is slice 4.
+
 ## [1.132.0] — 2026-10-11
 
 A workspace can say it wants no public organisation page — and "Website" is now

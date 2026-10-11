@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.132.0",
+  "version": "1.133.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -285,6 +285,10 @@
     "./ui/profile-form": {
       "types": "./dist/ui/profile-form.d.ts",
       "default": "./dist/ui/profile-form.js"
+    },
+    "./ui/org-listing-switch": {
+      "types": "./dist/ui/org-listing-switch.d.ts",
+      "default": "./dist/ui/org-listing-switch.js"
     },
     "./ui/public-page-switch": {
       "types": "./dist/ui/public-page-switch.d.ts",

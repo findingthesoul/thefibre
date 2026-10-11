@@ -1,3 +1,4 @@
+import { OrgPeople, type OrgPerson } from './org-people';
 // The public listing page body, shared between its two addresses
 // (docs/brief-workspace-urls.md):
 //
@@ -35,6 +36,14 @@ export function OrganiserListing({
   baseSlug,
   workspace = null,
   site = null,
+  people = [],
+  // ENGLISH, like `EMPTY` in themes.tsx a few lines away, and for the same
+  // reason: the page SHELL has no locale. The public catalogue is reached
+  // per THREAD (threads-grid resolves th.language), and a workspace page is
+  // not one thread. Adding a catalogue key no caller could pass a locale to
+  // would look translated without being translatable. When the shell gains a
+  // language, this and EMPTY move together.
+  peopleTitle = 'People',
 }: {
   organiser: PublicOrganiser;
   threads: PublicThreadListItem[];
@@ -46,6 +55,12 @@ export function OrganiserListing({
   workspace?: { slug: string; name: string | null } | null;
   /** The workspace's site design. Null (an older payload) = the plain page. */
   site?: PublicSite | null;
+  /** Who is listed on this organisation's page. Empty on a person's or a
+   *  team's page, and empty on an older API that does not send it — both of
+   *  which render nothing, so neither needs a special case. */
+  people?: OrgPerson[];
+  /** The heading above them, from the public page's own catalogue. */
+  peopleTitle?: string;
 }) {
   const name = organiser.display_name ?? organiser.slug;
   const resolved = site ?? PLAIN_SITE;
@@ -65,6 +80,7 @@ export function OrganiserListing({
       baseSlug={baseSlug}
       ownerSlug={ownerSlug}
       threads={threads}
+      people={<OrgPeople people={people} title={peopleTitle} />}
       crumb={
         workspace ? (
           <nav className="mb-8 text-sm">
