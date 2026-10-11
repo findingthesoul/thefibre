@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.141.1",
+  "version": "1.142.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -361,6 +361,10 @@
     "./ui/user-menu": {
       "types": "./dist/ui/user-menu.d.ts",
       "default": "./dist/ui/user-menu.js"
+    },
+    "./ui/provider-connection": {
+      "types": "./dist/ui/provider-connection.d.ts",
+      "default": "./dist/ui/provider-connection.js"
     },
     "./ui/zoom-connection": {
       "types": "./dist/ui/zoom-connection.d.ts",

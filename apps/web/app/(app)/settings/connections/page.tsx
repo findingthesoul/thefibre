@@ -10,6 +10,7 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { GoogleConnect } from './google-connect';
 import { ZoomConnect } from './zoom-connect';
+import { TeamsConnect } from './teams-connect';
 import { PersonalRoomForm } from './personal-room';
 import { AssistantsConnected, type AssistantGrant } from './assistants';
 import { ThreadPromptCard } from './thread-prompt';
@@ -26,14 +27,17 @@ type Connections = {
   zoom_connected?: boolean;
   zoom_account_email?: string | null;
   zoom_configured?: boolean;
+  teams_connected?: boolean;
+  teams_account_email?: string | null;
+  teams_configured?: boolean;
 };
 
 export default async function ConnectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ google?: string; zoom?: string; reason?: string }>;
+  searchParams: Promise<{ google?: string; zoom?: string; teams?: string; reason?: string }>;
 }) {
-  const { google: googleStatus, zoom: zoomStatus, reason } = await searchParams;
+  const { google: googleStatus, zoom: zoomStatus, teams: teamsStatus, reason } = await searchParams;
   const locale = await uiLocale();
   let conn: Connections | null = null;
   let grants: AssistantGrant[] = [];
@@ -78,6 +82,23 @@ export default async function ConnectionsPage({
                 accountEmail={conn.zoom_account_email ?? null}
                 configured={conn.zoom_configured !== false}
                 statusParam={zoomStatus ?? null}
+                reasonParam={reason ?? null}
+              />
+            </div>
+            <div className="mt-4">
+              {/* `=== true`, not `!== false` like Zoom above. The difference
+                  is deliberate: Zoom's field predates some deployments, so
+                  absent has to mean "assume yes" there or a working card
+                  would go dark. `teams_configured` ships with this card, so
+                  absent means the API could not say — and the safe answer to
+                  "can you connect?" is no, with the reason in words, rather
+                  than an enabled button that 503s. */}
+              <TeamsConnect
+                locale={locale}
+                connected={!!conn.teams_connected}
+                accountEmail={conn.teams_account_email ?? null}
+                configured={conn.teams_configured === true}
+                statusParam={teamsStatus ?? null}
                 reasonParam={reason ?? null}
               />
             </div>

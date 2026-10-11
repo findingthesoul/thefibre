@@ -56,6 +56,29 @@ export async function disconnectZoom(): Promise<Result> {
   }
 }
 
+// Microsoft Teams, through the SAME routes Zoom uses — Meet owns the OAuth
+// flow and already honours `?return=`, so the platform card reuses it rather
+// than forking a second Teams flow. `return=fibre` is what brings the browser
+// back to THIS app's settings page instead of Meet's.
+export async function startTeamsAuth(): Promise<{ url?: string; error?: string }> {
+  try {
+    const r = await apiFetch<{ url: string }>('/api/v1/meet/teams/auth-start?return=fibre');
+    return { url: r.url };
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}
+
+export async function disconnectTeams(): Promise<Result> {
+  try {
+    await apiFetch('/api/v1/meet/teams/disconnect', { method: 'POST' });
+    revalidatePath('/settings/connections');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function updatePersonalRoom(url: string | null): Promise<Result> {
   try {
     await apiFetch('/api/v1/meet/connections', {

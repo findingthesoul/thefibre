@@ -2611,6 +2611,65 @@ const CATALOG = {
     de: 'Zoom-Konto: {email}', // MT
     fr: 'Compte Zoom : {email}', // MT
   },
+  // Microsoft Teams. Mirrors the zoom_* set above, because the card is the
+  // same card — a work or school account connected once, then used to create
+  // meetings for Meet bookings and Thread sessions.
+  teams_desc: {
+    en: 'Create Microsoft Teams meetings automatically: for every booking on a meeting type set to Teams in Meet, and for live sessions you set to Teams in a Thread. The join link goes into the invitation and the confirmation email. Needs a work or school account.',
+    nl: 'Maakt automatisch Microsoft Teams-meetings aan: voor elke boeking op een afspraaktype dat in Meet op Teams staat, en voor live sessies die je in een Thread op Teams zet. De deelnamelink komt in de uitnodiging en de bevestigingsmail. Vereist een werk- of schoolaccount.',
+    es: 'Crea reuniones de Microsoft Teams automáticamente: para cada reserva de un tipo de reunión configurado con Teams en Meet, y para las sesiones en directo que configures con Teams en un Thread. El enlace va en la invitación y en el correo de confirmación. Requiere una cuenta profesional o educativa.', // MT
+    pt: 'Cria reuniões do Microsoft Teams automaticamente: para cada marcação de um tipo de reunião definido como Teams no Meet, e para as sessões em direto que definir como Teams num Thread. A ligação entra no convite e no e-mail de confirmação. Requer uma conta profissional ou escolar.', // MT
+    de: 'Legt Microsoft-Teams-Meetings automatisch an: für jede Buchung eines Meeting-Typs mit Teams in Meet und für Live-Sitzungen, die du in einem Thread auf Teams stellst. Der Link steht in der Einladung und in der Bestätigungsmail. Erfordert ein Geschäfts- oder Schulkonto.', // MT
+    fr: 'Crée automatiquement des réunions Microsoft Teams : pour chaque réservation d’un type de réunion réglé sur Teams dans Meet, et pour les sessions en direct que vous réglez sur Teams dans un Thread. Le lien figure dans l’invitation et dans l’e-mail de confirmation. Nécessite un compte professionnel ou scolaire.', // MT
+  },
+  teams_connected_msg: {
+    en: '✓ Connected.',
+    nl: '✓ Gekoppeld.',
+    es: '✓ Conectado.', // MT
+    pt: '✓ Ligado.', // MT
+    de: '✓ Verbunden.', // MT
+    fr: '✓ Connecté.', // MT
+  },
+  teams_error_msg: {
+    en: 'Couldn’t connect{reason}. Try again, or check that your organisation allows this app — a work or school account is required.',
+    nl: 'Koppelen mislukt{reason}. Probeer opnieuw of check of je organisatie deze app toestaat — een werk- of schoolaccount is vereist.',
+    es: 'No se pudo conectar{reason}. Inténtalo de nuevo o comprueba que tu organización permita esta app: se requiere una cuenta profesional o educativa.', // MT
+    pt: 'Não foi possível ligar{reason}. Tente novamente ou verifique se a sua organização permite esta app — é necessária uma conta profissional ou escolar.', // MT
+    de: 'Verbindung fehlgeschlagen{reason}. Versuch es erneut oder prüfe, ob deine Organisation diese App zulässt — ein Geschäfts- oder Schulkonto ist erforderlich.', // MT
+    fr: 'Connexion impossible{reason}. Réessaie ou vérifie que ton organisation autorise cette application — un compte professionnel ou scolaire est requis.', // MT
+  },
+  teams_start_failed: {
+    en: 'Could not start Microsoft Teams connect.',
+    nl: 'Kon de Microsoft Teams-koppeling niet starten.',
+    es: 'No se pudo iniciar la conexión con Microsoft Teams.', // MT
+    pt: 'Não foi possível iniciar a ligação ao Microsoft Teams.', // MT
+    de: 'Microsoft-Teams-Verbindung konnte nicht gestartet werden.', // MT
+    fr: 'Impossible de démarrer la connexion Microsoft Teams.', // MT
+  },
+  connect_teams: {
+    en: 'Connect Teams',
+    nl: 'Teams koppelen',
+    es: 'Conectar Teams', // MT
+    pt: 'Ligar o Teams', // MT
+    de: 'Teams verbinden', // MT
+    fr: 'Connecter Teams', // MT
+  },
+  teams_not_configured: {
+    en: 'Microsoft Teams isn’t set up on this server yet. Ask your workspace admin.',
+    nl: 'Microsoft Teams is nog niet ingesteld op deze server. Vraag je workspace-beheerder.',
+    es: 'Microsoft Teams aún no está configurado en este servidor. Pregunta a la administración de tu espacio.', // MT
+    pt: 'O Microsoft Teams ainda não está configurado neste servidor. Fale com a administração do seu espaço.', // MT
+    de: 'Microsoft Teams ist auf diesem Server noch nicht eingerichtet. Frag deine Workspace-Admin.', // MT
+    fr: 'Microsoft Teams n’est pas encore configuré sur ce serveur. Demande à l’administration de ton espace.', // MT
+  },
+  teams_account: {
+    en: 'Microsoft account: {email}',
+    nl: 'Microsoft-account: {email}',
+    es: 'Cuenta de Microsoft: {email}', // MT
+    pt: 'Conta Microsoft: {email}', // MT
+    de: 'Microsoft-Konto: {email}', // MT
+    fr: 'Compte Microsoft : {email}', // MT
+  },
   connect_google: {
     en: 'Connect Google',
     nl: 'Google koppelen',

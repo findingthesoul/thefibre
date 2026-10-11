@@ -1,0 +1,156 @@
+'use client';
+
+// THE connection card for an OAuth meeting provider — Zoom, Microsoft Teams,
+// and whatever comes next. One implementation for every app that lets a
+// person connect one in Settings → Connections.
+//
+// This is the body that was `ZoomConnectionCard`, with the product name and
+// the callback's query-parameter name lifted out. Nothing else about it was
+// ever Zoom-specific: the states (not configured / not connected / connected
+// / returned-with-error) and the two actions are the same for any provider
+// that hands you back to a settings page with `?<provider>=connected`.
+//
+// Generalised rather than copied when Teams needed a card (2026-10-11),
+// because CLAUDE.md's "components first" rule is explicit about it — and
+// because a second copy is where the two drift. `ZoomConnectionCard` stays as
+// a thin wrapper so no existing call site changes.
+//
+// The app-bound pieces are INJECTED: the two server actions (they bake in the
+// app's session + X-App-ID and the `?return=` that brings the browser back to
+// THAT app) and every string, already translated by the app's own catalog.
+// Nothing here imports app code or next/*, which is why a successful
+// disconnect is reported through `onDisconnected` instead of calling
+// router.refresh() itself.
+
+import { useState, useTransition } from 'react';
+import { Button } from './button.js';
+
+export type ProviderConnectionLabels = {
+  /** What this provider is used for in this app. */
+  description: string;
+  /** "Zoom account: x@y.z" — already formatted, or built from the email. */
+  account: string | ((email: string) => string);
+  /** Shown after returning from a successful connect. */
+  connectedMessage: string;
+  /** Shown after a failed connect; receives " (reason)" or "". */
+  errorMessage: string | ((reasonSuffix: string) => string);
+  /** The server has no app credentials for this provider, so connecting
+   *  cannot work. */
+  notConfigured: string;
+  /** Fallback when starting the flow fails without a message. */
+  startFailed: string;
+  connect: string;
+  disconnect: string;
+  /** Pending label on Disconnect (and on Connect while redirecting). */
+  working: string;
+};
+
+export function ProviderConnectionCard({
+  name,
+  connected,
+  accountEmail,
+  configured,
+  statusParam,
+  reasonParam,
+  labels,
+  onStart,
+  onDisconnect,
+  onDisconnected,
+}: {
+  /** The product name, shown as the card's heading. NOT translated — a
+   *  product name is the same in every locale. */
+  name: string;
+  connected: boolean;
+  accountEmail: string | null;
+  /** False when the server has no app credentials for this provider. */
+  configured: boolean;
+  /** `?zoom=` / `?teams=` from the callback redirect. */
+  statusParam: string | null;
+  /** `?reason=` from the callback redirect. */
+  reasonParam: string | null;
+  labels: ProviderConnectionLabels;
+  /** Starts the OAuth flow; resolves to the provider's consent URL. */
+  onStart: () => Promise<{ url?: string; error?: string }>;
+  onDisconnect: () => Promise<{ ok: boolean; error?: string }>;
+  /** Called after a successful disconnect — the app refreshes its route. */
+  onDisconnected?: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function connect() {
+    setError(null);
+    start(async () => {
+      const r = await onStart();
+      if (r.error || !r.url) {
+        setError(r.error ?? labels.startFailed);
+        return;
+      }
+      window.location.href = r.url;
+    });
+  }
+
+  function disconnect() {
+    setError(null);
+    start(async () => {
+      const r = await onDisconnect();
+      if (!r.ok) setError(r.error ?? labels.startFailed);
+      else onDisconnected?.();
+    });
+  }
+
+  const accountLine =
+    typeof labels.account === 'function' ? labels.account(accountEmail ?? '') : labels.account;
+  const reasonSuffix = reasonParam ? ` (${reasonParam})` : '';
+  const errorLine =
+    typeof labels.errorMessage === 'function'
+      ? labels.errorMessage(reasonSuffix)
+      : labels.errorMessage;
+
+  // Nothing to click while the server holds no credentials: the button is
+  // rendered but DISABLED, with the reason in words beside it. Deliberately
+  // not hidden — a card with no control at all reads as "this does not exist
+  // here", when the truth is "this exists and is not switched on yet", and
+  // the difference is what tells somebody to go and set the secrets.
+  const canConnect = configured && !pending;
+
+  return (
+    <div className="rounded-lg border border-line bg-surface-raised p-5">
+      <div className="flex items-baseline justify-between gap-6">
+        <div className="min-w-0">
+          {/* The product name: not translated. */}
+          <div className="font-medium">{name}</div>
+          <div className="text-sm text-ink-subtle mt-1">{labels.description}</div>
+          {connected && accountEmail && (
+            <div className="mt-2 text-sm text-ink-subtle">{accountLine}</div>
+          )}
+          {statusParam === 'connected' && !error && (
+            <div className="mt-3 text-sm text-emerald-700">{labels.connectedMessage}</div>
+          )}
+          {statusParam === 'error' && <div className="mt-3 text-sm text-red-700">{errorLine}</div>}
+          {!configured && !connected && (
+            <div className="mt-3 text-sm text-ink-subtle">{labels.notConfigured}</div>
+          )}
+          {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
+        </div>
+        <div className="shrink-0">
+          {connected ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={disconnect}
+              disabled={pending}
+            >
+              {pending ? labels.working : labels.disconnect}
+            </Button>
+          ) : (
+            <Button type="button" onClick={connect} disabled={!canConnect}>
+              {pending ? labels.working : labels.connect}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

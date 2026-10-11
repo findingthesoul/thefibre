@@ -6,6 +6,75 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.142.0] — 2026-10-11
+
+Microsoft Teams had a complete backend and no way to connect it. Settings →
+Connections now has the card.
+
+Everything else was already there and had been for a while: the
+`teams_refresh_token` / `teams_account_email` columns, `lib/teams/client.ts`,
+`lib/teams/host.ts` with Microsoft's refresh-token rotation and the
+per-user coalescing, `createTeamsMeeting`, the OAuth routes, `teams` in
+`MintableProvider`, and `teams_connected` / `teams_account_email` /
+`teams_configured` already in the `/meet/connections` payload. There was
+simply no card, in any app, so nobody could connect an account and the whole
+path was dark. **The API needed no changes.**
+
+**Dark until the secrets exist, and it says so.** With no TEAMS_CLIENT_ID /
+TEAMS_CLIENT_SECRET on the server the card reads "Microsoft Teams isn't set
+up on this server yet. Ask your workspace admin." and Connect is disabled —
+never a button that fails when pressed. Checked on 2026-10-11: those secrets
+are absent on **staging and production both**, so this ships inert
+everywhere, which is what it is meant to do.
+
+`teams_configured` is read as `=== true`, not `!== false` like Zoom's beside
+it. The difference is deliberate: Zoom's field predates some deployments, so
+absent has to mean "assume yes" there or a working card would go dark. This
+one ships with its card, so absent means the API could not say — and the safe
+answer to "can you connect?" is no, with the reason in words.
+
+**Reusing Meet's OAuth flow rather than forking it.** Meet owns the Teams
+consent hop and already honours `?return=`, exactly as it does for Zoom, so
+the platform's actions call `/api/v1/meet/teams/auth-start?return=fibre` and
+`/api/v1/meet/teams/disconnect` — the same two lines the Zoom card has used
+all along. No second Teams flow to drift.
+
+### The card is now one card
+
+`ZoomConnectionCard` was already shared, and nothing in it was
+Zoom-specific except the product name: the states (not configured / not
+connected / connected / returned-with-error) and the two injected actions are
+the same for any provider that hands you back with `?<provider>=connected`.
+So it was generalised into `ProviderConnectionCard` rather than copied —
+CLAUDE.md's "components first" rule is explicit, and a second copy is where
+the two drift. `ZoomConnectionCard` stays as a thin wrapper, so no existing
+call site changed.
+
+### Thread's Teams exemption stays, and now says what would let it go
+
+`mintMeetingUrl` has a line that exempts Teams from refusing a save, with a
+comment saying to delete it "in the release that adds the Teams connect
+cards". This is that release, and the line stays — because the card is
+**necessary and not sufficient**, and deleting it now would be a regression
+rather than a completion:
+
+1. the secrets do not exist on any deployment, so `isTeamsConfigured()` is
+   false everywhere and *every* Teams session would refuse with "not
+   available on this platform yet", where today it saves with a blank link;
+2. the editor still has no `teams_available` beside `zoom_available`, so the
+   option is offered freely and would be refused at save — the "offered X
+   then refused X" shape, two code paths disagreeing.
+
+The comment now names both, with the date they were checked, instead of a
+condition that reads as already met.
+
+While there: the refusal message built its provider name as
+`provider === 'zoom' ? 'Zoom' : 'Google'`, which would call Teams "Google"
+the moment that line went. It is a map now — and it had to move ABOVE the
+guard, because the guard narrows the type and the typechecker then rejects a
+`=== 'teams'` test as dead code. It rejected mine (TS2367); the first attempt
+at this fix was wrong and the typechecker said so.
+
 ## [1.141.1] — 2026-10-11
 
 Tests only. Two browser checks for v1.141.0, and the fixture leak they

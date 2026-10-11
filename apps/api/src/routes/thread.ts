@@ -1488,14 +1488,37 @@ async function mintMeetingUrl(opts: {
   // and being unable to add a session to a programme because Zoom is having
   // an afternoon is a worse outcome than a link the organiser fills in.
   if (r.reason === 'failed') return {};
-  // Teams is mintable in the API before it is connectable anywhere: there is no
-  // Teams card in Settings and no `teams_available` in the editor yet. Refusing
+  // Teams is mintable in the API before it is connectable anywhere. Refusing
   // here would turn "Teams + a blank link" — which saves today — into a save
-  // that fails with no way to fix it. Until the cards ship, Teams keeps its
-  // old behaviour (a label; the organiser's own link). Delete this line in the
-  // release that adds the Teams connect cards and the editor's availability.
+  // that fails with no way to fix it, so Teams keeps its old behaviour (a
+  // label; the organiser's own link).
+  //
+  // STILL TRUE as of v1.142.0, which added the platform's Teams connect card.
+  // Two things have to hold before this line goes, and neither does yet:
+  //
+  //   1. TEAMS_CLIENT_ID / TEAMS_CLIENT_SECRET exist on the deployment.
+  //      Checked 2026-10-11: absent on staging AND production, so
+  //      `isTeamsConfigured()` is false everywhere and every Teams session
+  //      would refuse with "not available on this platform yet" — a straight
+  //      regression for anyone using Teams as a label today.
+  //   2. The editor knows: `teams_available` next to `zoom_available` (this
+  //      file, GET /me) and threaded through apps/thread's editor, so the
+  //      option can say it needs connecting BEFORE somebody picks it. A
+  //      refusal at save time on a screen that offered the option freely is
+  //      the "offered X then refused X" shape — two code paths disagreeing.
+  //
+  // So: the card is necessary and not sufficient. Delete this line in the
+  // release that adds `teams_available`, once the secrets are set.
+  //
+  // Named BEFORE that guard, deliberately. The old line here was
+  // `opts.provider === 'zoom' ? 'Zoom' : 'Google'`, which calls Teams
+  // "Google" the moment the guard goes — and it cannot be fixed below the
+  // guard, because the guard narrows `provider` and the typechecker then
+  // rejects a `=== 'teams'` test as dead code (it did: TS2367). So the map
+  // sits up here where all three are still possible, and the deleter gets
+  // the right name for free.
+  const what = { zoom: 'Zoom', teams: 'Microsoft Teams', google_meet: 'Google' }[opts.provider];
   if (opts.provider === 'teams') return {};
-  const what = opts.provider === 'zoom' ? 'Zoom' : 'Google';
   return {
     refuse:
       r.reason === 'not_configured'
