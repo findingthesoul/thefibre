@@ -3230,6 +3230,10 @@ meetRoutes.get('/me', async (c) => {
   // booking page lives at, working hours, the room.
   const profile = await profileFor(ctx.userId);
 
+  const [zoom, teams] = await Promise.all([
+    userZoomAccount(ctx.userId),
+    userTeamsAccount(ctx.userId),
+  ]);
   return c.json({
     ...safe,
     display_name: profile?.display_name ?? null,
@@ -3240,9 +3244,20 @@ meetRoutes.get('/me', async (c) => {
     // Payments SPoT — user_profile first, the old column only as fallback.
     stripe_account_id: await personalStripeAccount(ctx.userId),
     google_connected: !!(await userGoogleToken(ctx.userId)),
-    zoom_connected: (await userZoomAccount(ctx.userId)).connected,
-    zoom_account_email: (await userZoomAccount(ctx.userId)).email,
+    // One lookup per provider. `zoom_connected` and `zoom_account_email` each
+    // called userZoomAccount, so the same row was fetched twice on every load
+    // of the integrations page. Same values, one round trip.
+    zoom_connected: zoom.connected,
+    zoom_account_email: zoom.email,
     zoom_configured: isZoomConfigured(),
+    // Teams, added with Meet's connect card. Additive: this route is Meet's
+    // own, not the published /api/v1/apps/* contract, and every existing
+    // field above is unchanged. /meet/connections has reported these since
+    // the Microsoft connection landed; /meet/me never did, which is why the
+    // Meet page could not show a Teams card that told the truth.
+    teams_connected: teams.connected,
+    teams_account_email: teams.email,
+    teams_configured: isTeamsConfigured(),
   });
 });
 

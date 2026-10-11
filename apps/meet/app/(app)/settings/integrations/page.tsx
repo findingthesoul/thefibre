@@ -10,6 +10,7 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { GoogleConnect } from '../google';
 import { ZoomConnect } from './zoom';
+import { TeamsConnect } from './teams';
 import { PersonalRoomForm } from './personal-room';
 
 type Host = {
@@ -17,16 +18,19 @@ type Host = {
   zoom_connected?: boolean;
   zoom_account_email?: string | null;
   zoom_configured?: boolean;
+  teams_connected?: boolean;
+  teams_account_email?: string | null;
+  teams_configured?: boolean;
   personal_room_url: string | null;
 };
 
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ google?: string; zoom?: string; reason?: string }>;
+  searchParams: Promise<{ google?: string; zoom?: string; teams?: string; reason?: string }>;
 }) {
   const locale = await uiLocale();
-  const { google: googleStatus, zoom: zoomStatus, reason } = await searchParams;
+  const { google: googleStatus, zoom: zoomStatus, teams: teamsStatus, reason } = await searchParams;
   let host: Host | null = null;
   let error: string | null = null;
   try {
@@ -65,6 +69,22 @@ export default async function IntegrationsPage({
                 accountEmail={host.zoom_account_email ?? null}
                 configured={host.zoom_configured !== false}
                 statusParam={zoomStatus ?? null}
+                reasonParam={reason ?? null}
+                locale={locale}
+              />
+            </div>
+            <div className="mt-4">
+              {/* `=== true`, not `!== false` like Zoom above. Zoom's field
+                  predates some deployments, so absent has to mean "assume
+                  yes" there. teams_configured ships with this card, so absent
+                  means the API could not say — and the safe answer to "can
+                  you connect?" is no, with the reason in words, rather than
+                  an enabled button that 503s. */}
+              <TeamsConnect
+                connected={!!host.teams_connected}
+                accountEmail={host.teams_account_email ?? null}
+                configured={host.teams_configured === true}
+                statusParam={teamsStatus ?? null}
                 reasonParam={reason ?? null}
                 locale={locale}
               />

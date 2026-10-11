@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { ProviderConnectionCard } from '@thefibre/shared/ui/provider-connection';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { startZoomAuth, disconnectZoom } from '../actions';
 
+// Meet's Zoom card, now the SHARED card with Meet's strings and actions
+// injected. This file was an 88-line copy that predated the shared one — the
+// note on packages/shared/src/ui/zoom-connection.tsx said "port it to this
+// when next touched", and adding a Teams card beside it was that touch.
+// Porting rather than copying is the whole point: a second provider here was
+// about to become a second copy of the same card.
 export function ZoomConnect({
   connected,
   accountEmail,
@@ -23,66 +28,36 @@ export function ZoomConnect({
   locale: Locale;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function connect() {
-    setError(null);
-    start(async () => {
-      const r = await startZoomAuth();
-      if (r.error || !r.url) {
-        setError(r.error ?? t(locale, 'zoom_start_failed'));
-        return;
-      }
-      window.location.href = r.url;
-    });
-  }
-
-  function disconnect() {
-    setError(null);
-    start(async () => {
-      const r = await disconnectZoom();
-      if (r.error) setError(r.error);
-      else router.refresh();
-    });
-  }
-
   return (
-    <div className="rounded-lg border border-line bg-surface-raised p-5">
-      <div className="flex items-baseline justify-between gap-6">
-        <div className="min-w-0">
-          <div className="font-medium">Zoom</div>
-          <div className="text-sm text-ink-subtle mt-1">{t(locale, 'zoom_desc')}</div>
-          {connected && accountEmail && (
-            <div className="mt-2 text-sm text-ink-subtle">
-              {t(locale, 'zoom_account', { email: accountEmail })}
-            </div>
-          )}
-          {statusParam === 'connected' && !error && (
-            <div className="mt-3 text-sm text-emerald-700">{t(locale, 'zoom_connected_msg')}</div>
-          )}
-          {statusParam === 'error' && (
-            <div className="mt-3 text-sm text-red-700">
-              {t(locale, 'zoom_error_msg', { reason: reasonParam ? ` (${reasonParam})` : '' })}
-            </div>
-          )}
-          {!configured && !connected && (
-            <div className="mt-3 text-sm text-ink-subtle">{t(locale, 'zoom_not_configured')}</div>
-          )}
-          {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
-        </div>
-        <div className="shrink-0">
-          {connected ? (
-            <Button variant="secondary" size="sm" onClick={disconnect} disabled={pending}>
-              {pending ? t(locale, 'working') : t(locale, 'disconnect')}
-            </Button>
-          ) : (
-            <Button onClick={connect} disabled={pending || !configured}>
-              {pending ? t(locale, 'redirecting') : t(locale, 'connect_zoom')}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
+    <ProviderConnectionCard
+      name="Zoom"
+      connected={connected}
+      accountEmail={accountEmail}
+      configured={configured}
+      statusParam={statusParam}
+      reasonParam={reasonParam}
+      labels={{
+        description: t(locale, 'zoom_desc'),
+        account: (email) => t(locale, 'zoom_account', { email }),
+        connectedMessage: t(locale, 'zoom_connected_msg'),
+        errorMessage: (reason) => t(locale, 'zoom_error_msg', { reason }),
+        notConfigured: t(locale, 'zoom_not_configured'),
+        startFailed: t(locale, 'zoom_start_failed'),
+        connect: t(locale, 'connect_zoom'),
+        disconnect: t(locale, 'disconnect'),
+        // Meet says "Redirecting…" where the platform says "Working…". Kept
+        // as Meet's own word rather than quietly unified: the shared card
+        // takes the label, it does not own it.
+        working: t(locale, 'redirecting'),
+      }}
+      onStart={startZoomAuth}
+      // Meet's action returns SaveResult (`ok?: true`); the card wants a
+      // definite boolean. Narrowed here rather than loosening the card.
+      onDisconnect={async () => {
+        const r = await disconnectZoom();
+        return { ok: !!r.ok, error: r.error };
+      }}
+      onDisconnected={() => router.refresh()}
+    />
   );
 }

@@ -125,6 +125,30 @@ export async function disconnectZoom(): Promise<SaveResult> {
   return { ok: true };
 }
 
+// Microsoft Teams. The same two routes as Zoom above, and no `?return=`:
+// the flow started here belongs to Meet, so the callback's default landing —
+// Meet's own settings — is the right one. (The platform's card passes
+// `?return=fibre` for exactly that reason.)
+export async function startTeamsAuth(): Promise<{ url?: string; error?: string }> {
+  try {
+    const r = await apiFetch<{ url: string }>('/api/v1/meet/teams/auth-start');
+    return { url: r.url };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function disconnectTeams(): Promise<SaveResult> {
+  try {
+    await apiFetch('/api/v1/meet/teams/disconnect', { method: 'POST' });
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+  revalidatePath('/settings/integrations');
+  revalidatePath('/meeting-types');
+  return { ok: true };
+}
+
 /** Host preferences that are a single switch rather than a form — today
  *  just "events marked Free still block" (Settings → Calendars). */
 export async function updateHostPrefs(patch: {

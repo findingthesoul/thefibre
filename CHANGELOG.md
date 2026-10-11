@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.143.0] — 2026-10-11
+
+Meet gets the same Microsoft Teams card, and gives up its private copy of the
+card to get it.
+
+v1.142.0 put the Teams card in the platform's Settings → Connections. Meet
+has its own integrations page and its own 88-line copy of the Zoom card,
+which predates the shared one — so adding Teams there would have been a
+second copy of a card that already existed twice. Meet's `zoom.tsx` is now
+the shared `ProviderConnectionCard` with Meet's strings and actions injected,
+and `teams.tsx` beside it is eight lines of difference. The note on
+`zoom-connection.tsx` had said "port it to this when next touched" since the
+shared card landed; this was the touch.
+
+Two details kept rather than quietly unified, because the shared card takes
+its labels and does not own them: Meet says "Redirecting…" where the platform
+says "Working…", and Meet's disconnect action returns `SaveResult`
+(`ok?: true`), which is narrowed at the call site instead of loosening the
+card's type.
+
+**This one needed an API change, where the platform's card did not.** Meet's
+page reads `/api/v1/meet/me`, not `/meet/connections`, and `/meet/me`
+returned only the Zoom fields — so a Teams card there could not have told the
+truth about anything. `teams_connected` / `teams_account_email` /
+`teams_configured` added, additively; every existing field is untouched, and
+this route is Meet's own, not the published `/api/v1/apps/*` contract.
+
+While in that payload: `zoom_connected` and `zoom_account_email` each called
+`userZoomAccount(ctx.userId)`, so the same row was read **twice on every load
+of the integrations page**. One call now, both reads off it, same values.
+
+Inert exactly as the platform card is: no TEAMS_CLIENT_ID / TEAMS_CLIENT_SECRET
+means `configured` is false, the reason is in words, and Connect is disabled
+rather than a button that fails. `teams_configured` is read as `=== true`,
+not Zoom's `!== false`, for the reason given in v1.142.0 — this field ships
+with its card, so "the API could not say" must not mean "press this".
+
+### A word that already meant something else
+
+The new strings are `ms_teams_*`, not `teams_*`. Meet already uses
+`teams_desc`, `teams_title` and `teams_empty` for **Fibre teams** — shared
+groups of people in a workspace, nothing to do with Microsoft. The unprefixed
+name collided on the first attempt and the typechecker refused the duplicate
+key (TS1117), which is the only reason the catalogue does not now carry two
+meanings for one word. The same trap is sitting in
+`apps/api/src/routes/connections-teams.ts`, which is entirely about Fibre
+teams and is easy to grep into by mistake.
+
+The platform's own catalogue keeps `teams_*`, because it has no Fibre-teams
+keys to collide with. That is an inconsistency between two catalogues for one
+card, noted here rather than fixed quietly across a lane boundary.
+
 ## [1.142.1] — 2026-10-11
 
 A lane in the runway control was not a pattern. It was a list of whatever
