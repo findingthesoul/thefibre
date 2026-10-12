@@ -11,6 +11,11 @@ import { setProductCategories } from '../settings/actions';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { createGrant, deleteGrant } from '../access/actions';
 import { GRANT_KINDS, type Grant, type GrantKind as AccessKind } from '../access/types';
+import { TeamCalendarGrantFields } from '@thefibre/shared/ui/team-calendar-grant';
+import { teamCalendarGrantConfig } from '@thefibre/shared/team-calendar-grant';
+import type { TeamOption } from '../access/types';
+import { teamCalendarLabels } from '@/lib/team-calendar-labels';
+import { grantSummary } from '@/lib/grant-summary';
 import { LINK_KINDS, type LinkKind, type Product, type ProductLink } from './types';
 
 const INPUT =
@@ -40,6 +45,7 @@ const LINK_KIND_KEYS: Record<LinkKind, UiKey> = {
 const GRANT_KIND_KEYS: Record<AccessKind, UiKey> = {
   circle: 'grant_kind_circle',
   thread: 'grant_kind_thread',
+  team_calendar: 'grant_kind_team_calendar',
   fibre_seat: 'grant_kind_fibre_seat',
   google_user: 'grant_kind_google_user',
 };
@@ -55,6 +61,7 @@ export function ProductDialog({
   product,
   currency: workspaceCurrency,
   threadOptions,
+  teamOptions,
   grants,
   categories,
   productCategoryIds,
@@ -66,6 +73,10 @@ export function ProductDialog({
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
   /** The workspace's threads — thread-kind links pick a slug, never type one. */
   threadOptions: { slug: string; title: string }[];
+  /** The workspace's teams, for a team-calendar grant. Empty (a cross-app
+   *  read that failed or a workspace with no teams) hides the kind rather
+   *  than offering a picker with nothing in it. */
+  teamOptions: TeamOption[];
   /** Access carried by THIS product (the product is the promise — 2026-09-05). */
   grants: Grant[];
   /** The workspace's directory categories (slice 1). Empty = none defined
@@ -110,14 +121,47 @@ export function ProductDialog({
   const [accessKind, setAccessKind] = useState<AccessKind>('circle');
   const [accessRef, setAccessRef] = useState('');
   const [accessRole, setAccessRole] = useState<'organiser' | 'admin'>('organiser');
+  const [accessTeamId, setAccessTeamId] = useState('');
+  // A STRING, and empty on purpose: blank means "included in the membership"
+  // (100), and a number state would make it 0 — the one value this grant
+  // refuses. The shared rule decides, not this component.
+  const [accessPct, setAccessPct] = useState('100');
   const [accessBusy, setAccessBusy] = useState(false);
+
+  /** The config this row would be saved with, or the message to show instead.
+   *  One place, so the optimistic list below cannot build a different shape
+   *  from the one the API stored. */
+  function accessConfig(): { config: Record<string, unknown> } | { message: string } {
+    if (accessKind === 'circle') {
+      if (!accessRef.trim()) return { message: t(locale, 'space_id_required') };
+      return { config: { space_id: accessRef.trim() } };
+    }
+    if (accessKind === 'fibre_seat') return { config: { role: accessRole } };
+    if (accessKind === 'google_user') return { config: {} };
+    if (accessKind === 'team_calendar') {
+      // THE SAME FUNCTION THE API VALIDATES WITH. A 0 is refused here with
+      // the reason, not sent and bounced — and a blank percentage becomes
+      // 100, the included-in-the-membership case.
+      const r = teamCalendarGrantConfig(accessTeamId, accessPct);
+      if (r.ok) return { config: r.config as unknown as Record<string, unknown> };
+      return {
+        message:
+          r.reason === 'team'
+            ? t(locale, 'team_required')
+            : r.reason === 'zero'
+              ? t(locale, 'pct_zero_hint')
+              : t(locale, 'pct_range_hint'),
+      };
+    }
+    if (!accessRef.trim()) return { message: t(locale, 'thread_slug_required') };
+    return { config: { thread_slug: accessRef.trim() } };
+  }
 
   async function addAccess() {
     if (!product) return;
-    if (accessKind !== 'fibre_seat' && accessKind !== 'google_user' && !accessRef.trim()) {
-      setError(
-        accessKind === 'circle' ? t(locale, 'space_id_required') : t(locale, 'thread_slug_required'),
-      );
+    const built = accessConfig();
+    if ('message' in built) {
+      setError(built.message);
       return;
     }
     setAccessBusy(true);
@@ -125,14 +169,7 @@ export function ProductDialog({
     const r = await createGrant({
       product_id: product.id,
       kind: accessKind,
-      config:
-        accessKind === 'circle'
-          ? { space_id: accessRef.trim() }
-          : accessKind === 'fibre_seat'
-            ? { role: accessRole }
-            : accessKind === 'google_user'
-              ? {}
-              : { thread_slug: accessRef.trim() },
+      config: built.config,
     });
     setAccessBusy(false);
     if (r.error || !r.data) {
@@ -146,20 +183,14 @@ export function ProductDialog({
         tier_id: null,
         product_id: product.id,
         kind: accessKind,
-        config:
-          accessKind === 'circle'
-            ? { space_id: accessRef.trim() }
-            : accessKind === 'fibre_seat'
-              ? { role: accessRole }
-              : accessKind === 'google_user'
-                ? {}
-                : { thread_slug: accessRef.trim() },
+        config: built.config,
         created_at: new Date().toISOString(),
         tier: null,
         product: { name: product.name },
       },
     ]);
     setAccessRef('');
+    setAccessTeamId('');
     router.refresh();
   }
 
@@ -173,15 +204,6 @@ export function ProductDialog({
     }
     setAccess((prev) => prev.filter((g) => g.id !== id));
     router.refresh();
-  }
-
-  function accessSummary(g: Grant): string {
-    if (g.kind === 'circle')
-      return t(locale, 'circle_space_target', { ref: String(g.config?.space_id ?? '') });
-    if (g.kind === 'fibre_seat')
-      return t(locale, 'fibre_seat_target', { role: String(g.config?.role ?? 'organiser') });
-    if (g.kind === 'google_user') return t(locale, 'google_account_target');
-    return t(locale, 'thread_target', { ref: String(g.config?.thread_slug ?? '') });
   }
 
   function setLink(i: number, patch: Partial<LinkRow>) {
@@ -531,7 +553,7 @@ export function ProductDialog({
                 <ul className="mb-2 rounded-md border border-line divide-y divide-line/60">
                   {access.map((g) => (
                     <li key={g.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span className="text-ink">{accessSummary(g)}</span>
+                      <span className="text-ink">{grantSummary(g, locale, teamOptions)}</span>
                       <Button
                         type="button"
                         variant="ghost"
@@ -546,19 +568,51 @@ export function ProductDialog({
                   ))}
                 </ul>
               )}
-              <div className="flex items-center gap-2">
+              {/* The team-calendar block is two fields tall, so the kind
+                  select and the Add button align to its TOP rather than
+                  floating down its middle. */}
+              <div
+                className={`flex gap-2 ${
+                  accessKind === 'team_calendar' ? 'items-start' : 'items-center'
+                }`}
+              >
                 <select
                   value={accessKind}
                   onChange={(e) => setAccessKind(e.target.value as AccessKind)}
                   className="w-36 shrink-0 rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
                 >
-                  {GRANT_KINDS.map((k) => (
+                  {GRANT_KINDS.filter(
+                    // No teams to pick from → no team-calendar grant. Offering
+                    // the kind with an empty picker is how a form promises
+                    // something it cannot save.
+                    (k) => k !== 'team_calendar' || teamOptions.length > 0,
+                  ).map((k) => (
                     <option key={k} value={k}>
                       {t(locale, GRANT_KIND_KEYS[k])}
                     </option>
                   ))}
                 </select>
-                {accessKind === 'fibre_seat' ? (
+                {accessKind === 'team_calendar' ? (
+                  /* The picker and the percentage come from shared: the tier
+                     Access dialog renders the same two fields, and the
+                     alternative is two ideas about what a blank percentage
+                     means. */
+                  <div className="flex-1">
+                    <TeamCalendarGrantFields
+                      teams={teamOptions.map((x) => ({
+                        id: x.id,
+                        name: x.name,
+                        published: x.is_published,
+                      }))}
+                      teamId={accessTeamId}
+                      onTeamId={setAccessTeamId}
+                      pct={accessPct}
+                      onPct={setAccessPct}
+                      labels={teamCalendarLabels(locale)}
+                      disabled={accessBusy}
+                    />
+                  </div>
+                ) : accessKind === 'fibre_seat' ? (
                   <select
                     value={accessRole}
                     onChange={(e) => setAccessRole(e.target.value as 'organiser' | 'admin')}

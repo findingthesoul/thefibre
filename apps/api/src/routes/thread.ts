@@ -1908,7 +1908,12 @@ threadRoutes.get('/teams', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('team')
-    .select('id, name, slug')
+    // `is_published` so a caller can SAY what an unpublished team means
+    // rather than offering it silently: an unpublished team's threads are
+    // not reachable publicly at all (resolvePublicOwner refuses them), so a
+    // membership grant on one promises something nobody can use yet.
+    // Additive on an internal route; /api/v1/apps/* is untouched.
+    .select('id, name, slug, is_published')
     .eq('workspace_id', ctx.workspaceId)
     .eq('is_active', true)
       // The two automatic teams are hidden here until the slice that gives

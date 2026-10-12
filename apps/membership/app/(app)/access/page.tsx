@@ -1,7 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { AccessClient } from './access-client';
-import type { Grant } from './types';
+import type { Grant, TeamOption } from './types';
 import type { Tier } from '../tiers/types';
 
 export const metadata = { title: 'Access · Membership' };
@@ -51,6 +51,14 @@ export default async function AccessPage() {
     )
     .catch(() => [] as { slug: string; title: string }[]);
 
+  // The workspace's teams, for a team-calendar grant: it stores an id and has
+  // to show a name, both in the picker and in the list of what a product
+  // confers. Fails soft like the threads read above — an empty list hides the
+  // kind instead of offering a picker with nothing in it.
+  const teamOptions = await apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams')
+    .then((r) => r.items)
+    .catch(() => [] as TeamOption[]);
+
   const locale = await uiLocale();
 
   return (
@@ -60,6 +68,7 @@ export default async function AccessPage() {
         tiers={tiers}
         circleTokenSet={circleTokenSet}
         threadOptions={threadOptions}
+        teamOptions={teamOptions}
         locale={locale}
       />
     </div>

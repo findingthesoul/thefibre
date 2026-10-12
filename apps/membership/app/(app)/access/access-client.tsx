@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { GrantDialog } from './grant-dialog';
-import { grantTierName, type Grant, type GrantKind } from './types';
+import { grantTierName, type Grant, type GrantKind, type TeamOption } from './types';
+import { grantSummary } from '@/lib/grant-summary';
 import type { Tier } from '../tiers/types';
 
 const GRANT_KIND_KEYS: Record<GrantKind, UiKey> = {
   circle: 'grant_kind_circle',
   thread: 'grant_kind_thread',
+  team_calendar: 'grant_kind_team_calendar',
   fibre_seat: 'grant_kind_fibre_seat',
   google_user: 'grant_kind_google_user',
 };
@@ -18,6 +20,7 @@ export function AccessClient({
   tiers,
   circleTokenSet,
   threadOptions,
+  teamOptions,
   locale,
 }: {
   grants: Grant[];
@@ -25,6 +28,8 @@ export function AccessClient({
   circleTokenSet: boolean;
   /** The workspace's threads — a thread grant PICKS a slug, never types one. */
   threadOptions: { slug: string; title: string }[];
+  /** The workspace's teams — a team-calendar grant picks one. */
+  teamOptions: TeamOption[];
   locale: Locale;
 }) {
   const [creating, setCreating] = useState(false);
@@ -82,7 +87,8 @@ export function AccessClient({
                 title={t(locale, 'tier_level_legacy', { name: x.name })}
                 items={byTier.get(x.id) ?? []}
                 locale={locale}
-                onEdit={setEditing}
+                teamOptions={teamOptions}
+              onEdit={setEditing}
               />
             ))}
           {orphanTierIds.map((id) => (
@@ -91,6 +97,7 @@ export function AccessClient({
               title={grantTierName(byTier.get(id)?.[0]?.tier ?? null, t(locale, 'unknown_tier'))}
               items={byTier.get(id) ?? []}
               locale={locale}
+              teamOptions={teamOptions}
               onEdit={setEditing}
             />
           ))}
@@ -121,20 +128,16 @@ export function AccessClient({
   );
 }
 
-function grantTarget(g: Grant): string {
-  const config = g.config ?? {};
-  const ref = g.kind === 'circle' ? config.space_id : config.thread_slug;
-  return typeof ref === 'string' || typeof ref === 'number' ? String(ref) : '—';
-}
-
 function TierGroup({
   title,
   items,
+  teamOptions,
   locale,
   onEdit,
 }: {
   title: string;
   items: Grant[];
+  teamOptions: TeamOption[];
   locale: Locale;
   onEdit: (g: Grant) => void;
 }) {
@@ -153,7 +156,7 @@ function TierGroup({
           >
             <div className="text-sm text-ink">
               {t(locale, GRANT_KIND_KEYS[g.kind])}
-              <span className="text-ink-subtle"> · {grantTarget(g)}</span>
+              <span className="text-ink-subtle"> · {grantSummary(g, locale, teamOptions)}</span>
             </div>
           </button>
         ))}

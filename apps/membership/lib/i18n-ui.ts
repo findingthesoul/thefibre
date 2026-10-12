@@ -1849,6 +1849,124 @@ const CATALOG = {
     de: 'Thread', // MT
     fr: 'Thread', // MT
   },
+  // ── team-calendar grant (2026-10-12) ──────────────────────────────────
+  // A team's whole calendar at a percentage. The percentage's sentence is
+  // chosen by the shared component (teamCalendarPctCase) so no surface can
+  // call 100 "free for members" while another calls it "100% off".
+  grant_kind_team_calendar: {
+    en: 'Team calendar',
+    nl: 'Teamagenda',
+    es: 'Calendario del equipo', // MT
+    pt: 'Calendário da equipe', // MT
+    de: 'Teamkalender', // MT
+    fr: 'Agenda de l\u2019\u00e9quipe', // MT
+  },
+  // Just "Team": the kind select beside it already says "Team calendar", and
+  // a field labelled the same as the control next to it reads as a mistake.
+  team_label: {
+    en: 'Team',
+    nl: 'Team',
+    es: 'Equipo', // MT
+    pt: 'Equipe', // MT
+    de: 'Team', // MT
+    fr: '\u00c9quipe', // MT
+  },
+  pick_team_ph: {
+    en: 'Pick a team\u2026',
+    nl: 'Kies een team\u2026',
+    es: 'Elige un equipo\u2026', // MT
+    pt: 'Escolha uma equipe\u2026', // MT
+    de: 'Team ausw\u00e4hlen\u2026', // MT
+    fr: 'Choisis une \u00e9quipe\u2026', // MT
+  },
+  member_discount_label: {
+    en: 'Member discount',
+    nl: 'Ledenkorting',
+    es: 'Descuento para miembros', // MT
+    pt: 'Desconto para membros', // MT
+    de: 'Mitgliederrabatt', // MT
+    fr: 'R\u00e9duction membre', // MT
+  },
+  pct_free_hint: {
+    en: '100% \u2014 free for members',
+    nl: '100% \u2014 gratis voor leden',
+    es: '100% \u2014 gratis para los miembros', // MT
+    pt: '100% \u2014 gr\u00e1tis para os membros', // MT
+    de: '100% \u2014 kostenlos f\u00fcr Mitglieder', // MT
+    fr: '100% \u2014 gratuit pour les membres', // MT
+  },
+  pct_partial_hint: {
+    en: '{pct}% off for members',
+    nl: '{pct}% korting voor leden',
+    es: '{pct}% de descuento para los miembros', // MT
+    pt: '{pct}% de desconto para os membros', // MT
+    de: '{pct}% Rabatt f\u00fcr Mitglieder', // MT
+    fr: '{pct}% de r\u00e9duction pour les membres', // MT
+  },
+  pct_zero_hint: {
+    en: '0% promises nothing \u2014 leave the calendar off instead.',
+    nl: '0% belooft niets \u2014 laat de agenda er dan af.',
+    es: 'El 0% no promete nada: mejor no incluyas el calendario.', // MT
+    pt: '0% n\u00e3o promete nada \u2014 melhor n\u00e3o incluir o calend\u00e1rio.', // MT
+    de: '0% verspricht nichts \u2014 lass den Kalender dann weg.', // MT
+    fr: '0% ne promet rien \u2014 autant ne pas inclure l\u2019agenda.', // MT
+  },
+  pct_range_hint: {
+    en: 'A whole number between 1 and 100.',
+    nl: 'Een heel getal tussen 1 en 100.',
+    es: 'Un n\u00famero entero entre 1 y 100.', // MT
+    pt: 'Um n\u00famero inteiro entre 1 e 100.', // MT
+    de: 'Eine ganze Zahl zwischen 1 und 100.', // MT
+    fr: 'Un nombre entier entre 1 et 100.', // MT
+  },
+  team_unpublished_hint: {
+    en: 'This team is not published, so its threads are not public yet.',
+    nl: 'Dit team is niet gepubliceerd, dus de threads zijn nog niet openbaar.',
+    es: 'Este equipo no est\u00e1 publicado, as\u00ed que sus threads a\u00fan no son p\u00fablicos.', // MT
+    pt: 'Esta equipe n\u00e3o est\u00e1 publicada, por isso os threads ainda n\u00e3o s\u00e3o p\u00fablicos.', // MT
+    de: 'Dieses Team ist nicht ver\u00f6ffentlicht, seine Threads sind also noch nicht \u00f6ffentlich.', // MT
+    fr: 'Cette \u00e9quipe n\u2019est pas publi\u00e9e, ses threads ne sont donc pas encore publics.', // MT
+  },
+  team_unpublished_tag: {
+    en: 'not published',
+    nl: 'niet gepubliceerd',
+    es: 'sin publicar', // MT
+    pt: 'n\u00e3o publicada', // MT
+    de: 'nicht ver\u00f6ffentlicht', // MT
+    fr: 'non publi\u00e9e', // MT
+  },
+  team_required: {
+    en: 'Pick the team whose calendar this is.',
+    nl: 'Kies het team van wie deze agenda is.',
+    es: 'Elige el equipo al que pertenece este calendario.', // MT
+    pt: 'Escolha a equipe a que este calend\u00e1rio pertence.', // MT
+    de: 'W\u00e4hle das Team, dessen Kalender das ist.', // MT
+    fr: 'Choisis l\u2019\u00e9quipe \u00e0 qui appartient cet agenda.', // MT
+  },
+  team_calendar_target_free: {
+    en: '{team} calendar \u2014 free for members',
+    nl: 'Agenda van {team} \u2014 gratis voor leden',
+    es: 'Calendario de {team} \u2014 gratis para los miembros', // MT
+    pt: 'Calend\u00e1rio de {team} \u2014 gr\u00e1tis para os membros', // MT
+    de: 'Kalender von {team} \u2014 kostenlos f\u00fcr Mitglieder', // MT
+    fr: 'Agenda de {team} \u2014 gratuit pour les membres', // MT
+  },
+  team_calendar_target_pct: {
+    en: '{team} calendar \u2014 {pct}% off',
+    nl: 'Agenda van {team} \u2014 {pct}% korting',
+    es: 'Calendario de {team} \u2014 {pct}% de descuento', // MT
+    pt: 'Calend\u00e1rio de {team} \u2014 {pct}% de desconto', // MT
+    de: 'Kalender von {team} \u2014 {pct}% Rabatt', // MT
+    fr: 'Agenda de {team} \u2014 {pct}% de r\u00e9duction', // MT
+  },
+  unknown_team: {
+    en: 'a team that no longer exists',
+    nl: 'een team dat niet meer bestaat',
+    es: 'un equipo que ya no existe', // MT
+    pt: 'uma equipe que j\u00e1 n\u00e3o existe', // MT
+    de: 'ein Team, das es nicht mehr gibt', // MT
+    fr: 'une \u00e9quipe qui n\u2019existe plus', // MT
+  },
   grant_kind_fibre_seat: {
     en: 'Fibre seat',
     nl: 'Fibre-plek',

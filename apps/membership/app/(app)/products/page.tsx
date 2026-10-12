@@ -3,7 +3,7 @@ import { workspaceCurrencies } from '@/lib/workspace-currency';
 import { uiLocale } from '@/lib/locale';
 import { ProductsClient } from './products-client';
 import type { Product } from './types';
-import type { Grant } from '../access/types';
+import type { Grant, TeamOption } from '../access/types';
 import type { DirectoryCategory } from '../settings/shared';
 import type { ProductCategoryLink } from './types';
 
@@ -56,6 +56,14 @@ export default async function ProductsPage() {
       .catch(() => [] as ProductCategoryLink[]),
   ]);
 
+  // The workspace's teams, for a team-calendar grant: it stores an id and has
+  // to show a name, in the picker and in each product's "unlocks" line. Fails
+  // soft like the reads above — an empty list hides the kind rather than
+  // offering a picker with nothing in it.
+  const teamOptions = await apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams')
+    .then((r) => r.items)
+    .catch(() => [] as TeamOption[]);
+
   const locale = await uiLocale();
 
   return (
@@ -64,6 +72,7 @@ export default async function ProductsPage() {
         products={products}
         currency={currency}
         threadOptions={threads}
+        teamOptions={teamOptions}
         grants={grants}
         categories={categories}
         categoryLinks={categoryLinks}

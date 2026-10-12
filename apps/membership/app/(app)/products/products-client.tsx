@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
 import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
+import { grantSummary } from '@/lib/grant-summary';
 import { patchProduct } from './actions';
 import { ProductDialog } from './product-dialog';
 import type { LinkKind, Product } from './types';
@@ -17,10 +18,21 @@ const LINK_KIND_KEYS: Record<LinkKind, UiKey> = {
   url: 'link_kind_url',
 };
 
+/** One sentence per grant, from the one place that decides what a grant
+ *  says (lib/grant-summary.ts). */
+function accessLine(
+  grants: import('../access/types').Grant[],
+  locale: Locale,
+  teams: import('../access/types').TeamOption[],
+): string {
+  return grants.map((g) => grantSummary(g, locale, teams)).join(' \u00b7 ');
+}
+
 export function ProductsClient({
   products,
   currency,
   threadOptions,
+  teamOptions,
   grants,
   categories,
   categoryLinks,
@@ -29,6 +41,9 @@ export function ProductsClient({
   products: Product[];
   currency: import("@/lib/workspace-currency").WorkspaceCurrencies;
   threadOptions: { slug: string; title: string }[];
+  /** The workspace's teams — a team-calendar grant stores an id and shows a
+   *  name, here and in the dialog. */
+  teamOptions: import('../access/types').TeamOption[];
   grants: import('../access/types').Grant[];
   /** The workspace's directory vocabulary (slice 1) — live categories only. */
   categories: import('../settings/shared').DirectoryCategory[];
@@ -114,38 +129,28 @@ export function ProductsClient({
               onDragEnd={() => setDragIdx(null)}
               className={dragIdx === i ? 'opacity-50' : ''}
             >
-              <ProductCard product={p} productGrants={grants.filter((g) => g.product_id === p.id)} locale={locale} onEdit={setEditing} />
+              <ProductCard product={p} productGrants={grants.filter((g) => g.product_id === p.id)} teamOptions={teamOptions} locale={locale} onEdit={setEditing} />
             </div>
           ))}
         </div>
       )}
 
-      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} grants={[]} categories={categories} productCategoryIds={[]} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
-      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} grants={grants.filter((g) => g.product_id === editing.id)} categories={categories} productCategoryIds={categoryLinks.filter((l) => l.product_id === editing.id).map((l) => l.category_id)} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
+      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={[]} categories={categories} productCategoryIds={[]} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
+      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={grants.filter((g) => g.product_id === editing.id)} categories={categories} productCategoryIds={categoryLinks.filter((l) => l.product_id === editing.id).map((l) => l.category_id)} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
     </>
   );
-}
-
-function accessLine(grants: import('../access/types').Grant[], locale: Locale): string {
-  return grants
-    .map((g) =>
-      g.kind === 'circle'
-        ? t(locale, 'circle_space_target', { ref: String(g.config?.space_id ?? '') })
-        : g.kind === 'fibre_seat'
-          ? t(locale, 'fibre_seat_target', { role: String(g.config?.role ?? 'organiser') })
-          : t(locale, 'thread_target', { ref: String(g.config?.thread_slug ?? '') }),
-    )
-    .join(' · ');
 }
 
 function ProductCard({
   product,
   productGrants,
+  teamOptions,
   locale,
   onEdit,
 }: {
   product: Product;
   productGrants: import('../access/types').Grant[];
+  teamOptions: import('../access/types').TeamOption[];
   locale: Locale;
   onEdit: (p: Product) => void;
 }) {
@@ -198,7 +203,7 @@ function ProductCard({
       )}
       {productGrants.length > 0 && (
         <div className="mt-2 text-xs text-emerald-800 dark:text-emerald-300">
-          {t(locale, 'unlocks_prefix', { list: accessLine(productGrants, locale) })}
+          {t(locale, 'unlocks_prefix', { list: accessLine(productGrants, locale, teamOptions) })}
         </div>
       )}
       {links.length > 0 && (

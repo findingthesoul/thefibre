@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.167.0] — 2026-10-12
+
+The admin field: an organiser can now SAY a team's calendar is free for members.
+
+Three releases have priced a member's enrolment, quoted it, recorded it and
+proved it — against grants written by a seeding script, because there was no
+way to write one through a screen. This is the screen. A product's Access
+section (and the legacy tier Access dialog) gains a **Team calendar** kind: a
+team picker, a percentage that starts at 100, and the sentence **"100% — free
+for members"** beside it, changing to "20% off for members" as the number
+changes.
+
+**One rule, three places, one function.** `teamCalendarGrantConfig` lives in
+`@thefibre/shared/team-calendar-grant` — pure, no React — and the form offers
+with it while the API validates with it. Blank means 100 (the
+included-in-the-membership case). `0` does **not**: it is refused in the form
+as it is typed, with the reason, and refused again at the API. A 0% grant is a
+promise with nothing behind it, which is this area's own old failure — `thread`
+grants were once offered with no worker, so a product said a member got
+something and the member silently got nothing for months. A tier that should
+not carry the calendar drops the grant; it does not grant nothing.
+
+The API keeps the half a browser cannot know (`apps/api/src/lib/grant-config.ts`):
+`team_id` is a foreign key, so a well-formed id that is not a uuid is a
+dangling reference, and the API refuses what the form cannot see. Eleven paired
+cases assert the two sides accept and refuse the same inputs AND store the same
+normalised number, and a twelfth reads the route source to check it still
+validates through the shared bridge rather than a copy. Eight mutations each
+turn at least one red.
+
+**Born in shared, because it had two callers on day one.**
+`TeamCalendarGrantFields` holds no English — every word is injected
+(`apps/membership/lib/team-calendar-labels.ts`), so "100% — free for members" is
+one sentence in one place rather than two that drift.
+
+**And three copies of "what a grant says" became one.** The product dialog, the
+product card's *unlocks* line and the tier Access list each had their own
+renderer, and they already disagreed: the Access list printed a bare slug with
+an em dash for anything it did not recognise. A fourth kind would have made
+four copies and three of them wrong, so they now share
+`apps/membership/lib/grant-summary.ts` — which shows the team's **name**,
+because a uuid in a list of what a product confers is a row nobody can check.
+
+Smaller things that follow: `GET /api/v1/thread/teams` also returns
+`is_published` (additive, internal route), so the picker can mark a team whose
+threads are not public yet instead of offering it as if it were ready; and the
+kind is hidden entirely in a workspace with no teams, rather than offering a
+picker with nothing in it.
+
 ## [1.166.1] — 2026-10-12
 
 Seen: what each reader is told, and an assertion of mine that matched both.

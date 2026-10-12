@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.166.1",
+  "version": "1.167.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -141,6 +141,10 @@
     "./supabase-session": {
       "types": "./dist/supabase-session.d.ts",
       "default": "./dist/supabase-session.js"
+    },
+    "./team-calendar-grant": {
+      "types": "./dist/team-calendar-grant.d.ts",
+      "default": "./dist/team-calendar-grant.js"
     },
     "./tenant-host": {
       "types": "./dist/tenant-host.d.ts",
@@ -349,6 +353,10 @@
     "./ui/switch": {
       "types": "./dist/ui/switch.d.ts",
       "default": "./dist/ui/switch.js"
+    },
+    "./ui/team-calendar-grant": {
+      "types": "./dist/ui/team-calendar-grant.d.ts",
+      "default": "./dist/ui/team-calendar-grant.js"
     },
     "./ui/tabs": {
       "types": "./dist/ui/tabs.d.ts",

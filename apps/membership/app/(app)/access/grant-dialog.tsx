@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
+import { TeamCalendarGrantFields } from '@thefibre/shared/ui/team-calendar-grant';
+import { teamCalendarGrantConfig } from '@thefibre/shared/team-calendar-grant';
+import { teamCalendarLabels } from '@/lib/team-calendar-labels';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { createGrant, deleteGrant } from './actions';
-import { GRANT_KINDS, type Grant, type GrantKind } from './types';
+import { GRANT_KINDS, type Grant, type GrantKind, type TeamOption } from './types';
 import type { Tier } from '../tiers/types';
 
 const INPUT =
@@ -16,6 +19,7 @@ const INPUT =
 const GRANT_KIND_KEYS: Record<GrantKind, UiKey> = {
   circle: 'grant_kind_circle',
   thread: 'grant_kind_thread',
+  team_calendar: 'grant_kind_team_calendar',
   fibre_seat: 'grant_kind_fibre_seat',
   google_user: 'grant_kind_google_user',
 };
@@ -27,6 +31,7 @@ export function GrantDialog({
   tiers,
   circleTokenSet,
   threadOptions = [],
+  teamOptions = [],
   locale,
   onClose,
 }: {
@@ -35,6 +40,9 @@ export function GrantDialog({
   circleTokenSet: boolean;
   /** The workspace's threads — a thread grant PICKS a slug, never types one. */
   threadOptions?: { slug: string; title: string }[];
+  /** The workspace's teams, for a team-calendar grant. Empty hides the kind:
+   *  a picker with nothing in it is a promise the form cannot keep. */
+  teamOptions?: TeamOption[];
   locale: Locale;
   onClose: () => void;
 }) {
@@ -54,6 +62,16 @@ export function GrantDialog({
   const [seatRole, setSeatRole] = useState<'organiser' | 'admin'>(
     grant?.config?.role === 'admin' ? 'admin' : 'organiser',
   );
+  // An EXISTING grant opens read-only, so these are seeded from it for the
+  // summary line and then never edited (the API has no PATCH for grants).
+  const [teamId, setTeamId] = useState(
+    typeof grant?.config?.team_id === 'string' ? grant.config.team_id : '',
+  );
+  const [pct, setPct] = useState(
+    grant?.config?.discount_pct === undefined || grant?.config?.discount_pct === null
+      ? '100'
+      : String(grant.config.discount_pct),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -65,9 +83,31 @@ export function GrantDialog({
       setError(t(locale, 'pick_a_tier'));
       return;
     }
-    if (kind !== 'fibre_seat' && kind !== 'google_user' && !ref.trim()) {
+    if (
+      kind !== 'fibre_seat' &&
+      kind !== 'google_user' &&
+      kind !== 'team_calendar' &&
+      !ref.trim()
+    ) {
       setError(kind === 'circle' ? t(locale, 'space_id_required') : t(locale, 'thread_slug_required'));
       return;
+    }
+    // THE SAME FUNCTION THE API VALIDATES WITH: a 0 is refused here, with the
+    // reason, rather than sent and bounced; a blank percentage becomes 100.
+    let teamConfig: Record<string, unknown> | null = null;
+    if (kind === 'team_calendar') {
+      const r = teamCalendarGrantConfig(teamId, pct);
+      if (!r.ok) {
+        setError(
+          r.reason === 'team'
+            ? t(locale, 'team_required')
+            : r.reason === 'zero'
+              ? t(locale, 'pct_zero_hint')
+              : t(locale, 'pct_range_hint'),
+        );
+        return;
+      }
+      teamConfig = r.config as unknown as Record<string, unknown>;
     }
     setBusy(true);
     setError(null);
@@ -79,7 +119,9 @@ export function GrantDialog({
           ? { space_id: ref.trim() }
           : kind === 'fibre_seat'
             ? { role: seatRole }
-            : { thread_slug: ref.trim() },
+            : kind === 'team_calendar'
+              ? teamConfig!
+              : { thread_slug: ref.trim() },
     });
     if (res.error) {
       setError(res.error);
@@ -162,14 +204,32 @@ export function GrantDialog({
             disabled={existing}
             className={INPUT}
           >
-            {GRANT_KINDS.map((k) => (
+            {GRANT_KINDS.filter(
+              // No teams to pick from, and no existing grant of that kind to
+              // show: don't offer what cannot be saved.
+              (k) => k !== 'team_calendar' || teamOptions.length > 0 || grant?.kind === k,
+            ).map((k) => (
               <option key={k} value={k}>
                 {t(locale, GRANT_KIND_KEYS[k])}
               </option>
             ))}
           </select>
         </div>
-        {kind === 'fibre_seat' ? (
+        {kind === 'team_calendar' ? (
+          <TeamCalendarGrantFields
+            teams={teamOptions.map((x) => ({
+              id: x.id,
+              name: x.name,
+              published: x.is_published,
+            }))}
+            teamId={teamId}
+            onTeamId={setTeamId}
+            pct={pct}
+            onPct={setPct}
+            labels={teamCalendarLabels(locale)}
+            disabled={existing || busy}
+          />
+        ) : kind === 'fibre_seat' ? (
           <div>
             <label className="block text-sm font-medium mb-1">{t(locale, 'workspace_role')}</label>
             <select

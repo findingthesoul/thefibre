@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { parseTeamCalendarConfig } from '../lib/grant-config.js';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
 import { organisationBilling, organisationBillingSnapshot } from '../lib/org-billing.js';
@@ -163,16 +164,6 @@ const GrantKind = z.enum(['circle', 'thread', 'fibre_seat', 'google_user', 'team
  *  Missing means 100 — the calendar-included case — because somebody has to
  *  type a number and a stray 0 would promise a calendar that charges full
  *  price. */
-const TeamCalendarConfig = z.object({
-  team_id: z.string().uuid({ message: 'a team calendar grant needs a team' }),
-  discount_pct: z.coerce
-    .number()
-    .int({ message: 'the discount must be a whole percentage' })
-    .min(1, { message: 'a 0% grant promises nothing — drop the grant instead' })
-    .max(100)
-    .default(100),
-});
-
 const CreateGrant = z
   .object({
     product_id: z.string().uuid().optional(),
@@ -184,17 +175,15 @@ const CreateGrant = z
   })
   .superRefine((v, ctx) => {
     if (v.kind !== 'team_calendar') return;
-    const parsed = TeamCalendarConfig.safeParse(v.config);
-    if (parsed.success) {
-      // The normalised config is what gets stored, so a grant written through
+    const parsed = parseTeamCalendarConfig(v.config);
+    if (parsed.ok) {
+      // The NORMALISED config is what gets stored, so a grant written through
       // the API carries the same shape as one written through the form —
-      // including the default.
-      v.config = parsed.data as Record<string, unknown>;
+      // including the blank-means-100 default.
+      v.config = parsed.config;
       return;
     }
-    for (const issue of parsed.error.issues) {
-      ctx.addIssue({ code: 'custom', path: ['config', ...issue.path], message: issue.message });
-    }
+    ctx.addIssue({ code: 'custom', path: ['config'], message: parsed.message });
   })
   .refine((v) => Boolean(v.product_id) !== Boolean(v.tier_id), {
     message: 'exactly one of product_id or tier_id',
