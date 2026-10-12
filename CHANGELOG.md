@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.155.3] — 2026-10-12
+
+A short sha is a sha. And a message that says two things differ must show how.
+
+The first real production sitting stopped at step 0 with:
+
+> BATCH STOPPED at clearance: cleared for 2218c60a, you asked for 2218c60a
+
+Two identical strings, with a refusal between them. The clearance stores the
+full sha, Sjoerd typed the short one he had been given, and the comparison was
+a plain string compare. `SHA` now resolves once at the top through
+`git rev-parse --verify "<sha>^{commit}"` — fetching once and retrying if the
+commit is not known locally yet — and everything downstream compares full
+shas. The `origin/staging` check had the identical defect.
+
+**The message is the worse half.** It truncated BOTH sides to eight
+characters, so it hid exactly the difference it existed to report. Anybody
+reading it would have gone looking for a fault in the runway rather than at
+their own command line. Mismatch messages now print both shas in full, on
+their own lines, and add *"(you typed 2218c60a)"* when the typed form
+differed.
+
+**No dry run could have caught this.** With no clearance there is nothing to
+compare, so every rehearsal walked straight past the line that was wrong. The
+new test holds a REAL clearance carrying the full sha and passes the short
+one; mutation-checked by restoring the string compare, where it fails alone
+while the other 27 pass. A companion test keeps the fix from becoming "accept
+anything": a genuinely different commit, passed in full, is still refused.
+
+`docs/testing-approach.md` gains **principle 20 — a message must show the
+difference it reports.** A mismatch prints both sides in full; a message about
+state says what actually happened, not what usually happens there. It took two
+lying messages in one day to earn it: this one, and *"The database IS
+updated"* printed by a dry run that had written nothing. Both are the same
+fault — a diagnostic about something other than what just happened — and the
+cost is not confusion but misdirection, because the more authoritative a
+message sounds the further somebody gets before the truth arrives.
+
+Nothing was at risk: the sitting stopped before it ran anything.
+
 ## [1.155.2] — 2026-10-12
 
 The gate tells "nobody is flagged" apart from "nobody looked".

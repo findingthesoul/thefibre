@@ -207,6 +207,37 @@ why §1.5's render-check rule is a rule and not a nicety.
    workspace, which is also §1.5's point: the render check is where
    assumptions meet the stack.
 
+20. **A message must show the difference it reports.** A mismatch prints both
+   sides IN FULL; a message about state says what actually happened, not what
+   usually happens there.
+
+   Two on one day, 2026-10-12, both in `batch-prod.sh`, both found by running
+   it rather than reading it:
+
+   - The first real production sitting stopped with *"cleared for 2218c60a,
+     you asked for 2218c60a"* — two identical strings with a refusal between
+     them, because both sides were truncated to eight characters. The bug was
+     a short sha compared against a stored full one; the message hid exactly
+     the difference it existed to report, and would have sent anybody reading
+     it to look for a runway fault instead.
+   - A dry run stopping at a preflight gate printed *"The database IS
+     updated"*. True of a real sitting, false of a rehearsal, which writes
+     nothing. The sentence was correct where it was written and wrong where
+     it was read.
+
+   Both are the same failure wearing different clothes: a diagnostic that is
+   about something OTHER than what just happened. The cost is not confusion,
+   it is misdirection — a person acts confidently on it, and the more
+   authoritative the message, the further they get before the truth arrives.
+   A refusal message nobody can act on is worse than no message, because the
+   silence would at least have prompted a look.
+
+   So: print both sides of a comparison in full, including when one of them
+   came from a human in a short form; branch state messages on what actually
+   ran; and treat the wording of a stop as part of the behaviour under test,
+   not as decoration around it. All three have tests in
+   `scripts/batch-prod.test.mjs`.
+
 
 **Who the browser pack signs in as, and what it can see (2026-10-04).** By
 default, the fixture account `e2e-fixture@example.com` (`e2e/identities.ts`):

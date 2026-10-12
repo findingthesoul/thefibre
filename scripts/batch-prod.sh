@@ -66,6 +66,31 @@ for a in "$@"; do
 done
 [ -n "$SHA" ] || { echo "usage: $0 <sha> [--dry-run]" >&2; exit 2; }
 
+# What the person typed, kept for the messages. Everything else uses the
+# resolved full sha.
+SHA_TYPED="$SHA"
+
+# RESOLVE ONCE, TO THE FULL SHA.
+#
+# The first real sitting stopped with "cleared for 2218c60a, you asked for
+# 2218c60a" — two identical strings, and a refusal between them. The clearance
+# stores the full sha; Sjoerd typed the short one he had been given; the
+# comparison was a string compare; and both sides of the message were
+# truncated to eight characters, so the message hid the very difference it was
+# reporting. Nothing ran, so it cost a restart rather than a half-cutover.
+#
+# A dry run could never have caught it: with no clearance there is nothing to
+# compare, so the rehearsal skipped the line that was wrong.
+if ! SHA="$(git rev-parse --verify --quiet "${SHA_TYPED}^{commit}")"; then
+  # Not known locally yet — fetch once, then try again, before giving up.
+  git fetch -q --no-tags origin staging main 2>/dev/null || true
+  if ! SHA="$(git rev-parse --verify --quiet "${SHA_TYPED}^{commit}")"; then
+    echo "batch-prod: '${SHA_TYPED}' is not a commit this checkout knows, even after fetching." >&2
+    echo "   Nothing ran. Check the sha, or fetch the branch it is on." >&2
+    exit 1
+  fi
+fi
+
 say()  { printf '%s\n' "$*"; }
 
 # The versions `supabase migration list` reports as APPLIED REMOTELY.
@@ -111,11 +136,20 @@ C_SESSION="$(cl session)"; C_KIND="$(cl kind)"; C_SHA="$(cl sha)"
 C_SAID="$(cl said)"; C_LEFT="$(cl minutes_left)"
 
 [ "$C_KIND" = "batch-prod" ] || fail "clearance" "the runway holds a '$C_KIND' clearance, not 'batch-prod'. One clearance must cover the whole sitting."
-[ "$C_SHA" = "$SHA" ] || fail "clearance" "cleared for ${C_SHA:0:8}, you asked for ${SHA:0:8}."
+# Both sides are full shas by now. The message prints them IN FULL: two
+# truncated shas that differ in their tail look identical, and a refusal whose
+# explanation reads as a tautology sends somebody hunting for the wrong thing.
+[ "$C_SHA" = "$SHA" ] || fail "clearance" "this clearance is for a different commit.
+     cleared : $C_SHA
+     asked   : $SHA$([ "$SHA_TYPED" != "$SHA" ] && printf '   (you typed %s)' "$SHA_TYPED")"
 [ -n "$C_SAID" ] || fail "clearance" "the clearance carries no --sjoerd-said. Production is Sjoerd's decision; it cannot be granted without his words."
 
 say "  held by : $C_SESSION"
-say "  sha     : ${SHA:0:8}"
+if [ "$SHA_TYPED" != "$SHA" ]; then
+  say "  sha     : ${SHA:0:8}  (resolved from $SHA_TYPED)"
+else
+  say "  sha     : ${SHA:0:8}"
+fi
 say "  expires : in ${C_LEFT} min"
 say "  Sjoerd said: \"$C_SAID\""
 say ""
@@ -132,7 +166,10 @@ export BATCH_PROD_RUNNER="${USER:-unknown}"
 step "Checkout"
 git fetch -q --no-tags origin staging main || fail "checkout" "could not fetch origin."
 STAGING="$(git rev-parse origin/staging)"
-[ "$STAGING" = "$SHA" ] || fail "checkout" "origin/staging is ${STAGING:0:8}, not ${SHA:0:8}. Something landed after the clearance; get a new one for the new head."
+[ "$STAGING" = "$SHA" ] || fail "checkout" "origin/staging is not the commit you asked for.
+     origin/staging : $STAGING
+     asked          : $SHA
+   Something landed after the clearance; get a new one for the new head."
 
 if [ "$(git rev-parse HEAD)" != "$SHA" ]; then
   if [ "$DRY" = 1 ]; then

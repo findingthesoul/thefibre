@@ -331,7 +331,13 @@ describe('a dry run, all the way through', () => {
   // supabase, no fly, no push. The only stub is the gate's lookup, because
   // the gate's two OUTCOMES are the point.
 
-  function fullSandbox({ flagged, pendingFlag = 'true', lookupFails = false, lookupCrashes = false } = {}) {
+  function fullSandbox({
+    flagged,
+    pendingFlag = 'true',
+    lookupFails = false,
+    lookupCrashes = false,
+    clearanceKind = null,
+  } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'batch-walk-'));
     const git = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe' });
 
@@ -371,6 +377,29 @@ describe('a dry run, all the way through', () => {
     git('branch', '-f', 'main', head);
     git('remote', 'add', 'origin', dir);
     git('fetch', '-q', 'origin');
+
+    // An optional live clearance, holding the FULL sha — which is what
+    // `runway.sh clear` stores. Without one the script skips the comparison
+    // entirely, which is exactly why every dry run passed over defect six.
+    if (clearanceKind) {
+      const gitDir = execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: dir })
+        .toString()
+        .trim();
+      const runwayDir = join(dir, gitDir, 'runway');
+      mkdirSync(runwayDir, { recursive: true });
+      writeFileSync(
+        join(runwayDir, 'clearance'),
+        [
+          'session=tester',
+          `kind=${clearanceKind}`,
+          `sha=${head}`,
+          `base=${head}`,
+          'by=controller',
+          `expires=${Math.floor(Date.now() / 1000) + 90 * 60}`,
+          'said=go ahead',
+        ].join('\n') + '\n',
+      );
+    }
     return { dir, head };
   }
 
@@ -388,6 +417,55 @@ describe('a dry run, all the way through', () => {
       env: { ...process.env, RUNWAY_SESSION: '', FIBRE_ENV_FILE: '.env', ...env },
     });
   }
+
+  it('accepts a SHORT sha against a clearance holding the full one', () => {
+    // Defect six, found by the first real sitting rather than by any test
+    // here. The clearance stores the full sha; Sjoerd typed the short one he
+    // had been given; the comparison was a string compare. It stopped with
+    // "cleared for 2218c60a, you asked for 2218c60a" — two identical strings
+    // with a refusal between them, because BOTH sides of the message were
+    // truncated to eight characters and hid the difference they reported.
+    //
+    // No dry run could catch it: with no clearance there is nothing to
+    // compare, so the rehearsal skipped the line that was wrong. This test
+    // therefore holds a real clearance and passes a short sha.
+    const { dir, head } = fullSandbox({ flagged: true, clearanceKind: 'batch-prod' });
+    const short = head.slice(0, 8);
+
+    const r = spawnSync('./scripts/batch-prod.sh', [short, '--dry-run'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, RUNWAY_SESSION: 'tester', FIBRE_ENV_FILE: '.env' },
+    });
+
+    expect(r.stderr).not.toMatch(/BATCH STOPPED at clearance/);
+    expect(r.stdout).toMatch(/resolved from/);
+    expect(r.status, r.stderr).toBe(0);
+  });
+
+  it('still refuses a sha that is genuinely not the cleared one', () => {
+    // The fix must not become "accept anything". A different commit, passed
+    // in full, is still refused — and the message now shows BOTH shas
+    // complete, so the refusal can be acted on rather than puzzled over.
+    const { dir, head } = fullSandbox({ flagged: true, clearanceKind: 'batch-prod' });
+    const other = execFileSync('git', ['hash-object', '-t', 'commit', '--stdin'], {
+      cwd: dir,
+      input: `tree ${execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: dir }).toString().trim()}\nauthor x <x@example.com> 0 +0000\ncommitter x <x@example.com> 0 +0000\n\nother\n`,
+      encoding: 'utf8',
+    }).trim();
+
+    const r = spawnSync('./scripts/batch-prod.sh', [other], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, RUNWAY_SESSION: 'tester', FIBRE_ENV_FILE: '.env' },
+    });
+    expect(r.status).not.toBe(0);
+    // Either it refuses because the commit is unknown here, or because the
+    // clearance is for another one. Both are correct refusals; what must NOT
+    // happen is proceeding.
+    expect(r.stderr).toMatch(/not a commit this checkout knows|clearance is for a different commit/);
+    expect(head).not.toEqual(other);
+  });
 
   it('refuses a REAL run with no clearance, and says how to get one', () => {
     // In a SANDBOX, not the real repo. The first version of this ran
