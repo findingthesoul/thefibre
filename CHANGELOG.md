@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.164.0] — 2026-10-12
+
+The member price, for a person who has proved who they are.
+
+v1.163.0 built the entitlement and the one calculation, and deliberately did
+not apply it anywhere: the enrol route is anonymous, so pricing on the typed
+email would have handed the member price to whoever typed it. This is the
+other half.
+
+**The route stays public — it must, because most enrolments are strangers
+with no account — and verifies the bearer itself.** The form sends the
+browser's own Supabase session, the API verifies it against JWKS, takes the
+email from the VERIFIED claims, and applies the member price only when that
+email is the one being enrolled. Compared trimmed and case-insensitively,
+because an address is the same address whatever a form did to its capitals.
+
+| who is asking | what they pay |
+|---|---|
+| anonymous | list price |
+| an expired or forged token | list price, no error — a token that does not verify is treated as no token |
+| signed in, not a member | list price |
+| signed in as the address being enrolled, and a member | the member price |
+| **signed in as a member, enrolling SOMEBODY ELSE** | **list price** — the entitlement belongs to the member, not to whoever fills the form |
+
+**No second verifier, and one that already existed is gone.**
+`lib/participant-auth.ts` is the single participant-token verifier, and its
+own header says why: three copies were three places to get it wrong.
+`routes/thread.ts` was carrying a FOURTH — and it had already drifted:
+
+```
+lib/participant-auth.ts   return email ? email.toLowerCase() : null
+routes/thread.ts (local)  return (payload.email as string) ?? null
+```
+
+so the local one handed back whatever case the identity provider sent, and
+both existing callers repaired it at the query with `.eq('email',
+email.toLowerCase())`. A member price compared against that would have failed
+for anyone whose provider capitalises. The copy is deleted, `jose` is no
+longer imported in that file, and a test asserts it never verifies a token of
+its own again.
+
+**The hint, only where it is true.** The public payload gains
+`member_discount_pct` — a fact about the OFFER, additive per rule 8 — so the
+enrol form can say *"Member of this community? Sign in — it is included in
+your membership"* on threads where that sentence is true, and nothing on the
+rest. It says nothing about the reader: whether THEY are a member is exactly
+what an unauthenticated form must not answer.
+
+**EMBEDDED FORMS GET THE LIST PRICE, and that is worth knowing before
+somebody reports it.** A Webflow embed renders this form in an iframe on
+another domain, where the browser does not hand over the session cookie, so
+`getSession()` finds nothing and the POST goes up without a bearer — the same
+path as anonymous. A member who is signed in on their own site therefore sees
+the list price inside an embed. Acceptable for now; the fix, when it matters,
+is for the embed to carry its own sign-in rather than for the API to trust
+something weaker.
+
+**Six unit tests for who qualifies**, including the two that matter most (a
+forged token, and a member enrolling a different address), and the typed email
+cannot reach the entitlement: a test reads the call site, because a TYPE
+cannot say "this string was verified". Mutation-checked four ways — pricing on
+the typed email again, dropping the address comparison, making it
+case-sensitive, and re-importing a JWT verifier into `thread.ts` — all four
+red.
+
 ## [1.163.0] — 2026-10-12
 
 A membership can carry a team's calendar, at a price it sets.

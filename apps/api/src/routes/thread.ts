@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
-import { couponPriceOf, enrolmentPrice } from '../lib/member-discount.js';
+import {
+  couponPriceOf,
+  enrolmentPrice,
+  memberDiscountForVerifiedEmail,
+  memberDiscountOffered,
+  provenEmail,
+} from '../lib/member-discount.js';
 import {
   calendarAudience,
   calendarStateChanged,
@@ -109,7 +115,6 @@ async function emailTicketFor(
 // no workspace claims required, because visitors aren't workspace members.
 // ---------------------------------------------------------------------------
 
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { platformFeeCents } from '../lib/fees.js';
 import { zonedTimeToUtc } from '../lib/availability/timezone.js';
 import { publicApiUrl } from '../lib/public-url.js';
@@ -123,27 +128,11 @@ import {
   workspacesWithWaitingHolds,
 } from '../lib/email-cap.js';
 import { claimSend, recordSendResult } from '../lib/send-record.js';
-
-const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? createRemoteJWKSet(
-      new URL(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
-    )
-  : null;
-
-async function participantEmailFromAuth(c: {
-  req: { header: (n: string) => string | undefined };
-}): Promise<string | null> {
-  const auth = c.req.header('authorization');
-  if (!auth?.startsWith('Bearer ') || !participantJwks) return null;
-  try {
-    const { payload } = await jwtVerify(auth.slice(7), participantJwks, {
-      audience: process.env.API_JWT_AUDIENCE ?? 'authenticated',
-    });
-    return (payload.email as string | undefined) ?? null;
-  } catch {
-    return null;
-  }
-}
+// ONE verifier for participant bearers, shared with the portal and the
+// membership surfaces. This file had its own copy until 2026-10-12, and it
+// returned the email in whatever case the provider sent — see
+// lib/participant-auth.ts, which exists for exactly this reason.
+import { participantEmailFromAuth } from '../lib/participant-auth.js';
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -6201,8 +6190,16 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   }));
 
   const price = effectivePrice(thread, prices);
+  // Additive (rule 8): what members of this community pay, as a PERCENTAGE
+  // OFF — a fact about the offer, so it is safe on a public page. It lets the
+  // enrol form say "Member? Sign in for your member price" only where that
+  // sentence is true, and it says nothing whatever about who is a member:
+  // that question must not be answerable by typing an address into a form.
+  const memberDiscountPct = await memberDiscountOffered(thread.id as string);
+
   return c.json({
     organiser,
+    member_discount_pct: memberDiscountPct,
     // Additive (rule 8): the workspace's public site. The thread page wears
     // the same navbar and footer as the listing it was reached from — a
     // theme that stopped at the front door would not be a site.
@@ -6906,22 +6903,23 @@ threadRoutes.post('/public/enrol', async (c) => {
     if ('error' in r) return c.json({ error: r.error }, 409);
     coupon = r.coupon;
   }
-  // NO MEMBER PRICE HERE, deliberately, and this is the reason:
+  // MEMBER PRICE, for a person who has PROVED the address they are enrolling.
   //
-  // this route is anonymous (`/api/v1/thread/public/*` bypasses auth) and the
-  // email is TYPED. Pricing on it would hand the member price to whoever
-  // typed the address — a coupon may be typed by anybody because a code is a
-  // shared secret, and an email address is not one. The member's place would
-  // be used up, a ticket would land in their mailbox, and the response shape
-  // (ok vs checkout_url) would answer "is this address a member here?" for
-  // anybody who asked.
+  // The route stays anonymous — `/api/v1/thread/public/*` bypasses auth, and
+  // it must, because most enrolments are strangers with no account. So the
+  // bearer is verified HERE, with the same function every other participant
+  // surface uses (lib/participant-auth.ts: one verifier, because three copies
+  // of it were three places to get it wrong).
   //
-  // The member price belongs where the person is KNOWN: /my, and a
-  // signed-in enrol once the form carries the session (the public page and
-  // the portal share an apex, so a member who has signed in to /my already
-  // has one there). Until then this is the list price, and the shared
-  // calculation is already the one place that would apply it.
-  const priced = enrolmentPrice(basePriceCents, coupon, null);
+  // The TYPED email is never the authority. An email is not a secret, so
+  // pricing on one would hand the member price to whoever typed it, use up
+  // the member's place, mail them a ticket they never asked for, and answer
+  // "is this address a member here?" to anybody with a browser. The verified
+  // claim and the typed address have to be the same person.
+  const verifiedEmail = await participantEmailFromAuth(c);
+  const proven = provenEmail(verifiedEmail, email);
+  const memberDiscount = proven ? await memberDiscountForVerifiedEmail(proven, thread.id) : null;
+  const priced = enrolmentPrice(basePriceCents, coupon, memberDiscount?.pct ?? null);
   const finalPriceCents = priced.cents;
   const requiresPayment = finalPriceCents > 0;
   // Inheritance: ticket ?? thread ?? organiser's account default ?? {stripe}.

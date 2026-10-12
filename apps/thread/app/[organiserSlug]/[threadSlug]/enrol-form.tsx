@@ -1,5 +1,24 @@
 'use client';
 
+// The signed-in participant's own token, when the browser holds a session.
+// Read here rather than passed as a prop: a server page that hands an access
+// token down to a client component has put a credential into its own HTML,
+// and the browser already holds the session (lib/supabase/client.ts, as
+// lib/certificate-save.ts does).
+import { browserSupabase } from '@/lib/supabase/client';
+
+async function memberAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const { data } = await browserSupabase().auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    // No session, or Supabase not configured on this host: enrol
+    // anonymously, exactly as before. A missing token is not an error.
+    return {};
+  }
+}
+
 import { useMemo, useState } from 'react';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { CheckCircle2 } from 'lucide-react';
@@ -36,6 +55,7 @@ export function EnrolCard({
   locale = DEFAULT_LOCALE,
   sharesParticipants = false,
   paymentMethods = ['stripe'],
+  memberDiscountPct = null,
   initialNotice = null,
 }: {
   organiserSlug: string;
@@ -52,6 +72,12 @@ export function EnrolCard({
   sharesParticipants?: boolean;
   /** Accepted payment methods for paid threads (default: card only). */
   paymentMethods?: ('stripe' | 'invoice')[];
+  /** What members of this community pay, as a percentage OFF, or null when
+   *  this thread's calendar is not part of any membership. A fact about the
+   *  OFFER — the page never knows whether the reader is a member, and the
+   *  member price itself is only applied to a signed-in session whose email
+   *  matches the one being enrolled (lib/member-discount.ts). */
+  memberDiscountPct?: number | null;
   /** From ?paid= on return from Stripe Checkout. */
   initialNotice?: 'success' | 'cancelled' | null;
 }) {
@@ -160,6 +186,11 @@ export function EnrolCard({
         checkout_url?: string | null;
       }>('/api/v1/thread/public/enrol', {
         method: 'POST',
+        // THE SESSION, when the browser has one. The API verifies it and
+        // applies the member price only when the verified email is the one
+        // being enrolled — anonymous and mismatched both get the list price,
+        // and a token that does not verify is treated as no token.
+        headers: await memberAuthHeader(),
         body: JSON.stringify({
           organiser_slug: organiserSlug,
           thread_slug: threadSlug,
@@ -322,6 +353,20 @@ export function EnrolCard({
                 ))}
               </div>
             </fieldset>
+          )}
+
+          {/* MEMBER PRICE, said only where it is true: this community offers
+              one for this thread's calendar, and there is something to
+              discount. It is an invitation to sign in, not a claim about the
+              reader — the page cannot know whether they are a member, and
+              that is deliberate: an unauthenticated form that could tell you
+              would answer "is this address a member here?" for anybody. */}
+          {(memberDiscountPct ?? 0) > 0 && (basePriceCents ?? 0) > 0 && (
+            <p className="text-xs text-ink-subtle">
+              {memberDiscountPct === 100
+                ? t(locale, 'member_price_free')
+                : t(locale, 'member_price_percent', { pct: String(memberDiscountPct) })}
+            </p>
           )}
 
           {/* Discount code — only meaningful when something costs money. */}

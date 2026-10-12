@@ -346,6 +346,25 @@ const CATALOG = {
     de: 'USt-IdNr. (optional)',
     fr: 'Numéro de TVA (facultatif)', // MT
   },
+  // The member-price invitation on the enrol form (2026-10-12). It is an
+  // invitation to sign in, never a claim about the reader: the page cannot
+  // know whether they are a member.
+  member_price_free: {
+    en: 'Member of this community? Sign in — it is included in your membership.',
+    nl: 'Lid van deze community? Meld je aan — het zit bij je lidmaatschap.',
+    es: '¿Miembro de esta comunidad? Inicia sesión — está incluido en tu membresía.', // MT
+    pt: 'Membro desta comunidade? Entre — está incluído na sua assinatura.', // MT
+    de: 'Mitglied dieser Community? Melde dich an — es ist in deiner Mitgliedschaft enthalten.', // MT
+    fr: 'Membre de cette communauté ? Connecte-toi — c’est inclus dans ton adhésion.', // MT
+  },
+  member_price_percent: {
+    en: 'Member of this community? Sign in for {pct}% off.',
+    nl: 'Lid van deze community? Meld je aan voor {pct}% korting.',
+    es: '¿Miembro de esta comunidad? Inicia sesión para un {pct}% de descuento.', // MT
+    pt: 'Membro desta comunidade? Entre para ter {pct}% de desconto.', // MT
+    de: 'Mitglied dieser Community? Melde dich an für {pct}% Rabatt.', // MT
+    fr: 'Membre de cette communauté ? Connecte-toi pour {pct}% de réduction.', // MT
+  },
   discount_code: {
     en: 'Discount code',
     nl: 'Kortingscode',

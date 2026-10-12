@@ -8,7 +8,13 @@
 // to say so.
 
 import { describe, expect, it } from 'vitest';
-import { couponPriceOf, enrolmentPrice, teamCalendarConfig } from './member-discount.js';
+import { readFileSync } from 'node:fs';
+import {
+  couponPriceOf,
+  enrolmentPrice,
+  provenEmail,
+  teamCalendarConfig,
+} from './member-discount.js';
 
 const pct = (n: number) => ({ type: 'percentage', discount_percentage: n });
 const off = (cents: number) => ({ type: 'fixed', discount_amount_cents: cents });
@@ -108,5 +114,77 @@ describe('teamCalendarConfig', () => {
       teamId: 'abc',
       pct: 20,
     });
+  });
+});
+
+describe('provenEmail — who gets the member price', () => {
+  // The five cases the member price turns on. Each one is a different person
+  // standing at the same form.
+  it('ANONYMOUS gets no member price', () => {
+    expect(provenEmail(null, 'member@example.com')).toBeNull();
+  });
+
+  it('an EXPIRED or FORGED token gets no member price, and no error', () => {
+    // participantEmailFromAuth answers null for both — a token that does not
+    // verify is indistinguishable from no token, deliberately, so a broken
+    // one cannot make this route behave differently from an anonymous one.
+    expect(provenEmail(null, 'member@example.com')).toBeNull();
+  });
+
+  it('a SIGNED-IN NON-MEMBER gets no member price (and the lookup is never reached)', () => {
+    // provenEmail says yes — it is the same person — and the entitlement
+    // walk then answers null because there is no membership. Two different
+    // questions, in that order.
+    expect(provenEmail('stranger@example.com', 'stranger@example.com')).toBe(
+      'stranger@example.com',
+    );
+  });
+
+  it('a SIGNED-IN MEMBER enrolling THEMSELVES is proven', () => {
+    expect(provenEmail('member@example.com', 'member@example.com')).toBe('member@example.com');
+  });
+
+  it('a SIGNED-IN MEMBER enrolling SOMEBODY ELSE gets the list price', () => {
+    // The entitlement belongs to the member, not to whoever is filling the
+    // form. Signing in does not let you spend your membership on a friend.
+    expect(provenEmail('member@example.com', 'friend@example.com')).toBeNull();
+  });
+
+  it('case and whitespace do not decide who somebody is', () => {
+    expect(provenEmail('  Member@Example.COM ', 'member@example.com')).toBe('member@example.com');
+    expect(provenEmail('member@example.com', '  MEMBER@EXAMPLE.com')).toBe('member@example.com');
+    expect(provenEmail('', 'member@example.com')).toBeNull();
+    expect(provenEmail('member@example.com', '   ')).toBeNull();
+  });
+});
+
+describe('the typed email cannot reach the entitlement', () => {
+  // A TYPE cannot say "this string was verified", so this reads the call
+  // site. If somebody passes the form's address to the member lookup, this
+  // goes red — which is the whole protection, since the mistake it guards
+  // against shipped once already and was caught in review rather than by a
+  // test.
+  const src = readFileSync(new URL('../routes/thread.ts', import.meta.url), 'utf8');
+
+  it('the member lookup is called with the PROVEN address and nothing else', () => {
+    const calls = [...src.matchAll(/memberDiscountForVerifiedEmail\(([^,)]+)/g)].map((m) =>
+      m[1]!.trim(),
+    );
+    expect(calls.length, 'the lookup is called').toBeGreaterThan(0);
+    for (const arg of calls) expect(arg, `argument: ${arg}`).toBe('proven');
+  });
+
+  it('`proven` comes from the VERIFIED claim and the typed address together', () => {
+    expect(src).toContain('const verifiedEmail = await participantEmailFromAuth(c);');
+    expect(src).toContain('const proven = provenEmail(verifiedEmail, email);');
+  });
+
+  it('this file verifies no token of its own', () => {
+    // One verifier: lib/participant-auth.ts. thread.ts carried a fourth copy
+    // until 2026-10-12, and it had drifted — it returned the email in
+    // whatever case the provider sent.
+    expect(src).not.toContain('jwtVerify');
+    expect(src).not.toContain('createRemoteJWKSet');
+    expect(src).toContain("from '../lib/participant-auth.js'");
   });
 });

@@ -38,6 +38,10 @@ type AgendaItem = {
 
 export type PublicThreadDetail = {
   organiser: { slug: string; display_name: string | null; photo_url: string | null };
+  /** What members of this community pay for this thread's calendar, as a
+   *  percentage OFF. Additive on the public payload; absent on an older API.
+   *  A fact about the OFFER — it says nothing about who is a member. */
+  member_discount_pct?: number | null;
   /** The workspace's public site. Absent on an older payload = plain. */
   site?: PublicSite;
   thread: {
@@ -355,6 +359,7 @@ export function PublicThreadView({
               ((thread as { payment_methods?: ('stripe' | 'invoice')[] | null })
                 .payment_methods ?? ['stripe'])
             }
+            memberDiscountPct={data.member_discount_pct ?? null}
             initialNotice={paidNotice}
           />
         </div>

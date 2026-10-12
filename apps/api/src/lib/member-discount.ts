@@ -103,6 +103,88 @@ export function teamCalendarConfig(
  * existing enrolments are untouched, because the platform rule is soft delete
  * only and a record of taking part is not something a lapse should erase.
  */
+/**
+ * The best member discount ANY tier offers for this thread's team, or null.
+ *
+ * A fact about the offer, not about a person: it is safe on a public page,
+ * where it lets the enrol form say "Member? Sign in for your member price"
+ * only on threads where that sentence is true. It answers nothing about who
+ * is a member — that question is the one the member price itself must never
+ * answer to a stranger.
+ */
+export async function memberDiscountOffered(threadId: string): Promise<number | null> {
+  const { data: thread } = await adminClient
+    .from('thread_thread')
+    .select('team_id')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!thread?.team_id) return null;
+  const { data: grants } = await adminClient
+    .from('membership_access_grant')
+    .select('config')
+    .eq('kind', 'team_calendar');
+  let best: number | null = null;
+  for (const g of grants ?? []) {
+    const cfg = teamCalendarConfig(g.config as Record<string, unknown> | null);
+    if (!cfg || cfg.teamId !== thread.team_id) continue;
+    if (best === null || cfg.pct > best) best = cfg.pct;
+  }
+  return best;
+}
+
+/** Whether this request has PROVED the address it is enrolling.
+ *
+ *  `verified` is the output of `participantEmailFromAuth` — a Supabase JWT
+ *  checked against JWKS — and nothing else may be passed as it. `enrolling`
+ *  is what the form typed. The member price applies only when they are the
+ *  same person:
+ *
+ *    anonymous, expired, forged  → null (no token verifies, so none is trusted)
+ *    signed in as somebody else  → null (the entitlement belongs to the member,
+ *                                   not to whoever is filling the form)
+ *    signed in as this address   → the address
+ *
+ *  Compared trimmed and case-insensitively, because an address is the same
+ *  address whatever a form did to its whitespace or capitals.
+ */
+export function provenEmail(verified: string | null, enrolling: string): string | null {
+  const a = (verified ?? '').trim().toLowerCase();
+  const b = enrolling.trim().toLowerCase();
+  if (!a || !b) return null;
+  return a === b ? b : null;
+}
+
+/**
+ * The member entitlement for a VERIFIED address.
+ *
+ * The name says `Verified` because that is the contract: the only acceptable
+ * argument is `provenEmail(await participantEmailFromAuth(c), typedEmail)`.
+ * A type cannot stop somebody passing a form field here, so the name, this
+ * comment and a source assertion in the gate test are what do.
+ */
+export async function memberDiscountForVerifiedEmail(
+  verifiedEmail: string,
+  threadId: string,
+): Promise<{ pct: number; via: string } | null> {
+  const clean = verifiedEmail.trim().toLowerCase();
+  if (!clean) return null;
+  const { data: thread } = await adminClient
+    .from('thread_thread')
+    .select('workspace_id, team_id')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!thread?.team_id) return null;
+  const { data: person } = await adminClient
+    .from('person')
+    .select('id')
+    .eq('workspace_id', thread.workspace_id)
+    .eq('email', clean)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!person) return null;
+  return memberDiscountFor(person.id as string, threadId);
+}
+
 // THERE IS NO `memberDiscountForEmail`, and that is on purpose.
 //
 // It existed for about an hour, so the anonymous enrol POST could price on
