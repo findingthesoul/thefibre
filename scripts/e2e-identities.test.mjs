@@ -28,11 +28,18 @@ const E2E = join(dirname(fileURLToPath(import.meta.url)), '..', 'e2e');
 const read = (f) => readFileSync(join(E2E, f), 'utf8');
 const specs = readdirSync(E2E).filter((f) => f.endsWith('.spec.ts'));
 
-/** The ONLY specs that may sign in as a real person, and why each needs to. */
+/** The ONLY specs that may sign in as a real person, and why each needs to.
+ *
+ *  organiser-screens came OFF this list on 2026-10-12: the fixture has a
+ *  thread of its own now (`ensureFixtureThread`), so the three thread-editor
+ *  checks open that instead of the year-agenda thread he organises — and stop
+ *  writing a queued calendar change into his workspace. The opt-in config
+ *  finds owner specs by their CALLS, so it dropped the file from its list the
+ *  moment the calls went; this is the bookkeeping half, and the test below
+ *  fails if a name here no longer uses the owner at all. */
 const OWNER_SPECS = {
   'contact-invoices.spec.ts': 'reads purchase rows of real staging contacts',
   'org-names.spec.ts': 'searches for the EBBF organisation in the default workspace',
-  'organiser-screens.spec.ts': 'opens the year-agenda thread the owner organises',
 };
 const OWNER_CALL = /\b(ownerLandUrl|landSignedInAsOwner|resolveOwnerIdentity)\b/;
 
@@ -195,5 +202,66 @@ describe('the owner identity is opt-in (2026-10-12)', () => {
     const config = read('playwright.config.ts');
     expect(config).toMatch(/NOT RUNNING/);
     expect(config).toMatch(/E2E_OWNER=1/);
+  });
+});
+
+describe('the member fixture (2026-10-12)', () => {
+  const identities = read('identities.ts');
+
+  it('is its own address, guarded like the others', () => {
+    expect(identities).toMatch(/email: 'e2e-member@example\.com'/);
+    const guard = identities.slice(identities.indexOf('export function assertMember('));
+    expect(guard).toMatch(/identity\.email\.toLowerCase\(\) !== E2E_MEMBER\.email/);
+    expect(guard).toMatch(/throw new Error/);
+  });
+
+  it('is NOT an admin and NOT a super admin', () => {
+    const build = identities.slice(
+      identities.indexOf('async function buildMember('),
+      identities.indexOf('export function assertMember('),
+    );
+    // The role it is given, and the one it refuses to be.
+    expect(build).toMatch(/workspace_role: 'organiser'/);
+    expect(build).not.toMatch(/workspace_role: 'admin'/);
+    expect(build).toMatch(/is_super_admin/);
+    expect(build, 'a member that became a super admin would pass every role test for the wrong reason')
+      .toMatch(/throw new Error\(`e2e identities: \$\{M\.email\} is a platform super admin/);
+    // Seats, but not admin seats.
+    expect(build).toMatch(/role: 'member'/);
+  });
+
+  it('does not become the default sign-in', () => {
+    const helpers = read('helpers.ts');
+    const body = helpers.slice(
+      helpers.indexOf('export async function signedInLandUrl('),
+      helpers.indexOf('export async function ownerLandUrl('),
+    );
+    expect(body).not.toMatch(/ensureMemberIdentity/);
+  });
+});
+
+describe('the fixture thread (2026-10-12)', () => {
+  const identities = read('identities.ts');
+  const build = identities.slice(
+    identities.indexOf('async function buildThread('),
+    identities.indexOf('/** The default identity is the fixture'),
+  );
+
+  it('belongs to the fixture workspace, behind the staging guard', () => {
+    expect(build).toMatch(/assertStagingProject\(projectUrl, 'the e2e fixture thread'\)/);
+    expect(build).toMatch(/ensureFixtureIdentity\(service, projectUrl\)/);
+  });
+
+  it('can neither be listed publicly nor take an enrolment', () => {
+    expect(build).toMatch(/is_public_listed: false/);
+    expect(build).toMatch(/public_enrolment_open: false/);
+  });
+
+  it('carries BOTH system messages, so the badge test can fail', () => {
+    // A second enrolment_confirmed row is impossible — a partial unique index
+    // on (thread_id, system_role) — so with only that one row present, the
+    // badge test would pass even if every system row were badged.
+    expect(build).toMatch(/system_role: 'enrolment_confirmed'/);
+    expect(build).toMatch(/system_role: 'enrolment_received'/);
   });
 });

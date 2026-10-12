@@ -47,6 +47,40 @@ export const E2E_FIXTURE = {
   apps: ['the-thread', 'fibre-meet', 'fibre-flow', 'fibre-pulse', 'membership', 'fibre-sales', 'fibre-models'],
 } as const;
 
+export const E2E_MEMBER = {
+  email: 'e2e-member@example.com',
+  displayName: 'E2E Member (do not edit)',
+  /** The SAME apps as the fixture, so a ROLE is the only difference between
+   *  the two accounts and a role branch is what a spec is actually seeing. */
+  apps: E2E_FIXTURE.apps,
+} as const;
+
+/** The fixture's own thread, so the organiser screens have a thread to open
+ *  that belongs to nobody. Slugs are fixed: a second run finds it. */
+export const E2E_THREAD = {
+  slug: 'e2e-year-agenda',
+  organiserSlug: 'e2e-fixtures',
+  programTitle: 'E2E fixture thread (do not edit)',
+  /** The session the calendar tray is about. Far future, so it can never
+   *  look like something anybody should attend. */
+  sessionTitle: 'E2E session (do not edit)',
+  sessionStartsAt: '2027-11-02T10:00:00Z',
+  sessionEndsAt: '2027-11-02T11:00:00Z',
+  /** The one engagement that carries the "Sends the ticket" badge. */
+  confirmTitle: "You're enrolled: E2E fixture thread",
+  /** The OTHER system message, which must NOT carry it. Both exist so the
+   *  badge test proves the label is specific to the confirmed row rather
+   *  than to any system row — a second `enrolment_confirmed` is impossible
+   *  (thread_engagement_system_role_uniq), so this is what makes that test
+   *  able to fail at all. */
+  receivedTitle: 'We got your application: E2E fixture thread',
+  /** A person to find in the Add-participant search. The search matches name
+   *  OR email, and the row the spec picks is the one showing an address. */
+  personFirst: 'Esther',
+  personLast: 'Searchable',
+  personEmail: 'e2e-searchable@example.com',
+} as const;
+
 /** The workspace whose real data three read-only specs look at. */
 export const OWNER_WORKSPACE_SLUG = 'default';
 
@@ -229,6 +263,39 @@ async function build(service: SupabaseClient, projectUrl: string): Promise<Ident
     }
   }
 
+  // BILLING DETAILS ON THE WORKSPACE, so the workspace half of Settings →
+  // Payments exists at all. The shared form offers it when `isAdmin ||
+  // workspaceAccount !== null || workspaceDetails !== null` — so without
+  // this, a NON-ADMIN saw only their personal account and the role branch
+  // worth checking (the workspace's own account, named, read-only, with a
+  // sentence saying who may change it) could not be seen on this workspace.
+  // Measured before writing it: the member fixture's Payments screen had no
+  // tabs at all.
+  //
+  // Filled only when empty, like the bio: a spec that writes these owns what
+  // it leaves behind. No Stripe account id — a pasted `acct_` grants nothing
+  // and the badge would claim a connection that does not exist.
+  const billing = must(
+    'workspace billing',
+    await service.from('workspace').select('invoice_details').eq('id', workspaceId).maybeSingle(),
+  );
+  if (!billing?.invoice_details) {
+    must(
+      'workspace billing insert',
+      await service
+        .from('workspace')
+        .update({
+          invoice_details: {
+            legal_name: F.workspaceName,
+            address: 'Nowhere 1, 0000 XX, Testland',
+            tax_no: 'NL000000000B00',
+          },
+        })
+        .eq('id', workspaceId)
+        .select('id'),
+    );
+  }
+
   // One seat, so the token hook has nothing to choose between; said anyway.
   must(
     'active workspace',
@@ -239,6 +306,307 @@ async function build(service: SupabaseClient, projectUrl: string): Promise<Ident
   );
 
   return assertFixture({ id: auth.id, email: F.email, workspaceId, userRowId });
+}
+
+let memberPromise: Promise<Identity> | null = null;
+
+/**
+ * THE MEMBER (explicit)  e2e-member@example.com — the fixture's workspace,
+ * the fixture's app seats, and `workspace_role: 'organiser'` instead of
+ * 'admin'.
+ *
+ * WHY IT EXISTS: a great deal of this product is a role branch, and until now
+ * the only way to see the non-admin side of a screen was to reason about the
+ * route. "The GET has no role check, so a member would see the workspace
+ * name" is an argument, not an observation (2026-10-12, Settings → Payments).
+ * Now it can be looked at.
+ *
+ * WHY IT IS PERMANENT, AND NOT TORN DOWN. A fixture created per run must be
+ * deleted per run, and a teardown that MUST run is a liability: on
+ * 2026-10-01 two probes leaked staging workspaces because the rows were
+ * created before the `try` meant to clean them up. This account is found by a
+ * fixed address, repaired when partial, and never deleted — so there is
+ * nothing to leak and a run that dies halfway leaves staging as it found it.
+ *
+ * WHAT IT IS NOT: not a platform super admin, not a workspace admin, and
+ * never the default. Specs ask for it BY NAME, and `assertMember` refuses any
+ * other address — the fixture's and the owner's included.
+ */
+export function ensureMemberIdentity(service: SupabaseClient, projectUrl: string): Promise<Identity> {
+  memberPromise ??= buildMember(service, projectUrl).catch((e) => {
+    memberPromise = null;
+    throw e;
+  });
+  return memberPromise;
+}
+
+async function buildMember(service: SupabaseClient, projectUrl: string): Promise<Identity> {
+  const M = E2E_MEMBER;
+  assertStagingProject(projectUrl, 'the e2e member account');
+
+  // The fixture's workspace: this account is the OTHER ROLE in the same
+  // place, never a workspace of its own. Same data, one difference.
+  const fixture = await ensureFixtureIdentity(service, projectUrl);
+  const workspaceId = fixture.workspaceId;
+
+  let auth = await authUser(service, M.email);
+  if (!auth) {
+    const { data, error } = await service.auth.admin.createUser({ email: M.email, email_confirm: true });
+    if (error || !data.user) throw new Error(`e2e identities: create member auth user: ${error?.message}`);
+    auth = { id: data.user.id, confirmed: true };
+  }
+  if (!auth.confirmed) throw new Error(`e2e identities: ${M.email} exists and is not confirmed`);
+
+  let seat = must(
+    'member user',
+    await service.from('user').select('id, is_super_admin').eq('workspace_id', workspaceId).eq('email', M.email).maybeSingle(),
+  );
+  if (!seat) {
+    seat = must(
+      'member user insert',
+      await service.from('user').insert({ workspace_id: workspaceId, email: M.email }).select('id, is_super_admin').single(),
+    );
+  }
+  const userRowId = seat!.id as string;
+  // ASSERTED, not assumed. A member that had quietly become a super admin
+  // would make every role spec pass for the wrong reason — the 2026-09-27
+  // failure exactly, where the pack became a different account and the
+  // specs went on reporting green.
+  if (seat!.is_super_admin) {
+    throw new Error(`e2e identities: ${M.email} is a platform super admin; the member identity must not be one`);
+  }
+
+  // 'organiser' is the non-admin workspace role (the column allows
+  // super_admin | admin | organiser). UPSERT, so a role raised by hand on
+  // staging is put back rather than silently honoured.
+  must(
+    'member workspace_member',
+    await service
+      .from('workspace_member')
+      .upsert({ workspace_id: workspaceId, user_id: userRowId, workspace_role: 'organiser' })
+      .select('user_id'),
+  );
+
+  const profile = must('member profile', await service.from('identity_profile').select('email').eq('email', M.email).maybeSingle());
+  if (!profile) {
+    must(
+      'member profile insert',
+      await service.from('identity_profile').insert({ email: M.email, display_name: M.displayName }).select('email'),
+    );
+  }
+
+  // Seats in the same apps, at role 'member' (app_membership takes
+  // 'member' | 'admin'). The workspace_app rows are the fixture's doing.
+  const apps = must('member apps', await service.from('app').select('id, slug').in('slug', [...M.apps])) ?? [];
+  const platform = must('platform app', await service.from('app').select('id').eq('slug', 'fibre-platform').single());
+  for (const app of [...apps, { id: platform!.id, slug: 'fibre-platform' }]) {
+    must(
+      `member app_membership ${app.slug}`,
+      await service
+        .from('app_membership')
+        .upsert({ user_id: userRowId, app_id: app.id, role: 'member' }, { onConflict: 'user_id,app_id' })
+        .select('user_id'),
+    );
+  }
+
+  must(
+    'member active workspace',
+    await service
+      .from('user_active_workspace')
+      .upsert({ auth_user_id: auth.id, workspace_id: workspaceId, updated_at: new Date().toISOString() }, { onConflict: 'auth_user_id' })
+      .select('auth_user_id'),
+  );
+
+  return assertMember({ id: auth.id, email: M.email, workspaceId, userRowId });
+}
+
+/** The member identity is that one address or it is an error. */
+export function assertMember(identity: Identity): Identity {
+  if (identity.email.toLowerCase() !== E2E_MEMBER.email) {
+    throw new Error(
+      `e2e identities: the MEMBER sign-in resolved to ${identity.email}, which is not the member fixture (${E2E_MEMBER.email}).`,
+    );
+  }
+  return identity;
+}
+
+export type FixtureThread = {
+  threadId: string;
+  organiserSlug: string;
+  sessionId: string;
+  personName: string;
+  personEmail: string;
+};
+
+let threadPromise: Promise<FixtureThread> | null = null;
+
+/**
+ * A THREAD OF THE FIXTURE'S OWN.
+ *
+ * The organiser-screen checks used to open the owner's `year-agenda` thread,
+ * which meant signing in as a real person to look at a tray — and worse,
+ * their fixture WROTE a queued calendar change into his workspace. It never
+ * actually did (it only inserts when the queue is empty, and his has had a
+ * change parked since 2026-09-24), but a send takes EVERY pending change on a
+ * thread, so a leftover row would have ridden along with his next genuine
+ * send to all sixteen enrolled people.
+ *
+ * This thread belongs to nobody, has no enrolments at all, and its session is
+ * in November 2027. A send here could reach no one even if a spec pressed it.
+ */
+export function ensureFixtureThread(service: SupabaseClient, projectUrl: string): Promise<FixtureThread> {
+  threadPromise ??= buildThread(service, projectUrl).catch((e) => {
+    threadPromise = null;
+    throw e;
+  });
+  return threadPromise;
+}
+
+async function buildThread(service: SupabaseClient, projectUrl: string): Promise<FixtureThread> {
+  const T = E2E_THREAD;
+  assertStagingProject(projectUrl, 'the e2e fixture thread');
+  const fixture = await ensureFixtureIdentity(service, projectUrl);
+  const workspaceId = fixture.workspaceId;
+
+  const threadApp = must('the-thread app', await service.from('app').select('id').eq('slug', 'the-thread').single());
+
+  // The organiser row. `user_id` is UNIQUE, so the fixture has at most one,
+  // and its slug is the first segment of every public URL it owns.
+  let organiser = must(
+    'organiser',
+    await service.from('thread_organiser').select('id, slug').eq('user_id', fixture.userRowId).maybeSingle(),
+  );
+  if (!organiser) {
+    organiser = must(
+      'organiser insert',
+      await service
+        .from('thread_organiser')
+        .insert({
+          user_id: fixture.userRowId,
+          workspace_id: workspaceId,
+          slug: T.organiserSlug,
+          display_name: E2E_FIXTURE.workspaceName,
+        })
+        .select('id, slug')
+        .single(),
+    );
+  }
+
+  // The thread, found by (organiser, slug) — the pair its own public URL is
+  // unique on, so there can only ever be one.
+  let thread = must(
+    'thread',
+    await service
+      .from('thread_thread')
+      .select('id')
+      .eq('organiser_id', organiser!.id as string)
+      .eq('slug', T.slug)
+      .maybeSingle(),
+  );
+  if (!thread) {
+    // thread_thread.program_id is NOT NULL and UNIQUE: a thread IS a
+    // programme, one to one.
+    const program = must(
+      'program insert',
+      await service
+        .from('program')
+        .insert({ workspace_id: workspaceId, app_id: threadApp!.id, title: T.programTitle, format: 'journey', status: 'active' })
+        .select('id')
+        .single(),
+    );
+    thread = must(
+      'thread insert',
+      await service
+        .from('thread_thread')
+        .insert({
+          workspace_id: workspaceId,
+          program_id: program!.id,
+          organiser_id: organiser!.id,
+          slug: T.slug,
+          timezone: 'Europe/Amsterdam',
+          // NOT listed and NOT open: a fixture thread has no business
+          // appearing on a public page or taking an enrolment.
+          is_public_listed: false,
+          public_enrolment_open: false,
+          language: 'en',
+          created_by: fixture.userRowId,
+        })
+        .select('id')
+        .single(),
+    );
+  }
+  const threadId = thread!.id as string;
+
+  // Two engagements, each found by (thread, title):
+  //   the session   — what the calendar tray is about
+  //   the confirmed — the one row that carries "Sends the ticket"
+  async function engagement(title: string, row: Record<string, unknown>): Promise<string> {
+    const have = must(
+      `engagement ${title}`,
+      await service.from('thread_engagement').select('id').eq('thread_id', threadId).eq('title', title).maybeSingle(),
+    );
+    if (have) return have.id as string;
+    const made = must(
+      `engagement insert ${title}`,
+      await service
+        .from('thread_engagement')
+        .insert({ workspace_id: workspaceId, thread_id: threadId, title, ...row })
+        .select('id')
+        .single(),
+    );
+    return made!.id as string;
+  }
+
+  const sessionId = await engagement(T.sessionTitle, {
+    type: 'event',
+    status: 'published',
+    starts_at: T.sessionStartsAt,
+    ends_at: T.sessionEndsAt,
+    trigger_kind: 'fixed',
+    show_in_agenda: true,
+    position: -1,
+  });
+  await engagement(T.confirmTitle, {
+    type: 'message',
+    status: 'published',
+    system_role: 'enrolment_confirmed',
+    trigger_kind: 'on_enrolment',
+    show_in_agenda: false,
+    position: -2,
+  });
+  await engagement(T.receivedTitle, {
+    type: 'message',
+    status: 'published',
+    system_role: 'enrolment_received',
+    trigger_kind: 'on_enrolment',
+    show_in_agenda: false,
+    position: -3,
+  });
+
+  // Somebody for the Add-participant search to find. A person in the
+  // workspace with an address, because the row the spec picks is the one
+  // showing an email rather than the "add as new" row.
+  const person = must(
+    'search person',
+    await service.from('person').select('id').eq('workspace_id', workspaceId).eq('email', T.personEmail).maybeSingle(),
+  );
+  if (!person) {
+    must(
+      'search person insert',
+      await service
+        .from('person')
+        .insert({ workspace_id: workspaceId, first_name: T.personFirst, last_name: T.personLast, email: T.personEmail })
+        .select('id'),
+    );
+  }
+
+  return {
+    threadId,
+    organiserSlug: organiser!.slug as string,
+    sessionId,
+    personName: `${T.personFirst} ${T.personLast}`,
+    personEmail: T.personEmail,
+  };
 }
 
 /** The default identity is the fixture or it is an error. */

@@ -11,7 +11,14 @@ import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { ensureFixtureIdentity, resolveOwnerIdentity, type Identity } from './identities.js';
+import {
+  ensureFixtureIdentity,
+  ensureFixtureThread,
+  ensureMemberIdentity,
+  resolveOwnerIdentity,
+  type FixtureThread,
+  type Identity,
+} from './identities.js';
 
 export const HOSTS = {
   fibre: 'https://thefibre.tech',
@@ -204,6 +211,36 @@ export async function landSignedIn(
   arrived: RegExp,
 ): Promise<void> {
   return land(page, () => signedInLandUrl(host, targetApp, next), next, arrived);
+}
+
+/**
+ * The MEMBER fixture: the same workspace and the same seats as the default
+ * fixture, at a non-admin workspace role. For the other side of a role
+ * branch — a disabled form, a hidden action, a read that is allowed anyway.
+ *
+ * A fixture, not a person: nothing here needs anybody's permission, and the
+ * two accounts differ in exactly one column.
+ */
+export async function memberLandUrl(host: string, targetApp: string, next = '/dashboard'): Promise<string> {
+  return signedInLandUrlFor(host, targetApp, await ensureMemberIdentity(stagingService(), stagingUrl), next);
+}
+
+/** landSignedIn as the MEMBER fixture (non-admin). */
+export async function landSignedInAsMember(
+  page: import('@playwright/test').Page,
+  host: string,
+  targetApp: string,
+  next: string,
+  arrived: RegExp,
+): Promise<void> {
+  return land(page, () => memberLandUrl(host, targetApp, next), next, arrived);
+}
+
+/** The fixture's own thread (id, its session, and a person to search for),
+ *  so a spec about organiser screens needs nobody's real data. */
+export async function fixtureThread(): Promise<FixtureThread> {
+  const service = stagingService();
+  return ensureFixtureThread(service, stagingUrl);
 }
 
 /** landSignedIn as the OWNER — see ownerLandUrl for who may call this. */

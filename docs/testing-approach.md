@@ -295,6 +295,27 @@ another workspace's content from inside the apps: three read-only specs that
 need the `default` workspace's real data sign in as its owner, by name, on
 an allow-list the release gate enforces.
 
+**A THIRD IDENTITY, and a thread of the fixture's own (2026-10-12).**
+`e2e-member@example.com` is the same workspace as the fixture, the same app
+seats, and `workspace_role: 'organiser'` instead of 'admin' — one column of
+difference, so anything two specs see differently IS the role. Asked for by
+name (`landSignedInAsMember`), never the default, and asserted not to be a
+platform super admin when it is built, because a member that quietly became
+one would make every role test pass for the wrong reason.
+
+It exists because a role question had been answered by READING a route — "the
+GET has no role check, so a member would see the workspace name" — which is
+an argument, not an observation. `e2e/member-role.spec.ts` now looks: a
+member sees the workspace account named after the workspace, with one Save on
+the page and a sentence saying who may change it; the admin, on the same
+screen with the same data, sees two Saves and no such sentence.
+
+`ensureFixtureThread` gives the fixture a thread with a session, both system
+messages and somebody to find in a search — so the three organiser-screen
+checks no longer open the owner's own thread, and no longer write a queued
+calendar change into his workspace. That thread has NO enrolments and its
+session is in November 2027: a send from it could reach nobody.
+
 **And on staging that owner is a REAL PERSON — Sjoerd's own account.**
 `resolveOwnerIdentity` takes the single `super_admin` of the `default`
 workspace and refuses to proceed if it resolves to the fixture, so the

@@ -6,6 +6,75 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.160.0] — 2026-10-12
+
+A non-admin fixture, and a thread the fixture owns.
+
+Two things the browser pack could not do: see the other side of a role
+branch, and open a thread editor without borrowing a real person's thread.
+
+**The member fixture.** `e2e-member@example.com` — the same workspace as the
+default fixture, the same app seats, `workspace_role: 'organiser'` instead of
+'admin'. **One column of difference**, so anything two specs see differently
+IS the role. It exists because a question had been answered by reading a
+route: *does a non-admin see the workspace's own name on Settings →
+Payments?* — the GET has no role check, so yes. That is an argument, and an
+argument is not an observation.
+
+Now it is looked at, and the two halves are one test each:
+
+| | member | admin |
+|---|---|---|
+| the second tab | "Workspace of E2E fixtures…" | the same |
+| Saves on the page | 1 (personal only) | 2 |
+| "Managed by workspace admins." | shown | absent |
+
+Permanent and never torn down, deliberately: a fixture created per run must
+be deleted per run, and a teardown that MUST run is a liability — two probes
+leaked staging workspaces on 2026-10-01 because rows were created before the
+`try` meant to clean them up. This account is found by a fixed address,
+repaired when partial, and never deleted, so a run that dies halfway leaves
+staging as it found it.
+
+**A thread of the fixture's own.** The three organiser-screen checks opened
+the OWNER's year-agenda thread, which meant signing in as a real person to
+look at a tray — and their fixture WROTE a queued calendar change into his
+workspace. Measured before touching anything: it never actually had, because
+it only inserts when the queue is empty and his has had a change parked since
+2026-09-24. But **a send takes every pending change on a thread**, so a
+leftover row would have gone out with his next genuine send, to all sixteen
+enrolled people.
+
+`ensureFixtureThread` builds the programme, the organiser row, the thread, a
+session, both system messages and somebody to find in a search. It is not
+publicly listed, enrolment is closed, it has NO enrolments, and its session
+is in November 2027 — a send from it could reach nobody.
+
+**The opt-in config dropped `organiser-screens` by itself**, which is the
+point of finding owner specs by their CALLS rather than by a list: the run
+now says "NOT RUNNING 2 owner spec(s)" where it said 3, with nobody editing
+the list. The allow-list in the release gate is the bookkeeping half, and it
+fails if a name on it no longer uses the owner.
+
+**A mutation check that turned out to be impossible, and taught something.**
+The badge test says "exactly one message says it sends the ticket". Trying to
+break it by inserting a second `enrolment_confirmed` row was refused by the
+database: `thread_engagement_system_role_uniq`, a partial unique index on
+(thread_id, system_role). So the duplicate that test was written for cannot
+recur — and with only ONE system message on the thread, it would have passed
+even if the badge were put on EVERY system row, which was the other half of
+that bug. The fixture thread therefore carries BOTH system messages, and the
+editor now shows two of them with exactly one badge. Measured, not assumed.
+
+Other mutation checks: a search term no person matches reddens the person
+search, and pointing the badge pattern at the wrong control reddens the
+badge test. Worth stating plainly: **an e2e spec runs against DEPLOYED
+staging, so a product mutation proves nothing locally** — only data and spec
+mutations are available to it.
+
+Full pack, retries off: 62 passed, 9 skipped, 0 failed. Handoff rows for the
+owner's account: 697 before, 697 after.
+
 ## [1.159.2] — 2026-10-12
 
 The tests that sign in as Sjoerd are opt-in.
