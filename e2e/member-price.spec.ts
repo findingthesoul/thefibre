@@ -556,13 +556,22 @@ test('what the page SHOWS: the reader who asked, and nobody else', async ({ page
   await expect(body, 'nobody is asked to sign in twice').not.toContainText(/Sign in for 20% off/i);
 
   // And the 100% thread says the other sentence, with nothing to pay.
+  //
+  // "you pay nothing" rather than "included in your membership": the OLD hint
+  // reads "Sign in - it is included in your membership", so the shorter anchor
+  // matches the page BEFORE the answer arrives as well as after, and passes
+  // either way. It did exactly that on the first run.
   await page.goto(`${HOSTS.thread}/${ownerSlug}/${threadSlug}`);
-  await expect(body, 'included, not discounted').toContainText(
-    /Included in your membership/i,
-    { timeout: 30_000 },
-  );
+  await expect(body, 'included, and nothing to pay').toContainText(/you pay nothing/i, {
+    timeout: 30_000,
+  });
   await show('the member, on the 100% thread');
-  await expect(body).not.toContainText(/Member of this community\? Sign in/i);
+  await expect(body, 'nobody is invited to sign in twice').not.toContainText(
+    /Member of this community\? Sign in/i,
+  );
+  await expect(page.locator('.te-enrol').first(), 'and the card says Free').toContainText(
+    /Free|Gratis/i,
+  );
 
   // ── 4. THE SAME, AT 375 ─────────────────────────────────────────────────
   // The enrol card is a sticky aside on a wide screen and a block on a phone,
@@ -608,16 +617,14 @@ test('the FORM: a signed-in member enrols at the member price by pressing button
   await page.goto(`${HOSTS.thread}/${ownerSlug}/${threadSlug}`);
   await page.waitForLoadState('domcontentloaded');
 
-  // THE HINT, on a thread whose calendar is part of a membership.
+  // THE PRICE THIS READER PAYS, waited for rather than glanced at: the page
+  // renders the list price first and replaces it when /my-price answers, so a
+  // read taken immediately records the sentence this slice removed. v1.166.0's
+  // first run printed EUR 35.00 twice for exactly that reason.
   const body = page.locator('body');
-  await expect(body, 'the member-price invitation is on the page').toContainText(
-    /included in your membership|Sign in/i,
-    { timeout: 30_000 },
-  );
-  // And what the page SHOWS as the price, which is the list price: a public
-  // page cannot know what the reader pays without becoming the oracle this
-  // feature refuses to be. Recorded rather than asserted as desirable — see
-  // the note in the report.
+  await expect(body, 'their own answer has arrived').toContainText(/you pay nothing/i, {
+    timeout: 30_000,
+  });
   const shown = await page.evaluate(() => {
     const t = document.body.textContent ?? '';
     return (t.match(/€\s?\d+[.,]?\d*/g) ?? []).slice(0, 4);

@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.166.1] — 2026-10-12
+
+Seen: what each reader is told, and an assertion of mine that matched both.
+
+v1.166.0 went out and the walk ran against it. **The member price renders, for
+the reader who asked and nobody else** — the run's own output, after each page
+had settled:
+
+| reader | the enrol card says |
+|---|---|
+| anonymous | `€35.00` · *Member of this community? Sign in for 20% off.* |
+| signed in, no membership | `€35.00` · *Member of this community? Sign in for 20% off.* — **identical**, which is the point |
+| the member, 20% | `€35.00` struck through, `€28.00` · *Your member price: 20% off.* |
+| the member, 100% | `€35.00` struck through, `Free` · *Included in your membership — you pay nothing.* |
+
+And on the 100% thread the whole billing block — *Who pays? · Billing address ·
+Postal code · City · Country* — is simply **gone**, because the price resolved
+to zero and the form no longer asks how a member will settle nothing. Nobody
+designed that; it falls out of the price being the real one.
+
+The quote endpoint, asked with a real participant token: the live thread `200
+{"price_cents":0,"reason":"membership","member_pct":100}`, the draft thread
+`404`, a thread under an unpublished team `404`, an anonymous caller `401` with
+no price in the body. At 375 the card is 327px wide inside the gutter at both
+percentages.
+
+**And the correction.** The 100% assertion I shipped yesterday was
+`/Included in your membership/i` — which the sentence it replaces, *"Sign in —
+it is included in your membership"*, contains word for word. So it matched the
+page **before** the answer arrived, the run printed that stale state as
+evidence, and only the following `not` assertion waited for the real one. It
+passed while proving nothing. Both 100% checks now anchor on *"you pay
+nothing"*, which the old sentence cannot contain, and the printed line is taken
+after the page has settled. The 20% case was never affected — *"Your member
+price"* appears in one sentence only.
+
+**Thread's own version moves to 4.7.0** (coordinator's call): members joining a
+team's threads at a member price is a new Thread feature, and one bump for the
+visible change is the honest size — nobody needs the eight commits
+reconstructed.
+
 ## [1.166.0] — 2026-10-12
 
 The page asks what THIS reader pays, and tells only them.
