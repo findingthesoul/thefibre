@@ -6,6 +6,77 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.159.0] — 2026-10-12
+
+Five optional props that were quietly dropping things become required.
+
+v1.157.1 made two card labels required-and-nullable after review caught that
+OPTIONAL also meant FORGETTABLE: a caller that simply left one out rendered
+nothing where a sentence belonged, and the typechecker said not a word. This
+is the sweep that asked where else that shape sits in `@thefibre/shared`.
+
+The method was measurement, not reading: for every optional prop that gates a
+rendered block, count the call sites that pass it. **A prop every caller
+already passes is not optional, it is unenforced** — and a prop some callers
+deliberately omit is genuinely optional and was left alone. Two of the hits
+were not latent at all; they were live, and nobody had noticed.
+
+**Meet, Pulse and Members were calling the workspace "Workspace account".**
+`PaymentsForm.workspaceName` is how the second account gets called what it
+actually is (Sjoerd, 2026-09-09) — "Workspace of Solidarity Lab" rather than
+a generic label. It was optional, and three of the five apps never passed it,
+because their Payments pages never fetched `/api/v1/workspace-brand`. Checked
+on staging rather than inferred: Thread and The Fibre show the workspace name,
+Meet, Pulse and Members show the generic label. The extraction that made this
+one component (v1.27.0, out of four copies that had drifted) names losing
+`workspaceName` as EXACTLY the drift it existed to end; the optional prop
+carried the drift straight through the extraction.
+
+**Members' Add-member dialog said "Billing / Invoice / Comped" in English, to
+everybody.** `BillingChoice` had the heading hard-coded and English defaults
+for three props — `'Invoice'`, `'Comped'`, `'Free — no invoice.'`. Thread
+passed its own translated labels; Members passed only the two descriptions,
+so a Dutch, German or French admin got two translated sentences under three
+English words. **A default is the one way a six-locale product ships English
+without a missing-translation error**, because nothing is missing. Every word
+in that component now comes from the caller, and Members has three new keys.
+
+The other three were traps rather than defects:
+
+| prop | was | now |
+|---|---|---|
+| `HelpGuide.href` | optional; a guide could render steps with no way to reach the screen | required, nullable |
+| `DateTimeField.name` | optional; **it gates the hidden input, so a field that forgot it submitted nothing** while looking right | required, nullable |
+| `UserMenu.profileHref` | defaulted to `/settings/profile` — a guess about another app's filesystem | required, nullable |
+
+`DateTimeField.label` came along with `name`, and three of twenty-three call
+sites now say `label={null} name={null}` out loud: they are controlled fields
+in a dynamic slot list that post nothing. `profileHref` is the mirror image of
+the others — forgetting it ADDED a dead link rather than dropping a live one.
+Flow and Models have no profile page and had been told explicitly; the three
+apps that do own one now say so instead of leaning on the default.
+
+**One claim in this release was wrong before the compiler corrected it.** The
+sweep reported that all fifty-five guides pass an `href`, so requiring it
+would cost nothing. Models' assistant guide passes `href: undefined` — an
+explicit key with no value, which my count read as present. It is now `null`,
+which is what it always meant, and the measurement that missed it is the
+reason the mutation checks below exist.
+
+Deliberately NOT changed, having been measured and found genuinely optional:
+`InvoiceDialog.seller` (the portal cannot always name a seller, and says so),
+`SettingsCard.href` (a card with no href renders unclickable on purpose),
+`Switch.label` (the bare switch sits in a row that names it), `DocHeader.updated`
+(Support is not a versioned legal document), `PublicPageSwitch.showAddress`
+(defaults to showing more, not less). Found and left for a decision:
+`ProfileForm.slug` renders a public-URL field that neither of its two callers
+asks for.
+
+Each new requirement was mutation-checked by putting the omission back: Meet's
+payments page without `workspaceName`, Members' dialog without `heading`, and
+a controlled `DateTimeField` without `name` all fail to compile now, and all
+three compiled yesterday.
+
 ## [1.158.0] — 2026-10-12
 
 Every help guide in every app is checked against the buttons it names.

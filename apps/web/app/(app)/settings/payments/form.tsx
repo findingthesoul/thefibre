@@ -36,7 +36,7 @@ export function PaymentsForm({
   workspaceDetails,
   workspaceMethods,
   isAdmin,
-  workspaceName = null,
+  workspaceName,
 }: {
   locale: Locale;
   personalAccount: string | null;
@@ -46,7 +46,7 @@ export function PaymentsForm({
   workspaceDetails: InvoiceDetails | null;
   workspaceMethods: PaymentMethod[] | null;
   isAdmin: boolean;
-  workspaceName?: string | null;
+  workspaceName: string | null;
 }) {
   const router = useRouter();
   return (

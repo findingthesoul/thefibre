@@ -39,14 +39,20 @@ export type HelpOtherApp = { slug: string; name: string; url: string };
 
 /** One "how to" — the manual, task by task (2026-09-27, Sjoerd: "update all
  *  manuals for end users"). A title in the user's words, the steps in order,
- *  and optionally the page where it happens. Content comes from each app's
- *  catalog so it is translated like everything else; the steps arrive as
- *  ONE catalog string split on newlines, so a guide costs two keys, not ten. */
+ *  and the page where it happens. Content comes from each app's catalog so it
+ *  is translated like everything else; the steps arrive as ONE catalog string
+ *  split on newlines, so a guide costs two keys, not ten. */
 export type HelpGuide = {
   title: string;
   steps: string[];
-  /** App-relative route where this is done, shown as "Open →". */
-  href?: string;
+  /** App-relative route where this is done, shown as "Open →".
+   *
+   *  REQUIRED, nullable since v1.159.0. It was optional, and a guide that
+   *  forgot it rendered steps with no way to reach the screen they describe —
+   *  no error, just a dead end. All 55 guides in all eight apps passed one
+   *  already, so this cost nothing and closes the gap; `null` is for a guide
+   *  that genuinely has no single page. */
+  href: string | null;
 };
 
 /** Split a catalog string into steps: one per line, blanks dropped. */

@@ -154,7 +154,7 @@ export function PaymentsForm({
   workspaceDetails,
   workspaceMethods,
   isAdmin,
-  workspaceName = null,
+  workspaceName,
   onSaved,
   savePersonal,
   saveWorkspace,
@@ -173,8 +173,17 @@ export function PaymentsForm({
   workspaceDetails: InvoiceDetails | null;
   workspaceMethods: PaymentMethod[] | null;
   isAdmin: boolean;
-  /** The workspace's own name. Null falls back to the generic label. */
-  workspaceName?: string | null | undefined;
+  /** The workspace's own name, from `/api/v1/workspace-brand`, so the second
+   *  account is called what it is rather than "Workspace account" (Sjoerd
+   *  2026-09-09).
+   *
+   *  REQUIRED and nullable, not optional. It was optional until v1.159.0, and
+   *  three of the five apps simply never passed it — Meet, Pulse and Members
+   *  showed the generic label on a screen the 2026-09-24 extraction had been
+   *  written to stop drifting. Nothing failed; the label was just worse in
+   *  three places. `null` is for an app that genuinely cannot name the
+   *  workspace, and now has to say so. */
+  workspaceName: string | null;
   /** Usually `router.refresh()`. */
   onSaved: () => void;
   savePersonal: Save;

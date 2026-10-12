@@ -1125,6 +1125,34 @@ const CATALOG = {
     de: 'Erscheint auf ihren Rechnungen.', // MT
     fr: 'Figure sur leurs factures.', // MT
   },
+  // The three words the Add-member billing box used to take from
+  // BillingChoice's English defaults (v1.159.0). Translations follow Thread's
+  // `billing`, `invoice_amount_label` and `comped_label`, which are the same
+  // choice on the same kind of dialog.
+  billing: {
+    en: 'Billing',
+    nl: 'Facturering',
+    es: 'Facturación', // MT
+    pt: 'Faturamento', // MT
+    de: 'Rechnungsstellung', // MT
+    fr: 'Facturation', // MT
+  },
+  billing_invoice_label: {
+    en: 'Invoice',
+    nl: 'Factuur',
+    es: 'Factura', // MT
+    pt: 'Fatura', // MT
+    de: 'Rechnung', // MT
+    fr: 'Facture', // MT
+  },
+  billing_comped_label: {
+    en: 'Comped / free',
+    nl: 'Gratis / comped',
+    es: 'Invitación / gratis', // MT
+    pt: 'Cortesia / grátis', // MT
+    de: 'Freigestellt / gratis', // MT
+    fr: 'Offert / gratuit', // MT
+  },
   billing_invoice_desc: {
     en: 'Creates a pending invoice and emails it — pay by transfer or payment link.',
     nl: 'Maakt een openstaande factuur aan en mailt die — betalen per overschrijving of betaallink.',

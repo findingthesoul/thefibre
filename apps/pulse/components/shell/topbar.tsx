@@ -30,7 +30,7 @@ export function Topbar({
   portal?: { url: string; name: string } | undefined;
   workspaces?: WorkspaceChoice[];
   /** Absolute URL of the ONE profile editor (Fibre web), env-aware from the layout. */
-  profileHref?: string | null;
+  profileHref: string | null;
 }) {
   return (
     <TopbarFrame

@@ -985,7 +985,7 @@ function PollSlotsEditor({
         {slots.map((v, i) => (
           <li key={i} className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
-              <DateTimeField value={v} onChange={(nv) => setAt(i, nv)} />
+              <DateTimeField label={null} name={null} value={v} onChange={(nv) => setAt(i, nv)} />
             </div>
             <button
               type="button"

@@ -25,13 +25,18 @@ type WorkspaceBilling = {
 
 export default async function PaymentsSettingsPage() {
   const locale = await uiLocale();
-  const [profile, workspace] = await Promise.all([
+  const [profile, workspace, brand] = await Promise.all([
     apiFetch<Personal>('/api/v1/profile').catch(
       () => ({ stripe_account_id: null }) as Personal,
     ),
     apiFetch<WorkspaceBilling>('/api/v1/workspace-billing').catch(
       () => ({ stripe_account_id: null, editable: false }) as WorkspaceBilling,
     ),
+    // The workspace's own name, so the second account is called what it is
+    // rather than "Workspace account" (Sjoerd 2026-09-09). Thread and The
+    // Fibre have fetched it since then; this app did not, and the shared form
+    // quietly fell back to the generic label (v1.159.0).
+    apiFetch<{ name: string | null }>('/api/v1/workspace-brand').catch(() => ({ name: null })),
   ]);
 
   return (
@@ -50,6 +55,7 @@ export default async function PaymentsSettingsPage() {
         workspaceDetails={workspace.invoice_details ?? null}
         workspaceMethods={workspace.default_payment_methods ?? null}
         isAdmin={workspace.editable}
+        workspaceName={brand.name}
       />
     </PageContainer>
   );

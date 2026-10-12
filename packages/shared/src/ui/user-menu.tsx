@@ -48,7 +48,7 @@ export function UserMenu({
   theme: initialTheme,
   sidebar: initialSidebar,
   workspaces = [],
-  profileHref = '/settings/profile',
+  profileHref,
   settingsHref = '/settings',
   onSavePref,
   onSidebarChanged,
@@ -65,8 +65,17 @@ export function UserMenu({
    *  most of them — the section hides itself rather than showing a choice of
    *  one. */
   workspaces?: WorkspaceChoice[];
-  /** null hides the Profile item (Flow: profile lives on the platform). */
-  profileHref?: string | null;
+  /** Where Profile goes, or `null` to hide the item (Flow and Models: the
+   *  profile lives on the platform, so they hide it and point Settings
+   *  there; Pulse, Members and Connect send it cross-app instead).
+   *
+   *  REQUIRED and nullable since v1.159.0. It used to DEFAULT to
+   *  '/settings/profile', which is the dangerous direction for a route prop:
+   *  an app without that page got a Profile item leading to a 404, and the
+   *  only reason none of the eight did was that five had been told
+   *  explicitly and three happen to have the page. A default route is a
+   *  guess about another app's filesystem. */
+  profileHref: string | null;
   settingsHref?: string;
   /** The app's savePref server action — domain-wide cookie, dodges Safari's
    *  7-day ITP cap on document.cookie writes. */

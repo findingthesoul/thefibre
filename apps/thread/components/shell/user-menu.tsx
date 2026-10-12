@@ -25,6 +25,10 @@ export function UserMenu(props: {
   return (
     <SharedUserMenu
       {...props}
+      // This app owns /settings/profile, so the item points at its own page.
+      // Said out loud since v1.159.0: the shared menu used to default to this
+      // path, which meant an app WITHOUT the page got a dead Profile link.
+      profileHref="/settings/profile"
       onSavePref={savePref}
       onSidebarChanged={() => router.refresh()}
       onSwitchWorkspace={async (id) => {

@@ -237,6 +237,7 @@ export function AddParticipantDialog({
           <BillingChoice
             value={billing}
             onChange={setBilling}
+            heading={t(locale, 'billing')}
             invoiceLabel={t(locale, 'invoice_amount_label', {
               amount: money(locale, amountCents, currency),
             })}

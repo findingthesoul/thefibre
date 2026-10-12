@@ -30,6 +30,10 @@ export function UserMenu(props: {
   return (
     <SharedUserMenu
       {...rest}
+      // This app owns /settings/profile, so the item points at its own page.
+      // Said out loud since v1.159.0: the shared menu used to default to this
+      // path, which meant an app WITHOUT the page got a dead Profile link.
+      profileHref="/settings/profile"
       // An onboarding you put away has to be findable again, and the avatar
       // menu is where people look for the thing they turned off. It sends
       // you to the dashboard, because that is where the card lives — landing

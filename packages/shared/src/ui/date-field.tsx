@@ -555,8 +555,17 @@ export function DateTimeField({
   min,
   max,
 }: {
-  label?: React.ReactNode;
-  name?: string;
+  /** The visible label, or `null` for a field whose row already names it.
+   *
+   *  REQUIRED, nullable since v1.159.0: both of these were optional, and
+   *  `name` is the one that mattered — it gates the hidden input, so a field
+   *  that forgot it submitted NOTHING while looking exactly right. Three of
+   *  the twenty-three call sites omit both on purpose (controlled
+   *  value/onChange inside a dynamic slot list, which posts nothing), and
+   *  they now say `null` instead of leaving the question open. */
+  label: React.ReactNode | null;
+  /** Hidden-input name for an uncontrolled field, `null` when controlled. */
+  name: string | null;
   /** "YYYY-MM-DDTHH:mm" (datetime-local shape) or empty. */
   defaultValue?: string | null;
   /** Controlled mode — pass value + onChange (e.g. dynamic slot lists). */
@@ -613,7 +622,7 @@ export function DateTimeField({
 
   return (
     <div>
-      {label !== undefined && (
+      {label !== null && (
         <span className="text-sm text-ink-subtle">
           {label}
           {required && <span className="text-red-600"> *</span>}
@@ -625,7 +634,7 @@ export function DateTimeField({
         type="button"
         onClick={toggle}
         className={`w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-base sm:text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
-          label !== undefined ? 'mt-1' : ''
+          label !== null ? 'mt-1' : ''
         }`}
       >
         <span className={`min-w-0 truncate whitespace-nowrap ${selected ? 'text-ink' : 'text-ink-muted'}`}>

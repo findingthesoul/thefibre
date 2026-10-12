@@ -481,9 +481,12 @@ export function AddMemberDialog({
           value={billing}
           onChange={setBilling}
           invoiceDisabled={!priced}
+          heading={t(locale, 'billing')}
+          invoiceLabel={t(locale, 'billing_invoice_label')}
           invoiceDescription={
             priced ? t(locale, 'billing_invoice_desc') : t(locale, 'billing_no_price_desc')
           }
+          compedLabel={t(locale, 'billing_comped_label')}
           compedDescription={t(locale, 'billing_comped_desc')}
         >
           {/* flex-wrap: the dialog renders as a bottom sheet below `sm`

@@ -34,7 +34,7 @@ const GUIDES = [
   { slug: 'scenarios', href: '/dashboard' },
   { slug: 'tables', href: '/dashboard' },
   { slug: 'reserve', href: '/dashboard' },
-  { slug: 'assistant', href: undefined },
+  { slug: 'assistant', href: null },
 ] as const;
 type Slug = (typeof GUIDES)[number]['slug'];
 

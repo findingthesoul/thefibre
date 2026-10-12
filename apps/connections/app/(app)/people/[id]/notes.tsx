@@ -1074,7 +1074,7 @@ export function Notes({
               ]}
             />
             {followUp === 'exact' && (
-              <DateTimeField label={t(locale, 'note_followup_date')} value={followUpExact} onChange={setFollowUpExact} />
+              <DateTimeField label={t(locale, 'note_followup_date')} name={null} value={followUpExact} onChange={setFollowUpExact} />
             )}
           </div>
         </div>

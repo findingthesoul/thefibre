@@ -411,7 +411,7 @@ export function NewBookingButton({
           )}
           <div>
             <label className="block text-sm font-medium mb-1.5">{t(locale, 'when')}</label>
-            <DateTimeField value={startsAt} onChange={setStartsAt} />
+            <DateTimeField label={null} name={null} value={startsAt} onChange={setStartsAt} />
             {/* Your own time is yours to book. The API does not check
                 availability for a host-made appointment — you are looking at
                 the calendar, and a tool that refused would be arguing. */}
