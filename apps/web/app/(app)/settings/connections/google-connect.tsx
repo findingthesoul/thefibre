@@ -42,6 +42,13 @@ export function GoogleConnect({
       reasonParam={reasonParam}
       labels={{
         description: t(locale, 'google_calendar_blurb'),
+        // Both null, and stated rather than omitted: Google's connection is a
+        // yes/no that never reports which account was linked, and Google is
+        // configured wherever these apps run. The fields are required so that
+        // a future card cannot forget them and silently render nothing where
+        // a sentence belonged.
+        account: null,
+        notConfigured: null,
         // The tick was part of this card's own markup before the port; it
         // moves into the string so the shared card stays provider-agnostic.
         connectedMessage: `✓ ${t(locale, 'google_connected')}`,

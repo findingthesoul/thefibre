@@ -41,6 +41,13 @@ export function GoogleConnect({
       reasonParam={reasonParam}
       labels={{
         description: t(locale, 'google_desc'),
+        // Both null, and stated rather than omitted: Google's connection is a
+        // yes/no that never reports which account was linked, and Google is
+        // configured wherever these apps run. The fields are required so that
+        // a future card cannot forget them and silently render nothing where
+        // a sentence belonged.
+        account: null,
+        notConfigured: null,
         connectedMessage: t(locale, 'google_connected_msg'),
         // This app's key takes the reason as a parameter, so the suffix goes
         // straight through rather than being concatenated here.

@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.157.1] — 2026-10-12
+
+Two card labels become required-and-nullable, so forgetting one is an error.
+
+v1.157.0 made `account` and `notConfigured` OPTIONAL on
+`ProviderConnectionCard`, because Google has neither — the connection is a
+yes/no that never reports which account was linked, and Google is configured
+wherever these apps run.
+
+Optional also made them **forgettable**. A future Zoom-like card that simply
+omitted `notConfigured` would render nothing in the one situation the sentence
+exists for — somebody staring at a dead Connect button with no explanation —
+and the typechecker would not have said a word. That is the silent-no-op
+shape this codebase keeps paying for, and it was spotted in review rather than
+in production.
+
+They are required again, and nullable. Writing `null` is one word, and it is a
+statement somebody made on purpose; leaving it out is now a compile error.
+The change proved itself on the way in: Meet stopped compiling until all three
+Google cards declared their two nulls.
+
+**Not a `mode: 'connect-only'` flag**, which was the first idea. One flag
+would stand for two unrelated facts — "never reports an account" and "cannot
+be unconfigured" — and a provider may perfectly well have one without the
+other. One fact per field keeps each statement local to the thing it is about.
+
+Nothing changes on screen: both blocks already required their state as well as
+their label, and the twelve app-width-state combinations verified for v1.157.0
+are unaffected.
+
 ## [1.157.0] — 2026-10-12
 
 The three Google Calendar cards become the shared one.

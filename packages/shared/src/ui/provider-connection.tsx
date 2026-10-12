@@ -31,11 +31,16 @@ export type ProviderConnectionLabels = {
   description: string;
   /** "Zoom account: x@y.z" — already formatted, or built from the email.
    *
-   *  OPTIONAL: a provider that never reports which account was connected has
-   *  no such line, and inventing a string nobody reads is how a label ends up
-   *  rendered somewhere it is wrong. Google Calendar is that case — the
-   *  connection is a yes/no, and `accountEmail` is always null. */
-  account?: string | ((email: string) => string);
+   *  `null` means this provider HAS no such line: the connection is a yes/no
+   *  and it never reports which account was linked. Google Calendar is that
+   *  case.
+   *
+   *  Required, and nullable, rather than optional. Optional made absence
+   *  FORGETTABLE — a new caller that simply omitted it would render nothing
+   *  where a line belonged, and the typechecker would say nothing. That is
+   *  the silent-no-op shape this codebase keeps paying for. Writing `null` is
+   *  one word, and it is a statement that somebody made on purpose. */
+  account: string | ((email: string) => string) | null;
   /** Shown after returning from a successful connect. */
   connectedMessage: string;
   /** Shown after a failed connect; receives " (reason)" or "". */
@@ -43,10 +48,17 @@ export type ProviderConnectionLabels = {
   /** The server has no app credentials for this provider, so connecting
    *  cannot work.
    *
-   *  OPTIONAL, for the same reason: Google is configured wherever the apps
-   *  run, so the state does not exist and the card should not require a
-   *  sentence describing it. */
-  notConfigured?: string;
+   *  `null` means the state cannot arise — Google is configured wherever
+   *  these apps run. Nullable rather than optional, for the same reason as
+   *  `account`: a caller that forgets this one would silently show nothing in
+   *  the exact situation the sentence exists for, which is somebody staring
+   *  at a dead Connect button with no explanation.
+   *
+   *  Deliberately NOT folded together with `account` into one "connect-only"
+   *  mode: a provider may perfectly well report its account and always be
+   *  configured, or neither, and one flag standing for two unrelated facts
+   *  goes wrong the first time they differ. */
+  notConfigured: string | null;
   /** Fallback when starting the flow fails without a message. */
   startFailed: string;
   connect: string;
