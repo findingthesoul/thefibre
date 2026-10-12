@@ -6,6 +6,85 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.162.1] — 2026-10-12
+
+A merge may not assume a child table's key is called `id`.
+
+Sjoerd, on PRODUCTION: Organisations → Possible duplicates, a per-field merge
+of "De Werkhaven" and "De Werkhaven Schouwen-Duiveland coöperatie U.A.", name
+taken from the one, website domain kept from the other — and an error banner
+reading `column "id" does not exist`.
+
+**Nothing merged**, confirmed before anything was changed: both rows
+undeleted, neither carrying `merged_into`, and zero audit rows. A plpgsql
+function that raises takes its whole statement with it.
+
+**The cause.** The foreign-key loop asked the catalogue whether a child table
+has a SINGLE-COLUMN primary key — and then wrote the column's name itself:
+
+```sql
+update %s set %I = $1 where %I = $2 and id = $3
+```
+
+`public.org_domain_verification` is keyed `org_id uuid primary key references
+organisation(id)`, and the merged organisation had a row in it: a DNS
+challenge for "Dewerkhaven.nl" that Sjoerd started on 23 September. One child
+table in the whole schema has a one-column key that is not `id`, and his pair
+owned a row in it.
+
+**Why every test passed.** The staging fixture pair has no such row. The
+difference between green and his error was DATA, so the new test builds his
+pair's measured shape: six `org_membership` rows on the merged organisation
+and one on the keeper, one `org_domain_verification` row on the merged side
+and none on the keeper. It fails on the old function with his exact message.
+
+The key is now read BY NAME from the catalogue, compared as text so a child
+keyed on something other than a uuid works too, and **carried into the audit
+row** — because the UNDO assumed `id` as well and could not have reversed such
+a move either. An audit row written before today carries no key and the undo
+reads `id` for it, which is what those rows were recorded with. **Both merges
+are patched, organisation and person**: no person child has a one-column key
+that is not `id` today, so that half is a trap disarmed rather than a bug
+fixed.
+
+**What happens when both sides have a challenge**, decided explicitly since
+only one row can exist per organisation: the KEEPER keeps its own, and the
+merged row is recorded whole so the undo restores it. That is the rule this
+loop already had for a unique violation, and the right one here — a DNS
+challenge proves a DOMAIN, not an organisation. When the keeper has none, the
+merged row moves across; if its domain is not the one the kept organisation
+ended up with, the screen already treats it as no challenge
+(`row.domain === org.domain`), so nothing false is shown.
+
+**And the test found a second bug five minutes later.** With a challenge on
+both sides the merge drops one and records it — and the undo answered `column
+"k" does not exist`:
+
+```sql
+select string_agg(quote_ident(k), ', '), string_agg(format('%L', v), ', ')
+  from jsonb_each_text(v_row);   -- the columns are `key` and `value`
+```
+
+The alias the author used everywhere else was missing, and **no merge had ever
+dropped a row**, so that path had run zero times since it was written on
+2026-09-23. It now uses the PERSON undo's version of the same block, where the
+values come back through `jsonb_populate_record` and every column is cast to
+its own type instead of being inserted as a string literal.
+
+Two migrations, both applied to staging, 475 of 476 integration tests green.
+
+**Still open, deliberately, as its own change:** a child with a COMPOSITE key
+takes the bulk branch, and when that update violates a constraint the row is
+recorded but cannot be deleted — so it stays pointing at the merged
+organisation. `organisation_distinct` is such a table.
+
+**Also found and NOT fixed here** (it is somebody else's assertion to
+decide): `profile-public-page.int.test.ts` has been red since v1.133.0, when
+`public_page` gained `listed_on_org_page` and an exact-equality assertion
+started failing. An additive field breaking a caller is the thing rule 8
+exists to prevent, so the test — not the API — looks wrong, but that is a
+call for whoever wrote it.
+
 ## [1.162.0] — 2026-10-12
 
 A public `bio` promises plain text. One of them had stopped keeping it.
