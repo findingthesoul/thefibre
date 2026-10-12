@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.162.3] — 2026-10-12
+
+The hand probe becomes the gate: Meet's public host payload.
+
+v1.162.0 moved the markup in Meet's public `bio` into an additive `bio_html`,
+and v1.162.0's own no-tags assertions covered the two THREAD routes — not the
+endpoint that had been wrong. I described them as covering "both published
+routes", which read as covering Meet. It did not.
+
+`verify-public-api.mjs` now walks `GET /api/v1/meet/public/host/:slug` too.
+The fixture is chosen by what it IS — a host whose STORED bio contains markup
+— rather than by name, so the check keeps biting as the data on either stack
+changes, and it says so out loud when no such host exists rather than passing
+on nothing. Three assertions: `bio` has no tags, `short_bio` has no tags, and
+**`bio_html` carries the markup instead** — because flattening without the
+additive field is not fixing the field, it is deleting it.
+
+**Held back for a sitting.** Written on 2026-10-12 and parked the same hour,
+because `pnpm verify` runs this script against PRODUCTION: with production's
+API still returning markup, landing the check would have failed every
+release, for every session, until a production deploy — which is not a
+builder's call. Measured then, both ways: ✗ `bio` FOUND MARKUP and ✗
+`bio_html` MISSING against production, ✓✓✓ against the new staging API.
+
+Batch 16 put v1.162.0 on production, so it lands now, and passes there: `bio`
+3506 characters with no tags, `short_bio` 278 with no tags, `bio_html` 3761
+characters of markup. Mutation-checked again against production: handing the
+checker `<p>tags</p>` fails the script.
+
 ## [1.162.2] — 2026-10-12
 
 The organisation merge, pressed rather than called.

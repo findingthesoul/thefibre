@@ -309,6 +309,54 @@ if (threadRes.body?.thread?.agenda?.length) {
   checkShape('agenda item', threadRes.body.thread.agenda[0], SHAPES.agendaItem);
 }
 
+// ---- Meet's public host payload ------------------------------------------
+// Not part of the Thread contract, and checked here anyway, because it is a
+// PUBLIC no-auth endpoint whose `bio` is read as a string by whoever calls
+// it — and until v1.162.0 it returned markup there (five of nine production
+// hosts had an HTML bio). The assertion that would have caught it is the one
+// the Thread routes get, so it gets the same one.
+//
+// The fixture is chosen by what it IS — a host whose stored bio contains
+// markup — rather than by name, so the check keeps biting as staging and
+// production data change. If no such host exists the check says so instead
+// of passing on nothing.
+const { data: meetHosts } = await db
+  .from('meet_host')
+  .select('slug, bio, user:user_id (email)')
+  .limit(50);
+const hostEmails = [
+  ...new Set((meetHosts ?? []).map((h) => one(h.user)?.email).filter(Boolean)),
+];
+const { data: hostProfiles } = hostEmails.length
+  ? await db.from('identity_profile').select('email, bio').in('email', hostEmails)
+  : { data: [] };
+const profileBio = new Map(
+  (hostProfiles ?? []).map((r) => [String(r.email).toLowerCase(), r.bio]),
+);
+const HAS_MARKUP = /<\/?[a-z][^>]*>/i;
+const markupHost = (meetHosts ?? []).find((h) => {
+  const stored = profileBio.get(String(one(h.user)?.email ?? '').toLowerCase()) ?? h.bio;
+  return stored && HAS_MARKUP.test(String(stored));
+});
+
+if (!markupHost) {
+  // Not a failure: a stack whose every bio is still plain text cannot
+  // exercise this. Said out loud, because a silent skip reads as a pass.
+  console.log('   ⚠ no Meet host has a stored bio containing markup — flattening NOT exercised');
+} else {
+  const hostRes = await get(`/api/v1/meet/public/host/${markupHost.slug}`);
+  check(hostRes.status === 200, 'GET /meet/public/host/:slug', `HTTP ${hostRes.status}`);
+  checkPlain('meet host.bio', hostRes.body?.bio);
+  checkPlain('meet host.short_bio', hostRes.body?.short_bio);
+  // The markup has to be SOMEWHERE, or flattening has quietly become
+  // deleting: a reader that wants the formatting needs the additive field.
+  check(
+    typeof hostRes.body?.bio_html === 'string' && HAS_MARKUP.test(hostRes.body.bio_html),
+    'meet host.bio_html carries the markup instead',
+    hostRes.body?.bio_html == null ? 'MISSING' : `${String(hostRes.body.bio_html).length} chars`,
+  );
+}
+
 const embedRes = await get(`/api/v1/thread/public/embed/threads?workspace=${WORKSPACE}`);
 check(embedRes.status === 200, 'GET /public/embed/threads', `HTTP ${embedRes.status}`);
 check(
