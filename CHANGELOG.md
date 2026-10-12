@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.162.2] — 2026-10-12
+
+The organisation merge, pressed rather than called.
+
+v1.162.1 fixed the function and an integration test covers it. What Sjoerd
+actually did was press buttons, and nothing had pressed them on a pair
+carrying the row that broke it — so `e2e/org-merge-screen.spec.ts` walks it on
+deployed staging: Possible duplicates → "Same organisation, written twice" →
+choose the keeper → answer the name "From" the other record, keep the domain →
+"Merge with these answers" → then Undo. The fixture pair carries his shape:
+six memberships on the merged row, one on the keeper, and a domain-verification
+row on the merged row only.
+
+**It passes, three runs out of three**, and the error banner he saw never
+appears. After the merge: the merged row points at the keeper, all seven
+people hang off the keeper, and the challenge has moved. After Undo: the six
+are back, and the keeper's own name and domain are back too.
+
+**Five locator attempts went wrong first, each differently, and the fifth
+explains the other four.** A tag guess (`li, article, section`) matched
+nothing, because the card is a div. A filter on the keeper's name matched BOTH
+halves, because its name is a PREFIX of the other's. A regex on "coöperatie"
+matched nothing, because a composed ö and a decomposed one are different
+strings. `.last()` on the pair container gave the innermost div — the row of
+record cards, whose siblings hold the buttons — so a click waited 135 seconds
+for an element that was never inside it. And `getByRole('button', { name: … })`
+found nothing while a probe could read the words: those answer buttons carry
+their own aria-label, so **the text on screen never enters the accessible
+name**.
+
+Every one of those was an inference about structure. What settled it was
+asking the page: the id in each card's own link says which record it is, and
+`locator('button').filter({ hasText })` matches what a person reads.
+
+**And the fixture was its own worst enemy.** The queue had other pairs in it —
+including this spec's leftovers from earlier runs — so several of those
+locators were cheerfully driving somebody else's pair. `beforeAll` now sweeps
+anything this spec named before, in the fixture workspace only, by its own
+prefix. After a run: zero fixture organisations and zero fixture people left.
+
 ## [1.162.1] — 2026-10-12
 
 A merge may not assume a child table's key is called `id`.
