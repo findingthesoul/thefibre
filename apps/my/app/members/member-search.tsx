@@ -19,8 +19,11 @@
 
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
+import { bioToPlain } from '@thefibre/shared';
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
+import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import type { DirectoryMember } from '@/lib/portal-api';
-import { MemberCard } from './member-card';
+import { MemberRow } from './member-row';
 
 export function MemberSearch({
   members,
@@ -36,7 +39,19 @@ export function MemberSearch({
     const needle = q.trim().toLowerCase();
     if (!needle) return members;
     return members.filter((m) =>
-      [m.display_name, m.city, m.country, m.bio, ...m.tags, ...m.categories]
+      // The bio as TEXT. Every stored bio is HTML now, so searching the
+      // stored value matched markup: "p" found everybody, and a word that
+      // happened to be a tag name found people whose bios did not contain
+      // it. Still searched, though it is no longer shown here — it is on the
+      // member's own page, and this searches what the viewer can see.
+      [
+        m.display_name,
+        m.city,
+        m.country,
+        bioToPlain(m.bio, richTextToPlain),
+        ...m.tags,
+        ...m.categories,
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -63,9 +78,13 @@ export function MemberSearch({
           details.
         </p>
       ) : (
-        <ul className="mt-4 space-y-3">
+        // ROW_LIST: edge to edge on a phone, a card from `sm` up. The
+        // recipe cancels the page's own side padding, which is why the shell
+        // and this list have to agree on it — see PAGE_PX in
+        // packages/shared/src/ui/recipes.ts.
+        <ul className={`mt-4 ${ROW_LIST}`}>
           {shown.map((m) => (
-            <MemberCard
+            <MemberRow
               key={m.person_id}
               member={m}
               href={`/members/${workspaceId}/${m.person_id}`}

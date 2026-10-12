@@ -74,11 +74,22 @@ export const E2E_THREAD = {
    *  (thread_engagement_system_role_uniq), so this is what makes that test
    *  able to fail at all. */
   receivedTitle: 'We got your application: E2E fixture thread',
-  /** A person to find in the Add-participant search. The search matches name
-   *  OR email, and the row the spec picks is the one showing an address. */
+  /** A person to find in the Add-participant search, and the member the
+   *  portal's directory lists. The search matches name OR email, and the row
+   *  the spec picks is the one showing an address.
+   *
+   *  Her bio is HTML, because that is what every stored bio is on both stacks
+   *  now (production: two bios, both opening with a tag) — and rendering it
+   *  as text is the bug Sjoerd found in the portal on 2026-10-12. A fixture
+   *  whose data is the easy shape would not have caught it. */
   personFirst: 'Esther',
   personLast: 'Searchable',
   personEmail: 'e2e-searchable@example.com',
+  personCity: 'Zierikzee',
+  personCountry: 'NL',
+  personPhone: '+31 600000000',
+  personBioHtml:
+    '<p>Fixture member with a RICH TEXT bio (do not edit).</p><p><br></p><h3>About me</h3><p>Two paragraphs and a heading, so a reader that prints this as text shows its tags.</p>',
 } as const;
 
 /** The workspace whose real data three read-only specs look at. */
@@ -436,6 +447,7 @@ export type FixtureThread = {
   sessionId: string;
   personName: string;
   personEmail: string;
+  workspaceId: string;
 };
 
 let threadPromise: Promise<FixtureThread> | null = null;
@@ -583,19 +595,90 @@ async function buildThread(service: SupabaseClient, projectUrl: string): Promise
     position: -3,
   });
 
-  // Somebody for the Add-participant search to find. A person in the
-  // workspace with an address, because the row the spec picks is the one
-  // showing an email rather than the "add as new" row.
+  // Somebody for the Add-participant search to find, and the person the
+  // portal's member directory lists. A place and a phone, so a directory row
+  // has something in every field it offers.
   const person = must(
     'search person',
-    await service.from('person').select('id').eq('workspace_id', workspaceId).eq('email', T.personEmail).maybeSingle(),
+    await service
+      .from('person')
+      .select('id, city, country, phone')
+      .eq('workspace_id', workspaceId)
+      .eq('email', T.personEmail)
+      .maybeSingle(),
   );
+  const personFields = {
+    first_name: T.personFirst,
+    last_name: T.personLast,
+    city: T.personCity,
+    country: T.personCountry,
+    phone: T.personPhone,
+  };
   if (!person) {
     must(
       'search person insert',
       await service
         .from('person')
-        .insert({ workspace_id: workspaceId, first_name: T.personFirst, last_name: T.personLast, email: T.personEmail })
+        .insert({ workspace_id: workspaceId, email: T.personEmail, ...personFields })
+        .select('id'),
+    );
+  } else if (!person.city || !person.country || !person.phone) {
+    // REPAIRED, not left as found. Her row was created by an earlier version
+    // of this function that knew nothing about a place or a phone, and
+    // "insert when missing" would have kept it that way for ever — so a
+    // directory row would have had empty fields and the spec checking them
+    // would have been checking the fixture's age.
+    must(
+      'search person repair',
+      await service.from('person').update(personFields).eq('id', person.id as string).select('id'),
+    );
+  }
+
+  // Her profile, with an HTML bio. identity_profile is keyed by EMAIL — one
+  // profile per human across every workspace — which is why the directory
+  // reads it there rather than from `person`.
+  const herProfile = must(
+    'search person profile',
+    await service.from('identity_profile').select('email, bio').eq('email', T.personEmail).maybeSingle(),
+  );
+  if (!herProfile) {
+    must(
+      'search person profile insert',
+      await service
+        .from('identity_profile')
+        .insert({
+          email: T.personEmail,
+          display_name: `${T.personFirst} ${T.personLast}`,
+          bio: T.personBioHtml,
+        })
+        .select('email'),
+    );
+  } else if (!herProfile.bio) {
+    must(
+      'search person profile bio',
+      await service.from('identity_profile').update({ bio: T.personBioHtml }).eq('email', T.personEmail).select('email'),
+    );
+  }
+
+  // THE VIEWER as a person. A directory resolves a membership by email to a
+  // person row, so the fixture needs one of its own to be able to read a
+  // list at all — not only to appear in one.
+  const me = must(
+    'viewer person',
+    await service.from('person').select('id').eq('workspace_id', workspaceId).eq('email', E2E_FIXTURE.email).maybeSingle(),
+  );
+  if (!me) {
+    must(
+      'viewer person insert',
+      await service
+        .from('person')
+        .insert({
+          workspace_id: workspaceId,
+          first_name: 'E2E',
+          last_name: 'Fixture',
+          email: E2E_FIXTURE.email,
+          user_id: fixture.userRowId,
+        })
         .select('id'),
     );
   }
@@ -606,6 +689,7 @@ async function buildThread(service: SupabaseClient, projectUrl: string): Promise
     sessionId,
     personName: `${T.personFirst} ${T.personLast}`,
     personEmail: T.personEmail,
+    workspaceId,
   };
 }
 

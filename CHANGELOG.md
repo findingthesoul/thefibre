@@ -6,6 +6,72 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.161.0] — 2026-10-12
+
+The portal's member list becomes a list, and a bio stops showing its own tags.
+
+Sjoerd, on PRODUCTION, at "Members of soul.com", looking at his own card:
+*"Does not wokr like this. Should e a list. Name, photo, location... Email and
+phone"* — and then *"Click on user - full bio"*. What his card showed was
+`<p>Zierikzee, Netherlands · Co-founder…</p><p><br></p><h3>About me</h3>`, a
+wall of markup where a person should be.
+
+**Why the bio contains HTML, since that was the first thing to find out.**
+Not an import, and not a writer bug: `bio` is MEANT to hold HTML now. The
+rich-text work converts the field in place — there is no `bio_html` column on
+either stack (the `bio_html` in the published Thread API is a RESPONSE field,
+computed) — and `packages/shared/src/bio-html.ts` exists precisely because a
+bio may be either shape during the conversion. Measured on both stacks:
+
+| | profile rows | with a bio | bio opens with a tag |
+|---|---|---|---|
+| production | 13 | 2 | **2** |
+| staging | 71 | 3 | 2 |
+
+So every non-empty bio on production is already HTML. The writer is correct;
+the PORTAL was the reader nobody updated, and it printed the value as text.
+**No data cleanup is needed** — the stored values are right for the world
+they are in.
+
+**The overview is a row list.** One row per member: photo, name, place, then
+email and phone where the directory settings and that member's own choice
+already allowed them. No bio. Full-bleed on a phone through the shared
+`ROW_LIST` recipe, a card from `sm` up — the iOS-list shape Sjoerd asked for
+in September and the one the phone-list rule names.
+
+**The whole row is the link**, which is why email and phone are TEXT in the
+list rather than `mailto:`/`tel:` anchors. The card this replaces made only
+the NAME a link, precisely because anchors inside anchors misbehave — leaving
+a list whose tappable area was a few characters wide. The real contact links
+live one tap away, on the member's page, where they are not nested in
+anything. The spec asserts the row is exactly ONE link and spans at least
+80% of the width, at 44px tall.
+
+**The member page renders the full bio**, through `bioToHtml` and the shared
+`RichText` — the same path Meet's and Thread's profile surfaces already use.
+HTML passes through (it was sanitised at the API boundary on the way in);
+a bio still in plain text is escaped and its line breaks become paragraphs,
+so neither shape renders wrong while the conversion finishes. Headings
+survive, which matters because Tailwind's preflight would otherwise flatten
+an `<h3>` into a paragraph.
+
+**The search was reading markup.** It searched the stored `bio`, so "p"
+matched everybody and a word that happened to be a tag name matched people
+whose bios did not contain it. It now searches the bio as TEXT
+(`bioToPlain`), and still searches it even though the list no longer shows
+it — what a viewer can see on the member's page is fair to search.
+
+Two smaller things that came with it: the portal's page gutter moves from
+`px-5` to `px-4`, because `ROW_LIST`'s negative margin is written against
+`PAGE_PX` and at 20px the rows stopped 4px short of the glass; and
+`member-card.tsx` is deleted rather than left unused.
+
+**Verified on deployed staging at 375 and 1280**, with a fixture member whose
+bio is HTML — which is what the fixture now stores, because a fixture holding
+the easy shape would not have caught this. The spec seeds its own community
+(the fixture ships without one), restores `membership_settings` rather than
+switching the directory off, and removes everything it made.
+
 ## [1.160.0] — 2026-10-12
 
 A non-admin fixture, and a thread the fixture owns.

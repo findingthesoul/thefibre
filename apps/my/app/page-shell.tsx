@@ -15,7 +15,11 @@ export function PageShell({
     // desktop left the list in a narrow column with the rail on one side and
     // a field of empty page on the other. A timeline row is a date, a title
     // and two controls — it uses the width it is given.
-    <div className="w-full px-5 py-8 sm:px-8 sm:py-12">
+    // px-4, not px-5: PAGE_PX in packages/shared/src/ui/recipes.ts is the
+    // family's gutter, and ROW_LIST's negative margin is written against it.
+    // At px-5 a full-bleed row list stopped 4px short of the screen edge on
+    // a phone (2026-10-12).
+    <div className="w-full px-4 py-8 sm:px-8 sm:py-12">
       <header>
         <h1 className="text-2xl font-medium tracking-tight text-ink">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-ink-muted">{subtitle}</p>}

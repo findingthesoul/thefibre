@@ -36,6 +36,8 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Mail, Phone, Globe, Linkedin } from 'lucide-react';
+import { bioToHtml } from '@thefibre/shared';
+import { RichText } from '@thefibre/shared/ui/rich-text';
 import { loadDirectoryChoices, loadDirectoryMembers, loadSession } from '@/lib/session';
 import { pickMember } from '@/lib/directory-member';
 import { SignedOut } from '../../../signed-out';
@@ -137,10 +139,24 @@ export default async function MemberPage({
           </div>
         </div>
 
-        {m.bio && (
-          <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-ink-subtle">
-            {m.bio}
-          </p>
+        {/* THE FULL BIO, rendered (Sjoerd, 2026-10-12: "Click on user - full
+            bio"). It used to be printed as text, and every stored bio is HTML
+            now — both on production — so his own page showed him
+            "<p>Zierikzee, Netherlands…</p><p><br></p><h3>About me</h3>", a
+            wall of tags.
+
+            Through `bioToHtml`, which is the transitional reader the rest of
+            the family already uses: HTML passes through (it was sanitised at
+            the API boundary on the way in), and a bio that is still plain
+            text is ESCAPED and its line breaks become paragraphs, so neither
+            kind renders wrong during the conversion. `RichText` carries the
+            typography — headings included, which Tailwind's preflight would
+            otherwise flatten into paragraphs. */}
+        {bioToHtml(m.bio) && (
+          <RichText
+            html={bioToHtml(m.bio)!}
+            className="mt-5 text-sm leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
+          />
         )}
 
         {/* Null unless that member chose to show them — the server decided,
