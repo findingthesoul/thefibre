@@ -672,7 +672,14 @@ export function InvoicesArea({
             : {})}
           actions={
             <>
-              {detail.status === 'paid' && actions.refundPurchase && (
+              {/* NOT at €0. A member's included-in-membership join and a
+                  100%-off code are settled purchases of nothing, so
+                  "Reimburse" offers to return money that never moved — and
+                  the button that does it would mark the row refunded, which
+                  then reads as though something had been paid back. Found
+                  2026-10-12, when a €0 membership join first produced a
+                  ledger row to look at. */}
+              {detail.status === 'paid' && detail.amount_cents > 0 && actions.refundPurchase && (
                 <GhostBtn
                   leading={<RotateCcw size={14} />}
                   disabled={busy}

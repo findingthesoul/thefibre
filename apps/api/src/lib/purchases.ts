@@ -35,6 +35,11 @@ export type PurchaseWrite = {
   vendorShareCents?: number;
   orgShareCents?: number;
   method?: 'stripe' | 'invoice' | 'free';
+  /** Why the amount is below the list price: 'coupon', 'membership', or
+   *  undefined for full price. Written from the SAME calculation that set
+   *  the amount (lib/member-discount.ts), so the row cannot disagree with
+   *  the charge. */
+  discountReason?: 'coupon' | 'membership' | null;
   status: 'pending' | 'paid' | 'refunded' | 'failed';
   stripePaymentIntent?: string | null;
   stripeInvoiceId?: string | null;
@@ -74,6 +79,7 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   if (w.vendorShareCents !== undefined) row.vendor_share_cents = w.vendorShareCents;
   if (w.orgShareCents !== undefined) row.org_share_cents = w.orgShareCents;
   if (w.method !== undefined) row.method = w.method;
+  if (w.discountReason !== undefined) row.discount_reason = w.discountReason;
   if (w.stripePaymentIntent !== undefined) row.stripe_payment_intent = w.stripePaymentIntent;
   if (w.stripeInvoiceId !== undefined) row.stripe_invoice_id = w.stripeInvoiceId;
   if (w.stripeInvoiceUrl !== undefined) row.stripe_invoice_url = w.stripeInvoiceUrl;

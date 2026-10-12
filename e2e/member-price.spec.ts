@@ -32,6 +32,11 @@ let threadSlug = '';
 let organiserSlug = '';
 let ownerSlug = '';
 let threadId = '';
+let freeThreadId = '';
+let partialThreadId = '';
+let partialSlug = '';
+let partialOwnerSlug = '';
+let freeThreadSlug = '';
 let memberEmail = '';
 const made: { table: string; id: string }[] = [];
 
@@ -47,6 +52,7 @@ async function enrol(
   page: import('@playwright/test').Page,
   email: string,
   bearer: string | null,
+  opts: { slug?: string; owner?: string; coupon?: string; free?: boolean } = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const res = await page.request.post(`${API}/api/v1/thread/public/enrol`, {
     headers: {
@@ -54,12 +60,17 @@ async function enrol(
       ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
     },
     data: {
-      organiser_slug: ownerSlug,
-      thread_slug: threadSlug,
+      organiser_slug: opts.owner ?? ownerSlug,
+      thread_slug: opts.slug ?? threadSlug,
+      ...(opts.coupon ? { coupon_code: opts.coupon } : {}),
       name: `${TAG} enroller`,
       email,
-      payment_method: 'invoice',
-      billing: { legal_name: `${TAG} payer`, address: 'Nowhere 1', tax_no: '' },
+      ...(opts.free
+        ? {}
+        : {
+            payment_method: 'invoice',
+            billing: { legal_name: `${TAG} payer`, address: 'Nowhere 1', tax_no: '' },
+          }),
       policy_accepted: true,
       policy_version: '2026-10-12',
       request_id: `${TAG}-${Math.random().toString(36).slice(2)}`,
@@ -163,17 +174,90 @@ test.beforeAll(async () => {
     tier_id: tierId,
     status: 'active',
   });
+
+  // A 100%-off code on the same thread, for the reason that is not a
+  // membership.
+  await ins('thread_coupon', {
+    workspace_id: ws,
+    thread_id: threadId,
+    code: `${TAG.toUpperCase()}-FREE`,
+    type: 'free',
+  });
+
+  // A SECOND calendar at 20%, so the reduced-but-paid case can be charged
+  // rather than reasoned about: same tier, different team, different thread.
+  const teamBId = await ins('team', {
+    workspace_id: ws,
+    name: `${TAG} team B`,
+    slug: `${TAG}-team-b`,
+    is_active: true,
+    is_published: true,
+  });
+  await ins('membership_access_grant', {
+    workspace_id: ws,
+    tier_id: tierId,
+    kind: 'team_calendar',
+    config: { team_id: teamBId, discount_pct: 20 },
+  });
+  const partProgramId = await ins('program', {
+    workspace_id: ws,
+    app_id: app!.id,
+    title: `${TAG} 20pc thread`,
+    format: 'journey',
+    status: 'active',
+  });
+  partialSlug = `${TAG}-partial`;
+  partialOwnerSlug = `${TAG}-team-b`;
+  partialThreadId = await ins('thread_thread', {
+    workspace_id: ws,
+    program_id: partProgramId,
+    organiser_id: org!.id,
+    slug: partialSlug,
+    team_id: teamBId,
+    price_cents: PRICE,
+    price_currency: 'EUR',
+    is_public_listed: true,
+    public_enrolment_open: true,
+    payment_methods: ['invoice'],
+  });
+
+  // And a thread that is free for EVERYBODY — the case his answer leaves
+  // alone, so it must still write nothing.
+  const freeProgramId = await ins('program', {
+    workspace_id: ws,
+    app_id: app!.id,
+    title: `${TAG} free thread`,
+    format: 'journey',
+    status: 'active',
+  });
+  freeThreadSlug = `${TAG}-free`;
+  freeThreadId = await ins('thread_thread', {
+    workspace_id: ws,
+    program_id: freeProgramId,
+    organiser_id: org!.id,
+    slug: freeThreadSlug,
+    team_id: teamId,
+    price_cents: null,
+    is_public_listed: true,
+    public_enrolment_open: true,
+  });
 }, 240_000);
 
 test.afterAll(async () => {
   const service = stagingService();
   // Enrolments first: they reference the thread and the people.
-  const { data: tes } = await service.from('thread_enrolment').select('id, enrolment_id').eq('thread_id', threadId);
+  const { data: tes } = await service
+    .from('thread_enrolment')
+    .select('id, enrolment_id')
+    .in('thread_id', [threadId, freeThreadId, partialThreadId].filter(Boolean));
   for (const te of tes ?? []) {
     await service.from('purchase').delete().eq('item_ref', te.id as string);
     await service.from('thread_enrolment').delete().eq('id', te.id);
     if (te.enrolment_id) await service.from('enrolment').delete().eq('id', te.enrolment_id);
   }
+  await service.from('thread_coupon').delete().eq('thread_id', threadId);
+  await service.from('purchase').delete().eq('workspace_id', ws).ilike('payer_email', `${TAG}%`);
+  await service.from('purchase').delete().eq('workspace_id', ws).eq('payer_email', memberEmail);
   await service.from('person').delete().eq('workspace_id', ws).ilike('first_name', `${TAG}%`);
   for (const { table, id } of made) {
     const { error } = await service.from(table).delete().eq('id', id);
@@ -233,55 +317,80 @@ test('the five cases, against the deployed API', async ({ page }) => {
   ).toBeUndefined();
   expect(member.body.ok).toBe(true);
 
-  // …and the ledger says WHY it was free.
-  const { data: purchases } = await service
-    .from('purchase')
-    .select('amount_cents, status, payer_email')
-    .eq('workspace_id', ws)
-    .eq('payer_email', memberEmail);
-  const rows = purchases ?? [];
-  // Printed, because which branch the product is in is the OPEN decision —
-  // "does a €0 enrolment write a ledger row?" — and a run that answers it
-  // silently in an annotation is a run nobody reads.
-  console.log(
-    `LEDGER after a €0 member join: ${rows.length} purchase row(s)` +
-      (rows.length ? ` → ${JSON.stringify(rows)}` : ' → none'),
-  );
-  if (rows.length) {
-    expect(rows[0]!.amount_cents, 'the ledger records what was actually paid').toBe(0);
-  } else {
-    // A €0 enrolment writing no ledger row at all is the open decision
-    // (build-plan: "€0-with-code enrolments in the ledger?"), so this says
-    // which branch the product is in rather than asserting one.
-    test.info().annotations.push({
-      type: 'open decision',
-      description: 'a €0 member join wrote NO purchase row — the parked ledger question',
-    });
-  }
-
-  // THE OFFER IS THE SAME FOR EVERY CALLER. `member_discount_pct` is a fact
-  // about the product, so the payload must not vary with who is asking —
-  // otherwise the field becomes the oracle the member price was kept away
-  // from: "does this response change when I send my token?" would answer
-  // whether that token belongs to a member.
-  const withToken = await page.request.get(
-    `${API}/api/v1/thread/public/organiser/${ownerSlug}/thread/${threadSlug}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  const withForged = await page.request.get(
-    `${API}/api/v1/thread/public/organiser/${ownerSlug}/thread/${threadSlug}`,
-    { headers: { Authorization: `Bearer ${token}tampered` } },
-  );
-  const asMember = (await withToken.json()) as { member_discount_pct?: number | null };
-  const asForged = (await withForged.json()) as { member_discount_pct?: number | null };
-  expect(asMember.member_discount_pct, 'identical for a signed-in member').toBe(100);
-  expect(asForged.member_discount_pct, 'identical for a forged token').toBe(100);
-  expect(anonBody.member_discount_pct, 'and for a stranger').toBe(100);
+  // …AND THE LEDGER SAYS WHY. Sjoerd, 2026-10-12: a member's €0 join writes a
+  // purchase row with the price actually paid and a reason, no invoice.
+  const ledgerFor = async (payer: string) => {
+    const { data } = await service
+      .from('purchase')
+      .select('amount_cents, status, method, discount_reason, item_label')
+      .eq('workspace_id', ws)
+      .eq('payer_email', payer);
+    return data ?? [];
+  };
+  const memberRows = (await ledgerFor(memberEmail)).filter((r) => r.amount_cents === 0);
+  console.log(`LEDGER membership: ${JSON.stringify(memberRows)}`);
+  expect(memberRows, 'one row for the member join').toHaveLength(1);
+  expect(memberRows[0]!.amount_cents, 'the price actually paid').toBe(0);
+  expect(memberRows[0]!.method, 'no invoice to settle').toBe('free');
+  expect(memberRows[0]!.status).toBe('paid');
+  expect(memberRows[0]!.discount_reason, 'and why it was free').toBe('membership');
+  expect(String(memberRows[0]!.item_label)).toContain('included in membership');
 
   // 3. The member's token, enrolling SOMEBODY ELSE → list price.
   const other = await enrol(page, `${TAG}-friend@example.com`, token);
   expect(other.status, JSON.stringify(other.body)).toBe(201);
   expect(other.body.invoice_pending, 'a membership is not spendable on a friend').toBe(true);
+
+  // 3b. A 100%-OFF CODE, typed by a stranger: the same treatment, reason
+  //     `coupon`. A code may be typed by anybody — that is what makes it a
+  //     shared secret and an email not one.
+  const couponEmail = `${TAG}-coupon@example.com`;
+  const withCoupon = await enrol(page, couponEmail, null, {
+    coupon: `${TAG.toUpperCase()}-FREE`,
+  });
+  expect(withCoupon.status, JSON.stringify(withCoupon.body)).toBe(201);
+  const couponRows = await ledgerFor(couponEmail);
+  console.log(`LEDGER coupon: ${JSON.stringify(couponRows)}`);
+  expect(couponRows, 'one row for the code join').toHaveLength(1);
+  expect(couponRows[0]!.amount_cents).toBe(0);
+  expect(couponRows[0]!.method).toBe('free');
+  expect(couponRows[0]!.discount_reason, 'the other reason').toBe('coupon');
+  expect(String(couponRows[0]!.item_label)).toContain(TAG.toUpperCase());
+
+  // 3c. A thread priced €0 for EVERYBODY: still no row. His answer covers a
+  //     price brought down by a discount, not a thing that was never sold.
+  const freeEmail = `${TAG}-freethread@example.com`;
+  const freeJoin = await enrol(page, freeEmail, null, {
+    slug: freeThreadSlug,
+    free: true,
+  });
+  expect(freeJoin.status, JSON.stringify(freeJoin.body)).toBe(201);
+  const freeRows = await ledgerFor(freeEmail);
+  console.log(`LEDGER free thread: ${JSON.stringify(freeRows)}`);
+  expect(freeRows, 'a thread that was free for everybody writes nothing').toHaveLength(0);
+
+  // 3d. A REDUCED member price — 20%, not free. It must be CHARGED like any
+  //     other paid enrolment (an invoice to settle) and still say why it was
+  //     €28 rather than €35. A €0 row and a reduced row are the same rule at
+  //     two ends of a range, and only one of them was ever going to be
+  //     exercised by accident.
+  const partial = await enrol(page, memberEmail, token, {
+    slug: partialSlug,
+    owner: partialOwnerSlug,
+  });
+  expect(partial.status, JSON.stringify(partial.body)).toBe(201);
+  expect(partial.body.invoice_pending, 'a 20% member still owes 80%').toBe(true);
+  const { data: partialRows } = await service
+    .from('purchase')
+    .select('amount_cents, status, method, discount_reason')
+    .eq('workspace_id', ws)
+    .eq('payer_email', memberEmail)
+    .eq('amount_cents', Math.round(PRICE * 0.8));
+  console.log(`LEDGER membership 20%: ${JSON.stringify(partialRows)}`);
+  expect(partialRows, 'one row at 80% of the list price').toHaveLength(1);
+  expect(partialRows![0]!.status, 'an ordinary invoice to settle').toBe('pending');
+  expect(partialRows![0]!.method).toBe('invoice');
+  expect(partialRows![0]!.discount_reason, 'and it still says why').toBe('membership');
 
   // 4. A FORGED bearer → list price, and no error.
   const forged = await enrol(

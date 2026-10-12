@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.165.0] — 2026-10-12
+
+A discounted join is a sale at the price actually paid, and the row says why.
+
+Sjoerd decided the question that had been parked as *"€0-with-code enrolments
+in the ledger?"*: **a member's €0 or discounted join writes a purchase row
+carrying the price actually paid and a reason — "included in membership" at €0
+— with no invoice**, and a 100%-off coupon join gets the same treatment with
+reason `coupon`. A thread whose list price is €0 is not covered by that
+answer and still writes nothing.
+
+**What was actually there, measured before changing it.** The €0 COUPON row
+has existed since 2026-07-04 (method `free`, amount 0, settled, the code in
+the label) — but the write is gated on `coupon`, so a €0 MEMBERSHIP join
+produced **no row at all**: a member could join at €0 and the money record
+said nothing happened. The gate is now "a discount brought this to zero",
+which covers both and still leaves a thread that was free for everybody
+alone.
+
+**And the reason is now a column, not a sentence.** `purchase.discount_reason`
+is `'coupon' | 'membership' | null`, written from the SAME calculation that
+set the amount, so the row cannot disagree with the charge. It is also written
+for prices merely REDUCED — a 20% member price or a half-price code is a row
+somebody will ask about too, and the answer should not depend on a tier
+definition that may since have been edited. **Not backfilled**: inferring
+`coupon` from the code in an old label would be a guess written into a money
+record; old rows say nothing, which is honest.
+
+**One reader was wrong about a €0 row, and that is a finding the row itself
+produced.** The invoices dialog offered **Reimburse** on it — a settled
+purchase of nothing, so the button proposed returning money that never moved,
+and pressing it would mark the row refunded, which reads as though something
+had been paid back. Hidden when the amount is zero. Checked the rest:
+Mark-paid and Send-payment-link are gated on `method === 'invoice' && status
+=== 'pending'`, so a `free`/`paid` row shows neither and no invoice is sent;
+the portal lists it as €0 with its receipt; `/admin/economics` sums it as the
+zero it is.
+
+**A test per reason, against the deployed API** — three enrolments, three
+rules: a member at 100% (one row, €0, `free`, `membership`, "included in
+membership" in the label), a 100%-off code typed by a stranger (one row, €0,
+`free`, `coupon`, the code in the label), and a thread priced €0 for everybody
+(no row).
+
 ## [1.164.1] — 2026-10-12
 
 The member price, proved against the deployed API with a real token.

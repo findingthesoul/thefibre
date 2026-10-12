@@ -7089,9 +7089,17 @@ threadRoutes.post('/public/enrol', async (c) => {
       .eq('id', coupon.id);
   }
 
-  // €0-via-discount-code IS a purchase (Sjoerd 2026-07-04): method 'free',
-  // amount 0, settled — the code shows in the item label.
-  if (coupon && !requiresPayment) {
+  // A €0 DISCOUNTED enrolment IS a purchase — Sjoerd 2026-07-04 for a code,
+  // and 2026-10-12 for a membership: "a member's €0 or discounted join writes
+  // a purchase row with the price actually paid and a reason, with NO
+  // invoice". Method 'free', amount 0, settled; the label says which, and
+  // `discount_reason` makes it countable.
+  //
+  // `basePriceCents > 0` is the line his answer does NOT cross: a thread
+  // whose list price is €0 was free for everybody and writes nothing, exactly
+  // as before. What changed is that a price brought to zero by a discount is
+  // a sale at €0 rather than an absence.
+  if (!requiresPayment && basePriceCents > 0 && (coupon || memberDiscount)) {
     const { data: freeOrg } = await adminClient
       .from('thread_organiser')
       .select('user_id')
@@ -7107,13 +7115,19 @@ threadRoutes.post('/public/enrol', async (c) => {
       personId: person.id,
       payerName: d.name.trim(),
       payerEmail: email,
-      itemLabel: `${program.title}${freeTicket?.name ? ` · ${freeTicket.name}` : ''} · ${coupon.code}`,
+      // The code, or the membership, in the words the invoices list already
+      // shows: the label is what a person reads, `discount_reason` is what a
+      // query counts.
+      itemLabel: `${program.title}${freeTicket?.name ? ` · ${freeTicket.name}` : ''} · ${
+        priced.reason === 'coupon' && coupon ? coupon.code : 'included in membership'
+      }`,
       organiserUserId: freeOrg?.user_id ?? null,
       teamId: (thread as { team_id?: string | null }).team_id ?? null,
       amountCents: 0,
       currency: priceCurrency,
       method: 'free',
       status: 'paid',
+      discountReason: priced.reason === 'full' ? null : priced.reason,
     });
   }
 
@@ -7206,6 +7220,10 @@ threadRoutes.post('/public/enrol', async (c) => {
       currency: priceCurrency,
       method: paymentMethod as 'stripe' | 'invoice',
       status,
+      // Not only the €0 case: a 20% member price or a half-price code is a
+      // row somebody will ask about too, and the answer should not depend on
+      // a tier definition that may since have changed.
+      discountReason: priced.reason === 'full' ? null : priced.reason,
       billing: paymentMethod === 'invoice' && d.billing ? d.billing : null,
       stripeAccountId: stripeAccountId ?? null,
     });
