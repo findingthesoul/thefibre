@@ -130,6 +130,21 @@ export type Included = {
   url: string | null;
 };
 
+/** One thing this membership lets you JOIN, and what you would pay for it.
+ *  Priced by the API with the same function that charges at enrolment, so
+ *  what is shown here and what is taken at the till are one number. */
+export type CouldJoin = {
+  thread_id: string;
+  title: string;
+  url: string;
+  starts_on: string | null;
+  team: string;
+  list_price_cents: number;
+  your_price_cents: number;
+  currency: string;
+  pct: number;
+};
+
 export type MembershipItem = {
   member_id: string;
   tier: string | null;
@@ -140,6 +155,11 @@ export type MembershipItem = {
    *  none, so "manage payment" would only ever 409 for them. */
   has_stripe?: boolean;
   includes?: Included[];
+  /** What it lets you join next. Absent on an older API, empty when the
+   *  membership carries no calendar or the calendars have nothing coming
+   *  up — both of which the page says in words rather than showing a
+   *  heading over nothing. */
+  could_join?: CouldJoin[];
 };
 
 export type Group = {

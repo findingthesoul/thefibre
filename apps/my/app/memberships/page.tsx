@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { loadSession } from '@/lib/session';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, money } from '@/lib/format';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { ManagePayment } from './manage-payment';
@@ -116,6 +116,60 @@ export default async function MembershipsPage() {
                     </ul>
                   )}
                 </div>
+
+                {/* WHAT IT LETS YOU JOIN. The other half of "what this
+                    includes": that one lists what you already hold, this
+                    lists what you could take up next, at the price this
+                    membership makes it. Absent when there is nothing — a
+                    heading over an empty list tells a member their
+                    membership gets them nothing, which is a different
+                    claim. */}
+                {(m.could_join ?? []).length > 0 && (
+                  <div className="mt-4 border-t border-line pt-4">
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                      What you can join
+                    </h3>
+                    <ul className="mt-2 space-y-2">
+                      {(m.could_join ?? []).map((j) => (
+                        <li key={j.thread_id} className="text-sm">
+                          <a
+                            href={j.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 items-center text-ink underline underline-offset-2 hover:opacity-70"
+                          >
+                            {j.title}
+                          </a>
+                          <p className="text-ink-muted">
+                            {j.starts_on ? `${fmtDate(j.starts_on)} · ` : ''}
+                            {j.team} ·{' '}
+                            {/* The price in words a member can act on: free
+                                when the membership covers it, otherwise what
+                                they pay with what anybody else pays beside
+                                it, so the membership's worth is visible. */}
+                            {j.your_price_cents === 0 ? (
+                              <span className="text-emerald-700">
+                                included in your membership
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-emerald-700">
+                                  {money(j.your_price_cents, j.currency)}
+                                </span>
+                                {j.list_price_cents > j.your_price_cents && (
+                                  <span className="text-ink-muted">
+                                    {' '}
+                                    instead of {money(j.list_price_cents, j.currency)}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-wrap items-center gap-x-4">
                   <Link

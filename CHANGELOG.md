@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.169.0] — 2026-10-12
+
+What your membership lets you join, in your own portal, at your price.
+
+The member price has been charged correctly since v1.164.0 and quoted on the
+public page since v1.166.0 — but only to somebody who had already **found** the
+thread. A member whose membership carries a team's whole calendar had nowhere
+to see that calendar. **/my → Memberships now lists it:** under *What this
+includes* (what you already hold) comes **What you can join** (what you could
+take up next), each with the date, the calendar it is on, and either
+*"included in your membership"* or your price with the list price beside it, so
+what the membership is worth is visible rather than asserted.
+
+**ONE WALK, which is the whole point of the release.** A list that worked out
+its own entitlement would be a second statement of a rule the charge already
+states, and the person who found them disagreeing would be a member who clicked
+one price and was charged another. So the walk from a person to the calendars
+their membership carries came out of `memberDiscountFor` whole, as
+`teamCalendarEntitlements`, and:
+
+- **the charge** is that walk plus *"which of them is this thread's team"*;
+- **the list** is that walk plus *"what is on those calendars"*.
+
+`memberDiscountFor` now decides nothing itself. The prices in the list come
+from `resolveBasePrice` and `enrolmentPrice` — the same two functions the enrol
+POST charges with — so the number shown and the number taken are one number.
+An integration test asserts the two sides agree for **every** calendar the walk
+returns; it passes by construction today, which is exactly when it earns its
+place, because it goes red the day either side gets its own query back.
+
+Only rows a member can act on are listed: listed, open for enrolment, on a
+**published** team's calendar (an unpublished team's threads answer 404, so a
+link to one would be a promise that cannot be kept), not already joined, not
+already past, and six at most — a portal card is a glance, not a catalogue.
+
+Seven integration tests across a throwaway workspace, four mutations each
+turning at least one red: ignoring the grants that arrive through products,
+taking the last grant instead of the best, letting a lapsed membership count,
+and dropping the thread-team filter from the charge.
+
+**And a leak this release caused and fixed.** The first run of the new test
+left its throwaway workspace standing — `deleteThrowawayWorkspace` removes
+persons and leans on cascades, and a `membership_member` row references a
+person without one — which then **blocked the next run from seeding at all**,
+because team slugs live in the global `public_root_slug` table and the leaked
+workspace's teams still held them. The test now removes what it made, in
+reverse, before asking the workspace to go. (Staging carries 79 leaked
+int-test workspaces from every session's suites; `sweep-int-test-fixtures.mjs`
+would retire 68 of them, and that is a controller's call, not a side effect of
+this slice. Only my own leak was removed.)
+
 ## [1.168.1] — 2026-10-12
 
 The refusal, produced rather than reasoned — and the phone fix, seen.

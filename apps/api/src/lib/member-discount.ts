@@ -228,32 +228,49 @@ export async function memberDiscountForVerifiedEmail(
 //
 // The entitlement below takes a PERSON — resolved from a session, never from
 // a form field.
-export async function memberDiscountFor(
-  personId: string,
-  threadId: string,
-): Promise<{ pct: number; via: string } | null> {
-  const { data: thread } = await adminClient
-    .from('thread_thread')
-    .select('id, team_id, workspace_id')
-    .eq('id', threadId)
-    .maybeSingle();
-  // No team, no team calendar. A workspace thread carries team_id NULL and is
-  // nobody's calendar (design: team_id NULL is not personal).
-  if (!thread?.team_id) return null;
+/** One team calendar this person's membership carries, and at what. */
+export type TeamCalendarEntitlement = {
+  teamId: string;
+  pct: number;
+  /** The grant row it came from, so a surface can say which promise this was. */
+  via: string;
+};
 
+/**
+ * EVERY team calendar this person is entitled to in this workspace.
+ *
+ * THE ONE WALK. `memberDiscountFor` is this plus "and which of them is this
+ * thread's team", and the member's own list of what they could join is this
+ * plus "and what is on those calendars". Two walks would be two statements of
+ * one entitlement, and the first person to notice they disagree is a member
+ * who was shown a price and charged another.
+ *
+ * `active` and `grace` both count — the same predicate the rest of membership
+ * uses: grace means a payment is late, not that somebody left.
+ *
+ * The best percentage wins per calendar. A tier can carry the same calendar
+ * twice (two products that both include it), and taking the first would make
+ * the price depend on row order — not something anybody can explain to the
+ * member who paid more.
+ */
+export async function teamCalendarEntitlements(
+  personId: string,
+  workspaceId: string,
+): Promise<TeamCalendarEntitlement[]> {
   const { data: member } = await adminClient
     .from('membership_member')
     .select('id, tier_id, status')
-    .eq('workspace_id', thread.workspace_id)
+    .eq('workspace_id', workspaceId)
     .eq('person_id', personId)
     .is('deleted_at', null)
     .in('status', ['active', 'grace'])
     .maybeSingle();
-  if (!member) return null;
+  if (!member) return [];
 
-  // The same walk the journal does: the tier's own grants, the grants of the
-  // products the tier includes, and the grants of products this person bought
-  // outright (those were paid for and do not lapse with the subscription).
+  // The same pair of sources the journal and the portal's "what this
+  // includes" use: the tier's own grants, the grants of the products the tier
+  // includes, and the grants of products this person bought outright (those
+  // were paid for and do not lapse with the subscription).
   const [{ data: tierGrants }, { data: tierProducts }, { data: bought }] = await Promise.all([
     adminClient
       .from('membership_access_grant')
@@ -268,7 +285,7 @@ export async function memberDiscountFor(
     adminClient
       .from('membership_product_purchase')
       .select('product_id')
-      .eq('workspace_id', thread.workspace_id)
+      .eq('workspace_id', workspaceId)
       .eq('person_id', personId)
       .eq('status', 'paid'),
   ]);
@@ -292,15 +309,33 @@ export async function memberDiscountFor(
     config: Record<string, unknown> | null;
   }[];
 
-  // THE BEST ONE WINS when a person's tier carries the same calendar twice —
-  // two products that both include it, say. Taking the first would make the
-  // price depend on row order, which is the kind of thing nobody can explain
-  // to the member who paid more.
-  let best: { pct: number; via: string } | null = null;
+  const best = new Map<string, TeamCalendarEntitlement>();
   for (const g of all) {
     const cfg = teamCalendarConfig(g.config);
-    if (!cfg || cfg.teamId !== thread.team_id) continue;
-    if (!best || cfg.pct > best.pct) best = { pct: cfg.pct, via: g.id };
+    if (!cfg) continue;
+    const held = best.get(cfg.teamId);
+    if (!held || cfg.pct > held.pct) {
+      best.set(cfg.teamId, { teamId: cfg.teamId, pct: cfg.pct, via: g.id });
+    }
   }
-  return best;
+  return [...best.values()];
+}
+
+export async function memberDiscountFor(
+  personId: string,
+  threadId: string,
+): Promise<{ pct: number; via: string } | null> {
+  const { data: thread } = await adminClient
+    .from('thread_thread')
+    .select('id, team_id, workspace_id')
+    .eq('id', threadId)
+    .maybeSingle();
+  // No team, no team calendar. A workspace thread carries team_id NULL and is
+  // nobody's calendar (design: team_id NULL is not personal).
+  if (!thread?.team_id) return null;
+
+  // THE ONE WALK, then this thread's team. Nothing here decides entitlement.
+  const held = await teamCalendarEntitlements(personId, thread.workspace_id as string);
+  const mine = held.find((e) => e.teamId === thread.team_id);
+  return mine ? { pct: mine.pct, via: mine.via } : null;
 }

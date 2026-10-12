@@ -73,6 +73,14 @@ import {
 import { enrolmentCanRespond, mergeById, resolveRsvpEnabled, ticketIsAdmissible } from '../lib/portal.js';
 import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
+// The entitlement walk and the price arithmetic, shared with the enrol POST
+// so this list and that charge cannot disagree.
+import {
+  enrolmentPrice,
+  priceCurrencyOf,
+  teamCalendarEntitlements,
+} from '../lib/member-discount.js';
+import { resolveBasePrice } from '../lib/member-discount.js';
 import {
   buildFeedForEmail,
   feedEmailForToken,
@@ -220,6 +228,35 @@ type MembershipItem = {
   /** What this membership actually gets you. Empty is a real answer: a tier
    *  can include nothing but belonging. */
   includes: Included[];
+  /** What it lets you JOIN next, at your price. Empty is a real answer too —
+   *  a membership may carry no calendar, or its calendars may have nothing
+   *  coming up. */
+  could_join: CouldJoin[];
+};
+
+/** One thing this membership lets you join, and what you would pay.
+ *
+ *  Only threads that are actually reachable: listed, open for enrolment, on a
+ *  published team's calendar, not already joined, not already over. An
+ *  unreachable row is worse than no row — it is a promise the member cannot
+ *  act on, which is the failure this whole feature keeps circling.
+ */
+type CouldJoin = {
+  thread_id: string;
+  title: string;
+  url: string;
+  starts_on: string | null;
+  /** The calendar it is on, by name — the member joined a community, not a
+   *  uuid. */
+  team: string;
+  /** What anybody pays, so the member can see what the membership is worth. */
+  list_price_cents: number;
+  /** What THEY pay, from the same function that charges them. */
+  your_price_cents: number;
+  currency: string;
+  /** The percentage, so the page can say "included" at 100 without a second
+   *  rule for which sentence to use. */
+  pct: number;
 };
 
 /** One thing a membership includes.
@@ -381,7 +418,7 @@ portalRoutes.get('/portal', async (c) => {
     await adminClient
       .from('membership_member')
       .select(
-        `id, workspace_id, tier_id, status, started_at, renews_at, stripe_customer_id,
+        `id, workspace_id, person_id, tier_id, status, started_at, renews_at, stripe_customer_id,
        tier:tier_id (name)`,
       )
       .in('person_id', personIds)
@@ -554,6 +591,170 @@ portalRoutes.get('/portal', async (c) => {
     }
   }
 
+  // -- WHAT THIS MEMBERSHIP LETS YOU JOIN -----------------------------------
+  //
+  // The member price has been charged correctly since v1.164.0 and quoted on
+  // the public page since v1.166.0 — but only to somebody who had already
+  // found the thread. A membership that carries a team's whole calendar had
+  // nowhere to show that calendar. This is it.
+  //
+  // THE SAME FUNCTIONS AS THE CHARGE, deliberately: `teamCalendarEntitlements`
+  // (the one walk, which `memberDiscountFor` also uses), `resolveBasePrice`
+  // for which ticket, `enrolmentPrice` for the number. A list that worked its
+  // own prices out would be a third statement of one rule, and the person who
+  // found the disagreement would be a member who clicked one price and was
+  // charged another.
+  const couldJoinByMember = new Map<string, CouldJoin[]>();
+  {
+    // The threads this person is already in — joining twice is not an offer.
+    const already = new Set(
+      (enrolments ?? [])
+        .map((e) => (one(e.thread as never) as { id?: string } | null)?.id)
+        .filter((x): x is string => !!x),
+    );
+
+    // One walk per membership. Lapsed and cancelled memberships answer an
+    // empty list by the walk's own predicate (active and grace only) rather
+    // than by a filter here — one place decides who is entitled.
+    const entitlements = new Map<string, { teamId: string; pct: number }[]>();
+    for (const m of (members ?? []) as Record<string, unknown>[]) {
+      const personId = m.person_id as string | null;
+      if (!personId) continue;
+      entitlements.set(
+        m.id as string,
+        await teamCalendarEntitlements(personId, m.workspace_id as string),
+      );
+    }
+
+    const teamIds = [
+      ...new Set([...entitlements.values()].flatMap((list) => list.map((e) => e.teamId))),
+    ];
+    if (teamIds.length) {
+      const today = new Date().toISOString().slice(0, 10);
+      const candidates = rows(
+        'portal: could join',
+        await adminClient
+          .from('thread_thread')
+          .select(
+            `id, slug, workspace_id, team_id, price_cents, price_currency, public_scope,
+             team:team_id (slug, name, is_published, is_active),
+             organiser:organiser_id (slug),
+             program:program_id (title, status, starts_on)`,
+          )
+          .in('team_id', teamIds)
+          .eq('is_public_listed', true)
+          .eq('public_enrolment_open', true),
+      );
+
+      // Reachable, or it does not belong in a list of what you can join.
+      const open = candidates.filter((t) => {
+        const team = one(t.team as never) as
+          | { slug: string; name: string; is_published: boolean | null; is_active: boolean | null }
+          | null;
+        const program = one(t.program as never) as
+          | { title: string; status: string; starts_on: string | null }
+          | null;
+        if (!team || team.is_published !== true || team.is_active === false) return false;
+        if (!program || program.status !== 'active') return false;
+        if (program.starts_on && program.starts_on < today) return false;
+        if (already.has(t.id as string)) return false;
+        return true;
+      });
+
+      // Tickets for all of them at once, and the price from the same two
+      // functions the enrol POST uses.
+      const nowIso = new Date().toISOString();
+      const ticketsByThread = new Map<
+        string,
+        { id: string; price_cents: number; price_currency?: string }[]
+      >();
+      if (open.length) {
+        const { data: tickets } = await adminClient
+          .from('thread_ticket')
+          .select('id, thread_id, price_cents, price_currency, sales_open_at, sales_close_at')
+          .in(
+            'thread_id',
+            open.map((t) => t.id as string),
+          )
+          .eq('is_active', true);
+        for (const tk of (tickets ?? []) as Record<string, unknown>[]) {
+          const openAt = tk.sales_open_at as string | null;
+          const closeAt = tk.sales_close_at as string | null;
+          if (openAt && openAt > nowIso) continue;
+          if (closeAt && closeAt < nowIso) continue;
+          const list = ticketsByThread.get(tk.thread_id as string) ?? [];
+          list.push({
+            id: tk.id as string,
+            price_cents: tk.price_cents as number,
+            ...(tk.price_currency ? { price_currency: tk.price_currency as string } : {}),
+          });
+          ticketsByThread.set(tk.thread_id as string, list);
+        }
+      }
+
+      const wsSlugById = new Map<string, string>();
+      if (open.length) {
+        const { data: wsRows } = await adminClient
+          .from('workspace')
+          .select('id, slug')
+          .in('id', [...new Set(open.map((t) => t.workspace_id as string))]);
+        for (const w of wsRows ?? []) wsSlugById.set(w.id as string, w.slug as string);
+      }
+
+      for (const [memberId, held] of entitlements) {
+        const byTeam = new Map(held.map((e) => [e.teamId, e.pct]));
+        const mine: CouldJoin[] = [];
+        for (const t of open) {
+          const pct = byTeam.get(t.team_id as string);
+          if (pct === undefined) continue;
+          // Narrowed above in `open`; re-read rather than carried, and still
+          // guarded, because a cast is not a check.
+          const team = one(t.team as never) as { slug: string; name: string } | null;
+          const organiser = one(t.organiser as never) as { slug: string } | null;
+          const program = one(t.program as never) as
+            | { title: string; starts_on: string | null }
+            | null;
+          if (!team || !program) continue;
+          const ownerSlug = publicOwnerSlug({
+            publicScope: t.public_scope as string | null,
+            workspaceSlug: wsSlugById.get(t.workspace_id as string),
+            teamSlug: team.slug,
+            organiserSlug: organiser?.slug,
+          });
+          // No address, no offer: a row the member cannot click is worse than
+          // no row.
+          if (!ownerSlug) continue;
+          const base = resolveBasePrice(
+            {
+              price_cents: (t.price_cents as number | null) ?? null,
+              price_currency: priceCurrencyOf(t as { price_currency?: string | null }),
+            },
+            ticketsByThread.get(t.id as string) ?? [],
+            null,
+          );
+          const priced = enrolmentPrice(base.basePriceCents, null, pct);
+          mine.push({
+            thread_id: t.id as string,
+            title: program.title,
+            url: await threadPublicUrl(ownerSlug, t.slug as string),
+            starts_on: program.starts_on ?? null,
+            team: team.name,
+            list_price_cents: base.basePriceCents,
+            your_price_cents: priced.cents,
+            currency: base.priceCurrency,
+            pct,
+          });
+        }
+        // Soonest first, and undated last: a list of what is coming up is
+        // ordered by when, not by when it was created.
+        mine.sort((a, b) => (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999'));
+        // A portal card is a glance, not a catalogue. The rest are on the
+        // organiser's own page, which the thread link reaches.
+        couldJoinByMember.set(memberId, mine.slice(0, 6));
+      }
+    }
+  }
+
   // -- Group by workspace ---------------------------------------------------
   const workspaceIds = [
     ...new Set([
@@ -689,6 +890,7 @@ portalRoutes.get('/portal', async (c) => {
       renews_at: (m.renews_at as string | null) ?? null,
       has_stripe: !!m.stripe_customer_id,
       includes: includesByMember.get(m.id as string) ?? [],
+      could_join: couldJoinByMember.get(m.id as string) ?? [],
     });
   }
 
