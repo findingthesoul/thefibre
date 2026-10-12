@@ -1,4 +1,6 @@
 import { defineConfig } from '@playwright/test';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // E2E golden paths (testing approach §3.5) — run against STAGING, never
 // production. Kept ruthlessly small so the suite stays green and trusted.
@@ -8,8 +10,43 @@ import { defineConfig } from '@playwright/test';
 //
 // Run: pnpm test:e2e   (needs apps/api/.env.staging for the mint helper)
 
+// ---------------------------------------------------------------------------
+// OWNER SPECS ARE OPT-IN (Sjoerd, 2026-10-12: "owner tests opt-in")
+// ---------------------------------------------------------------------------
+// Three specs need the `default` workspace's real data and sign in as its
+// owner — which on staging is SJOERD'S OWN ACCOUNT (e2e/identities.ts:
+// resolveOwnerIdentity refuses to resolve to the fixture, so the identity is
+// a person by design). A plain `pnpm test:e2e` ran them like everything else,
+// so a builder chasing a flake minted dozens of sessions as him without ever
+// deciding to. Counted on 2026-10-12: 42 handoff rows for his account in
+// twenty-four hours, 697 in all.
+//
+// THE LIST IS ASKED OF THE SPECS, never kept here. Any spec that reaches the
+// owner path — resolveOwnerIdentity, ownerLandUrl, landSignedInAsOwner — is
+// excluded unless E2E_OWNER=1, so a FOURTH owner spec is opt-in the moment it
+// is written, with nobody having to remember it.
+//
+// Ignored at FILE level on purpose, not skipped per test: a `beforeAll` runs
+// before any test body can skip itself, and organiser-screens' hook writes a
+// fixture row into his workspace. The file has to stay unloaded.
+//
+// And it says so out loud, because a quiet exclusion reads like a pass.
+const OWNER_CALL = /\b(resolveOwnerIdentity|ownerLandUrl|landSignedInAsOwner)\b/;
+const ownerOptIn = process.env.E2E_OWNER === '1';
+const ownerSpecs = readdirSync(__dirname)
+  .filter((f) => f.endsWith('.spec.ts'))
+  .filter((f) => OWNER_CALL.test(readFileSync(join(__dirname, f), 'utf8')));
+if (ownerSpecs.length && !ownerOptIn) {
+  console.log(
+    `\ne2e: NOT RUNNING ${ownerSpecs.length} owner spec(s) - they sign in as a real person's account.\n` +
+      ownerSpecs.map((f) => `     - ${f}`).join('\n') +
+      `\n     Set E2E_OWNER=1 to run them. An excluded owner spec proves nothing.\n`,
+  );
+}
+
 export default defineConfig({
   testDir: '.',
+  testIgnore: ownerOptIn ? [] : ownerSpecs,
   timeout: 45_000,
   retries: 1,
   workers: 2,

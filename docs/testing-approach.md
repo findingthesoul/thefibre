@@ -298,20 +298,40 @@ an allow-list the release gate enforces.
 **And on staging that owner is a REAL PERSON — Sjoerd's own account.**
 `resolveOwnerIdentity` takes the single `super_admin` of the `default`
 workspace and refuses to proceed if it resolves to the fixture, so the
-identity is a person by design, not by accident. The three specs only READ,
-and the sign-in writes one single-use `sso_handoff` row plus Supabase's own
-session records — but minting a session as somebody is not a builder's
-decision to take. **A builder session runs the pack WITHOUT them:**
+identity is a person by design, not by accident.
+
+**Those three specs are OPT-IN.** Sjoerd, 2026-10-12, asked for exactly that:
+*"owner tests opt-in"*. A plain `pnpm test:e2e` leaves them out and says so;
+to run them:
 
 ```bash
-pnpm test:e2e $(ls e2e/*.spec.ts | grep -v -E 'contact-invoices|org-names|organiser-screens')
+E2E_OWNER=1 pnpm test:e2e
 ```
 
-`grep -ln 'ownerLandUrl\|landSignedInAsOwner\|resolveOwnerIdentity'
-e2e/*.spec.ts` is the list, asked of the specs rather than kept by hand. A
-plain `pnpm test:e2e` runs everything, which is how twelve such sign-ins
-happen without anybody choosing them (2026-10-12 — it happened to me, three
-times over, while chasing a flake).
+Two gates, because one of them is a filename filter and the other is the
+thing itself:
+
+- `e2e/playwright.config.ts` reads every spec, finds the ones that call
+  `resolveOwnerIdentity` / `ownerLandUrl` / `landSignedInAsOwner`, and
+  `testIgnore`s them unless the flag is set. **The list is asked of the
+  specs, never kept**, so a fourth owner spec is opt-in the day it is
+  written. At FILE level deliberately: a `beforeAll` runs before any test
+  body could skip itself, and `organiser-screens`' hook writes a fixture row
+  into his workspace.
+- `resolveOwnerIdentity` itself throws without the flag, before it queries
+  anything — for an owner call written into a spec that is not excluded, or
+  into a helper, or a script.
+
+Both are held by `scripts/e2e-identities.test.mjs`, which is in `pnpm
+verify`; the pack itself is not (verify runs unit tests, so **the release gate
+never signs in as him**).
+
+*Why it needed deciding.* Until this change a plain run signed in as him
+twelve times, and an afternoon of chasing one flake did it three times over:
+**42 handoff rows for his account in twenty-four hours, 697 in all**. The
+evidence that it stopped is the same count, not the absence of skip lines —
+697 before a full plain run and 697 after, with 63 tests listed instead of
+75.
 
 ---
 

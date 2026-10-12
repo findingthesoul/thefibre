@@ -9,7 +9,12 @@
 //   1. only the files on the allow-list below may sign in as the owner;
 //   2. a file that signs in as the owner clicks nothing that saves;
 //   3. the DEFAULT sign-in goes through the fixture resolver and nothing
-//      else, and that resolver refuses any account that is not the fixture.
+//      else, and that resolver refuses any account that is not the fixture;
+//   4. the owner identity is OPT-IN (Sjoerd, 2026-10-12: "owner tests
+//      opt-in") — the resolver refuses without E2E_OWNER=1, and the
+//      Playwright config leaves those spec files out of a plain run, finding
+//      them by the owner CALL rather than by a list, so a fourth owner spec
+//      is opt-in the day it is written.
 //
 // These read the spec files as text: the pack itself needs staging and a
 // browser and is not part of `pnpm verify`; this is.
@@ -148,5 +153,47 @@ describe('the fixture is a super admin on STAGING ONLY', () => {
     const payers = identities.match(/payer_email: '([^']+)'/g) ?? [];
     expect(payers.length).toBe(2);
     for (const p of payers) expect(p).toMatch(/@example\.com'/);
+  });
+});
+
+describe('the owner identity is opt-in (2026-10-12)', () => {
+  it('the resolver refuses without E2E_OWNER, before it queries anything', async () => {
+    const before = process.env.E2E_OWNER;
+    delete process.env.E2E_OWNER;
+    try {
+      const { resolveOwnerIdentity } = await import('../e2e/identities.ts');
+      // A client that would THROW if it were touched: the point is that the
+      // guard returns before any query, so nothing here may be called.
+      const exploding = new Proxy(
+        {},
+        {
+          get() {
+            throw new Error('the owner resolver queried staging before checking the opt-in');
+          },
+        },
+      );
+      await expect(resolveOwnerIdentity(exploding)).rejects.toThrow(/OPT-IN/);
+    } finally {
+      if (before === undefined) delete process.env.E2E_OWNER;
+      else process.env.E2E_OWNER = before;
+    }
+  });
+
+  it('the config excludes the owner specs unless E2E_OWNER=1, and finds them by the call', () => {
+    const config = read('playwright.config.ts');
+    expect(config).toMatch(/testIgnore:\s*ownerOptIn \? \[\] : ownerSpecs/);
+    expect(config).toMatch(/process\.env\.E2E_OWNER === '1'/);
+    // Derived, not listed: the config must READ the spec files.
+    expect(config).toMatch(/readFileSync\(join\(__dirname, f\), 'utf8'\)/);
+    expect(config).toMatch(/resolveOwnerIdentity\|ownerLandUrl\|landSignedInAsOwner/);
+    // And the three the allow-list knows about are the three it would find.
+    const found = specs.filter((f) => OWNER_CALL.test(read(f)));
+    expect(found.sort()).toEqual(Object.keys(OWNER_SPECS).sort());
+  });
+
+  it('says out loud that it left them out', () => {
+    const config = read('playwright.config.ts');
+    expect(config).toMatch(/NOT RUNNING/);
+    expect(config).toMatch(/E2E_OWNER=1/);
   });
 });

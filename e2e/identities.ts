@@ -258,6 +258,21 @@ export function assertFixture(identity: Identity): Identity {
  * sign-in — it never picks somebody else.
  */
 export async function resolveOwnerIdentity(service: SupabaseClient): Promise<Identity> {
+  // OPT-IN, by Sjoerd's decision on 2026-10-12: "owner tests opt-in".
+  //
+  // e2e/playwright.config.ts keeps the owner spec FILES out of a plain run.
+  // This is the other door: an owner call written into a spec that is not
+  // excluded, or into a helper, or a script that imports this module. It
+  // throws rather than skipping, because reaching this line without the flag
+  // is a mistake in the code, not a test that cannot run today.
+  if (process.env.E2E_OWNER !== '1') {
+    throw new Error(
+      'e2e identities: the owner identity is OPT-IN. It signs in as a real person ' +
+        "(the one super_admin of the staging `default` workspace, not a fixture). " +
+        'Set E2E_OWNER=1 to run the specs that need that workspace\'s own data, ' +
+        'or use the fixture identity (the default) / the member fixture.',
+    );
+  }
   const ws = must('owner workspace', await service.from('workspace').select('id').eq('slug', OWNER_WORKSPACE_SLUG).maybeSingle());
   if (!ws) throw new Error(`e2e identities: no workspace "${OWNER_WORKSPACE_SLUG}" on staging`);
   const owners =

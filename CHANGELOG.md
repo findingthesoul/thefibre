@@ -6,6 +6,66 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.159.2] — 2026-10-12
+
+The tests that sign in as Sjoerd are opt-in.
+
+His words, asked for after v1.159.1 reported what had been happening:
+*"owner tests opt-in"*.
+
+Three specs need the `default` workspace's real data and sign in as its
+owner, which on staging is **his own account** — by design, not by accident:
+`resolveOwnerIdentity` takes that workspace's single `super_admin` and
+refuses to proceed if it ever resolves to the fixture. A plain `pnpm test:e2e`
+ran them with everything else, so **chasing one flaky test yesterday minted
+twelve sessions as him per run, three runs over: 42 handoff rows for his
+account in twenty-four hours, 697 in all.** Nothing was written through those
+specs — they only read — but a session as somebody is not a passing session's
+decision to take.
+
+Now a plain run leaves them out, and **says so**, because a quiet exclusion
+reads like a pass:
+
+```
+e2e: NOT RUNNING 3 owner spec(s) - they sign in as a real person's account.
+     - contact-invoices.spec.ts
+     - org-names.spec.ts
+     - organiser-screens.spec.ts
+     Set E2E_OWNER=1 to run them. An excluded owner spec proves nothing.
+```
+
+**Two gates, because one is a filename filter and the other is the thing
+itself.** `e2e/playwright.config.ts` reads every spec, finds the ones that
+call `resolveOwnerIdentity` / `ownerLandUrl` / `landSignedInAsOwner`, and
+`testIgnore`s them without the flag — **the list is asked of the specs, never
+kept**, so a FOURTH owner spec is opt-in the day it is written, with nobody
+remembering to add it. And `resolveOwnerIdentity` itself throws without the
+flag, before it queries anything, for an owner call written into a spec that
+is not excluded, or into a helper, or a script.
+
+At FILE level deliberately, not skipped per test: a `beforeAll` runs before
+any test body can skip itself, and `organiser-screens`' hook writes a fixture
+row into his workspace. The file has to stay unloaded.
+
+**The evidence is the count, not the skip lines.** 697 handoff rows for his
+account before a full plain run, 697 after. 63 tests listed instead of 75,
+and `E2E_OWNER=1` lists all twelve owner tests back. Proving INCLUSION
+without signing in as him is what `--list` is for: it loads the files and
+runs no test and no hook.
+
+That count is also the correction to a number in v1.159.1's own report. I
+first counted zero handoff rows and nearly said so — the filter used
+`public."user".id` where the column holds the AUTH id, which is the trap
+`CLAUDE.md` names in one line. The right key says 42.
+
+Policed by `scripts/e2e-identities.test.mjs`, in `pnpm verify`: the resolver
+must refuse without the flag before touching staging (a proxy client that
+throws if queried proves the order), the config must derive its list by
+READING the specs, and the three it finds must be the three the allow-list
+knows. Mutation-checked: removing either gate reddens it. The pack itself is
+not in `pnpm verify` — verify runs unit tests — so **the release gate never
+signs in as him.**
+
 ## [1.159.1] — 2026-10-12
 
 The flaky test was a race, and the suspicion was wrong.
