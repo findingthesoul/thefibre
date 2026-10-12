@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.155.3",
+  "version": "1.156.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -197,6 +197,10 @@
     "./ui/dialog": {
       "types": "./dist/ui/dialog.d.ts",
       "default": "./dist/ui/dialog.js"
+    },
+    "./ui/duplicates-queue": {
+      "types": "./dist/ui/duplicates-queue.d.ts",
+      "default": "./dist/ui/duplicates-queue.js"
     },
     "./ui/embed-frame": {
       "types": "./dist/ui/embed-frame.d.ts",

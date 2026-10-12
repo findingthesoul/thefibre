@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.156.0] — 2026-10-12
+
+The two duplicates screens become one component.
+
+`/contacts/duplicates` and `/organisations/duplicates` ran the same machinery
+twice. That was measured, not felt: **66% of the organisation file was
+line-for-line the person file**, and the same bug had already had to be fixed
+in both — v1.151.1 and v1.151.2, the stale question left under the open
+per-field step. Two copies, one fix each, a day apart.
+
+`@thefibre/shared/ui/duplicates-queue` now owns the machinery: which pair is
+being answered, whether the per-field step is open, the ask-first-then-merge
+flow, the undo list, the error and notice banners, and the card shell. Each
+screen keeps what actually differs — its card details, its vocabulary, its
+field labels, its reason map, its actions.
+
+**After: 43%, and the longest identical run falls from 26 lines to 10** — and
+that ten is the strings object, where both screens happen to name the same
+`dup_*` keys. A props declaration, not logic: changing one does not oblige
+anybody to mirror the other. The two files go from 542 and 472 lines to 235
+and 219.
+
+**The trap this refactor could have introduced, and the test that stops it.**
+A person pair carries `gains`; an organisation pair does not, because
+`organisation_duplicate_candidates` returns no such columns. So `undefined`
+and `[]` must keep meaning different things — absent renders as silence, an
+empty answer keeps its sentence, because an empty answer is a real finding. A
+single `gains ?? []` anywhere in the shared code would have brought back the
+v1.149.x bug where both records claimed to gain nothing while one plainly had
+a phone and a city the other lacked. `duplicates-queue.test.tsx` renders all
+three states and asserts the absent one is silent; mutation-checked by adding
+that exact coalesce, which reddens two of its four cases.
+
+Both REMOVE-IN-EXTRACTION markers come out, as intended when they were
+written.
+
 ## [1.155.3] — 2026-10-12
 
 A short sha is a sha. And a message that says two things differ must show how.

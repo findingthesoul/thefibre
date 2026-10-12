@@ -1,17 +1,14 @@
 'use client';
 
-import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Undo2, ArrowRight } from 'lucide-react';
 import { ContactPointsView, type ContactPointValue } from '@thefibre/shared/ui/contact-points';
 import { countryName } from '@thefibre/shared/countries';
-import { mergeGains } from '@thefibre/shared';
 import {
-  MergeConflictChoices,
-  type MergeChoices,
-  type MergeConflict,
-} from '@thefibre/shared/ui/merge-conflicts';
+  DuplicatesQueue,
+  type DuplicatePair,
+  type QueueMergeRow,
+} from '@thefibre/shared/ui/duplicates-queue';
 import { mergePeople, undoMerge, markDistinct, mergeConflicts } from './actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
@@ -75,32 +72,18 @@ const FIELD_LABELS: Record<string, string> = {
   languages: 'languages',
 };
 
-/** One column, as a word. The same table fieldList reads, so the per-field
- *  step and the gains sentence cannot call one column two things. */
 function fieldLabel(column: string): string {
   return FIELD_LABELS[column] ?? column.replace(/_/g, ' ');
 }
 
-function fieldList(cols: string[]): string {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const c of cols) {
-    const label = fieldLabel(c);
-    if (seen.has(label)) continue;
-    seen.add(label);
-    out.push(label);
-  }
-  return out.join(', ');
-}
-
-function displayName(p: DupPerson) {
+export function displayName(p: DupPerson) {
   const n = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
   return n || p.email || p.id.slice(0, 8);
 }
 
-// Explicit maps rather than `dup_reason_${reason}` template keys: the
-// catalog is typed so a missing translation is a compile error, and a
-// computed key throws that guarantee away exactly where it is most useful.
+// Explicit maps rather than `dup_reason_${reason}` template keys: the catalog
+// is typed so a missing translation is a compile error, and a computed key
+// throws that guarantee away exactly where it is most useful.
 const REASON_KEYS = {
   same_email: 'dup_reason_same_email',
   shared_address: 'dup_reason_shared_address',
@@ -120,99 +103,65 @@ const SOURCE_KEYS = {
   app_link: 'dup_source_app_link',
 } as const;
 
-function reasonLabel(locale: Locale, reason: string) {
-  const key = REASON_KEYS[reason as keyof typeof REASON_KEYS];
-  return key ? t(locale, key) : reason.replace(/_/g, ' ');
-}
-
-/** How a record arrived. Null for everything created before v0.70.0, which
- *  is honest — we genuinely do not know. A source added to PersonSource but
- *  not to SOURCE_KEYS falls back to its raw name rather than a blank. */
+/** How a record arrived. Null for everything created before v0.70.0, which is
+ *  honest — we genuinely do not know. A source added to PersonSource but not
+ *  to SOURCE_KEYS falls back to its raw name rather than a blank. */
 function sourceLabel(locale: Locale, via: string | null | undefined) {
   if (!via) return t(locale, 'dup_source_unknown');
   const key = SOURCE_KEYS[via as keyof typeof SOURCE_KEYS];
   return key ? t(locale, key) : via.replace(/_/g, ' ');
 }
 
-function PersonCard({
-  person,
-  locale,
-  gains,
-  onKeep,
-  busy,
-  intlLocale,
-}: {
-  person: DupPerson;
-  locale: Locale;
-  /** Columns this record would gain if kept. */
-  gains?: string[] | undefined;
-  /** Only once "Same person" was answered: keep this record. */
-  onKeep: (() => void) | null;
-  busy: boolean;
-  intlLocale: string;
-}) {
-  const gainsState = mergeGains(gains);
+/** The middle of a person's card: everything that helps somebody decide —
+ *  every address with its label, where they work, where they live. */
+export function PersonCardDetails({ person }: { person: DupPerson }) {
   const points = person.contact_points ?? [];
   const place = [person.city, countryName(person.country)].filter(Boolean).join(', ');
   return (
-    <div className="flex-1 rounded-md border border-line bg-surface-raised p-3">
-      <Link
-        href={`/contacts/${person.id}`}
-        className="text-sm font-medium hover:underline break-words"
-      >
-        {displayName(person)}
-      </Link>
-      {/* Everything that helps a person decide: every address with its
-          label, where they work, where they live. */}
-      <div className="mt-2 space-y-2 text-xs text-ink-subtle">
-        {points.length ? (
-          <>
-            <ContactPointsView points={points} kind="email" />
-            {points.some((p) => p.kind === 'phone') && <ContactPointsView points={points} kind="phone" />}
-          </>
-        ) : (
-          <div className="break-all">{person.email ?? '—'}</div>
-        )}
-        {!!person.organisations?.length && <div>{person.organisations.join(' · ')}</div>}
-        {place && <div>{place}</div>}
-      </div>
-      <div className="mt-2 text-xs text-ink-muted">
-        {person.created_at
-          ? new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' }).format(
-              new Date(person.created_at),
-            )
-          : '—'}
-        {' · '}
-        {sourceLabel(locale, person.created_via)}
-      </div>
-      {/* What this record would GAIN — the sentence that makes "merge" true
-          rather than merely claimed. Shown only once the pair has been called
-          the same person, i.e. alongside the button it describes. */}
-      {/* Three states, not two — see mergeGains. Absent means nobody answered
-          (an older API, a failed preview) and renders as SILENCE; an empty
-          answer is a real finding and keeps its sentence. Rendering absent as
-          "Gains nothing" is how this read on staging before the API carrying
-          the preview was deployed: both records claimed to gain nothing while
-          one plainly had a phone and a city the other lacked. */}
-      {onKeep && gainsState.kind !== 'unknown' && (
-        <div className="mt-3 text-xs text-ink-subtle">
-          {gainsState.kind === 'list'
-            ? t(locale, 'dup_gains', { fields: fieldList(gainsState.fields) })
-            : t(locale, 'dup_gains_none')}
-        </div>
+    <>
+      {points.length ? (
+        <>
+          <ContactPointsView points={points} kind="email" />
+          {points.some((p) => p.kind === 'phone') && (
+            <ContactPointsView points={points} kind="phone" />
+          )}
+        </>
+      ) : (
+        <div className="break-all">{person.email ?? '—'}</div>
       )}
-      {onKeep && (
-        <button
-          type="button"
-          onClick={onKeep}
-          disabled={busy}
-          className="mt-2 w-full rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-line-strong disabled:opacity-50"
-        >
-          {t(locale, 'dup_keep_this')}
-        </button>
-      )}
-    </div>
+      {!!person.organisations?.length && <div>{person.organisations.join(' · ')}</div>}
+      {place && <div>{place}</div>}
+    </>
   );
+}
+
+/**
+ * Pairs in the queue's shape.
+ *
+ * Unlike organisations, a person pair DOES carry gains, and they are passed
+ * through exactly as they arrived — `undefined` when the API did not answer,
+ * `[]` when it answered "nothing". Those mean different things and
+ * `mergeGains` keeps them apart; never coalesce one into the other here.
+ */
+export function toQueuePairs(pairs: DupPair[]): DuplicatePair<DupPerson>[] {
+  return pairs.map((p) => ({
+    reason: p.reason,
+    a: p.a,
+    b: p.b,
+    aGains: p.a_gains,
+    bGains: p.b_gains,
+  }));
+}
+
+export function toQueueMerges(merges: MergeRow[]): QueueMergeRow[] {
+  return merges.map((m) => ({
+    id: m.id,
+    keptId: m.kept_person_id,
+    mergedId: m.merged_person_id,
+    mergedAt: m.merged_at,
+    undoneAt: m.undone_at,
+    droppedRows: m.dropped_rows,
+  }));
 }
 
 export function DuplicatesClient({
@@ -227,316 +176,60 @@ export function DuplicatesClient({
   intlLocale: string;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  /**
-   * Said after a merge that went ahead WITHOUT asking, because the comparison
-   * could not be fetched. Not an error — the merge is exactly the one this
-   * screen made before the per-field step existed, and it is undoable. But a
-   * silent one would leave somebody believing they had been asked and had no
-   * conflicts, which is a different and false thing.
-   */
-  const [notice, setNotice] = useState<string | null>(null);
-  // Pairs the person has dealt with in this session. The API recomputes from
-  // the database on reload; this only stops a merged pair flashing back
-  // before the refresh lands.
-  const [done, setDone] = useState<Set<string>>(new Set());
-  // The pair whose answer was "same person" — now choosing which to keep.
-  const [choosing, setChoosing] = useState<string | null>(null);
-  /**
-   * The per-field step, open for one pair at a time.
-   *
-   * It appears ONLY when the two records actually disagree. No conflicts and
-   * the merge happens on the click that chose the keeper, exactly as it did
-   * before this step existed — the common case stays one press.
-   */
-  const [conflictStep, setConflictStep] = useState<{
-    pairKey: string;
-    keep: DupPerson;
-    drop: DupPerson;
-    conflicts: MergeConflict[];
-    choices: MergeChoices;
-  } | null>(null);
-
-  function doDistinct(pair: DupPair) {
-    setError(null);
-    startTransition(async () => {
-      const res = await markDistinct(pair.a.id, pair.b.id);
-      if (res.error) {
-        setError(res.error);
-        return;
-      }
-      setDone((s) => new Set(s).add(key(pair)));
-      router.refresh();
-    });
-  }
-
-  const key = (p: DupPair) => `${p.a.id}|${p.b.id}|${p.reason}`;
-
-  /**
-   * Chose which record to keep. Ask what the two disagree about BEFORE
-   * merging: if they agree about everything, there is nothing to ask and the
-   * merge happens on this click.
-   *
-   * A failed lookup merges without choices rather than blocking. That is the
-   * behaviour this screen had until today, and refusing to merge because a
-   * preview could not be fetched would be a worse answer than merging the way
-   * it always has.
-   */
-  function chooseKeeper(pair: DupPair, keep: DupPerson, drop: DupPerson) {
-    setError(null);
-    setNotice(null);
-    startTransition(async () => {
-      const res = await mergeConflicts(keep.id, drop.id);
-      if (res.error) {
-        // Merge anyway — that is this screen's behaviour from before the step
-        // existed, and refusing because a comparison failed would be worse.
-        // But SAY SO: a silent merge here is indistinguishable from "we
-        // compared them and there was nothing to decide", which is not what
-        // happened.
-        setNotice(t(locale, 'dup_conflict_unavailable', { name: displayName(keep) }));
-        await runMerge(pair, keep, drop);
-        return;
-      }
-      const conflicts = res.conflicts ?? [];
-      if (!conflicts.length) {
-        await runMerge(pair, keep, drop);
-        return;
-      }
-      setConflictStep({ pairKey: key(pair), keep, drop, conflicts, choices: {} });
-    });
-  }
-
-  async function runMerge(
-    pair: DupPair,
-    keep: DupPerson,
-    drop: DupPerson,
-    choices?: MergeChoices,
-  ) {
-    const res = await mergePeople(keep.id, drop.id, choices);
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
-    setConflictStep(null);
-    setChoosing(null);
-    setDone((s) => new Set(s).add(key(pair)));
-    router.refresh();
-  }
-
-  function doMerge(pair: DupPair, keep: DupPerson, drop: DupPerson, choices?: MergeChoices) {
-    setError(null);
-    setNotice(null);
-    startTransition(async () => {
-      await runMerge(pair, keep, drop, choices);
-    });
-  }
-
-  function doUndo(id: string) {
-    setError(null);
-    startTransition(async () => {
-      const res = await undoMerge(id);
-      if (res.error) {
-        setError(res.error);
-        return;
-      }
-      setDone(new Set());
-      router.refresh();
-    });
-  }
-
-  const visible = pairs.filter((p) => !done.has(key(p)));
-  const undoable = merges.filter((m) => !m.undone_at);
 
   return (
-    <div className="mt-6 space-y-8">
-      {error && (
-        <div className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </div>
+    <DuplicatesQueue<DupPerson>
+      pairs={toQueuePairs(pairs)}
+      merges={toQueueMerges(merges)}
+      intlLocale={intlLocale}
+      Link={Link}
+      labelFor={fieldLabel}
+      nameOf={displayName}
+      hrefFor={(id) => `/contacts/${id}`}
+      reasonLabel={(reason) => {
+        const key = REASON_KEYS[reason as keyof typeof REASON_KEYS];
+        return key ? t(locale, key) : reason.replace(/_/g, ' ');
+      }}
+      renderDetails={(person) => <PersonCardDetails person={person} />}
+      renderMeta={(person) => (
+        <>
+          {person.created_at
+            ? new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' }).format(
+                new Date(person.created_at),
+              )
+            : '—'}
+          {' · '}
+          {sourceLabel(locale, person.created_via)}
+        </>
       )}
-
-      {/* Deliberately NOT the danger styling: nothing went wrong for the
-          person, and dressing an explanation as a failure invites them to
-          undo a merge that is perfectly good. */}
-      {notice && (
-        <div className="rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm text-ink-subtle">
-          {notice}
-        </div>
-      )}
-
-      {visible.length === 0 && (
-        <p className="text-sm text-ink-muted">{t(locale, 'dup_none')}</p>
-      )}
-
-      {visible.map((pair) => (
-        <div key={key(pair)} className="rounded-lg border border-line p-3">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-xs text-ink-muted">
-              {reasonLabel(locale, pair.reason)}
-            </span>
-          </div>
-
-          {/* Stacks on a phone, side by side from sm up. */}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <PersonCard
-              person={pair.a}
-              locale={locale}
-              intlLocale={intlLocale}
-              busy={pending}
-              gains={pair.a_gains}
-              onKeep={choosing === key(pair) ? () => chooseKeeper(pair, pair.a, pair.b) : null}
-            />
-            <PersonCard
-              person={pair.b}
-              locale={locale}
-              intlLocale={intlLocale}
-              busy={pending}
-              gains={pair.b_gains}
-              onKeep={choosing === key(pair) ? () => chooseKeeper(pair, pair.b, pair.a) : null}
-            />
-          </div>
-
-          {/* Both answered, differently — so ask, rather than silently keeping
-              one. The keeper is pre-selected, so pressing Merge without
-              touching anything does exactly what this screen did before. */}
-          {conflictStep?.pairKey === key(pair) && (
-            <>
-              <MergeConflictChoices
-                conflicts={conflictStep.conflicts}
-                choices={conflictStep.choices}
-                onChange={(choices) =>
-                  setConflictStep((st) => (st ? { ...st, choices } : st))
-                }
-                labelFor={(column) => fieldLabel(column)}
-                keepHeading={t(locale, 'dup_conflict_keeping', {
-                  name: displayName(conflictStep.keep),
-                })}
-                mergeHeading={t(locale, 'dup_conflict_other', {
-                  name: displayName(conflictStep.drop),
-                })}
-                intro={t(locale, 'dup_conflict_intro')}
-                disabled={pending}
-              />
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    doMerge(pair, conflictStep.keep, conflictStep.drop, conflictStep.choices)
-                  }
-                  disabled={pending}
-                  className="rounded-md border border-line-strong px-3 py-1.5 text-xs font-medium hover:bg-surface-sunken disabled:opacity-50"
-                >
-                  {t(locale, 'dup_conflict_merge')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConflictStep(null)}
-                  disabled={pending}
-                  className="text-xs text-ink-subtle underline"
-                >
-                  {t(locale, 'dup_back')}
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* The question (Sjoerd, 2026-09-15): same person with different
-              roles, or different people with the same name? */}
-          {/* REMOVE IN THE DuplicatesQueue EXTRACTION — this guard and its
-              twin in organisations/duplicates/client.tsx are the same fix in
-              two files, and the shared component should carry it once.
-              Until then both files keep it, because skipping one is what
-              makes the copies drift.
-
-              What it fixes: once the per-field step is open the keeper HAS
-              been chosen, so this explainer and the Same/Different buttons
-              are asking something already decided — and their Back sat a few
-              millimetres from the step's own Back, one closing the step and
-              one leaving the choice. At phone width the stale paragraph
-              landed directly under "Merge with these answers". Found by
-              looking at the organisation twin on staging at 1280 and 375;
-              every test passed. (v1.151.1 there, v1.151.2 here.) */}
-          {choosing === key(pair) && conflictStep?.pairKey !== key(pair) ? (
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <p className="text-xs text-ink-muted flex-1">{t(locale, 'dup_pick_keep')}</p>
-              <button
-                type="button"
-                onClick={() => setChoosing(null)}
-                disabled={pending}
-                className="text-xs text-ink-subtle underline"
-              >
-                {t(locale, 'dup_back')}
-              </button>
-            </div>
-          ) : conflictStep?.pairKey === key(pair) ? null : (
-            <div className="mt-3">
-              <p className="text-sm font-medium">{t(locale, 'dup_question')}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setChoosing(key(pair))}
-                  disabled={pending}
-                  className="rounded-md border border-line-strong px-3 py-1.5 text-xs font-medium hover:bg-surface-sunken disabled:opacity-50"
-                >
-                  {t(locale, 'dup_same_person')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => doDistinct(pair)}
-                  disabled={pending}
-                  className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-line-strong disabled:opacity-50"
-                >
-                  {t(locale, 'dup_different_people')}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-
-      {undoable.length > 0 && (
-        <div>
-          <h2 className="text-sm font-medium">{t(locale, 'dup_recent_merges')}</h2>
-          <ul className="mt-2 space-y-2">
-            {undoable.map((m) => (
-              <li
-                key={m.id}
-                className="flex flex-wrap items-center gap-2 rounded-md border border-line px-3 py-2 text-xs"
-              >
-                <Link href={`/contacts/${m.merged_person_id}`} className="hover:underline">
-                  {m.merged_person_id.slice(0, 8)}
-                </Link>
-                <ArrowRight size={12} className="text-ink-muted" />
-                <Link href={`/contacts/${m.kept_person_id}`} className="hover:underline">
-                  {m.kept_person_id.slice(0, 8)}
-                </Link>
-                <span className="text-ink-muted">
-                  {new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' }).format(
-                    new Date(m.merged_at),
-                  )}
-                </span>
-                {/* Rows a unique constraint would not let the merge carry —
-                    surfaced so nobody has to guess what it cost. */}
-                {m.dropped_rows > 0 && (
-                  <span className="text-ink-muted">
-                    · {t(locale, 'dup_dropped_rows')} {m.dropped_rows}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => doUndo(m.id)}
-                  disabled={pending}
-                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 font-medium hover:border-line-strong disabled:opacity-50"
-                >
-                  <Undo2 size={12} />
-                  {t(locale, 'dup_undo')}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+      strings={{
+        none: t(locale, 'dup_none'),
+        // The question (Sjoerd, 2026-09-15): same person with different roles,
+        // or different people with the same name?
+        question: t(locale, 'dup_question'),
+        sameAnswer: t(locale, 'dup_same_person'),
+        differentAnswer: t(locale, 'dup_different_people'),
+        pickKeep: t(locale, 'dup_pick_keep'),
+        keepThis: t(locale, 'dup_keep_this'),
+        back: t(locale, 'dup_back'),
+        conflictIntro: t(locale, 'dup_conflict_intro'),
+        conflictKeeping: (name) => t(locale, 'dup_conflict_keeping', { name }),
+        conflictOther: (name) => t(locale, 'dup_conflict_other', { name }),
+        conflictMerge: t(locale, 'dup_conflict_merge'),
+        conflictUnavailable: (name) => t(locale, 'dup_conflict_unavailable', { name }),
+        recentMerges: t(locale, 'dup_recent_merges'),
+        undo: t(locale, 'dup_undo'),
+        droppedRows: t(locale, 'dup_dropped_rows'),
+        gains: (fields) => t(locale, 'dup_gains', { fields }),
+        gainsNone: t(locale, 'dup_gains_none'),
+      }}
+      actions={{
+        fetchConflicts: mergeConflicts,
+        merge: mergePeople,
+        undo: undoMerge,
+        markDistinct,
+        afterChange: () => router.refresh(),
+      }}
+    />
   );
 }
