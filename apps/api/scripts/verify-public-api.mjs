@@ -281,11 +281,30 @@ check(
   organiserRes.body?.owner_kind,
 );
 
+// PLAIN TEXT MEANS NO TAGS. `bio` has been published as a plain string since
+// v0.18.15 and an app outside this repo renders it as one; stored bios are
+// HTML now, so the flattening in publicOrganiser is the only thing keeping
+// the promise. A shape check cannot see this: the type is still `string`.
+const TAGS = /<\/?[a-z][^>]*>/i;
+function checkPlain(where, value) {
+  if (value == null) return;
+  const markup = TAGS.test(String(value));
+  check(
+    !markup,
+    `${where} is plain text (no markup)`,
+    markup ? `FOUND MARKUP: ${String(value).slice(0, 60)}` : `${String(value).length} chars, no tags`,
+  );
+}
+checkPlain('organiser.bio', organiserRes.body?.organiser?.bio);
+checkPlain('organiser.short_bio', organiserRes.body?.organiser?.short_bio);
+
 const threadRes = await get(`/api/v1/thread/public/organiser/${OWNER}/thread/${THREAD}`);
 check(threadRes.status === 200, 'GET /public/organiser/:slug/thread/:slug', `HTTP ${threadRes.status}`);
 checkShape('thread', threadRes.body?.thread, SHAPES.thread);
 checkShape('thread organiser', threadRes.body?.organiser, SHAPES.organiser);
 checkPending('thread organiser', threadRes.body?.organiser, PENDING.organiser);
+checkPlain('thread organiser.bio', threadRes.body?.organiser?.bio);
+checkPlain('thread organiser.short_bio', threadRes.body?.organiser?.short_bio);
 if (threadRes.body?.thread?.agenda?.length) {
   checkShape('agenda item', threadRes.body.thread.agenda[0], SHAPES.agendaItem);
 }

@@ -80,7 +80,17 @@ import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { bookingIcalUid, bookingInviteAttachment } from '../lib/meet-invite.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { meetT } from '../lib/email/meet-booking-i18n.js';
-import { isLocale, resolveEmailLocale, resolvePublicLocale, resolveShortBio, type Locale } from '@thefibre/shared';
+import {
+  bioToHtml,
+  bioToPlain,
+  isLocale,
+  resolveEmailLocale,
+  resolvePublicLocale,
+  resolveShortBio,
+  type Locale,
+} from '@thefibre/shared';
+// Its own subpath, as thread.ts imports it: the index does not re-export it.
+import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { createMeetPaymentLink, meetPayButtonHtml } from '../lib/meet-payment-link.js';
 import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
@@ -410,7 +420,14 @@ async function cancelZoomForBooking(hostId: string, meetingId: string): Promise<
 // ===========================================================================
 
 // GET /api/v1/meet/public/host/:host_slug
-// → { id, slug, full_name, bio, photo_url, timezone, meeting_types: [...] }
+// → { id, slug, full_name, bio, bio_html, short_bio, photo_url, timezone,
+//     meeting_types: [...] }
+//
+// `bio` is PLAIN TEXT and `bio_html` is the same bio as markup — the split
+// the Thread public API already publishes, for the same reason: a stored bio
+// is HTML now (five of nine hosts on production, 2026-10-12), and a reader
+// that prints a string prints tags. Our booking page reads `bio_html`; a
+// reader that only knows `bio` gets readable text instead of markup.
 meetRoutes.get('/public/host/:host_slug', async (c) => {
   const hostSlug = c.req.param('host_slug');
 
@@ -458,7 +475,13 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
     slug: host.slug,
     full_name: hostProfile?.display_name ?? userObj?.full_name ?? null,
     avatar_url: userObj?.avatar_url ?? null,
-    bio: hostProfile?.bio ?? host.bio,
+    // PLAIN, always: this field is a string to whoever reads it, and markup
+    // in a string is the portal bug (v1.161.0) waiting to happen again.
+    bio: bioToPlain(hostProfile?.bio ?? host.bio, richTextToPlain),
+    /** The same bio AS MARKUP, additive. Null when there is no bio; may be
+     *  plain text wrapped in paragraphs while a stored bio is still plain
+     *  (packages/shared/src/bio-html.ts). */
+    bio_html: bioToHtml(hostProfile?.bio ?? host.bio),
     // The few lines a compact spot shows: the host's own short bio, else the
     // opening of the bio above (resolveShortBio — the one place that rule
     // lives). Additive.

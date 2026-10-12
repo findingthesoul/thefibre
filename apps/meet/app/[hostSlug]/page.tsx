@@ -28,7 +28,11 @@ type Host = {
   slug: string;
   full_name: string | null;
   avatar_url: string | null;
+  /** PLAIN TEXT since v1.162.0 — the markup is in `bio_html`. */
   bio: string | null;
+  /** The same bio as markup. Optional because an API that predates it omits
+   *  it, and a deploy is not atomic: this page and the API ship separately. */
+  bio_html?: string | null;
   /** Resolved by the API (resolveShortBio): the host's own short bio, else
    *  the opening of `bio`. Optional because an API that predates it omits it. */
   short_bio?: string | null;
@@ -81,7 +85,11 @@ export default async function RootSlugPage({
 function HostView({ host, L }: { host: Host; L: Locale }) {
   const photo = host.photo_url ?? host.avatar_url;
   const name = host.full_name ?? host.slug;
-  const bioHtml = bioToHtml(host.bio);
+  // `bio_html` first: it is the only one that still carries the headings and
+  // lists the author wrote. `bioToHtml(bio)` is the fallback for an API that
+  // predates the field — right for plain text, and all it can do with plain
+  // text that USED to be markup is wrap it, which is why the field exists.
+  const bioHtml = host.bio_html ?? bioToHtml(host.bio);
   const shortBio = host.short_bio ?? null;
   // A booking page is a compact spot (Sjoerd, 2026-10-07): the short bio is
   // what a guest reads, beside the meeting types they came for. The full bio

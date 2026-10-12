@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.162.0] — 2026-10-12
+
+A public `bio` promises plain text. One of them had stopped keeping it.
+
+v1.161.0's finding — every stored bio is HTML now — raises a question about
+every surface that PUBLISHES one: a field documented as a plain string that
+starts returning markup has been re-meant, and rule 8 counts that as breaking
+it as hard as deleting it. The type is still `string`, so neither
+`verify-public-api` nor `verify-external-app` would have noticed.
+
+Asked of the running stacks rather than of the source:
+
+| | returns in `bio` | `bio_html` |
+|---|---|---|
+| Thread `/public/organiser/:slug` | **plain** (3506 chars, no tags) | present |
+| Meet `/public/host/:slug` | **MARKUP** | field absent |
+
+**Thread's was already right** — `publicOrganiser` flattens through
+`bioToPlain` and publishes the markup additively — and that is now checked
+rather than trusted. **Meet's was not**: five of nine hosts on production have
+an HTML bio, and the endpoint handed it over raw with no HTML field beside it.
+Nothing looked broken, because the only known reader is Meet's own booking
+page and it happens to run `bioToHtml` over whatever it gets. Any other reader
+printed tags — which is precisely what the member list was doing.
+
+So Meet's public host payload now matches Thread's: `bio` is plain,
+`bio_html` is additive, `short_bio` was already flattened (`resolveShortBio`
+goes through `bioToPlain`). The booking page reads `bio_html` first, because
+`bioToHtml` over plain text can wrap paragraphs but cannot put back a heading
+the author wrote — and it keeps the old path as a fallback, since the API and
+the page deploy separately.
+
+**And `verify-public-api.mjs` now asserts the promise itself**: if `bio` or
+`short_bio` comes back with a tag in it, the release gate fails. Shape checks
+could never catch this — they assert a key exists and is a string, and both
+remained true the whole way. Mutation-checked: handing the checker
+`<p>tags</p>` fails the script.
+
+A smaller thing in the same file, and the same lesson as principle 20: the new
+line printed `found markup: …` whether it passed or failed, so a PASSING check
+read as though it had found markup. The detail now describes what happened.
+
+Verified on deployed staging after v1.161.0: the portal member list at 375 and
+1280 — rows, no tags anywhere, the bio rendered on the member page with its
+`<h3>` intact — and all six portal tabs at both widths after the gutter
+change, 16px on a phone, 32px from `sm`, nothing scrolling sideways. One
+assertion of my own was wrong and the desktop run caught it: the row was
+measured against the WINDOW width, which a desktop list correctly does not
+fill. It is measured against its own list now, with the full-bleed check kept
+for phone width only.
+
 ## [1.161.0] — 2026-10-12
 
 The portal's member list becomes a list, and a bio stops showing its own tags.

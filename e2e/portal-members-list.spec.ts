@@ -176,10 +176,24 @@ for (const [label, width, height] of [
 
     // The whole row is the link, not four characters of it: on a phone that
     // is the difference between a list you can use and one you cannot.
+    //
+    // Measured against the LIST, not the viewport. The first version of this
+    // compared the row to the window width and failed at 1280 — correctly:
+    // on a desktop the list is a card in a page with a rail beside it, and a
+    // row that spanned the WINDOW would mean the card had broken. What must
+    // be true at both widths is that the row fills its own list.
     const box = await row.boundingBox();
+    const list = await page.locator('ul').filter({ has: row }).first().boundingBox();
     expect(box, 'the row has a box').toBeTruthy();
-    expect(box!.width, 'the tappable row spans the width').toBeGreaterThan(width * 0.8);
+    expect(list, 'the list has a box').toBeTruthy();
+    expect(box!.width, 'the tappable row fills its list').toBeGreaterThan(list!.width * 0.95);
     expect(box!.height, 'and is at least a finger high').toBeGreaterThanOrEqual(44);
+    // And on a phone the list itself reaches the glass: ROW_LIST cancels the
+    // page gutter, which is the whole reason the shell moved to px-4.
+    if (width < 768) {
+      expect(list!.x, 'the list starts at the screen edge').toBeLessThanOrEqual(1);
+      expect(list!.width, 'and is as wide as the screen').toBeGreaterThanOrEqual(width - 1);
+    }
   });
 
   test(`${label}: the member page shows the full bio, rendered`, async ({ page }) => {
