@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.164.1] — 2026-10-12
+
+The member price, proved against the deployed API with a real token.
+
+Everything about this feature had been tested rather than seen: the
+arithmetic in a unit test, the entitlement in an integration test, who
+qualifies in a pure function. **The hole it nearly shipped with — pricing on
+a typed email — was invisible to every one of those.** So
+`e2e/member-price.spec.ts` seeds a community on staging (a published team, a
+€35 thread in it, a tier whose grant carries that team's calendar at 100%, and
+the member fixture) and calls the public enrol route four times, the way the
+form does:
+
+| who is asking | what the API answered |
+|---|---|
+| anonymous | `invoice_pending` — the list price is owed |
+| the member, with a REAL token, enrolling their own address | `ok`, nothing owed |
+| the member's token, enrolling SOMEBODY ELSE | `invoice_pending` — a membership is not spendable on a friend |
+| a tampered token | `invoice_pending` — a token that does not verify is no token |
+
+**And the offer is identical for every caller.** `member_discount_pct` comes
+back 100 for a stranger, for the signed-in member and for a forged token —
+checked in the same run, because a payload that varied with the bearer would
+become the very oracle the member price was kept away from: "does this answer
+change when I send my token?" would say whether that token belongs to a
+member.
+
+**The open ledger question now has a measured answer to decide against.** A
+€0 member join writes NO purchase row — printed by the run, and confirmed in
+the code: `recordThreadPurchase` is called only from the two paid branches.
+That is already true of a free thread and of a 100%-off coupon, so the
+product is consistent; what is open is whether all three should instead record
+a €0 row carrying its reason. Same path, same answer, whichever Sjoerd picks.
+
+Four fixes on the way there, each one a thing the test had to be told rather
+than guess: a TEAM thread publishes under the team's slug, and the public
+resolver only finds a team that is active AND published; `policy_version` is a
+string and the route said so in its 400; a thread that offers invoice only
+refuses the default `stripe`; and the session lives in a COOKIE, not
+localStorage — which is exactly why it is shared across the apex and why a
+signed-in member has a session on a public page at all.
+
 ## [1.164.0] — 2026-10-12
 
 The member price, for a person who has proved who they are.
