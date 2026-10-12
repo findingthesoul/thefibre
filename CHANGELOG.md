@@ -6,6 +6,69 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.158.0] — 2026-10-12
+
+Every help guide in every app is checked against the buttons it names.
+
+A guide that tells somebody to press a button nobody can find is worse than no
+guide: they go looking, fail, and conclude the product is broken rather than
+the manual. The guide text and the button text are two strings in the same
+catalogue, and until v1.152.0 nothing compared them. That check covered two
+guides in one app and found eighteen drifted labels, which was the argument
+for not stopping there.
+
+`@thefibre/shared/help-guide-labels` now holds the rule and **all eight apps
+run it over all fifty-five guides**. There is no list of which guide names
+which button — a guide names a control by quoting it, so the check reads the
+guides. A list is the thing that goes stale, which is the failure this exists
+to prevent.
+
+**It found fifty-three more drifted labels**, every one a guide naming a
+control whose wording had since changed:
+
+| app | corrected |
+|---|---|
+| The Fibre | 16 |
+| Pulse | 36 |
+| Members | 1 |
+
+Mostly small and entirely real — the Dutch Pulse guide said *"Boekjaar
+begint"* where the field says *"Boekjaar begint in"*; the Portuguese Fibre
+guide said *"Voltar ao Free"* where the button says *"Voltar para o Free"*.
+None would ever have been noticed by anybody reading English.
+
+**Languages quote differently, and the first version of this check did not
+know that.** It looked only for English curly quotes, so German guides (which
+open with a low-9 quote) and French ones (guillemets) yielded nothing and
+passed in silence — a vacuous pass inside a check written to prevent vacuous
+passes. **Twelve of the fifty-three were hiding behind it.** The checker knows
+all three conventions now, and reports a per-locale count so a language it
+cannot read shows up as a zero instead of a pass. Each app asserts on that.
+
+Apps whose guides quote nothing — Flow and Connections, and Meet in English —
+get a check that proves nothing, and they say so in an assertion rather than
+reporting a quiet pass. The day somebody adopts the convention there, those
+assertions fail and the real ones start working.
+
+Phrases that are quoted but are not controls — example rows, a partial column
+heading, a tier price — are listed as exceptions with a reason each, in every
+locale they appear in. An exception for a phrase no guide quotes any more
+fails the test, so the list cannot outgrow its reasons.
+
+**The limit worth knowing: only QUOTED phrases are checked.** A guide that
+writes *press Find duplicates* without quote marks is invisible to this — and
+the contacts guide does exactly that in its first step, as do *Press Back* and
+*Under Recent merges press Undo*. The quoting convention is what makes a guide
+machine-checkable, so the coverage is "every quoted control", not "every
+control named". Quoting a label is now the cheapest way to get it watched.
+
+**And `e2e/help-pages.spec.ts` checks EVERY guide link**, not the first one.
+Checking only the first is a check that cannot fail for the reason it exists:
+a stale link is nearly always one somebody added later, and later means
+further down. Nineteen links on The Fibre's Help page; one was being looked
+at. All six apps pass, and broken links are now collected and reported
+together rather than one per run.
+
 ## [1.157.1] — 2026-10-12
 
 Two card labels become required-and-nullable, so forgetting one is an error.

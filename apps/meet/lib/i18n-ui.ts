@@ -4746,4 +4746,12 @@ const CATALOG = {
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);
+/** Every key in this catalogue, at RUNTIME.
+ *
+ *  `UiKey` is a type and vanishes at compile time, so a test cannot iterate
+ *  it. The help-guide label check needs the actual list to resolve the
+ *  phrases a guide quotes against the strings this app really renders —
+ *  through `t`, so it can never drift from what a person sees. */
+export const UI_KEYS = Object.keys(CATALOG) as UiKey[];
+
 export type UiKey = keyof typeof CATALOG;

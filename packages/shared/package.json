@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.157.1",
+  "version": "1.158.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -97,6 +97,10 @@
     "./zoom-pending-i18n": {
       "types": "./dist/zoom-pending-i18n.d.ts",
       "default": "./dist/zoom-pending-i18n.js"
+    },
+    "./help-guide-labels": {
+      "types": "./dist/help-guide-labels.d.ts",
+      "default": "./dist/help-guide-labels.js"
     },
     "./payments-i18n": {
       "types": "./dist/payments-i18n.d.ts",

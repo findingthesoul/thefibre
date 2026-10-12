@@ -1,72 +1,71 @@
 import { describe, expect, it } from 'vitest';
-import { LOCALES, t, type Locale, type UiKey } from './i18n-ui';
+import { checkGuideLabels } from '@thefibre/shared/help-guide-labels';
+import { LOCALES, t, UI_KEYS } from './i18n-ui';
 
-// A help guide that names a button nobody can find is worse than no guide.
+// Do this app's help guides quote controls that still exist?
 //
-// help/page.tsx has carried the instruction for a year — "Every button named
-// exists on the page the guide links to — check the screen before editing a
-// step" — and on 2026-10-12 the contacts duplicates guide was telling people
-// to press "Keep this one" while the button said "Merge into this one", in
-// all six locales. Nothing caught it, because the guide text and the button
-// text are two strings in the same file that nothing compares.
+// The first version of this file listed, by hand, which guide quoted which
+// button — and only for the two duplicates guides. It found eighteen drifted
+// labels on its first run, which was the argument for not stopping at two.
+// The rule now comes from `@thefibre/shared/help-guide-labels` and applies to
+// every guide here, with no list to keep: a guide names a control by quoting
+// it, so the check reads the guides themselves.
 //
-// Nothing here looks at a screen, so it cannot prove a button is rendered.
-// What it proves is narrower and is the half that went wrong: when a guide
-// quotes a control, it quotes the CURRENT label for it, in every locale.
-// Rename a button and the guide that quotes it fails until it is rewritten.
+// What it cannot see is a guide that names a control WITHOUT quoting it. The
+// `quoted` count is asserted for exactly that reason — a check with nothing
+// to check must say so rather than pass quietly.
 
-/** Controls a guide quotes, by the catalog key that supplies the label. */
-const QUOTED: Record<string, UiKey[]> = {
-  // Contacts → Duplicates.
-  help_g_duplicates_steps: [
-    'dup_find',
-    'dup_same_person',
-    'dup_different_people',
-    'dup_keep_this',
-    'dup_conflict_merge',
-    'dup_recent_merges',
-    'dup_undo',
-    'dup_back',
-  ],
-  // Organisations → Duplicates. Shares the merge vocabulary with the person
-  // queue and has its own question, which is the whole reason odup_* exists.
-  help_g_org_duplicates_steps: [
-    'dup_find',
-    'odup_same_org',
-    'odup_different_orgs',
-    'dup_keep_this',
-    'dup_conflict_merge',
-    'dup_recent_merges',
-    'dup_undo',
-    'dup_back',
-  ],
-};
+// Phrases that are quoted but are NOT controls. Each locale's wording is its
+// own entry, because the guides are translated and so are the examples — and
+// an exception that only covers English would let five languages drift.
+// Stale entries fail (see `stale`), so this list cannot quietly outgrow its
+// reasons.
+const HEADING = 'a section heading on the Assistant settings page, drawn by that page rather than from this catalogue';
+const NO_ACCESS = 'describes the kind of page an app shows, not a control anybody presses';
 
-describe('help guides quote the labels the buttons actually carry', () => {
-  for (const [guideKey, controls] of Object.entries(QUOTED)) {
-    for (const locale of LOCALES) {
-      it(`${guideKey} (${locale})`, () => {
-        const steps = t(locale as Locale, guideKey as UiKey);
+const EXCEPTIONS = [
+  { phrase: 'B. Your own Claude', why: HEADING },
+  { phrase: 'B. Je eigen Claude', why: HEADING },
+  { phrase: 'B. Tu propio Claude', why: HEADING },
+  { phrase: 'B. Seu próprio Claude', why: HEADING },
+  { phrase: 'B. Dein eigener Claude', why: HEADING },
+  { phrase: 'B. Ton propre Claude', why: HEADING },
+  { phrase: 'no access', why: NO_ACCESS },
+  { phrase: 'geen toegang', why: NO_ACCESS },
+  { phrase: 'sin acceso', why: NO_ACCESS },
+  { phrase: 'sem acesso', why: NO_ACCESS },
+  { phrase: 'Kein Zugriff', why: NO_ACCESS },
+  { phrase: 'pas d’accès', why: NO_ACCESS },
+];
 
-        // Guard against the vacuous version of this test: a missing or empty
-        // guide would satisfy nothing-is-wrong while containing no labels at
-        // all. Assert there is real text first.
-        expect(steps.length).toBeGreaterThan(200);
+describe('help guides quote controls that exist', () => {
+  const report = checkGuideLabels({ locales: LOCALES, t, keys: UI_KEYS, exceptions: EXCEPTIONS });
 
-        // Collect EVERY mismatch rather than throwing on the first. A guide
-        // that quotes six controls and has three wrong should say so once —
-        // fixing them one failure per run is how a short job becomes a long
-        // one, and how a correct label gets "fixed" into a wrong one on the
-        // way past.
-        const missing = controls
-          .map((control) => ({ control, label: t(locale as Locale, control) }))
-          .filter(({ label }) => !steps.includes(label));
+  it('quotes something at all', () => {
+    // Guard against the vacuous pass: if this app stopped quoting controls,
+    // every assertion below would hold over an empty set.
+    expect(report.quoted).toBeGreaterThan(0);
+  });
 
-        expect(
-          missing.map(({ control, label }) => `${control} → “${label}”`),
-          `guide ${guideKey} (${locale}) quotes labels that no longer exist`,
-        ).toEqual([]);
-      });
+  it('every quoted control is a string this app renders, in every locale', () => {
+    expect(report.misses).toEqual([]);
+  });
+
+  it('carries no exception for a phrase no guide quotes any more', () => {
+    // An exemption that outlives its reason is how a skip-list grows.
+    expect(report.stale).toEqual([]);
+  });
+
+  it('can see every locale, not just the ones it knows how to read', () => {
+    // The first version of this check looked only for English curly quotes,
+    // so the German guides (low-9 quotes) and the French ones (guillemets)
+    // yielded nothing and passed in silence. Twelve real mismatches were
+    // hiding behind that. A locale at zero while English has several means
+    // the quoting convention is one this check does not know — not that the
+    // guides are clean.
+    const en = report.perLocale.en ?? 0;
+    for (const [locale, n] of Object.entries(report.perLocale)) {
+      expect(n, `${locale} quotes nothing while en quotes ${en}`).toBeGreaterThan(0);
     }
-  }
+  });
 });

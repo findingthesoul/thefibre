@@ -21,7 +21,7 @@ const APPS = [
 ] as const;
 
 for (const [name, host, slug] of APPS) {
-  test(`${name}: Help renders, lists guides, and its first link is a real page`, async ({ page }) => {
+  test(`${name}: Help renders, lists guides, and EVERY link is a real page`, async ({ page }) => {
     test.slow();
     // The fixture user may hold no seat for this app; then the shell sends
     // them to /no-access and there is nothing to check here. Say so — the
@@ -35,13 +35,32 @@ for (const [name, host, slug] of APPS) {
     const guides = page.locator('main a[href^="/"], a[href^="/"]').filter({ hasNotText: /^$/ });
     expect(await guides.count()).toBeGreaterThan(3);
 
-    const first = guides.first();
-    const href = await first.getAttribute('href');
-    expect(href).toBeTruthy();
-    const res = await page.request.get(`${host}${href}`);
-    // A redirect to sign-in would be a 200 of the wrong page; the request
-    // context shares the browser's cookies, so this is the signed-in answer.
-    expect(res.status(), `${name} ${href}`).toBeLessThan(400);
+    // EVERY link, not only the first.
+    //
+    // It checked `guides.first()` until 2026-10-12, which is a check that
+    // cannot fail for the reason it exists: a stale link is nearly always one
+    // somebody added later, and later means further down. The Fibre's Help
+    // lists nineteen; the first was the only one anybody looked at.
+    const hrefs = [
+      ...new Set(
+        (await guides.evaluateAll((els) =>
+          els.map((e) => (e as HTMLAnchorElement).getAttribute('href') ?? ''),
+        )).filter(Boolean),
+      ),
+    ];
+    expect(hrefs.length, `${name}: no guide links found`).toBeGreaterThan(3);
+
+    // Collected, then reported together: failing on the first bad link tells
+    // somebody to fix one and come back, when the useful answer is all of
+    // them at once.
+    const broken: string[] = [];
+    for (const href of hrefs) {
+      // A redirect to sign-in would be a 200 of the wrong page; the request
+      // context shares the browser's cookies, so this is the signed-in answer.
+      const res = await page.request.get(`${host}${href}`);
+      if (res.status() >= 400) broken.push(`${href} → ${res.status()}`);
+    }
+    expect(broken, `${name}: guide links that do not resolve`).toEqual([]);
     await expect(page.locator('body')).not.toContainText('404');
   });
 }
