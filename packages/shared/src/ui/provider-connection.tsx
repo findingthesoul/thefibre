@@ -29,15 +29,24 @@ import { Button } from './button.js';
 export type ProviderConnectionLabels = {
   /** What this provider is used for in this app. */
   description: string;
-  /** "Zoom account: x@y.z" — already formatted, or built from the email. */
-  account: string | ((email: string) => string);
+  /** "Zoom account: x@y.z" — already formatted, or built from the email.
+   *
+   *  OPTIONAL: a provider that never reports which account was connected has
+   *  no such line, and inventing a string nobody reads is how a label ends up
+   *  rendered somewhere it is wrong. Google Calendar is that case — the
+   *  connection is a yes/no, and `accountEmail` is always null. */
+  account?: string | ((email: string) => string);
   /** Shown after returning from a successful connect. */
   connectedMessage: string;
   /** Shown after a failed connect; receives " (reason)" or "". */
   errorMessage: string | ((reasonSuffix: string) => string);
   /** The server has no app credentials for this provider, so connecting
-   *  cannot work. */
-  notConfigured: string;
+   *  cannot work.
+   *
+   *  OPTIONAL, for the same reason: Google is configured wherever the apps
+   *  run, so the state does not exist and the card should not require a
+   *  sentence describing it. */
+  notConfigured?: string;
   /** Fallback when starting the flow fails without a message. */
   startFailed: string;
   connect: string;
@@ -117,6 +126,8 @@ export function ProviderConnectionCard({
 
   const accountLine =
     typeof labels.account === 'function' ? labels.account(accountEmail ?? '') : labels.account;
+  // Never rendered when the label is absent — see the guard below — but
+  // computed defensively so an absent label cannot throw on the way past.
   const reasonSuffix = reasonParam ? ` (${reasonParam})` : '';
   const errorLine =
     typeof labels.errorMessage === 'function'
@@ -143,14 +154,14 @@ export function ProviderConnectionCard({
           {/* The product name: not translated. */}
           <div className="font-medium">{name}</div>
           <div className="text-sm text-ink-subtle mt-1">{labels.description}</div>
-          {connected && accountEmail && (
+          {connected && accountEmail && labels.account && (
             <div className="mt-2 text-sm text-ink-subtle">{accountLine}</div>
           )}
           {statusParam === 'connected' && !error && (
             <div className="mt-3 text-sm text-emerald-700">{labels.connectedMessage}</div>
           )}
           {statusParam === 'error' && <div className="mt-3 text-sm text-red-700">{errorLine}</div>}
-          {!configured && !connected && (
+          {!configured && !connected && labels.notConfigured && (
             <div className="mt-3 text-sm text-ink-subtle">{labels.notConfigured}</div>
           )}
           {/* Only while disconnected: it explains what to do INSTEAD of

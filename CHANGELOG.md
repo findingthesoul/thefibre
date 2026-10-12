@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.157.0] — 2026-10-12
+
+The three Google Calendar cards become the shared one.
+
+v1.153.3 fixed a phone-layout bug in three hand-written copies of this card —
+Meet's `settings/google.tsx`, Thread's and The Fibre's
+`settings/connections/google-connect.tsx`. Fixing the same two classes in
+three files was the argument for not having three files. They now render
+`ProviderConnectionCard`, the component Zoom and Microsoft Teams already use,
+with Google's strings and server actions injected.
+
+They were never meaningfully different: the three differed only in import
+paths and i18n key names, which is precisely what the card's `labels` prop
+exists for. 214 lines deleted, 135 added, and much of what was added is the
+comment explaining why.
+
+**Two labels became optional rather than invented.** `account` and
+`notConfigured` were required, and Google has neither: the connection is a
+yes/no that never reports which account was linked, and Google is configured
+wherever these apps run. Passing a placeholder would have put a string in the
+codebase that nobody reads and that would be wrong if anything ever rendered
+it. They are now optional and their blocks render only when both the state
+applies AND the label exists, so Zoom and Teams are untouched.
+
+**A correction to something this changelog implied in v1.153.3.** That entry
+said porting these was "a real change rather than a deletion" because Google
+"has its own connect flow and no disconnect". The second half was wrong — all
+three cards call `disconnectGoogle`, and always have. The port was accordingly
+simpler than advertised, which is a better outcome than the reverse, but the
+claim should not stand uncorrected.
+
 ## [1.156.0] — 2026-10-12
 
 The two duplicates screens become one component.
