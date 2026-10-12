@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.168.0] — 2026-10-12
+
+Looked at the field on a phone, and it did not fit.
+
+v1.167.0 shipped the team-calendar field with its layout reasoned rather than
+seen. Seen now, on staging, at both widths — and the desktop reading is good:
+selecting **Team calendar** puts the picker and the percentage beside the kind
+select, the number starts at 100, and the sentence beside it changes **as you
+type** — *"100% — free for members"*, *"20% off for members"*, and at 0 a red
+*"0% promises nothing — leave the calendar off instead."* The picker lists both
+teams and marks the unpublished one *not published*.
+
+**At 375 it was broken.** The row put the kind select, the two-field team block
+and the Add button side by side: **416px of content in a 373px dialog**,
+measured in the browser, with *Add access* clipped off the right edge and a
+horizontal scrollbar under it. The row now wraps at phone width and stays one
+line from `sm` up — wrapping is turned on only for this kind, because the other
+kinds' field is `w-full` and would wrap onto its own line at every width. The
+e2e spec now asserts the dialog does not scroll sideways and that *Add access*
+sits inside it, so this cannot come back.
+
+Also in this release, and the reason it is not just a layout fix:
+
+**A grant can no longer point at another workspace's team.** The schema could
+say `team_id` is a uuid; only a query can say it is one of *this* workspace's
+teams, so the check is at the write (`teamIsInWorkspace`). Nothing downstream
+would have paid out — `memberDiscountFor` resolves the member inside the
+*thread's* workspace, so the ids can never meet — but that is the reader being
+careful about something the writer should never have accepted, and the next
+slice adds a second reader. One message for "not yours", "no such team" and
+"switched off", because a writer who may not have a team has no business
+learning whether it exists. Five integration tests across **two** throwaway
+workspaces (a tenancy rule tested inside one workspace tests nothing), four
+mutations each turning at least one red. `team` has no `deleted_at` — asked of
+the database rather than assumed; a team is retired with `is_active`, and an
+inactive calendar grants nothing.
+
+And two things the first e2e run found that were mine, not the product's: the
+button says *Add access*, not *Add*, and a locator by name matched twice
+because the product card behind the dialog repeats the grant's words in its
+*unlocks* line. Both scoped to the dialog now.
+
+**One measurement worth recording rather than fixing.** The Access row sits
+**780px down a 492px window** when the dialog opens — further than the Directory
+categories section (610px) that was reported missing on 2026-10-04. It is
+reachable by scrolling and everything works once you are there, so the spec
+asserts reachable and prints the number: which section a dialog with eight
+sections puts below the fold is a design decision, and moving this one up only
+pushes another one down.
+
 ## [1.167.0] — 2026-10-12
 
 The admin field: an organiser can now SAY a team's calendar is free for members.

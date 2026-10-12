@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { parseTeamCalendarConfig } from '../lib/grant-config.js';
+import { parseTeamCalendarConfig, teamIsInWorkspace } from '../lib/grant-config.js';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
 import { organisationBilling, organisationBillingSnapshot } from '../lib/org-billing.js';
@@ -1350,6 +1350,15 @@ membershipRoutes.post('/grants', async (c) => {
   const body = CreateGrant.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
+  // TENANCY, at the write. The schema can say a team_id is a uuid; only a
+  // query can say it is one of THIS workspace's teams. Nothing downstream
+  // would pay out on a foreign team, but a row that can only ever be wrong
+  // should never be stored.
+  if (body.data.kind === 'team_calendar') {
+    const teamId = String((body.data.config as { team_id?: unknown }).team_id ?? '');
+    const owned = await teamIsInWorkspace(teamId, ctx.workspaceId);
+    if (!owned.ok) return c.json({ error: owned.message }, 400);
+  }
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_access_grant')

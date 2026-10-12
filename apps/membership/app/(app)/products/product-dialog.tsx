@@ -570,10 +570,15 @@ export function ProductDialog({
               )}
               {/* The team-calendar block is two fields tall, so the kind
                   select and the Add button align to its TOP rather than
-                  floating down its middle. */}
+                  floating down its middle — and the row WRAPS, because at
+                  375 it does not fit: measured on staging at 416px of content
+                  in a 373px dialog, with Add access clipped off the right
+                  edge and a horizontal scrollbar under it. Wrapping is turned
+                  on only for this kind, since the other kinds' field is
+                  `w-full` and would wrap onto its own line at every width. */}
               <div
                 className={`flex gap-2 ${
-                  accessKind === 'team_calendar' ? 'items-start' : 'items-center'
+                  accessKind === 'team_calendar' ? 'flex-wrap items-start' : 'items-center'
                 }`}
               >
                 <select
@@ -597,7 +602,7 @@ export function ProductDialog({
                      Access dialog renders the same two fields, and the
                      alternative is two ideas about what a blank percentage
                      means. */
-                  <div className="flex-1">
+                  <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                     <TeamCalendarGrantFields
                       teams={teamOptions.map((x) => ({
                         id: x.id,
