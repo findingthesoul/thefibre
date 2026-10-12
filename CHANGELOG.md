@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.168.1] — 2026-10-12
+
+The refusal, produced rather than reasoned — and the phone fix, seen.
+
+v1.168.0 closed the cross-workspace gap at the write and tested it five ways,
+all of which called `teamIsInWorkspace` directly. **Nothing had ever made the
+ROUTE say no.** The wiring between the parsed config and the 400 — read
+`team_id`, call the check, return — was reasoned, and the form cannot exercise
+it, because its picker only ever offers this workspace's teams. A refusal
+nobody has produced is a plan.
+
+So the spec now posts straight at the deployed route with the fixture's own
+session, naming a team that exists and belongs to somebody else:
+
+    [team-cal] foreign team POST: 400 {"error":"no such team in this workspace"}
+    [team-cal] own team POST: 201
+
+Both halves matter. Without the second, a passing refusal could mean *the route
+refuses everything* — the failure that makes a security test look green while
+the feature is broken. The 201 also confirms the blank-percentage default lands
+as 100 through the API exactly as the form would have written it.
+
+The first run of it failed on an honest 400 of a different kind —
+`X-App-ID "fibre-membership" is not a registered, approved app` — because I
+guessed the slug instead of reading it (`membership`). Worth recording: the
+assertion caught it only because it checks the MESSAGE and not just the status.
+A test that asserted `400` would have passed while proving nothing.
+
+**And the 375 fix is confirmed, by measurement and by eye.** The dialog that
+carried 416px of content in a 373px box now measures 373 against 373, with
+*Add access* on its own line inside the dialog at x=123, and the field reads as
+a clean stack on a phone: kind, Team, Member discount, the sentence, the
+button.
+
 ## [1.168.0] — 2026-10-12
 
 Looked at the field on a phone, and it did not fit.

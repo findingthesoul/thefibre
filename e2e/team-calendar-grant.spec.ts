@@ -16,7 +16,13 @@
 // makes, including grants it created through the form.
 
 import { expect, test } from '@playwright/test';
-import { HOSTS, fixtureIdentity, landSignedIn, stagingService, waitForHydration } from './helpers.js';
+import {
+  HOSTS,
+  fixtureIdentity,
+  landSignedIn,
+  stagingService,
+  waitForHydration,
+} from './helpers.js';
 
 const TAG = 'e2e-team-cal';
 let ws = '';
@@ -291,4 +297,106 @@ test('at 375 the Access row FITS — no sideways scroll, nothing clipped', async
 
   // The field still works at this width, which is the point of it fitting.
   await expect(page.locator('body')).toContainText(/100% — free for members/i);
+});
+
+test('a team from ANOTHER workspace is refused by the route, and nothing is written', async ({
+  page,
+}) => {
+  test.slow();
+  const service = stagingService();
+  const API = 'https://thefibre-api-staging.fly.dev';
+
+  // A real team in a workspace the fixture has nothing to do with. Picked
+  // from what is already on staging rather than created: the point is that
+  // the id is VALID and simply not theirs, and a workspace this fixture does
+  // not administer is exactly what makes it a tenancy question. Nothing is
+  // written to it and nothing about it is read beyond its id.
+  const { data: foreign } = await service
+    .from('team')
+    .select('id, workspace_id')
+    .neq('workspace_id', ws)
+    .eq('is_active', true)
+    .limit(1);
+  const foreignTeam = foreign?.[0];
+  expect(foreignTeam, 'staging has a team in another workspace to try').toBeTruthy();
+
+  // Signed in as the fixture admin, and the request carries THEIR session —
+  // this is an authorised caller of their own workspace, naming somebody
+  // else's team. Not an attack from outside; the case the form cannot reach.
+  await landSignedIn(page, HOSTS.membership, 'membership', '/products', /\/products|no-access/);
+  await waitForHydration(page, 'button');
+  const token = await page.evaluate(() => {
+    const raw = document.cookie
+      .split('; ')
+      .filter((c) => /^sb-.*-auth-token(\.\d+)?=/.test(c))
+      .sort()
+      .map((c) => c.slice(c.indexOf('=') + 1))
+      .join('');
+    if (!raw) return null;
+    const json = raw.startsWith('base64-')
+      ? atob(raw.slice(7))
+      : decodeURIComponent(raw);
+    try {
+      return (JSON.parse(json) as { access_token?: string }).access_token ?? null;
+    } catch {
+      return null;
+    }
+  });
+  expect(token, 'the signed-in fixture has a token in the browser').toBeTruthy();
+
+  const before = await service
+    .from('membership_access_grant')
+    .select('id')
+    .eq('product_id', productId);
+
+  const res = await page.request.post(`${API}/api/v1/membership/grants`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'X-App-ID': 'membership',
+    },
+    data: {
+      product_id: productId,
+      kind: 'team_calendar',
+      config: { team_id: foreignTeam!.id, discount_pct: 100 },
+    },
+  });
+  const body = await res.text();
+  console.log(`[team-cal] foreign team POST: ${res.status()} ${body.slice(0, 200)}`);
+  expect(res.status(), 'the route refuses it').toBe(400);
+  expect(body, 'and says so without confirming the team exists').toContain(
+    'no such team in this workspace',
+  );
+
+  const after = await service
+    .from('membership_access_grant')
+    .select('id, config')
+    .eq('product_id', productId);
+  expect((after.data ?? []).length, 'nothing was written').toBe((before.data ?? []).length);
+
+  // And the same call with THIS workspace's team goes through, so a passing
+  // refusal cannot mean "the route refuses everything" — the failure mode
+  // that makes a security test look green while the feature is broken.
+  const ok = await page.request.post(`${API}/api/v1/membership/grants`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'X-App-ID': 'membership',
+    },
+    data: { product_id: productId, kind: 'team_calendar', config: { team_id: teamId } },
+  });
+  console.log(`[team-cal] own team POST: ${ok.status()}`);
+  expect(ok.status(), 'its own team is accepted').toBe(201);
+  const { data: written } = await service
+    .from('membership_access_grant')
+    .select('config')
+    .eq('product_id', productId);
+  expect(
+    (written ?? []).map((g) => (g.config as { team_id?: string }).team_id),
+    'and the row that landed is the OWN team, with the blank-means-100 default',
+  ).toContain(teamId);
+  expect(
+    (written ?? []).some((g) => (g.config as { discount_pct?: number }).discount_pct === 100),
+    'blank percentage stored as 100 by the API, as the form would have',
+  ).toBe(true);
 });
