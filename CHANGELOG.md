@@ -6,6 +6,86 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.159.1] — 2026-10-12
+
+The flaky test was a race, and the suspicion was wrong.
+
+`admin-screens` failed once on 2026-10-11 "waiting on an invoice row" and
+passed on retry. **A gate that sometimes fails teaches people to re-run it**,
+and a suite people re-run is a suite people stop reading — so this is the fix,
+and it adds no attempts.
+
+**Measuring killed the first theory.** The suspicion was pagination: the
+seeded fixture rows ageing out of a page of fifty as staging accumulates
+purchases. Staging holds **thirteen purchase rows in total, and the two
+fixture rows are the newest of them** — neither can fall off any page. What
+the numbers did show is the race: the list fills client-side (hydrate →
+server action → API → render), its busy region clears in **280–800ms** warm,
+and one landing in six took **5.8 seconds**. `toContainText` gives it five.
+
+So: **wait for the state, not for the text.** `aria-busy="true"` is already
+this codebase's convention for a region still loading — `ui/invoices.tsx`,
+`ui/page-loading.tsx`, Thread's registrations dialog and pricing panel all
+carry it. `waitForListLoaded` in `e2e/helpers.ts` waits for the last one to
+go with a generous budget, and the assertion after it gets a SHORT one, two
+seconds against a measured 4–9ms. A longer timeout would have been the wrong
+fix twice over: a genuinely missing row would take twenty seconds to report,
+and a row arriving at second nineteen of a one-second load would leave the
+test green with the product broken.
+
+`contact-invoices` carried the same workaround — a 20-second cushion on the
+same kind of assertion — and now uses the same wait.
+
+**A second flake, found by running the suite rather than trusting it.**
+`org-names` timed out for thirty seconds on a navigation, and it was not the
+product: all five of its tests sign the SAME owner account in **by hand**,
+with `page.goto` of a land URL, while two workers run the rest of the suite.
+That is precisely the race `landSignedInAsOwner` exists to absorb — `land()`
+retries a landing that does not take, and logs it. Five landings now go
+through the helper.
+
+**And that spec's no-match case was proving nothing.** It asserted the EBBF
+organisation had a count of zero — which is also what an unrendered page
+gives you. It now asserts the empty state is visible first: the page saying
+it searched and found nothing, before saying what it did not find.
+
+Mutation-checked, because a test that cannot fail is the thing being fixed
+here: a row that does not exist now fails in 8.4s instead of 13.3s and names
+the 2000ms budget; drifting the empty-state wording by one letter reddens the
+no-match case; and with the state wait REMOVED the spec still passes, which
+is the honest statement of this change — it removes a race, it does not fix a
+red test.
+
+**The suite was also red here for a reason that was not the code.** Two
+webkit specs failed with "Executable doesn't exist" — this worktree had never
+downloaded the browser. Installed; the full pack now runs green with
+**retries off**: 72 passed, 9 skipped, 0 failed, and the skips are all
+declared. Worth knowing in a fresh worktree: `pnpm exec playwright install
+webkit` is part of setting one up.
+
+**Meet 2.30.1** (user-facing), carried here deliberately rather than waiting
+for the next Meet-shaped release: v1.159.0 changed Meet's Payments screen —
+the second account now shows the workspace's name — and "the next release
+that touches Meet" is how a version constant slips a month.
+
+**Said plainly, because it is about whose account gets used.** Two of the
+specs touched here — `contact-invoices` and `org-names` — are among the three
+that sign in as the OWNER of the staging `default` workspace, and that owner
+is **Sjoerd's own account**, by design: `resolveOwnerIdentity` takes the
+single `super_admin` of that workspace and refuses to run if it resolves to
+the fixture. They were edited AND RUN: twelve owner-identity tests per full
+pack, three full packs today, plus targeted runs — all read-only, each
+minting one single-use handoff code and a session.
+
+A builder should not be making that choice, so `docs/testing-approach.md` now
+carries the command that runs the pack WITHOUT those three, and names the
+grep that finds them rather than keeping a list. A plain `pnpm test:e2e`
+still runs everything, which is exactly how the sign-ins happened without
+anybody deciding to: **that default is Sjoerd's call, not a passing
+session's**, and it is with him.
+
+Principles 21 and 22 in `docs/testing-approach.md`.
+
 ## [1.159.0] — 2026-10-12
 
 Five optional props that were quietly dropping things become required.

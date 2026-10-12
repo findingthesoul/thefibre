@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HOSTS, landSignedInAsOwner, stagingService } from './helpers.js';
+import { HOSTS, landSignedInAsOwner, stagingService, waitForListLoaded } from './helpers.js';
 import { resolveOwnerIdentity } from './identities.js';
 
 // A contact's Invoices tab (v0.75.14), through the real signed-in screen on
@@ -57,7 +57,10 @@ test.describe("a contact's invoices (v0.75.14)", () => {
 
     await tab.click();
     await page.waitForURL(/\/invoices$/, { timeout: 30_000 });
-    await expect(page.getByText(withInvoice!.item_label).first()).toBeVisible({ timeout: 20_000 });
+    // The same race as admin-screens, and the twenty-second cushion here was
+    // the same workaround: wait for the list to STOP loading, then read it.
+    await waitForListLoaded(page);
+    await expect(page.getByText(withInvoice!.item_label).first()).toBeVisible();
     await expect(page.locator('body')).not.toContainText('Application error');
   });
 

@@ -6,6 +6,7 @@
 // redeems it server-side and sets its own session cookies, exactly as a
 // real cross-apex hop does. No password, no OTP inbox, no cookie forgery.
 
+import { expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -154,6 +155,38 @@ export async function waitForHydration(
     selector,
     { timeout },
   );
+}
+
+/**
+ * Wait until nothing on the page says it is still loading.
+ *
+ * WAIT FOR THE STATE, NOT FOR THE TEXT. A list that fills client-side (every
+ * Invoices page: hydrate, server action, API, render) is not ready when the
+ * route arrives, so a spec that asserts a row's text is really racing the
+ * fetch against Playwright's five-second text budget. That race is what made
+ * `admin-screens` flaky — it failed once "waiting on an invoice row", passed
+ * on retry, and taught whoever saw it to re-run the suite.
+ *
+ * A bigger text timeout is the wrong fix twice over: it still fails slowly
+ * when the row is genuinely missing (20 seconds to learn the list is empty),
+ * and it leaves the test green for the wrong reason when the row arrives at
+ * second nineteen of a load that should take one.
+ *
+ * `aria-busy="true"` is this codebase's own convention for a region that is
+ * still loading — `ui/invoices.tsx`, `ui/page-loading.tsx`, Thread's
+ * registrations dialog and pricing panel all carry it. When none is left, the
+ * fetch is DONE: the row is either there or it is not, and the assertion
+ * after this call says which, immediately and truthfully.
+ *
+ * Measured on staging 2026-10-12: the busy region appears on every run and
+ * clears in 280–800ms warm. One landing in six took 5.8 seconds, which is
+ * the shape of the cold start a 5s budget loses to.
+ */
+export async function waitForListLoaded(
+  page: import('@playwright/test').Page,
+  timeout = 45_000,
+): Promise<void> {
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout });
 }
 
 /**

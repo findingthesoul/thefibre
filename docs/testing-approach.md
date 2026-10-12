@@ -239,6 +239,45 @@ why §1.5's render-check rule is a rule and not a nicety.
    `scripts/batch-prod.test.mjs`.
 
 
+21. **Wait for the state, not for the text.** A page that fills itself after
+   it arrives — any list behind a server action — is not ready when the route
+   matches. A spec that asserts a row's text is therefore racing the fetch
+   against the assertion's own timeout, and that race is what a "flaky test"
+   usually is.
+
+   Raising the timeout is the wrong fix twice over: a genuinely missing row
+   now takes twenty seconds to report, and a row that arrives at second
+   nineteen of a load that should take one leaves the test green with the
+   product broken. The right wait is on the page's own statement that it has
+   finished: `aria-busy="true"` is this codebase's convention for a region
+   still loading (`ui/invoices.tsx`, `ui/page-loading.tsx`, Thread's
+   registrations dialog and pricing panel). `waitForListLoaded` in
+   `e2e/helpers.ts` waits for the last one to go, with a generous budget,
+   and the assertion AFTER it gets a short one — the data is there or it is
+   not.
+
+   `admin-screens` was the flaky spec (one failure "waiting on an invoice
+   row", passed on retry, 2026-10-11). The suspicion was pagination, and
+   measuring killed it: thirteen purchase rows on staging, the two fixture
+   rows the NEWEST of them, so neither can fall off a page of fifty. What the
+   numbers did show is the race — the busy region clears in 280-800ms warm,
+   while one landing in six took 5.8 seconds, which is the cold start a
+   five-second text budget loses to.
+
+   **A retry is not a fix, it is a silencer.** A gate that sometimes fails
+   teaches people to re-run it, and a suite people re-run is a suite people
+   stop reading. The same day, `org-names` timed out for the neighbouring
+   reason — five tests signing the same account in by hand, where
+   `landSignedInAsOwner` already retries a landing that does not take. Both
+   fixes remove a race; neither adds an attempt.
+
+22. **An absence assertion needs a positive anchor.** `toHaveCount(0)` is
+   also what an unrendered page gives you, so a test that only asserts
+   nothing can pass while proving nothing (§1.9's shape, in the browser).
+   `org-names`'s no-match case now asserts the EMPTY STATE is visible — the
+   page saying it searched and found nothing — before asserting the
+   organisation is absent.
+
 **Who the browser pack signs in as, and what it can see (2026-10-04).** By
 default, the fixture account `e2e-fixture@example.com` (`e2e/identities.ts`):
 nobody real, an admin of its own permanent workspace `e2e-fixtures`, with a
@@ -255,6 +294,24 @@ fixture (checked by reading both stacks). What the fixture CANNOT see is
 another workspace's content from inside the apps: three read-only specs that
 need the `default` workspace's real data sign in as its owner, by name, on
 an allow-list the release gate enforces.
+
+**And on staging that owner is a REAL PERSON — Sjoerd's own account.**
+`resolveOwnerIdentity` takes the single `super_admin` of the `default`
+workspace and refuses to proceed if it resolves to the fixture, so the
+identity is a person by design, not by accident. The three specs only READ,
+and the sign-in writes one single-use `sso_handoff` row plus Supabase's own
+session records — but minting a session as somebody is not a builder's
+decision to take. **A builder session runs the pack WITHOUT them:**
+
+```bash
+pnpm test:e2e $(ls e2e/*.spec.ts | grep -v -E 'contact-invoices|org-names|organiser-screens')
+```
+
+`grep -ln 'ownerLandUrl\|landSignedInAsOwner\|resolveOwnerIdentity'
+e2e/*.spec.ts` is the list, asked of the specs rather than kept by hand. A
+plain `pnpm test:e2e` runs everything, which is how twelve such sign-ins
+happen without anybody choosing them (2026-10-12 — it happened to me, three
+times over, while chasing a flake).
 
 ---
 
