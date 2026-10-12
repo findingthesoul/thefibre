@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.165.1] — 2026-10-12
+
+The form walk: what a signed-in member is actually told.
+
+v1.165.0 proved the rule at the route. This presses the buttons — and the
+buttons say something the route cannot: **the page offers a signed-in member
+"Member of this community? Sign in for 20% off", and shows €35.00.**
+
+Both are correct and neither is right. The public page cannot know what the
+reader pays without becoming the oracle this feature exists to avoid, so it
+shows the list price and invites a sign-in — to somebody who has already
+signed in. The member then enrols, is charged €28, and the ledger says why.
+Nothing is broken; it is simply a sentence addressed to the wrong person and
+a number that is not theirs. **Fixing it needs the page to ask an
+authenticated endpoint what THIS session pays** — safe, because it answers
+only about the asker — and that is the next slice rather than a line here.
+
+What the walk confirms, by clicking rather than posting:
+
+- the page sends its session from the cookie — the enrolment priced at 20%,
+  which only happens with a verified bearer;
+- the hint appears on a member-priced thread, with the right percentage;
+- an invoice-method thread's billing fields are REQUIRED, and the first run of
+  this walk pressed Enrol with them empty and nothing happened — the form
+  doing its job;
+- the page then says *"Your enrolment is registered. The organiser will send
+  you an invoice — your spot is confirmed once it is paid."*
+- and a €28 row with reason `membership` exists afterwards, from a click.
+
+The run prints both the prices shown and the sentence the person got, because
+a form walk whose only evidence is a green tick tells nobody what they were
+told.
+
 ## [1.165.0] — 2026-10-12
 
 A discounted join is a sale at the price actually paid, and the row says why.

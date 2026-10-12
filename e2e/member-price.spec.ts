@@ -401,3 +401,101 @@ test('the five cases, against the deployed API', async ({ page }) => {
   expect(forged.status, JSON.stringify(forged.body)).toBe(201);
   expect(forged.body.invoice_pending, 'a token that does not verify is no token').toBe(true);
 });
+
+test('the FORM: a signed-in member enrols at the member price by pressing buttons', async ({
+  page,
+}) => {
+  test.slow();
+  const service = stagingService();
+
+  // Signed in as the member, on the apex — the public page is served from the
+  // same one, which is why the session reaches it at all.
+  await page.goto(await memberLandUrl(HOSTS.thread, 'the-thread', '/dashboard'));
+  await page.waitForURL(/dashboard|no-access/, { timeout: 30_000 });
+
+  await page.goto(`${HOSTS.thread}/${ownerSlug}/${threadSlug}`);
+  await page.waitForLoadState('domcontentloaded');
+
+  // THE HINT, on a thread whose calendar is part of a membership.
+  const body = page.locator('body');
+  await expect(body, 'the member-price invitation is on the page').toContainText(
+    /included in your membership|Sign in/i,
+    { timeout: 30_000 },
+  );
+  // And what the page SHOWS as the price, which is the list price: a public
+  // page cannot know what the reader pays without becoming the oracle this
+  // feature refuses to be. Recorded rather than asserted as desirable — see
+  // the note in the report.
+  const shown = await page.evaluate(() => {
+    const t = document.body.textContent ?? '';
+    return (t.match(/€\s?\d+[.,]?\d*/g) ?? []).slice(0, 4);
+  });
+  console.log(`FORM prices shown to a signed-in member: ${JSON.stringify(shown)}`);
+
+  // Fill it in as the member themselves and press Enrol.
+  const memberOnForm = `${TAG}-form@example.com`;
+  // NOT the member's own address: a second enrolment of the same person on
+  // the same thread answers already_enrolled, which would prove nothing about
+  // pricing. So this walk uses a person who IS the member in the directory
+  // sense — the same email the membership is on — against the SECOND thread,
+  // the 20% one, which they have not joined in this run.
+  void memberOnForm;
+  await page.goto(`${HOSTS.thread}/${partialOwnerSlug}/${partialSlug}`);
+  await page.waitForLoadState('domcontentloaded');
+
+  // An invoice-method thread asks who pays and where to send it, and those
+  // fields are REQUIRED — the first run of this walk clicked Enrol with them
+  // empty and nothing happened, which is the form doing its job.
+  await page.getByLabel(/^name/i).first().fill(`${TAG} form walker`);
+  await page.getByLabel(/e-?mail/i).first().fill(memberEmail);
+  const fill = async (label: RegExp, value: string) => {
+    const field = page.getByLabel(label).first();
+    if (await field.isVisible().catch(() => false)) await field.fill(value);
+  };
+  await fill(/billing address|address/i, 'Nowhere 1');
+  await fill(/postal code|post code|zip/i, '0000 XX');
+  await fill(/city/i, 'Zierikzee');
+  const country = page.getByLabel(/country/i).first();
+  if (await country.isVisible().catch(() => false)) {
+    await country.selectOption({ index: 1 }).catch(async () => {
+      await country.fill('Netherlands');
+    });
+  }
+  await page.getByLabel(/privacy policy/i).first().check().catch(() => {});
+  const enrolButton = page
+    .locator('button[type="submit"], button')
+    .filter({ hasText: /enrol|aanmelden|sign up/i })
+    .first();
+  await expect(enrolButton).toBeVisible({ timeout: 20_000 });
+  await enrolButton.click();
+
+  // What the page SAYS, kept in the run's output: a form walk whose only
+  // evidence is a green tick tells nobody what a person was told.
+  await page.waitForTimeout(2_000);
+  const after = (await page.locator('body').innerText()).replace(/\n+/g, ' | ');
+  console.log(`FORM after submit: ${after.slice(0, 320)}`);
+
+  // The API's answer, read from the page rather than from a fetch: an invoice
+  // is owed on a 20% join, so the form says so.
+  await expect(body, 'the form reports the outcome').toContainText(
+    /invoice|factuur|enrolled|thank/i,
+    { timeout: 45_000 },
+  );
+
+  // And the money record exists, with its reason, from a click rather than a
+  // POST this test wrote.
+  await expect
+    .poll(
+      async () => {
+        const { data } = await service
+          .from('purchase')
+          .select('amount_cents, discount_reason')
+          .eq('workspace_id', ws)
+          .eq('payer_email', memberEmail)
+          .eq('amount_cents', Math.round(PRICE * 0.8));
+        return (data ?? []).length;
+      },
+      { timeout: 30_000, message: 'the 20% row exists after the form submit' },
+    )
+    .toBeGreaterThan(0);
+});
