@@ -12,7 +12,9 @@ import { readFileSync } from 'node:fs';
 import {
   couponPriceOf,
   enrolmentPrice,
+  priceCurrencyOf,
   provenEmail,
+  resolveBasePrice,
   teamCalendarConfig,
 } from './member-discount.js';
 
@@ -174,6 +176,18 @@ describe('the typed email cannot reach the entitlement', () => {
     for (const arg of calls) expect(arg, `argument: ${arg}`).toBe('proven');
   });
 
+  it('the my-price endpoint has no email INPUT to be confused with the proven one', () => {
+    // It calls the lookup with `proven` straight off the token rather than
+    // through provenEmail(), which is only honest while the route reads no
+    // address from the request. If one is ever added, this goes red and the
+    // route owes a provenEmail() call like the enrol POST's.
+    const start = src.indexOf("threadRoutes.get('/public/my-price'");
+    expect(start, 'the endpoint exists').toBeGreaterThan(-1);
+    const route = src.slice(start, src.indexOf('threadRoutes.', start + 10));
+    expect(route, 'the lookup is in this route').toContain('memberDiscountForVerifiedEmail');
+    expect(route).not.toMatch(/query\('email'\)|\bd\.email\b|body\.email/);
+  });
+
   it('`proven` comes from the VERIFIED claim and the typed address together', () => {
     expect(src).toContain('const verifiedEmail = await participantEmailFromAuth(c);');
     expect(src).toContain('const proven = provenEmail(verifiedEmail, email);');
@@ -186,5 +200,83 @@ describe('the typed email cannot reach the entitlement', () => {
     expect(src).not.toContain('jwtVerify');
     expect(src).not.toContain('createRemoteJWKSet');
     expect(src).toContain("from '../lib/participant-auth.js'");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// resolveBasePrice — WHICH ticket, and therefore what a discount applies to
+// ─────────────────────────────────────────────────────────────────────────────
+// Added 2026-10-12 with GET /thread/public/my-price. The quote and the charge
+// now both call this, so the ways they used to be able to disagree are the
+// cases worth pinning: a chosen ticket, no choice at all, a choice that is not
+// on sale, a currency the ticket overrides.
+describe('resolveBasePrice', () => {
+  const thread = { price_cents: 3500, price_currency: 'EUR' };
+  const tickets = [
+    { id: 'full', price_cents: 5000 },
+    { id: 'reduced', price_cents: 2000 },
+  ];
+
+  it('uses the chosen ticket, not the cheapest', () => {
+    const r = resolveBasePrice(thread, tickets, 'full');
+    expect(r.basePriceCents).toBe(5000);
+    expect(r.ticketId).toBe('full');
+  });
+
+  it('with no choice, uses the cheapest open ticket', () => {
+    const r = resolveBasePrice(thread, tickets, null);
+    expect(r.basePriceCents).toBe(2000);
+    expect(r.ticketId).toBe('reduced');
+  });
+
+  it('does not reorder the caller\u2019s array while finding the cheapest', () => {
+    const given = [...tickets];
+    resolveBasePrice(thread, given, null);
+    expect(given.map((t) => t.id)).toEqual(['full', 'reduced']);
+  });
+
+  it('with no tickets at all, uses the thread\u2019s own price', () => {
+    const r = resolveBasePrice(thread, [], null);
+    expect(r.basePriceCents).toBe(3500);
+    expect(r.ticketId).toBeNull();
+  });
+
+  it('falls back to the cheapest when the chosen ticket is not open', () => {
+    // Not an error here: a quote is not a reservation, and the POST does its
+    // own 409 on exactly this case. What must NOT happen is answering with
+    // the closed ticket's price.
+    const r = resolveBasePrice(thread, tickets, 'gone');
+    expect(r.ticketId).toBe('reduced');
+    expect(r.basePriceCents).toBe(2000);
+  });
+
+  it('treats a thread with no price as free, not as NaN', () => {
+    const r = resolveBasePrice({ price_cents: null, price_currency: 'EUR' }, [], null);
+    expect(r.basePriceCents).toBe(0);
+  });
+
+  it('a ticket\u2019s own currency wins over the thread\u2019s', () => {
+    const r = resolveBasePrice(
+      thread,
+      [{ id: 'gbp', price_cents: 1000, price_currency: 'GBP' }],
+      null,
+    );
+    expect(r.priceCurrency).toBe('GBP');
+  });
+
+  it('a ticket without a currency inherits the thread\u2019s', () => {
+    expect(
+      resolveBasePrice({ price_cents: 1, price_currency: 'USD' }, tickets, 'full').priceCurrency,
+    ).toBe('USD');
+  });
+});
+
+describe('priceCurrencyOf', () => {
+  it('reads the column', () => {
+    expect(priceCurrencyOf({ price_currency: 'GBP' })).toBe('GBP');
+  });
+  it('and survives a null one, because the column is nullable', () => {
+    expect(priceCurrencyOf({ price_currency: null })).toBe('EUR');
+    expect(priceCurrencyOf({})).toBe('EUR');
   });
 });

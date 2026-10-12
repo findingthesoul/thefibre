@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   couponPriceOf,
+  priceCurrencyOf,
+  resolveBasePrice,
   enrolmentPrice,
   memberDiscountForVerifiedEmail,
   memberDiscountOffered,
@@ -6773,6 +6775,104 @@ threadRoutes.post('/public/contact', async (c) => {
   return c.json({ ok: true });
 });
 
+// GET /api/v1/thread/public/my-price?organiser=&thread=&ticket_id=&coupon=
+//
+// WHAT THE CALLER PAYS, AND ONLY THE CALLER (2026-10-12). The public page
+// shows the list price and invites a member to sign in — while they are
+// signed in — because a page that knew the reader's price would be the
+// membership oracle this feature spent two releases refusing to build. So the
+// page asks WITH ITS SESSION, and the answer is about nobody else:
+//
+//   no bearer, or one that does not verify  →  401, and the page shows what
+//                                              it showed before
+//   signed in, no membership                →  the list price, reason `full`
+//   signed in, a member                     →  their price, reason
+//                                              `membership` (or `coupon` if
+//                                              the code is better)
+//
+// SAME CALCULATION as the charge: resolveBasePrice for the ticket,
+// findValidCoupon for the code, enrolmentPrice for the answer. That is the
+// whole reason this exists as an endpoint rather than as arithmetic in the
+// browser — a price shown and a price charged that are computed in two places
+// are two prices.
+threadRoutes.get('/public/my-price', async (c) => {
+  // The caller's own verified address, and `proven` without passing through
+  // provenEmail() because there is nothing to prove it AGAINST: this endpoint
+  // accepts no email parameter, so the only identity in scope is the token's.
+  // (member-discount.test.ts reads both facts off this source.)
+  const proven = await participantEmailFromAuth(c);
+  // 401 rather than a list price: "not signed in" is a different answer from
+  // "signed in and owes full price", and the page must not confuse them —
+  // it only calls this when it has a session at all.
+  if (!proven) return c.json({ error: 'sign in required' }, 401);
+
+  const ownerSlug = c.req.query('organiser');
+  const threadSlug = c.req.query('thread');
+  if (!ownerSlug || !threadSlug) {
+    return c.json({ error: 'organiser and thread are required' }, 400);
+  }
+  const owner = await resolvePublicOwner(ownerSlug);
+  if (!owner) return c.json({ error: 'thread not found' }, 404);
+  let q = adminClient
+    .from('thread_thread')
+    .select('id, price_cents, price_currency, team_id, program:program_id (status)')
+    .eq('slug', threadSlug);
+  q = ownerThreadFilter(q, owner);
+  const { data: thread } = await q.maybeSingle();
+  if (!thread) return c.json({ error: 'thread not found' }, 404);
+  // THE SAME DOOR AS THE PAGE. resolvePublicOwner has already refused an
+  // unpublished team or organiser; this is the other half of what
+  // /public/organiser/:slug/thread/:threadSlug refuses — a draft or archived
+  // programme is not public, even by direct link. Without the owner-preview
+  // exception that route makes: a draft cannot be enrolled in, so there is no
+  // price to quote for it, not even to the person who wrote it.
+  const prog = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+  const status = (prog as { status?: string } | null)?.status;
+  if (status !== 'active' && status !== 'completed') {
+    return c.json({ error: 'thread not found' }, 404);
+  }
+
+  const { data: activeTickets } = await adminClient
+    .from('thread_ticket')
+    .select('id, name, price_cents, price_currency, quantity_limit, sales_open_at, sales_close_at')
+    .eq('thread_id', thread.id)
+    .eq('is_active', true);
+  const nowIso = new Date().toISOString();
+  const openTickets = (activeTickets ?? []).filter(
+    (t) =>
+      (!t.sales_open_at || t.sales_open_at <= nowIso) &&
+      (!t.sales_close_at || t.sales_close_at >= nowIso),
+  ) as { id: string; price_cents: number; price_currency?: string }[];
+
+  const base = resolveBasePrice(
+    { price_cents: thread.price_cents ?? null, price_currency: priceCurrencyOf(thread) },
+    openTickets,
+    c.req.query('ticket_id') ?? null,
+  );
+
+  // The code, validated the same way the charge validates it. An invalid one
+  // is simply no discount here — the enrol form has its own Apply button that
+  // explains why a code was refused, and this endpoint is about the price.
+  let coupon: CouponCheck | null = null;
+  const code = c.req.query('coupon');
+  if (code) {
+    const r = await findValidCoupon(thread.id, code, base.ticketId);
+    if (!('error' in r)) coupon = r.coupon;
+  }
+
+  const member = await memberDiscountForVerifiedEmail(proven, thread.id);
+  const priced = enrolmentPrice(base.basePriceCents, coupon, member?.pct ?? null);
+  return c.json({
+    price_cents: priced.cents,
+    currency: base.priceCurrency,
+    reason: priced.reason,
+    // The percentage, so the page can say "included in your membership" at
+    // 100 and "20% off" below it without a second rule for which to show.
+    member_pct: member?.pct ?? null,
+    ticket_id: base.ticketId,
+  });
+});
+
 threadRoutes.post('/public/enrol', async (c) => {
   const body = PublicEnrol.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -6853,8 +6953,18 @@ threadRoutes.post('/public/enrol', async (c) => {
   const openTickets = (activeTickets ?? []).filter(
     (t) => !t.available_until || new Date(t.available_until).getTime() >= nowMs,
   );
-  let basePriceCents = 0;
-  let priceCurrency: string = (thread as { price_currency?: string | null }).price_currency ?? 'EUR';
+  // The base the discounts apply to, resolved in ONE place (`resolveBasePrice`
+  // below) so a quote and a charge cannot pick different tickets. The
+  // sold-out refusals stay HERE, because a quote is not a reservation: asking
+  // what something costs must not 409 because the last place went while you
+  // were reading.
+  const basePick = resolveBasePrice(
+    { price_cents: thread.price_cents ?? null, price_currency: priceCurrencyOf(thread) },
+    openTickets,
+    d.ticket_id ?? null,
+  );
+  let basePriceCents = basePick.basePriceCents;
+  let priceCurrency: string = basePick.priceCurrency;
   if (d.ticket_id) {
     const chosen = openTickets.find((t) => t.id === d.ticket_id);
     if (!chosen) return c.json({ error: 'this ticket is not available' }, 409);
@@ -6869,8 +6979,6 @@ threadRoutes.post('/public/enrol', async (c) => {
       }
     }
     ticketId = chosen.id;
-    basePriceCents = chosen.price_cents;
-    priceCurrency = (chosen as { price_currency?: string }).price_currency ?? priceCurrency;
   } else if (openTickets.length) {
     const cheapest = [...openTickets].sort((a, b) => a.price_cents - b.price_cents)[0]!;
     // Same sold-out enforcement as the explicit-ticket path (finding #11).
@@ -6885,10 +6993,8 @@ threadRoutes.post('/public/enrol', async (c) => {
       }
     }
     ticketId = cheapest.id;
-    basePriceCents = cheapest.price_cents;
-    priceCurrency = (cheapest as { price_currency?: string }).price_currency ?? priceCurrency;
   } else {
-    basePriceCents = thread.price_cents ?? 0;
+    // basePriceCents is already the thread's own price from resolveBasePrice.
   }
 
   // Declared here rather than after the coupon block, because the member

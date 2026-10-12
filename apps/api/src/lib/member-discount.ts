@@ -31,6 +31,38 @@ export type CouponAmount = {
   discount_amount_cents?: number | null;
 };
 
+/** The thread's own currency, read defensively (the column may be null). */
+export function priceCurrencyOf(t: { price_currency?: string | null }): string {
+  return t.price_currency ?? 'EUR';
+}
+
+/** WHICH ticket, and therefore WHAT base price — the one resolution.
+ *
+ *  A chosen ticket wins; otherwise the cheapest open one; otherwise the
+ *  thread's own price. No availability checks: this answers "what does it
+ *  cost", and the POST adds its own sold-out refusals on top, because a
+ *  quote is not a reservation. */
+export function resolveBasePrice(
+  thread: { price_cents: number | null; price_currency: string },
+  openTickets: { id: string; price_cents: number; price_currency?: string }[],
+  ticketId: string | null,
+): { ticketId: string | null; basePriceCents: number; priceCurrency: string } {
+  const chosen = ticketId ? openTickets.find((t) => t.id === ticketId) : undefined;
+  const pick = chosen ?? (openTickets.length ? [...openTickets].sort((a, b) => a.price_cents - b.price_cents)[0]! : null);
+  if (!pick) {
+    return {
+      ticketId: null,
+      basePriceCents: thread.price_cents ?? 0,
+      priceCurrency: thread.price_currency,
+    };
+  }
+  return {
+    ticketId: pick.id,
+    basePriceCents: pick.price_cents,
+    priceCurrency: pick.price_currency ?? thread.price_currency,
+  };
+}
+
 /** Why a price is what it is. Written to the ledger beside the amount. */
 export type PriceReason = 'full' | 'coupon' | 'membership';
 

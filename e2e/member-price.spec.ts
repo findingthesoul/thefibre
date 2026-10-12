@@ -21,7 +21,13 @@
 // — and removes all of it. No real person's membership is touched.
 
 import { expect, test } from '@playwright/test';
-import { HOSTS, fixtureIdentity, memberLandUrl, stagingService } from './helpers.js';
+import {
+  HOSTS,
+  fixtureIdentity,
+  memberLandUrl,
+  signedInLandUrl,
+  stagingService,
+} from './helpers.js';
 
 const TAG = 'e2e-member-price';
 const API = 'https://thefibre-api-staging.fly.dev';
@@ -37,6 +43,9 @@ let partialThreadId = '';
 let partialSlug = '';
 let partialOwnerSlug = '';
 let freeThreadSlug = '';
+let draftSlug = '';
+let hiddenSlug = '';
+let hiddenOwnerSlug = '';
 let memberEmail = '';
 const made: { table: string; id: string }[] = [];
 
@@ -173,6 +182,56 @@ test.beforeAll(async () => {
     person_id: person!.id,
     tier_id: tierId,
     status: 'active',
+  });
+
+  // A DRAFT thread in the same team, and a thread under a team that is not
+  // published: the two doors the public page closes. Both carry a price and
+  // both are inside the membership, so if the quote endpoint answers for them
+  // it is answering about something nobody can see.
+  const draftProgramId = await ins('program', {
+    workspace_id: ws,
+    app_id: app!.id,
+    title: `${TAG} draft thread`,
+    format: 'journey',
+    status: 'draft',
+  });
+  draftSlug = `${TAG}-draft`;
+  await ins('thread_thread', {
+    workspace_id: ws,
+    program_id: draftProgramId,
+    organiser_id: org!.id,
+    slug: draftSlug,
+    team_id: teamId,
+    price_cents: PRICE,
+    price_currency: 'EUR',
+    public_enrolment_open: true,
+  });
+  const hiddenTeamId = await ins('team', {
+    workspace_id: ws,
+    name: `${TAG} team hidden`,
+    slug: `${TAG}-team-hidden`,
+    is_active: true,
+    is_published: false,
+  });
+  hiddenOwnerSlug = `${TAG}-team-hidden`;
+  const hiddenProgramId = await ins('program', {
+    workspace_id: ws,
+    app_id: app!.id,
+    title: `${TAG} hidden-team thread`,
+    format: 'journey',
+    status: 'active',
+  });
+  hiddenSlug = `${TAG}-hidden`;
+  await ins('thread_thread', {
+    workspace_id: ws,
+    program_id: hiddenProgramId,
+    organiser_id: org!.id,
+    slug: hiddenSlug,
+    team_id: hiddenTeamId,
+    price_cents: PRICE,
+    price_currency: 'EUR',
+    is_public_listed: true,
+    public_enrolment_open: true,
   });
 
   // A 100%-off code on the same thread, for the reason that is not a
@@ -392,6 +451,39 @@ test('the five cases, against the deployed API', async ({ page }) => {
   expect(partialRows![0]!.method).toBe('invoice');
   expect(partialRows![0]!.discount_reason, 'and it still says why').toBe('membership');
 
+  // 3e. THE QUOTE ENDPOINT, and the door it has to use. A price for a thread
+  //     the public page answers 404 for is a price for something nobody can
+  //     see — so the same refusals, asked with a real token, since the 401
+  //     comes first and that order is correct.
+  const quote = async (owner: string, slug: string, bearer: string | null) => {
+    const r = await page.request.get(
+      `${API}/api/v1/thread/public/my-price?organiser=${owner}&thread=${slug}`,
+      { headers: bearer ? { Authorization: `Bearer ${bearer}` } : {} },
+    );
+    return { status: r.status(), body: (await r.json().catch(() => ({}))) as Record<string, unknown> };
+  };
+
+  const live = await quote(ownerSlug, threadSlug, token);
+  console.log(`QUOTE live thread: ${live.status} ${JSON.stringify(live.body)}`);
+  expect(live.status, 'the member gets a quote for a published thread').toBe(200);
+  expect(live.body.price_cents, 'included in the membership').toBe(0);
+  expect(live.body.reason).toBe('membership');
+
+  const draft = await quote(ownerSlug, draftSlug, token);
+  console.log(`QUOTE draft thread: ${draft.status} ${JSON.stringify(draft.body)}`);
+  expect(draft.status, 'a draft is not quoted, even to a member').toBe(404);
+  expect(draft.body.price_cents, 'and no price leaks in the body').toBeUndefined();
+
+  const hidden = await quote(hiddenOwnerSlug, hiddenSlug, token);
+  console.log(`QUOTE unpublished team: ${hidden.status} ${JSON.stringify(hidden.body)}`);
+  expect(hidden.status, 'nor is a thread under an unpublished team').toBe(404);
+  expect(hidden.body.price_cents).toBeUndefined();
+
+  const noBearer = await quote(ownerSlug, threadSlug, null);
+  console.log(`QUOTE anonymous: ${noBearer.status}`);
+  expect(noBearer.status, 'and an anonymous caller is asked to sign in first').toBe(401);
+  expect(noBearer.body.price_cents, 'the 401 carries no price at all').toBeUndefined();
+
   // 4. A FORGED bearer → list price, and no error.
   const forged = await enrol(
     page,
@@ -400,6 +492,106 @@ test('the five cases, against the deployed API', async ({ page }) => {
   );
   expect(forged.status, JSON.stringify(forged.body)).toBe(201);
   expect(forged.body.invoice_pending, 'a token that does not verify is no token').toBe(true);
+});
+
+// The page's own words, per reader. Placed before the form walk so the
+// readings are of a thread nobody has joined yet.
+test('what the page SHOWS: the reader who asked, and nobody else', async ({ page }) => {
+  test.slow();
+  const LIST = '\u20ac35.00';
+  const MEMBER = '\u20ac28.00';
+  const body = page.locator('body');
+  const show = async (label: string) => {
+    const txt = (await body.innerText()).replace(/\n+/g, ' | ');
+    const card = txt.slice(Math.max(0, txt.search(/Enrol|Aanmelden/i) - 40));
+    console.log(`SHOWN to ${label}: ${card.slice(0, 220)}`);
+  };
+  const partialUrl = `${HOSTS.thread}/${partialOwnerSlug}/${partialSlug}`;
+
+  // ── 1. ANONYMOUS ────────────────────────────────────────────────────────
+  // The list price, and an invitation addressed to a stranger.
+  await page.goto(partialUrl);
+  await expect(body, 'the invitation to sign in').toContainText(/Sign in for 20% off/i, {
+    timeout: 30_000,
+  });
+  await expect(body, 'the list price').toContainText(LIST);
+  await show('an anonymous visitor');
+  // The absence that matters, anchored on the hint above: a page that cannot
+  // identify the reader must not name a member price.
+  await expect(body).not.toContainText(/Your member price/i);
+  await expect(body).not.toContainText(MEMBER);
+
+  // ── 2. SIGNED IN, NO MEMBERSHIP ─────────────────────────────────────────
+  // The fixture account: same workspace, no membership_member row on this
+  // tier. It calls the endpoint with a real token and gets `full` back, so
+  // the page must look exactly as it did for the stranger — same price, same
+  // invitation. Anything else here is the oracle, reached by signing in.
+  await page.goto(await signedInLandUrl(HOSTS.thread, 'the-thread', '/dashboard'));
+  await page.waitForURL(/dashboard|no-access/, { timeout: 30_000 });
+  await page.goto(partialUrl);
+  await expect(body, 'the same invitation').toContainText(/Sign in for 20% off/i, {
+    timeout: 30_000,
+  });
+  await expect(body, 'the same list price').toContainText(LIST);
+  // Give the request time to come back and change something, so this is an
+  // absence after the fetch rather than before it.
+  await page.waitForTimeout(3_000);
+  await show('a signed-in non-member');
+  await expect(body, 'no member price for a non-member').not.toContainText(/Your member price/i);
+  await expect(body).not.toContainText(MEMBER);
+
+  // ── 3. SIGNED IN AS THE MEMBER ──────────────────────────────────────────
+  await page.goto(await memberLandUrl(HOSTS.thread, 'the-thread', '/dashboard'));
+  await page.waitForURL(/dashboard|no-access/, { timeout: 30_000 });
+  await page.goto(partialUrl);
+  await expect(body, 'their own price, named as theirs').toContainText(
+    /Your member price: 20% off/i,
+    { timeout: 30_000 },
+  );
+  await expect(body, 'the price they owe').toContainText(MEMBER);
+  await show('the member');
+  // The list price is still on the page — struck through, so they can see
+  // what the membership did — but the invitation to sign in is gone.
+  await expect(page.locator('s'), 'the list price, struck through').toContainText(LIST);
+  await expect(body, 'nobody is asked to sign in twice').not.toContainText(/Sign in for 20% off/i);
+
+  // And the 100% thread says the other sentence, with nothing to pay.
+  await page.goto(`${HOSTS.thread}/${ownerSlug}/${threadSlug}`);
+  await expect(body, 'included, not discounted').toContainText(
+    /Included in your membership/i,
+    { timeout: 30_000 },
+  );
+  await show('the member, on the 100% thread');
+  await expect(body).not.toContainText(/Member of this community\? Sign in/i);
+
+  // ── 4. THE SAME, AT 375 ─────────────────────────────────────────────────
+  // The enrol card is a sticky aside on a wide screen and a block on a phone,
+  // and the price line sits in its header either way. A member on a phone is
+  // the likelier member.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(partialUrl);
+  await expect(body, 'their price, on a phone').toContainText(/Your member price: 20% off/i, {
+    timeout: 30_000,
+  });
+  const priceLine = page.locator('.te-enrol').first();
+  await expect(priceLine, 'the card itself carries the price').toContainText(MEMBER);
+  const box = await priceLine.boundingBox();
+  console.log(`SHOWN at 375 (20%): enrol card ${JSON.stringify(box)}`);
+  expect(box, 'the card is on the screen').toBeTruthy();
+  expect(box!.width, 'and inside it, not spilling over the edge').toBeLessThanOrEqual(375);
+
+  // And the 100% sentence on a phone, which is the longer one and the one
+  // likelier to wrap into the price.
+  await page.goto(`${HOSTS.thread}/${ownerSlug}/${threadSlug}`);
+  await expect(body, 'included, on a phone').toContainText(/Included in your membership/i, {
+    timeout: 30_000,
+  });
+  const freeCard = page.locator('.te-enrol').first();
+  await expect(freeCard, 'and nothing to pay').toContainText(/Free|Gratis/i);
+  const freeBox = await freeCard.boundingBox();
+  console.log(`SHOWN at 375 (100%): enrol card ${JSON.stringify(freeBox)}`);
+  expect(freeBox!.width, 'still inside the screen').toBeLessThanOrEqual(375);
+  await expect(body).not.toContainText(/Member of this community\? Sign in/i);
 });
 
 test('the FORM: a signed-in member enrols at the member price by pressing buttons', async ({

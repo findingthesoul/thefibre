@@ -365,6 +365,25 @@ const CATALOG = {
     de: 'Mitglied dieser Community? Melde dich an für {pct}% Rabatt.', // MT
     fr: 'Membre de cette communauté ? Connecte-toi pour {pct}% de réduction.', // MT
   },
+  // What a signed-in MEMBER is told instead (2026-10-12). Different strings
+  // on purpose: the invitation above asks a stranger to sign in, and saying
+  // that to somebody who already has reads as a failure.
+  your_member_price_free: {
+    en: 'Included in your membership — you pay nothing.',
+    nl: 'Zit bij je lidmaatschap — je betaalt niets.',
+    es: 'Incluido en tu membresía — no pagas nada.', // MT
+    pt: 'Incluído na sua assinatura — não paga nada.', // MT
+    de: 'In deiner Mitgliedschaft enthalten — du zahlst nichts.', // MT
+    fr: 'Inclus dans ton adhésion — tu ne paies rien.', // MT
+  },
+  your_member_price_percent: {
+    en: 'Your member price: {pct}% off.',
+    nl: 'Jouw ledenprijs: {pct}% korting.',
+    es: 'Tu precio de miembro: {pct}% de descuento.', // MT
+    pt: 'O seu preço de membro: {pct}% de desconto.', // MT
+    de: 'Dein Mitgliederpreis: {pct}% Rabatt.', // MT
+    fr: 'Ton tarif membre : {pct}% de réduction.', // MT
+  },
   discount_code: {
     en: 'Discount code',
     nl: 'Kortingscode',

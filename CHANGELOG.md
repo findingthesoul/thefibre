@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.166.0] — 2026-10-12
+
+The page asks what THIS reader pays, and tells only them.
+
+v1.165.1 measured the gap and left it: the public enrol card showed a
+signed-in member €35.00 and invited them to *"Sign in for 20% off"*. Both
+sentences were correct and neither was right. A public page cannot know what
+its reader pays without becoming the oracle this feature spent two releases
+refusing to build — so the page now **asks, with the session it already
+holds**, and the answer is about nobody else.
+
+**`GET /api/v1/thread/public/my-price`** takes an organiser, a thread, and
+optionally a ticket and a code. It verifies the bearer with the one
+participant-token verifier, and answers about the address in that token and no
+other — there is no email parameter to pass, which is what makes it safe to
+answer at all:
+
+| the caller | the answer |
+|---|---|
+| no bearer, or one that does not verify | `401` — the page keeps showing the list price |
+| signed in, no membership here | the list price, reason `full` |
+| signed in, a member | their price, reason `membership` (or `coupon`, if the code is better) |
+
+A signed-in member now reads *"Your member price: 20% off"* with €28.00 beside
+a struck-through €35.00, or *"Included in your membership — you pay nothing"*
+at 100%. **Everybody else sees exactly what they saw before**, which is the
+part worth testing: a signed-in non-member gets `full` back and the page does
+not change, because the difference between "not a member" and "a member" is
+the one fact this feature will not disclose about an email address.
+
+**The same door as the page.** Caught in review before this landed: the
+endpoint resolved a thread by slug and owner and stopped, while the public
+thread page also refuses a programme that is not active or completed. A
+signed-in participant could therefore have priced a **draft** thread. It now
+closes both doors — an unpublished team or organiser (already refused by
+`resolvePublicOwner`) and a draft or archived programme — without the
+owner-preview exception the page makes, because a draft cannot be enrolled in
+and so has no price to quote, not even to the person who wrote it. The e2e run
+asks for all three with a real token and prints each answer: the live thread
+200 with `membership`, the draft 404, the unpublished team's thread 404, and an
+anonymous caller 401 with no price in the body.
+
+**One calculation, now including the base it applies to.** The quote and the
+charge both call `resolveBasePrice` (which ticket, and therefore what price) and
+then `enrolmentPrice`, so a page that promised €28 and a POST that charged €35
+would have to disagree inside one function. Both moved beside each other in
+`lib/member-discount.ts`, out of the route — a 7,000-line route module is not
+reachable from a unit test, and these are now pinned by sixteen: the chosen
+ticket over the cheapest, the cheapest when nothing is chosen, a chosen ticket
+that is no longer on sale (the quote answers anyway — a quote is not a
+reservation, and the POST keeps its own sold-out refusals), a thread with no
+price, and a ticket currency that overrides the thread's. Seven mutations of
+the new rules each turn one red.
+
+The source-reading guard that insists the member lookup is handed a variable
+called `proven` went red on the new endpoint, correctly — and gained the reason
+the name is honest there: the route reads no address from the request, so the
+token's is the only identity in scope. If one is ever added, the guard goes red
+again and that route owes a `provenEmail()` call like the enrol POST's.
+
+**Seen, not assumed.** `e2e/member-price.spec.ts` now walks the same thread as
+three readers — anonymous, signed in with no membership, signed in as the
+member — prints what each was told, and checks the member's view at 375 as
+well, where the enrol card is a block rather than a sticky aside.
+
 ## [1.165.1] — 2026-10-12
 
 The form walk: what a signed-in member is actually told.

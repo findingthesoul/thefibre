@@ -19,7 +19,7 @@ async function memberAuthHeader(): Promise<Record<string, string>> {
   }
 }
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { CheckCircle2 } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -101,11 +101,29 @@ export function EnrolCard({
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
   const [applied, setApplied] = useState<{ code: string; price_cents: number } | null>(null);
+  // WHAT THIS READER PAYS, asked of the API with this browser's session and
+  // answered about nobody else (GET /thread/public/my-price). Null until the
+  // answer arrives, and null forever for a visitor with no session — which is
+  // why the page's own list price has to be right on its own.
+  const [myPrice, setMyPrice] = useState<{
+    price_cents: number;
+    reason: 'full' | 'coupon' | 'membership';
+    member_pct: number | null;
+  } | null>(null);
   const selectedTicket = tickets.find((tk) => tk.id === ticketId) ?? null;
   // The price the button and header show: the applied code's result wins,
   // else the chosen ticket's, else the thread-level price.
   const basePriceCents = tickets.length ? selectedTicket?.price_cents ?? null : priceCents;
-  const activePriceCents = applied ? applied.price_cents : basePriceCents;
+  // The price a stranger would pay: the applied code's result, else the base.
+  const listPriceCents = applied ? applied.price_cents : basePriceCents;
+  // The member price, only when the API said the REASON was a membership. A
+  // signed-in non-member gets `full` here and the page must look exactly as it
+  // does for a visitor — same price, same invitation to sign in — because the
+  // difference between those two states is the one fact this feature will not
+  // disclose about an address.
+  const memberPriceCents =
+    myPrice && myPrice.reason === 'membership' ? myPrice.price_cents : null;
+  const activePriceCents = memberPriceCents ?? listPriceCents;
   const activeCurrency = tickets.length
     ? selectedTicket?.price_currency ?? 'EUR'
     : priceCurrency;
@@ -154,6 +172,38 @@ export function EnrolCard({
     () => `enr_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`,
     [],
   );
+
+  // Ask again whenever the question changes: another ticket, another code.
+  // A failure of any kind — no session, a 401, a network error — leaves the
+  // page showing the list price, which is the correct answer for a reader
+  // this endpoint cannot identify.
+  const appliedCode = applied?.code ?? null;
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const headers = await memberAuthHeader();
+      if (!headers.Authorization) {
+        if (alive) setMyPrice(null);
+        return;
+      }
+      const qs = new URLSearchParams({ organiser: organiserSlug, thread: threadSlug });
+      if (ticketId) qs.set('ticket_id', ticketId);
+      if (appliedCode) qs.set('coupon', appliedCode);
+      try {
+        const r = await publicFetch<{
+          price_cents: number;
+          reason: 'full' | 'coupon' | 'membership';
+          member_pct: number | null;
+        }>(`/api/v1/thread/public/my-price?${qs.toString()}`, { headers });
+        if (alive) setMyPrice(r);
+      } catch {
+        if (alive) setMyPrice(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [organiserSlug, threadSlug, ticketId, appliedCode]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -245,13 +295,18 @@ export function EnrolCard({
       <div className="flex items-baseline justify-between">
         <h2 className="te-label text-sm font-medium">{t(locale, 'enrol')}</h2>
         <span className="text-sm text-ink-subtle">
-          {/* Applied code → old price struck through, new price next to it. */}
-          {applied && (basePriceCents ?? 0) !== applied.price_cents && (
+          {/* A code or a membership brought it down → the list price struck
+              through, the price owed next to it. */}
+          {(basePriceCents ?? 0) > 0 && (basePriceCents ?? 0) !== (activePriceCents ?? 0) && (
             <s className="mr-1.5 text-ink-muted">
               {fmtPrice(basePriceCents ?? 0, activeCurrency)}
             </s>
           )}
-          <span className={applied ? 'font-medium text-emerald-700' : undefined}>
+          <span
+            className={
+              applied || memberPriceCents !== null ? 'font-medium text-emerald-700' : undefined
+            }
+          >
             {activePriceCents ? fmtPrice(activePriceCents, activeCurrency) : t(locale, 'free')}
           </span>
         </span>
@@ -361,13 +416,25 @@ export function EnrolCard({
               reader — the page cannot know whether they are a member, and
               that is deliberate: an unauthenticated form that could tell you
               would answer "is this address a member here?" for anybody. */}
-          {(memberDiscountPct ?? 0) > 0 && (basePriceCents ?? 0) > 0 && (
-            <p className="text-xs text-ink-subtle">
-              {memberDiscountPct === 100
-                ? t(locale, 'member_price_free')
-                : t(locale, 'member_price_percent', { pct: String(memberDiscountPct) })}
-            </p>
-          )}
+          {(basePriceCents ?? 0) > 0 &&
+            (memberPriceCents !== null ? (
+              /* The reader IS a member, and the API said so about them in
+                 particular. No invitation to sign in at somebody who already
+                 has. */
+              <p className="text-xs font-medium text-emerald-700">
+                {myPrice?.member_pct === 100
+                  ? t(locale, 'your_member_price_free')
+                  : t(locale, 'your_member_price_percent', {
+                      pct: String(myPrice?.member_pct ?? ''),
+                    })}
+              </p>
+            ) : (memberDiscountPct ?? 0) > 0 ? (
+              <p className="text-xs text-ink-subtle">
+                {memberDiscountPct === 100
+                  ? t(locale, 'member_price_free')
+                  : t(locale, 'member_price_percent', { pct: String(memberDiscountPct) })}
+              </p>
+            ) : null)}
 
           {/* Discount code — only meaningful when something costs money. */}
           {(basePriceCents ?? 0) > 0 && (
