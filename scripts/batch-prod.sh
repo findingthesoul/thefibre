@@ -208,15 +208,26 @@ if grep -q 'ZOOM_MARKETPLACE_PENDING = true' apps/api/src/lib/zoom-pending.ts 2>
   if printf '%s' "$FLAGGED" | grep -q '^name='; then
     printf '%s\n' "$FLAGGED" | sed -n 's/^name=/    flagged: /p'
     say "  ^ the notice is hidden for the workspace(s) above. Confirm that is the reviewer's."
-  elif printf '%s' "$FLAGGED" | grep -q '^error='; then
-    # A failed LOOKUP is not "none flagged", and must not be reported as it:
-    # that would send somebody to set a flag that may already be there.
-    GATE_FAIL="zoom-lookup"
-    say "  COULD NOT CHECK the exemption:"
-    printf '%s\n' "$FLAGGED" | sed -n 's/^error=/    /p'
-  else
+  elif printf '%s' "$FLAGGED" | grep -qx 'none'; then
+    # Looked, found nobody. The flag needs setting.
     GATE_FAIL="zoom"
     say "  NO WORKSPACE on $STACK carries zoom_notice_hidden."
+  else
+    # Anything else — an `error=` line, a crash, or silence — means NOBODY
+    # LOOKED. That is a different instruction to a different person, and
+    # until v1.155.2 a crashing lookup landed in the branch above: its stderr
+    # carried no marker, so "the tooling is broken" was reported as "go set
+    # the flag". Found by running a dry run from a fresh worktree, with no
+    # node_modules for the helper to import.
+    GATE_FAIL="zoom-lookup"
+    say "  COULD NOT CHECK the exemption:"
+    # `|| true` on both: under `set -o pipefail` a grep that matches nothing
+    # fails the pipeline, and `set -e` then kills the script BEFORE it can
+    # print why it stopped — which is exactly what happened here, and is the
+    # second time today a bare pipeline has silently ended a run. Any pipeline
+    # in this script whose components may legitimately match nothing needs it.
+    printf '%s\n' "$FLAGGED" | sed -n 's/^error=/    /p' || true
+    printf '%s\n' "$FLAGGED" | grep -v '^error=' | head -3 | sed 's/^/    /' || true
   fi
 else
   say "  zoom notice: the flag is off at this sha — gate retired, delete it"
@@ -244,8 +255,11 @@ BATCH STOPPED at preflight gates: the exemption could not be CHECKED.
 
 $STATE
 
-  This is not "the flag is missing" — it is "nobody looked". The reason is
-  printed above; usually apps/api/.env is absent or its credentials are stale.
+  This is not "the flag is missing" — it is "nobody looked", and they send you
+  to do completely different things. The reason is printed above; usually
+  apps/api/.env is absent, its credentials are stale, or this checkout has no
+  node_modules (a fresh worktree does not — run pnpm install, or run the
+  sitting from the main checkout).
   Fix that and re-run; the database step will skip itself.
 EOF
   exit 1

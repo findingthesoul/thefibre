@@ -331,7 +331,7 @@ describe('a dry run, all the way through', () => {
   // supabase, no fly, no push. The only stub is the gate's lookup, because
   // the gate's two OUTCOMES are the point.
 
-  function fullSandbox({ flagged, pendingFlag = 'true', lookupFails = false } = {}) {
+  function fullSandbox({ flagged, pendingFlag = 'true', lookupFails = false, lookupCrashes = false } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'batch-walk-'));
     const git = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe' });
 
@@ -351,14 +351,16 @@ describe('a dry run, all the way through', () => {
     );
     // The gate's lookup, stubbed: the real one needs a database and this test
     // is about what the gate DOES with the answer.
-    writeFileSync(
-      join(dir, 'apps/api/scripts/zoom-flagged-workspaces.mjs'),
-      lookupFails
+    // `none` is an ANSWER, not silence — see the helper. Silence now means
+    // "nobody looked", which is what a crashing lookup produces.
+    const lookup = lookupCrashes
+      ? `import 'package-that-does-not-exist';\n`
+      : lookupFails
         ? `console.log('error=cannot read apps/api/.env: ENOENT');\n`
         : flagged
           ? `console.log('name=Zoom review (zoom-review)');\n`
-          : '',
-    );
+          : `console.log('none');\n`;
+    writeFileSync(join(dir, 'apps/api/scripts/zoom-flagged-workspaces.mjs'), lookup);
 
     git('init', '-q', '-b', 'staging');
     git('config', 'user.email', 't@example.com');
@@ -496,6 +498,24 @@ describe('a dry run, all the way through', () => {
     // The script says so rather than leaving it to be inferred.
     expect(staging.stdout).toMatch(/only THIS GATE reads the stack in \.env\.staging/);
     expect(staging.stdout).toMatch(/always mean production/);
+  });
+
+  it('reads a CRASHING lookup as "nobody looked", not "nobody is flagged"', () => {
+    // The defect that found itself. Running a dry run from a fresh worktree
+    // crashed the helper — no node_modules to import @supabase/supabase-js —
+    // and its stderr carried neither marker, so the gate fell through to
+    // "NO WORKSPACE carries the flag". That sends a person to set a flag that
+    // may already be set, and leaves a real tooling fault undiagnosed. The
+    // two stops look similar and mean opposite things.
+    const { dir, head } = fullSandbox({ lookupCrashes: true });
+    const r = dryRun(dir, head);
+
+    expect(r.status).not.toBe(0);
+    expect(r.stdout).toMatch(/COULD NOT CHECK the exemption/);
+    expect(r.stdout).not.toMatch(/NO WORKSPACE on .* carries/);
+    expect(r.stderr).toMatch(/could not be CHECKED/);
+    // And it names the cause a fresh checkout actually hits.
+    expect(r.stderr).toMatch(/node_modules/);
   });
 
   it('retires the gate on its own when the flag goes false', () => {

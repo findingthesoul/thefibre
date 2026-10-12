@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.155.2] — 2026-10-12
+
+The gate tells "nobody is flagged" apart from "nobody looked".
+
+Found by running the rehearsal from a FRESH worktree, which has no
+`node_modules` — so the gate's lookup crashed, its stderr carried neither the
+`name=` nor the `error=` marker the gate reads, and it fell through to **"NO
+WORKSPACE carries the flag"**. A broken tool reported as a true negative.
+
+The two stops look alike and mean opposite things. One sends somebody to set a
+flag — possibly one that is already set, on a stack nobody actually queried.
+The other says their tooling is broken. Getting them confused is worse than
+either, because the person acts confidently on the wrong one.
+
+So "looked, found none" is now an explicit answer (`none`) rather than
+silence, and **anything else at all — an error line, a crash, an empty
+response — is "nobody looked"**. Silence cannot carry a negative when a crash
+is also silent. The message names the cause a fresh checkout actually hits.
+
+Both stop paths have tests, including one driven by a lookup that genuinely
+crashes.
+
+Also fixed, and the second instance today: a bare pipeline in that very
+message killed the script under `set -o pipefail`. `grep -v '^error='` matches
+nothing when every line IS an error line, so the pipeline failed and `set -e`
+ended the run **before it could print why it had stopped** — the script exited
+1 with an empty stderr. Any pipeline here whose parts may legitimately match
+nothing now ends in `|| true`.
+
 ## [1.155.1] — 2026-10-12
 
 The batch's gate message tells the truth about what it did.

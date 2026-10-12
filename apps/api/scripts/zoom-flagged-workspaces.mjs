@@ -51,4 +51,12 @@ if (error) {
   process.exit(0);
 }
 
-for (const w of data ?? []) console.log(`name=${w.name} (${w.slug})`);
+// An explicit answer for "looked, found none". Silence cannot carry it: a
+// crash is also silent on stdout, and the gate must not read a broken lookup
+// as a true negative — that sends somebody to set a flag which may already be
+// set, and leaves a real tooling fault undiagnosed.
+if (!data?.length) {
+  console.log('none');
+} else {
+  for (const w of data) console.log(`name=${w.name} (${w.slug})`);
+}
