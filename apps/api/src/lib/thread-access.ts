@@ -1,5 +1,6 @@
 // Thread access sync — drains the membership_member_access journal for
-// `thread` grants.
+// `thread` grants, and resolves `team_calendar` ones, which have nothing to
+// provision.
 //
 // Why this exists: the access-grant dropdown has offered "Thread" since the
 // app shipped. It saved, it listed, and NOTHING consumed it — circle,
@@ -77,6 +78,23 @@ export async function runThreadAccessSync(): Promise<{
     .in('status', ['pending', 'revoke_pending'])
     .limit(200);
   const rows = (data ?? []) as unknown as JournalRow[];
+
+  // `team_calendar` (2026-10-12) has NOTHING TO PROVISION, and that is the
+  // design: it grants permission to join a team's threads later at a member
+  // price, so the work happens when the member presses Join, not now. What it
+  // still needs is for the journal to resolve — a row parked at `pending` for
+  // ever looks exactly like a worker that is broken, which is the state
+  // `thread` itself was in until 2026-09-09.
+  //
+  // The entitlement is READ at enrol time by lib/member-discount.ts, so
+  // granted/revoked here is a record of the promise, not its delivery.
+  for (const row of rows.filter((r) => r.grant?.kind === 'team_calendar')) {
+    const next = row.status === 'revoke_pending' ? 'revoked' : 'granted';
+    await stamp(row.id, next, null, null);
+    if (next === 'granted') out.granted += 1;
+    else out.revoked += 1;
+  }
+
   const threadRows = rows.filter((r) => r.grant?.kind === 'thread' && r.member);
   if (!threadRows.length) return out;
 

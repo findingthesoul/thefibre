@@ -6,6 +6,108 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.163.0] — 2026-10-12
+
+A membership can carry a team's calendar, at a price it sets.
+
+Sjoerd, 2026-10-12: *"another membersjip access thing could be: give default
+discount to threads from the community you're part of."* This is the first
+slice of it — the entitlement and the price, with the design note it came
+from (`docs/membership-calendar-and-seat-note.md`) committed alongside.
+
+**A NEW grant kind, `team_calendar`, and deliberately not a widening of
+`thread`.** That kind means "enrol this member into THIS ONE named thread", it
+has a worker, and two live production grants are delivering through it — so
+re-meaning it would silently change what people who already bought those
+tiers receive, and leave `thread_slug` as config nobody migrated. Checked on
+both stacks before deciding: 2 `thread` grants on production, 12 journal rows,
+none stuck.
+
+Its config is `{ team_id, discount_pct }`. **`discount_pct` defaults to 100 —
+the thread is included in the membership — and 0 is REFUSED at the door**,
+with the reason: a 0% grant is a promise with nothing behind it, which is
+exactly the failure this area already had when `thread` was offered with no
+worker. A tier that should not carry the calendar drops the grant rather than
+granting nothing. Validated in the API, not only in a form, so the shape
+cannot be stored another way.
+
+**It provisions nothing, and that is the design.** Every other kind pushes
+something at a lifecycle moment; this one grants permission to join later, so
+the journal row goes straight to `granted` on grant and `revoked` on revoke.
+A row parked at `pending` for ever is indistinguishable from a broken worker,
+which is the state `thread` itself was in for months.
+
+**ONE CALCULATION, and that is the point of the slice.**
+`lib/member-discount.ts` holds the arithmetic and the entitlement:
+
+```
+memberDiscountFor(personId, threadId) → { pct, via } | null     entitlement, no money
+enrolmentPrice(baseCents, coupon, memberPct) → { cents, reason } pure, the only arithmetic
+```
+
+`couponPrice` moved there from `routes/thread.ts`, which now calls it — so a
+coupon and a membership are one calculation rather than two that can drift.
+The enrol POST settles both in the line that already settled the coupon, and
+the `reason` (`full` | `coupon` | `membership`) travels with the amount, so the
+ledger can answer *"why was this €7 and not €35?"* without reconstructing a
+tier that may since have changed.
+
+**Best of the two, never stacked.** A 30% member discount plus a 50% code is
+not an offer anybody made, and the person who finds it will not be the
+organiser. A member is never worse off for holding a code; a code-holder is
+never worse off for being a member. A tie reads as `coupon`, because the
+person typed it.
+
+Grace counts as active, lapsed does not — the same predicate the rest of
+membership uses. When a membership ends, new joins stop at the member price
+and existing enrolments are untouched, because the platform rule is soft
+delete only and a record of taking part is not something a lapse should erase.
+
+**Twelve unit tests for the arithmetic and seven integration tests for the
+walk**, and the walk is six joins — the kind of code that passes for the wrong
+reason. Mutation-checked three ways: removing the team match, counting a
+lapsed membership as active, and taking the first grant instead of the best.
+**The third was GREEN**, i.e. the test proved nothing about best-of, because
+the fixture's better grant happened to come first. The fixture now puts the
+WORSE grant first, and all three mutations are red.
+
+Still to come, and named rather than implied: the admin field that writes the
+grant (labelled "100% — free for members"), the member's own list of what they
+could join in `/my`, and `fibre_seat` gaining a team. One decision is
+deliberately NOT taken here — whether a €0 enrolment writes a ledger row at
+all — because a €0 member join and a 100%-off coupon are now the same code
+path with a different reason, and they must get the same answer.
+
+**THE MEMBER PRICE IS NOT APPLIED ON THE ANONYMOUS ENROL, and review is why
+it is not.** The first version of this slice priced on the email TYPED into
+the public form. A coupon may be typed by anybody because a code is a shared
+secret; an email address is not one. So anyone who knew a member's address
+could have enrolled them for nothing — using their place, mailing them a
+ticket they never asked for — and the response shape (`ok` versus
+`checkout_url`) would have answered *"is this address a member here?"* to
+anybody who asked.
+
+Walked end to end before deciding, because "is it actually exploitable" and
+"is it wrong" are different questions: the response carries
+`{ ok, enrolment_id, has_account }` and no token; the ticket, QR, pkpass and
+check-in surfaces are keyed on `checkin_code`, which only ever travels in the
+email to the typed address. **So no access reaches the person who typed it** —
+and the harms that remain are enough on their own: a member enrolled in
+something they did not choose, their place consumed, and membership made
+answerable by anyone with a browser.
+
+So the route prices the list price, and `memberDiscountForEmail` is DELETED
+rather than deprecated — a function that prices on an unproven identity is
+exactly what somebody calls later without knowing why it was wrong. The
+entitlement takes a person id, and a person id comes from a session.
+
+The member price therefore belongs where the person is KNOWN: `/my`, and a
+signed-in enrol. The flow supports that naturally — the public thread page and
+the participant portal share an apex, so the Supabase auth cookie is already
+there and a member who has signed in to `/my` has a session on the page — but
+the form does not send it yet and the route reads no `Authorization`, so that
+is the next slice rather than a line here.
+
 ## [1.162.3] — 2026-10-12
 
 The hand probe becomes the gate: Meet's public host payload.

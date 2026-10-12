@@ -142,9 +142,37 @@ const PatchMember = z.object({
 
 // Grant kinds are a deploy-time vocabulary (like app-key scopes) — the DB
 // deliberately has no CHECK so adding one here is enough.
-const GrantKind = z.enum(['circle', 'thread', 'fibre_seat', 'google_user']);
+// `team_calendar` (2026-10-12) is a TEAM's whole calendar at a percentage,
+// and it is deliberately NOT a widening of `thread`. That kind means "enrol
+// this member into THIS ONE named thread", it has a worker, and two live
+// production grants are delivering through it — re-meaning it would silently
+// change what people who already bought those tiers receive, and leave
+// `thread_slug` as config nobody migrated.
+const GrantKind = z.enum(['circle', 'thread', 'fibre_seat', 'google_user', 'team_calendar']);
 // Grants attach to a PRODUCT (the promise carries its fulfillment —
 // 2026-09-05); tier_id remains accepted for the legacy tier-level rows.
+/** `team_calendar` config, checked HERE and not only in the form.
+ *
+ *  A 0% grant is a promise with nothing behind it — which is the exact
+ *  failure this area already had once, when `thread` was offered with no
+ *  worker: the product said a member got something and the member got
+ *  nothing, silently, for months. So 0 is refused with the reason, and a tier
+ *  that should not carry the calendar drops the grant instead of granting
+ *  nothing.
+ *
+ *  Missing means 100 — the calendar-included case — because somebody has to
+ *  type a number and a stray 0 would promise a calendar that charges full
+ *  price. */
+const TeamCalendarConfig = z.object({
+  team_id: z.string().uuid({ message: 'a team calendar grant needs a team' }),
+  discount_pct: z.coerce
+    .number()
+    .int({ message: 'the discount must be a whole percentage' })
+    .min(1, { message: 'a 0% grant promises nothing — drop the grant instead' })
+    .max(100)
+    .default(100),
+});
+
 const CreateGrant = z
   .object({
     product_id: z.string().uuid().optional(),
@@ -153,6 +181,20 @@ const CreateGrant = z
     // Non-secret targeting only ({space_id} / {thread_slug} / {role}).
     // Credentials go in membership_settings, service-role only.
     config: z.record(z.string(), z.unknown()).default({}),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind !== 'team_calendar') return;
+    const parsed = TeamCalendarConfig.safeParse(v.config);
+    if (parsed.success) {
+      // The normalised config is what gets stored, so a grant written through
+      // the API carries the same shape as one written through the form —
+      // including the default.
+      v.config = parsed.data as Record<string, unknown>;
+      return;
+    }
+    for (const issue of parsed.error.issues) {
+      ctx.addIssue({ code: 'custom', path: ['config', ...issue.path], message: issue.message });
+    }
   })
   .refine((v) => Boolean(v.product_id) !== Boolean(v.tier_id), {
     message: 'exactly one of product_id or tier_id',

@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
+import { couponPriceOf, enrolmentPrice } from '../lib/member-discount.js';
 import {
   calendarAudience,
   calendarStateChanged,
@@ -6595,13 +6596,10 @@ type CouponCheck = {
   ticket_id: string | null;
 };
 
-function couponPrice(coupon: CouponCheck, baseCents: number): number {
-  if (coupon.type === 'free') return 0;
-  if (coupon.type === 'percentage') {
-    return Math.max(0, Math.round(baseCents * (1 - (coupon.discount_percentage ?? 0) / 100)));
-  }
-  return Math.max(0, baseCents - (coupon.discount_amount_cents ?? 0));
-}
+// The arithmetic lives in lib/member-discount.ts now, with the membership
+// percentage that has to share it. One calculation or the offer and the charge
+// drift apart; this stays as the name the rest of this file already uses.
+const couponPrice = couponPriceOf;
 
 async function findValidCoupon(
   threadId: string,
@@ -6896,6 +6894,11 @@ threadRoutes.post('/public/enrol', async (c) => {
     basePriceCents = thread.price_cents ?? 0;
   }
 
+  // Declared here rather than after the coupon block, because the member
+  // discount below needs it: the same one value feeds the price, the account
+  // check and the person resolve.
+  const email = d.email.trim().toLowerCase();
+
   // Discount code — validated server-side, never trusting the form's price.
   let coupon: CouponCheck | null = null;
   if (d.coupon_code) {
@@ -6903,7 +6906,23 @@ threadRoutes.post('/public/enrol', async (c) => {
     if ('error' in r) return c.json({ error: r.error }, 409);
     coupon = r.coupon;
   }
-  const finalPriceCents = coupon ? couponPrice(coupon, basePriceCents) : basePriceCents;
+  // NO MEMBER PRICE HERE, deliberately, and this is the reason:
+  //
+  // this route is anonymous (`/api/v1/thread/public/*` bypasses auth) and the
+  // email is TYPED. Pricing on it would hand the member price to whoever
+  // typed the address — a coupon may be typed by anybody because a code is a
+  // shared secret, and an email address is not one. The member's place would
+  // be used up, a ticket would land in their mailbox, and the response shape
+  // (ok vs checkout_url) would answer "is this address a member here?" for
+  // anybody who asked.
+  //
+  // The member price belongs where the person is KNOWN: /my, and a
+  // signed-in enrol once the form carries the session (the public page and
+  // the portal share an apex, so a member who has signed in to /my already
+  // has one there). Until then this is the list price, and the shared
+  // calculation is already the one place that would apply it.
+  const priced = enrolmentPrice(basePriceCents, coupon, null);
+  const finalPriceCents = priced.cents;
   const requiresPayment = finalPriceCents > 0;
   // Inheritance: ticket ?? thread ?? organiser's account default ?? {stripe}.
   const { data: enrolOrg } = await adminClient
@@ -6939,7 +6958,6 @@ threadRoutes.post('/public/enrol', async (c) => {
   }
 
   // Create-or-match the platform person (identity is platform-owned).
-  const email = d.email.trim().toLowerCase();
 
   // One Fibre account covers everything (Thread, Meet, …). Existing account
   // → the form says "sign in"; none → "create your account" (created on
