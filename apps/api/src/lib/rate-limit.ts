@@ -62,6 +62,38 @@ export function hit(key: string, limit: number, windowMs: number): RateLimitResu
 }
 
 /**
+ * Is this bucket already spent? WITHOUT spending one.
+ *
+ * For the gates that charge only FAILURES — the join and enrol paths, where a
+ * blanket limit would turn a real person away. Those were still an oracle
+ * without this: once the bucket was empty, a wrong guess got a 429 and a
+ * RIGHT one sailed through to a 200, so the status code itself answered "is
+ * this code valid" at full speed and with a perfect signal. Counting only
+ * failures is the correct intent and it has to be paired with REFUSING on
+ * exhaustion, whether the code would have been right or wrong.
+ *
+ * So: check this before the lookup, and `hit()` only after a failed one. A
+ * request carrying no code never touches the bucket at all.
+ *
+ * Read-only on purpose — calling `hit()` to find out would consume the
+ * attempt it is asking about, which is how a check becomes the thing it
+ * meant to measure.
+ */
+export function isExhausted(key: string, limit: number): boolean {
+  const b = buckets.get(key);
+  if (!b || b.resetAt <= Date.now()) return false;
+  return b.count >= limit;
+}
+
+/** Seconds until this bucket resets, for Retry-After on a refusal that did
+ *  not come from `hit()`. Zero when there is nothing to wait for. */
+export function resetSecondsFor(key: string): number {
+  const b = buckets.get(key);
+  const left = b ? b.resetAt - Date.now() : 0;
+  return left > 0 ? Math.ceil(left / 1000) : 0;
+}
+
+/**
  * Test seam — lets the unit tests (rate-limit.test.ts) assert the limiter
  * without waiting out a window. This comment used to credit the contract
  * script; that script talks to a deployed API over HTTP and cannot reach

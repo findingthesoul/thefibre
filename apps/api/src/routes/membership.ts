@@ -14,7 +14,7 @@ import {
   redeemDiscountCode,
 } from '../lib/discount-codes.js';
 import { periodLastDay } from '@thefibre/shared/membership-period';
-import { clientIp, hit } from '../lib/rate-limit.js';
+import { clientIp, hit, isExhausted, resetSecondsFor } from '../lib/rate-limit.js';
 import { isStorableCode } from '../lib/like-escape.js';
 import { BillingFields } from '../lib/billing-fields.js';
 import {
@@ -2259,8 +2259,29 @@ membershipRoutes.post('/public/join', async (c) => {
   // when a code applied, and the panel says both out loud.
   let discount: Awaited<ReturnType<typeof findDiscountCode>> | null = null;
   if (d.code) {
+    // THE BUCKET IS CHECKED BEFORE THE LOOKUP, AND SPENT ONLY ON A FAILURE.
+    //
+    // Charging only failures is the right intent — this route takes money,
+    // and a group joining from one office wifi must never hit a wall. But
+    // checking only on failure leaks: once the bucket is empty a wrong guess
+    // gets a 429 and a RIGHT one sails through to a 200 with a Checkout URL,
+    // so the status code itself answers "is this code valid" at full speed
+    // and with a perfect signal. Refusing on exhaustion regardless of the
+    // answer is what closes that.
+    //
+    // A request carrying no code never reaches here at all.
+    const codeKey = `membership-code:${ws.id}:${clientIp(c.req.raw.headers)}`;
+    if (isExhausted(codeKey, 20)) {
+      c.header('Retry-After', String(resetSecondsFor(codeKey)));
+      return c.json({ error: 'too many attempts, try again later' }, 429);
+    }
     discount = await findDiscountCode(ws.id, d.code, { kind: 'tier', id: tier.id });
-    if ('error' in discount) return c.json({ error: discount.error, code_invalid: true }, 400);
+    if ('error' in discount) {
+      // A wrong code costs one from the SAME bucket as /public/validate-code:
+      // one question, one budget, or two twenty-an-hour limits are forty.
+      hit(codeKey, 20, 3_600_000);
+      return c.json({ error: discount.error, code_invalid: true }, 400);
+    }
   }
   const amount =
     discount && 'code' in discount ? discountedPrice(discount.code, listAmount) : listAmount;

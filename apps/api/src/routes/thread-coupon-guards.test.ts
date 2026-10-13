@@ -67,14 +67,17 @@ describe('the enrol route limits GUESSES, not enrolments', () => {
   // signing up from one network, or a conference on one wifi, hits a wall and
   // cannot join — a real person turned away, which is worse than the guessing
   // it would prevent. Only a WRONG code counts.
-  it('counts only a failed code, inside the error branch', () => {
-    const limiter = enrol.indexOf('thread-code-fail:');
+  it('SPENDS only on a failed code, inside the error branch', () => {
+    // The key is declared before the lookup — that is the exhaustion check's
+    // doing, asserted below. What must sit inside the failure branch is the
+    // SPEND: a correct code costs nothing.
+    const spend = enrol.indexOf('hit(codeKey,');
     const branch = enrol.indexOf("if ('error' in r) {");
     const coupon = enrol.indexOf('coupon = r.coupon;');
-    expect(limiter, 'there is a limiter').toBeGreaterThan(-1);
+    expect(spend, 'there is a limiter').toBeGreaterThan(-1);
     expect(branch).toBeGreaterThan(-1);
-    expect(limiter, 'it is inside the failure branch').toBeGreaterThan(branch);
-    expect(limiter, 'and before the success path').toBeLessThan(coupon);
+    expect(spend, 'it is inside the failure branch').toBeGreaterThan(branch);
+    expect(spend, 'and before the success path').toBeLessThan(coupon);
   });
 
   it('never counts a join with no code at all', () => {
@@ -84,6 +87,20 @@ describe('the enrol route limits GUESSES, not enrolments', () => {
     const limiter = enrol.indexOf('thread-code-fail:');
     expect(guard).toBeGreaterThan(-1);
     expect(guard, 'the code check wraps the limiter').toBeLessThan(limiter);
+  });
+
+  // \u26a0\ufe0f AND IT REFUSES ON EXHAUSTION, BEFORE THE LOOKUP. Charging only
+  // failures still leaks without this: once the bucket is empty a wrong
+  // guess gets a 429 and a RIGHT one sails through to an enrolment, so the
+  // status code answers "is this code valid" at full speed. Asking before
+  // the lookup makes the answer the same either way.
+  it('refuses an exhausted bucket before it looks anything up', () => {
+    const check = enrol.indexOf('isExhausted(codeKey, 20)');
+    const lookup = enrol.indexOf('await findValidCoupon(');
+    const spend = enrol.indexOf('hit(codeKey,');
+    expect(check, 'there is a non-consuming check').toBeGreaterThan(-1);
+    expect(check, 'and it comes before the lookup').toBeLessThan(lookup);
+    expect(spend, 'while the spend comes after it').toBeGreaterThan(lookup);
   });
 });
 

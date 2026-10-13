@@ -133,3 +133,72 @@ describe('an RLS refusal is a 403', () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EVERY PLACE A TYPED CODE IS LOOKED UP on the membership side.
+//
+// The validator was gated from the start and the join was not — and the join
+// answers `code_invalid` for a wrong code before anything else happens, which
+// makes it the same oracle in a different shape. A limit on one of two doors
+// is not a limit.
+//
+//   /public/validate-code   every request   — the obvious oracle
+//   /public/join            FAILURES only   — it takes money; a group joining
+//                                             from one office wifi must never
+//                                             hit a wall, and cannot, because
+//                                             a correct code and no code both
+//                                             skip the branch entirely
+// ─────────────────────────────────────────────────────────────────────────────
+describe('no membership code lookup is left ungated', () => {
+  it('has exactly two callers, and each is gated', () => {
+    const callers = [...src.matchAll(/await findDiscountCode\(/g)].map((m) => m.index ?? 0);
+    expect(callers, 'a new caller needs a gate and a line in this test').toHaveLength(2);
+
+    // Before the lookup for the validator, after it for the join — where the
+    // gate sits inside the failure branch on purpose. A window spanning both
+    // sides is what the two have in common: neither lookup stands alone.
+    for (const at of callers) {
+      const near = src.slice(Math.max(0, at - 1600), at + 1400);
+      expect(near, `ungated findDiscountCode at offset ${at}`).toContain('membership-code:');
+    }
+  });
+
+  // One question, one budget.
+  it('shares one bucket between the validator and the join', () => {
+    const buckets = [...src.matchAll(/`(membership-code:[^`]*)`/g)].map((m) => m[1]);
+    expect(buckets.length, 'both doors are gated').toBeGreaterThanOrEqual(2);
+    expect(new Set(buckets).size, 'and on the same key').toBe(1);
+    expect(buckets[0]).toBe('membership-code:${ws.id}:${clientIp(c.req.raw.headers)}');
+  });
+
+  // The join must not SPEND on a successful code, or on a join with no code.
+  it('spends only on a failed code', () => {
+    const join = src.slice(src.indexOf("membershipRoutes.post('/public/join'"));
+    const branch = join.indexOf("if ('error' in discount) {");
+    const spend = join.indexOf('hit(codeKey,');
+    expect(branch).toBeGreaterThan(-1);
+    expect(spend, 'the spend is inside the failure branch').toBeGreaterThan(branch);
+  });
+
+  // \u26a0\ufe0f AND IT REFUSES ON EXHAUSTION, BEFORE THE LOOKUP. Charging only
+  // failures still leaks without this: once the bucket is empty a wrong
+  // guess gets a 429 and a RIGHT one sails through to a 200 with a Checkout
+  // URL, so the status code answers "is this code valid" at full speed.
+  it('refuses an exhausted bucket before it looks anything up', () => {
+    const join = src.slice(src.indexOf("membershipRoutes.post('/public/join'"));
+    const check = join.indexOf('isExhausted(codeKey, 20)');
+    const lookup = join.indexOf('await findDiscountCode(');
+    const spend = join.indexOf('hit(codeKey,');
+    expect(check, 'there is a non-consuming check').toBeGreaterThan(-1);
+    expect(check, 'and it comes before the lookup').toBeLessThan(lookup);
+    expect(spend, 'while the spend comes after it').toBeGreaterThan(lookup);
+  });
+
+  // Somebody joining with no code must never be charged against the bucket.
+  it('never touches the bucket for a join with no code', () => {
+    const join = src.slice(src.indexOf("membershipRoutes.post('/public/join'"));
+    const wrapper = join.indexOf('if (d.code) {');
+    const check = join.indexOf('isExhausted(codeKey, 20)');
+    expect(wrapper).toBeGreaterThan(-1);
+    expect(wrapper, 'the code check wraps the whole gate').toBeLessThan(check);
+  });
+});

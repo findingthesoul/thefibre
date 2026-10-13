@@ -15,7 +15,7 @@
 // fresh one, so being unidentifiable is not a way to be exempt.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clientIp, hit, resetAllBuckets } from './rate-limit.js';
+import { clientIp, hit, resetAllBuckets, isExhausted, resetSecondsFor } from './rate-limit.js';
 
 afterEach(() => {
   resetAllBuckets();
@@ -101,5 +101,50 @@ describe('clientIp', () => {
 
   it('ignores an empty X-Forwarded-For rather than bucketing on empty string', () => {
     expect(clientIp(new Headers({ 'x-forwarded-for': '   ' }))).toBe('unknown');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A GATE THAT CHARGES ONLY FAILURES STILL LEAKS, unless it REFUSES on
+// exhaustion too.
+//
+// The join and enrol paths charge only wrong codes, because a blanket limit
+// would turn away a classroom on one network. But checking only on failure
+// means that once the bucket is empty, a wrong guess gets a 429 and a RIGHT
+// one sails through to a 200 — so the status code itself answers "is this
+// code valid", at full speed and with a perfect signal. The fix is to ask
+// whether the bucket is spent BEFORE the lookup, without spending one.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('isExhausted', () => {
+  it('does not consume the attempt it is asking about', () => {
+    const key = `peek-${Math.random()}`;
+    // Twenty allowed; nineteen spent.
+    for (let i = 0; i < 19; i += 1) hit(key, 20, 60_000);
+    expect(isExhausted(key, 20)).toBe(false);
+    // Asking ten more times must not use the twentieth.
+    for (let i = 0; i < 10; i += 1) isExhausted(key, 20);
+    expect(hit(key, 20, 60_000).allowed, 'the 20th attempt is still there').toBe(true);
+  });
+
+  it('is true once the limit is reached, and that is what refuses a VALID code', () => {
+    const key = `peek-full-${Math.random()}`;
+    for (let i = 0; i < 20; i += 1) hit(key, 20, 60_000);
+    // THE CASE THAT USED TO LEAK: the next request carries a correct code.
+    // The route asks this question before it looks the code up, so the
+    // answer is the same either way — which is the whole point.
+    expect(isExhausted(key, 20)).toBe(true);
+  });
+
+  it('is false for a bucket nobody has touched', () => {
+    expect(isExhausted(`peek-unused-${Math.random()}`, 20)).toBe(false);
+  });
+
+  it('gives a Retry-After for a refusal that did not come from hit()', () => {
+    const key = `peek-reset-${Math.random()}`;
+    hit(key, 20, 60_000);
+    const secs = resetSecondsFor(key);
+    expect(secs).toBeGreaterThan(0);
+    expect(secs).toBeLessThanOrEqual(60);
+    expect(resetSecondsFor(`peek-none-${Math.random()}`), 'nothing to wait for').toBe(0);
   });
 });

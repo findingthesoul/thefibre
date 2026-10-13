@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.178.2] — 2026-10-13
+
+The fourth door, which my own table said was deliberately left open.
+
+`POST /membership/public/join` answers `code_invalid` for a wrong code before
+anything else happens, so it is the same oracle as the validator in a
+different shape — and a limit on one of two doors is not a limit. It now shares
+the **same bucket** as `/public/validate-code`.
+
+**Failures only**, because this route takes money. A group joining from one
+office wifi must never hit a wall, and cannot: a correct code and no code at
+all both skip the branch entirely, so only guessing costs anything.
+
+**And it refuses on exhaustion, before the lookup** — which is what makes
+"failures only" safe rather than a leak in a nicer shape. Charging only wrong
+codes is the right intent, but CHECKING only on failure means that once the
+bucket is empty, a wrong guess gets a 429 and a **right** one sails through to
+a 200 with a Checkout URL. The status code itself then answers *"is this code
+valid"*, at full speed and with a perfect signal — a better oracle than the one
+the limit was added to close.
+
+So the bucket is asked **before** the lookup, without being spent
+(`isExhausted` in `lib/rate-limit.ts`, read-only on purpose: calling `hit()` to
+find out would consume the attempt it is asking about). A failed lookup spends
+one. A request with no code never touches it at all.
+
+**The same flaw was in Thread's enrol path**, shipped an hour earlier in
+v1.178.0, and is fixed here too rather than left for a follow-up: it was the
+same mistake, and finding it in one place and not the other is how a codebase
+keeps a hole it has already found.
+
+Tested where it can be: the limiter's own unit tests cover a bucket that is
+spent answering `true` while a valid code is being offered, and cover that
+asking never consumes. The route ordering — check, then look up, then spend —
+is asserted in both inventory tests, and both go red when either check is
+deleted.
+
+Yesterday's entry listed this route as ungated on purpose — *"it is the charge,
+and a refusal there is a person turned away"*. That reasoning is sound and was
+applied to the wrong shape: it argues against a **blanket** limit, which is
+exactly why the Thread enrol path counts failures only. Having built that
+pattern an hour earlier, I then wrote the opposite conclusion into a table.
+The table is corrected along with the code.
+
+**The same inventory assertion as on the Thread side**: every
+`findDiscountCode` caller is found, exactly two are required, and each must
+have a limiter beside it — before the lookup for the validator, inside the
+failure branch for the join. A third caller cannot be added without the test
+failing.
+
 ## [1.178.1] — 2026-10-13
 
 The third oracle — and an inventory, so there cannot quietly be a fourth.
@@ -44,7 +94,7 @@ Where the lookups are, and what guards each:
 | `/public/my-price` | every request, same bucket |
 | `/public/enrol` | failures only |
 | membership `/public/validate-code` | every request, its own workspace bucket |
-| membership `/public/join` | none — it is the charge, and a refusal there is a person turned away |
+| membership `/public/join` | failures only, same bucket *(gated the next day — see above; this row said "none" and was wrong)* |
 
 ## [1.178.0] — 2026-10-13
 

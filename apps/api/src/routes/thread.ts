@@ -27,7 +27,7 @@ import { rows } from '../lib/rows.js';
 import { BillingFields } from '../lib/billing-fields.js';
 import { likeLiteral, isStorableCode } from '../lib/like-escape.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
-import { clientIp, hit } from '../lib/rate-limit.js';
+import { clientIp, hit, isExhausted, resetSecondsFor } from '../lib/rate-limit.js';
 import {
   rowInWorkspace,
   isWorkspaceMember,
@@ -7083,13 +7083,24 @@ threadRoutes.post('/public/enrol', async (c) => {
   // code, or no code at all, never touches the limiter.
   let coupon: CouponCheck | null = null;
   if (d.coupon_code) {
+    // THE BUCKET IS CHECKED BEFORE THE LOOKUP, AND SPENT ONLY ON A FAILURE.
+    //
+    // Charging only failures is the right intent — this route ENROLS
+    // somebody, and a classroom signing up from one network must never hit a
+    // wall. But checking only on failure leaks: once the bucket is empty a
+    // wrong guess gets a 429 and a RIGHT one sails through to an enrolment,
+    // so the status code itself answers "is this code valid" at full speed.
+    // Refusing on exhaustion regardless of the answer is what closes that.
+    //
+    // A request carrying no code never reaches here at all.
+    const codeKey = `thread-code-fail:${thread.id}:${clientIp(c.req.raw.headers)}`;
+    if (isExhausted(codeKey, 20)) {
+      c.header('Retry-After', String(resetSecondsFor(codeKey)));
+      return c.json({ error: 'too many attempts, try again later' }, 429);
+    }
     const r = await findValidCoupon(thread.id, d.coupon_code, ticketId);
     if ('error' in r) {
-      const guessGate = hit(`thread-code-fail:${thread.id}:${clientIp(c.req.raw.headers)}`, 20, 3_600_000);
-      if (!guessGate.allowed) {
-        c.header('Retry-After', String(guessGate.resetSeconds));
-        return c.json({ error: 'too many attempts, try again later' }, 429);
-      }
+      hit(codeKey, 20, 3_600_000);
       return c.json({ error: r.error }, 409);
     }
     coupon = r.coupon;
