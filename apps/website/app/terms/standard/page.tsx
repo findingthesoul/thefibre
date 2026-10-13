@@ -7,7 +7,7 @@ import { StandardMembershipTermsDoc } from '@thefibre/shared/ui/legal-docs';
 // this copy exists so the marketing site is not a dead end for anybody who
 // goes looking.
 export const metadata: Metadata = {
-  title: 'Standard membership terms (draft)',
+  title: 'Standard membership terms',
   description:
     'The default agreement between a community and its members for memberships sold through The Thread.',
   robots: { index: false, follow: false },

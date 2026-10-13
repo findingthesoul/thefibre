@@ -292,24 +292,30 @@ const POLICY_UPDATED = '2026-10-02';
  *  apps/website render it and only apps/web is deployed on BOTH stacks — the
  *  reason the first version of this link 404'd on staging.
  *
- *  The DRAFT marker is part of the document. Consent records written against
- *  it carry `standard-terms-v1-draft` (apps/api/src/lib/terms.ts), so an
- *  acceptance can always be traced to the words that were shown. When the
- *  words change, bump that version: the consent index keys on it, so a member
- *  accepting v2 is recorded beside their v1 acceptance rather than colliding
- *  with it. */
+ *  THE VERSION IS PART OF THE DOCUMENT. Consent records written against it
+ *  carry `standard-terms-v1` (apps/api/src/lib/terms.ts), so an acceptance
+ *  can always be traced to the words that were shown — which is why the
+ *  version and its date are printed on the page itself and not only in the
+ *  code. When the words change, bump that version: the consent index keys on
+ *  it, so a member accepting v2 is recorded beside their v1 acceptance rather
+ *  than colliding with it.
+ *
+ *  Approved by Sjoerd on 2026-10-14. The draft banner came off and the text
+ *  did not change; acceptances made against `standard-terms-v1-draft` keep
+ *  that version, and move to this one at their next renewal (§9). */
 export function StandardMembershipTermsDoc() {
   return (
     <>
-      <div className="mt-10 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <strong>Draft.</strong> These standard terms have not been approved or reviewed by a
-        lawyer. They are published so communities and members can read the proposed wording; the
-        version recorded against any acceptance is <code>standard-terms-v1-draft</code>.
-      </div>
       <DocHeader
         title="Standard membership terms"
         standfirst="The default agreement between a community and its members, for memberships sold through The Thread. A community that has its own terms uses those instead."
       />
+      {/* WHICH WORDS ARE IN FORCE, on the page. An acceptance records a
+          version string, and somebody reading this later has to be able to
+          tell whether it is the version they agreed to. */}
+      <P>
+        <strong>Version standard-terms-v1, 14 October 2026.</strong>
+      </P>
 
       <H2 id="parties">1. Who this agreement is between</H2>
       <P>

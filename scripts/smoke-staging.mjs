@@ -118,10 +118,32 @@ await check('standard terms link in the join catalogue resolves on this stack', 
   const page = await get(terms.url);
   if (!page.ok) throw new Error(`${terms.url} → status ${page.status}`);
   const html = await page.text();
-  // The text is a DRAFT and says so. When it stops being a draft that word
-  // goes, and this assertion should be changed deliberately — not quietly.
-  if (!/\bDraft\b/.test(html)) {
-    throw new Error(`${terms.url} answers 200 but is not the draft terms document`);
+  // WHICH VERSION OF THE WORDS IS BEING SERVED. This asked for the word
+  // "Draft" until 2026-10-14, with a note saying the assertion should be
+  // changed deliberately when the text was approved rather than quietly.
+  // This is that change.
+  //
+  // Both halves matter. The version string proves the approved document is
+  // the one being served; the ABSENCE of "Draft" proves the banner actually
+  // came off, which a positive check alone would not — a page can carry the
+  // new version line and the old banner at once, and that page tells a
+  // joiner they are agreeing to something provisional.
+  // The COMMA is deliberate. `standard-terms-v1\b` also matches
+  // `standard-terms-v1-draft`, because \b sits happily before a hyphen — so
+  // the obvious spelling of this check would pass on the very document it
+  // exists to reject. The page prints "Version standard-terms-v1, 14 October
+  // 2026.", and the draft string cannot produce that.
+  if (!/standard-terms-v1,/.test(html)) {
+    throw new Error(
+      `${terms.url} answers 200 but does not name version standard-terms-v1 — ` +
+        'the approved document is not the one being served',
+    );
+  }
+  if (/\bDraft\b/.test(html)) {
+    throw new Error(
+      `${terms.url} still carries the word "Draft" — the terms were approved on ` +
+        '2026-10-14 and the banner must be gone',
+    );
   }
 });
 

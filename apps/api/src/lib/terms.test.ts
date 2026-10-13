@@ -36,10 +36,17 @@ describe('resolveTerms', () => {
   it('records the standard terms by a real version, because we do control them', () => {
     const r = resolveTerms(null);
     expect(r.version).toBe(STANDARD_TERMS_VERSION);
-    // The draft marker is deliberate: the text has not been approved, and an
-    // acceptance recorded against it should say so for as long as that is
-    // true.
-    expect(STANDARD_TERMS_VERSION).toMatch(/draft/);
+    // APPROVED 2026-10-14, so the draft marker is GONE — and this assertion
+    // is the reason that could not happen quietly. It asked for /draft/
+    // until the text was approved; now it refuses the marker, so the version
+    // cannot drift back to provisional without a test saying so.
+    //
+    // It is not `toBe('standard-terms-v1')`, because the next approved
+    // revision will be v2 and a test naming today's number would fail on a
+    // correct change. What must stay true is that a version exists, that it
+    // is shaped like one, and that it does not claim to be a draft.
+    expect(STANDARD_TERMS_VERSION).not.toMatch(/draft/i);
+    expect(STANDARD_TERMS_VERSION).toMatch(/^standard-terms-v\d+$/);
   });
 
   it('points at the right stack, by the signal the API actually has', () => {

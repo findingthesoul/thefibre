@@ -12,7 +12,7 @@ import { StandardMembershipTermsDoc } from '@thefibre/shared/ui/legal-docs';
 //
 // ⚠️ DRAFT: not approved, not legally reviewed. The page says so itself.
 export const metadata = {
-  title: 'Standard membership terms (draft) — The Thread',
+  title: 'Standard membership terms — The Thread',
   description:
     'The default agreement between a community and its members for memberships sold through The Thread.',
   robots: { index: false, follow: false },

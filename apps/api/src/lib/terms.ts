@@ -17,7 +17,15 @@
  *  acceptance of the OLD words. */
 import { appUrl, stagingAppUrl, PLATFORM_APP_ID } from '@thefibre/shared';
 
-export const STANDARD_TERMS_VERSION = 'standard-terms-v1-draft';
+// APPROVED 2026-10-14. The words are unchanged from the draft; what changed
+// is that they are no longer provisional, and that makes this a DIFFERENT
+// version string from the one earlier acceptances carry — which is the point.
+// The consent index keys on `text_version`, so `standard-terms-v1` is
+// recordable BESIDE `standard-terms-v1-draft` rather than colliding with it,
+// and somebody who agreed to the draft keeps a record saying exactly that.
+// No existing row is rewritten: a consent is evidence of what somebody was
+// shown, and evidence is not edited.
+export const STANDARD_TERMS_VERSION = 'standard-terms-v1';
 
 /** Where the standard terms live. The marketing site serves them: a public
  *  document a stranger reads before paying, not an app page behind a sign-in.

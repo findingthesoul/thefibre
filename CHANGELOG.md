@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.182.0] — 2026-10-14
+
+### The standard membership terms are approved
+
+Sjoerd approved them on 2026-10-14. **Not one word of the text changed** —
+what changed is that it is no longer provisional.
+
+- `STANDARD_TERMS_VERSION` is `standard-terms-v1`. This is not a rename of
+  the draft value. The consent index keys on `text_version`, so the new string
+  is recordable BESIDE `standard-terms-v1-draft` rather than colliding with
+  it, and somebody who agreed to the draft keeps a record saying exactly
+  that. They move to this version at their next renewal, per §9 of the terms
+  themselves. **No existing consent row is rewritten**: a consent is evidence
+  of what somebody was shown, and evidence is not edited.
+- The amber Draft banner is gone, and the page now states which words are in
+  force — "Version standard-terms-v1, 14 October 2026." — because an
+  acceptance records a version and a reader has to be able to tell whether it
+  is the one they agreed to.
+- "(draft)" is off both page titles, on the platform and the marketing site.
+
+**The two checks that make this hard to undo quietly.** `terms.test.ts`
+asked for `/draft/` with a note saying the assertion should be changed
+deliberately when the text was approved. It now refuses `/draft/i` and
+requires the shape `^standard-terms-v\d+$` — deliberately not
+`toBe('standard-terms-v1')`, since the next approved revision is v2 and a
+test naming today's number would fail on a correct change. (That test is also
+what caught this change mid-flight: `pnpm verify` reads the working tree, so
+it failed the release of an unrelated commit, which is the gate working.)
+
+`smoke-staging.mjs` now requires the version AND the absence of "Draft". Both
+halves are needed, and the obvious spelling of the first is wrong:
+`/standard-terms-v1\b/` also matches `standard-terms-v1-draft`, because `\b`
+sits happily before a hyphen — so it would have passed on the very document
+it exists to reject. It asserts the comma from the rendered line, which the
+draft string cannot produce. Checked against all three documents: the draft
+fails, the approved passes, and a half-done page carrying the new version
+line and the old banner fails too.
+
 ## [1.181.1] — 2026-10-14
 
 ### The invite fix gets its test, and a way to find the next soul.com
