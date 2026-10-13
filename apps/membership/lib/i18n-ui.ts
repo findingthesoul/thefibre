@@ -22,6 +22,7 @@
 // Thread, Meet, Stripe, Fibre, Google Workspace) stay as-is everywhere.
 
 import { makeT, type I18nEntry } from '@thefibre/shared/i18n';
+import { DISCOUNT_CODE_ADMIN } from '@thefibre/shared/discount-code-admin-i18n';
 
 export {
   LOCALES,
@@ -34,6 +35,107 @@ export {
 } from '@thefibre/shared/i18n';
 
 const CATALOG = {
+  // The discount-code editor's own words, shared with The Thread's.
+  ...DISCOUNT_CODE_ADMIN,
+  // Generic chrome the shared dialog takes as a prop, because a shared
+  // fragment owning "Edit {title}" would collide with every app's own.
+  edit_item: {
+    en: 'Edit {title}',
+    nl: '{title} bewerken',
+    es: 'Editar {title}', // MT
+    pt: 'Editar {title}', // MT
+    de: '{title} bearbeiten', // MT
+    fr: 'Modifier {title}', // MT
+  },
+
+  // ── discount codes (2026-10-13) ───────────────────────────────────────
+  // The EDITOR's own words are shared with The Thread's
+  // (@thefibre/shared/discount-code-admin-i18n, spread in below). These are
+  // the page around it: its title, its empty state and its list.
+  st_discount_codes_title: {
+    en: 'Discount codes',
+    nl: 'Kortingscodes',
+    es: 'C\u00f3digos de descuento', // MT
+    pt: 'C\u00f3digos de desconto', // MT
+    de: 'Rabattcodes', // MT
+    fr: 'Codes de r\u00e9duction', // MT
+  },
+  st_discount_codes_desc: {
+    en: 'Codes people can type when they join. A code applies to their first payment; the membership renews at the full price.',
+    nl: 'Codes die mensen kunnen invullen bij het lid worden. Een code geldt voor de eerste betaling; daarna verlengt het lidmaatschap tegen de volle prijs.',
+    es: 'C\u00f3digos que la gente puede escribir al unirse. Un c\u00f3digo se aplica a su primer pago; la membres\u00eda se renueva al precio completo.', // MT
+    pt: 'C\u00f3digos que as pessoas podem escrever ao aderir. Um c\u00f3digo aplica-se ao primeiro pagamento; a ades\u00e3o renova ao pre\u00e7o total.', // MT
+    de: 'Codes, die Menschen beim Beitritt eingeben k\u00f6nnen. Ein Code gilt f\u00fcr die erste Zahlung; die Mitgliedschaft verl\u00e4ngert sich zum vollen Preis.', // MT
+    fr: 'Des codes que les gens peuvent saisir en adh\u00e9rant. Un code s\u2019applique au premier paiement ; l\u2019adh\u00e9sion se renouvelle au prix normal.', // MT
+  },
+  dc_add: {
+    en: 'Add a code',
+    nl: 'Code toevoegen',
+    es: 'A\u00f1adir un c\u00f3digo', // MT
+    pt: 'Adicionar um c\u00f3digo', // MT
+    de: 'Code hinzuf\u00fcgen', // MT
+    fr: 'Ajouter un code', // MT
+  },
+  dc_none_yet: {
+    en: 'No discount codes yet.',
+    nl: 'Nog geen kortingscodes.',
+    es: 'A\u00fan no hay c\u00f3digos de descuento.', // MT
+    pt: 'Ainda n\u00e3o h\u00e1 c\u00f3digos de desconto.', // MT
+    de: 'Noch keine Rabattcodes.', // MT
+    fr: 'Pas encore de codes de r\u00e9duction.', // MT
+  },
+  dc_none_hint: {
+    en: 'Add one and people can type it on your join page.',
+    nl: 'Voeg er een toe, dan kunnen mensen hem invullen op je aanmeldpagina.',
+    es: 'A\u00f1ade uno y la gente podr\u00e1 escribirlo en tu p\u00e1gina de alta.', // MT
+    pt: 'Adiciona um e as pessoas podem escrev\u00ea-lo na tua p\u00e1gina de ades\u00e3o.', // MT
+    de: 'F\u00fcge einen hinzu, dann k\u00f6nnen Menschen ihn auf deiner Beitrittsseite eingeben.', // MT
+    fr: 'Ajoute-en un et les gens pourront le saisir sur ta page d\u2019adh\u00e9sion.', // MT
+  },
+  dc_everything: {
+    en: 'Everything',
+    nl: 'Alles',
+    es: 'Todo', // MT
+    pt: 'Tudo', // MT
+    de: 'Alles', // MT
+    fr: 'Tout', // MT
+  },
+  // The thing it was limited to is gone. Said plainly rather than shown as a
+  // blank, because a code that applies to nothing still charges full price
+  // and somebody has to be able to see why.
+  dc_something_removed: {
+    en: 'Something that no longer exists',
+    nl: 'Iets dat niet meer bestaat',
+    es: 'Algo que ya no existe', // MT
+    pt: 'Algo que j\u00e1 n\u00e3o existe', // MT
+    de: 'Etwas, das es nicht mehr gibt', // MT
+    fr: 'Quelque chose qui n\u2019existe plus', // MT
+  },
+  dc_used: {
+    en: '{n} used',
+    nl: '{n} gebruikt',
+    es: '{n} usados', // MT
+    pt: '{n} usados', // MT
+    de: '{n} eingel\u00f6st', // MT
+    fr: '{n} utilis\u00e9s', // MT
+  },
+  dc_used_of: {
+    en: '{n} of {of} used',
+    nl: '{n} van {of} gebruikt',
+    es: '{n} de {of} usados', // MT
+    pt: '{n} de {of} usados', // MT
+    de: '{n} von {of} eingel\u00f6st', // MT
+    fr: '{n} sur {of} utilis\u00e9s', // MT
+  },
+  dc_off: {
+    en: 'Off',
+    nl: 'Uit',
+    es: 'Desactivado', // MT
+    pt: 'Desligado', // MT
+    de: 'Aus', // MT
+    fr: 'D\u00e9sactiv\u00e9', // MT
+  },
+
   // ── shared ────────────────────────────────────────────────────────────
   cancel: {
     en: 'Cancel',

@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Globe, Plug, Code2, Percent, Users } from 'lucide-react';
+import { Globe, Plug, Code2, Percent,
+  Ticket, Users } from 'lucide-react';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { canManageWorkspace } from '@thefibre/shared';
 import { apiFetch } from '@/lib/api';
@@ -50,6 +51,14 @@ export default async function SettingsPage() {
           icon: <Percent {...ICON} />,
           title: t(locale, 'st_pricing_title'),
           desc: t(locale, 'st_pricing_desc'),
+        },
+        {
+          // Next to Pricing, because a code is a pricing decision and that is
+          // where somebody will look for it.
+          href: '/settings/discount-codes',
+          icon: <Ticket {...ICON} />,
+          title: t(locale, 'st_discount_codes_title'),
+          desc: t(locale, 'st_discount_codes_desc'),
         },
         {
           href: '/settings/directory',

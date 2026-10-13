@@ -15,6 +15,7 @@ import {
 } from '../lib/discount-codes.js';
 import { periodLastDay } from '@thefibre/shared/membership-period';
 import { clientIp, hit } from '../lib/rate-limit.js';
+import { isStorableCode } from '../lib/like-escape.js';
 import { BillingFields } from '../lib/billing-fields.js';
 import {
   billingMetadata,
@@ -541,6 +542,106 @@ async function reconcileProductMembers(productId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Tiers
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// DISCOUNT CODES — the community's own, workspace-wide.
+//
+// Through `userClient`, deliberately: the RLS on `discount_code` says reads
+// are for the workspace and WRITES are for an admin, and routing these
+// through the user's own identity is what makes that policy the enforcement
+// rather than a comment. The service-role client would bypass it and leave
+// the role check to be re-implemented here, which is how two answers to "who
+// may do this" get written.
+//
+// The public join path does NOT come through here — it reads with the
+// service role through lib/discount-codes.ts, because somebody typing a code
+// on a join page is not signed in to the workspace at all.
+// ---------------------------------------------------------------------------
+
+const DiscountCodeBody = z.object({
+  code: z
+    .string()
+    .min(2)
+    .max(60)
+    // No wildcards: both are metacharacters to the layer that matches them,
+    // so such a code could be stored and never redeemed.
+    .refine(isStorableCode, { message: 'a code cannot contain % or *' }),
+  name: z.string().max(200).nullable().optional(),
+  type: z.enum(['percentage', 'amount', 'free']),
+  discount_percentage: z.number().min(0).max(100).nullable().optional(),
+  discount_amount_cents: z.number().int().min(0).nullable().optional(),
+  usage_limit: z.number().int().positive().nullable().optional(),
+  expires_at: z.string().datetime({ offset: true }).nullable().optional(),
+  is_early_bird: z.boolean().optional(),
+  early_bird_deadline: z.string().datetime({ offset: true }).nullable().optional(),
+  is_active: z.boolean().optional(),
+  // WHAT IT APPLIES TO. The database CHECK insists these two agree, so the
+  // route never has to decide what a 'tier' code with no id would mean.
+  applies_to: z.enum(['workspace', 'thread', 'ticket', 'tier', 'product']).default('workspace'),
+  applies_to_id: z.string().uuid().nullable().optional(),
+});
+
+const CODE_SELECT =
+  'id, code, name, type, discount_percentage, discount_amount_cents, usage_limit, used_count, expires_at, is_early_bird, early_bird_deadline, is_active, applies_to, applies_to_id, created_at';
+
+membershipRoutes.get('/discount-codes', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('discount_code')
+    .select(CODE_SELECT)
+    .order('created_at', { ascending: false });
+  if (error) return fail(c, 'list discount codes', error);
+  return c.json({ items: data ?? [] });
+});
+
+membershipRoutes.post('/discount-codes', async (c) => {
+  const ctx = c.get('ctx');
+  const body = DiscountCodeBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('discount_code')
+    .insert({ ...body.data, workspace_id: ctx.workspaceId })
+    .select(CODE_SELECT)
+    .single();
+  // 23505 is the one a person causes and can fix, so it is said plainly
+  // rather than as a 500: one code per community, compared without case.
+  if (error?.code === '23505') {
+    return c.json({ error: 'a code with that text already exists here' }, 409);
+  }
+  if (error) return fail(c, 'create discount code', error);
+  return c.json(data, 201);
+});
+
+membershipRoutes.patch('/discount-codes/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const body = DiscountCodeBody.partial().safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('discount_code')
+    .update(body.data)
+    .eq('id', c.req.param('id'))
+    .select(CODE_SELECT)
+    .maybeSingle();
+  if (error?.code === '23505') {
+    return c.json({ error: 'a code with that text already exists here' }, 409);
+  }
+  if (error) return fail(c, 'update discount code', error);
+  // Nothing updated means RLS refused it or it is not this workspace's —
+  // which are the same answer to the person asking.
+  if (!data) return c.json({ error: 'not found' }, 404);
+  return c.json(data);
+});
+
+membershipRoutes.delete('/discount-codes/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db.from('discount_code').delete().eq('id', c.req.param('id'));
+  if (error) return fail(c, 'delete discount code', error);
+  return c.body(null, 204);
+});
 
 membershipRoutes.get('/tiers', async (c) => {
   const ctx = c.get('ctx');

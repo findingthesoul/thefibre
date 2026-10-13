@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.177.0] — 2026-10-13
+
+Somebody can now actually create a discount code.
+
+Without this the previous release was furniture: the join panel had a field
+and the API had a table, and nothing in the product could make the thing they
+were for. **Settings → Discount codes**, next to Pricing, because a code is a
+pricing decision and that is where a person looks for it.
+
+**The editor is The Thread's, lifted rather than rebuilt** — the same
+3-segment type toggle with its consequential value field, the curated
+usage-limit dropdown, the early-bird switch, the delete confirmation. It now
+lives in `@thefibre/shared/ui/discount-code-dialog` with the three things that
+genuinely differ injected: where a code is written, what it may be limited to
+(tickets in Thread, tiers and products here), and the four chrome words —
+Save, Cancel, Delete, Saving — that belong to an interface rather than to this
+dialog. Nothing about it was redesigned on the way: a second editor for one
+concept is how two products begin disagreeing about what a code is.
+
+Its thirty-one strings moved to `@thefibre/shared/discount-code-admin-i18n`,
+**copied from Thread's catalogue by a script rather than retyped** — thirty-one
+keys in six languages is exactly where a transcription error gets in, and a
+mistranslated *"Active — redeemable at checkout"* is a switch nobody dares
+touch. Thread keeps its own copies until it adopts these in its own commit;
+that is a change to a live page, not part of the lift.
+
+**The admin routes go through the signed-in user's own identity**, not the
+service role, so the RLS written in the migration — the workspace reads, an
+admin writes — IS the enforcement rather than a comment above a hand-rolled
+role check. The public join path is unaffected: it reads with the service role,
+because somebody typing a code on a join page is not signed in to anything.
+
+The list says what each code does, what it is limited to, and **used against
+its limit** — "12 of 25 used", because a bare count means nothing without the
+ceiling, and a code at its ceiling is the one a member will be told is invalid.
+A code whose tier or product has since been deleted says so in words rather
+than showing a blank: it still charges full price, and somebody has to be able
+to see why.
+
 ## [1.176.0] — 2026-10-13
 
 A discount code on the join panel — and it applies to the first period only.

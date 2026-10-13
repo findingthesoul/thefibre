@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.176.0",
+  "version": "1.177.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -73,6 +73,14 @@
     "./ui/discount-code-field": {
       "types": "./dist/ui/discount-code-field.d.ts",
       "default": "./dist/ui/discount-code-field.js"
+    },
+    "./discount-code-admin-i18n": {
+      "types": "./dist/discount-code-admin-i18n.d.ts",
+      "default": "./dist/discount-code-admin-i18n.js"
+    },
+    "./ui/discount-code-dialog": {
+      "types": "./dist/ui/discount-code-dialog.d.ts",
+      "default": "./dist/ui/discount-code-dialog.js"
     },
     "./i18n": {
       "types": "./dist/i18n.d.ts",
