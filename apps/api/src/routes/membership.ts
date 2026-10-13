@@ -8,6 +8,13 @@ import {
 import { setDirectoryListing } from '../lib/directory-consent.js';
 import { resolveTerms } from '../lib/terms.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
+import {
+  discountedPrice,
+  findDiscountCode,
+  redeemDiscountCode,
+} from '../lib/discount-codes.js';
+import { periodLastDay } from '@thefibre/shared/membership-period';
+import { clientIp, hit } from '../lib/rate-limit.js';
 import { BillingFields } from '../lib/billing-fields.js';
 import {
   billingMetadata,
@@ -1924,6 +1931,103 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
   });
 });
 
+// POST /api/v1/membership/public/validate-code — what a typed code does to
+// this tier's price, answered BY THE SERVER.
+//
+// The same shape as Thread's /public/validate-coupon and for the same reason:
+// the join form needs to show somebody what they will pay before they commit,
+// and the number it shows must come from the place that will actually charge
+// them. The panel's figure is a courtesy; the join route validates the code
+// again from scratch and ignores whatever the form believed.
+//
+// It answers 200 with `valid: false` rather than a 4xx for an unknown code —
+// a wrong code is an ordinary thing a person does, not an error, and a 400
+// makes a form shout where it should simply say "that code is not valid".
+const ValidateCode = z.object({
+  workspace_slug: z.string().min(1).max(100),
+  tier_id: z.string().uuid(),
+  interval: z.enum(['year', 'month']).default('year'),
+  code: z.string().min(1).max(60),
+  // Self-declared, as on the join: the country decides the base price before
+  // any code applies, so the two are evaluated together or the discount comes
+  // off the wrong number.
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
+});
+
+membershipRoutes.post('/public/validate-code', async (c) => {
+  const body = ValidateCode.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const d = body.data;
+
+  const ws = await publicWorkspace(d.workspace_slug);
+  if (!ws) return c.json({ valid: false, reason: 'not found' });
+
+  // RATE-LIMITED, because this answers "does this code exist" to anybody who
+  // asks. Codes are short and human — SUMMER25 is the kind of thing people
+  // write — so an unlimited oracle is a guessing machine, and the thing being
+  // guessed is money.
+  //
+  // By IP AND workspace: by IP alone, one office behind one address locks
+  // itself out of every community at once; by workspace alone, one attacker
+  // locks out that community's real joiners. Both together bound the guessing
+  // without either failure mode. 20 an hour is generous for somebody who has
+  // a code and mistyped it, and useless for somebody who does not.
+  //
+  // The messages stay specific ("this code has expired" rather than "not
+  // valid") — knowing a code EXISTS is a small leak, and sending somebody
+  // hunting for a typo in a code that was simply out of date is a certain
+  // cost to a real person. The limiter is the defence; the wording is not.
+  // `clientIp`, NOT x-forwarded-for read here. Behind Fly a client can send
+  // its own X-Forwarded-For and its first entry is whatever they typed, so
+  // rotating that header would have bought unlimited guesses — a limiter
+  // keyed on a value the attacker chooses is not a limiter. The helper
+  // prefers Fly-Client-IP, which the edge sets and a client cannot forge,
+  // and lib/rate-limit.test.ts holds it to that.
+  const gate = hit(`membership-code:${ws.id}:${clientIp(c.req.raw.headers)}`, 20, 3_600_000);
+  if (!gate.allowed) {
+    c.header('Retry-After', String(gate.resetSeconds));
+    return c.json({ valid: false, reason: 'too many attempts, try again later' }, 429);
+  }
+
+  const { data: tier } = await adminClient
+    .from('membership_tier')
+    .select('id, price_cents_year, price_cents_month, currency')
+    .eq('id', d.tier_id)
+    .eq('workspace_id', ws.id)
+    .is('archived_at', null)
+    .maybeSingle();
+  if (!tier) return c.json({ valid: false, reason: 'not found' });
+
+  const base = d.interval === 'year' ? tier.price_cents_year : tier.price_cents_month;
+  if (base == null || base <= 0) {
+    return c.json({ valid: false, reason: `this tier has no ${d.interval}ly price` });
+  }
+
+  // The country rules first, the code second — a discount comes off what this
+  // person would otherwise pay, not off the list price.
+  const logic = await priceLogicFor(ws.id, tier.id);
+  const { pct } = evaluatePriceLogic(logic, {
+    country: d.country?.toUpperCase() ?? null,
+    interval: d.interval,
+  });
+  const afterCountry = applyPct(base, pct);
+
+  const found = await findDiscountCode(ws.id, d.code, { kind: 'tier', id: tier.id });
+  if ('error' in found) return c.json({ valid: false, reason: found.error });
+
+  // FIRST PERIOD ONLY (decided 2026-10-13). The discount is what the first
+  // payment becomes; the membership renews at the full price, and the panel
+  // says both numbers out loud rather than letting somebody discover the
+  // second one a year later.
+  return c.json({
+    valid: true,
+    code: found.code.code,
+    price_cents: discountedPrice(found.code, afterCountry),
+    full_price_cents: afterCountry,
+    currency: tier.currency ?? 'EUR',
+  });
+});
+
 const PublicJoin = z.object({
   workspace_slug: z.string().min(1).max(100),
   tier_id: z.string().uuid(),
@@ -1961,6 +2065,10 @@ const PublicJoin = z.object({
   // (billing_address_collection 'auto' leaves that decision to the payment
   // method, which is where it belongs).
   billing: BillingFields.optional(),
+  // A discount code, as TYPED. Never a price: the amount is decided here,
+  // from the code, every time. The panel showed somebody a number as a
+  // courtesy and this ignores it.
+  code: z.string().min(1).max(60).optional(),
   request_id: z.string().min(8).max(100),
 }).refine((v) => v.terms_accepted === true, {
   path: ['terms_accepted'],
@@ -2022,8 +2130,28 @@ membershipRoutes.post('/public/join', async (c) => {
   const country = d.country?.toUpperCase() ?? null;
   const logic = await priceLogicFor(ws.id, tier.id);
   const { pct, matched } = evaluatePriceLogic(logic, { country, interval: d.interval });
-  const amount = applyPct(baseAmount, pct);
-  if (amount <= 0) return c.json({ error: 'This price resolves to zero — check the pricing rules.' }, 400);
+  const listAmount = applyPct(baseAmount, pct);
+  if (listAmount <= 0) {
+    return c.json({ error: 'This price resolves to zero — check the pricing rules.' }, 400);
+  }
+
+  // THE CODE, LOOKED UP AGAIN. The panel validated it to show a number; this
+  // is the number that will be charged, so it is decided here from the code
+  // alone. A code that has expired or been used up in the seconds between is
+  // refused rather than honoured — and refused LOUDLY, because somebody who
+  // typed a code and saw a price must not be charged a different one without
+  // being told.
+  //
+  // FIRST PERIOD ONLY (decided 2026-10-13): `amount` is what is collected now
+  // and `listAmount` is what the membership renews at. The two differ only
+  // when a code applied, and the panel says both out loud.
+  let discount: Awaited<ReturnType<typeof findDiscountCode>> | null = null;
+  if (d.code) {
+    discount = await findDiscountCode(ws.id, d.code, { kind: 'tier', id: tier.id });
+    if ('error' in discount) return c.json({ error: discount.error, code_invalid: true }, 400);
+  }
+  const amount =
+    discount && 'code' in discount ? discountedPrice(discount.code, listAmount) : listAmount;
 
   // The terms this person is agreeing to, resolved once and carried to the
   // consent record. The form showed them the same ones (the catalogue says
@@ -2164,34 +2292,60 @@ membershipRoutes.post('/public/join', async (c) => {
     proven,
   });
 
+  // WHEN THE FULL-PRICE SUBSCRIPTION STARTS.
+  //
+  // Two different reasons produce the same shape — the first period paid as a
+  // ONE-OFF line now, and the recurring line at full price starting later:
+  //   • the launch cohort, whose first period ends on a fixed date;
+  //   • a DISCOUNT CODE, which applies to the first period only, so the
+  //     membership must renew at the undiscounted price.
+  // Both are a trial that ends when the paid-for period does. Rehearsed on
+  // test keys before any of it shipped (scripts/rehearse-discounted-join.mjs):
+  // 150.00 now and 300.00 at the anniversary, and the two compose — a code on
+  // a cohort tier pays 150.00 now and renews 300.00 on 1 January.
+  const discounted = amount !== listAmount;
+  const anniversary = (() => {
+    const at = new Date();
+    if (d.interval === 'year') at.setUTCFullYear(at.getUTCFullYear() + 1);
+    else at.setUTCMonth(at.getUTCMonth() + 1);
+    return Math.floor(at.getTime() / 1000);
+  })();
+  const startsBilling = fixedPeriod ? fixedPeriod.anchor : discounted ? anniversary : null;
+  const split = startsBilling !== null;
+
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.create(
       {
         mode: 'subscription',
         line_items: [
-          {
-            price_data: {
-              currency: (tier.currency ?? 'EUR').toLowerCase(),
-              product_data: { name: `${ws.name} membership — ${tier.name}` },
-              unit_amount: amount,
-              // ONE-OFF for the cohort: the period being paid for is the one
-              // ending on the fixed date, and the recurring line below starts
-              // after it. Leaving this recurring would bill the same period
-              // twice — once now and once at the anchor.
-              ...(fixedPeriod ? {} : { recurring: { interval: d.interval } }),
-            },
-            quantity: 1,
-          },
-          // The subscription itself, starting at the anchor. Only present for
-          // the cohort — an ordinary join's first line IS the subscription.
-          ...(fixedPeriod
+          // WHAT IS PAID NOW. One-off when the subscription starts later —
+          // leaving it recurring would bill the same period twice, once now
+          // and once at the anchor. Omitted entirely at zero: a 100% code
+          // charges nothing today, and Stripe refuses a zero-amount line.
+          ...(amount > 0
             ? [
                 {
                   price_data: {
                     currency: (tier.currency ?? 'EUR').toLowerCase(),
                     product_data: { name: `${ws.name} membership — ${tier.name}` },
                     unit_amount: amount,
+                    ...(split ? {} : { recurring: { interval: d.interval } }),
+                  },
+                  quantity: 1,
+                },
+              ]
+            : []),
+          // THE MEMBERSHIP ITSELF, at the FULL price, from `startsBilling`.
+          // Present only when the first period was paid separately — an
+          // ordinary undiscounted join's first line IS the subscription.
+          ...(split
+            ? [
+                {
+                  price_data: {
+                    currency: (tier.currency ?? 'EUR').toLowerCase(),
+                    product_data: { name: `${ws.name} membership — ${tier.name}` },
+                    unit_amount: listAmount,
                     recurring: { interval: d.interval },
                   },
                   quantity: 1,
@@ -2231,7 +2385,7 @@ membershipRoutes.post('/public/join', async (c) => {
           // collected now and the subscription's first charge is the trial
           // end. Rehearsed on a Stripe test clock: 300.00 on the day of the
           // join, 300.00 on 1 January, no proration on any line.
-          ...(fixedPeriod ? { trial_end: fixedPeriod.anchor } : {}),
+          ...(startsBilling ? { trial_end: startsBilling } : {}),
           metadata: {
             workspace_id: ws.id,
             person_id: personId,
@@ -2249,6 +2403,13 @@ membershipRoutes.post('/public/join', async (c) => {
             // date" is the honest record.
             terms_version: joinTerms.version.slice(0, 480),
             applied_pct: String(pct),
+            // WHICH CODE, so the ledger can answer "why was this 150 and not
+            // 300" with something countable rather than a label, and so the
+            // use is taken at payment confirmation rather than at checkout
+            // creation — an abandoned checkout must not burn somebody's code.
+            ...(discount && 'code' in discount
+              ? { discount_code_id: discount.code.id, discount_code: discount.code.code }
+              : {}),
             // Company and tax number, which a Stripe invoice cannot carry
             // back to us the way an address can. Merged into purchase.billing
             // in the webhook. Absent when the panel collected neither.
@@ -2267,6 +2428,10 @@ membershipRoutes.post('/public/join', async (c) => {
         // its address block, which 'required' always captured (measured:
         // scripts/rehearse-join-customer.mjs, case 4).
         billing_address_collection: customer.hasAddress ? 'auto' : 'required',
+        // A 100% code collects nothing today, and without this Stripe would
+        // take no payment method — leaving the first renewal with nothing to
+        // charge. Measured in the rehearsal, case 4.
+        ...(amount === 0 ? { payment_method_collection: 'always' as const } : {}),
         // NO Stripe promotion codes (Sjoerd, 2026-10-13: "nothing of Stripe
         // is the rule, except payment"). Discounts, their rules and the
         // reason a price is what it is are OURS — Stripe is handed a final
@@ -2764,8 +2929,20 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
   // The ledger row — one per billing period, keyed by the Stripe invoice.
   // Seller VAT (inclusive split) is stamped by recordPurchase itself.
   const addr = invoice.customer_address;
+  const subMeta = invoiceSubscriptionMetadata(invoice);
+  // THE LAST DAY, not the renewal moment. Stripe's `period.end` is the
+  // instant the next period begins, so naming it directly made this label say
+  // "(until 2027-01-01)" for a membership the join panel had just promised
+  // "runs to 31 December 2026". Both describe one period; both on one
+  // purchase is what makes it a problem. An ordinary yearly join has the same
+  // day-off, so the rule is one helper used everywhere a member is shown a
+  // period (@thefibre/shared/membership-period).
+  //
+  // Rows written before 2026-10-13 keep the label they have: a receipt
+  // already sent is a document, and documents are not rewritten.
+  const lastDay = periodLastDay(periodEnd ?? null);
   const label = `${ws?.name ?? 'Community'} membership — ${tier?.name ?? ''}${
-    periodEnd ? ` (until ${new Date(periodEnd * 1000).toISOString().slice(0, 10)})` : ''
+    lastDay ? ` (until ${lastDay})` : ''
   }`;
   const itemRef = invoice.id ?? `membership-invoice-${member.id}-${Date.now()}`;
   await recordPurchase({
@@ -2781,6 +2958,10 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
     currency: (invoice.currency ?? 'eur').toUpperCase(),
     method: 'stripe',
     status: 'paid',
+    // WHY THIS COST WHAT IT DID. 'coupon' is the same word the thread path
+    // writes, so /admin/economics can count both together. Null means full
+    // price, which is what every row without a code says.
+    ...(subMeta.discount_code_id ? { discountReason: 'coupon' as const } : {}),
     stripeInvoiceId: invoice.id ?? null,
     stripeInvoiceUrl: invoice.hosted_invoice_url ?? null,
     stripeAccountId: account,
@@ -2798,9 +2979,52 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
       // not (Stripe keeps those as TaxID objects with a type we would have to
       // guess), and "who pays" is our question, not Stripe's. Spread last and
       // only when present, so nothing above is overwritten with a blank.
-      ...readBillingMetadata(invoiceSubscriptionMetadata(invoice)),
+      ...readBillingMetadata(subMeta),
     },
   });
+
+  // TAKE THE USE — at payment confirmation, on the join's OWN invoice, once.
+  //
+  // Not at checkout creation, which would burn a use on every abandoned
+  // checkout. And `=== 'subscription_create'`, not "anything but a renewal":
+  // the negative form also fired on 'subscription_update' (a tier change, a
+  // proration invoice), on 'manual', and on whatever Stripe adds next, so a
+  // member who moved tier would quietly spend another use of the code they
+  // joined with.
+  //
+  // ONCE PER INVOICE, because `invoice.paid` can be delivered more than once
+  // and each delivery would otherwise take another use. The ledger row
+  // survives a retry on its own (recordPurchase is update-first on item_ref);
+  // the redemption is a counter and cannot. The insert IS the guard: a
+  // duplicate raises 23505 and the use is simply not taken again.
+  //
+  // `membership_reminder_send` is doing the work despite its name — it is
+  // this codebase's per-invoice "we already did this" ledger, and the
+  // card-country warning above uses it the same way. A redemption record
+  // proper (which code, which member, which invoice) would be better and is
+  // worth a table of its own when somebody wants to read it back; inventing
+  // one here for a boolean is not.
+  if (subMeta.discount_code_id && invoice.billing_reason === 'subscription_create') {
+    const { error: already } = await adminClient.from('membership_reminder_send').insert({
+      member_id: member.id,
+      reminder_kind: 'discount_code_redeemed',
+      period_ref: invoice.id ?? 'unknown',
+    });
+    if (!already) {
+      // A refusal from the RPC is logged and nothing more: it means the last
+      // use went to somebody else in the seconds in between, and this join is
+      // already paid. Refusing it now would be worse than honouring one more
+      // use of a code.
+      const took = await redeemDiscountCode(subMeta.discount_code_id);
+      if (!took) {
+        console.warn(
+          '[membership/webhook] discount code could not be redeemed (already paid, honoured anyway)',
+          subMeta.discount_code_id,
+          member.id,
+        );
+      }
+    }
+  }
 
   // Card-country vs declared-country (§3.9 D3): mismatch WARNS the
   // workspace admins, never blocks. Once per invoice (dedup table).

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.175.0",
+  "version": "1.176.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -61,6 +61,18 @@
     "./fixed-renewal": {
       "types": "./dist/fixed-renewal.d.ts",
       "default": "./dist/fixed-renewal.js"
+    },
+    "./discount-code-i18n": {
+      "types": "./dist/discount-code-i18n.d.ts",
+      "default": "./dist/discount-code-i18n.js"
+    },
+    "./membership-period": {
+      "types": "./dist/membership-period.d.ts",
+      "default": "./dist/membership-period.js"
+    },
+    "./ui/discount-code-field": {
+      "types": "./dist/ui/discount-code-field.d.ts",
+      "default": "./dist/ui/discount-code-field.js"
     },
     "./i18n": {
       "types": "./dist/i18n.d.ts",

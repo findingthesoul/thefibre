@@ -15,6 +15,7 @@
 
 import { makeT, type I18nEntry } from '@thefibre/shared/i18n';
 import { INVOICE_FIELDS } from '@thefibre/shared/invoice-fields-i18n';
+import { DISCOUNT_CODE_FIELD } from '@thefibre/shared/discount-code-i18n';
 import { PARTICIPANT_AUTH } from '@thefibre/shared/participant-auth-i18n';
 
 // Re-export the shared locale primitives so pages import ONE module.
@@ -32,6 +33,8 @@ const CATALOG = {
   // The invoicing-field labels, shared with Thread's enrol form — the
   // fields, the schema and now the words are one copy.
   ...INVOICE_FIELDS,
+  // The words around the discount-code field, shared with Thread's.
+  ...DISCOUNT_CODE_FIELD,
 
   // Shared participant sign-in strings (email code + Google) — one copy
   // for every participant portal, in @thefibre/shared/participant-auth-i18n.
@@ -315,6 +318,33 @@ const CATALOG = {
   // late in the year somebody joins — visible only on the receipt, after
   // paying. The sentence is built from the same rule the charge is
   // (@thefibre/shared/fixed-renewal), so the two cannot disagree.
+  // WITH A CODE: two numbers, because a code applies to the first period only
+  // (decided 2026-10-13). Naming only the discounted one would let somebody
+  // believe that is what a membership costs.
+  pay_now_then_year_full: {
+    en: 'You pay {amount} now, then {full} once a year.',
+    nl: 'Je betaalt nu {amount}, daarna {full} per jaar.',
+    es: 'Pagas {amount} ahora y despu\u00e9s {full} al a\u00f1o.', // MT
+    pt: 'Pagas {amount} agora e depois {full} por ano.', // MT
+    de: 'Du zahlst jetzt {amount}, danach {full} pro Jahr.', // MT
+    fr: 'Tu paies {amount} maintenant, puis {full} par an.', // MT
+  },
+  pay_now_then_month_full: {
+    en: 'You pay {amount} now, then {full} every month.',
+    nl: 'Je betaalt nu {amount}, daarna {full} per maand.',
+    es: 'Pagas {amount} ahora y despu\u00e9s {full} al mes.', // MT
+    pt: 'Pagas {amount} agora e depois {full} por m\u00eas.', // MT
+    de: 'Du zahlst jetzt {amount}, danach {full} pro Monat.', // MT
+    fr: 'Tu paies {amount} maintenant, puis {full} par mois.', // MT
+  },
+  pay_now_fixed_period_full: {
+    en: 'You pay {amount} now. Your membership runs to {end} and renews on {renews} at {full}.',
+    nl: 'Je betaalt nu {amount}. Je lidmaatschap loopt tot {end} en wordt op {renews} verlengd voor {full}.',
+    es: 'Pagas {amount} ahora. Tu membres\u00eda dura hasta el {end} y se renueva el {renews} por {full}.', // MT
+    pt: 'Pagas {amount} agora. A tua ades\u00e3o vai at\u00e9 {end} e renova a {renews} por {full}.', // MT
+    de: 'Du zahlst jetzt {amount}. Deine Mitgliedschaft l\u00e4uft bis {end} und verl\u00e4ngert sich am {renews} f\u00fcr {full}.', // MT
+    fr: 'Tu paies {amount} maintenant. Ton adh\u00e9sion court jusqu\u2019au {end} et se renouvelle le {renews} pour {full}.', // MT
+  },
   pay_now_then_year: {
     en: 'You pay {amount} now, then once a year.',
     nl: 'Je betaalt nu {amount}, daarna \u00e9\u00e9n keer per jaar.',

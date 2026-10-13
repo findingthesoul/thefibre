@@ -22,8 +22,13 @@ import { fixedFirstPeriod } from '@thefibre/shared/fixed-renewal';
 
 export type PayLineInput = {
   /** What will be charged now, in cents: the adjusted tier price for the
-   *  chosen interval plus any optional extras. */
+   *  chosen interval plus any optional extras, AFTER any discount code. */
   amountCents: number | null;
+  /** What it renews at — the same figure without the code. When it differs
+   *  from `amountCents` the sentence names both, because a code applies to
+   *  the first period only and somebody told just "€150" will believe that is
+   *  what a membership costs. Omitted means they are the same. */
+  fullAmountCents?: number | null;
   interval: 'year' | 'month';
   /** The tier's fixed first-period date (YYYY-MM-DD), or nothing. */
   firstPeriodEndsOn?: string | null;
@@ -32,8 +37,8 @@ export type PayLineInput = {
 
 export type PayLine =
   | { kind: 'none' }
-  | { kind: 'recurring'; interval: 'year' | 'month' }
-  | { kind: 'fixed'; endsOn: string; renewsOn: string };
+  | { kind: 'recurring'; interval: 'year' | 'month'; discounted: boolean }
+  | { kind: 'fixed'; endsOn: string; renewsOn: string; discounted: boolean };
 
 /**
  * WHICH sentence to say — not the words, which are the catalogue's business
@@ -44,15 +49,22 @@ export type PayLine =
  */
 export function payLineFor({
   amountCents,
+  fullAmountCents,
   interval,
   firstPeriodEndsOn,
   now,
 }: PayLineInput): PayLine {
   if (amountCents === null) return { kind: 'none' };
+  // A code is "in play" only when it actually changes the number. A 0% code,
+  // or one applied to a tier whose price it does not move, must not make the
+  // sentence promise a different renewal from the thing being paid.
+  const discounted =
+    fullAmountCents !== null && fullAmountCents !== undefined && fullAmountCents !== amountCents;
   const fixed = fixedFirstPeriod(firstPeriodEndsOn, now, interval);
-  if (!fixed) return { kind: 'recurring', interval };
+  if (!fixed) return { kind: 'recurring', interval, discounted };
   return {
     kind: 'fixed',
+    discounted,
     endsOn: fixed.endsOn,
     // The day after the period ends — read back from the anchor the rule
     // hands Stripe, never retyped, so the date a person is shown is the date

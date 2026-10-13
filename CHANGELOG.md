@@ -6,6 +6,81 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.176.0] — 2026-10-13
+
+A discount code on the join panel — and it applies to the first period only.
+
+Sjoerd: *"for the discount code… we have our own payment system"*. The field
+is there now, behind the same *"Discount code?"* reveal The Thread uses, and
+it is **the same component**: lifted to `@thefibre/shared/ui/discount-code-field`
+with the validation injected as a prop, because what differs between the two
+forms is only WHERE a code is checked.
+
+**The decision underneath it.** A membership renews, and Thread's codes never
+had to answer what that means — a thread is bought once. A code now discounts
+the **first period only** and the membership renews at the full price. The
+alternative is a code that silently halves somebody's membership for ever,
+which a community discovers three years later. The panel says both numbers:
+*"You pay € 150 now, then € 300 once a year."*
+
+**That reuses the launch cohort's shape rather than inventing one.** Two
+different reasons — a fixed first-period date, and a code — now produce the
+same thing: the first period as a one-off line, and the full-price
+subscription starting when it ends. Rehearsed on test keys before any of it
+shipped, with the amounts read back from Stripe:
+
+| | collects now | renews |
+|---|---|---|
+| yearly + 50% | 150.00 | 300.00 on 2027-10-13 |
+| cohort + 50% | 150.00 | 300.00 on 2027-01-01 |
+| monthly + 50% | 18.00 | 36.00 on 2026-11-13 |
+| free (100%) | 0.00 | 300.00, card still taken |
+
+The two rules compose: a code on a cohort tier pays half now and renews at
+full price on 1 January. The free case needs `payment_method_collection:
+'always'` and **no** paid-now line at all — Stripe refuses a zero-amount one —
+or the first renewal would have nothing to charge.
+
+**The browser is never asked what to charge.** The panel sends the code, not
+its price; the join route looks it up again from scratch and decides the
+amount itself. A code that expired in the seconds between is refused out loud
+rather than quietly charged at full price.
+
+**The use is taken when the money arrives**, not when the checkout opens — an
+abandoned checkout must not burn somebody's code — and **only on the invoice
+that created the subscription**. The first version said "anything but a
+renewal", which also fired on a tier change, on a proration invoice, on
+`manual`, and on whatever Stripe adds next: a member who moved tier would
+quietly have spent another use of the code they joined with.
+
+**And once per invoice.** `invoice.paid` can be delivered more than once, and
+each delivery would otherwise take another use. The ledger row survives a
+retry on its own — `recordPurchase` is update-first on `item_ref` — but a
+counter cannot, so a dedup insert is the guard. A refused redemption is logged
+and the join stands: it is already paid, and refusing it then would be worse
+than honouring one more use.
+
+**The validator is rate-limited**, because it answers *"does this code
+exist"* to anybody who asks. Codes are short and human — SUMMER25 is the kind
+of thing a community writes — so an unlimited oracle is a guessing machine,
+and the thing being guessed is money. Twenty an hour, keyed on the workspace
+AND the caller — taken from `clientIp`, which prefers `Fly-Client-IP`, because
+a client can send its own `X-Forwarded-For` and a limiter keyed on a value the
+attacker chooses is not a limiter: by IP alone one office locks itself out of every community, by
+workspace alone one attacker locks out that community's real joiners. The
+refusals stay specific (*"this code has expired"* rather than *"not valid"*),
+because sending somebody hunting for a typo in a code that was merely out of
+date is a certain cost to a real person, and knowing a code exists is a small
+leak. The limiter is the defence; the wording is not.
+
+**And the invoice now names the day the panel promised.** Stripe's
+`period.end` is the renewal moment, so the ledger label read *"(until
+2027-01-01)"* for a membership the panel had just sold as *"runs to 31
+December 2026"*. Neither was wrong; both on one purchase is what made it a
+problem. `@thefibre/shared/membership-period` names the last day, and a test
+holds the two halves to the same date. Rows written before today keep their
+labels — a receipt already sent is a document.
+
 ## [1.175.0] — 2026-10-13
 
 Discount codes that belong to a community, not to one thread.

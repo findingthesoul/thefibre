@@ -8,6 +8,7 @@ import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { Check } from 'lucide-react';
 import { COUNTRIES } from '@thefibre/shared/countries';
 import { payLineFor } from '@/lib/pay-line';
+import { DiscountCodeField } from '@thefibre/shared/ui/discount-code-field';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import {
   InvoiceBillingFields,
@@ -200,6 +201,12 @@ function TierCard({
 
   // Named to avoid shadowing window.setInterval.
   const [interval, setBillingInterval] = useState<'year' | 'month'>(hasYear ? 'year' : 'month');
+  // THE DISCOUNT CODE. `applied` is what the SERVER said, never what was
+  // typed: the price shown comes back from /public/validate-code, and the
+  // join route validates the code again from scratch and ignores whatever
+  // this form believed. A discount decided in a browser is a discount anybody
+  // can decide.
+  const [applied, setApplied] = useState<{ code: string; priceCents: number } | null>(null);
   const [state, setState] = useState<JoinState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [chosenOptions, setChosenOptions] = useState<Set<string>>(new Set());
@@ -229,12 +236,18 @@ function TierCard({
   // shown and what is taken cannot drift apart. Where that rule declines — a
   // date in the past, a monthly join, inside Stripe's 48-hour floor — this
   // says the ordinary thing, because the ordinary thing is what will happen.
-  const payNowCents =
+  const listCents =
     (interval === 'year' ? adjustedYear : adjustedMonth) === null
       ? null
       : (interval === 'year' ? adjustedYear! : adjustedMonth!) + optionsExtraCents;
+  // What is paid NOW: the code's price when one is applied, the list price
+  // otherwise. The extras ride on top either way — a code discounts the
+  // membership, not somebody's add-ons.
+  const payNowCents =
+    applied && listCents !== null ? applied.priceCents + optionsExtraCents : listCents;
   const line = payLineFor({
     amountCents: payNowCents,
+    fullAmountCents: listCents,
     interval,
     firstPeriodEndsOn: tier.first_period_ends_on,
     now: new Date(),
@@ -250,18 +263,33 @@ function TierCard({
       year: 'numeric',
       timeZone: 'UTC',
     });
+  const amount = payNowCents === null ? '' : money(payNowCents, currency);
+  const full = listCents === null ? '' : money(listCents, currency);
   const payLine =
     line.kind === 'none'
       ? null
       : line.kind === 'fixed'
-        ? t(locale, 'pay_now_fixed_period', {
-            amount: money(payNowCents!, currency),
-            end: onDate(line.endsOn),
-            renews: onDate(line.renewsOn),
-          })
-        : t(locale, line.interval === 'year' ? 'pay_now_then_year' : 'pay_now_then_month', {
-            amount: money(payNowCents!, currency),
-          });
+        ? line.discounted
+          ? t(locale, 'pay_now_fixed_period_full', {
+              amount,
+              full,
+              end: onDate(line.endsOn),
+              renews: onDate(line.renewsOn),
+            })
+          : t(locale, 'pay_now_fixed_period', {
+              amount,
+              end: onDate(line.endsOn),
+              renews: onDate(line.renewsOn),
+            })
+        : line.discounted
+          ? t(
+              locale,
+              line.interval === 'year' ? 'pay_now_then_year_full' : 'pay_now_then_month_full',
+              { amount, full },
+            )
+          : t(locale, line.interval === 'year' ? 'pay_now_then_year' : 'pay_now_then_month', {
+              amount,
+            });
 
   // One idempotency key per page visit — double-submits collapse server-side.
   const requestId = useMemo(
@@ -300,6 +328,10 @@ function TierCard({
             // the API treats as "nothing collected" — joining as yourself
             // with a card means typing none of this.
             billing: readBillingFields(fd),
+            // The CODE, not its price: the join route looks it up again and
+            // decides the amount itself. Sending a price would be asking the
+            // browser what to charge.
+            ...(applied ? { code: applied.code } : {}),
             request_id: requestId,
           }),
         },
@@ -507,6 +539,50 @@ function TierCard({
                   </div>
                 )}
               </div>
+            )}
+            {/* THE DISCOUNT CODE. Shared with Thread's enrol form, which is
+                where it was written; what differs is only WHERE a code is
+                validated, so that arrives as a prop. Hidden behind a reveal
+                for the same reason it is there: most people have no code, and
+                an empty box invites a hunt for one.
+
+                The note under an applied code is the honest half — it applies
+                to the FIRST payment and the membership renews at full price,
+                which the sentence above the button then names in full. */}
+            {(listCents ?? 0) > 0 && (
+              <DiscountCodeField
+                inputClassName={INPUT}
+                labels={{
+                  label: t(locale, 'discount_code'),
+                  apply: t(locale, 'apply'),
+                  applied: (c) => t(locale, 'code_applied', { code: c }),
+                }}
+                note={t(locale, 'code_first_period_only')}
+                onCleared={() => setApplied(null)}
+                onValidate={async (code) => {
+                  const r = await publicFetch<{
+                    valid: boolean;
+                    code?: string;
+                    price_cents?: number;
+                    reason?: string;
+                  }>('/api/v1/membership/public/validate-code', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      workspace_slug: workspaceSlug,
+                      tier_id: tier.id,
+                      interval,
+                      code,
+                      ...(country ? { country } : {}),
+                    }),
+                  });
+                  if (!r.valid || r.price_cents === undefined || !r.code) {
+                    setApplied(null);
+                    return { ok: false as const, reason: r.reason ?? 'this code is not valid' };
+                  }
+                  setApplied({ code: r.code, priceCents: r.price_cents });
+                  return { ok: true as const, code: r.code };
+                }}
+              />
             )}
             {/* THE INVOICING DETAILS, asked here rather than on Stripe's page
                 (Sjoerd: "nothing of Stripe is the rule, except payment", and
