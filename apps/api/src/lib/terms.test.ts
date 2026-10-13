@@ -18,9 +18,9 @@ describe('resolveTerms', () => {
 
   it('falls back to the standard terms when it has not', () => {
     for (const empty of [null, undefined, '', '   ']) {
-      const r = resolveTerms(empty, { FIBRE_ENV: 'production' } as NodeJS.ProcessEnv);
+      const r = resolveTerms(empty, { FLY_APP_NAME: 'thefibre-api' } as NodeJS.ProcessEnv);
       expect(r.standard, `${JSON.stringify(empty)} means standard`).toBe(true);
-      expect(r.url).toBe('https://thethread.app/terms/standard');
+      expect(r.url).toBe('https://thefibre.app/terms/standard');
     }
   });
 
@@ -42,13 +42,25 @@ describe('resolveTerms', () => {
     expect(STANDARD_TERMS_VERSION).toMatch(/draft/);
   });
 
-  it('points at the right stack', () => {
-    expect(standardTermsUrl({ FIBRE_ENV: 'staging' } as NodeJS.ProcessEnv)).toContain('thefibre.tech');
-    expect(standardTermsUrl({ FIBRE_ENV: 'production' } as NodeJS.ProcessEnv)).toContain('thethread.app');
-    // An explicit website URL wins over both, so a preview deploy can point
-    // at itself.
+  it('points at the right stack, by the signal the API actually has', () => {
+    // The first version branched on FIBRE_ENV, which does not exist, so the
+    // DEPLOYED staging API answered production's URL — caught by reading the
+    // deployed catalogue, not by this test, which passed because it fed the
+    // env in by hand. FLY_APP_NAME is what the API already uses to know which
+    // stack it is (lib/cors-origins.ts).
     expect(
-      standardTermsUrl({ NEXT_PUBLIC_WEBSITE_URL: 'https://preview.example/' } as NodeJS.ProcessEnv),
+      standardTermsUrl({ FLY_APP_NAME: 'thefibre-api-staging' } as NodeJS.ProcessEnv),
+    ).toBe('https://thefibre.tech/terms/standard');
+    expect(standardTermsUrl({ FLY_APP_NAME: 'thefibre-api' } as NodeJS.ProcessEnv)).toBe(
+      'https://thefibre.app/terms/standard',
+    );
+    // Nothing at all (a local run) is production, which is what an absolute
+    // link with no context should be.
+    expect(standardTermsUrl({} as NodeJS.ProcessEnv)).toBe('https://thefibre.app/terms/standard');
+    // An explicit website URL still wins, so a preview deploy points at
+    // itself.
+    expect(
+      standardTermsUrl({ NEXT_PUBLIC_FIBRE_URL: 'https://preview.example/' } as NodeJS.ProcessEnv),
     ).toBe('https://preview.example/terms/standard');
   });
 });

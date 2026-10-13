@@ -280,6 +280,131 @@ export function TermsDoc() {
 // Bump POLICY_UPDATED and POLICIES[].version together when it changes.
 const POLICY_UPDATED = '2026-10-02';
 
+/** THE STANDARD MEMBERSHIP TERMS — DRAFT, NOT APPROVED.
+ *
+ *  A community selling memberships through The Thread needs something to put
+ *  in front of a person before taking their money, and most have not written
+ *  terms. This is the default: an agreement between the COMMUNITY (the seller)
+ *  and ITS member, saying plainly that The Thread is the software underneath
+ *  and not a party to it.
+ *
+ *  Lives here, with the other public documents, because both apps/web and
+ *  apps/website render it and only apps/web is deployed on BOTH stacks — the
+ *  reason the first version of this link 404'd on staging.
+ *
+ *  The DRAFT marker is part of the document. Consent records written against
+ *  it carry `standard-terms-v1-draft` (apps/api/src/lib/terms.ts), so an
+ *  acceptance can always be traced to the words that were shown. When the
+ *  words change, bump that version: the consent index keys on it, so a member
+ *  accepting v2 is recorded beside their v1 acceptance rather than colliding
+ *  with it. */
+export function StandardMembershipTermsDoc() {
+  return (
+    <>
+      <div className="mt-10 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <strong>Draft.</strong> These standard terms have not been approved or reviewed by a
+        lawyer. They are published so communities and members can read the proposed wording; the
+        version recorded against any acceptance is <code>standard-terms-v1-draft</code>.
+      </div>
+      <DocHeader
+        title="Standard membership terms"
+        standfirst="The default agreement between a community and its members, for memberships sold through The Thread. A community that has its own terms uses those instead."
+      />
+
+      <H2 id="parties">1. Who this agreement is between</H2>
+      <P>
+        This agreement is between you and the community you are joining — the organisation named
+        on the page where you joined, called &ldquo;the community&rdquo; here. The community is
+        the seller.
+      </P>
+      <P>
+        The Thread is the software the community uses to run its membership. The Thread is not a
+        party to this agreement, does not sell you the membership, and is not responsible for
+        what the community provides. Payments are processed by Stripe on the community&rsquo;s
+        own account.
+      </P>
+
+      <H2 id="what">2. What you are buying</H2>
+      <P>
+        A membership of the community, at the tier shown when you joined, for the period shown.
+        What it includes is described on that page and may change over time; a material reduction
+        is told to you before it takes effect.
+      </P>
+      <P>A membership is personal to you and is not transferable unless the community says otherwise.</P>
+
+      <H2 id="payment">3. Payment and renewal</H2>
+      <P>
+        You pay the amount shown at checkout, in the currency shown. Unless the page said
+        otherwise, a membership renews automatically at the end of each period at the
+        then-current price. You are told the renewal date when you join and can see it in your
+        member portal.
+      </P>
+      <P>If a payment fails, the community may suspend the membership until it is settled.</P>
+
+      <H2 id="cancelling">4. Cancelling, and your right to withdraw</H2>
+      <P>
+        You can cancel at any time. The membership then runs to the end of the period you have
+        paid for and does not renew. Payments already made are not refunded except where the law
+        requires it, or where the community chooses to.
+      </P>
+      <P>
+        If you are a consumer in the EU you normally have fourteen days to withdraw from a
+        distance contract. Where you ask for the membership to start immediately and it is fully
+        performed within those fourteen days, that right does not apply; where it is partly
+        performed, the community may keep a proportionate amount for what you have already
+        received.
+      </P>
+
+      <H2 id="conduct">5. How you take part</H2>
+      <P>
+        Treat other members decently. The community may set its own house rules, and may end a
+        membership that breaks them or that is used to harm, harass or defraud others, refunding
+        a proportionate amount of any unused period.
+      </P>
+      <P>
+        What you share stays yours. You give the community permission to show it to other members
+        where you chose to share it.
+      </P>
+
+      <H2 id="liability">6. Liability between you and the community</H2>
+      <P>
+        The community is responsible for providing what it described. Neither you nor the
+        community is liable for indirect or consequential loss, and the community&rsquo;s total
+        liability is limited to what you paid in the twelve months before the claim.
+      </P>
+      <P>
+        Nothing here limits liability that cannot be limited by law, including for death or
+        personal injury caused by negligence, or for fraud.
+      </P>
+
+      <H2 id="data">7. Your personal data</H2>
+      <P>
+        The community decides what is done with your personal data and is the controller for it.
+        The Thread stores and processes that data on the community&rsquo;s instructions, as its
+        processor, in the EU.
+      </P>
+      <P>
+        The community&rsquo;s own privacy notice tells you what it collects and why. You can ask
+        the community for a copy of your data or for it to be deleted, and you can exercise the
+        same rights from your member portal.
+      </P>
+
+      <H2 id="law">8. Which law applies</H2>
+      <P>
+        The law of the country where the community is established applies, and its courts have
+        jurisdiction. If you are a consumer, this does not take away the protection of the
+        mandatory law of the country where you live.
+      </P>
+
+      <H2 id="changes">9. Changes to these terms</H2>
+      <P>
+        These terms may be updated. A new version applies to you from your next renewal, and you
+        are asked to accept it then. The version you accepted, and when, is recorded.
+      </P>
+    </>
+  );
+}
+
 export function PrivacyDoc() {
   return (
     <>

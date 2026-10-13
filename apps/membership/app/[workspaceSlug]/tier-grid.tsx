@@ -517,7 +517,11 @@ function TierCard({
             <Button
               type="submit"
               className="w-full"
-              disabled={state === 'submitting' || state === 'redirecting'}
+              // Disabled until the terms are accepted. The submit handler
+              // refuses too, and so does the API — but a greyed button is the
+              // one a person reads, and a form that LOOKS ready and then
+              // refuses teaches somebody they did something wrong.
+              disabled={!termsAccepted || state === 'submitting' || state === 'redirecting'}
             >
               {state === 'redirecting'
                 ? t(locale, 'taking_to_payment')

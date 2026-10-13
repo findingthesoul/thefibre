@@ -15,18 +15,37 @@
 /** The standard terms' version. Bump it when the words change — the consent
  *  record stores this, and an old acceptance must stay readable as an
  *  acceptance of the OLD words. */
+import { appUrl, stagingAppUrl, PLATFORM_APP_ID } from '@thefibre/shared';
+
 export const STANDARD_TERMS_VERSION = 'standard-terms-v1-draft';
 
-/** Where the standard terms live, per environment. The marketing site serves
- *  them: they are a public document a stranger reads before paying, not an
- *  app page behind a sign-in. */
+/** Where the standard terms live. The marketing site serves them: a public
+ *  document a stranger reads before paying, not an app page behind a sign-in.
+ *
+ *  DERIVED, NEVER TYPED. The first version of this hand-wrote both hosts and
+ *  branched on an env var that does not exist (`FIBRE_ENV`), so the DEPLOYED
+ *  staging API answered `https://thethread.app/terms/standard` — a staging
+ *  joiner would have been shown production's page. The unit test passed,
+ *  because it fed the env in by hand.
+ *
+ *  This repo has had that exact bug twice before, and `stagingSurfaceUrl`
+ *  carries the note: "the first caller without one was the API, building a
+ *  calendar subscription address, and it handed out a PRODUCTION URL from the
+ *  staging stack." The signal the API already uses to know which stack it is
+ *  on is FLY_APP_NAME (lib/cors-origins.ts), so this uses the same one.
+ *
+ *  AND IT POINTS AT THE PLATFORM APP, not the marketing site. The second
+ *  version pointed at `website`, which has no staging deployment — so the link
+ *  404'd on BOTH stacks (Sjoerd: "Terms and condition link leads to nothing").
+ *  apps/web answers on thefibre.tech and thefibre.app alike and already serves
+ *  /terms and /privacy-policy, so the document is reachable wherever a join
+ *  happens. */
 export function standardTermsUrl(env: NodeJS.ProcessEnv = process.env): string {
-  // The same switch the rest of the platform uses: staging is the .tech twin.
-  const base = env.NEXT_PUBLIC_WEBSITE_URL ?? env.WEBSITE_URL ?? '';
-  if (base) return `${base.replace(/\/$/, '')}/terms/standard`;
-  return env.FIBRE_ENV === 'staging'
-    ? 'https://thefibre.tech/terms/standard'
-    : 'https://thethread.app/terms/standard';
+  const base =
+    env.FLY_APP_NAME === 'thefibre-api-staging'
+      ? stagingAppUrl(PLATFORM_APP_ID)
+      : appUrl(PLATFORM_APP_ID, env as Record<string, string | undefined>);
+  return `${base.replace(/\/$/, '')}/terms/standard`;
 }
 
 export type ResolvedTerms = {

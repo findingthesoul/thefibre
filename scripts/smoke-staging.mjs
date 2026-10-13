@@ -79,6 +79,52 @@ await check('sign-in page reachable', async () => {
   if (!r.ok) throw new Error(`status ${r.status}`);
 });
 
+// The terms a joiner must tick before paying — followed the way they follow
+// it, from the catalogue the join form reads, not from a URL typed here.
+//
+// Sjoerd, testing the join on staging: "Terms and condition link leads to
+// nothing." It 404'd on BOTH stacks, for two different reasons at once (a
+// stack check on an env var that does not exist, and a page in the one app
+// that has no staging deployment) — and nothing noticed, because no check
+// ever followed the link. A required checkbox beside a dead link is the
+// worst version of this: it makes somebody agree to a document they cannot
+// read.
+//
+// Two things are asserted, because either alone passes while the link is
+// wrong: the page ANSWERS, and the host is THIS stack. A staging API handing
+// out a production URL is the bug that happened, and a 200 from production
+// hides it completely.
+await check('standard terms link in the join catalogue resolves on this stack', async () => {
+  const cat = await get(`${API}/api/v1/membership/public/catalog/default`);
+  if (!cat.ok) {
+    throw new Error(
+      `no public membership catalogue at /default (status ${cat.status}) — ` +
+        'this check reads the terms link from the join form\'s own payload',
+    );
+  }
+  const terms = (await cat.json()).terms;
+  if (!terms?.url) throw new Error('the catalogue carries no terms url');
+  if (!terms.standard) {
+    console.log(`    (workspace has its own terms: ${terms.url} — not ours to serve)`);
+    return;
+  }
+  const host = new URL(terms.url).hostname;
+  if (!host.endsWith(new URL(WEB).hostname)) {
+    throw new Error(
+      `the standard terms point at ${host}, which is not this stack (${new URL(WEB).hostname}) — ` +
+        'the staging API is handing joiners the production document',
+    );
+  }
+  const page = await get(terms.url);
+  if (!page.ok) throw new Error(`${terms.url} → status ${page.status}`);
+  const html = await page.text();
+  // The text is a DRAFT and says so. When it stops being a draft that word
+  // goes, and this assertion should be changed deliberately — not quietly.
+  if (!/\bDraft\b/.test(html)) {
+    throw new Error(`${terms.url} answers 200 but is not the draft terms document`);
+  }
+});
+
 // Each app subdomain must serve ITS OWN app. Caught for real on 2026-09-03:
 // all four .tech app domains were serving the web project (Vercel domain →
 // project assignment / DNS CNAME target), so "Meet doesn't open on staging".

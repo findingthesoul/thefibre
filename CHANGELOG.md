@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.173.1] — 2026-10-13
+
+The terms link led to nothing, on both stacks, for two reasons at once.
+
+Sjoerd, a minute after the checkbox shipped: *"Terms and condition link leads
+to nothing."* A required tick beside a dead link is the worst version of this —
+it asks somebody to agree to a document they cannot read.
+
+**Measured, not reasoned:** `https://thethread.app/terms/standard` → 404,
+`https://thefibre.tech/terms/standard` → 404, and the deployed staging
+catalogue was handing out the *production* address. Two independent faults
+stacked: the resolver branched on `FIBRE_ENV`, an env var that does not exist,
+so staging answered production's URL; and the page itself lived only in
+`apps/website`, which has **no staging deployment**. Either one alone is a 404.
+
+**The URL is derived from the stack the API is on** (`FLY_APP_NAME`, the same
+signal `lib/cors-origins.ts` already uses) **and points at the platform app**,
+which answers on `thefibre.tech` and `thefibre.app` alike and already serves
+`/terms` and `/privacy-policy`. This repo has shipped a staging stack handing
+out production URLs twice before; `stagingSurfaceUrl` carries the note.
+
+**The text moved to `@thefibre/shared/ui/legal-docs`** beside the terms of use
+and the privacy policy, and both `apps/web` and `apps/website` render it — one
+document, two renderers, the existing pattern. It says *Draft* on itself,
+because it is: nine sections, not lawyer-reviewed, and every acceptance records
+`standard-terms-v1-draft` so it stays traceable to these words.
+
+**And a check now follows the link.** `smoke-staging.mjs` reads the terms URL
+from the join form's own catalogue payload, asserts the host is *this* stack,
+fetches it, and requires the word "Draft". Nothing noticed the dead link
+because nothing had ever clicked it. It was red before this change, naming the
+production host, and is green after.
+
+**The Join button is disabled until the terms are ticked.** The API refusal
+stays — a form can be bypassed — but a disabled button is what a person
+actually reads, and that is what was described.
+
 ## [1.173.0] — 2026-10-13
 
 Nobody is asked for money before they have agreed to anything.
