@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.173.2] — 2026-10-13
+
+An empty invoice list is now a different thing from a broken one.
+
+**The report that started this was not a bug in the data.** Sjoerd, after a
+test join: *"I became a member... there should be one invoice. Right?"* There
+was. Measured on staging: the route's own `INVOICE_SELECT` returns the row, all
+three of the day's joins are internally consistent (one person, one
+`membership_member`, one paid `purchase`, same ids), and the **deployed**
+endpoint answers 200 with the item, the billing block and the resolved seller —
+proven by giving a throwaway fixture a copy of that row, calling the live API as
+the fixture, and deleting it again. No real account was signed into.
+
+**What took an hour was that the page could not tell anybody any of that.**
+`fetchInvoices` caught everything and returned `[]`, so a 500, an expired token
+and a member with no purchases all rendered *"Nothing invoiced yet"* — a
+sentence that tells somebody who has just paid that their payment vanished. It
+throws now; the Purchases tab says the list would not load, and the other three
+tabs still stand. This is the client side of the rule `lib/rows.ts` already
+enforces in the API: an empty result must only ever mean there are none.
+
+**And one real hole, found while proving the other thing was fine.** The
+membership portal's per-membership invoice list matched `person_id` **only**,
+while the cross-app list at `/me/invoices` has always matched both ledger keys.
+`purchase` is a dual-key table: a membership paid for *before* the person row
+existed carries the payer's email and no person id — exactly what a public join
+writes when somebody pays first and gets an account second — and such a row was
+invisible on one page and plainly visible on the other. Two typed queries merged
+by id now, never a PostgREST `.or()` string with an email interpolated into it.
+
+**Tests, both red before the fix** (checked by mutating the code back, not by
+assuming): `membership-portal-invoices.int.test.ts` — seven cases including the
+payer-email-only row, a stranger's invoice, a row carrying both keys listed
+once, and somebody else's membership id refused — and six in
+`apps/my/lib/portal-api.test.ts` distinguishing none from failure.
+
+Members' own version → **1.1.1**: the public join panel changed for a member.
+
 ## [1.173.1] — 2026-10-13
 
 The terms link led to nothing, on both stacks, for two reasons at once.

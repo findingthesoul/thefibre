@@ -211,21 +211,23 @@ export type Portal = {
  * endpoint has and the reason thread tickets and meet bookings were missing
  * from this page entirely.
  *
- * A failure returns an empty list rather than throwing: the Purchases tab is
- * one destination among four and must not take the other three down with it.
+ * THROWS on failure. It used to return an empty list, which made the tab
+ * incapable of telling "you have no invoices" from "the call broke" — and
+ * that cost an hour on 2026-10-13, chasing a reported missing invoice whose
+ * row, query and endpoint all turned out to be fine. A list that cannot fail
+ * out loud makes every future report of this unanswerable.
+ *
+ * The caller (lib/session.ts) still keeps the other three tabs standing; the
+ * difference is that the Purchases tab now says so instead of lying quietly.
  */
 export async function fetchInvoices(accessToken: string): Promise<PortalInvoice[]> {
-  try {
-    const res = await fetch(`${baseUrl}/api/v1/me/invoices`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-    });
-    if (!res.ok) return [];
-    const body = (await res.json()) as { items?: PortalInvoice[] };
-    return body.items ?? [];
-  } catch {
-    return [];
-  }
+  const res = await fetch(`${baseUrl}/api/v1/me/invoices`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `API ${res.status}: /api/v1/me/invoices`);
+  const body = (await res.json()) as { items?: PortalInvoice[] };
+  return body.items ?? [];
 }
 
 /** The member's own details — the only thing on this surface they can

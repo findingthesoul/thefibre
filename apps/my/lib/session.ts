@@ -48,11 +48,28 @@ export const loadSession = cache(async (): Promise<Session | null> => {
 /** Every invoice this person has, newest first, across every app — one call.
  *  It was one call per membership until v0.68.61, which is why thread tickets
  *  and meet bookings never appeared: they are in the same ledger and had no
- *  member-facing endpoint. */
-export const loadInvoices = cache(async (): Promise<PortalInvoice[]> => {
+ *  member-facing endpoint.
+ *
+ *  `failed` is the point of the shape. An empty list and a broken call used to
+ *  be the same value here, so the tab showed "Nothing invoiced yet" either
+ *  way — and on 2026-10-13 that turned a reported missing invoice into an
+ *  hour of ruling things out, because the one surface that could have said
+ *  "the call failed" was built to never say it. The tab still renders; it just
+ *  tells the truth about which of the two it is. */
+export type InvoicesResult = { rows: PortalInvoice[]; failed: boolean };
+
+export const loadInvoices = cache(async (): Promise<InvoicesResult> => {
   const s = await loadSession();
-  if (!s) return [];
-  return fetchInvoices(s.token);
+  if (!s) return { rows: [], failed: false };
+  try {
+    return { rows: await fetchInvoices(s.token), failed: false };
+  } catch (e) {
+    // Logged where the server can be read, because a member seeing "we could
+    // not load this" is only half an answer — somebody has to be able to find
+    // out why.
+    console.error('[my] /me/invoices failed', e);
+    return { rows: [], failed: true };
+  }
 });
 
 /** The member's own editable details. Null when the call failed — the YOU tab

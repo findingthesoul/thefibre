@@ -254,15 +254,43 @@ membershipPortalRoutes.get('/me/invoices', async (c) => {
     .maybeSingle();
   if (!app) return c.json({ items: [] });
 
-  const items = rows(
-    'member portal: invoices',
-    await adminClient
+  // BOTH KEYS, because `purchase` is a dual-key table (docs: ledger
+  // identity, two keys) and this route matched only `person_id` until
+  // 2026-10-13. A membership paid for before the person row existed carries
+  // the payer's email and no person id — exactly the shape the join writes
+  // when somebody pays first and gets an account second — and such a row was
+  // invisible here while being plainly visible in the cross-app list at
+  // /me/invoices, which has always matched both. One ledger answering two
+  // different questions about the same money is the bug, not the display.
+  //
+  // Two typed queries merged by id, never a PostgREST `.or()` string with an
+  // email interpolated into it (that is injectable; see the rule).
+  //
+  // The email is the one already proven by `ownedMember` to be this
+  // member's own person email, so the second key widens nothing: it finds
+  // the same person's rows by the other key, inside the same app and the
+  // same workspace.
+  const scoped = () =>
+    adminClient
       .from('purchase')
       .select('id, item_label, amount_cents, currency, status, created_at, stripe_invoice_url')
       .eq('app_id', app.id)
-      .eq('workspace_id', member.workspace_id)
-      .eq('person_id', member.person_id)
-      .order('created_at', { ascending: false }),
+      .eq('workspace_id', member.workspace_id);
+
+  const [byPerson, byEmail] = await Promise.all([
+    scoped().eq('person_id', member.person_id),
+    scoped().eq('payer_email', email.toLowerCase()),
+  ]);
+
+  const seen = new Map<string, Record<string, unknown>>();
+  for (const r of [
+    ...rows('member portal: invoices by person', byPerson),
+    ...rows('member portal: invoices by payer email', byEmail),
+  ]) {
+    seen.set((r as { id: string }).id, r as Record<string, unknown>);
+  }
+  const items = [...seen.values()].sort((a, b) =>
+    String(b.created_at).localeCompare(String(a.created_at)),
   );
 
   return c.json({ items });

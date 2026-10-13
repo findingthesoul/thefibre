@@ -10,6 +10,7 @@
 // the same ledger with no route a member could reach. `GET /me/invoices`
 // answers for all of them.
 
+import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { loadInvoices, loadSession } from '@/lib/session';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
@@ -30,12 +31,23 @@ export async function PurchasesView({ openId = null }: { openId?: string | null 
   const session = await loadSession();
   if (!session) return <SignedOut />;
 
-  const rows = await loadInvoices();
+  const { rows, failed } = await loadInvoices();
   const outstanding = rows.filter((r) => r.status !== 'paid' && r.status !== 'refunded');
 
   return (
     <PageShell title="Purchases">
-      {rows.length === 0 ? (
+      {/* A failed call is NOT an empty list, and this page used to show both
+          as "Nothing invoiced yet" — which is how a reported missing invoice
+          became an hour of ruling things out on 2026-10-13. Somebody who paid
+          and sees "nothing yet" concludes their payment vanished; telling them
+          the list would not load is both true and less alarming. */}
+      {failed ? (
+        <div className={`mt-8 ${NOTICE.error}`}>
+          We could not load your invoices just now. Nothing is lost — this is us, not your
+          payment. Reload the page in a moment, and tell the community you joined if it keeps
+          happening.
+        </div>
+      ) : rows.length === 0 ? (
         <Empty title="Nothing invoiced yet.">
           Anything you pay for — a membership, a ticket, a booking — appears here with its
           invoice to download. If you expected something, check you signed in with the address
