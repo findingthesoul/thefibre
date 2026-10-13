@@ -62,5 +62,23 @@ export function fixedFirstPeriod(
   // period it is paying for has not ended yet.
   if (anchorMs <= now.getTime()) return null;
 
+  // AND INSIDE 48 HOURS MEANS OFF TOO, because Stripe says so: `trial_end`
+  // "Has to be at least 48 hours in the future", and trial_end is the only
+  // shape Checkout accepts here — measured on 2026-10-13, not deduced:
+  //
+  //   one-off + recurring + anchor + proration 'none'  → Checkout REFUSES:
+  //       "You cannot set proration_behavior to none in a Checkout Session
+  //        with one-time prices."
+  //   one-off + recurring + anchor, no proration param → 365.35 charged now
+  //       (Stripe prorates the stub period and adds it)
+  //   one-off + recurring + trial_end                  → 300.00 now,
+  //       300.00 on 1 January, no proration on any line
+  //
+  // So a join in the last two days before the anchor simply bills the
+  // ordinary way, on its own anniversary. Refusing the join would be worse
+  // than charging it normally, and silently charging a proration worse still.
+  const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+  if (anchorMs - now.getTime() < FORTY_EIGHT_HOURS) return null;
+
   return { chargeFullNow: true, anchor: Math.floor(anchorMs / 1000), endsOn: firstPeriodEndsOn };
 }

@@ -2139,9 +2139,16 @@ membershipRoutes.post('/public/join', async (c) => {
           // between now and it. Without proration_behavior 'none' Stripe adds
           // a pro-rata charge on top of the one-off line above — the one word
           // that decides "exactly one charge now".
-          ...(fixedPeriod
-            ? { billing_cycle_anchor: fixedPeriod.anchor, proration_behavior: 'none' as const }
-            : {}),
+          // trial_end, NOT billing_cycle_anchor. Checkout refuses
+          // `proration_behavior: 'none'` beside a one-time price outright
+          // ("You cannot set proration_behavior to none in a Checkout Session
+          // with one-time prices"), and without that word Stripe prorates the
+          // stub period and adds it — 365.35 instead of 300.00, measured. A
+          // trial has no proration to argue with: the one-off line is
+          // collected now and the subscription's first charge is the trial
+          // end. Rehearsed on a Stripe test clock: 300.00 on the day of the
+          // join, 300.00 on 1 January, no proration on any line.
+          ...(fixedPeriod ? { trial_end: fixedPeriod.anchor } : {}),
           metadata: {
             workspace_id: ws.id,
             person_id: personId,

@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.172.2] — 2026-10-13
+
+The cohort billing could not work, and only Stripe could say so.
+
+v1.172.0 shipped the launch-cohort shape — a one-off line for 2026, a recurring
+line, `billing_cycle_anchor` on 1 January, `proration_behavior: 'none'`. Twelve
+unit tests, four source assertions, seven mutations: all green. Creating the
+session against Stripe answers:
+
+> *You cannot set `proration_behavior` to `none` in a Checkout Session with
+> one-time prices.*
+
+**A cohort join would have failed at "Continue to payment."** Nobody was hurt —
+the setting is null on every tier, so the path had never run — but it is a
+reminder of what a green test suite is worth when the answer lives in somebody
+else's API.
+
+**Five shapes, measured** (Checkout's own `amount_total`, nothing paid):
+
+| shape | charged now |
+|---|---|
+| ordinary join (control) | €300.00 |
+| **what shipped** — one-off + recurring + anchor + proration none | **refused** |
+| same, without the proration word | **€365.35** — Stripe prorates the stub period and adds it |
+| **one-off + recurring + `trial_end`** | **€300.00** ✓ |
+| recurring only + anchor + proration none | €0.00 |
+
+The third row is the dangerous one: "just drop the word Stripe complained
+about" would have quietly overcharged every joiner by the stub period.
+
+**Then the winning shape over a Stripe test clock**, with real invoices:
+
+    13 Oct 2026   €300.00 paid   (the 2026 line; the subscription line reads
+                                  "Free trial", €0.00)
+    1 Jan 2027    €300.00 paid   (the yearly line)
+    proration: false on every line
+
+Full year now, next charge on 1 January, never a proration — which is what was
+asked for in the first place.
+
+**The irony is worth keeping.** `trial_end` was rejected during design *because*
+Stripe requires it to be at least 48 hours ahead and a 30 December joiner is in
+this cohort — there was even a test asserting the route never uses it. The
+48-hour floor is real and `trial_end` is still the only thing that works, so the
+rule now switches **itself** off inside 48 hours of the anchor: a 30 or 31
+December joiner bills the ordinary way and renews on their own anniversary.
+Charging them normally beats a failed checkout, and beats €365.35.
+
+**Both rehearsal scripts ship with it** —
+`apps/api/scripts/rehearse-fixed-renewal.mjs` (test clock, real invoices) and
+`rehearse-cohort-checkout.mjs` (what Checkout says it will charge, per shape).
+Each refuses anything that is not an `sk_test` key, and neither types a card:
+Stripe's published `pm_card_visa` token is a fixture, not a card number. They
+are the only reason any of this is known, and the next person to touch the
+billing shape should re-run them rather than reason about it.
+
 ## [1.172.1] — 2026-10-13
 
 One consent, one row — the database keeps the rule now.

@@ -26,19 +26,37 @@ describe('fixedFirstPeriod', () => {
     expect(new Date(r!.anchor * 1000).toISOString()).toBe('2027-01-01T00:00:00.000Z');
   });
 
-  it('still applies to a 30 December joiner — the case that chose the mechanism', () => {
+  it('switches off inside 48 hours of the anchor, because Stripe refuses a shorter trial', () => {
+    // Measured, not deduced. Checkout refuses proration_behavior 'none'
+    // beside a one-time price, and without it Stripe adds a proration
+    // (365.35 instead of 300.00). trial_end is the only shape that bills
+    // 300.00 now and 300.00 on 1 January — and Stripe requires it to be at
+    // least 48 hours ahead. So the last two days fall back to an ordinary
+    // join rather than failing at the till.
+    expect(fixedFirstPeriod(END, at('2026-12-30T12:00:00Z')), '36 hours before').toBeNull();
+    expect(fixedFirstPeriod(END, at('2026-12-31T12:00:00Z')), '12 hours before').toBeNull();
+    expect(
+      fixedFirstPeriod(END, at('2026-12-29T12:00:00Z')),
+      '60 hours before, still in',
+    ).not.toBeNull();
+  });
+
+  it('applies right up to the 48-hour edge', () => {
     // trial_end could not serve this cohort at all: Stripe requires it to be
     // at least 48 hours ahead, and 30 Dec → 1 Jan is less. billing_cycle_anchor
     // has no such floor, which is why the rule returns an anchor and not a
     // trial.
-    const r = fixedFirstPeriod(END, at('2026-12-30T09:00:00Z'));
+    const r = fixedFirstPeriod(END, at('2026-12-29T12:00:00Z'));
     expect(r).not.toBeNull();
     expect(new Date(r!.anchor * 1000).toISOString()).toBe('2027-01-01T00:00:00.000Z');
   });
 
-  it('applies DURING the last day, because that period has not ended', () => {
-    const r = fixedFirstPeriod(END, at('2026-12-31T23:59:00Z'));
-    expect(r, 'joining on the last day still belongs to the cohort').not.toBeNull();
+  it('does NOT apply during the last day any more, and that is a trade', () => {
+    // It used to: the period being paid for had not ended. But the only
+    // mechanism Checkout accepts needs 48 hours, so a 31 December joiner
+    // bills the ordinary way and renews on 31 December. Charging them
+    // normally is better than a failed checkout or a silent proration.
+    expect(fixedFirstPeriod(END, at('2026-12-31T23:59:00Z'))).toBeNull();
   });
 
   it('switches itself off once the date has passed', () => {
@@ -98,18 +116,16 @@ describe('the join route bills the cohort through this rule', () => {
     // tier-change code three hundred lines away, so asserting it separately
     // passed even with the join route's copy removed — found by mutating it
     // and watching this test stay green, which is what mutation is for.
-    expect(src).toContain(
-      "{ billing_cycle_anchor: fixedPeriod.anchor, proration_behavior: 'none' as const }",
-    );
+    expect(src).toContain('...(fixedPeriod ? { trial_end: fixedPeriod.anchor } : {})');
+    // And NOT the shape Checkout refuses, which is what v1.172.0 shipped.
+    expect(src).not.toContain("proration_behavior: 'none' as const");
   });
 
   it('makes the paid-now line ONE-OFF for the cohort, or the period is billed twice', () => {
     expect(src).toContain('...(fixedPeriod ? {} : { recurring: { interval: d.interval } })');
   });
 
-  it('and never uses trial_end, which Stripe refuses inside 48 hours', () => {
-    // The 30 December joiner is in this cohort by design; trial_end would
-    // make their join fail at the API.
-    expect(src).not.toContain('trial_end');
+  it('uses trial_end, and the rule keeps joins away from its 48-hour floor', () => {
+    expect(src).toContain('trial_end: fixedPeriod.anchor');
   });
 });
