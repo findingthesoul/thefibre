@@ -15,6 +15,7 @@
 // so it's safe to copy-paste from the dashboard.
 
 import { Hono } from 'hono';
+import { likeLiteral } from '../lib/like-escape.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { sendEmail } from '../lib/email/client.js';
@@ -32,18 +33,26 @@ async function resolveAuthBrand(
   email: string,
 ): Promise<{ brand: AuthEmailBrand | null; from: { fromName?: string; fromAddress?: string; replyTo?: string } }> {
   try {
+    // ESCAPED: `_` is legal in an email address, and it is ILIKE's
+    // single-character wildcard, so `foo_bar@x.com` would otherwise match
+    // `fooXbar@x.com`. Nothing is authorised from this — it decides whose
+    // logo goes on the sign-in email — but a mismatch would brand somebody's
+    // code with a community they have nothing to do with, which tells them
+    // an address like theirs is a member of it. Same helper and same class as
+    // the discount-code hole fixed the same day.
     const lower = email.toLowerCase();
+    const lowerLiteral = likeLiteral(lower);
     const { data: platformUser } = await adminClient
       .from('user')
       .select('id')
-      .ilike('email', lower)
+      .ilike('email', lowerLiteral)
       .is('deleted_at', null)
       .maybeSingle();
     if (platformUser) return { brand: null, from: {} };
     const { data: persons } = await adminClient
       .from('person')
       .select('workspace_id')
-      .ilike('email', lower)
+      .ilike('email', lowerLiteral)
       .is('deleted_at', null)
       .limit(5);
     const workspaceIds = [...new Set((persons ?? []).map((p) => p.workspace_id))];

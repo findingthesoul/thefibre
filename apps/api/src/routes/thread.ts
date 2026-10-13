@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { BillingFields } from '../lib/billing-fields.js';
+import { likeLiteral, isStorableCode } from '../lib/like-escape.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
 import { hit } from '../lib/rate-limit.js';
 import {
@@ -3519,7 +3520,16 @@ threadRoutes.delete('/tickets/:id', async (c) => {
 });
 
 const CouponBody = z.object({
-  code: z.string().min(2).max(60),
+  // No `%` or `*` in a code. Both are wildcards to the layer that matches
+  // them (SQL's own, and PostgREST's alias), so a code containing one could
+  // not be matched literally even after escaping — `\*` reaches Postgres as
+  // a literal percent. A code that exists and can never be redeemed is worse
+  // than one refused at the door.
+  code: z
+    .string()
+    .min(2)
+    .max(60)
+    .refine(isStorableCode, { message: 'a code cannot contain % or *' }),
   name: z.string().max(200).nullable().optional(),
   type: z.enum(['percentage', 'amount', 'free']),
   discount_percentage: z.number().min(0).max(100).nullable().optional(),
@@ -6620,14 +6630,21 @@ async function findValidCoupon(
   code: string,
   ticketId: string | null,
 ): Promise<{ coupon: CouponCheck } | { error: string }> {
-  // unique(thread_id, code); ilike without wildcards = case-insensitive match.
+  // unique(thread_id, code). ILIKE is used for its CASE FOLDING only —
+  // somebody typing `earlybird` should get `EARLYBIRD` — and the typed value
+  // is escaped first, because ILIKE's `%` and `_` are wildcards and this
+  // value comes from a public form. Unescaped, a visitor typing `%` matched
+  // whatever single active code the thread had and got its discount without
+  // knowing it; measured against staging on 2026-10-13, where `%` matched
+  // EARLYBIRD. The comment here used to say "ilike without wildcards", which
+  // described the codes WE write rather than the ones a stranger types.
   const { data: coupon } = await adminClient
     .from('thread_coupon')
     .select(
       'id, code, type, discount_percentage, discount_amount_cents, usage_limit, used_count, expires_at, is_early_bird, early_bird_deadline, ticket_id',
     )
     .eq('thread_id', threadId)
-    .ilike('code', code.trim())
+    .ilike('code', likeLiteral(code.trim()))
     .eq('is_active', true)
     .maybeSingle();
   if (!coupon) return { error: 'this code is not valid' };

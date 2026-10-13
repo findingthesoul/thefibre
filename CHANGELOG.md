@@ -6,6 +6,65 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.174.2] — 2026-10-13
+
+**Security.** Typing `%` as a discount code got you the discount.
+
+The public enrol form matched a typed code with `.ilike('code', code.trim())`
+and no escaping. ILIKE's `%` matches anything and `_` matches one character,
+so what a visitor types was a **pattern**: on a thread with one active code, a
+stranger typing `%` matched it and got its discount without ever knowing it.
+No account needed, no code needed — a public form and one character, for
+money.
+
+**Confirmed against the live staging database before fixing it**, rather than
+reasoned about: typing `%` matched `EARLYBIRD` and would have applied its
+percentage. The lookup ends in `maybeSingle()`, so a thread with several
+active codes errors instead and refuses — which is why this never showed up as
+a complaint. One code is the ordinary case.
+
+The typed value is escaped now (`lib/like-escape.ts`). ILIKE stays, for its
+case folding alone — somebody typing `earlybird` should still get
+`EARLYBIRD` — and is no longer used for its wildcards.
+
+**The first version of that fix was incomplete, and only the database could
+say so.** PostgREST accepts `*` as an alias for `%`, which SQL has never heard
+of — so escaping SQL's own metacharacters left the hole wide open through the
+layer we actually call. Measured: after the first fix, `*`, `E*` and `*BIRD`
+all still matched `EARLYBIRD`. The unit tests were green throughout, because
+they assert what the function returns, and it returned exactly what it was
+written to return. The rules that matter are the ones of the thing you are
+really talking to.
+
+So `*` is escaped too, and a code may no longer CONTAIN `%` or `*` — an
+escaped `\*` reaches Postgres as a literal percent, so such a code could be
+created and then never redeemed, which is worse than refusing it at the door.
+
+`apps/api/scripts/probe-code-wildcards.mjs` asks the database directly, with
+the same client the route uses, and exits non-zero if any wildcard matches
+anything. It re-states the escaping rather than importing it: a probe that
+imported the implementation could only ever agree with it. Against staging:
+eight wildcards match nothing, and `EARLYBIRD`, `earlybird` and `EARLYBIRD`
+all still find the code — the positive anchor, without which "no match" would
+only prove the lookup was broken.
+
+**The same class, one line away:** `routes/auth-hook.ts` matched the sign-in
+address with an unescaped `.ilike`, and `_` is legal in an email. Nothing is
+authorised from it — it decides whose logo goes on the sign-in email — but
+`foo_bar@x.com` could be branded as a member of a community it has nothing to
+do with. Same helper, fixed here.
+
+The old comment on that line said *"ilike without wildcards = case-insensitive
+match"*, which was true of the codes **we** write and never of the ones a
+stranger types. That is the whole bug in one sentence, and it is the same rule
+as the PostgREST `.or()` one: what somebody types is data, and a query builder
+that treats data as syntax is the defect.
+
+Tests cover the escaping and, more usefully, assert that the route still calls
+it — including a sweep that fails on **any** unescaped `.ilike('code', …)` in
+that file, so the next one cannot land quietly. Both go red when the call is
+removed.
+
 ## [1.174.1] — 2026-10-13
 
 The invoice would have lost its country, quietly.
