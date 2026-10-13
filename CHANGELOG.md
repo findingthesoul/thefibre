@@ -6,6 +6,72 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.170.0] — 2026-10-13
+
+A membership seat that actually opens something — and, when revoked, actually closes.
+
+`syncAutomaticTeams` says of itself: *"ONE writer, called from every path that
+changes a workspace role or adds a member. The alternative is how somebody
+keeps admin-level app access after being demoted, silently, because one path
+was missed."* **`grantSeat`/`revokeSeat` were that missed path** — the
+membership one. Every other writer of `workspace_member` calls the sync; this
+one never had. Three findings, each measured before it was fixed:
+
+1. **A seat granted by a membership joined no team.** The test went red with
+   `expected [] to include <user>`. So a product promising a Fibre seat
+   delivered a seat that opened nothing: the app access Everyone and Admins
+   carry arrives through those teams, and the person was in neither.
+2. **A revoked seat kept its place.** Removal through the invite flow
+   soft-deletes the workspace's `user` row, and explains why in its own words:
+   that row *"is exactly what `seatsUsed` counts, so the seat stops existing
+   the moment the row is soft-deleted"*. Revocation here deleted only the
+   membership edge, so a revoked seat **stayed counted — against the allowance
+   and against the bill**, since `reconcileSeatBilling` counts the same rows.
+   Found by a test that could not provision a second seat in a workspace whose
+   only seat had already been revoked: `seat limit: 1/1 in use`. Granting now
+   resurrects a soft-deleted row the way re-inviting does, so the identity
+   invariant of one user row per (workspace, email) still holds.
+3. **A seat can name its team, and the team's apps follow.** `config.team_id`
+   lands the holder in a named team — as a `member`, never a `lead`, because
+   buying a seat is not buying the right to administer somebody's team — and
+   `syncUsers` turns that team's grants into the `app_membership` rows a person
+   actually opens apps with. Joining a team without that call is the same
+   failure one layer down: in the right team, still opening nothing.
+
+**Two things a seat grant must NOT do, both caught in review and both my
+mistakes.** It does not **resurrect a removed account**: in code
+`user.deleted_at` has one writer (member removal) and one clearer (re-invite),
+but erasure is still a *manual* queue, so from a worker a removed seat and an
+account erased by hand look identical — and an automatic job must not bring one
+back on a maybe. It refuses, with text an admin reads on the Members screen
+("an admin must invite them again"), and the journal row carries it. And it
+does not **demote a team lead**: the join was an upsert, so renewing a
+membership would silently overwrite an existing `team_member` row — a lead
+reduced to member, or a membership an admin deliberately set inactive brought
+back. It is insert-if-absent now: a seat grant says *put them in this team if
+they are not in it*, and says nothing about a membership that already exists.
+
+The grant's team is validated where it is written, exactly as a calendar's is:
+`parseFibreSeatConfig` normalises the config, and the tenancy check at the
+write now covers both kinds — skipping it when a seat names no team, since a
+seat without a team is still a seat while a calendar without one is not a
+calendar.
+
+**Production is untouched by all of this, which was checked before deciding
+how to ship it.** Read-only, counts only: 2 `fibre_seat` grants exist (one on a
+tier, one on a product), **0** journal rows, **0** people holding a membership
+seat, **0** seats without a team, **0** revoked seats still in one. And the
+zero means something — the journal holds 17 rows for other kinds across 6
+active members, so the integration works; nobody has yet bought the tier that
+carries a seat. The bug was latent, and would have met the first buyer.
+
+Six tests: the grant, the revoke, the whole path — a tier assigned, the
+worker run, and the person found holding a seat, in Everyone, in the chosen
+team, with the app. Seven mutations each turn at least one red. One of the first
+failures was the fixture's own: `team_app_grant` has no `role` column, the
+insert failed, and the unchecked error wore a product bug's clothes for a
+round. Fixture errors are read now.
+
 ## [1.169.1] — 2026-10-12
 
 Read it as a member, and stopped the suite leaking the workspaces it makes.

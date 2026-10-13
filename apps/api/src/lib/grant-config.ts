@@ -71,3 +71,23 @@ export async function teamIsInWorkspace(
   }
   return { ok: true };
 }
+
+/** A `fibre_seat` grant's config, as it should be stored.
+ *
+ *  `role` has been there since the kind existed. `team_id` is optional — a
+ *  seat without one is still a seat — but a team that IS named gets the same
+ *  two checks a team calendar gets, in the same place, because the failure
+ *  otherwise is identical: a grant that looks saved and quietly delivers less
+ *  than it says.
+ */
+export function parseFibreSeatConfig(
+  config: Record<string, unknown>,
+): { ok: true; config: Record<string, unknown> } | { ok: false; message: string } {
+  const role = config.role === 'admin' ? 'admin' : 'organiser';
+  const raw = config.team_id;
+  if (raw === undefined || raw === null || raw === '') return { ok: true, config: { role } };
+  if (typeof raw !== 'string' || !UUID.test(raw.trim())) {
+    return { ok: false, message: TEAM_CALENDAR_REFUSAL.team };
+  }
+  return { ok: true, config: { role, team_id: raw.trim() } };
+}
