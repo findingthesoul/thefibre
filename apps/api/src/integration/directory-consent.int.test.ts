@@ -106,3 +106,78 @@ describe('the one directory writer', () => {
     expect(r.ok).toBe(false);
   }, 60_000);
 });
+
+describe('two writers at once', () => {
+  // What the sequential tests above cannot see, and what actually happened:
+  // Sjoerd's staging join recorded the same consent twice, 84ms apart,
+  // because both webhooks read "not listed yet" before either wrote.
+  it('records ONE consent when two callers say yes simultaneously', async () => {
+    const { data: person } = await service
+      .from('person')
+      .insert({
+        workspace_id: ws,
+        first_name: 'Race',
+        last_name: 'Condition',
+        email: 'int-dir-race@example.com',
+      })
+      .select('id')
+      .single();
+    const pid = person!.id as string;
+
+    // THE GUARANTEE, asserted where it lives. The concurrent pair below is
+    // the shape the bug had, but it is not a reliable reproduction — two
+    // awaited calls through one client do not always interleave, and an
+    // earlier version of this test passed before the index existed, which is
+    // the definition of proving nothing. This is deterministic: the database
+    // must refuse a second LIVE consent for the same person and purpose.
+    const first = await service.from('consent_record').insert({
+      person_id: pid,
+      purpose_code: 'member_directory',
+      legal_basis: 'consent',
+      text_version: 'member-directory-v1',
+    });
+    expect(first.error, 'the first consent is recorded').toBeNull();
+    const second = await service.from('consent_record').insert({
+      person_id: pid,
+      purpose_code: 'member_directory',
+      legal_basis: 'consent',
+      text_version: 'member-directory-v1',
+    });
+    expect(second.error?.code, 'and the second is refused by the database').toBe('23505');
+
+    // BUT A NEW VERSION OF THE WORDS IS A NEW CONSENT, and must be
+    // recordable. Without text_version in the key, a member accepting terms
+    // v2 would hit the same index, the writer would call it success, and the
+    // acceptance would never be recorded — an evidence table dropping the
+    // evidence. (Caught in review before this shipped.)
+    const v2 = await service.from('consent_record').insert({
+      person_id: pid,
+      purpose_code: 'member_directory',
+      legal_basis: 'consent',
+      text_version: 'member-directory-v2',
+    });
+    expect(v2.error, 'a new version is recorded, not swallowed').toBeNull();
+
+    await service.from('consent_record').delete().eq('person_id', pid);
+
+    const both = await Promise.all([
+      setDirectoryListing({ workspaceId: ws, personIds: [pid], listed: true }),
+      setDirectoryListing({ workspaceId: ws, personIds: [pid], listed: true }),
+    ]);
+    // Both report success: losing this race is not a failure, it means the
+    // other caller recorded the same consent.
+    expect(both.every((r) => r.ok), JSON.stringify(both)).toBe(true);
+
+    const { data: rows } = await service
+      .from('consent_record')
+      .select('granted_at')
+      .eq('person_id', pid)
+      .eq('purpose_code', 'member_directory')
+      .is('revoked_at', null);
+    expect(rows ?? [], 'one consent, not two').toHaveLength(1);
+
+    await service.from('consent_record').delete().eq('person_id', pid);
+    await service.from('membership_directory_entry').delete().eq('person_id', pid);
+    await service.from('person').delete().eq('id', pid);
+  }, 60_000);
+});

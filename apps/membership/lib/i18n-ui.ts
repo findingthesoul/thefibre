@@ -1890,6 +1890,14 @@ const CATALOG = {
     de: 'Mitglieder, die vor dem {date} beitreten, zahlen jetzt den vollen Preis und verl\u00e4ngern am {next}. Nach dem {date} bewirkt das nichts mehr.', // MT
     fr: 'Les membres qui rejoignent avant le {date} paient le prix complet maintenant et renouvellent le {next}. Apr\u00e8s le {date}, ceci ne fait plus rien.', // MT
   },
+  first_period_yearly_only: {
+    en: 'Applies to yearly payment only \u2014 monthly members renew monthly from their join date.',
+    nl: 'Geldt alleen bij jaarlijkse betaling \u2014 maandleden verlengen maandelijks vanaf hun aanmelddatum.',
+    es: 'Solo se aplica al pago anual: los miembros mensuales renuevan cada mes desde su fecha de alta.', // MT
+    pt: 'Aplica-se apenas ao pagamento anual \u2014 os membros mensais renovam mensalmente a partir da data de ades\u00e3o.', // MT
+    de: 'Gilt nur bei j\u00e4hrlicher Zahlung \u2014 Monatsmitglieder verl\u00e4ngern monatlich ab ihrem Beitrittsdatum.', // MT
+    fr: 'S\u2019applique uniquement au paiement annuel \u2014 les membres mensuels renouvellent chaque mois \u00e0 partir de leur date d\u2019adh\u00e9sion.', // MT
+  },
   first_period_ends_off: {
     en: 'Leave empty: members renew on the anniversary of the day they joined.',
     nl: 'Laat leeg: leden verlengen op de verjaardag van hun aanmelddatum.',

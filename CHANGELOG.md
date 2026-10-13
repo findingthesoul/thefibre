@@ -6,6 +6,60 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.172.1] — 2026-10-13
+
+One consent, one row — the database keeps the rule now.
+
+Sjoerd joined on staging to test the directory checkbox, and his join wrote
+**two `member_directory` consent records 84 milliseconds apart**. One human
+act, two rows. The cause is mine and it is the oldest shape there is:
+`setDirectoryListing` reads *"was this listed?"* and then inserts, and the two
+webhooks that converge on `ensureMemberFromSubscription` arrive together —
+both read false, both insert.
+
+The unit test that says *"a second yes does not pretend to be a second
+consent"* passes, and always did: it is sequential. **Concurrency is what it
+never saw**, which is worth remembering the next time a test about duplicates
+looks green.
+
+A read-then-write cannot fix this in application code, so the rule moved to
+where it can be kept: a **unique partial index** on
+`(person_id, purpose_code, coalesce(text_version,'')) where revoked_at is null`.
+
+**The text version is in the key, and review is why.** With `(person, purpose)`
+alone, a member accepting terms **v2** would hit the index, the writer would
+treat the 23505 as success, and **the v2 acceptance would never be recorded** —
+an evidence table silently dropping the evidence, which is worse than no index.
+A consent is to a TEXT: the same person agreeing to the same words in the same
+instant is a duplicate; agreeing to new words is a new fact. `coalesce` because
+NULLs do not collide in a unique index, so without it two unversioned rows
+would still race. The writer now treats
+`23505` as **success** — losing that race means somebody else recorded the same
+consent in the same instant, which is the outcome it wanted. The partial
+condition matters: a person may consent, withdraw and consent again, and only
+one of those three may be live.
+
+**The duplicates went first, by script and not by migration** — a data
+conversion belongs to one database at a time with a human reading the counts in
+between. `apps/api/scripts/dedupe-consent-records.mjs`, dry by default:
+staging held **1** duplicated pair, production **0**. It **deletes** the
+surplus row rather than revoking it, and the distinction is the point: a
+revoked row asserts that somebody *withdrew* their consent, and nobody did. The
+earliest row survives, because that is when the person said yes. (A consent a
+person actually withdraws is always revoked, never deleted.)
+
+**And the test that would have caught it had to be rewritten before it could.**
+The first version ran the two calls concurrently and **passed before the index
+existed** — two awaited calls through one client do not reliably interleave.
+It now asserts the guarantee where the guarantee lives: two live rows for one
+(person, purpose) must be refused by the database. That version is red today
+and green once the index is applied, which is the only way to know a test is
+testing something.
+
+Also in this release, because Sjoerd asked what *"yearly only"* meant: the tier
+dialog now says it out loud — *"Applies to yearly payment only — monthly
+members renew monthly from their join date."*
+
 ## [1.172.0] — 2026-10-13
 
 The launch cohort pays for 2026 now, and renews on 1 January.

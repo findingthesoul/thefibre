@@ -285,6 +285,11 @@ export function TierDialog({
                 })
               : t(locale, 'first_period_ends_off')}
           </p>
+          {/* Sjoerd asked what "yearly only" means, so the screen answers it
+              rather than the release note. */}
+          <p className="mt-0.5 text-xs text-ink-muted">
+            {t(locale, 'first_period_yearly_only')}
+          </p>
         </div>
         {currencyOptions.length > 1 && (
           <div>
