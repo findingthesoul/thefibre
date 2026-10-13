@@ -1,11 +1,21 @@
-// Per-IP rate limiting for the public read API.
+// Per-IP rate limiting for the public read API, and for the discount-code
+// validator.
 //
 // In-memory, fixed window. The API runs as a single Fly machine, so one
 // process sees every request and a shared store would be ceremony. Two honest
 // consequences: the window resets on deploy, and if we ever scale past one
-// machine each machine counts separately. Both are acceptable for a read
-// surface whose data is already public — this is an abuse brake, not a
-// security control. Move it to Redis if the machine count changes.
+// machine each machine counts separately — so a limit written as "20 an hour"
+// is really 20 × however many machines are serving, and nobody should read
+// the number in a call site as a hard ceiling.
+//
+// That was fine while this only guarded a read surface whose data is already
+// public. Since 2026-10-13 it also guards /membership/public/validate-code,
+// where the data is NOT public — it answers "does this code exist", and the
+// thing being guessed is money off a membership. It is still an abuse brake
+// rather than a security control, and the control is elsewhere: a code's own
+// usage_limit, enforced atomically at redemption. Move this to Redis if the
+// machine count changes, and before anything depends on the number being
+// exact.
 
 type Bucket = { count: number; resetAt: number };
 

@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.177.1] — 2026-10-13
+
+Three small corrections to the discount-code work, all of the same kind: a
+failure reported as the wrong thing.
+
+**The redemption dedup failed CLOSED, and should fail open.** It treated any
+insert error as "already redeemed", so a network blip or a schema-cache miss
+would skip the redeem silently and under-count the code — a community quietly
+getting fewer redemptions than it sold, which nobody would ever notice. Only
+`23505` means already; anything else is logged and the redeem **goes ahead**,
+because the atomic RPC is the real ceiling. The dedup exists to stop a webhook
+retry, not to be the limit, so failing it open costs at most one extra use
+against a code that still cannot exceed its own `usage_limit`.
+
+**A row-level-security refusal was answering 500.** The admin routes let RLS do
+the gating, which is the right design — but it means *"only an admin may do
+this"* arrives as a Postgres error, and a 500 tells somebody the system is
+broken when it is working exactly as written. It is a **403** now, with
+something a person can act on. Everything else still fails loudly: a 403 for a
+genuine fault would send somebody hunting for a permission problem that is not
+there.
+
+**And the rate limiter's own documentation was out of date about itself.** It
+said it guards "a read surface whose data is already public"; since this
+morning it also guards the discount-code validator, where the data is not
+public and the thing being guessed is money. The note now says so, and says
+plainly that an in-memory limit written as *"20 an hour"* is really 20 × the
+number of machines serving and resets on deploy — so nobody reads the number in
+a call site as a hard ceiling. The actual ceiling is the code's own
+`usage_limit`, enforced atomically.
+
 ## [1.177.0] — 2026-10-13
 
 Somebody can now actually create a discount code.

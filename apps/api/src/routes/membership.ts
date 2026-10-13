@@ -267,6 +267,17 @@ export const PutSettings = z.object({
 
 function fail(c: any, where: string, error: { message: string; code?: string; details?: string; hint?: string }) {
   console.error(`[membership] ${where}`, error);
+  // A ROW-LEVEL SECURITY REFUSAL IS NOT A SERVER ERROR. Routes that go
+  // through `userClient` let RLS do the gating, which is the right design —
+  // but it means "you may not do this" arrives as a Postgres error, and
+  // reporting it as a 500 tells somebody the system is broken when the
+  // system is working exactly as written. 42501 is the explicit code;
+  // PostgREST does not always set it, so the message is checked too.
+  const refused =
+    error.code === '42501' || /row-level security|violates row-level/i.test(error.message ?? '');
+  if (refused) {
+    return c.json({ error: 'only an admin can do that', code: 'forbidden' }, 403);
+  }
   return c.json({ error: error.message, code: error.code }, 500);
 }
 
@@ -3106,12 +3117,28 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
   // worth a table of its own when somebody wants to read it back; inventing
   // one here for a boolean is not.
   if (subMeta.discount_code_id && invoice.billing_reason === 'subscription_create') {
-    const { error: already } = await adminClient.from('membership_reminder_send').insert({
+    const { error: dedup } = await adminClient.from('membership_reminder_send').insert({
       member_id: member.id,
       reminder_kind: 'discount_code_redeemed',
       period_ref: invoice.id ?? 'unknown',
     });
-    if (!already) {
+    // ONLY 23505 MEANS "already". Any error reading as "already done" is the
+    // wrong way to fail: a network blip or a schema-cache miss would skip the
+    // redeem silently and under-count the code, which nobody would ever
+    // notice — the community simply gets fewer redemptions than it sold.
+    // Anything else is logged and the redeem GOES AHEAD, because the atomic
+    // RPC is the real limit; the dedup only exists to stop a retry, and
+    // failing it open costs at most one extra use against a code that still
+    // cannot exceed its own ceiling.
+    const alreadyRedeemed = dedup?.code === '23505';
+    if (dedup && !alreadyRedeemed) {
+      console.error(
+        '[membership/webhook] redeem dedup insert failed; redeeming anyway',
+        dedup.code,
+        dedup.message,
+      );
+    }
+    if (!alreadyRedeemed) {
       // A refusal from the RPC is logged and nothing more: it means the last
       // use went to somebody else in the seconds in between, and this join is
       // already paid. Refusing it now would be worse than honouring one more

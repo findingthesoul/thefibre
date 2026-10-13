@@ -89,4 +89,47 @@ describe('a code is spent once', () => {
     expect(guard, 'the guard must come first').toBeLessThan(redeem);
     expect(webhook).toContain("period_ref: invoice.id ?? 'unknown'");
   });
+
+  // \u26a0\ufe0f THE GUARD FAILS OPEN, DELIBERATELY. Treating ANY insert error as
+  // "already redeemed" would make a network blip or a schema-cache miss skip
+  // the redeem silently and under-count the code — a community quietly
+  // getting fewer redemptions than it sold, which nobody would ever notice.
+  // Only 23505 means already; anything else is logged and the redeem goes
+  // ahead, because the atomic RPC is the real ceiling.
+  it('treats ONLY 23505 as already redeemed, and redeems anyway otherwise', () => {
+    expect(webhook).toContain("const alreadyRedeemed = dedup?.code === '23505';");
+    expect(webhook).toContain('if (!alreadyRedeemed) {');
+    expect(webhook).toContain('redeeming anyway');
+    // The shape that was wrong: a bare truthiness check on the error.
+    expect(webhook, 'any-error-means-already is the silent under-count').not.toContain(
+      'if (!already) {',
+    );
+  });
 });
+
+// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// "You may not" is not "we broke".
+// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+describe('an RLS refusal is a 403', () => {
+  const failFn = src.slice(src.indexOf('function fail('), src.indexOf('// membership_settings is'));
+
+  // The admin routes let RLS do the gating, which is the right design — but
+  // it means "only an admin may do this" arrives as a Postgres error, and a
+  // 500 tells somebody the system is broken when it is working as written.
+  it('recognises the refusal by code and by message', () => {
+    expect(failFn).toContain("error.code === '42501'");
+    expect(failFn, 'PostgREST does not always set the code').toContain('row-level security');
+  });
+
+  it('answers 403 with something a person can act on', () => {
+    expect(failFn).toContain("'only an admin can do that'");
+    expect(failFn).toContain('403');
+  });
+
+  // And everything else still fails loudly: a 403 for a genuine fault would
+  // send somebody looking for a permission problem that is not there.
+  it('leaves every other error a 500', () => {
+    expect(failFn).toContain('error.code }, 500)');
+  });
+});
+
