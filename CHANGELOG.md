@@ -6,6 +6,81 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.169.1] — 2026-10-12
+
+Read it as a member, and stopped the suite leaking the workspaces it makes.
+
+**The /my list, seen.** `e2e/portal-could-join.spec.ts` signs in as the member
+fixture and reads the section against the deployed API. What it printed, which
+is what a member reads:
+
+    WHAT YOU CAN JOIN
+    e2e-could-join free-one   · included in your membership
+    e2e-could-join part-one   · €32.00 instead of €40.00
+
+Both rows link to real public thread pages, and the two that must **not** be
+there are not: a thread on a calendar nobody granted this tier, and a draft one
+on a calendar they do hold. At 375 the page does not scroll sideways, and the
+card reads as a clean stack — looked at as well as measured, at both widths,
+because the last thing that passed every test and still failed at 375 was two
+releases ago.
+
+**And the suite's own leak, fixed at the cause.** 79 `int-test` workspaces had
+accumulated on staging, and the reason was one quiet line:
+`deleteThrowawayWorkspace` removed persons and leaned on cascades, several
+tables reference a person with no cascade, and the failure surfaced as a
+console warning inside a run that otherwise passed. It is not untidiness — team
+slugs live in the GLOBAL `public_root_slug` table, so a leaked workspace keeps
+them and **the next run of the file that made it cannot seed at all**. That is
+how it was found, and it then happened twice more while this was being written,
+which is the most convincing argument for the fix.
+
+The helper now removes what pins a person, and **says so loudly** when the
+workspace survives anyway — a delete that matches nothing returns no error, so
+the old code could report failure in silence. `throwaway-cleanup.int.test.ts`
+seeds the whole zoo and asserts the row is actually gone, and the slug is free
+again.
+
+**The first version of this fix made the suite worse, and the full run said
+so.** A dozen extra deletes on every teardown, times fifty-five files, against
+a remote Postgres: failed files went from 3 to 6 and skipped tests from 10 to
+22, with the new cleanup test itself timing out. A correctness fix that makes
+everyone else's tests flaky is not a fix, and running the two new files in
+isolation could never have shown it. **The thorough pass is now conditional** —
+the cheap path runs first and unchanged, and only a workspace that actually
+survives pays for the sweep, which then retries the delete. Two further bugs
+surfaced on the way, both in the first version: `membership_member_access` has
+no `workspace_id` column (it had been erroring on every run, in a warning
+nobody read — it is reached through its members now), and the helper *returned*
+on a workspace-delete error, so the second pass never ran in the one case it
+exists for. An error is a survival, not a return.
+
+**Which deletes actually bite, measured rather than assumed** — each removed in
+turn, with the test re-run:
+
+| load-bearing | `membership_member`, `membership_product_purchase`, `program` |
+|---|---|
+| cascade on their own | grants, tiers, products, member access, organisers, teams, threads |
+
+The cascading ones stay — one statement each, and the FK that makes one
+load-bearing tomorrow would otherwise surface as another silent leak — but the
+comment now says which three are proven, so nobody reads the list as "all of
+these are required". Two mutations that first came back green turned out to be
+testing rows the fixture never created; seeding them properly turned one red.
+
+Sweeping the 68 that remain is Sjoerd's call — they hold append-only `activity`
+rows and can only be retired in place — and they belong to every session's
+suites, not one.
+
+**An observation, not a cause.** Staging was slow while this was being
+measured, badly enough that a parallel integration run stopped being a usable
+signal: one test took 1,718 seconds, another 3,613 seconds, a third 770 before
+timing out at its 30-second budget. All three pass alone. No production sitting
+was running, so it was not us. It is recorded here because it shaped how this
+release was verified — twelve files, run deliberately rather than the full
+fifty-five, with one needing a solo re-run — and because the next person to see
+a 28-minute integration test should know it has happened before.
+
 ## [1.169.0] — 2026-10-12
 
 What your membership lets you join, in your own portal, at your price.

@@ -185,6 +185,62 @@ export async function deleteFixtureUser(u: FixtureUser): Promise<void> {
  * append-only `activity` rows — such a test belongs in the permanent fixture
  * workspace below, not in a throwaway one.)
  */
+/**
+ * Everything that references a PERSON (or the workspace) without a cascade,
+ * removed children-first. Called only when a workspace survived its own
+ * cleanup — see the note at the call site for why it is not unconditional.
+ *
+ * WHICH OF THESE ACTUALLY BITE, measured by removing each one and running
+ * throwaway-cleanup.int.test.ts (2026-10-12), not assumed:
+ *
+ *   LOAD-BEARING  membership_member, membership_product_purchase, program
+ *                 — each one alone keeps the workspace standing.
+ *   CASCADES      grants, tiers, products, member access, organisers, teams,
+ *                 threads — they go with the workspace on their own.
+ *
+ * The cascading ones are kept: one statement each, and the FK that makes one
+ * of them load-bearing tomorrow would otherwise surface as another silent
+ * leak. Do not read the list as "all of these are required" — the three above
+ * are proven, and the test is what will tell you when that changes.
+ */
+async function removeWhatPinsAPerson(
+  id: string,
+  say: (what: string, r: { error: { message: string } | null }) => void,
+): Promise<void> {
+  // `membership_member_access` has NO workspace_id (asked of the database
+  // after it said so in a warning on every run) — it hangs off a member.
+  const members = await service.from('membership_member').select('id').eq('workspace_id', id);
+  if (members.data?.length) {
+    say(
+      'member access NOT removed',
+      await service
+        .from('membership_member_access')
+        .delete()
+        .in('member_id', members.data.map((m) => m.id as string)),
+    );
+  }
+  say('membership grants NOT removed', await service.from('membership_access_grant').delete().eq('workspace_id', id));
+  say('members NOT removed', await service.from('membership_member').delete().eq('workspace_id', id));
+  const tiers = await service.from('membership_tier').select('id').eq('workspace_id', id);
+  if (tiers.data?.length) {
+    say(
+      'tier products NOT removed',
+      await service
+        .from('membership_tier_product')
+        .delete()
+        .in('tier_id', tiers.data.map((t) => t.id as string)),
+    );
+  }
+  say('product purchases NOT removed', await service.from('membership_product_purchase').delete().eq('workspace_id', id));
+  say('products NOT removed', await service.from('membership_product').delete().eq('workspace_id', id));
+  say('tiers NOT removed', await service.from('membership_tier').delete().eq('workspace_id', id));
+  say('threads NOT removed', await service.from('thread_thread').delete().eq('workspace_id', id));
+  say('programmes NOT removed', await service.from('program').delete().eq('workspace_id', id));
+  say('organisers NOT removed', await service.from('thread_organiser').delete().eq('workspace_id', id));
+  // Teams last of the lot: this is what frees the global slug namespace.
+  say('teams NOT removed', await service.from('team').delete().eq('workspace_id', id));
+}
+
 export async function deleteThrowawayWorkspace(id: string): Promise<boolean> {
   const name = throwaway.get(id) ?? id;
   const say = (what: string, r: { error: { message: string } | null }) => {
@@ -225,17 +281,53 @@ export async function deleteThrowawayWorkspace(id: string): Promise<boolean> {
     );
   }
   say('merge history NOT removed', await service.from('person_merge').delete().eq('workspace_id', id));
+
   say('persons NOT removed', await service.from('person').delete().eq('workspace_id', id));
   say('users NOT removed', await service.from('user').delete().eq('workspace_id', id));
   // The workspace's own organisation, created by trigger with the workspace.
   // workspace.organisation_id is ON DELETE SET NULL, so the row lets go.
   say('organisations NOT removed', await service.from('organisation').delete().eq('workspace_id', id));
+  // The first attempt may ERROR (a foreign key still holds it) rather than
+  // match nothing — both mean "it survived", and the second pass below is the
+  // answer to either. Returning on the error, as this did until 2026-10-13,
+  // skipped the pass that exists for exactly that case.
   const ws = await service.from('workspace').delete().eq('id', id).select('id');
-  if (ws.error) {
-    console.warn(`[fixtures] workspace ${name} was NOT removed: ${ws.error.message}`);
-    return false;
+  let gone = !ws.error && (ws.data?.length ?? 0) === 1;
+
+  // IT SURVIVED. Something references it that the sweep above does not
+  // remove — in practice a row pointing at a PERSON, which is why the person
+  // delete failed and took the workspace with it.
+  //
+  // This pass is deliberately conditional. Running it every time costs a
+  // dozen extra round trips per teardown, times fifty-odd files, against a
+  // remote Postgres — measured on 2026-10-13, it took the suite from three
+  // failed files to six and doubled the skipped tests, including this
+  // helper's own test timing out. The cheap path keeps its old cost; only a
+  // workspace that actually leaks pays for the thorough one.
+  if (!gone) {
+    await removeWhatPinsAPerson(id, say);
+    say('persons NOT removed (2nd pass)', await service.from('person').delete().eq('workspace_id', id));
+    say('users NOT removed (2nd pass)', await service.from('user').delete().eq('workspace_id', id));
+    say('organisations NOT removed (2nd pass)', await service.from('organisation').delete().eq('workspace_id', id));
+    const again = await service.from('workspace').delete().eq('id', id).select('id');
+    if (again.error) {
+      console.warn(`[fixtures] workspace ${name} was NOT removed: ${again.error.message}`);
+      return false;
+    }
+    gone = (again.data?.length ?? 0) === 1;
   }
-  return (ws.data?.length ?? 0) === 1;
+
+  if (!gone) {
+    // LOUDLY, because this is the line that was quiet while 79 piled up: a
+    // delete that matches nothing returns no error, and a helper that
+    // returned false without saying anything let a leak look like a pass.
+    console.warn(
+      `[fixtures] workspace ${name} SURVIVED its own cleanup — nothing errored and the row is still there. ` +
+        `Something references it that this helper does not remove; add it above. ` +
+        `Until then the next run of that file may fail to SEED, because team slugs are globally unique.`,
+    );
+  }
+  return gone;
 }
 
 /** Throwaway workspaces still standing, oldest first — by the suite's own prefix. */
