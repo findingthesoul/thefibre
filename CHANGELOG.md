@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.179.1] — 2026-10-14
+
+### The webhook side of the extras fix, measured instead of argued
+
+v1.179.0 changed what the first invoice of a cohort join LOOKS like: a
+recurring extra is now split, so Sjoerd's basket arrives as seven lines, two
+pairs of which share a name. That raised three fair questions about the half
+that runs afterwards, and the answer to all three is that nothing broke —
+but the answers are worth keeping as scripts rather than as a paragraph
+somebody has to trust.
+
+- **`rehearse-extras-ledger.mjs`** builds that exact basket on the staging
+  connected account with Stripe's own test token, waits for the DEPLOYED
+  webhook, and pairs every paid invoice with its ledger rows. It fails if an
+  invoice has other than exactly one row, if an amount disagrees with
+  `amount_paid`, or if a row belongs to no paid invoice. Measured: the join
+  collects 3.493,20 across seven lines and lands as one row of 3.493,20; the
+  anchor collects 2.493,20 and lands as one row of 2.493,20.
+- **`probe-anchor-billing-reason.mjs`** exists because the rehearsal could
+  not answer one of the three. It brings the anchor forward by ending the
+  trial, and ending a trial is an UPDATE to the subscription — so Stripe
+  calls that invoice `subscription_update`, which is a property of the
+  shortcut and not of the product. `membershipInvoicePaid` treats only
+  `subscription_cycle` as a renewal (the renewal activity, the access
+  reconcile), so the distinction decides whether a cohort renewal is ever
+  recognised as one. On a TEST CLOCK, where the trial ends because the date
+  arrived, the anchor invoice is `subscription_cycle`. The probe names the
+  anchor invoice by exclusion rather than by the reason it expects, so it
+  cannot agree with itself.
+- **`probe-option-grants.mjs`** asks the live database whether a join's
+  add-on grants are keyed on the checkout session alone. The original
+  migration declares `stripe_session_id` unique by itself, which would make
+  the second extra raise 23505 — read by the webhook as "a retry, already
+  done" — and grant one of three paid-for products. A migration from later
+  the same day widens the key to (session, product), and a two-stage grep
+  split that constraint across two lines and lost it. Hence a probe that
+  asks the database instead of the file. It is the one script here that
+  WRITES, so it refuses any project but staging — with no override, because
+  the thing it asks is which columns a unique constraint covers and both
+  stacks run the same migrations. A flag would exist only to be used by
+  accident. (Refusing a key that is not `sk_test`, which guards the other
+  two, says nothing about which database an env file points at.)
+
+No product code changes here.
+
 ## [1.179.0] — 2026-10-14
 
 A cohort join with extras took **€1.300 when the panel promised €3.493,20**.
