@@ -62,15 +62,48 @@ export async function setDirectoryListing(choice: DirectoryChoice): Promise<Dire
 
   // The consent record follows the switch, and only when it CHANGES.
   if (choice.listed === true && !wasListed) {
-    const { error } = await adminClient.from('consent_record').insert(
-      personIds.map((person_id) => ({
+    // ONE STATEMENT PER PERSON, not one statement for all of them.
+    //
+    // A single multi-row insert is atomic: if ONE of this human's person rows
+    // already carries a live consent, the whole statement raises 23505 and
+    // none of the others are written. Swallowing that error — which the
+    // paragraph below is about to do, correctly — would then mean a person
+    // row ending up listed with no consent record behind it, which is the
+    // precise failure the record exists to prevent. Per person, each
+    // collision is independent and says only what it means.
+    //
+    // (A PostgREST upsert with ignoreDuplicates cannot do this job: the index
+    // is PARTIAL and over an expression, `coalesce(text_version, '')` where
+    // revoked_at is null, and `onConflict` names plain columns.)
+    for (const person_id of personIds) {
+      const { error } = await adminClient.from('consent_record').insert({
         person_id,
         purpose_code: 'member_directory',
         legal_basis: 'consent',
         text_version: DIRECTORY_CONSENT_VERSION,
-      })),
-    );
-    if (error) return { ok: false, step: 'record consent', message: error.message };
+      });
+      // 23505 IS SUCCESS HERE. `consent_one_live_per_version_idx` is unique on
+      // (person, purpose, text version) where not revoked, and its own comment
+      // states the contract this line was missing: "the writers race — two
+      // webhooks can record the same consent in the same instant — and a
+      // read-then-write in application code cannot prevent that, so callers
+      // treat 23505 here as success."
+      //
+      // The read above (`wasListed`) is exactly such a read-then-write. Two
+      // callers both see false, both insert, and the loser was being handed
+      // back an error — so a member double-clicking the switch, or a join
+      // arriving as two webhooks, saw a failure for an operation that had in
+      // fact completed. The row the winner wrote says the same thing the loser
+      // was trying to say; there is nothing left to do and nothing to report.
+      //
+      // Only 23505. Anything else is a real failure and still surfaces — a
+      // consent write that silently did nothing is the one outcome worse than
+      // an error message, because the entry row would say "listed" with no
+      // evidence behind it.
+      if (error && error.code !== '23505') {
+        return { ok: false, step: 'record consent', message: error.message };
+      }
+    }
   }
   if (choice.listed === false && wasListed) {
     // Both: the record is the evidence, the flag is the behaviour (spec §4).

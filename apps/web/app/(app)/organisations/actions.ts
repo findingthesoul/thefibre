@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
+import { apiErrorResult } from '@thefibre/shared/action-error';
 
 export type ActionResult = {
   ok?: boolean;
@@ -13,11 +14,11 @@ export type ActionResult = {
 type CreatedOrg = { id: string };
 
 function unwrapApiError(e: unknown): ActionResult {
-  if (e instanceof ApiError) {
-    const apiBody = e.body as { error?: { fieldErrors?: Record<string, string[]> } } | undefined;
-    return { error: `API ${e.status}`, fieldErrors: apiBody?.error?.fieldErrors };
-  }
-  return { error: 'Unknown error' };
+  // ONE implementation, in @thefibre/shared. Twelve copies of this
+  // helper cast the body's `error` to an object of field errors, so a
+  // plain-string message from the API — "only admins can change
+  // members" — fell through and the screen said "API 403".
+  return e instanceof ApiError ? apiErrorResult(e.status, e.body) : { error: 'Unknown error' };
 }
 
 function strOrNull(v: FormDataEntryValue | null): string | null {

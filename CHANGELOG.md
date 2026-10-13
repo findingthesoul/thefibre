@@ -6,6 +6,75 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.181.0] — 2026-10-14
+
+### Three ways a refusal went unsaid
+
+All three came out of one question — how did Sjoerd end up an organiser in a
+workspace he founded — and each is a place where the system knew something
+and did not say it.
+
+**A refused action now says what the API said.** Thirteen copies of the same
+`unwrap` helper lived across the apps, and twelve cast the error body to an
+object of field errors:
+
+```ts
+const apiBody = e.body as { error?: { fieldErrors?: … } } | undefined;
+return { error: `API ${e.status}`, fieldErrors: apiBody?.error?.fieldErrors };
+```
+
+For a validation failure the body IS that shape. For everything else the API
+answers `{ error: "only admins can change members" }` — a string — which that
+cast cannot see, so the screen said **"API 403"**. Sjoerd read exactly that,
+and the sentence that would have explained his whole afternoon was in the
+response the whole time. There is now one implementation,
+`@thefibre/shared/action-error`, and all twelve call it. It also reads
+`message` and the problem+json `detail`, so a 401 from those routes says
+"Bearer token required" rather than a number, and it treats a blank message as
+no message rather than rendering an empty error box.
+
+**An invite can no longer demote a colleague.** `POST /members` upserted
+`workspace_role` and `relationship_type` from the invite form, so re-inviting
+someone — to add them to a team, with the role select sitting at its
+`organiser` default — silently lowered an admin, and overwrote a stated
+internal relationship with external. No warning, no record, nothing on the
+screen. The form's values now apply to a NEW row only; changing an existing
+member's role is what `PATCH /members/:userId` is for, where the
+sole-admin guard lives. Raising a role is not special-cased either: an invite
+is not the place to promote somebody, and "sometimes it changes the role" is
+harder to reason about than "never".
+
+This is **not** proof of what happened to Sjoerd's own row — there is no audit
+trail either way — but it is a path that does it, and it should not exist.
+
+**A member can double-click the directory switch.** `consent_one_live_per_version_idx`
+carries its own instruction: *"the writers race … so callers treat 23505 here
+as success."* The writer never did. Two calls both read "not listed yet", both
+insert, and the loser was handed an error for an operation that had completed.
+Now 23505 is success and everything else still fails loudly, because a consent
+write that quietly did nothing is worse than an error — the entry row would
+say "listed" with no evidence behind it.
+
+The insert also became one statement per person row rather than one for all of
+them. A multi-row insert is atomic, so a single existing consent would raise
+23505 for the whole batch — and swallowing that, as the fix above correctly
+does, would have left this human's other person rows listed with no record.
+Per person, each collision means only what it says.
+
+### Also found, and deliberately not built
+
+The guard against a workspace losing its last admin **already exists**
+(`wouldOrphanWorkspace`, on the role PATCH, the member DELETE and Meet's
+equivalent). It prevents one admin becoming none; it cannot repair a workspace
+already at none, which is what soul.com is.
+
+An audit record for role changes is **not** in here. The obvious home,
+`activity`, is the app-data wall crossing: `person_id` is NOT NULL, and a
+workspace role belongs to a USER who may have no person row. It would log some
+role changes and skip others, which is worse than none, because it would look
+like a trail. A permissions audit wants its own table, and that is a decision
+rather than a line.
+
 ## [1.180.0] — 2026-10-14
 
 ### Consent decides whether you are shown, not whether you may look

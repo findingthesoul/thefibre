@@ -368,16 +368,49 @@ membersRoutes.post('/', async (c) => {
   // path above either assigned `u` or returned.
   if (!u) return c.json({ error: 'invite failed' }, 500);
 
-  // Workspace membership.
-  await adminClient.from('workspace_member').upsert(
-    {
+  // Workspace membership. AN INVITE NEVER LOWERS AN EXISTING ROLE.
+  //
+  // This was a plain upsert of the form's values, so re-inviting a colleague
+  // — to add them to a team, say, with the role select sitting at its
+  // `organiser` default — silently demoted an admin. No warning, no record,
+  // and nothing on the screen to suggest it had happened. The same went for
+  // `relationship_type`: an invite form's default would overwrite a stated
+  // internal relationship with external.
+  //
+  // Found on 2026-10-14 while working out how Sjoerd's own row in the
+  // soul.com workspace came to read "Organiser (default)" / "External" in a
+  // workspace he founded. This is not proof that is what happened to him —
+  // there is no audit trail to prove it either way — but it is a path that
+  // does it, and it should not exist.
+  //
+  // So the form's values apply to a NEW row only. Changing an existing
+  // member's role is what PATCH /members/:userId is for, where the orphan
+  // guard and (now) the activity record live. Raising a role is not special-
+  // cased either: an invite is not the place to promote somebody, and
+  // "sometimes it changes the role" is harder to reason about than "never".
+  const existingMembership = await adminClient
+    .from('workspace_member')
+    .select('workspace_role, relationship_type')
+    .eq('user_id', u.id)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (existingMembership.error) {
+    return c.json({ error: `membership lookup: ${existingMembership.error.message}` }, 500);
+  }
+  if (!existingMembership.data) {
+    const { error: insErr } = await adminClient.from('workspace_member').insert({
       user_id: u.id,
       workspace_id: ctx.workspaceId,
       workspace_role: body.data.workspace_role,
       relationship_type: body.data.relationship_type,
-    },
-    { onConflict: 'user_id,workspace_id' },
-  );
+    });
+    // 23505 means a concurrent invite created the row between the read and
+    // the insert. The other row is as good as this one would have been, and
+    // keeping it is the same rule as above: an existing row is not rewritten.
+    if (insErr && insErr.code !== '23505') {
+      return c.json({ error: `membership: ${insErr.message}` }, 500);
+    }
+  }
 
   // The teams they were invited into. Before syncAutomaticTeams, so one
   // resolve covers both these and the automatic membership.
