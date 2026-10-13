@@ -375,6 +375,20 @@ const CATALOG = {
     de: 'Land', // MT
     fr: 'Pays', // MT
   },
+  // Inside the empty country picker (2026-10-14, when it stopped being free
+  // text). NOTE: Meet still keeps its OWN copies of the invoicing-field
+  // labels, while Thread and Members now spread
+  // @thefibre/shared/invoice-fields-i18n. That is a lift worth doing — the
+  // fields and the schema are already shared — but not in a commit whose job
+  // is to stop invoices losing their country.
+  country_placeholder: {
+    en: 'Pick your country\u2026',
+    nl: 'Kies je land\u2026',
+    es: 'Elige tu pa\u00eds\u2026', // MT
+    pt: 'Escolhe o teu pa\u00eds\u2026', // MT
+    de: 'W\u00e4hle dein Land\u2026', // MT
+    fr: 'Choisis ton pays\u2026', // MT
+  },
   postal_code: {
     en: 'Postal code',
     nl: 'Postcode',

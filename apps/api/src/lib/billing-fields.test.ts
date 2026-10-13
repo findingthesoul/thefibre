@@ -65,7 +65,13 @@ describe('the address Stripe is given', () => {
     });
   });
 
-  // The form asks for a country NAME and Stripe wants a two-letter code.
+  // THE FORM POSTS AN ISO CODE NOW (2026-10-14): the country field became a
+  // picker, because a free-text box asking for a value that must come from a
+  // fixed list is the bug, and resolving the text afterwards was treating the
+  // symptom. The resolver stays for rows already written and for API callers
+  // that are not that form — which is why these cases still matter.
+  //
+  // The form asked for a country NAME and Stripe wants a two-letter code.
   // Found by walking the panel on staging: the first version of this only
   // accepted a code, so anybody typing "Netherlands" — which is what the
   // field asks for — would have had the country dropped from their invoice

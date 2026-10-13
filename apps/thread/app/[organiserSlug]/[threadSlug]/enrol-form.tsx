@@ -510,6 +510,7 @@ export function EnrolCard({
                 postalCode: t(locale, 'postal_code'),
                 city: t(locale, 'city'),
                 country: t(locale, 'country'),
+                countryPlaceholder: t(locale, 'country_placeholder'),
                 taxNo: t(locale, 'tax_number'),
               }}
             />

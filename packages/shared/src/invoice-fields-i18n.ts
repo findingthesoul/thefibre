@@ -86,6 +86,17 @@ export const INVOICE_FIELDS = {
     de: 'Land',
     fr: 'Pays', // MT
   },
+  // Inside the empty country picker. It became a picker on 2026-10-14 — it
+  // was free text asking for a value that had to come from a fixed list,
+  // which is why "Nederland" quietly lost the country off an invoice.
+  country_placeholder: {
+    en: 'Pick your country\u2026',
+    nl: 'Kies je land\u2026',
+    es: 'Elige tu pa\u00eds\u2026', // MT
+    pt: 'Escolhe o teu pa\u00eds\u2026', // MT
+    de: 'W\u00e4hle dein Land\u2026', // MT
+    fr: 'Choisis ton pays\u2026', // MT
+  },
   tax_number: {
     en: 'Tax / VAT number (optional)',
     nl: 'Btw-nummer (optioneel)',

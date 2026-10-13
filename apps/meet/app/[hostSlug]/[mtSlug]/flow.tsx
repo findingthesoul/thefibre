@@ -117,6 +117,7 @@ function PaymentSection({
               postalCode: publicT(L, 'postal_code'),
               city: 'City',
               country: publicT(L, 'country'),
+              countryPlaceholder: publicT(L, 'country_placeholder'),
               taxNo: 'Tax / VAT number (optional)',
             }}
           />

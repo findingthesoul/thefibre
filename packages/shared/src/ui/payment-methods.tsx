@@ -10,6 +10,8 @@
 // inherits from, the labels in their own catalogues. These own the look.
 
 import { useState, type ReactNode } from 'react';
+import { COUNTRIES } from '../countries.js';
+import { SearchSelect } from './search-select.js';
 import { FIELD_INPUT_CLASS } from './fields.js';
 
 export type PayMethod = 'stripe' | 'invoice';
@@ -123,14 +125,21 @@ export function PayMethodSwitch({
   );
 }
 
+const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name }));
+
 /** Buyer side: what an invoice needs. Uncontrolled inputs named
  *  billing_company … billing_tax_no; read them with `readBillingFields`. */
 export function InvoiceBillingFields({
   labels,
   whoPays,
+  defaultCountry = '',
   inputClassName = `mt-1 ${FIELD_INPUT_CLASS}`,
   labelClassName = 'text-xs text-ink-subtle',
 }: {
+  /** An ISO code the form already knows — the membership panel asks for a
+   *  country to price by, and asking for it twice on one form is the kind of
+   *  thing people notice. Empty means ask. */
+  defaultCountry?: string;
   /** "Who pays? Myself / An organisation" (docs/people-in-two-capacities-
    *  proposal.md §B). Given, the company and tax number are asked only for an
    *  organisation, and the answer rides along as billing_payer. Omitted, the
@@ -143,6 +152,10 @@ export function InvoiceBillingFields({
     city: ReactNode;
     country: ReactNode;
     taxNo: ReactNode;
+    /** Shown inside the empty picker — "Pick your country…". Optional so an
+     *  older caller still compiles; the picker then shows nothing, which
+     *  reads as "choose" well enough. */
+    countryPlaceholder?: string;
   };
   /** Thread's public pages pass their own class so embed CSS (te-input)
    *  keeps reaching the fields. */
@@ -157,6 +170,9 @@ export function InvoiceBillingFields({
     </label>
   );
   const [payer, setPayer] = useState<'self' | 'organisation'>('self');
+  // Pre-filled from what the form already knows, so nobody picks a country
+  // twice on one page.
+  const [country, setCountry] = useState(defaultCountry);
   const forOrganisation = !whoPays || payer === 'organisation';
   return (
     <>
@@ -189,7 +205,32 @@ export function InvoiceBillingFields({
         {field('postal_code', labels.postalCode, 'postal-code')}
         {field('city', labels.city, 'address-level2')}
       </div>
-      {field('country', labels.country, 'country-name')}
+      {/* A PICKER, NOT A TEXT BOX — and this is why.
+          The label says "Country" and the autocomplete hint said
+          `country-name`, so people typed a NAME. Stripe wants a two-letter
+          code, and anything it cannot read is dropped: a Dutch joiner typing
+          "Nederland" simply lost the country from their invoice, silently,
+          and the resolver added on 2026-10-13 only rescued the English
+          spellings it knows. A free-text field asking for a value that must
+          come from a fixed list is the bug; resolving the text afterwards was
+          treating the symptom.
+
+          It posts the ISO code directly, so nothing has to be interpreted.
+          The name resolver stays in lib/billing-fields.ts for rows already
+          written and for API callers that are not this form. */}
+      <label className="block">
+        <span className={labelClassName}>{labels.country}</span>
+        <div className="mt-1">
+          <SearchSelect
+            name="billing_country"
+            value={country}
+            onChange={setCountry}
+            options={COUNTRY_OPTIONS}
+            placeholder={labels.countryPlaceholder ?? ''}
+            className="w-full text-left"
+          />
+        </div>
+      </label>
       {forOrganisation && field('tax_no', labels.taxNo, 'off')}
     </>
   );

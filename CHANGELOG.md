@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.178.4] — 2026-10-14
+
+The country on an invoice is picked now, not typed.
+
+Yesterday a resolver was added so that a joiner typing *"Netherlands"* did not
+lose the country off their invoice. It only ever rescued the English spellings
+it knew — **"Nederland" and "The Netherlands" still went nowhere**, which for a
+Dutch community is most of the people it was meant to help. The field is live
+on production and soul.com's invitations go out shortly.
+
+The resolver was treating the symptom. The fault is **asking for free text when
+the value has to come from a fixed list**: the label says *Country*, the
+autocomplete hint said `country-name`, so people typed a name, and Stripe wants
+a code. `InvoiceBillingFields` now uses the same `SearchSelect` over the same
+`COUNTRIES` list the pricing country already uses, and posts the ISO code, so
+there is nothing left to interpret.
+
+**It is pre-filled** from the country the membership panel already asks for, to
+price by — asking twice on one form is the kind of thing people notice.
+
+The resolver stays, for rows already written and for API callers that are not
+this form, with its tests saying why they remain.
+
+**This is one shared component, so it changes three forms at once**: the
+membership join panel, Thread's enrol form and Meet's booking flow. Each had to
+be given the new placeholder string, which turned up that **Meet still keeps
+its own copies** of the invoicing-field labels while Thread and Members spread
+the shared set. That lift is worth doing and is noted in Meet's catalogue; it
+did not belong in a commit whose job is to stop invoices losing their country.
+
+A test holds the picker in place — a revert to free text would otherwise be
+silent — and checks the option list posts **codes with names as labels**, since
+the other way round would look identical on screen and send "Netherlands" to
+Stripe.
+
 ## [1.178.3] — 2026-10-13
 
 One line, so nobody "corrects" the rate limits back.

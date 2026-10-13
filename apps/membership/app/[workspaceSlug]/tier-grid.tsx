@@ -605,6 +605,9 @@ function TierCard({
               <div className="mt-2.5 space-y-2.5">
                 <InvoiceBillingFields
                   inputClassName={INPUT}
+                  // Already asked at the top of the page, to price by. Asking
+                  // again on the same form is the kind of thing people notice.
+                  defaultCountry={country}
                   whoPays={{
                     label: t(locale, 'who_pays'),
                     myself: t(locale, 'who_pays_myself'),
@@ -616,6 +619,7 @@ function TierCard({
                     postalCode: t(locale, 'postal_code'),
                     city: t(locale, 'city'),
                     country: t(locale, 'country'),
+                    countryPlaceholder: t(locale, 'country_placeholder'),
                     taxNo: t(locale, 'tax_number'),
                   }}
                 />
