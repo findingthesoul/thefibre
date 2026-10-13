@@ -8,6 +8,16 @@
 // is really 20 × however many machines are serving, and nobody should read
 // the number in a call site as a hard ceiling.
 //
+// TWO BUDGETS ON THE THREAD SIDE, ONE ON MEMBERSHIP, AND THAT IS DELIBERATE.
+// Thread's validate-coupon and my-price share `thread-code:` while its enrol
+// path has its own `thread-code-fail:`, so a caller gets twenty on each —
+// forty in all. Membership's validate-code and join share one bucket and give
+// twenty between them. The asymmetry is not an oversight: the enrol bucket is
+// charged ONLY for wrong codes on a route that takes an action, and merging
+// it would let guessing at the read-only doors eat into a real joiner's
+// allowance. Two numbers, one reason; worth knowing before somebody
+// "corrects" it.
+//
 // That was fine while this only guarded a read surface whose data is already
 // public. Since 2026-10-13 it also guards /membership/public/validate-code,
 // where the data is NOT public — it answers "does this code exist", and the

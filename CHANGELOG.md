@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.178.3] — 2026-10-13
+
+One line, so nobody "corrects" the rate limits back.
+
+Thread's `validate-coupon` and `my-price` share one bucket while its enrol path
+has its own, so a caller gets twenty on each — forty in all. Membership's
+validator and join share a single bucket and give twenty between them. Two
+numbers for one concept, which reads like an oversight and is not: the enrol
+bucket is charged **only** for wrong codes on a route that takes an action, and
+merging it would let guessing at the read-only doors eat into a real joiner's
+allowance.
+
+Written where somebody will find it before changing it, rather than left for
+the next reader to work out from two call sites.
+
 ## [1.178.2] — 2026-10-13
 
 The fourth door, which my own table said was deliberately left open.
