@@ -4420,11 +4420,20 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
     .limit(1)
     .maybeSingle();
   if (!activeConsent) {
-    await adminClient.from('consent_record').insert({
+    // The read above is not a lock: two enrolments for one person can both
+    // see "no consent yet" and both insert. The database refuses the second
+    // (consent_one_live_per_version_idx), and losing that race is SUCCESS.
+    // Any OTHER error is a consent we failed to record, which this table
+    // exists to prevent — so it is logged rather than discarded, as it was
+    // until 2026-10-13.
+    const { error } = await adminClient.from('consent_record').insert({
       person_id: person.id,
       purpose_code: 'transactional_email',
       legal_basis: 'contract',
     });
+    if (error && error.code !== '23505') {
+      console.error('[thread] transactional_email consent NOT recorded', person.id, error.message);
+    }
   }
 
   await logEnrolmentActivity(
@@ -7263,11 +7272,16 @@ threadRoutes.post('/public/enrol', async (c) => {
       .limit(1)
       .maybeSingle();
     if (!active) {
-      await adminClient.from('consent_record').insert({
+      // Same shape, same reasoning as above: 23505 means somebody else
+      // recorded it; anything else is a consent that did not get written.
+      const { error } = await adminClient.from('consent_record').insert({
         person_id: person.id,
         purpose_code: consent.purpose_code,
         legal_basis: consent.legal_basis,
       });
+      if (error && error.code !== '23505') {
+        console.error('[thread] consent NOT recorded', consent.purpose_code, person.id, error.message);
+      }
     }
   }
 

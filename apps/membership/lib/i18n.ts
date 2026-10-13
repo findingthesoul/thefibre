@@ -246,6 +246,48 @@ const CATALOG = {
     de: 'und', // MT
     fr: 'et', // MT
   },
+  // The join panel and its agreements (2026-10-13). Sjoerd, testing a join:
+  // "Nowhere, I have accepted terms and conditions."
+  join_tier_title: {
+    en: 'Join \u2014 {tier}',
+    nl: 'Lid worden \u2014 {tier}',
+    es: 'Unirse \u2014 {tier}', // MT
+    pt: 'Aderir \u2014 {tier}', // MT
+    de: 'Beitreten \u2014 {tier}', // MT
+    fr: 'Rejoindre \u2014 {tier}', // MT
+  },
+  accept_terms_before: {
+    en: 'I agree to the',
+    nl: 'Ik ga akkoord met de',
+    es: 'Acepto los', // MT
+    pt: 'Concordo com os', // MT
+    de: 'Ich stimme den', // MT
+    fr: 'J\u2019accepte les', // MT
+  },
+  terms_standard_name: {
+    en: 'terms and conditions',
+    nl: 'algemene voorwaarden',
+    es: 't\u00e9rminos y condiciones', // MT
+    pt: 'termos e condi\u00e7\u00f5es', // MT
+    de: 'Allgemeinen Gesch\u00e4ftsbedingungen', // MT
+    fr: 'conditions g\u00e9n\u00e9rales', // MT
+  },
+  terms_own_name: {
+    en: 'terms and conditions of {community}',
+    nl: 'algemene voorwaarden van {community}',
+    es: 't\u00e9rminos y condiciones de {community}', // MT
+    pt: 'termos e condi\u00e7\u00f5es de {community}', // MT
+    de: 'Allgemeinen Gesch\u00e4ftsbedingungen von {community}', // MT
+    fr: 'conditions g\u00e9n\u00e9rales de {community}', // MT
+  },
+  accept_terms_required: {
+    en: 'Please accept the terms and conditions to continue.',
+    nl: 'Ga akkoord met de algemene voorwaarden om verder te gaan.',
+    es: 'Acepta los t\u00e9rminos y condiciones para continuar.', // MT
+    pt: 'Aceite os termos e condi\u00e7\u00f5es para continuar.', // MT
+    de: 'Bitte stimme den Allgemeinen Gesch\u00e4ftsbedingungen zu, um fortzufahren.', // MT
+    fr: 'Accepte les conditions g\u00e9n\u00e9rales pour continuer.', // MT
+  },
   continue_to_payment: {
     en: 'Continue to payment',
     nl: 'Door naar betalen',

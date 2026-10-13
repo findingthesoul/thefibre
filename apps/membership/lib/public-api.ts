@@ -37,6 +37,11 @@ export async function publicFetch<T = unknown>(
 
 // --- Public catalog shapes (GET /api/v1/membership/public/catalog/:slug) ---
 
+/** Which terms a joiner must accept (2026-10-13). Optional: an older API
+ *  does not send it, and the page then shows nothing to agree to rather than
+ *  inventing a link. */
+export type PublicTerms = { url: string; standard: boolean };
+
 export type PublicTier = {
   id: string;
   name: string;
@@ -79,6 +84,9 @@ export type PublicCatalog = {
   locale?: string | null;
   tiers: PublicTier[];
   products: PublicProduct[];
+  /** Which terms a joiner must accept — the workspace's own, or The Thread's
+   *  standard ones (2026-10-13). Optional: an older API does not send it. */
+  terms?: PublicTerms;
   join_page: { headline?: string; intro?: string } & Record<string, unknown>;
 };
 

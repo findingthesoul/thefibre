@@ -71,6 +71,10 @@ export default async function EmbedJoinPage({
           locale={locale}
           workspaceName={workspace.name}
           membersAreaUrl={`${surfaceUrl('my-portal', process.env)}/members/${workspace.slug}`}
+          // Which terms this community asks a joiner to accept — its own if
+          // it set one, The Thread's standard ones otherwise. The API
+          // decides; the page only shows what it was told.
+          terms={catalog.terms ?? { url: '', standard: true }}
         />
       )}
       <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} />

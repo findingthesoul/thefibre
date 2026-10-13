@@ -9,6 +9,7 @@ import { stripeOrNull } from '../lib/stripe/client.js';
 import { platformFeeCents } from '../lib/fees.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { adminClient } from '../db.js';
+import { resolveTerms } from '../lib/terms.js';
 import { saveBilling } from '../lib/identity-profile.js';
 import {
   accountStatus,
@@ -36,13 +37,20 @@ workspaceBillingRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   const { data } = await adminClient
     .from('workspace')
-    .select('stripe_account_id, invoice_details, default_payment_methods')
+    .select('stripe_account_id, invoice_details, default_payment_methods, terms_url')
     .eq('id', ctx.workspaceId)
     .maybeSingle();
+  const terms = resolveTerms(data?.terms_url);
   return c.json({
     stripe_account_id: data?.stripe_account_id ?? null,
     invoice_details: data?.invoice_details ?? null,
     default_payment_methods: data?.default_payment_methods ?? null,
+    // The terms members agree to before paying. `terms_url` is what the
+    // workspace set (null = The Thread's standard terms); `terms` is what a
+    // joiner would actually be shown, so the settings screen can display the
+    // standard link without re-deriving it.
+    terms_url: data?.terms_url ?? null,
+    terms: { url: terms.url, standard: terms.standard },
     editable: await isAdmin(ctx.userId, ctx.workspaceId),
   });
 });
@@ -66,6 +74,14 @@ const BillingPatch = z.object({
     .nullable()
     .optional(),
   default_payment_methods: z.array(z.enum(['stripe', 'invoice'])).nullable().optional(),
+  // Empty or null = The Thread's standard terms. A URL must look like one:
+  // a typo here is shown to every joiner as the agreement they are signing.
+  terms_url: z
+    .string()
+    .max(500)
+    .regex(/^(https?:\/\/.+)?$/, 'Must be a link starting with https://')
+    .nullable()
+    .optional(),
 });
 
 workspaceBillingRoutes.patch('/', async (c) => {
@@ -77,6 +93,9 @@ workspaceBillingRoutes.patch('/', async (c) => {
   }
   const patch: Record<string, unknown> = { ...body.data };
   if (patch.stripe_account_id === '') patch.stripe_account_id = null;
+  // Empty means "use the standard terms", which is null in the column — two
+  // ways of saying the same thing would read differently in the settings UI.
+  if (patch.terms_url === '') patch.terms_url = null;
   // Clearing the field is a DISCONNECT, so hand the permission back rather
   // than leaving the platform authorised on an account nobody points at.
   if ('stripe_account_id' in body.data && !patch.stripe_account_id) {
@@ -91,7 +110,7 @@ workspaceBillingRoutes.patch('/', async (c) => {
     .from('workspace')
     .update(patch)
     .eq('id', ctx.workspaceId)
-    .select('stripe_account_id, invoice_details, default_payment_methods')
+    .select('stripe_account_id, invoice_details, default_payment_methods, terms_url')
     .single();
   if (error) return c.json({ error: error.message }, 500);
   // Keep the legacy fallback column in sync (disconnects must stick).

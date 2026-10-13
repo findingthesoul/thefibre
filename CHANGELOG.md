@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.173.0] — 2026-10-13
+
+Nobody is asked for money before they have agreed to anything.
+
+Sjoerd, testing a join on staging: *"Nowhere, I have accepted terms and
+conditions."* He was right, and it blocked the launch. **Join now opens a
+panel** — the shared Dialog, which is a sheet below `sm` — with the details,
+the *"Show me in …"* consent, and a **required** terms checkbox linking to
+whichever terms apply.
+
+**Whose terms.** `workspace.terms_url`: the community's own if it set one, **The
+Thread's standard terms** otherwise. One column rather than a mode plus a URL,
+because "has its own" and "uses the standard" are the same question asked twice
+and two columns can disagree. It lives on the *workspace* because Members,
+Thread and Meet all sell on the workspace's behalf — the same reasoning that
+put the Stripe account and the invoice details there.
+
+**The refusal is in the API, not only the checkbox.** A form can be bypassed and
+this is an agreement, so `POST /public/join` refuses outright without
+`terms_accepted`. The acceptance is recorded as a `consent_record` with
+`purpose_code: 'terms_of_service'` **when the membership begins** — the same
+path and the same reasoning as the directory consent: a visitor who never pays
+has agreed to nothing that matters.
+
+**Which words, recorded honestly.** The standard terms carry a real version
+(`standard-terms-v1-draft`) because we control the text. A community's own
+terms are recorded **by their URL**: we do not host that page and cannot know
+when it is edited, so *"they accepted what was at this address on this date"*
+is the truthful record, and claiming a version we did not control would be
+worse evidence than claiming none. This is also why the consent index added
+earlier today keys on the version — terms v2 must be recordable after v1.
+
+**Stripe is the rail, not the pricing authority.** Sjoerd: *"nothing of Stripe
+is the rule, except payment"*. `allow_promotion_codes` is **gone** from both
+Checkout sessions. A code typed on Stripe's page would be a second discount
+system whose decisions never reach our ledger, where *"why was this €240 and
+not €300"* has to be answerable. Our own codes, through the one price function,
+are the next slice.
+
+**And the two silent consent writes in `thread.ts` now speak.** Both discarded
+the insert result entirely, so a genuinely failed consent write was invisible —
+in the table that exists to prove consent. They now treat 23505 as success (the
+other writer got there first) and log anything else.
+
+**The standard terms page is a DRAFT**, marked as one on the page, excluded
+from search, and carrying the same version string the consent records do, so an
+acceptance can always be traced to the words shown. The text is not approved
+and has not been read by a lawyer — the existing legal pages never were either,
+and this one gets signed by strangers.
+
 ## [1.172.2] — 2026-10-13
 
 The cohort billing could not work, and only Stripe could say so.

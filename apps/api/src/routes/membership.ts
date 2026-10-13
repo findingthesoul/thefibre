@@ -6,6 +6,7 @@ import {
   teamIsInWorkspace,
 } from '../lib/grant-config.js';
 import { setDirectoryListing } from '../lib/directory-consent.js';
+import { resolveTerms } from '../lib/terms.js';
 import { fixedFirstPeriod } from '../lib/fixed-renewal.js';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
@@ -1864,10 +1865,22 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
     }
   }
 
+  // WHOSE TERMS. The join form has to link them before anybody pays, and
+  // only the API knows whether this workspace set its own (additive field).
+  const { data: wsTerms } = await adminClient
+    .from('workspace')
+    .select('terms_url')
+    .eq('id', ws.id)
+    .maybeSingle();
+  const terms = resolveTerms(wsTerms?.terms_url);
+
   return c.json({
     workspace: { slug: ws.slug, name: ws.name },
     // The join page's default language (additive — rule 8).
     locale: toLocale(settings?.locale),
+    // The terms a joiner must accept: where they are, and whether they are
+    // this community's own or The Thread's standard ones.
+    terms: { url: terms.url, standard: terms.standard },
     price_logic: priceLogic,
     tiers: (tiers ?? []).map((t) => ({
       ...t,
@@ -1917,7 +1930,15 @@ const PublicJoin = z.object({
   // DEFAULT FALSE, and absent means false: appearing in a directory is a
   // consent, and a consent that arrives by omission is not one.
   directory_listed: z.boolean().default(false),
+  // THE TERMS. Required — literally: `.refine` below refuses the join
+  // without it, rather than defaulting it to false and charging anyway.
+  // Sjoerd, testing the join: "Nowhere, I have accepted terms and
+  // conditions." Nobody is asked for money before they have agreed.
+  terms_accepted: z.boolean().default(false),
   request_id: z.string().min(8).max(100),
+}).refine((v) => v.terms_accepted === true, {
+  path: ['terms_accepted'],
+  message: 'the terms and conditions must be accepted before paying',
 });
 
 // The workspace's plan fee, as Stripe wants it for subscriptions: a percent.
@@ -1977,6 +1998,16 @@ membershipRoutes.post('/public/join', async (c) => {
   const { pct, matched } = evaluatePriceLogic(logic, { country, interval: d.interval });
   const amount = applyPct(baseAmount, pct);
   if (amount <= 0) return c.json({ error: 'This price resolves to zero — check the pricing rules.' }, 400);
+
+  // The terms this person is agreeing to, resolved once and carried to the
+  // consent record. The form showed them the same ones (the catalogue says
+  // which), but the API decides what is recorded — a form could say anything.
+  const { data: wsRow } = await adminClient
+    .from('workspace')
+    .select('terms_url')
+    .eq('id', ws.id)
+    .maybeSingle();
+  const joinTerms = resolveTerms(wsRow?.terms_url);
 
   // THE LAUNCH COHORT. While the tier's first_period_ends_on is in the future,
   // this join pays the whole period NOW as a one-off line and the subscription
@@ -2159,12 +2190,23 @@ membershipRoutes.post('/public/join', async (c) => {
             // other end, which is the same answer the box gives by default —
             // and it keeps a metadata slot free for something that matters.
             ...(d.directory_listed ? { directory_listed: '1' } : {}),
+            // WHICH TERMS they accepted, so the consent record can say so
+            // when the membership begins. The version is the URL for a
+            // workspace's own terms — we cannot know when somebody edits a
+            // page we do not host, and "what was at this address on this
+            // date" is the honest record.
+            terms_version: joinTerms.version.slice(0, 480),
             applied_pct: String(pct),
           },
         },
         customer_email: email,
         billing_address_collection: 'required',
-        allow_promotion_codes: true,
+        // NO Stripe promotion codes (Sjoerd, 2026-10-13: "nothing of Stripe
+        // is the rule, except payment"). Discounts, their rules and the
+        // reason a price is what it is are OURS — Stripe is handed a final
+        // amount and nothing else. A code typed on Stripe's page would be a
+        // second discount system whose decisions never reach our ledger,
+        // where "why was this 240 and not 300" has to be answerable.
         metadata: {
           workspace_id: ws.id,
           person_id: personId,
@@ -2303,7 +2345,8 @@ membershipRoutes.post('/public/buy', async (c) => {
         },
         customer_email: email,
         billing_address_collection: 'required',
-        allow_promotion_codes: true,
+        // Same rule as the join above: Stripe is the rail, not the pricing
+        // authority.
         // membership_product_id + person_id is the webhook discriminator —
         // distinct from membership_purchase_id (manual-invoice pay links)
         // and from the subscription join flow's tier_id.
@@ -2346,6 +2389,28 @@ membershipRoutes.post('/public/buy', async (c) => {
  *  Never fatal to the webhook — a membership that exists is worth more than a
  *  directory row, and the member can set it themselves. It is logged.
  */
+/** The terms acceptance, recorded where membership begins — the same place
+ *  and the same reason as the directory consent: a visitor who never pays has
+ *  agreed to nothing that matters, and a record of an agreement nobody acted
+ *  on is noise in an evidence table.
+ *
+ *  Never fatal to the webhook: a membership that exists is worth more than a
+ *  consent row, and the row can be reconstructed from the Stripe metadata if
+ *  it ever has to be. It is logged. */
+async function recordTermsAcceptance(meta: Record<string, string>): Promise<void> {
+  if (!meta.terms_version || !meta.person_id) return;
+  const { error } = await adminClient.from('consent_record').insert({
+    person_id: meta.person_id,
+    purpose_code: 'terms_of_service',
+    legal_basis: 'contract',
+    text_version: meta.terms_version,
+  });
+  // 23505: the other webhook recorded it first, which is success.
+  if (error && error.code !== '23505') {
+    console.error('[membership webhook] terms acceptance not recorded', meta.person_id, error.message);
+  }
+}
+
 async function recordJoinDirectoryChoice(
   meta: Record<string, string>,
   memberId: string,
@@ -2418,6 +2483,7 @@ async function ensureMemberFromSubscription(
       })
       .eq('id', prior.id);
     await recordJoinDirectoryChoice(meta, prior.id);
+    await recordTermsAcceptance(meta);
     const rejoining = prior.status === 'lapsed' || prior.status === 'cancelled';
     await logMemberActivity(
       meta.workspace_id,
@@ -2445,6 +2511,7 @@ async function ensureMemberFromSubscription(
     .select('id, workspace_id, person_id, tier_id, status, locale')
     .single();
   if (created) await recordJoinDirectoryChoice(meta, created.id as string);
+  if (created) await recordTermsAcceptance(meta);
   if (error) {
     // 23505 = a concurrent webhook created it — read it back.
     if (error.code === '23505') {

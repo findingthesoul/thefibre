@@ -12,6 +12,7 @@ import { publicFetch, PublicApiError, type PublicProduct, type PublicTier } from
 import { money } from '@/lib/money';
 import { t, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 
 // Pricing logic (§3.9): the catalog carries the workspace's price_logic;
 // this PREVIEW mirrors the server's evaluator — the server recomputes the
@@ -50,6 +51,7 @@ export function TierGrid({
   locale = 'en',
   workspaceName,
   membersAreaUrl,
+  terms,
 }: {
   workspaceSlug: string;
   tiers: PublicTier[];
@@ -63,6 +65,10 @@ export function TierGrid({
   workspaceName: string;
   /** This community's members area on my.thread, resolved server-side. */
   membersAreaUrl: string;
+  /** Which terms a joiner must accept: this community's own, or The Thread's
+   *  standard ones. The API decides and the catalogue says so — the form only
+   *  shows what it was told. */
+  terms: { url: string; standard: boolean };
 }) {
   const [openTierId, setOpenTierId] = useState<string | null>(
     initialTierId && tiers.some((t) => t.id === initialTierId) ? initialTierId : null,
@@ -120,6 +126,7 @@ export function TierGrid({
             priceLogic={priceLogic}
             workspaceName={workspaceName}
             membersAreaUrl={membersAreaUrl}
+            terms={terms}
             locale={locale}
           />
         ))}
@@ -141,6 +148,7 @@ function TierCard({
   locale,
   workspaceName,
   membersAreaUrl,
+  terms,
 }: {
   workspaceSlug: string;
   tier: PublicTier;
@@ -158,9 +166,14 @@ function TierCard({
   workspaceName: string;
   /** This community's members area on my.thread, resolved server-side. */
   membersAreaUrl: string;
+  /** Which terms this joiner must accept. */
+  terms: { url: string; standard: boolean };
 }) {
   // DIRECTORY CONSENT, default off and per card, because the form is per card.
   const [listed, setListed] = useState(false);
+  // THE TERMS, default off and never remembered: an agreement is given each
+  // time it is asked for.
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   /** "A", "A and B", "A, B and C" — the categories a tier confers, said the
    *  way a person would say them. */
@@ -210,6 +223,7 @@ function TierCard({
     const name = String(fd.get('name') ?? '').trim();
     const email = String(fd.get('email') ?? '').trim();
     if (!name || !email) return setError(t(locale, 'fill_name_email'));
+    if (!termsAccepted) return setError(t(locale, 'accept_terms_required'));
 
     setState('submitting');
     try {
@@ -227,6 +241,7 @@ function TierCard({
             locale,
             ...(chosenOptions.size ? { option_product_ids: [...chosenOptions] } : {}),
             directory_listed: listed,
+            terms_accepted: termsAccepted,
             request_id: requestId,
           }),
         },
@@ -314,7 +329,7 @@ function TierCard({
           <p className="text-sm text-ink-subtle rounded-md border border-line bg-surface px-3 py-2.5">
             {t(locale, 'already_member_note')}
           </p>
-        ) : !open ? (
+        ) : (
           <Button
             type="button"
             className="w-full"
@@ -323,7 +338,19 @@ function TierCard({
           >
             {t(locale, 'join')}
           </Button>
-        ) : (
+        )}
+      </div>
+
+      {/* THE PANEL. Below sm the shared Dialog is a sheet, which is what
+          Sjoerd asked for ("a popup or side panel"), and above it a centred
+          dialog. The card behind it keeps its own price and includes-list, so
+          somebody filling this in can still see what they are buying. */}
+      {open && (
+        <Dialog
+          open
+          onClose={onClose}
+          title={t(locale, 'join_tier_title', { tier: tier.name })}
+        >
           <form onSubmit={onSubmit} className="space-y-2.5">
             {hasYear && hasMonth && (
               <div className="grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
@@ -460,6 +487,32 @@ function TierCard({
                 </span>
               </span>
             </label>
+            {/* THE TERMS. Required, and required HERE rather than only at the
+                API: a person should be stopped before they reach a payment
+                page, not after. The API refuses it too — a form can be
+                bypassed, and this is an agreement. */}
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                name="terms_accepted"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 accent-current"
+              />
+              <span className="min-w-0 flex-1 text-ink">
+                {t(locale, 'accept_terms_before')}{' '}
+                <a
+                  href={terms.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2 hover:opacity-70"
+                >
+                  {terms.standard
+                    ? t(locale, 'terms_standard_name')
+                    : t(locale, 'terms_own_name', { community: workspaceName })}
+                </a>
+              </span>
+            </label>
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
             <Button
               type="submit"
@@ -480,8 +533,8 @@ function TierCard({
               {t(locale, 'cancel')}
             </button>
           </form>
-        )}
-      </div>
+        </Dialog>
+      )}
     </div>
   );
 }
