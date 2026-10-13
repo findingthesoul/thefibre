@@ -94,6 +94,17 @@ const CATALOG = {
   },
 
   // ── tier cards + join form ───────────────────────────────────────────
+  // The bottom line of the extras box, which now includes the membership
+  // itself — asked for by Sjoerd looking at his own join page, where the only
+  // number near the button excluded the thing being bought.
+  total: {
+    en: 'Total',
+    nl: 'Totaal',
+    es: 'Total', // MT
+    pt: 'Total', // MT
+    de: 'Gesamt', // MT
+    fr: 'Total', // MT
+  },
   optional_extras: {
     en: 'Optional extras',
     nl: 'Optionele extra’s',

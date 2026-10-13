@@ -10,7 +10,7 @@
 // inherits from, the labels in their own catalogues. These own the look.
 
 import { useState, type ReactNode } from 'react';
-import { COUNTRIES } from '../countries.js';
+import { COUNTRY_OPTIONS } from '../countries.js';
 import { SearchSelect } from './search-select.js';
 import { FIELD_INPUT_CLASS } from './fields.js';
 
@@ -124,8 +124,6 @@ export function PayMethodSwitch({
     </div>
   );
 }
-
-const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name }));
 
 /** Buyer side: what an invoice needs. Uncontrolled inputs named
  *  billing_company … billing_tax_no; read them with `readBillingFields`. */

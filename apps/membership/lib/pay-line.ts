@@ -24,10 +24,14 @@ export type PayLineInput = {
   /** What will be charged now, in cents: the adjusted tier price for the
    *  chosen interval plus any optional extras, AFTER any discount code. */
   amountCents: number | null;
-  /** What it renews at — the same figure without the code. When it differs
-   *  from `amountCents` the sentence names both, because a code applies to
-   *  the first period only and somebody told just "€150" will believe that is
-   *  what a membership costs. Omitted means they are the same. */
+  /** What it renews at — the membership at full price plus any RECURRING
+   *  extras, and never the one-time ones.
+   *
+   *  When it differs from `amountCents` the sentence names both, because
+   *  somebody told only today's figure will take it for the price of a
+   *  membership. Two things make them differ: a discount code, which prices
+   *  the first period only, and a one-time extra, which is paid once and
+   *  never again. Omitted means they are the same. */
   fullAmountCents?: number | null;
   interval: 'year' | 'month';
   /** The tier's fixed first-period date (YYYY-MM-DD), or nothing. */

@@ -2485,23 +2485,62 @@ membershipRoutes.post('/public/join', async (c) => {
                 },
               ]
             : []),
-          // Add-on lines: 'once' bills on the FIRST invoice only; a
-          // recurring product joins the subscription — Stripe forbids
-          // mixed intervals, so only interval-matching products get here
-          // (incompatible choices were refused above).
+          // ADD-ON LINES, SPLIT THE SAME WAY THE TIER IS.
+          //
+          // A 'once' extra bills now and never again. A recurring extra joins
+          // the subscription — and THAT is where this was wrong until
+          // 2026-10-14: every recurring line on a subscription with
+          // `trial_end` is charged at the ANCHOR, so a cohort or discounted
+          // join quietly moved the yearly extras to the renewal date while
+          // the panel promised them today.
+          //
+          // Measured on test keys with Sjoerd's own production example — a
+          // €300 cohort tier plus a €193.20 and a €2,000 yearly extra and a
+          // €1,000 one-time one: Stripe collected 1,300.00 now and 2,493.20
+          // on 1 January, against a panel that said 3,493.20 now. An
+          // UNDERCHARGE, and a promise broken in both directions: too little
+          // today, a surprise in January. Nobody had hit it — the one member
+          // on a cohort tier joined before the rule existed and bought no
+          // extras — because the date was only set on production that
+          // morning.
+          //
+          // So when the subscription starts later, a recurring extra gets the
+          // tier's treatment exactly: its first period as a one-off line now,
+          // and a recurring line at full price from the anchor. A discount
+          // code does not touch extras — it prices the tier, and an extra a
+          // code does not name is not discounted.
+          //
+          // The two lines carry the same product name on purpose. They land
+          // on DIFFERENT invoices — the one-off on today's, the recurring on
+          // January's — so nobody sees one thing twice, and it is the same
+          // treatment the tier's own two lines already have.
           ...options
             .filter((o) => (o.price_cents ?? 0) > 0)
-            .map((o) => ({
-              price_data: {
-                currency: (tier.currency ?? 'EUR').toLowerCase(),
-                product_data: { name: o.name },
-                unit_amount: o.price_cents!,
-                ...((o.price_interval ?? 'once') === d.interval
-                  ? { recurring: { interval: d.interval } }
-                  : {}),
-              },
-              quantity: 1,
-            })),
+            .flatMap((o) => {
+              const currency = (tier.currency ?? 'EUR').toLowerCase();
+              const once = {
+                price_data: {
+                  currency,
+                  product_data: { name: o.name },
+                  unit_amount: o.price_cents!,
+                },
+                quantity: 1,
+              };
+              const recurs = {
+                price_data: {
+                  currency,
+                  product_data: { name: o.name },
+                  unit_amount: o.price_cents!,
+                  recurring: { interval: d.interval },
+                },
+                quantity: 1,
+              };
+              // Mixed intervals are refused further up, so an extra either
+              // matches this join's interval or is a one-time thing.
+              const recurring = (o.price_interval ?? 'once') === d.interval;
+              if (!recurring) return [once];
+              return split ? [once, recurs] : [recurs];
+            }),
         ],
         subscription_data: {
           ...(feePercent > 0 ? { application_fee_percent: feePercent } : {}),

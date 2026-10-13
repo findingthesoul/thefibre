@@ -255,6 +255,25 @@ export const COUNTRIES: Country[] = [
   { code: 'ZW', name: 'Zimbabwe' },
 ];
 
+/** The list as a PICKER shows it: by name, which is what a person reads.
+ *
+ *  `COUNTRIES` is in ISO-code order, which is the right order for data and
+ *  the wrong one for a human — walking the join panel at 375 on 2026-10-14,
+ *  the dropdown opened on "Andorra, United Arab Emirates, Afghanistan,
+ *  Antigua and Barbuda", which reads as no order at all. The search works
+ *  either way; somebody scrolling does not.
+ *
+ *  `localeCompare` rather than a plain `<`, so accented names land where a
+ *  reader expects rather than after Z.
+ *
+ *  Exported so the two pickers that exist — the pricing country on the join
+ *  page and the invoicing country beside it — cannot differ. They were two
+ *  copies of one map before this, two fields apart on one page.
+ */
+export const COUNTRY_OPTIONS: { value: string; label: string; hint: string }[] = [...COUNTRIES]
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map((c) => ({ value: c.code, label: c.name, hint: c.code }));
+
 const BY_CODE = new Map(COUNTRIES.map((c) => [c.code, c]));
 export function countryName(code: string | null | undefined): string | null {
   if (!code) return null;

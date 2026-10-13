@@ -185,3 +185,55 @@ describe('when a code has changed the price', () => {
     ).toEqual({ kind: 'recurring', interval: 'year', discounted: true });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WHAT COMES BACK EVERY PERIOD — Sjoerd's own production example.
+//
+// A €300 cohort tier with three extras ticked: Google Workspace €193.20 a
+// year, Fellowship €2,000 a year, Accreditation €1,000 ONCE. Today's total is
+// €3,493.20 and the renewal is €2,493.20, because the one-time extra is paid
+// once and never again. Naming today's figure as the renewal would promise a
+// charge that will not happen; leaving the recurring extras out would hide
+// one that will.
+//
+// The panel computes `renewsAtCents` and hands it in; these cases pin the
+// RULE — that the two figures differ, and so the sentence has to name both.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('the renewal figure on a join with extras', () => {
+  const now = at('2026-10-14T12:00:00Z');
+  const TIER = 30000;
+  const YEARLY_EXTRAS = 19320 + 200000;
+  const ONE_TIME = 100000;
+
+  it('says both numbers when a one-time extra is in the total for today', () => {
+    const r = payLineFor({
+      amountCents: TIER + YEARLY_EXTRAS + ONE_TIME, // 3,493.20
+      fullAmountCents: TIER + YEARLY_EXTRAS, //        2,493.20
+      interval: 'year',
+      firstPeriodEndsOn: END,
+      now,
+    });
+    expect(r).toEqual({ kind: 'fixed', discounted: true, endsOn: '2026-12-31', renewsOn: '2027-01-01' });
+  });
+
+  // With only recurring extras the two figures agree, and the sentence should
+  // NOT imply a different renewal — there isn't one.
+  it('says one number when everything in it recurs', () => {
+    const both = TIER + YEARLY_EXTRAS;
+    expect(
+      payLineFor({ amountCents: both, fullAmountCents: both, interval: 'year', now }),
+    ).toEqual({ kind: 'recurring', interval: 'year', discounted: false });
+  });
+
+  // A code and a one-time extra together: today is lower for one reason and
+  // higher for another, and the renewal is neither.
+  it('handles a code and a one-time extra at once', () => {
+    const r = payLineFor({
+      amountCents: TIER / 2 + YEARLY_EXTRAS + ONE_TIME,
+      fullAmountCents: TIER + YEARLY_EXTRAS,
+      interval: 'year',
+      now,
+    });
+    expect(r).toEqual({ kind: 'recurring', interval: 'year', discounted: true });
+  });
+});

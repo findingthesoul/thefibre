@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { Check } from 'lucide-react';
-import { COUNTRIES } from '@thefibre/shared/countries';
+import { COUNTRIES, COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import { payLineFor } from '@/lib/pay-line';
 import { DiscountCodeField } from '@thefibre/shared/ui/discount-code-field';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
@@ -41,7 +41,8 @@ function adjust(cents: number, pct: number): number {
   return Math.max(0, Math.round((cents * pct) / 100));
 }
 
-const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code }));
+// The same list the invoicing picker two fields below uses, sorted by
+// name — they were two copies of one map on one page.
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
@@ -218,8 +219,16 @@ function TierCard({
       return next;
     });
   }
-  const optionsExtraCents = optionalProducts
-    .filter((p) => chosenOptions.has(p.id))
+  const chosen = optionalProducts.filter((p) => chosenOptions.has(p.id));
+  const optionsExtraCents = chosen.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
+  // WHAT COMES BACK EVERY PERIOD, and what does not. A one-time extra is paid
+  // once and never again, so naming it in the renewal figure would promise a
+  // charge that will not happen; leaving the recurring ones out would hide
+  // one that will. The join bills them the same way: a recurring extra pays
+  // its first period now and renews with the membership, a one-time extra is
+  // collected now and is gone.
+  const recurringExtraCents = chosen
+    .filter((p) => (p.price_interval ?? 'once') === interval)
     .reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
 
   // WHAT YOU PAY NOW, AND WHEN IT COMES AGAIN.
@@ -245,9 +254,13 @@ function TierCard({
   // membership, not somebody's add-ons.
   const payNowCents =
     applied && listCents !== null ? applied.priceCents + optionsExtraCents : listCents;
+  // The membership at full price plus whatever recurs — NOT today's total,
+  // which includes a discount that applies once and extras that are paid once.
+  const renewsAtCents =
+    listCents === null ? null : listCents - optionsExtraCents + recurringExtraCents;
   const line = payLineFor({
     amountCents: payNowCents,
-    fullAmountCents: listCents,
+    fullAmountCents: renewsAtCents,
     interval,
     firstPeriodEndsOn: tier.first_period_ends_on,
     now: new Date(),
@@ -264,7 +277,7 @@ function TierCard({
       timeZone: 'UTC',
     });
   const amount = payNowCents === null ? '' : money(payNowCents, currency);
-  const full = listCents === null ? '' : money(listCents, currency);
+  const full = renewsAtCents === null ? '' : money(renewsAtCents, currency);
   const payLine =
     line.kind === 'none'
       ? null
@@ -534,8 +547,28 @@ function TierCard({
                   ))}
                 </div>
                 {optionsExtraCents > 0 && (
-                  <div className="mt-2 border-t border-line pt-1.5 text-xs text-ink-subtle text-right tabular-nums">
-                    + {money(optionsExtraCents, currency)}
+                  <div className="mt-2 border-t border-line pt-1.5 text-xs tabular-nums">
+                    {/* THE TOTAL, with the membership in it (Sjoerd, asking
+                        for it on his own join page). The extras box used to
+                        show "+ € 3.193,20" and nothing else, so the only
+                        number near the button was the one that excluded the
+                        thing being bought. Now the three lines add up to the
+                        figure the sentence below promises, and a reader can
+                        check it. */}
+                    <div className="flex justify-between text-ink-subtle">
+                      <span>{tier.name}</span>
+                      <span>
+                        {money(interval === 'year' ? adjustedYear! : adjustedMonth!, currency)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex justify-between text-ink-subtle">
+                      <span>{t(locale, 'optional_extras')}</span>
+                      <span>+ {money(optionsExtraCents, currency)}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
+                      <span>{t(locale, 'total')}</span>
+                      <span>{money(payNowCents ?? 0, currency)}</span>
+                    </div>
                   </div>
                 )}
               </div>

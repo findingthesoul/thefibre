@@ -43,7 +43,15 @@ describe('the invoicing country field', () => {
   });
 
   it('posts codes, not names', () => {
-    expect(src).toContain('COUNTRIES.map((c) => ({ value: c.code, label: c.name }))');
+    // The option list moved to countries.ts when the pricing picker and this
+    // one stopped being two copies of the same map, so the assertion follows
+    // it rather than being loosened to pass where it used to live.
+    const list = readFileSync(new URL('../countries.ts', import.meta.url), 'utf8');
+    expect(list).toContain('value: c.code, label: c.name');
+    // Sorted BY NAME: the raw list is in ISO-code order, which opened the
+    // dropdown on "Andorra, United Arab Emirates, Afghanistan" — no order at
+    // all to somebody reading it.
+    expect(list).toContain('a.name.localeCompare(b.name)');
     // The value is the code and the label is the name — the wrong way round
     // would post "Netherlands" and look identical on screen.
     const nl = COUNTRIES.find((c) => c.code === 'NL');

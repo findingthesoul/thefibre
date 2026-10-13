@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.179.0] — 2026-10-14
+
+A cohort join with extras took **€1.300 when the panel promised €3.493,20**.
+
+Sjoerd, looking at his own production join page: soul.com "Community member"
+€300/year on a cohort tier, with Google Workspace (€193,20/year), Fellowship
+(€2.000/year) and Accreditation (€1.000 once) ticked. The sentence said *"You
+pay € 3.493,20 now."*
+
+**It would have taken €1.300,00.** An extra whose interval matches the join is
+built as a RECURRING line, and every recurring line on a subscription with
+`trial_end` is charged at the ANCHOR — so the two yearly extras silently moved
+to 1 January. Measured on test keys with exactly those numbers: 1.300,00 now
+and 2.493,20 on 1 January, against a panel promising 3.493,20 today. An
+**undercharge**, and a promise broken in both directions — too little now, a
+surprise in January.
+
+Nobody was charged wrongly. Checked read-only on production: one member sits on
+a cohort tier, they joined on 24 September — three weeks before the rule
+existed — and bought no extras. The date was only set this morning, so the
+window was open for hours and unused.
+
+**Recurring extras are now split exactly like the tier**: a one-off line now
+for the first period, and a recurring line at full price from the anchor.
+One-time extras are collected now and never again. A discount code still
+prices the tier alone — measured: with a 50% code the same basket collects
+3.343,20 now and renews at 2.493,20.
+
+**The panel shows a total, with the membership in it.** The extras box used to
+print *"+ € 3.193,20"* and nothing else, so the only number beside the button
+excluded the thing being bought. It now lists the membership, the extras and a
+TOTAL that equals the figure the sentence promises, so a reader can check it.
+
+**And the sentence names the renewal when it differs**: *"You pay € 3.493,20
+now. Your membership runs to 31 December 2026 and renews on 1 January 2027 at
+€ 2.493,20 a year."* The renewal figure excludes one-time extras — naming
+today's total would promise a charge that will never happen.
+
+**The rehearsal now holds itself to the route.** It reads `membership.ts` and
+fails if the shapes it is measuring are no longer the ones the route builds: a
+rehearsal that has drifted from its code reports success about nothing. It can
+still reproduce the old shape with `--broken`, so the fault is demonstrable
+and not just described.
+
 ## [1.178.5] — 2026-10-14
 
 A legal invoice says "Netherlands", not "NL".
