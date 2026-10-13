@@ -1871,6 +1871,33 @@ const CATALOG = {
     de: 'Team', // MT
     fr: '\u00c9quipe', // MT
   },
+  // The launch cohort's fixed first period (2026-10-13). Said in dates rather
+  // than in jargon: an admin should be able to read what a member will be
+  // charged and when, without knowing what an anchor is.
+  first_period_ends_label: {
+    en: 'First period ends on (optional)',
+    nl: 'Eerste periode eindigt op (optioneel)',
+    es: 'El primer per\u00edodo termina el (opcional)', // MT
+    pt: 'O primeiro per\u00edodo termina a (opcional)', // MT
+    de: 'Erste Periode endet am (optional)', // MT
+    fr: 'La premi\u00e8re p\u00e9riode se termine le (facultatif)', // MT
+  },
+  first_period_ends_note: {
+    en: 'Members who join before {date} pay the full price now and renew on {next}. After {date} this does nothing.',
+    nl: 'Leden die v\u00f3\u00f3r {date} lid worden betalen nu de volle prijs en verlengen op {next}. Na {date} doet dit niets meer.',
+    es: 'Los miembros que se unan antes del {date} pagan el precio completo ahora y renuevan el {next}. Despu\u00e9s del {date} esto no hace nada.', // MT
+    pt: 'Os membros que aderirem antes de {date} pagam o pre\u00e7o total agora e renovam a {next}. Depois de {date} isto n\u00e3o faz nada.', // MT
+    de: 'Mitglieder, die vor dem {date} beitreten, zahlen jetzt den vollen Preis und verl\u00e4ngern am {next}. Nach dem {date} bewirkt das nichts mehr.', // MT
+    fr: 'Les membres qui rejoignent avant le {date} paient le prix complet maintenant et renouvellent le {next}. Apr\u00e8s le {date}, ceci ne fait plus rien.', // MT
+  },
+  first_period_ends_off: {
+    en: 'Leave empty: members renew on the anniversary of the day they joined.',
+    nl: 'Laat leeg: leden verlengen op de verjaardag van hun aanmelddatum.',
+    es: 'D\u00e9jalo vac\u00edo: los miembros renuevan en el aniversario de su alta.', // MT
+    pt: 'Deixe vazio: os membros renovam no anivers\u00e1rio da ades\u00e3o.', // MT
+    de: 'Leer lassen: Mitglieder verl\u00e4ngern am Jahrestag ihres Beitritts.', // MT
+    fr: 'Laisse vide : les membres renouvellent \u00e0 la date anniversaire de leur adh\u00e9sion.', // MT
+  },
   pick_team_ph: {
     en: 'Pick a team\u2026',
     nl: 'Kies een team\u2026',

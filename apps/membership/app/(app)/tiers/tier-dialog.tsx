@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DateField } from '@thefibre/shared/ui/date-field';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -60,9 +61,22 @@ export function TierDialog({
   // Optional add-ons (2026-09-06): offered as tick-boxes on the join page —
   // a product is Off, Included, or Optional, never two at once.
   const [optionalIds, setOptionalIds] = useState<Set<string>>(new Set(tier?.optional_product_ids ?? []));
+  // The launch cohort's one date (2026-10-13). Empty = ordinary anniversary
+  // billing, which is what every tier does and keeps doing.
+  const [firstPeriodEndsOn, setFirstPeriodEndsOn] = useState(
+    tier?.first_period_ends_on ?? '',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+
+  /** The day after, for the sentence — a period that "runs up 31/12" renews
+   *  on 1/1, and an admin should read that rather than work it out. */
+  function nextDayLabel(date: string): string {
+    const ms = Date.parse(`${date}T00:00:00Z`);
+    if (!Number.isFinite(ms)) return '';
+    return new Date(ms + 86_400_000).toISOString().slice(0, 10);
+  }
 
   // Dialog lists live products, plus any archived ones this tier still links
   // (so an old link stays visible and un-checkable).
@@ -115,6 +129,7 @@ export function TierDialog({
         .filter(Boolean),
       price_cents_year: euroToCents(priceYear),
       price_cents_month: euroToCents(priceMonth),
+      first_period_ends_on: firstPeriodEndsOn.trim() || null,
       // Existing tiers keep their position; a new one joins at the end.
       sort_order: tier ? (tier.sort_order ?? 0) : nextSortOrder,
     };
@@ -246,6 +261,30 @@ export function TierDialog({
               className={INPUT}
             />
           </div>
+        </div>
+        {/* THE LAUNCH COHORT'S ONE DATE. Empty is the normal case and the
+            default: a member renews on the anniversary of the day they
+            joined. With a date, everyone who joins before it pays the whole
+            period now and renews the day after — and once the date has
+            passed the setting does nothing, so nobody has to remember to
+            clear it. */}
+        <div>
+          {/* The shared DateField owns its own value and reports changes —
+              label and name are its props, not a separate <label>. */}
+          <DateField
+            label={t(locale, 'first_period_ends_label')}
+            name="first_period_ends_on"
+            defaultValue={firstPeriodEndsOn || null}
+            onValueChange={setFirstPeriodEndsOn}
+          />
+          <p className="mt-1 text-xs text-ink-muted">
+            {firstPeriodEndsOn.trim()
+              ? t(locale, 'first_period_ends_note', {
+                  date: firstPeriodEndsOn.trim(),
+                  next: nextDayLabel(firstPeriodEndsOn.trim()),
+                })
+              : t(locale, 'first_period_ends_off')}
+          </p>
         </div>
         {currencyOptions.length > 1 && (
           <div>

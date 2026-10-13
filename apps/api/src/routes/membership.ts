@@ -6,6 +6,7 @@ import {
   teamIsInWorkspace,
 } from '../lib/grant-config.js';
 import { setDirectoryListing } from '../lib/directory-consent.js';
+import { fixedFirstPeriod } from '../lib/fixed-renewal.js';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
 import { organisationBilling, organisationBillingSnapshot } from '../lib/org-billing.js';
@@ -72,6 +73,14 @@ const CreateTier = z.object({
   price_cents_year: z.number().int().min(0).optional().nullable(),
   price_cents_month: z.number().int().min(0).optional().nullable(),
   currency: z.string().length(3).default('EUR'),
+  // The launch cohort's one date: a plain yyyy-mm-dd, or null for ordinary
+  // anniversary billing. Validated as a date rather than a free string so a
+  // typo cannot reach the join route and silently do nothing.
+  first_period_ends_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'use a date like 2026-12-31')
+    .optional()
+    .nullable(),
   sort_order: z.number().int().optional(),
 });
 const PatchTier = CreateTier.partial().extend({
@@ -524,7 +533,7 @@ membershipRoutes.get('/tiers', async (c) => {
   const { data, error } = await db
     .from('membership_tier')
     .select(
-      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id, optional )',
+      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, first_period_ends_on, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id, optional )',
     )
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -1951,7 +1960,7 @@ membershipRoutes.post('/public/join', async (c) => {
 
   const { data: tier } = await adminClient
     .from('membership_tier')
-    .select('id, name, price_cents_year, price_cents_month, currency')
+    .select('id, name, price_cents_year, price_cents_month, currency, first_period_ends_on')
     .eq('id', d.tier_id)
     .eq('workspace_id', ws.id)
     .is('archived_at', null)
@@ -1968,6 +1977,21 @@ membershipRoutes.post('/public/join', async (c) => {
   const { pct, matched } = evaluatePriceLogic(logic, { country, interval: d.interval });
   const amount = applyPct(baseAmount, pct);
   if (amount <= 0) return c.json({ error: 'This price resolves to zero — check the pricing rules.' }, 400);
+
+  // THE LAUNCH COHORT. While the tier's first_period_ends_on is in the future,
+  // this join pays the whole period NOW as a one-off line and the subscription
+  // starts billing the day after that date — Sjoerd: "they have to pay for the
+  // past year (2026) and runs up 31/12/2026". A past date is inert, so
+  // ordinary joins (and every join after the launch) keep anniversary billing
+  // without anybody switching anything off.
+  const fixedPeriod = fixedFirstPeriod(
+    (tier as { first_period_ends_on?: string | null }).first_period_ends_on,
+    new Date(),
+    // The interval decides too: on a monthly join "the full period now" is one
+    // month, which would hand the cohort the rest of the year for a month's
+    // price. The rule refuses it; the route does not have to know why.
+    d.interval,
+  );
 
   // Auto-account (the Thread enrol pattern): email-only, verify at sign-in.
   try {
@@ -2068,10 +2092,29 @@ membershipRoutes.post('/public/join', async (c) => {
               currency: (tier.currency ?? 'EUR').toLowerCase(),
               product_data: { name: `${ws.name} membership — ${tier.name}` },
               unit_amount: amount,
-              recurring: { interval: d.interval },
+              // ONE-OFF for the cohort: the period being paid for is the one
+              // ending on the fixed date, and the recurring line below starts
+              // after it. Leaving this recurring would bill the same period
+              // twice — once now and once at the anchor.
+              ...(fixedPeriod ? {} : { recurring: { interval: d.interval } }),
             },
             quantity: 1,
           },
+          // The subscription itself, starting at the anchor. Only present for
+          // the cohort — an ordinary join's first line IS the subscription.
+          ...(fixedPeriod
+            ? [
+                {
+                  price_data: {
+                    currency: (tier.currency ?? 'EUR').toLowerCase(),
+                    product_data: { name: `${ws.name} membership — ${tier.name}` },
+                    unit_amount: amount,
+                    recurring: { interval: d.interval },
+                  },
+                  quantity: 1,
+                },
+              ]
+            : []),
           // Add-on lines: 'once' bills on the FIRST invoice only; a
           // recurring product joins the subscription — Stripe forbids
           // mixed intervals, so only interval-matching products get here
@@ -2092,6 +2135,13 @@ membershipRoutes.post('/public/join', async (c) => {
         ],
         subscription_data: {
           ...(feePercent > 0 ? { application_fee_percent: feePercent } : {}),
+          // The first renewal, and NOTHING extra charged for the stub period
+          // between now and it. Without proration_behavior 'none' Stripe adds
+          // a pro-rata charge on top of the one-off line above — the one word
+          // that decides "exactly one charge now".
+          ...(fixedPeriod
+            ? { billing_cycle_anchor: fixedPeriod.anchor, proration_behavior: 'none' as const }
+            : {}),
           metadata: {
             workspace_id: ws.id,
             person_id: personId,

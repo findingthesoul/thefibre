@@ -6,6 +6,61 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.172.0] — 2026-10-13
+
+The launch cohort pays for 2026 now, and renews on 1 January.
+
+Sjoerd, on the people he is inviting to soul.com today: *"they have to pay for
+the past year (2026) and runs up 31/12/2026"* — and, separately, *"For all new
+ones, their subscriptions date (30/12 is also good) is also the renewal date"*.
+So this is **not** a yearly anchor: ordinary joins keep anniversary billing, and
+somebody joining on 30 December renews on 30 December. It is **one date on one
+tier**, and it switches itself off.
+
+`membership_tier.first_period_ends_on` (null by default). While that date is in
+the future, a join:
+
+- charges the tier's full period price **now**, as a one-off line;
+- starts the subscription at `billing_cycle_anchor` = 00:00 UTC the **day
+  after** the date — a period that *"runs up 31/12/2026"* renews on 1 January,
+  not on 31 December;
+- with `proration_behavior: 'none'`, which is the single word that makes it
+  **exactly one charge now**. Without it Stripe's default adds a pro-rata charge
+  for today→anchor on top of the one-off line.
+
+Once the date has passed the column is inert: no cleanup, no migration, nobody
+remembering to untick it in January.
+
+**Yearly joins only**, which review caught before it shipped: "the full period
+now" on a MONTHLY join is one month's price, and then nothing until the anchor
+— an October joiner would have held October, November and December for a
+month's money. A monthly join on such a tier simply bills the ordinary way.
+Ignoring beats refusing: the setting is a one-time cohort thing, and refusing
+the monthly option would take it from everybody for months. The rule decides
+this, not the route, and the dialog says so.
+
+**Why not `trial_end`, which was the obvious tool.** Stripe's own parameter
+documentation says it *"Has to be at least 48 hours in the future"* — so a join
+on 30 December, which this cohort explicitly contains, would be **refused by
+the API**. `billing_cycle_anchor` carries no such floor. The 30-December case
+chose the mechanism, and a test pins it.
+
+**Two things mutation testing changed about this release, both worth saying.**
+The source assertion that proration is turned off **passed with the code
+deleted**, because `proration_behavior: 'none'` also appears three hundred
+lines away in the tier-change path; it now asserts the single expression. And
+the `yyyy-mm-dd` shape check turned out to be **dead** — `Date.parse` already
+rejects `31-12-2026`, `soon` and `20261231` — while neither it nor `Date.parse`
+rejected **`2026-02-31`**, which parses happily to 3 March. An admin's typo
+would have become an anchor in another month without a word. The shape check is
+gone and a round-trip check replaces it, which is the guard that bites.
+
+Twelve tests on the rule, with the clock a parameter in every one: a date rule
+that reads the wall clock passes in UTC CI in October and fails for a real
+person in December. The admin field is the shared `DateField`, and says in a
+sentence what it will do — *"Members who join before 31 Dec 2026 pay the full
+price now and renew on 1 Jan 2027. After 31 Dec 2026 this does nothing."*
+
 ## [1.171.0] — 2026-10-13
 
 "Show me in …" — the directory consent, asked at the door.
