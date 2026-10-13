@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.175.0] — 2026-10-13
+
+Discount codes that belong to a community, not to one thread.
+
+Sjoerd, on the membership join panel: *"for the discount code… we have our own
+payment system"*. Codes already worked in The Thread, and the instruction was
+to lift what works rather than invent a second system — so this is the same
+columns, the same arithmetic (`couponPriceOf`, untouched and now shared) and
+the same ledger word (`discount_reason: 'coupon'`). What could not be lifted
+is the KEY: `thread_coupon` is `unique (thread_id, code)` and its validator
+takes a thread id, so a membership tier has no shape of it to use.
+
+`discount_code` is keyed on the **workspace**, with one pair saying what it
+applies to: `applies_to` ∈ workspace | thread | ticket | tier | product, and
+`applies_to_id`. One polymorphic id rather than four nullable foreign keys,
+because four columns can disagree about what a code applies to and one cannot
+— a CHECK makes `applies_to = 'workspace'` and a null id the same statement.
+
+**The price of that is tenancy, and it is paid in the validator.**
+`applies_to_id` has no foreign key, so the database will hold a code in
+workspace A naming a thread in workspace B quite happily. Nothing but
+`lib/discount-codes.ts` stands between that row and a discount on somebody
+else's thread — the same shape as both cross-workspace holes found in
+September 2026 — so every code with a target has its target read and its
+workspace compared. There is a test for exactly that, asked both ways round,
+and it is the one test in the file that matters.
+
+**Matched on a stored `code_lower`, with `.eq()`.** Not `.ilike()`: the thread
+path used it and a visitor typing `*` got a discount they had not earned
+(fixed the same day). A generated column removes the question rather than
+relying on everybody remembering to escape.
+
+**Redemption is atomic** — `redeem_discount_code` is an UPDATE that is its own
+check, so the last use of a code cannot go to two people. Proven by firing
+both redemptions at once rather than reasoning about it. The RPC enforces the
+expiry as well as the limit, so a later caller that skipped the validator
+still could not spend an expired code; it is born closed and granted to
+`service_role` alone. Redemption happens at payment confirmation and a refusal
+is logged, never fatal: the join is already paid, and refusing it then would
+be worse than honouring one more use.
+
+**The grant is checked by asking, from each side**
+(`scripts/probe-redeem-grants.mjs`): anon and a real signed-in JWT both get
+`permission denied for function redeem_discount_code`, and the service role —
+the positive anchor — can still take a use. A REVOKE that never reached (a
+typo in a role name does not error) looks exactly like one that worked.
+
+That probe also caught itself. Its first run printed *"closed to everyone but
+the service role"* while both calls had actually failed with **"Invalid API
+key"** — the env file it was pointed at carried a stale anon key, so nothing
+had been asked of the grant at all. It now distinguishes a permission denial
+from any other error and reports anything else as INCONCLUSIVE. A denial for
+the wrong reason is not a denial, and a security check that can pass without
+testing anything is worse than no check.
+
+**`thread_coupon` is untouched.** Nothing copied, nothing backfilled, no dual
+write; the validator will ask it first, so a thread's own code still wins over
+a workspace code of the same text. Its read-then-write redemption **can**
+oversell the last use — a real bug, named in the migration and left alone
+rather than fixed in passing, with its own commit to come.
+
 ## [1.174.2] — 2026-10-13
 
 **Security.** Typing `%` as a discount code got you the discount.
