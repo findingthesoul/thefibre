@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.178.5] — 2026-10-14
+
+A legal invoice says "Netherlands", not "NL".
+
+The country picker shipped an hour ago and posts ISO codes. The invoice model
+printed the stored country **raw** — so the PDF, the receipt email and the
+invoices dialog, all three of which read that one model, would have started
+putting `NL` on legal documents the moment somebody used the new field. The
+picker would have introduced it, and nobody would have seen it until a member
+opened their invoice.
+
+`countryName` already existed and already falls back to whatever it was given,
+which is exactly what older rows need: they hold a NAME, often one no list
+recognises (*"Nederland"*), and an invoice already issued has to keep reading
+as it did. One line, in the one place all three surfaces share.
+
+Found by asking where the value is PRINTED rather than where it is stored —
+a change to what a field contains is a change to everything that renders it,
+and the three renderers were unified precisely so this would be one edit.
+
 ## [1.178.4] — 2026-10-14
 
 The country on an invoice is picked now, not typed.

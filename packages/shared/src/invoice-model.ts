@@ -18,6 +18,8 @@
 // and the email are built in the EU API because they are drawn from a ledger
 // row, which is personal data (HARD RULE 1).
 
+import { countryName } from './countries.js';
+
 export type InvoiceBilling = {
   number?: string | null;
   company?: string | null;
@@ -112,7 +114,16 @@ function addressLine(parts: {
   const line = [
     parts.address,
     [parts.postal_code, parts.city].filter(Boolean).join(' '),
-    parts.country,
+    // THE NAME, not the code. The invoicing form became a country PICKER on
+    // 2026-10-14 and posts ISO codes, so printing this raw would put "NL" on
+    // a legal invoice where it used to say "Netherlands" — a regression the
+    // picker would otherwise have introduced the moment it shipped.
+    //
+    // `countryName` falls back to whatever it was given, which is what rows
+    // written before the picker need: they hold a name already, often one
+    // this list would not recognise ("Nederland"), and an invoice already
+    // issued must keep reading as it did.
+    countryName(parts.country),
   ]
     .filter(Boolean)
     .join(', ');
