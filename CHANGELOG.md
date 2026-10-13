@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.171.0] — 2026-10-13
+
+"Show me in …" — the directory consent, asked at the door.
+
+Today soul.com starts inviting people to become members, and the join form had
+no way to ask the one question the member directory needs. It does now, in
+Sjoerd's own words: **"Show me in {category}"**, where the category is what the
+tier actually confers — linked to that community's members area on my.thread,
+opening in a new tab so a half-filled form survives the look. A tier that
+confers no category says *"the members area of {community}"* instead, because
+"Show me in" has to be followed by somewhere. Six locales. **Unticked by
+default, always**: being listed is a consent, and a consent that arrives by
+omission is not one.
+
+**ONE WRITER, which is the point of the release.** The portal switch
+(`PATCH /me/directory`) and this checkbox write through the same
+`setDirectoryListing`. What they write is not a preference but a **consent
+record** — the entry row is the behaviour, the `consent_record` row is the
+evidence, and an Article 15 export reads the second to explain the first. Two
+copies would eventually disagree about *when* a record is made, and that
+disagreement is exactly what a regulator's question lands on.
+
+**The answer travels to the moment it becomes true.** A visitor ticks the box
+before paying, and may never pay. Writing the consent there would list somebody
+who never joined — against the directory's own rule that a missing row means
+not listed. So the choice rides the subscription metadata, like the locale and
+the country already do, and the consent is recorded in
+`ensureMemberFromSubscription`, where both webhook orderings converge and
+membership actually begins. It only ever turns listing **on**: an unticked box
+says nothing about an entry the person may already have, and turning it off
+stays the member's own act in their own portal.
+
+The public catalogue now names each tier's conferred categories
+(`directory_categories`, additive — rule 8), deduplicated and sorted, because
+two products of one tier can carry the same category and a sentence that lists
+it twice reads like a mistake.
+
+**Members' own version moves to 1.1.0.** It had been four commits behind since
+the team-calendar field in v1.167.0, and the release gate said so each time; a
+join form that asks a new question is the right release to catch it up.
+
+Six integration tests on the rule itself, four mutations each turning at least
+one red: a record written every time rather than on a change, a "no" deleting
+the evidence instead of revoking it, the text version forgotten, and no record
+at all. The suite also caught one of my own: the test sorted consents by
+`created_at`, a column this table does not have (it has `granted_at`), and the
+failed sort read back as "no consent was recorded" — the same shape as the
+fixture bug in v1.170.0, and the second time today that an unchecked error wore
+a product bug's clothes.
+
 ## [1.170.0] — 2026-10-13
 
 A membership seat that actually opens something — and, when revoked, actually closes.

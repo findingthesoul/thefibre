@@ -5,6 +5,7 @@ import {
   parseTeamCalendarConfig,
   teamIsInWorkspace,
 } from '../lib/grant-config.js';
+import { setDirectoryListing } from '../lib/directory-consent.js';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
 import { organisationBilling, organisationBillingSnapshot } from '../lib/org-billing.js';
@@ -1833,6 +1834,27 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
 
   const priceLogic = await priceLogicFor(ws.id, null);
 
+  // WHICH DIRECTORY CATEGORIES EACH TIER CONFERS. The join form's consent
+  // checkbox names them ("Show me in Facilitators"), and a category reaches a
+  // member through the products their tier includes — never directly. Live
+  // categories only: an archived one is not something to promise.
+  const categoryByProduct = new Map<string, string[]>();
+  {
+    const { data: links } = await adminClient
+      .from('membership_product_category')
+      .select('product_id, category:category_id (name, archived_at)')
+      .in('product_id', (products ?? []).map((p) => p.id as string));
+    for (const l of links ?? []) {
+      const cat = (Array.isArray(l.category) ? l.category[0] : l.category) as
+        | { name: string; archived_at: string | null }
+        | null;
+      if (!cat || cat.archived_at) continue;
+      const list = categoryByProduct.get(l.product_id as string) ?? [];
+      list.push(cat.name);
+      categoryByProduct.set(l.product_id as string, list);
+    }
+  }
+
   return c.json({
     workspace: { slug: ws.slug, name: ws.name },
     // The join page's default language (additive — rule 8).
@@ -1849,6 +1871,16 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       optional_product_ids: (t.membership_tier_product ?? [])
         .filter((l: { optional?: boolean }) => l.optional)
         .map((l: { product_id: string }) => l.product_id),
+      // The categories this tier confers, named, deduplicated and in a stable
+      // order — two products of one tier may carry the same category, and a
+      // sentence listing it twice reads like a mistake.
+      directory_categories: [
+        ...new Set(
+          (t.membership_tier_product ?? [])
+            .filter((l: { optional?: boolean }) => !l.optional)
+            .flatMap((l: { product_id: string }) => categoryByProduct.get(l.product_id) ?? []),
+        ),
+      ].sort(),
       membership_tier_product: undefined,
     })),
     products: products ?? [],
@@ -1872,6 +1904,10 @@ const PublicJoin = z.object({
   // against the tier's OPTIONAL links; capped so the ids fit Stripe's
   // 500-char metadata value (10 × 36 + commas = 369).
   option_product_ids: z.array(z.string().uuid()).max(10).default([]),
+  // "Show me in …" — the directory checkbox on the join form (2026-10-13).
+  // DEFAULT FALSE, and absent means false: appearing in a directory is a
+  // consent, and a consent that arrives by omission is not one.
+  directory_listed: z.boolean().default(false),
   request_id: z.string().min(8).max(100),
 });
 
@@ -2062,6 +2098,10 @@ membershipRoutes.post('/public/join', async (c) => {
             tier_id: tier.id,
             ...(country ? { country } : {}),
             ...(joinLocale ? { locale: joinLocale } : {}),
+            // Only when ticked. A key that is absent reads as false at the
+            // other end, which is the same answer the box gives by default —
+            // and it keeps a metadata slot free for something that matters.
+            ...(d.directory_listed ? { directory_listed: '1' } : {}),
             applied_pct: String(pct),
           },
         },
@@ -2239,6 +2279,31 @@ membershipRoutes.post('/public/buy', async (c) => {
 
 // Both checkout.session.completed and the FIRST invoice.paid can create the
 // member (webhook ordering is not guaranteed) — they converge here.
+/** The join form's directory answer, applied when membership actually begins.
+ *
+ *  Only ever turns listing ON: the box is a consent given at the door, and a
+ *  visitor who left it unticked has said nothing about an entry they may
+ *  already have from the portal. Turning listing off is the member's own act,
+ *  in their own portal.
+ *
+ *  Never fatal to the webhook — a membership that exists is worth more than a
+ *  directory row, and the member can set it themselves. It is logged.
+ */
+async function recordJoinDirectoryChoice(
+  meta: Record<string, string>,
+  memberId: string,
+): Promise<void> {
+  if (meta.directory_listed !== '1') return;
+  const saved = await setDirectoryListing({
+    workspaceId: meta.workspace_id!,
+    personIds: [meta.person_id!],
+    listed: true,
+  });
+  if (!saved.ok) {
+    console.error('[membership webhook] directory consent not recorded', memberId, saved.step, saved.message);
+  }
+}
+
 async function ensureMemberFromSubscription(
   account: string,
   subscriptionId: string,
@@ -2295,6 +2360,7 @@ async function ensureMemberFromSubscription(
         updated_at: new Date().toISOString(),
       })
       .eq('id', prior.id);
+    await recordJoinDirectoryChoice(meta, prior.id);
     const rejoining = prior.status === 'lapsed' || prior.status === 'cancelled';
     await logMemberActivity(
       meta.workspace_id,
@@ -2321,6 +2387,7 @@ async function ensureMemberFromSubscription(
     })
     .select('id, workspace_id, person_id, tier_id, status, locale')
     .single();
+  if (created) await recordJoinDirectoryChoice(meta, created.id as string);
   if (error) {
     // 23505 = a concurrent webhook created it — read it back.
     if (error.code === '23505') {

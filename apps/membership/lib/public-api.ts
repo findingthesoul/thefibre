@@ -49,6 +49,10 @@ export type PublicTier = {
   product_ids: string[];
   /** Tick-box add-ons at join time (2026-09-06) — optional until API ships. */
   optional_product_ids?: string[];
+  /** The directory categories this tier confers, named (2026-10-13). The
+   *  join form's consent checkbox says them out loud. Optional: an older API
+   *  does not send it, and the form falls back to naming the community. */
+  directory_categories?: string[];
 };
 
 export type PublicProduct = {

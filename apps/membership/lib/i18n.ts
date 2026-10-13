@@ -206,6 +206,46 @@ const CATALOG = {
     de: 'Bitte gib deinen Namen und deine E-Mail-Adresse an.', // MT
     fr: 'Renseigne ton nom et ton adresse e-mail.', // MT
   },
+  // The directory consent on the join form (2026-10-13). DEFAULT OFF: being
+  // listed is a consent, and a consent that arrives by omission is not one.
+  // {where} is the category or categories the tier confers, linked to the
+  // community's members area on my.thread.
+  show_me_in: {
+    en: 'Show me in {where}',
+    nl: 'Laat mij zien in {where}',
+    es: 'Mu\u00e9strame en {where}', // MT
+    pt: 'Mostrar-me em {where}', // MT
+    de: 'Zeig mich in {where}', // MT
+    fr: 'Montre-moi dans {where}', // MT
+  },
+  // The fallback "where", for a tier that confers no category at all.
+  members_area_of: {
+    en: 'the members area of {community}',
+    nl: 'het ledengedeelte van {community}',
+    es: 'el \u00e1rea de miembros de {community}', // MT
+    pt: 'a \u00e1rea de membros de {community}', // MT
+    de: 'den Mitgliederbereich von {community}', // MT
+    fr: 'l\u2019espace membres de {community}', // MT
+  },
+  // Under the box, so the choice is informed and reversible — the two facts a
+  // consent needs.
+  show_me_in_note: {
+    en: 'Other members will see your name. You can change this later in your own portal.',
+    nl: 'Andere leden zien je naam. Je kunt dit later zelf aanpassen in je portaal.',
+    es: 'Otros miembros ver\u00e1n tu nombre. Puedes cambiarlo m\u00e1s tarde en tu portal.', // MT
+    pt: 'Outros membros ver\u00e3o o seu nome. Pode alterar isto mais tarde no seu portal.', // MT
+    de: 'Andere Mitglieder sehen deinen Namen. Du kannst das sp\u00e4ter in deinem Portal \u00e4ndern.', // MT
+    fr: 'Les autres membres verront ton nom. Tu peux changer cela plus tard dans ton espace.', // MT
+  },
+  // Joining two or three category names: "A and B", "A, B and C".
+  list_and: {
+    en: 'and',
+    nl: 'en',
+    es: 'y', // MT
+    pt: 'e', // MT
+    de: 'und', // MT
+    fr: 'et', // MT
+  },
   continue_to_payment: {
     en: 'Continue to payment',
     nl: 'Door naar betalen',

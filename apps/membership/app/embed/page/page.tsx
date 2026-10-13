@@ -1,5 +1,6 @@
 import { fetchCatalog, PublicApiError } from '@/lib/public-api';
 import { isLocale, t, toLocale, type Locale } from '@/lib/i18n';
+import { surfaceUrl } from '@thefibre/shared';
 import { TierGrid } from '../../[workspaceSlug]/tier-grid';
 import { ProductGrid } from '../../[workspaceSlug]/product-grid';
 
@@ -68,6 +69,8 @@ export default async function EmbedJoinPage({
           initialTierId={null}
           priceLogic={catalog.price_logic ?? null}
           locale={locale}
+          workspaceName={workspace.name}
+          membersAreaUrl={`${surfaceUrl('my-portal', process.env)}/members/${workspace.slug}`}
         />
       )}
       <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} />

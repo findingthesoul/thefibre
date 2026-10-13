@@ -2,6 +2,7 @@ import { appName } from '@thefibre/shared';
 import { notFound } from 'next/navigation';
 import { fetchCatalog, PublicApiError, type PublicCatalog } from '@/lib/public-api';
 import { isLocale, t, toLocale, type Locale } from '@/lib/i18n';
+import { surfaceUrl } from '@thefibre/shared';
 import { TierGrid } from './tier-grid';
 import { ProductGrid } from './product-grid';
 
@@ -70,6 +71,12 @@ export default async function PublicJoinPage({
             initialTierId={initialTierId}
             priceLogic={catalog.price_logic ?? null}
             locale={locale}
+            workspaceName={workspace.name}
+            // Where "Show me in …" points: this community's members area on
+            // my.thread — the participant's own portal, not the Members app.
+            // Resolved server-side from the environment, like every other
+            // cross-surface link.
+            membersAreaUrl={`${surfaceUrl('my-portal', process.env)}/members/${workspace.slug}`}
           />
         )}
 

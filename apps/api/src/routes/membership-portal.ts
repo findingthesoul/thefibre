@@ -4,6 +4,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
+import { setDirectoryListing } from '../lib/directory-consent.js';
 import {
   markEmailProven,
   personIdsForProvenEmail,
@@ -537,50 +538,18 @@ membershipPortalRoutes.patch('/me/directory', async (c) => {
   // an entry slice 3 would read.
   if (!personIds?.length) return c.json({ error: 'not a member of that community' }, 403);
 
-  const before = await adminClient
-    .from('membership_directory_entry')
-    .select('person_id, listed')
-    .eq('workspace_id', body.data.workspace_id)
-    .in('person_id', personIds);
-  if (before.error) return fail(c, 'directory: read before', before.error);
-  const wasListed = (before.data ?? []).some((e) => e.listed === true);
-
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (body.data.listed !== undefined) patch.listed = body.data.listed;
-  if (body.data.show_contact !== undefined) patch.show_contact = body.data.show_contact;
-
-  const { error: upsertErr } = await adminClient.from('membership_directory_entry').upsert(
-    personIds.map((person_id) => ({
-      workspace_id: body.data.workspace_id,
-      person_id,
-      ...patch,
-    })),
-    { onConflict: 'workspace_id,person_id' },
-  );
-  if (upsertErr) return fail(c, 'directory: save choice', upsertErr);
-
-  // The consent record follows the switch, and only when it CHANGES — so a
-  // member editing show_contact does not accumulate consent rows.
-  if (body.data.listed === true && !wasListed) {
-    const { error } = await adminClient.from('consent_record').insert(
-      personIds.map((person_id) => ({
-        person_id,
-        purpose_code: 'member_directory',
-        legal_basis: 'consent',
-        text_version: 'member-directory-v1',
-      })),
-    );
-    if (error) return fail(c, 'directory: record consent', error);
-  }
-  if (body.data.listed === false && wasListed) {
-    // Both: the record is the evidence, the flag is the behaviour (§4).
-    const { error } = await adminClient
-      .from('consent_record')
-      .update({ revoked_at: new Date().toISOString() })
-      .in('person_id', personIds)
-      .eq('purpose_code', 'member_directory')
-      .is('revoked_at', null);
-    if (error) return fail(c, 'directory: revoke consent', error);
+  // ONE WRITER. The public join form asks the same question with a checkbox,
+  // and what gets written is a consent record, not a preference — two copies
+  // would eventually disagree about when the record is made, and that
+  // disagreement is what a regulator's question lands on.
+  const saved = await setDirectoryListing({
+    workspaceId: body.data.workspace_id,
+    personIds,
+    ...(body.data.listed !== undefined ? { listed: body.data.listed } : {}),
+    ...(body.data.show_contact !== undefined ? { showContact: body.data.show_contact } : {}),
+  });
+  if (!saved.ok) {
+    return fail(c, `directory: ${saved.step}`, { message: saved.message } as never);
   }
 
   return c.json({ ok: true });

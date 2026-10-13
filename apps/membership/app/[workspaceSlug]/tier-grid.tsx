@@ -48,6 +48,8 @@ export function TierGrid({
   initialTierId,
   priceLogic = null,
   locale = 'en',
+  workspaceName,
+  membersAreaUrl,
 }: {
   workspaceSlug: string;
   tiers: PublicTier[];
@@ -56,6 +58,11 @@ export function TierGrid({
   priceLogic?: PriceLogic | null;
   /** Resolved server-side by the page (Thread pattern) — never from cookies. */
   locale?: Locale;
+  /** The community's own name, for the consent sentence when a tier confers
+   *  no category: "Show me in the members area of Soul". */
+  workspaceName: string;
+  /** This community's members area on my.thread, resolved server-side. */
+  membersAreaUrl: string;
 }) {
   const [openTierId, setOpenTierId] = useState<string | null>(
     initialTierId && tiers.some((t) => t.id === initialTierId) ? initialTierId : null,
@@ -111,6 +118,8 @@ export function TierGrid({
             onClose={() => setOpenTierId(null)}
             country={country}
             priceLogic={priceLogic}
+            workspaceName={workspaceName}
+            membersAreaUrl={membersAreaUrl}
             locale={locale}
           />
         ))}
@@ -130,6 +139,8 @@ function TierCard({
   country,
   priceLogic,
   locale,
+  workspaceName,
+  membersAreaUrl,
 }: {
   workspaceSlug: string;
   tier: PublicTier;
@@ -142,7 +153,23 @@ function TierCard({
   country: string;
   priceLogic: PriceLogic | null;
   locale: Locale;
+  /** The community's own name, for the consent sentence when a tier confers
+   *  no category: "Show me in the members area of Soul". */
+  workspaceName: string;
+  /** This community's members area on my.thread, resolved server-side. */
+  membersAreaUrl: string;
 }) {
+  // DIRECTORY CONSENT, default off and per card, because the form is per card.
+  const [listed, setListed] = useState(false);
+
+  /** "A", "A and B", "A, B and C" — the categories a tier confers, said the
+   *  way a person would say them. */
+  function joinNames(names: string[]): string {
+    if (names.length <= 1) return names[0] ?? '';
+    const and = t(locale, 'list_and');
+    return `${names.slice(0, -1).join(', ')} ${and} ${names[names.length - 1]}`;
+  }
+
   const currency = tier.currency ?? 'EUR';
   const hasYear = tier.price_cents_year != null && tier.price_cents_year > 0;
   const hasMonth = tier.price_cents_month != null && tier.price_cents_month > 0;
@@ -199,6 +226,7 @@ function TierCard({
             ...(country ? { country } : {}),
             locale,
             ...(chosenOptions.size ? { option_product_ids: [...chosenOptions] } : {}),
+            directory_listed: listed,
             request_id: requestId,
           }),
         },
@@ -388,6 +416,50 @@ function TierCard({
                 )}
               </div>
             )}
+            {/* "Show me in …" — the directory consent. Unticked, always:
+                the member decides to be seen, and nothing decides it for
+                them. The link opens in a new tab so the half-filled form
+                survives a look at what they would be joining. */}
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                name="directory_listed"
+                checked={listed}
+                onChange={(e) => setListed(e.target.checked)}
+                className="mt-0.5 accent-current"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="text-ink">
+                  {/* The sentence is one string with a {where} hole, so a
+                      locale can put the place first — and only the PLACE is
+                      the link, which is what Sjoerd asked for. */}
+                  {t(locale, 'show_me_in', { where: '\u0000' })
+                    .split('\u0000')
+                    .flatMap((part, i) =>
+                      i === 0
+                        ? [part]
+                        : [
+                            <a
+                              key="where"
+                              href={membersAreaUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-2 hover:opacity-70"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {(tier.directory_categories ?? []).length
+                                ? joinNames(tier.directory_categories!)
+                                : t(locale, 'members_area_of', { community: workspaceName })}
+                            </a>,
+                            part,
+                          ],
+                    )}
+                </span>
+                <span className="mt-0.5 block text-xs text-ink-muted">
+                  {t(locale, 'show_me_in_note')}
+                </span>
+              </span>
+            </label>
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
             <Button
               type="submit"
