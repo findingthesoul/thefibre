@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.179.2] — 2026-10-14
+
+### A workspace with nobody in charge of it
+
+Sjoerd, on production: he cannot change the domain settings of the soul.com
+workspace he founded in May. His own row there reads "Organiser (default)"
+and "External", and when he picks Admin the select snaps back.
+
+Read-only on production, the cause is one line: **soul.com has five members
+and no admin at all.** Not one `admin`, not one `super_admin`. Changing a
+role needs an admin, so the one workspace that needs a role changed is the
+one workspace that cannot change it. No screen can repair that — no
+`/admin/*` route writes `workspace_role`, so a platform super-admin has no
+button for it either. Hence a script.
+
+`apps/api/scripts/set-workspace-role.mjs` sets a role on the workspace
+memberships somebody ALREADY has. Dry by default, the prod project refused
+unless named, and `--apply` updates one `(user, workspace)` row at a time and
+reads each one back. It never creates a membership: a workspace he is not
+part of is printed as "not a member, skipped", because joining somebody
+else's community is a different decision from correcting his own role in his
+own. It touches nothing but `workspace_member` — no membership, team, seat or
+grant — and it changes `relationship_type` only where asked, never as a
+default sprayed across every community.
+
+The dry run prints, for every workspace: how many members, **who the admins
+are**, and what would change. That is the half worth having. A sweep over
+"all current workspaces" is exactly where somebody should notice a community
+that belongs to someone else, and a list of names makes that visible before
+anything moves rather than after.
+
+One thing the first draft got wrong, which is worth writing down:
+`public."user"` is `unique (workspace_id, email)`, so one human with
+memberships in five communities has FIVE user rows, one per workspace. The
+script originally treated that as an ambiguity and refused to continue —
+which would have made it useless on production for precisely the person it
+was written for. Identity is resolved per workspace now.
+
+Two neighbouring findings, reported and deliberately not fixed here:
+
+- **A refused role change says "API 403".** `unwrap` in the platform's
+  settings actions types an error body as an object of field errors and
+  throws away a plain-string `error`, so the API's own "only admins can
+  change members" never reaches the dialog. The dialog does display what it
+  is given; it is given a status code. Both the Role and Relationship selects
+  revert for this one reason, not two.
+- **Inviting an existing member can lower their role.** `POST /members`
+  upserts `workspace_role` from the invite form, so re-inviting an admin as
+  an organiser demotes them silently. The other two writers are safe — the
+  first-admin path only ever writes `super_admin`, and Meet's returns early
+  when a row exists.
+
 ## [1.179.1] — 2026-10-14
 
 ### The webhook side of the extras fix, measured instead of argued
