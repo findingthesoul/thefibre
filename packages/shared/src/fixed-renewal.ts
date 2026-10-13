@@ -1,5 +1,13 @@
 // When a tier's first period ends on a fixed date.
 //
+// IN @thefibre/shared, not in the API, since 2026-10-13: the JOIN PANEL has
+// to say what it is about to charge and when it will renew, and the API has
+// to charge exactly that. Two copies of this rule would be two answers to
+// "what am I paying", and the one place that must never disagree with a
+// charge is the sentence shown before it. Same reasoning as the enrol form's
+// price calculation: whoever offers it and whoever enforces it run the same
+// code (docs: offer and enforcement share code).
+//
 // One date, one cohort, self-expiring: a date in the past behaves exactly like
 // no date at all, so the setting needs no cleanup after the launch it was made
 // for. Pure, so the rule can be tested without Stripe and without a database —

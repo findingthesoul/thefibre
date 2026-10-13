@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.173.3] — 2026-10-13
+
+The join panel now says what it is about to charge, and when it comes again.
+
+Walked it on staging at desktop and at 375 (the width, not the idea of it).
+Three things were right and one was not. The terms link opens the Draft terms
+in a new tab, so a half-filled form survives a read. The Join button is
+genuinely disabled until the box is ticked — measured, not eyeballed:
+`disabled` true, cursor `not-allowed`, and the yellow drops to a muddy olive
+that reads as off beside the live one. At 375 the panel is a bottom sheet with
+a grab handle, no horizontal overflow, nothing clipped.
+
+**What was missing is the sentence.** The panel named a price on a tab and
+then said *"Continue to payment"* — which is not the same as telling somebody
+the amount and the renewal. Under the launch-cohort rule it was further from
+it: a yearly join takes the **whole year up front** however late in the year
+it happens and renews on a fixed date, and the only place that appeared was
+the Stripe receipt, *after* paying. The panel now says, above the button:
+*"You pay € 300 now. Your membership runs to 31 December 2026 and renews on
+1 January 2027."* Or, with no fixed date, *"You pay € 300 now, then once a
+year."* Six languages.
+
+**Built from the rule the charge runs, not from a second copy.**
+`fixedFirstPeriod` moved from `apps/api/src/lib` to **`@thefibre/shared/fixed-renewal`**
+so the panel and the join route run the same code: the sentence shown before a
+charge is the last place that may disagree with it. Where the rule declines —
+a date in the past, a monthly join, inside Stripe's 48-hour floor — the panel
+says the ordinary thing, because the ordinary thing is what will happen. A
+monthly join is never told the cohort's story; over a €36 charge that would be
+a promise of ten free weeks.
+
+`membership_tier.first_period_ends_on` is now in the public catalogue
+(additive, rule 8), because the panel could not say what it could not see.
+
+Tests: eight cases in `apps/membership/lib/pay-line.test.ts`, each taking the
+clock as an argument — October, monthly, after the date, and 30 December
+inside Stripe's floor. The route-wiring assertions stayed in `apps/api`, where
+`membership.ts` can be read off disk.
+
 ## [1.173.2] — 2026-10-13
 
 An empty invoice list is now a different thing from a broken one.

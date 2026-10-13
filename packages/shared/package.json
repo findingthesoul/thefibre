@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.173.2",
+  "version": "1.173.3",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -57,6 +57,10 @@
     "./embed-loader": {
       "types": "./dist/embed-loader.d.ts",
       "default": "./dist/embed-loader.js"
+    },
+    "./fixed-renewal": {
+      "types": "./dist/fixed-renewal.d.ts",
+      "default": "./dist/fixed-renewal.js"
     },
     "./i18n": {
       "types": "./dist/i18n.d.ts",

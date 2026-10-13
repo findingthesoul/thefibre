@@ -7,7 +7,7 @@ import {
 } from '../lib/grant-config.js';
 import { setDirectoryListing } from '../lib/directory-consent.js';
 import { resolveTerms } from '../lib/terms.js';
-import { fixedFirstPeriod } from '../lib/fixed-renewal.js';
+import { fixedFirstPeriod } from '@thefibre/shared/fixed-renewal';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
 import { organisationBilling, organisationBillingSnapshot } from '../lib/org-billing.js';
@@ -1821,8 +1821,15 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
   const [{ data: tiers }, { data: products }, { data: settings }] = await Promise.all([
     adminClient
       .from('membership_tier')
+      // `first_period_ends_on` is additive (rule 8) and is here for ONE
+      // reason: the panel charges a full year under it and could not say so.
+      // The launch-cohort rule (@thefibre/shared/fixed-renewal) takes the whole first
+      // year up front and renews on a fixed date, and the only place that was
+      // visible was the Stripe receipt — after paying. "Nobody is asked for
+      // money before they have agreed to anything" (v1.173.0) is not only
+      // about the terms box; it is about the amount and the date too.
       .select(
-        'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, membership_tier_product ( product_id, optional )',
+        'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, first_period_ends_on, membership_tier_product ( product_id, optional )',
       )
       .eq('workspace_id', ws.id)
       .is('archived_at', null)

@@ -288,6 +288,36 @@ const CATALOG = {
     de: 'Bitte stimme den Allgemeinen Gesch\u00e4ftsbedingungen zu, um fortzufahren.', // MT
     fr: 'Accepte les conditions g\u00e9n\u00e9rales pour continuer.', // MT
   },
+  // WHAT YOU PAY, AND WHEN IT COMES AGAIN (2026-10-13). The panel took money
+  // without ever saying the amount in a sentence or naming the renewal date,
+  // and under the launch-cohort rule it takes a FULL year up front however
+  // late in the year somebody joins — visible only on the receipt, after
+  // paying. The sentence is built from the same rule the charge is
+  // (@thefibre/shared/fixed-renewal), so the two cannot disagree.
+  pay_now_then_year: {
+    en: 'You pay {amount} now, then once a year.',
+    nl: 'Je betaalt nu {amount}, daarna \u00e9\u00e9n keer per jaar.',
+    es: 'Pagas {amount} ahora y despu\u00e9s una vez al a\u00f1o.', // MT
+    pt: 'Pagas {amount} agora e depois uma vez por ano.', // MT
+    de: 'Du zahlst jetzt {amount}, danach einmal im Jahr.', // MT
+    fr: 'Tu paies {amount} maintenant, puis une fois par an.', // MT
+  },
+  pay_now_then_month: {
+    en: 'You pay {amount} now, then every month.',
+    nl: 'Je betaalt nu {amount}, daarna elke maand.',
+    es: 'Pagas {amount} ahora y despu\u00e9s cada mes.', // MT
+    pt: 'Pagas {amount} agora e depois todos os meses.', // MT
+    de: 'Du zahlst jetzt {amount}, danach jeden Monat.', // MT
+    fr: 'Tu paies {amount} maintenant, puis chaque mois.', // MT
+  },
+  pay_now_fixed_period: {
+    en: 'You pay {amount} now. Your membership runs to {end} and renews on {renews}.',
+    nl: 'Je betaalt nu {amount}. Je lidmaatschap loopt tot {end} en wordt op {renews} verlengd.',
+    es: 'Pagas {amount} ahora. Tu membres\u00eda dura hasta el {end} y se renueva el {renews}.', // MT
+    pt: 'Pagas {amount} agora. A tua ades\u00e3o vai at\u00e9 {end} e renova a {renews}.', // MT
+    de: 'Du zahlst jetzt {amount}. Deine Mitgliedschaft l\u00e4uft bis {end} und verl\u00e4ngert sich am {renews}.', // MT
+    fr: 'Tu paies {amount} maintenant. Ton adh\u00e9sion court jusqu\u2019au {end} et se renouvelle le {renews}.', // MT
+  },
   continue_to_payment: {
     en: 'Continue to payment',
     nl: 'Door naar betalen',

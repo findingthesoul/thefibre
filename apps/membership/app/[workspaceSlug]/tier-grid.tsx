@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { Check } from 'lucide-react';
 import { COUNTRIES } from '@thefibre/shared/countries';
+import { payLineFor } from '@/lib/pay-line';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { publicFetch, PublicApiError, type PublicProduct, type PublicTier } from '@/lib/public-api';
 import { money } from '@/lib/money';
@@ -209,6 +210,50 @@ function TierCard({
   const optionsExtraCents = optionalProducts
     .filter((p) => chosenOptions.has(p.id))
     .reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
+
+  // WHAT YOU PAY NOW, AND WHEN IT COMES AGAIN.
+  //
+  // The panel showed a price on a tab and a button saying "Continue to
+  // payment", and never said the amount in a sentence or named a renewal
+  // date. Under the launch-cohort rule it is worse than vague: a yearly join
+  // takes the WHOLE year up front however late in the year somebody joins,
+  // and renews on a fixed date — which was visible only on the Stripe
+  // receipt, after paying.
+  //
+  // WHICH sentence is `payLineFor` in lib/pay-line.ts — pure, clock passed
+  // in, and running the same `fixedFirstPeriod` the CHARGE runs, so what is
+  // shown and what is taken cannot drift apart. Where that rule declines — a
+  // date in the past, a monthly join, inside Stripe's 48-hour floor — this
+  // says the ordinary thing, because the ordinary thing is what will happen.
+  const payNowCents =
+    (interval === 'year' ? adjustedYear : adjustedMonth) === null
+      ? null
+      : (interval === 'year' ? adjustedYear! : adjustedMonth!) + optionsExtraCents;
+  const line = payLineFor({
+    amountCents: payNowCents,
+    interval,
+    firstPeriodEndsOn: tier.first_period_ends_on,
+    now: new Date(),
+  });
+  const onDate = (iso: string) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  const payLine =
+    line.kind === 'none'
+      ? null
+      : line.kind === 'fixed'
+        ? t(locale, 'pay_now_fixed_period', {
+            amount: money(payNowCents!, currency),
+            end: onDate(line.endsOn),
+            renews: onDate(line.renewsOn),
+          })
+        : t(locale, line.interval === 'year' ? 'pay_now_then_year' : 'pay_now_then_month', {
+            amount: money(payNowCents!, currency),
+          });
 
   // One idempotency key per page visit — double-submits collapse server-side.
   const requestId = useMemo(
@@ -513,6 +558,8 @@ function TierCard({
                 </a>
               </span>
             </label>
+            {/* The sentence, immediately above the button that acts on it. */}
+            {payLine && <p className="text-sm text-ink-subtle">{payLine}</p>}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
             <Button
               type="submit"

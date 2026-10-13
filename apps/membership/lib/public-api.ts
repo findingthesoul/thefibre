@@ -58,6 +58,12 @@ export type PublicTier = {
    *  join form's consent checkbox says them out loud. Optional: an older API
    *  does not send it, and the form falls back to naming the community. */
   directory_categories?: string[];
+  /** The launch-cohort rule: a date (YYYY-MM-DD) up to which this tier's
+   *  first period runs, whatever the day somebody joins. When it is set, a
+   *  yearly join pays the FULL year now and renews the day after — which the
+   *  panel has to say before taking the money, not leave to the receipt.
+   *  Optional: most tiers have no such date and renew a year after joining. */
+  first_period_ends_on?: string | null;
 };
 
 export type PublicProduct = {
