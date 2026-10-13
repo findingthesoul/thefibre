@@ -13,6 +13,7 @@
 // which on an invoice means an address that quietly loses its second line.
 
 import { z } from 'zod';
+import { COUNTRIES } from '@thefibre/shared/countries';
 
 export const BillingFields = z.object({
   company: z.string().max(200).optional(),
@@ -64,9 +65,33 @@ export function stripeAddress(
     line1,
     ...(billing?.postal_code?.trim() ? { postal_code: billing.postal_code.trim() } : {}),
     ...(billing?.city?.trim() ? { city: billing.city.trim() } : {}),
-    // Stripe wants a two-letter country code. The form asks for a country
-    // NAME in Thread and Meet, so anything longer is left out rather than
-    // sent for Stripe to reject the whole customer over.
-    ...(/^[A-Za-z]{2}$/.test(country) ? { country: country.toUpperCase() } : {}),
+    // Stripe wants a two-letter code; the form asks for a country NAME
+    // (autoComplete="country-name"). Walking the panel on staging is what
+    // showed this up: typing "Netherlands" would have dropped the country
+    // from every invoice silently, because the first version of this only
+    // accepted a code. So a name is resolved against the same list the
+    // country pickers use, and anything still unrecognised is left out
+    // rather than sent for Stripe to reject the whole customer over.
+    // Spread rather than assigned, because `exactOptionalPropertyTypes` makes
+    // `country: undefined` a different thing from an absent key — and an
+    // explicit undefined is what Stripe would receive.
+    ...((): { country?: string } => {
+      const code = countryCode(country);
+      return code ? { country: code } : {};
+    })(),
   };
+}
+
+/** A two-letter code from whatever was typed: a code, or a country name as
+ *  the shared list spells it. Case- and space-insensitive; unknown is null,
+ *  never a guess — a wrong country on an invoice is worse than none. */
+export function countryCode(value: string | null | undefined): string | undefined {
+  const v = (value ?? '').trim();
+  if (!v) return undefined;
+  if (/^[A-Za-z]{2}$/.test(v)) {
+    const code = v.toUpperCase();
+    return COUNTRIES.some((c) => c.code === code) ? code : undefined;
+  }
+  const want = v.toLowerCase();
+  return COUNTRIES.find((c) => c.name.toLowerCase() === want)?.code;
 }

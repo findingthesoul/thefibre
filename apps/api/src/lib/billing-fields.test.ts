@@ -65,17 +65,30 @@ describe('the address Stripe is given', () => {
     });
   });
 
-  // Thread's and Meet's forms ask for a country NAME, and Stripe wants a
-  // two-letter code. Sending "The Netherlands" makes Stripe refuse the whole
-  // customer — so the field is left out and the rest still goes.
-  it('leaves out a country that is not a two-letter code', () => {
-    const r = stripeAddress({ address: 'Sint-Jobsweg 30', country: 'The Netherlands' })!;
-    expect(r.country).toBeUndefined();
-    expect(r.line1).toBe('Sint-Jobsweg 30');
+  // The form asks for a country NAME and Stripe wants a two-letter code.
+  // Found by walking the panel on staging: the first version of this only
+  // accepted a code, so anybody typing "Netherlands" — which is what the
+  // field asks for — would have had the country dropped from their invoice
+  // without a word.
+  it('resolves a country NAME to its code', () => {
+    expect(stripeAddress({ address: 'X 1', country: 'Netherlands' })!.country).toBe('NL');
+    expect(stripeAddress({ address: 'X 1', country: '  netherlands ' })!.country).toBe('NL');
+    expect(stripeAddress({ address: 'X 1', country: 'Germany' })!.country).toBe('DE');
   });
 
-  it('upper-cases a lower-case code', () => {
+  it('accepts a code as typed, in either case', () => {
     expect(stripeAddress({ address: 'X 1', country: 'nl' })!.country).toBe('NL');
+    expect(stripeAddress({ address: 'X 1', country: 'NL' })!.country).toBe('NL');
+  });
+
+  // Never a guess: a wrong country on an invoice is worse than none, and
+  // Stripe refuses the whole customer over a code it does not know.
+  it('leaves out a country it cannot recognise', () => {
+    for (const bad of ['The Netherlands', 'Nederland', 'ZZ', 'Atlantis', '???']) {
+      const r = stripeAddress({ address: 'Sint-Jobsweg 30', country: bad })!;
+      expect(r.country, `${bad} is not a country we can name`).toBeUndefined();
+      expect(r.line1, 'and the rest of the address still goes').toBe('Sint-Jobsweg 30');
+    }
   });
 
   it('drops blanks rather than sending empty strings', () => {

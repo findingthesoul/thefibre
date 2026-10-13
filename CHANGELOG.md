@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.174.1] — 2026-10-13
+
+The invoice would have lost its country, quietly.
+
+Walked the new fields on staging at 375 — the disclosure opens, *"Who pays?"*
+switches between Myself and An organisation (which is what shows the company
+and tax-number fields at all), postcode and city share a row, nothing
+overflows, and the submit carries all seven fields with `payer: organisation`.
+That last one was checked by intercepting the request in the browser rather
+than by sending it, so nothing was created on the staging account.
+
+**And it showed up the gap.** The field asks for a country NAME — it is
+`autoComplete="country-name"` and the label says *Country* — while Stripe
+wants a two-letter code, and the first version of this only accepted a code.
+So anybody typing *"Netherlands"*, which is what the field asks for, would have
+had the country dropped from their invoice without a word. Names now resolve
+against the same `COUNTRIES` list the country pickers use, in either case and
+either form. Anything still unrecognised is left out rather than guessed at: a
+wrong country on an invoice is worse than none, and Stripe refuses the whole
+customer over a code it does not know.
+
+This is the sort of thing only a walk finds. The unit tests asserted the
+behaviour I had written; they could not tell me the form asks for something
+else.
+
 ## [1.174.0] — 2026-10-13
 
 The join asks for the invoicing details itself. Stripe only takes the money.
