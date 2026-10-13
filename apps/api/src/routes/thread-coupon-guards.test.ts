@@ -123,3 +123,45 @@ describe('a coupon counts every use', () => {
     expect(redeem).not.toContain('throw new Error');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVERY PLACE A TYPED CODE IS LOOKED UP, and what guards it.
+//
+// Three endpoints in this file ask `findValidCoupon` the same question in
+// three shapes, and gating two of them would have left the third as the easy
+// one to script. The inventory is asserted rather than written in a comment,
+// so a fourth caller cannot be added without this failing.
+//
+//   /public/validate-coupon   every request   — the obvious oracle
+//   /public/my-price          every request   — a GET with ?coupon=, needs a
+//                                               session, shares the bucket
+//   /public/enrol             FAILURES only   — it enrols somebody; a
+//                                               blanket limit would turn a
+//                                               real person away
+// ─────────────────────────────────────────────────────────────────────────────
+describe('no code lookup is left ungated', () => {
+  it('has exactly three callers, and each is gated', () => {
+    const callers = [...src.matchAll(/await findValidCoupon\(/g)].map((m) => m.index ?? 0);
+    expect(callers, 'a new caller needs a gate and a line in this test').toHaveLength(3);
+
+    // Each lookup must have a limiter NEAR it — before for the two read-only
+    // oracles, and AFTER for the enrol path, where the gate sits inside the
+    // failure branch on purpose because only a wrong code counts. A window
+    // spanning both sides is what the three actually have in common: no
+    // lookup stands alone.
+    for (const at of callers) {
+      const near = src.slice(Math.max(0, at - 1400), at + 900);
+      expect(near, `ungated findValidCoupon at offset ${at}`).toContain('thread-code');
+    }
+  });
+
+  // One question, one budget. Two separate 20/hour buckets on the same
+  // question would simply be 40 an hour.
+  it('shares one bucket across the validator and the price endpoint', () => {
+    const buckets = [...src.matchAll(/hit\(`(thread-code[^`]*)`/g)].map((m) => m[1]);
+    const guessing = buckets.filter((b) => !b.startsWith('thread-code-fail'));
+    expect(guessing.length, 'both read-only oracles are gated').toBeGreaterThanOrEqual(2);
+    expect(new Set(guessing).size, 'and on the same key').toBe(1);
+    expect(guessing[0]).toBe('thread-code:${thread.id}:${clientIp(c.req.raw.headers)}');
+  });
+});

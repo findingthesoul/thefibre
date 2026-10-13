@@ -6906,6 +6906,25 @@ threadRoutes.get('/public/my-price', async (c) => {
   let coupon: CouponCheck | null = null;
   const code = c.req.query('coupon');
   if (code) {
+    // THE SAME BUCKET as /public/validate-coupon, deliberately shared. This
+    // endpoint answers the same question in a different shape — a GET with
+    // ?coupon=, which is the easiest of the three to script — and two
+    // separate 20/hour buckets on one question would simply be 40 an hour.
+    //
+    // It is a quieter oracle than the other two, because it needs a proven
+    // participant session (the 401 above) — but an account is free and
+    // self-serve, so "needs an account" is a speed bump and not a gate.
+    //
+    // Every request with a code counts here, not only the failures. Unlike
+    // the enrol path there is nothing lost by refusing: this endpoint
+    // answers a PRICE, and a reader it cannot serve sees the list price,
+    // which is the correct answer for somebody it cannot identify. Nobody is
+    // turned away from joining.
+    const codeGate = hit(`thread-code:${thread.id}:${clientIp(c.req.raw.headers)}`, 20, 3_600_000);
+    if (!codeGate.allowed) {
+      c.header('Retry-After', String(codeGate.resetSeconds));
+      return c.json({ error: 'too many attempts, try again later' }, 429);
+    }
     const r = await findValidCoupon(thread.id, code, base.ticketId);
     if (!('error' in r)) coupon = r.coupon;
   }

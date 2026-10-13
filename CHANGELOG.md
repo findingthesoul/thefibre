@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.178.1] — 2026-10-13
+
+The third oracle — and an inventory, so there cannot quietly be a fourth.
+
+Two of The Thread's three code lookups were gated this afternoon. The third is
+`GET /public/my-price?coupon=…`, which answers the same question in the shape
+that is easiest of all to script. Gating two and missing one is not a partial
+fix; it is the same hole with a longer URL.
+
+It shares the **same bucket** as `/public/validate-coupon` rather than getting
+its own. One question, one budget: two separate twenty-an-hour buckets on the
+same question are simply forty an hour.
+
+Every request with a code counts there, not only the failures — unlike the
+enrol path, where only a wrong code counts because that route *enrols* somebody
+and a blanket limit would turn a real person away. Nothing is lost by refusing
+here: the endpoint answers a price, and a reader it cannot serve sees the list
+price, which is the right answer for somebody it cannot identify.
+
+It is the quietest of the three, because it needs a proven participant
+session — but an account is free and self-serve, so "needs an account" is a
+speed bump, not a gate.
+
+**The inventory is asserted, not written in a comment.** A test now finds every
+`findValidCoupon` caller in the file, requires exactly three, and requires a
+limiter beside each — before it for the two read-only oracles, after it for the
+enrol path, where the gate sits inside the failure branch on purpose. A fourth
+caller cannot be added without that test failing, which is the only form of
+"remember to gate it" that survives.
+
+Where the lookups are, and what guards each:
+
+| | |
+|---|---|
+| `/public/validate-coupon` | every request |
+| `/public/my-price` | every request, same bucket |
+| `/public/enrol` | failures only |
+| membership `/public/validate-code` | every request, its own workspace bucket |
+| membership `/public/join` | none — it is the charge, and a refusal there is a person turned away |
+
 ## [1.178.0] — 2026-10-13
 
 The Thread's discount codes catch up: not guessable in bulk, not spendable
