@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.181.1] — 2026-10-14
+
+### The invite fix gets its test, and a way to find the next soul.com
+
+Two pieces of evidence rather than product code.
+
+**`member-invite-role.int.test.ts`** — four cases against the deployed API,
+for the fix in v1.181.0 that shipped without one. A re-invite does not lower
+an admin to the invite form's `organiser` default; does not overwrite a stated
+internal relationship with the form's external; does not RAISE an organiser
+either, because an invite is not the place to promote somebody; and still
+applies the form's values to a genuinely new member. The fourth exists so the
+first three cannot be satisfied by a route that simply stopped writing
+memberships at all — three absence assertions with no positive anchor would
+pass on a broken route.
+
+**`--audit` on `set-workspace-role.mjs`** — every workspace with no admin and
+no super_admin, read-only, taking no other argument so there is no `--apply`
+to reach for by accident.
+
+It names each workspace's members and sorts those with people first, because
+the count alone is misleading. On staging the answer is 124 of 130
+workspaces — and almost every one is an abandoned e2e fixture with zero
+members. An empty workspace with no admin is tidying; a workspace with five
+members and no admin is five people who cannot administer their own
+community, which is what soul.com is. The header says how many of each.
+
+(That staging number is a finding of its own: ~124 leaked throwaway
+workspaces, which the five-minute schedulers walk on every pass.)
+
 ## [1.181.0] — 2026-10-14
 
 ### Three ways a refusal went unsaid

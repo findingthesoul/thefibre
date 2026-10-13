@@ -49,9 +49,12 @@ const RELATIONSHIPS = ['internal', 'external'];
 const role = flag('role') ?? (allWorkspaces ? 'super_admin' : null);
 const relationship = flag('relationship');
 
+const audit = has('audit');
+
 const usage = () => {
   console.error(
     'usage:\n' +
+      '  set-workspace-role.mjs staging|prod --audit\n' +
       '  set-workspace-role.mjs staging|prod --email <addr> --all-workspaces [--role <r>] [--apply]\n' +
       '  set-workspace-role.mjs staging|prod --email <addr> --workspace <slug> --role <r>\n' +
       '                                      [--relationship internal|external] [--apply]\n' +
@@ -61,12 +64,17 @@ const usage = () => {
 };
 
 if (which !== 'prod' && which !== 'staging') usage();
-if (!email || !email.includes('@')) usage();
-if (allWorkspaces === Boolean(slug)) {
+if (audit) {
+  if (email || allWorkspaces || slug || apply) {
+    console.error('--audit takes nothing else: it only reads, and changes nothing.');
+    process.exit(2);
+  }
+} else if (!email || !email.includes('@')) usage();
+if (!audit && allWorkspaces === Boolean(slug)) {
   console.error('give exactly one of --all-workspaces or --workspace <slug>');
   process.exit(2);
 }
-if (!role || !ROLES.includes(role)) usage();
+if (!audit && (!role || !ROLES.includes(role))) usage();
 if (relationship && !RELATIONSHIPS.includes(relationship)) usage();
 // Spelled out rather than inferred: --all-workspaces with --relationship would
 // rewrite a person's stated place in every organisation at once, which is the
@@ -102,8 +110,83 @@ const die = (...m) => {
   process.exit(1);
 };
 
-console.log(`${which.toUpperCase()}  ${apply ? '*** APPLY ***' : 'DRY RUN — nothing is written'}`);
-console.log(`who: ${email}\n`);
+console.log(
+  `${which.toUpperCase()}  ${
+    audit ? 'AUDIT — reads only' : apply ? '*** APPLY ***' : 'DRY RUN — nothing is written'
+  }`,
+);
+if (!audit) console.log(`who: ${email}\n`);
+
+// WHICH WORKSPACES HAVE NOBODY IN CHARGE.
+//
+// A workspace with no admin and no super_admin cannot be administered from
+// any screen, because every one of those screens is behind an admin check —
+// including the one that would appoint an admin. soul.com is in that state
+// and that is why this script exists; this says whether it is alone.
+//
+// `wouldOrphanWorkspace` has prevented the LAST admin being demoted or
+// removed for some time, so a workspace should not be able to reach zero any
+// more. It says nothing about one that was already there.
+//
+// Reads only, and takes no other argument, so there is no --apply to reach
+// for by accident.
+if (audit) {
+  const [ws, wm, us] = await Promise.all([
+    db.from('workspace').select('id, name, slug').order('name'),
+    db.from('workspace_member').select('user_id, workspace_id, workspace_role'),
+    db.from('user').select('id, email'),
+  ]);
+  if (ws.error) die(`could not list workspaces: ${ws.error.message}`);
+  if (wm.error) die(`could not read workspace_member: ${wm.error.message}`);
+  if (us.error) die(`could not read users: ${us.error.message}`);
+  const mailOf = new Map((us.data ?? []).map((u) => [u.id, u.email]));
+
+  const byWorkspace = new Map();
+  for (const m of wm.data ?? []) {
+    const list = byWorkspace.get(m.workspace_id) ?? [];
+    list.push(m);
+    byWorkspace.set(m.workspace_id, list);
+  }
+
+  const orphans = [];
+  for (const w of ws.data ?? []) {
+    const members = byWorkspace.get(w.id) ?? [];
+    const admins = members.filter(
+      (m) => m.workspace_role === 'admin' || m.workspace_role === 'super_admin',
+    );
+    if (!admins.length) orphans.push({ w, members });
+  }
+
+  console.log(`${(ws.data ?? []).length} workspace(s) on ${which}\n`);
+  if (!orphans.length) {
+    console.log('Every workspace has at least one admin.');
+    process.exit(0);
+  }
+  // THE ONES WITH PEOPLE IN THEM FIRST. On staging this listing is 124 rows
+  // long and almost all of them are abandoned e2e fixtures with no members
+  // at all, so alphabetical order buries the one row somebody has to act on.
+  // An empty workspace with no admin is tidying; a workspace with five
+  // members and no admin is five people who cannot administer their own
+  // community.
+  orphans.sort((a, b) => b.members.length - a.members.length);
+  const withPeople = orphans.filter((o) => o.members.length > 0).length;
+  console.log(
+    `${orphans.length} workspace(s) with NO admin and NO super_admin` +
+      ` — ${withPeople} of them have members:\n`,
+  );
+  for (const { w, members } of orphans) {
+    console.log(`  ${w.name}  (${w.slug})    ${members.length} member(s)`);
+    // The members are named, because "a workspace with nobody in charge" and
+    // "an empty workspace nobody uses" look identical in a count and want
+    // completely different responses.
+    for (const m of members) {
+      console.log(`      ${m.workspace_role.padEnd(12)} ${mailOf.get(m.user_id) ?? m.user_id}`);
+    }
+    console.log('');
+  }
+  console.log('Nothing was changed. Appointing an admin is a separate, deliberate command.');
+  process.exit(0);
+}
 
 // THE PERSON — ONE ROW PER WORKSPACE, not one row.
 //
