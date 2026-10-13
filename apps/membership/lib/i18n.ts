@@ -94,13 +94,17 @@ const CATALOG = {
     de: 'Optionale Extras', // MT
     fr: 'Options supplémentaires', // MT
   },
-  option_included: {
-    en: 'Included',
-    nl: 'Inbegrepen',
-    es: 'Incluido', // MT
-    pt: 'Incluído', // MT
-    de: 'Inklusive', // MT
-    fr: 'Inclus', // MT
+  // An OPTIONAL extra that costs nothing. It used to say "Included", which on
+  // an unticked box inside a box headed OPTIONAL EXTRAS is a contradiction:
+  // included things are not choices. What a reader needs to know here is that
+  // saying yes costs them nothing.
+  option_no_extra_cost: {
+    en: 'No extra cost',
+    nl: 'Geen extra kosten',
+    es: 'Sin coste adicional', // MT
+    pt: 'Sem custo adicional', // MT
+    de: 'Ohne Aufpreis', // MT
+    fr: 'Sans frais suppl\u00e9mentaires', // MT
   },
   option_once: {
     en: 'one-time',

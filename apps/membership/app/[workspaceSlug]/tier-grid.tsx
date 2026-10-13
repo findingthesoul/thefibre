@@ -11,7 +11,7 @@ import { payLineFor } from '@/lib/pay-line';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { publicFetch, PublicApiError, type PublicProduct, type PublicTier } from '@/lib/public-api';
 import { money } from '@/lib/money';
-import { t, type Locale } from '@/lib/i18n';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 
@@ -235,8 +235,12 @@ function TierCard({
     firstPeriodEndsOn: tier.first_period_ends_on,
     now: new Date(),
   });
+  // INTL_LOCALES, not the bare locale: `toLocaleDateString('en', …)` is
+  // en-US, and the first render on staging said "December 31, 2026" to a
+  // European audience. The map already exists for exactly this (i18n P3) and
+  // sends `en` to en-GB.
   const onDate = (iso: string) =>
-    new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, {
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString(INTL_LOCALES[locale], {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -475,7 +479,14 @@ function TierCard({
                                   ? t(locale, 'per_year')
                                   : t(locale, 'option_once')
                             }`
-                          : t(locale, 'option_included')}
+                          : // NOT "Included". This box is OPTIONAL EXTRAS,
+                            // and an unticked box labelled "Included" is a
+                            // contradiction on a payment form: either it is
+                            // included, in which case it is not a choice and
+                            // belongs in the card's INCLUDES list, or it is a
+                            // choice, in which case what the reader needs to
+                            // know is that choosing it costs nothing.
+                            t(locale, 'option_no_extra_cost')}
                       </span>
                       </span>
                     </label>

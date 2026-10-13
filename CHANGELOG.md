@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.173.4] — 2026-10-13
+
+Two things the walk found once the sentence was on the page.
+
+**The date was American.** The cohort line rendered as *"runs to December 31,
+2026"* to a European audience, because `toLocaleDateString('en', …)` is en-US.
+`INTL_LOCALES` exists for exactly this and sends `en` to en-GB; the panel uses
+it now, as the money helper already did. Seen by putting a throwaway tier with
+a fixed date on staging, opening the panel, and removing the tier again — the
+unit tests could not have caught it, since they assert the dates, not the
+formatting.
+
+**And an "Included" that was not.** Inside a box headed OPTIONAL EXTRAS, an
+unticked checkbox whose right-hand label read *"Included"* is a contradiction
+on a payment form: included things are not choices. An optional extra with no
+price now says **"No extra cost"**, which is what the reader actually needs to
+know, and the old key is gone rather than left lying about.
+
+Genuinely included products are not added to that box: they are the card's
+INCLUDES list, and listing them twice — once as a fact, once as an unticked
+choice — is the same confusion wearing a tick.
+
+The monthly tab was checked live at the same time: it says *"You pay € 36 now,
+then every month"* and never the cohort's story, which over a €36 charge would
+be a promise of ten free weeks.
+
 ## [1.173.3] — 2026-10-13
 
 The join panel now says what it is about to charge, and when it comes again.
