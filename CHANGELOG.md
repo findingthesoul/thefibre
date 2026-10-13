@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.180.0] — 2026-10-14
+
+### Consent decides whether you are shown, not whether you may look
+
+Sjoerd re-reported this with screenshots: a member of a community could not
+see the member list.
+
+The rule was "you must be listed yourself to read the list" — written down as
+"being in a directory and reading one are the same bargain". It reads fairly
+and it is wrong. Appearing in a list is a consent decision about your own
+data; reading it is an ordinary thing a member of a community does. Tying
+them made the consent switch BUY something, which is the one thing a freely
+given consent may not do, and in practice it meant a member who simply had
+not got round to the switch was told there was nothing there for them.
+
+So the two questions are separated. Consent controls whether you APPEAR.
+Membership controls whether you may LOOK.
+
+**And that makes the status check load-bearing, where it was incidental.**
+The membership lookup behind the old gate filtered on `deleted_at` alone, so
+it answered "has this community ever known you", not "are you a member now".
+Removing the listed-yourself check on its own would have handed the member
+list to every **lapsed and cancelled** member who still had an old entry — a
+wider door than the one being opened. The viewer gate is now active-or-grace,
+drawn from the same constant the candidate query uses rather than a second
+spelling of it, because two literals that must agree are two literals that
+will eventually not. A lapsed member gets the same refusal as a non-member,
+in the same words, since "you are not a member here" is the truer of the two
+things we could say.
+
+The response gained `can_view` beside `you_are_listed`; they were one field
+while they were one rule. The detail page moved onto it too — leaving it on
+`you_are_listed` would have been the quieter half of the same bug, with the
+list open and every profile in it shut.
+
+Where the member reads it: a member who is not shown now sees the list with a
+line above it — "You're not shown to other members", and where to change
+that — instead of a closed door. The two empty states are kept apart, because
+"you're the only one here" is a sentence about a list you are in.
+
+Five integration tests, which fail against the API as it was: an active
+member who is not shown sees the list AND its items; a lapsed member who is
+still listed is refused; a cancelled member is refused; a member in grace
+reads it; a listed member is told they are listed.
+
+**Not in this release:** the copy is English only, because `apps/my` has no
+i18n at all — it stores each member's locale and then hardcodes every string
+on the page. Worth fixing; it is a portal-wide piece of work, not a line in
+this commit.
+
 ## [1.179.2] — 2026-10-14
 
 ### A workspace with nobody in charge of it

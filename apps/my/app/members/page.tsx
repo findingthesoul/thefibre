@@ -50,8 +50,12 @@ export default async function MembersIndex() {
               >
                 {c.workspace_name}
                 {!c.listed && (
+                  // Not a warning about what they cannot do — since
+                  // 2026-10-14 they can open and read every one of these.
+                  // It says what is true of them in that list, which is the
+                  // thing they might want to change.
                   <span className="block text-xs text-ink-muted">
-                    You&apos;re not in this list yet
+                    You&apos;re not shown in this one
                   </span>
                 )}
               </Link>

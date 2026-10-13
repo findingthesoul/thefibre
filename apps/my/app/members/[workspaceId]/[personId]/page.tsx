@@ -8,9 +8,14 @@
 // ---------------------------------------------------------------------------
 // Who may see whom here is not a simple rule — it is eleven of them, in
 // order: you are signed in, you are a member of that community, the community
-// has a directory, YOU are listed in it, they are listed, their membership is
-// active or in grace (never lapsed), they are not soft-deleted, they are not
-// you, and — where the directory is category-scoped — you share a category.
+// has a directory, YOUR OWN membership is active or in grace, they are
+// listed, their membership is active or in grace (never lapsed), they are not
+// soft-deleted, they are not you, and — where the directory is
+// category-scoped — you share a category.
+//
+// The fourth used to be "YOU are listed in it". It became "your membership is
+// current" on 2026-10-14, when consent stopped deciding whether somebody may
+// LOOK and went back to deciding only whether they are SHOWN.
 // Then contact details appear only if that member chose to show them, and
 // categories only if the community shows them.
 //

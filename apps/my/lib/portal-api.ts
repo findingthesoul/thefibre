@@ -530,7 +530,18 @@ export type DirectoryMember = {
 };
 
 export type DirectoryList =
-  | { state: 'ok'; items: DirectoryMember[]; you_are_listed: boolean }
+  | {
+      state: 'ok';
+      items: DirectoryMember[];
+      /** Whether the viewer APPEARS in the list. A consent decision about
+       *  their own data, and nothing else — it does not decide whether the
+       *  list renders. */
+      you_are_listed: boolean;
+      /** Whether the viewer may READ the list: a member in good standing.
+       *  Separate from `you_are_listed` since 2026-10-14, when consent
+       *  stopped buying access. */
+      can_view: boolean;
+    }
   | { state: 'none' }
   | { state: 'failed' };
 
@@ -552,11 +563,21 @@ export async function fetchDirectoryMembers(
     );
     if (res.status === 404 || res.status === 403) return { state: 'none' };
     if (!res.ok) return { state: 'failed' };
-    const body = (await res.json()) as { items?: DirectoryMember[]; you_are_listed?: boolean };
+    const body = (await res.json()) as {
+      items?: DirectoryMember[];
+      you_are_listed?: boolean;
+      can_view?: boolean;
+    };
     return {
       state: 'ok',
       items: body.items ?? [],
       you_are_listed: Boolean(body.you_are_listed),
+      // AN OLDER API DOES NOT SEND IT, and `Boolean(undefined)` would hide
+      // the list from everybody for the minutes the two halves are out of
+      // step. Absent, fall back to the rule that API still enforces — the
+      // viewer must be listed — so a stale pairing behaves like the old
+      // system rather than like a broken one.
+      can_view: body.can_view ?? Boolean(body.you_are_listed),
     };
   } catch {
     return { state: 'failed' };

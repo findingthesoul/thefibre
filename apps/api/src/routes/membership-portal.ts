@@ -685,6 +685,16 @@ async function categoriesByPerson(
   return out;
 }
 
+/** The membership statuses that the member directory is for — both who may
+ *  appear in it and who may read it.
+ *
+ *  Grace is in. Sjoerd, 2026-10-05: "grace yes". Grace means a payment is
+ *  late, not that somebody left the community: dropping them out would be a
+ *  visible social consequence of a billing state they may not even know
+ *  about, and shutting them out would read as the directory being broken.
+ *  lapsed and cancelled are neither listable nor readable. */
+const DIRECTORY_STATUSES = ['active', 'grace'] as const;
+
 membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
@@ -708,8 +718,50 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
   // different answers and must not look alike.
   if (!settings.data?.directory_enabled) return c.json({ error: 'no member directory here' }, 404);
 
-  // The viewer must be listed themselves to see the list. Being in a
-  // directory and reading one are the same bargain.
+  // WHO MAY READ IT: any member in good standing. Sjoerd, 2026-10-14, after
+  // re-reporting this with screenshots.
+  //
+  // Until now the viewer had to be LISTED themselves — "being in a directory
+  // and reading one are the same bargain". That conflated two different
+  // questions. Appearing in a list is a consent decision about one's own
+  // data; reading it is an ordinary thing a member of a community may do.
+  // Tying them made the consent switch buy something, which is exactly what
+  // a freely given consent may not do, and it meant a member who simply had
+  // not got round to the switch was told the community had no list for them.
+  //
+  // So consent now controls ONE thing: whether you appear. It no longer
+  // controls whether you can look.
+  //
+  // AND THAT MAKES THE STATUS GATE LOAD-BEARING, where before it was
+  // incidental. `memberWorkspaces` filters on `deleted_at` only, so it
+  // answers "has this community ever known you", not "are you a member now".
+  // Dropping the listed-yourself check without putting this in its place
+  // would hand the list to every lapsed and cancelled member who still had
+  // an old entry — a wider door than the one being opened. Left deliberately
+  // on `memberWorkspaces`: the GET and PATCH of one's own listing still use
+  // it unfiltered, because withdrawing a consent must stay possible after a
+  // membership ends.
+  const viewerMembership = await adminClient
+    .from('membership_member')
+    .select('person_id')
+    .eq('workspace_id', workspaceId)
+    .in('person_id', viewerPersonIds)
+    .in('status', DIRECTORY_STATUSES)
+    .is('deleted_at', null);
+  if (viewerMembership.error) {
+    return fail(c, 'directory list: viewer membership', viewerMembership.error);
+  }
+  // Same refusal as a non-member, and the same wording, on purpose: a lapsed
+  // member learning "the list exists, you just cannot see it" is a different
+  // disclosure from "you are not a member here", and the second is the true
+  // one.
+  if (!(viewerMembership.data ?? []).length) {
+    return c.json({ error: 'not a member of that community' }, 403);
+  }
+
+  // Whether the VIEWER appears in it. Additive beside `can_view`, which is
+  // now what decides whether the page renders a list at all — the two were
+  // one field when they were one rule.
   const viewerEntry = await adminClient
     .from('membership_directory_entry')
     .select('person_id')
@@ -717,9 +769,7 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
     .in('person_id', viewerPersonIds)
     .eq('listed', true);
   if (viewerEntry.error) return fail(c, 'directory list: viewer entry', viewerEntry.error);
-  if (!(viewerEntry.data ?? []).length) {
-    return c.json({ items: [], you_are_listed: false });
-  }
+  const youAreListed = (viewerEntry.data ?? []).length > 0;
 
   // Candidates: listed IS TRUE, active membership, person not soft-deleted.
   const listed = await adminClient
@@ -729,7 +779,9 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
     .eq('listed', true);
   if (listed.error) return fail(c, 'directory list: entries', listed.error);
   const candidateIds = (listed.data ?? []).map((e) => e.person_id as string);
-  if (!candidateIds.length) return c.json({ items: [], you_are_listed: true });
+  if (!candidateIds.length) {
+    return c.json({ items: [], you_are_listed: youAreListed, can_view: true });
+  }
 
   const [activeMembers, persons] = await Promise.all([
     adminClient
@@ -737,12 +789,11 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
       .select('person_id')
       .eq('workspace_id', workspaceId)
       .in('person_id', candidateIds)
-      // active AND grace. Sjoerd, 2026-10-05: "grace yes". Grace means a
-      // payment is late, not that somebody left the community — dropping
-      // them out of the directory would be a visible social consequence of a
-      // billing state they may not even know about, and it would read as the
-      // directory being broken. lapsed and cancelled are not listable.
-      .in('status', ['active', 'grace'])
+      // The same set the VIEWER gate uses, from the same constant — not a
+      // second spelling of it. Who may appear and who may look are different
+      // rules now, but they draw the line at the same place, and two literals
+      // that must agree are two literals that will eventually not.
+      .in('status', DIRECTORY_STATUSES)
       .is('deleted_at', null),
     adminClient
       // person carries NO photo_url and NO bio — they live on
@@ -838,5 +889,5 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
   }
 
   items.sort((a, b) => a.display_name.localeCompare(b.display_name));
-  return c.json({ items, you_are_listed: true });
+  return c.json({ items, you_are_listed: youAreListed, can_view: true });
 });

@@ -19,7 +19,7 @@
 //     they are listed and active;
 //   - contact fields are null unless that member chose to show them.
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   createFixtureUser,
   createThrowawayWorkspace,
@@ -285,4 +285,82 @@ describe('contact details', () => {
     expect(find(shown)).not.toHaveProperty('street');
     expect(find(shown)).not.toHaveProperty('postal_code');
   }, 60_000);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// WHO MAY READ IT — Sjoerd, 2026-10-14, re-reported with screenshots.
+//
+// Consent controls whether you APPEAR. Membership controls whether you may
+// LOOK. Until this date the viewer had to be listed themselves, so the switch
+// bought access; and because the membership check behind it filtered only on
+// `deleted_at`, a LAPSED member who still had an old entry could read the
+// whole list. The change closes that at the same time as it opens the other.
+//
+// Every case here moves the VIEWER's own row and puts it back, so the tests
+// above keep the viewer they were written against.
+// ──────────────────────────────────────────────────────────────────────────
+describe('who may read the list', () => {
+  const setViewerStatus = async (status: string) => {
+    const { error } = await service
+      .from('membership_member')
+      .update({ status })
+      .eq('workspace_id', ws)
+      .eq('person_id', viewerPerson);
+    if (error) throw new Error(`viewer status: ${error.message}`);
+  };
+  const setViewerListed = async (listed: boolean) => {
+    const { error } = await service
+      .from('membership_directory_entry')
+      .update({ listed })
+      .eq('workspace_id', ws)
+      .eq('person_id', viewerPerson);
+    if (error) throw new Error(`viewer listed: ${error.message}`);
+  };
+
+  afterEach(async () => {
+    await setViewerStatus('active');
+    await setViewerListed(true);
+  });
+
+  it('shows the list to an active member who is NOT shown in it', async () => {
+    await setViewerListed(false);
+    const { status, body } = await call(`/api/v1/membership/portal/me/directory/${ws}/members`);
+    expect(status).toBe(200);
+    expect(body.can_view, 'an active member may read the list whether or not they appear').toBe(
+      true,
+    );
+    expect(body.you_are_listed, 'and must still be told they do not appear').toBe(false);
+    // NOT just can_view: the items are the point. An endpoint that returned
+    // can_view true and an empty array would pass a weaker assertion while
+    // showing the member nothing — which is the bug being fixed.
+    expect(body.items.length, 'and they see the people who did opt in').toBeGreaterThan(0);
+  });
+
+  it('refuses a LAPSED member who is still listed — the hole this closes', async () => {
+    await setViewerStatus('lapsed');
+    await setViewerListed(true);
+    const { status, body } = await call(`/api/v1/membership/portal/me/directory/${ws}/members`);
+    expect(status, 'a lapsed membership is not a key to the member list').toBe(403);
+    expect(body?.items, 'and no rows leak alongside the refusal').toBeUndefined();
+  });
+
+  it('refuses a CANCELLED member', async () => {
+    await setViewerStatus('cancelled');
+    const { status } = await call(`/api/v1/membership/portal/me/directory/${ws}/members`);
+    expect(status).toBe(403);
+  });
+
+  it('lets a member in GRACE read it — a late payment is not leaving', async () => {
+    await setViewerStatus('grace');
+    const { status, body } = await call(`/api/v1/membership/portal/me/directory/${ws}/members`);
+    expect(status).toBe(200);
+    expect(body.can_view).toBe(true);
+  });
+
+  it('tells a listed member that they are listed', async () => {
+    const { status, body } = await call(`/api/v1/membership/portal/me/directory/${ws}/members`);
+    expect(status).toBe(200);
+    expect(body.you_are_listed).toBe(true);
+    expect(body.can_view).toBe(true);
+  });
 });

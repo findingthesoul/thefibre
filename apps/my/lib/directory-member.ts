@@ -11,8 +11,14 @@
 //
 //   a failed load is NOT "this person is not available" — saying that would
 //   turn our outage into a statement about somebody's membership;
-//   a viewer who is not listed sees nobody, list or detail;
+//   a viewer who may not READ the list sees nobody, list or detail;
 //   and only a row actually present in `items` can be rendered.
+//
+// That middle rule used to read "a viewer who is not LISTED sees nobody",
+// which stopped being the rule on 2026-10-14: consent decides whether you
+// appear, membership decides whether you may look. It keys on `can_view`
+// now. Leaving it on `you_are_listed` would have been the quieter half of
+// the bug — the list would open while every profile in it stayed shut.
 
 import type { DirectoryList, DirectoryMember } from './portal-api';
 
@@ -27,7 +33,7 @@ export type MemberView =
 
 export function pickMember(list: DirectoryList, personId: string): MemberView {
   if (list.state === 'failed') return { kind: 'failed' };
-  if (list.state !== 'ok' || !list.you_are_listed) return { kind: 'unavailable' };
+  if (list.state !== 'ok' || !list.can_view) return { kind: 'unavailable' };
   const member = list.items.find((m) => m.person_id === personId);
   return member ? { kind: 'member', member } : { kind: 'unavailable' };
 }

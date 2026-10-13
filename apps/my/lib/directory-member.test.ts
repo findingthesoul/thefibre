@@ -17,8 +17,15 @@ const member = (person_id: string): DirectoryMember => ({
   website_url: null,
 });
 
-const ok = (items: DirectoryMember[], you_are_listed = true): DirectoryList =>
-  ({ state: 'ok', items, you_are_listed }) as DirectoryList;
+// `can_view` and `you_are_listed` are SEPARATE arguments because they became
+// separate rules on 2026-10-14. Defaulting can_view to true and taking it
+// explicitly is what lets the case below — may look, is not shown — exist at
+// all; a single flag could not express it.
+const ok = (
+  items: DirectoryMember[],
+  you_are_listed = true,
+  can_view = true,
+): DirectoryList => ({ state: 'ok', items, you_are_listed, can_view }) as DirectoryList;
 
 describe('who a member page may show', () => {
   it('shows a member the list returned', () => {
@@ -36,11 +43,22 @@ describe('who a member page may show', () => {
     }
   });
 
-  it('shows nobody when the viewer is not listed themselves', () => {
-    // Being in a directory and reading one are the same bargain, and it has
-    // to hold on the detail page too — otherwise a direct link is a way
-    // round the deal.
-    expect(pickMember(ok([member('p1')], false), 'p1').kind).toBe('unavailable');
+  it('shows nobody when the viewer may not read the list', () => {
+    // A lapsed or cancelled member. The API refuses them the list, and it
+    // has to hold on the detail page too — otherwise a direct link is the
+    // way round it.
+    expect(pickMember(ok([member('p1')], true, false), 'p1').kind).toBe('unavailable');
+  });
+
+  it('still shows members to a viewer who is not shown themselves', () => {
+    // THE RULE SJOERD ASKED FOR, 2026-10-14. Consent decides whether you
+    // appear; it does not decide whether you may look. This is the case the
+    // old code got wrong, and it fails if `pickMember` goes back to reading
+    // `you_are_listed` — which is why it asserts `member` and not merely
+    // "not unavailable".
+    const r = pickMember(ok([member('p1')], false, true), 'p1');
+    expect(r.kind).toBe('member');
+    expect(r.kind === 'member' && r.member.person_id).toBe('p1');
   });
 
   it('keeps a failed load apart from an absent member', () => {
