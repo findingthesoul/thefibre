@@ -9,6 +9,10 @@ import { Check } from 'lucide-react';
 import { COUNTRIES } from '@thefibre/shared/countries';
 import { payLineFor } from '@/lib/pay-line';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
+import {
+  InvoiceBillingFields,
+  readBillingFields,
+} from '@thefibre/shared/ui/payment-methods';
 import { publicFetch, PublicApiError, type PublicProduct, type PublicTier } from '@/lib/public-api';
 import { money } from '@/lib/money';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n';
@@ -291,6 +295,11 @@ function TierCard({
             ...(chosenOptions.size ? { option_product_ids: [...chosenOptions] } : {}),
             directory_listed: listed,
             terms_accepted: termsAccepted,
+            // The invoicing details, read by the same shared helper Thread
+            // and Meet use. Empty fields come back as an empty object, which
+            // the API treats as "nothing collected" — joining as yourself
+            // with a card means typing none of this.
+            billing: readBillingFields(fd),
             request_id: requestId,
           }),
         },
@@ -499,6 +508,43 @@ function TierCard({
                 )}
               </div>
             )}
+            {/* THE INVOICING DETAILS, asked here rather than on Stripe's page
+                (Sjoerd: "nothing of Stripe is the rule, except payment", and
+                "it should be a single point,,, invoicing payments"). The same
+                shared fields Thread's enrol form and Meet's booking flow use,
+                with the same labels — one copy of each since this panel
+                needed them.
+
+                Every field is optional. Somebody joining as themselves with a
+                card types nothing here and the join works exactly as before;
+                what they do type is written onto the Stripe customer, so the
+                invoice carries OUR details and the ledger reads them back off
+                it. Behind a disclosure, because most people joining a
+                community are not invoicing an employer and a form that opens
+                on six empty boxes is a form that loses them. */}
+            <details className="group rounded-md border border-line bg-surface px-3 py-2">
+              <summary className="cursor-pointer list-none text-sm text-ink-subtle hover:text-ink">
+                {t(locale, 'invoice_details_toggle')}
+              </summary>
+              <div className="mt-2.5 space-y-2.5">
+                <InvoiceBillingFields
+                  inputClassName={INPUT}
+                  whoPays={{
+                    label: t(locale, 'who_pays'),
+                    myself: t(locale, 'who_pays_myself'),
+                    organisation: t(locale, 'who_pays_organisation'),
+                  }}
+                  labels={{
+                    company: t(locale, 'company_name'),
+                    address: t(locale, 'billing_address'),
+                    postalCode: t(locale, 'postal_code'),
+                    city: t(locale, 'city'),
+                    country: t(locale, 'country'),
+                    taxNo: t(locale, 'tax_number'),
+                  }}
+                />
+              </div>
+            </details>
             {/* "Show me in …" — the directory consent. Unticked, always:
                 the member decides to be seen, and nothing decides it for
                 them. The link opens in a new tab so the half-filled form

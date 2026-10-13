@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.173.4",
+  "version": "1.174.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -65,6 +65,10 @@
     "./i18n": {
       "types": "./dist/i18n.d.ts",
       "default": "./dist/i18n.js"
+    },
+    "./invoice-fields-i18n": {
+      "types": "./dist/invoice-fields-i18n.d.ts",
+      "default": "./dist/invoice-fields-i18n.js"
     },
     "./ical": {
       "types": "./dist/ical.d.ts",

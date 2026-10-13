@@ -14,6 +14,7 @@
 // NL is unmarked: Sjoerd reviews it pre-ship.
 
 import { makeT, type I18nEntry } from '@thefibre/shared/i18n';
+import { INVOICE_FIELDS } from '@thefibre/shared/invoice-fields-i18n';
 import { PARTICIPANT_AUTH } from '@thefibre/shared/participant-auth-i18n';
 
 // Re-export the shared locale primitives so pages import ONE module.
@@ -28,6 +29,10 @@ export {
 export type { Locale } from '@thefibre/shared/i18n';
 
 const CATALOG = {
+  // The invoicing-field labels, shared with Thread's enrol form — the
+  // fields, the schema and now the words are one copy.
+  ...INVOICE_FIELDS,
+
   // Shared participant sign-in strings (email code + Google) — one copy
   // for every participant portal, in @thefibre/shared/participant-auth-i18n.
   // Includes the generic something_wrong.
@@ -105,6 +110,18 @@ const CATALOG = {
     pt: 'Sem custo adicional', // MT
     de: 'Ohne Aufpreis', // MT
     fr: 'Sans frais suppl\u00e9mentaires', // MT
+  },
+  // The disclosure over the invoicing fields. Most people joining a community
+  // are not invoicing an employer, and a join form that opens on six empty
+  // boxes is a join form that loses them — so the fields are there, closed,
+  // for the ones who need them.
+  invoice_details_toggle: {
+    en: 'Need an invoice for an organisation? Add the details',
+    nl: 'Factuur op naam van een organisatie? Vul de gegevens in',
+    es: '\u00bfNecesitas una factura para una organizaci\u00f3n? A\u00f1ade los datos', // MT
+    pt: 'Precisas de uma fatura para uma organiza\u00e7\u00e3o? Acrescenta os dados', // MT
+    de: 'Rechnung f\u00fcr eine Organisation? Daten erg\u00e4nzen', // MT
+    fr: 'Besoin d\u2019une facture pour une organisation ? Ajoute les informations', // MT
   },
   option_once: {
     en: 'one-time',

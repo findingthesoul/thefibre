@@ -6,6 +6,90 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.174.0] — 2026-10-13
+
+The join asks for the invoicing details itself. Stripe only takes the money.
+
+Sjoerd: *"nothing of Stripe is the rule, except payment"*, and *"it should be
+a single point,,, invoicing payments"*. Until now the membership join handed
+Checkout a bare `customer_email` and let **Stripe's page** ask for the billing
+address — which made Stripe the place those details lived.
+
+**The panel asks now**, behind a disclosure (*"Need an invoice for an
+organisation? Add the details"*), using the shared `InvoiceBillingFields` and
+`readBillingFields` that Thread's enrol form and Meet's booking flow already
+use. **Every field is optional**: somebody joining as themselves with a card
+types nothing and the join works exactly as before.
+
+**What is collected is written onto a Stripe customer** on the workspace's own
+account, created or **reused from our own record** (`membership_member.stripe_customer_id`)
+— never found by searching Stripe, because which customer belongs to which
+person is ours to know and one email can exist many times on one account. The
+invoice Stripe then issues carries our details, and `purchase.billing` keeps
+reading them off that invoice exactly as it always has. Company, tax number
+and *"who pays"* ride the subscription metadata instead, because a Stripe
+invoice cannot carry them back: a tax number is a separate TaxID object whose
+type we would have to guess at, and guessing `eu_vat` for a number that is not
+one is worse than not sending it.
+
+**Rehearsed on `sk_test` before any of it reached a person** (`scripts/rehearse-join-customer.mjs`),
+and it found two things reasoning had missed:
+
+1. A cohort session built with only the one-off line is **refused** by Stripe
+   (*"You must provide at least one recurring price"*). The route has always
+   built both lines; the first draft of the rehearsal had not — which is the
+   sort of difference a rehearsal exists to catch.
+2. `billing_address_collection: 'auto'` on a customer with **no** address may
+   mean Stripe never asks, and then every invoice for somebody who typed
+   nothing loses its address block — which the old `'required'` always
+   captured. So it is `'auto'` only when the customer actually has an address,
+   and `'required'` otherwise.
+
+Measured, all four cases: ordinary yearly join 300.00 now; cohort join 300.00
+now with `trial_end` intact; the same person joining twice reuses one customer
+rather than making two; and a join with nothing typed still charges 300.00 and
+falls back to Stripe asking.
+
+**And the reuse is gated on a proven email, which is the part that matters.**
+`/public/join` is unauthenticated and the email is simply typed, so "a member
+joining again" and "a stranger who knows that member's address" arrive
+identically. Reusing the stored customer on the strength of a typed address
+would have let anybody overwrite that member's name and address on the
+community's Stripe account — **before any payment**, since the update happens
+on the way to Checkout, so their next renewal invoice would carry a stranger's
+details — besides opening a session against their customer and leaking, through
+`'auto'` versus `'required'`, whether that email is a customer at all.
+
+So an existing customer is touched only when the requester has **proven they
+read that mailbox** (a session whose own verified email is the one being
+joined — the same bar as the member-price endpoint). Unproven, the stored id is
+never even read: a fresh customer is made from what this request typed, and the
+collection mode is decided from that alone. The duplicate is the right trade —
+untidy, against a stranger editing somebody's billing identity.
+
+Measured rather than argued, both ways. The rehearsal now has a fifth case: a
+stranger typing a member's email gets **their own** customer and the member's
+name and address come through **untouched**. And the six unit tests go red when
+the gate is removed, which is how it was checked. Separately, a Checkout
+session opened against a customer does **not** expose that customer's saved
+name or address in the session object or the served page — tested in test mode
+rather than assumed — though a client-side fetch was not ruled out, and the
+gate makes the question moot.
+
+For the record of what the webhook does: it never reads `session.customer`. It
+reads the customer off the SUBSCRIPTION and writes it to
+`membership_member.stripe_customer_id`, so an unproven join can only take that
+record over by actually paying a full membership for somebody who was not an
+active member — which is a rejoin, and is what the row then says.
+
+**Three things stopped being per-app on the way.** The zod schema for these
+fields moved to `apps/api/src/lib/billing-fields.ts` (Thread had it inline,
+and membership would have been the second copy), the eight field LABELS moved
+to `@thefibre/shared/invoice-fields-i18n` (Thread's catalogue had them, and a
+max length or an "(optional)" raised in one place and not the other is how
+copies drift), and a customer failure **never fails a join** — it falls back to
+the email and Stripe asking, because somebody who wants to pay must be able to.
+
 ## [1.173.4] — 2026-10-13
 
 Two things the walk found once the sentence was on the page.

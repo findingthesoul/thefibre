@@ -24,6 +24,7 @@ import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
+import { BillingFields } from '../lib/billing-fields.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
 import { hit } from '../lib/rate-limit.js';
 import {
@@ -6714,18 +6715,10 @@ const PublicEnrol = z.object({
   ticket_id: z.string().uuid().optional(),
   coupon_code: z.string().min(1).max(60).optional(),
   payment_method: z.enum(['stripe', 'invoice']).optional(),
-  billing: z
-    .object({
-      company: z.string().max(200).optional(),
-      address: z.string().max(500).optional(),
-      postal_code: z.string().max(30).optional(),
-      city: z.string().max(120).optional(),
-      country: z.string().max(120).optional(),
-      tax_no: z.string().max(60).optional(),
-      // Who pays: the buyer, or an organisation (20260915100000).
-      payer: z.enum(['self', 'organisation']).optional(),
-    })
-    .optional(),
+  // One schema, in lib/billing-fields.ts, so the membership join and this
+  // enrol form cannot disagree about what an invoice needs. The form half
+  // (InvoiceBillingFields / readBillingFields) has been shared all along.
+  billing: BillingFields.optional(),
   marketing_opt_in: z.boolean().optional(),
   cohort_opt_in: z.boolean().optional(),
   policy_accepted: z.boolean().optional(),

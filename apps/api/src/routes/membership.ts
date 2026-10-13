@@ -7,6 +7,13 @@ import {
 } from '../lib/grant-config.js';
 import { setDirectoryListing } from '../lib/directory-consent.js';
 import { resolveTerms } from '../lib/terms.js';
+import { participantEmailFromAuth } from '../lib/participant-auth.js';
+import { BillingFields } from '../lib/billing-fields.js';
+import {
+  billingMetadata,
+  customerForJoin,
+  readBillingMetadata,
+} from '../lib/membership-customer.js';
 import { fixedFirstPeriod } from '@thefibre/shared/fixed-renewal';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
@@ -1942,6 +1949,18 @@ const PublicJoin = z.object({
   // Sjoerd, testing the join: "Nowhere, I have accepted terms and
   // conditions." Nobody is asked for money before they have agreed.
   terms_accepted: z.boolean().default(false),
+  // THE INVOICING DETAILS, asked HERE rather than on Stripe's page (Sjoerd,
+  // 2026-10-13: "nothing of Stripe is the rule, except payment", and "it
+  // should be a single point,,, invoicing payments"). The same schema the
+  // enrol form posts, and the same shared fields collect it.
+  //
+  // Every field is optional, including the address: somebody joining as
+  // themselves with a card needs to type nothing here, and a form that
+  // demands a company name from an individual is a form that loses them.
+  // What arrives is used; what does not is asked for by Stripe instead
+  // (billing_address_collection 'auto' leaves that decision to the payment
+  // method, which is where it belongs).
+  billing: BillingFields.optional(),
   request_id: z.string().min(8).max(100),
 }).refine((v) => v.terms_accepted === true, {
   path: ['terms_accepted'],
@@ -2119,6 +2138,32 @@ membershipRoutes.post('/public/join', async (c) => {
 
   const feePercent = await platformFeePercent(ws.id);
   const base = `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}`;
+
+  // HAS THIS REQUESTER PROVEN THE ADDRESS THEY TYPED? This route is public
+  // and the email is typed, so "an existing member joined again" and "a
+  // stranger typed a member's address" look identical here — and the
+  // difference decides whether we may touch that member's Stripe customer at
+  // all. Same bar as the member-price endpoint: a session whose own verified
+  // email is the one being joined. Nobody is asked to sign in; unproven
+  // simply means a fresh customer.
+  const provenEmail = (await participantEmailFromAuth(c))?.toLowerCase() ?? null;
+  const proven = provenEmail !== null && provenEmail === email.toLowerCase();
+
+  // WHO IS BEING BILLED, on the workspace's own account — created or reused
+  // from our record of it, never found by searching Stripe. With it, the
+  // invoicing details the panel collected are the ones Stripe puts on the
+  // invoice, and `purchase.billing` keeps reading them off that invoice. It
+  // can come back null (an account problem, a stale id), and then this falls
+  // back to exactly what it did before: the email, and Stripe asking.
+  const customer = await customerForJoin(stripe, account, {
+    workspaceId: ws.id,
+    personId,
+    email,
+    personName: d.name,
+    billing: d.billing ?? null,
+    proven,
+  });
+
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.create(
@@ -2204,10 +2249,24 @@ membershipRoutes.post('/public/join', async (c) => {
             // date" is the honest record.
             terms_version: joinTerms.version.slice(0, 480),
             applied_pct: String(pct),
+            // Company and tax number, which a Stripe invoice cannot carry
+            // back to us the way an address can. Merged into purchase.billing
+            // in the webhook. Absent when the panel collected neither.
+            ...billingMetadata(d.billing),
           },
         },
-        customer_email: email,
-        billing_address_collection: 'required',
+        // The customer we just wrote, so the invoice carries OUR details —
+        // and `customer_email` only when there is no customer, because Stripe
+        // refuses a session that carries both.
+        ...(customer.id ? { customer: customer.id } : { customer_email: email }),
+        // 'auto' only when the customer actually HAS an address: asking a
+        // second time for something we just collected is the double-typing
+        // this change removes. Without one, 'required' — because with 'auto'
+        // and no address on file Stripe may not ask at all for an ordinary
+        // card, and then every invoice for somebody who typed nothing loses
+        // its address block, which 'required' always captured (measured:
+        // scripts/rehearse-join-customer.mjs, case 4).
+        billing_address_collection: customer.hasAddress ? 'auto' : 'required',
         // NO Stripe promotion codes (Sjoerd, 2026-10-13: "nothing of Stripe
         // is the rule, except payment"). Discounts, their rules and the
         // reason a price is what it is are OURS — Stripe is handed a final
@@ -2586,6 +2645,24 @@ function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   return typeof raw === 'string' ? raw : raw.id ?? null;
 }
 
+/** The subscription's metadata as the invoice carries it. Same defensive
+ *  read as `invoiceSubscriptionId` and for the same reason: the field moved
+ *  from the top level into `parent.subscription_details` across API versions,
+ *  and this is read on a webhook we cannot re-run. Nothing found is `{}` —
+ *  the billing extras are additive, and an invoice without them is simply an
+ *  invoice from before the panel asked.
+ *
+ *  Read off the INVOICE rather than fetched: a round trip to Stripe for two
+ *  short strings, on every membership invoice, to learn something the invoice
+ *  is already carrying. */
+function invoiceSubscriptionMetadata(invoice: Stripe.Invoice): Record<string, string> {
+  const inv = invoice as unknown as {
+    subscription_details?: { metadata?: Record<string, string> | null } | null;
+    parent?: { subscription_details?: { metadata?: Record<string, string> | null } | null } | null;
+  };
+  return inv.subscription_details?.metadata ?? inv.parent?.subscription_details?.metadata ?? {};
+}
+
 async function memberForInvoice(
   account: string,
   invoice: Stripe.Invoice,
@@ -2716,6 +2793,12 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
       country: addr?.country ?? null,
       period_end: renewsAt,
       pdf: invoice.invoice_pdf ?? null,
+      // The two fields a Stripe invoice cannot carry back. The address makes
+      // the round trip through the customer the join wrote; a tax number does
+      // not (Stripe keeps those as TaxID objects with a type we would have to
+      // guess), and "who pays" is our question, not Stripe's. Spread last and
+      // only when present, so nothing above is overwritten with a blank.
+      ...readBillingMetadata(invoiceSubscriptionMetadata(invoice)),
     },
   });
 
