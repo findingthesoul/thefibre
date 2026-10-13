@@ -6,6 +6,68 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.178.0] — 2026-10-13
+
+The Thread's discount codes catch up: not guessable in bulk, not spendable
+twice.
+
+Both of these were open on production, and both are the same shape as faults
+fixed in the membership path earlier today — which is how they were found.
+Fixing one path and not its older twin is how a codebase ends up with two
+answers to one question.
+
+**The validator was an unlimited oracle.** `POST /public/validate-coupon`
+answers *"does this code exist"* to anybody who asks, and answered without
+limit. Codes are short and human — EARLYBIRD, SUMMER25 — so an unguessable one
+is the exception, not the rule. Twenty an hour now, keyed on the **resolved
+thread id** and the caller, taken from `clientIp` rather than a header the
+caller can forge, and checked **before** the lookup: a limiter that runs
+afterwards has already answered the question it was meant to ration.
+
+On the id rather than the typed slugs, because a key built from what the
+caller typed is only as strict as the lookup — if a slug column ever became
+citext, for friendlier URLs, `/Thread` and `/thread` would be one thread and
+two buckets. Measured today: both slug columns **are** case-sensitive, so that
+bypass does not work right now; keying on the id means it cannot start working
+by accident.
+
+**The enrol route limits GUESSES, not enrolments**, and that distinction is the
+whole design. That route does not merely answer a question — it enrols
+somebody. A blanket limit would mean a classroom signing up from one network,
+or a conference on one wifi, hitting a wall and being unable to join: a real
+person turned away, which is worse than the guessing it would prevent. So only
+a **wrong** code counts. A correct code, or no code at all, never touches the
+limiter.
+
+**And a code's uses were being lost.** The redemption was `used_count: <a
+value read earlier> + 1`, so two people redeeming simultaneously both wrote
+the same number and one use vanished — a code recording 1 when 2 people had
+used it.
+
+**A plain compare-and-set does not fix that, and it is worth saying why.** The
+redemption runs *after* the enrolment is committed, so a CAS that loses the
+race leaves that enrolment standing and simply does not count it: the same
+lost update, now also happening when the code is nowhere near its limit. It
+would trade an accurate counter for nothing. (The first version of this commit
+did exactly that, and claimed "exactly one use taken" — which described the
+probe's isolated UPDATE, not the route's behaviour. The claim was wrong and
+the fix was hollow.)
+
+So the redemption **re-reads and retries** until the use is recorded. Every use
+is counted; an oversell is accepted and **said out loud** rather than hidden,
+which is the honest trade when the decision to enrol was taken further up. A
+real ceiling would mean redeeming *before* the enrolment and undoing it if the
+insert failed — an RPC and a migration, the shape `redeem_discount_code`
+already has for the newer table, worth doing if a community ever complains
+about an oversell.
+
+**Measured against the real database, both ways** (`scripts/probe-coupon-race.mjs`,
+which creates its own fixture and removes it). With the loop: two redemptions,
+`used_count` ends at **2**. With `--unguarded`, reproducing the old shape: it
+ends at **1** — a use lost. That is the bug, demonstrated rather than
+described, and the probe can show both shapes because one that only ever
+reports success proves nothing about whether it is looking.
+
 ## [1.177.1] — 2026-10-13
 
 Three small corrections to the discount-code work, all of the same kind: a

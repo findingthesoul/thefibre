@@ -27,7 +27,7 @@ import { rows } from '../lib/rows.js';
 import { BillingFields } from '../lib/billing-fields.js';
 import { likeLiteral, isStorableCode } from '../lib/like-escape.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
-import { hit } from '../lib/rate-limit.js';
+import { clientIp, hit } from '../lib/rate-limit.js';
 import {
   rowInWorkspace,
   isWorkspaceMember,
@@ -6683,6 +6683,8 @@ threadRoutes.post('/public/validate-coupon', async (c) => {
 
   const owner = await resolvePublicOwner(d.organiser_slug);
   if (!owner) return c.json({ valid: false, reason: 'thread not found' });
+
+
   let tq = adminClient
     .from('thread_thread')
     .select('id, price_cents, price_currency')
@@ -6710,6 +6712,30 @@ threadRoutes.post('/public/validate-coupon', async (c) => {
     const eff = effectivePrice(thread, prices);
     base = eff.price_cents ?? 0;
     currency = eff.price_currency ?? currency;
+  }
+
+  // RATE-LIMITED (2026-10-13). This answers "does this code exist" to anybody
+  // who asks, and until today it answered without limit — codes are short and
+  // human (EARLYBIRD, SUMMER25), so an unguessable one is the exception. The
+  // membership validator was built with this from the start; this is the
+  // older twin catching up.
+  //
+  // KEYED ON THE RESOLVED thread.id, NOT THE TYPED SLUGS, and placed here for
+  // that reason. A key built from what the caller typed is only as strict as
+  // the lookup: if a slug column ever became citext — a plausible change,
+  // for friendlier URLs — then /Thread and /thread would be one thread and
+  // two buckets, and the limit would be bypassable by varying case. Measured
+  // today: both slug columns ARE case-sensitive, so that does not work right
+  // now; keying on the id means it cannot start working by accident.
+  //
+  // Thread AND caller, both: by caller alone one office behind one address
+  // locks itself out of every thread at once; by thread alone one guesser
+  // locks out that thread's real joiners. `clientIp`, never a header read
+  // here, because a client can send its own X-Forwarded-For.
+  const codeGate = hit(`thread-code:${thread.id}:${clientIp(c.req.raw.headers)}`, 20, 3_600_000);
+  if (!codeGate.allowed) {
+    c.header('Retry-After', String(codeGate.resetSeconds));
+    return c.json({ valid: false, reason: 'too many attempts, try again later' }, 429);
   }
 
   const r = await findValidCoupon(thread.id, d.code, d.ticket_id ?? null);
@@ -7027,10 +7053,26 @@ threadRoutes.post('/public/enrol', async (c) => {
   const email = d.email.trim().toLowerCase();
 
   // Discount code — validated server-side, never trusting the form's price.
+  //
+  // RATE-LIMITED ON FAILURES ONLY, and that is deliberate rather than a
+  // weaker version of the validator's limit. This route does not merely
+  // answer a question: it ENROLS somebody. A blanket limit here would mean a
+  // classroom signing up from one network, or a conference on one wifi, hits
+  // a wall and cannot join — the cost of a false positive is a real person
+  // turned away, which is worse than the guessing it would prevent. Counting
+  // only WRONG codes targets exactly the behaviour worth stopping: a correct
+  // code, or no code at all, never touches the limiter.
   let coupon: CouponCheck | null = null;
   if (d.coupon_code) {
     const r = await findValidCoupon(thread.id, d.coupon_code, ticketId);
-    if ('error' in r) return c.json({ error: r.error }, 409);
+    if ('error' in r) {
+      const guessGate = hit(`thread-code-fail:${thread.id}:${clientIp(c.req.raw.headers)}`, 20, 3_600_000);
+      if (!guessGate.allowed) {
+        c.header('Retry-After', String(guessGate.resetSeconds));
+        return c.json({ error: 'too many attempts, try again later' }, 429);
+      }
+      return c.json({ error: r.error }, 409);
+    }
     coupon = r.coupon;
   }
   // MEMBER PRICE, for a person who has PROVED the address they are enrolling.
@@ -7213,10 +7255,64 @@ threadRoutes.post('/public/enrol', async (c) => {
   // Coupon redemption bookkeeping — after the enrolment is committed.
   // (Not on reuse — the first attempt already counted it.)
   if (coupon && !reusedEnrolment) {
-    await adminClient
-      .from('thread_coupon')
-      .update({ used_count: coupon.used_count + 1 })
-      .eq('id', coupon.id);
+    // COUNT EVERY REDEMPTION. An oversell is accepted; a lost count is not.
+    //
+    // This was `used_count: coupon.used_count + 1` from a value read earlier,
+    // so two simultaneous redemptions both wrote the same number and one was
+    // lost — a code recording 1 use when 2 people had used it.
+    //
+    // A bare compare-and-set does NOT fix that here, and it is worth being
+    // precise about why: this runs AFTER the enrolment is committed, and a
+    // lost race leaves that enrolment standing. So a CAS would still let both
+    // people in while incrementing once — the same under-count, now also
+    // happening when the code is nowhere near its limit. It would trade an
+    // accurate counter for nothing.
+    //
+    // So: re-read and retry, up to five times, until this redemption is
+    // recorded. Every use is counted. When the count lands above the limit,
+    // the code has been oversold and that is said out loud rather than
+    // hidden — the honest trade when the decision to enrol was already taken
+    // further up. (A real ceiling would mean redeeming BEFORE the enrolment
+    // and undoing it if the insert failed, which needs an RPC and a
+    // migration; `redeem_discount_code` is that shape for the newer table.
+    // Worth doing if a community ever complains about an oversell.)
+    let count = coupon.used_count;
+    let recorded = false;
+    for (let attempt = 0; attempt < 5 && !recorded; attempt += 1) {
+      const { data: took, error: upErr } = await adminClient
+        .from('thread_coupon')
+        .update({ used_count: count + 1 })
+        .eq('id', coupon.id)
+        .eq('used_count', count)
+        .select('used_count');
+      if (upErr) {
+        console.error('[thread] coupon redemption failed', coupon.id, upErr.message);
+        break;
+      }
+      const row = took?.[0];
+      if (row) {
+        recorded = true;
+        count = row.used_count as number;
+        break;
+      }
+      // Somebody else counted theirs first. Take their number and try again.
+      const { data: fresh } = await adminClient
+        .from('thread_coupon')
+        .select('used_count')
+        .eq('id', coupon.id)
+        .maybeSingle();
+      if (!fresh) break;
+      count = fresh.used_count as number;
+    }
+    if (!recorded) {
+      console.error('[thread] coupon use went uncounted after 5 tries', coupon.id);
+    } else if (coupon.usage_limit && count > coupon.usage_limit) {
+      console.warn(
+        '[thread] coupon oversold — more uses than its limit (enrolments stand)',
+        coupon.id,
+        `${count}/${coupon.usage_limit}`,
+      );
+    }
   }
 
   // A €0 DISCOUNTED enrolment IS a purchase — Sjoerd 2026-07-04 for a code,
