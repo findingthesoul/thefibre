@@ -406,4 +406,60 @@ describe('what a seat grant must NOT do', () => {
     expect(after.wm).toBeNull();
     expect(after.deleted, 'the seat closes: the account row is soft-deleted').not.toBeNull();
   }, 120_000);
+
+  it('a seat two grants hold closes only when the LAST of them is revoked', async () => {
+    const ws = await freshWorkspace('seat-two');
+    const email = `int-seat-two-${randomUUID().slice(0, 8)}@example.com`;
+    const { data: person } = await service.from('person').insert({ workspace_id: ws, first_name: 'Two', last_name: 'Seats', email }).select('id').single();
+    const granted = await grantSeat(ws, person!.id as string, { role: 'organiser' });
+    expect(granted.ok, JSON.stringify(granted)).toBe(true);
+    const userId = (granted as { ok: true; userId: string }).userId;
+    madeUsers.push(userId);
+
+    // One membership, two seat grants on it (one person has one membership per
+    // workspace; a tier and a product can each carry a seat) — a journal row
+    // for each, both granted.
+    const { data: tier, error: tErr } = await service.from('membership_tier').insert({ workspace_id: ws, name: 'Two seats' }).select('id').single();
+    expect(tErr, tErr?.message).toBeNull();
+    const { data: member, error: mErr } = await service
+      .from('membership_member')
+      .insert({ workspace_id: ws, person_id: person!.id, tier_id: tier!.id, status: 'active' })
+      .select('id')
+      .single();
+    expect(mErr, mErr?.message).toBeNull();
+    const journal: string[] = [];
+    for (let k = 0; k < 2; k++) {
+      const { data: grant, error: gErr } = await service
+        .from('membership_access_grant')
+        .insert({ workspace_id: ws, tier_id: tier!.id, kind: 'fibre_seat', config: { role: 'organiser' } })
+        .select('id')
+        .single();
+      expect(gErr, gErr?.message).toBeNull();
+      const { data: row, error } = await service
+        .from('membership_member_access')
+        .upsert(
+          { member_id: member!.id, access_grant_id: grant!.id, status: 'granted', external_ref: userId },
+          { onConflict: 'member_id,access_grant_id' },
+        )
+        .select('id')
+        .single();
+      expect(error, error?.message).toBeNull();
+      journal.push(row!.id as string);
+    }
+    const wmOf = async () =>
+      (await service.from('workspace_member').select('workspace_role').eq('workspace_id', ws).eq('user_id', userId).maybeSingle()).data;
+
+    // A is revoked while B still holds the seat: kept.
+    await service.from('membership_member_access').update({ status: 'revoke_pending' }).eq('id', journal[0]!);
+    const first = await revokeSeatForTest(ws, userId, 'organiser', journal[0]!);
+    expect(first.ok && first.kept, JSON.stringify(first)).toMatch(/another membership/);
+    expect(await wmOf()).toEqual({ workspace_role: 'organiser' });
+
+    // Then B goes too: the seat closes.
+    await service.from('membership_member_access').update({ status: 'revoked' }).eq('id', journal[0]!);
+    await service.from('membership_member_access').update({ status: 'revoke_pending' }).eq('id', journal[1]!);
+    const last = await revokeSeatForTest(ws, userId, 'organiser', journal[1]!);
+    expect(last, JSON.stringify(last)).toEqual({ ok: true });
+    expect(await wmOf()).toBeNull();
+  }, 120_000);
 });

@@ -8,6 +8,14 @@ import {
 import { paymentRouteProblem } from '../lib/thread-payment-route.js';
 import { sendReach } from '../lib/member-notify.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
+import {
+  copied,
+  COUPON_COPY,
+  ENGAGEMENT_COPY,
+  THREAD_CATEGORY_COPY,
+  THREAD_COPY,
+  TICKET_COPY,
+} from '../lib/thread-copy.js';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   couponPriceOf,
@@ -1261,38 +1269,13 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
   const { data: newThread, error: tErr } = await db
     .from('thread_thread')
     .insert({
+      // Every column accounted for in lib/thread-copy.ts — copied, set or
+      // skipped with a reason — and a test that fails on any it misses.
+      ...copied(THREAD_COPY, src),
       workspace_id: ctx.workspaceId,
       program_id: newProgram.id,
-      organiser_id: src.organiser_id,
-      team_id: src.team_id,
       slug,
-      intention: src.intention,
-      timezone: src.timezone,
-      language: src.language,
-      facilitation_language: src.facilitation_language,
-      public_scope: src.public_scope,
-      cover_url: src.cover_url,
       is_public_listed: false,
-      requires_approval: src.requires_approval,
-      price_cents: src.price_cents,
-      price_currency: src.price_currency,
-      payment_destination: src.payment_destination,
-      // Every one of these shipped AFTER this route was written and none was
-      // added to it, so a copy quietly reverted them to column defaults
-      // (Sjoerd 2026-08-31: a duplicated event lost its pricing). If you add
-      // a column to thread_thread that an organiser sets, add it here.
-      payment_methods: src.payment_methods,
-      share_participants_public: src.share_participants_public,
-      share_participants_participants: src.share_participants_participants,
-      public_agenda: src.public_agenda,
-      public_interaction: src.public_interaction,
-      capacity: src.capacity,
-      registration_fields: src.registration_fields,
-      certificate_enabled: src.certificate_enabled,
-      certificate_criteria: src.certificate_criteria,
-      certificate_template_id: src.certificate_template_id,
-      // locked_at/locked_by are the deliberate exception to the note above:
-      // a copy is a fresh draft you are about to work on, so it starts open.
       created_by: ctx.userId,
     })
     .select('id')
@@ -1311,59 +1294,39 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
     .select('*')
     .eq('thread_id', src.id)
     .order('position');
+  // Old ticket id → new, so a code limited to one ticket stays limited to
+  // that ticket's copy (it was dropped until 2026-10-14).
+  const ticketMap = new Map<string, string>();
   for (const t of srcTickets ?? []) {
-    await db.from('thread_ticket').insert({
-      workspace_id: ctx.workspaceId,
-      thread_id: newThread.id,
-      name: t.name,
-      description: t.description,
-      price_cents: t.price_cents,
-      price_currency: t.price_currency,
-      quantity_limit: t.quantity_limit,
-      available_until: t.available_until,
-      payment_methods: t.payment_methods,
-      is_active: t.is_active,
-      position: t.position,
-    });
+    const { data: madeTicket } = await db
+      .from('thread_ticket')
+      .insert({ ...copied(TICKET_COPY, t), workspace_id: ctx.workspaceId, thread_id: newThread.id })
+      .select('id')
+      .single();
+    if (madeTicket) ticketMap.set(t.id as string, madeTicket.id as string);
   }
 
-  // Discount codes come too — the structure of an offer is part of the event
-  // being repeated. `used_count` is deliberately not carried: the new run
-  // starts its allowance at zero. Codes are unique per thread, so the same
-  // code on both threads is fine.
   const { data: srcCoupons } = await db
     .from('thread_coupon')
     .select('*')
     .eq('thread_id', src.id);
   for (const cp of srcCoupons ?? []) {
     await db.from('thread_coupon').insert({
+      ...copied(COUPON_COPY, cp),
       workspace_id: ctx.workspaceId,
       thread_id: newThread.id,
-      code: cp.code,
-      name: cp.name,
-      type: cp.type,
-      discount_percentage: cp.discount_percentage,
-      discount_amount_cents: cp.discount_amount_cents,
-      usage_limit: cp.usage_limit,
-      expires_at: cp.expires_at,
-      is_early_bird: cp.is_early_bird,
-      early_bird_deadline: cp.early_bird_deadline,
-      is_active: cp.is_active,
-      // ticket_id is deliberately dropped: it points at the SOURCE thread's
-      // ticket. Re-scoping a code to the copy's matching ticket would be
-      // guesswork; workspace-wide is the safe reading.
+      ticket_id: cp.ticket_id ? (ticketMap.get(cp.ticket_id as string) ?? null) : null,
     });
   }
 
-  // Categories — the copy belongs where the original did.
   const { data: srcCats } = await db
     .from('thread_thread_category')
-    .select('category_id')
+    .select('*')
     .eq('thread_id', src.id);
   if (srcCats?.length) {
     await db
       .from('thread_thread_category')
-      .insert(srcCats.map((r) => ({ thread_id: newThread.id, category_id: r.category_id })));
+      .insert(srcCats.map((row) => ({ ...copied(THREAD_CATEGORY_COPY, row), thread_id: newThread.id })));
   }
 
   // Clone engagements (positions preserved; sends logs NOT copied).
@@ -1377,42 +1340,10 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
   const idMap = new Map<string, string>();
   for (const e of engagements ?? []) {
     const { data: made } = await db.from('thread_engagement').insert({
+      ...copied(ENGAGEMENT_COPY, e),
       workspace_id: ctx.workspaceId,
       thread_id: newThread.id,
-      title: e.title,
-      description: e.description,
-      type: e.type,
-      // WITHOUT THIS the copy of the enrolment message arrives as an
-      // ordinary message, ensureSystemEngagements sees no
-      // `enrolment_confirmed` on the new thread and seeds a SECOND one — two
-      // identical "You're enrolled" rows at position -2, with nothing on
-      // screen telling them apart (Sjoerd, 2026-09-25, duplicating into
-      // "fellowship year agenda"). The insert here names its columns
-      // explicitly, which is the right call for a clone and is also why
-      // every column added to thread_engagement since has to be added here
-      // too — daily_schedule was the last one to be missed.
-      system_role: e.system_role,
-      // Keep the source status — an all-draft copy silently empties the
-      // public agenda and mutes every message (review 2026-07-05).
       status: e.status === 'published' ? 'published' : 'draft',
-      starts_at: e.starts_at,
-      ends_at: e.ends_at,
-      // Per-day times for multi-day activities — added in v0.13.x and never
-      // added here, so a duplicated two-day event lost its daily schedule.
-      daily_schedule: e.daily_schedule,
-      location: e.location,
-      location_url: e.location_url,
-      image_url: e.image_url,
-      meeting_url: e.meeting_url,
-      meeting_provider: e.meeting_provider,
-      scheduled_at: e.scheduled_at,
-      trigger_kind: e.trigger_kind,
-      trigger_anchor: e.trigger_anchor,
-      trigger_offset_days: e.trigger_offset_days,
-      trigger_time: e.trigger_time,
-      content: e.content,
-      position: e.position,
-      show_in_agenda: e.show_in_agenda,
       created_by: ctx.userId,
     })
       .select('id')

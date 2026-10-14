@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.196.3] — 2026-10-14
+
+### A duplicated thread copies everything — and the next new column cannot slip past
+
+Sjoerd: *"Why did a duplicate of a thread not copy the RSVP settings?"* The
+duplicate route copied a hand-written list of columns that had fallen behind
+the tables for the third time (pricing, the daily schedule, now RSVP). Read
+against staging's real columns, it was also missing the enrolment note, the
+organisation, the "sign-ups open" switch and the list of system messages
+already seeded (so a copy could have had them seeded twice), and it DROPPED a
+discount code's ticket limit: a code meant for one ticket came out good for
+any.
+
+**Every column, accounted for** (`lib/thread-copy.ts`): per table — thread,
+session, ticket, code, category — the columns COPIED, the ones SET to
+something new and the ones SKIPPED, each with its reason. The duplicate route
+copies through it, and a code limited to a ticket now points at that ticket's
+copy. **A staging test reads each table's real columns** and fails when one is
+in none of the three lists, or when a list names a column that does not
+exist — so the next new column fails a test, not a customer. Checked by
+removing `rsvp_enabled` from the list: both the coverage test and the
+behaviour test fail.
+- And a test for v1.196.2's last open branch: a seat that two grants hold
+  stays while one is revoked and closes with the second
+  (`fibre-seat-teams.int.test.ts`; fails with the branch disabled).
+
 ## [1.196.2] — 2026-10-14
 
 ### A lapsed membership no longer takes a team member out of the workspace

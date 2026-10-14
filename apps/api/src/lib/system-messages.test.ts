@@ -1,3 +1,4 @@
+import { ENGAGEMENT_COPY } from './thread-copy.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -46,16 +47,21 @@ const ensureFn = (() => {
   return src.slice(at, src.indexOf('\n}', at));
 })();
 
+// The columns moved into lib/thread-copy.ts (2026-10-14), where every column
+// is accounted for and a staging test (thread-duplicate.int.test.ts) fails on
+// any it misses. These two keep the old promises, now asked of the spec —
+// plus that the route really copies through it.
 describe('duplicating a thread keeps its system messages system', () => {
   it('copies system_role — without it the copy is an ordinary message', () => {
-    expect(duplicateInsert).toMatch(/system_role:\s*e\.system_role/);
+    expect(ENGAGEMENT_COPY.copy).toContain('system_role');
+    expect(duplicateInsert).toContain('copied(ENGAGEMENT_COPY, e)');
   });
 
   it('still copies the columns earlier bugs added', () => {
     // daily_schedule was missed once already and a duplicated two-day event
-    // lost its per-day times. Same list, same failure shape.
-    for (const col of ['daily_schedule', 'trigger_kind', 'content', 'position']) {
-      expect(duplicateInsert, `${col} missing from the clone`).toContain(`${col}:`);
+    // lost its per-day times; rsvp_enabled was the third (2026-10-14).
+    for (const col of ['daily_schedule', 'trigger_kind', 'content', 'position', 'rsvp_enabled']) {
+      expect(ENGAGEMENT_COPY.copy, `${col} missing from the clone`).toContain(col);
     }
   });
 });
