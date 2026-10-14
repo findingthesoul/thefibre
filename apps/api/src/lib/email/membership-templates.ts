@@ -308,6 +308,31 @@ function para(html: string, extra = ''): string {
   return `<p style="margin:0 0 18px;${BODY}${extra}">${html}</p>`;
 }
 
+/** The name to greet somebody by, capitalised only when we made it up.
+ *
+ *  A member added by hand often has no name: the person row is created from
+ *  an email, and `first_name` ends up as the local part — so the welcome
+ *  opened "Welcome to soul.com, sjoerd." (Sjoerd, on production, 2026-10-14.)
+ *
+ *  Capitalising EVERY first name would be the easy fix and the wrong one: a
+ *  name somebody typed is theirs, and plenty of people write their own name
+ *  lowercase on purpose. So this capitalises only when the name is exactly
+ *  the email's local part, case-insensitively — which is the case where
+ *  nobody chose it and we are reading a mailbox, not a person. */
+export function greetingName(firstName: string | null | undefined, email?: string | null): string {
+  const name = (firstName ?? '').trim();
+  if (!name) return 'there';
+  const local = (email ?? '').split('@')[0] ?? '';
+  // Only the derived case. `sjoerd+invitetest` → compare on the part before
+  // a plus too, since that is still the same mailbox and the same derivation.
+  const bare = local.split('+')[0] ?? '';
+  const derived =
+    !!local &&
+    (name.toLowerCase() === local.toLowerCase() || name.toLowerCase() === bare.toLowerCase());
+  if (!derived) return name;
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 export function membershipWelcome(opts: {
   name: string;
   communityName: string;
@@ -328,6 +353,13 @@ export function membershipWelcome(opts: {
   portalUrl?: string | null;
   /** The address they joined with — the one that will work at sign-in. */
   email?: string | null;
+  /** Whether an invoice is on its way.
+   *
+   *  True for somebody who joined and paid; FALSE for a member an admin added
+   *  by hand without billing them, where "your invoice arrives in a separate
+   *  email" would promise a message that never comes. One welcome, two
+   *  triggers — not two templates that drift. */
+  invoiceFollows?: boolean;
   locale?: string | null;
   brand?: EmailBrand;
 }): { subject: string; html: string; text: string } {
@@ -336,8 +368,9 @@ export function membershipWelcome(opts: {
 
   const greeting = t(loc, 'm_welcome_greeting', {
     community: opts.communityName,
-    name: opts.name,
+    name: greetingName(opts.name, opts.email),
   });
+  const invoiceFollows = opts.invoiceFollows !== false;
   const opening = t(loc, 'm_welcome_opening');
 
   // WHAT THEY JOINED, in the community's words where there are any. The
@@ -405,7 +438,9 @@ export function membershipWelcome(opts: {
         ]
       : []),
     renewLine ? `<p style="margin:0 0 18px;${SMALL}">${escapeHtml(renewLine)}</p>` : '',
-    `<p style="margin:0 0 18px;${SMALL}">${escapeHtml(t(loc, 'm_welcome_invoice_follows'))}</p>`,
+    invoiceFollows
+      ? `<p style="margin:0 0 18px;${SMALL}">${escapeHtml(t(loc, 'm_welcome_invoice_follows'))}</p>`
+      : '',
     para(escapeHtml(signoff).replace(/\n/g, '<br />')),
   ]
     .filter(Boolean)
@@ -433,8 +468,7 @@ export function membershipWelcome(opts: {
         ]
       : []),
     ...(renewLine ? ['', renewLine] : []),
-    '',
-    t(loc, 'm_welcome_invoice_follows'),
+    ...(invoiceFollows ? ['', t(loc, 'm_welcome_invoice_follows')] : []),
     '',
     signoff,
   ].join('\n');

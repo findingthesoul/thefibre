@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.186.0] — 2026-10-14
+
+### One welcome, two triggers
+
+Sjoerd added himself to soul.com on production and got a different email from
+the one a paying member gets: three lines, normal size, a button to the wrong
+portal. His verdict was "Not 1,5 size".
+
+There were **two paths that tell somebody they are a member**, and only one of
+them had been rewritten. `POST /membership/members` with `invite: true` — an
+admin adding a member by hand — built its own HTML inline and called `shell`
+directly, bypassing `membershipWelcome` entirely. Two templates for one
+moment will always drift, because only one of them is ever in front of
+whoever is editing.
+
+It calls the one template now. The only real difference is
+`invoiceFollows: false`: nobody is billed on that path, and promising an
+invoice that never arrives is worse than saying nothing. Everything else —
+the community's own description and characteristics, the calendar line, the
+my.thread section, the sign-in-by-code sentence, the 1.5× body — is the same,
+because it is the same template.
+
+**And the greeting says a name, not a mailbox.** A member added by hand often
+has no name: the person row is created from an address, so `first_name` is the
+local part, and the email opened "Welcome to soul.com, **sjoerd**."
+
+Capitalising every first name would be the easy fix and the wrong one. A name
+somebody typed is theirs, plenty of people write their own name lowercase on
+purpose, and a greeting that corrects it is a small rudeness at exactly the
+moment we are trying to be welcoming. So the rule is narrow: capitalise only
+when the name **is** the email's local part, which is the case where nobody
+chose it. `sjoerd+invitetest@soul.com` counts, since the plus tag is the same
+mailbox and the same derivation. Seven tests, and the ones that matter are the
+names left alone — `bell`, `danah`, `van Gogh`.
+
+Both variants render side by side now (`render-membership-emails.mjs`), which
+is how "one welcome, two triggers" stays a checkable claim rather than an
+intention.
+
 ## [1.185.1] — 2026-10-14
 
 ### One walk for what a membership lets you join

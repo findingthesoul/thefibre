@@ -955,7 +955,10 @@ membershipRoutes.post('/members', async (c) => {
   // where comped cooperative members were dated one month out).
   const { data: tier } = await db
     .from('membership_tier')
-    .select('name, price_cents_year, price_cents_month, currency')
+    // `description` and `characteristics` are the community's own words about
+    // this tier. They feed the welcome email, which shows them exactly as the
+    // paid join does — one template, so one set of inputs.
+    .select('name, description, characteristics, price_cents_year, price_cents_month, currency')
     .eq('id', memberFields.tier_id)
     .maybeSingle();
   const interval = effectiveInterval(tier, requestedInterval);
@@ -1072,7 +1075,9 @@ membershipRoutes.post('/members', async (c) => {
       .select('first_name, last_name, email, street, postal_code, city, country')
       .eq('id', data.person_id)
       .maybeSingle(),
-    adminClient.from('workspace').select('name').eq('id', ctx.workspaceId).maybeSingle(),
+    // `id` as well as `name`: the welcome email resolves the member's
+    // language from the workspace.
+    adminClient.from('workspace').select('id, name').eq('id', ctx.workspaceId).maybeSingle(),
     getWorkspaceBrand(ctx.workspaceId),
   ]);
 
@@ -1176,17 +1181,40 @@ membershipRoutes.post('/members', async (c) => {
           email_confirm: true,
         });
       }
-      const first = person.first_name ?? 'there';
+      // THE SAME WELCOME AS A PAID JOIN. One email, two triggers.
+      //
+      // This was three hand-written lines with its own `shell` call, so a
+      // member an admin added by hand got a different — and much thinner —
+      // first impression than one who joined and paid, at a different text
+      // size, pointing at a different portal. Sjoerd found it on production
+      // by adding himself: "Not 1,5 size", and then the button took him to
+      // the Members app's own old page instead of my.thread.
+      //
+      // Two templates for one moment will always drift, because only one of
+      // them is ever in front of whoever is editing. So this calls
+      // `membershipWelcome` with `invoiceFollows: false` — the one real
+      // difference, since nobody is billed on this path and promising an
+      // invoice that never arrives is worse than saying nothing.
       const communityName = ws?.name ?? 'the community';
+      const msg = membershipWelcome({
+        name: person.first_name ?? 'there',
+        communityName,
+        tierName: tier?.name ?? 'membership',
+        renewsAt: null,
+        tierDescription: tier?.description ?? null,
+        characteristics: (tier?.characteristics as string[] | null) ?? null,
+        calendarTeamName: null,
+        portalUrl: `${stackSurfaceUrl('my-portal', process.env)}/memberships`,
+        email: person.email,
+        invoiceFollows: false,
+        locale: await memberEmailLocale(ws?.id ?? '', null),
+        brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      });
       await sendEmail({
         to: person.email,
-        subject: `Your ${communityName} membership`,
-        text: `Hi ${first},\n\nYou are a member of ${communityName} (${tier?.name ?? 'membership'}). See your membership, invoices and payment details any time:\n\n${MEMBERSHIP_APP_URL}/my\n\nSign in with this email address.`,
-        html: shell(
-          `Your ${communityName} membership`,
-          `<p>Hi ${escapeHtml(first)},</p><p>You are a member of <strong>${escapeHtml(communityName)}</strong> (${escapeHtml(tier?.name ?? 'membership')}). See your membership, invoices and payment details any time:</p><p style="margin:24px 0 0;"><a href="${MEMBERSHIP_APP_URL}/my" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">Open your membership</a></p><p style="margin-top:16px;color:#737373;font-size:13px;">Sign in with this email address.</p>`,
-          { logoUrl: brand.logoUrl, name: brand.fromName },
-        ),
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
         ...senderOf(brand),
       });
     } catch (e) {

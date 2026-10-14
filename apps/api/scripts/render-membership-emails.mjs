@@ -57,6 +57,32 @@ const samples = [
     }),
   },
   {
+    // THE OTHER TRIGGER: a member an admin added by hand, who paid nothing.
+    // Same template, same size, same portal — the only differences are that
+    // no invoice is promised and there is no renewal date yet. Rendered
+    // beside the paid one on purpose, because "one welcome, two triggers" is
+    // a claim that should be checkable by putting them side by side.
+    //
+    // The name is the email's LOCAL PART, which is what a person row created
+    // from an address carries. It is capitalised in the greeting; a name
+    // somebody actually typed is left exactly as they wrote it.
+    file: 'welcome-en-added-by-hand',
+    msg: membershipWelcome({
+      name: 'sjoerd',
+      communityName: COMMUNITY,
+      tierName: 'Community member',
+      renewsAt: null,
+      tierDescription: 'Membership of the soul.com community.',
+      characteristics: SOUL_CHARACTERISTICS,
+      calendarTeamName: 'soul.com',
+      portalUrl: 'https://my.thethread.app/memberships',
+      email: 'sjoerd+invitetest@soul.com',
+      invoiceFollows: false,
+      locale: 'en',
+      brand: BRAND,
+    }),
+  },
+  {
     // The same email with nothing optional filled in: no description, no
     // ticks, no calendar, no portal URL. This is the one that shows whether
     // the template holds together when a community has written little — the
