@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.196.1] — 2026-10-14
+
+### A membership seat no longer demotes somebody already in the workspace
+
+- **Granting a Fibre seat through a membership rewrote an existing workspace
+  row** to the seat's role and "external" — so a founder or admin who also
+  holds a membership (all five of soul.com's team do) could be set to
+  organiser and external by their own seat. `grantSeat` now inserts the row
+  only when it is absent; for an existing one the seat's role is a floor
+  (raised, never lowered — `lib/role-floor.ts`, the same rank as the
+  `--all-members` script, pinned by a test) and the relationship is left as
+  the organisation set it.
+- Test: `fibre-seat-teams.int.test.ts` — a super_admin/internal row stays
+  exactly that through an admin seat; an organiser/internal one rises to admin
+  and stays internal; a new member still gets organiser/external. Fails on the
+  old upsert.
+
 ## [1.196.0] — 2026-10-14
 
 ### Thread grants by id — and a renamed thread keeps its links

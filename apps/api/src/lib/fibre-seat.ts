@@ -16,6 +16,7 @@ import { seatAvailable } from './plan.js';
 import { syncAutomaticTeams } from './automatic-teams.js';
 import { syncUsers } from './team-grants.js';
 import { seatBillable, reconcileSeatBilling } from './seat-billing.js';
+import { raisedRole } from './role-floor.js';
 
 type JournalRow = {
   id: string;
@@ -96,18 +97,41 @@ export async function grantSeat(
   if (!u) return { ok: false, error: 'user row could not be resolved' };
 
   const role = config?.role === 'admin' ? 'admin' : 'organiser';
-  const { error: wmErr } = await adminClient
+  // AN EXISTING ROW IS NOT REWRITTEN, beyond raising its role. This was an
+  // upsert of (role, 'external'), so a seat granted to somebody already in the
+  // workspace — the TEAM, who also buy memberships — set a super_admin to
+  // organiser and an internal member to external. Found 2026-10-14: every one
+  // of soul.com's five members, Sjoerd included, holds a seat. Same class as
+  // the re-invite demotion (routes/members.ts POST). So: insert if absent;
+  // otherwise the seat's role is a FLOOR (lib/role-floor.ts) and the
+  // relationship is the organisation's to say, not a membership's.
+  const { error: insErr } = await adminClient
     .from('workspace_member')
     .upsert(
-      {
-        user_id: u.id,
-        workspace_id: workspaceId,
-        workspace_role: role,
-        relationship_type: 'external',
-      },
-      { onConflict: 'user_id,workspace_id' },
+      { user_id: u.id, workspace_id: workspaceId, workspace_role: role, relationship_type: 'external' },
+      { onConflict: 'user_id,workspace_id', ignoreDuplicates: true },
     );
-  if (wmErr) return { ok: false, error: wmErr.message };
+  if (insErr) return { ok: false, error: insErr.message };
+  const { data: wm, error: readErr } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('user_id', u.id)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  if (readErr || !wm) return { ok: false, error: readErr?.message ?? 'membership row could not be read back' };
+  const raise = raisedRole(wm.workspace_role, role);
+  if (raise) {
+    const q = adminClient
+      .from('workspace_member')
+      .update({ workspace_role: raise })
+      .eq('user_id', u.id)
+      .eq('workspace_id', workspaceId);
+    // Only over the value just read: a role raised meanwhile is not lowered.
+    const { error: upErr } = await (wm.workspace_role === null
+      ? q.is('workspace_role', null)
+      : q.eq('workspace_role', wm.workspace_role));
+    if (upErr) return { ok: false, error: upErr.message };
+  }
 
   // THE AUTOMATIC TEAMS. Every other writer of `workspace_member` calls this;
   // the membership path did not, so a seat granted by a product put nobody in

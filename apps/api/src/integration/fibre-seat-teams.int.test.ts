@@ -323,4 +323,41 @@ describe('what a seat grant must NOT do', () => {
     expect(tm!.role, 'still a lead').toBe('lead');
     expect(tm!.status, 'and still active').toBe('active');
   }, 120_000);
+
+  it('never lowers a role or changes the relationship of somebody already in the workspace', async () => {
+    // soul.com, 2026-10-14: all five members of the TEAM also hold a seat
+    // through a membership. The grant was an upsert of (organiser, external),
+    // so it set a super_admin to organiser and an internal member to external.
+    const ws = await freshWorkspace('seat-senior');
+    const mk = async (tag: string) => {
+      const email = `int-seat-${tag}-${randomUUID().slice(0, 8)}@example.com`;
+      const { data: p } = await service.from('person').insert({ workspace_id: ws, first_name: 'Seat', last_name: tag, email }).select('id').single();
+      const { data: u } = await service.from('user').insert({ workspace_id: ws, person_id: p!.id, email, primary_auth_method: 'google', email_verified: true }).select('id').single();
+      madeUsers.push(u!.id as string);
+      return { personId: p!.id as string, userId: u!.id as string };
+    };
+    const read = async (userId: string) =>
+      (await service.from('workspace_member').select('workspace_role, relationship_type').eq('workspace_id', ws).eq('user_id', userId).single()).data;
+
+    // A founder: super_admin, internal. Granted an ADMIN seat — still lower.
+    const founder = await mk('founder');
+    await service.from('workspace_member').insert({ workspace_id: ws, user_id: founder.userId, workspace_role: 'super_admin', relationship_type: 'internal' });
+    const g1 = await grantSeat(ws, founder.personId, { role: 'admin' });
+    expect(g1.ok, JSON.stringify(g1)).toBe(true);
+    expect(await read(founder.userId)).toEqual({ workspace_role: 'super_admin', relationship_type: 'internal' });
+
+    // A team organiser, internal, granted an ADMIN seat: the role rises to the
+    // seat's floor; the relationship is left alone.
+    const staff = await mk('staff');
+    await service.from('workspace_member').insert({ workspace_id: ws, user_id: staff.userId, workspace_role: 'organiser', relationship_type: 'internal' });
+    const g2 = await grantSeat(ws, staff.personId, { role: 'admin' });
+    expect(g2.ok, JSON.stringify(g2)).toBe(true);
+    expect(await read(staff.userId)).toEqual({ workspace_role: 'admin', relationship_type: 'internal' });
+
+    // And a NEW member still gets the seat's row, as before.
+    const fresh = await mk('fresh');
+    const g3 = await grantSeat(ws, fresh.personId, { role: 'organiser' });
+    expect(g3.ok, JSON.stringify(g3)).toBe(true);
+    expect(await read(fresh.userId)).toEqual({ workspace_role: 'organiser', relationship_type: 'external' });
+  }, 120_000);
 });
