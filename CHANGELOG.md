@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.193.1] — 2026-10-14
+
+### The tables for member notifications, ahead of the code
+
+`supabase/migrations/20261014164224_member_notifications.sql`, alone, so it
+can be applied to staging the moment it lands and nobody's `db push` is ever
+blocked by a migration applied before its file arrived. Additive only:
+`member_notification`, `member_notification_pref`, `thread_calendar_seen`
+(RLS on, no policies, reached only through the API) and
+`membership_settings.notify_members` (default true). Nothing reads them yet;
+the code that does (item 3) follows in its own release.
+
 ## [1.193.0] — 2026-10-14
 
 ### A paid thread cannot go live without a way to take the money
