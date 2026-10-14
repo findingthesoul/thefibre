@@ -32,6 +32,7 @@ export function CalendarTray({ threadId }: { threadId: string }) {
   const router = useRouter();
   const [changes, setChanges] = useState<CalendarChange[]>([]);
   const [audience, setAudience] = useState(0);
+  const [followers, setFollowers] = useState(0);
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export function CalendarTray({ threadId }: { threadId: string }) {
       if (!alive) return;
       setChanges(r.changes);
       setAudience(r.audience_count);
+      setFollowers(r.followers_count ?? 0);
     });
     return () => {
       alive = false;
@@ -55,6 +57,10 @@ export function CalendarTray({ threadId }: { threadId: string }) {
   if (!changes.length) return null;
 
   const n = changes.length;
+  // Followers of the team calendar who hold no place hear about a MOVE or a
+  // CANCELLATION (in my.thread and one email) — not about a newly added
+  // session, which reaches participants by its invitation.
+  const followersTold = changes.some((c) => c.kind === 'moved' || c.kind === 'cancelled') ? followers : 0;
 
   function send() {
     setError(null);
@@ -130,6 +136,19 @@ export function CalendarTray({ threadId }: { threadId: string }) {
           <p className="text-sm text-ink-subtle">
             Their calendars update themselves — a moved session moves, a
             cancelled one disappears. This is what they will see written down.
+          </p>
+
+          {/* The reach, before the press: participants get the calendar
+              update by email; members who follow this calendar but hold no
+              place are told in my.thread and in their one email. */}
+          <p className="mt-3 text-sm text-ink">
+            {audience} {audience === 1 ? 'participant' : 'participants'} (calendar update)
+            {followersTold > 0 && (
+              <>
+                {' · '}
+                {followersTold} {followersTold === 1 ? 'follower' : 'followers'} (in my.thread and by email)
+              </>
+            )}
           </p>
 
           <ul className="mt-4 divide-y divide-line rounded-xl border border-line">

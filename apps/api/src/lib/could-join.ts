@@ -95,6 +95,23 @@ export function stillJoinable(
 }
 
 
+/** Is this thread ON its team's calendar, as a member sees it: team
+ *  published and active, programme active, still joinable on `today`.
+ *  (Sign-up open is filtered in the query that loads the candidates.)
+ *
+ *  ONE definition, for the Upcoming list and for "new on your calendar"
+ *  (lib/member-notify.ts): a thread announced as new must be a thread the
+ *  member then finds in the list. */
+export function calendarVisible(t: Record<string, unknown>, today: string): boolean {
+  const team = one(t.team as never) as { is_published: boolean | null; is_active: boolean | null } | null;
+  const program = one(t.program as never) as
+    | { status: string; starts_on: string | null; ends_on: string | null }
+    | null;
+  if (!team || team.is_published !== true || team.is_active === false) return false;
+  if (!program || program.status !== 'active') return false;
+  return stillJoinable(program, today);
+}
+
 /** Everything these memberships can join, by membership id.
  *
  *  `places` is the state of every place this person already has, by thread
@@ -182,18 +199,7 @@ export async function couldJoinFrom(
   );
 
   // Reachable, or it does not belong in a list of what you can join.
-  const open = candidates.filter((t) => {
-    const team = one(t.team as never) as
-      | { slug: string; name: string; is_published: boolean | null; is_active: boolean | null }
-      | null;
-    const program = one(t.program as never) as
-      | { title: string; status: string; starts_on: string | null; ends_on: string | null }
-      | null;
-    if (!team || team.is_published !== true || team.is_active === false) return false;
-    if (!program || program.status !== 'active') return false;
-    if (!stillJoinable(program, today)) return false;
-    return true;
-  });
+  const open = candidates.filter((t) => calendarVisible(t, today));
 
   // Tickets for all of them at once, and the price from the same two
   // functions the enrol POST uses.

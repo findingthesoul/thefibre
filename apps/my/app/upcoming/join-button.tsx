@@ -22,7 +22,7 @@ type Outcome =
   | { kind: 'in' }
   | { kind: 'already' }
   | { kind: 'invoice' }
-  | { kind: 'closed' }
+  | { kind: 'closed'; membership: boolean }
   | { kind: 'pending' }
   | { kind: 'error'; message: string; pageHelps: boolean };
 
@@ -61,6 +61,7 @@ export function JoinButton({ j }: { j: CouldJoin }) {
         already_enrolled?: boolean;
         invoice_open?: boolean;
         place_closed?: boolean;
+        place_closed_reason?: 'membership_ended' | 'organiser';
       };
       if (!res.ok) {
         const message = sentenceFor(res.status, body.error);
@@ -83,7 +84,7 @@ export function JoinButton({ j }: { j: CouldJoin }) {
         body.invoice_open
           ? { kind: 'invoice' }
           : body.place_closed
-          ? { kind: 'closed' }
+          ? { kind: 'closed', membership: body.place_closed_reason === 'membership_ended' }
           : body.already_enrolled
           ? { kind: 'already' }
           : body.pending_approval
@@ -125,9 +126,13 @@ export function JoinButton({ j }: { j: CouldJoin }) {
   if (outcome?.kind === 'closed') {
     // The organiser ended this place (a decline, or a membership place
     // withdrawn). Signing up again does not reopen it; only they can.
+    // Two causes, two sentences: "closed by the organiser" is simply untrue
+    // for a place that went because a membership ended.
     return (
       <p className={`${NOTICE.info} mt-3`}>
-        Your place on this one was closed by the organiser. Contact them if you would like to join.
+        {outcome.membership
+          ? 'Your place on this one came with a membership that has ended. Contact the organiser if you would like to join.'
+          : 'Your place on this one is closed. Contact the organiser if you would like to join.'}
       </p>
     );
   }

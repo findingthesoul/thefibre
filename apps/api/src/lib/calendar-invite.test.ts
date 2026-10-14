@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  enrolmentHoldsAPlace,
   calendarStateChanged,
   calendarStateOf,
   collapseDecision,
@@ -185,5 +186,18 @@ describe('calendarInviteEmail — what it promises', () => {
     });
     expect(mail.text).toContain('Venue was double-booked');
     expect(mail.html).not.toContain('<script>');
+  });
+});
+
+// WHO HEARS ABOUT A SESSION MOVING. Until 2026-10-14 this compared against
+// statuses that do not exist ('withdrawn', 'rejected', 'cancelled'), so a
+// person the organiser had declined kept receiving their calendar updates.
+// Every real enrolment status is listed, so a new one cannot slip past.
+describe('enrolmentHoldsAPlace', () => {
+  it('a declined (dropped) person is not told', () => {
+    expect(enrolmentHoldsAPlace('dropped')).toBe(false);
+  });
+  it('every live status is', () => {
+    for (const s of ['invited', 'enrolled', 'active', 'completed']) expect(enrolmentHoldsAPlace(s), s).toBe(true);
   });
 });

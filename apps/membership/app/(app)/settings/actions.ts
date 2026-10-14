@@ -91,6 +91,11 @@ export async function saveCurrencies(input: {
 // Fibre-seat policy (2026-09-05): approve-or-auto + the standing consent
 // for billed seats. Lives on the Integrations page — the built-in
 // integration's own settings.
+/** "Tell members about new and changed threads" — the community switch. */
+export async function saveNotifyMembers(on: boolean): Promise<ActionResult> {
+  return putSettings({ notify_members: on });
+}
+
 export async function saveSeatPolicy(input: {
   fibre_seat_mode: 'auto' | 'approve';
   allow_billed_seats: boolean;

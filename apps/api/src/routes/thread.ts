@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
 import {
+  closedReason,
   duplicateAnswer,
   invoicedEnrolmentIds,
   placeState,
 } from '../lib/place-state.js';
 import { paymentRouteProblem } from '../lib/thread-payment-route.js';
+import { sendReach } from '../lib/member-notify.js';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   couponPriceOf,
@@ -1888,11 +1890,15 @@ threadRoutes.get('/threads/:id/calendar-changes', async (c) => {
     .maybeSingle();
   if (!t) return c.json({ error: 'not found' }, 404);
 
-  const [changes, audience] = await Promise.all([
+  const [changes, audience, reach] = await Promise.all([
     pendingChanges(threadId),
     calendarAudience(threadId),
+    sendReach(threadId),
   ]);
-  return c.json({ changes, audience_count: audience.length });
+  // followers_count (additive): members who follow this team calendar and
+  // hold no place — they hear about the SEND in-app and by the digest. The
+  // dialog says the reach before the press.
+  return c.json({ changes, audience_count: audience.length, followers_count: reach.followers });
 });
 
 threadRoutes.post('/threads/:id/calendar-changes/send', async (c) => {
@@ -7329,14 +7335,16 @@ threadRoutes.post('/public/enrol', async (c) => {
         //     payment here is how somebody pays twice: the card now and the
         //     numbered invoice later, which nothing voids.
         //   place_closed — the organiser declined them, or a membership place
-        //     was withdrawn. Not reopened by signing up again; the member is
-        //     told to contact the organiser.
+        //     was withdrawn (place_closed_reason says which). Not reopened by
+        //     signing up again.
         return c.json({
           ok: true,
           enrolment_id: dup.id,
           already_enrolled: true,
           ...(answer === 'invoice_open' ? { invoice_open: true } : {}),
-          ...(answer === 'closed' ? { place_closed: true } : {}),
+          ...(answer === 'closed'
+            ? { place_closed: true, place_closed_reason: await closedReason(thread.id, person.id) }
+            : {}),
           has_account: hasAccount === true,
         });
       }

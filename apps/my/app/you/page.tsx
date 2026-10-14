@@ -28,6 +28,8 @@ import { PageShell } from '../page-shell';
 import { DetailsForm } from './details-form';
 import { CalendarCard } from './calendar-card';
 import { DirectoryCard } from './directory-card';
+import { NotifyCard } from './notify-card';
+import { fetchNotifyPrefs } from '@/lib/portal-api';
 import { ErasureBody, ErasureFallback } from './erasure-section';
 import { SignOutButton } from './sign-out-button';
 
@@ -48,7 +50,7 @@ export default async function YouPage() {
   // `loadErasure` is NOT here, deliberately. At 576ms it was the second
   // heaviest call on the page and it feeds a disclosure almost nobody opens,
   // so it streams in its own boundary below instead of holding the page up.
-  const [profile, calendar, directory, apps] = await Promise.all([
+  const [profile, calendar, directory, apps, notifyPrefs] = await Promise.all([
     loadProfile(),
     loadCalendarStatus(),
     // Empty when there are no communities OR when the call failed; the
@@ -58,6 +60,9 @@ export default async function YouPage() {
     // Drives the sentence below: with no seat anywhere, 'back to the site' is
     // the only door there is and deserves explaining.
     headers().then((h) => reachableApps(h.get('host'))),
+    // Null when the call failed: the section is then omitted rather than
+    // showing switches in a state we are not sure of.
+    fetchNotifyPrefs(session.token),
   ]);
   const { person } = session.portal;
   // Label derived from the resolved href, not from the constant: on staging
@@ -107,6 +112,8 @@ export default async function YouPage() {
       ) : (
         directory.length > 0 && <DirectoryCard choices={directory} />
       )}
+
+      {notifyPrefs && <NotifyCard prefs={notifyPrefs} />}
 
       {/* Below the calendar and above the way out — last of the things you
           DO here, which is where a page puts the one you hope nobody needs.

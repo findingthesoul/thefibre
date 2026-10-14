@@ -47,6 +47,8 @@ import { ENTITY } from '@thefibre/shared';
 import { platformFromAddress, sendEmail } from './email/client.js';
 import { calendarInviteEmail } from './email/thread-templates.js';
 import { workspaceSender } from './workspace-brand.js';
+import { notifyCalendarSend } from './member-notify.js';
+import { enrolmentIsLive } from './portal.js';
 
 /** The fields whose change is worth telling somebody about. Sjoerd set this
  *  list explicitly: date, time, place, existence — *"not when someone fixes a
@@ -274,8 +276,17 @@ export async function calendarAudience(
 
 /** Someone who is actually coming. Withdrawn and rejected people are not told
  *  a session moved, because it is no longer their session. */
-function enrolmentHoldsAPlace(status: string | null): boolean {
-  return status !== 'withdrawn' && status !== 'rejected' && status !== 'cancelled';
+/** Whether this enrolment still holds a place, for who hears about a
+ *  session moving.
+ *
+ *  It compared against 'withdrawn', 'rejected' and 'cancelled' until
+ *  2026-10-14 — none of which is an enrolment status (the CHECK allows
+ *  invited, enrolled, active, completed, dropped). So it matched nothing, and
+ *  a person the organiser DECLINED kept receiving that organiser's calendar
+ *  updates. It now asks the one shared definition, `enrolmentIsLive`, which
+ *  the portal's door and RSVP already agree on. */
+export function enrolmentHoldsAPlace(status: string | null): boolean {
+  return enrolmentIsLive(status);
 }
 
 const one = <T>(v: unknown): T | null =>
@@ -534,6 +545,13 @@ export async function startSendingPendingChanges(args: {
   }
 
   sending.add(args.threadId);
+  // The same press tells the thread's FOLLOWERS (lib/member-notify.ts):
+  // in-app for participants, who get this calendar update by email already,
+  // and in-app plus the digest for members who follow the calendar but hold
+  // no place. Never at the edit — only here, at the decision.
+  void notifyCalendarSend(args.threadId, changes).catch((e) =>
+    console.error('[thread/calendar] follower notifications failed', { threadId: args.threadId, e }),
+  );
   void sendPendingChanges({ threadId: args.threadId, note: args.note ?? null })
     .then((r) => {
       if (r.skipped.length) {

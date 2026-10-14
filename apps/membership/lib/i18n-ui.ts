@@ -2492,6 +2492,38 @@ const CATALOG = {
   },
 
   // ── member directory (docs/member-directory-spec.md slice 1) ──────────
+  st_notify_title: {
+    en: 'Member notifications',
+    nl: 'Ledenberichten', // MT
+    es: 'Avisos a miembros', // MT
+    pt: 'Avisos aos membros', // MT
+    de: 'Mitgliederbenachrichtigungen', // MT
+    fr: 'Notifications aux membres', // MT
+  },
+  st_notify_desc: {
+    en: 'Tell members when a thread appears on a calendar they follow, or a session moves.',
+    nl: 'Laat leden weten wanneer er een thread in een gevolgde agenda verschijnt of een sessie verschuift.', // MT
+    es: 'Avisa a los miembros cuando aparece un thread en un calendario que siguen o cambia una sesión.', // MT
+    pt: 'Avise os membros quando um thread aparece num calendário que seguem ou uma sessão muda.', // MT
+    de: 'Mitglieder informieren, wenn ein Thread in einem gefolgten Kalender erscheint oder sich eine Sitzung verschiebt.', // MT
+    fr: 'Prévenir les membres quand un thread apparaît dans un agenda suivi ou qu’une session change.', // MT
+  },
+  notify_members_label: {
+    en: 'Tell members about new and changed threads',
+    nl: 'Leden informeren over nieuwe en gewijzigde threads', // MT
+    es: 'Avisar a los miembros de threads nuevos y cambiados', // MT
+    pt: 'Avisar os membros sobre threads novos e alterados', // MT
+    de: 'Mitglieder über neue und geänderte Threads informieren', // MT
+    fr: 'Prévenir les membres des threads nouveaux et modifiés', // MT
+  },
+  notify_members_hint: {
+    en: 'In my.thread, and in one email per member after a quiet quarter of an hour. Each member can turn the email off. While this is off, nothing published is announced later.',
+    nl: 'In my.thread, en in één e-mail per lid na een rustig kwartier. Elk lid kan de e-mail uitzetten. Zolang dit uit staat, wordt niets wat gepubliceerd wordt later aangekondigd.', // MT
+    es: 'En my.thread y en un correo por miembro tras un cuarto de hora tranquilo. Cada miembro puede desactivar el correo. Mientras esté desactivado, nada de lo publicado se anunciará después.', // MT
+    pt: 'No my.thread e num e-mail por membro após um quarto de hora tranquilo. Cada membro pode desativar o e-mail. Enquanto estiver desligado, nada do que for publicado será anunciado depois.', // MT
+    de: 'In my.thread und in einer E-Mail pro Mitglied nach einer ruhigen Viertelstunde. Jedes Mitglied kann die E-Mail abschalten. Solange dies aus ist, wird nichts Veröffentlichte später angekündigt.', // MT
+    fr: 'Dans my.thread, et dans un e-mail par membre après un quart d’heure calme. Chaque membre peut couper l’e-mail. Tant que c’est désactivé, rien de ce qui est publié ne sera annoncé ensuite.', // MT
+  },
   st_directory_title: {
     en: 'Member directory',
     nl: 'Ledenlijst',

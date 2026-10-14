@@ -630,7 +630,7 @@ export type CalendarChange = {
 
 export async function getCalendarChanges(
   threadId: string,
-): Promise<{ changes: CalendarChange[]; audience_count: number }> {
+): Promise<{ changes: CalendarChange[]; audience_count: number; followers_count?: number }> {
   try {
     return await apiFetch(`/api/v1/thread/threads/${threadId}/calendar-changes`);
   } catch {

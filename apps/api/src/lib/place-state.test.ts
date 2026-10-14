@@ -49,11 +49,12 @@ const ROWS: { name: string; facts: PlaceFacts; route: ReturnType<typeof duplicat
     route: 'closed',
   },
   {
-    // Declined while an invoice is still open: the invoice stands until the
-    // organiser settles or voids it, and the member is told about the invoice.
+    // Declined while an invoice is still open: CLOSED wins. Telling them
+    // about the invoice would invite them to pay for a place that is closed;
+    // settling or voiding that invoice is the organiser's.
     name: 'declined with an invoice still open',
     facts: { enrolmentStatus: 'dropped', paymentStatus: 'pending', invoiced: true },
-    route: 'invoice_open',
+    route: 'closed',
   },
   {
     name: 'free place',

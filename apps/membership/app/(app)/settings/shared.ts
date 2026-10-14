@@ -31,6 +31,9 @@ export type MembershipSettings = {
   /** Which category a product carrying none confers (§9.3). Null = a member
    *  with no category is not listed and sees nobody, in `category` mode. */
   directory_default_category_id?: string | null;
+  /** "Tell members about new and changed threads". Absent on an older API,
+   *  which reads as the default, on. */
+  notify_members?: boolean;
 };
 
 /** A workspace's own directory vocabulary. Not a tier: see §9.2. */

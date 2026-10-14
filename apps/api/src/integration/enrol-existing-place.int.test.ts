@@ -174,11 +174,12 @@ describe('an UNPAID INVOICE holds the place', () => {
     expect(await ledgerFor(p.teId)).toEqual(before);
   });
 
-  it('still holds it after the place is DECLINED while the invoice is open', async () => {
+  it('DECLINED while the invoice is open: closed wins — no invitation to pay for a closed place', async () => {
     const p = await invoicedPlace();
     await service.from('enrolment').update({ status: 'dropped' }).eq('id', p.enrolmentId);
     const body = await (await enrol(p.email)).json();
-    expect(body.invoice_open).toBe(true);
+    expect(body).toMatchObject({ already_enrolled: true, place_closed: true, place_closed_reason: 'organiser' });
+    expect(body.invoice_open).toBeUndefined();
     expect(await ledgerFor(p.teId)).toHaveLength(1);
   });
 });
@@ -218,7 +219,13 @@ describe('a DECLINED place stays closed', () => {
 
       const res = await enrol(p.email);
       expect(res.status).toBe(200);
-      expect(await res.json()).toMatchObject({ ok: true, already_enrolled: true, place_closed: true });
+      expect(await res.json()).toMatchObject({
+        ok: true,
+        already_enrolled: true,
+        place_closed: true,
+        // No membership involved here: the organiser closed it.
+        place_closed_reason: 'organiser',
+      });
       // The ledger row keeps its reference: refunds, payouts and invoices all
       // find their rows by it.
       expect(await ledgerFor(p.teId)).toEqual(before);

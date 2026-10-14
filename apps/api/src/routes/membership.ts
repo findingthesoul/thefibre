@@ -250,6 +250,7 @@ export const PutSettings = z.object({
   directory_visibility: z.enum(['everybody', 'category']).optional(),
   directory_show_contact: z.boolean().optional(),
   directory_show_category: z.boolean().optional(),
+  notify_members: z.boolean().optional(),
   directory_default_category_id: z.string().uuid().nullable().optional(),
   allow_billed_seats: z.boolean().optional(),
   // Default language of the community's public surfaces + member emails
@@ -1730,7 +1731,7 @@ membershipRoutes.get('/settings', async (c) => {
   }
   const { data, error } = await adminClient
     .from('membership_settings')
-    .select('workspace_id, circle_api_token, circle_community_url, google_sa_json, google_admin_email, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id, directory_enabled')
+    .select('workspace_id, circle_api_token, circle_community_url, google_sa_json, google_admin_email, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id, directory_enabled, notify_members')
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (error) return fail(c, 'get settings', error);
@@ -1749,6 +1750,9 @@ membershipRoutes.get('/settings', async (c) => {
     directory_show_contact: data?.directory_show_contact ?? false,
     directory_show_category: data?.directory_show_category ?? false,
     directory_default_category_id: data?.directory_default_category_id ?? null,
+    // "Tell members about new and changed threads" (lib/member-notify.ts).
+    // No row yet = on, the default.
+    notify_members: data?.notify_members ?? true,
   });
 });
 
@@ -1772,6 +1776,7 @@ membershipRoutes.put('/settings', async (c) => {
   if (body.data.directory_visibility !== undefined) row.directory_visibility = body.data.directory_visibility;
   if (body.data.directory_show_contact !== undefined) row.directory_show_contact = body.data.directory_show_contact;
   if (body.data.directory_show_category !== undefined) row.directory_show_category = body.data.directory_show_category;
+  if (body.data.notify_members !== undefined) row.notify_members = body.data.notify_members;
   // The default category is the one directory field that names another ROW,
   // and this route runs on adminClient, which RLS does not see — so the
   // tenant boundary here is this check and nothing else. The foreign key

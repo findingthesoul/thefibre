@@ -10,23 +10,25 @@
 //
 // The four states, in the order they win:
 //
-//   invoice_open — unpaid, and the ledger holds an INVOICE for it. Held. An
-//                  invoice is a numbered legal document and nothing voids it
-//                  when a card payment lands, so offering "Join" by card here
-//                  is how a person pays twice. This wins over a failed card
-//                  attempt that came before the invoice, and over a cancel.
 //   closed       — the place was ended by somebody else: enrolment status
 //                  `dropped`, which today is an organiser's DECLINE or a
 //                  membership-granted place withdrawn on a lapse. Held, and
 //                  never offered again from a list: a declined person who
 //                  could simply re-apply would have to be declined again on
-//                  every approval thread. The route says so (`place_closed`)
-//                  and the member is told to contact the organiser.
+//                  every approval thread. The route says so (`place_closed`,
+//                  with `place_closed_reason`). Wins over an open invoice:
+//                  telling a declined person about their invoice reads as an
+//                  invitation to pay for a place that is closed.
 //                  (Rejoining after cancelling YOURSELF was approved by Sjoerd
 //                  on 2026-10-14, but no self-cancel exists yet, and reopening
 //                  a place without rewriting its ledger reference needs a
 //                  schema change: one place per person per thread is unique
 //                  twice over. Deferred, not forgotten.)
+//   invoice_open — unpaid, and the ledger holds an INVOICE for it. Held. An
+//                  invoice is a numbered legal document and nothing voids it
+//                  when a card payment lands, so offering "Join" by card here
+//                  is how a person pays twice. Wins over a failed card attempt
+//                  that came before the invoice.
 //   retry        — unpaid by card (payment `pending` or `failed`, no invoice):
 //                  a bailed or expired checkout. The route reuses the row and
 //                  runs the payment again — never a dead end.
@@ -47,8 +49,11 @@ export type PlaceFacts = {
 
 export function placeState(p: PlaceFacts): PlaceState {
   const unpaid = p.paymentStatus === 'pending' || p.paymentStatus === 'failed';
-  if (unpaid && p.invoiced) return 'invoice_open';
+  // Closed FIRST: a person the organiser declined, who still has an invoice
+  // open, must not be told about the invoice — that reads as an invitation
+  // to pay for a place that is closed. (Coordinator review of v1.193.0.)
   if (p.enrolmentStatus === 'dropped') return 'closed';
+  if (unpaid && p.invoiced) return 'invoice_open';
   if (unpaid) return 'retry';
   return 'held';
 }
@@ -133,4 +138,29 @@ export async function placesByThread(
     );
   }
   return out;
+}
+
+/** Why a closed place is closed, for the sentence the member reads: a
+ *  membership-granted place withdrawn when the membership ended, or the
+ *  organiser's decision. The membership case leaves a journal row
+ *  (membership_member_access, status `revoked`, external_ref = the thread)
+ *  for one of this person's memberships; anything else is the organiser's. */
+export async function closedReason(
+  threadId: string,
+  personId: string,
+): Promise<'membership_ended' | 'organiser'> {
+  const { data: members } = await adminClient
+    .from('membership_member')
+    .select('id')
+    .eq('person_id', personId);
+  const ids = (members ?? []).map((m) => m.id as string);
+  if (!ids.length) return 'organiser';
+  const { data } = await adminClient
+    .from('membership_member_access')
+    .select('id')
+    .in('member_id', ids)
+    .eq('status', 'revoked')
+    .eq('external_ref', threadId)
+    .limit(1);
+  return data && data.length ? 'membership_ended' : 'organiser';
 }

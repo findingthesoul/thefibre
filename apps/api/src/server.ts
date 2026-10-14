@@ -34,6 +34,7 @@ import { pulseRoutes } from './routes/pulse.js';
 import { membershipRoutes, runMembershipScheduler } from './routes/membership.js';
 import { withSchedulerLease } from './lib/scheduler-lease.js';
 import { bootDelay } from './lib/boot-schedule.js';
+import { runMemberNotify } from './lib/member-notify.js';
 import { warmJwks as warmParticipantJwks } from './lib/participant-auth.js';
 import { runBillingMeterTick } from './routes/billing.js';
 import { runHygieneSweep } from './lib/hygiene.js';
@@ -57,6 +58,7 @@ import { publicDomainsRoutes } from './routes/public-domains.js';
 import { isTenantOrigin } from './lib/tenant-origins.js';
 import { runWebDomainRecheck } from './lib/web-domain-recheck.js';
 import { publicPlansRoutes } from './routes/public-plans.js';
+import { publicNotifyRoutes } from './routes/public-notify.js';
 import { billingRoutes } from './routes/billing.js';
 import { adminEconomicsRoutes } from './routes/admin-economics.js';
 import { adminSettingsRoutes } from './routes/admin-settings.js';
@@ -336,6 +338,7 @@ v1.route('/plan', planRoutes);
 v1.route('/admin/plans', adminPlansRoutes);
 v1.route('/admin/email-domains', adminEmailDomainsRoutes);
 v1.route('/public/plans', publicPlansRoutes);
+v1.route('/public/notify', publicNotifyRoutes);
 v1.route('/billing', billingRoutes);
 v1.route('/admin/economics', adminEconomicsRoutes);
 v1.route('/admin/settings', adminSettingsRoutes);
@@ -415,6 +418,10 @@ const JOBS: [string, () => Promise<unknown>, string][] = [
   // host's time for good. Idempotent: the flip is conditional on the row
   // still being pending.
   ['meet-request-expiry', runMeetRequestExpiry, 'meet/request-expiry'],
+  // Members told about their team calendars (lib/member-notify.ts): threads
+  // newly on a calendar, then the one-per-person digest after 15 quiet
+  // minutes. The first run anywhere only records the baseline.
+  ['member-notify', runMemberNotify, 'member-notify'],
 ];
 JOBS.forEach(([name, run, label], i) => {
   const tick = () => leased(name, run, label);

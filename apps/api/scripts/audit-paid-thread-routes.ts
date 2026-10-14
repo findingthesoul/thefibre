@@ -1,8 +1,15 @@
 // Every LIVE, PAID thread that nobody can pay for — a list, not a change.
 //
 //   cd apps/api
-//   npx tsx --env-file=.env scripts/audit-paid-thread-routes.ts prod
+//   npx tsx --env-file=.env scripts/audit-paid-thread-routes.ts prod --platform-stripe=on
 //   npx tsx --env-file=.env.staging scripts/audit-paid-thread-routes.ts staging
+//
+// --platform-stripe=on judges card routes as if the platform Stripe key is
+// set, which it is on the running production API. The env file in the main
+// checkout carries no Stripe key, and the check never calls Stripe — it only
+// asks whether a key exists — so a live secret pasted for it would be
+// handling for nothing (coordinator review, 2026-10-14). The output says
+// which assumption it ran under.
 //
 // The publish guard (lib/thread-payment-route.ts, 2026-10-14) stops a paid
 // thread going live without a way to take the money. It cannot reach what
@@ -25,7 +32,7 @@ const PRODUCTION_REF = 'zfsyyokepyycefbxiblc';
 
 const target = process.argv[2];
 if (target !== 'prod' && target !== 'staging') {
-  console.error('usage: npx tsx --env-file=<env> scripts/audit-paid-thread-routes.ts prod|staging');
+  console.error('usage: npx tsx --env-file=<env> scripts/audit-paid-thread-routes.ts prod|staging [--platform-stripe=on]');
   process.exit(64);
 }
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -37,10 +44,13 @@ if (!url.includes(want)) {
   console.error(`REFUSED: you said ${target}, but the env file points at ${url || 'nothing'}.`);
   process.exit(2);
 }
-if (!process.env.STRIPE_SECRET_KEY) {
+const assumePlatformKey = process.argv.includes('--platform-stripe=on');
+if (assumePlatformKey) {
+  console.log('Assuming the platform Stripe key is set, as on the running API (--platform-stripe=on).\n');
+} else if (!process.env.STRIPE_SECRET_KEY) {
   console.warn(
     'WARNING: no STRIPE_SECRET_KEY in this env file, so NO card route can be judged working —\n' +
-      '  every paid card-only thread will be listed. Use the env file the API runs with.\n',
+      '  every paid card-only thread will be listed. Add --platform-stripe=on when the server has one.\n',
   );
 }
 
@@ -61,7 +71,7 @@ const live = (threads ?? []).filter(
 
 const stuck: string[] = [];
 for (const t of live) {
-  const problem = await paymentRouteProblem(t.id as string);
+  const problem = await paymentRouteProblem(t.id as string, {}, { assumePlatformKey });
   if (!problem) continue;
   const ws = (one(t.workspace as never) as { slug?: string } | null)?.slug ?? t.workspace_id;
   const title = (one(t.program as never) as { title?: string } | null)?.title ?? '(untitled)';

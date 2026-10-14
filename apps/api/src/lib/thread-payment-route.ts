@@ -38,12 +38,18 @@ export type RouteThread = {
 /** A thread's routes, with the card check done once. A thread has one payout
  *  destination whatever the ticket, so the account is resolved once and each
  *  ticket's methods are filtered against it. */
-export async function routeResolver(t: RouteThread): Promise<(ticketMethods: string[] | null) => Promise<Method[]>> {
+export async function routeResolver(
+  t: RouteThread,
+  /** For the audit script only: judge card as if the platform Stripe key is
+   *  set (as it is on the running server), so nobody pastes a live secret
+   *  into a script that never calls Stripe and only asks whether one exists. */
+  opts: { assumePlatformKey?: boolean } = {},
+): Promise<(ticketMethods: string[] | null) => Promise<Method[]>> {
   let cardReady: boolean | null = null;
   const card = async () => {
     if (cardReady === null) {
       cardReady =
-        !!stripeOrNull() &&
+        (opts.assumePlatformKey || !!stripeOrNull()) &&
         !!(await threadDestinationAccount({
           workspace_id: t.workspace_id,
           team_id: t.team_id,
@@ -101,6 +107,7 @@ export async function paymentRouteProblem(
     /** One ticket's pending price and methods (a ticket create or edit). */
     ticket?: { id: string | null; price_cents: number; payment_methods: string[] | null; is_active: boolean };
   } = {},
+  opts: { assumePlatformKey?: boolean } = {},
 ): Promise<string | null> {
   const { data: row } = await adminClient
     .from('thread_thread')
@@ -142,7 +149,7 @@ export async function paymentRouteProblem(
     payment_destination: (t.payment_destination as string | null) ?? null,
     payment_methods: (t.payment_methods as string[] | null) ?? null,
     organiser_user_id: (organiser as { user_id?: string | null } | null)?.user_id ?? null,
-  });
+  }, opts);
   for (const ticketMethods of paidPoints) {
     if ((await routesFor(ticketMethods)).length === 0) return NO_ROUTE_MESSAGE;
   }

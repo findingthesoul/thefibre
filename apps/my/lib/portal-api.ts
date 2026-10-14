@@ -227,7 +227,57 @@ export type Portal = {
   /** Does any membership carry a team calendar? Shows "Upcoming". Absent on
    *  an API older than v1.192, which reads as no. */
   upcoming?: boolean;
+  /** Unread notifications, for the dot on the bell. Absent = none. */
+  unread_notifications?: number;
 };
+
+/** One thing a member was told (type + subject + date — never a body). */
+export type MemberNotification = {
+  id: string;
+  kind: 'new_thread' | 'session_moved' | 'session_cancelled';
+  thread_id: string | null;
+  subject: string;
+  starts_at: string | null;
+  read: boolean;
+  created_at: string;
+  community: string | null;
+};
+
+/** THROWS on failure: an empty list and a broken call must not look alike. */
+export async function fetchNotifications(
+  accessToken: string,
+  cursor: string | null,
+): Promise<{ items: MemberNotification[]; next_cursor: string | null }> {
+  const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  const res = await fetch(`${baseUrl}/api/v1/me/portal/notifications${q}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `API ${res.status}: /api/v1/me/portal/notifications`);
+  return res.json() as Promise<{ items: MemberNotification[]; next_cursor: string | null }>;
+}
+
+/** Best-effort: a list that failed to mark read is still a list. */
+export async function markNotificationsRead(accessToken: string): Promise<void> {
+  await fetch(`${baseUrl}/api/v1/me/portal/notifications/read`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  }).catch(() => undefined);
+}
+
+export type NotifyPref = { workspace_id: string; community: string | null; email_off: boolean };
+
+/** Null when the call failed — the You page then omits the switches rather
+ *  than showing a state it is unsure of. */
+export async function fetchNotifyPrefs(accessToken: string): Promise<NotifyPref[] | null> {
+  const res = await fetch(`${baseUrl}/api/v1/me/portal/notification-prefs`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  return ((await res.json()) as { items: NotifyPref[] }).items;
+}
 
 /** One page of everything the member's team calendars let them join. */
 export type UpcomingPage = { entitled: boolean; items: CouldJoin[]; next_cursor: string | null };

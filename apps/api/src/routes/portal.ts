@@ -80,6 +80,7 @@ import {
 import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { placesByThread } from '../lib/place-state.js';
+import { ensurePref } from '../lib/member-notify.js';
 import {
   couldJoinFrom,
   entitlementsByMember,
@@ -688,6 +689,14 @@ portalRoutes.get('/portal', async (c) => {
       })),
   );
   const upcoming = holdsTeamCalendar(entitlements);
+  // The dot on my.thread's bell (lib/member-notify.ts). Counted across every
+  // community this address is a person in.
+  const { count: unreadCount } = await adminClient
+    .from('member_notification')
+    .select('id', { count: 'exact', head: true })
+    .in('person_id', personIds)
+    .is('read_at', null);
+  const unread_notifications = unreadCount ?? 0;
   const couldJoinByMemberId = await couldJoinFrom(entitlements, places, MEMBERSHIP_CARD_ROWS);
 
   // -- Group by workspace ---------------------------------------------------
@@ -705,7 +714,7 @@ portalRoutes.get('/portal', async (c) => {
   ].filter(Boolean);
 
   if (!workspaceIds.length) {
-    return c.json({ person: me, wallet: walletAvailability(), groups: [], upcoming });
+    return c.json({ person: me, wallet: walletAvailability(), groups: [], upcoming, unread_notifications });
   }
 
   const { data: workspaces } = await adminClient
@@ -848,7 +857,124 @@ portalRoutes.get('/portal', async (c) => {
       (a.tickets.length + a.threads.length + a.meets.length + a.memberships.length),
   );
 
-  return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming });
+  return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming, unread_notifications });
+});
+
+// ===========================================================================
+// Notifications — GET /me/portal/notifications, POST …/read,
+// GET/PUT /me/portal/notification-prefs
+//
+// The member's in-app list (lib/member-notify.ts): type + subject + date,
+// newest first, across every community this address is a person in. Reading
+// the list marks it read; the email switch is per community.
+// ===========================================================================
+
+const NOTIFICATION_PAGE = 30;
+
+portalRoutes.get('/portal/notifications', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const persons = await personsForEmail(email);
+  if (!persons.length) return c.json({ items: [], next_cursor: null });
+
+  // Cursor = created_at|id of the last row: a total order, so a page boundary
+  // between two rows written in one instant neither skips nor repeats one.
+  const cursor = c.req.query('cursor') ?? null;
+  let q = adminClient
+    .from('member_notification')
+    .select('id, workspace_id, kind, thread_id, subject, starts_at, read_at, created_at, workspace:workspace_id (name)')
+    .in('person_id', persons.map((p) => p.id))
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(NOTIFICATION_PAGE + 1);
+  if (cursor) {
+    // The cursor comes from the query string and goes into a PostgREST
+    // `.or()`, which is a filter LANGUAGE — interpolating it unchecked lets a
+    // caller write their own filter. So it must be exactly an ISO timestamp
+    // and a uuid, or it is refused.
+    const m = /^(\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2}))\|([0-9a-f-]{36})$/i.exec(cursor);
+    if (!m) return c.json({ error: 'bad cursor' }, 400);
+    const [, at, id] = m;
+    q = q.or(`created_at.lt.${at},and(created_at.eq.${at},id.lt.${id})`);
+  }
+  const list = rows('portal: notifications', await q);
+  const page = list.slice(0, NOTIFICATION_PAGE);
+  const last = page[page.length - 1];
+  return c.json({
+    items: page.map((n) => ({
+      id: n.id,
+      kind: n.kind,
+      thread_id: n.thread_id,
+      subject: n.subject,
+      starts_at: n.starts_at,
+      read: !!n.read_at,
+      created_at: n.created_at,
+      community: (one(n.workspace as never) as { name?: string } | null)?.name ?? null,
+    })),
+    next_cursor: list.length > NOTIFICATION_PAGE && last ? `${last.created_at}|${last.id}` : null,
+  });
+});
+
+portalRoutes.post('/portal/notifications/read', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const persons = await personsForEmail(email);
+  if (persons.length) {
+    await adminClient
+      .from('member_notification')
+      .update({ read_at: new Date().toISOString() })
+      .in('person_id', persons.map((p) => p.id))
+      .is('read_at', null);
+  }
+  return c.json({ ok: true });
+});
+
+portalRoutes.get('/portal/notification-prefs', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const persons = await personsForEmail(email);
+  if (!persons.length) return c.json({ items: [] });
+  const ids = persons.map((p) => p.id);
+  const [{ data: personRows }, { data: prefs }] = await Promise.all([
+    adminClient.from('person').select('id, workspace_id, workspace:workspace_id (name)').in('id', ids),
+    adminClient.from('member_notification_pref').select('person_id, email_off').in('person_id', ids),
+  ]);
+  const off = new Map((prefs ?? []).map((p) => [p.person_id as string, p.email_off as boolean]));
+  return c.json({
+    items: ((personRows ?? []) as Record<string, unknown>[]).map((p) => ({
+      workspace_id: p.workspace_id,
+      community: (one(p.workspace as never) as { name?: string } | null)?.name ?? null,
+      email_off: off.get(p.id as string) ?? false,
+    })),
+  });
+});
+
+portalRoutes.put('/portal/notification-prefs', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = (await c.req.json().catch(() => null)) as { workspace_id?: unknown; email_off?: unknown } | null;
+  if (!body || typeof body.workspace_id !== 'string' || typeof body.email_off !== 'boolean') {
+    return c.json({ error: 'workspace_id and email_off are required' }, 400);
+  }
+  // Only a community this verified address is a person in — never one named
+  // by the body alone.
+  const ids = (await personsForEmail(email)).map((p) => p.id);
+  const { data: person } = ids.length
+    ? await adminClient
+        .from('person')
+        .select('id, workspace_id')
+        .in('id', ids)
+        .eq('workspace_id', body.workspace_id)
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+  if (!person) return c.json({ error: 'not found' }, 404);
+  await ensurePref(person.id as string, person.workspace_id as string);
+  await adminClient
+    .from('member_notification_pref')
+    .update({ email_off: body.email_off, updated_at: new Date().toISOString() })
+    .eq('person_id', person.id);
+  return c.json({ ok: true, email_off: body.email_off });
 });
 
 // ===========================================================================

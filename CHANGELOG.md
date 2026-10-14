@@ -6,6 +6,98 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.194.0] — 2026-10-14
+
+### Members hear about their team calendars
+
+Sjoerd: *"if a new event is added to a certain agenda, a follower of that
+agenda gets a message, email and notification."* A FOLLOWER is anybody whose
+active membership carries that team calendar, by the tier or by a product:
+the same walk that decides what they pay. No separate follow button.
+
+**New on the calendar: automatic.** A thread appearing on a team calendar
+(the same visibility rule as the Upcoming list, now one function,
+`calendarVisible`) is announced to its followers, except to anybody who
+already holds a place on it. Once per person and thread, EVER: a unique
+index, so a second pass or a hide-and-show announces nothing more. **The
+first pass anywhere records what is already visible and tells nobody**, so
+the first deploy to production emails nobody about threads that were always
+there (`thread_calendar_seen`, plus a baseline in platform settings).
+
+**A session moved or cancelled: only at the organiser's SEND.** Sjoerd's rule
+for those is "editing is not announcing" (`lib/calendar-invite.ts`), so
+nothing watches an edit. When the organiser presses send on a thread's
+calendar changes, participants get an in-app row (they already had the
+calendar update by email from the same press), and followers who hold no
+place get the row plus the digest. Past sessions tell nobody; a newly added
+session is not news to a follower. The SEND dialog now says the reach before
+the press: "12 participants (calendar update) · 40 followers (in my.thread
+and by email)".
+
+**One email per person per community**, after 15 quiet minutes, so an
+organiser loading a year's agenda sends one email listing thirty, not thirty.
+New threads show their date and the member's own price (included, or €96
+instead of €120); changes show the new time or "cancelled". One button to
+Upcoming; a "Stop these emails" link in every email, which works signed out
+and is POST-only behind a page, so a mail scanner opening links cannot
+unsubscribe anybody. Subject: "{community}: new on the calendar". The
+community's own logo and sender.
+
+**It fails CLOSED, because its failure mode is a mass email.** Every read
+the new-thread pass depends on throws or skips on error rather than reading
+"nothing seen yet" or "switch on": a failed seen-threads read, a failed
+community-switch read, a failed write of the seen rows, a failed places read.
+The baseline key is written only after its rows are. And a **circuit
+breaker**: more than 20 threads newly visible in one community in one pass
+are recorded as seen and announced to nobody, with a
+`[member-notify] held N threads for <ws>` log line. An organiser publishing
+21 at once is rare, and a quiet miss is far cheaper than an accidental blast
+to a whole community. Each guard has a test that breaks exactly that read and
+counts zero notifications; two of them were checked by putting the old code
+back.
+
+**Switches.** The community's, in Members → Settings → Member notifications
+(default on): off announces nothing, and threads published while it is off
+are never announced later. The member's own, per community, on my.thread's
+You page and from the email: stops the email, keeps the in-app list. It is
+keyed on the person, so somebody who bought one thread without a membership
+has one too.
+
+**my.thread:** a bell with an unread dot (phone header, desktop bar), a
+Notifications page that marks itself read when opened, the email switches on
+You, and `/unsubscribe/<token>`.
+
+New API: `GET /me/portal/notifications` (cursor; the cursor is checked against
+a strict pattern before it reaches a PostgREST filter), `POST …/read`,
+`GET|PUT /me/portal/notification-prefs`, `POST /public/notify/unsubscribe`.
+Additive: `portal.unread_notifications`, `followers_count` on a thread's
+calendar changes, `notify_members` on membership settings. A tenth scheduler
+job, `member-notify`, at +190s.
+
+### Declined people no longer get the organiser's calendar updates
+
+`enrolmentHoldsAPlace` in `lib/calendar-invite.ts` compared against
+'withdrawn', 'rejected' and 'cancelled', none of which is an enrolment
+status, so it matched nothing: somebody the organiser declined still
+received every "this session moved" email. It now uses the shared
+`enrolmentIsLive`. Swept for the same mistake elsewhere: the message
+scheduler, the calendar feed, check-in and the RSVP lists all already
+excluded `dropped`.
+
+### From the review of v1.193.0
+
+- **Closed wins over an open invoice.** A person the organiser declined who
+  still has an invoice open is told their place is closed, not invited to
+  pay for it.
+- **Which closed.** `place_closed_reason` is `membership_ended` when the place
+  came with a membership that ended (the membership access journal says so),
+  else `organiser`. my.thread words them differently; "closed by the
+  organiser" was untrue for the first.
+- **The audit takes `--platform-stripe=on`** instead of a pasted live secret:
+  the check only asks whether a key exists. Production, from Sjoerd's terminal:
+  `cd ~/Projects/thefibre/apps/api && npx tsx --env-file=.env
+  scripts/audit-paid-thread-routes.ts prod --platform-stripe=on`
+
 ## [1.193.1] — 2026-10-14
 
 ### The tables for member notifications, ahead of the code

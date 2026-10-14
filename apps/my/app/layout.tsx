@@ -10,6 +10,7 @@ import { MemberRail, MemberTabs } from './nav';
 import { RegisterServiceWorker } from './register-sw';
 import { Wordmark } from './wordmark';
 import { AppSwitcher } from './app-switcher';
+import { Bell } from './bell';
 import { reachableApps } from '@/lib/app-access';
 
 // iOS needs its own tags — Safari reads very little of app/manifest.ts. It
@@ -76,18 +77,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   footnote — and it is the only thing on this bar. */}
               <header className="flex shrink-0 items-center gap-3 border-b border-line px-5 py-3 md:hidden">
                 <Wordmark className="h-12" />
-                {/* Top right, where a person looks for the way out. */}
-                <AppSwitcher apps={apps} className="ml-auto" />
+                {/* Top right, where a person looks for "has anything
+                    happened" and for the way out. */}
+                <Bell unread={session.portal.unread_notifications ?? 0} className="ml-auto" />
+                <AppSwitcher apps={apps} />
               </header>
 
               {/* Desktop has no such bar — the rail carries the mark — so the
                   switcher gets a thin one of its own rather than being buried
                   in the rail's list of destinations, which is about THIS app. */}
-              {apps.length > 0 && (
-                <div className="hidden shrink-0 justify-end border-b border-line px-5 py-2 md:flex">
-                  <AppSwitcher apps={apps} />
-                </div>
-              )}
+              {/* Always present now: the bell lives here on desktop too. */}
+              <div className="hidden shrink-0 items-center justify-end gap-1 border-b border-line px-5 py-2 md:flex">
+                <Bell unread={session.portal.unread_notifications ?? 0} />
+                {apps.length > 0 && <AppSwitcher apps={apps} />}
+              </div>
               <main className="flex-1 overflow-y-auto">{children}</main>
               <MemberTabs version={VERSION} upcoming={!!session.portal.upcoming} />
             </div>
