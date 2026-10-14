@@ -2,6 +2,7 @@ import { appUrl } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { workspaceStripeAccount } from './payment-accounts.js';
+import { stackSurfaceUrl } from './stack-urls.js';
 
 const MEMBERSHIP_APP_URL =
   process.env.MEMBERSHIP_APP_URL ?? appUrl('membership', process.env);
@@ -81,8 +82,13 @@ export async function createMembershipPaymentLink(p: {
         customer_email: p.payerEmail,
         metadata: { membership_purchase_id: p.purchaseId },
         billing_address_collection: 'required',
-        success_url: `${MEMBERSHIP_APP_URL}/my?paid=success`,
-        cancel_url: `${MEMBERSHIP_APP_URL}/my?paid=cancelled`,
+        // STRAIGHT TO THE PORTAL. These pointed at the Members app's own
+        // `/my`, which is a redirect to here now — so an old link still
+        // works, and a new one does not take the hop. `stackSurfaceUrl`
+        // rather than a constant: a staging payment link that lands somebody
+        // on production is a bug with somebody's money attached.
+        success_url: `${stackSurfaceUrl('my-portal', process.env)}/memberships?paid=success`,
+        cancel_url: `${stackSurfaceUrl('my-portal', process.env)}/memberships?paid=cancelled`,
       },
       { stripeAccount: account },
     );

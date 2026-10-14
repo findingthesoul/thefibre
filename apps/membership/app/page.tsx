@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { SignInButton } from './sign-in-button';
-import { appUrl } from '@thefibre/shared';
+import { headers } from 'next/headers';
+import { appUrl, surfaceUrl } from '@thefibre/shared';
 import { AppLanding } from '@thefibre/shared/ui/app-landing';
 
 export default async function MembershipLanding() {
@@ -12,6 +13,12 @@ export default async function MembershipLanding() {
   const supabase = await serverSupabase();
   const { data: claims } = await supabase.auth.getClaims();
   if (claims) redirect('/dashboard');
+
+  // A MEMBER'S DOOR LEADS OUT OF THIS APP. It used to point at `/my`, this
+  // app's own thinner member page; their home is my.thread, where every
+  // membership, purchase and thread appears together. Stack from the request
+  // host, so a staging page never sends anyone to production.
+  const portalUrl = surfaceUrl('my-portal', process.env, (await headers()).get('host'));
 
   // This page carried Pulse's landing copy wholesale ("the heartbeat of the
   // business") since the app was scaffolded — caught 2026-09-06.
@@ -27,7 +34,7 @@ export default async function MembershipLanding() {
         <p className="mt-4 text-sm text-neutral-600">
           Already a member?{' '}
           <Link
-            href="/my"
+            href={`${portalUrl}/memberships`}
             className="underline underline-offset-4 hover:text-neutral-900"
           >
             See your membership, invoices and payment details

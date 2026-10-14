@@ -79,7 +79,11 @@ export default async function PublicJoinPage({
         </div>
         <h1 className="mt-2 text-3xl font-medium tracking-tight text-center">{headline}</h1>
         {intro && (
-          <p className="mx-auto mt-3 max-w-2xl text-base text-ink-subtle leading-relaxed text-center whitespace-pre-line">
+          // LEFT INSIDE A CENTRED COLUMN (Sjoerd, 2026-10-14). The column stays
+          // centred — `mx-auto max-w-2xl` — and only the text aligns left.
+          // This is the community's own prose, several paragraphs of it, and
+          // centring it gives every line a ragged left edge to find.
+          <p className="mx-auto mt-3 max-w-2xl text-base text-ink-subtle leading-relaxed text-left whitespace-pre-line">
             {intro}
           </p>
         )}

@@ -94,7 +94,11 @@ export function TierGrid({
   return (
     <>
       {hasCountryRules && (
-        <div className="mt-8 mx-auto max-w-md text-center">
+        // Left, to match the prose above and the control below — the picker
+        // itself has always been left-aligned, so a centred label over it was
+        // the odd one out the moment the intro stopped being centred. The
+        // block stays centred on the page.
+        <div className="mt-8 mx-auto max-w-md text-left">
           <label className="block text-sm text-ink-subtle mb-1.5">
             {t(locale, 'country_question')}
           </label>

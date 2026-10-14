@@ -1,4 +1,5 @@
-import { ENTITY, appName } from '@thefibre/shared';
+import { headers } from 'next/headers';
+import { ENTITY, appName, surfaceUrl } from '@thefibre/shared';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Check } from 'lucide-react';
@@ -47,7 +48,7 @@ export default async function PurchasedPage({
         </p>
         <p className="mt-8 text-sm">
           <Link
-            href="/my"
+            href={`${surfaceUrl('my-portal', process.env, (await headers()).get('host'))}/purchases`}
             className="text-ink-subtle hover:text-ink underline underline-offset-2"
           >
             {t(locale, 'view_purchases')}

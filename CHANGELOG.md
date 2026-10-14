@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.188.0] — 2026-10-14
+
+### `/my` is a door now, not a room
+
+There were two personal pages for one person: `/my` in the Members app, and
+my.thread. The thinner one was winning, because it was the address the emails
+pointed at — Sjoerd, testing on staging, followed an invitation and landed on
+it, wondering where everything had gone.
+
+The Members app's `/my` redirects to my.thread, and it **does not 404**: the
+address is in sent emails, in bookmarks and in Stripe's stored `success_url`s,
+and all of those keep working. `?paid=success` is carried across, because the
+member has just come back from paying and the page they land on should know
+it. A catch-all takes everything below it; `/my/invoices/…` goes to
+**Purchases**, which is what that became.
+
+The PDF twin is gone — a second copy of the invoice pass-through, pointed at
+the membership portal's own endpoint while my.thread had the same route over
+the same data. Two of anything that hands somebody a document is one too many,
+because the one being maintained is never the one in the old email. Its
+address redirects too.
+
+**Every link repointed**: the Members landing page's "Already a member?", the
+purchase receipt's "view your purchases", and the Stripe payment link's
+success and cancel URLs, which pointed at `/my` and now go straight to the
+portal without the hop.
+
+A guard test fails the moment somebody writes that address again — it sweeps
+every email template and every page in the Members app, asserts it found the
+files it means to check (an empty sweep passes everything), and was
+mutation-tested by putting a link back. The destination is built with
+`surfaceUrl('my-portal', env, host)`, from the request's host rather than a
+constant, and that behaviour has its own test: a staging page must never hand
+somebody a production address, which is a bug this repo has shipped before.
+
+### The join page reads left
+
+The community's own words — the "Become a member" line and the paragraphs
+under it — were centred, which on production sets ~90-character lines ragged
+on both edges. They are left-aligned inside the same centred column now
+(Sjoerd: *"center column is fine"*). The eyebrow and the community title stay
+centred; they are a title block.
+
+Worth recording, because it is not obvious from the screen: "Become a member"
+is not a heading, it is the first line of the `intro` field, which is why the
+two could only ever move together.
+
+The "Where are you based?" label follows. Its picker was always left-aligned,
+so a centred label above it was the one thing on the page that agreed with
+nothing once the prose above it moved.
+
 ## [1.187.2] — 2026-10-14
 
 ### The oldest pricing rule was the one charging
