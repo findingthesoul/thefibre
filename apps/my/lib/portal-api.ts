@@ -162,6 +162,14 @@ export type MembershipItem = {
   could_join?: CouldJoin[];
 };
 
+/** One product this person BOUGHT here, and the day they bought it.
+ *
+ *  Not the same thing as something a membership includes: this is theirs
+ *  outright, it survives a tier change and a lapse, and — the gap this
+ *  closes — it exists whether or not they are a member of this community at
+ *  all. */
+export type OwnedProduct = Included & { bought_on: string };
+
 export type Group = {
   workspace_id: string;
   name: string;
@@ -171,6 +179,9 @@ export type Group = {
   threads: ThreadItem[];
   meets: MeetItem[];
   memberships: MembershipItem[];
+  /** Optional, because an older API does not send it — the page treats an
+   *  absent list and an empty one the same way, which is to say nothing. */
+  products?: OwnedProduct[];
 };
 
 /**

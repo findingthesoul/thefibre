@@ -70,7 +70,13 @@ import {
   personIdsForProvenEmail,
   personsForProvenEmail,
 } from '../lib/proven-email.js';
-import { enrolmentCanRespond, mergeById, resolveRsvpEnabled, ticketIsAdmissible } from '../lib/portal.js';
+import {
+  enrolmentCanRespond,
+  groupOwnedProducts,
+  mergeById,
+  resolveRsvpEnabled,
+  ticketIsAdmissible,
+} from '../lib/portal.js';
 import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { couldJoinByMember, type CouldJoin } from '../lib/could-join.js';
@@ -238,6 +244,24 @@ type Included = {
   url: string | null;
 };
 
+/** One product this person BOUGHT, and when.
+ *
+ *  Separate from `Included` because the two answer different questions. A
+ *  membership INCLUDES things for as long as you are a member; a product you
+ *  bought is yours, and survives a tier change and a lapse. Putting the date
+ *  on the second and not the first is the honest shape: there is no date on
+ *  which a tier's product became yours, only the day you joined.
+ *
+ *  Sjoerd asked for the date, and it is the thing a person actually looks for
+ *  — "when did I buy this" is the question a receipt answers and a list of
+ *  names does not. */
+type OwnedProduct = Included & {
+  /** The day it was bought, ISO. Never null: a purchase row has a
+   *  database-set `created_at`, so an absent date would mean a bug rather
+   *  than an unknown. */
+  bought_on: string;
+};
+
 type Group = {
   workspace_id: string;
   name: string;
@@ -247,6 +271,19 @@ type Group = {
   threads: ThreadItem[];
   meets: MeetItem[];
   memberships: MembershipItem[];
+  /** What this person BOUGHT here, whether or not they are a member.
+   *
+   *  THE GAP THIS CLOSES: the list of bought products used to be assembled
+   *  inside the membership loop and filtered to the workspaces the person
+   *  held a membership in — so somebody who bought a product from a community
+   *  they had never joined owned it, was granted by it, and could see no sign
+   *  of it anywhere. The one surface that should have shown it was keyed on
+   *  the wrong thing.
+   *
+   *  It is PERSON-keyed now. A product-only buyer gets a group of their own,
+   *  with no membership card in it and this list in it — which matters more
+   *  now that the Members app's `/my` sends everybody here. */
+  products: OwnedProduct[];
 };
 
 portalRoutes.get('/portal', async (c) => {
@@ -408,33 +445,44 @@ portalRoutes.get('/portal', async (c) => {
   // nothing. (An optional product bought à la carte arrives through the
   // purchase side below, which is the path that DOES grant it.)
   const includesByMember = new Map<string, Included[]>();
+  const productsByWorkspace = new Map<string, OwnedProduct[]>();
   const memberRows = (members ?? []) as Record<string, unknown>[];
-  if (memberRows.length) {
-    const tierIds = [...new Set(memberRows.map((m) => m.tier_id as string).filter(Boolean))];
-    const [{ data: tierProducts }, { data: bought }] = await Promise.all([
-      tierIds.length
-        ? adminClient
-            .from('membership_tier_product')
-            .select('tier_id, product_id')
-            .in('tier_id', tierIds)
-            .eq('optional', false)
-        : Promise.resolve({ data: [] }),
-      adminClient
+
+  // WHAT THIS PERSON BOUGHT — asked of the PERSON, not of their memberships.
+  //
+  // This query used to live inside `if (memberRows.length)` and carry a
+  // `.in('workspace_id', <workspaces I am a member of>)`. Both were wrong in
+  // the same direction: a purchase belongs to the person, survives a tier
+  // change and a lapse, and does not need a membership to exist. So somebody
+  // who bought a product from a community they had never joined owned it, was
+  // granted access by it, and could see no sign of it anywhere.
+  //
+  // `created_at` comes back now, because "when did I buy this" is the
+  // question a person actually asks of a list like this.
+  const { data: bought } = personIds.length
+    ? await adminClient
         .from('membership_product_purchase')
-        .select('workspace_id, product_id')
+        .select('workspace_id, product_id, created_at')
         .in('person_id', personIds)
-        // Workspace-filtered like `applyEntitlements` is, rather than left to
-        // the grouping below. Equivalent for sane data, but "the same pair of
-        // queries" is the property this whole block leans on, and it is only
-        // true if the filters match.
-        .in(
-          'workspace_id',
-          [...new Set(memberRows.map((m) => m.workspace_id as string))],
-        )
-        .eq('status', 'paid'),
-    ]);
+        .eq('status', 'paid')
+        .order('created_at', { ascending: false })
+    : { data: [] };
+  const boughtRows = (bought ?? []) as {
+    workspace_id: string;
+    product_id: string;
+    created_at: string;
+  }[];
+
+  if (memberRows.length || boughtRows.length) {
+    const tierIds = [...new Set(memberRows.map((m) => m.tier_id as string).filter(Boolean))];
+    const { data: tierProducts } = tierIds.length
+      ? await adminClient
+          .from('membership_tier_product')
+          .select('tier_id, product_id')
+          .in('tier_id', tierIds)
+          .eq('optional', false)
+      : { data: [] };
     const tierProductRows = (tierProducts ?? []) as { tier_id: string; product_id: string }[];
-    const boughtRows = (bought ?? []) as { workspace_id: string; product_id: string }[];
 
     const productIds = [
       ...new Set([
@@ -534,25 +582,32 @@ portalRoutes.get('/portal', async (c) => {
       return { name: p.name, description: p.description ?? null, url };
     };
 
-    const boughtByWorkspace = new Map<string, string[]>();
-    for (const b of boughtRows) {
-      boughtByWorkspace.set(b.workspace_id, [
-        ...(boughtByWorkspace.get(b.workspace_id) ?? []),
-        b.product_id,
-      ]);
-    }
+    // "WHAT THIS INCLUDES" IS NOW THE TIER'S, AND ONLY THE TIER'S.
+    //
+    // A product bought à la carte used to be listed here as well, which read
+    // as though the membership included it — and then it stayed listed after
+    // a lapse, when the membership included nothing at all. It moves to "Your
+    // products" below, where it keeps its date and does not depend on a
+    // membership to be shown. Nothing is lost from the page; it moves, and
+    // gains the day it was bought.
     for (const m of memberRows) {
       const workspaceId = m.workspace_id as string;
-      const ids = [
-        ...tierProductRows.filter((r) => r.tier_id === m.tier_id).map((r) => r.product_id),
-        ...(boughtByWorkspace.get(workspaceId) ?? []),
-      ];
+      const ids = tierProductRows
+        .filter((r) => r.tier_id === m.tier_id)
+        .map((r) => r.product_id);
       includesByMember.set(
         m.id as string,
         [...new Set(ids)]
           .map((id) => toIncluded(id, workspaceId))
           .filter((x): x is Included => !!x),
       );
+    }
+
+    // "YOUR PRODUCTS", per workspace, membership or no membership. The
+    // grouping is `lib/portal.ts` so the ordering and the de-duplication can
+    // be stated in a test rather than read out of this loop.
+    for (const [ws, list] of groupOwnedProducts(boughtRows, toIncluded)) {
+      productsByWorkspace.set(ws, list);
     }
   }
 
@@ -595,6 +650,11 @@ portalRoutes.get('/portal', async (c) => {
       ...(enrolments ?? []).map((e) => e.workspace_id as string),
       ...bookings.map((b) => b.workspace_id as string),
       ...(members ?? []).map((m) => m.workspace_id as string),
+      // A BOUGHT PRODUCT IS A REASON TO HAVE A GROUP. Without this line the
+      // person who only ever bought something has no workspace here at all,
+      // and the endpoint answers `groups: []` — an empty page for somebody
+      // who has paid. Which is what it did until 2026-10-14.
+      ...productsByWorkspace.keys(),
     ]),
   ].filter(Boolean);
 
@@ -616,6 +676,7 @@ portalRoutes.get('/portal', async (c) => {
       threads: [],
       meets: [],
       memberships: [],
+      products: productsByWorkspace.get(w.id as string) ?? [],
     });
   }
 

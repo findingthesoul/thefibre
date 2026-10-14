@@ -142,3 +142,49 @@ export function mergeById<T extends { id: string }>(...lists: (T[] | null | unde
   }
   return [...byId.values()];
 }
+
+// ---------------------------------------------------------------------------
+// WHAT SOMEBODY BOUGHT, GROUPED BY COMMUNITY.
+//
+// Pure, and out here rather than inline in the route, because the rules are
+// small and each of them is a decision somebody will want to check:
+//
+//   · It is keyed on the PERSON. Until 2026-10-14 the purchase list was built
+//     inside the membership loop and filtered to the workspaces the person
+//     held a membership in — so somebody who bought a product from a
+//     community they had never joined owned it, was granted access by it, and
+//     could see no sign of it anywhere.
+//   · NEWEST FIRST, preserved from the caller's order rather than re-sorted,
+//     because the most recent purchase is the one somebody is looking for.
+//   · ONE ROW PER PRODUCT. Buying the same product twice is a real thing
+//     (a second seat, a repeat year) and the LIST is not where that belongs —
+//     "What you paid" has every payment, with its own date and amount. Two
+//     identical lines here read as a bug.
+// ---------------------------------------------------------------------------
+
+/** A purchase row, as little of it as the grouping needs. */
+export type BoughtRow = { workspace_id: string; product_id: string; created_at: string };
+
+/** Group a person's purchases by workspace, resolving each to something
+ *  showable. `resolve` returns null for a product that cannot be named — an
+ *  archived row, or one in a workspace this reader cannot see — and those are
+ *  dropped rather than shown as a blank line. */
+export function groupOwnedProducts<T extends object>(
+  rows: BoughtRow[],
+  resolve: (productId: string, workspaceId: string) => T | null,
+): Map<string, (T & { bought_on: string })[]> {
+  const out = new Map<string, (T & { bought_on: string })[]>();
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const key = `${r.workspace_id}|${r.product_id}`;
+    if (seen.has(key)) continue;
+    const resolved = resolve(r.product_id, r.workspace_id);
+    if (!resolved) continue;
+    seen.add(key);
+    out.set(r.workspace_id, [
+      ...(out.get(r.workspace_id) ?? []),
+      { ...resolved, bought_on: r.created_at },
+    ]);
+  }
+  return out;
+}

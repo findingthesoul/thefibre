@@ -6,6 +6,87 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.189.0] — 2026-10-14
+
+### A product you bought, where you can see it
+
+Two gaps in my.thread, both found by asking what a person who has paid us
+actually sees.
+
+**Products were keyed on memberships, not on people.** The list of what
+somebody bought was assembled inside the membership loop and filtered to the
+workspaces they held a membership in. So somebody who bought a product from a
+community they had never joined owned it, was granted access by it, and could
+see no sign of it anywhere — the page told them *"You are not a member
+anywhere yet."* and showed nothing else. True, and useless to a person holding
+a receipt.
+
+It reads by PERSON now. A community somebody only ever bought from gets a
+group of its own, with no membership card in it and a **Your products**
+section in it. This mattered enough to land in the same batch as the `/my`
+redirect: that redirect makes my.thread the only place a product-only buyer
+can land, so it had to be somewhere worth landing.
+
+**And each product says when it was bought.** "When did I buy this" is the
+question a person asks of a list like this, and a list of names cannot answer
+it.
+
+"What this includes" is now the TIER's products and only the tier's. A product
+bought à la carte used to be listed there too, which read as though the
+membership included it — and it stayed listed after a lapse, when the
+membership included nothing at all. Nothing is lost from the page: it moves
+down to Your products, and gains a date.
+
+The grouping is a pure function with its own tests, including the two rules
+that are decisions rather than mechanics: the order is the query's (newest
+first, never re-sorted — a second opinion about order is two orders), and the
+same product bought twice is ONE row keeping the most recent date, because
+every individual payment already has its own line under "What you paid".
+
+### One size for all the text in a membership email
+
+These mails set no size at all, so they rendered at whatever the client
+defaulted to. Sjoerd asked for 1.5× larger, which made the body 22px and the
+secondary lines 17. Reading one on production, he said: *"One font size for
+all text. The text 'Sign in with … and we will email you a code' is great."*
+
+**That line is the 17px one.** So 17 is the size: the greeting, the
+paragraphs, the lists, the sign-in line, the renewal line, the invoice line,
+the sign-off and the button all read at it, and the two-tier scale is gone.
+
+`BODY` and `SMALL` are now the same number by construction — kept as two
+names because they still differ in COLOUR, which means something, while the
+size is defined once and cannot drift apart again. That drift is what
+produced a 22px paragraph sitting above a 17px one in the first place.
+
+The 13px uppercase section labels keep their own size. They are labels, not
+running text, and scaling them with the body would put them near 10px — which
+is the problem all of this was raised to fix.
+
+The rendered welcome now contains exactly two sizes: twelve declarations at
+17px and three at 13px.
+
+### The my.thread wordmark opens the portal
+
+Sjoerd: *"Can you use the logo of my.thread for opening it?"* The portal signs
+itself `my.thread` in its own hand, and an email naming it only in plain text
+is quieter than the place it is sending somebody to. The wordmark is now the
+link, above the button.
+
+**Its URL is derived from the portal link rather than built beside it**, so
+the image and the link cannot point at different stacks — which is the
+mistake a second hand-built URL eventually makes, and the one that would put
+a production asset in a staging email. A missing or malformed portal URL
+yields no logo rather than a broken image.
+
+**The text button stays underneath.** Most mail clients block images until
+the reader allows them, and an image-only link is invisible exactly there:
+the member would see a heading, a gap, and nothing to press. The `alt` text
+carries the same instruction for the same reason.
+
+The asset already existed and is already served on both stacks — checked,
+200 and `image/png` on each.
+
 ## [1.188.0] — 2026-10-14
 
 ### `/my` is a door now, not a room

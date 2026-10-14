@@ -42,9 +42,26 @@ export default async function MembershipsPage() {
     g.memberships.map((m) => ({ ...m, workspace: g.name })),
   );
 
+  // YOUR PRODUCTS, AND NOT ONLY A MEMBER'S.
+  //
+  // Somebody can buy a product from a community without ever joining it — and
+  // until 2026-10-14 this page told them "You are not a member anywhere yet."
+  // and showed nothing else, which was both true and useless: they had paid
+  // for something and there was no sign of it. The API lists purchases by
+  // PERSON now, so this reads them off the group rather than off a
+  // membership, and a community the person only ever bought from still has a
+  // group to put them in.
+  //
+  // That matters more now that the Members app's own `/my` redirects here:
+  // this page is the only place left for a product-only buyer to land.
+  const byWorkspace = session.portal.groups
+    .map((g) => ({ name: g.name, products: g.products ?? [] }))
+    .filter((g) => g.products.length > 0);
+  const nothingAtAll = items.length === 0 && byWorkspace.length === 0;
+
   return (
     <PageShell title="Memberships">
-      {items.length === 0 ? (
+      {nothingAtAll ? (
         <Empty title="You are not a member anywhere yet.">
           A membership appears here when you join a community. If you expected one, check you
           signed in with the address you joined with.
@@ -184,6 +201,58 @@ export default async function MembershipsPage() {
             );
           })}
         </ul>
+      )}
+
+      {/* YOUR PRODUCTS — its own section, below the memberships, because a
+          product is not a membership and does not belong inside one. It
+          appears for a member who bought something à la carte AND for
+          somebody who bought from a community they never joined, which is the
+          case that used to see an empty page.
+
+          Each one carries the day it was bought: "when did I buy this" is the
+          question a person actually asks of a list like this, and a list of
+          names cannot answer it. */}
+      {byWorkspace.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+            Your products
+          </h2>
+          <ul className="mt-3 space-y-3">
+            {byWorkspace.map((g) => (
+              <li key={g.name} className="rounded-2xl border border-line bg-surface p-5">
+                <div className="truncate text-base font-medium text-ink">{g.name}</div>
+                <ul className="mt-3 space-y-2">
+                  {g.products.map((pr, i) => (
+                    <li key={i} className="text-sm">
+                      {pr.url ? (
+                        <a
+                          href={pr.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-h-11 items-center text-ink underline underline-offset-2 hover:opacity-70"
+                        >
+                          {pr.name}
+                        </a>
+                      ) : (
+                        <span className="text-ink">{pr.name}</span>
+                      )}
+                      <p className="text-ink-muted">Bought {fmtDate(pr.bought_on)}</p>
+                      {pr.description && <p className="text-ink-muted">{pr.description}</p>}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4">
+                  <Link
+                    href="/purchases"
+                    className="inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
+                  >
+                    What you paid
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </PageShell>
   );

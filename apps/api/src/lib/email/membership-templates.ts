@@ -290,18 +290,40 @@ function longDate(iso: string, locale: Locale): string {
 
 /** The body size the membership emails are read at.
  *
- *  Sjoerd asked for the text 1.5× larger (queued a while ago, shipped
- *  2026-10-14). The shell sets no size, so these mails were rendering at
- *  whatever the client's default was — around 16px — while the templates that
- *  did set one used 15px. 22px is 1.5× that 15, applied to the membership
- *  mails as a group so the welcome, the receipt and the renewal reminder
- *  match rather than drifting one at a time.
+ *  ONE SIZE FOR ALL RUNNING TEXT, and it is 17px.
+ *
+ *  The history, because the number is the end of an argument rather than a
+ *  preference: these mails set no size at all, so they rendered at whatever
+ *  the client defaulted to. Sjoerd asked for 1.5× larger, which made the body
+ *  22 and the secondary lines 17. Reading one, he said: *"One font size for
+ *  all text. The text 'Sign in with … and we will email you a code' is
+ *  great."* That line is the 17px one. So 17 is the size, and the two-tier
+ *  scale is gone.
+ *
+ *  BODY AND SMALL ARE THE SAME NUMBER ON PURPOSE. They are kept as two names
+ *  because they still differ in COLOUR — secondary lines are grey, and that
+ *  difference means something — but the size is defined once, so the two
+ *  cannot drift apart again. That drift is exactly what produced a mail with
+ *  a 22px paragraph above a 17px one in the first place.
+ *
+ *  ONE SET OF NUMBERS for the whole membership group — welcome, receipt,
+ *  renewal reminder — so a size change is one edit rather than a hunt.
+ *
+ *  The 13px uppercase section labels are NOT running text; they are labels,
+ *  and they keep their own size. Scaling them with the body would put them
+ *  near 10px, which is the problem all of this was raised to fix.
+ *
+ *  Line-height stays 1.55: it is a ratio, so it follows the size on its own,
+ *  and it was never what was wrong.
  *
  *  Set on the wrapper rather than on every paragraph: a `<p>` with no size of
  *  its own inherits it, and Outlook respects an inherited size on a div far
  *  more reliably than it respects one on a table cell. */
-const BODY = 'font-size:22px;line-height:1.55;';
-const SMALL = 'font-size:17px;line-height:1.55;color:#525252;';
+const TEXT_SIZE = '17px';
+const BODY = `font-size:${TEXT_SIZE};line-height:1.55;`;
+const SMALL = `font-size:${TEXT_SIZE};line-height:1.55;color:#525252;`;
+/** The call to action reads at the same size as everything else. */
+const BUTTON_SIZE = TEXT_SIZE;
 
 /** A `<p>` at the membership reading size. */
 function para(html: string, extra = ''): string {
@@ -377,6 +399,17 @@ export function membershipWelcome(opts: {
     name: greetingName(opts.name, opts.email),
   });
   const invoiceFollows = opts.invoiceFollows !== false;
+  // The portal's own origin, for the wordmark. Derived rather than passed:
+  // one value decides both the link and the image, so they cannot disagree
+  // about which stack they belong to. A missing or malformed URL yields no
+  // logo rather than a broken image.
+  const portalOrigin = (() => {
+    try {
+      return opts.portalUrl ? new URL(opts.portalUrl).origin : null;
+    } catch {
+      return null;
+    }
+  })();
   const opening = t(loc, 'm_welcome_opening');
 
   // WHAT THEY JOINED, in the community's words where there are any. The
@@ -434,7 +467,26 @@ export function membershipWelcome(opts: {
     ...(opts.portalUrl
       ? [
           heading(t(loc, 'm_welcome_portal_heading')),
-          `<p style="margin:0 0 18px;"><a href="${opts.portalUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:18px;padding:14px 26px;border-radius:8px;text-decoration:none;">${escapeHtml(
+          // THE WORDMARK IS THE DOOR (Sjoerd, 2026-10-14: "Can you use the
+          // logo of my.thread for opening it?"). The portal signs itself
+          // my.thread in its own hand, and an email that names it only in
+          // plain text is quieter than the place it is sending somebody to.
+          //
+          // ITS URL IS DERIVED FROM THE PORTAL LINK rather than built beside
+          // it, so the image and the link cannot point at different stacks —
+          // which is the mistake a second hand-built URL eventually makes.
+          //
+          // AND THE TEXT BUTTON STAYS BELOW IT. Most mail clients block
+          // images until the reader allows them, and an image-only link is
+          // invisible exactly there: the member would see a heading, a gap,
+          // and nothing to press. The alt text carries the same instruction,
+          // for the same reason.
+          portalOrigin
+            ? `<p style="margin:0 0 14px;"><a href="${opts.portalUrl}"><img src="${portalOrigin}/wordmark.png" width="180" alt="${escapeHtml(
+                t(loc, 'm_welcome_portal_cta'),
+              )}" style="display:block;border:0;outline:none;width:180px;max-width:60%;height:auto;" /></a></p>`
+            : '',
+          `<p style="margin:0 0 18px;"><a href="${opts.portalUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:${BUTTON_SIZE};padding:13px 24px;border-radius:8px;text-decoration:none;">${escapeHtml(
             t(loc, 'm_welcome_portal_cta'),
           )}</a></p>`,
           para(escapeHtml(t(loc, 'm_welcome_portal_intro'))),
