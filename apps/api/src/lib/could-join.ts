@@ -39,6 +39,15 @@ export type CouldJoin = {
   /** The percentage, so the page can say "included" at 100 without a second
    *  rule for which sentence to use. */
   pct: number;
+  /** The two halves of the public address, so my.thread can enrol the member
+   *  through the ONE enrol route (POST /thread/public/enrol) rather than a
+   *  second one that would price on its own. */
+  owner_slug: string;
+  thread_slug: string;
+  /** False when the organiser asks a REQUIRED question at sign-up: then the
+   *  member answers it on the thread's page, and a one-click join from a list
+   *  would skip it. */
+  direct: boolean;
 };
 
 /** One membership, as this walk needs it. */
@@ -94,17 +103,48 @@ export async function couldJoinByMember(
   alreadyIn: Set<string>,
   limit: number | null,
 ): Promise<Map<string, CouldJoin[]>> {
-  const out = new Map<string, CouldJoin[]>();
-  if (!members.length) return out;
+  return couldJoinFrom(await entitlementsByMember(members), alreadyIn, limit);
+}
 
-  // One walk per membership. Lapsed and cancelled memberships answer an
-  // empty list by the walk's own predicate (active and grace only) rather
-  // than by a filter here — one place decides who is entitled.
-  const entitlements = new Map<string, { teamId: string; pct: number }[]>();
+export type Entitlements = Map<string, { teamId: string; pct: number }[]>;
+
+/** Which team calendars each membership carries, by membership id.
+ *
+ *  One walk per membership. Lapsed and cancelled memberships answer an empty
+ *  list by the walk's own predicate (active and grace only) rather than by a
+ *  filter here — one place decides who is entitled. */
+export async function entitlementsByMember(members: CouldJoinMember[]): Promise<Entitlements> {
+  const entitlements: Entitlements = new Map();
   for (const m of members) {
     if (!m.person_id) continue;
     entitlements.set(m.id, await teamCalendarEntitlements(m.person_id, m.workspace_id));
   }
+  return entitlements;
+}
+
+/** Does any membership carry a team calendar at all? This decides whether
+ *  my.thread shows "Upcoming" — and it is asked of the ENTITLEMENT, not of the
+ *  list, so a member whose calendar is empty this month still finds the page
+ *  and is told so, rather than the nav changing shape with the calendar. */
+export function holdsTeamCalendar(entitlements: Entitlements): boolean {
+  return [...entitlements.values()].some((list) => list.length > 0);
+}
+
+/** A required sign-up question means the thread's own form, not one click. */
+export function hasRequiredQuestion(fields: unknown): boolean {
+  return (
+    Array.isArray(fields) &&
+    fields.some((f) => !!f && typeof f === 'object' && (f as { required?: unknown }).required === true)
+  );
+}
+
+/** The walk, from entitlements already in hand. */
+export async function couldJoinFrom(
+  entitlements: Entitlements,
+  alreadyIn: Set<string>,
+  limit: number | null,
+): Promise<Map<string, CouldJoin[]>> {
+  const out = new Map<string, CouldJoin[]>();
 
   const teamIds = [
     ...new Set([...entitlements.values()].flatMap((list) => list.map((e) => e.teamId))),
@@ -118,12 +158,17 @@ export async function couldJoinByMember(
       .from('thread_thread')
       .select(
         `id, slug, workspace_id, team_id, price_cents, price_currency, public_scope,
+         registration_fields,
          team:team_id (slug, name, is_published, is_active),
          organiser:organiser_id (slug),
          program:program_id (title, status, starts_on, ends_on)`,
       )
       .in('team_id', teamIds)
-      .eq('is_public_listed', true)
+      // NOT `is_public_listed`. That switch decides whether a thread shows on
+      // the PUBLIC organiser page; it says nothing about whether a member may
+      // see it. Sjoerd, 2026-10-14: "As it is published they can see it. Even
+      // if the button Public is switched off." The thread page itself never
+      // checked it either, so every link here still resolves.
       .eq('public_enrolment_open', true),
   );
 
@@ -222,6 +267,9 @@ export async function couldJoinByMember(
         your_price_cents: priced.cents,
         currency: base.priceCurrency,
         pct,
+        owner_slug: ownerSlug,
+        thread_slug: t.slug as string,
+        direct: !hasRequiredQuestion(t.registration_fields),
       });
     }
     // Soonest first, and undated last: a list of what is coming up is

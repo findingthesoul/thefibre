@@ -64,7 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <RegisterServiceWorker />
         {session ? (
           <div className="flex h-full">
-            <MemberRail />
+            <MemberRail upcoming={!!session.portal.upcoming} />
             <div className="flex min-w-0 flex-1 flex-col">
               {/* Phone only — the rail already carries the mark on desktop.
                   Small and quiet: the page's own title does the work, this
@@ -89,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </div>
               )}
               <main className="flex-1 overflow-y-auto">{children}</main>
-              <MemberTabs version={VERSION} />
+              <MemberTabs version={VERSION} upcoming={!!session.portal.upcoming} />
             </div>
           </div>
         ) : (

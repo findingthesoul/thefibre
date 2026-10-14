@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.192.0] — 2026-10-14
+
+### Upcoming threads in my.thread, and joining from the list
+
+**A new page, `/upcoming`, and a nav item for it — shown only to somebody
+whose membership carries a team calendar.** It lists everything on those
+calendars that they can still join: team published, programme active,
+sign-ups open, still running, and not already joined. Each row shows THEIR
+price (included, discounted, or full beside the list price), from the same
+walk as the Memberships card (`apps/api/src/lib/could-join.ts`), so the
+two cannot quote different numbers. Paged with the cursor helpers that were
+already there; a thread reachable through two memberships shows once, at the
+better price, which is the one the member would be charged.
+
+The nav follows the ENTITLEMENT, not the list: a member whose calendar is
+empty this month still finds "Upcoming" and is told "nothing coming up". The
+portal payload carries it as `upcoming: true` (additive). The Memberships
+card links to the full list under its six.
+
+**Unlisted threads now count.** The walk dropped its
+`is_public_listed = true` filter. Sjoerd: *"As it is published they can see
+it. Even if the button Public is switched off."* That switch decides what
+shows on the public organiser page, not what a member may see, and the thread
+page itself never checked it, so every link still resolves. This applies to
+the Memberships card as well, on purpose: one rule, both surfaces.
+
+**Join from the list.** "Join", tick the privacy statement (never
+pre-ticked), "Join for €X" or "Join". my.thread forwards to the one enrol
+route, `POST /thread/public/enrol`, with the member's own bearer and their
+verified name and address — it prices and decides nothing itself. A free or
+included place is taken there and then; a paid one goes to Stripe's page; a
+thread that confirms places by hand says so. A thread with a REQUIRED sign-up
+question shows "Sign up on its page" instead, because one click would skip the
+question. A thread that takes invoices only answers 409 to a card join, and
+the button then offers its page. Rows carry `owner_slug`, `thread_slug` and
+`direct` (additive) for this.
+
+The privacy policy list moved from `apps/thread/lib/policies.ts` to
+`@thefibre/shared` (Thread re-exports it), so both enrol surfaces record the
+same version.
+
+New API route: `GET /api/v1/me/portal/upcoming?cursor=&size=`, answering
+`{ entitled, items, next_cursor }`.
+
+Also, from the coordinator's review of v1.191.2: `deploy-api.sh` now says in
+its comments that the warm-up's worst case adds about five minutes (ten tries
+of 30s), and that it warms whichever machine the hostname routes to, which is
+the only one while each stack runs one.
+
 ## [1.191.2] — 2026-10-14
 
 ### The deploy pays for the cold start, not the first person to click

@@ -14,6 +14,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createThrowawayWorkspace, deleteThrowawayWorkspace, service } from './staging.js';
 import { memberDiscountFor, teamCalendarEntitlements } from '../lib/member-discount.js';
+import { couldJoinByMember, entitlementsByMember, holdsTeamCalendar } from '../lib/could-join.js';
 
 let ws = '';
 let personId = '';
@@ -208,5 +209,62 @@ describe('teamCalendarEntitlements', () => {
       price_cents: 5000,
     });
     expect(await memberDiscountFor(personId, solo)).toBeNull();
+  });
+});
+
+// UPCOMING THREADS (2026-10-14). The member's list is the walk plus "what is
+// on those calendars" — and it no longer asks `is_public_listed`. Sjoerd: "As
+// it is published they can see it. Even if the button Public is switched
+// off." So the fixture here is exactly that thread: team published, programme
+// active, sign-ups open, and NOT listed publicly.
+describe('couldJoinByMember (the Upcoming list and the Memberships card)', () => {
+  const member = () => [{ id: memberId, person_id: personId, workspace_id: ws }];
+
+  beforeAll(async () => {
+    await service.from('team').update({ is_published: true }).in('id', [teamA, teamB]);
+    await service
+      .from('thread_thread')
+      .update({ is_public_listed: false, public_enrolment_open: true, public_scope: 'team' })
+      .in('id', [threadA, threadB]);
+  });
+
+  it('lists a published thread whose Public switch is OFF, at the member price', async () => {
+    const got = (await couldJoinByMember(member(), new Set(), null)).get(memberId) ?? [];
+    const byId = new Map(got.map((r) => [r.thread_id, r]));
+    // Both calendars, both unlisted — the tier route (100%) and the product
+    // route (20%).
+    expect([...byId.keys()].sort()).toEqual([threadA, threadB].sort());
+    expect(byId.get(threadA)).toMatchObject({ list_price_cents: 5000, your_price_cents: 0, pct: 100 });
+    expect(byId.get(threadB)).toMatchObject({ list_price_cents: 5000, your_price_cents: 4000, pct: 20 });
+    expect(byId.get(threadA)).toMatchObject({ owner_slug: 'tce-choir', thread_slug: 'tce-a', direct: true });
+  });
+
+  it('a REQUIRED sign-up question makes it a form, not one click', async () => {
+    await service
+      .from('thread_thread')
+      .update({ registration_fields: [{ key: 'diet', label: 'Diet', type: 'short', required: true }] })
+      .eq('id', threadA);
+    try {
+      const got = (await couldJoinByMember(member(), new Set(), null)).get(memberId) ?? [];
+      expect(got.find((r) => r.thread_id === threadA)?.direct).toBe(false);
+      expect(got.find((r) => r.thread_id === threadB)?.direct).toBe(true);
+    } finally {
+      await service.from('thread_thread').update({ registration_fields: [] }).eq('id', threadA);
+    }
+  });
+
+  it('closed sign-ups and threads already joined stay out', async () => {
+    await service.from('thread_thread').update({ public_enrolment_open: false }).eq('id', threadB);
+    try {
+      const got = (await couldJoinByMember(member(), new Set([threadA]), null)).get(memberId) ?? [];
+      expect(got).toEqual([]);
+    } finally {
+      await service.from('thread_thread').update({ public_enrolment_open: true }).eq('id', threadB);
+    }
+  });
+
+  it('the nav flag follows the ENTITLEMENT, and a stranger holds none', async () => {
+    expect(holdsTeamCalendar(await entitlementsByMember(member()))).toBe(true);
+    expect(holdsTeamCalendar(await entitlementsByMember([]))).toBe(false);
   });
 });

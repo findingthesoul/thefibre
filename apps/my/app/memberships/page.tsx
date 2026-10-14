@@ -13,7 +13,8 @@
 
 import Link from 'next/link';
 import { loadSession } from '@/lib/session';
-import { fmtDate, money } from '@/lib/format';
+import { fmtDate } from '@/lib/format';
+import { JoinPrice } from '../join-price';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { ManagePayment } from './manage-payment';
@@ -159,32 +160,19 @@ export default async function MembershipsPage() {
                           </a>
                           <p className="text-ink-muted">
                             {j.starts_on ? `${fmtDate(j.starts_on)} · ` : ''}
-                            {j.team} ·{' '}
-                            {/* The price in words a member can act on: free
-                                when the membership covers it, otherwise what
-                                they pay with what anybody else pays beside
-                                it, so the membership's worth is visible. */}
-                            {j.your_price_cents === 0 ? (
-                              <span className="text-emerald-700">
-                                included in your membership
-                              </span>
-                            ) : (
-                              <>
-                                <span className="text-emerald-700">
-                                  {money(j.your_price_cents, j.currency)}
-                                </span>
-                                {j.list_price_cents > j.your_price_cents && (
-                                  <span className="text-ink-muted">
-                                    {' '}
-                                    instead of {money(j.list_price_cents, j.currency)}
-                                  </span>
-                                )}
-                              </>
-                            )}
+                            {j.team} · <JoinPrice j={j} />
                           </p>
                         </li>
                       ))}
                     </ul>
+                    {session.portal.upcoming && (
+                      <Link
+                        href="/upcoming"
+                        className="mt-1 inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
+                      >
+                        Everything coming up
+                      </Link>
+                    )}
                   </div>
                 )}
 

@@ -16,7 +16,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, IdCard, Receipt, User, Users} from 'lucide-react';
+import { CalendarDays, CalendarPlus, IdCard, Receipt, User, Users } from 'lucide-react';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
 import { Wordmark } from './wordmark';
 import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
@@ -30,6 +30,24 @@ import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 // "look under Members" would find no Members. The page answers honestly
 // instead: it redirects to the one list, asks which when there are several,
 // and says plainly when there are none.
+//
+// UPCOMING IS THE EXCEPTION, and on Sjoerd's word (2026-10-14): only somebody
+// whose membership carries a team calendar sees it. Unlike Members it is not
+// an empty page for everybody else — it is a thing they do not have, the way
+// a person without a membership has no member price. It follows the
+// ENTITLEMENT, not the list, so the nav does not change shape with the month.
+export function navFor({ upcoming }: { upcoming: boolean }): SidebarNavSection[] {
+  return [
+    {
+      items: [
+        { href: '/', label: 'Next', icon: CalendarDays },
+        ...(upcoming ? [{ href: '/upcoming', label: 'Upcoming', icon: CalendarPlus }] : []),
+        ...NAV[0]!.items.slice(1),
+      ],
+    },
+  ];
+}
+
 export const NAV: SidebarNavSection[] = [
   {
     items: [
@@ -44,8 +62,8 @@ export const NAV: SidebarNavSection[] = [
 
 const BottomNavShell = createBottomNav(Link, usePathname);
 
-export function MemberTabs({ version }: { version: string }) {
-  return <BottomNavShell nav={NAV} version={version} />;
+export function MemberTabs({ version, upcoming }: { version: string; upcoming: boolean }) {
+  return <BottomNavShell nav={navFor({ upcoming })} version={version} />;
 }
 
 /** `/` matches everything by prefix, so it is the exception: exact only. */
@@ -53,8 +71,9 @@ function isActive(href: string, pathname: string): boolean {
   return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function MemberRail() {
+export function MemberRail({ upcoming }: { upcoming: boolean }) {
   const pathname = usePathname();
+  const nav = navFor({ upcoming });
   return (
     <nav className="hidden md:flex w-56 shrink-0 flex-col gap-1 border-r border-line bg-surface-sunken p-3">
       {/* Home, and the only thing on this surface that says whose app it is.
@@ -62,7 +81,7 @@ export function MemberRail() {
       <Link href="/" className="mb-3 flex min-h-11 items-center px-3">
         <Wordmark className="h-8" />
       </Link>
-      {NAV[0]!.items.map((item) => {
+      {nav[0]!.items.map((item) => {
         const Icon = item.icon;
         const active = isActive(item.href, pathname);
         return (

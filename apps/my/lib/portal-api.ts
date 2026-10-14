@@ -143,6 +143,12 @@ export type CouldJoin = {
   your_price_cents: number;
   currency: string;
   pct: number;
+  /** The public address in two halves, so a join goes through the ONE enrol
+   *  route. Optional: an API older than v1.192 does not send them. */
+  owner_slug?: string;
+  thread_slug?: string;
+  /** False when the organiser asks a required question: join on the page. */
+  direct?: boolean;
 };
 
 export type MembershipItem = {
@@ -214,7 +220,28 @@ export type Portal = {
    */
   wallet: { apple: boolean; google: boolean };
   groups: Group[];
+  /** Does any membership carry a team calendar? Shows "Upcoming". Absent on
+   *  an API older than v1.192, which reads as no. */
+  upcoming?: boolean;
 };
+
+/** One page of everything the member's team calendars let them join. */
+export type UpcomingPage = { entitled: boolean; items: CouldJoin[]; next_cursor: string | null };
+
+/** THROWS on failure, like fetchInvoices: an empty calendar and a broken call
+ *  must not look the same on the page. */
+export async function fetchUpcoming(
+  accessToken: string,
+  cursor: string | null,
+): Promise<UpcomingPage> {
+  const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  const res = await fetch(`${baseUrl}/api/v1/me/portal/upcoming${q}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `API ${res.status}: /api/v1/me/portal/upcoming`);
+  return res.json() as Promise<UpcomingPage>;
+}
 
 /**
  * Every invoice this person has, newest first, across every app. One call —

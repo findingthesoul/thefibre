@@ -248,6 +248,13 @@ else
   # Before the probe, on purpose: the probe has a 30s timeout and a cold
   # first request can come close to it. A warning, never a refusal — the
   # deploy has already happened, and a slow answer is not a wrong image.
+  # It warms whichever machine $APP.fly.dev routes to, which is THE machine
+  # while each stack runs one (step 5 below warns when it does not). If a
+  # stack ever scales out on purpose, this warms one of them, not all.
+  #
+  # Worst case, a machine that never answers fast: 10 × (30s timeout + 2s)
+  # ≈ 5 minutes added to the deploy, then a warning. Normal case: one or two
+  # requests.
   WARM_URL="https://$APP.fly.dev/api/v1/public/plans"
   WARM_OK=0
   for i in 1 2 3 4 5 6 7 8 9 10; do

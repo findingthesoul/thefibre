@@ -79,7 +79,14 @@ import {
 } from '../lib/portal.js';
 import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
-import { couldJoinByMember, type CouldJoin } from '../lib/could-join.js';
+import {
+  couldJoinFrom,
+  entitlementsByMember,
+  holdsTeamCalendar,
+  pageCouldJoin,
+  sortCouldJoin,
+  type CouldJoin,
+} from '../lib/could-join.js';
 // The entitlement walk and the price arithmetic moved WITH the walk, into
 // lib/could-join.ts — this route no longer prices anything itself, which is
 // the point of the extraction.
@@ -661,7 +668,9 @@ portalRoutes.get('/portal', async (c) => {
       .map((e) => (one(e.thread as never) as { id?: string } | null)?.id)
       .filter((x): x is string => !!x),
   );
-  const couldJoinByMemberId = await couldJoinByMember(
+  // The entitlements are kept, not only the list: whether ANY membership
+  // carries a team calendar is what shows "Upcoming" in my.thread's nav.
+  const entitlements = await entitlementsByMember(
     ((members ?? []) as Record<string, unknown>[])
       .filter((m) => m.person_id)
       .map((m) => ({
@@ -669,9 +678,9 @@ portalRoutes.get('/portal', async (c) => {
         person_id: m.person_id as string,
         workspace_id: m.workspace_id as string,
       })),
-    alreadyIn,
-    MEMBERSHIP_CARD_ROWS,
   );
+  const upcoming = holdsTeamCalendar(entitlements);
+  const couldJoinByMemberId = await couldJoinFrom(entitlements, alreadyIn, MEMBERSHIP_CARD_ROWS);
 
   // -- Group by workspace ---------------------------------------------------
   const workspaceIds = [
@@ -687,7 +696,9 @@ portalRoutes.get('/portal', async (c) => {
     ]),
   ].filter(Boolean);
 
-  if (!workspaceIds.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
+  if (!workspaceIds.length) {
+    return c.json({ person: me, wallet: walletAvailability(), groups: [], upcoming });
+  }
 
   const { data: workspaces } = await adminClient
     .from('workspace')
@@ -829,7 +840,73 @@ portalRoutes.get('/portal', async (c) => {
       (a.tickets.length + a.threads.length + a.meets.length + a.memberships.length),
   );
 
-  return c.json({ person: me, wallet: walletAvailability(), groups: out });
+  return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming });
+});
+
+// ===========================================================================
+// Upcoming threads — GET /me/portal/upcoming?cursor=&size=
+//
+// Everything the member's team calendars let them join, uncapped and paged:
+// the full list behind the Memberships card's six. The SAME walk as the card
+// (lib/could-join.ts), so the two can never quote different prices.
+//
+// `entitled` is separate from `items` on purpose: an entitled member with an
+// empty calendar this month is told "nothing coming up", and somebody with no
+// team calendar at all is told they have none — two different sentences.
+// ===========================================================================
+
+const UPCOMING_PAGE = 20;
+
+portalRoutes.get('/portal/upcoming', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+
+  const personIds = (await personsForEmail(email)).map((p) => p.id);
+  if (!personIds.length) return c.json({ entitled: false, items: [], next_cursor: null });
+
+  const [members, enrolled] = await Promise.all([
+    adminClient
+      .from('membership_member')
+      .select('id, workspace_id, person_id')
+      .in('person_id', personIds)
+      .is('deleted_at', null)
+      .then((r) => rows('portal upcoming: members', r)),
+    adminClient
+      .from('thread_enrolment')
+      .select('thread_id')
+      .in('person_id', personIds)
+      .then((r) => rows('portal upcoming: enrolments', r)),
+  ]);
+
+  const entitlements = await entitlementsByMember(
+    members.map((m) => ({
+      id: m.id as string,
+      person_id: m.person_id as string,
+      workspace_id: m.workspace_id as string,
+    })),
+  );
+  const alreadyIn = new Set(enrolled.map((e) => e.thread_id as string));
+  const byMember = await couldJoinFrom(entitlements, alreadyIn, null);
+
+  // ONE ROW PER THREAD. Two memberships can reach the same calendar (a tier
+  // and a separately bought product in one workspace are two routes to one
+  // team), and the member is charged the better of the two — so that is the
+  // one shown.
+  const best = new Map<string, CouldJoin>();
+  for (const list of byMember.values()) {
+    for (const row of list) {
+      const seen = best.get(row.thread_id);
+      if (!seen || row.your_price_cents < seen.your_price_cents) best.set(row.thread_id, row);
+    }
+  }
+
+  const size = Math.min(Math.max(Number(c.req.query('size')) || UPCOMING_PAGE, 1), 50);
+  const { items, nextCursor } = pageCouldJoin(
+    sortCouldJoin([...best.values()]),
+    c.req.query('cursor') ?? null,
+    size,
+  );
+  return c.json({ entitled: holdsTeamCalendar(entitlements), items, next_cursor: nextCursor });
 });
 
 // ===========================================================================
