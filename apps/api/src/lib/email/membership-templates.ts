@@ -345,8 +345,14 @@ export function membershipWelcome(opts: {
   /** The ticks on the join card — what the membership includes, as the
    *  community listed them. */
   characteristics?: string[] | null;
-  /** The team whose calendar this membership opens, when it opens one. */
-  calendarTeamName?: string | null;
+  /** The teams whose calendars this membership opens, when it opens any.
+   *
+   *  A LIST, because a membership can carry more than one and soul.com's
+   *  does — the Fellowship product grants two. The sentence is possessive
+   *  ("{team}'s calendar"), so one sentence per calendar rather than a
+   *  joined list, which would read as a mistake in English and worse in the
+   *  five machine-translated locales. */
+  calendarTeamNames?: string[] | null;
   /** The member's portal. Passed in rather than built here: an absolute URL
    *  in an email must name the right stack, and only the caller knows which
    *  one it is serving. */
@@ -385,9 +391,10 @@ export function membershipWelcome(opts: {
     });
 
   const ticks = (opts.characteristics ?? []).map((c) => c.trim()).filter(Boolean);
-  const calendar = (opts.calendarTeamName ?? '').trim()
-    ? t(loc, 'm_welcome_calendar', { team: (opts.calendarTeamName ?? '').trim() })
-    : '';
+  const calendarLines = (opts.calendarTeamNames ?? [])
+    .map((x) => (x ?? '').trim())
+    .filter(Boolean)
+    .map((team) => t(loc, 'm_welcome_calendar', { team }));
   const renewLine = opts.renewsAt
     ? t(loc, 'm_welcome_renews', { date: longDate(opts.renewsAt, loc) })
     : '';
@@ -412,13 +419,13 @@ export function membershipWelcome(opts: {
     heading(t(loc, 'm_welcome_community_heading')),
     // The community's own description may be several lines; keep them.
     para(escapeHtml(community).replace(/\n/g, '<br />')),
-    ticks.length || calendar ? heading(t(loc, 'm_welcome_expect_heading')) : '',
+    ticks.length || calendarLines.length ? heading(t(loc, 'm_welcome_expect_heading')) : '',
     ticks.length
       ? `<ul style="margin:0 0 18px;padding-left:24px;${BODY}">${ticks
           .map((c) => `<li style="margin:0 0 6px;">${escapeHtml(c)}</li>`)
           .join('')}</ul>`
       : '',
-    calendar ? para(escapeHtml(calendar)) : '',
+    ...calendarLines.map((line) => para(escapeHtml(line))),
     // THE WHOLE SECTION, OR NONE OF IT. Without a portal URL this printed
     // "Everything about your membership lives there:" and a list of four
     // things, with no link anywhere — "there" pointing at nothing. Describing
@@ -455,7 +462,7 @@ export function membershipWelcome(opts: {
     ...(ticks.length
       ? ['', t(loc, 'm_welcome_expect_heading').toUpperCase(), ...ticks.map((c) => `\u2022 ${c}`)]
       : []),
-    ...(calendar ? ['', calendar] : []),
+    ...(calendarLines.length ? ['', ...calendarLines] : []),
     ...(opts.portalUrl
       ? [
           '',

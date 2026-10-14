@@ -267,33 +267,64 @@ export async function teamCalendarEntitlements(
     .maybeSingle();
   if (!member) return [];
 
+  const { data: bought } = await adminClient
+    .from('membership_product_purchase')
+    .select('product_id')
+    .eq('workspace_id', workspaceId)
+    .eq('person_id', personId)
+    .eq('status', 'paid');
+
+  return teamCalendarsCarriedBy(
+    member.tier_id as string,
+    [...new Set((bought ?? []).map((b) => b.product_id as string))].filter(Boolean),
+  );
+}
+
+/**
+ * WHICH CALENDARS A TIER CARRIES — the grant walk, with no membership gate.
+ *
+ * Split out of `teamCalendarEntitlements` on 2026-10-14 so the welcome email
+ * can ask what a membership includes. The entitlement walk above gates on an
+ * active/grace membership, which is right for pricing and wrong here: the
+ * email is sent moments after the row is written, sometimes from a detached
+ * task, and a status gate in that moment is a race whose only symptom is a
+ * member getting a thinner email than the person who joined beside them.
+ *
+ * Still ONE resolution of the question. The gate moved above it, not away.
+ *
+ * `boughtProductIds` is for products owned outright — pass `[]` when the
+ * question is only "what does this tier include".
+ *
+ * The best percentage wins per calendar. A tier can carry the same calendar
+ * twice (two products that both include it), and taking the first would make
+ * the price depend on row order — not something anybody can explain to the
+ * member who paid more.
+ */
+export async function teamCalendarsCarriedBy(
+  tierId: string,
+  boughtProductIds: string[] = [],
+): Promise<TeamCalendarEntitlement[]> {
   // The same pair of sources the journal and the portal's "what this
   // includes" use: the tier's own grants, the grants of the products the tier
-  // includes, and the grants of products this person bought outright (those
-  // were paid for and do not lapse with the subscription).
-  const [{ data: tierGrants }, { data: tierProducts }, { data: bought }] = await Promise.all([
+  // includes, and the grants of products bought outright (those were paid for
+  // and do not lapse with the subscription).
+  const [{ data: tierGrants }, { data: tierProducts }] = await Promise.all([
     adminClient
       .from('membership_access_grant')
       .select('id, kind, config')
-      .eq('tier_id', member.tier_id)
+      .eq('tier_id', tierId)
       .eq('kind', 'team_calendar'),
     adminClient
       .from('membership_tier_product')
       .select('product_id')
-      .eq('tier_id', member.tier_id)
+      .eq('tier_id', tierId)
       .eq('optional', false),
-    adminClient
-      .from('membership_product_purchase')
-      .select('product_id')
-      .eq('workspace_id', workspaceId)
-      .eq('person_id', personId)
-      .eq('status', 'paid'),
   ]);
 
   const productIds = [
     ...new Set([
       ...(tierProducts ?? []).map((p) => p.product_id as string),
-      ...(bought ?? []).map((p) => p.product_id as string),
+      ...boughtProductIds,
     ]),
   ].filter(Boolean);
   const { data: productGrants } = productIds.length
@@ -319,6 +350,37 @@ export async function teamCalendarEntitlements(
     }
   }
   return [...best.values()];
+}
+
+/**
+ * The NAMES of the calendars a tier carries, for the welcome email.
+ *
+ * Reads the grants, never a guess — the email says "your membership includes
+ * {team}'s calendar", and a sentence like that must not be printed on a hope.
+ *
+ * Sorted by name so two members of one tier get the same email. Returns []
+ * rather than throwing: a missing calendar line is better than a failed
+ * welcome.
+ */
+export async function teamCalendarNamesForTier(tierId: string): Promise<string[]> {
+  try {
+    const held = await teamCalendarsCarriedBy(tierId);
+    if (!held.length) return [];
+    const { data: teams } = await adminClient
+      .from('team')
+      .select('id, name')
+      .in(
+        'id',
+        held.map((h) => h.teamId),
+      );
+    return (teams ?? [])
+      .map((t) => String((t as { name?: string }).name ?? '').trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  } catch (e) {
+    console.error('[membership] calendar names lookup failed', e);
+    return [];
+  }
 }
 
 export async function memberDiscountFor(

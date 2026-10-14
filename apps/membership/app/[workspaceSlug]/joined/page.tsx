@@ -1,4 +1,4 @@
-import { appName, surfaceUrl } from '@thefibre/shared';
+import { ENTITY, appName, surfaceUrl } from '@thefibre/shared';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -83,7 +83,7 @@ export default async function JoinedPage({
           </Link>
         </p>
         <footer className="mt-16 text-xs text-ink-muted">
-          {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · The Fibre
+          {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · {ENTITY.publicName}
         </footer>
       </main>
     </div>

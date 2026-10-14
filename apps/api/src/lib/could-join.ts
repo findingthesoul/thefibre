@@ -51,6 +51,33 @@ export type CouldJoinMember = {
 const one = <T>(v: T | T[] | null | undefined): T | null =>
   !v ? null : Array.isArray(v) ? v[0] ?? null : v;
 
+/** Is this thing still joinable on `today`?
+ *
+ *  THE END DATE DECIDES WHEN THERE IS ONE. This used to drop anything whose
+ *  START was in the past, which is right for a one-day workshop and wrong for
+ *  the shape soul.com actually sells: "Community agenda 2026" opened on 1
+ *  October and runs the year, so on 2 October it vanished from the list of
+ *  what a membership lets you join — while still being, in life, the main
+ *  thing the membership was for. (Found on production 2026-10-14 while
+ *  working out why the card was empty; the rule is Sjoerd's call, made the
+ *  same day.)
+ *
+ *  So: a thread with an end date is joinable until that date passes, and only
+ *  a thread with NO end date falls back to its start. A dateless thread is
+ *  always joinable — it has made no claim about when it happens.
+ *
+ *  `today` is an argument, never `new Date()` inside: a wall-clock test
+ *  passes in UTC CI and fails in Amsterdam.
+ */
+export function stillJoinable(
+  program: { starts_on?: string | null; ends_on?: string | null },
+  today: string,
+): boolean {
+  if (program.ends_on) return program.ends_on >= today;
+  if (program.starts_on) return program.starts_on >= today;
+  return true;
+}
+
 
 /** Everything these memberships can join, by membership id.
  *
@@ -93,7 +120,7 @@ export async function couldJoinByMember(
         `id, slug, workspace_id, team_id, price_cents, price_currency, public_scope,
          team:team_id (slug, name, is_published, is_active),
          organiser:organiser_id (slug),
-         program:program_id (title, status, starts_on)`,
+         program:program_id (title, status, starts_on, ends_on)`,
       )
       .in('team_id', teamIds)
       .eq('is_public_listed', true)
@@ -106,11 +133,11 @@ export async function couldJoinByMember(
       | { slug: string; name: string; is_published: boolean | null; is_active: boolean | null }
       | null;
     const program = one(t.program as never) as
-      | { title: string; status: string; starts_on: string | null }
+      | { title: string; status: string; starts_on: string | null; ends_on: string | null }
       | null;
     if (!team || team.is_published !== true || team.is_active === false) return false;
     if (!program || program.status !== 'active') return false;
-    if (program.starts_on && program.starts_on < today) return false;
+    if (!stillJoinable(program, today)) return false;
     if (alreadyIn.has(t.id as string)) return false;
     return true;
   });
@@ -200,8 +227,67 @@ export async function couldJoinByMember(
     // Soonest first, and undated last: a list of what is coming up is
     // ordered by when, not by when it was created. BEFORE any cap, so a
     // capped list is the soonest few and not an arbitrary few.
-    mine.sort((a, b) => (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999'));
+    //
+    // AND THE ORDER IS TOTAL — `thread_id` breaks a tie on the date.
+    //
+    // It was by date alone, which is fine for a card that shows six and
+    // stops. It is not fine for a paginated list: two threads starting the
+    // same day had no defined order between them, so the row that ended page
+    // one could be a different row on the next request, and the cursor would
+    // skip one or repeat one. A sort that is "good enough to look at" is not
+    // good enough to paginate.
+    mine.sort(
+      (a, b) =>
+        (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999') ||
+        a.thread_id.localeCompare(b.thread_id),
+    );
     out.set(memberId, limit === null ? mine : mine.slice(0, limit));
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// PAGING THE LIST.
+//
+// Pure, and separate from the route, because the property that matters is one
+// a database cannot demonstrate: walking the pages must visit every row
+// exactly once. A cursor that skips a row loses an offer the member was
+// entitled to; one that repeats a row looks like a duplicate in the data.
+// Both are invisible in a single-page test.
+// ---------------------------------------------------------------------------
+
+/** The sort key a cursor is made of. Date first, then id — the id is not
+ *  decoration: without it two threads starting on one day have no defined
+ *  order, and the row that ends a page could be a different row next time. */
+export function couldJoinCursor(row: { starts_on: string | null; thread_id: string }): string {
+  return `${row.starts_on ?? '9999'}|${row.thread_id}`;
+}
+
+/** Order a list the way the cursor expects. Undated last. */
+export function sortCouldJoin<T extends { starts_on: string | null; thread_id: string }>(
+  rows: T[],
+): T[] {
+  return [...rows].sort((a, b) => couldJoinCursor(a).localeCompare(couldJoinCursor(b)));
+}
+
+/** One page of an ALREADY SORTED list, and the cursor for the next.
+ *
+ *  `null` back means there is no next page. It is returned only when the page
+ *  came back short — a full last page hands out one more cursor, and the
+ *  request after it answers empty. One wasted round trip is a much smaller
+ *  cost than claiming there is no more when there is. */
+export function pageCouldJoin<T extends { starts_on: string | null; thread_id: string }>(
+  sorted: T[],
+  cursor: string | null,
+  size: number,
+): { items: T[]; nextCursor: string | null } {
+  const from = cursor ? sorted.findIndex((r) => couldJoinCursor(r) > cursor) : 0;
+  // A cursor past the end, or one matching nothing because the list changed
+  // under the reader — a thread filled or withdrawn between pages. An empty
+  // page is the truthful answer; an error would turn somebody else's edit
+  // into this reader's problem.
+  if (from === -1) return { items: [], nextCursor: null };
+  const items = sorted.slice(from, from + size);
+  const nextCursor = items.length === size ? couldJoinCursor(items[items.length - 1]!) : null;
+  return { items, nextCursor };
 }

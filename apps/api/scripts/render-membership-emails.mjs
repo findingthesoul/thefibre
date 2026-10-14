@@ -49,7 +49,7 @@ const samples = [
       renewsAt: '2027-01-01T00:00:00Z',
       tierDescription: 'Membership of the soul.com community.',
       characteristics: SOUL_CHARACTERISTICS,
-      calendarTeamName: 'soul.com',
+      calendarTeamNames: ['soul.com'],
       portalUrl: 'https://my.thethread.app/memberships',
       email: 'marja@example.com',
       locale: 'en',
@@ -58,10 +58,12 @@ const samples = [
   },
   {
     // THE OTHER TRIGGER: a member an admin added by hand, who paid nothing.
-    // Same template, same size, same portal — the only differences are that
-    // no invoice is promised and there is no renewal date yet. Rendered
-    // beside the paid one on purpose, because "one welcome, two triggers" is
-    // a claim that should be checkable by putting them side by side.
+    // Same template, same size, same portal, same renewal date, same
+    // calendars — the ONE difference is that no invoice is promised, because
+    // nobody was billed. Rendered beside the paid one on purpose, because
+    // "one welcome, two triggers" is a claim that should be checkable by
+    // putting them side by side, and in v1.186.0 it was true of the layout
+    // while the content still differed in two places.
     //
     // The name is the email's LOCAL PART, which is what a person row created
     // from an address carries. It is capitalised in the greeting; a name
@@ -71,10 +73,15 @@ const samples = [
       name: 'sjoerd',
       communityName: COMMUNITY,
       tierName: 'Community member',
-      renewsAt: null,
+      renewsAt: '2027-10-14T05:03:20Z',
       tierDescription: 'Membership of the soul.com community.',
       characteristics: SOUL_CHARACTERISTICS,
-      calendarTeamName: 'soul.com',
+      // TWO calendars, which is the real production shape and the reason the
+      // option is a list: soul.com's Fellowship product grants two teams'
+      // calendars. The sentence is possessive ("{team}'s calendar"), so this
+      // renders one sentence each rather than joining the names — and
+      // rendering it is what makes that a checkable claim.
+      calendarTeamNames: ['soul.com', 'Fellowship'],
       portalUrl: 'https://my.thethread.app/memberships',
       email: 'sjoerd+invitetest@soul.com',
       invoiceFollows: false,
@@ -109,7 +116,7 @@ const samples = [
       // Dutch reader sees the English text inside a Dutch frame. That is what
       // will really happen, and the sample should not hide it.
       characteristics: SOUL_CHARACTERISTICS,
-      calendarTeamName: 'soul.com',
+      calendarTeamNames: ['soul.com'],
       portalUrl: 'https://my.thethread.app/memberships',
       email: 'marja@example.com',
       locale: 'nl',

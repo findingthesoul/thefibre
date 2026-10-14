@@ -48,7 +48,7 @@
 
 import Link from 'next/link';
 import { RichText } from '@thefibre/shared/ui/rich-text';
-import { FOOTER_LINKS } from '@thefibre/shared';
+import { FOOTER_LINKS, appName } from '@thefibre/shared';
 import type { PublicSite } from '@/lib/public-site';
 import { DrawnThread, Shape } from '@thefibre/shared/ui/marks';
 import { ThreadsGrid, type PublicThreadListItem } from './threads-grid';
@@ -133,7 +133,7 @@ export function PlainTheme(p: ThemeProps) {
 
         <footer className="mt-16 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
           <span>
-            Powered by <span className="font-medium">Thread</span> · The Fibre
+            Powered by <span className="font-medium">{appName('the-thread')}</span>
           </span>
           {p.site.contact_enabled && (
             <Link href={`/${p.ownerSlug}/contact`} className="hover:text-ink">

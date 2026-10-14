@@ -7,6 +7,7 @@ import { Linkedin, Printer } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { CertView, type CertSnapshot } from './cert-view';
 import { THREAD_ORIGIN } from '@/lib/public-host';
+import { appName } from '@thefibre/shared';
 
 type CertPayload = {
   certificate_number: string;
@@ -120,7 +121,7 @@ export default async function CertificatePage({
         <footer className="mt-6 text-center text-xs text-ink-muted print:hidden">
           <span className="font-mono">{cert.certificate_number}</span> · issued to{' '}
           {cert.recipient_name} on {issued} · Powered by{' '}
-          <span className="font-medium">Thread</span> · The Fibre
+          <span className="font-medium">{appName('the-thread')}</span>
         </footer>
       </main>
     </div>

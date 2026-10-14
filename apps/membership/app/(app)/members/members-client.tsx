@@ -10,8 +10,10 @@ import { MemberDialog } from './member-dialog';
 import { StatusBadge } from './status-badge';
 import { memberName, type Member, type MemberStatus, type Tier } from './types';
 
-const CHIPS: { key: UiKey; value: MemberStatus | '' }[] = [
-  { key: 'chip_all', value: '' },
+// `all` is a VALUE now, not the absence of one: the page opens on Active, so
+// "everyone" needs something to say. See the comment in page.tsx.
+const CHIPS: { key: UiKey; value: MemberStatus | 'all' }[] = [
+  { key: 'chip_all', value: 'all' },
   { key: 'status_active', value: 'active' },
   { key: 'status_grace', value: 'grace' },
   { key: 'status_lapsed', value: 'lapsed' },
@@ -30,7 +32,10 @@ export function MembersClient({
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const status = params.get('status') ?? '';
+  // Same default as the server, so the chip that is lit is the filter that
+  // was applied. Two defaults would be a page that shows active members with
+  // All highlighted.
+  const status = params.get('status') === null ? 'active' : params.get('status') || 'all';
   const tier = params.get('tier') ?? '';
   const q = params.get('q') ?? '';
 
@@ -119,7 +124,9 @@ export function MembersClient({
       <div className="mt-6 rounded-2xl border border-line bg-surface-raised overflow-hidden">
         {members.length === 0 ? (
           <div className="p-8 text-center text-sm text-ink-muted">
-            {status || tier || q ? t(locale, 'no_members_filtered') : t(locale, 'no_members_yet')}
+            {status !== 'all' || tier || q
+              ? t(locale, 'no_members_filtered')
+              : t(locale, 'no_members_yet')}
           </div>
         ) : (
           <table className="w-full text-sm">

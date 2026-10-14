@@ -6,6 +6,109 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.187.0] — 2026-10-14
+
+### Two triggers, and now the same words
+
+v1.186.0 put both welcome emails through one template and called it "one
+welcome, two triggers". That was true of the LAYOUT and false of the content:
+the hand-added path passed `renewsAt: null` and no calendar, so the same
+template still produced a thinner email for the member an admin added. Both are
+available on that path — the admin sets the renewal date in the very dialog
+that sends the mail — so both are passed, and a test now asserts the invariant
+rather than the fix: given the same facts, the two differ in exactly ONE
+paragraph, in the HTML and in the plain text, and it is the invoice promise.
+
+**And underneath it, a line that has never printed.** The paid path read
+`team_calendar` grants keyed on the TIER alone. On soul.com every one of them
+hangs off a PRODUCT — four grants, none tier-keyed — so "your membership
+includes {team}'s calendar" has never appeared in a production welcome email,
+on either path. Ran the old select and the new one side by side against
+production: the old answers nothing for all three soul.com tiers.
+
+It goes through `teamCalendarNamesForTier` now, which walks the tier's grants
+AND the grants of the tier's products — the same resolution the member price
+uses, because a second, narrower copy of "what does this tier include" is how
+the two came to disagree. The grant walk was split out of
+`teamCalendarEntitlements` to do it: that function gates on an active or grace
+membership, which is right for pricing and wrong for an email sent moments
+after the row is written. The gate moved above the walk, not away from it.
+
+So the option is a LIST, `calendarTeamNames`, one sentence per calendar. Two of
+soul.com's three tiers carry two calendars, and the sentence is possessive —
+joining the names would read as a mistake in English and worse in the five
+machine-translated locales.
+
+### The end date decides what you can still join
+
+"What you can join" dropped anything whose START was in the past. Right for a
+one-day workshop; wrong for the shape soul.com sells. "Community agenda 2026"
+opened on 1 October and runs to the end of the year, so from 2 October it was
+absent from the list of what the membership lets you join — while being, in
+life, the main thing the membership was for.
+
+Found while working out why the card was empty for Sjoerd on production, and
+decided by him the same day: **a thread with an end date is joinable until that
+date passes, and only a thread with no end falls back to its start.** A thread
+with no dates at all stays joinable — it has made no claim about when it
+happens.
+
+`stillJoinable` is its own exported function taking `today` as an argument, so
+it is tested without a database and passes in Amsterdam as well as in UTC CI.
+Run against production: **six of thirteen threads flip from excluded to
+included**, every one of them genuinely still running (to March 2027, to April
+2027, to 26 October), and every short event correctly stays out.
+
+The empty card itself was not a bug, for the record. Four filters were failing
+at once on soul.com — no thread had "list publicly" on, the fellowship team was
+unpublished, one thread was still a draft, and Sjoerd was already enrolled in
+the other three.
+
+### Members opens on who is a member
+
+The Members list opened on All, so the first thing an admin saw could be a
+column of lapsed and cancelled rows. It opens on **Active**.
+
+The filter lives in the URL, so the absent state had to take a meaning: it
+means `active` now, and All got a spelling of its own, `?status=all`. Without
+that, "show me everyone" would have become unreachable — worse than the
+complaint. Every existing link carrying a real status is untouched, and the
+empty state follows the same rule, because a workspace whose only members are
+lapsed must not read "no members yet".
+
+### Powered by The Thread
+
+Thread's own public pages said "Powered by Thread · The Fibre". The app IS the
+public brand, so the second half was wrong, and once corrected it was
+redundant — "The Thread · The Thread" reads as a mistake. They read "Powered by
+The Thread", from `appName` rather than a fourth hardcoded spelling.
+
+The Members app's three public pages had the company name typed into them as
+well; they read it from `ENTITY.publicName` now. A name that is spelled out in
+a page is a name that will be wrong somewhere the day it changes.
+
+Also landing here, ahead of the page that uses them: `sortCouldJoin`,
+`pageCouldJoin` and `couldJoinCursor`, the pure paging for the Upcoming
+threads list, with the tests that walk every page and assert each row is
+visited exactly once. The sort they need is TOTAL (date, then thread id) and
+that part is not inert — the card uses the same sort, and by date alone two
+threads starting on one day had no defined order between them.
+
+### What a rename breaks, written down
+
+`docs/thread-slug-references.md`, after an incident on soul.com: a thread was
+duplicated, both copies were renamed, and two membership grants that stored a
+SLUG died — five Fellowship members silently had no seat on a thread they had
+paid for. The inventory names every place that identifies a thread by its
+address instead of its id and what each does on a rename: grants fail loudly,
+product links fail **silently** (my.thread just shows no button), and sent
+emails and Webflow embeds fail where we cannot see them. Enrolments,
+certificates and the external app contract are id-keyed and safe.
+
+No live member is affected today — both surviving broken references belong to
+an archived product whose journal rows are already revoked. The fix is queued,
+not in this release.
+
 ## [1.186.0] — 2026-10-14
 
 ### One welcome, two triggers

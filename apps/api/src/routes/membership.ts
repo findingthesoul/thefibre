@@ -50,6 +50,7 @@ import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
 import { runThreadAccessSync } from '../lib/thread-access.js';
+import { teamCalendarNamesForTier } from '../lib/member-discount.js';
 import { effectiveInterval } from '../lib/membership-interval.js';
 import {
   applyPct,
@@ -1195,15 +1196,21 @@ membershipRoutes.post('/members', async (c) => {
       // `membershipWelcome` with `invoiceFollows: false` — the one real
       // difference, since nobody is billed on this path and promising an
       // invoice that never arrives is worse than saying nothing.
+      // AND THE SAME CONTENT, not just the same template. v1.186.0 passed
+      // `renewsAt: null` and no calendar, which made "one welcome, two
+      // triggers" true of the layout and false of what it said. Both are
+      // right here: `renewsAt` is the date this handler just computed and
+      // wrote (the admin set it in that dialog), and the calendars come from
+      // the same resolver the paid path and the member price use.
       const communityName = ws?.name ?? 'the community';
       const msg = membershipWelcome({
         name: person.first_name ?? 'there',
         communityName,
         tierName: tier?.name ?? 'membership',
-        renewsAt: null,
+        renewsAt,
         tierDescription: tier?.description ?? null,
         characteristics: (tier?.characteristics as string[] | null) ?? null,
-        calendarTeamName: null,
+        calendarTeamNames: await teamCalendarNamesForTier(memberFields.tier_id),
         portalUrl: `${stackSurfaceUrl('my-portal', process.env)}/memberships`,
         email: person.email,
         invoiceFollows: false,
@@ -3061,27 +3068,23 @@ async function ensureMemberFromSubscription(
       getWorkspaceBrand(meta.workspace_id),
     ]);
 
-    // THE TEAM CALENDAR, named only when the membership really opens one.
+    // THE TEAM CALENDARS, named only when the membership really opens one.
     // The email says "your membership includes {team}'s calendar", and a
-    // sentence like that must not be printed on a hope: the grant is what
-    // decides, so it is read rather than assumed. One line of the old email
+    // sentence like that must not be printed on a hope: the grants are what
+    // decide, so they are read rather than assumed. One line of the old email
     // said invitations would "arrive from each space", which was true of no
     // membership in particular — this replaces that with something specific
     // or with nothing.
-    let calendarTeamName: string | null = null;
-    try {
-      const { data: grant } = await adminClient
-        .from('membership_access_grant')
-        .select('team:team_id (name)')
-        .eq('tier_id', meta.tier_id)
-        .eq('kind', 'team_calendar')
-        .limit(1)
-        .maybeSingle();
-      const team = Array.isArray(grant?.team) ? grant?.team[0] : grant?.team;
-      calendarTeamName = (team as { name?: string } | null)?.name ?? null;
-    } catch {
-      /* a missing calendar line is better than a failed welcome */
-    }
+    //
+    // THIS USED TO READ GRANTS KEYED ON THE TIER ALONE, and therefore printed
+    // nothing on soul.com — where every team_calendar grant hangs off a
+    // PRODUCT, not a tier (checked on production 2026-10-14: five such grants,
+    // none tier-keyed). `teamCalendarNamesForTier` is the resolver the member
+    // price already uses, so the email now names exactly the calendars the
+    // member will actually be given a member price on. A second, narrower copy
+    // of "what does this tier include" is how the two disagreed in the first
+    // place.
+    const calendarTeamNames = await teamCalendarNamesForTier(meta.tier_id);
 
     if (person?.email) {
       const msg = membershipWelcome({
@@ -3091,7 +3094,7 @@ async function ensureMemberFromSubscription(
         renewsAt,
         tierDescription: tier?.description ?? null,
         characteristics: (tier?.characteristics as string[] | null) ?? null,
-        calendarTeamName,
+        calendarTeamNames,
         // THIS community's page in the portal, on THIS stack. `surfaceUrl`
         // reads the environment, which is the only thing that knows whether
         // this API is the .app or the .tech one — a hand-built URL here is
