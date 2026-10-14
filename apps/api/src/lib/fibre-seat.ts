@@ -16,7 +16,7 @@ import { seatAvailable } from './plan.js';
 import { syncAutomaticTeams } from './automatic-teams.js';
 import { syncUsers } from './team-grants.js';
 import { seatBillable, reconcileSeatBilling } from './seat-billing.js';
-import { raisedRole } from './role-floor.js';
+import { raisedRole, seatRevokeKeeps } from './role-floor.js';
 
 type JournalRow = {
   id: string;
@@ -181,7 +181,41 @@ export async function grantSeat(
  *  should revoke a seat directly. */
 export { revokeSeat as revokeSeatForTest };
 
-async function revokeSeat(workspaceId: string, userId: string): Promise<{ ok: boolean; error?: string }> {
+async function revokeSeat(
+  workspaceId: string,
+  userId: string,
+  seatRole: string,
+  journalId?: string,
+): Promise<{ ok: boolean; error?: string; kept?: string }> {
+  // THE ROW FIRST, and fail closed: a read that errors must not fall through
+  // to a delete.
+  const { data: wm, error: wmReadErr } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role, relationship_type')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (wmReadErr) return { ok: false, error: wmReadErr.message };
+
+  if (wm) {
+    const keeps = seatRevokeKeeps(wm, seatRole);
+    if (keeps) return { ok: true, kept: keeps };
+    // ANOTHER SEAT STILL HOLDS IT: two products can each grant a seat, and
+    // ending one membership must not close a seat the other still pays for.
+    let other = adminClient
+      .from('membership_member_access')
+      .select('id, grant:access_grant_id (kind)')
+      .eq('external_ref', userId)
+      .eq('status', 'granted');
+    if (journalId) other = other.neq('id', journalId);
+    const { data: others, error: otherErr } = await other;
+    if (otherErr) return { ok: false, error: otherErr.message };
+    const stillHeld = ((others ?? []) as unknown as { grant: { kind: string } | { kind: string }[] | null }[]).some(
+      (o) => (Array.isArray(o.grant) ? o.grant[0] : o.grant)?.kind === 'fibre_seat',
+    );
+    if (stillHeld) return { ok: true, kept: 'another membership still grants this seat' };
+  }
+
   // THE SEAT ACTUALLY CLOSES. Removal through the invite flow soft-deletes
   // the workspace's `user` row, and says why in its own words: that row "is
   // exactly what `seatsUsed` counts, so the seat stops existing the moment
@@ -193,19 +227,27 @@ async function revokeSeat(workspaceId: string, userId: string): Promise<{ ok: bo
   //
   // The PERSON stays, and so does the row — soft, never hard: they may hold
   // memberships, purchases and history, and re-granting resurrects it.
-  const { error: delErr } = await adminClient
-    .from('user')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', userId)
-    .eq('workspace_id', workspaceId);
-  if (delErr) return { ok: false, error: delErr.message };
-
   const { error } = await adminClient
     .from('workspace_member')
     .delete()
     .eq('workspace_id', workspaceId)
     .eq('user_id', userId);
   if (error) return { ok: false, error: error.message };
+
+  // The account goes only when no workspace row of it is left anywhere.
+  const { count, error: cntErr } = await adminClient
+    .from('workspace_member')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (cntErr) return { ok: false, error: cntErr.message };
+  if (!count) {
+    const { error: delErr } = await adminClient
+      .from('user')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', userId)
+      .eq('workspace_id', workspaceId);
+    if (delErr) return { ok: false, error: delErr.message };
+  }
 
   // AND THE TEAMS LET GO. Without this the workspace_member row goes while
   // the team_member rows stay, so every app grant those teams carry outlives
@@ -287,7 +329,9 @@ export async function runFibreSeatSync(): Promise<{ granted: number; revoked: nu
         out.revoked += 1;
         continue;
       }
-      const r = await revokeSeat(row.member!.workspace_id, row.external_ref);
+      const seatRole = row.grant!.config?.role === 'admin' ? 'admin' : 'organiser';
+      const r = await revokeSeat(row.member!.workspace_id, row.external_ref, seatRole, row.id);
+      if (r.kept) console.log(`[fibre-seat] seat revoked, workspace row kept (${r.kept})`, row.external_ref);
       await adminClient
         .from('membership_member_access')
         .update(

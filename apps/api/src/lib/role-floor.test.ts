@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROLE_RANK, raisedRole } from './role-floor.js';
+import { ROLE_RANK, raisedRole, seatRevokeKeeps } from './role-floor.js';
 // @ts-expect-error — a plain .mjs script helper, no type declarations
 import { RANK as SCRIPT_RANK } from '../../scripts/lib/role-floor.mjs';
 
@@ -17,5 +17,13 @@ describe('role floor', () => {
   });
   it('agrees with the rank the --all-members script uses', () => {
     expect(ROLE_RANK).toEqual(SCRIPT_RANK);
+  });
+
+  it('a lapsed seat keeps an internal or senior row, and removes only what a seat makes', () => {
+    expect(seatRevokeKeeps({ workspace_role: 'organiser', relationship_type: 'internal' }, 'organiser')).toMatch(/internal/);
+    expect(seatRevokeKeeps({ workspace_role: 'super_admin', relationship_type: 'external' }, 'admin')).toMatch(/above/);
+    expect(seatRevokeKeeps({ workspace_role: 'admin', relationship_type: 'external' }, 'organiser')).toMatch(/above/);
+    expect(seatRevokeKeeps({ workspace_role: 'organiser', relationship_type: 'external' }, 'organiser')).toBeNull();
+    expect(seatRevokeKeeps({ workspace_role: 'admin', relationship_type: 'external' }, 'admin')).toBeNull();
   });
 });

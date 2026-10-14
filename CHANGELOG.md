@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.196.2] — 2026-10-14
+
+### A lapsed membership no longer takes a team member out of the workspace
+
+- **When a membership that carried a Fibre seat ended, the seat sync deleted
+  the person's workspace row and soft-deleted their account** — whoever they
+  were. soul.com's whole team holds such memberships, so a lapse would have
+  removed a founder from their own workspace, and the re-grant then refused
+  ("removed before"), leaving an invite as the only way back.
+- The revoke now removes only what a seat makes. An **internal** row, or one
+  whose role is **above the seat's** (raised or set by hand), is kept exactly
+  as it is and the journal says revoked; so is a row **another membership's
+  seat still holds**. The account is soft-deleted only when no workspace row
+  of it remains. A read that fails stops the revoke rather than falling
+  through to a delete. A person whose row was kept re-grants cleanly.
+- Tests: `role-floor.test.ts` pins the keep rule; `fibre-seat-teams.int.test.ts`
+  — internal organiser with a seat, lapse → row and account kept, re-grant ok;
+  super_admin → kept; a pure seat member → removed and the seat closes as
+  before. Fails on the old revoke.
+
 ## [1.196.1] — 2026-10-14
 
 ### A membership seat no longer demotes somebody already in the workspace

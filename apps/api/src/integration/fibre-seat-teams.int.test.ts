@@ -93,7 +93,7 @@ describe('a membership seat and the automatic teams', () => {
 
   it('and takes both away when the seat is revoked', async () => {
     const userId = madeUsers[0]!;
-    const revoked = await revokeSeatForTest(ws, userId);
+    const revoked = await revokeSeatForTest(ws, userId, 'admin');
     expect(revoked.ok, JSON.stringify(revoked)).toBe(true);
 
     // THE ASSERTION THAT MATTERS. The seat is gone; if the team rows remain,
@@ -359,5 +359,51 @@ describe('what a seat grant must NOT do', () => {
     const g3 = await grantSeat(ws, fresh.personId, { role: 'organiser' });
     expect(g3.ok, JSON.stringify(g3)).toBe(true);
     expect(await read(fresh.userId)).toEqual({ workspace_role: 'organiser', relationship_type: 'external' });
+  }, 120_000);
+
+  it('a lapsed seat leaves the team: internal and senior rows are kept, and re-grant works', async () => {
+    // soul.com, 2026-10-14: the team hold memberships with a seat, and their
+    // journal rows already carry external_ref. A lapse deleted the workspace
+    // row and soft-deleted the account, founder included — and re-granting
+    // then refused as "removed before".
+    const ws = await freshWorkspace('seat-lapse');
+    const mk = async (tag: string) => {
+      const email = `int-seat-${tag}-${randomUUID().slice(0, 8)}@example.com`;
+      const { data: p } = await service.from('person').insert({ workspace_id: ws, first_name: 'Lapse', last_name: tag, email }).select('id').single();
+      const { data: u } = await service.from('user').insert({ workspace_id: ws, person_id: p!.id, email, primary_auth_method: 'google', email_verified: true }).select('id').single();
+      madeUsers.push(u!.id as string);
+      return { personId: p!.id as string, userId: u!.id as string };
+    };
+    const state = async (userId: string) => ({
+      wm: (await service.from('workspace_member').select('workspace_role, relationship_type').eq('workspace_id', ws).eq('user_id', userId).maybeSingle()).data,
+      deleted: (await service.from('user').select('deleted_at').eq('id', userId).single()).data!.deleted_at,
+    });
+
+    // A team member, internal organiser, with a seat.
+    const staff = await mk('staff');
+    await service.from('workspace_member').insert({ workspace_id: ws, user_id: staff.userId, workspace_role: 'organiser', relationship_type: 'internal' });
+    expect((await grantSeat(ws, staff.personId, { role: 'organiser' })).ok).toBe(true);
+    const r1 = await revokeSeatForTest(ws, staff.userId, 'organiser');
+    expect(r1.ok && r1.kept, JSON.stringify(r1)).toMatch(/internal/);
+    expect(await state(staff.userId)).toEqual({ wm: { workspace_role: 'organiser', relationship_type: 'internal' }, deleted: null });
+    // ... and their next membership re-grants cleanly.
+    const again = await grantSeat(ws, staff.personId, { role: 'organiser' });
+    expect(again.ok, JSON.stringify(again)).toBe(true);
+
+    // A super_admin, even one marked external, is kept.
+    const founder = await mk('founder');
+    await service.from('workspace_member').insert({ workspace_id: ws, user_id: founder.userId, workspace_role: 'super_admin', relationship_type: 'external' });
+    const r2 = await revokeSeatForTest(ws, founder.userId, 'organiser');
+    expect(r2.ok && r2.kept, JSON.stringify(r2)).toMatch(/above/);
+    expect(await state(founder.userId)).toEqual({ wm: { workspace_role: 'super_admin', relationship_type: 'external' }, deleted: null });
+
+    // A pure seat member — the row the seat made — is removed as before.
+    const buyer = await mk('buyer');
+    expect((await grantSeat(ws, buyer.personId, { role: 'organiser' })).ok).toBe(true);
+    const r3 = await revokeSeatForTest(ws, buyer.userId, 'organiser');
+    expect(r3, JSON.stringify(r3)).toEqual({ ok: true });
+    const after = await state(buyer.userId);
+    expect(after.wm).toBeNull();
+    expect(after.deleted, 'the seat closes: the account row is soft-deleted').not.toBeNull();
   }, 120_000);
 });
