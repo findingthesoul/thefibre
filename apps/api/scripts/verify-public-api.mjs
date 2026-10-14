@@ -320,10 +320,28 @@ if (threadRes.body?.thread?.agenda?.length) {
 // markup — rather than by name, so the check keeps biting as staging and
 // production data change. If no such host exists the check says so instead
 // of passing on nothing.
-const { data: meetHosts } = await db
+// DETERMINISTIC, and only hosts the public route can actually answer for.
+// It took `.limit(50)` with no order and no slug filter, so "the first host"
+// changed with the data: on 2026-10-14 it landed on a host the public route
+// 404s (the route's `.eq('slug').single()` errors on a NULL slug and on a
+// slug two hosts share) and blocked every release. So: slugs present,
+// ordered, and a slug that appears more than once is skipped — the check
+// stays exactly as strict, it just stops choosing a host it cannot pass on.
+const { data: hostRows } = await db
   .from('meet_host')
   .select('slug, bio, user:user_id (email)')
-  .limit(50);
+  .not('slug', 'is', null)
+  .order('slug')
+  .limit(200);
+const slugCount = new Map();
+for (const h of hostRows ?? []) slugCount.set(h.slug, (slugCount.get(h.slug) ?? 0) + 1);
+const duplicateSlugs = [...slugCount].filter(([, n]) => n > 1).map(([sl]) => sl);
+if (duplicateSlugs.length) {
+  // A data finding, said out loud: two hosts on one public address means
+  // that address cannot open for either of them.
+  console.log(`   ⚠ meet hosts sharing a slug (skipped here; their public page cannot open): ${duplicateSlugs.join(', ')}`);
+}
+const meetHosts = (hostRows ?? []).filter((h) => slugCount.get(h.slug) === 1);
 const hostEmails = [
   ...new Set((meetHosts ?? []).map((h) => one(h.user)?.email).filter(Boolean)),
 ];
@@ -345,7 +363,8 @@ if (!markupHost) {
   console.log('   ⚠ no Meet host has a stored bio containing markup — flattening NOT exercised');
 } else {
   const hostRes = await get(`/api/v1/meet/public/host/${markupHost.slug}`);
-  check(hostRes.status === 200, 'GET /meet/public/host/:slug', `HTTP ${hostRes.status}`);
+  // The slug in the line, so the next failure names its host.
+  check(hostRes.status === 200, `GET /meet/public/host/${markupHost.slug}`, `HTTP ${hostRes.status}`);
   checkPlain('meet host.bio', hostRes.body?.bio);
   checkPlain('meet host.short_bio', hostRes.body?.short_bio);
   // The markup has to be SOMEWHERE, or flattening has quietly become

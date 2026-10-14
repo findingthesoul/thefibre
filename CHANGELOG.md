@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.194.1] — 2026-10-14
+
+### The tables for the next four releases, ahead of their code
+
+`supabase/migrations/20261014171844_member_page_and_held_threads.sql`, alone,
+so staging can apply it the moment it lands. Additive only, and nothing reads
+any of it until the releases that follow:
+
+- `thread_calendar_seen.held_at` — threads the notification circuit breaker
+  held, for an admin to decide on.
+- `membership_settings.member_page` (jsonb) — the community page's intro and
+  document list.
+- the **private** `member-documents` storage bucket (no policies: only the
+  service role reaches it; members download through a 60-second signed URL).
+- `thread_slug_history` (RLS on, no policies) — a renamed thread's old
+  addresses, so links people already have keep working.
+
+Also: **the public-API release gate chose its Meet host at random.**
+`verify-public-api.mjs` took the first of 50 hosts with no order and no slug
+filter, and after batch 22 the "first" became a host the public route cannot
+answer for (a NULL slug, most likely), which failed every release. It now
+takes hosts with a slug, in order, skips any slug two hosts share (and says
+so), and names the host in the check line. The check is as strict as before.
+
 ## [1.194.0] — 2026-10-14
 
 ### Members hear about their team calendars
