@@ -235,6 +235,35 @@ else
   RELEASE="$(fly releases ${CONFIG[@]+"${CONFIG[@]}"} --json 2>/dev/null \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const r=JSON.parse(s);console.log(r?.[0]?.Version?"v"+r[0].Version:"unknown")}catch{console.log("unknown")}})' \
     || echo unknown)"
+
+  # ── Warm the new machine (2026-10-14) ─────────────────────────────────────
+  # A fresh machine's FIRST database-touching request took 13.6s on staging:
+  # the process, the pooler connection and the in-process caches all start
+  # cold, and whoever clicks first after a deploy pays for it — a person, not
+  # this script. So this script pays instead: it asks a route that reads the
+  # database (/public/plans reads billing_plan and platform_setting, signed
+  # out) until one answer comes back fast. /health would not do — it answers
+  # without touching the database, so it is fast on a cold machine too.
+  #
+  # Before the probe, on purpose: the probe has a 30s timeout and a cold
+  # first request can come close to it. A warning, never a refusal — the
+  # deploy has already happened, and a slow answer is not a wrong image.
+  WARM_URL="https://$APP.fly.dev/api/v1/public/plans"
+  WARM_OK=0
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    WARM="$(curl -s -o /dev/null -m 30 -w '%{http_code} %{time_total}' "$WARM_URL" || echo "000 30")"
+    WARM_CODE="${WARM%% *}"; WARM_SECS="${WARM#* }"
+    echo "warm $i: $WARM_URL answered $WARM_CODE in ${WARM_SECS}s"
+    # Fast = a 200 inside 1.5s. awk, because bash cannot compare decimals.
+    if [ "$WARM_CODE" = "200" ] && awk -v s="$WARM_SECS" 'BEGIN { exit !(s < 1.5) }'; then
+      WARM_OK=1; break
+    fi
+    sleep 2
+  done
+  if [ "$WARM_OK" != "1" ]; then
+    echo "WARNING: $APP never answered $WARM_URL fast in 10 tries. The deploy happened;" >&2
+    echo "  read fly logs ${CONFIG[*]:-} before assuming the database is reachable." >&2
+  fi
 fi
 
 # ── 4. What is RUNNING ──────────────────────────────────────────────────────

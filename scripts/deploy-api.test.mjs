@@ -57,7 +57,8 @@ exit 0`,
     `out=""; fmt=""
 while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; -w) fmt="$2"; shift 2 ;; *) shift ;; esac; done
 [ -n "$out" ] && [ "$out" != "/dev/null" ] && printf '{"ok":true}' > "$out"
-[ -n "$fmt" ] && printf '200'
+# The warm-up asks for status AND time; it is fast here, so one try does.
+case "$fmt" in *time_total*) printf '200 0.05' ;; '') : ;; *) printf '200' ;; esac
 exit 0`,
   );
   // A git WRAPPER rather than a stub — the sandbox needs real git for the
@@ -174,6 +175,25 @@ describe('deploy-api.sh says how many machines are serving', () => {
 // `git fetch` over SSH waits on the TCP default: about 55 minutes when the
 // connection stalls rather than refuses (a dropped VPN, a network change
 // mid-command). Bounded, it gives up in about a minute.
+// A fresh machine's first database-touching request took 13.6s on staging.
+// The deploy pays that instead of the first person to click.
+describe('deploy-api.sh warms the new machine', () => {
+  it('asks a database-touching route after the deploy, and before the probe', () => {
+    const { run } = sandbox();
+    const r = run('staging', '--probe', 'https://example.test/health | ok');
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain('warm 1: https://thefibre-api-staging.fly.dev/api/v1/public/plans answered 200');
+    expect(r.out.indexOf('warm 1:')).toBeLessThan(r.out.indexOf('Probing'));
+    expect(r.out).not.toContain('never answered');
+  });
+
+  it('a dry run warms nothing: it deployed nothing', () => {
+    const { run } = sandbox();
+    const r = run('staging', '--no-visible-change', '--dry-run');
+    expect(r.out).not.toContain('warm 1:');
+  });
+});
+
 describe('the fetch cannot hang for an hour', () => {
   const { run } = sandbox();
 

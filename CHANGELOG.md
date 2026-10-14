@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.191.2] — 2026-10-14
+
+### The deploy pays for the cold start, not the first person to click
+
+A fresh API machine's first database-touching request took **13.6s** on
+staging (idle-warm ~1.4s, normal 0.5–0.9s). Whoever clicked first after a
+deploy paid it. `scripts/deploy-api.sh` now asks `/api/v1/public/plans` — a
+signed-out route that reads `billing_plan` and `platform_setting` — after
+`fly deploy` and before the probe, up to ten times, until one answer is a 200
+inside 1.5s. `/health` would not do: it never touches the database, so it is
+fast on a cold machine too. A warning, never a refusal: the deploy has already
+happened. `batch-prod.sh` deploys the production API through this script, so
+it warms too.
+
+This is the quick fix. The cause of the 13.6s (first pooler connection, cold
+caches, or the process itself) is not yet measured.
+
+Also lands `docs/handover-portal-entitlements-batching.md`, the plan for
+batching the team-calendar entitlements walk in `/me/portal`.
+
 ## [1.191.1] — 2026-10-14
 
 ### Two waits taken out of every page
