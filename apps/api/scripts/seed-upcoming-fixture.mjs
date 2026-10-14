@@ -2,7 +2,7 @@
 // A member with TWO team calendars, on STAGING, for looking at my.thread's
 // Upcoming page signed in and for timing /me/portal with memberships.
 //
-//   node scripts/seed-upcoming-fixture.mjs [--email <addr>]
+//   node scripts/seed-upcoming-fixture.mjs [--email <addr>[,<addr>…]]
 //
 // Until this existed nothing on staging held a team-calendar entitlement (one
 // stray grant in a leftover test workspace, 2026-10-14), so the page could
@@ -24,8 +24,10 @@
 // workspace that ever hosted one can never be hard-deleted. Team slugs stay
 // put (they live in the global public_root_slug namespace).
 //
-// --email <addr> gives the two memberships to a REAL staging address instead
-// of the fixture's, so a person can sign in to my.thefibre.tech as
+// --email <addr>[,<addr>…] gives the two memberships to these addresses
+// instead of only the fixture's. EVERY run replaces the memberships, so name
+// everybody who should keep one (e.g. the fixture AND a person looking), or
+// the ones left out lose theirs. It exists so a person can sign in to my.thefibre.tech as
 // themselves and look. (An admin magic link does not work for that: my.thread's
 // callback only completes the PKCE `?code=` path.) Only the two fixture
 // workspaces are touched either way.
@@ -56,11 +58,22 @@ const flag = (name) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : undefined;
 };
-const FIXTURE_EMAIL = (flag('email') ?? 'upcoming-fixture@example.com').trim().toLowerCase();
+const EMAILS = (flag('email') ?? 'upcoming-fixture@example.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 const CALENDARS = [
-  { ws: 'fixture-upcoming-choir', name: 'Upcoming fixture — Choir', team: 'fixture-choir', teamName: 'Choir', route: 'tier', pct: 100 },
-  { ws: 'fixture-upcoming-band', name: 'Upcoming fixture — Band', team: 'fixture-band', teamName: 'Band', route: 'product', pct: 20 },
+  { ws: 'fixture-upcoming-choir', name: 'Upcoming fixture — Choir', team: 'fixture-choir', teamName: 'Choir', route: 'tier', pct: 100, stripe: true },
+  // Band is PAID for members (20% off), so it needs a working payment route
+  // or every Join dead-ends — which is what Sjoerd met on 2026-10-14. It gets
+  // the staging `default` workspace's connected TEST account, the same
+  // sandbox destination stress-webhook-shapes.mjs uses: checkout opens in
+  // Stripe test mode (card 4242 4242 4242 4242). Choir is 100% for members
+  // but €50 to anybody else, so it gets the same destination: the publish
+  // guard would refuse a paid thread with no route, and a fixture should not
+  // show a state the product no longer allows.
+  { ws: 'fixture-upcoming-band', name: 'Upcoming fixture — Band', team: 'fixture-band', teamName: 'Band', route: 'product', pct: 20, stripe: true },
 ];
 
 const must = (what, r) => {
@@ -115,6 +128,11 @@ async function clear(ws) {
 async function seed(c) {
   const ws = await workspace(c);
   await clear(ws);
+  if (c.stripe) {
+    const def = must('default workspace', await db.from('workspace').select('stripe_account_id').eq('slug', 'default').single());
+    if (!def?.stripe_account_id) throw new Error('the staging default workspace has no connected Stripe test account');
+    must('band stripe', await db.from('workspace').update({ stripe_account_id: def.stripe_account_id }).eq('id', ws));
+  }
 
   const team =
     must('team', await db.from('team').select('id').eq('slug', c.team).maybeSingle())?.id ??
@@ -175,33 +193,36 @@ async function seed(c) {
     );
   }
 
-  const person =
-    must('person', await db.from('person').select('id').eq('workspace_id', ws).eq('email', FIXTURE_EMAIL).is('deleted_at', null).maybeSingle())?.id ??
-    (await ins('person', { workspace_id: ws, first_name: 'Upcoming', last_name: 'Fixture', email: FIXTURE_EMAIL }));
-  // Clear() removed the old membership rows; a person row for a REAL address
-  // is kept (it may carry other things) and only gains a membership.
-  // A far-future renewal: the staging API's real scheduler runs against this
-  // database and would otherwise lapse the membership within days.
-  await ins('membership_member', {
-    workspace_id: ws,
-    person_id: person,
-    tier_id: tier,
-    status: 'active',
-    started_at: new Date().toISOString(),
-    renews_at: '2099-01-01T00:00:00Z',
-  });
+  for (const email of EMAILS) {
+    const person =
+      must('person', await db.from('person').select('id').eq('workspace_id', ws).eq('email', email).is('deleted_at', null).maybeSingle())?.id ??
+      (await ins('person', { workspace_id: ws, first_name: email === 'upcoming-fixture@example.com' ? 'Upcoming' : email.split('@')[0], last_name: email === 'upcoming-fixture@example.com' ? 'Fixture' : null, email }));
+    // A far-future renewal: the staging API's real scheduler runs against
+    // this database and would otherwise lapse the membership within days.
+    await ins('membership_member', {
+      workspace_id: ws,
+      person_id: person,
+      tier_id: tier,
+      status: 'active',
+      started_at: new Date().toISOString(),
+      renews_at: '2099-01-01T00:00:00Z',
+    });
+  }
   console.log(`  ${c.ws}: team ${c.team} via ${c.route} at ${c.pct}%, 3 threads`);
 }
 
 console.log(`Seeding the Upcoming fixture on ${env.NEXT_PUBLIC_SUPABASE_URL}`);
 for (const c of CALENDARS) await seed(c);
 
-// Make sure an auth user exists, so the address can sign in with a code.
-const { data: exists } = await db.rpc('auth_user_exists', { p_email: FIXTURE_EMAIL });
-if (exists !== true) {
-  const r = await db.auth.admin.createUser({ email: FIXTURE_EMAIL, email_confirm: true });
-  if (r.error) console.warn(`  auth user: ${r.error.message}`);
+// Make sure an auth user exists for each, so the address can sign in with a code.
+for (const email of EMAILS) {
+  const { data: exists } = await db.rpc('auth_user_exists', { p_email: email });
+  if (exists !== true) {
+    const r = await db.auth.admin.createUser({ email, email_confirm: true });
+    if (r.error) console.warn(`  auth user ${email}: ${r.error.message}`);
+  }
 }
 
-console.log(`Done. ${FIXTURE_EMAIL} should see 4 one-click rows and 2 "Sign up on its page" rows:`);
-console.log('  Choir rows "included in your membership"; Band rows €40 instead of €50.');
+console.log(`Done. ${EMAILS.join(', ')} should each see 6 rows on /upcoming:`);
+console.log('  Choir ×3 "included in your membership"; Band ×3 €40 instead of €50 (card checkout, Stripe test).');
+console.log('  The two "weekend, with a question" rows say "Sign up on its page".');

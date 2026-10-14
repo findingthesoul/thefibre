@@ -118,6 +118,8 @@ const CONTRACT_SHAPES = {
     'intention', 'timezone', 'cover_url', 'is_public_listed', 'requires_approval',
     'price_cents', 'price_currency', 'capacity', 'source_ref', 'organiser',
     'created_at', 'updated_at',
+    // Additive 2026-10-14: active + paid + no working payment route.
+    'payment_route_missing',
   ],
   enrolment: [
     'id', 'enrolment_id', 'person_id', 'full_name', 'email', 'status',

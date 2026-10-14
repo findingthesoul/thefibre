@@ -10,6 +10,7 @@ import { Tabs } from '@thefibre/shared/ui/tabs';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { NOTICE } from '@thefibre/shared/ui/recipes';
 import {
   Plus,
   Settings,
@@ -388,12 +389,20 @@ export function ThreadTimeline({
       : team?.slug ?? organiser?.slug;
   const publicUrl = `${THREAD_ORIGIN}/${publicOwnerSlug}/${thread.slug}`;
 
+  // The save's refusal, said where the click was. It used to be dropped:
+  // a refused publish simply did not happen, with nothing on screen.
+  const [statusError, setStatusError] = useState<string | null>(null);
   function setStatus(next: string) {
     startTransition(async () => {
-      await updateThread(thread.id, { status: next });
+      const r = await updateThread(thread.id, { status: next });
+      setStatusError(r.ok ? null : r.error);
       router.refresh();
     });
   }
+  // Before the click: a paid thread with no way to pay cannot go live, and
+  // the API says why on the thread itself (publish_blocker), from the same
+  // check the save runs.
+  const publishBlocked = !!thread.publish_blocker && status !== 'active';
 
   function saveTitle(title: string) {
     const t = title.trim();
@@ -459,7 +468,9 @@ export function ThreadTimeline({
             aria-label={t(locale, 'thread_status_aria')}
           >
             <option value="draft">{t(locale, 'status_draft')}</option>
-            <option value="active">{t(locale, 'status_published')}</option>
+            <option value="active" disabled={publishBlocked}>
+              {t(locale, 'status_published')}
+            </option>
             <option value="completed">{t(locale, 'status_completed')}</option>
             <option value="archived">{t(locale, 'status_archived')}</option>
           </select>
@@ -545,6 +556,21 @@ export function ThreadTimeline({
           <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
             {t(locale, 'team')} · {team.name}
           </span>
+        </div>
+      )}
+
+      {/* A paid thread with no way to pay: why it cannot go live, before
+          anybody tries, and the refusal if they did. */}
+      {(publishBlocked || statusError) && (
+        <div className={`mt-3 ml-12 ${NOTICE.warning}`}>
+          {statusError ?? t(locale, 'publish_blocked_paid')}{' '}
+          {/* The link only where it is the answer — a plan-limit refusal
+              lands here too, and Payments would not fix that. */}
+          {(publishBlocked || (statusError ?? '').includes('Payments')) && (
+            <Link href="/settings/payments" className="underline underline-offset-2">
+              {t(locale, 'publish_blocked_link')}
+            </Link>
+          )}
         </div>
       )}
 

@@ -22,6 +22,9 @@ export type OrganiserCore = {
 
 export type ThreadRow = {
   id: string;
+  /** Why it could not go live with sign-up open (paid, no working payment
+   *  route), or null. From GET /threads/:id; absent on older APIs. */
+  publish_blocker?: string | null;
   workspace_id: string;
   program_id: string;
   organiser_id: string;

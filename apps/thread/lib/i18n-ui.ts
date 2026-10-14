@@ -3072,6 +3072,22 @@ const CATALOG = {
     de: 'Thread-Titel', // MT
     fr: 'Titre du thread', // MT
   },
+  publish_blocked_paid: {
+    en: 'This thread has a price. Connect Stripe or allow invoice before it goes live.',
+    nl: 'Deze thread heeft een prijs. Koppel Stripe of sta factuur toe voordat hij live gaat.', // MT
+    es: 'Este thread tiene un precio. Conecta Stripe o permite factura antes de publicarlo.', // MT
+    pt: 'Este thread tem um preço. Ligue o Stripe ou permita fatura antes de o publicar.', // MT
+    de: 'Dieser Thread hat einen Preis. Verbinde Stripe oder erlaube Rechnung, bevor er live geht.', // MT
+    fr: 'Ce thread a un prix. Connecte Stripe ou autorise la facture avant de le publier.', // MT
+  },
+  publish_blocked_link: {
+    en: 'Settings → Payments',
+    nl: 'Instellingen → Betalingen', // MT
+    es: 'Ajustes → Pagos', // MT
+    pt: 'Definições → Pagamentos', // MT
+    de: 'Einstellungen → Zahlungen', // MT
+    fr: 'Paramètres → Paiements', // MT
+  },
   thread_status_aria: {
     en: 'Thread status',
     nl: 'Threadstatus',

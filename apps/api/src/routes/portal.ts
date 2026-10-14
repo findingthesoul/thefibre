@@ -79,10 +79,10 @@ import {
 } from '../lib/portal.js';
 import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/portal-agenda.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
+import { placesByThread } from '../lib/place-state.js';
 import {
   couldJoinFrom,
   entitlementsByMember,
-  heldThreadIds,
   holdsTeamCalendar,
   pageCouldJoin,
   sortCouldJoin,
@@ -664,12 +664,16 @@ portalRoutes.get('/portal', async (c) => {
   // SIX HERE, and the page shows the rest. A card is a glance, not a
   // catalogue — and the sort runs before the cap inside the walk, so these
   // are the soonest six rather than an arbitrary six.
-  // The enrol route's own rule (heldThreadIds): an unpaid place is still
-  // joinable, so the card offers to finish it; any other place is held.
-  const alreadyIn = heldThreadIds(
+  // The enrol route's own decision (lib/place-state.ts): only an unpaid card
+  // attempt is offered again; a held place, an open invoice or a place the
+  // organiser closed is not.
+  const places = await placesByThread(
     (enrolments ?? []).map((e) => ({
+      id: e.id as string,
       thread_id: (one(e.thread as never) as { id?: string } | null)?.id ?? null,
       payment_status: (e.payment_status as string | null) ?? null,
+      enrolment_status:
+        (one(e.enrolment as never) as { status?: string | null } | null)?.status ?? null,
     })),
   );
   // The entitlements are kept, not only the list: whether ANY membership
@@ -684,7 +688,7 @@ portalRoutes.get('/portal', async (c) => {
       })),
   );
   const upcoming = holdsTeamCalendar(entitlements);
-  const couldJoinByMemberId = await couldJoinFrom(entitlements, alreadyIn, MEMBERSHIP_CARD_ROWS);
+  const couldJoinByMemberId = await couldJoinFrom(entitlements, places, MEMBERSHIP_CARD_ROWS);
 
   // -- Group by workspace ---------------------------------------------------
   const workspaceIds = [
@@ -877,7 +881,7 @@ portalRoutes.get('/portal/upcoming', async (c) => {
       .then((r) => rows('portal upcoming: members', r)),
     adminClient
       .from('thread_enrolment')
-      .select('thread_id, payment_status')
+      .select('id, thread_id, payment_status, enrolment:enrolment_id (status)')
       .in('person_id', personIds)
       .then((r) => rows('portal upcoming: enrolments', r)),
   ]);
@@ -889,10 +893,16 @@ portalRoutes.get('/portal/upcoming', async (c) => {
       workspace_id: m.workspace_id as string,
     })),
   );
-  const alreadyIn = heldThreadIds(
-    enrolled as { thread_id: string | null; payment_status: string | null }[],
+  const places = await placesByThread(
+    enrolled.map((e) => ({
+      id: e.id as string,
+      thread_id: (e.thread_id as string | null) ?? null,
+      payment_status: (e.payment_status as string | null) ?? null,
+      enrolment_status:
+        (one(e.enrolment as never) as { status?: string | null } | null)?.status ?? null,
+    })),
   );
-  const byMember = await couldJoinFrom(entitlements, alreadyIn, null);
+  const byMember = await couldJoinFrom(entitlements, places, null);
 
   // ONE ROW PER THREAD. Two memberships can reach the same calendar (a tier
   // and a separately bought product in one workspace are two routes to one

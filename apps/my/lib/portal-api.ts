@@ -147,8 +147,12 @@ export type CouldJoin = {
    *  route. Optional: an API older than v1.192 does not send them. */
   owner_slug?: string;
   thread_slug?: string;
-  /** False when the organiser asks a required question: join on the page. */
+  /** True when one click completes it: no required question, and nothing to
+   *  pay or a card checkout that works. */
   direct?: boolean;
+  /** How this member would pay. `unavailable` = a paid thread with no
+   *  working payment route: no button, "Sign-up not open yet". */
+  payment?: 'none_needed' | 'card' | 'invoice_only' | 'unavailable';
 };
 
 export type MembershipItem = {

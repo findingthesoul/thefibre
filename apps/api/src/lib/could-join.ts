@@ -16,6 +16,8 @@ import { adminClient } from '../db.js';
 import { rows } from './rows.js';
 import { publicOwnerSlug } from './public-owner-slug.js';
 import { threadPublicUrl } from './public-origin.js';
+import { joinableFromList, type PlaceState } from './place-state.js';
+import { joinPayment, routeResolver, type JoinPayment, type Method } from './thread-payment-route.js';
 import {
   enrolmentPrice,
   priceCurrencyOf,
@@ -44,10 +46,15 @@ export type CouldJoin = {
    *  second one that would price on its own. */
   owner_slug: string;
   thread_slug: string;
-  /** False when the organiser asks a REQUIRED question at sign-up: then the
-   *  member answers it on the thread's page, and a one-click join from a list
-   *  would skip it. */
+  /** True when one click can complete the sign-up: no REQUIRED question
+   *  (that is answered on the thread's page), and either nothing to pay or a
+   *  card checkout that actually works. */
   direct: boolean;
+  /** How this member would pay (lib/thread-payment-route.ts): nothing,
+   *  card, an invoice (billing details, so the thread's page), or not at all
+   *  — a paid thread with no working route, which shows "Sign-up not open
+   *  yet" and never a button into a dead end. */
+  payment: JoinPayment;
 };
 
 /** One membership, as this walk needs it. */
@@ -90,9 +97,10 @@ export function stillJoinable(
 
 /** Everything these memberships can join, by membership id.
  *
- *  `alreadyIn` is the set of thread ids this person already holds an
- *  enrolment for — joining twice is not an offer, and the caller knows its
- *  own enrolments.
+ *  `places` is the state of every place this person already has, by thread
+ *  id (lib/place-state.ts). Only an unpaid card attempt is offered again —
+ *  exactly when the enrol route would accept; a held, invoiced or closed
+ *  place is not.
  *
  *  `limit` caps each member's list. The Memberships card wants a few; the
  *  full page wants all of them. Null means no cap, and the sort runs before
@@ -100,10 +108,10 @@ export function stillJoinable(
  *  arbitrary few. */
 export async function couldJoinByMember(
   members: CouldJoinMember[],
-  alreadyIn: Set<string>,
+  places: Map<string, PlaceState>,
   limit: number | null,
 ): Promise<Map<string, CouldJoin[]>> {
-  return couldJoinFrom(await entitlementsByMember(members), alreadyIn, limit);
+  return couldJoinFrom(await entitlementsByMember(members), places, limit);
 }
 
 export type Entitlements = Map<string, { teamId: string; pct: number }[]>;
@@ -130,30 +138,6 @@ export function holdsTeamCalendar(entitlements: Entitlements): boolean {
   return [...entitlements.values()].some((list) => list.length > 0);
 }
 
-/** Which threads this person already HOLDS, by the enrol route's own rule.
- *
- *  POST /thread/public/enrol answers `already_enrolled` for ANY existing
- *  thread_enrolment, whatever its enrolment status, with one exception: a row
- *  whose payment is `pending` or `failed` (a bailed checkout, an expired
- *  session) is reused and the payment branch runs again. So that row is
- *  joinable from the list — "Join" finishes the payment — and every other row
- *  is not, because offering it would offer a join the route refuses.
- *
- *  Matches the route rather than what might seem fair (a CANCELLED place is
- *  still "held" here), because a list that promised a rejoin the route then
- *  refused would be worse than one that does not offer it. Whether a
- *  cancelled participant may rejoin is a question for the route; when it
- *  changes, this changes with it. (Coordinator review of v1.192.0.) */
-export function heldThreadIds(
-  rows: { thread_id: string | null; payment_status: string | null }[],
-): Set<string> {
-  return new Set(
-    rows
-      .filter((r) => r.thread_id && r.payment_status !== 'pending' && r.payment_status !== 'failed')
-      .map((r) => r.thread_id as string),
-  );
-}
-
 /** A required sign-up question means the thread's own form, not one click. */
 export function hasRequiredQuestion(fields: unknown): boolean {
   return (
@@ -165,7 +149,7 @@ export function hasRequiredQuestion(fields: unknown): boolean {
 /** The walk, from entitlements already in hand. */
 export async function couldJoinFrom(
   entitlements: Entitlements,
-  alreadyIn: Set<string>,
+  places: Map<string, PlaceState>,
   limit: number | null,
 ): Promise<Map<string, CouldJoin[]>> {
   const out = new Map<string, CouldJoin[]>();
@@ -184,7 +168,8 @@ export async function couldJoinFrom(
         `id, slug, workspace_id, team_id, price_cents, price_currency, public_scope,
          registration_fields,
          team:team_id (slug, name, is_published, is_active),
-         organiser:organiser_id (slug),
+         payment_destination, payment_methods,
+         organiser:organiser_id (slug, user_id),
          program:program_id (title, status, starts_on, ends_on)`,
       )
       .in('team_id', teamIds)
@@ -207,7 +192,6 @@ export async function couldJoinFrom(
     if (!team || team.is_published !== true || team.is_active === false) return false;
     if (!program || program.status !== 'active') return false;
     if (!stillJoinable(program, today)) return false;
-    if (alreadyIn.has(t.id as string)) return false;
     return true;
   });
 
@@ -216,12 +200,12 @@ export async function couldJoinFrom(
   const nowIso = new Date().toISOString();
   const ticketsByThread = new Map<
     string,
-    { id: string; price_cents: number; price_currency?: string }[]
+    { id: string; price_cents: number; price_currency?: string; payment_methods: string[] | null }[]
   >();
   if (open.length) {
     const { data: tickets } = await adminClient
       .from('thread_ticket')
-      .select('id, thread_id, price_cents, price_currency, sales_open_at, sales_close_at')
+      .select('id, thread_id, price_cents, price_currency, payment_methods, sales_open_at, sales_close_at')
       .in(
         'thread_id',
         open.map((t) => t.id as string),
@@ -236,6 +220,7 @@ export async function couldJoinFrom(
       list.push({
         id: tk.id as string,
         price_cents: tk.price_cents as number,
+        payment_methods: (tk.payment_methods as string[] | null) ?? null,
         ...(tk.price_currency ? { price_currency: tk.price_currency as string } : {}),
       });
       ticketsByThread.set(tk.thread_id as string, list);
@@ -250,6 +235,28 @@ export async function couldJoinFrom(
       .in('id', [...new Set(open.map((t) => t.workspace_id as string))]);
     for (const w of wsRows ?? []) wsSlugById.set(w.id as string, w.slug as string);
   }
+
+  // How each thread can be paid, resolved at most once per thread and only
+  // for a thread somebody would actually pay for (a 100% member needs no
+  // route). Keyed by thread, then by the ticket's methods.
+  const resolvers = new Map<string, Promise<(m: string[] | null) => Promise<Method[]>>>();
+  const routesOf = (t: Record<string, unknown>, ticketMethods: string[] | null) => {
+    const id = t.id as string;
+    if (!resolvers.has(id)) {
+      const organiser = one(t.organiser as never) as { user_id?: string | null } | null;
+      resolvers.set(
+        id,
+        routeResolver({
+          workspace_id: t.workspace_id as string,
+          team_id: (t.team_id as string | null) ?? null,
+          payment_destination: (t.payment_destination as string | null) ?? null,
+          payment_methods: (t.payment_methods as string[] | null) ?? null,
+          organiser_user_id: organiser?.user_id ?? null,
+        }),
+      );
+    }
+    return resolvers.get(id)!.then((r) => r(ticketMethods));
+  };
 
   for (const [memberId, held] of entitlements) {
     const byTeam = new Map(held.map((e) => [e.teamId, e.pct]));
@@ -281,6 +288,13 @@ export async function couldJoinFrom(
         null,
       );
       const priced = enrolmentPrice(base.basePriceCents, null, pct);
+      // An existing place: offered exactly when the enrol route would take
+      // the sign-up (lib/place-state.ts), with the route's own notion of
+      // "requires payment" — this member's price above zero.
+      if (!joinableFromList(places.get(t.id as string), priced.cents > 0)) continue;
+      const ticketMethods =
+        (ticketsByThread.get(t.id as string) ?? []).find((k) => k.id === base.ticketId)?.payment_methods ?? null;
+      const payment = joinPayment(priced.cents, priced.cents > 0 ? await routesOf(t, ticketMethods) : []);
       mine.push({
         thread_id: t.id as string,
         title: program.title,
@@ -293,7 +307,10 @@ export async function couldJoinFrom(
         pct,
         owner_slug: ownerSlug,
         thread_slug: t.slug as string,
-        direct: !hasRequiredQuestion(t.registration_fields),
+        direct:
+          !hasRequiredQuestion(t.registration_fields) &&
+          (payment === 'none_needed' || payment === 'card'),
+        payment,
       });
     }
     // Soonest first, and undated last: a list of what is coming up is

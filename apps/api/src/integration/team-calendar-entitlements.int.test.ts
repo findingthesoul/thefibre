@@ -229,7 +229,7 @@ describe('couldJoinByMember (the Upcoming list and the Memberships card)', () =>
   });
 
   it('lists a published thread whose Public switch is OFF, at the member price', async () => {
-    const got = (await couldJoinByMember(member(), new Set(), null)).get(memberId) ?? [];
+    const got = (await couldJoinByMember(member(), new Map(), null)).get(memberId) ?? [];
     const byId = new Map(got.map((r) => [r.thread_id, r]));
     // Both calendars, both unlisted — the tier route (100%) and the product
     // route (20%).
@@ -239,15 +239,38 @@ describe('couldJoinByMember (the Upcoming list and the Memberships card)', () =>
     expect(byId.get(threadA)).toMatchObject({ owner_slug: 'tce-choir', thread_slug: 'tce-a', direct: true });
   });
 
+  // THE PAYMENT ROUTE (2026-10-14). This throwaway workspace has no Stripe
+  // account and the threads take card only, so nobody can pay for them. The
+  // member at 100% pays nothing and keeps one-click Join; the member at 20%
+  // would owe €40 nobody can take — no button into that dead end.
+  it('hides Join where this member would owe money nobody can take, and keeps it at 100%', async () => {
+    const got = (await couldJoinByMember(member(), new Map(), null)).get(memberId) ?? [];
+    const byId = new Map(got.map((r) => [r.thread_id, r]));
+    expect(byId.get(threadA)).toMatchObject({ payment: 'none_needed', direct: true });
+    expect(byId.get(threadB)).toMatchObject({ payment: 'unavailable', direct: false });
+  });
+
+  it('an invoice-only thread is joined on its page (billing details live there)', async () => {
+    await service.from('thread_thread').update({ payment_methods: ['invoice'] }).eq('id', threadB);
+    try {
+      const got = (await couldJoinByMember(member(), new Map(), null)).get(memberId) ?? [];
+      expect(got.find((r) => r.thread_id === threadB)).toMatchObject({ payment: 'invoice_only', direct: false });
+    } finally {
+      await service.from('thread_thread').update({ payment_methods: null }).eq('id', threadB);
+    }
+  });
+
   it('a REQUIRED sign-up question makes it a form, not one click', async () => {
     await service
       .from('thread_thread')
       .update({ registration_fields: [{ key: 'diet', label: 'Diet', type: 'short', required: true }] })
       .eq('id', threadA);
     try {
-      const got = (await couldJoinByMember(member(), new Set(), null)).get(memberId) ?? [];
+      const got = (await couldJoinByMember(member(), new Map(), null)).get(memberId) ?? [];
       expect(got.find((r) => r.thread_id === threadA)?.direct).toBe(false);
-      expect(got.find((r) => r.thread_id === threadB)?.direct).toBe(true);
+      // B has no required question; it is not one-click only because nobody
+      // can take its €40 here (the test above), so assert the question alone.
+      expect(got.find((r) => r.thread_id === threadB)?.payment).toBe('unavailable');
     } finally {
       await service.from('thread_thread').update({ registration_fields: [] }).eq('id', threadA);
     }
@@ -256,7 +279,7 @@ describe('couldJoinByMember (the Upcoming list and the Memberships card)', () =>
   it('closed sign-ups and threads already joined stay out', async () => {
     await service.from('thread_thread').update({ public_enrolment_open: false }).eq('id', threadB);
     try {
-      const got = (await couldJoinByMember(member(), new Set([threadA]), null)).get(memberId) ?? [];
+      const got = (await couldJoinByMember(member(), new Map([[threadA, 'held' as const]]), null)).get(memberId) ?? [];
       expect(got).toEqual([]);
     } finally {
       await service.from('thread_thread').update({ public_enrolment_open: true }).eq('id', threadB);

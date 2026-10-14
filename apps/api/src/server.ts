@@ -419,6 +419,9 @@ const JOBS: [string, () => Promise<unknown>, string][] = [
 JOBS.forEach(([name, run, label], i) => {
   const tick = () => leased(name, run, label);
   setTimeout(() => {
+    // One line per job, on its FIRST run only, so the stagger can be read in
+    // fly logs after a deploy — the jobs are otherwise silent when idle.
+    console.log(`[scheduler] ${name} first run at +${Math.round(bootDelay(i + 1) / 1000)}s`);
     tick();
     setInterval(tick, SCHEDULER_INTERVAL_MS);
   }, bootDelay(i + 1));

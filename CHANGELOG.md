@@ -6,6 +6,94 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.193.0] — 2026-10-14
+
+### A paid thread cannot go live without a way to take the money
+
+Found by Sjoerd on staging: "Join for €40.00" answered "the organiser has
+not connected payments yet", and "Sign up on its page instead" led to the
+same dead end. His rule: *"if someone is organising a thread that comes with
+a price... before publish one needs to have a stripe or needs to select
+invoice."*
+
+**One answer** (`lib/thread-payment-route.ts`): a payment route WORKS when
+the effective methods (ticket → thread → account default, the enrol route's
+own `resolvePaymentMethods`) include invoice, or include card AND the payout
+destination resolves to a connected account (the enrol route's own
+`threadDestinationAccount`). Nothing restates either rule.
+
+- **The publish guard.** The Thread editor's save (`PATCH /thread/threads/:id`)
+  refuses, with 409 `payment_route_missing`, to leave a thread live with sign-up
+  open when anything it would sell costs money and has no working route. It
+  judges the thread as it will be AFTER the save, so a refused save changes
+  nothing. Checked when going live, opening sign-up, or changing the price,
+  methods or payout destination; a title edit is never refused. Adding or
+  editing a paid TICKET on a live thread is checked the same way. A free
+  ticket beside a paid one does not rescue the paid one.
+- **Before the click.** `GET /threads/:id` carries `publish_blocker`, and the
+  editor shows it under the header with a link to Settings → Payments and
+  greys out "Published". A refused status change used to vanish silently; it
+  is now said where the click was.
+- **The external API is not refused** (rule 8). `/apps/*` thread responses
+  gain an additive `payment_route_missing` flag instead, asserted in
+  `verify-external-app.mjs` 7b.
+- **What a member sees.** Each Upcoming / Memberships row carries `payment`:
+  nothing to pay, card, invoice only (Join on its page, where billing details
+  are asked), or **unavailable**, which shows "Sign-up not open yet" and no
+  button. A 100% member keeps one-click Join whatever the thread's route. The
+  Join button maps the API's refusals to sentences, and offers the thread's
+  page only when that page could actually help.
+- **Audit.** `npx tsx --env-file=.env scripts/audit-paid-thread-routes.ts prod`
+  lists every live, paid thread with no working route, using the same function.
+  Read-only.
+
+### One decision about an existing place, for the route and every list
+
+`lib/place-state.ts`. What a person's existing place means for signing up
+again, in the order the states win:
+
+- **invoice_open**: unpaid, with an INVOICE in the ledger. Held. A re-submit
+  answers `already_enrolled` plus an additive `invoice_open: true` (200, so an
+  outside form that re-submits, like the Festival of Trust planner, does not
+  start failing), and never starts a card payment beside a numbered invoice.
+  Wins over an earlier failed card attempt and over a cancel.
+- **closed**: enrolment `dropped`, which today means an organiser's DECLINE or
+  a membership-granted place withdrawn. Held: not offered from any list, and a
+  re-submit answers `already_enrolled` plus an additive `place_closed: true`.
+  my.thread says the organiser closed the place and to contact them. Closed
+  wins over a pending card checkout, so a declined person cannot pay their way
+  back in. (Before this, a declined person with a bailed checkout was reused.)
+- **retry**: unpaid by card, no invoice. Reused, payment runs again.
+- **held**: anything else.
+
+The list asks `joinableFromList`, the route asks `duplicateAnswer`, and one
+is derived from the other. my.thread's Join button says "You have an open
+invoice for this one" with a link to Purchases.
+
+**Rejoining after a cancellation is NOT in this release.** Sjoerd approved it
+for people who cancel themselves, but no self-cancel exists yet, and every way
+of reopening the one place a person can hold on a thread either rewrites a
+ledger row's reference (which refunds, payouts, payment links and invoices all
+dereference) or needs a schema change, because one place per person per
+thread is unique twice over. A first version that renamed the old ledger row
+was caught in review before it shipped: refunding the old payment afterwards
+could not have found its account. Deferred, with the reasons, rather than done
+by halves.
+
+### Also
+
+- **The scheduler logs one line per job on its first run**
+  (`[scheduler] <name> first run at +Ns`), so the boot stagger can be read in
+  fly logs.
+- **RSVP on my.thread's cards**: "RSVP" in small caps above the button, which
+  is one size down (40px, the floor for a thumb). One component, so the card
+  and the sheet match. The caps label is the family's existing
+  `SECTION_LABEL` (10px); there is no 13px caps style to reuse.
+- **The Upcoming fixture's workspaces have a Stripe test destination** (the
+  staging `default` workspace's sandbox account), so a Band Join reaches
+  checkout and no fixture thread is a paid thread the guard would refuse.
+  `--email` takes a comma list.
+
 ## [1.192.1] — 2026-10-14
 
 ### The first click after a deploy no longer lands in the scheduler burst

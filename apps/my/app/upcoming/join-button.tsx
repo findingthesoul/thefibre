@@ -21,8 +21,10 @@ import { money } from '@/lib/format';
 type Outcome =
   | { kind: 'in' }
   | { kind: 'already' }
+  | { kind: 'invoice' }
+  | { kind: 'closed' }
   | { kind: 'pending' }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; pageHelps: boolean };
 
 export function JoinButton({ j }: { j: CouldJoin }) {
   const router = useRouter();
@@ -57,12 +59,15 @@ export function JoinButton({ j }: { j: CouldJoin }) {
         checkout_url?: string;
         pending_approval?: boolean;
         already_enrolled?: boolean;
+        invoice_open?: boolean;
+        place_closed?: boolean;
       };
       if (!res.ok) {
-        setOutcome({
-          kind: 'error',
-          message: typeof body.error === 'string' ? body.error : 'Could not join — try again.',
-        });
+        const message = sentenceFor(res.status, body.error);
+        // The thread's page only helps when it offers something this button
+        // cannot — an invoice. When nobody can take the money, the page has
+        // the same dead end on it, so it is not offered.
+        setOutcome({ kind: 'error', message, pageHelps: /by invoice/.test(message) });
         return;
       }
       if (body.checkout_url) {
@@ -75,7 +80,11 @@ export function JoinButton({ j }: { j: CouldJoin }) {
       // holds and changed nothing. Saying "You're in" there would claim a
       // join that did not happen.
       setOutcome(
-        body.already_enrolled
+        body.invoice_open
+          ? { kind: 'invoice' }
+          : body.place_closed
+          ? { kind: 'closed' }
+          : body.already_enrolled
           ? { kind: 'already' }
           : body.pending_approval
             ? { kind: 'pending' }
@@ -85,7 +94,7 @@ export function JoinButton({ j }: { j: CouldJoin }) {
       // under Next. Refresh so both say so.
       router.refresh();
     } catch {
-      setOutcome({ kind: 'error', message: 'Could not reach the server — try again.' });
+      setOutcome({ kind: 'error', message: 'Could not reach the server. Try again.', pageHelps: false });
     } finally {
       setBusy(false);
     }
@@ -97,6 +106,29 @@ export function JoinButton({ j }: { j: CouldJoin }) {
   if (outcome?.kind === 'already') {
     return (
       <p className={`${NOTICE.info} mt-3`}>You’re already signed up for this one. It is under Next.</p>
+    );
+  }
+  if (outcome?.kind === 'invoice') {
+    // Unpaid, with an invoice already issued: a card payment now would be a
+    // second payment beside a numbered invoice. The invoice is under
+    // Purchases, with its Pay link when the organiser sent one.
+    return (
+      <p className={`${NOTICE.info} mt-3`}>
+        You have an open invoice for this one.{' '}
+        <a href="/purchases" className="underline underline-offset-2">
+          See it under Purchases
+        </a>
+        .
+      </p>
+    );
+  }
+  if (outcome?.kind === 'closed') {
+    // The organiser ended this place (a decline, or a membership place
+    // withdrawn). Signing up again does not reopen it; only they can.
+    return (
+      <p className={`${NOTICE.info} mt-3`}>
+        Your place on this one was closed by the organiser. Contact them if you would like to join.
+      </p>
     );
   }
   if (outcome?.kind === 'pending') {
@@ -144,13 +176,36 @@ export function JoinButton({ j }: { j: CouldJoin }) {
       </div>
       {outcome?.kind === 'error' && (
         <div className={NOTICE.error}>
-          {outcome.message}{' '}
-          <a href={j.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-            Sign up on its page instead
-          </a>
-          .
+          {outcome.message}
+          {outcome.pageHelps && (
+            <>
+              {' '}
+              <a href={j.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                Open its page
+              </a>
+              .
+            </>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+/** The API's words are for developers, lowercase and terse. A member gets a
+ *  sentence — the known refusals mapped, anything else said plainly. */
+function sentenceFor(status: number, error: unknown): string {
+  const raw = typeof error === 'string' ? error : '';
+  const known: [RegExp, string][] = [
+    [/not connected payments|payments are not configured/i, 'Sign-up is not open yet: the organiser cannot take payments.'],
+    [/payment method is not available/i, 'This one cannot be paid by card. Sign up on its page to pay by invoice.'],
+    [/full/i, 'This one is full.'],
+    [/sold out/i, 'This ticket is sold out.'],
+    [/closed/i, 'Sign-up for this one has closed.'],
+    [/too many attempts/i, 'Too many tries in a short time. Wait a few minutes and try again.'],
+    [/privacy policy/i, 'Tick the privacy statement to join.'],
+    [/sign in required/i, 'Your session ended. Sign in again to join.'],
+  ];
+  for (const [pattern, sentence] of known) if (pattern.test(raw)) return sentence;
+  return status >= 500 ? 'Something went wrong on our side. Try again in a moment.' : 'Could not join this one.';
 }

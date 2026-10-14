@@ -1,4 +1,10 @@
 import { Hono } from 'hono';
+import {
+  duplicateAnswer,
+  invoicedEnrolmentIds,
+  placeState,
+} from '../lib/place-state.js';
+import { paymentRouteProblem } from '../lib/thread-payment-route.js';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   couponPriceOf,
@@ -836,6 +842,10 @@ threadRoutes.get('/threads/:id', async (c) => {
     ...thread,
     engagements: engagements ?? [],
     co_organisers: coOrganisers ?? [],
+    // Why this thread could not go live with sign-up open, or null. The
+    // editor shows it BEFORE the click, from the same check the save runs
+    // (lib/thread-payment-route.ts), so the two cannot disagree.
+    publish_blocker: await paymentRouteProblem(thread.id as string),
   });
 });
 
@@ -896,6 +906,28 @@ const ThreadUpdate = z.object({
   certificate_template_id: z.string().uuid().nullable().optional(),
 });
 
+/** Is this thread — after a pending save — live with public sign-up open?
+ *  Only then does a paid price need a working payment route (the publish
+ *  guard, lib/thread-payment-route.ts). A draft can be priced and set up in
+ *  any order; it is going live that has to be possible to pay for. */
+async function liveAndOpenAfter(
+  threadId: string,
+  pending: { status?: string; public_enrolment_open?: boolean } = {},
+): Promise<boolean> {
+  const { data } = await adminClient
+    .from('thread_thread')
+    .select('public_enrolment_open, program:program_id (status)')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!data) return false;
+  const program = (Array.isArray(data.program) ? data.program[0] : data.program) as { status?: string } | null;
+  const status = pending.status ?? program?.status;
+  const open = pending.public_enrolment_open ?? (data.public_enrolment_open as boolean | null) !== false;
+  return status === 'active' && open;
+}
+
+const PAYMENT_ROUTE_REFUSAL = (message: string) => ({ error: message, code: 'payment_route_missing' });
+
 threadRoutes.patch('/threads/:id', async (c) => {
   const body = ThreadUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -946,6 +978,35 @@ threadRoutes.patch('/threads/:id', async (c) => {
         );
       }
     }
+  }
+
+  // THE PUBLISH GUARD (Sjoerd, 2026-10-14): "if someone is organising a
+  // thread that comes with a price... before publish one needs to have a
+  // stripe or needs to select invoice." Checked whenever this save touches
+  // what decides it — going live, opening sign-up, the price, the methods,
+  // the payout destination — and judged as the thread will be AFTER the
+  // save, so a refused save changes nothing. A save that touches none of
+  // them (a title, a description) is never refused, even on a thread that
+  // slipped through before this guard existed: the audit script finds those.
+  const routeKeys = ['price_cents', 'payment_methods', 'payment_destination', 'public_enrolment_open'] as const;
+  const touchesRoute = status === 'active' || routeKeys.some((k) => k in threadPatch);
+  if (
+    touchesRoute &&
+    (await liveAndOpenAfter(id, {
+      ...(status !== undefined ? { status } : {}),
+      ...('public_enrolment_open' in threadPatch
+        ? { public_enrolment_open: threadPatch.public_enrolment_open as boolean }
+        : {}),
+    }))
+  ) {
+    const pending: Parameters<typeof paymentRouteProblem>[1] = {};
+    if ('price_cents' in threadPatch) pending.price_cents = threadPatch.price_cents as number | null;
+    if ('payment_methods' in threadPatch) pending.payment_methods = threadPatch.payment_methods as string[] | null;
+    if ('payment_destination' in threadPatch) {
+      pending.payment_destination = threadPatch.payment_destination as string | null;
+    }
+    const problem = await paymentRouteProblem(id, pending);
+    if (problem) return c.json(PAYMENT_ROUTE_REFUSAL(problem), 409);
   }
 
   const programPatch: Record<string, unknown> = {};
@@ -3473,6 +3534,19 @@ threadRoutes.post('/threads/:id/tickets', async (c) => {
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
   if (await threadLocked(threadId)) return c.json(LOCKED, 423);
+  // The publish guard, for a ticket added to a thread that is already live:
+  // a paid ticket nobody can pay for is the dead end the guard exists for.
+  if (body.data.price_cents > 0 && (await liveAndOpenAfter(threadId))) {
+    const problem = await paymentRouteProblem(threadId, {
+      ticket: {
+        id: null,
+        price_cents: body.data.price_cents,
+        payment_methods: body.data.payment_methods ?? null,
+        is_active: body.data.is_active ?? true,
+      },
+    });
+    if (problem) return c.json(PAYMENT_ROUTE_REFUSAL(problem), 409);
+  }
   const { data: last } = await db
     .from('thread_ticket')
     .select('position')
@@ -3500,6 +3574,27 @@ threadRoutes.patch('/tickets/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   if (await ownerThreadLocked('thread_ticket', c.req.param('id'))) return c.json(LOCKED, 423);
+  if ('price_cents' in body.data || 'payment_methods' in body.data || 'is_active' in body.data) {
+    const { data: cur } = await adminClient
+      .from('thread_ticket')
+      .select('id, thread_id, price_cents, payment_methods, is_active')
+      .eq('id', c.req.param('id'))
+      .maybeSingle();
+    if (cur && (await liveAndOpenAfter(cur.thread_id as string))) {
+      const problem = await paymentRouteProblem(cur.thread_id as string, {
+        ticket: {
+          id: cur.id as string,
+          price_cents: body.data.price_cents ?? (cur.price_cents as number),
+          payment_methods:
+            'payment_methods' in body.data
+              ? body.data.payment_methods ?? null
+              : ((cur.payment_methods as string[] | null) ?? null),
+          is_active: body.data.is_active ?? ((cur.is_active as boolean | null) !== false),
+        },
+      });
+      if (problem) return c.json(PAYMENT_ROUTE_REFUSAL(problem), 409);
+    }
+  }
   const { data, error } = await db
     .from('thread_ticket')
     .update(body.data)
@@ -7195,29 +7290,56 @@ threadRoutes.post('/public/enrol', async (c) => {
   let enrolmentId: string;
   const { data: platEnrolment } = await adminClient
     .from('enrolment')
-    .select('id')
+    .select('id, status')
     .eq('program_id', thread.program_id)
     .eq('person_id', person.id)
     .maybeSingle();
   if (platEnrolment) {
     // Already enrolled on the platform; if the thread companion also exists,
-    // this is a duplicate signup.
+    // this person already has a place. WHAT THAT PLACE MEANS is decided in
+    // lib/place-state.ts, by the same function every "Join" list uses — so a
+    // list can never offer a sign-up this route refuses, or the reverse.
     const { data: dup } = await adminClient
       .from('thread_enrolment')
       .select('id, payment_status')
       .eq('enrolment_id', platEnrolment.id)
       .maybeSingle();
-    if (dup && (dup.payment_status === 'pending' || dup.payment_status === 'failed') && requiresPayment) {
-      // Outstanding payment (bailed checkout, expired session): reuse the
-      // row and run the payment branch again — never a dead end (finding #9).
-      reusedEnrolment = { id: dup.id };
-    } else if (dup) {
-      return c.json({
-        ok: true,
-        enrolment_id: dup.id,
-        already_enrolled: true,
-        has_account: hasAccount === true,
-      });
+    if (dup) {
+      const unpaid = dup.payment_status === 'pending' || dup.payment_status === 'failed';
+      const invoiced = unpaid ? (await invoicedEnrolmentIds([dup.id])).has(dup.id) : false;
+      const answer = duplicateAnswer(
+        placeState({
+          enrolmentStatus: (platEnrolment.status as string | null) ?? null,
+          paymentStatus: (dup.payment_status as string | null) ?? null,
+          invoiced,
+        }),
+        requiresPayment,
+      );
+      if (answer === 'reuse') {
+        // Outstanding CARD payment (bailed checkout, expired session): reuse
+        // the row and run the payment branch again — never a dead end
+        // (finding #9).
+        reusedEnrolment = { id: dup.id };
+      } else {
+        // Held. Answered as the existing already_enrolled shape plus, where
+        // it explains the refusal, one ADDITIVE flag — an outside form that
+        // re-submits, like the Festival of Trust planner, must not start
+        // failing:
+        //   invoice_open — unpaid with an invoice issued. Starting a card
+        //     payment here is how somebody pays twice: the card now and the
+        //     numbered invoice later, which nothing voids.
+        //   place_closed — the organiser declined them, or a membership place
+        //     was withdrawn. Not reopened by signing up again; the member is
+        //     told to contact the organiser.
+        return c.json({
+          ok: true,
+          enrolment_id: dup.id,
+          already_enrolled: true,
+          ...(answer === 'invoice_open' ? { invoice_open: true } : {}),
+          ...(answer === 'closed' ? { place_closed: true } : {}),
+          has_account: hasAccount === true,
+        });
+      }
     }
     enrolmentId = platEnrolment.id;
   } else {
@@ -7281,7 +7403,6 @@ threadRoutes.post('/public/enrol', async (c) => {
       })
       .eq('id', threadEnrolment.id);
   }
-
   // Coupon redemption bookkeeping — after the enrolment is committed.
   // (Not on reuse — the first attempt already counted it.)
   if (coupon && !reusedEnrolment) {

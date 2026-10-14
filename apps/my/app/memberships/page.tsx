@@ -160,7 +160,12 @@ export default async function MembershipsPage() {
                           </a>
                           <p className="text-ink-muted">
                             {j.starts_on ? `${fmtDate(j.starts_on)} · ` : ''}
-                            {j.team} · <JoinPrice j={j} />
+                            {j.team} ·{' '}
+                            {j.payment === 'unavailable' ? (
+                              <span>sign-up not open yet</span>
+                            ) : (
+                              <JoinPrice j={j} />
+                            )}
                           </p>
                         </li>
                       ))}

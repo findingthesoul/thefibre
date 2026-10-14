@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { RichText } from '@thefibre/shared/ui/rich-text';
+import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { Certificate } from './certificate';
 import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X, HelpCircle } from 'lucide-react';
 import {
@@ -279,28 +280,46 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
       // see the colour.
       aria-label={`${now} — ${item.title}. Tap for ${nextLabel}.`}
       title={`${now} · tap for ${nextLabel}`}
-      className={`inline-flex w-11 items-center justify-center rounded-lg border transition-colors disabled:opacity-60 ${
-        stretch ? 'h-full min-h-11 self-stretch' : 'h-11'
-      } ${look}`}
+      // One size down from the 44px it was (Sjoerd, 2026-10-14: "the button a
+      // bit smaller"), and no smaller: 40px is the floor for a thumb.
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors disabled:opacity-60 ${look}`}
     >
       {answer === 'coming' ? (
-        <Check className="h-5 w-5" aria-hidden />
+        <Check className="h-4 w-4" aria-hidden />
       ) : answer === 'not_coming' ? (
-        <X className="h-5 w-5" aria-hidden />
+        <X className="h-4 w-4" aria-hidden />
       ) : (
-        <HelpCircle className="h-5 w-5" aria-hidden />
+        <HelpCircle className="h-4 w-4" aria-hidden />
       )}
     </button>
   );
 
-  // In the timeline card the button stands alone at the end of the row and
+  // "RSVP" in small caps above the button (Sjoerd, 2026-10-14: "above the
+  // RSVP icon - in small CAPS RSVP"): a ? on its own did not say what it was
+  // asking. The family's caps label, not a new size. Hidden from screen
+  // readers, whose label already says it. Same 44px column as before, so a
+  // list mixing RSVPs and certificates stays straight down its right edge.
+  const labelled = (
+    <div
+      className={`flex w-11 shrink-0 flex-col items-center justify-center gap-0.5 ${
+        stretch ? 'self-stretch' : ''
+      }`}
+    >
+      <span aria-hidden className={`${SECTION_LABEL} leading-none`}>
+        RSVP
+      </span>
+      {button}
+    </div>
+  );
+
+  // In the timeline card the control stands alone at the end of the row and
   // the words would not fit. In the sheet there is room, and the line is the
   // only thing that makes the cycle discoverable without hovering.
-  if (stretch) return button;
+  if (stretch) return labelled;
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-      {button}
+      {labelled}
       <p className="text-xs text-ink-muted">
         {failed ? 'That didn\u2019t save. Check your connection and try again.' : `${now}. Tap for ${nextLabel}.`}
       </p>

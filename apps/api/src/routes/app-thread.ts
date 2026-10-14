@@ -67,6 +67,7 @@
 // know that the split exists.
 
 import type { Context, Hono } from 'hono';
+import { paymentRouteProblem } from '../lib/thread-payment-route.js';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
@@ -132,6 +133,25 @@ async function ownThread(ctx: RequestContext, threadId: string) {
 function one<T>(v: T | T[] | null): T | null {
   if (!v) return null;
   return Array.isArray(v) ? v[0] ?? null : v;
+}
+
+/** The published shape plus the payment-route warning — every response
+ *  that returns one thread goes through this.
+ *
+ *  `payment_route_missing` (additive, 2026-10-14): true when the thread is
+ *  ACTIVE, priced above zero, and no payment method would actually complete
+ *  (lib/thread-payment-route.ts). This API does not refuse such a publish —
+ *  rule 8: a published route may not start refusing what it accepted — so it
+ *  says so instead, and an app can show its organiser. Members never meet a
+ *  dead end either way: the Join lists hide the button and the enrol route
+ *  answers with a sentence. */
+async function shapeThreadWithRoute(row: Record<string, any>) {
+  const program = one(row.program) ?? {};
+  return {
+    ...shapeThread(row),
+    payment_route_missing:
+      program.status === 'active' ? !!(await paymentRouteProblem(row.id as string)) : false,
+  };
 }
 
 /** The published shape. Flattens programme + storefront into one object. */
@@ -395,7 +415,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
           .maybeSingle();
         if (t) {
           const full = await ownThread(ctx, t.id);
-          return c.json({ ...(full ? shapeThread(full) : { id: t.id }), created: false }, 200);
+          return c.json({ ...(full ? await shapeThreadWithRoute(full) : { id: t.id }), created: false }, 200);
         }
       }
     }
@@ -566,7 +586,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     const full = await ownThread(ctx, thread.id);
-    return c.json({ ...(full ? shapeThread(full) : { id: thread.id }), created: true }, 201);
+    return c.json({ ...(full ? await shapeThreadWithRoute(full) : { id: thread.id }), created: true }, 201);
   });
 
   // -------------------------------------------------------------------------
@@ -603,7 +623,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     if (!ctx) return notForUsers(c);
     const thread = await ownThread(ctx, c.req.param('id'));
     if (!thread) return c.json({ error: 'thread not found' }, 404);
-    return c.json(shapeThread(thread));
+    return c.json(await shapeThreadWithRoute(thread));
   });
 
   // -------------------------------------------------------------------------
@@ -1143,7 +1163,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     const fresh = await ownThread(ctx, thread.id);
-    return c.json(fresh ? shapeThread(fresh) : { id: thread.id });
+    return c.json(fresh ? await shapeThreadWithRoute(fresh) : { id: thread.id });
   });
 
   // -------------------------------------------------------------------------

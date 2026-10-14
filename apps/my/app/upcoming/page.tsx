@@ -74,11 +74,16 @@ export default async function UpcomingPage({
                   {j.starts_on ? `${fmtDate(j.starts_on)} · ` : ''}
                   {j.team} · <JoinPrice j={j} />
                 </p>
-                {j.direct && j.owner_slug && j.thread_slug ? (
+                {j.payment === 'unavailable' ? (
+                  // Paid, and the organiser has no way to take the money yet.
+                  // Never a button into that dead end, and never a link to a
+                  // page that has the same dead end on it.
+                  <p className="mt-1 text-sm text-ink-muted">Sign-up not open yet.</p>
+                ) : j.direct && j.owner_slug && j.thread_slug ? (
                   <JoinButton j={j} />
                 ) : (
-                  // A required question, or an API too old to say: the
-                  // thread's own page asks it.
+                  // A required question, an invoice (billing details), or an
+                  // API too old to say: the thread's own page handles it.
                   <a
                     href={j.url}
                     target="_blank"
