@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.194.4] — 2026-10-14
+
+### Clicking a thread answers at once
+
+Sjoerd: *"sometimes when I click a thread, nothing happens. Or it takes long.
+In the other version we immediately went to the thread page... it showed an
+empty 'grid' in which it loaded the content."*
+
+**The cause was a missing boundary, then a slow page.** The only loading file
+in Thread sat at the `(app)` level, which wraps the `threads` segment — and
+going from the list to a thread keeps that segment and changes its child, so
+no boundary showed. Next held the list, unchanged, for the whole server time:
+the thread fetched FIRST, then eight side loads that never needed it, measured
+at **1.7–2.6s** on staging. The rows were already links; that was not it.
+
+- **`threads/[id]/loading.tsx`**: a skeleton in the editor's own shape —
+  header row, team line, the timeline rail with its cards — prefetched for
+  every visible thread, so it paints on the click.
+- **The thread and the eight side loads start together**
+  (`lib/load-together.ts`), so the server time is the slower of them, not the
+  sum. The thread still decides the page: a 404 is still "not found", any
+  other failure still throws, and the side results are then discarded —
+  tested.
+- **The row answers the press** (`active:` background) before any navigation
+  work.
+
 ## [1.194.3] — 2026-10-14
 
 ### Everybody in a community Internal and at least Organiser — never lowering a role

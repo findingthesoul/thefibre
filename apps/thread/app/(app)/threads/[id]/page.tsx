@@ -1,3 +1,4 @@
+import { loadTogether } from '@/lib/load-together';
 import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
@@ -24,15 +25,15 @@ export default async function ThreadDetailPage({
   const locale = await uiLocale();
   const { id } = await params;
 
-  let thread: ThreadDetail;
-  try {
-    thread = await apiFetch<ThreadDetail>(`/api/v1/thread/threads/${id}`);
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) notFound();
-    throw e;
-  }
+  // The thread and the eight side loads start TOGETHER. None of the eight
+  // needs the thread, and awaiting it first made the page's server time the
+  // SUM of the two (measured 1.7–2.6s on staging, 2026-10-14) instead of the
+  // slower of them. The thread's own outcome is still decided first: a 404
+  // is still notFound() and any other failure still throws, exactly as
+  // before — the side loads' results are simply never used then.
+  const threadP = apiFetch<ThreadDetail>(`/api/v1/thread/threads/${id}`);
 
-  const [members, teams, certTemplates, me, categories, brand, library, tasks] = await Promise.all([
+  const sideP = Promise.all([
     apiFetch<{ items: WorkspaceMember[] }>('/api/v1/thread/workspace-members').catch(() => ({
       items: [],
     })),
@@ -82,6 +83,15 @@ export default async function ThreadDetailPage({
         available: !(e instanceof ApiError && e.status === 402),
       })),
   ]);
+
+  const [thread, [members, teams, certTemplates, me, categories, brand, library, tasks]] = await loadTogether(
+    threadP,
+    sideP,
+    (e) => {
+      if (e instanceof ApiError && e.status === 404) notFound();
+      throw e;
+    },
+  );
 
   // v3 layout: a single centred column, the thread as the main item, the
   // engagements immediately under it. No tabs.

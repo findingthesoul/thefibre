@@ -214,7 +214,11 @@ export function ThreadsList({
               <li key={row.id}>
                 <Link
                   href={`/threads/${row.id}`}
-                  className="flex items-center gap-4 px-4 py-3.5 hover:bg-surface-sunken/60 transition-colors"
+                  // `active:` paints on the press itself, before any
+                  // navigation work — the row answers the finger at once,
+                  // and the thread's skeleton (threads/[id]/loading.tsx)
+                  // takes over from there.
+                  className="flex items-center gap-4 px-4 py-3.5 hover:bg-surface-sunken/60 active:bg-surface-sunken transition-colors"
                 >
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-sunken ring-1 ring-line shrink-0">
                     <Icon size={17} strokeWidth={1.75} className="text-ink-subtle" />
