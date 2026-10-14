@@ -248,6 +248,30 @@ export const COUNTRIES: Country[] = [
   { code: 'VU', name: 'Vanuatu' },
   { code: 'WF', name: 'Wallis and Futuna' },
   { code: 'WS', name: 'Samoa' },
+  // XK is USER-ASSIGNED, not official ISO 3166-1 — which is why it was
+  // missing, and why the omission is worth a comment rather than a silent
+  // addition. Found on 2026-10-14 while mapping the World Bank income groups
+  // onto this list for soul.com's pricing rules: Kosovo is classified
+  // upper-middle income, and there was no code to price it by.
+  //
+  // The omission was bigger than a pricing rule. This list feeds the country
+  // picker on every public join page, so somebody in Kosovo could not say
+  // where they were AT ALL — not at the wrong price, at no price.
+  //
+  // Checked before adding it, rather than assumed:
+  //   · the API validates country as /^[A-Za-z]{2}$/, which XK satisfies;
+  //   · `countryName` falls back to the code, so an unknown one never
+  //     renders blank;
+  //   · the phone-prefix picker already drops codes libphonenumber does not
+  //     know (its comment names Antarctica), so XK is simply not offered
+  //     there — by a mechanism that predates this;
+  //   · nothing derives a flag emoji from the two letters anywhere in the
+  //     repo, so there is no tofu character to appear;
+  //   · and our own country field never reaches Stripe: Checkout collects
+  //     its own billing address through `billing_address_collection`, and
+  //     what we store rides our purchase ledger's billing JSON. So Stripe's
+  //     opinion of XK is not a thing this list can break.
+  { code: 'XK', name: 'Kosovo' },
   { code: 'YE', name: 'Yemen' },
   { code: 'YT', name: 'Mayotte' },
   { code: 'ZA', name: 'South Africa' },

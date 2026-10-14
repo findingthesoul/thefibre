@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.189.1] — 2026-10-14
+
+### Kosovo
+
+`XK` was missing from the shared country list, so **somebody in Kosovo could
+not say where they were** — not at the wrong price, at no price: that list
+feeds the country picker on every public join page, and there was no option to
+choose.
+
+It surfaced while mapping the World Bank income groups onto the list for
+soul.com's pricing rules (Kosovo is upper-middle income, Category B, 75%), but
+the omission was upstream of pricing and older than it.
+
+`XK` is a **user-assigned** code rather than official ISO 3166-1, which is
+presumably why it was never added, and which is why this is its own entry
+rather than a line in a price list. What that could break was checked rather
+than assumed:
+
+- the API validates `country` as `/^[A-Za-z]{2}$/` in four places, which `XK`
+  satisfies;
+- `countryName` falls back to the code, so an unknown one never renders blank;
+- the phone-prefix picker already drops codes libphonenumber does not know —
+  its own comment names Antarctica — so `XK` is simply not offered there, by a
+  mechanism that predates this;
+- nothing in the repo derives a flag emoji from the two letters, so there is
+  no missing-glyph box to appear;
+- and our country field never reaches Stripe: Checkout collects its own
+  billing address, and what we store rides the purchase ledger's billing JSON.
+
+The tests that came with it are about the list rather than about Kosovo: every
+code is two letters, no code appears twice, the list is in code order (which
+its own comment claims), and the picker is sorted by NAME — the ordering whose
+absence once opened the dropdown on Andorra, United Arab Emirates, Afghanistan.
+
 ## [1.189.0] — 2026-10-14
 
 ### A product you bought, where you can see it
