@@ -2012,7 +2012,30 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .maybeSingle(),
   ]);
 
+  // THE SAME LOGIC THE CHARGE WILL USE, per tier.
+  //
+  // This asked for the workspace-wide rule (`tier_id` null) while
+  // `/public/validate-code` and `/public/join` both ask for the TIER's —
+  // `priceLogicFor(ws.id, tier.id)`, which prefers a tier-specific rule over
+  // the general one. So a tier with its own rule was priced one way on the
+  // page and another at the till.
+  //
+  // Latent, because the admin UI only ever writes `tier_id: null` today. But
+  // `PUT /pricing-rules` accepts a tier id, so the shape that breaks it is
+  // reachable through the published API, and "nobody has done it yet" is not
+  // a property worth relying on where money is concerned.
+  //
+  // `price_logic` stays on the response, unchanged, as the workspace default
+  // — removing it would break a caller (rule 8). Each tier now also carries
+  // its own, additively, and the panel prefers it.
   const priceLogic = await priceLogicFor(ws.id, null);
+  const tierLogic = new Map(
+    await Promise.all(
+      (tiers ?? []).map(
+        async (t) => [t.id as string, await priceLogicFor(ws.id, t.id as string)] as const,
+      ),
+    ),
+  );
 
   // WHICH DIRECTORY CATEGORIES EACH TIER CONFERS. The join form's consent
   // checkbox names them ("Show me in Facilitators"), and a category reaches a
@@ -2073,6 +2096,8 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
             .flatMap((l: { product_id: string }) => categoryByProduct.get(l.product_id) ?? []),
         ),
       ].sort(),
+      // Additive (rule 8): the rule that will actually price THIS tier.
+      price_logic: tierLogic.get(t.id as string) ?? null,
       membership_tier_product: undefined,
     })),
     products: products ?? [],
@@ -2670,7 +2695,13 @@ membershipRoutes.post('/public/join', async (c) => {
           ...(options.length ? { option_product_ids: options.map((o) => o.id).join(',') } : {}),
         },
         success_url: `${base}/joined?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
-        cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}`,
+        // BACK MUST COME BACK TO THE SAME TIER. Without `tier`, pressing Back
+        // on Stripe's page returns an invitee to the PUBLIC list — and for a
+        // hidden tier that page does not contain the thing they were invited
+        // to at all, so the cancel button quietly becomes a dead end.
+        // Invitations point at exactly such links, so this is the common case
+        // rather than an edge.
+        cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}&tier=${tier.id}`,
       },
       { stripeAccount: account },
     );

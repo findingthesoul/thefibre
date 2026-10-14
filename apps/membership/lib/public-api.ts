@@ -69,6 +69,13 @@ export type PublicTier = {
    *  an invitation should know they are looking at something not on offer to
    *  everybody. Optional: an older API does not send it. */
   hidden?: boolean;
+  /** The pricing rule that will actually price THIS tier, which is what the
+   *  join route uses. Optional: an older API sends only the workspace-wide
+   *  one, and the panel falls back to that. */
+  price_logic?: {
+    rules?: { when: { attr: string; op: string; values: string[] }; pct: number }[];
+    default_pct?: number;
+  } | null;
 };
 
 export type PublicProduct = {

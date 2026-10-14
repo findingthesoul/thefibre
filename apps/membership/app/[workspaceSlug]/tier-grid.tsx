@@ -3,7 +3,7 @@
 // Tier cards + inline join form. Yearly price is the headline; a monthly
 // price (when set) is offered as an interval choice inside the form.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { applyPct, evaluatePriceLogic, type PriceLogic } from '@thefibre/shared/price-logic';
 import { Check } from 'lucide-react';
@@ -186,8 +186,13 @@ function TierCard({
   const currency = tier.currency ?? 'EUR';
   const hasYear = tier.price_cents_year != null && tier.price_cents_year > 0;
   const hasMonth = tier.price_cents_month != null && tier.price_cents_month > 0;
-  const yearPct = previewPct(priceLogic, country, 'year');
-  const monthPct = previewPct(priceLogic, country, 'month');
+  // THE TIER'S OWN RULE WHERE IT HAS ONE, which is what the charge uses
+  // (`priceLogicFor(ws, tier.id)` prefers a tier-specific rule over the
+  // workspace one). The workspace rule stays as the fallback, and as what an
+  // older API sends.
+  const logicHere = tier.price_logic ?? priceLogic;
+  const yearPct = previewPct(logicHere, country, 'year');
+  const monthPct = previewPct(logicHere, country, 'month');
   const adjustedYear = hasYear ? adjust(tier.price_cents_year!, yearPct) : null;
   const adjustedMonth = hasMonth ? adjust(tier.price_cents_month!, monthPct) : null;
   const countryName = country ? (COUNTRIES.find((c) => c.code === country)?.name ?? country) : null;
@@ -255,6 +260,18 @@ function TierCard({
    *  visitor can re-apply and see the real number. */
   const appliedHere =
     applied && applied.interval === interval && applied.country === country ? applied : null;
+  // AND IT DOES NOT COME BACK ON ITS OWN. Year with a code → Month → Year
+  // made `appliedHere` match again, so the discount reapplied while the
+  // field, remounted by the key below, showed nothing. The price was right
+  // and the screen could not explain it, which is its own kind of wrong on a
+  // payment form: a reader cannot check a figure whose reason has
+  // disappeared. Dropping the code when the pair changes means a visitor who
+  // wants it back types it again and sees it applied — the same two states
+  // the field has always had, and no third one where it is secretly in
+  // force.
+  useEffect(() => {
+    setApplied(null);
+  }, [interval, country]);
   const optionsExtraCents = chosen.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
   // WHAT COMES BACK EVERY PERIOD, and what does not. A one-time extra is paid
   // once and never again, so naming it in the renewal figure would promise a

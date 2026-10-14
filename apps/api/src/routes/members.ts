@@ -514,15 +514,38 @@ membersRoutes.post('/', async (c) => {
     // replaces grants and roles, and it says so.
     const existingGrants = await adminClient
       .from('app_membership')
-      .select('app_id')
+      .select('app_id, is_direct')
       .eq('user_id', u.id)
       .in('app_id', (apps ?? []).map((a) => a.id as string));
     if (existingGrants.error) {
       return c.json({ error: `app grant lookup: ${existingGrants.error.message}` }, 500);
     }
-    const granted = new Set((existingGrants.data ?? []).map((r) => r.app_id as string));
+    const grantOf = new Map(
+      (existingGrants.data ?? []).map((r) => [r.app_id as string, r.is_direct === true]),
+    );
+
+    // AN INHERITED GRANT BECOMES A DIRECT ONE, which is what ticking the box
+    // means. `is_direct = false` is access that arrives through a TEAM: real
+    // today, and gone the day that team loses the app. An admin ticking the
+    // app on the invite form is saying "this person gets this app", not "this
+    // person gets this app for as long as their team happens to have it", and
+    // skipping the row entirely threw that statement away silently.
+    //
+    // The ROLE is still never touched — same rule as everywhere else in this
+    // route. Only the directness changes, because only the directness is what
+    // the tick is about.
+    const inherited = [...grantOf.entries()].filter(([, direct]) => !direct).map(([id]) => id);
+    if (inherited.length) {
+      const { error } = await adminClient
+        .from('app_membership')
+        .update({ is_direct: true })
+        .eq('user_id', u.id)
+        .in('app_id', inherited);
+      if (error) return c.json({ error: `app grant direct: ${error.message}` }, 500);
+    }
+
     for (const app of apps ?? []) {
-      if (granted.has(app.id as string)) continue;
+      if (grantOf.has(app.id as string)) continue;
       const role = usable.find((w) => w.slug === app.slug)?.role ?? 'member';
       const { error } = await adminClient
         .from('app_membership')

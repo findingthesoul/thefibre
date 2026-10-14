@@ -48,15 +48,17 @@ export async function setDirectoryListing(choice: DirectoryChoice): Promise<Dire
     .eq('workspace_id', workspaceId)
     .in('person_id', personIds);
   if (before.error) return { ok: false, step: 'read before', message: before.error.message };
-  // PER PERSON, not `.some()` across all of them. A human can hold several
-  // person rows in one workspace (a merge keeps every one), and asking "was
-  // ANY of them listed" meant a single already-listed row suppressed the
-  // consent record for all the others.
-  const listedBefore = new Map(
-    (before.data ?? []).map((e) => [e.person_id as string, e.listed === true]),
-  );
-  const turningOn = personIds.filter((id) => !listedBefore.get(id));
-  const turningOff = personIds.filter((id) => listedBefore.get(id));
+  // The previous state is read but no longer DECIDES anything: both the
+  // insert and the revoke now run for every person row this human owns here.
+  //
+  // It started as `.some()` across all of them — "was ANY of them listed" —
+  // which let one already-listed row suppress the consent record for all the
+  // others. Narrowing it per person fixed that and introduced a subtler
+  // version: a row in an inconsistent state (listed with no consent, or
+  // consented but not listed) was excluded from the very operation that
+  // would repair it. The unique index and `.is('revoked_at', null)` make
+  // "all of them" both safe and idempotent, so there is nothing left for a
+  // filter to get wrong.
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (choice.listed !== undefined) patch.listed = choice.listed;
@@ -89,7 +91,7 @@ export async function setDirectoryListing(choice: DirectoryChoice): Promise<Dire
   // Turning OFF, the entry is flipped first — the same reasoning in reverse.
   // Stop showing them, then revoke. A failure leaves somebody not shown whose
   // consent is still on record, which the retry also fixes.
-  if (choice.listed === true && turningOn.length) {
+  if (choice.listed === true) {
     // ONE STATEMENT PER PERSON, not one statement for all of them.
     //
     // A single multi-row insert is atomic: if ONE of this human's person rows
@@ -103,7 +105,18 @@ export async function setDirectoryListing(choice: DirectoryChoice): Promise<Dire
     // (A PostgREST upsert with ignoreDuplicates cannot do this job: the index
     // is PARTIAL and over an expression, `coalesce(text_version, '')` where
     // revoked_at is null, and `onConflict` names plain columns.)
-    for (const person_id of turningOn) {
+    // EVERY PERSON ROW, not only the ones that were not already listed.
+    //
+    // Narrowing this to `turningOn` looked like an optimisation and was a
+    // hole: a row that is listed WITHOUT a consent record — which is exactly
+    // the state the old ordering could leave behind — would be skipped
+    // forever, because it is already listed and so never "turning on". The
+    // one case that needs repairing is the one that was excluded.
+    //
+    // Inserting for all of them is safe and idempotent: a live consent
+    // collides on the unique index and the 23505 is swallowed below, so a
+    // redundant yes writes nothing and a missing one is repaired.
+    for (const person_id of personIds) {
       const { error } = await adminClient.from('consent_record').insert({
         person_id,
         purpose_code: 'member_directory',
@@ -139,14 +152,21 @@ export async function setDirectoryListing(choice: DirectoryChoice): Promise<Dire
   const failed = await saveEntries();
   if (failed) return failed;
 
-  if (choice.listed === false && turningOff.length) {
+  if (choice.listed === false) {
     // Both: the record is the evidence, the flag is the behaviour (spec §4).
-    // Scoped to the rows that WERE listed — revoking a consent nobody had
-    // given would record a withdrawal that never happened.
+    //
+    // EVERY PERSON ROW, for the mirror of the reason above. Scoping this to
+    // the rows that were listed meant a LIVE consent belonging to a row that
+    // is not listed — the other state the old ordering could leave — could
+    // never be withdrawn, because the untick would skip it.
+    //
+    // Revoking a consent nobody gave is still impossible: `.is('revoked_at',
+    // null)` only touches rows that exist and are live, so a person with no
+    // consent record has nothing updated and no withdrawal is invented.
     const { error } = await adminClient
       .from('consent_record')
       .update({ revoked_at: new Date().toISOString() })
-      .in('person_id', turningOff)
+      .in('person_id', personIds)
       .eq('purpose_code', 'member_directory')
       .is('revoked_at', null);
     if (error) return { ok: false, step: 'revoke consent', message: error.message };

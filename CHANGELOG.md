@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.185.0] — 2026-10-14
+
+### Five from a second review, verified one at a time
+
+**A consent the writer could never repair.** Yesterday's ordering fix made
+sure that whichever step fails, nobody is left shown without a record. It did
+not fix the two inconsistent states that already exist, and it made them
+*unreachable*: the insert ran only for rows that were turning ON, and the
+revoke only for rows that had BEEN listed — so a row listed with no consent
+(the old ordering's leftover) was skipped because it was already listed, and a
+live consent on a row that is not listed could never be withdrawn because the
+untick skipped it.
+
+A filter that excludes the broken case is a filter that preserves it. Both now
+run for every person row: the unique index swallows a redundant insert, and
+`.is('revoked_at', null)` means revoking "for everyone" touches only records
+that exist and are live, so no withdrawal is invented for somebody who never
+consented. Three tests, including that last guard.
+
+**Back from Stripe lost the tier.** `cancel_url` carried no `tier`, so an
+invitee who opened a hidden tier's link and pressed Back landed on the public
+list — which, for a hidden tier, does not contain the thing they were invited
+to. The cancel button was a dead end for exactly the case invitations are for.
+
+**The page and the till could price a tier differently.** The catalogue asked
+for the workspace-wide rule while `/public/validate-code` and `/public/join`
+both ask for the TIER's, which prefers a tier-specific rule. Latent — the
+admin UI only writes a workspace rule — but `PUT /pricing-rules` accepts a
+tier id, so the shape is reachable through the published API, and "nobody has
+done it yet" is not a property to rest money on. Each tier now carries its own
+rule in the catalogue, additively, and the panel prefers it; the
+workspace-wide field stays exactly where it was, because removing it would
+break a caller.
+
+**A re-invite threw away an explicit tick.** Skipping every existing
+`app_membership` row also skipped one that was only INHERITED from a team —
+access that is real today and gone the day that team loses the app. Ticking
+the app means "this person gets this app", not "for as long as their team
+happens to have it". An inherited grant becomes direct now; the role is still
+never touched.
+
+**And the discount no longer comes back on its own.** Year with a code →
+Month → Year re-applied it while the field showed nothing: the price was right
+and the screen could not explain it. On a payment form a figure whose reason
+has vanished is its own kind of wrong, so the code is dropped on a switch and
+a visitor who wants it types it again.
+
 ## [1.184.6] — 2026-10-14
 
 ### A cleanup fix that I had reverted over my own shoulder

@@ -9,7 +9,7 @@
 // Against STAGING, in a throwaway workspace, and everything it makes it
 // removes.
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createThrowawayWorkspace, deleteThrowawayWorkspace, service } from './staging.js';
 import { setDirectoryListing, DIRECTORY_CONSENT_VERSION } from '../lib/directory-consent.js';
 
@@ -180,4 +180,76 @@ describe('two writers at once', () => {
     await service.from('membership_directory_entry').delete().eq('person_id', pid);
     await service.from('person').delete().eq('id', pid);
   }, 60_000);
+});
+
+// ---------------------------------------------------------------------------
+// THE TWO INCONSISTENT STATES, and that the writer repairs them.
+//
+// The ordering fix of 2026-10-14 made one of these reachable and left the
+// other unreachable: whichever step fails, the state left behind is never
+// "shown without a record" — but a row could still end up listed with no
+// consent (from the OLD ordering, before the fix) or consented but not listed
+// (from the new one, if the entry write fails).
+//
+// Both were then skipped by the very operation that would repair them,
+// because the writer only acted on rows that were CHANGING. A filter that
+// excludes the broken case is a filter that preserves it, so the insert and
+// the revoke cover every person row now, and the unique index makes that
+// idempotent rather than noisy.
+// ---------------------------------------------------------------------------
+describe('repairing a row that is out of step', () => {
+  beforeEach(async () => {
+    await service.from('consent_record').delete().eq('person_id', personId);
+    await service.from('membership_directory_entry').delete().eq('workspace_id', ws);
+  });
+
+  it('a yes writes the missing consent for a row that is ALREADY listed', async () => {
+    // The old ordering's leftover: listed, with no evidence behind it. This
+    // is the state the record exists to make impossible, so saying yes again
+    // must fix it rather than shrug because nothing is "changing".
+    const seeded = await service
+      .from('membership_directory_entry')
+      .insert({ workspace_id: ws, person_id: personId, listed: true });
+    expect(seeded.error, seeded.error?.message).toBeNull();
+    expect(await consents()).toHaveLength(0);
+
+    const r = await setDirectoryListing({ workspaceId: ws, personIds: [personId], listed: true });
+    expect(r).toEqual({ ok: true });
+
+    const after = await consents();
+    expect(after, 'the consent is written even though the entry did not change').toHaveLength(1);
+    expect(after[0]?.revoked_at).toBeNull();
+  });
+
+  it('a no revokes a LIVE consent even when the row is not listed', async () => {
+    // The mirror: consented, never shown. Scoping the revoke to rows that
+    // were listed meant this consent could never be withdrawn — the untick
+    // would skip it and the record would stay live for good.
+    await setDirectoryListing({ workspaceId: ws, personIds: [personId], listed: true });
+    const unlisted = await service
+      .from('membership_directory_entry')
+      .update({ listed: false })
+      .eq('workspace_id', ws)
+      .eq('person_id', personId);
+    expect(unlisted.error, unlisted.error?.message).toBeNull();
+    expect((await consents()).filter((c) => !c.revoked_at), 'live before the untick').toHaveLength(1);
+
+    const r = await setDirectoryListing({ workspaceId: ws, personIds: [personId], listed: false });
+    expect(r).toEqual({ ok: true });
+
+    expect(
+      (await consents()).filter((c) => !c.revoked_at),
+      'the live consent is withdrawn, not left behind',
+    ).toHaveLength(0);
+  });
+
+  it('a no for somebody who never consented invents no withdrawal', async () => {
+    // The guard on the case above: revoking "for everyone" must not write a
+    // withdrawal that never happened. `.is('revoked_at', null)` touches only
+    // rows that exist and are live, so a person with no record has nothing
+    // updated.
+    const r = await setDirectoryListing({ workspaceId: ws, personIds: [personId], listed: false });
+    expect(r).toEqual({ ok: true });
+    expect(await consents()).toHaveLength(0);
+  });
 });
