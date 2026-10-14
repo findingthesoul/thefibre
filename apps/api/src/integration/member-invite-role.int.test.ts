@@ -35,6 +35,7 @@ const API = 'https://thefibre-api-staging.fly.dev';
 let ws = '';
 let admin: FixtureUser;
 let target: FixtureUser;
+let team = '';
 
 /** The invite route, as the admin. */
 async function invite(body: Record<string, unknown>) {
@@ -77,9 +78,24 @@ beforeAll(async () => {
   target = await createFixtureUser(ws, 'inv-target');
   // The inviter must be an admin; the route refuses an organiser outright.
   await setRole(admin.userId, 'super_admin', 'internal');
+
+  // A team to tick on the invite form. Not one of the automatic ones —
+  // Everyone and Admins are refused by the route on purpose, since they
+  // follow from being a member and from the workspace role.
+  const { data, error } = await service
+    .from('team')
+    .insert({ workspace_id: ws, name: 'ZZ invite team', slug: `zz-invite-${Date.now()}` })
+    .select('id')
+    .single();
+  if (error) throw new Error(`team: ${error.message}`);
+  team = data.id as string;
 }, 120_000);
 
 afterAll(async () => {
+  if (team) {
+    await service.from('team_member').delete().eq('team_id', team);
+    await service.from('team').delete().eq('id', team);
+  }
   if (admin) await deleteFixtureUser(admin);
   if (target) await deleteFixtureUser(target);
   if (ws) await deleteThrowawayWorkspace(ws);
@@ -149,5 +165,76 @@ describe('re-inviting an existing member', () => {
     } finally {
       await deleteFixtureUser(fresh);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TEAMS AND APPS, the same class of bug one level down.
+//
+// `team_member` was upserted with `role: 'member'` and `app_membership` with
+// the invite form's role, so the ordinary act of adding a colleague to one
+// more team re-ranked them in every team and app they already belonged to.
+// ---------------------------------------------------------------------------
+describe('re-inviting somebody who is already in the team', () => {
+  async function teamRow() {
+    const { data, error } = await service
+      .from('team_member')
+      .select('role, status')
+      .eq('team_id', team)
+      .eq('user_id', target.userId)
+      .maybeSingle();
+    if (error) throw new Error(`team_member read: ${error.message}`);
+    return data;
+  }
+
+  it('does NOT demote a team LEAD to member', async () => {
+    const { error } = await service
+      .from('team_member')
+      .upsert(
+        { team_id: team, user_id: target.userId, role: 'lead', status: 'active' },
+        { onConflict: 'team_id,user_id' },
+      );
+    if (error) throw new Error(`seed team admin: ${error.message}`);
+
+    const r = await invite({ email: target.email, teams: [team] });
+    expect([200, 201]).toContain(r.status);
+    expect((await teamRow())?.role, 'adding somebody to a team is not a statement about their role').toBe(
+      'lead',
+    );
+  });
+
+  it('DOES activate a pending invite, without touching the role', async () => {
+    // The team roles are ('lead','member'); a lead can edit the team, so it
+    // is the one a re-invite must not quietly take away.
+    // `status` is check (status in ('active','invited')): 'invited' is a team
+    // lead's two-step invite awaiting the person's own Accept. An admin
+    // ticking the box has the authority to put them in directly, so the row
+    // must come out active — otherwise the screen says they are in the team
+    // and they are not. Both halves asserted, because the first fix skipped
+    // every existing row and lost this.
+    const { error } = await service
+      .from('team_member')
+      .upsert(
+        { team_id: team, user_id: target.userId, role: 'lead', status: 'invited' },
+        { onConflict: 'team_id,user_id' },
+      );
+    if (error) throw new Error(`seed pending: ${error.message}`);
+
+    const r = await invite({ email: target.email, teams: [team] });
+    expect([200, 201]).toContain(r.status);
+    const row = await teamRow();
+    expect(row?.status, 'a pending row is activated').toBe('active');
+    expect(row?.role, 'and the role is still untouched').toBe('lead');
+  });
+
+  it('adds somebody who is not in the team at all', async () => {
+    // The positive anchor: without it, a route that stopped writing team
+    // memberships entirely would satisfy both cases above.
+    await service.from('team_member').delete().eq('team_id', team).eq('user_id', target.userId);
+    const r = await invite({ email: target.email, teams: [team] });
+    expect([200, 201]).toContain(r.status);
+    const row = await teamRow();
+    expect(row?.role).toBe('member');
+    expect(row?.status).toBe('active');
   });
 });

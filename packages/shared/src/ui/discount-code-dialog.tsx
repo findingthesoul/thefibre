@@ -27,6 +27,7 @@ import { useState, useTransition, type ReactNode } from 'react';
 import { Trash2, Percent, Coins, Gift } from 'lucide-react';
 import type { Locale } from '../i18n.js';
 import { discountAdminT as t } from '../discount-code-admin-i18n.js';
+import { generateDiscountCode } from '../discount-code-generate.js';
 import { Dialog, ConfirmDialog } from './dialog.js';
 import { FormError } from './form-error.js';
 import { TextField, SelectField } from './fields.js';
@@ -105,6 +106,8 @@ export function DiscountCodeDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** A code the admin asked us to invent, until they type over it. */
+  const [generated, setGenerated] = useState<string | null>(null);
 
   // Splice an existing limit into the curated list, so editing a code with a
   // limit nobody would pick today does not silently change it.
@@ -209,16 +212,39 @@ export function DiscountCodeDialog({
     >
       <form id="discount-code-form" onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <TextField
-            label={t(locale, 'code')}
-            name="code"
-            required
-            placeholder="EARLYBIRD"
-            defaultValue={code?.code ?? ''}
-            autoCapitalize="characters"
-            style={{ textTransform: 'uppercase' }}
-            hint={t(locale, 'uppercased_hint')}
-          />
+          {/* THE CODE, TYPED OR GENERATED.
+              Generate fills the field with a readable random code
+              (@thefibre/shared/discount-code-generate — uppercase, two groups
+              of four, no look-alikes, from crypto and not Math.random,
+              because a discount code is worth money). The admin can still
+              type over it: this offers a good default, it does not take the
+              choice away.
+              `key` is what puts the value in. The field is uncontrolled —
+              every other field in this form is — so remounting it with a new
+              defaultValue is how it changes without turning this one input
+              into the only controlled one in the dialog. */}
+          <div className="flex items-end gap-2">
+            <div className="flex-1 min-w-0">
+              <TextField
+                key={generated ?? 'typed'}
+                label={t(locale, 'code')}
+                name="code"
+                required
+                placeholder="EARLYBIRD"
+                defaultValue={generated ?? code?.code ?? ''}
+                autoCapitalize="characters"
+                style={{ textTransform: 'uppercase' }}
+                hint={t(locale, 'uppercased_hint')}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setGenerated(generateDiscountCode())}
+              className="mb-[26px] shrink-0 rounded-md border border-line px-3 h-[38px] text-sm hover:border-line-strong"
+            >
+              {t(locale, 'generate_code')}
+            </button>
+          </div>
           <TextField
             label={t(locale, 'name')}
             name="name"

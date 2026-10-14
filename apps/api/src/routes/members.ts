@@ -438,14 +438,16 @@ membersRoutes.post('/', async (c) => {
       // team's own screen.
       const already = await adminClient
         .from('team_member')
-        .select('team_id')
+        .select('team_id, status')
         .eq('user_id', u.id)
         .in('team_id', ids);
       if (already.error) {
         return c.json({ error: `team membership lookup: ${already.error.message}` }, 500);
       }
-      const have = new Set((already.data ?? []).map((r) => r.team_id as string));
-      const missing = ids.filter((id) => !have.has(id));
+      const statusOf = new Map(
+        (already.data ?? []).map((r) => [r.team_id as string, r.status as string | null]),
+      );
+      const missing = ids.filter((id) => !statusOf.has(id));
       if (missing.length) {
         const { error } = await adminClient.from('team_member').insert(
           missing.map((team_id) => ({ team_id, user_id: u.id, role: 'member', status: 'active' })),
@@ -454,6 +456,37 @@ membersRoutes.post('/', async (c) => {
         // this wanted anyway.
         if (error && error.code !== '23505') {
           return c.json({ error: `team membership: ${error.message}` }, 500);
+        }
+      }
+
+      // AND A PENDING ROW IS STILL ACTIVATED — status yes, role never.
+      //
+      // `team_member.status` is `check (status in ('active', 'invited'))`:
+      // 'invited' is a team lead's two-step invite awaiting the person's own
+      // Accept. There is no 'removed' — leaving a team is a delete.
+      //
+      // Skipping every existing row, as the fix above first did, would have
+      // left such a row pending: an admin ticks the team on the invite form,
+      // the screen says they are in it, and they are not. The old upsert set
+      // status alongside role, so this behaviour existed and was lost by
+      // accident rather than by decision.
+      //
+      // The two fields are not alike. A ROLE is a standing fact about
+      // somebody that an admin ticking a team box is not making a statement
+      // about. STATUS is precisely what the box is for, and an admin has the
+      // authority to put a colleague in a team directly — which is why a new
+      // row is created 'active' and does not wait for an Accept either.
+      const pending = (already.data ?? [])
+        .filter((r) => r.status !== 'active')
+        .map((r) => r.team_id as string);
+      if (pending.length) {
+        const { error } = await adminClient
+          .from('team_member')
+          .update({ status: 'active' })
+          .eq('user_id', u.id)
+          .in('team_id', pending);
+        if (error) {
+          return c.json({ error: `team membership activate: ${error.message}` }, 500);
         }
       }
     }

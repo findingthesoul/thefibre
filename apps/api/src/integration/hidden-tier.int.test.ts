@@ -51,11 +51,29 @@ async function makeTier(name: string, patch: Record<string, unknown> = {}) {
   return data.id as string;
 }
 
+/** The public catalogue answers 404 unless the membership app is switched on
+ *  for the workspace (`publicWorkspace` checks `workspace_app`), which a
+ *  throwaway workspace has no reason to be. So the fixture does what a
+ *  community does when it starts selling memberships. */
+async function activateMembership(workspaceId: string) {
+  const { data: app, error: appErr } = await service
+    .from('app')
+    .select('id')
+    .eq('slug', 'membership')
+    .single();
+  if (appErr) throw new Error(`membership app: ${appErr.message}`);
+  const { error } = await service
+    .from('workspace_app')
+    .upsert({ workspace_id: workspaceId, app_id: app.id }, { onConflict: 'workspace_id,app_id' });
+  if (error) throw new Error(`workspace_app: ${error.message}`);
+}
+
 beforeAll(async () => {
   ws = await createThrowawayWorkspace('hiddenTier');
   const { data, error } = await service.from('workspace').select('slug').eq('id', ws).single();
   if (error) throw new Error(`workspace slug: ${error.message}`);
   slug = data.slug as string;
+  await activateMembership(ws);
 
   listedTier = await makeTier('ZZ listed tier', { sort_order: 1 });
   hiddenTier = await makeTier('ZZ hidden tier', { sort_order: 2, hidden: true });
@@ -120,6 +138,11 @@ describe('the public catalogue', () => {
     // would otherwise sell that community's membership at another's price.
     const other = await createThrowawayWorkspace('hiddenTierOther');
     try {
+      // Switched on there as well, deliberately: if that workspace had no
+      // membership app, this case would pass on a 404 from the APP check and
+      // say nothing about the tenancy filter it exists to test. The tier is
+      // asked for through THIS community's slug either way.
+      await activateMembership(other);
       const { data } = await service
         .from('membership_tier')
         .insert({ workspace_id: other, name: 'ZZ elsewhere', price_cents_year: 500 })

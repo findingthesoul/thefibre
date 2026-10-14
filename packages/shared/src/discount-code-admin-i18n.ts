@@ -250,6 +250,17 @@ export const DISCOUNT_CODE_ADMIN = {
     de: 'Unbegrenzt', // MT
     fr: 'Illimité', // MT
   },
+  // The Generate button beside the Code field (2026-10-14). Labelled for what
+  // it does to the field, not for what it makes — an admin can still type
+  // over it afterwards.
+  generate_code: {
+    en: 'Generate',
+    nl: 'Genereer',
+    es: 'Generar', // MT
+    pt: 'Gerar', // MT
+    de: 'Erzeugen', // MT
+    fr: 'G\u00e9n\u00e9rer', // MT
+  },
   uppercased_hint: {
     en: 'Uppercased automatically.',
     nl: 'Wordt automatisch in hoofdletters gezet.',

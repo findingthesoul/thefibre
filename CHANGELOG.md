@@ -6,6 +6,85 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.184.0] — 2026-10-14
+
+### The welcome email, written out
+
+It was three lines: hello, your membership is active, and a sentence about
+invitations arriving "from each space" — which was true of no membership in
+particular. It is the first thing a community says to a new member, and the
+main reason this launch waited for morning.
+
+What makes it inviting is not adjectives. It is that **the community's own
+words appear**: the tier's description and its characteristics, which is the
+text they wrote on the join card, shown in preference to anything we could
+write, because they know what they are offering and we do not. Where a
+community has written no description the fallback states the fact plainly
+rather than inventing warmth on their behalf.
+
+Then the one thing a new member can act on, as a button rather than a
+paragraph: **their own page**, with what they will find there — Memberships
+(what is included, and what they can join), Purchases (every invoice, to
+download), Members (the list, and whether they appear in it), You (their
+details and their calendar subscription) — and that signing in means a code
+emailed to the address they joined with, with no password to remember.
+
+The vague "spaces" line is gone. In its place, a specific sentence naming the
+team whose calendar the membership opens — **read from the access grant, not
+assumed**, so the email never promises a calendar that does not exist and says
+nothing when there is none.
+
+**Email body text is 1.5× larger** across the membership emails, so the
+welcome, the receipt and the renewal reminder match rather than drifting one
+at a time. 22px against the 15px these templates used, set on the wrapper
+rather than on every paragraph.
+
+**Rendering it is now a script**, `render-membership-emails.mjs`, because
+until tonight the only way to see this email was to join something and send a
+real one to a real address. It writes the HTML and the text to files with no
+network and nothing sent. Two faults came straight out of looking at the
+output, both in the variant where a community has filled in little — the case
+nobody checks:
+
+- **"You are a Community member member of soul.com."** The fallback appended
+  the word "member" to the tier name, and tier names very often end in it.
+  Phrased without it now.
+- **A portal section with no portal.** Without a URL it still printed "Your
+  own page / Everything about your membership lives there:" and a list of
+  four things, with "there" pointing at nothing. The whole section goes when
+  there is no link to give — describing a page somebody cannot open is worse
+  than not mentioning it.
+
+### Generate a discount code
+
+A **Generate** button beside the Code field, shape `K7QX-29MB`: uppercase, two
+groups of four, from an alphabet with the look-alikes removed — no I, L, O, 0
+or 1. A code is read off a screen or a slide and typed back in, and a mistyped
+code is indistinguishable from an invalid one: the person is simply told no.
+
+From `crypto.getRandomValues`, with **no `Math.random` fallback**, because a
+discount code is worth money and a code generated from a predictable source
+looks exactly like a good one — so failing loudly is the only honest
+behaviour. It uses rejection sampling rather than `% 31`, since 31 does not
+divide 256 and the modulo would quietly favour the first few letters. Seven
+tests, including that the alphabet is fully used (a generator emitting only
+'A' would pass "no look-alikes" perfectly) and that it refuses to run with
+`crypto` taken away.
+
+The admin can type over the result: this offers a good default, it does not
+take the choice away.
+
+### And the team edge in the invite fix
+
+v1.183.0's invite fix skipped every existing `team_member` row, which also
+skipped one whose status was `invited` — a team lead's two-step invite awaiting
+the person's own Accept. An admin ticking the team box would then see the
+screen say they were in it while they were not. A pending row is activated
+again; the role is still never touched. The two are not alike: a role is a
+standing fact an admin ticking a box is not making a statement about, while
+status is precisely what the box is for. Three integration tests, including
+the positive anchor — somebody not in the team at all is still added.
+
 ## [1.183.0] — 2026-10-14
 
 ### A tier by invitation, and five things the panel got wrong about money

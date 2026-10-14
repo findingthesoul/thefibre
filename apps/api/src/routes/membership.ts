@@ -44,7 +44,7 @@ import {
   membershipPaymentFailed,
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
-import { appUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
+import { appUrl, surfaceUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
 import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
@@ -2981,9 +2981,13 @@ async function ensureMemberFromSubscription(
     return null;
   }
 
+  // `description` and `characteristics` are the community's OWN words about
+  // this tier — the paragraph and the ticks on the join card. The welcome
+  // email shows them in preference to anything we could write, because they
+  // know what they are offering and we do not.
   const { data: tier } = await adminClient
     .from('membership_tier')
-    .select('name')
+    .select('name, description, characteristics')
     .eq('id', meta.tier_id)
     .maybeSingle();
   await logMemberActivity(meta.workspace_id, meta.person_id, 'membership_joined', `Joined · ${tier?.name ?? 'membership'}`);
@@ -2993,15 +2997,49 @@ async function ensureMemberFromSubscription(
   try {
     const [{ data: person }, { data: ws }, brand] = await Promise.all([
       adminClient.from('person').select('first_name, email').eq('id', meta.person_id).maybeSingle(),
-      adminClient.from('workspace').select('name').eq('id', meta.workspace_id).maybeSingle(),
+      adminClient.from('workspace').select('name, slug').eq('id', meta.workspace_id).maybeSingle(),
       getWorkspaceBrand(meta.workspace_id),
     ]);
+
+    // THE TEAM CALENDAR, named only when the membership really opens one.
+    // The email says "your membership includes {team}'s calendar", and a
+    // sentence like that must not be printed on a hope: the grant is what
+    // decides, so it is read rather than assumed. One line of the old email
+    // said invitations would "arrive from each space", which was true of no
+    // membership in particular — this replaces that with something specific
+    // or with nothing.
+    let calendarTeamName: string | null = null;
+    try {
+      const { data: grant } = await adminClient
+        .from('membership_access_grant')
+        .select('team:team_id (name)')
+        .eq('tier_id', meta.tier_id)
+        .eq('kind', 'team_calendar')
+        .limit(1)
+        .maybeSingle();
+      const team = Array.isArray(grant?.team) ? grant?.team[0] : grant?.team;
+      calendarTeamName = (team as { name?: string } | null)?.name ?? null;
+    } catch {
+      /* a missing calendar line is better than a failed welcome */
+    }
+
     if (person?.email) {
       const msg = membershipWelcome({
         name: person.first_name ?? 'there',
         communityName: ws?.name ?? 'the community',
         tierName: tier?.name ?? 'membership',
         renewsAt,
+        tierDescription: tier?.description ?? null,
+        characteristics: (tier?.characteristics as string[] | null) ?? null,
+        calendarTeamName,
+        // THIS community's page in the portal, on THIS stack. `surfaceUrl`
+        // reads the environment, which is the only thing that knows whether
+        // this API is the .app or the .tech one — a hand-built URL here is
+        // how a staging email has sent somebody to production before.
+        portalUrl: ws?.slug
+          ? `${surfaceUrl('my-portal', process.env)}/memberships`
+          : null,
+        email: person.email,
         locale: await memberEmailLocale(meta.workspace_id, created.locale),
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
       });
