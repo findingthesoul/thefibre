@@ -68,6 +68,24 @@ const optionalText = (schema: z.ZodTypeAny) =>
     return t === '' ? undefined : t;
   }, schema);
 
+/** The same, for an EDIT: a blank box means CLEAR IT, not leave it alone.
+ *
+ *  On a create, blank and absent are the same thing — there is nothing there
+ *  to keep. On a patch they are opposites, and `undefined` would silently
+ *  mean "unchanged": somebody emptying a surname and pressing Save would
+ *  watch it come back. Every other field on `PersonUpdate` is
+ *  `.nullable().optional()` and clears that way, so this keeps `last_name`
+ *  honest with its neighbours rather than quietly different.
+ *
+ *  Caught in review by the coordinating session, 2026-10-14, after the create
+ *  fix introduced the asymmetry. */
+const clearableText = (schema: z.ZodTypeAny) =>
+  z.preprocess((v) => {
+    if (typeof v !== 'string') return v;
+    const t = v.trim();
+    return t === '' ? null : t;
+  }, schema);
+
 const PersonCreate = z.object({
   first_name: z.string().min(1).max(100),
   // OPTIONAL since 2026-09-22, both of them. A person you met at a festival
@@ -883,7 +901,11 @@ personsRoutes.get('/:id/memberships', async (c) => {
 
 const PersonUpdate = z.object({
   first_name: z.string().min(1).max(100).optional(),
-  last_name: optionalText(z.string().min(1).max(100).optional()),
+  // Blank CLEARS here, unlike on create — see `clearableText`. `email` is
+  // deliberately left as "blank means unchanged": emptying somebody's only
+  // address is a bigger question than a surname, and it is the address they
+  // sign in with.
+  last_name: clearableText(z.string().min(1).max(100).nullable().optional()),
   preferred_name: z.string().max(100).nullable().optional(),
   pronouns: z.string().max(50).nullable().optional(),
   email: optionalText(z.string().email().optional()),

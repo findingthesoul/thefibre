@@ -37,16 +37,25 @@ export default async function YouPage() {
   const session = await loadSession();
   if (!session) return <SignedOut />;
 
-  const profile = await loadProfile();
-  const calendar = await loadCalendarStatus();
-  const erasure = await loadErasure();
-  // Empty when there are no communities OR when the call failed; the section
-  // is omitted either way, because a privacy switch showing a state we are
-  // not sure of is worse than no switch.
-  const directory = await loadDirectoryChoices();
-  // Drives the sentence below: with no seat anywhere, 'back to the site' is
-  // the only door there is and deserves explaining.
-  const apps = await reachableApps((await headers()).get('host'));
+  // AT ONCE, not in a queue. These five were awaited one after another, and
+  // not one of them needs anything from the others — so the page cost the
+  // SUM of five round trips where it could cost the longest of them.
+  //
+  // `loadSession` above stays first and alone because it is the gate: there
+  // is no point asking what somebody's profile is before knowing whether
+  // anybody is signed in.
+  const [profile, calendar, erasure, directory, apps] = await Promise.all([
+    loadProfile(),
+    loadCalendarStatus(),
+    loadErasure(),
+    // Empty when there are no communities OR when the call failed; the
+    // section is omitted either way, because a privacy switch showing a state
+    // we are not sure of is worse than no switch.
+    loadDirectoryChoices(),
+    // Drives the sentence below: with no seat anywhere, 'back to the site' is
+    // the only door there is and deserves explaining.
+    headers().then((h) => reachableApps(h.get('host'))),
+  ]);
   const { person } = session.portal;
   // Label derived from the resolved href, not from the constant: on staging
   // this page is my.thefibre.tech and a link reading "thethread.app" would be

@@ -57,6 +57,39 @@ describe('a person with one name', () => {
   });
 });
 
+// On an EDIT, blank and absent are opposites: one means "clear this", the
+// other means "leave it". The create schema cannot tell them apart and does
+// not need to; the patch schema must.
+const clearableText = (schema: z.ZodTypeAny) =>
+  z.preprocess((v) => {
+    if (typeof v !== 'string') return v;
+    const t = v.trim();
+    return t === '' ? null : t;
+  }, schema);
+
+const PersonPatch = z.object({
+  first_name: z.string().min(1).max(100).optional(),
+  last_name: clearableText(z.string().min(1).max(100).nullable().optional()),
+});
+
+describe('editing a person', () => {
+  it('clears a surname when the box is emptied', () => {
+    // Not `undefined`, which the update would read as "unchanged" and the
+    // editor would watch the name come back after saving.
+    expect(PersonPatch.parse({ last_name: '' }).last_name).toBeNull();
+    expect(PersonPatch.parse({ last_name: '   ' }).last_name).toBeNull();
+  });
+
+  it('leaves it alone when the field is not sent at all', () => {
+    expect(PersonPatch.parse({ first_name: 'Marja' }).last_name).toBeUndefined();
+    expect('last_name' in PersonPatch.parse({ first_name: 'Marja' })).toBe(false);
+  });
+
+  it('still sets a real surname', () => {
+    expect(PersonPatch.parse({ last_name: ' de Vries ' }).last_name).toBe('de Vries');
+  });
+});
+
 describe('a blank field is a missing field, not a bad one', () => {
   it('applies to every optional text field, not only the one that was reported', () => {
     // Fixing last_name alone would leave the identical trap on email, city

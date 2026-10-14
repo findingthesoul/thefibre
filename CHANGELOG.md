@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.191.0] — 2026-10-14
+
+### my.thread acknowledges the click
+
+Sjoerd: *"Why does the loading between elements in my.thread take so long?
+Can this be optimised?"* — and he wondered whether it was his internet. It was
+not, and the largest cause was not slowness at all.
+
+**my.thread had no loading boundary.** Every other app got one on 2026-09-17
+and this one was missed, so a tab click showed the OLD page, unchanged, for as
+long as the next one took to render on the server. The interface read as
+stuck. One `app/loading.tsx` re-exporting the shared `PageLoading` covers
+every tab, because a loading file is the Suspense fallback for everything
+below its segment.
+
+**The You tab made six server calls in a queue.** The portal, then the
+profile, then the calendar status, then the erasure picture, then the
+directory choices, then the reachable apps — each awaited on its own line, and
+not one of the last five needing anything from the others. They run at once
+now, so the page costs the longest of them instead of the sum. The session
+stays first and alone, because it is the gate: no point asking what somebody's
+profile is before knowing whether anybody is signed in.
+
+**What the measurement said**, against the staging API, six rounds each:
+`/health` 25ms median and the unauthenticated `/me/portal` 27ms — two
+independent readings of the same baseline, which is what makes them worth
+trusting. A public endpoint doing a handful of database reads: **482ms**, and
+**596ms** an hour later. So a round trip with real work behind it costs
+hundreds of milliseconds, and six of them in a row is seconds.
+
+Two things that were NOT changed, and should be read as findings rather than
+omissions:
+
+- **The Members tab is already minimal.** It looks like two sequential calls,
+  but `loadDirectoryChoices` awaits `loadSession` internally, so there is
+  nothing to parallelise — only an order to respect.
+- **The links already prefetch.** `next/link` does so by default; for a
+  dynamic route it prefetches as far as the nearest `loading.tsx`, and there
+  was none. Adding the boundary is what turns the existing prefetch into an
+  instant skeleton. A `prefetch` prop would have changed nothing and looked
+  like work.
+
+### A blank surname clears it
+
+Blank on CREATE means "not given"; blank on EDIT now means "clear it", which
+is what every other field on the person patch already did. The create-side fix
+had quietly made `last_name` the odd one out: emptying the box and saving
+would have left the name in place. `email` is deliberately left as it was —
+clearing somebody's only address is a bigger question, and it is the address
+they sign in with.
+
 ## [1.190.2] — 2026-10-14
 
 ### A person with one name could not be added
