@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { tierJoinLink } from '@thefibre/shared/tier-link';
 import { DateField } from '@thefibre/shared/ui/date-field';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
@@ -77,18 +78,19 @@ export function TierDialog({
   // the thing that silently happened.
   const [hidden, setHidden] = useState(Boolean(tier?.hidden));
   const [copied, setCopied] = useState(false);
-  /** The address to send somebody for an unlisted tier.
+  /** The address to send somebody for an unlisted tier, or null when there
+   *  is not an honest one to give.
    *
-   *  `window.location.origin` rather than a configured URL: this dialog is
-   *  served BY the membership app, from the same origin as the join page, so
-   *  the browser already knows the answer and cannot get the stack wrong.
-   *  Building it from an env var is how a staging screen has handed out a
-   *  production link before. Empty while server-rendering, which is fine —
-   *  the link is only ever read inside a client handler or an input. */
-  const joinLink =
-    tier?.id && workspaceSlug && typeof window !== 'undefined'
-      ? `${window.location.origin}/${encodeURIComponent(workspaceSlug)}?tier=${tier.id}`
-      : '';
+   *  The rule lives in @thefibre/shared/tier-link so it can be TESTED — this
+   *  repo has no component renderer, so a decision inside markup is a
+   *  decision nothing checks. What is passed in is the browser's own origin,
+   *  which IS the origin the join page is served from, so the link is right
+   *  on every stack without an environment variable to forget. */
+  const joinLink = tierJoinLink({
+    origin: typeof window === 'undefined' ? null : window.location.origin,
+    workspaceSlug,
+    tierId: tier?.id ?? null,
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -341,7 +343,7 @@ export function TierDialog({
               {/* A tier that has never been saved has no id, so there is no
                   link to give yet. Saying so is better than showing an
                   address with `undefined` in it, which somebody would send. */}
-              {tier?.id && joinLink ? (
+              {joinLink ? (
                 <div className="flex items-center gap-2">
                   <input readOnly value={joinLink} className={`${INPUT} text-xs`} />
                   <button

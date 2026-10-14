@@ -106,8 +106,20 @@ export function DiscountCodeDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  /** A code the admin asked us to invent, until they type over it. */
-  const [generated, setGenerated] = useState<string | null>(null);
+  /** THE CODE IN THE FIELD — a controlled value, not a remount.
+   *
+   *  The first version left the field uncontrolled and changed it by giving
+   *  it a new `key`, so React would throw the old input away and build a new
+   *  one with a new `defaultValue`. That works, but whether it works depends
+   *  on React's reconciliation and on `TextField` passing `defaultValue`
+   *  through — neither of which this repo can test, because there is no
+   *  component renderer here, only tests of pure functions.
+   *
+   *  An untestable mechanism in a place where "the button silently does
+   *  nothing" is a plausible failure is the wrong trade. A controlled value
+   *  makes it ordinary: Generate sets the state, the input shows it, and
+   *  typing replaces it. The form still reads the field by name on submit. */
+  const [codeText, setCodeText] = useState(code?.code ?? '');
 
   // Splice an existing limit into the curated list, so editing a code with a
   // limit nobody would pick today does not silently change it.
@@ -226,12 +238,12 @@ export function DiscountCodeDialog({
           <div className="flex items-end gap-2">
             <div className="flex-1 min-w-0">
               <TextField
-                key={generated ?? 'typed'}
                 label={t(locale, 'code')}
                 name="code"
                 required
                 placeholder="EARLYBIRD"
-                defaultValue={generated ?? code?.code ?? ''}
+                value={codeText}
+                onChange={(e) => setCodeText(e.target.value)}
                 autoCapitalize="characters"
                 style={{ textTransform: 'uppercase' }}
                 hint={t(locale, 'uppercased_hint')}
@@ -239,7 +251,7 @@ export function DiscountCodeDialog({
             </div>
             <button
               type="button"
-              onClick={() => setGenerated(generateDiscountCode())}
+              onClick={() => setCodeText(generateDiscountCode())}
               className="mb-[26px] shrink-0 rounded-md border border-line px-3 h-[38px] text-sm hover:border-line-strong"
             >
               {t(locale, 'generate_code')}

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.184.4",
+  "version": "1.184.5",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -81,6 +81,10 @@
     "./price-logic": {
       "types": "./dist/price-logic.d.ts",
       "default": "./dist/price-logic.js"
+    },
+    "./tier-link": {
+      "types": "./dist/tier-link.d.ts",
+      "default": "./dist/tier-link.js"
     },
     "./ui/discount-code-field": {
       "types": "./dist/ui/discount-code-field.d.ts",

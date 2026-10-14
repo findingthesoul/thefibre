@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.184.5] — 2026-10-14
+
+### Two admin conveniences made checkable instead of merely checked
+
+The Generate button and the unlisted tier's link were the last things resting
+on nothing but a reading of the code. This repo has no component renderer —
+its UI tests exercise the component's own function, never a copy of it — so
+the answer was not to add one on launch night, but to move the risk somewhere
+a test can reach.
+
+**Generate no longer remounts a field.** The first version left the Code input
+uncontrolled and changed it by handing it a new `key`, so React would discard
+the old input and build a new one with a new `defaultValue`. That works, and
+whether it works depends on React's reconciliation and on `TextField` passing
+`defaultValue` through. An untestable mechanism, in a place where "the button
+silently does nothing" is the plausible failure, is the wrong trade. The value
+is controlled now: Generate sets state, the input shows it, typing replaces
+it, and the form still reads the field by name.
+
+**The unlisted tier's link is a function**, `@thefibre/shared/tier-link`, with
+seven tests. It gets the browser's own origin — which IS the origin the join
+page is served from, so the link is right on every stack without an
+environment variable to forget — and returns **null** when there is no honest
+link to give. Null is a real answer the dialog shows as "save the tier first":
+an address with `undefined` in it is worse than none, because an admin would
+copy it and send it.
+
+### The Purchases page
+
+The welcome email promises every new member that "Purchases — every invoice,
+to download whenever you need it" is waiting for them. Nothing checked that
+the row reaches the screen. The ledger write was covered and the API was
+covered; the page was not, on either stack.
+
+It is now, at both widths: the row is there by its label, **and the amount is
+there**, because "every invoice, to download" means nothing if the page cannot
+say what was paid. The row is seeded directly rather than paid for — a real
+payment would mean a Stripe charge and an append-only activity row pinning its
+workspace forever, and the question here is about the page.
+
 ## [1.184.4] — 2026-10-14
 
 ### The browser walk, as tests rather than as a look
