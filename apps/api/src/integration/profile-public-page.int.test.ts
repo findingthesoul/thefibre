@@ -145,9 +145,19 @@ describe('saying no to your public page', () => {
     const res = await call('GET');
     expect(res.status, await res.clone().text()).toBe(200);
     const body = (await res.json()) as { public_page?: { slug: string; is_published: boolean | null } };
-    // The card cannot be rendered without this, and NULL is what makes it
+    // The card cannot be rendered without these, and NULL is what makes it
     // show the notice rather than a bare switch.
-    expect(body.public_page).toEqual({ slug, is_published: null });
+    //
+    // THE TWO FIELDS IT NEEDS, not the whole object. This was `toEqual({ slug,
+    // is_published: null })`, which fails the moment the route gains a field —
+    // and it did: `listed_on_org_page` was added, additively and correctly,
+    // and broke a test about something else. An exact-match assertion on a
+    // response body turns every ADDITION into a failure, which is the
+    // opposite of the additive-only contract this API is built on (hard rule
+    // 8). Asserting the fields this test is about leaves room for the next
+    // one.
+    expect(body.public_page?.slug).toBe(slug);
+    expect(body.public_page?.is_published).toBeNull();
   });
 
   it('stores the no — in the database, not just in the answer', async () => {

@@ -6,6 +6,69 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.184.2] — 2026-10-14
+
+### The launch path, walked
+
+Three scripts, written because the question before the first invitations go
+out is not "does the code look right" but "for each way somebody can join,
+does Stripe collect the number the page promised". Those are different
+questions, and every money bug found this week lived in the gap between them.
+
+**`stress-join-shapes.mjs`** drives the real `POST /public/join` on the
+deployed API for ten shapes, takes the Checkout session back, asks STRIPE what
+it will collect, and compares. All ten agree with the panel: an ordinary
+yearly and monthly join, a cohort join, a cohort join with two recurring
+extras and a one-time one (€3.493,20 now, €2.493,20 at the anchor — Sjoerd's
+own basket, exact), the same with a 50% and a 100% code, a hidden tier by its
+link, and three that must be REFUSED — an expired code, a used-up code, and a
+join with no terms accepted. A route that accepts everything passes every
+positive case, which is why the refusals are in there.
+
+**`probe-join-tenancy.mjs`** asks what a stranger can reach. These routes are
+public by design and run on the service role, so the tenant boundary is
+whatever filter each route applies — the exact shape of the two
+cross-workspace holes found in September. Two throwaway communities, and
+every attempt to use one's identifiers against the other is refused: a code,
+a tier, a hidden tier's link, an optional product, a product the tier does not
+offer, and a product the tier INCLUDES being charged for a second time. The
+eighth case is the control — the community's own optional product still
+works — because without it the other seven would pass on a broken feature.
+
+**`staging-join-fixture.mjs`** builds a community to LOOK at, because several
+things that shipped this week are only visible on a screen and the shapes that
+show them existed on production only.
+
+### What the walk found, and what it confirmed
+
+At 375px, on staging, against the deployed code. The three panel fixes hold:
+
+- a 50% code applied on Year and then the tab switched to Month leaves **no
+  stale discount** — the code clears, the field collapses, and the total is
+  the monthly one;
+- a yearly extra ticked and then the tab switched **leaves the total**, not
+  just the tick-box;
+- the totals column **adds up** with a code in it: €300 + €3.000 − €150 =
+  €3.150, against a sentence promising €3.150.
+
+And the rest of the path: the hidden tier is absent from the list, its
+invitation link shows that tier alone with the by-invitation notice, the
+cohort sentence names both the end date and the renewal amount, the renewal
+figure excludes the one-time extra, and the terms and members-area links both
+point at the staging stack rather than production.
+
+**One stale URL of my own**, found by it failing: the fixture script printed
+`members.thefibre.tech`, and the staging host is `membership.thefibre.tech` —
+the catalogue slug, not the display name.
+
+### And a test that failed on an addition
+
+`profile-public-page` asserted a response body with `toEqual`, so the
+additive `listed_on_org_page` field broke a test about something else. It
+asserts the two fields it is about now. An exact-match assertion on a response
+body turns every ADDITION into a failure, which is the opposite of the
+additive-only contract this API is built on.
+
 ## [1.184.1] — 2026-10-14
 
 ### The absolute URLs in emails stop depending on a secret
