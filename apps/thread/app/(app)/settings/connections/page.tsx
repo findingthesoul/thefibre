@@ -9,6 +9,7 @@ import {
 import { GoogleConnect } from './google-connect';
 import { ZoomConnect } from './zoom-connect';
 import { PersonalRoomForm } from './personal-room';
+import { AllowOrganiserMeetings } from './allow-meetings';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 
@@ -26,6 +27,8 @@ type Connections = {
   zoom_configured?: boolean;
   /** Temporary, while the Zoom Marketplace app is in review. */
   zoom_pending_notice?: boolean;
+  /** Their own yes to organisers making Meet/Zoom links on this account. */
+  allow_organiser_meetings?: boolean;
 };
 
 export default async function ConnectionsPage({
@@ -95,6 +98,15 @@ export default async function ConnectionsPage({
               <PersonalRoomForm locale={locale} initial={conn.personal_room_url ?? ''} />
             </div>
           </section>
+
+          {conn.allow_organiser_meetings !== undefined && (
+            <section className="mt-12">
+              <SectionLabel>{t(locale, 'main_facilitator')}</SectionLabel>
+              <div className="mt-4">
+                <AllowOrganiserMeetings locale={locale} initial={conn.allow_organiser_meetings} />
+              </div>
+            </section>
+          )}
         </>
       )}
     </PageContainer>

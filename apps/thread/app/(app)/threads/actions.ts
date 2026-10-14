@@ -625,6 +625,9 @@ export type CalendarChange = {
   title: string;
   was: { starts_at: string | null; ends_at: string | null; location: string | null } | null;
   now_state: { starts_at: string | null; ends_at: string | null; location: string | null } | null;
+  /** Why, when the organiser did not make the change themselves ("room
+   *  changed: Marja updated their personal room"). Absent on older APIs. */
+  reason?: string | null;
   created_at: string;
 };
 

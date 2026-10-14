@@ -50,6 +50,8 @@ export const THREAD_COPY: CopySpec = {
     updated_at: 'the copy is made now',
     locked_at: 'a copy is never locked — the lock is a decision about the original',
     locked_by: 'as locked_at',
+    main_facilitator_id:
+      'points at one of the ORIGINAL thread’s host rows, and hosts are not copied — the copy meets in its organiser’s room until one is chosen',
   },
 };
 
@@ -59,6 +61,9 @@ export const ENGAGEMENT_COPY: CopySpec = {
     'location', 'location_url', 'image_url', 'meeting_url', 'meeting_provider', 'scheduled_at',
     'trigger_kind', 'trigger_anchor', 'trigger_offset_days', 'trigger_time', 'content', 'position',
     'show_in_agenda', 'rsvp_enabled',
+    // The meeting_url is copied, so the account that made it comes along:
+    // later edits of the copy's link then use the same account.
+    'meeting_account_user_id',
   ],
   set: {
     workspace_id: "the duplicating user's workspace",
@@ -75,6 +80,9 @@ export const ENGAGEMENT_COPY: CopySpec = {
     source_ref: 'as source_app',
     calendar_sequence: 'no calendar invitation has gone out for the copy',
     calendar_sent_at: 'as calendar_sequence',
+    excluded_people: 'ids of the ORIGINAL thread’s host rows, which are not copied — the copy starts with everybody on every session',
+    room_owner_id: 'a host row of the ORIGINAL thread — the copy’s sessions follow its main facilitator until one is pinned',
+    invited_hosts: 'no calendar invitation has gone out for the copy',
   },
 };
 

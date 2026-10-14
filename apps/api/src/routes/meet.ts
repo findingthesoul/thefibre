@@ -45,6 +45,7 @@ import {
   userPersonalRoom,
   saveGoogleToken,
   savePersonalRoom,
+  saveAllowOrganiserMeetings,
   userZoomToken,
   userZoomAccount,
   saveZoomConnection,
@@ -52,6 +53,7 @@ import {
   userTeamsAccount,
   saveTeamsConnection,
 } from '../lib/connections.js';
+import { allowsOrganiserMeetings } from '../lib/main-facilitator.js';
 import {
   verifyZoomSignature,
   zoomUrlValidationResponse,
@@ -2708,11 +2710,15 @@ meetRoutes.get('/connections', async (c) => {
     // rather than deciding for themselves — the two people who must not see
     // the notice are identified by things an app has no business knowing.
     zoom_pending_notice: await showZoomPendingNotice(ctx),
+    // Their own yes to organisers creating Meet / Zoom links on this account
+    // for threads they are main facilitator of (lib/main-facilitator.ts).
+    allow_organiser_meetings: await allowsOrganiserMeetings(ctx.userId),
   });
 });
 
 const ConnectionsUpdate = z.object({
   personal_room_url: z.string().max(500).nullable().optional(),
+  allow_organiser_meetings: z.boolean().optional(),
 });
 
 meetRoutes.patch('/connections', async (c) => {
@@ -2723,6 +2729,13 @@ meetRoutes.patch('/connections', async (c) => {
   if (!host) return c.json({ error: 'failed to provision host' }, 500);
   if ('personal_room_url' in body.data) {
     const { error } = await savePersonalRoom(ctx.userId, body.data.personal_room_url ?? null);
+    if (error) return c.json({ error }, 500);
+  }
+  // Only ever from the person's own session: consent to using THEIR
+  // credential is theirs to give, never an organiser's or an app key's.
+  if (body.data.allow_organiser_meetings !== undefined) {
+    if (ctx.auth !== 'user') return c.json({ error: 'user session required' }, 403);
+    const { error } = await saveAllowOrganiserMeetings(ctx.userId, body.data.allow_organiser_meetings);
     if (error) return c.json({ error }, 500);
   }
   return c.json({ ok: true });

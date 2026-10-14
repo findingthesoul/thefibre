@@ -171,6 +171,10 @@ export async function recordCalendarChange(args: {
   /** State before the edit. Omitted for 'added' and 'cancelled'. */
   before?: CalendarState;
   actorUserId?: string | null;
+  /** WHY, when the organiser did not make the change themselves — "room
+   *  changed: Marja updated their personal room". Shown on the change line
+   *  in the send tray, so a pending send nobody remembers explains itself. */
+  reason?: string | null;
 }): Promise<void> {
   const e = args.engagement;
   const engagementId = e.id as string;
@@ -200,7 +204,14 @@ export async function recordCalendarChange(args: {
     // change, from where it originally was to where it now is.
     await adminClient
       .from('thread_calendar_change')
-      .update({ kind: decision.kind, title: e.title as string, now_state: calendarStateOf(e) })
+      .update({
+        kind: decision.kind,
+        title: e.title as string,
+        now_state: calendarStateOf(e),
+        // A later change made BY the organiser clears an old reason: the
+        // line then describes their edit, not somebody else's.
+        reason: args.reason ?? null,
+      })
       .eq('id', pending!.id as string);
     return;
   }
@@ -214,6 +225,7 @@ export async function recordCalendarChange(args: {
     was: args.before ?? null,
     now_state: calendarStateOf(e),
     created_by: args.actorUserId ?? null,
+    reason: args.reason ?? null,
   });
 }
 
@@ -225,12 +237,13 @@ export type PendingChange = {
   was: CalendarState | null;
   now_state: CalendarState | null;
   created_at: string;
+  reason: string | null;
 };
 
 export async function pendingChanges(threadId: string): Promise<PendingChange[]> {
   const { data } = await adminClient
     .from('thread_calendar_change')
-    .select('id, engagement_id, kind, title, was, now_state, created_at')
+    .select('id, engagement_id, kind, title, was, now_state, created_at, reason')
     .eq('thread_id', threadId)
     .is('sent_at', null)
     .order('created_at', { ascending: true });

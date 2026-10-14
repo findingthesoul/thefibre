@@ -3748,6 +3748,110 @@ const CATALOG = {
     de: ' — nicht eingerichtet', // MT
     fr: ' — non configuré', // MT
   },
+  main_facilitator: {
+    en: 'Main facilitator',
+    nl: 'Hoofdbegeleider', // MT
+    es: 'Facilitador principal', // MT
+    pt: 'Facilitador principal', // MT
+    de: 'Hauptmoderation', // MT
+    fr: 'Animateur principal', // MT
+  },
+  main_facilitator_organiser: {
+    en: '{name} (the organiser)',
+    nl: '{name} (de organisator)', // MT
+    es: '{name} (quien organiza)', // MT
+    pt: '{name} (quem organiza)', // MT
+    de: '{name} (organisiert)', // MT
+    fr: '{name} (l’organisateur)', // MT
+  },
+  main_facilitator_desc: {
+    en: 'Online sessions marked “personal room” meet in this person’s room.',
+    nl: 'Online sessies met ‘persoonlijke ruimte’ vinden plaats in de ruimte van deze persoon.', // MT
+    es: 'Las sesiones en línea con «sala personal» se celebran en la sala de esta persona.', // MT
+    pt: 'As sessões online com «sala pessoal» decorrem na sala desta pessoa.', // MT
+    de: 'Online-Sitzungen mit „persönlicher Raum“ finden im Raum dieser Person statt.', // MT
+    fr: 'Les sessions en ligne « salle personnelle » se tiennent dans la salle de cette personne.', // MT
+  },
+  main_facilitator_room: {
+    en: 'Online sessions marked “personal room” meet in {name}’s room.',
+    nl: 'Online sessies met ‘persoonlijke ruimte’ vinden plaats in de ruimte van {name}.', // MT
+    es: 'Las sesiones en línea con «sala personal» se celebran en la sala de {name}.', // MT
+    pt: 'As sessões online com «sala pessoal» decorrem na sala de {name}.', // MT
+    de: 'Online-Sitzungen mit „persönlicher Raum“ finden im Raum von {name} statt.', // MT
+    fr: 'Les sessions en ligne « salle personnelle » se tiennent dans la salle de {name}.', // MT
+  },
+  main_facilitator_no_room: {
+    en: '{name} has no personal room yet. They can add one in Settings → Connections.',
+    nl: '{name} heeft nog geen persoonlijke ruimte. Die kan er een toevoegen via Instellingen → Koppelingen.', // MT
+    es: '{name} aún no tiene sala personal. Puede añadirla en Ajustes → Conexiones.', // MT
+    pt: '{name} ainda não tem sala pessoal. Pode adicioná-la em Definições → Ligações.', // MT
+    de: '{name} hat noch keinen persönlichen Raum. Er lässt sich unter Einstellungen → Verbindungen hinzufügen.', // MT
+    fr: '{name} n’a pas encore de salle personnelle. Elle peut être ajoutée dans Réglages → Connexions.', // MT
+  },
+  main_facilitator_saved: {
+    en: 'Saved. Upcoming “personal room” sessions now use this room; each change is waiting in Send.',
+    nl: 'Opgeslagen. Komende sessies met ‘persoonlijke ruimte’ gebruiken nu deze ruimte; elke wijziging wacht bij Versturen.', // MT
+    es: 'Guardado. Las próximas sesiones con «sala personal» usan ahora esta sala; cada cambio espera en Enviar.', // MT
+    pt: 'Guardado. As próximas sessões com «sala pessoal» usam agora esta sala; cada alteração aguarda em Enviar.', // MT
+    de: 'Gespeichert. Kommende Sitzungen mit „persönlicher Raum“ nutzen jetzt diesen Raum; jede Änderung wartet unter Senden.', // MT
+    fr: 'Enregistré. Les prochaines sessions « salle personnelle » utilisent désormais cette salle ; chaque changement attend dans Envoyer.', // MT
+  },
+  main_facilitator_removed: {
+    en: 'They were the main facilitator, so upcoming “personal room” sessions now use {organiser}’s room. Each change is waiting in Send.',
+    nl: 'Dit was de hoofdbegeleider, dus komende sessies met ‘persoonlijke ruimte’ gebruiken nu de ruimte van {organiser}. Elke wijziging wacht bij Versturen.', // MT
+    es: 'Era el facilitador principal, así que las próximas sesiones con «sala personal» usan ahora la sala de {organiser}. Cada cambio espera en Enviar.', // MT
+    pt: 'Era o facilitador principal, por isso as próximas sessões com «sala pessoal» usam agora a sala de {organiser}. Cada alteração aguarda em Enviar.', // MT
+    de: 'Das war die Hauptmoderation, daher nutzen kommende Sitzungen mit „persönlicher Raum“ jetzt den Raum von {organiser}. Jede Änderung wartet unter Senden.', // MT
+    fr: 'C’était l’animateur principal : les prochaines sessions « salle personnelle » utilisent désormais la salle de {organiser}. Chaque changement attend dans Envoyer.', // MT
+  },
+  uses_someones_room: {
+    en: 'Meets in {name}’s personal room:',
+    nl: 'Vindt plaats in de persoonlijke ruimte van {name}:', // MT
+    es: 'Se celebra en la sala personal de {name}:', // MT
+    pt: 'Decorre na sala pessoal de {name}:', // MT
+    de: 'Findet im persönlichen Raum von {name} statt:', // MT
+    fr: 'Se tient dans la salle personnelle de {name} :', // MT
+  },
+  meeting_on_their_account: {
+    en: 'It is made on {name}’s account.',
+    nl: 'Die wordt aangemaakt op het account van {name}.', // MT
+    es: 'Se crea en la cuenta de {name}.', // MT
+    pt: 'É criada na conta de {name}.', // MT
+    de: 'Er wird im Konto von {name} erstellt.', // MT
+    fr: 'Elle est créée sur le compte de {name}.', // MT
+  },
+  meeting_on_your_account: {
+    en: 'It is made on your account: {name} has not allowed organisers to create links on theirs.',
+    nl: 'Die wordt aangemaakt op jouw account: {name} staat organisatoren niet toe links op het eigen account te maken.', // MT
+    es: 'Se crea en tu cuenta: {name} no permite que quien organiza cree enlaces en la suya.', // MT
+    pt: 'É criada na tua conta: {name} não permite que quem organiza crie links na sua.', // MT
+    de: 'Er wird in deinem Konto erstellt: {name} erlaubt Organisierenden nicht, Links im eigenen Konto anzulegen.', // MT
+    fr: 'Elle est créée sur ton compte : {name} n’autorise pas les organisateurs à créer des liens sur le sien.', // MT
+  },
+  session_people: {
+    en: 'Hosts and facilitators on this session',
+    nl: 'Hosts en begeleiders bij deze sessie', // MT
+    es: 'Anfitriones y facilitadores de esta sesión', // MT
+    pt: 'Anfitriões e facilitadores desta sessão', // MT
+    de: 'Gastgebende und Moderierende dieser Sitzung', // MT
+    fr: 'Hôtes et animateurs de cette session', // MT
+  },
+  allow_organiser_meetings: {
+    en: 'Organisers may create meeting links on my account',
+    nl: 'Organisatoren mogen vergaderlinks op mijn account aanmaken', // MT
+    es: 'Quien organiza puede crear enlaces de reunión en mi cuenta', // MT
+    pt: 'Quem organiza pode criar links de reunião na minha conta', // MT
+    de: 'Organisierende dürfen Meeting-Links in meinem Konto erstellen', // MT
+    fr: 'Les organisateurs peuvent créer des liens de réunion sur mon compte', // MT
+  },
+  allow_organiser_meetings_desc: {
+    en: 'For threads where you are the main facilitator: a Google Meet or Zoom session is then created on your connected account instead of the organiser’s. Off by default.',
+    nl: 'Voor threads waarin jij de hoofdbegeleider bent: een Google Meet- of Zoom-sessie wordt dan op jouw gekoppelde account aangemaakt in plaats van op die van de organisator. Standaard uit.', // MT
+    es: 'Para los hilos en los que eres facilitador principal: una sesión de Google Meet o Zoom se crea entonces en tu cuenta conectada en vez de en la de quien organiza. Desactivado por defecto.', // MT
+    pt: 'Para os fios em que és o facilitador principal: uma sessão Google Meet ou Zoom é então criada na tua conta ligada em vez da de quem organiza. Desligado por defeito.', // MT
+    de: 'Für Threads, in denen du die Hauptmoderation bist: Eine Google-Meet- oder Zoom-Sitzung wird dann in deinem verbundenen Konto statt in dem der Organisierenden erstellt. Standardmäßig aus.', // MT
+    fr: 'Pour les fils dont tu es l’animateur principal : une session Google Meet ou Zoom est alors créée sur ton compte connecté plutôt que sur celui de l’organisateur. Désactivé par défaut.', // MT
+  },
   uses_personal_room: {
     en: 'Uses your personal room from Meet:',
     nl: 'Gebruikt je persoonlijke ruimte uit Meet:',

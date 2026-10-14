@@ -109,6 +109,20 @@ export async function updatePersonalRoom(url: string | null): Promise<Result> {
   }
 }
 
+/** Their own consent; the API refuses it from anything but their session. */
+export async function updateAllowOrganiserMeetings(allow: boolean): Promise<Result> {
+  try {
+    await apiFetch('/api/v1/meet/connections', {
+      method: 'PATCH',
+      body: JSON.stringify({ allow_organiser_meetings: allow }),
+    });
+    revalidatePath('/settings/connections');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function updateWorkspaceSettings(
   patch: Record<string, unknown>,
 ): Promise<Result> {

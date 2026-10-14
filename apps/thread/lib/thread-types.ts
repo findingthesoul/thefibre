@@ -22,6 +22,9 @@ export type OrganiserCore = {
 
 export type ThreadRow = {
   id: string;
+  /** The main facilitator's host row, or null = the organiser. */
+  main_facilitator_id?: string | null;
+  meeting_room?: MeetingRoom | null;
   /** Why it could not go live with sign-up open (paid, no working payment
    *  route), or null. From GET /threads/:id; absent on older APIs. */
   publish_blocker?: string | null;
@@ -78,8 +81,23 @@ export type ThreadRow = {
 };
 
 export type ThreadMember = {
+  /** thread_thread_organiser.id — what a main facilitator and a session's
+   *  exclusion list point at. Absent on older APIs. */
+  id?: string;
   role: 'host' | 'facilitator';
   organiser: OrganiserCore | OrganiserCore[] | null;
+};
+
+/** Whose room a thread's online sessions meet in (GET /threads/:id). */
+export type MeetingRoom = {
+  name: string;
+  /** A named main facilitator (false = the organiser, by default). */
+  is_main: boolean;
+  is_me: boolean;
+  url: string | null;
+  /** Meet/Zoom links are made on that person's account (they said yes, or
+   *  it is you); otherwise on yours. */
+  allows_meetings: boolean;
 };
 
 export type WorkspaceMember = {
@@ -146,6 +164,8 @@ export type DailyTime = { date: string; start: string; end: string };
 
 export type EngagementRow = {
   id: string;
+  /** Host/facilitator rows NOT on this session; empty = everybody. */
+  excluded_people?: string[] | null;
   thread_id: string;
   title: string;
   description: string | null;

@@ -45,6 +45,7 @@ import {
   type EngagementRow,
   type EngagementType,
   type ThreadMember,
+  type MeetingRoom,
   type WorkspaceMember,
   type TeamOption,
   type DailyTime,
@@ -224,6 +225,7 @@ export function ThreadTimeline({
   teams,
   certTemplates,
   personalRoomUrl,
+  meetingRoom = null,
   googleConnected = false,
   zoomAvailable = false,
   workspaceNote = null,
@@ -241,6 +243,8 @@ export function ThreadTimeline({
   teams: TeamOption[];
   certTemplates: { id: string; name: string }[];
   personalRoomUrl: string | null;
+  /** Whose room the sessions meet in — the main facilitator's. */
+  meetingRoom?: MeetingRoom | null;
   /** Whether this organiser could actually hold a Google Meet / Zoom — used
    *  to preselect an option that works rather than one that refuses. */
   googleConnected?: boolean;
@@ -752,6 +756,10 @@ export function ThreadTimeline({
           threadEndsOn={program?.ends_on ?? null}
           requiresApproval={thread.requires_approval}
           personalRoomUrl={personalRoomUrl}
+          meetingRoom={meetingRoom}
+          people={members
+            .filter((m) => !!m.id && !!one(m.organiser))
+            .map((m) => ({ id: m.id!, name: one(m.organiser)!.display_name ?? one(m.organiser)!.slug, role: m.role }))}
           googleConnected={googleConnected}
           zoomAvailable={zoomAvailable}
           canEditStructure={canEditStructure}
@@ -1390,9 +1398,31 @@ function MembersPanel({
     });
   }
 
-  function remove(organiserId: string) {
+  // THE MAIN FACILITATOR (lib/main-facilitator.ts in the API): whose room
+  // the sessions meet in. Only hosts/facilitators with an account can be
+  // chosen; none chosen = the organiser.
+  const mainOptions = members.filter((m) => !!m.id && !!one(m.organiser)?.user_id);
+  const mainId = thread.main_facilitator_id ?? '';
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function chooseMain(next: string) {
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const r = await updateThread(thread.id, { main_facilitator_id: next || null });
+      if (!r.ok) return setError(r.error);
+      setNotice(t(locale, 'main_facilitator_saved'));
+      router.refresh();
+    });
+  }
+
+  function remove(organiserId: string, rowId: string | undefined) {
+    const wasMain = !!rowId && rowId === thread.main_facilitator_id;
     startTransition(async () => {
       await removeThreadMember(thread.id, organiserId);
+      // Guard (d): never silent. The API moved the sessions to the
+      // organiser's room and queued each change; the editor says so.
+      if (wasMain) setNotice(t(locale, 'main_facilitator_removed', { organiser: organiserName }));
       router.refresh();
     });
   }
@@ -1433,7 +1463,7 @@ function MembersPanel({
                 type="button"
                 aria-label={t(locale, 'remove')}
                 disabled={pending}
-                onClick={() => remove(o.id)}
+                onClick={() => remove(o.id, m.id)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
               >
                 <X size={14} strokeWidth={1.75} />
@@ -1442,6 +1472,36 @@ function MembersPanel({
           );
         })}
       </ul>
+
+      <div className="mt-5">
+        <label className="block">
+          <span className="text-sm text-ink-subtle">{t(locale, 'main_facilitator')}</span>
+          <select
+            value={mainId}
+            onChange={(e) => chooseMain(e.target.value)}
+            disabled={pending}
+            className={`mt-1 ${select}`}
+          >
+            <option value="">{t(locale, 'main_facilitator_organiser', { name: organiserName })}</option>
+            {mainOptions.map((m) => {
+              const o = one(m.organiser)!;
+              return (
+                <option key={m.id} value={m.id}>
+                  {o.display_name ?? o.slug}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+        <p className="mt-1.5 text-xs text-ink-subtle">
+          {thread.meeting_room
+            ? thread.meeting_room.url
+              ? t(locale, 'main_facilitator_room', { name: thread.meeting_room.name })
+              : t(locale, 'main_facilitator_no_room', { name: thread.meeting_room.name })
+            : t(locale, 'main_facilitator_desc')}
+        </p>
+        {notice && <p className="mt-1.5 text-xs text-ink">{notice}</p>}
+      </div>
 
       <div className="mt-5 border-t border-line pt-4">
         <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">

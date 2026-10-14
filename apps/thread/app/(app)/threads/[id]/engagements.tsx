@@ -16,7 +16,7 @@ import {
   getEngagementRsvps,
   getCalendarImpact,
 } from '../actions';
-import type { EngagementRow, EngagementType, TriggerKind, DailyTime } from '@/lib/thread-types';
+import type { EngagementRow, EngagementType, TriggerKind, DailyTime, MeetingRoom } from '@/lib/thread-types';
 import {
   ENGAGEMENT_META,
   metaFor,
@@ -109,6 +109,8 @@ export function EngagementDialog({
   threadEndsOn,
   requiresApproval,
   personalRoomUrl,
+  meetingRoom = null,
+  people = [],
   googleConnected = false,
   zoomAvailable = false,
   canEditStructure = true,
@@ -124,8 +126,13 @@ export function EngagementDialog({
   threadStartsOn?: string | null;
   threadEndsOn?: string | null;
   requiresApproval?: boolean;
-  /** Meet's personal room, shared across the Fibre apps. */
+  /** The room a personal-room session meets in: the thread's MAIN
+   *  FACILITATOR's (the organiser's when none is named). */
   personalRoomUrl?: string | null;
+  /** Whose room that is, and whose account Meet/Zoom links are made on. */
+  meetingRoom?: MeetingRoom | null;
+  /** The thread's hosts and facilitators, for "who is on this session". */
+  people?: { id: string; name: string; role: 'host' | 'facilitator' }[];
   googleConnected?: boolean;
   zoomAvailable?: boolean;
   /** Plan gate: false hides Delete (except on system messages, which stay
@@ -178,6 +185,9 @@ export function EngagementDialog({
   const [provider, setProvider] = useState<string>(
     engagement?.meeting_provider ?? bestProvider,
   );
+  // WHO IS ON THIS SESSION — everybody ticked by default; stored as an
+  // exclusion list so somebody added to the thread later is on it too.
+  const [excluded, setExcluded] = useState<Set<string>>(new Set(engagement?.excluded_people ?? []));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -369,6 +379,11 @@ export function EngagementDialog({
             ...perDayPayload,
             ...where,
             image_url: imageUrl.trim() || null,
+            // Only ids still on the thread: a person removed since is not
+            // carried forward as a stale exclusion.
+            ...(people.length
+              ? { excluded_people: [...excluded].filter((id) => people.some((p) => p.id === id)) }
+              : {}),
           }
         : family === 'certificate'
           ? {
@@ -598,6 +613,33 @@ export function EngagementDialog({
               </div>
             </div>
 
+            {people.length > 0 && (
+              <fieldset>
+                <legend className="text-sm text-ink-subtle">{t(locale, 'session_people')}</legend>
+                <div className="mt-1 space-y-1">
+                  {people.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        checked={!excluded.has(p.id)}
+                        onChange={(e) => {
+                          const next = new Set(excluded);
+                          if (e.target.checked) next.delete(p.id);
+                          else next.add(p.id);
+                          setExcluded(next);
+                          setDirty(true);
+                        }}
+                      />
+                      <span className="truncate">{p.name}</span>
+                      <span className="text-xs text-ink-muted">
+                        {p.role === 'host' ? t(locale, 'role_host') : t(locale, 'role_facilitator')}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
             {/* Where: in person / virtual */}
             <div>
               <span className="text-sm text-ink-subtle">{t(locale, 'where')}</span>
@@ -680,9 +722,13 @@ export function EngagementDialog({
                   <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
                     {personalRoomUrl ? (
                       <>
-                        {t(locale, 'uses_personal_room')}{' '}
+                        {meetingRoom && !meetingRoom.is_me
+                          ? t(locale, 'uses_someones_room', { name: meetingRoom.name })
+                          : t(locale, 'uses_personal_room')}{' '}
                         <span className="text-ink break-all">{personalRoomUrl}</span>
                       </>
+                    ) : meetingRoom && !meetingRoom.is_me ? (
+                      <>{t(locale, 'main_facilitator_no_room', { name: meetingRoom.name })}</>
                     ) : (
                       <>{t(locale, 'no_personal_room')}</>
                     )}
@@ -708,6 +754,14 @@ export function EngagementDialog({
                         {t(locale, 'link_created_for_you', {
                           provider: provider === 'zoom' ? 'Zoom' : 'Google Meet',
                         })}
+                        {meetingRoom && !meetingRoom.is_me && (
+                          <>
+                            {' '}
+                            {meetingRoom.allows_meetings
+                              ? t(locale, 'meeting_on_their_account', { name: meetingRoom.name })
+                              : t(locale, 'meeting_on_your_account', { name: meetingRoom.name })}
+                          </>
+                        )}
                       </p>
                     )}
                   </>

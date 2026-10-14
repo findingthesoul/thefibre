@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.198.0] — 2026-10-15
+
+### The Thread: a main facilitator, whose room the sessions meet in
+
+Sjoerd: *"I made the thread. But someone else will facilitate. Problem is
+that the Virtual room should be from the main facilitator."* A "personal
+room" session took its address from whoever saved it, so a thread one person
+built and another ran met in the builder's room.
+
+- **Main facilitator** (thread settings → Hosts & facilitators): one of the
+  thread's hosts or facilitators with an account, or the organiser by
+  default. Personal-room sessions now meet in THAT person's room, decided by
+  the API whoever saves — and if they have no room yet, the save says so by
+  name instead of using anyone else's.
+- **A room change moves the sessions, and says why.** Choosing a new main
+  facilitator, removing them (back to the organiser), or that person
+  changing their own room in Settings → Connections rewrites the room of the
+  thread's FUTURE personal-room sessions that were in the old room — never a
+  past session, never a link somebody typed, never Zoom or Meet — and queues
+  each as a calendar change for the organiser to send, with the reason on
+  the line ("room changed: Marja updated their personal room").
+- **Google Meet / Zoom on their account only with their yes:** a new switch
+  in Settings → Connections, "Organisers may create meeting links on my
+  account", off by default. Without it, links are made on the organiser's
+  own account and the session editor says so. A session records which
+  account made its link.
+- **Who is on each session:** a checklist of the thread's hosts and
+  facilitators in the session editor, everybody ticked by default, stored as
+  an exclusion list (so somebody added later is on every session). Stored
+  and shown; nothing reads it yet — hosts are in no invitation and no public
+  line today.
+- Migration `20261014190050_main_facilitator` (released before this). A
+  duplicated thread does not carry the main facilitator or exclusions (its
+  hosts are not copied) and does carry which account made a link.
+- Tests: `main-facilitator.test.ts` — the guards on which sessions move;
+  `main-facilitator.int.test.ts` on staging through the real routes.
 ## [1.197.2] — 2026-10-15
 
 ### Migration only: the main facilitator, rooms per session, hosts in the calendar

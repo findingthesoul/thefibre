@@ -154,6 +154,7 @@ import { claimSend, recordSendResult } from '../lib/send-record.js';
 // returned the email in whatever case the provider sent — see
 // lib/participant-auth.ts, which exists for exactly this reason.
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
+import { allowsOrganiserMeetings, mintingAccount, propagateRoom, threadRoom } from '../lib/main-facilitator.js';
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -595,7 +596,7 @@ const THREAD_SELECT = `
   intention, timezone, cover_url, is_public_listed, requires_approval,
   price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, public_enrolment_open, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
-  enrolment_note,
+  enrolment_note, main_facilitator_id,
   locked_at, locked_by,
   created_at, updated_at,
   categories:thread_thread_category (category:category_id (id, name, slug)),
@@ -856,14 +857,29 @@ threadRoutes.get('/threads/:id', async (c) => {
       .order('position', { ascending: true }),
     db
       .from('thread_thread_organiser')
-      .select('role, organiser:organiser_id (id, slug, display_name, user_id), person:person_id (id, first_name, last_name)')
+      // `id` (additive): the row a main facilitator and a session's
+      // exclusion list point at.
+      .select('id, role, organiser:organiser_id (id, slug, display_name, user_id), person:person_id (id, first_name, last_name)')
       .eq('thread_id', thread.id),
   ]);
+
+  // Whose room the sessions meet in, for the editor (lib/main-facilitator.ts).
+  // A summary, never the account's credentials.
+  const room = await threadRoom(thread.id as string).catch(() => null);
 
   return c.json({
     ...thread,
     engagements: engagements ?? [],
     co_organisers: coOrganisers ?? [],
+    meeting_room: room
+      ? {
+          name: room.account.name,
+          is_main: room.account.isMain,
+          is_me: room.account.userId === ctx.userId,
+          url: room.url,
+          allows_meetings: room.account.userId === ctx.userId || (await allowsOrganiserMeetings(room.account.userId)),
+        }
+      : null,
     // Why this thread could not go live with sign-up open, or null. The
     // editor shows it BEFORE the click, from the same check the save runs
     // (lib/thread-payment-route.ts), so the two cannot disagree.
@@ -933,6 +949,10 @@ const ThreadUpdate = z.object({
   certificate_enabled: z.boolean().optional(),
   certificate_criteria: z.string().max(2000).nullable().optional(),
   certificate_template_id: z.string().uuid().nullable().optional(),
+  // Whose room the sessions meet in (lib/main-facilitator.ts): one of this
+  // thread's hosts or facilitators holding an account, or null = the
+  // organiser. Validated against the thread below.
+  main_facilitator_id: z.string().uuid().nullable().optional(),
 });
 
 /** Is this thread — after a pending save — live with public sign-up open?
@@ -1101,6 +1121,26 @@ threadRoutes.patch('/threads/:id', async (c) => {
     threadPatch.intention = sanitizeRichText(threadPatch.intention as string | null);
   }
 
+  // THE MAIN FACILITATOR: one of THIS thread's hosts/facilitators, with an
+  // account (a person-only host has no connections, so no room).
+  let roomBefore: Awaited<ReturnType<typeof threadRoom>> | null = null;
+  if ('main_facilitator_id' in threadPatch) {
+    const mf = threadPatch.main_facilitator_id as string | null;
+    if (mf) {
+      const { data: row } = await adminClient
+        .from('thread_thread_organiser')
+        .select('id, organiser:organiser_id (user_id)')
+        .eq('id', mf)
+        .eq('thread_id', id)
+        .maybeSingle();
+      const userId = (Array.isArray(row?.organiser) ? row?.organiser[0] : row?.organiser)?.user_id;
+      if (!row || !userId) {
+        return c.json({ error: 'The main facilitator must be one of this thread’s hosts or facilitators with an account.' }, 400);
+      }
+    }
+    roomBefore = await threadRoom(id);
+  }
+
   if (Object.keys(threadPatch).length > 0) {
     const { error: tErr } = await db
       .from('thread_thread')
@@ -1119,6 +1159,18 @@ threadRoutes.patch('/threads/:id', async (c) => {
       await recordSlugChange(id, existing.workspace_id as string, existing.slug as string).catch((e) =>
         console.error('[thread/threads] slug history not written', { id, e }),
       );
+    }
+    // A NEW MAIN FACILITATOR moves the future personal-room sessions to
+    // their room, each queued as a change for the organiser to send.
+    if (roomBefore) {
+      const after = await threadRoom(id);
+      await propagateRoom({
+        threadId: id,
+        oldUrl: roomBefore.url,
+        newUrl: after.url,
+        reason: `room changed: ${after.account.name} is now the main facilitator`,
+        actorUserId: ctx.userId,
+      }).catch((e) => console.error('[thread/threads] room propagation failed', { id, e }));
     }
   }
 
@@ -1589,9 +1641,73 @@ export function dailyScheduleError(
   return null;
 }
 
+/** Who is on a session, as an EXCLUSION list of this thread's host and
+ *  facilitator rows (thread_thread_organiser.id): empty = everybody, so a
+ *  person added to the thread later is on every session. Parsed apart from
+ *  EngagementCreate on purpose — that schema is also the published
+ *  /apps/* contract (routes/app-thread.ts), which this does not join. */
+const ExcludedPeople = z.object({ excluded_people: z.array(z.string().uuid()).max(200).optional() });
+
+async function excludedPeopleProblem(threadId: string, ids: string[] | undefined): Promise<string | null> {
+  if (!ids?.length) return null;
+  const { data, error } = await adminClient
+    .from('thread_thread_organiser')
+    .select('id')
+    .eq('thread_id', threadId)
+    .in('id', ids);
+  if (error) return error.message;
+  return (data ?? []).length === new Set(ids).size ? null : 'excluded_people must be hosts or facilitators of this thread';
+}
+
+/**
+ * Where an online session meets, decided on the SERVER whoever saves it.
+ *
+ * `personal_room` is the thread's MAIN FACILITATOR's room (the organiser's
+ * when none is named) — not the room of whoever pressed save, which is how a
+ * thread Sjoerd built met in his room while someone else ran it. No room
+ * yet refuses, naming the person, rather than falling back to anybody
+ * else's. Zoom / Meet are minted on the meeting account only when that
+ * person has said yes to it; otherwise on the caller's own, as before.
+ */
+async function sessionMeeting(opts: {
+  threadId: string;
+  callerUserId: string;
+  provider: string | null | undefined;
+  suppliedUrl: string | null | undefined;
+  title: string;
+  startsAt: string | null | undefined;
+  endsAt: string | null | undefined;
+}): Promise<{ refuse?: string; url?: string | null; accountUserId?: string | null }> {
+  if (opts.provider === 'personal_room') {
+    const room = await threadRoom(opts.threadId);
+    if (!room.url) {
+      return {
+        refuse: `${room.account.name} has no personal room yet. They can add one in Settings → Connections, or choose another option.`,
+      };
+    }
+    return { url: room.url, accountUserId: room.account.userId };
+  }
+  const account = await mintingAccount(opts.threadId, opts.callerUserId);
+  const minted = await mintMeetingUrl({
+    userId: account.userId,
+    provider: opts.provider,
+    suppliedUrl: opts.suppliedUrl,
+    title: opts.title,
+    startsAt: opts.startsAt,
+    endsAt: opts.endsAt,
+    timezone: await threadTimezone(opts.threadId),
+    organiserEmail: await callerEmail(account.userId),
+  });
+  if (minted.refuse) return { refuse: minted.refuse };
+  return minted.url ? { url: minted.url, accountUserId: account.userId } : {};
+}
+
 threadRoutes.post('/threads/:id/engagements', async (c) => {
-  const body = EngagementCreate.safeParse(await c.req.json().catch(() => null));
+  const raw = await c.req.json().catch(() => null);
+  const body = EngagementCreate.safeParse(raw);
+  const people = ExcludedPeople.safeParse(raw ?? {});
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  if (!people.success) return c.json({ error: people.error.flatten() }, 400);
   const ctx = c.get('ctx');
 
   // Free configures the template's elements; adding items is Pro+
@@ -1632,17 +1748,19 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   const joined = (await calendarAudience(threadId)).length > 0;
   const status = joined ? 'draft' : (body.data.status ?? 'draft');
 
-  // A real meeting in the organiser's own account when they chose Zoom or
-  // Google Meet and did not bring a link.
-  const mintedNew = await mintMeetingUrl({
-    userId: ctx.userId,
+  const peopleErr = await excludedPeopleProblem(threadId, people.data.excluded_people);
+  if (peopleErr) return c.json({ error: peopleErr }, 400);
+
+  // The room (main facilitator's) or a real meeting (Zoom / Meet), decided
+  // here — see sessionMeeting.
+  const mintedNew = await sessionMeeting({
+    threadId,
+    callerUserId: ctx.userId,
     provider: body.data.meeting_provider,
     suppliedUrl: body.data.meeting_url,
     title: body.data.title,
     startsAt: body.data.starts_at,
     endsAt: body.data.ends_at,
-    timezone: await threadTimezone(threadId),
-    organiserEmail: await callerEmail(ctx.userId),
   });
   if (mintedNew.refuse) return c.json({ error: mintedNew.refuse }, 400);
 
@@ -1663,6 +1781,8 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       image_url: body.data.image_url ?? null,
       meeting_url: mintedNew.url ?? body.data.meeting_url ?? null,
       meeting_provider: body.data.meeting_provider ?? null,
+      meeting_account_user_id: mintedNew.accountUserId ?? null,
+      excluded_people: people.data.excluded_people ?? [],
       scheduled_at: body.data.scheduled_at ?? null,
       trigger_kind: body.data.trigger_kind ?? 'fixed',
       trigger_anchor: body.data.trigger_anchor ?? null,
@@ -1690,8 +1810,11 @@ export const EngagementUpdate = EngagementCreate.partial().extend({
 });
 
 threadRoutes.patch('/engagements/:id', async (c) => {
-  const body = EngagementUpdate.safeParse(await c.req.json().catch(() => null));
+  const raw = await c.req.json().catch(() => null);
+  const body = EngagementUpdate.safeParse(raw);
+  const people = ExcludedPeople.safeParse(raw ?? {});
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  if (!people.success) return c.json({ error: people.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const id = c.req.param('id');
@@ -1746,22 +1869,39 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     body.data.meeting_url !== undefined
       ? body.data.meeting_url
       : (existing.meeting_url as string | null);
-  const mintedEdit = await mintMeetingUrl({
-    userId: ctx.userId,
-    provider: nextProvider,
-    suppliedUrl: nextUrl,
-    title: body.data.title ?? (existing.title as string),
-    startsAt:
-      body.data.starts_at !== undefined
-        ? body.data.starts_at
-        : (existing.starts_at as string | null),
-    endsAt:
-      body.data.ends_at !== undefined ? body.data.ends_at : (existing.ends_at as string | null),
-    timezone: await threadTimezone(existing.thread_id as string),
-    organiserEmail: await callerEmail(ctx.userId),
-  });
+  // The room is re-resolved only when this save touches where the session
+  // meets; an edit that merely moves the time keeps the stored room (a
+  // change of room is propagated, lib/main-facilitator.ts).
+  const touchesWhere = body.data.meeting_provider !== undefined || body.data.meeting_url !== undefined;
+  const mintedEdit =
+    touchesWhere || nextProvider !== 'personal_room'
+      ? await sessionMeeting({
+          threadId: existing.thread_id as string,
+          callerUserId: ctx.userId,
+          provider: nextProvider,
+          suppliedUrl: nextProvider === 'personal_room' ? null : nextUrl,
+          title: body.data.title ?? (existing.title as string),
+          startsAt:
+            body.data.starts_at !== undefined
+              ? body.data.starts_at
+              : (existing.starts_at as string | null),
+          endsAt:
+            body.data.ends_at !== undefined ? body.data.ends_at : (existing.ends_at as string | null),
+        })
+      : {};
   if (mintedEdit.refuse) return c.json({ error: mintedEdit.refuse }, 400);
-  if (mintedEdit.url) enPatch.meeting_url = mintedEdit.url;
+  if (mintedEdit.url) {
+    enPatch.meeting_url = mintedEdit.url;
+    enPatch.meeting_account_user_id = mintedEdit.accountUserId ?? null;
+  } else if (touchesWhere && nextProvider !== 'personal_room' && !isMintable(nextProvider)) {
+    // A typed link or in-person: no account made it.
+    enPatch.meeting_account_user_id = null;
+  }
+  if (people.data.excluded_people !== undefined) {
+    const peopleErr = await excludedPeopleProblem(existing.thread_id as string, people.data.excluded_people);
+    if (peopleErr) return c.json({ error: peopleErr }, 400);
+    enPatch.excluded_people = people.data.excluded_people;
+  }
 
   const wasSession = isCalendarSession(existing);
   const wasState = calendarStateOf(existing);
@@ -2543,13 +2683,30 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   if (await threadLocked(c.req.param('id'))) return c.json(LOCKED, 423);
+  const threadId = c.req.param('id');
+  // Removing the MAIN FACILITATOR clears it (on delete set null) and the
+  // sessions fall back to the organiser's room — propagated and queued
+  // below like any other room change (guard d), never silently.
+  const roomBefore = await threadRoom(threadId);
   // RLS-scoped delete through the join policy.
   const { error } = await db
     .from('thread_thread_organiser')
     .delete()
-    .eq('thread_id', c.req.param('id'))
+    .eq('thread_id', threadId)
     .eq('organiser_id', c.req.param('organiserId'));
   if (error) return c.json({ error: error.message }, 500);
+  if (roomBefore.account.isMain) {
+    const after = await threadRoom(threadId);
+    if (!after.account.isMain) {
+      await propagateRoom({
+        threadId,
+        oldUrl: roomBefore.url,
+        newUrl: after.url,
+        reason: `room changed: ${roomBefore.account.name} is no longer on this thread, so sessions use ${after.account.name}'s room`,
+        actorUserId: ctx.userId,
+      }).catch((e) => console.error('[thread/members] room propagation failed', { threadId, e }));
+    }
+  }
   return c.body(null, 204);
 });
 

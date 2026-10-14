@@ -112,7 +112,11 @@ export default async function ThreadDetailPage({
         // Archived templates stay resolvable for threads already pointing at
         // them but disappear from the picker.
         certTemplates={certTemplates.items.filter((t) => !t.archived_at)}
-        personalRoomUrl={me.personal_room_url}
+        // The MAIN FACILITATOR's room (the organiser's when none is named),
+        // decided by the API — not the room of whoever has the editor open.
+        // An older API without meeting_room falls back to the old reading.
+        personalRoomUrl={thread.meeting_room ? thread.meeting_room.url : me.personal_room_url}
+        meetingRoom={thread.meeting_room ?? null}
         googleConnected={me.google_connected ?? false}
         zoomAvailable={me.zoom_available ?? false}
         workspaceNote={brand.enrolment_note}

@@ -202,12 +202,17 @@ function Lines({ change }: { change: CalendarChange }) {
   const now = when(change.now_state?.starts_at, change.now_state?.ends_at);
   const was = change.kind === 'moved' ? when(change.was?.starts_at, change.was?.ends_at) : null;
   return (
-    <p className="mt-0.5 text-xs text-ink-muted">
-      {was && <span className="line-through">{was}</span>}
-      {was && ' → '}
-      {now}
-      {change.now_state?.location ? ` · ${change.now_state.location}` : ''}
-    </p>
+    <>
+      <p className="mt-0.5 text-xs text-ink-muted">
+        {was && <span className="line-through">{was}</span>}
+        {was && ' → '}
+        {now}
+        {change.now_state?.location ? ` · ${change.now_state.location}` : ''}
+      </p>
+      {/* A change the organiser did not make — a new room — says why, so a
+          pending send nobody remembers explains itself. */}
+      {change.reason && <p className="mt-0.5 text-xs text-ink">{change.reason}</p>}
+    </>
   );
 }
 

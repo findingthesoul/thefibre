@@ -81,11 +81,19 @@ export async function saveGoogleToken(
   return { error: null };
 }
 
-/** Platform write + clear the meet_host fallback (anti-resurrection). */
+/** Platform write + clear the meet_host fallback (anti-resurrection).
+ *
+ *  AND MOVE THEIR THREADS. The room is stored on each session, so a person
+ *  changing their room here moves the future personal-room sessions of every
+ *  thread that meets in it — threads naming them main facilitator, or ones
+ *  they organise with none — each queued as a calendar change saying why
+ *  (lib/main-facilitator.ts). The one writer of this column is the one place
+ *  that cannot forget to. Best-effort: the room itself is saved either way. */
 export async function savePersonalRoom(
   userId: string,
   url: string | null,
 ): Promise<{ error: string | null }> {
+  const before = await userPersonalRoom(userId);
   const { error } = await adminClient
     .from('user_connection')
     .upsert({ user_id: userId, personal_room_url: url }, { onConflict: 'user_id' });
@@ -94,7 +102,23 @@ export async function savePersonalRoom(
     .from('meet_host')
     .update({ personal_room_url: null })
     .eq('user_id', userId);
+  if ((before ?? null) !== (url ?? null)) {
+    // Imported here, not at the top: main-facilitator reads this module.
+    const { propagatePersonalRoomChange } = await import('./main-facilitator.js');
+    await propagatePersonalRoomChange(userId, before, url).catch((e) =>
+      console.error('[connections] room propagation failed', { userId, e }),
+    );
+  }
   return { error: null };
+}
+
+/** The person's own yes to organisers creating Meet / Zoom links on their
+ *  connected account. Only ever written from their own session. */
+export async function saveAllowOrganiserMeetings(userId: string, allow: boolean): Promise<{ error: string | null }> {
+  const { error } = await adminClient
+    .from('user_connection')
+    .upsert({ user_id: userId, allow_organiser_meetings: allow }, { onConflict: 'user_id' });
+  return { error: error?.message ?? null };
 }
 
 // ---------------------------------------------------------------------------
