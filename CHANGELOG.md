@@ -6,6 +6,60 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.190.2] — 2026-10-14
+
+### A person with one name could not be added
+
+Sjoerd, adding a member on staging, got this in a red box, and asked for
+"better warnings":
+
+```
+API 400: {"formErrors":[],"fieldErrors":{"last_name":
+         ["String must contain at least 1 character(s)"]}}
+```
+
+The warning was the symptom. **The cause is that anybody who goes by one name
+was refused.** `z.string().min(1).optional()` accepts `undefined` and refuses
+`''` — the same thing to whoever wrote the schema, a different thing entirely
+to a form. The Add-member dialog splits a typed name on spaces and sent
+`last_name: parts.slice(1).join(' ') || ''`, so one word meant an empty
+string, and an empty string meant no.
+
+The question asked was whether `last_name` should be required. It already was
+not: every reader does `[first_name, last_name].filter(Boolean).join(' ')`,
+and the column has been nullable since the first migration. The API was
+stricter than its own schema meant to be.
+
+**Fixed on both sides**, because either alone leaves the trap. The dialog
+omits a blank surname, like every other optional field beside it already did.
+And a blank text field now means a missing one across the whole person
+schema — `last_name`, `email`, `preferred_name`, `country`, `phone`, `street`,
+`postal_code`, `city` — on create and on patch. It trims too: a field holding
+only spaces is not a name either. What is genuinely wrong is still refused: a
+typed address that is not an address, a missing first name.
+
+### The red box said JSON, and now says a sentence
+
+The thirteen copies of `unwrap` were consolidated earlier. This is the
+fourteenth, in the Members app's own actions, and it is the one that produced
+the box above — it ran `JSON.stringify` on the error object and prefixed the
+status.
+
+`@thefibre/shared/action-error` gained `fieldLabel`, `humanFieldError`,
+`humanFieldErrors` and `formErrorResult`. That last one keeps the API's own
+sentence when there is one — which is what the twelve bad copies threw away —
+and turns field errors into words: *"Last name is required."*, *"Notes is too
+long."*, *"Email is not a valid email address."* A message it does not
+recognise keeps zod's own words with the field named, because an unfamiliar
+message is still better than an invented one.
+
+The raw `fieldErrors` map still rides along, so a form can underline the right
+box as well as say the sentence. The Members actions pass their own labels, so
+a refusal names the box the person typed in rather than the column it maps to.
+
+Tested with the exact body from the red box: it becomes "Last name is
+required.", contains no `{`, and no longer says `API 400`.
+
 ## [1.190.1] — 2026-10-14
 
 ### A general pricing rule can only exist once

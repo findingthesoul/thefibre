@@ -45,6 +45,29 @@ personsRoutes.get('/', async (c) => {
   });
 });
 
+/** An optional text field a FORM may send as an empty string.
+ *
+ *  `z.string().min(1).optional()` accepts `undefined` and refuses `''`, which
+ *  reads as the same thing to anybody writing the schema and is not the same
+ *  thing at all to a form. The Add-member dialog splits a typed name on
+ *  spaces and sends `last_name: parts.slice(1).join(' ') || ''` — so ANYBODY
+ *  WITH A ONE-WORD NAME could not be added, and the screen showed
+ *  `API 400: {"formErrors":[],"fieldErrors":{"last_name":["String must
+ *  contain at least 1 character(s)"]}}`. (Sjoerd, on staging, 2026-10-14:
+ *  "better warnings". The warning was the symptom; this is the cause.)
+ *
+ *  Fixing only the dialog would leave the trap for the next caller, and there
+ *  are three other fields in this schema with the same shape. A blank field
+ *  means "not given" — here, once, for all of them.
+ *
+ *  It TRIMS as well: a field holding only spaces is not a name either. */
+const optionalText = (schema: z.ZodTypeAny) =>
+  z.preprocess((v) => {
+    if (typeof v !== 'string') return v;
+    const t = v.trim();
+    return t === '' ? undefined : t;
+  }, schema);
+
 const PersonCreate = z.object({
   first_name: z.string().min(1).max(100),
   // OPTIONAL since 2026-09-22, both of them. A person you met at a festival
@@ -64,16 +87,16 @@ const PersonCreate = z.object({
   // matched on, so a person with none cannot be deduplicated. That is why the
   // interface searches before it offers to create, and why this is a
   // deliberate press rather than anything automatic.
-  last_name: z.string().min(1).max(100).optional(),
-  email: z.string().email().optional(),
-  preferred_name: z.string().max(100).optional(),
-  country: z.string().length(2).optional(),
+  last_name: optionalText(z.string().min(1).max(100).optional()),
+  email: optionalText(z.string().email().optional()),
+  preferred_name: optionalText(z.string().max(100).optional()),
+  country: optionalText(z.string().length(2).optional()),
   // Full intake from moment one (Sjoerd, 2026-09-05: invoiced members need
   // phone/address/VAT when they are CREATED, not on a later edit).
-  phone: z.string().max(50).optional(),
-  street: z.string().max(200).optional(),
-  postal_code: z.string().max(20).optional(),
-  city: z.string().max(100).optional(),
+  phone: optionalText(z.string().max(50).optional()),
+  street: optionalText(z.string().max(200).optional()),
+  postal_code: optionalText(z.string().max(20).optional()),
+  city: optionalText(z.string().max(100).optional()),
   // Labels for the two addresses given at creation (20260915090000). Not
   // person columns — they land on the synced contact points below.
   email_label: z.enum(CONTACT_LABELS).optional(),
@@ -860,10 +883,10 @@ personsRoutes.get('/:id/memberships', async (c) => {
 
 const PersonUpdate = z.object({
   first_name: z.string().min(1).max(100).optional(),
-  last_name: z.string().min(1).max(100).optional(),
+  last_name: optionalText(z.string().min(1).max(100).optional()),
   preferred_name: z.string().max(100).nullable().optional(),
   pronouns: z.string().max(50).nullable().optional(),
-  email: z.string().email().optional(),
+  email: optionalText(z.string().email().optional()),
   email_secondary: z.string().email().nullable().optional(),
   phone: z.string().max(50).nullable().optional(),
   // Accept any string; display layer prepends https:// if needed.

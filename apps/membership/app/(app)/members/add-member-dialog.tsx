@@ -171,9 +171,17 @@ export function AddMemberDialog({
         return;
       }
       const parts = name.split(/\s+/);
+      const surname = parts.slice(1).join(' ').trim();
       const created = await createPerson({
         first_name: parts[0] ?? name,
-        last_name: parts.slice(1).join(' ') || '',
+        // OMITTED WHEN THERE IS NONE, like every other optional field below.
+        // This sent `last_name: ''`, and the API's
+        // `z.string().min(1).optional()` accepts `undefined` and refuses an
+        // empty string — so ANYBODY WITH A ONE-WORD NAME was refused, with a
+        // red box full of JSON. The API treats a blank as absent now too;
+        // both halves, because either one alone leaves the trap for the next
+        // caller.
+        ...(surname ? { last_name: surname } : {}),
         email: newEmail.trim(),
         ...(newPhone.trim() ? { phone: newPhone.trim() } : {}),
         ...(newStreet.trim() ? { street: newStreet.trim() } : {}),

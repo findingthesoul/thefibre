@@ -1,25 +1,44 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { formErrorResult } from '@thefibre/shared/action-error';
 import { apiFetch, ApiError } from '@/lib/api';
 import type { Member, MemberAccess, MemberPerson, MemberStatus, Seat } from './types';
 
 export type ActionResult<T = unknown> = { ok?: boolean; error?: string; data?: T };
 
+/** Field names as this form's own labels, so a refusal names the BOX the
+ *  person typed in rather than the column it maps to. */
+const MEMBER_FIELD_LABELS: Record<string, string> = {
+  first_name: 'First name',
+  last_name: 'Last name',
+  email: 'Email',
+  tier_id: 'Membership',
+  country: 'Country',
+  renews_at: 'Renewal date',
+  seat_allowance: 'Seats',
+  notes: 'Notes',
+  phone: 'Phone',
+  street: 'Street',
+  postal_code: 'Postal code',
+  city: 'City',
+};
+
+// THE FOURTEENTH COPY, and the one that produced the red box. It did
+// `JSON.stringify(raw)` for an object error, so a validation failure reached
+// a person as:
+//
+//   API 400: {"formErrors":[],"fieldErrors":{"last_name":["String must
+//            contain at least 1 character(s)"]}}
+//
+// Sjoerd, on staging, 2026-10-14: "better warnings".
+//
+// `formErrorResult` is the shared one. It keeps the API's own sentence where
+// there is one — which is what the other twelve copies threw away — and turns
+// field errors into words.
 function formatApiError(e: unknown): string {
   if (!(e instanceof ApiError)) return 'unknown error';
-  const body = e.body as { error?: unknown; details?: unknown; code?: string } | undefined;
-  const raw = body?.error ?? body?.details ?? body?.code;
-  let detail: string | undefined;
-  if (typeof raw === 'string') detail = raw;
-  else if (raw && typeof raw === 'object') {
-    try {
-      detail = JSON.stringify(raw);
-    } catch {
-      /* ignore */
-    }
-  }
-  return detail ? `API ${e.status}: ${detail}` : `API ${e.status}`;
+  return formErrorResult(e.status, e.body, MEMBER_FIELD_LABELS).error ?? `API ${e.status}`;
 }
 
 export async function createMember(input: {
@@ -172,7 +191,10 @@ export async function removeSeat(memberId: string, seatId: string): Promise<Acti
 // person first"). POST /persons is the platform's contact-creation door.
 export async function createPerson(input: {
   first_name: string;
-  last_name: string;
+  /** OPTIONAL, like the API. Plenty of people go by one name, and the type
+   *  saying otherwise is what made the dialog send `''` to satisfy it — which
+   *  the API then refused. */
+  last_name?: string;
   email: string;
   phone?: string;
   street?: string;
