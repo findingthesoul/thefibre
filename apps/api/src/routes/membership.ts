@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { announceHeld, dismissHeld, heldThreads } from '../lib/member-notify.js';
 import {
   parseFibreSeatConfig,
   parseTeamCalendarConfig,
@@ -1805,6 +1806,55 @@ membershipRoutes.put('/settings', async (c) => {
   return c.json({ ok: true });
 });
 
+
+// ===========================================================================
+// HELD THREADS — GET /notify-held, POST /notify-held/announce|dismiss
+//
+// More than 20 threads newly on a calendar in one pass are held rather than
+// announced (lib/member-notify.ts, the circuit breaker): far likelier an
+// import than a sitting, and an announcement cannot be taken back. But a
+// sitting it can be — an organiser loading a year — so the decision is an
+// admin's: tell members now, as one digest, or don't.
+// ===========================================================================
+
+membershipRoutes.get('/notify-held', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) {
+    return c.json({ error: 'admin only' }, 403);
+  }
+  try {
+    return c.json({ items: await heldThreads(ctx.workspaceId) });
+  } catch (e) {
+    console.error('[membership/notify-held]', e);
+    return c.json({ error: 'could not read the held threads' }, 500);
+  }
+});
+
+membershipRoutes.post('/notify-held/announce', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) {
+    return c.json({ error: 'admin only' }, 403);
+  }
+  try {
+    return c.json({ ok: true, ...(await announceHeld(ctx.workspaceId)) });
+  } catch (e) {
+    console.error('[membership/notify-held/announce]', e);
+    return c.json({ error: 'could not announce them — nothing was sent' }, 500);
+  }
+});
+
+membershipRoutes.post('/notify-held/dismiss', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) {
+    return c.json({ error: 'admin only' }, 403);
+  }
+  try {
+    return c.json({ ok: true, dismissed: await dismissHeld(ctx.workspaceId) });
+  } catch (e) {
+    console.error('[membership/notify-held/dismiss]', e);
+    return c.json({ error: 'could not dismiss them' }, 500);
+  }
+});
 
 // ===========================================================================
 // MEMBER DIRECTORY — categories (docs/member-directory-spec.md slice 1).

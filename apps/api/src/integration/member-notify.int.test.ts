@@ -242,3 +242,36 @@ describe("the organiser's SEND", () => {
     expect(await notify.notifyCalendarSend(t1.id, [change('added', 3)])).toBe(0);
   });
 });
+
+// HELD THREADS (needs migration 20261014171844_notify_held_threads on staging).
+// More than 20 at once are held, not announced; an admin then decides.
+describe('the circuit breaker and the admin decision', () => {
+  const batch = async (n: number, tag: string) => {
+    const out: string[] = [];
+    for (let i = 0; i < n; i += 1) out.push((await calendarThread(`${tag} ${i}`)).id);
+    return out;
+  };
+
+  it('21 at once: held, nobody told — then "Tell members now" announces them to followers', async () => {
+    const ids = await batch(notify.HOLD_ABOVE + 1, 'Season');
+    const r = await pass();
+    expect(r).toMatchObject({ told: 0, held: notify.HOLD_ABOVE + 1 });
+    expect((await notify.heldThreads(ws)).map((h) => h.thread_id).sort()).toEqual([...ids].sort());
+
+    const a = await notify.announceHeld(ws);
+    // Both followers (A and B), every thread: neither holds a place on these.
+    expect(a).toMatchObject({ announced: ids.length, told: ids.length * 2 });
+    expect(await notify.heldThreads(ws)).toEqual([]);
+    // A second press announces nothing more.
+    expect(await notify.announceHeld(ws)).toMatchObject({ told: 0 });
+  });
+
+  it('"Don’t announce": the hold clears and nobody is ever told', async () => {
+    const ids = await batch(notify.HOLD_ABOVE + 1, 'Import');
+    await pass();
+    expect(await notify.dismissHeld(ws)).toBe(ids.length);
+    expect(await notify.heldThreads(ws)).toEqual([]);
+    expect((await pass()).told).toBe(0);
+    for (const id of ids) expect(await rowsFor(id)).toEqual([]);
+  });
+});

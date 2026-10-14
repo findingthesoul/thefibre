@@ -2492,6 +2492,54 @@ const CATALOG = {
   },
 
   // ── member directory (docs/member-directory-spec.md slice 1) ──────────
+  notify_held_title: {
+    en: '{n} new threads were not announced, because more than 20 appeared at once. That is usually an import, sometimes a whole season loaded in one go.',
+    nl: '{n} nieuwe threads zijn niet aangekondigd, omdat er meer dan 20 tegelijk verschenen. Meestal een import, soms een heel seizoen in één keer.', // MT
+    es: '{n} threads nuevos no se anunciaron porque aparecieron más de 20 a la vez. Suele ser una importación, a veces una temporada entera cargada de golpe.', // MT
+    pt: '{n} threads novos não foram anunciados porque apareceram mais de 20 de uma vez. Normalmente é uma importação, às vezes uma temporada inteira de uma só vez.', // MT
+    de: '{n} neue Threads wurden nicht angekündigt, weil mehr als 20 auf einmal erschienen. Meist ein Import, manchmal eine ganze Saison auf einmal.', // MT
+    fr: '{n} nouveaux threads n’ont pas été annoncés, car plus de 20 sont apparus d’un coup. Souvent un import, parfois toute une saison chargée en une fois.', // MT
+  },
+  notify_held_more: {
+    en: 'and {n} more',
+    nl: 'en nog {n}', // MT
+    es: 'y {n} más', // MT
+    pt: 'e mais {n}', // MT
+    de: 'und {n} weitere', // MT
+    fr: 'et {n} de plus', // MT
+  },
+  notify_held_announce: {
+    en: 'Tell members now',
+    nl: 'Leden nu informeren', // MT
+    es: 'Avisar a los miembros ahora', // MT
+    pt: 'Avisar os membros agora', // MT
+    de: 'Mitglieder jetzt informieren', // MT
+    fr: 'Prévenir les membres maintenant', // MT
+  },
+  notify_held_dismiss: {
+    en: 'Don’t announce',
+    nl: 'Niet aankondigen', // MT
+    es: 'No anunciar', // MT
+    pt: 'Não anunciar', // MT
+    de: 'Nicht ankündigen', // MT
+    fr: 'Ne pas annoncer', // MT
+  },
+  notify_held_announced: {
+    en: 'Members will hear about them in one email, after a quiet quarter of an hour.',
+    nl: 'Leden horen erover in één e-mail, na een rustig kwartier.', // MT
+    es: 'Los miembros lo sabrán en un solo correo, tras un cuarto de hora tranquilo.', // MT
+    pt: 'Os membros vão saber num único e-mail, após um quarto de hora tranquilo.', // MT
+    de: 'Mitglieder erfahren davon in einer E-Mail, nach einer ruhigen Viertelstunde.', // MT
+    fr: 'Les membres seront prévenus dans un seul e-mail, après un quart d’heure calme.', // MT
+  },
+  notify_held_dismissed: {
+    en: 'Left unannounced.',
+    nl: 'Niet aangekondigd gelaten.', // MT
+    es: 'Se quedan sin anunciar.', // MT
+    pt: 'Ficam sem anúncio.', // MT
+    de: 'Bleibt unangekündigt.', // MT
+    fr: 'Laissés sans annonce.', // MT
+  },
   st_notify_title: {
     en: 'Member notifications',
     nl: 'Ledenberichten', // MT

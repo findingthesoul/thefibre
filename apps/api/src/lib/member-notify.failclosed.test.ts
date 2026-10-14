@@ -176,6 +176,19 @@ describe('the circuit breaker', () => {
     const rows = seenWrite?.calls.find(([m]) => m === 'upsert')?.[1][0] as { announced: boolean }[];
     expect(rows).toHaveLength(HOLD_ABOVE + 1);
     expect(rows.every((r) => r.announced === false)).toBe(true);
+    // Marked as HELD, so an admin is offered the decision.
+    expect(rows.every((r) => typeof (r as { held_at?: unknown }).held_at === 'string')).toBe(true);
+    warn.mockRestore();
+  });
+
+  it('a thread published while the community switch is OFF is not marked held — that was a decision already', async () => {
+    state.respond = db(HOLD_ABOVE + 1, { 'membership_settings.select': { data: { notify_members: false }, error: null } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await runNewThreadPass();
+    const rows = state.writes
+      .find((w) => w.table === 'thread_calendar_seen')
+      ?.calls.find(([m]) => m === 'upsert')?.[1][0] as { held_at: string | null }[];
+    expect(rows.every((r) => r.held_at === null)).toBe(true);
     warn.mockRestore();
   });
 

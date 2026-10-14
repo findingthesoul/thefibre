@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.194.2] — 2026-10-14
+
+### What the notification circuit breaker held, an admin now decides
+
+When more than 20 threads appear on one community's calendars in one pass,
+member notifications hold them rather than announce them: far likelier an
+import or a restore than a sitting, and an announcement cannot be taken back
+(v1.194.0). But a sitting it can be — an organiser loading a year's agenda —
+and that is exactly what Sjoerd asked members to hear about.
+
+So a held thread is now marked (`thread_calendar_seen.held_at`, from
+v1.194.1), and Members → Settings → Member notifications shows it: "N new
+threads were not announced, because more than 20 appeared at once", with
+**Tell members now** — announced through the same fan-out as the automatic
+pass, landing in each follower's one digest — and **Don't announce**, which
+clears the hold for good. A thread withdrawn since is not offered. Only a
+HOLD is marked: a thread published while the community switch was off was a
+decision already and is never offered again. Admin-only routes
+`GET /membership/notify-held`, `POST …/announce`, `POST …/dismiss`.
+
 ## [1.194.1] — 2026-10-14
 
 ### The tables for the next four releases, ahead of their code

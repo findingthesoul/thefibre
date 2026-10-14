@@ -91,6 +91,28 @@ export async function saveCurrencies(input: {
 // Fibre-seat policy (2026-09-05): approve-or-auto + the standing consent
 // for billed seats. Lives on the Integrations page — the built-in
 // integration's own settings.
+/** The circuit breaker's held threads: announce them as one digest. */
+export async function announceHeldThreads(): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/membership/notify-held/announce', { method: 'POST' });
+    revalidatePath('/settings/notifications');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+/** …or leave them unannounced for good. */
+export async function dismissHeldThreads(): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/membership/notify-held/dismiss', { method: 'POST' });
+    revalidatePath('/settings/notifications');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 /** "Tell members about new and changed threads" — the community switch. */
 export async function saveNotifyMembers(on: boolean): Promise<ActionResult> {
   return putSettings({ notify_members: on });

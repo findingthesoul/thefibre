@@ -229,7 +229,15 @@ export async function runNewThreadPass(
     // Seen FIRST, whether or not anybody is told: a thread published while
     // the switch is off, or held, stays unannounced for good.
     const { error: seenWriteErr } = await adminClient.from('thread_calendar_seen').upsert(
-      threads.map((t) => ({ thread_id: t.id as string, workspace_id: ws, announced: on && !held })),
+      threads.map((t) => ({
+        thread_id: t.id as string,
+        workspace_id: ws,
+        announced: on && !held,
+        // Marked, so an admin can decide (heldThreads / announceHeld). Only
+        // a HOLD is marked: a thread published while the switch is off was
+        // a decision already, and is never offered again.
+        held_at: on && held ? now.toISOString() : null,
+      })),
       { onConflict: 'thread_id', ignoreDuplicates: true },
     );
     // Nobody is told about a thread that could not be marked seen: the
@@ -244,29 +252,115 @@ export async function runNewThreadPass(
       continue;
     }
     if (!on) continue;
-    const followers = await followersByTeam(ws);
-    for (const t of threads) {
-      const fans = followers.get(t.team_id as string);
-      if (!fans?.size) continue;
-      announced += 1;
-      const placed = await personsWithAPlace(t.id as string);
-      const program = one(t.program) as { title?: string; starts_on?: string | null } | null;
-      told += await insertNotifications(
-        [...fans]
-          .filter((p) => !placed.has(p))
-          .map((person_id) => ({
-            workspace_id: ws,
-            person_id,
-            kind: 'new_thread' as const,
-            thread_id: t.id as string,
-            subject: program?.title ?? 'A new thread',
-            starts_at: program?.starts_on ?? null,
-            email_state: 'pending' as const,
-          })),
-      );
-    }
+    const r = await announceThreads(ws, threads);
+    announced += r.announced;
+    told += r.told;
   }
   return { baseline: 0, announced, told, held: heldCount };
+}
+
+/** Tell a community's followers about these threads: the one fan-out, for
+ *  the pass and for an admin's "Tell members now". Never somebody who holds a
+ *  place; once per person and thread, by the unique index. */
+async function announceThreads(
+  ws: string,
+  threads: Record<string, unknown>[],
+): Promise<{ announced: number; told: number }> {
+  const followers = await followersByTeam(ws);
+  let announced = 0;
+  let told = 0;
+  for (const t of threads) {
+    const fans = followers.get(t.team_id as string);
+    if (!fans?.size) continue;
+    announced += 1;
+    const placed = await personsWithAPlace(t.id as string);
+    const program = one(t.program) as { title?: string; starts_on?: string | null } | null;
+    told += await insertNotifications(
+      [...fans]
+        .filter((p) => !placed.has(p))
+        .map((person_id) => ({
+          workspace_id: ws,
+          person_id,
+          kind: 'new_thread' as const,
+          thread_id: t.id as string,
+          subject: program?.title ?? 'A new thread',
+          starts_at: program?.starts_on ?? null,
+          email_state: 'pending' as const,
+        })),
+    );
+  }
+  return { announced, told };
+}
+
+// ---------------------------------------------------------------------------
+// HELD THREADS — the circuit breaker's catch, for an admin to decide
+// ---------------------------------------------------------------------------
+
+export type HeldThread = { thread_id: string; title: string; starts_on: string | null; held_at: string };
+
+/** What the breaker held in this community and nobody has decided yet —
+ *  only threads still on the calendar (one withdrawn since is not news). */
+export async function heldThreads(ws: string, now: Date = new Date()): Promise<HeldThread[]> {
+  const { data: seen, error } = await adminClient
+    .from('thread_calendar_seen')
+    .select('thread_id, held_at')
+    .eq('workspace_id', ws)
+    .not('held_at', 'is', null);
+  if (error) throw new Error(`held threads: ${error.message}`);
+  if (!seen?.length) return [];
+  const { data: threads, error: tErr } = await adminClient
+    .from('thread_thread')
+    .select(THREAD_SELECT)
+    .in('id', seen.map((r) => r.thread_id as string));
+  if (tErr) throw new Error(`held thread rows: ${tErr.message}`);
+  const heldAt = new Map(seen.map((r) => [r.thread_id as string, r.held_at as string]));
+  const today = now.toISOString().slice(0, 10);
+  return ((threads ?? []) as Record<string, unknown>[])
+    .filter((t) => calendarVisible(t, today))
+    .map((t) => {
+      const program = one(t.program) as { title?: string; starts_on?: string | null } | null;
+      return {
+        thread_id: t.id as string,
+        title: program?.title ?? '',
+        starts_on: program?.starts_on ?? null,
+        held_at: heldAt.get(t.id as string)!,
+      };
+    })
+    .sort((a, b) => (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999'));
+}
+
+/** "Tell members now": announce every held thread still on the calendar.
+ *  They land in each follower's pending rows, so the digest sends them as
+ *  ONE email after the quiet window, like any sitting. The hold is cleared
+ *  first, so a second press cannot announce twice (and the unique index
+ *  would refuse it anyway). */
+export async function announceHeld(ws: string, now: Date = new Date()): Promise<{ announced: number; told: number }> {
+  if (!(await notifyMembersOn(ws))) return { announced: 0, told: 0 };
+  const held = await heldThreads(ws, now);
+  if (!held.length) return { announced: 0, told: 0 };
+  const ids = held.map((h) => h.thread_id);
+  const { error } = await adminClient
+    .from('thread_calendar_seen')
+    .update({ held_at: null, announced: true })
+    .in('thread_id', ids)
+    .eq('workspace_id', ws);
+  if (error) throw new Error(`clear hold: ${error.message}`);
+  const { data: threads, error: tErr } = await adminClient.from('thread_thread').select(THREAD_SELECT).in('id', ids);
+  if (tErr) throw new Error(`held thread rows: ${tErr.message}`);
+  return announceThreads(ws, (threads ?? []) as Record<string, unknown>[]);
+}
+
+/** "Don't announce": the hold is cleared and the threads stay unannounced
+ *  for good. */
+export async function dismissHeld(ws: string): Promise<number> {
+  const { data, error } = await adminClient
+    .from('thread_calendar_seen')
+    .update({ held_at: null })
+    .eq('workspace_id', ws)
+    .not('held_at', 'is', null)
+    .select('thread_id');
+  if (error) throw new Error(`dismiss hold: ${error.message}`);
+  return (data ?? []).length;
 }
 
 // ---------------------------------------------------------------------------
