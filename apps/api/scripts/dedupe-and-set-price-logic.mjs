@@ -2,7 +2,15 @@
 // optionally fill it from a country-income policy.
 //
 //   FIBRE_ENV_FILE=…/.env.staging node apps/api/scripts/dedupe-and-set-price-logic.mjs \
-//       --workspace soul [--policy wb-fy2027] [--keep CL=75 ...] [--apply]
+//       staging --workspace default [--policy wb-fy2027] [--keep CL=75 ...] [--apply]
+//
+// THE STACK IS THE FIRST WORD, and it is checked against the env file's own
+// project ref — the same shape as `dedupe-consent-records` and
+// `set-workspace-role`. Printing which database it is about to act on helps
+// somebody who reads the output; refusing a mismatch helps somebody who does
+// not. The command's own words should say which database it changes, and if
+// they disagree with the env file, that is a mistake rather than a
+// preference.
 //
 // WHY A SCRIPT AND NOT A MIGRATION. This is a bulk data conversion, and the
 // house rule is one run per database with eyes on it, never a migration that
@@ -40,6 +48,19 @@ import { countryName } from '@thefibre/shared/countries';
 
 // ── arguments ──────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
+
+/** Project refs, by name. Hard-coded on purpose: a value read from the thing
+ *  it is meant to check is not a check. */
+const PROJECT_REF = {
+  prod: 'zfsyyokepyycefbxiblc',
+  staging: 'lukhyylwhhjyihqtghvw',
+};
+const stack = argv[0];
+if (!Object.hasOwn(PROJECT_REF, stack ?? '')) {
+  console.error('first argument must be `staging` or `prod` — it names the database this acts on');
+  console.error('  node apps/api/scripts/dedupe-and-set-price-logic.mjs staging --workspace default');
+  process.exit(2);
+}
 const flag = (name) => {
   const i = argv.indexOf(`--${name}`);
   return i === -1 ? null : (argv[i + 1] ?? '');
@@ -98,7 +119,14 @@ if (!URL_ || !KEY) {
 // SAY WHICH DATABASE, every time and before anything else. The one mistake
 // this script could make that nothing undoes is running on the wrong one.
 const project = URL_.replace(/^https:\/\//, '').split('.')[0];
-console.log(`database: ${project}  (${envFile})`);
+if (project !== PROJECT_REF[stack]) {
+  console.error(
+    `REFUSED: you said \`${stack}\` (${PROJECT_REF[stack]}) but ${envFile} points at ${project}.`,
+  );
+  console.error('  Fix the argument or the env file — do not make the script guess which you meant.');
+  process.exit(2);
+}
+console.log(`database: ${project}  — ${stack}  (${envFile})`);
 console.log(`mode:     ${apply ? 'APPLY — this will delete rows and write one' : 'dry run'}`);
 
 const call = async (path, init = {}) => {

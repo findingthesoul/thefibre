@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.190.1] — 2026-10-14
+
+### A general pricing rule can only exist once
+
+The third and last step on the duplicate pricing rules. v1.187.2 made the
+newest row win, which stopped people being charged by a five-week-old rule
+set. `dedupe-and-set-price-logic.mjs` removes the duplicates. This makes the
+shape **impossible** rather than merely tidy, so the next person to press Save
+twice cannot recreate it.
+
+`unique nulls not distinct (workspace_id, kind, tier_id)`. That is the whole
+fix: a general rule has `tier_id = NULL`, and with the Postgres default of
+NULLS DISTINCT two such rows never collided — so the route's
+`on conflict … do update` inserted every time, which is the opposite of what
+it claimed to do.
+
+**It refuses clearly if the duplicates are still there.** Creating the
+constraint over them fails with `could not create unique index … Key (…) is
+duplicated`, which names a key and not a cause, in the middle of a database
+push. Instead it counts them, names the workspaces, and prints the exact
+dedupe command to run first. The order on any database is: dedupe, then this.
+
+The script now takes **`staging` or `prod` as its first word** and refuses if
+the env file points at the other project — the same shape as
+`dedupe-consent-records` and `set-workspace-role`. Printing which database it
+is about to act on helps somebody who reads the output; refusing a mismatch
+helps somebody who does not.
+
+Proved on staging end to end before any of it goes near production: the apply
+deleted the duplicate, rewrote the survivor, read back exactly one general row,
+and the live staging catalogue now serves 59 countries at 75% and 72 at 50% —
+with Kosovo among the 59, which is the whole chain from the shared country
+list to a public API working in one go.
+
 ## [1.190.0] — 2026-10-14
 
 ### The country policy, as data and as one run
