@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.197.2] — 2026-10-15
+
+### Migration only: the main facilitator, rooms per session, hosts in the calendar
+
+`20261014190050_main_facilitator`, released alone before the code that uses
+it. Additive; nothing reads these columns until the next releases.
+
+- `thread_thread.main_facilitator_id` — whose room a thread's sessions meet
+  in (a host/facilitator row; null = the organiser).
+- `thread_engagement.room_owner_id` — a session pinned to one host's room
+  (null = follows the main facilitator); `excluded_people` — hosts NOT on a
+  session; `meeting_account_user_id` — whose account made a meeting link;
+  `invited_hosts` — the host addresses holding a session's invitation.
+- `user_connection.allow_organiser_meetings` — a person's own yes to
+  organisers creating Meet/Zoom links on their account (default no).
+- `thread_calendar_change.reason`, and kind `people` (a change to who hosts
+  a session that has gone out).
+
 ## [1.197.1] — 2026-10-14
 
 ### Member page: the introduction saves itself, and the page says whose it is
