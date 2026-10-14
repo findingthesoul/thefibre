@@ -16,7 +16,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, CalendarPlus, IdCard, Receipt, User, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Home, IdCard, Receipt, User, Users } from 'lucide-react';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
 import { Wordmark } from './wordmark';
 import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
@@ -36,34 +36,48 @@ import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 // an empty page for everybody else — it is a thing they do not have, the way
 // a person without a membership has no member price. It follows the
 // ENTITLEMENT, not the list, so the nav does not change shape with the month.
-export function navFor({ upcoming }: { upcoming: boolean }): SidebarNavSection[] {
+//
+// THE ORDER IS SJOERD'S (2026-10-14): "Home (new) · Next · Upcoming ·
+// Members · ---- · You · Memberships · Purchases". Two groups: what is going
+// on in your community, then what is yours. The groups are two SECTIONS, so
+// the rail draws a line between them and the phone's More sheet keeps them
+// apart; the phone bar itself shows the first four.
+//
+// HOME is the community page (item 4), and it is there only for somebody who
+// has one — a live member of at least one community. Without one there is no
+// Home at all and Next comes first: a Home that could only say "you have no
+// community" would be a tab that is always empty. With several communities
+// Home lists them.
+//
+// UPCOMING stays conditional on a team calendar, as before.
+export function navFor({ upcoming, communities = 0 }: { upcoming: boolean; communities?: number }): SidebarNavSection[] {
   return [
     {
       items: [
+        ...(communities > 0 ? [{ href: '/community', label: 'Home', icon: Home }] : []),
         { href: '/', label: 'Next', icon: CalendarDays },
         ...(upcoming ? [{ href: '/upcoming', label: 'Upcoming', icon: CalendarPlus }] : []),
-        ...NAV[0]!.items.slice(1),
+        { href: '/members', label: 'Members', icon: Users },
+      ],
+    },
+    {
+      items: [
+        { href: '/you', label: 'You', icon: User },
+        { href: '/memberships', label: 'Memberships', icon: IdCard },
+        { href: '/purchases', label: 'Purchases', icon: Receipt },
       ],
     },
   ];
 }
 
-export const NAV: SidebarNavSection[] = [
-  {
-    items: [
-      { href: '/', label: 'Next', icon: CalendarDays },
-      { href: '/memberships', label: 'Memberships', icon: IdCard },
-      { href: '/purchases', label: 'Purchases', icon: Receipt },
-      { href: '/members', label: 'Members', icon: Users },
-      { href: '/you', label: 'You', icon: User },
-    ],
-  },
-];
+/** The nav for somebody with no community and no team calendar — kept for
+ *  any reader that wants the plain shape. */
+export const NAV: SidebarNavSection[] = navFor({ upcoming: false, communities: 0 });
 
 const BottomNavShell = createBottomNav(Link, usePathname);
 
-export function MemberTabs({ version, upcoming }: { version: string; upcoming: boolean }) {
-  return <BottomNavShell nav={navFor({ upcoming })} version={version} />;
+export function MemberTabs({ version, upcoming, communities }: { version: string; upcoming: boolean; communities: number }) {
+  return <BottomNavShell nav={navFor({ upcoming, communities })} version={version} />;
 }
 
 /** `/` matches everything by prefix, so it is the exception: exact only. */
@@ -71,9 +85,9 @@ function isActive(href: string, pathname: string): boolean {
   return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function MemberRail({ upcoming }: { upcoming: boolean }) {
+export function MemberRail({ upcoming, communities }: { upcoming: boolean; communities: number }) {
   const pathname = usePathname();
-  const nav = navFor({ upcoming });
+  const nav = navFor({ upcoming, communities });
   return (
     <nav className="hidden md:flex w-56 shrink-0 flex-col gap-1 border-r border-line bg-surface-sunken p-3">
       {/* Home, and the only thing on this surface that says whose app it is.
@@ -81,7 +95,10 @@ export function MemberRail({ upcoming }: { upcoming: boolean }) {
       <Link href="/" className="mb-3 flex min-h-11 items-center px-3">
         <Wordmark className="h-8" />
       </Link>
-      {nav[0]!.items.map((item) => {
+      {nav.flatMap((section, si) => [
+        // The line between the two groups.
+        ...(si > 0 ? [<div key={`sep-${si}`} className="my-2 border-t border-line" aria-hidden />] : []),
+        ...section.items.map((item) => {
         const Icon = item.icon;
         const active = isActive(item.href, pathname);
         return (
@@ -99,7 +116,8 @@ export function MemberRail({ upcoming }: { upcoming: boolean }) {
             <span className="truncate">{item.label}</span>
           </Link>
         );
-      })}
+        }),
+      ])}
     </nav>
   );
 }

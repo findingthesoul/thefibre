@@ -4,6 +4,7 @@
 // skeleton and the dates were scattered inside it; time is the spine now and
 // the organiser is a filter. "What is next" is a chronological question.
 
+import { redirect } from 'next/navigation';
 import { loadSession } from '@/lib/session';
 import { buildTimeline, splitAt } from '@/lib/timeline';
 import type { Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
@@ -17,11 +18,20 @@ import { Timeline } from './timeline';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NextPage() {
+export default async function NextPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string }>;
+}) {
   const session = await loadSession();
   if (!session) return <SignedOut />;
 
   const { portal } = session;
+  // ARRIVING FROM SIGN-IN, a member of a community lands on Home — the first
+  // tab for them (Sjoerd's nav order, 2026-10-14). Only on arrival: Next
+  // stays one tap away at a plain "/", and somebody with no community lands
+  // here.
+  if ((await searchParams).welcome && (portal.communities ?? 0) > 0) redirect('/community');
   const { upcoming, past } = splitAt(buildTimeline(portal));
 
   // Every thread a card can open, flat, with the ticket that belongs to it.

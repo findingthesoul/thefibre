@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.195.0] — 2026-10-14
+
+### Home: the community page in my.thread
+
+What a community's members see first when they open my.thread (item 4):
+
+- **The admin's introduction** (rich text, sanitised on the way in).
+- **What is next** — the soonest thing on their own agenda in that
+  community, or, if they hold nothing there, the soonest thread their
+  calendars offer (the Upcoming walk, priced the same way).
+- **The community's documents.** Uploaded in Members → Settings → Member
+  page (title, drag-and-drop order, rename, remove). Stored in a PRIVATE
+  bucket; a member opens one through my.thread, which checks the session,
+  the API checks they are an active or grace member, and the answer is a
+  signed address valid for **60 seconds** — a forwarded link is a dead link.
+  The type is read from the BYTES (PDF, PNG, JPEG, WebP), never from the name
+  or the browser's claim; a truncated or damaged file is refused. Photos lose
+  their EXIF — location, camera, everything — except the orientation, kept in
+  a minimal EXIF of its own so a portrait photo does not lie on its side. No
+  image library: the metadata blocks are dropped without re-encoding. PDFs
+  download as an attachment named after their title. Removing a document
+  deletes the stored file too (an admin's upload is not personal data; the
+  soft-delete rule does not apply).
+- **From your threads** — the document steps the member's own threads have
+  already sent them, read from the send log the thread's own triggers write
+  (`thread_message_send`). A document scheduled for week 3 does not appear in
+  week 1.
+
+**The nav, in Sjoerd's order:** *"Home (new) · Next · Upcoming · Members ·
+---- · You · Memberships · Purchases"*. Home is there for a live member of at
+least one community, and sign-in lands on it; with several it lists them;
+without one there is no Home tab and Next comes first — a Home that could
+only say "you have no community" would always be empty. The two groups are
+two sections: a line between them on the desktop rail, kept apart in the
+phone's More sheet; the phone bar shows the first four.
+
+New API: `GET /me/portal/community`, `GET /me/portal/community/:ws/documents/:id`
+(→ 60s signed URL), and admin `GET|PUT /membership/member-page`,
+`POST|PATCH|DELETE /membership/member-page/documents…`,
+`PUT /membership/member-page/documents/order`. Additive:
+`portal.communities`. Schema from v1.194.1.
+
 ## [1.194.4] — 2026-10-14
 
 ### Clicking a thread answers at once

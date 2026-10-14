@@ -2492,6 +2492,126 @@ const CATALOG = {
   },
 
   // ── member directory (docs/member-directory-spec.md slice 1) ──────────
+  st_member_page_title: {
+    en: 'Member page',
+    nl: 'Ledenpagina', // MT
+    es: 'Página de miembros', // MT
+    pt: 'Página dos membros', // MT
+    de: 'Mitgliederseite', // MT
+    fr: 'Page des membres', // MT
+  },
+  st_member_page_desc: {
+    en: 'What members see when they open your community in my.thread: an introduction and documents.',
+    nl: 'Wat leden zien als ze je community openen in my.thread: een introductie en documenten.', // MT
+    es: 'Lo que ven los miembros al abrir tu comunidad en my.thread: una introducción y documentos.', // MT
+    pt: 'O que os membros veem ao abrir a sua comunidade no my.thread: uma introdução e documentos.', // MT
+    de: 'Was Mitglieder sehen, wenn sie deine Community in my.thread öffnen: eine Einführung und Dokumente.', // MT
+    fr: 'Ce que voient les membres en ouvrant ta communauté dans my.thread : une introduction et des documents.', // MT
+  },
+  mp_intro_label: {
+    en: 'Introduction',
+    nl: 'Introductie', // MT
+    es: 'Introducción', // MT
+    pt: 'Introdução', // MT
+    de: 'Einführung', // MT
+    fr: 'Introduction', // MT
+  },
+  mp_intro_hint: {
+    en: 'Shown at the top of the page, for members only.',
+    nl: 'Bovenaan de pagina, alleen voor leden.', // MT
+    es: 'Se muestra arriba de la página, solo para miembros.', // MT
+    pt: 'Mostrado no topo da página, só para membros.', // MT
+    de: 'Oben auf der Seite, nur für Mitglieder.', // MT
+    fr: 'En haut de la page, pour les membres seulement.', // MT
+  },
+  mp_save_intro: {
+    en: 'Save introduction',
+    nl: 'Introductie opslaan', // MT
+    es: 'Guardar introducción', // MT
+    pt: 'Guardar introdução', // MT
+    de: 'Einführung speichern', // MT
+    fr: 'Enregistrer l’introduction', // MT
+  },
+  mp_documents: {
+    en: 'Documents',
+    nl: 'Documenten', // MT
+    es: 'Documentos', // MT
+    pt: 'Documentos', // MT
+    de: 'Dokumente', // MT
+    fr: 'Documents', // MT
+  },
+  mp_no_documents: {
+    en: 'No documents yet.',
+    nl: 'Nog geen documenten.', // MT
+    es: 'Aún no hay documentos.', // MT
+    pt: 'Ainda não há documentos.', // MT
+    de: 'Noch keine Dokumente.', // MT
+    fr: 'Pas encore de documents.', // MT
+  },
+  mp_title: {
+    en: 'Title',
+    nl: 'Titel', // MT
+    es: 'Título', // MT
+    pt: 'Título', // MT
+    de: 'Titel', // MT
+    fr: 'Titre', // MT
+  },
+  mp_title_placeholder: {
+    en: 'Optional — the file name otherwise',
+    nl: 'Optioneel — anders de bestandsnaam', // MT
+    es: 'Opcional — si no, el nombre del archivo', // MT
+    pt: 'Opcional — senão, o nome do ficheiro', // MT
+    de: 'Optional — sonst der Dateiname', // MT
+    fr: 'Facultatif — sinon le nom du fichier', // MT
+  },
+  mp_upload: {
+    en: 'Upload',
+    nl: 'Uploaden', // MT
+    es: 'Subir', // MT
+    pt: 'Carregar', // MT
+    de: 'Hochladen', // MT
+    fr: 'Téléverser', // MT
+  },
+  mp_uploading: {
+    en: 'Uploading…',
+    nl: 'Uploaden…', // MT
+    es: 'Subiendo…', // MT
+    pt: 'A carregar…', // MT
+    de: 'Wird hochgeladen…', // MT
+    fr: 'Téléversement…', // MT
+  },
+  mp_upload_hint: {
+    en: 'PDF, PNG, JPEG or WebP, up to 10 MB. Only members can open them, through a link that works for a minute. Photos lose their location and camera data.',
+    nl: 'PDF, PNG, JPEG of WebP, tot 10 MB. Alleen leden kunnen ze openen, via een link die een minuut werkt. Foto’s verliezen hun locatie- en cameragegevens.', // MT
+    es: 'PDF, PNG, JPEG o WebP, hasta 10 MB. Solo los miembros pueden abrirlos, con un enlace que funciona un minuto. Las fotos pierden sus datos de ubicación y cámara.', // MT
+    pt: 'PDF, PNG, JPEG ou WebP, até 10 MB. Só os membros os podem abrir, através de um link que funciona durante um minuto. As fotos perdem os dados de localização e câmara.', // MT
+    de: 'PDF, PNG, JPEG oder WebP, bis 10 MB. Nur Mitglieder können sie öffnen, über einen Link, der eine Minute gilt. Fotos verlieren Standort- und Kameradaten.', // MT
+    fr: 'PDF, PNG, JPEG ou WebP, jusqu’à 10 Mo. Seuls les membres peuvent les ouvrir, via un lien valable une minute. Les photos perdent leurs données de lieu et d’appareil.', // MT
+  },
+  mp_upload_failed: {
+    en: 'The upload did not work. Try again.',
+    nl: 'Het uploaden lukte niet. Probeer het opnieuw.', // MT
+    es: 'La subida no funcionó. Inténtalo de nuevo.', // MT
+    pt: 'O carregamento falhou. Tente novamente.', // MT
+    de: 'Das Hochladen hat nicht geklappt. Versuch es noch einmal.', // MT
+    fr: 'Le téléversement a échoué. Réessaie.', // MT
+  },
+  mp_remove: {
+    en: 'Remove',
+    nl: 'Verwijderen', // MT
+    es: 'Quitar', // MT
+    pt: 'Remover', // MT
+    de: 'Entfernen', // MT
+    fr: 'Retirer', // MT
+  },
+  mp_remove_confirm: {
+    en: 'Remove this document? Members can no longer open it, and the file is deleted.',
+    nl: 'Dit document verwijderen? Leden kunnen het niet meer openen en het bestand wordt gewist.', // MT
+    es: '¿Quitar este documento? Los miembros ya no podrán abrirlo y el archivo se borra.', // MT
+    pt: 'Remover este documento? Os membros deixam de o poder abrir e o ficheiro é apagado.', // MT
+    de: 'Dieses Dokument entfernen? Mitglieder können es nicht mehr öffnen, und die Datei wird gelöscht.', // MT
+    fr: 'Retirer ce document ? Les membres ne pourront plus l’ouvrir et le fichier est supprimé.', // MT
+  },
   notify_held_title: {
     en: '{n} new threads were not announced, because more than 20 appeared at once. That is usually an import, sometimes a whole season loaded in one go.',
     nl: '{n} nieuwe threads zijn niet aangekondigd, omdat er meer dan 20 tegelijk verschenen. Meestal een import, soms een heel seizoen in één keer.', // MT

@@ -91,6 +91,34 @@ export async function saveCurrencies(input: {
 // Fibre-seat policy (2026-09-05): approve-or-auto + the standing consent
 // for billed seats. Lives on the Integrations page — the built-in
 // integration's own settings.
+// ── the community page (Members → Settings → Member page) ──────────────
+
+async function memberPageCall(path: string, init: RequestInit): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/member-page${path}`, init);
+    revalidatePath('/settings/member-page');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function saveMemberIntro(introHtml: string | null): Promise<ActionResult> {
+  return memberPageCall('', { method: 'PUT', body: JSON.stringify({ intro_html: introHtml }) });
+}
+
+export async function renameMemberDocument(id: string, title: string): Promise<ActionResult> {
+  return memberPageCall(`/documents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
+}
+
+export async function reorderMemberDocuments(ids: string[]): Promise<ActionResult> {
+  return memberPageCall('/documents/order', { method: 'PUT', body: JSON.stringify({ ids }) });
+}
+
+export async function removeMemberDocument(id: string): Promise<ActionResult> {
+  return memberPageCall(`/documents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 /** The circuit breaker's held threads: announce them as one digest. */
 export async function announceHeldThreads(): Promise<ActionResult> {
   try {

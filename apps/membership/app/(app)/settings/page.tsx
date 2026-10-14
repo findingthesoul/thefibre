@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Bell, Globe, Plug, Code2, Percent,
+import { Bell, FileText, Globe, Plug, Code2, Percent,
   Ticket, Users } from 'lucide-react';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { canManageWorkspace } from '@thefibre/shared';
@@ -65,6 +65,12 @@ export default async function SettingsPage() {
           icon: <Users {...ICON} />,
           title: t(locale, 'st_directory_title'),
           desc: t(locale, 'st_directory_desc'),
+        },
+        {
+          href: '/settings/member-page',
+          icon: <FileText {...ICON} />,
+          title: t(locale, 'st_member_page_title'),
+          desc: t(locale, 'st_member_page_desc'),
         },
         {
           href: '/settings/notifications',

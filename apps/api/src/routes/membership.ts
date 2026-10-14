@@ -1,6 +1,14 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { announceHeld, dismissHeld, heldThreads } from '../lib/member-notify.js';
+import {
+  addDocument,
+  readMemberPage,
+  removeDocument,
+  renameDocument,
+  reorderDocuments,
+  saveIntro,
+} from '../lib/member-page.js';
 import {
   parseFibreSeatConfig,
   parseTeamCalendarConfig,
@@ -1806,6 +1814,85 @@ membershipRoutes.put('/settings', async (c) => {
   return c.json({ ok: true });
 });
 
+
+// ===========================================================================
+// THE COMMUNITY PAGE — Members → Settings → Member page (lib/member-page.ts)
+//
+// The intro and the documents a community's members see in my.thread.
+// Admin-only, workspace from the session — never from the body.
+// ===========================================================================
+
+const admin = async (c: Context) => {
+  const ctx = c.get('ctx');
+  return (await isMembershipAdmin(ctx.workspaceId, ctx.userId)) ? ctx.workspaceId : null;
+};
+
+membershipRoutes.get('/member-page', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const page = await readMemberPage(ws);
+  return c.json({
+    intro_html: page.intro_html,
+    // The storage path stays on the server.
+    documents: page.documents.map((d) => ({ id: d.id, title: d.title, mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at })),
+  });
+});
+
+membershipRoutes.put('/member-page', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { intro_html?: unknown } | null;
+  if (!body || (body.intro_html !== null && typeof body.intro_html !== 'string')) {
+    return c.json({ error: 'intro_html must be a string or null' }, 400);
+  }
+  if (typeof body.intro_html === 'string' && body.intro_html.length > 100_000) {
+    return c.json({ error: 'the intro is too long' }, 400);
+  }
+  await saveIntro(ws, body.intro_html as string | null);
+  return c.json({ ok: true });
+});
+
+membershipRoutes.post('/member-page/documents', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const form = await c.req.parseBody();
+  const file = form.file;
+  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
+  const title = typeof form.title === 'string' ? form.title : null;
+  const r = await addDocument(ws, { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) }, title);
+  if (r === 'too_large') return c.json({ error: 'Files up to 10 MB.' }, 400);
+  if (r === 'not_allowed') return c.json({ error: 'PDF, PNG, JPEG or WebP only.' }, 400);
+  if (r === 'empty') return c.json({ error: 'That file is empty.' }, 400);
+  if (r === 'corrupt') return c.json({ error: 'That file looks damaged or incomplete. Export it again and retry.' }, 400);
+  return c.json({ id: r.id, title: r.title, mime: r.mime, bytes: r.bytes, uploaded_at: r.uploaded_at }, 201);
+});
+
+membershipRoutes.patch('/member-page/documents/:id', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { title?: unknown } | null;
+  if (typeof body?.title !== 'string' || !body.title.trim()) return c.json({ error: 'title is required' }, 400);
+  return (await renameDocument(ws, c.req.param('id'), body.title))
+    ? c.json({ ok: true })
+    : c.json({ error: 'not found' }, 404);
+});
+
+membershipRoutes.put('/member-page/documents/order', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { ids?: unknown } | null;
+  if (!Array.isArray(body?.ids) || !body.ids.every((x) => typeof x === 'string')) {
+    return c.json({ error: 'ids must be an array of document ids' }, 400);
+  }
+  await reorderDocuments(ws, body.ids as string[]);
+  return c.json({ ok: true });
+});
+
+membershipRoutes.delete('/member-page/documents/:id', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  return (await removeDocument(ws, c.req.param('id'))) ? c.body(null, 204) : c.json({ error: 'not found' }, 404);
+});
 
 // ===========================================================================
 // HELD THREADS — GET /notify-held, POST /notify-held/announce|dismiss

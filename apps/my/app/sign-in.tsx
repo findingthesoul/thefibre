@@ -25,7 +25,7 @@ export function SignIn() {
     const { error } = await browserSupabase().auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/?welcome=1')}`,
         // An account is created on first sign-in. Enrolling already creates
         // one (email-only); this is the same door from the other side.
         shouldCreateUser: true,
@@ -54,7 +54,7 @@ export function SignIn() {
       setBusy(false);
       return;
     }
-    window.location.href = '/auth/callback?next=/';
+    window.location.href = `/auth/callback?next=${encodeURIComponent('/?welcome=1')}`;
   }
 
   const field =

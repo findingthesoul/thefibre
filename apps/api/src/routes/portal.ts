@@ -81,6 +81,7 @@ import { loadAgendaByThread, personsForEmail, type AgendaItem } from '../lib/por
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { placesByThread } from '../lib/place-state.js';
 import { ensurePref } from '../lib/member-notify.js';
+import { communityView, memberCommunities, signedDocumentUrl } from '../lib/member-page.js';
 import {
   couldJoinFrom,
   entitlementsByMember,
@@ -697,6 +698,13 @@ portalRoutes.get('/portal', async (c) => {
     .in('person_id', personIds)
     .is('read_at', null);
   const unread_notifications = unreadCount ?? 0;
+  // How many communities this address is a live member of: one means
+  // my.thread lands on that community's page; any means a Community item.
+  const communities = new Set(
+    ((members ?? []) as Record<string, unknown>[])
+      .filter((m) => m.status === 'active' || m.status === 'grace')
+      .map((m) => m.workspace_id as string),
+  ).size;
   const couldJoinByMemberId = await couldJoinFrom(entitlements, places, MEMBERSHIP_CARD_ROWS);
 
   // -- Group by workspace ---------------------------------------------------
@@ -714,7 +722,7 @@ portalRoutes.get('/portal', async (c) => {
   ].filter(Boolean);
 
   if (!workspaceIds.length) {
-    return c.json({ person: me, wallet: walletAvailability(), groups: [], upcoming, unread_notifications });
+    return c.json({ person: me, wallet: walletAvailability(), groups: [], upcoming, unread_notifications, communities });
   }
 
   const { data: workspaces } = await adminClient
@@ -857,7 +865,7 @@ portalRoutes.get('/portal', async (c) => {
       (a.tickets.length + a.threads.length + a.meets.length + a.memberships.length),
   );
 
-  return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming, unread_notifications });
+  return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming, unread_notifications, communities });
 });
 
 // ===========================================================================
@@ -975,6 +983,32 @@ portalRoutes.put('/portal/notification-prefs', async (c) => {
     .update({ email_off: body.email_off, updated_at: new Date().toISOString() })
     .eq('person_id', person.id);
   return c.json({ ok: true, email_off: body.email_off });
+});
+
+// ===========================================================================
+// The community page — GET /me/portal/community,
+// GET /me/portal/community/:ws/documents/:id (lib/member-page.ts)
+//
+// Active or grace members only. A document is never a lasting address: the
+// second route checks membership and answers a 60-second signed URL.
+// ===========================================================================
+
+portalRoutes.get('/portal/community', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const mine = await memberCommunities(email);
+  const items = await Promise.all(mine.map((m) => communityView(m)));
+  return c.json({ items: items.sort((a, b) => a.name.localeCompare(b.name)) });
+});
+
+portalRoutes.get('/portal/community/:ws/documents/:id', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const url = await signedDocumentUrl(email, c.req.param('ws'), c.req.param('id'));
+  // One answer for "not a member" and "no such document": the difference is
+  // nobody's business but a member's.
+  if (!url) return c.json({ error: 'not found' }, 404);
+  return c.json({ url });
 });
 
 // ===========================================================================

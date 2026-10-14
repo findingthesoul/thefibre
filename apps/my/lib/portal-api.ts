@@ -229,7 +229,31 @@ export type Portal = {
   upcoming?: boolean;
   /** Unread notifications, for the dot on the bell. Absent = none. */
   unread_notifications?: number;
+  /** Communities this address is a live member of. One = sign-in lands on
+   *  that community's page; any = a Community nav item. */
+  communities?: number;
 };
+
+/** One community's page, as its member sees it (the API's member-page.ts). */
+export type CommunityView = {
+  workspace_id: string;
+  name: string;
+  logo_url: string | null;
+  intro_html: string | null;
+  documents: { id: string; title: string; mime: string; bytes: number }[];
+  thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
+  next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;
+};
+
+/** THROWS on failure, so a broken call is not mistaken for "no community". */
+export async function fetchCommunities(accessToken: string): Promise<CommunityView[]> {
+  const res = await fetch(`${baseUrl}/api/v1/me/portal/community`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `API ${res.status}: /api/v1/me/portal/community`);
+  return ((await res.json()) as { items: CommunityView[] }).items;
+}
 
 /** One thing a member was told (type + subject + date — never a body). */
 export type MemberNotification = {
