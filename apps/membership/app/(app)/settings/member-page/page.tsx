@@ -10,7 +10,7 @@ import { MemberPageClient, type MemberDocument } from './member-page-client';
 
 export default async function MemberPageSettings() {
   const locale = await uiLocale();
-  const page = await apiFetch<{ intro_html: string | null; documents: MemberDocument[] }>(
+  const page = await apiFetch<{ workspace_name: string | null; intro_html: string | null; documents: MemberDocument[] }>(
     '/api/v1/membership/member-page',
   ).catch(() => null);
   return (
@@ -19,7 +19,7 @@ export default async function MemberPageSettings() {
       <PageHeader title={t(locale, 'st_member_page_title')} description={t(locale, 'st_member_page_desc')} />
       <div className="mt-8">
         {page ? (
-          <MemberPageClient intro={page.intro_html} documents={page.documents} locale={locale} />
+          <MemberPageClient workspaceName={page.workspace_name} intro={page.intro_html} documents={page.documents} locale={locale} />
         ) : (
           <p className="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-subtle">
             {t(locale, 'workspace_admins_only')}

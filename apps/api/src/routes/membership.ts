@@ -1853,8 +1853,15 @@ const admin = async (c: Context) => {
 membershipRoutes.get('/member-page', async (c) => {
   const ws = await admin(c);
   if (!ws) return c.json({ error: 'admin only' }, 403);
-  const page = await readMemberPage(ws);
+  const [page, { data: wsRow }] = await Promise.all([
+    readMemberPage(ws),
+    adminClient.from('workspace').select('name').eq('id', ws).maybeSingle(),
+  ]);
   return c.json({
+    // Which community's members see this page. Named in the editor, because
+    // with one account in several workspaces the page saves to whichever
+    // workspace the session is acting in, and nothing else said which.
+    workspace_name: (wsRow?.name as string | undefined) ?? null,
     intro_html: page.intro_html,
     // The storage path stays on the server.
     documents: page.documents.map((d) =>

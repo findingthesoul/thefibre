@@ -193,10 +193,30 @@ async function seed(c) {
     );
   }
 
+  // A REAL identity seeded in (--email) is greeted by its own name, not as
+  // "Upcoming" (the member page fills {first_name}): take the name from a
+  // user or person row that address already has elsewhere on this stack.
+  async function nameFor(email) {
+    if (email === 'upcoming-fixture@example.com') return { first_name: 'Upcoming', last_name: 'Fixture' };
+    const { data: p } = await db
+      .from('person')
+      .select('first_name, last_name')
+      .eq('email', email)
+      .not('first_name', 'is', null)
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
+    if (p?.first_name && !/^upcoming$/i.test(p.first_name)) return { first_name: p.first_name, last_name: p.last_name ?? null };
+    const { data: u } = await db.from('user').select('full_name').eq('email', email).not('full_name', 'is', null).limit(1).maybeSingle();
+    const [first, ...rest] = (u?.full_name ?? '').trim().split(/\s+/);
+    if (first) return { first_name: first, last_name: rest.join(' ') || null };
+    return { first_name: email.split('@')[0], last_name: null };
+  }
+
   for (const email of EMAILS) {
     const person =
       must('person', await db.from('person').select('id').eq('workspace_id', ws).eq('email', email).is('deleted_at', null).maybeSingle())?.id ??
-      (await ins('person', { workspace_id: ws, first_name: email === 'upcoming-fixture@example.com' ? 'Upcoming' : email.split('@')[0], last_name: email === 'upcoming-fixture@example.com' ? 'Fixture' : null, email }));
+      (await ins('person', { workspace_id: ws, ...(await nameFor(email)), email }));
     // A far-future renewal: the staging API's real scheduler runs against
     // this database and would otherwise lapse the membership within days.
     await ins('membership_member', {

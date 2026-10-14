@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, GripVertical, Image as ImageIcon, Link2, Trash2 } from 'lucide-react';
 import { RichTextField } from '@thefibre/shared/ui/rich-text-field';
@@ -27,10 +27,12 @@ const TAG_CHIPS = MEMBER_PAGE_TAGS.map((tag) => `{${tag}}`);
 const size = (b: number) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 export function MemberPageClient({
+  workspaceName,
   intro,
   documents: initial,
   locale,
 }: {
+  workspaceName: string | null;
   intro: string | null;
   documents: MemberDocument[];
   locale: Locale;
@@ -40,7 +42,13 @@ export function MemberPageClient({
   const [docs, setDocs] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  // ONE SAVE MODEL for the page: documents save the moment they are added,
+  // so the introduction does too — when the field loses focus. A Save button
+  // beside instant documents was a trap: type, wander off, nothing saved
+  // (Sjoerd on production, 2026-10-14).
+  const [savedHtml, setSavedHtml] = useState(intro ?? '');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const dirty = html !== savedHtml || saveState === 'saving';
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<'upload' | 'link'>('upload');
@@ -64,6 +72,8 @@ export function MemberPageClient({
 
   async function togglePreview() {
     if (preview) return setPreview(null);
+    // The preview reads what is SAVED, so whatever is typed is saved first.
+    await saveIntro();
     setBusy('preview');
     setError(null);
     const r = await previewMemberIntro();
@@ -73,14 +83,30 @@ export function MemberPageClient({
   }
 
   async function saveIntro() {
-    setBusy('intro');
+    if (html === savedHtml) return;
+    const sending = html;
+    setSaveState('saving');
     setError(null);
-    setSaved(false);
-    const r = await saveMemberIntro(html.trim() ? html : null);
-    setBusy(null);
-    if (r.error) setError(r.error);
-    else setSaved(true);
+    const r = await saveMemberIntro(sending.trim() ? sending : null);
+    if (r.error) {
+      setSaveState('idle');
+      setError(r.error);
+      return;
+    }
+    setSavedHtml(sending);
+    setSaveState('saved');
   }
+
+  // Leaving with text not yet saved (or a save still in flight) asks first.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   async function upload() {
     const file = fileRef.current?.files?.[0];
@@ -139,7 +165,18 @@ export function MemberPageClient({
 
   return (
     <div className="space-y-8">
-      <section className="rounded-lg border border-line bg-surface-raised p-5 space-y-4">
+      {workspaceName && (
+        <p className="text-sm text-ink-subtle">{t(locale, 'mp_audience', { community: workspaceName })}</p>
+      )}
+      <section
+        className="rounded-lg border border-line bg-surface-raised p-5 space-y-4"
+        // Saves when focus leaves the field for anywhere outside this box —
+        // the tag chips keep focus in the editor, so inserting one does not.
+        onBlur={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          void saveIntro();
+        }}
+      >
         <RichTextField
           locale={locale}
           label={t(locale, 'mp_intro_label')}
@@ -152,10 +189,15 @@ export function MemberPageClient({
         />
         <p className="text-xs text-ink-muted">{t(locale, 'mp_tags_hint')}</p>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="save" onClick={saveIntro} disabled={busy === 'intro'}>
-            {busy === 'intro' ? t(locale, 'saving') : t(locale, 'mp_save_intro')}
-          </Button>
-          {saved && <span className="text-sm text-ink-muted">{t(locale, 'saved_dot')}</span>}
+          <span className="text-sm text-ink-muted" aria-live="polite">
+            {saveState === 'saving'
+              ? t(locale, 'saving')
+              : html !== savedHtml
+                ? t(locale, 'mp_unsaved')
+                : saveState === 'saved'
+                  ? t(locale, 'saved_dot')
+                  : t(locale, 'mp_autosaves')}
+          </span>
           <Button type="button" variant="ghost" onClick={togglePreview} disabled={busy === 'preview'}>
             {preview ? t(locale, 'mp_preview_close') : t(locale, 'mp_preview')}
           </Button>

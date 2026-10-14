@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.197.1] — 2026-10-14
+
+### Member page: the introduction saves itself, and the page says whose it is
+
+- **One save model.** Documents saved the moment they were added, while the
+  introduction waited for its own Save button, so text typed and left behind
+  was silently lost. The introduction now saves when focus leaves it (the tag
+  chips keep focus, so inserting a tag does not save half a sentence), with
+  a quiet "Saving… / Saved." beside it and "Not saved yet" while it is
+  pending. Leaving the page with text unsaved, or a save in flight, asks
+  first. Preview saves before it reads. The Save button is gone.
+- **"Members of <community> see this page in my.thread."** With one account
+  in several workspaces, the page saves to whichever workspace the session is
+  acting in, and nothing on screen said which. Now the editor names it
+  (`GET /membership/member-page` returns `workspace_name`).
+- The staging fixture seed gives a real identity seeded in with `--email` its
+  own name, so the member page does not greet it as "Upcoming".
+
 ## [1.197.0] — 2026-10-14
 
 ### Member page: links as documents, and tags in the introduction

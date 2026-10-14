@@ -2684,6 +2684,30 @@ const CATALOG = {
     de: 'Optional — sonst der Name der Seite', // MT
     fr: 'Facultatif — sinon le nom du site', // MT
   },
+  mp_audience: {
+    en: 'Members of {community} see this page in my.thread.',
+    nl: 'Leden van {community} zien deze pagina in my.thread.', // MT
+    es: 'Los miembros de {community} ven esta página en my.thread.', // MT
+    pt: 'Os membros de {community} veem esta página no my.thread.', // MT
+    de: 'Mitglieder von {community} sehen diese Seite in my.thread.', // MT
+    fr: 'Les membres de {community} voient cette page dans my.thread.', // MT
+  },
+  mp_unsaved: {
+    en: 'Not saved yet — click outside the text to save.',
+    nl: 'Nog niet opgeslagen — klik buiten de tekst om op te slaan.', // MT
+    es: 'Aún sin guardar: haz clic fuera del texto para guardar.', // MT
+    pt: 'Ainda não guardado — clica fora do texto para guardar.', // MT
+    de: 'Noch nicht gespeichert — klicke außerhalb des Textes, um zu speichern.', // MT
+    fr: 'Pas encore enregistré — clique en dehors du texte pour enregistrer.', // MT
+  },
+  mp_autosaves: {
+    en: 'Saves when you click outside the text.',
+    nl: 'Wordt opgeslagen zodra je buiten de tekst klikt.', // MT
+    es: 'Se guarda al hacer clic fuera del texto.', // MT
+    pt: 'Guarda quando clicas fora do texto.', // MT
+    de: 'Wird gespeichert, sobald du außerhalb des Textes klickst.', // MT
+    fr: 'S’enregistre quand tu cliques en dehors du texte.', // MT
+  },
   mp_upload_hint: {
     en: 'PDF, PNG, JPEG or WebP, up to 10 MB. Only members can open them, through a link that works for a minute. Photos lose their location and camera data.',
     nl: 'PDF, PNG, JPEG of WebP, tot 10 MB. Alleen leden kunnen ze openen, via een link die een minuut werkt. Foto’s verliezen hun locatie- en cameragegevens.', // MT
