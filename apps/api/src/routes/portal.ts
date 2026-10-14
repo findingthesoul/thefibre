@@ -318,6 +318,45 @@ portalRoutes.get('/portal', async (c) => {
   const since = new Date(Date.now() - PAST_WINDOW_DAYS * 86400_000).toISOString();
   const sinceDate = since.slice(0, 10);
 
+  // -- Memberships, STARTED HERE and awaited far below ----------------------
+  //
+  // This query needs `personIds` and nothing else. It used to sit after the
+  // enrolments, the certificates and the bookings purely because that is the
+  // order somebody wrote them in, so it waited for three waves it has no
+  // relationship with. Starting it now costs nothing and removes it from the
+  // critical path.
+  //
+  // `Promise.resolve(...)` AROUND THE BUILDER, and the result is what is kept.
+  //
+  // A PostgREST builder is NOT a promise. It is a thenable whose `then()`
+  // BUILDS THE HEADERS AND PERFORMS THE FETCH — every time it is called
+  // (postgrest-js 2.105.4, PostgrestBuilder.ts:256). So holding the builder
+  // and awaiting it later does not start anything early; and "starting" it by
+  // calling `then()` once and awaiting the builder again runs the query
+  // TWICE, throwing the first result away and leaving the latency exactly
+  // where it was. That is what the first version of this did, and it was
+  // caught in review before it shipped.
+  //
+  // `Promise.resolve` calls `then()` once, now, and hands back a real promise
+  // that settles with that one result. Awaiting it below costs nothing.
+  //
+  // The `catch` is a guard, not error handling: if a read above throws before
+  // this is awaited, an un-awaited rejection would crash the process instead
+  // of surfacing the first failure. The real error still arrives at the
+  // `await` below, through `rows()`, exactly as before.
+  const membersQuery = Promise.resolve(
+    adminClient
+      .from('membership_member')
+      .select(
+        `id, workspace_id, person_id, tier_id, status, started_at, renews_at, stripe_customer_id,
+       tier:tier_id (name)`,
+      )
+      .in('person_id', personIds)
+      .is('deleted_at', null)
+      .order('started_at', { ascending: false }),
+  );
+  membersQuery.catch(() => {});
+
   // -- Threads + tickets ----------------------------------------------------
   // The lists on this page throw on a failed read (lib/rows.ts). "No tickets"
   // with a 200 because a select broke is the silent failure §1.9 is about.
@@ -415,18 +454,8 @@ portalRoutes.get('/portal', async (c) => {
   );
 
   // -- Memberships ----------------------------------------------------------
-  const members = rows(
-    'portal: memberships',
-    await adminClient
-      .from('membership_member')
-      .select(
-        `id, workspace_id, person_id, tier_id, status, started_at, renews_at, stripe_customer_id,
-       tier:tier_id (name)`,
-      )
-      .in('person_id', personIds)
-      .is('deleted_at', null)
-      .order('started_at', { ascending: false }),
-  );
+  // Started at the top of the handler; by here it has almost always landed.
+  const members = rows('portal: memberships', await membersQuery);
 
   // WHAT A MEMBERSHIP INCLUDES.
   //

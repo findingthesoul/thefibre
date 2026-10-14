@@ -15,10 +15,10 @@ import { ArrowLeft } from 'lucide-react';
 import { ENTITY, surfaceUrl } from '@thefibre/shared';
 import { headers } from 'next/headers';
 import { reachableApps } from '@/lib/app-access';
+import { Suspense } from 'react';
 import {
   loadCalendarStatus,
   loadDirectoryChoices,
-  loadErasure,
   loadProfile,
   loadSession,
 } from '@/lib/session';
@@ -28,7 +28,7 @@ import { PageShell } from '../page-shell';
 import { DetailsForm } from './details-form';
 import { CalendarCard } from './calendar-card';
 import { DirectoryCard } from './directory-card';
-import { RemoveData } from './remove-data';
+import { ErasureBody, ErasureFallback } from './erasure-section';
 import { SignOutButton } from './sign-out-button';
 
 export const dynamic = 'force-dynamic';
@@ -44,10 +44,13 @@ export default async function YouPage() {
   // `loadSession` above stays first and alone because it is the gate: there
   // is no point asking what somebody's profile is before knowing whether
   // anybody is signed in.
-  const [profile, calendar, erasure, directory, apps] = await Promise.all([
+  //
+  // `loadErasure` is NOT here, deliberately. At 576ms it was the second
+  // heaviest call on the page and it feeds a disclosure almost nobody opens,
+  // so it streams in its own boundary below instead of holding the page up.
+  const [profile, calendar, directory, apps] = await Promise.all([
     loadProfile(),
     loadCalendarStatus(),
-    loadErasure(),
     // Empty when there are no communities OR when the call failed; the
     // section is omitted either way, because a privacy switch showing a state
     // we are not sure of is worse than no switch.
@@ -110,7 +113,13 @@ export default async function YouPage() {
           Omitted entirely when the picture could not be read: offering a
           right we cannot describe accurately is worse than not offering it
           on this page, since the privacy policy carries it either way. */}
-      {erasure && <RemoveData picture={erasure} />}
+      {/* Streams. The page does not wait for it; the shape holds its place
+          until it lands, and a PENDING request still appears without anybody
+          having to click — which is the whole reason it is not deferred to a
+          click. */}
+      <Suspense fallback={<ErasureFallback />}>
+        <ErasureBody />
+      </Suspense>
 
       {/* The way back — and, since 2026-09-25, a sentence saying what it is.
           Debbie signed in, could only reach this page, pressed this button and

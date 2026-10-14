@@ -6,6 +6,59 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.191.1] — 2026-10-14
+
+### Two waits taken out of every page
+
+Item 4 of the my.thread measurement, and the 576ms nobody reads.
+
+**The erasure picture streams instead of blocking.** `/me/portal/erasure`
+costs **576ms** — measured, three runs — which made it the second-heaviest
+call on the You tab, behind only the portal itself. It was awaited before
+anything rendered, so every visit paid for a disclosure almost nobody opens.
+
+It is NOT deferred until somebody clicks, and the distinction matters: when a
+person HAS asked to be forgotten, that section is not a disclosure, it is
+their answer — *"you asked on the 3rd, someone must reply by the 17th"*.
+Hiding that behind a click would hide it from exactly the person who needs it,
+who has no reason to go looking. So it sits in its own Suspense boundary with
+a shape holding its place: the page renders at once, this arrives when it
+arrives, and a pending request still appears without a click.
+
+**The memberships read no longer waits for three unrelated waves.** It needs
+`personIds` and nothing else, but sat after the enrolments, the certificates
+and the bookings purely because that is the order somebody wrote them in. It
+starts at the top of the handler now and is awaited where it is used.
+
+That one matters more than it looks: **`/me/portal` is 808ms for a fixture
+holding nothing at all, and it is the floor for every page in my.thread**,
+because every page calls `loadSession`. A wave removed from it is a wave
+removed from every tab.
+
+**A PostgREST builder is not a promise**, and the first version of this got
+that wrong in a way worth recording. A builder is a THENABLE whose `then()`
+builds the headers and performs the fetch — *every time it is called*
+(postgrest-js 2.105.4, `PostgrestBuilder.ts:256`). So holding a builder and
+awaiting it later starts nothing early; and "starting" it by calling `then()`
+once and then awaiting the builder again runs the query **twice**, discards
+the first result, and leaves the latency exactly where it was. An
+optimisation that was a regression, caught in review before it shipped.
+
+What ships is `Promise.resolve(builder)` with the RESULT kept: `then()` is
+called once, now, and the real promise it returns can be awaited anywhere.
+Proved by counting, not by arguing — five tests against a real builder with a
+counting `fetch`, including the broken shape asserting **two** requests so the
+regression cannot come back quietly. One of them corrected a second mistake of
+mine: the fetch is not issued synchronously but on a later tick, which is
+still before the handler's next real wait.
+
+The guard on the early query is a guard, not error handling — an un-awaited
+rejection would crash the process instead of surfacing the first real failure.
+The error still arrives at the `await`, through `rows()`, exactly as before.
+
+Checked for the same pattern across the API: every other `let q = adminClient…`
+is the conditional-build shape that awaits once. This was the only instance.
+
 ## [1.191.0] — 2026-10-14
 
 ### my.thread acknowledges the click
