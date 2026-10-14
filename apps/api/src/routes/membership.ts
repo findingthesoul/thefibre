@@ -50,7 +50,7 @@ import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
 import { runThreadAccessSync } from '../lib/thread-access.js';
-import { teamCalendarNamesForTier } from '../lib/member-discount.js';
+import { teamCalendarNamesFor } from '../lib/member-discount.js';
 import { effectiveInterval } from '../lib/membership-interval.js';
 import {
   applyPct,
@@ -1210,7 +1210,10 @@ membershipRoutes.post('/members', async (c) => {
         renewsAt,
         tierDescription: tier?.description ?? null,
         characteristics: (tier?.characteristics as string[] | null) ?? null,
-        calendarTeamNames: await teamCalendarNamesForTier(memberFields.tier_id),
+        calendarTeamNames: await teamCalendarNamesFor(memberFields.tier_id, {
+          personId: data.person_id as string,
+          workspaceId: ctx.workspaceId,
+        }),
         portalUrl: `${stackSurfaceUrl('my-portal', process.env)}/memberships`,
         email: person.email,
         invoiceFollows: false,
@@ -2698,6 +2701,18 @@ membershipRoutes.post('/public/join', async (c) => {
             // back to us the way an address can. Merged into purchase.billing
             // in the webhook. Absent when the panel collected neither.
             ...billingMetadata(d.billing),
+            // THE TICKED EXTRAS, on the SUBSCRIPTION and not only on the
+            // session — because the welcome email is composed from
+            // `sub.metadata`, and the purchase rows it would otherwise have
+            // to read are written by a DIFFERENT event.
+            //
+            // `checkout.session.completed` writes those rows before it
+            // converges the member, deliberately. But `invoice.paid` reaches
+            // the same converge through memberForInvoice, and Stripe does not
+            // promise an order between the two. Whichever lands first wins,
+            // so the email could be composed before the rows exist — missing
+            // the calendar for exactly the first member who bought one.
+            ...(options.length ? { option_product_ids: options.map((o) => o.id).join(',') } : {}),
           },
         },
         // The customer we just wrote, so the invoice carries OUR details —
@@ -3079,12 +3094,26 @@ async function ensureMemberFromSubscription(
     // THIS USED TO READ GRANTS KEYED ON THE TIER ALONE, and therefore printed
     // nothing on soul.com — where every team_calendar grant hangs off a
     // PRODUCT, not a tier (checked on production 2026-10-14: five such grants,
-    // none tier-keyed). `teamCalendarNamesForTier` is the resolver the member
-    // price already uses, so the email now names exactly the calendars the
-    // member will actually be given a member price on. A second, narrower copy
-    // of "what does this tier include" is how the two disagreed in the first
+    // none tier-keyed). `teamCalendarNamesFor` is the resolver the member price
+    // already uses, so the email now names exactly the calendars the member
+    // will actually be given a member price on. A second, narrower copy of
+    // "what does this tier include" is how the two disagreed in the first
     // place.
-    const calendarTeamNames = await teamCalendarNamesForTier(meta.tier_id);
+    //
+    // The person goes with the tier, so a calendar that came from an optional
+    // extra they BOUGHT is named too — the tier includes some products and
+    // merely offers others, and a paid-for calendar missing from the welcome
+    // is the same omission in a smaller place.
+    const calendarTeamNames = await teamCalendarNamesFor(meta.tier_id, {
+      personId: meta.person_id,
+      workspaceId: meta.workspace_id,
+      // THE UNION, and it has to be a union. The metadata says what was
+      // bought in THIS join, and is readable before the purchase rows exist;
+      // the table says what was bought in an earlier one, which the metadata
+      // of this subscription knows nothing about. Either source alone drops
+      // a calendar somebody paid for.
+      alsoBought: (meta.option_product_ids ?? '').split(',').filter(Boolean),
+    });
 
     if (person?.email) {
       const msg = membershipWelcome({

@@ -353,18 +353,52 @@ export async function teamCalendarsCarriedBy(
 }
 
 /**
- * The NAMES of the calendars a tier carries, for the welcome email.
+ * The NAMES of the calendars this membership opens, for the welcome email.
  *
  * Reads the grants, never a guess — the email says "your membership includes
  * {team}'s calendar", and a sentence like that must not be printed on a hope.
+ *
+ * `owner` is the person the membership is for, and passing it adds the
+ * calendars carried by products they bought OUTRIGHT. A tier includes some
+ * products and merely offers others, so without this somebody who ticked an
+ * optional extra that carries a calendar — the Fellowship, on soul.com — got
+ * a welcome email that never mentioned the calendar they had just paid for.
+ * The lookup lives here rather than at the call sites, because a call site
+ * that has to remember it is a call site that will forget it.
+ *
+ * `alsoBought` is for ids the CALLER knows about and the table may not yet:
+ * on a paid join the purchase rows are written by one Stripe event and the
+ * welcome composed from another, in an order Stripe does not promise. The two
+ * sources are UNIONED rather than chosen between — the caller's ids are this
+ * join, the table's are every earlier one, and either alone drops a calendar
+ * somebody paid for.
  *
  * Sorted by name so two members of one tier get the same email. Returns []
  * rather than throwing: a missing calendar line is better than a failed
  * welcome.
  */
-export async function teamCalendarNamesForTier(tierId: string): Promise<string[]> {
+export async function teamCalendarNamesFor(
+  tierId: string,
+  owner?: { personId: string; workspaceId: string; alsoBought?: string[] } | null,
+): Promise<string[]> {
   try {
-    const held = await teamCalendarsCarriedBy(tierId);
+    const { data: bought } = owner
+      ? await adminClient
+          .from('membership_product_purchase')
+          .select('product_id')
+          .eq('workspace_id', owner.workspaceId)
+          .eq('person_id', owner.personId)
+          .eq('status', 'paid')
+      : { data: [] as { product_id: string }[] };
+    const held = await teamCalendarsCarriedBy(
+      tierId,
+      [
+        ...new Set([
+          ...(bought ?? []).map((b) => b.product_id as string),
+          ...(owner?.alsoBought ?? []),
+        ]),
+      ].filter(Boolean),
+    );
     if (!held.length) return [];
     const { data: teams } = await adminClient
       .from('team')

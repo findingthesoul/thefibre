@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.187.1] — 2026-10-14
+
+### A calendar you bought, named in the welcome
+
+`teamCalendarNamesFor` counted the products a tier INCLUDES. A tier also
+*offers* products, and soul.com's "Pathway: Fellowship" offers "Accreditation
+program (year 1)" as an optional extra — which carries the soul.com fellowship
+calendar. So the first Pathway member to tick that extra would have received a
+welcome email that never mentioned the calendar they had just paid for.
+
+`teamCalendarsCarriedBy` already took bought product ids; nothing was passing
+them. The helper takes the person now and does the purchase lookup itself,
+because a call site that has to remember it is a call site that will forget it.
+Both triggers pass it.
+
+**And the first version of this fix would still have missed the first member.**
+Asked whether the purchase rows exist by the time the email is composed:
+`checkout.session.completed` writes them before it converges the member,
+deliberately. But `invoice.paid` reaches the same converge through
+`memberForInvoice`, and Stripe promises no order between the two events. If
+`invoice.paid` lands first, the welcome is composed while the rows do not
+exist — missing the calendar for exactly the member this was written for.
+
+`option_product_ids` was on the SESSION's metadata only, and the welcome is
+composed from `sub.metadata`, so it could not be read there either. It rides
+`subscription_data` now, and the welcome takes the UNION: the metadata for
+this join, the purchase table for every earlier one. Either source alone drops
+a calendar somebody paid for.
+
+A guard test holds the two sides together, because this failure is invisible
+in every local run — it needs two Stripe events in an order you cannot ask
+for. It asserts `subscription_data.metadata` carries every key the webhook
+reads back off `sub.metadata`, and it was mutation-tested: removing
+`option_product_ids` from that block alone fails two of its three cases.
+
+Nobody on production has bought an à-la-carte product yet, so this fixes an
+omission before anybody met it rather than after — the select was still run
+against production, and the offer that would have triggered it is real and
+live.
+
+### Two app versions that had not moved
+
+The release script warned that Members showed v1.1.1 while eleven commits had
+touched it, and Thread v4.7.0 while three had. Both had changed something a
+person sees — the Members list opening on Active, and six footers — so both
+constants move: Members to 1.2.0, Thread to 4.7.1. `apps/my` was 4 commits
+behind and is left alone deliberately: every one of them touched only its
+`package.json`, so there is nothing a person would notice.
+
 ## [1.187.0] — 2026-10-14
 
 ### Two triggers, and now the same words
