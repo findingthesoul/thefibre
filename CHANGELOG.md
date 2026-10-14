@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.195.1] — 2026-10-14
+
+### Every Thread page loses about half a second
+
+`GET /thread/me` sits on EVERY page of The Thread — the app layout asks it
+whether this person's organiser page lives elsewhere — and it read five
+things one after another (the platform profile, the personal room, the
+Google and Zoom connections, the Stripe account): about **1s** on staging,
+measured for the thread-click work. None of the five needs another's answer,
+so they are read together now. Same answer, same order of checks for a first
+visit (the organiser row is still provisioned first).
+
 ## [1.195.0] — 2026-10-14
 
 ### Home: the community page in my.thread

@@ -373,7 +373,18 @@ threadRoutes.get('/me', async (c) => {
   // lib/payment-accounts (user_profile first, app columns as fallback).
   // Platform profile provides the shared display fields; the organiser row
   // holds app-level overrides (docs/platform-spot-members-profile.md).
-  const profile = await profileFor(ctx.userId);
+  //
+  // TOGETHER, not one after another. This route sits on EVERY Thread page —
+  // the app layout calls it (lib/organiser-block.ts) — and its five reads
+  // below were awaited in a row, about 1s on staging (2026-10-14) and so a
+  // floor under the whole app. None needs another's answer.
+  const [profile, personalRoomUrl, googleToken, zoomToken, stripeAccountId] = await Promise.all([
+    profileFor(ctx.userId),
+    userPersonalRoom(ctx.userId),
+    userGoogleToken(ctx.userId),
+    isZoomConfigured() ? userZoomToken(ctx.userId) : Promise.resolve(null),
+    personalStripeAccount(ctx.userId),
+  ]);
 
   return c.json({
     ...organiser,
@@ -385,16 +396,16 @@ threadRoutes.get('/me', async (c) => {
     display_name: profile?.display_name ?? organiser.display_name ?? null,
     bio: profile?.bio ?? organiser.bio ?? null,
     photo_url: profile?.photo_url ?? organiser.photo_url ?? null,
-    personal_room_url: await userPersonalRoom(ctx.userId),
+    personal_room_url: personalRoomUrl,
     // Which online options this person can actually use, so the editor can
     // preselect one instead of making them pick and then discover it does not
     // work. Sjoerd, 2026-10-01: *"the least should be: if there is a personal
     // room.. it should work... if there is a google meet it should work"*.
     // Booleans, never the tokens: the editor needs to know THAT a connection
     // exists, and a credential must not leave the API for a UI decision.
-    google_connected: !!(await userGoogleToken(ctx.userId)),
-    zoom_available: isZoomConfigured() && !!(await userZoomToken(ctx.userId)),
-    stripe_account_id: await personalStripeAccount(ctx.userId),
+    google_connected: !!googleToken,
+    zoom_available: isZoomConfigured() && !!zoomToken,
+    stripe_account_id: stripeAccountId,
   });
 });
 
