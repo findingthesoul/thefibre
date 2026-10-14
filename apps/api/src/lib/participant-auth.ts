@@ -26,6 +26,12 @@ const jwks = process.env.NEXT_PUBLIC_SUPABASE_URL
     )
   : null;
 
+/** Fetch the signing keys at boot rather than on the first signed-in request
+ *  (server.ts calls it once the port is open). */
+export async function warmJwks(): Promise<void> {
+  await jwks?.reload();
+}
+
 /**
  * The verified email behind a participant's bearer token, or null.
  *

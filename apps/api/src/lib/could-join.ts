@@ -130,6 +130,30 @@ export function holdsTeamCalendar(entitlements: Entitlements): boolean {
   return [...entitlements.values()].some((list) => list.length > 0);
 }
 
+/** Which threads this person already HOLDS, by the enrol route's own rule.
+ *
+ *  POST /thread/public/enrol answers `already_enrolled` for ANY existing
+ *  thread_enrolment, whatever its enrolment status, with one exception: a row
+ *  whose payment is `pending` or `failed` (a bailed checkout, an expired
+ *  session) is reused and the payment branch runs again. So that row is
+ *  joinable from the list — "Join" finishes the payment — and every other row
+ *  is not, because offering it would offer a join the route refuses.
+ *
+ *  Matches the route rather than what might seem fair (a CANCELLED place is
+ *  still "held" here), because a list that promised a rejoin the route then
+ *  refused would be worse than one that does not offer it. Whether a
+ *  cancelled participant may rejoin is a question for the route; when it
+ *  changes, this changes with it. (Coordinator review of v1.192.0.) */
+export function heldThreadIds(
+  rows: { thread_id: string | null; payment_status: string | null }[],
+): Set<string> {
+  return new Set(
+    rows
+      .filter((r) => r.thread_id && r.payment_status !== 'pending' && r.payment_status !== 'failed')
+      .map((r) => r.thread_id as string),
+  );
+}
+
 /** A required sign-up question means the thread's own form, not one click. */
 export function hasRequiredQuestion(fields: unknown): boolean {
   return (

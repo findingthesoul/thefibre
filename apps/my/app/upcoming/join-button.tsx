@@ -18,7 +18,11 @@ import { NOTICE } from '@thefibre/shared/ui/recipes';
 import type { CouldJoin } from '@/lib/portal-api';
 import { money } from '@/lib/format';
 
-type Outcome = { kind: 'in' } | { kind: 'pending' } | { kind: 'error'; message: string };
+type Outcome =
+  | { kind: 'in' }
+  | { kind: 'already' }
+  | { kind: 'pending' }
+  | { kind: 'error'; message: string };
 
 export function JoinButton({ j }: { j: CouldJoin }) {
   const router = useRouter();
@@ -52,6 +56,7 @@ export function JoinButton({ j }: { j: CouldJoin }) {
         error?: unknown;
         checkout_url?: string;
         pending_approval?: boolean;
+        already_enrolled?: boolean;
       };
       if (!res.ok) {
         setOutcome({
@@ -66,7 +71,16 @@ export function JoinButton({ j }: { j: CouldJoin }) {
         window.location.href = body.checkout_url;
         return;
       }
-      setOutcome(body.pending_approval ? { kind: 'pending' } : { kind: 'in' });
+      // already_enrolled: the enrol route found a place this person already
+      // holds and changed nothing. Saying "You're in" there would claim a
+      // join that did not happen.
+      setOutcome(
+        body.already_enrolled
+          ? { kind: 'already' }
+          : body.pending_approval
+            ? { kind: 'pending' }
+            : { kind: 'in' },
+      );
       // The thread is now one of theirs: it leaves this list and appears
       // under Next. Refresh so both say so.
       router.refresh();
@@ -79,6 +93,11 @@ export function JoinButton({ j }: { j: CouldJoin }) {
 
   if (outcome?.kind === 'in') {
     return <p className={`${NOTICE.success} mt-3`}>You’re in. It is under Next now.</p>;
+  }
+  if (outcome?.kind === 'already') {
+    return (
+      <p className={`${NOTICE.info} mt-3`}>You’re already signed up for this one. It is under Next.</p>
+    );
   }
   if (outcome?.kind === 'pending') {
     return (

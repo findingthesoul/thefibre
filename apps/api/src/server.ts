@@ -5,7 +5,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import { cors } from 'hono/cors';
 import { hit, clientIp } from './lib/rate-limit.js';
 import { CORS_ALLOW_METHODS, isAllowedOrigin } from './lib/cors-origins.js';
-import { appContext } from './middleware/app-context.js';
+import { appContext, warmJwks as warmAppJwks } from './middleware/app-context.js';
 import { authRoutes } from './routes/auth.js';
 import { personsRoutes } from './routes/persons.js';
 import { connectionsRoutes } from './routes/connections.js';
@@ -33,6 +33,8 @@ import { flowRoutes } from './routes/flow.js';
 import { pulseRoutes } from './routes/pulse.js';
 import { membershipRoutes, runMembershipScheduler } from './routes/membership.js';
 import { withSchedulerLease } from './lib/scheduler-lease.js';
+import { bootDelay } from './lib/boot-schedule.js';
+import { warmJwks as warmParticipantJwks } from './lib/participant-auth.js';
 import { runBillingMeterTick } from './routes/billing.js';
 import { runHygieneSweep } from './lib/hygiene.js';
 import { currenciesRoutes } from './routes/currencies.js';
@@ -348,15 +350,22 @@ app.route('/', v1);
 const port = Number(process.env.API_PORT ?? 8080);
 serve({ fetch: app.fetch, port }, ({ port }) => {
   console.log(`thefibre-api listening on :${port}`);
+  // Fetch the signing keys now, not on the first signed-in click: measured
+  // on v359, that first request paid ~550ms more than the second.
+  void Promise.all([warmAppJwks(), warmParticipantJwks()]).catch((e) =>
+    console.warn('[boot] JWKS prefetch failed; the first request will fetch it', e),
+  );
 });
 
 // Thread message scheduler — fixed + relative messages send when due.
 // The Fly machine is pinned warm (min_machines_running=1), so an in-process
 // interval is reliable; every send is dedup-logged, so restarts/overlaps
-// are safe. First run shortly after boot, then every 5 minutes.
+// are safe. First run at +90s, staggered, then every 5 minutes — see
+// lib/boot-schedule.ts for why not sooner (a fresh machine's first request
+// once took 13.6s inside the old +15s/+20s burst).
 // DIY VAT: mirror the /admin/vat table into Stripe tax_rate objects at boot
 // (idempotent — touches Stripe only on drift).
-setTimeout(() => void ensureStripeTaxRates(), 15_000);
+setTimeout(() => void ensureStripeTaxRates(), bootDelay(0));
 
 // Every tick runs under a LEASE (lib/scheduler-lease.ts, 2026-09-26): the Fly
 // config deploys blue-green, so for a moment two processes are up and both
@@ -370,40 +379,47 @@ function leased(name: string, run: () => Promise<unknown>, label: string) {
     await run();
   }).catch((e) => console.error(`[${label}] run failed`, e));
 }
-function runAllSchedulers() {
-  leased('thread-messages', runThreadMessageScheduler, 'thread/scheduler');
+// Each job: [lease name, run, log label]. Started one at a time from
+// bootDelay(1) on, each on its own five-minute cadence from its own start.
+const JOBS: [string, () => Promise<unknown>, string][] = [
+  ['thread-messages', runThreadMessageScheduler, 'thread/scheduler'],
   // Membership renewal reminders + manual-member grace/lapse sweep + the
   // Circle / Fibre-seat / Google / Thread access syncs.
-  leased('membership', runMembershipScheduler, 'membership/scheduler');
+  ['membership', runMembershipScheduler, 'membership/scheduler'],
   // Usage meters: 80% warnings, overage invoice items, Free archive sweep
   // (hourly guard lives inside the lib — and is module memory, hence the lease).
-  leased('billing-meters', runBillingMeterTick, 'billing/meters');
+  ['billing-meters', runBillingMeterTick, 'billing/meters'],
   // Nightly hygiene sweep (connections-data-integrity.md §9.3); its own
   // nightly guard is persisted in hygiene_run.
-  leased('hygiene', runHygieneSweep, 'hygiene');
+  ['hygiene', runHygieneSweep, 'hygiene'],
   // Monthly platform-fee statements: the previous month, from the 2nd on;
   // idempotent on the ledger (lib/fee-statements.ts).
-  leased('fee-statements', () => runFeeStatementTick(), 'fee-statements');
+  ['fee-statements', () => runFeeStatementTick(), 'fee-statements'],
   // To-do archive: ticked items sit there seven days, then get FILED out of
   // the view — never deleted (Sjoerd, 2026-09-23: "archive - not delete").
   // Idempotent and a single UPDATE.
-  leased('file-finished-tasks', fileFinishedTasks, 'me/tasks');
+  ['file-finished-tasks', fileFinishedTasks, 'me/tasks'],
   // Weekly probe of Stripe Tax → the VAT table (its own guard reads the last
   // run from platform settings). Under the lease since 2026-10-01: it was the
   // one tick still fired bare, and its guard is read-then-write, so two
   // processes in a blue-green window could both pass it, both probe Stripe
   // and both mail the operator the same change.
-  leased('vat-sync', maybeSyncVatRates, 'vat-sync');
+  ['vat-sync', maybeSyncVatRates, 'vat-sync'],
   // A customer's own web host stays in the CORS allow-list only while its
   // DNS still points at us: re-read from Vercel hourly, demote otherwise
   // (docs/domain-package.md part 2). No-op without a Vercel token.
-  leased('web-domains', runWebDomainRecheck, 'domains/recheck');
+  ['web-domains', runWebDomainRecheck, 'domains/recheck'],
   // Booking requests that were never answered: the earlier of 48h or their
   // own start time, then they expire and give the slot back. The counterpart
   // to the hold in v1.111.0 — without this, one unanswered request parks a
   // host's time for good. Idempotent: the flip is conditional on the row
   // still being pending.
-  leased('meet-request-expiry', runMeetRequestExpiry, 'meet/request-expiry');
-}
-setTimeout(runAllSchedulers, 20_000);
-setInterval(runAllSchedulers, SCHEDULER_INTERVAL_MS);
+  ['meet-request-expiry', runMeetRequestExpiry, 'meet/request-expiry'],
+];
+JOBS.forEach(([name, run, label], i) => {
+  const tick = () => leased(name, run, label);
+  setTimeout(() => {
+    tick();
+    setInterval(tick, SCHEDULER_INTERVAL_MS);
+  }, bootDelay(i + 1));
+});

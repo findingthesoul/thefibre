@@ -65,7 +65,9 @@ export async function POST(req: Request) {
       // takes invoices only answers 409 here, and the button then sends the
       // member to the page, where they can give billing details.
       payment_method: 'stripe',
-      policy_accepted: true,
+      // What the member did, never a constant: if POLICIES ever has no
+      // required entry, an unticked box must not be recorded as accepted.
+      policy_accepted: b.policy_accepted === true,
       policy_version: policiesVersion(),
       request_id: b.request_id,
     }),

@@ -82,6 +82,7 @@ import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import {
   couldJoinFrom,
   entitlementsByMember,
+  heldThreadIds,
   holdsTeamCalendar,
   pageCouldJoin,
   sortCouldJoin,
@@ -663,10 +664,13 @@ portalRoutes.get('/portal', async (c) => {
   // SIX HERE, and the page shows the rest. A card is a glance, not a
   // catalogue — and the sort runs before the cap inside the walk, so these
   // are the soonest six rather than an arbitrary six.
-  const alreadyIn = new Set(
-    (enrolments ?? [])
-      .map((e) => (one(e.thread as never) as { id?: string } | null)?.id)
-      .filter((x): x is string => !!x),
+  // The enrol route's own rule (heldThreadIds): an unpaid place is still
+  // joinable, so the card offers to finish it; any other place is held.
+  const alreadyIn = heldThreadIds(
+    (enrolments ?? []).map((e) => ({
+      thread_id: (one(e.thread as never) as { id?: string } | null)?.id ?? null,
+      payment_status: (e.payment_status as string | null) ?? null,
+    })),
   );
   // The entitlements are kept, not only the list: whether ANY membership
   // carries a team calendar is what shows "Upcoming" in my.thread's nav.
@@ -873,7 +877,7 @@ portalRoutes.get('/portal/upcoming', async (c) => {
       .then((r) => rows('portal upcoming: members', r)),
     adminClient
       .from('thread_enrolment')
-      .select('thread_id')
+      .select('thread_id, payment_status')
       .in('person_id', personIds)
       .then((r) => rows('portal upcoming: enrolments', r)),
   ]);
@@ -885,7 +889,9 @@ portalRoutes.get('/portal/upcoming', async (c) => {
       workspace_id: m.workspace_id as string,
     })),
   );
-  const alreadyIn = new Set(enrolled.map((e) => e.thread_id as string));
+  const alreadyIn = heldThreadIds(
+    enrolled as { thread_id: string | null; payment_status: string | null }[],
+  );
   const byMember = await couldJoinFrom(entitlements, alreadyIn, null);
 
   // ONE ROW PER THREAD. Two memberships can reach the same calendar (a tier

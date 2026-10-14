@@ -14,6 +14,12 @@ const jwks = supabaseUrl
   ? createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`))
   : null;
 
+/** Fetch the signing keys at boot rather than on the first signed-in request
+ *  (server.ts calls it once the port is open). */
+export async function warmJwks(): Promise<void> {
+  await jwks?.reload();
+}
+
 export type RequestContext = {
   /**
    * `public.user.id` — the platform user. Use this for any FK to `user(id)`.

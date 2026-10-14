@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.192.1] — 2026-10-14
+
+### The first click after a deploy no longer lands in the scheduler burst
+
+**Item 1's cause, as far as it can be measured.** On the v359 staging deploy
+Node took ~9s from exec to listening, and Fly moved traffic the moment the
+health check passed. Until now `ensureStripeTaxRates` then fired at +15s and
+all nine schedulers fired together at +20s, on one shared CPU and one
+outbound pool. That is the window a person's first click lands in, and the
+warm-up in `deploy-api.sh` cannot cover it: it runs only after `fly deploy`
+returns, which is after the window has passed. The 13.6s was not reproduced
+on v359 (warm-up 0.33s, first signed-in call 869ms server-side), so this is
+the best-supported cause, not a proven one.
+
+- Background work starts at **+90s**, one job every 10s (`lib/boot-schedule.ts`),
+  each on its own five-minute cadence. Every job stays under its lease;
+  `scheduler-wiring.test.ts` reads the new table and still refuses a bare job.
+  `boot-schedule.test.ts` refuses a literal short timer in `server.ts`.
+- **The JWKS signing keys are fetched at boot**, not on the first signed-in
+  request, which paid ~550ms more than the second on v359.
+
+### Upcoming: what review found
+
+- **`/api/join` records the box the member ticked**, never a constant. Today
+  the privacy statement is required, so it was the same value — but a policy
+  list with no required entry would have recorded an acceptance nobody gave.
+- **"Already joined" follows the enrol route exactly** (`heldThreadIds`), on
+  the card and on the page. The route answers `already_enrolled` for any
+  existing place except an UNPAID one (payment `pending` or `failed`), which
+  it reuses to run the payment again. So an unpaid place now shows in the list
+  with its price, and "Join" finishes it. A cancelled place stays held, because
+  the route refuses a rejoin; whether it should is a question for Sjoerd, not
+  for the list.
+- **The Join button says "You're already signed up for this one"** when the
+  route answers `already_enrolled`, instead of claiming a new join.
+
+### A staging fixture with two team calendars
+
+`apps/api/scripts/seed-upcoming-fixture.mjs` (staging only; refuses
+production). Permanent workspaces `fixture-upcoming-choir` and
+`fixture-upcoming-band`, content replaced on every run. The fixture address
+holds two memberships: Choir's calendar on the TIER at 100%, Band's through a
+PRODUCT at 20%. Each calendar has a listed thread, an unlisted one, and one
+with a required question. Over HTTP on staging, `/me/portal/upcoming` returns
+exactly the six rows that shape implies. `--email <addr>` gives the two
+memberships to a real staging address so a person can look signed in.
+
+It also produced the number `docs/handover-portal-entitlements-batching.md`
+was missing: **`/me/portal` with two memberships takes 1.4–1.5s, against
+~0.4s with none.**
+
 ## [1.192.0] — 2026-10-14
 
 ### Upcoming threads in my.thread, and joining from the list
