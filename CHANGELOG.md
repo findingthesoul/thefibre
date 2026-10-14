@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.197.0] — 2026-10-14
+
+### Member page: links as documents, and tags in the introduction
+
+Sjoerd: *"Make it title, then type [link or upload]. A document could also be
+a link (e.g. to a google doc). Can you add tags for the textfield {first_name}
+etc."*
+
+- **A document is a title and a type — Upload or Link.** A link entry holds
+  a title and an address; only `http`/`https` is accepted (never
+  `javascript:` or `data:`), checked by one shared rule
+  (`@thefibre/shared/member-page` `safeLinkUrl`) in the editor before the
+  save and in the API at the door. In my.thread it shows a link icon and
+  opens in a new tab with `noopener`. Links and files drag into one order;
+  uploads work as before.
+- **Tags in the introduction:** `{first_name}`, `{last_name}`, `{community}`,
+  `{tier}` (the member's tier name), `{next_event}` (the title of what is next
+  for them), offered as chips under the editor that insert at the caret.
+  `{name}` — the thread messages' spelling — is accepted too. The intro is
+  stored as typed and filled at READ time, per member, after sanitising, with
+  every value HTML-escaped, so a name cannot inject markup. An unknown tag
+  stays visible as typed (the admin sees the typo); a missing value becomes
+  empty. A name made from the mailbox is capitalised, as the welcome email
+  does. One shared list drives the chips and the filling.
+- **Preview** next to Save shows the saved introduction as the first active
+  member (by name) reads it.
+- `RichTextField` gains an optional `insertTokens` row (additive; no other
+  caller changes).
+- Tests: `member-page.test.ts` (shared) — escaping a `<script>` name in text
+  and in an attribute, unknown tag kept, missing value empty, `{name}` alias,
+  `javascript:`/`data:`/`file:` refused; `member-page.int.test.ts` on staging —
+  a link reaches the member as a link and removes without a file, bad
+  addresses store nothing, and a member named `<script>` gets an escaped intro.
+
 ## [1.196.3] — 2026-10-14
 
 ### A duplicated thread copies everything — and the next new column cannot slip past

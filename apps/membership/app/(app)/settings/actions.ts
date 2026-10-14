@@ -119,6 +119,31 @@ export async function removeMemberDocument(id: string): Promise<ActionResult> {
   return memberPageCall(`/documents/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export type MemberLink = { id: string; title: string; kind: 'link'; url: string; uploaded_at: string };
+
+/** A link entry — title + http(s) address; the API refuses anything else. */
+export async function addMemberLink(url: string, title: string | null): Promise<ActionResult<MemberLink>> {
+  try {
+    const data = await apiFetch<MemberLink>('/api/v1/membership/member-page/links', {
+      method: 'POST',
+      body: JSON.stringify({ url, title }),
+    });
+    revalidatePath('/settings/member-page');
+    return { ok: true, data };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+/** The SAVED intro as one real member reads it, tags filled. */
+export async function previewMemberIntro(): Promise<ActionResult<{ member_name: string | null; intro_html: string | null }>> {
+  try {
+    return { ok: true, data: await apiFetch('/api/v1/membership/member-page/preview') };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 /** The circuit breaker's held threads: announce them as one digest. */
 export async function announceHeldThreads(): Promise<ActionResult> {
   try {

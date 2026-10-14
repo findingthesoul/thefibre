@@ -240,7 +240,7 @@ export type CommunityView = {
   name: string;
   logo_url: string | null;
   intro_html: string | null;
-  documents: { id: string; title: string; mime: string; bytes: number }[];
+  documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string })[];
   thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
   next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;
 };

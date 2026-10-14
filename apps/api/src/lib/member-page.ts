@@ -19,6 +19,8 @@
 import { randomUUID } from 'node:crypto';
 import { adminClient } from '../db.js';
 import { sanitizeRichText } from './rich-text.js';
+import { fillMemberPageTags, safeLinkUrl } from '@thefibre/shared/member-page';
+import { greetingName } from './email/membership-templates.js';
 import { EXT, MIME, sniff, stripMetadata } from './file-sniff.js';
 import { couldJoinByMember } from './could-join.js';
 import { loadAgendaByThread, personsForEmail } from './portal-agenda.js';
@@ -32,13 +34,29 @@ const SIGNED_SECONDS = 60;
 export type StoredDocument = {
   id: string;
   title: string;
+  /** Absent on entries written before links existed: those are files. */
+  kind?: 'file';
   path: string;
   mime: string;
   bytes: number;
   uploaded_at: string;
 };
 
-export type MemberPage = { intro_html: string | null; documents: StoredDocument[] };
+/** A document that is an ADDRESS — a Google Doc, a page elsewhere (Sjoerd,
+ *  2026-10-14: "A document could also be a link"). Nothing is stored; the
+ *  member's browser opens it in a new tab. */
+export type LinkDocument = {
+  id: string;
+  title: string;
+  kind: 'link';
+  url: string;
+  uploaded_at: string;
+};
+
+export type PageDocument = StoredDocument | LinkDocument;
+export const isLink = (d: PageDocument): d is LinkDocument => d.kind === 'link';
+
+export type MemberPage = { intro_html: string | null; documents: PageDocument[] };
 
 const one = <T>(v: unknown): T | null =>
   !v ? null : Array.isArray(v) ? ((v[0] ?? null) as T | null) : (v as T);
@@ -106,6 +124,22 @@ export async function addDocument(
   return doc;
 }
 
+/** Add a link entry, at the end of the list like an upload. */
+export async function addLink(ws: string, rawUrl: unknown, title: string | null): Promise<LinkDocument | 'bad_url'> {
+  const url = safeLinkUrl(rawUrl);
+  if (!url) return 'bad_url';
+  const doc: LinkDocument = {
+    id: randomUUID(),
+    title: (title?.trim() || new URL(url).hostname).slice(0, 200),
+    kind: 'link',
+    url,
+    uploaded_at: new Date().toISOString(),
+  };
+  const page = await readMemberPage(ws);
+  await writeMemberPage(ws, { ...page, documents: [...page.documents, doc] });
+  return doc;
+}
+
 export async function renameDocument(ws: string, id: string, title: string): Promise<boolean> {
   const page = await readMemberPage(ws);
   if (!page.documents.some((d) => d.id === id)) return false;
@@ -121,7 +155,7 @@ export async function renameDocument(ws: string, id: string, title: string): Pro
 export async function reorderDocuments(ws: string, ids: string[]): Promise<void> {
   const page = await readMemberPage(ws);
   const byId = new Map(page.documents.map((d) => [d.id, d]));
-  const ordered = ids.map((id) => byId.get(id)).filter((d): d is StoredDocument => !!d);
+  const ordered = ids.map((id) => byId.get(id)).filter((d): d is PageDocument => !!d);
   const rest = page.documents.filter((d) => !ids.includes(d.id));
   await writeMemberPage(ws, { ...page, documents: [...ordered, ...rest] });
 }
@@ -134,8 +168,10 @@ export async function removeDocument(ws: string, id: string): Promise<boolean> {
   const page = await readMemberPage(ws);
   const doc = page.documents.find((d) => d.id === id);
   if (!doc) return false;
-  const { error } = await adminClient.storage.from(BUCKET).remove([doc.path]);
-  if (error) throw new Error(`remove file: ${error.message}`);
+  if (!isLink(doc)) {
+    const { error } = await adminClient.storage.from(BUCKET).remove([doc.path]);
+    if (error) throw new Error(`remove file: ${error.message}`);
+  }
   await writeMemberPage(ws, { ...page, documents: page.documents.filter((d) => d.id !== id) });
   return true;
 }
@@ -168,8 +204,10 @@ export async function memberCommunities(email: string): Promise<{ workspace_id: 
 export async function signedDocumentUrl(email: string, ws: string, docId: string): Promise<string | null> {
   const mine = await memberCommunities(email);
   if (!mine.some((m) => m.workspace_id === ws)) return null;
-  const doc = (await readMemberPage(ws)).documents.find((d) => d.id === docId);
-  if (!doc) return null;
+  const found = (await readMemberPage(ws)).documents.find((d) => d.id === docId);
+  // A link entry has no stored file to sign; the page links to it directly.
+  if (!found || isLink(found)) return null;
+  const doc = found;
   const isPdf = doc.mime === 'application/pdf';
   const filename = `${doc.title.replace(/[^\p{L}\p{N} ._-]+/gu, '').trim() || 'document'}.${doc.path.split('.').pop()}`;
   const { data, error } = await adminClient.storage
@@ -184,7 +222,9 @@ export type CommunityView = {
   name: string;
   logo_url: string | null;
   intro_html: string | null;
-  documents: { id: string; title: string; mime: string; bytes: number }[];
+  /** A file (kind 'file', fetched through the signed route) or a link
+   *  (kind 'link', opened directly). */
+  documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string })[];
   /** Document steps from the member's own threads in this community, ONLY
    *  those already released to them by the thread's own triggers. */
   thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
@@ -197,9 +237,15 @@ export async function communityView(
   now: Date = new Date(),
 ): Promise<CommunityView> {
   const ws = member.workspace_id;
-  const [{ data: wsRow }, page] = await Promise.all([
+  const [{ data: wsRow }, page, { data: who }] = await Promise.all([
     adminClient.from('workspace').select('name, brand_logo_url').eq('id', ws).maybeSingle(),
     readMemberPage(ws),
+    // For the intro's tags only — the member's own name and tier.
+    adminClient
+      .from('membership_member')
+      .select('tier:tier_id (name), person:person_id (first_name, last_name, email)')
+      .eq('id', member.member_id)
+      .maybeSingle(),
   ]);
 
   // The member's own live places in this community.
@@ -283,12 +329,31 @@ export async function communityView(
     if (first?.starts_on) next = { title: first.title, starts_at: first.starts_on, thread_title: null, url: first.url, kind: 'upcoming' };
   }
 
+  const community = (wsRow?.name as string | undefined) ?? '';
+  const person = one<{ first_name?: string | null; last_name?: string | null; email?: string | null }>(who?.person);
+  const firstName = (person?.first_name ?? '').trim();
+  const intro = page.intro_html
+    ? fillMemberPageTags(page.intro_html, {
+        // A name derived from the mailbox is capitalised, as the welcome
+        // email does; a typed name is left as its owner wrote it.
+        first_name: firstName ? greetingName(firstName, person?.email) : '',
+        last_name: person?.last_name ?? '',
+        community,
+        tier: one<{ name?: string | null }>(who?.tier)?.name ?? '',
+        next_event: next?.title ?? '',
+      })
+    : null;
+
   return {
     workspace_id: ws,
-    name: (wsRow?.name as string | undefined) ?? '',
+    name: community,
     logo_url: (wsRow?.brand_logo_url as string | null | undefined) ?? null,
-    intro_html: page.intro_html,
-    documents: page.documents.map((d) => ({ id: d.id, title: d.title, mime: d.mime, bytes: d.bytes })),
+    intro_html: intro,
+    documents: page.documents.map((d) =>
+      isLink(d)
+        ? { id: d.id, title: d.title, kind: 'link' as const, url: d.url }
+        : { id: d.id, title: d.title, kind: 'file' as const, mime: d.mime, bytes: d.bytes },
+    ),
     thread_documents: threadDocuments,
     next,
   };

@@ -2580,6 +2580,110 @@ const CATALOG = {
     de: 'Wird hochgeladen…', // MT
     fr: 'Téléversement…', // MT
   },
+  mp_tags_hint: {
+    en: 'Tags are filled in for each member when they open the page. An unknown tag is shown as typed.',
+    nl: 'Tags worden per lid ingevuld wanneer die de pagina opent. Een onbekende tag blijft staan zoals getypt.', // MT
+    es: 'Las etiquetas se rellenan para cada miembro al abrir la página. Una etiqueta desconocida se muestra tal cual.', // MT
+    pt: 'As etiquetas são preenchidas para cada membro quando abre a página. Uma etiqueta desconhecida aparece como foi escrita.', // MT
+    de: 'Tags werden für jedes Mitglied beim Öffnen der Seite ausgefüllt. Ein unbekannter Tag bleibt so stehen, wie er getippt wurde.', // MT
+    fr: 'Les balises sont remplies pour chaque membre à l’ouverture de la page. Une balise inconnue reste telle quelle.', // MT
+  },
+  mp_preview: {
+    en: 'Preview',
+    nl: 'Voorbeeld', // MT
+    es: 'Vista previa', // MT
+    pt: 'Pré-visualizar', // MT
+    de: 'Vorschau', // MT
+    fr: 'Aperçu', // MT
+  },
+  mp_preview_as: {
+    en: 'As {name} sees the saved introduction:',
+    nl: 'Zoals {name} de opgeslagen introductie ziet:', // MT
+    es: 'Como {name} ve la introducción guardada:', // MT
+    pt: 'Como {name} vê a introdução guardada:', // MT
+    de: 'So sieht {name} die gespeicherte Einleitung:', // MT
+    fr: 'Comme {name} voit l’introduction enregistrée :', // MT
+  },
+  mp_preview_none: {
+    en: 'No active member yet to preview as.',
+    nl: 'Nog geen actief lid om als voorbeeld te gebruiken.', // MT
+    es: 'Aún no hay ningún miembro activo para la vista previa.', // MT
+    pt: 'Ainda não há nenhum membro ativo para pré-visualizar.', // MT
+    de: 'Noch kein aktives Mitglied für die Vorschau.', // MT
+    fr: 'Pas encore de membre actif pour l’aperçu.', // MT
+  },
+  mp_preview_close: {
+    en: 'Close preview',
+    nl: 'Voorbeeld sluiten', // MT
+    es: 'Cerrar vista previa', // MT
+    pt: 'Fechar pré-visualização', // MT
+    de: 'Vorschau schließen', // MT
+    fr: 'Fermer l’aperçu', // MT
+  },
+  mp_type: {
+    en: 'Type',
+    nl: 'Soort', // MT
+    es: 'Tipo', // MT
+    pt: 'Tipo', // MT
+    de: 'Art', // MT
+    fr: 'Type', // MT
+  },
+  mp_type_upload: {
+    en: 'Upload',
+    nl: 'Uploaden', // MT
+    es: 'Subir', // MT
+    pt: 'Carregar', // MT
+    de: 'Hochladen', // MT
+    fr: 'Téléverser', // MT
+  },
+  mp_type_link: {
+    en: 'Link',
+    nl: 'Link', // MT
+    es: 'Enlace', // MT
+    pt: 'Link', // MT
+    de: 'Link', // MT
+    fr: 'Lien', // MT
+  },
+  mp_url: {
+    en: 'Web address',
+    nl: 'Webadres', // MT
+    es: 'Dirección web', // MT
+    pt: 'Endereço web', // MT
+    de: 'Webadresse', // MT
+    fr: 'Adresse web', // MT
+  },
+  mp_add_link: {
+    en: 'Add link',
+    nl: 'Link toevoegen', // MT
+    es: 'Añadir enlace', // MT
+    pt: 'Adicionar link', // MT
+    de: 'Link hinzufügen', // MT
+    fr: 'Ajouter le lien', // MT
+  },
+  mp_bad_url: {
+    en: 'Use a full web address starting with https://',
+    nl: 'Gebruik een volledig webadres dat begint met https://', // MT
+    es: 'Usa una dirección web completa que empiece por https://', // MT
+    pt: 'Usa um endereço web completo a começar por https://', // MT
+    de: 'Verwende eine vollständige Webadresse, die mit https:// beginnt', // MT
+    fr: 'Utilise une adresse web complète commençant par https://', // MT
+  },
+  mp_link_hint: {
+    en: 'A link opens in a new tab — a Google Doc, a page, a folder. Members see the title, not the address.',
+    nl: 'Een link opent in een nieuw tabblad — een Google Doc, een pagina, een map. Leden zien de titel, niet het adres.', // MT
+    es: 'Un enlace se abre en una pestaña nueva: un Google Doc, una página, una carpeta. Los miembros ven el título, no la dirección.', // MT
+    pt: 'Um link abre num novo separador — um Google Doc, uma página, uma pasta. Os membros veem o título, não o endereço.', // MT
+    de: 'Ein Link öffnet sich in einem neuen Tab — ein Google Doc, eine Seite, ein Ordner. Mitglieder sehen den Titel, nicht die Adresse.', // MT
+    fr: 'Un lien s’ouvre dans un nouvel onglet — un Google Doc, une page, un dossier. Les membres voient le titre, pas l’adresse.', // MT
+  },
+  mp_link_title_placeholder: {
+    en: 'Optional — the site\'s name otherwise',
+    nl: 'Optioneel — anders de naam van de site', // MT
+    es: 'Opcional — si no, el nombre del sitio', // MT
+    pt: 'Opcional — senão, o nome do site', // MT
+    de: 'Optional — sonst der Name der Seite', // MT
+    fr: 'Facultatif — sinon le nom du site', // MT
+  },
   mp_upload_hint: {
     en: 'PDF, PNG, JPEG or WebP, up to 10 MB. Only members can open them, through a link that works for a minute. Photos lose their location and camera data.',
     nl: 'PDF, PNG, JPEG of WebP, tot 10 MB. Alleen leden kunnen ze openen, via een link die een minuut werkt. Foto’s verliezen hun locatie- en cameragegevens.', // MT

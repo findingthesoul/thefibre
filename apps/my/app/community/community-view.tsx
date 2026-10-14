@@ -3,7 +3,7 @@
 // already sent them. Members only — the API answers nothing to anyone else.
 
 import Link from 'next/link';
-import { FileText, Image as ImageIcon } from 'lucide-react';
+import { FileText, Image as ImageIcon, Link2 } from 'lucide-react';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import { ROW_LIST, SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import type { CommunityView } from '@/lib/portal-api';
@@ -42,19 +42,34 @@ export function CommunityPage({ c }: { c: CommunityView }) {
           <ul className={`mt-3 ${ROW_LIST}`}>
             {c.documents.map((d) => (
               <li key={d.id}>
-                {/* Through this app's own route: it checks the session and
-                    hands over a one-minute address. */}
-                <a
-                  href={`/community-document/${c.workspace_id}/${d.id}`}
-                  className="flex min-h-11 items-center gap-3 px-4 py-3 text-sm text-ink hover:bg-surface-sunken sm:px-5"
-                >
-                  {d.mime === 'application/pdf' ? (
-                    <FileText size={18} strokeWidth={1.75} className="shrink-0 text-ink-subtle" aria-hidden />
-                  ) : (
-                    <ImageIcon size={18} strokeWidth={1.75} className="shrink-0 text-ink-subtle" aria-hidden />
-                  )}
-                  <span className="min-w-0 flex-1 truncate">{d.title}</span>
-                </a>
+                {d.kind === 'link' ? (
+                  // A link entry: straight to the address, in a new tab, with
+                  // no opener — the page it opens cannot reach back into this
+                  // one. The API only stores http(s) addresses.
+                  <a
+                    href={d.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-h-11 items-center gap-3 px-4 py-3 text-sm text-ink hover:bg-surface-sunken sm:px-5"
+                  >
+                    <Link2 size={18} strokeWidth={1.75} className="shrink-0 text-ink-subtle" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{d.title}</span>
+                  </a>
+                ) : (
+                  /* Through this app's own route: it checks the session and
+                     hands over a one-minute address. */
+                  <a
+                    href={`/community-document/${c.workspace_id}/${d.id}`}
+                    className="flex min-h-11 items-center gap-3 px-4 py-3 text-sm text-ink hover:bg-surface-sunken sm:px-5"
+                  >
+                    {d.mime === 'application/pdf' ? (
+                      <FileText size={18} strokeWidth={1.75} className="shrink-0 text-ink-subtle" aria-hidden />
+                    ) : (
+                      <ImageIcon size={18} strokeWidth={1.75} className="shrink-0 text-ink-subtle" aria-hidden />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{d.title}</span>
+                  </a>
+                )}
               </li>
             ))}
           </ul>

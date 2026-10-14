@@ -4,6 +4,9 @@ import { announceHeld, dismissHeld, heldThreads } from '../lib/member-notify.js'
 import { GRANT_THREAD_PROBLEM, resolveGrantThread } from '../lib/thread-grant.js';
 import {
   addDocument,
+  addLink,
+  communityView,
+  isLink,
   readMemberPage,
   removeDocument,
   renameDocument,
@@ -1854,8 +1857,43 @@ membershipRoutes.get('/member-page', async (c) => {
   return c.json({
     intro_html: page.intro_html,
     // The storage path stays on the server.
-    documents: page.documents.map((d) => ({ id: d.id, title: d.title, mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at })),
+    documents: page.documents.map((d) =>
+      isLink(d)
+        ? { id: d.id, title: d.title, kind: 'link', url: d.url, uploaded_at: d.uploaded_at }
+        : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at },
+    ),
   });
+});
+
+// The intro as one real member reads it, tags filled — the editor's
+// "Preview as …". The first active member by name; nothing is written.
+membershipRoutes.get('/member-page/preview', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const { data: rows, error } = await adminClient
+    .from('membership_member')
+    .select('id, person_id, person:person_id (first_name, last_name, email)')
+    .eq('workspace_id', ws)
+    .in('status', ['active', 'grace'])
+    .is('deleted_at', null)
+    .limit(200);
+  if (error) return fail(c, 'preview member', error);
+  type Row = { id: string; person_id: string; person: { first_name?: string | null; last_name?: string | null; email?: string | null } | null };
+  const label = (r: Row) => [r.person?.first_name, r.person?.last_name].filter(Boolean).join(' ') || r.person?.email || '';
+  const pick = ((rows ?? []) as unknown as Row[]).sort((a, b) => label(a).localeCompare(label(b)))[0];
+  if (!pick) return c.json({ member_name: null, intro_html: null });
+  const view = await communityView({ workspace_id: ws, person_id: pick.person_id, member_id: pick.id });
+  return c.json({ member_name: label(pick), intro_html: view.intro_html });
+});
+
+// A link entry: title + an http(s) address (lib/member-page.ts safeLinkUrl).
+membershipRoutes.post('/member-page/links', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { url?: unknown; title?: unknown } | null;
+  const r = await addLink(ws, body?.url, typeof body?.title === 'string' ? body.title : null);
+  if (r === 'bad_url') return c.json({ error: 'Use a full web address starting with https:// (or http://).' }, 400);
+  return c.json({ id: r.id, title: r.title, kind: 'link', url: r.url, uploaded_at: r.uploaded_at }, 201);
 });
 
 membershipRoutes.put('/member-page', async (c) => {
@@ -1884,7 +1922,7 @@ membershipRoutes.post('/member-page/documents', async (c) => {
   if (r === 'not_allowed') return c.json({ error: 'PDF, PNG, JPEG or WebP only.' }, 400);
   if (r === 'empty') return c.json({ error: 'That file is empty.' }, 400);
   if (r === 'corrupt') return c.json({ error: 'That file looks damaged or incomplete. Export it again and retry.' }, 400);
-  return c.json({ id: r.id, title: r.title, mime: r.mime, bytes: r.bytes, uploaded_at: r.uploaded_at }, 201);
+  return c.json({ id: r.id, title: r.title, kind: 'file', mime: r.mime, bytes: r.bytes, uploaded_at: r.uploaded_at }, 201);
 });
 
 membershipRoutes.patch('/member-page/documents/:id', async (c) => {

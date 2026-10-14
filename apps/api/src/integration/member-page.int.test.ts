@@ -60,8 +60,9 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  const p = await page.readMemberPage(ws).catch(() => ({ documents: [] as { path: string }[] }));
-  if (p.documents.length) await service.storage.from('member-documents').remove(p.documents.map((d) => d.path));
+  const p = await page.readMemberPage(ws).catch(() => ({ documents: [] as { path?: string }[] }));
+  const paths = p.documents.map((d) => ('path' in d ? d.path : undefined)).filter((x): x is string => !!x);
+  if (paths.length) await service.storage.from('member-documents').remove(paths);
   await service.from('membership_settings').delete().eq('workspace_id', ws);
   const { data: tes } = await service.from('thread_enrolment').select('id').eq('workspace_id', ws);
   if (tes?.length) await service.from('thread_enrolment').delete().in('id', tes.map((t) => t.id));
@@ -116,6 +117,52 @@ describe('documents', () => {
     expect(data).toBeNull();
     expect(error).not.toBeNull();
     expect((await page.readMemberPage(ws)).documents).toEqual([]);
+  });
+});
+
+describe('link entries', () => {
+  it('a link is stored as title + address and reaches the member as a link', async () => {
+    const r = await page.addLink(ws, 'https://docs.google.com/document/d/abc/edit', 'Rehearsal notes');
+    expect(typeof r).toBe('object');
+    const link = r as Exclude<typeof r, string>;
+    expect(link).toMatchObject({ kind: 'link', title: 'Rehearsal notes', url: 'https://docs.google.com/document/d/abc/edit' });
+    // The member's view carries the address; the signed route has nothing to sign.
+    const view = await page.communityView({ workspace_id: ws, person_id: memberPerson, member_id: memberId });
+    expect(view.documents.find((d) => d.id === link.id)).toEqual({ id: link.id, title: 'Rehearsal notes', kind: 'link', url: link.url });
+    expect(await page.signedDocumentUrl(memberEmail, ws, link.id)).toBeNull();
+    // It drags into the same order as the files, and removes without a file.
+    expect(await page.removeDocument(ws, link.id)).toBe(true);
+    expect((await page.readMemberPage(ws)).documents.some((d) => d.id === link.id)).toBe(false);
+  });
+
+  it('refuses javascript:, data: and non-addresses — nothing is stored', async () => {
+    for (const bad of ['javascript:alert(document.cookie)', 'data:text/html,<script>1</script>', 'not a url']) {
+      expect(await page.addLink(ws, bad, 'x')).toBe('bad_url');
+    }
+    expect((await page.readMemberPage(ws)).documents.filter((d) => d.kind === 'link')).toEqual([]);
+  });
+});
+
+describe('tags in the introduction', () => {
+  it('are filled per member, escaped, at read time; an unknown tag stays as typed', async () => {
+    await page.saveIntro(ws, '<p>Hi {first_name} {last_name}, welcome to {community} as {tier}. {frist_name}</p>');
+    // Stored as typed: the tags are filled when READ, per member.
+    expect((await page.readMemberPage(ws)).intro_html).toContain('{first_name}');
+
+    // A member whose name is markup.
+    await service.from('person').update({ first_name: '<script>alert(1)</script>', last_name: null }).eq('id', memberPerson);
+    try {
+      const view = await page.communityView({ workspace_id: ws, person_id: memberPerson, member_id: memberId });
+      const { data: w } = await service.from('workspace').select('name').eq('id', ws).single();
+      expect(view.intro_html).not.toContain('<script>');
+      expect(view.intro_html).toContain('Hi &lt;script&gt;alert(1)&lt;/script&gt; , welcome to');
+      expect(view.intro_html).toContain(`welcome to ${w!.name} as Member page tier.`);
+      expect(view.intro_html).toContain('{frist_name}');
+      expect(view.intro_html).not.toContain('{last_name}');
+    } finally {
+      await service.from('person').update({ first_name: 'M' }).eq('id', memberPerson);
+      await page.saveIntro(ws, null);
+    }
   });
 });
 

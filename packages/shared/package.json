@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.196.3",
+  "version": "1.197.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -129,6 +129,10 @@
     "./link-kinds": {
       "types": "./dist/link-kinds.d.ts",
       "default": "./dist/link-kinds.js"
+    },
+    "./member-page": {
+      "types": "./dist/member-page.d.ts",
+      "default": "./dist/member-page.js"
     },
     "./money": {
       "types": "./dist/money.d.ts",

@@ -1032,6 +1032,14 @@ const CHROME = {
     de: 'Link', // MT
     fr: 'Lien', // MT
   },
+  rt_insert: {
+    en: 'Insert:',
+    nl: 'Invoegen:',
+    es: 'Insertar:', // MT
+    pt: 'Inserir:', // MT
+    de: 'Einfügen:', // MT
+    fr: 'Insérer :', // MT
+  },
   clear_formatting: {
     en: 'Clear formatting',
     nl: 'Opmaak wissen',

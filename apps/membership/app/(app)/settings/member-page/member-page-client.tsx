@@ -2,19 +2,27 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, GripVertical, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { FileText, GripVertical, Image as ImageIcon, Link2, Trash2 } from 'lucide-react';
 import { RichTextField } from '@thefibre/shared/ui/rich-text-field';
-import { NOTICE } from '@thefibre/shared/ui/recipes';
+import { RichText } from '@thefibre/shared/ui/rich-text';
+import { MEMBER_PAGE_TAGS, safeLinkUrl } from '@thefibre/shared/member-page';
+import { CHIP, CHIP_STATE, NOTICE } from '@thefibre/shared/ui/recipes';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import {
+  addMemberLink,
+  previewMemberIntro,
   removeMemberDocument,
   renameMemberDocument,
   reorderMemberDocuments,
   saveMemberIntro,
 } from '../actions';
 
-export type MemberDocument = { id: string; title: string; mime: string; bytes: number; uploaded_at: string };
+export type MemberDocument =
+  | { id: string; title: string; kind: 'file'; mime: string; bytes: number; uploaded_at: string }
+  | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string };
+
+const TAG_CHIPS = MEMBER_PAGE_TAGS.map((tag) => `{${tag}}`);
 
 const size = (b: number) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
@@ -35,7 +43,34 @@ export function MemberPageClient({
   const [saved, setSaved] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [title, setTitle] = useState('');
+  const [kind, setKind] = useState<'upload' | 'link'>('upload');
+  const [url, setUrl] = useState('');
+  const [preview, setPreview] = useState<{ member_name: string | null; intro_html: string | null } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function addLink() {
+    // The same rule the API applies, so the refusal comes before the save.
+    if (!safeLinkUrl(url)) return setError(t(locale, 'mp_bad_url'));
+    setBusy('link');
+    setError(null);
+    const r = await addMemberLink(url.trim(), title.trim() || null);
+    setBusy(null);
+    if (r.error || !r.data) return setError(r.error ?? t(locale, 'mp_bad_url'));
+    setDocs((d) => [...d, r.data!]);
+    setTitle('');
+    setUrl('');
+    router.refresh();
+  }
+
+  async function togglePreview() {
+    if (preview) return setPreview(null);
+    setBusy('preview');
+    setError(null);
+    const r = await previewMemberIntro();
+    setBusy(null);
+    if (r.error || !r.data) setError(r.error ?? 'preview failed');
+    else setPreview(r.data);
+  }
 
   async function saveIntro() {
     setBusy('intro');
@@ -113,13 +148,30 @@ export function MemberPageClient({
           defaultValue={intro}
           onHtmlChange={setHtml}
           minHeight={180}
+          insertTokens={TAG_CHIPS}
         />
+        <p className="text-xs text-ink-muted">{t(locale, 'mp_tags_hint')}</p>
         <div className="flex items-center gap-3">
           <Button type="button" variant="save" onClick={saveIntro} disabled={busy === 'intro'}>
             {busy === 'intro' ? t(locale, 'saving') : t(locale, 'mp_save_intro')}
           </Button>
           {saved && <span className="text-sm text-ink-muted">{t(locale, 'saved_dot')}</span>}
+          <Button type="button" variant="ghost" onClick={togglePreview} disabled={busy === 'preview'}>
+            {preview ? t(locale, 'mp_preview_close') : t(locale, 'mp_preview')}
+          </Button>
         </div>
+        {preview && (
+          <div className="rounded-md border border-line bg-surface p-4">
+            {preview.member_name ? (
+              <>
+                <p className="mb-3 text-xs text-ink-muted">{t(locale, 'mp_preview_as', { name: preview.member_name })}</p>
+                {preview.intro_html ? <RichText html={preview.intro_html} /> : null}
+              </>
+            ) : (
+              <p className="text-sm text-ink-muted">{t(locale, 'mp_preview_none')}</p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-line bg-surface-raised p-5 space-y-4">
@@ -138,7 +190,9 @@ export function MemberPageClient({
                 className={`flex items-center gap-3 px-3 py-2 ${dragIdx === i ? 'opacity-50' : ''}`}
               >
                 <GripVertical size={16} className="shrink-0 cursor-grab text-ink-muted" aria-hidden />
-                {d.mime === 'application/pdf' ? (
+                {d.kind === 'link' ? (
+                  <Link2 size={16} className="shrink-0 text-ink-subtle" aria-hidden />
+                ) : d.mime === 'application/pdf' ? (
                   <FileText size={16} className="shrink-0 text-ink-subtle" aria-hidden />
                 ) : (
                   <ImageIcon size={16} className="shrink-0 text-ink-subtle" aria-hidden />
@@ -149,7 +203,13 @@ export function MemberPageClient({
                   onBlur={(e) => e.target.value.trim() && e.target.value !== d.title && void rename(d.id, e.target.value)}
                   className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm hover:border-line focus:border-line-strong focus:outline-none"
                 />
-                <span className="shrink-0 text-xs text-ink-muted">{size(d.bytes)}</span>
+                {d.kind === 'link' ? (
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" className="max-w-[12rem] shrink-0 truncate text-xs text-ink-muted underline underline-offset-2">
+                    {new URL(d.url).hostname}
+                  </a>
+                ) : (
+                  <span className="shrink-0 text-xs text-ink-muted">{size(d.bytes)}</span>
+                )}
                 <button
                   type="button"
                   onClick={() => void remove(d.id)}
@@ -164,22 +224,60 @@ export function MemberPageClient({
           </ul>
         )}
 
-        <div className="flex flex-wrap items-end gap-3 border-t border-line pt-4">
-          <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm text-ink-subtle">
-            {t(locale, 'mp_title')}
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t(locale, 'mp_title_placeholder')}
-              className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-line-strong focus:outline-none"
-            />
-          </label>
-          <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="text-sm" />
-          <Button type="button" onClick={upload} disabled={busy === 'upload'}>
-            {busy === 'upload' ? t(locale, 'mp_uploading') : t(locale, 'mp_upload')}
-          </Button>
+        <div className="space-y-3 border-t border-line pt-4">
+          <div className="flex items-center gap-1.5" role="radiogroup" aria-label={t(locale, 'mp_type')}>
+            <span className="mr-1 text-sm text-ink-subtle">{t(locale, 'mp_type')}</span>
+            {(['upload', 'link'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={kind === k}
+                onClick={() => setKind(k)}
+                className={`${CHIP} ${kind === k ? CHIP_STATE.on : CHIP_STATE.off}`}
+              >
+                {t(locale, k === 'upload' ? 'mp_type_upload' : 'mp_type_link')}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm text-ink-subtle">
+              {t(locale, 'mp_title')}
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={t(locale, kind === 'link' ? 'mp_link_title_placeholder' : 'mp_title_placeholder')}
+                className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-line-strong focus:outline-none"
+              />
+            </label>
+            {kind === 'upload' ? (
+              <>
+                <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="text-sm" />
+                <Button type="button" onClick={upload} disabled={busy === 'upload'}>
+                  {busy === 'upload' ? t(locale, 'mp_uploading') : t(locale, 'mp_upload')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <label className="flex min-w-[14rem] flex-[2] flex-col gap-1 text-sm text-ink-subtle">
+                  {t(locale, 'mp_url')}
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://"
+                    className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-line-strong focus:outline-none"
+                  />
+                </label>
+                <Button type="button" onClick={addLink} disabled={busy === 'link' || !url.trim()}>
+                  {t(locale, 'mp_add_link')}
+                </Button>
+              </>
+            )}
+          </div>
+          <p className="text-xs text-ink-muted">{t(locale, kind === 'link' ? 'mp_link_hint' : 'mp_upload_hint')}</p>
         </div>
-        <p className="text-xs text-ink-muted">{t(locale, 'mp_upload_hint')}</p>
       </section>
 
       {error && <p className={NOTICE.error}>{error}</p>}

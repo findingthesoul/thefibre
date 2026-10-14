@@ -33,6 +33,7 @@ import {
 import type { Locale } from '../i18n.js';
 import { chromeT, type ChromeKey } from './i18n-ui.js';
 import { RICH_TEXT_TYPOGRAPHY } from './rich-text.js';
+import { CHIP, CHIP_STATE } from './recipes.js';
 import { normaliseRichTextBlocks } from '../rich-text-normalise.js';
 
 type Command =
@@ -67,6 +68,7 @@ export function RichTextField({
   errors,
   onHtmlChange,
   minHeight = 96,
+  insertTokens,
 }: {
   locale: Locale;
   label: React.ReactNode;
@@ -80,6 +82,9 @@ export function RichTextField({
    *  caller that wants neither is unaffected. */
   onHtmlChange?: ((html: string) => void) | undefined;
   minHeight?: number;
+  /** Tags offered as chips under the field ("Insert: {first_name} …"); a
+   *  click types the tag at the caret. Absent = no row, as before. */
+  insertTokens?: readonly string[] | undefined;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   /** Set on the first input. After this, the seeding effect never writes
@@ -182,6 +187,24 @@ export function RichTextField({
     refreshActive();
   }
 
+  /** Type a tag where the caret is — or at the end, when the caret is not in
+   *  this editor (a chip click from a cold start). */
+  function insertToken(token: string) {
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    const sel = document.getSelection();
+    if (!sel || !el.contains(sel.anchorNode)) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+    document.execCommand('insertText', false, token);
+    sync();
+  }
+
   return (
     <div>
       <span className="text-sm text-ink-subtle">{label}</span>
@@ -225,6 +248,23 @@ export function RichTextField({
           className={`px-3 py-2 text-sm text-ink focus:outline-none ${RICH_TEXT_TYPOGRAPHY}`}
         />
       </div>
+      {insertTokens && insertTokens.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-ink-muted">{chromeT(locale, 'rt_insert')}</span>
+          {insertTokens.map((tok) => (
+            <button
+              key={tok}
+              type="button"
+              // preventDefault keeps the caret in the editor through the click.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => insertToken(tok)}
+              className={`${CHIP} ${CHIP_STATE.off} font-mono`}
+            >
+              {tok}
+            </button>
+          ))}
+        </div>
+      )}
       {hint && <span className="mt-1 block text-xs text-ink-muted">{hint}</span>}
       {errors?.map((e) => (
         <span key={e} className="mt-1 block text-xs text-red-700">
