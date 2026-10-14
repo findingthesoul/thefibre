@@ -48,34 +48,62 @@ export async function setDirectoryListing(choice: DirectoryChoice): Promise<Dire
     .eq('workspace_id', workspaceId)
     .in('person_id', personIds);
   if (before.error) return { ok: false, step: 'read before', message: before.error.message };
-  const wasListed = (before.data ?? []).some((e) => e.listed === true);
+  // PER PERSON, not `.some()` across all of them. A human can hold several
+  // person rows in one workspace (a merge keeps every one), and asking "was
+  // ANY of them listed" meant a single already-listed row suppressed the
+  // consent record for all the others.
+  const listedBefore = new Map(
+    (before.data ?? []).map((e) => [e.person_id as string, e.listed === true]),
+  );
+  const turningOn = personIds.filter((id) => !listedBefore.get(id));
+  const turningOff = personIds.filter((id) => listedBefore.get(id));
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (choice.listed !== undefined) patch.listed = choice.listed;
   if (choice.showContact !== undefined) patch.show_contact = choice.showContact;
 
-  const { error: upsertErr } = await adminClient.from('membership_directory_entry').upsert(
-    personIds.map((person_id) => ({ workspace_id: workspaceId, person_id, ...patch })),
-    { onConflict: 'workspace_id,person_id' },
-  );
-  if (upsertErr) return { ok: false, step: 'save choice', message: upsertErr.message };
+  const saveEntries = async (): Promise<DirectoryResult | null> => {
+    const { error } = await adminClient.from('membership_directory_entry').upsert(
+      personIds.map((person_id) => ({ workspace_id: workspaceId, person_id, ...patch })),
+      { onConflict: 'workspace_id,person_id' },
+    );
+    return error ? { ok: false, step: 'save choice', message: error.message } : null;
+  };
 
-  // The consent record follows the switch, and only when it CHANGES.
-  if (choice.listed === true && !wasListed) {
+  // ORDER MATTERS, AND IT IS DIFFERENT IN EACH DIRECTION.
+  //
+  // The rule: whichever step runs first, a failure of the second must never
+  // leave somebody SHOWN WITHOUT A RECORD of their consent. That is the state
+  // the record exists to make impossible, so it is the state that may not be
+  // the one left behind.
+  //
+  // Turning ON, the consent is written first. Until 2026-10-14 the entry was
+  // flipped first, and a non-23505 failure of the insert returned ok:false
+  // with the person already listed — AND no retry could ever repair it,
+  // because the retry read `listed = true` and concluded the consent had
+  // already been recorded. Listed with no evidence, permanently. Writing the
+  // consent first fails the other way: a record of a consent that really was
+  // given, for somebody not yet shown. That harms nobody, and the retry fixes
+  // it.
+  //
+  // Turning OFF, the entry is flipped first — the same reasoning in reverse.
+  // Stop showing them, then revoke. A failure leaves somebody not shown whose
+  // consent is still on record, which the retry also fixes.
+  if (choice.listed === true && turningOn.length) {
     // ONE STATEMENT PER PERSON, not one statement for all of them.
     //
     // A single multi-row insert is atomic: if ONE of this human's person rows
     // already carries a live consent, the whole statement raises 23505 and
     // none of the others are written. Swallowing that error — which the
-    // paragraph below is about to do, correctly — would then mean a person
-    // row ending up listed with no consent record behind it, which is the
-    // precise failure the record exists to prevent. Per person, each
-    // collision is independent and says only what it means.
+    // paragraph below does, correctly — would then mean a person row ending
+    // up listed with no consent record behind it, which is the precise
+    // failure the record exists to prevent. Per person, each collision is
+    // independent and says only what it means.
     //
     // (A PostgREST upsert with ignoreDuplicates cannot do this job: the index
     // is PARTIAL and over an expression, `coalesce(text_version, '')` where
     // revoked_at is null, and `onConflict` names plain columns.)
-    for (const person_id of personIds) {
+    for (const person_id of turningOn) {
       const { error } = await adminClient.from('consent_record').insert({
         person_id,
         purpose_code: 'member_directory',
@@ -89,28 +117,36 @@ export async function setDirectoryListing(choice: DirectoryChoice): Promise<Dire
       // read-then-write in application code cannot prevent that, so callers
       // treat 23505 here as success."
       //
-      // The read above (`wasListed`) is exactly such a read-then-write. Two
-      // callers both see false, both insert, and the loser was being handed
-      // back an error — so a member double-clicking the switch, or a join
-      // arriving as two webhooks, saw a failure for an operation that had in
-      // fact completed. The row the winner wrote says the same thing the loser
-      // was trying to say; there is nothing left to do and nothing to report.
+      // The read above is exactly such a read-then-write. Two callers both see
+      // "not listed", both insert, and the loser was being handed back an
+      // error — so a member double-clicking the switch, or a join arriving as
+      // two webhooks, saw a failure for an operation that had in fact
+      // completed. The row the winner wrote says the same thing the loser was
+      // trying to say; there is nothing left to do and nothing to report.
       //
       // Only 23505. Anything else is a real failure and still surfaces — a
       // consent write that silently did nothing is the one outcome worse than
-      // an error message, because the entry row would say "listed" with no
-      // evidence behind it.
+      // an error message.
       if (error && error.code !== '23505') {
         return { ok: false, step: 'record consent', message: error.message };
       }
     }
+    const failedOn = await saveEntries();
+    if (failedOn) return failedOn;
+    return { ok: true };
   }
-  if (choice.listed === false && wasListed) {
+
+  const failed = await saveEntries();
+  if (failed) return failed;
+
+  if (choice.listed === false && turningOff.length) {
     // Both: the record is the evidence, the flag is the behaviour (spec §4).
+    // Scoped to the rows that WERE listed — revoking a consent nobody had
+    // given would record a withdrawal that never happened.
     const { error } = await adminClient
       .from('consent_record')
       .update({ revoked_at: new Date().toISOString() })
-      .in('person_id', personIds)
+      .in('person_id', turningOff)
       .eq('purpose_code', 'member_directory')
       .is('revoked_at', null);
     if (error) return { ok: false, step: 'revoke consent', message: error.message };

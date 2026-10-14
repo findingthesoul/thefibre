@@ -18,56 +18,26 @@
 import { adminClient } from '../db.js';
 import { rows } from './rows.js';
 
-export type PriceCondition = {
-  attr: 'country' | 'interval';
-  op: 'in' | 'not_in';
-  values: string[];
-};
-
-export type PriceRule = {
-  when: PriceCondition;
-  pct: number; // 1..1000 — percent of the base price
-  label?: string; // optional display note ("Purchasing-power adjusted")
-};
-
-export type PriceLogic = {
-  rules: PriceRule[];
-  default_pct: number;
-};
-
-export type PriceContext = {
-  country?: string | null; // ISO 3166-1 alpha-2, SELF-DECLARED
-  interval?: 'year' | 'month';
-};
-
-export function evaluatePriceLogic(
-  logic: PriceLogic | null | undefined,
-  ctx: PriceContext,
-): { pct: number; matched: PriceRule | null } {
-  if (!logic) return { pct: 100, matched: null };
-  for (const rule of logic.rules ?? []) {
-    const w = rule.when;
-    if (!w || !Array.isArray(w.values)) continue;
-    const actual =
-      w.attr === 'country'
-        ? (ctx.country ?? '').toUpperCase()
-        : w.attr === 'interval'
-          ? (ctx.interval ?? '')
-          : '';
-    if (!actual) continue; // unknown context never matches — no accidental discounts
-    const values = w.values.map((v) => v.toUpperCase());
-    const inSet = values.includes(actual.toUpperCase());
-    if ((w.op === 'in' && inSet) || (w.op === 'not_in' && !inSet)) {
-      return { pct: clampPct(rule.pct), matched: rule };
-    }
-  }
-  return { pct: clampPct(logic.default_pct ?? 100), matched: null };
-}
-
-function clampPct(pct: number): number {
-  if (!Number.isFinite(pct)) return 100;
-  return Math.min(1000, Math.max(1, Math.round(pct)));
-}
+// THE ARITHMETIC LIVES IN @thefibre/shared/price-logic.
+//
+// It used to live here, and the join panel had its own copy so it could show
+// a price before asking for money. The two disagreed: a 12.5% rule displayed
+// 12.5 and charged 13, and a 0% rule displayed free and charged 1%. One
+// implementation now, imported by both — the panel is the offer, this is the
+// enforcement, and they are the same code.
+//
+// Re-exported under the names this module already published, so every caller
+// is untouched and nothing has to know where it moved.
+export {
+  clampPct,
+  evaluatePriceLogic,
+  applyPct,
+  type PriceCondition,
+  type PriceRule,
+  type PriceLogic,
+  type PriceContext,
+} from '@thefibre/shared/price-logic';
+import type { PriceLogic } from '@thefibre/shared/price-logic';
 
 /** Tier-specific logic wins over the workspace-wide one. */
 export async function priceLogicFor(
@@ -89,9 +59,4 @@ export async function priceLogicFor(
   const general = rules.find((r) => r.tier_id === null);
   const config = (specific ?? general)?.config as PriceLogic | undefined;
   return config ?? null;
-}
-
-/** Apply a pct to integer cents; round to the nearest cent. */
-export function applyPct(amountCents: number, pct: number): number {
-  return Math.max(0, Math.round((amountCents * clampPct(pct)) / 100));
 }

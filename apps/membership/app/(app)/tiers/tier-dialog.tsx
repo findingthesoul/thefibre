@@ -32,6 +32,7 @@ export function TierDialog({
   currency: workspaceCurrency,
   locale,
   nextSortOrder,
+  workspaceSlug,
   onClose,
 }: {
   tier: Tier | null; // null = new
@@ -45,6 +46,10 @@ export function TierDialog({
   locale: Locale;
   /** Where a NEW tier lands: the end of the list. Reordering is drag-and-drop on the list itself. */
   nextSortOrder: number;
+  /** The community's public slug, for the link to an unlisted tier. Null when
+   *  that read failed, in which case no link is offered — half an address is
+   *  worse than none, because somebody would send it. */
+  workspaceSlug: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -66,6 +71,24 @@ export function TierDialog({
   const [firstPeriodEndsOn, setFirstPeriodEndsOn] = useState(
     tier?.first_period_ends_on ?? '',
   );
+  // NOT LISTED ON THE JOIN PAGE (2026-10-14). Shown-on-the-page is the
+  // default and the normal case, so the state is the positive one — an admin
+  // ticks a box to show a tier, not to hide it, and an unticked box is never
+  // the thing that silently happened.
+  const [hidden, setHidden] = useState(Boolean(tier?.hidden));
+  const [copied, setCopied] = useState(false);
+  /** The address to send somebody for an unlisted tier.
+   *
+   *  `window.location.origin` rather than a configured URL: this dialog is
+   *  served BY the membership app, from the same origin as the join page, so
+   *  the browser already knows the answer and cannot get the stack wrong.
+   *  Building it from an env var is how a staging screen has handed out a
+   *  production link before. Empty while server-rendering, which is fine —
+   *  the link is only ever read inside a client handler or an input. */
+  const joinLink =
+    tier?.id && workspaceSlug && typeof window !== 'undefined'
+      ? `${window.location.origin}/${encodeURIComponent(workspaceSlug)}?tier=${tier.id}`
+      : '';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -130,6 +153,7 @@ export function TierDialog({
       price_cents_year: euroToCents(priceYear),
       price_cents_month: euroToCents(priceMonth),
       first_period_ends_on: firstPeriodEndsOn.trim() || null,
+      hidden,
       // Existing tiers keep their position; a new one joins at the end.
       sort_order: tier ? (tier.sort_order ?? 0) : nextSortOrder,
     };
@@ -290,6 +314,62 @@ export function TierDialog({
           <p className="mt-0.5 text-xs text-ink-muted">
             {t(locale, 'first_period_yearly_only')}
           </p>
+        </div>
+        {/* ON THE PAGE, OR BY INVITATION ONLY (2026-10-14).
+            Phrased as "Show on the join page" rather than "Hidden", because
+            a hidden tier is not disabled: it sells and renews exactly like
+            any other, and an admin reading "disabled" would reasonably think
+            it had stopped working. The default is shown. */}
+        <div>
+          <label className="flex items-start gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={!hidden}
+              onChange={(e) => setHidden(!e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>{t(locale, 'tier_hidden_label')}</span>
+          </label>
+          <p className="mt-1 ml-6 text-xs text-ink-muted">
+            {hidden ? t(locale, 'tier_hidden_off') : t(locale, 'tier_hidden_on')}
+          </p>
+          {hidden && (
+            <div className="mt-2 ml-6">
+              <label className="block text-xs font-medium mb-1">
+                {t(locale, 'tier_hidden_link')}
+              </label>
+              {/* A tier that has never been saved has no id, so there is no
+                  link to give yet. Saying so is better than showing an
+                  address with `undefined` in it, which somebody would send. */}
+              {tier?.id && joinLink ? (
+                <div className="flex items-center gap-2">
+                  <input readOnly value={joinLink} className={`${INPUT} text-xs`} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // `writeText` rejects without a secure context or
+                      // permission, and an unhandled rejection here would
+                      // leave the button looking like it worked.
+                      void navigator.clipboard
+                        .writeText(joinLink)
+                        .then(() => {
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        })
+                        .catch(() => setError(joinLink));
+                    }}
+                    className="shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:border-line-strong"
+                  >
+                    {copied ? t(locale, 'copied') : t(locale, 'copy')}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-ink-muted">
+                  {t(locale, 'tier_hidden_link_save_first')}
+                </p>
+              )}
+            </div>
+          )}
         </div>
         {currencyOptions.length > 1 && (
           <div>

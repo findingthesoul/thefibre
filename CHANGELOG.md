@@ -6,6 +6,97 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.183.0] — 2026-10-14
+
+### A tier by invitation, and five things the panel got wrong about money
+
+**A tier can be kept off the join page.** Sjoerd: "can you set that a tier can
+also be NOT visible on a page?" The case is an invitation — a founding rate, a
+board tier, a price agreed with one organisation — that should not sit in the
+public list where everybody prices themselves against it, but must still be
+joinable by the people who were offered it.
+
+Hidden is **not** archived, and the distinction is the whole feature:
+`archived_at` means the tier is finished and nobody joins it by any route;
+`hidden` means it sells and renews exactly as before and is simply not
+advertised. Existing members keep everything. The admin dialog says "Show on
+the join page" rather than "Hidden", because an admin reading "disabled" would
+reasonably think it had stopped working, and it offers the link with a copy
+button once the tier has an id to put in one.
+
+The direct link is `?tier=<id>` on the **same** catalogue endpoint, not a
+second one. All the shaping a tier needs — the included/optional product
+split, the categories it confers, the resolved terms, the price logic — would
+otherwise exist twice, and the day the copies disagree is the day an
+invitation promises something the public page does not. `?tier=` already
+existed to PRESELECT a listed tier, so the page fetches the catalogue whole
+first and only falls back to the single-tier call for an id the list does not
+contain; narrowing the fetch whenever the parameter appeared would have turned
+every existing preselect link into a one-tier page.
+
+Three rules, each with its own test: a hidden tier is not in the list; it IS
+served by its own id; an **archived** tier is served by neither. Plus: a tier
+id from another community is refused, and a malformed one answers 404 rather
+than a database error, because PostgREST answers 400 for an unparseable uuid
+and a mistyped link should not be an error page.
+
+### And the review findings, verified one at a time
+
+An independent read-only review of the week's work turned up seven. Six were
+real; the seventh was not, and saying so is part of the answer.
+
+- **A code survived the tab it was priced for.** Apply a 50% code on Year
+  (€150), switch to Month, and the panel still promised €150 while Checkout
+  would charge €15. `/public/validate-code` is asked for a specific interval
+  and country, so its answer is only true for those — the code now carries the
+  pair it was priced for and is treated as absent when either changes.
+  Staleness is **computed, not reset**: a reset would have to be wired to
+  every input that feeds the price, and the next one added would silently not
+  be.
+- **A hidden extra stayed in the total.** Ticking the yearly Fellowship
+  (€2.000) and switching to Month hid the tick-box but left the extra in the
+  total AND posted its id, so the server refused the join with a 400 naming a
+  product the person could no longer see. The tick-boxes and the total now
+  read one list.
+- **The total didn't add up with a code.** It printed €300 + €3.193,20 above a
+  total of €3.343,20. There is a discount line now, and the figure it shows is
+  the difference between the two numbers already on screen rather than a
+  second calculation that would round on its own.
+- **A consent could be recorded as listed with no evidence.** The entry was
+  flipped to `listed = true` before the consent rows were written, so a failed
+  insert returned an error with the person already listed — and no retry could
+  repair it, because the retry read `listed = true` and concluded the consent
+  had been recorded. Listed without evidence, permanently. The order is now
+  consent-then-entry when turning on and entry-then-revoke when turning off:
+  whichever step fails, the state left behind is never "shown without a
+  record". It also decided with `.some()` across a human's person rows, so one
+  already-listed row suppressed the consent for all the others; it is per
+  person now.
+- **The invite also demoted team and app roles.** `team_member` upserted
+  `role: 'member'` and the app grant took the form's default, so re-inviting a
+  colleague to add them to one more team demoted them in every team and app
+  they already belonged to. Same rule as the workspace role: the invite adds,
+  `PATCH /members/:userId` changes.
+- **The panel's percentages were its own.** `previewPct` returned the raw rule
+  while the charge clamped and rounded it, so a 12.5% rule displayed 12.5 and
+  charged 13, and a 0% rule displayed FREE and charged 1%. The arithmetic now
+  lives once, in `@thefibre/shared/price-logic`, imported by the panel and
+  re-exported under its old names by the API so no caller changed. Eleven
+  tests, including both divergences and the one that matters — a `not_in`
+  country rule must not fire before a country is picked, which is every
+  visitor at first paint.
+
+**The seventh did not reproduce.** The concern was that `membershipInvoicePaid`
+reads the billing period from `lines.data[0]`, which on a split first invoice
+is a one-off — so a cohort member's `renews_at` would be about now. Measured:
+Stripe gives an invoice item on a trialing subscription the SUBSCRIPTION's
+period, so all seven lines carry the anchor and the label is right. My first
+attempt to assert it was the thing that was wrong: it checked `renews_at`
+after the rehearsal had deliberately ended the trial, by which point renewing
+a year from that moment is correct. The rehearsal now asserts what the JOIN
+recorded, which is the real claim, and prints each line's kind and period so
+the next reader can see why.
+
 ## [1.182.0] — 2026-10-14
 
 ### The standard membership terms are approved

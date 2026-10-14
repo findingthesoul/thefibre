@@ -98,6 +98,10 @@ const CreateTier = z.object({
     .optional()
     .nullable(),
   sort_order: z.number().int().optional(),
+  /** Not listed on the public join page, still joinable by direct link
+   *  (2026-10-14). Distinct from `archived`: hidden sells normally and
+   *  renews normally, it is simply not advertised. */
+  hidden: z.boolean().optional(),
 });
 const PatchTier = CreateTier.partial().extend({
   archived: z.boolean().optional(),
@@ -660,7 +664,7 @@ membershipRoutes.get('/tiers', async (c) => {
   const { data, error } = await db
     .from('membership_tier')
     .select(
-      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, first_period_ends_on, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id, optional )',
+      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, first_period_ends_on, hidden, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id, optional )',
     )
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -1944,22 +1948,54 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
   const ws = await publicWorkspace(c.req.param('workspaceSlug'));
   if (!ws) return c.json({ error: 'not found' }, 404);
 
+  // ONE TIER BY ID — the direct link to a hidden tier (2026-10-14).
+  //
+  // A hidden tier is absent from the list by design, so the join page has no
+  // way to learn of it from the catalogue; `?tier=<id>` is how an invitation
+  // names it. Served by THIS handler rather than an endpoint of its own, on
+  // purpose: everything below — the included/optional product split, the
+  // directory categories, the resolved terms, the price logic — would
+  // otherwise exist twice, and the day the two copies disagree is the day a
+  // hidden tier charges or promises something the listed ones do not. One
+  // shaping, two ways in.
+  //
+  // The uuid is checked before it reaches PostgREST, which answers a 400 for
+  // a malformed one and would turn a mistyped link into an error page.
+  const askedTier = c.req.query('tier') ?? null;
+  if (askedTier && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(askedTier)) {
+    return c.json({ error: 'not found' }, 404);
+  }
+
+  // WHICH TIERS BELONG ON THE PAGE. Asked for by id: exactly that one,
+  // hidden or not — that is what the direct link is for. Otherwise the listed
+  // ones only.
+  //
+  // `archived_at` and `workspace_id` apply in BOTH branches, and both matter.
+  // Hidden means "not advertised"; archived means "finished", and a link to a
+  // finished tier must not sell it — that is the one rule a direct link does
+  // not get to bypass. The workspace filter is what stops a link carrying
+  // another community's tier id into this community's join page.
+  const tierQuery = adminClient
+    .from('membership_tier')
+    // `first_period_ends_on` is additive (rule 8) and is here for ONE
+    // reason: the panel charges a full year under it and could not say so.
+    // The launch-cohort rule (@thefibre/shared/fixed-renewal) takes the whole first
+    // year up front and renews on a fixed date, and the only place that was
+    // visible was the Stripe receipt — after paying. "Nobody is asked for
+    // money before they have agreed to anything" (v1.173.0) is not only
+    // about the terms box; it is about the amount and the date too.
+    //
+    // `hidden` is additive too, and the page reads it to say "this tier is
+    // not listed" beside a tier reached by its link.
+    .select(
+      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, first_period_ends_on, hidden, membership_tier_product ( product_id, optional )',
+    )
+    .eq('workspace_id', ws.id)
+    .is('archived_at', null)
+    .order('sort_order', { ascending: true });
+
   const [{ data: tiers }, { data: products }, { data: settings }] = await Promise.all([
-    adminClient
-      .from('membership_tier')
-      // `first_period_ends_on` is additive (rule 8) and is here for ONE
-      // reason: the panel charges a full year under it and could not say so.
-      // The launch-cohort rule (@thefibre/shared/fixed-renewal) takes the whole first
-      // year up front and renews on a fixed date, and the only place that was
-      // visible was the Stripe receipt — after paying. "Nobody is asked for
-      // money before they have agreed to anything" (v1.173.0) is not only
-      // about the terms box; it is about the amount and the date too.
-      .select(
-        'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, first_period_ends_on, membership_tier_product ( product_id, optional )',
-      )
-      .eq('workspace_id', ws.id)
-      .is('archived_at', null)
-      .order('sort_order', { ascending: true }),
+    askedTier ? tierQuery.eq('id', askedTier) : tierQuery.eq('hidden', false),
     adminClient
       .from('membership_product')
       // price/purchasable are additive (à-la-carte, 2026-09-06): the page
@@ -2225,6 +2261,21 @@ membershipRoutes.post('/public/join', async (c) => {
     return c.json({ error: 'This community has not connected payments yet.' }, 503);
   }
 
+  // BY ID, IN THIS WORKSPACE, NOT ARCHIVED — and deliberately NOT filtered on
+  // `hidden`.
+  //
+  // A hidden tier (2026-10-14) is one that is not advertised on the join page
+  // but is still sold, by invitation, through a direct link. This route is
+  // reached with the tier's id, which is exactly the authority that link
+  // carries, so refusing a hidden tier here would make the feature useless:
+  // the link would open a page that could not be joined. Please do not add
+  // `.eq('hidden', false)` as a tidy-up.
+  //
+  // The two filters that DO matter are both here. `workspace_id` stops a tier
+  // id from one community being joined through another's page, and
+  // `archived_at` stops a stale link selling a tier that has been retired —
+  // that is the difference between hidden and archived, and it is the one
+  // thing a direct link does not get to bypass.
   const { data: tier } = await adminClient
     .from('membership_tier')
     .select('id, name, price_cents_year, price_cents_month, currency, first_period_ends_on')

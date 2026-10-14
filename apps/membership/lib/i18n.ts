@@ -93,6 +93,30 @@ const CATALOG = {
     fr: 'Aucune formule d’adhésion n’est disponible pour le moment — reviens bientôt.', // MT
   },
 
+  // THE CODE'S OWN LINE in the totals, so the column adds up (2026-10-14).
+  code_line: {
+    en: 'Code {code}',
+    nl: 'Code {code}',
+    es: 'C\u00f3digo {code}', // MT
+    pt: 'C\u00f3digo {code}', // MT
+    de: 'Code {code}', // MT
+    fr: 'Code {code}', // MT
+  },
+
+  // AN INVITATION, NOT THE PUBLIC PAGE (2026-10-14). Shown only when a tier
+  // was reached by its direct link and is not listed. It says why the page
+  // looks different from the one somebody else would see, so a visitor does
+  // not forward it believing it is public, or go looking for it later and
+  // conclude the site is broken.
+  tier_by_invitation: {
+    en: 'This membership is by invitation. It isn’t listed on this community’s join page, so the link is the only way to it.',
+    nl: 'Dit lidmaatschap is op uitnodiging. Het staat niet op de aanmeldpagina van deze community, dus de link is de enige weg ernaartoe.',
+    es: 'Esta membres\u00eda es por invitaci\u00f3n. No aparece en la p\u00e1gina de alta de esta comunidad, as\u00ed que el enlace es la \u00fanica forma de llegar a ella.', // MT
+    pt: 'Esta ades\u00e3o \u00e9 por convite. N\u00e3o aparece na p\u00e1gina de ades\u00e3o desta comunidade, por isso o link \u00e9 a \u00fanica forma de chegar a ela.', // MT
+    de: 'Diese Mitgliedschaft gibt es nur auf Einladung. Sie steht nicht auf der Beitrittsseite dieser Community \u2014 der Link ist der einzige Weg dorthin.', // MT
+    fr: 'Cette adh\u00e9sion est sur invitation. Elle n\u2019appara\u00eet pas sur la page d\u2019adh\u00e9sion de cette communaut\u00e9 : le lien est le seul moyen d\u2019y acc\u00e9der.', // MT
+  },
+
   // ── tier cards + join form ───────────────────────────────────────────
   // The bottom line of the extras box, which now includes the membership
   // itself — asked for by Sjoerd looking at his own join page, where the only

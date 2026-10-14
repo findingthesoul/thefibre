@@ -14,6 +14,10 @@ export type Tier = {
    *  normal case — renewal on the anniversary of joining. */
   first_period_ends_on?: string | null;
   archived_at: string | null;
+  /** Not listed on the public join page (2026-10-14). Still joinable by its
+   *  direct link, and existing members are unaffected — which is what makes
+   *  it different from `archived_at`. */
+  hidden?: boolean;
   product_ids: string[];
   optional_product_ids?: string[];
 };

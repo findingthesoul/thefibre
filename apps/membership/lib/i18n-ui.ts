@@ -2008,6 +2008,50 @@ const CATALOG = {
     de: 'Leer lassen: Mitglieder verl\u00e4ngern am Jahrestag ihres Beitritts.', // MT
     fr: 'Laisse vide : les membres renouvellent \u00e0 la date anniversaire de leur adh\u00e9sion.', // MT
   },
+  // NOT LISTED ON THE JOIN PAGE (2026-10-14). The wording is deliberately
+  // about the PAGE and not about the tier being "private" or "disabled" — a
+  // hidden tier sells and renews exactly like any other, and an admin who
+  // reads "disabled" would reasonably think it had stopped working.
+  tier_hidden_label: {
+    en: 'Show on the join page',
+    nl: 'Toon op de aanmeldpagina',
+    es: 'Mostrar en la p\u00e1gina de alta', // MT
+    pt: 'Mostrar na p\u00e1gina de ades\u00e3o', // MT
+    de: 'Auf der Beitrittsseite anzeigen', // MT
+    fr: 'Afficher sur la page d\u2019adh\u00e9sion', // MT
+  },
+  tier_hidden_on: {
+    en: 'Listed for everyone who opens the join page.',
+    nl: 'Zichtbaar voor iedereen die de aanmeldpagina opent.',
+    es: 'Visible para cualquiera que abra la p\u00e1gina de alta.', // MT
+    pt: 'Vis\u00edvel para quem abrir a p\u00e1gina de ades\u00e3o.', // MT
+    de: 'F\u00fcr alle sichtbar, die die Beitrittsseite \u00f6ffnen.', // MT
+    fr: 'Visible par toute personne qui ouvre la page d\u2019adh\u00e9sion.', // MT
+  },
+  tier_hidden_off: {
+    en: 'Not listed. Only people you send the link to can join it — and members on it keep everything, including their renewals.',
+    nl: 'Niet in de lijst. Alleen wie de link krijgt kan zich aanmelden \u2014 en bestaande leden houden alles, ook hun verlenging.',
+    es: 'No aparece en la lista. Solo quien reciba el enlace puede unirse, y los miembros actuales conservan todo, incluida su renovaci\u00f3n.', // MT
+    pt: 'N\u00e3o aparece na lista. Apenas quem receber o link pode aderir, e os membros atuais mant\u00eam tudo, incluindo a renova\u00e7\u00e3o.', // MT
+    de: 'Nicht in der Liste. Nur wer den Link bekommt, kann beitreten \u2014 bestehende Mitglieder behalten alles, auch ihre Verl\u00e4ngerung.', // MT
+    fr: 'Pas dans la liste. Seules les personnes \u00e0 qui tu envoies le lien peuvent adh\u00e9rer, et les membres actuels gardent tout, y compris leur renouvellement.', // MT
+  },
+  tier_hidden_link: {
+    en: 'The link to this tier',
+    nl: 'De link naar dit niveau',
+    es: 'El enlace a este nivel', // MT
+    pt: 'O link para este n\u00edvel', // MT
+    de: 'Der Link zu dieser Stufe', // MT
+    fr: 'Le lien vers ce niveau', // MT
+  },
+  tier_hidden_link_save_first: {
+    en: 'Save the tier first — the link needs its address.',
+    nl: 'Sla het niveau eerst op \u2014 de link heeft het adres nodig.',
+    es: 'Guarda primero el nivel: el enlace necesita su direcci\u00f3n.', // MT
+    pt: 'Guarda primeiro o n\u00edvel: o link precisa do endere\u00e7o dele.', // MT
+    de: 'Speichere die Stufe zuerst \u2014 der Link braucht ihre Adresse.', // MT
+    fr: 'Enregistre d\u2019abord le niveau : le lien a besoin de son adresse.', // MT
+  },
   pick_team_ph: {
     en: 'Pick a team\u2026',
     nl: 'Kies een team\u2026',

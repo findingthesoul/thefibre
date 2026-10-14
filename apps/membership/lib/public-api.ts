@@ -64,6 +64,11 @@ export type PublicTier = {
    *  panel has to say before taking the money, not leave to the receipt.
    *  Optional: most tiers have no such date and renew a year after joining. */
   first_period_ends_on?: string | null;
+  /** Not listed on the join page (2026-10-14). A tier reached by its direct
+   *  link arrives with this true, so the page can say so — somebody opening
+   *  an invitation should know they are looking at something not on offer to
+   *  everybody. Optional: an older API does not send it. */
+  hidden?: boolean;
 };
 
 export type PublicProduct = {
@@ -96,8 +101,21 @@ export type PublicCatalog = {
   join_page: { headline?: string; intro?: string } & Record<string, unknown>;
 };
 
-export async function fetchCatalog(workspaceSlug: string): Promise<PublicCatalog> {
+/** The catalogue, or ONE tier from it.
+ *
+ *  `tierId` is the direct link to an unlisted tier: the API then answers with
+ *  exactly that tier, hidden or not, instead of the listed ones. It is the
+ *  same endpoint on purpose — the shaping of a tier (its included and
+ *  optional products, the categories it confers, the resolved terms) would
+ *  otherwise exist twice, and the day the copies disagree is the day an
+ *  invitation promises something the public page does not. */
+export async function fetchCatalog(
+  workspaceSlug: string,
+  tierId?: string | null,
+): Promise<PublicCatalog> {
   return publicFetch<PublicCatalog>(
-    `/api/v1/membership/public/catalog/${encodeURIComponent(workspaceSlug)}`,
+    `/api/v1/membership/public/catalog/${encodeURIComponent(workspaceSlug)}${
+      tierId ? `?tier=${encodeURIComponent(tierId)}` : ''
+    }`,
   );
 }

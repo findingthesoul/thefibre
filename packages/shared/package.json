@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.182.0",
+  "version": "1.183.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -73,6 +73,10 @@
     "./membership-period": {
       "types": "./dist/membership-period.d.ts",
       "default": "./dist/membership-period.js"
+    },
+    "./price-logic": {
+      "types": "./dist/price-logic.d.ts",
+      "default": "./dist/price-logic.js"
     },
     "./ui/discount-code-field": {
       "types": "./dist/ui/discount-code-field.d.ts",

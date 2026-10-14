@@ -33,6 +33,35 @@ export default async function PublicJoinPage({
     throw e;
   }
 
+  // AN UNLISTED TIER, REACHED BY ITS LINK (2026-10-14).
+  //
+  // `?tier=` already existed, to PRESELECT one of the tiers on the page, and
+  // that must keep working exactly as it did — so the catalogue is fetched
+  // whole first and the single-tier call is only a FALLBACK, for an id the
+  // list does not contain. Narrowing the fetch whenever `?tier=` is present
+  // would have turned every existing preselect link into a one-tier page,
+  // which is a behaviour change nobody asked for.
+  //
+  // When the id IS unlisted, the page shows that tier alone: putting a
+  // private price in the public list is the thing this feature exists to
+  // avoid, and the link may be forwarded.
+  let unlistedOnly = false;
+  if (initialTierId && !catalog.tiers.some((t) => t.id === initialTierId)) {
+    try {
+      const one = await fetchCatalog(workspaceSlug, initialTierId);
+      if (one.tiers.length) {
+        catalog = one;
+        unlistedOnly = true;
+      }
+      // No tiers back means archived, another community's, or simply gone.
+      // The page then renders the ordinary catalogue it already has, which
+      // is the honest answer to a stale invitation — not an error.
+    } catch (e) {
+      // A failed second call must not take down a page that already loaded.
+      if (!(e instanceof PublicApiError)) throw e;
+    }
+  }
+
   const locale: Locale = isLocale(langParam) ? langParam : toLocale(catalog?.locale ?? null);
 
   const { workspace, tiers, products, join_page: joinPage } = catalog;
@@ -59,6 +88,18 @@ export default async function PublicJoinPage({
           <div className="mx-auto mt-6 max-w-lg rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
             {t(locale, 'checkout_cancelled')}
           </div>
+        )}
+
+        {/* SAY WHAT THIS IS. Somebody who opens an invitation is looking at a
+            price that is not on offer to everybody, and a page that said
+            nothing would let them believe it was the public one — then wonder
+            why they cannot find it again, or forward it as though they could.
+            Only shown for a tier reached by its link, never for the ordinary
+            page. */}
+        {unlistedOnly && (
+          <p className="mx-auto mt-6 max-w-lg rounded-lg border border-line bg-surface px-4 py-3 text-center text-sm text-ink-subtle">
+            {t(locale, 'tier_by_invitation')}
+          </p>
         )}
 
         {tiers.length === 0 ? (

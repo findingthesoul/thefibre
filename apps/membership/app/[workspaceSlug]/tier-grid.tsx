@@ -5,6 +5,7 @@
 
 import { useMemo, useState } from 'react';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
+import { applyPct, evaluatePriceLogic, type PriceLogic } from '@thefibre/shared/price-logic';
 import { Check } from 'lucide-react';
 import { COUNTRIES, COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import { payLineFor } from '@/lib/pay-line';
@@ -23,23 +24,15 @@ import { Dialog } from '@/components/ui/dialog';
 // Pricing logic (§3.9): the catalog carries the workspace's price_logic;
 // this PREVIEW mirrors the server's evaluator — the server recomputes the
 // authoritative amount at checkout, so a tampered preview changes nothing.
-export type PriceLogic = {
-  rules: { when: { attr: string; op: string; values: string[] }; pct: number; label?: string }[];
-  default_pct: number;
-};
-function previewPct(logic: PriceLogic | null, country: string, interval: 'year' | 'month'): number {
-  if (!logic) return 100;
-  for (const r of logic.rules ?? []) {
-    const actual = r.when.attr === 'country' ? country : r.when.attr === 'interval' ? interval : '';
-    if (!actual) continue;
-    const inSet = r.when.values.map((v) => v.toUpperCase()).includes(actual.toUpperCase());
-    if ((r.when.op === 'in' && inSet) || (r.when.op === 'not_in' && !inSet)) return r.pct;
-  }
-  return logic.default_pct ?? 100;
-}
-function adjust(cents: number, pct: number): number {
-  return Math.max(0, Math.round((cents * pct) / 100));
-}
+export // WHICH PERCENTAGE, AND WHAT IT DOES TO A PRICE — from the same module the
+// CHARGE uses (@thefibre/shared/price-logic). This panel had its own copy,
+// and the two disagreed on anything that was not a whole number between 1 and
+// 100: a 12.5% rule showed 12.5 here and charged 13, and a 0% rule showed
+// free and charged 1%. A price shown and a price taken may not come from two
+// pieces of code.
+const previewPct = (logic: PriceLogic | null, country: string, interval: 'year' | 'month') =>
+  evaluatePriceLogic(logic, { country, interval }).pct;
+const adjust = applyPct;
 
 // The same list the invoicing picker two fields below uses, sorted by
 // name — they were two copies of one map on one page.
@@ -207,7 +200,22 @@ function TierCard({
   // join route validates the code again from scratch and ignores whatever
   // this form believed. A discount decided in a browser is a discount anybody
   // can decide.
-  const [applied, setApplied] = useState<{ code: string; priceCents: number } | null>(null);
+  //
+  // AND IT REMEMBERS WHAT IT WAS PRICED FOR. `/public/validate-code` is asked
+  // for a specific interval and country, so its answer is only true for
+  // those. Until 2026-10-14 the answer was kept while the tabs changed under
+  // it: apply a 50% code on Year (€150), switch to Month, and the panel still
+  // promised €150 while Checkout would charge €15. A promise broken by a tab.
+  //
+  // Staleness is COMPUTED rather than remembered — `appliedHere` below — so
+  // there is no reset to forget. A reset would have to be wired to every
+  // input that feeds the price, and the next one added would silently not be.
+  const [applied, setApplied] = useState<{
+    code: string;
+    priceCents: number;
+    interval: 'year' | 'month';
+    country: string;
+  } | null>(null);
   const [state, setState] = useState<JoinState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [chosenOptions, setChosenOptions] = useState<Set<string>>(new Set());
@@ -219,7 +227,34 @@ function TierCard({
       return next;
     });
   }
-  const chosen = optionalProducts.filter((p) => chosenOptions.has(p.id));
+  // THE EXTRAS THAT CAN ACTUALLY BE BOUGHT AT THIS INTERVAL — defined once,
+  // and the same list the tick-boxes render from.
+  //
+  // A recurring add-on only rides a subscription of its own interval (Stripe
+  // bills one interval per subscription); 'once' always fits. The RENDER
+  // filtered on this and the total did not, so ticking the yearly Fellowship
+  // (€2.000) and switching to Month hid the box while leaving it in the
+  // total — and posted its id, which the server then refused with a 400
+  // naming a product the person could no longer see. One list, so the offer
+  // and the charge cannot disagree.
+  const compatibleOptions = optionalProducts.filter(
+    (p) => (p.price_interval ?? 'once') === 'once' || p.price_interval === interval,
+  );
+  const chosen = compatibleOptions.filter((p) => chosenOptions.has(p.id));
+  /** Exactly what the join posts: the ids of the extras being charged for.
+   *  Derived from `chosen`, never from the raw tick-box set, so an id that
+   *  has become incompatible is simply not sent. */
+  const chosenIds = chosen.map((p) => p.id);
+
+  /** The code's answer, but only where it is still TRUE.
+   *
+   *  It was priced for one interval and one country. If either has changed
+   *  since, the figure is about a different purchase, and showing it would
+   *  promise a price that will not be charged. Treated as absent instead —
+   *  the field below is keyed on the same pair, so it clears itself and the
+   *  visitor can re-apply and see the real number. */
+  const appliedHere =
+    applied && applied.interval === interval && applied.country === country ? applied : null;
   const optionsExtraCents = chosen.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
   // WHAT COMES BACK EVERY PERIOD, and what does not. A one-time extra is paid
   // once and never again, so naming it in the renewal figure would promise a
@@ -253,9 +288,17 @@ function TierCard({
   // otherwise. The extras ride on top either way — a code discounts the
   // membership, not somebody's add-ons.
   const payNowCents =
-    applied && listCents !== null ? applied.priceCents + optionsExtraCents : listCents;
+    appliedHere && listCents !== null ? appliedHere.priceCents + optionsExtraCents : listCents;
   // The membership at full price plus whatever recurs — NOT today's total,
   // which includes a discount that applies once and extras that are paid once.
+  /** What the code takes off, as the difference between the two figures the
+   *  rows already show. Derived rather than recomputed from a percentage: a
+   *  second calculation would round on its own and the column would stop
+   *  adding up by a cent, which is exactly the complaint this answers. */
+  const discountCents =
+    appliedHere && listCents !== null
+      ? listCents - optionsExtraCents - appliedHere.priceCents
+      : 0;
   const renewsAtCents =
     listCents === null ? null : listCents - optionsExtraCents + recurringExtraCents;
   const line = payLineFor({
@@ -333,7 +376,7 @@ function TierCard({
             name,
             ...(country ? { country } : {}),
             locale,
-            ...(chosenOptions.size ? { option_product_ids: [...chosenOptions] } : {}),
+            ...(chosenIds.length ? { option_product_ids: chosenIds } : {}),
             directory_listed: listed,
             terms_accepted: termsAccepted,
             // The invoicing details, read by the same shared helper Thread
@@ -344,7 +387,7 @@ function TierCard({
             // The CODE, not its price: the join route looks it up again and
             // decides the amount itself. Sending a price would be asking the
             // browser what to charge.
-            ...(applied ? { code: applied.code } : {}),
+            ...(appliedHere ? { code: appliedHere.code } : {}),
             request_id: requestId,
           }),
         },
@@ -499,13 +542,7 @@ function TierCard({
                   {t(locale, 'optional_extras')}
                 </div>
                 <div className="mt-1.5 space-y-1.5">
-                  {optionalProducts
-                    .filter(
-                      // A recurring add-on only rides a matching subscription
-                      // (Stripe: one interval); 'once' always fits.
-                      (p) => (p.price_interval ?? 'once') === 'once' || p.price_interval === interval,
-                    )
-                    .map((p) => (
+                  {compatibleOptions.map((p) => (
                     <label key={p.id} className="flex items-start gap-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
@@ -565,6 +602,24 @@ function TierCard({
                       <span>{t(locale, 'optional_extras')}</span>
                       <span>+ {money(optionsExtraCents, currency)}</span>
                     </div>
+                    {/* THE CODE, AS A LINE OF ITS OWN.
+                        Without it these lines did not add up: the tier row
+                        showed the full price, the extras row showed the
+                        extras, and the TOTAL showed the discounted figure —
+                        €300 + €3.193,20 printed above €3.343,20. A total a
+                        reader cannot check is worse than no total, because
+                        the one thing a payment form must not do is look like
+                        it got the sum wrong.
+                        The tier row stays at list price on purpose: a reader
+                        can then see what the membership costs AND what the
+                        code took off, which is the information the code was
+                        given for. */}
+                    {appliedHere && discountCents > 0 && (
+                      <div className="mt-0.5 flex justify-between text-ink-subtle">
+                        <span>{t(locale, 'code_line', { code: appliedHere.code })}</span>
+                        <span>&minus; {money(discountCents, currency)}</span>
+                      </div>
+                    )}
                     <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
                       <span>{t(locale, 'total')}</span>
                       <span>{money(payNowCents ?? 0, currency)}</span>
@@ -584,6 +639,12 @@ function TierCard({
                 which the sentence above the button then names in full. */}
             {(listCents ?? 0) > 0 && (
               <DiscountCodeField
+                // KEYED ON WHAT THE PRICE DEPENDS ON. A code validated for
+                // Year/NL is not validated for Month/NL, so when either
+                // changes the field is a new field: its typed value and its
+                // "applied" badge go, and the visitor is asked again rather
+                // than shown a figure from the other tab.
+                key={`${interval}:${country}`}
                 inputClassName={INPUT}
                 labels={{
                   label: t(locale, 'discount_code'),
@@ -612,7 +673,9 @@ function TierCard({
                     setApplied(null);
                     return { ok: false as const, reason: r.reason ?? 'this code is not valid' };
                   }
-                  setApplied({ code: r.code, priceCents: r.price_cents });
+                  // Stamped with the pair it was priced for, which is what
+                  // makes `appliedHere` able to tell later that it is stale.
+                  setApplied({ code: r.code, priceCents: r.price_cents, interval, country });
                   return { ok: true as const, code: r.code };
                 }}
               />

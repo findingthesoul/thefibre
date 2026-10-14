@@ -186,7 +186,21 @@ try {
         `  ${inv.id}  reason=${inv.billing_reason}  status=${inv.status}  total=${money(inv.total)}  paid=${money(inv.amount_paid)}  lines=${inv.lines?.data?.length ?? 0}`,
       );
       for (const line of inv.lines?.data ?? []) {
-        console.log(`      ${money(line.amount).padStart(9)}  ${line.description ?? ''}`);
+        // WHICH KIND OF LINE, AND WHAT PERIOD IT CARRIES. membershipInvoicePaid
+        // takes `lines.data[0].period.end` for the member's renews_at and for
+        // the "(until …)" label on the receipt. On a split first invoice the
+        // first line may be a ONE-OFF, whose period is not the subscription's,
+        // so the order and the kind are exactly what has to be visible here.
+        const kind =
+          line.parent?.subscription_item_details || line.plan || line.price?.recurring
+            ? 'recurring'
+            : 'one-off  ';
+        const until = line.period?.end
+          ? new Date(line.period.end * 1000).toISOString().slice(0, 10)
+          : '—';
+        console.log(
+          `      ${money(line.amount).padStart(9)}  ${kind}  period→${until}  ${line.description ?? ''}`,
+        );
       }
     }
     return invoices.data;
@@ -243,6 +257,37 @@ try {
       `  ${money(p.amount_cents).padStart(9)} ${p.currency}  ${p.status}  "${p.item_label}"  invoice=${p.stripe_invoice_id ?? '—'}`,
     );
   }
+
+  // THE PERIOD THE JOIN RECORDED — and the right way to ask it.
+  //
+  // `membershipInvoicePaid` takes the period from `lines.data[0]`, and the
+  // first line of a split first invoice is a ONE-OFF. If Stripe gave that
+  // line a period of its own, every cohort member's record would say they
+  // renew about now, the receipt would say "(until <today>)" and the renewal
+  // reminder would fire immediately.
+  //
+  // MEASURED: it does not. Stripe gives an invoice item on a trialing
+  // subscription the subscription's current period, so all seven lines of the
+  // join invoice carry period→the anchor, and the label is right.
+  //
+  // And this asks the JOIN invoice, not the member row. A first draft of this
+  // check asserted that `renews_at` equalled the anchor AFTER the rehearsal
+  // had deliberately ended the trial — by which time renewing a year from
+  // that moment is the correct answer, so the assertion failed on behaviour
+  // that was right. The honest question is what the JOIN recorded, and the
+  // ledger label is where that is visible.
+  const anchorDay = END; // the last day of the first period, as the panel says it
+  const joinRow = (purchases ?? []).find((r) => r.stripe_invoice_id === joinInvoice?.id);
+  if (joinInvoice && !joinRow) {
+    problems.push('the join invoice produced no ledger row');
+  } else if (joinRow && !String(joinRow.item_label).includes(anchorDay)) {
+    problems.push(
+      `the join's ledger row says "${joinRow.item_label}" — it should name the first period ` +
+        `ending ${anchorDay}, which means the webhook read the period from the wrong line`,
+    );
+  }
+
+
 
   // EVERY PAID INVOICE GETS EXACTLY ONE ROW, FOR WHAT IT COLLECTED. Keyed on
   // the invoice id, so this also says whether anything was double-written.

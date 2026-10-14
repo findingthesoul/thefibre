@@ -37,6 +37,13 @@ export default async function TiersPage() {
   }
   const currency = await workspaceCurrencies();
   const locale = await uiLocale();
+  // The join page's own address, for the link to an unlisted tier. The slug
+  // comes from the API (workspace-brand already returns it) rather than from
+  // anything assembled here — a hand-built public URL is how this repo has
+  // sent people to the wrong stack before.
+  const workspaceSlug = await apiFetch<{ slug: string | null }>('/api/v1/workspace-brand')
+    .then((r) => r.slug)
+    .catch(() => null);
 
   return (
     <div className="px-6 py-10 max-w-5xl">
@@ -47,6 +54,7 @@ export default async function TiersPage() {
         categoryLinks={categoryLinks}
         currency={currency}
         locale={locale}
+        workspaceSlug={workspaceSlug}
       />
     </div>
   );

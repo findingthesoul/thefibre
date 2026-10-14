@@ -19,6 +19,7 @@ export function TiersClient({
   categoryLinks,
   currency,
   locale,
+  workspaceSlug,
 }: {
   tiers: Tier[];
   products: Product[];
@@ -26,6 +27,10 @@ export function TiersClient({
   categoryLinks: import('../products/types').ProductCategoryLink[];
   currency: WorkspaceCurrencies;
   locale: Locale;
+  /** The community's public slug, for the link to an unlisted tier. Null
+   *  when that read failed — the dialog then says it cannot build the link
+   *  rather than printing a broken one. */
+  workspaceSlug: string | null;
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -112,10 +117,10 @@ export function TiersClient({
       )}
 
       {creating && (
-        <TierDialog tier={null} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />
+        <TierDialog tier={null} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} workspaceSlug={workspaceSlug} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />
       )}
       {editing && (
-        <TierDialog tier={editing} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />
+        <TierDialog tier={editing} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} workspaceSlug={workspaceSlug} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />
       )}
     </>
   );

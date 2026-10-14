@@ -427,10 +427,35 @@ membersRoutes.post('/', async (c) => {
       .in('id', body.data.teams);
     const ids = (ok ?? []).map((t) => t.id as string);
     if (ids.length) {
-      await adminClient.from('team_member').upsert(
-        ids.map((team_id) => ({ team_id, user_id: u.id, role: 'member', status: 'active' })),
-        { onConflict: 'team_id,user_id' },
-      );
+      // JOIN THE TEAMS THEY ARE NOT IN, and leave the rest alone.
+      //
+      // This upserted `role: 'member'`, so re-inviting a colleague — the
+      // ordinary way to add somebody to one more team — DEMOTED them in every
+      // team they were already in, including ones where they were the admin.
+      // The same bug as the workspace role (fixed in v1.181.0) and the same
+      // rule: 'member' here is a default for a new row, never a statement
+      // about an existing one. Changing somebody's role in a team is the
+      // team's own screen.
+      const already = await adminClient
+        .from('team_member')
+        .select('team_id')
+        .eq('user_id', u.id)
+        .in('team_id', ids);
+      if (already.error) {
+        return c.json({ error: `team membership lookup: ${already.error.message}` }, 500);
+      }
+      const have = new Set((already.data ?? []).map((r) => r.team_id as string));
+      const missing = ids.filter((id) => !have.has(id));
+      if (missing.length) {
+        const { error } = await adminClient.from('team_member').insert(
+          missing.map((team_id) => ({ team_id, user_id: u.id, role: 'member', status: 'active' })),
+        );
+        // 23505: a concurrent invite got there first, which is the outcome
+        // this wanted anyway.
+        if (error && error.code !== '23505') {
+          return c.json({ error: `team membership: ${error.message}` }, 500);
+        }
+      }
     }
   }
 
@@ -447,14 +472,31 @@ membersRoutes.post('/', async (c) => {
       .from('app')
       .select('id, slug')
       .in('slug', usable.length ? usable.map((w) => w.slug) : ['-']);
+    // GRANT WHAT THEY DO NOT HAVE, and do not re-rank what they do.
+    //
+    // Same rule as the workspace role and the teams above: this upserted the
+    // form's role, which defaults to 'member', so re-inviting somebody who
+    // was an ADMIN of an app quietly made them an ordinary member of it. The
+    // invite adds access; `PATCH /members/:userId` with `apps` is what
+    // replaces grants and roles, and it says so.
+    const existingGrants = await adminClient
+      .from('app_membership')
+      .select('app_id')
+      .eq('user_id', u.id)
+      .in('app_id', (apps ?? []).map((a) => a.id as string));
+    if (existingGrants.error) {
+      return c.json({ error: `app grant lookup: ${existingGrants.error.message}` }, 500);
+    }
+    const granted = new Set((existingGrants.data ?? []).map((r) => r.app_id as string));
     for (const app of apps ?? []) {
+      if (granted.has(app.id as string)) continue;
       const role = usable.find((w) => w.slug === app.slug)?.role ?? 'member';
-      await adminClient
+      const { error } = await adminClient
         .from('app_membership')
-        .upsert(
-          { user_id: u.id, app_id: app.id, role, is_direct: true },
-          { onConflict: 'user_id,app_id' },
-        );
+        .insert({ user_id: u.id, app_id: app.id, role, is_direct: true });
+      if (error && error.code !== '23505') {
+        return c.json({ error: `app grant: ${error.message}` }, 500);
+      }
     }
   }
 
