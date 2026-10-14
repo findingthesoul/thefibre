@@ -44,7 +44,8 @@ import {
   membershipPaymentFailed,
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
-import { appUrl, surfaceUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
+import { appUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
+import { stackSurfaceUrl } from '../lib/stack-urls.js';
 import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
@@ -3037,7 +3038,7 @@ async function ensureMemberFromSubscription(
         // this API is the .app or the .tech one — a hand-built URL here is
         // how a staging email has sent somebody to production before.
         portalUrl: ws?.slug
-          ? `${surfaceUrl('my-portal', process.env)}/memberships`
+          ? `${stackSurfaceUrl('my-portal', process.env)}/memberships`
           : null,
         email: person.email,
         locale: await memberEmailLocale(meta.workspace_id, created.locale),

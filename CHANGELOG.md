@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.184.1] — 2026-10-14
+
+### The absolute URLs in emails stop depending on a secret
+
+The welcome email of v1.184.0 builds a link to the member's portal, and that
+raised a fair question: does the STAGING API hand a staging reader a
+PRODUCTION link? It is the shape of two bugs this repo has already had — the
+terms link that 404'd on both stacks, and the calendar address that
+`stagingSurfaceUrl` exists because of.
+
+**Measured first.** Read off the running machine: `NEXT_PUBLIC_MY_URL` on
+`thefibre-api-staging` is `https://my.thefibre.tech`, and production does not
+set the variable at all, so it falls through to its default
+`https://my.thethread.app`. Both stacks are correct today.
+
+They are correct for a reason nobody can see, though. `surfaceUrl` resolves in
+three steps — an env override, then the host the page is served from, then
+production — and this API is the one caller that has neither of the first two
+when it writes an email. Delete that one secret and every membership email,
+calendar subscription, invoice link and `{my.thread}` token on staging starts
+pointing at production, silently, with nothing failing. A correctness that
+depends on remembering a secret is a correctness that expires.
+
+So `apps/api/src/lib/stack-urls.ts` derives the stack from `FLY_APP_NAME`, the
+signal this API already uses to know which one it is, exactly as
+`standardTermsUrl` does. An explicit override still wins, because somebody who
+sets one has said something deliberate. All four callers moved: the welcome
+email, the calendar feed, the invoice online link and the message token — the
+other three were already exposed to the same fragility.
+
+Seven tests, and every one passes an env with **no** URL variables in it,
+which is the point. Staging app name gives `.tech`; production app name and no
+app name both give `.thethread.app`, because local development must not
+quietly point at somebody else's test stack; an override is honoured; a blank
+override is ignored rather than producing an empty link. One case asserts the
+ABSENCE too — a staging link must not contain `thethread.app` — since a future
+change to the staging apex could make the positive assertion pass while still
+sending a staging reader to a production domain.
+
+### And the email sample shows the real card
+
+`render-membership-emails.mjs` invented three tidy characteristics. The real
+soul.com card has seven, they are long, and they are written as one flowing
+sentence — each ending in a semicolon. A template that only reads well with
+content we wrote ourselves has not been tested, so the sample now carries his
+own items, read from the public catalogue. The Dutch sample keeps them in
+English, because the community has not translated its card and that is what a
+Dutch member will actually receive.
+
 ## [1.184.0] — 2026-10-14
 
 ### The welcome email, written out

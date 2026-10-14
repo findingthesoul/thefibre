@@ -21,7 +21,7 @@
 // person it happened to. `surfaceUrl` is the same helper the calendar feed
 // and the message tokens already use.
 
-import { surfaceUrl } from '@thefibre/shared';
+import { stackSurfaceUrl } from './stack-urls.js';
 
 /**
  * Where a member reads this invoice.
@@ -34,7 +34,7 @@ export function invoiceOnlineUrl(
   purchaseId: string,
   env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
 ): string {
-  return `${surfaceUrl('my-portal', env)}/purchases/${purchaseId}`;
+  return `${stackSurfaceUrl('my-portal', env)}/purchases/${purchaseId}`;
 }
 
 /**

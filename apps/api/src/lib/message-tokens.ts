@@ -38,7 +38,7 @@
 // carried a session would be a credential sitting in an inbox and in every
 // forward of it.
 
-import { surfaceUrl } from '@thefibre/shared';
+import { stackSurfaceUrl } from './stack-urls.js';
 
 /** The token an organiser types. A dot, not an underscore — Sjoerd's
  *  spelling, and it reads as the product's name rather than a variable.
@@ -52,7 +52,7 @@ export const MY_THREAD_TOKEN = '{my.thread}';
  *  NEXT_PUBLIC_MY_URL, which is why that variable is load-bearing on the
  *  staging API and not merely nice to have. */
 export function myThreadUrl(env: Record<string, string | undefined> = process.env): string {
-  return surfaceUrl('my-portal', env);
+  return stackSurfaceUrl('my-portal', env);
 }
 
 export function messageTokens(opts: {

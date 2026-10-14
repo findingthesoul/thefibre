@@ -22,6 +22,21 @@ const outDir = process.argv[2] ?? 'email-samples';
 mkdirSync(outDir, { recursive: true });
 
 const COMMUNITY = 'soul.com';
+
+// THE REAL CARD, not a plausible one. Copied from the production public
+// catalogue on 2026-10-14 so the sample shows what an invitee will actually
+// read: seven long items, each ending in a semicolon, which looks nothing
+// like three tidy invented ones. A template that only reads well with
+// content we wrote ourselves has not been tested.
+const SOUL_CHARACTERISTICS = [
+  'Meaningful Conversations exploring soul.com ideas, models and emerging learning;',
+  'Quarterly Community Gatherings connecting members with developments across soul.com;',
+  'an Annual Harvest bringing together learning from the year;',
+  'intentional introductions to other members;',
+  'an orientation to soul.com and the membership community;',
+  'individual accompaniment within the boundaries of the membership offer;',
+  'and information about opportunities for deeper participation within soul.com;',
+];
 const BRAND = { logoUrl: '', name: COMMUNITY };
 
 const samples = [
@@ -33,11 +48,7 @@ const samples = [
       tierName: 'Community member',
       renewsAt: '2027-01-01T00:00:00Z',
       tierDescription: 'Membership of the soul.com community.',
-      characteristics: [
-        'Access to the member list',
-        'The community calendar, with everything you can join',
-        'A members-only rate on every programme',
-      ],
+      characteristics: SOUL_CHARACTERISTICS,
       calendarTeamName: 'soul.com',
       portalUrl: 'https://my.thethread.app/memberships',
       email: 'marja@example.com',
@@ -68,7 +79,10 @@ const samples = [
       tierName: 'Community member',
       renewsAt: '2027-01-01T00:00:00Z',
       tierDescription: 'Lidmaatschap van de soul.com-community.',
-      characteristics: ['Toegang tot de ledenlijst', 'De agenda van de community'],
+      // The same seven items: the community has not translated its card, so a
+      // Dutch reader sees the English text inside a Dutch frame. That is what
+      // will really happen, and the sample should not hide it.
+      characteristics: SOUL_CHARACTERISTICS,
       calendarTeamName: 'soul.com',
       portalUrl: 'https://my.thethread.app/memberships',
       email: 'marja@example.com',

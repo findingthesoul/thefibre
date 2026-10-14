@@ -38,7 +38,8 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { adminClient } from '../db.js';
-import { appUrl, surfaceUrl } from '@thefibre/shared';
+import { appUrl } from '@thefibre/shared';
+import { stackSurfaceUrl } from './stack-urls.js';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   DEFAULT_EVENT_MINUTES,
@@ -70,7 +71,7 @@ function hashToken(token: string): string {
  *  with its own CNAME unshipped. Baking that host into people's calendars is
  *  a decision that cannot be taken back. The portal proxies the fetch. */
 export function feedAddress(token: string): { url: string; webcal: string } {
-  const url = `${surfaceUrl('my-portal', process.env)}/calendar/${token}.ics`;
+  const url = `${stackSurfaceUrl('my-portal', process.env)}/calendar/${token}.ics`;
   // webcal:// is not a real scheme — it is a hint that makes one click hand
   // the URL to the calendar app instead of the browser. Every major client
   // understands it; the https form stays for the ones that do not.
