@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.184.6] — 2026-10-14
+
+### A cleanup fix that I had reverted over my own shoulder
+
+`stress-join-shapes.mjs` leaked its workspace again on the final run. The fix
+was written hours earlier — remove the `organisation` row first, since its
+foreign key does not cascade, and clear the two tables that are keyed on the
+member and the tier rather than the workspace — and then lost: I reverted the
+file while backing out an unrelated experiment, and never noticed the fix went
+with it.
+
+It is back, and the difference now is that **a leaked workspace fails the
+run** rather than printing a warning beside an exit code of 0. That is the
+property that matters: the first version of this bug survived precisely
+because the script said so and carried on, which is also how staging came to
+carry 124 of them.
+
+Swept what the two bad runs left, and re-ran both stress scripts on the final
+sha: ten of ten join shapes still match the panel, eight of eight tenancy
+boundaries still hold, and both communities removed themselves.
+
 ## [1.184.5] — 2026-10-14
 
 ### Two admin conveniences made checkable instead of merely checked

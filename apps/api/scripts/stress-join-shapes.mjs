@@ -309,26 +309,63 @@ try {
     await stripe.checkout.sessions.expire(id, {}, { stripeAccount: made.account }).catch(() => {});
   }
   if (made.ws) {
-    // Order matters: the rows that reference others go first.
+    // CLEANUP THAT SAYS WHEN IT DID NOT CLEAN, and in the order the foreign
+    // keys allow. The first run of this script left a workspace standing,
+    // which is how staging came to carry 124 of them: the delete failed,
+    // printed, and the script exited 0 regardless.
+    //
+    // Not every table here is workspace-scoped. `membership_reminder_send` is
+    // keyed on the MEMBER and `membership_tier_product` on the TIER, so
+    // filtering them by workspace_id is a 42703 and a silent no-op — they are
+    // cleared through their own keys first.
+    const members = await db.from('membership_member').select('id').eq('workspace_id', made.ws);
+    const memberIds = (members.data ?? []).map((m) => m.id);
+    if (memberIds.length) {
+      await db.from('membership_reminder_send').delete().in('member_id', memberIds);
+    }
+    const tierIds = Object.values(made.tiers).filter(Boolean);
+    if (tierIds.length) {
+      await db.from('membership_tier_product').delete().in('tier_id', tierIds);
+    }
+
     for (const table of [
-      'membership_reminder_send',
       'membership_product_purchase',
       'purchase',
       'activity',
       'membership_member',
-      'membership_tier_product',
       'membership_product',
       'discount_code',
       'membership_tier',
       'membership_settings',
       'workspace_app',
-      'person',
     ]) {
       const r = await db.from(table).delete().eq('workspace_id', made.ws);
       if (r.error) console.warn(`  ${table} not cleaned: ${r.error.message}`);
     }
+
+    // person ⇄ user point at each other, so one side is cut before both go.
+    await db.from('user').update({ person_id: null }).eq('workspace_id', made.ws);
+    for (const table of ['person', 'user']) {
+      const r = await db.from(table).delete().eq('workspace_id', made.ws);
+      if (r.error) console.warn(`  ${table} not cleaned: ${r.error.message}`);
+    }
+
+    // THE ORGANISATION, and this is the one that bites. Since 2026-09-15
+    // every workspace gets its own organisation row, behind a foreign key
+    // that does NOT cascade — so the workspace delete is refused until it
+    // goes. That is precisely why the first run of this script leaked.
+    const org = await db.from('organisation').delete().eq('workspace_id', made.ws);
+    if (org.error) console.warn(`  organisation not cleaned: ${org.error.message}`);
+
     const w = await db.from('workspace').delete().eq('id', made.ws);
-    if (w.error) console.warn(`  workspace NOT removed: ${w.error.message}`);
+    if (w.error) {
+      console.warn(`  WORKSPACE NOT REMOVED: ${w.error.message}`);
+      // A leaked workspace is a real cost — the five-minute schedulers walk
+      // every one of them — so this is a failure of the run, not a note.
+      process.exitCode = 1;
+    } else {
+      console.log(`  workspace ${made.slug} removed`);
+    }
   }
   console.log('cleaned up');
 }
