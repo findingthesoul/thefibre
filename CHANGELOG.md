@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.185.1] — 2026-10-14
+
+### One walk for what a membership lets you join
+
+Groundwork for the "Upcoming threads" page, and deliberately on its own: this
+changes no behaviour at all.
+
+The walk that produces "What you can join" lived inside `routes/portal.ts`,
+capped at six, feeding one card. The full page needs the same list uncapped
+and paginated — and the one thing it must not be is a SECOND walk. A member
+who found a different price on the full list from the one on the card would
+have found a disagreement about money, and neither number would be obviously
+the wrong one.
+
+So it moved to `lib/could-join.ts` unchanged, with the cap as an argument, and
+the card calls it with six. The sort runs before the slice, so a capped list
+is the soonest few rather than an arbitrary few. It still leans on the
+functions that CHARGE — `teamCalendarEntitlements`, `resolveBasePrice`,
+`enrolmentPrice` — because a list that worked its own prices out would be a
+third statement of one rule.
+
+**And `threadPublicUrl` became two copies the moment the walk moved**, which
+is the drift this repo keeps catching. It now lives beside `publicOriginFor`
+in `lib/public-origin.ts`, and both callers share it.
+
+**The guard that noticed.** `public-origin.guard.test.ts` asserts that certain
+files build owner-rooted URLs through `publicOriginFor`, by reading their
+source — and `routes/portal.ts` stopped containing the call, because it goes
+through the helper now. The guard accepts that hop, and a second case
+**follows** it: every URL helper exported from `public-origin.ts` must itself
+resolve through `publicOriginFor`, so "imports from public-origin" cannot
+become a way to build a bare URL. Mutation-tested — a helper that
+interpolates an app origin directly fails it.
+
 ## [1.185.0] — 2026-10-14
 
 ### Five from a second review, verified one at a time

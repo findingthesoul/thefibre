@@ -36,8 +36,35 @@ describe('owner-rooted public URLs go through publicOriginFor', () => {
   });
 
   it('the lib builders and the portal use publicOriginFor', () => {
+    // DIRECTLY, or through a helper that lives in public-origin.ts and does
+    // it for them. `routes/portal.ts` stopped calling it by name on
+    // 2026-10-14, when the thread-URL builder moved beside the resolver so
+    // the could-join walk and the enrolments list would share one — the
+    // indirection is the improvement, not a loophole.
+    //
+    // The hop is FOLLOWED rather than trusted: the case below asserts that
+    // every helper exported from public-origin.ts resolves through
+    // publicOriginFor, so "imports from public-origin" cannot become a way
+    // to build a bare URL.
     for (const f of ['lib/calendar-feed.ts', 'lib/thread-payment-link.ts', 'lib/meet-payment-link.ts', 'routes/portal.ts', 'routes/purchases.ts']) {
-      expect(read(f), f).toContain('publicOriginFor(');
+      const src = read(f);
+      const direct = src.includes('publicOriginFor(');
+      const viaHelper = /from '\.\.?\/(lib\/)?public-origin\.js'/.test(src);
+      expect(direct || viaHelper, `${f}: builds owner-rooted URLs on neither`).toBe(true);
+    }
+  });
+
+  it('every URL helper in public-origin.ts resolves through publicOriginFor', () => {
+    // The hop the case above allows. A helper there that interpolated an app
+    // origin itself would let a caller satisfy that check while building
+    // exactly the URL this whole guard exists to prevent.
+    const src = read('lib/public-origin.ts');
+    const helpers = [...src.matchAll(/export async function (\w*Url)\s*\(/g)].map((m) => m[1]);
+    expect(helpers.length, 'no URL helpers found — has the file moved?').toBeGreaterThan(0);
+    for (const name of helpers) {
+      const start = src.indexOf(`export async function ${name}`);
+      const body = src.slice(start, src.indexOf('\n}', start));
+      expect(body, `${name} must resolve the owner's origin`).toContain('publicOriginFor(');
     }
   });
 });

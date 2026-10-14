@@ -91,3 +91,18 @@ export async function publicOriginsFor(app: WebApp, roots: Array<string | null |
 export function _clearPublicOriginCache(): void {
   cache.clear();
 }
+
+/** A thread's public address: the owner's own host when they have verified
+ *  one, else ours (docs/domain-package.md part 2).
+ *
+ *  Beside `publicOriginFor` rather than in either caller, because it had
+ *  become two identical copies the moment the "what you can join" walk moved
+ *  out of routes/portal.ts — and a URL built two ways is a URL that
+ *  eventually differs in one of them. Both the enrolments list and the
+ *  could-join walk call this one. */
+export async function threadPublicUrl(
+  ownerSlug: string,
+  threadSlug: string,
+): Promise<string> {
+  return `${await publicOriginFor('the-thread', ownerSlug)}/${ownerSlug}/${threadSlug}`;
+}
