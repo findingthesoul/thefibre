@@ -1687,8 +1687,13 @@ membershipRoutes.get('/pricing-rules', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_pricing_rule')
-    .select('id, tier_id, kind, config, updated_at')
-    .eq('kind', 'price_logic');
+    .select('id, tier_id, kind, config, updated_at, created_at')
+    .eq('kind', 'price_logic')
+    // Newest first, so a client that takes the first row of a kind takes the
+    // one that applies. The page picks with `pickPriceLogicRow` rather than
+    // trusting this, but a list handed out in an undefined order is how the
+    // bug this fixes got in.
+    .order('updated_at', { ascending: false });
   if (error) return fail(c, 'list pricing rules', error);
   return c.json({ items: data ?? [] });
 });

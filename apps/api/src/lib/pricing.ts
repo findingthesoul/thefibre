@@ -37,6 +37,7 @@ export {
   type PriceLogic,
   type PriceContext,
 } from '@thefibre/shared/price-logic';
+import { pickPriceLogicRow } from '@thefibre/shared/price-logic';
 import type { PriceLogic } from '@thefibre/shared/price-logic';
 
 /** Tier-specific logic wins over the workspace-wide one. */
@@ -51,12 +52,18 @@ export async function priceLogicFor(
     'membership pricing rules',
     await adminClient
       .from('membership_pricing_rule')
-      .select('tier_id, config')
+      // `updated_at, created_at, id` are not decoration: they are what
+      // `pickPriceLogicRow` sorts on. The ORDER BY is belt and braces — the
+      // picking does not depend on it — but it keeps the rows stable for
+      // anyone reading a log.
+      .select('id, tier_id, config, updated_at, created_at')
       .eq('workspace_id', workspaceId)
-      .eq('kind', 'price_logic'),
+      .eq('kind', 'price_logic')
+      .order('updated_at', { ascending: false }),
   );
-  const specific = tierId ? rules.find((r) => r.tier_id === tierId) : null;
-  const general = rules.find((r) => r.tier_id === null);
-  const config = (specific ?? general)?.config as PriceLogic | undefined;
+  // NEWEST WINS, and the choice is made in one place for both readers —
+  // `find` on an unordered query is what charged soul.com on a five-week-old
+  // rule set while six newer ones sat in the same table.
+  const config = pickPriceLogicRow(rules, tierId)?.config as PriceLogic | undefined;
   return config ?? null;
 }

@@ -6,6 +6,64 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.187.2] — 2026-10-14
+
+### The oldest pricing rule was the one charging
+
+Sjoerd, on production: *"If I add countries… the pricing rules do not save."*
+They saved. All six times.
+
+`membership_pricing_rule` is unique on `(workspace_id, kind, tier_id)`, and
+Postgres treats NULLs as **distinct** in a unique index. A general rule — one
+that applies to every tier — has `tier_id = NULL`, so
+`.upsert(…, { onConflict: 'workspace_id,kind,tier_id' })` never conflicted and
+**inserted a new row on every save**. soul.com had accumulated six. The API
+returned 200 each time, truthfully.
+
+The damage was in the reading. Both readers did `rows.find(r => r.tier_id ===
+null)` on a query with **no ORDER BY**, so the row they got was formally
+undefined and in practice the oldest. One of those readers is
+`priceLogicFor` — the code that decides what somebody is charged. So
+soul.com was pricing on a rule set from 7 September: **Chile and El Salvador
+were being charged 100% where the admin had configured 75%**, and a third
+rule set from 7 October (Brazil 65%, Angola/South Africa/El Salvador 40%)
+could have become the live one without anybody touching anything.
+
+**Nobody was mischarged.** The only members in an affected country are on
+"Cooperative Members", whose list price is 0.00 — any percentage of zero is
+zero. Chile, El Salvador, Angola and Brazil have no members at all. Checked
+on production before claiming it.
+
+Adding an `ORDER BY` to each query would have fixed the symptom and left the
+fault, which was that **nobody had said which row wins**. `pickPriceLogicRow`
+says it once, in `@thefibre/shared/price-logic`, and both readers call it — so
+the answer no longer depends on what a query happens to return, and a third
+reader cannot get it wrong a third way. A tier-specific rule still beats a
+general one, whatever their dates: a general rule saved this morning must not
+override a tier's own rule from last month.
+
+It sorts on `updated_at`, then `created_at`, then `id`. Three keys because
+this table has two eras: while every save inserts, `created_at` is the save
+time and the database sets it; once the constraint is fixed and saves update,
+only `updated_at` moves. `id` makes the order total — an order that is merely
+good enough is what caused this.
+
+The tests use soul.com's six real rows, in the order production returned them,
+and assert the answer does not change when that order is shuffled.
+
+Still to come, as their own steps: a dedupe script (one per database, never a
+migration), then a migration making the constraint `NULLS NOT DISTINCT` so a
+save updates instead of inserting.
+
+**And the same hazard, audited everywhere else.** Every
+`.upsert(… onConflict …)` in the API was paired with its table and asked of
+production whether any live row carries a NULL in a conflict column. Only
+`membership_pricing_rule` has actually duplicated. `hygiene_finding` holds two
+rows with a null `related_id` and zero duplicates; `thread_thread_organiser`
+has two mutually exclusive key shapes and each upsert names the one it fills,
+so its null-bearing keys are distinct rows rather than duplicates. Hazards,
+not bugs — written down rather than left to be rediscovered.
+
 ## [1.187.1] — 2026-10-14
 
 ### A calendar you bought, named in the welcome

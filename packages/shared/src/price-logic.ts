@@ -88,6 +88,72 @@ export function evaluatePriceLogic(
   return { pct: clampPct(logic.default_pct ?? 100), matched: null };
 }
 
+// ---------------------------------------------------------------------------
+// WHICH stored rule set applies. (Found on production 2026-10-14.)
+//
+// `membership_pricing_rule` is unique on (workspace_id, kind, tier_id), and
+// Postgres treats NULLs as DISTINCT in a unique index — so a GENERAL rule,
+// whose tier_id is null, never conflicts, and the route's upsert inserted a
+// new row on every save. soul.com accumulated six, and both readers did
+// `rows.find(r => r.tier_id === null)` on a query with no ORDER BY. The row
+// that decided what people were CHARGED was five weeks old: Chile and El
+// Salvador were being charged 100% where the admin had configured 75%.
+//
+// Adding an ORDER BY to each query would have fixed the symptom and left the
+// real fault in place, which is that nobody had SAID which row wins. This
+// says it, once, as a pure function both readers call — so the answer no
+// longer depends on what a query happens to return, and a third reader
+// cannot get it wrong a third way.
+// ---------------------------------------------------------------------------
+
+/** A stored rule row, as little of it as the choice needs. */
+export type PriceLogicRow = {
+  tier_id: string | null;
+  config?: unknown;
+  /** Moved by every write. Null-safe: a row with none sorts oldest. */
+  updated_at?: string | null;
+  /** The database's own default, so it is right even if a writer forgets
+   *  `updated_at` — which is how this became a charging bug rather than a
+   *  display one. */
+  created_at?: string | null;
+  id?: string | null;
+};
+
+/** Newest first: updated_at, then created_at, then id.
+ *
+ *  Three keys because the two eras of this table need different ones. While
+ *  every save INSERTS, `created_at` is the save time and is set by the
+ *  database. Once the unique constraint is fixed and saves UPDATE, only
+ *  `updated_at` moves. `id` breaks the remaining tie so the order is TOTAL —
+ *  an order that is merely good enough is what produced the bug. */
+function newestFirst(a: PriceLogicRow, b: PriceLogicRow): number {
+  return (
+    (b.updated_at ?? '').localeCompare(a.updated_at ?? '') ||
+    (b.created_at ?? '').localeCompare(a.created_at ?? '') ||
+    (b.id ?? '').localeCompare(a.id ?? '')
+  );
+}
+
+/**
+ * The rule row that applies to this tier, or null.
+ *
+ * A tier-specific row wins over the workspace-wide one — unchanged, and the
+ * reason this is not simply "the newest row": a general rule saved this
+ * morning must not override a tier's own rule from last month.
+ *
+ * Within each kind, the newest wins. Duplicates are a bug being fixed
+ * separately, and until the data is cleaned up this is what makes the most
+ * recent save the one that takes effect.
+ */
+export function pickPriceLogicRow<T extends PriceLogicRow>(
+  rows: T[],
+  tierId: string | null,
+): T | null {
+  const specific = tierId ? rows.filter((r) => r.tier_id === tierId).sort(newestFirst)[0] : undefined;
+  if (specific) return specific;
+  return rows.filter((r) => r.tier_id === null).sort(newestFirst)[0] ?? null;
+}
+
 /** Apply a pct to integer cents, rounded to the nearest cent. */
 export function applyPct(amountCents: number, pct: number): number {
   return Math.max(0, Math.round((amountCents * clampPct(pct)) / 100));
