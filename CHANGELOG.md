@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.184.4] — 2026-10-14
+
+### The browser walk, as tests rather than as a look
+
+**An unlisted member can read the member list** — the rule that changed
+yesterday — now has the half only a browser can answer. The API side was
+covered by `directory-list.int.test.ts`; this asserts that the PAGE actually
+renders the list to somebody who is not in it, that it tells them which of the
+two they are ("not shown to other members"), and that the old sentence
+describing a door that no longer exists is gone. A page carrying both would be
+telling two stories.
+
+It asserts a MEMBER is visible rather than that the page loaded, because the
+old page loaded perfectly well and showed nobody.
+
+### A walk that broke on a change, and said so
+
+`member-price.spec.ts` — the one that enrols a signed-in member at the member
+price by pressing buttons — failed. Not a flake: the country field stopped
+being a `<select>` when it became a searchable picker, so `selectOption` had
+nothing to select, the `.fill()` fallback had no text input to fill, and the
+failure surfaced on the next line.
+
+**The product was fine; the walk was stale.** It drives the picker properly
+now — open it, narrow it, click the row — and keeps the native branch for any
+form still using a plain select. The walk passes again, enrolling at €35 → €28
+through the invoice-method form, which is a better piece of evidence for the
+picker than anything that looks at it.
+
+That is the whole argument for running these before a launch rather than
+after: the change was five days old and nothing had noticed.
+
 ## [1.184.3] — 2026-10-14
 
 ### What the webhook records, for each shape of join

@@ -219,3 +219,59 @@ for (const [label, width, height] of [
     await expect(page.locator('a[href^="tel:"]').first()).toBeVisible();
   });
 }
+
+// ---------------------------------------------------------------------------
+// AN UNLISTED MEMBER CAN STILL READ THE LIST — Sjoerd, 2026-10-14.
+//
+// Until that date, being listed was the price of looking: an unlisted member
+// opened this page and was told they were not in the list, with no list under
+// it. That made a consent BUY something, which is the one thing a freely
+// given consent may not do, and in practice a member who had simply not got
+// round to the switch believed the community had nothing there for them.
+//
+// The API half is covered by directory-list.int.test.ts. This is the half
+// that only a browser can answer: that the page actually renders the list to
+// somebody who is not in it, and says which of the two they are.
+//
+// It moves the VIEWER's own entry and puts it back, so the tests above keep
+// the viewer they were written against.
+// ---------------------------------------------------------------------------
+test.describe('an unlisted member', () => {
+  test.afterEach(async () => {
+    const service = stagingService();
+    await service
+      .from('membership_directory_entry')
+      .update({ listed: true })
+      .eq('workspace_id', workspaceId)
+      .eq('person_id', viewerPersonId);
+  });
+
+  test('sees the list, and is told they are not shown in it', async ({ page }) => {
+    test.slow();
+    const service = stagingService();
+    const un = await service
+      .from('membership_directory_entry')
+      .update({ listed: false })
+      .eq('workspace_id', workspaceId)
+      .eq('person_id', viewerPersonId);
+    if (un.error) throw new Error(`unlist the viewer: ${un.error.message}`);
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await landPortal(page, `/members/${workspaceId}`);
+
+    // THE LIST IS THERE. This is the assertion that would have failed before
+    // the change — and it asserts a MEMBER is visible, not merely that the
+    // page loaded, because the old page loaded perfectly well and showed
+    // nobody.
+    const row = page.getByRole('link', { name: /Esther Searchable/ });
+    await expect(row).toBeVisible({ timeout: 30_000 });
+
+    // AND THE PAGE SAYS WHICH THEY ARE. A list with no note would leave them
+    // thinking they appear in it.
+    await expect(page.getByText(/not shown to other members/i)).toBeVisible();
+
+    // The old sentence must be gone: it described a door that no longer
+    // exists, and a page carrying both would be telling two stories.
+    await expect(page.getByText(/not in this member list yet/i)).toHaveCount(0);
+  });
+});

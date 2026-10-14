@@ -49,6 +49,40 @@ let hiddenOwnerSlug = '';
 let memberEmail = '';
 const made: { table: string; id: string }[] = [];
 
+/** Choose a country, whichever control the form is using.
+ *
+ *  `InvoiceBillingFields` uses the shared SearchSelect: a button showing the
+ *  current value, which opens a panel with a search box and a list of
+ *  buttons. A plain `<select>` is still possible elsewhere, so both are
+ *  handled rather than assuming.
+ *
+ *  Silent when there is no country field at all — not every thread asks. */
+async function pickCountry(
+  page: import('@playwright/test').Page,
+  name: string,
+): Promise<void> {
+  const native = page.locator('select').filter({ has: page.locator('option') }).first();
+  const label = page.getByLabel(/country/i).first();
+  if (await label.isVisible().catch(() => false)) {
+    const tag = await label.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
+    if (tag === 'select') {
+      await label.selectOption({ label: name }).catch(() => native.selectOption({ index: 1 }));
+      return;
+    }
+  }
+  // The picker: open it, type enough to narrow, then click the row.
+  const opener = page
+    .locator('button[type="button"]')
+    .filter({ hasText: /country|choose|pick|Netherlands|Nederland/i })
+    .first();
+  if (!(await opener.isVisible().catch(() => false))) return;
+  await opener.click();
+  const search = page.locator('input:not([type="hidden"])').last();
+  await search.fill(name.slice(0, 6)).catch(() => {});
+  const option = page.getByRole('button', { name: new RegExp(name, 'i') }).first();
+  await option.click({ timeout: 10_000 }).catch(() => {});
+}
+
 async function ins(table: string, row: Record<string, unknown>) {
   const { data, error } = await stagingService().from(table).insert(row).select('id').single();
   if (error) throw new Error(`fixture ${table}: ${error.message}`);
@@ -654,12 +688,17 @@ test('the FORM: a signed-in member enrols at the member price by pressing button
   await fill(/billing address|address/i, 'Nowhere 1');
   await fill(/postal code|post code|zip/i, '0000 XX');
   await fill(/city/i, 'Zierikzee');
-  const country = page.getByLabel(/country/i).first();
-  if (await country.isVisible().catch(() => false)) {
-    await country.selectOption({ index: 1 }).catch(async () => {
-      await country.fill('Netherlands');
-    });
-  }
+  // THE COUNTRY FIELD IS A SEARCHABLE PICKER, not a <select>, since
+  // 2026-10-14 — the list was in ISO-code order, so the dropdown opened on
+  // Andorra, United Arab Emirates, Afghanistan. It is a button that opens a
+  // panel with a search box and a list.
+  //
+  // This walk broke on that change and said so, which is the whole point of
+  // running it: `selectOption` has nothing to select, and the `.fill()`
+  // fallback has no text input to fill, so the failure surfaced as an
+  // unhandled error on the NEXT line. Driving the picker properly is the fix;
+  // the native branch stays for any form still using a plain select.
+  await pickCountry(page, 'Netherlands');
   await page.getByLabel(/privacy policy/i).first().check().catch(() => {});
   const enrolButton = page
     .locator('button[type="submit"], button')
