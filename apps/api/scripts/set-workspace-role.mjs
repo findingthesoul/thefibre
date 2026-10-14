@@ -27,6 +27,7 @@
 //     internal for soul.com and said nothing about the others, and a
 //     relationship is a statement about a person's place in an organisation,
 //     not a default to spray.
+import { planMember, splitSeatHolders } from './lib/role-floor.mjs';
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
@@ -50,6 +51,9 @@ const role = flag('role') ?? (allWorkspaces ? 'super_admin' : null);
 const relationship = flag('relationship');
 
 const audit = has('audit');
+const allMembersMode = has('all-members');
+const includeSeatHolders = has('include-seat-holders');
+
 
 const usage = () => {
   console.error(
@@ -58,6 +62,8 @@ const usage = () => {
       '  set-workspace-role.mjs staging|prod --email <addr> --all-workspaces [--role <r>] [--apply]\n' +
       '  set-workspace-role.mjs staging|prod --email <addr> --workspace <slug> --role <r>\n' +
       '                                      [--relationship internal|external] [--apply]\n' +
+      '  set-workspace-role.mjs staging|prod --workspace <slug> --all-members --role <r>\n' +
+      '                                      [--relationship internal|external] [--include-seat-holders] [--apply]\n' +
       `\n  roles: ${ROLES.join(', ')}   relationships: ${RELATIONSHIPS.join(', ')}`,
   );
   process.exit(2);
@@ -69,12 +75,23 @@ if (audit) {
     console.error('--audit takes nothing else: it only reads, and changes nothing.');
     process.exit(2);
   }
+} else if (allMembersMode) {
+  // Everybody in ONE workspace: a slug, no email, and never the sweep.
+  if (!slug || email || allWorkspaces) {
+    console.error('--all-members takes --workspace <slug> and no --email');
+    process.exit(2);
+  }
 } else if (!email || !email.includes('@')) usage();
-if (!audit && allWorkspaces === Boolean(slug)) {
+if (!audit && !allMembersMode && allWorkspaces === Boolean(slug)) {
   console.error('give exactly one of --all-workspaces or --workspace <slug>');
   process.exit(2);
 }
 if (!audit && (!role || !ROLES.includes(role))) usage();
+// The one-workspace sweep DOES take a relationship — unlike --all-workspaces,
+// where setting one would rewrite a person's stated place in every
+// organisation at once. Here it is a single community, named on the command
+// line, which is a thing somebody can mean.
+
 if (relationship && !RELATIONSHIPS.includes(relationship)) usage();
 // Spelled out rather than inferred: --all-workspaces with --relationship would
 // rewrite a person's stated place in every organisation at once, which is the
@@ -115,7 +132,7 @@ console.log(
     audit ? 'AUDIT — reads only' : apply ? '*** APPLY ***' : 'DRY RUN — nothing is written'
   }`,
 );
-if (!audit) console.log(`who: ${email}\n`);
+if (!audit && !allMembersMode) console.log(`who: ${email}\n`);
 
 // WHICH WORKSPACES HAVE NOBODY IN CHARGE.
 //
@@ -186,6 +203,134 @@ if (audit) {
   }
   console.log('Nothing was changed. Appointing an admin is a separate, deliberate command.');
   process.exit(0);
+}
+
+// EVERYBODY IN ONE WORKSPACE.
+//
+// Sjoerd, 2026-10-14: "all the others in soul.com are internal as well. And
+// organisers." A community whose members were all marked external and left
+// without a role, because of how the workspace was first filled.
+//
+// NEVER LOWER A ROLE. The target is a floor, not an assignment: anyone
+// already admin or super_admin keeps what they have. Sjoerd himself is
+// super_admin there as of this morning, and a sweep that set everyone to
+// `organiser` would take his own access away — which is exactly the shape of
+// the bug this script was written to repair in the first place.
+//
+// The relationship IS set for everyone, because that is the half he asked
+// for and it takes nothing away.
+if (allMembersMode) {
+  // By slug first, then by name — two typed lookups, never one `.or()`
+  // with the argument spliced in: PostgREST's filter string is a language,
+  // and a name with a comma or a bracket would rewrite the query.
+  let { data: ws, error: wErr } = await db.from('workspace').select('id, name, slug').eq('slug', slug).maybeSingle();
+  if (wErr) die(`could not read workspace: ${wErr.message}`);
+  if (!ws) {
+    const byName = await db.from('workspace').select('id, name, slug').eq('name', slug);
+    if (byName.error) die(`could not read workspace: ${byName.error.message}`);
+    if ((byName.data ?? []).length > 1) die(`more than one workspace is named "${slug}" — use its slug`);
+    ws = (byName.data ?? [])[0] ?? null;
+  }
+  if (!ws) die(`no workspace with slug or name "${slug}"`);
+
+  const { data: rowsIn, error: mErr } = await db
+    .from('workspace_member')
+    .select('user_id, workspace_role, relationship_type, joined_at')
+    .eq('workspace_id', ws.id);
+  if (mErr) die(`could not read workspace_member: ${mErr.message}`);
+
+  // SEAT HOLDERS — paying members whose tier carries a Fibre seat. The seat
+  // sync records each granted seat in membership_member_access (kind
+  // fibre_seat, status granted, external_ref = the user) and revokes by the
+  // same rows, so that is the source here too. Left as they are by default.
+  const { data: seatRows, error: sErr } = await db
+    .from('membership_member_access')
+    .select('external_ref, status, grant:access_grant_id (kind), member:member_id (workspace_id, status)')
+    .in('status', ['granted', 'revoke_pending'])
+    .not('external_ref', 'is', null);
+  if (sErr) die(`could not read seat holders: ${sErr.message}`);
+  const one = (v) => (Array.isArray(v) ? v[0] : v);
+  const seatHolderIds = new Set(
+    (seatRows ?? [])
+      .filter((r) => one(r.grant)?.kind === 'fibre_seat' && one(r.member)?.workspace_id === ws.id)
+      .map((r) => r.external_ref),
+  );
+  const { sweep: sweepRows, seatHolders } = splitSeatHolders(rowsIn ?? [], seatHolderIds, includeSeatHolders);
+
+  const { data: us, error: uErr2 } = await db
+    .from('user')
+    .select('id, email, full_name')
+    .in('id', (rowsIn ?? []).map((m) => m.user_id));
+  if (uErr2) die(`could not read users: ${uErr2.message}`);
+  const who = new Map((us ?? []).map((u) => [u.id, u]));
+
+  console.log(`${ws.name}  (${ws.slug})    ${(rowsIn ?? []).length} member(s)\n`);
+
+  const planned = [];
+  for (const m of sweepRows.sort((a, b) =>
+    String(who.get(a.user_id)?.email ?? '').localeCompare(String(who.get(b.user_id)?.email ?? '')),
+  )) {
+    const u = who.get(m.user_id);
+    // A role is only ever raised. Equal rank is left alone too, so the plan
+    // contains nothing that merely rewrites a value with itself.
+    const { nextRole, nextRel, roleChanges, relChanges, senior } = planMember(m, {
+      role,
+      relationship,
+    });
+
+    console.log(
+      `  ${String(u?.email ?? m.user_id).padEnd(38)} ` +
+        `${String(m.workspace_role).padEnd(11)}${roleChanges ? `→ ${nextRole}` : senior ? '(kept — senior)' : '(unchanged)'}` +
+        `    ${String(m.relationship_type).padEnd(8)}${relChanges ? `→ ${nextRel}` : '(unchanged)'}`,
+    );
+    if (roleChanges || relChanges) {
+      planned.push({ userId: m.user_id, email: u?.email ?? m.user_id, nextRole, nextRel });
+    }
+  }
+
+  if (seatHolders.length) {
+    console.log(`\nSEAT HOLDERS (left as they are): ${seatHolders.length}`);
+    for (const m of seatHolders) {
+      const u = who.get(m.user_id);
+      console.log(`  ${String(u?.email ?? m.user_id).padEnd(38)} ${m.workspace_role}    ${m.relationship_type}`);
+    }
+    console.log('  (paying members with a Fibre seat; add --include-seat-holders only if you mean them too)');
+  }
+
+  console.log(`\n${planned.length} row(s) to change.`);
+  if (!planned.length) {
+    console.log('Nothing to do.');
+    process.exit(0);
+  }
+  if (!apply) {
+    console.log('\nDRY RUN — nothing was written. Re-run with --apply to make these changes.');
+    process.exit(0);
+  }
+
+  let changed = 0;
+  for (const row of planned) {
+    // One row at a time, keyed on both primary-key columns, and read back —
+    // a filter that matched more than intended is the failure that matters
+    // when the subject is who may do what.
+    const { data, error } = await db
+      .from('workspace_member')
+      .update({ workspace_role: row.nextRole, relationship_type: row.nextRel })
+      .eq('user_id', row.userId)
+      .eq('workspace_id', ws.id)
+      .select('user_id, workspace_role, relationship_type');
+    if (error) {
+      console.error(`  FAILED ${row.email}: ${error.message}`);
+      continue;
+    }
+    if ((data ?? []).length !== 1) {
+      console.error(`  FAILED ${row.email}: updated ${(data ?? []).length} rows, expected exactly 1`);
+      continue;
+    }
+    console.log(`  ${row.email}: ${data[0].workspace_role}, ${data[0].relationship_type}`);
+    changed += 1;
+  }
+  console.log(`\n${changed} of ${planned.length} row(s) changed.`);
+  process.exit(changed === planned.length ? 0 : 1);
 }
 
 // THE PERSON — ONE ROW PER WORKSPACE, not one row.

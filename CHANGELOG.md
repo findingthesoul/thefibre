@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.194.3] — 2026-10-14
+
+### Everybody in a community Internal and at least Organiser — never lowering a role
+
+`apps/api/scripts/set-workspace-role.mjs --workspace <slug> --all-members
+--role organiser --relationship internal [--apply]`. Sjoerd: *"all the others
+in soul.com are internal as well. And organisers."* The role is a FLOOR: an
+admin or super_admin keeps what they have (Sjoerd is super_admin in soul.com
+and stays so); no role, or an unrecognised pre-migration value, is raised.
+Dry run by default; each changed row is written one at a time and read back.
+
+**Paying members' seats are left alone.** A member whose tier carries a Fibre
+seat has a workspace row the seat sync owns (external, its own role); turning
+those internal would misstate their place in the organisation and show them
+internal-only surfaces. They are found the way the seat sync revokes them
+(`membership_member_access`: kind fibre_seat, granted, `external_ref` = the
+user), listed under "SEAT HOLDERS (left as they are)", and only included with
+an explicit `--include-seat-holders`.
+
+The rule lives in `scripts/lib/role-floor.mjs` with its own tests, and the
+workspace lookup is two typed queries (slug, then exact name — refusing an
+ambiguous name) instead of a filter string with the argument spliced in.
+
+Also `docs/runbook-batch-23-scripts.md`: the exact production commands for
+this script and for the thread-grant backfill (which ships with the
+grants-by-id release), what a good dry run looks like, and when to stop.
+
 ## [1.194.2] — 2026-10-14
 
 ### What the notification circuit breaker held, an admin now decides
