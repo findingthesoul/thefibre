@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.190.0] — 2026-10-14
+
+### The country policy, as data and as one run
+
+Two pieces, both about soul.com's Country Category Policy: high income pays
+100%, upper-middle 75%, lower-middle and low 50%.
+
+**`packages/shared/src/country-income-wb-fy2027.ts`** holds the World Bank's
+FY2027 income groups — 59 upper-middle, 47 lower-middle, 25 low — with their
+own name beside each ISO code. In the repo as DATA, so next July's
+republication is an edit to a list rather than a hunt through a database, and
+diffable against their table without a translation step.
+
+Nine names differ between the two sources and are mapped **by hand, in the
+open**, never fuzzy-matched: Micronesia (Fed. Sts.)→FM, St. Lucia→LC, St.
+Vincent and the Grenadines→VC, Congo (Rep.)→CG, Congo (Dem. Rep.)→CD, Kyrgyz
+Republic→KG, Lao PDR→LA, West Bank and Gaza→PS, Kosovo→XK. The generator
+refuses to write the file if any name fails to resolve, so a silent guess is
+not a thing it can do. The two Congos are the pair a list like this gets
+wrong; both were looked up, and both sit in Category C, so even a mix-up would
+not have moved a price — which is the kind of luck not to rely on twice.
+
+Category A is deliberately **not** listed: it is everything in neither list,
+and writing it out would be a second place to forget to update.
+
+**`apps/api/scripts/dedupe-and-set-price-logic.mjs`** collapses a workspace's
+duplicate general rules into one row and fills it from the policy. A script
+and not a migration, because it is a bulk conversion with eyes on it — and
+because it has to run BEFORE the `NULLS NOT DISTINCT` migration, which cannot
+be created while the duplicates it forbids still exist.
+
+Dry run by default, and it prints what somebody has to agree to rather than
+what it is about to do: every row it would delete, the rule set it would
+leave, **which countries' prices go UP**, which go down, and — the line that
+matters most — **which actual members change percentage**. A percentage is
+abstract; a member is not. `--keep CL=75` is there so a disagreement with the
+policy is stated in the command and visible in the stored data, rather than
+hand-edited in afterwards where nobody can see it was meant.
+
+It names the database before it does anything, because the one mistake it
+could make that nothing undoes is running on the wrong one. It reads back
+after applying and fails loudly if it does not find exactly one general row.
+
 ## [1.189.1] — 2026-10-14
 
 ### Kosovo
