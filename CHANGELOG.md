@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.184.3] — 2026-10-14
+
+### What the webhook records, for each shape of join
+
+`stress-join-shapes.mjs` proves what Stripe will COLLECT. This proves what
+happens afterwards, which is a different half: a join can charge the right
+amount and record the wrong one.
+
+Each shape is built as the subscription Checkout would have created — the same
+lines, the same metadata — and paid with Stripe's own `pm_card_visa` token, so
+no card number is typed anywhere. The DEPLOYED webhook then does the rest and
+this reads what it wrote. Four shapes, all correct:
+
+- **plain yearly** — €300 collected, one ledger row, member active, renews in
+  a year;
+- **plain monthly** — €30, same;
+- **a hidden tier by its link** — €150, same, so an invitation-only join is
+  recorded like any other;
+- **a 100% code with extras** — the one most likely to confuse a ledger that
+  assumes the membership is always on the invoice. The first invoice charges
+  **only the extras** (€1.193,20), the single ledger row carries exactly that,
+  its discount reason is `coupon`, the code's `used_count` is **1** — once,
+  not at-least-once — and the renewal lands on the cohort anchor.
+
+Every paid invoice is paired with its ledger rows and the script fails if any
+has other than exactly one, if an amount disagrees with `amount_paid`, or if a
+row belongs to no paid invoice.
+
+**What it cannot cover, said plainly:** the add-on GRANT rows are written from
+`checkout.session.completed`, and a subscription created directly never
+produces a checkout session. `probe-option-grants.mjs` asks the database about
+that path's one real risk instead.
+
+### A fixture that could never have been cleaned up
+
+The first version of that script made a throwaway workspace per run, and could
+not remove it: a paid join writes `activity`, activity is append-only —
+enforced by a trigger **even against the service role** — so the activity pins
+the person, the person pins the workspace, and the delete is refused forever.
+
+That is not a bug to work around. It is hard rule 5, and it is how staging
+came to carry 124 abandoned fixture workspaces that the five-minute schedulers
+walk on every pass. The repo already had the answer, in
+`integration/staging.ts`: one PERMANENT fixture workspace, reused, with
+content cleaned per run and persons soft-deleted. This script does the same
+now, and the shell its first run stranded was renamed into that fixture rather
+than left as a 125th.
+
+The two scripts that genuinely are throwaway — the join shapes and the tenancy
+probe — still remove themselves completely, because neither ever completes a
+payment and so neither writes activity.
+
 ## [1.184.2] — 2026-10-14
 
 ### The launch path, walked
