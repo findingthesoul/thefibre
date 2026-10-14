@@ -587,6 +587,43 @@ portalRoutes.get('/portal', async (c) => {
           await threadPublicUrl(ownerSlug, t.slug as string),
         );
       }
+
+      // A RENAMED thread: a product link still holding its old slug resolves
+      // through the slug history to where the thread lives now — in the same
+      // community, and only when exactly one thread ever wore that slug there.
+      const found = new Set((threads ?? []).map((t) => t.slug as string));
+      const missing = [...threadSlugs].filter((sl) => !found.has(sl));
+      if (missing.length) {
+        const { data: hist } = await adminClient
+          .from('thread_slug_history')
+          .select('thread_id, workspace_id, old_slug')
+          .in('workspace_id', memberWorkspaces)
+          .in('old_slug', missing);
+        const byKey = new Map<string, Set<string>>();
+        for (const h of hist ?? []) {
+          const key = `${h.workspace_id as string}:${h.old_slug as string}`;
+          byKey.set(key, (byKey.get(key) ?? new Set()).add(h.thread_id as string));
+        }
+        const single = [...byKey].filter(([, ids]) => ids.size === 1).map(([key, ids]) => [key, [...ids][0]!] as const);
+        if (single.length) {
+          const { data: moved } = await adminClient
+            .from('thread_thread')
+            .select('id, slug, workspace_id, public_scope, team:team_id (slug), organiser:organiser_id (slug)')
+            .in('id', single.map(([, id]) => id));
+          const byId = new Map(((moved ?? []) as Record<string, unknown>[]).map((t) => [t.id as string, t]));
+          for (const [key, id] of single) {
+            const t = byId.get(id);
+            if (!t) continue;
+            const ownerSlug = publicOwnerSlug({
+              publicScope: t.public_scope as string | null,
+              workspaceSlug: wsSlug.get(t.workspace_id as string),
+              teamSlug: (one(t.team as never) as { slug: string } | null)?.slug,
+              organiserSlug: (one(t.organiser as never) as { slug: string } | null)?.slug,
+            });
+            if (ownerSlug) threadUrlByKey.set(key, await threadPublicUrl(ownerSlug, t.slug as string));
+          }
+        }
+      }
     }
 
     const productById = new Map(productRows.map((p) => [p.id, p]));

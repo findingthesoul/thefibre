@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { richTextPreview } from '@/lib/rich-text-preview';
 import type { PublicThreadListItem } from '../threads-grid';
 import { OrganiserListing, type PublicOrganiser } from '../organiser-listing';
 import type { PublicSite } from '@/lib/public-site';
-import { fetchPublicThread, PublicThreadView } from './thread-view';
+import { fetchPublicThread, publicThreadMovedTo, PublicThreadView } from './thread-view';
 
 // /{owner}/{thread} — the canonical thread address (personal · team ·
 // workspace, docs/brief-workspace-urls.md D1). With ONE fallback: when no
@@ -69,6 +69,11 @@ export default async function PublicThreadPage({
 
   const data = await fetchPublicThread(organiserSlug, threadSlug);
   if (data) return <PublicThreadView data={data} paidNotice={paidNotice} />;
+
+  // A RENAMED thread: the old address — in an email, an embed, a product
+  // link — goes on to the new one, permanently, so search engines follow.
+  const movedTo = await publicThreadMovedTo(organiserSlug, threadSlug);
+  if (movedTo) permanentRedirect(`/${organiserSlug}/${movedTo}`);
 
   // No such thread — try segment1 as a WORKSPACE and segment2 as an
   // organiser inside it: the /{workspace}/{organiser} listing (D2).

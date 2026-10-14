@@ -101,6 +101,20 @@ export async function fetchPublicThread(
   }
 }
 
+/** Where a RENAMED thread lives now, for an old address — the API answers
+ *  its 404 with `moved_to` when this owner's thread used to wear this slug
+ *  (thread_slug_history). Only asked on the not-found path. */
+export async function publicThreadMovedTo(ownerSlug: string, threadSlug: string): Promise<string | null> {
+  try {
+    await publicFetch(`/api/v1/thread/public/organiser/${ownerSlug}/thread/${threadSlug}`);
+    return null;
+  } catch (e) {
+    if (!(e instanceof PublicApiError) || e.status !== 404) return null;
+    const moved = (e.body as { moved_to?: { thread_slug?: unknown } } | undefined)?.moved_to?.thread_slug;
+    return typeof moved === 'string' && moved !== threadSlug ? moved : null;
+  }
+}
+
 function fmtDates(a: string | null, b: string | null): string | null {
   if (!a && !b) return null;
   const fmt = (d: string) =>

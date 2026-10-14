@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { announceHeld, dismissHeld, heldThreads } from '../lib/member-notify.js';
+import { GRANT_THREAD_PROBLEM, resolveGrantThread } from '../lib/thread-grant.js';
 import {
   addDocument,
   readMemberPage,
@@ -1546,7 +1547,17 @@ membershipRoutes.get('/grants', async (c) => {
     .select('id, tier_id, product_id, kind, config, created_at, tier:tier_id (name), product:product_id (name)')
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list grants', error);
-  return c.json({ items: data ?? [] });
+  // A `thread` grant that no longer lands on a thread says so (additive
+  // `problem`): it used to fail quietly in the worker, and the member simply
+  // got nothing. The admin sees it beside the grant instead.
+  const items = await Promise.all(
+    (data ?? []).map(async (g) => {
+      if (g.kind !== 'thread') return { ...g, problem: null };
+      const r = await resolveGrantThread(ctx.workspaceId, g.config as Record<string, unknown> | null).catch(() => null);
+      return { ...g, problem: r && !r.ok ? GRANT_THREAD_PROBLEM[r.reason] : null };
+    }),
+  );
+  return c.json({ items });
 });
 
 membershipRoutes.post('/grants', async (c) => {
@@ -1568,6 +1579,15 @@ membershipRoutes.post('/grants', async (c) => {
       const owned = await teamIsInWorkspace(teamId, ctx.workspaceId);
       if (!owned.ok) return c.json({ error: owned.message }, 400);
     }
+  }
+  // A THREAD grant is checked here and stored by ID: it must land on exactly
+  // one thread in this community, or it is refused with the reason — never
+  // stored to fail quietly in the worker later. The slug is kept beside the
+  // id for showing which thread it is; the id decides.
+  if (body.data.kind === 'thread') {
+    const r = await resolveGrantThread(ctx.workspaceId, body.data.config);
+    if (!r.ok) return c.json({ error: GRANT_THREAD_PROBLEM[r.reason] }, 400);
+    body.data.config = { ...body.data.config, thread_id: r.thread.id, thread_slug: r.thread.slug };
   }
   const db = userClient(ctx.jwt);
   const { data, error } = await db

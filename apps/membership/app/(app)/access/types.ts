@@ -29,6 +29,11 @@ export type Grant = {
   // embeds can come back as object OR single-element array from PostgREST.
   tier: { name: string } | { name: string }[] | null;
   product: { name: string } | { name: string }[] | null;
+  /** Why a `thread` grant does not land on a thread any more (deleted, or
+   *  an address two threads answer to) — said beside it, because the worker
+   *  used to fail on it quietly and the member got nothing. Absent on older
+   *  APIs. */
+  problem?: string | null;
 };
 
 // `unknown` lets callers pass a translated fallback (i18n P3).

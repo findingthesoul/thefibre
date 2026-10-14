@@ -25,6 +25,9 @@ export type ThreadRow = {
   /** Why it could not go live with sign-up open (paid, no working payment
    *  route), or null. From GET /threads/:id; absent on older APIs. */
   publish_blocker?: string | null;
+  /** What in Members points at this thread (grants, product links), for the
+   *  rename warning. Absent on older APIs. */
+  references?: { grants: number; product_links: number };
   workspace_id: string;
   program_id: string;
   organiser_id: string;

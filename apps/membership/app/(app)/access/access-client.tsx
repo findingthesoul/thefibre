@@ -158,6 +158,7 @@ function TierGroup({
               {t(locale, GRANT_KIND_KEYS[g.kind])}
               <span className="text-ink-subtle"> · {grantSummary(g, locale, teamOptions)}</span>
             </div>
+            {g.problem && <p className="mt-1 text-xs text-red-700">{g.problem}</p>}
           </button>
         ))}
       </div>

@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.196.0] — 2026-10-14
+
+### Thread grants by id — and a renamed thread keeps its links
+
+A membership grant of kind *thread* remembered its thread by the address the
+organiser typed — a slug, often a whole URL. Renaming the thread broke every
+such grant silently: the worker stamped `error` and the member got nothing.
+
+- **Grants store the thread's id** (`lib/thread-grant.ts`). Saving a thread
+  grant in Members must land on exactly ONE thread in the community, or it is
+  refused with the reason; the id and the current slug are stored. The worker
+  resolves by id, then by slug, then by the slug's history — and never
+  guesses: two threads answering to one address is reported as ambiguous. A
+  failed read retries next tick instead of stamping an error.
+- **Broken grants are shown** in Members → Access, in red under the grant
+  (`problem`, additive on `GET /membership/grants`).
+- **A backfill that reports, not guesses**:
+  `scripts/backfill-thread-grant-ids.ts staging|prod [--apply]`, dry run by
+  default. It writes an id only on an exact match, lists everything else under
+  "NEED A PERSON", and re-arms access rows stuck at `error` for members who are
+  active or in grace. Production run notes: `docs/runbook-batch-23-scripts.md`.
+- **A renamed thread keeps its old address.** A rename records the old slug
+  (`thread_slug_history`, from v1.194.1). The public lookup answers its 404
+  with an additive `moved_to` and the Thread page redirects permanently; product
+  links in my.thread follow it too. **Only to a thread the lookup would itself
+  serve** — active or completed, under the same owner, by the same rule as the
+  found-thread path: a renamed thread that has since gone to draft or been
+  archived answers a plain 404, so its new address (which often carries the
+  title) is never handed out through the old one. Nothing else changes for an outside caller:
+  `/apps/*` is untouched, and the public enrol route does NOT follow history
+  (an external form's submit behaves exactly as before).
+- **The editor warns before a rename** when grants or product links point at
+  the thread, and says the old address will redirect.
+
 ## [1.195.1] — 2026-10-14
 
 ### Every Thread page loses about half a second

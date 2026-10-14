@@ -125,6 +125,18 @@ export function ThreadEditorForm({
             initialName={program?.title ?? ''}
             initialSlug={thread.slug}
             prefix={`${THREAD_HOST}/${urlOwner}/`}
+            // The rename warning: only when something points here. A rename
+            // breaks none of it any more (grants hold the thread's id, old
+            // addresses redirect), but the organiser should know before they
+            // change an address people have.
+            slugHint={
+              (thread.references?.grants ?? 0) + (thread.references?.product_links ?? 0) > 0
+                ? t(locale, 'slug_rename_warning', {
+                    grants: String(thread.references?.grants ?? 0),
+                    links: String(thread.references?.product_links ?? 0),
+                  })
+                : undefined
+            }
           />
 
           {/* Rich text since 2026-09-10 (Sjoerd asked for bold, italic,

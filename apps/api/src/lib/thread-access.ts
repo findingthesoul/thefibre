@@ -28,6 +28,7 @@
 // the pair is looked up before anything is inserted.
 
 import { adminClient } from '../db.js';
+import { GRANT_THREAD_PROBLEM, resolveGrantThread } from './thread-grant.js';
 
 type JournalRow = {
   id: string;
@@ -99,26 +100,24 @@ export async function runThreadAccessSync(): Promise<{
   if (!threadRows.length) return out;
 
   for (const row of threadRows) {
-    const slug = threadSlugFromConfig(row.grant?.config ?? null);
-    if (!slug) {
-      await stamp(row.id, 'error', 'the grant has no thread');
+    // BY ID first (lib/thread-grant.ts), then the slug, then the slug's
+    // history — always in the member's OWN workspace. A rename no longer
+    // breaks a grant; one that still does not resolve says why, and an
+    // ambiguous one is never guessed.
+    let resolved: Awaited<ReturnType<typeof resolveGrantThread>>;
+    try {
+      resolved = await resolveGrantThread(row.member!.workspace_id, row.grant?.config ?? null);
+    } catch (e) {
+      // A failed READ is not "no such thread": leave the row for next tick.
+      console.error('[thread-access] grant resolve failed; retrying next tick', row.id, e);
+      continue;
+    }
+    if (!resolved.ok) {
+      await stamp(row.id, 'error', GRANT_THREAD_PROBLEM[resolved.reason]);
       out.errors += 1;
       continue;
     }
-
-    // Scoped to the member's OWN workspace, never by slug alone — slugs are
-    // unique per organiser, not globally.
-    const { data: thread } = await adminClient
-      .from('thread_thread')
-      .select('id, program_id, workspace_id')
-      .eq('workspace_id', row.member!.workspace_id)
-      .eq('slug', slug)
-      .maybeSingle();
-    if (!thread) {
-      await stamp(row.id, 'error', `no thread "${slug}" in this workspace`);
-      out.errors += 1;
-      continue;
-    }
+    const thread = resolved.thread;
 
     const personId = row.member!.person_id;
     const granting = row.status === 'pending';

@@ -3072,6 +3072,14 @@ const CATALOG = {
     de: 'Thread-Titel', // MT
     fr: 'Titre du thread', // MT
   },
+  slug_rename_warning: {
+    en: 'In use: {grants} membership grant(s) and {links} product link(s) point at this thread. Changing the address keeps them working — the old address redirects to the new one.',
+    nl: 'In gebruik: {grants} lidmaatschapstoegang(en) en {links} productlink(s) verwijzen naar deze thread. Een nieuw adres houdt ze werkend — het oude adres stuurt door.', // MT
+    es: 'En uso: {grants} acceso(s) de membresía y {links} enlace(s) de producto apuntan a este thread. Cambiar la dirección no los rompe: la antigua redirige a la nueva.', // MT
+    pt: 'Em uso: {grants} acesso(s) de assinatura e {links} link(s) de produto apontam para este thread. Mudar o endereço mantém-nos a funcionar — o antigo redireciona para o novo.', // MT
+    de: 'In Verwendung: {grants} Mitgliedschaftszugänge und {links} Produktlinks verweisen auf diesen Thread. Eine neue Adresse lässt sie weiter funktionieren — die alte leitet weiter.', // MT
+    fr: 'Utilisé : {grants} accès d’adhésion et {links} lien(s) produit pointent vers ce thread. Changer l’adresse ne les casse pas — l’ancienne redirige vers la nouvelle.', // MT
+  },
   publish_blocked_paid: {
     en: 'This thread has a price. Connect Stripe or allow invoice before it goes live.',
     nl: 'Deze thread heeft een prijs. Koppel Stripe of sta factuur toe voordat hij live gaat.', // MT

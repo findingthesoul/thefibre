@@ -7,6 +7,7 @@ import {
 } from '../lib/place-state.js';
 import { paymentRouteProblem } from '../lib/thread-payment-route.js';
 import { sendReach } from '../lib/member-notify.js';
+import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
 import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import {
   couponPriceOf,
@@ -859,6 +860,13 @@ threadRoutes.get('/threads/:id', async (c) => {
     // editor shows it BEFORE the click, from the same check the save runs
     // (lib/thread-payment-route.ts), so the two cannot disagree.
     publish_blocker: await paymentRouteProblem(thread.id as string),
+    // What in Members points at this thread (additive), for the rename
+    // warning beside the address field. Zeroes when the read fails.
+    references: await threadReferenceCounts({
+      id: thread.id as string,
+      slug: thread.slug as string,
+      workspace_id: thread.workspace_id as string,
+    }).catch(() => ({ grants: 0, product_links: 0 })),
   });
 });
 
@@ -951,9 +959,10 @@ threadRoutes.patch('/threads/:id', async (c) => {
   const { title, status, starts_on, ends_on, ...threadPatch } = body.data;
 
   // Fetch the thread first — we need program_id and it confirms visibility.
+  // The slug too: a rename keeps the old address answering (slug history).
   const { data: existing, error: eErr } = await db
     .from('thread_thread')
-    .select('id, program_id')
+    .select('id, program_id, slug, workspace_id')
     .eq('id', id)
     .single();
   if (eErr || !existing) return c.json({ error: 'not found' }, 404);
@@ -1093,6 +1102,15 @@ threadRoutes.patch('/threads/:id', async (c) => {
       console.error('[thread/threads] thread update failed', { threadPatch, tErr });
       const s = tErr.code === '23505' ? 409 : 500;
       return c.json({ error: tErr.code === '23505' ? 'slug already taken' : tErr.message }, s);
+    }
+    // RENAMED: remember the old address, so links people already have — the
+    // public page, an embed, a product link, an old grant — still find it
+    // (lib/thread-grant.ts, the public lookup). Logged, not fatal: the rename
+    // itself has happened and must not be reported as failed.
+    if (typeof threadPatch.slug === 'string' && existing.slug && threadPatch.slug !== existing.slug) {
+      await recordSlugChange(id, existing.workspace_id as string, existing.slug as string).catch((e) =>
+        console.error('[thread/threads] slug history not written', { id, e }),
+      );
     }
   }
 
@@ -5905,6 +5923,47 @@ function ownerThreadFilter<Q extends { eq: any; is: any }>(q: Q, owner: PublicOw
     : q.eq('team_id', owner.team.id);
 }
 
+/** The slug a renamed thread answers to now, for an old address under this
+ *  owner — or null when none, or more than one, of the owner's threads ever
+ *  wore it (thread_slug_history). */
+async function movedThreadSlug(owner: PublicOwner, oldSlug: string): Promise<string | null> {
+  const { data: hist, error: hErr } = await adminClient
+    .from('thread_slug_history')
+    .select('thread_id')
+    .eq('old_slug', oldSlug.toLowerCase());
+  if (hErr) {
+    // No moved_to is the safe answer — a plain 404 — but say why.
+    console.error('[thread/public] slug history read failed', hErr.message);
+    return null;
+  }
+  const ids = [...new Set((hist ?? []).map((h) => h.thread_id as string))];
+  if (!ids.length) return null;
+  let q = adminClient.from('thread_thread').select('slug, program:program_id (status)').in('id', ids);
+  q = ownerThreadFilter(q, owner);
+  const { data, error } = await q;
+  if (error) {
+    console.error('[thread/public] moved thread read failed', error.message);
+    return null;
+  }
+  // ONLY a thread this lookup would itself serve. A renamed thread that has
+  // since gone to draft or been archived must not have its NEW address handed
+  // out through its old one — the slug often carries the title, and the
+  // public route refuses to serve it. Same rule as the found-thread path.
+  const served = (data ?? []).filter((t) => {
+    const program = (Array.isArray(t.program) ? t.program[0] : t.program) as { status?: string } | null;
+    return isPubliclyServed(program?.status);
+  });
+  return served.length === 1 ? (served[0]!.slug as string) : null;
+}
+
+/** Whether a thread's programme status lets the public lookup serve it:
+ *  active or completed. (A workspace member may PREVIEW a draft — that is a
+ *  preview for them, never a public address.) One rule for the lookup and
+ *  for the moved_to it answers with. */
+function isPubliclyServed(status: string | null | undefined): boolean {
+  return status === 'active' || status === 'completed';
+}
+
 async function resolvePublicOwner(slug: string): Promise<PublicOwner | null> {
   // D3 (docs/brief-workspace-urls.md): one slug namespace, workspaces win.
   const { data: ws } = await adminClient
@@ -6173,7 +6232,14 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .eq('slug', c.req.param('threadSlug'));
   tq = ownerThreadFilter(tq, owner);
   const { data: thread } = await tq.maybeSingle();
-  if (!thread) return c.json({ error: 'not found' }, 404);
+  if (!thread) {
+    // RENAMED? An old address answers with where the thread lives now
+    // (additive `moved_to`; the page redirects), so links people already
+    // have keep working after a rename. Same owner only, and only when the
+    // old slug points at exactly one of this owner's threads.
+    const movedTo = await movedThreadSlug(owner, c.req.param('threadSlug'));
+    return c.json({ error: 'not found', ...(movedTo ? { moved_to: { thread_slug: movedTo } } : {}) }, 404);
+  }
 
   const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
   // Draft/archived threads are not public, even by direct link — with ONE
@@ -6185,7 +6251,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   // one exists; anonymous callers keep the 404 and can't tell a draft from a
   // thread that never existed.
   let isPreview = false;
-  if (!program || (program.status !== 'active' && program.status !== 'completed')) {
+  if (!program || !isPubliclyServed(program.status)) {
     if (!program) return c.json({ error: 'not found' }, 404);
     const email = await participantEmailFromAuth(c);
     if (email) {
