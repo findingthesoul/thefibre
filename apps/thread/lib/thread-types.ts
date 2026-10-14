@@ -25,6 +25,8 @@ export type ThreadRow = {
   /** The main facilitator's host row, or null = the organiser. */
   main_facilitator_id?: string | null;
   meeting_room?: MeetingRoom | null;
+  /** Each account-holding host's personal room, by host row id. */
+  room_by_host?: Record<string, string | null>;
   /** Why it could not go live with sign-up open (paid, no working payment
    *  route), or null. From GET /threads/:id; absent on older APIs. */
   publish_blocker?: string | null;
@@ -86,6 +88,8 @@ export type ThreadMember = {
   id?: string;
   role: 'host' | 'facilitator';
   organiser: OrganiserCore | OrganiserCore[] | null;
+  /** A host who is a PERSON without an account (no room, no connections). */
+  person?: { id: string; first_name: string | null; last_name: string | null } | { id: string; first_name: string | null; last_name: string | null }[] | null;
 };
 
 /** Whose room a thread's online sessions meet in (GET /threads/:id). */
@@ -166,6 +170,9 @@ export type EngagementRow = {
   id: string;
   /** Host/facilitator rows NOT on this session; empty = everybody. */
   excluded_people?: string[] | null;
+  /** Whose room this session meets in (a host row), or null = the main
+   *  facilitator's. */
+  room_owner_id?: string | null;
   thread_id: string;
   title: string;
   description: string | null;

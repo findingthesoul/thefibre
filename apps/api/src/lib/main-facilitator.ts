@@ -95,11 +95,42 @@ export async function allowsOrganiserMeetings(userId: string | null): Promise<bo
   return data?.allow_organiser_meetings === true;
 }
 
-/** Which account mints a Meet/Zoom link for a session: the meeting account
- *  when that person has opted in (or IS the caller), otherwise the caller's
- *  own — using someone's OAuth credential needs THEIR yes. */
-export async function mintingAccount(threadId: string, callerUserId: string): Promise<{ userId: string; onBehalf: boolean }> {
-  const { userId } = await meetingAccount(threadId);
+/**
+ * Whose room ONE SESSION meets in: its pinned host (room_owner_id) when set,
+ * else the thread's main facilitator, else the organiser. A pinned row that
+ * holds no account (a person-only host) cannot own a room — the route
+ * refuses to pin one — so it falls through to the thread's account here.
+ */
+export async function sessionRoomAccount(threadId: string, roomOwnerId: string | null | undefined): Promise<MeetingAccount> {
+  if (roomOwnerId) {
+    const { data: row, error } = await adminClient
+      .from('thread_thread_organiser')
+      .select('id, organiser:organiser_id (user_id, display_name)')
+      .eq('id', roomOwnerId)
+      .eq('thread_id', threadId)
+      .maybeSingle();
+    if (error) throw new Error(`room owner: ${error.message}`);
+    const o = one<{ user_id: string | null; display_name: string | null }>(row?.organiser);
+    if (row && o?.user_id) return { userId: o.user_id, name: await nameOf(o.user_id, o.display_name), isMain: false, mainRowId: null };
+  }
+  return meetingAccount(threadId);
+}
+
+/** The room of one session's owner, or null. */
+export async function sessionRoom(threadId: string, roomOwnerId: string | null | undefined): Promise<{ account: MeetingAccount; url: string | null }> {
+  const account = await sessionRoomAccount(threadId, roomOwnerId);
+  return { account, url: await userPersonalRoom(account.userId) };
+}
+
+/** Which account mints a Meet/Zoom link for a session: its room owner when
+ *  that person has opted in (or IS the caller), otherwise the caller's own —
+ *  using someone's OAuth credential needs THEIR yes. */
+export async function mintingAccount(
+  threadId: string,
+  callerUserId: string,
+  roomOwnerId: string | null = null,
+): Promise<{ userId: string; onBehalf: boolean }> {
+  const { userId } = await sessionRoomAccount(threadId, roomOwnerId);
   if (!userId || userId === callerUserId) return { userId: callerUserId, onBehalf: false };
   return (await allowsOrganiserMeetings(userId)) ? { userId, onBehalf: true } : { userId: callerUserId, onBehalf: false };
 }
@@ -131,23 +162,37 @@ export async function propagateRoom(args: {
   oldUrl: string | null;
   newUrl: string | null;
   reason: string;
+  /** WHOSE sessions: room_owner_id values to match, `null` meaning the
+   *  sessions that follow the main facilitator. Default: those only. */
+  owners?: (string | null)[];
+  /** The account whose room the sessions now meet in (recorded as the
+   *  session's meeting_account_user_id). */
+  newAccountUserId?: string | null;
   actorUserId?: string | null;
   now?: Date;
 }): Promise<number> {
   if ((args.oldUrl ?? null) === (args.newUrl ?? null)) return 0;
+  const owners = args.owners ?? [null];
   const { data, error } = await adminClient
     .from('thread_engagement')
     .select('*')
     .eq('thread_id', args.threadId)
     .eq('meeting_provider', 'personal_room');
   if (error) throw new Error(`room sessions: ${error.message}`);
-  const moving = sessionsToMove((data ?? []) as { id: string; meeting_provider: string | null; meeting_url: string | null; starts_at: string | null }[], args.oldUrl, args.now ?? new Date());
+  const theirs = ((data ?? []) as { id: string; room_owner_id: string | null; meeting_provider: string | null; meeting_url: string | null; starts_at: string | null }[]).filter(
+    (r) => owners.includes(r.room_owner_id ?? null),
+  );
+  const moving = sessionsToMove(theirs, args.oldUrl, args.now ?? new Date());
   let moved = 0;
   for (const row of moving) {
     const before = calendarStateOf(row as Record<string, unknown>);
     const { data: after, error: uErr } = await adminClient
       .from('thread_engagement')
-      .update({ meeting_url: args.newUrl, updated_at: new Date().toISOString() })
+      .update({
+        meeting_url: args.newUrl,
+        ...(args.newAccountUserId !== undefined ? { meeting_account_user_id: args.newAccountUserId } : {}),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', row.id)
       // Only over the value just read (guard b, again, at write time).
       .eq('meeting_provider', 'personal_room')
@@ -186,13 +231,82 @@ export async function threadsUsingAccount(userId: string): Promise<string[]> {
   return [...new Set([...mainThreads, ...(asOrganiser ?? []).map((r) => r.id as string)])];
 }
 
-/** After somebody changes their own personal room: move their threads. */
+/** After somebody changes their own personal room: move every session that
+ *  meets in it — sessions following them as a thread's meeting account, and
+ *  sessions pinned to one of their host rows on any thread (guard c). */
 export async function propagatePersonalRoomChange(userId: string, oldUrl: string | null, newUrl: string | null): Promise<number> {
   if ((oldUrl ?? null) === (newUrl ?? null)) return 0;
   const name = await nameOf(userId, null);
+  const reason = `room changed: ${name} updated their personal room`;
   let total = 0;
   for (const threadId of await threadsUsingAccount(userId)) {
-    total += await propagateRoom({ threadId, oldUrl, newUrl, reason: `room changed: ${name} updated their personal room`, actorUserId: userId });
+    total += await propagateRoom({ threadId, oldUrl, newUrl, reason, owners: [null], actorUserId: userId });
+  }
+  const { data: org } = await adminClient.from('thread_organiser').select('id').eq('user_id', userId).maybeSingle();
+  if (org) {
+    const { data: rows, error } = await adminClient.from('thread_thread_organiser').select('id, thread_id').eq('organiser_id', org.id);
+    if (error) throw new Error(`host rows: ${error.message}`);
+    for (const r of rows ?? []) {
+      total += await propagateRoom({ threadId: r.thread_id as string, oldUrl, newUrl, reason, owners: [r.id as string], actorUserId: userId });
+    }
   }
   return total;
+}
+
+// ---------------------------------------------------------------------------
+// WHO HOSTS A SESSION — the thread's hosts and facilitators, minus the ones
+// unticked on it (thread_engagement.excluded_people). Named on the public
+// agenda and in my.thread ("with Anna and Peter"), and, with an address,
+// invited to the session's calendar entry.
+// ---------------------------------------------------------------------------
+
+export type ThreadHost = {
+  /** thread_thread_organiser.id */
+  id: string;
+  role: 'host' | 'facilitator';
+  name: string;
+  /** The account, when the host has one (a person-only host has none). */
+  userId: string | null;
+  email: string | null;
+};
+
+/** Every host and facilitator of several threads, by thread — one read. */
+export async function threadHostsFor(threadIds: string[]): Promise<Map<string, ThreadHost[]>> {
+  const out = new Map<string, ThreadHost[]>();
+  if (!threadIds.length) return out;
+  const { data, error } = await adminClient
+    .from('thread_thread_organiser')
+    .select(
+      'id, thread_id, role, organiser:organiser_id (user_id, display_name, user:user_id (email, full_name)), person:person_id (first_name, last_name, email)',
+    )
+    .in('thread_id', threadIds)
+    .order('id', { ascending: true });
+  if (error) throw new Error(`thread hosts: ${error.message}`);
+  for (const r of (data ?? []) as Record<string, unknown>[]) {
+    const o = one<{ user_id: string | null; display_name: string | null; user: unknown }>(r.organiser);
+    const u = one<{ email: string | null; full_name: string | null }>(o?.user);
+    const p = one<{ first_name: string | null; last_name: string | null; email: string | null }>(r.person);
+    const personName = [p?.first_name, p?.last_name].filter(Boolean).join(' ');
+    const list = out.get(r.thread_id as string) ?? [];
+    list.push({
+      id: r.id as string,
+      role: r.role as 'host' | 'facilitator',
+      name: o?.display_name ?? u?.full_name ?? (personName || 'A host'),
+      userId: o?.user_id ?? null,
+      email: (u?.email ?? p?.email ?? null)?.trim().toLowerCase() || null,
+    });
+    out.set(r.thread_id as string, list);
+  }
+  return out;
+}
+
+/** Every host and facilitator of one thread. */
+export async function threadHosts(threadId: string): Promise<ThreadHost[]> {
+  return (await threadHostsFor([threadId])).get(threadId) ?? [];
+}
+
+/** Pure: the hosts ticked on one session. */
+export function sessionHosts(hosts: ThreadHost[], excluded: string[] | null | undefined): ThreadHost[] {
+  const out = new Set(excluded ?? []);
+  return hosts.filter((h) => !out.has(h.id));
 }

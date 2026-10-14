@@ -72,6 +72,15 @@ const CATALOG = {
     de: 'Online',
     fr: 'En ligne', // MT
   },
+  // Who hosts a session on the public agenda: "with Anna and Peter".
+  with_hosts: {
+    en: 'with {names}',
+    nl: 'met {names}',
+    es: 'con {names}', // MT
+    pt: 'com {names}', // MT
+    de: 'mit {names}', // MT
+    fr: 'avec {names}', // MT
+  },
   facilitated_in: {
     en: 'Facilitated in {language}',
     nl: 'Voertaal: {language}',

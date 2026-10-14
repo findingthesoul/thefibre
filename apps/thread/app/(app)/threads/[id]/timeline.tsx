@@ -758,8 +758,18 @@ export function ThreadTimeline({
           personalRoomUrl={personalRoomUrl}
           meetingRoom={meetingRoom}
           people={members
-            .filter((m) => !!m.id && !!one(m.organiser))
-            .map((m) => ({ id: m.id!, name: one(m.organiser)!.display_name ?? one(m.organiser)!.slug, role: m.role }))}
+            .filter((m) => !!m.id && (!!one(m.organiser) || !!one(m.person)))
+            .map((m) => {
+              const o = one(m.organiser);
+              const p = one(m.person);
+              return {
+                id: m.id!,
+                name: o ? (o.display_name ?? o.slug) : [p?.first_name, p?.last_name].filter(Boolean).join(' ') || '—',
+                role: m.role,
+                hasAccount: !!o?.user_id,
+                room: thread.room_by_host?.[m.id!] ?? null,
+              };
+            })}
           googleConnected={googleConnected}
           zoomAvailable={zoomAvailable}
           canEditStructure={canEditStructure}

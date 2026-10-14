@@ -405,7 +405,7 @@ portalRoutes.get('/portal', async (c) => {
     if (t && !enrolmentCanRespond(enr?.status ?? null)) droppedThreads.add(t.id);
   }
 
-  const agendaByThread = await loadAgendaByThread({ threadIds, personIds, droppedThreads });
+  const agendaByThread = await loadAgendaByThread({ threadIds, personIds, droppedThreads, email });
 
   // -- Certificates ---------------------------------------------------------
   //

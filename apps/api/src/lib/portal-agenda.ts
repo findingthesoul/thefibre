@@ -11,6 +11,7 @@
 // both come through here, and there is one answer to "which sessions are
 // this person's, and what do they say".
 
+import { sessionHosts, threadHostsFor, type ThreadHost } from './main-facilitator.js';
 import { adminClient } from '../db.js';
 import { rows } from './rows.js';
 import { personIdsForProvenEmail } from './proven-email.js';
@@ -79,6 +80,11 @@ export type AgendaItem = {
   /** This person's current answer. `null` is NO ANSWER, which is a third
    *  state and not the same as 'not_coming'. */
   rsvp: 'coming' | 'not_coming' | null;
+  /** Who hosts this session, by name ("with Anna and Peter"). */
+  hosts: string[];
+  /** This person hosts it, when they are one of its ticked hosts — so the
+   *  portal says "You're hosting", not a participant's line. */
+  my_role: 'host' | 'facilitator' | null;
 };
 
 /**
@@ -98,6 +104,9 @@ export async function loadAgendaByThread(args: {
   threadIds: string[];
   personIds: string[];
   droppedThreads: ReadonlySet<string>;
+  /** The visitor's verified address, to recognise them among a session's
+   *  hosts. Omitted = nobody is recognised. */
+  email?: string | null;
 }): Promise<Map<string, AgendaItem[]>> {
   const byThread = new Map<string, AgendaItem[]>();
   if (!args.threadIds.length || !args.personIds.length) return byThread;
@@ -111,7 +120,7 @@ export async function loadAgendaByThread(args: {
     await adminClient
       .from('thread_engagement')
       .select(
-        'id, thread_id, title, description, type, starts_at, ends_at, location, location_url, meeting_url, content, position, rsvp_enabled',
+        'id, thread_id, title, description, type, starts_at, ends_at, location, location_url, meeting_url, content, position, rsvp_enabled, excluded_people',
       )
       .in('thread_id', args.threadIds)
       .eq('status', 'published')
@@ -129,8 +138,15 @@ export async function loadAgendaByThread(args: {
     rsvps.map((r) => [r.engagement_id as string, r.response as 'coming' | 'not_coming']),
   );
 
+  // Hosts by thread, one read; a failure names nobody rather than failing
+  // the agenda.
+  const hostsByThread = await threadHostsFor(args.threadIds).catch(() => new Map<string, ThreadHost[]>());
+  const me = args.email?.trim().toLowerCase() || null;
+
   for (const e of engagements ?? []) {
     const content = (e.content ?? {}) as { external_url?: string; file_url?: string };
+    const ticked = sessionHosts(hostsByThread.get(e.thread_id as string) ?? [], e.excluded_people as string[] | null);
+    const mine = me ? ticked.find((h) => h.email === me) : undefined;
     const list = byThread.get(e.thread_id as string) ?? [];
     list.push({
       id: e.id as string,
@@ -153,6 +169,8 @@ export async function loadAgendaByThread(args: {
           hasStart: !!e.starts_at,
         }),
       rsvp: answerByEngagement.get(e.id as string) ?? null,
+      hosts: ticked.map((h) => h.name),
+      my_role: mine?.role ?? null,
     });
     byThread.set(e.thread_id as string, list);
   }

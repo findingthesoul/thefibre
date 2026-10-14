@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.199.0] — 2026-10-15
+
+### The Thread: a room per session, and who hosts each one
+
+Sjoerd: *"when host/facilitator, their name is also in the dropdown for
+virtual rooms … public page: amazing."*
+
+- **A room per session.** A personal-room session can meet in any ticked
+  host's or facilitator's room ("Anna's personal room"), not only the main
+  facilitator's; the default stays "follows the main facilitator". People
+  without an account, or without a room yet, are listed and greyed out. The
+  room's owner must be ticked on the session — unticking them hands the room
+  back to the main facilitator and the editor says so. Meet/Zoom follow the
+  same owner and the same opt-in.
+- **Room changes follow the owner.** A new main facilitator moves only the
+  sessions that follow them; a person changing their room moves the sessions
+  pinned to them too; removing a pinned host un-pins their sessions, which
+  move to the main facilitator's room — each queued with its reason.
+- **"with Anna and Peter"** under each session on the public page and in
+  my.thread, naming the ticked hosts (people without an account by name).
+  Additive `hosts` on the public agenda items (pending in verify-public-api
+  until production serves it). In my.thread a session you host says
+  "You're hosting" / "You're facilitating".
+- Tests: `main-facilitator.int.test.ts` grows to 14 on staging — pinned room,
+  owner must be ticked, owner's room change, main change leaves a pinned
+  session alone, public names without addresses, "you host" in the portal,
+  removal un-pins and queues.
+
 ## [1.198.0] — 2026-10-15
 
 ### The Thread: a main facilitator, whose room the sessions meet in

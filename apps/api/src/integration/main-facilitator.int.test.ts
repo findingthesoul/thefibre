@@ -37,9 +37,16 @@ let threadId = '';
 let organiserRowId = '';
 let facilitatorOrgId = '';
 let mainRowId = '';
+let third: FixtureUser;
+let thirdOrgId = '';
+let organiserSlug = '';
+let threadSlug = '';
+let programId = '';
 const ROOM_A = `https://meet.example/org-${randomUUID().slice(0, 6)}`;
 const ROOM_B = `https://meet.example/fac-${randomUUID().slice(0, 6)}`;
 const ROOM_B2 = `https://meet.example/fac2-${randomUUID().slice(0, 6)}`;
+const ROOM_C = `https://meet.example/third-${randomUUID().slice(0, 6)}`;
+const ROOM_C2 = `https://meet.example/third2-${randomUUID().slice(0, 6)}`;
 const made: { table: string; id: string }[] = [];
 const ids = { future: '', past: '', typed: '' };
 
@@ -77,7 +84,8 @@ beforeAll(async () => {
   ws = await createThrowawayWorkspace('mainfac');
   organiser = await createFixtureUser(ws, 'mf-org');
   facilitator = await createFixtureUser(ws, 'mf-fac');
-  for (const u of [organiser, facilitator]) {
+  third = await createFixtureUser(ws, 'mf-third');
+  for (const u of [organiser, facilitator, third]) {
     await service.from('workspace_member').upsert({ workspace_id: ws, user_id: u.userId, workspace_role: 'admin' });
     await service.from('app_membership').upsert({ user_id: u.userId, app_id: threadAppId, role: 'admin' }, { onConflict: 'user_id,app_id' });
   }
@@ -89,11 +97,15 @@ beforeAll(async () => {
   if (subErr) throw new Error(`workspace_subscription fixture: ${subErr.message}`);
   await connections.savePersonalRoom(organiser.userId, ROOM_A);
   await connections.savePersonalRoom(facilitator.userId, ROOM_B);
+  await connections.savePersonalRoom(third.userId, ROOM_C);
 
-  organiserRowId = await insert('thread_organiser', { user_id: organiser.userId, workspace_id: ws, slug: `mf-o-${randomUUID().slice(0, 6)}` });
-  facilitatorOrgId = await insert('thread_organiser', { user_id: facilitator.userId, workspace_id: ws, slug: `mf-f-${randomUUID().slice(0, 6)}` });
-  const program = await insert('program', { workspace_id: ws, app_id: threadAppId, title: 'Main facilitator', format: 'event', status: 'draft' });
-  threadId = await insert('thread_thread', { workspace_id: ws, program_id: program, organiser_id: organiserRowId, slug: `mf-${randomUUID().slice(0, 6)}` });
+  organiserSlug = `mf-o-${randomUUID().slice(0, 6)}`;
+  threadSlug = `mf-${randomUUID().slice(0, 6)}`;
+  organiserRowId = await insert('thread_organiser', { user_id: organiser.userId, workspace_id: ws, slug: organiserSlug, display_name: 'Olga Organiser' });
+  facilitatorOrgId = await insert('thread_organiser', { user_id: facilitator.userId, workspace_id: ws, slug: `mf-f-${randomUUID().slice(0, 6)}`, display_name: 'Anna Facilitator' });
+  thirdOrgId = await insert('thread_organiser', { user_id: third.userId, workspace_id: ws, slug: `mf-t-${randomUUID().slice(0, 6)}`, display_name: 'Peter Third' });
+  programId = await insert('program', { workspace_id: ws, app_id: threadAppId, title: 'Main facilitator', format: 'event', status: 'draft' });
+  threadId = await insert('thread_thread', { workspace_id: ws, program_id: programId, organiser_id: organiserRowId, slug: threadSlug });
   mainRowId = await insert('thread_thread_organiser', { thread_id: threadId, organiser_id: facilitatorOrgId, role: 'facilitator' });
 
   // Three sessions in the organiser's room, as the old code would have
@@ -110,7 +122,7 @@ afterAll(async () => {
   await service.from('thread_thread').update({ main_facilitator_id: null }).eq('id', threadId);
   await service.from('thread_thread_organiser').delete().eq('thread_id', threadId);
   for (const { table, id } of made) await service.from(table).delete().eq('id', id);
-  for (const u of [organiser, facilitator]) {
+  for (const u of [organiser, facilitator, third]) {
     await service.from('user_connection').delete().eq('user_id', u.userId);
     await service.from('app_membership').delete().eq('user_id', u.userId);
     await service.from('workspace_member').delete().eq('user_id', u.userId);
@@ -178,3 +190,73 @@ describe('the main facilitator', () => {
     expect((await pendingFor(ids.future))?.reason).toMatch(/no longer on this thread/);
   });
 });
+
+describe('rooms per session, and who hosts each one', () => {
+  let pinned = '';
+  let thirdRow = '';
+  let annaRow = '';
+
+  it('a session pinned to a ticked host meets in THAT host’s room', async () => {
+    thirdRow = await insert('thread_thread_organiser', { thread_id: threadId, organiser_id: thirdOrgId, role: 'host' });
+    const res = await call(`/threads/${threadId}/engagements`, {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Pinned to Peter', type: 'event', status: 'draft', starts_at: day(15), ends_at: day(15.05), meeting_provider: 'personal_room', room_owner_id: thirdRow }),
+    });
+    expect(res.status, await res.clone().text()).toBe(201);
+    const row = await res.json();
+    pinned = row.id;
+    made.unshift({ table: 'thread_engagement', id: pinned });
+    expect(row.meeting_url).toBe(ROOM_C);
+    expect(row.room_owner_id).toBe(thirdRow);
+    // Published + sent, so later moves are queued like a real session's.
+    await service.from('thread_engagement').update({ status: 'published', show_in_agenda: true, calendar_sent_at: day(-1) }).eq('id', pinned);
+  });
+
+  it('the room’s owner must be ticked on the session', async () => {
+    const res = await call(`/engagements/${pinned}`, { method: 'PATCH', body: JSON.stringify({ excluded_people: [thirdRow] }) });
+    expect(res.status).toBe(400);
+  });
+
+  it('the owner changing their room moves the sessions pinned to them', async () => {
+    await connections.savePersonalRoom(third.userId, ROOM_C2);
+    expect(await urlOf(pinned)).toBe(ROOM_C2);
+  });
+
+  it('a new main facilitator moves the FOLLOWING sessions, never a pinned one', async () => {
+    annaRow = await insert('thread_thread_organiser', { thread_id: threadId, organiser_id: facilitatorOrgId, role: 'facilitator' });
+    const res = await call(`/threads/${threadId}`, { method: 'PATCH', body: JSON.stringify({ main_facilitator_id: annaRow }) });
+    expect(res.status, await res.clone().text()).toBe(200);
+    expect(await urlOf(ids.future), 'following session → Anna’s room').toBe(ROOM_B2);
+    expect(await urlOf(pinned), 'pinned to Peter → unchanged').toBe(ROOM_C2);
+  });
+
+  it('the public agenda names who hosts each session; addresses never leave', async () => {
+    await service.from('program').update({ status: 'active' }).eq('id', programId);
+    const res = await app.request(`/api/v1/thread/public/organiser/${organiserSlug}/thread/${threadSlug}`, { headers: { 'X-App-ID': 'the-thread' } });
+    expect(res.status, await res.clone().text()).toBe(200);
+    const body = await res.json();
+    const item = (body.thread.agenda as { id: string; hosts: string[] }[]).find((a) => a.id === pinned)!;
+    expect(item.hosts.sort()).toEqual(['Anna Facilitator', 'Peter Third']);
+    expect(JSON.stringify(body)).not.toContain(third.email);
+    expect(JSON.stringify(body)).not.toContain('excluded_people');
+    await service.from('program').update({ status: 'draft' }).eq('id', programId);
+  });
+
+  it('my.thread’s agenda knows when YOU host a session', async () => {
+    const { loadAgendaByThread } = await import('../lib/portal-agenda.js');
+    const agenda = await loadAgendaByThread({ threadIds: [threadId], personIds: [randomUUID()], droppedThreads: new Set(), email: third.email });
+    const item = (agenda.get(threadId) ?? []).find((a) => a.id === pinned)!;
+    expect(item.my_role).toBe('host');
+    expect(item.hosts).toContain('Anna Facilitator');
+  });
+
+  it('removing the owner un-pins the session: it follows the main facilitator, queued with why', async () => {
+    const res = await call(`/threads/${threadId}/members/${thirdOrgId}`, { method: 'DELETE' });
+    expect(res.status).toBe(204);
+    const row = (await service.from('thread_engagement').select('room_owner_id, meeting_url').eq('id', pinned).single()).data!;
+    expect(row.room_owner_id).toBeNull();
+    expect(row.meeting_url).toBe(ROOM_B2);
+    expect((await pendingFor(pinned))?.reason).toMatch(/Peter Third is no longer on this thread/);
+  });
+});
+

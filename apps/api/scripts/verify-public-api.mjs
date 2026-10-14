@@ -187,6 +187,10 @@ const PENDING = {
   // collection was somebody else's field and somebody else's deploy; the gate
   // does not care whose, which is the point of it going red for all of us.
   organiser: [],
+  // Who hosts each session, by name (main facilitator work, 2026-10-14).
+  // Collect into SHAPES.agendaItem in the session that deploys it to
+  // production.
+  agendaItem: ['hosts'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
@@ -307,6 +311,7 @@ checkPlain('thread organiser.bio', threadRes.body?.organiser?.bio);
 checkPlain('thread organiser.short_bio', threadRes.body?.organiser?.short_bio);
 if (threadRes.body?.thread?.agenda?.length) {
   checkShape('agenda item', threadRes.body.thread.agenda[0], SHAPES.agendaItem);
+  checkPending('agendaItem', threadRes.body.thread.agenda[0], PENDING.agendaItem);
 }
 
 // ---- Meet's public host payload ------------------------------------------

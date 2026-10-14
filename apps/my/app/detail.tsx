@@ -358,6 +358,13 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
                     item.location
                   ))}
               </p>
+              {item.my_role ? (
+                <p className="text-sm text-ink">{item.my_role === 'host' ? 'You’re hosting' : 'You’re facilitating'}</p>
+              ) : item.hosts && item.hosts.length > 0 ? (
+                <p className="text-sm text-ink-muted">
+                  with {new Intl.ListFormat('en', { type: 'conjunction' }).format(item.hosts)}
+                </p>
+              ) : null}
             </div>
             {/* Icons, not worded buttons: four equal-weight labels per row is
                 what "no clear overview" actually meant. */}

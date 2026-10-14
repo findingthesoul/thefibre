@@ -154,7 +154,7 @@ import { claimSend, recordSendResult } from '../lib/send-record.js';
 // returned the email in whatever case the provider sent — see
 // lib/participant-auth.ts, which exists for exactly this reason.
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
-import { allowsOrganiserMeetings, mintingAccount, propagateRoom, threadRoom } from '../lib/main-facilitator.js';
+import { allowsOrganiserMeetings, mintingAccount, propagateRoom, sessionHosts, sessionRoom, threadHosts, threadRoom, type ThreadHost } from '../lib/main-facilitator.js';
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -866,6 +866,16 @@ threadRoutes.get('/threads/:id', async (c) => {
   // Whose room the sessions meet in, for the editor (lib/main-facilitator.ts).
   // A summary, never the account's credentials.
   const room = await threadRoom(thread.id as string).catch(() => null);
+  // Each account-holding host's personal room, for the per-session room
+  // choice (a link they shared, not a credential). Person-only hosts have no
+  // room and are absent.
+  const roomByHost: Record<string, string | null> = {};
+  await Promise.all(
+    ((coOrganisers ?? []) as { id: string; organiser: unknown }[]).map(async (m) => {
+      const o = (Array.isArray(m.organiser) ? m.organiser[0] : m.organiser) as { user_id?: string | null } | null;
+      if (o?.user_id) roomByHost[m.id] = await userPersonalRoom(o.user_id).catch(() => null);
+    }),
+  );
 
   return c.json({
     ...thread,
@@ -880,6 +890,7 @@ threadRoutes.get('/threads/:id', async (c) => {
           allows_meetings: room.account.userId === ctx.userId || (await allowsOrganiserMeetings(room.account.userId)),
         }
       : null,
+    room_by_host: roomByHost,
     // Why this thread could not go live with sign-up open, or null. The
     // editor shows it BEFORE the click, from the same check the save runs
     // (lib/thread-payment-route.ts), so the two cannot disagree.
@@ -1169,6 +1180,8 @@ threadRoutes.patch('/threads/:id', async (c) => {
         oldUrl: roomBefore.url,
         newUrl: after.url,
         reason: `room changed: ${after.account.name} is now the main facilitator`,
+        owners: [null],
+        newAccountUserId: after.account.userId,
         actorUserId: ctx.userId,
       }).catch((e) => console.error('[thread/threads] room propagation failed', { id, e }));
     }
@@ -1646,7 +1659,27 @@ export function dailyScheduleError(
  *  person added to the thread later is on every session. Parsed apart from
  *  EngagementCreate on purpose — that schema is also the published
  *  /apps/* contract (routes/app-thread.ts), which this does not join. */
-const ExcludedPeople = z.object({ excluded_people: z.array(z.string().uuid()).max(200).optional() });
+const ExcludedPeople = z.object({
+  excluded_people: z.array(z.string().uuid()).max(200).optional(),
+  // Whose room this session meets in: one of the thread's hosts or
+  // facilitators with an account, TICKED on the session; null = follows the
+  // main facilitator (lib/main-facilitator.ts — the rule, not the fact).
+  room_owner_id: z.string().uuid().nullable().optional(),
+});
+
+async function roomOwnerProblem(threadId: string, ownerId: string | null | undefined, excluded: string[]): Promise<string | null> {
+  if (!ownerId) return null;
+  if (excluded.includes(ownerId)) return 'The person whose room this session uses must be ticked on it. Tick them, or choose another room.';
+  const { data, error } = await adminClient
+    .from('thread_thread_organiser')
+    .select('id, organiser:organiser_id (user_id)')
+    .eq('id', ownerId)
+    .eq('thread_id', threadId)
+    .maybeSingle();
+  if (error) return error.message;
+  const userId = (Array.isArray(data?.organiser) ? data?.organiser[0] : data?.organiser)?.user_id;
+  return data && userId ? null : 'The room must belong to one of this thread’s hosts or facilitators with an account.';
+}
 
 async function excludedPeopleProblem(threadId: string, ids: string[] | undefined): Promise<string | null> {
   if (!ids?.length) return null;
@@ -1672,6 +1705,7 @@ async function excludedPeopleProblem(threadId: string, ids: string[] | undefined
 async function sessionMeeting(opts: {
   threadId: string;
   callerUserId: string;
+  roomOwnerId?: string | null;
   provider: string | null | undefined;
   suppliedUrl: string | null | undefined;
   title: string;
@@ -1679,7 +1713,7 @@ async function sessionMeeting(opts: {
   endsAt: string | null | undefined;
 }): Promise<{ refuse?: string; url?: string | null; accountUserId?: string | null }> {
   if (opts.provider === 'personal_room') {
-    const room = await threadRoom(opts.threadId);
+    const room = await sessionRoom(opts.threadId, opts.roomOwnerId ?? null);
     if (!room.url) {
       return {
         refuse: `${room.account.name} has no personal room yet. They can add one in Settings → Connections, or choose another option.`,
@@ -1687,7 +1721,7 @@ async function sessionMeeting(opts: {
     }
     return { url: room.url, accountUserId: room.account.userId };
   }
-  const account = await mintingAccount(opts.threadId, opts.callerUserId);
+  const account = await mintingAccount(opts.threadId, opts.callerUserId, opts.roomOwnerId ?? null);
   const minted = await mintMeetingUrl({
     userId: account.userId,
     provider: opts.provider,
@@ -1748,7 +1782,9 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   const joined = (await calendarAudience(threadId)).length > 0;
   const status = joined ? 'draft' : (body.data.status ?? 'draft');
 
-  const peopleErr = await excludedPeopleProblem(threadId, people.data.excluded_people);
+  const peopleErr =
+    (await excludedPeopleProblem(threadId, people.data.excluded_people)) ??
+    (await roomOwnerProblem(threadId, people.data.room_owner_id, people.data.excluded_people ?? []));
   if (peopleErr) return c.json({ error: peopleErr }, 400);
 
   // The room (main facilitator's) or a real meeting (Zoom / Meet), decided
@@ -1756,6 +1792,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   const mintedNew = await sessionMeeting({
     threadId,
     callerUserId: ctx.userId,
+    roomOwnerId: people.data.room_owner_id ?? null,
     provider: body.data.meeting_provider,
     suppliedUrl: body.data.meeting_url,
     title: body.data.title,
@@ -1783,6 +1820,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       meeting_provider: body.data.meeting_provider ?? null,
       meeting_account_user_id: mintedNew.accountUserId ?? null,
       excluded_people: people.data.excluded_people ?? [],
+      room_owner_id: people.data.room_owner_id ?? null,
       scheduled_at: body.data.scheduled_at ?? null,
       trigger_kind: body.data.trigger_kind ?? 'fixed',
       trigger_anchor: body.data.trigger_anchor ?? null,
@@ -1872,12 +1910,19 @@ threadRoutes.patch('/engagements/:id', async (c) => {
   // The room is re-resolved only when this save touches where the session
   // meets; an edit that merely moves the time keeps the stored room (a
   // change of room is propagated, lib/main-facilitator.ts).
-  const touchesWhere = body.data.meeting_provider !== undefined || body.data.meeting_url !== undefined;
+  const nextOwner =
+    people.data.room_owner_id !== undefined ? people.data.room_owner_id : ((existing.room_owner_id as string | null) ?? null);
+  const nextExcluded = people.data.excluded_people ?? ((existing.excluded_people as string[] | null) ?? []);
+  const touchesWhere =
+    body.data.meeting_provider !== undefined ||
+    body.data.meeting_url !== undefined ||
+    people.data.room_owner_id !== undefined;
   const mintedEdit =
     touchesWhere || nextProvider !== 'personal_room'
       ? await sessionMeeting({
           threadId: existing.thread_id as string,
           callerUserId: ctx.userId,
+          roomOwnerId: nextOwner,
           provider: nextProvider,
           suppliedUrl: nextProvider === 'personal_room' ? null : nextUrl,
           title: body.data.title ?? (existing.title as string),
@@ -1897,10 +1942,13 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     // A typed link or in-person: no account made it.
     enPatch.meeting_account_user_id = null;
   }
-  if (people.data.excluded_people !== undefined) {
-    const peopleErr = await excludedPeopleProblem(existing.thread_id as string, people.data.excluded_people);
+  if (people.data.excluded_people !== undefined || people.data.room_owner_id !== undefined) {
+    const peopleErr =
+      (await excludedPeopleProblem(existing.thread_id as string, people.data.excluded_people)) ??
+      (await roomOwnerProblem(existing.thread_id as string, nextOwner, nextExcluded));
     if (peopleErr) return c.json({ error: peopleErr }, 400);
-    enPatch.excluded_people = people.data.excluded_people;
+    if (people.data.excluded_people !== undefined) enPatch.excluded_people = people.data.excluded_people;
+    if (people.data.room_owner_id !== undefined) enPatch.room_owner_id = people.data.room_owner_id;
   }
 
   const wasSession = isCalendarSession(existing);
@@ -2688,6 +2736,19 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
   // sessions fall back to the organiser's room — propagated and queued
   // below like any other room change (guard d), never silently.
   const roomBefore = await threadRoom(threadId);
+  // Their own host row and room: sessions PINNED to it are un-pinned by the
+  // delete (on delete set null) and must move too.
+  const { data: leaving } = await adminClient
+    .from('thread_thread_organiser')
+    .select('id, organiser:organiser_id (user_id, display_name)')
+    .eq('thread_id', threadId)
+    .eq('organiser_id', c.req.param('organiserId'))
+    .maybeSingle();
+  const leavingOrg = Array.isArray(leaving?.organiser) ? leaving?.organiser[0] : leaving?.organiser;
+  const leavingRoom = leavingOrg?.user_id ? await userPersonalRoom(leavingOrg.user_id as string) : null;
+  const { data: pinned } = leaving
+    ? await adminClient.from('thread_engagement').select('id').eq('thread_id', threadId).eq('room_owner_id', leaving.id)
+    : { data: [] as { id: string }[] };
   // RLS-scoped delete through the join policy.
   const { error } = await db
     .from('thread_thread_organiser')
@@ -2695,17 +2756,21 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
     .eq('thread_id', threadId)
     .eq('organiser_id', c.req.param('organiserId'));
   if (error) return c.json({ error: error.message }, 500);
-  if (roomBefore.account.isMain) {
-    const after = await threadRoom(threadId);
-    if (!after.account.isMain) {
-      await propagateRoom({
-        threadId,
-        oldUrl: roomBefore.url,
-        newUrl: after.url,
-        reason: `room changed: ${roomBefore.account.name} is no longer on this thread, so sessions use ${after.account.name}'s room`,
-        actorUserId: ctx.userId,
-      }).catch((e) => console.error('[thread/members] room propagation failed', { threadId, e }));
+  const after = await threadRoom(threadId);
+  const gone = (leavingOrg?.display_name as string | undefined) ?? roomBefore.account.name;
+  const reason = `room changed: ${gone} is no longer on this thread, so sessions use ${after.account.name}'s room`;
+  try {
+    // They ran the thread: its following sessions fall back (guard d).
+    if (roomBefore.account.isMain && !after.account.isMain) {
+      await propagateRoom({ threadId, oldUrl: roomBefore.url, newUrl: after.url, reason, owners: [null], newAccountUserId: after.account.userId, actorUserId: ctx.userId });
     }
+    // Sessions pinned to them now follow the main facilitator: from their
+    // room to the thread's. (Un-pinned already, so they match `null`.)
+    if ((pinned ?? []).length && leavingRoom !== after.url) {
+      await propagateRoom({ threadId, oldUrl: leavingRoom, newUrl: after.url, reason, owners: [null], newAccountUserId: after.account.userId, actorUserId: ctx.userId });
+    }
+  } catch (e) {
+    console.error('[thread/members] room propagation failed', { threadId, e });
   }
   return c.body(null, 204);
 });
@@ -6364,7 +6429,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     ? { data: [] as never[] }
     : await adminClient
     .from('thread_engagement')
-    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, location_url, image_url, meeting_url')
+    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, location_url, image_url, meeting_url, excluded_people')
     .eq('thread_id', thread.id)
     .eq('status', 'published')
     .eq('show_in_agenda', true)
@@ -6375,6 +6440,8 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .from('thread_enrolment')
     .select('id', { count: 'exact', head: true })
     .eq('thread_id', thread.id);
+  // Names only; addresses and accounts never leave (a failure names nobody).
+  const publicHosts = showAgenda ? await threadHosts(thread.id as string).catch(() => [] as ThreadHost[]) : [];
 
   // Public participant list — first names only, and ONLY for people who
   // opted into the cohort directory at enrolment (brief §9).
@@ -6548,9 +6615,12 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
         : null,
       tickets,
       // meeting_url never leaves: an unlisted join link is not agenda copy.
-      agenda: (agenda ?? []).map(({ meeting_url, ...rest }) => ({
+      // Nor do the exclusion ids — only the NAMES of who hosts each session
+      // (additive `hosts`, Sjoerd 2026-10-14: "public page: amazing").
+      agenda: (agenda ?? []).map(({ meeting_url, excluded_people, ...rest }) => ({
         ...rest,
         is_online: !!meeting_url,
+        hosts: sessionHosts(publicHosts, excluded_people as string[] | null).map((h) => h.name),
       })),
       enrolled_count: count ?? 0,
       // Two conditions, not one. The thread has to be live AND willing to

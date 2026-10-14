@@ -132,7 +132,7 @@ export function EngagementDialog({
   /** Whose room that is, and whose account Meet/Zoom links are made on. */
   meetingRoom?: MeetingRoom | null;
   /** The thread's hosts and facilitators, for "who is on this session". */
-  people?: { id: string; name: string; role: 'host' | 'facilitator' }[];
+  people?: { id: string; name: string; role: 'host' | 'facilitator'; hasAccount?: boolean; room?: string | null }[];
   googleConnected?: boolean;
   zoomAvailable?: boolean;
   /** Plan gate: false hides Delete (except on system messages, which stay
@@ -188,6 +188,13 @@ export function EngagementDialog({
   // WHO IS ON THIS SESSION — everybody ticked by default; stored as an
   // exclusion list so somebody added to the thread later is on it too.
   const [excluded, setExcluded] = useState<Set<string>>(new Set(engagement?.excluded_people ?? []));
+  // WHOSE ROOM: '' = the main facilitator's (the default, and every older
+  // session); otherwise one ticked host with an account.
+  const [roomOwner, setRoomOwner] = useState<string>(engagement?.room_owner_id ?? '');
+  const owner = roomOwner ? people.find((p) => p.id === roomOwner) : undefined;
+  const roomUrl = owner ? (owner.room ?? null) : (personalRoomUrl ?? null);
+  const roomName = owner ? owner.name : meetingRoom && !meetingRoom.is_me ? meetingRoom.name : null;
+  const [ownerNotice, setOwnerNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -345,7 +352,7 @@ export function EngagementDialog({
             meeting_provider: provider as EngagementRow['meeting_provider'],
             meeting_url:
               provider === 'personal_room'
-                ? personalRoomUrl ?? null
+                ? roomUrl
                 : String(fd.get('meeting_url') ?? '').trim() || null,
             location: null,
             location_url: null,
@@ -382,7 +389,10 @@ export function EngagementDialog({
             // Only ids still on the thread: a person removed since is not
             // carried forward as a stale exclusion.
             ...(people.length
-              ? { excluded_people: [...excluded].filter((id) => people.some((p) => p.id === id)) }
+              ? {
+                  excluded_people: [...excluded].filter((id) => people.some((p) => p.id === id)),
+                  room_owner_id: roomOwner || null,
+                }
               : {}),
           }
         : family === 'certificate'
@@ -627,6 +637,13 @@ export function EngagementDialog({
                           if (e.target.checked) next.delete(p.id);
                           else next.add(p.id);
                           setExcluded(next);
+                          // The room's owner must be ON the session: unticking
+                          // them hands the room back to the main facilitator,
+                          // and says so.
+                          if (!e.target.checked && p.id === roomOwner) {
+                            setRoomOwner('');
+                            setOwnerNotice(t(locale, 'session_room_reset', { name: p.name }));
+                          }
                           setDirty(true);
                         }}
                       />
@@ -706,7 +723,7 @@ export function EngagementDialog({
                       // not hidden: "Zoom (not set up)" tells them why, an
                       // absent Zoom tells them nothing.
                       const disabled =
-                        (o.value === 'personal_room' && !personalRoomUrl) ||
+                        (o.value === 'personal_room' && !personalRoomUrl && !people.some((p) => p.room)) ||
                         (o.value === 'zoom' && !zoomAvailable) ||
                         (o.value === 'google_meet' && !googleConnected);
                       return (
@@ -718,17 +735,42 @@ export function EngagementDialog({
                     })}
                   </select>
                 </div>
+                {provider === 'personal_room' && people.length > 0 && (
+                  <label className="block">
+                    <span className="text-sm text-ink-subtle">{t(locale, 'session_room')}</span>
+                    <select
+                      value={roomOwner}
+                      onChange={(e) => {
+                        setRoomOwner(e.target.value);
+                        setOwnerNotice(null);
+                        setDirty(true);
+                      }}
+                      className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
+                    >
+                      <option value="">
+                        {t(locale, 'session_room_main', { name: meetingRoom?.name ?? t(locale, 'organiser') })}
+                      </option>
+                      {people
+                        .filter((p) => !excluded.has(p.id))
+                        .map((p) => (
+                          <option key={p.id} value={p.id} disabled={!p.hasAccount || !p.room}>
+                            {t(locale, 'session_room_of', { name: p.name })}
+                            {!p.hasAccount ? t(locale, 'session_room_no_account') : !p.room ? t(locale, 'session_room_none') : ''}
+                          </option>
+                        ))}
+                    </select>
+                    {ownerNotice && <span className="mt-1 block text-xs text-ink">{ownerNotice}</span>}
+                  </label>
+                )}
                 {provider === 'personal_room' ? (
                   <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
-                    {personalRoomUrl ? (
+                    {roomUrl ? (
                       <>
-                        {meetingRoom && !meetingRoom.is_me
-                          ? t(locale, 'uses_someones_room', { name: meetingRoom.name })
-                          : t(locale, 'uses_personal_room')}{' '}
-                        <span className="text-ink break-all">{personalRoomUrl}</span>
+                        {roomName ? t(locale, 'uses_someones_room', { name: roomName }) : t(locale, 'uses_personal_room')}{' '}
+                        <span className="text-ink break-all">{roomUrl}</span>
                       </>
-                    ) : meetingRoom && !meetingRoom.is_me ? (
-                      <>{t(locale, 'main_facilitator_no_room', { name: meetingRoom.name })}</>
+                    ) : roomName ? (
+                      <>{t(locale, 'main_facilitator_no_room', { name: roomName })}</>
                     ) : (
                       <>{t(locale, 'no_personal_room')}</>
                     )}

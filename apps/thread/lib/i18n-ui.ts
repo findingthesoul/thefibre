@@ -3852,6 +3852,54 @@ const CATALOG = {
     de: 'Für Threads, in denen du die Hauptmoderation bist: Eine Google-Meet- oder Zoom-Sitzung wird dann in deinem verbundenen Konto statt in dem der Organisierenden erstellt. Standardmäßig aus.', // MT
     fr: 'Pour les fils dont tu es l’animateur principal : une session Google Meet ou Zoom est alors créée sur ton compte connecté plutôt que sur celui de l’organisateur. Désactivé par défaut.', // MT
   },
+  session_room: {
+    en: 'Room',
+    nl: 'Ruimte', // MT
+    es: 'Sala', // MT
+    pt: 'Sala', // MT
+    de: 'Raum', // MT
+    fr: 'Salle', // MT
+  },
+  session_room_main: {
+    en: 'Main facilitator ({name})',
+    nl: 'Hoofdbegeleider ({name})', // MT
+    es: 'Facilitador principal ({name})', // MT
+    pt: 'Facilitador principal ({name})', // MT
+    de: 'Hauptmoderation ({name})', // MT
+    fr: 'Animateur principal ({name})', // MT
+  },
+  session_room_of: {
+    en: '{name}’s personal room',
+    nl: 'Persoonlijke ruimte van {name}', // MT
+    es: 'Sala personal de {name}', // MT
+    pt: 'Sala pessoal de {name}', // MT
+    de: 'Persönlicher Raum von {name}', // MT
+    fr: 'Salle personnelle de {name}', // MT
+  },
+  session_room_no_account: {
+    en: ' (no account, so no room)',
+    nl: ' (geen account, dus geen ruimte)', // MT
+    es: ' (sin cuenta, sin sala)', // MT
+    pt: ' (sem conta, sem sala)', // MT
+    de: ' (kein Konto, kein Raum)', // MT
+    fr: ' (pas de compte, pas de salle)', // MT
+  },
+  session_room_none: {
+    en: ' (no personal room yet)',
+    nl: ' (nog geen persoonlijke ruimte)', // MT
+    es: ' (aún sin sala personal)', // MT
+    pt: ' (ainda sem sala pessoal)', // MT
+    de: ' (noch kein persönlicher Raum)', // MT
+    fr: ' (pas encore de salle personnelle)', // MT
+  },
+  session_room_reset: {
+    en: '{name} is no longer on this session, so it uses the main facilitator’s room.',
+    nl: '{name} doet niet meer mee aan deze sessie, dus die gebruikt de ruimte van de hoofdbegeleider.', // MT
+    es: '{name} ya no está en esta sesión, así que usa la sala del facilitador principal.', // MT
+    pt: '{name} já não está nesta sessão, por isso usa a sala do facilitador principal.', // MT
+    de: '{name} ist nicht mehr in dieser Sitzung, daher nutzt sie den Raum der Hauptmoderation.', // MT
+    fr: '{name} ne fait plus partie de cette session : elle utilise la salle de l’animateur principal.', // MT
+  },
   uses_personal_room: {
     en: 'Uses your personal room from Meet:',
     nl: 'Gebruikt je persoonlijke ruimte uit Meet:',

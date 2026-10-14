@@ -34,6 +34,8 @@ type AgendaItem = {
   location_url?: string | null;
   image_url?: string | null;
   is_online: boolean;
+  /** Who hosts this session, by name. Additive; absent on older APIs. */
+  hosts?: string[];
 };
 
 export type PublicThreadDetail = {
@@ -345,6 +347,13 @@ export function PublicThreadView({
                           <span className="inline-flex items-center gap-1">
                             <Video size={11} strokeWidth={1.75} />
                             {t(lang, 'online')}
+                          </span>
+                        )}
+                        {a.hosts && a.hosts.length > 0 && (
+                          <span>
+                            {t(lang, 'with_hosts', {
+                              names: new Intl.ListFormat(lang, { type: 'conjunction' }).format(a.hosts),
+                            })}
                           </span>
                         )}
                       </div>

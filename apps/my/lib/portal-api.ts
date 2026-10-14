@@ -31,6 +31,10 @@ export type AgendaItem = {
   /** This person's answer. `null` is NO ANSWER: a third state, and not the
    *  same as 'not_coming'. */
   rsvp: RsvpResponse | null;
+  /** Who hosts this session, by name. Additive; absent on older APIs. */
+  hosts?: string[];
+  /** Set when YOU host or facilitate this session. */
+  my_role?: 'host' | 'facilitator' | null;
 };
 
 export type RsvpResponse = 'coming' | 'not_coming';
