@@ -1,3 +1,4 @@
+import { zoomState, type ZoomState } from '@/lib/zoom-state';
 import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
@@ -33,7 +34,12 @@ type Team = {
   name: string;
   my_role: 'lead' | 'member';
 };
-type Host = { slug: string; zoom_connected?: boolean };
+type Host = {
+  slug: string;
+  zoom_connected?: boolean;
+  zoom_configured?: boolean;
+  zoom_refresh_failed_at?: string | null;
+};
 type TeamDetail = {
   id: string;
   members: {
@@ -54,7 +60,7 @@ export default async function EditMeetingTypePage({
   let teams: TeamOption[] = [];
   let calendars: CalendarOption[] = [];
   let hostSlug: string | null = null;
-  let zoomConnected = false;
+  let zoom: ZoomState = 'not_connected';
   // The slug the public URL is built from: the TEAM's for a team meeting
   // type, the host's own otherwise — the same rule the list page follows.
   // Read from the unfiltered team list, because `teams` below keeps only the
@@ -73,7 +79,7 @@ export default async function EditMeetingTypePage({
       .map((x) => ({ id: x.id, name: x.name, slug: x.slug }));
     calendars = c.items;
     hostSlug = h?.slug ?? null;
-    zoomConnected = !!h?.zoom_connected;
+    zoom = zoomState(h);
     ownerSlug = mt?.team_id
       ? (t.items.find((x) => x.id === mt!.team_id)?.slug ?? null)
       : hostSlug;
@@ -186,7 +192,7 @@ export default async function EditMeetingTypePage({
           teams={teams}
           calendars={calendars}
           hostSlug={hostSlug}
-          zoomConnected={zoomConnected}
+          zoomState={zoom}
           locale={locale}
         />
       </div>

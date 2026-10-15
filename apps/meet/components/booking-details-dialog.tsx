@@ -8,8 +8,11 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { RefundConfirm } from '@thefibre/shared/ui/refund-confirm';
+import { NOTICE } from '@thefibre/shared/ui/recipes';
+import { Input } from '@/components/ui/input';
 import {
   approveBooking,
+  setBookingLink,
   rejectBooking,
   loadBookingPurchase,
   refundBookingPurchase,
@@ -31,6 +34,9 @@ export type BookingForDialog = {
   /** Set when the "approval needed" email to the host failed, so a request
    *  that was never actually seen does not look like one being ignored. */
   approval_notice_failed_at?: string | null;
+  /** The API's verdict that this live booking promises an online meeting and
+   *  has no link to join it (GET /meet/bookings). The dialog offers to add one. */
+  no_join_link?: boolean;
   /** The host this booking belongs to. Its slug is the first half of every
    *  public link for the booking — see `ownerSlug` below. */
   host?: { slug: string } | { slug: string }[] | null;
@@ -105,6 +111,7 @@ export function BookingDetailsDialog({
   // most bookings are free and we don't want a request per row in the list.
   const [purchase, setPurchase] = useState<BookingPurchase | null>(null);
   const [confirmRefund, setConfirmRefund] = useState(false);
+  const [linkDraft, setLinkDraft] = useState('');
   const bookingId = booking?.id ?? null;
 
   useEffect(() => {
@@ -160,6 +167,20 @@ export function BookingDetailsDialog({
       const r = await rejectBooking(booking!.id);
       if (r.error) setErr(r.error);
       else {
+        onClose();
+        router.refresh();
+      }
+    });
+  }
+
+  function handleAddLink(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    startTransition(async () => {
+      const r = await setBookingLink(booking!.id, linkDraft.trim());
+      if (r.error) setErr(r.error);
+      else {
+        setLinkDraft('');
         onClose();
         router.refresh();
       }
@@ -263,6 +284,25 @@ export function BookingDetailsDialog({
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             {t(locale, 'approval_notice_failed')}
           </div>
+        )}
+        {booking.no_join_link && (
+          <form onSubmit={handleAddLink} className={NOTICE.warning}>
+            <p className="font-medium">{t(locale, 'no_join_link')}</p>
+            <p className="mt-1 text-xs">{t(locale, 'no_join_link_desc')}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <Input
+                type="url"
+                required
+                placeholder="https://"
+                value={linkDraft}
+                onChange={(e) => setLinkDraft(e.target.value)}
+                className="mt-0"
+              />
+              <Button type="submit" size="sm" disabled={pending || !linkDraft.trim()}>
+                {t(locale, 'add_join_link')}
+              </Button>
+            </div>
+          </form>
         )}
         <Row Icon={CalendarClock} label={t(locale, 'when')}>
           {fmt(starts, locale)} — {fmtTime(ends, locale)} ({minutes} min)

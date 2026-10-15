@@ -15,6 +15,7 @@ import {
   coerceSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
+import type { ZoomState } from '@/lib/zoom-state';
 import { t, LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n-ui';
 import {
   createMeetingType,
@@ -74,7 +75,7 @@ export function MeetingTypeForm({
   hostSlug,
   teams = [],
   calendars = [],
-  zoomConnected = false,
+  zoomState = 'not_connected',
   locale,
 }: {
   initial: MeetingTypeFormValues;
@@ -82,8 +83,9 @@ export function MeetingTypeForm({
   hostSlug?: string | null;
   teams?: TeamOption[];
   calendars?: CalendarOption[];
-  /** Zoom is only offerable once this user has connected their account. */
-  zoomConnected?: boolean;
+  /** Whether Zoom can make meetings for this host (lib/zoom-state.ts):
+   *  configured on this platform, connected, and refreshing. */
+  zoomState?: ZoomState;
   locale: Locale;
 }) {
   const isEdit = !!initial.id;
@@ -107,7 +109,12 @@ export function MeetingTypeForm({
     // needs its Azure app registration.
     // Not connected → not selectable, or the booking confirms with no
     // meeting URL. The hint under the field says where to fix that.
-    { value: 'zoom', label: 'Zoom', disabled: !zoomConnected },
+    // Selectable only when it can actually make a meeting (lib/zoom-state.ts).
+    // A connected account was enough until 2026-10-16, which let a host pick
+    // Zoom on production, where Zoom is not configured, and every booking
+    // went out with no link. A failing connection stays selectable — it may
+    // be one reconnect away — and says so below.
+    { value: 'zoom', label: 'Zoom', disabled: zoomState === 'not_configured' || zoomState === 'not_connected' },
     { value: 'teams', label: 'Microsoft Teams', disabled: true },
     { value: 'in_person', label: t(locale, 'provider_in_person') },
     { value: 'personal_room', label: t(locale, 'provider_personal_room') },
@@ -617,15 +624,22 @@ export function MeetingTypeForm({
               defaultValue={initial.conferencing_provider ?? 'google_meet'}
               options={PROVIDERS}
               hint={
-                zoomConnected ? undefined : (
-                  <>
-                    {t(locale, 'zoom_not_connected_hint')}{' '}
-                    <Link href="/settings/integrations" className="underline underline-offset-2">
-                      {t(locale, 'int_title')}
-                    </Link>
-                    .
-                  </>
-                )
+                <>
+                  {initial.conferencing_provider === 'zoom' && zoomState !== 'ok' && (
+                    <span className="block">{t(locale, 'zoom_saved_unusable')}</span>
+                  )}
+                  {zoomState === 'not_configured' ? (
+                    t(locale, 'zoom_not_configured_hint')
+                  ) : zoomState === 'ok' ? null : (
+                    <>
+                      {t(locale, zoomState === 'failing' ? 'zoom_refresh_failed_hint' : 'zoom_not_connected_hint')}{' '}
+                      <Link href="/settings/integrations" className="underline underline-offset-2">
+                        {t(locale, 'int_title')}
+                      </Link>
+                      .
+                    </>
+                  )}
+                </>
               }
             />
             <TextField

@@ -72,7 +72,7 @@ import {
   deleteZoomMeeting,
   ZoomAlternativeHostsError,
 } from '../lib/zoom/client.js';
-import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
+import { zoomAccessTokenForUser, clearZoomTokenCache, zoomRefreshFailedAt } from '../lib/zoom/host.js';
 import {
   isTeamsConfigured,
   teamsAuthorizeUrl,
@@ -110,6 +110,7 @@ import {
   bookingConfirmationInvitee,
   bookingRequestReceived,
   bookingNotificationHost,
+  bookingLinkUpdatedInvitee,
   bookingCancellation,
   bookingRescheduled,
   escapeHtml,
@@ -349,6 +350,8 @@ async function hostUserId(hostId: string | null | undefined): Promise<string | n
 
 async function createZoomForBooking(args: {
   hostId: string;
+  /** For the log line only: a failure must name the booking it left bare. */
+  bookingId: string;
   topic: string;
   agenda?: string | null;
   startsAt: Date;
@@ -356,7 +359,10 @@ async function createZoomForBooking(args: {
   timezone: string;
   /** Co-hosts in the same Zoom org (collective bookings). */
   coHostEmails?: string[];
-}): Promise<{ meetingId: string; joinUrl: string } | null> {
+}): Promise<
+  | { ok: true; meetingId: string; joinUrl: string }
+  | { ok: false; reason: 'not_configured' | 'not_connected' | 'failed' }
+> {
   // The creating half now lives in lib/meeting-links.ts, shared with Thread
   // (Sjoerd, 2026-10-01: "please use a single point of truth"). What stays
   // here is the one Meet-specific line — a booking names a HOST, and the
@@ -365,7 +371,10 @@ async function createZoomForBooking(args: {
   // The alternative-hosts retry moved with it, deliberately: it was the
   // behaviour most likely to be fixed in one copy and not the other.
   const uid = await hostUserId(args.hostId);
-  if (!uid) return null;
+  if (!uid) {
+    console.warn('[meet zoom] no Zoom link: host has no user', { bookingId: args.bookingId });
+    return { ok: false, reason: 'not_connected' };
+  }
   const r = await createMeetingLink({
     userId: uid,
     provider: 'zoom',
@@ -376,14 +385,59 @@ async function createZoomForBooking(args: {
     agenda: args.agenda ?? null,
     ...(args.coHostEmails?.length ? { coHostEmails: args.coHostEmails } : {}),
   });
-  if (!r.ok) return null;
+  if (!r.ok) {
+    // Said out loud since 2026-10-16. The reason used to be dropped here, so
+    // a booking that confirmed with no Zoom link left nothing in the log —
+    // on production, where Zoom is not yet available, that was every one.
+    console.warn('[meet zoom] no Zoom link', { bookingId: args.bookingId, reason: r.reason });
+    return { ok: false, reason: r.reason };
+  }
   // The id matters: it is stored as `zoom_meeting_id` and read back by
   // updateZoomMeeting / deleteZoomBooking, so a booking that is rescheduled
   // or cancelled reaches Zoom. An earlier draft of this extraction returned
   // an empty string here on the assumption nobody used it — they do, and the
   // failure would have been silent: The Fibre would move the booking and
   // Zoom would keep the old meeting.
-  return { meetingId: r.id ?? '', joinUrl: r.url };
+  return { ok: true, meetingId: r.id ?? '', joinUrl: r.url };
+}
+
+const NO_LINK_BECAUSE: Record<'not_configured' | 'not_connected' | 'failed', string> = {
+  not_configured: "Zoom isn't available on this platform yet",
+  not_connected: "your Zoom account isn't connected",
+  failed: 'Zoom returned an error',
+};
+
+/** What a Zoom booking gets when Zoom could not make the meeting: the host's
+ *  personal room, and a sentence for the host saying so.
+ *
+ *  Sjoerd, 2026-10-15: *"Zoom is not working yet. But the personal room
+ *  should work."* Until then a Zoom booking whose meeting could not be
+ *  created confirmed with NO link, silently — the guest found out on the day
+ *  and the host never did. Now the booking carries the room when there is
+ *  one, the host's mail says what happened either way, and a booking with
+ *  no link at all is marked in the host's list (`no_join_link`). */
+async function zoomFallback(args: {
+  bookingId: string;
+  hostUserId: string | null;
+  reason: 'not_configured' | 'not_connected' | 'failed';
+}): Promise<{ url: string | null; notice: string }> {
+  const because = NO_LINK_BECAUSE[args.reason];
+  const room = await userPersonalRoom(args.hostUserId);
+  if (room) {
+    const { error } = await adminClient
+      .from('meet_booking')
+      .update({ meet_url: room })
+      .eq('id', args.bookingId);
+    if (error) console.error('[meet zoom] could not store the fallback room', { bookingId: args.bookingId, error });
+    return {
+      url: room,
+      notice: `No Zoom meeting was created for this booking (${because}), so it uses your personal room instead: ${room}`,
+    };
+  }
+  return {
+    url: null,
+    notice: `This booking has no join link: no Zoom meeting was created (${because}) and you have no personal room saved. Open the booking in Meet to add a link — your guest is sent an updated invitation.`,
+  };
 }
 
 async function moveZoomForBooking(
@@ -1186,7 +1240,11 @@ meetRoutes.post('/public/bookings', async (c) => {
   // null, and a later reschedule or cancellation — which re-sends
   // booking.meet_url — would have sent an invite without the room.
   if (resolvedMeetUrl && booking) {
-    await adminClient.from('meet_booking').update({ meet_url: resolvedMeetUrl }).eq('id', booking.id);
+    const { error: roomErr } = await adminClient
+      .from('meet_booking')
+      .update({ meet_url: resolvedMeetUrl })
+      .eq('id', booking.id);
+    if (roomErr) console.error('[meet bookings] could not store the personal room', { bookingId: booking.id, error: roomErr });
   }
   // A paid booking never waits for approval: payment (or the invoice) is
   // the gate, the rule the Stripe path has always followed.
@@ -1215,7 +1273,7 @@ meetRoutes.post('/public/bookings', async (c) => {
 
   // Zoom (conferencing_provider='zoom'): create the meeting BEFORE the
   // calendar event so the join URL rides along into the event and the mails.
-  let zoomMeeting: { meetingId: string; joinUrl: string } | null = null;
+  let linkNotice: string | null = null;
   if (booking && mt.conferencing_provider === 'zoom') {
     let coHostEmails: string[] = [];
     if (collectiveExtras.length > 0) {
@@ -1225,8 +1283,9 @@ meetRoutes.post('/public/bookings', async (c) => {
         .in('id', collectiveExtras.map((e) => e.user_id));
       coHostEmails = (coHosts ?? []).map((u) => u.email).filter(Boolean);
     }
-    zoomMeeting = await createZoomForBooking({
+    const zoomMeeting = await createZoomForBooking({
       hostId: chosenHostId,
+      bookingId: booking.id,
       topic: mt.name,
       agenda: mt.description,
       startsAt: starts,
@@ -1234,12 +1293,23 @@ meetRoutes.post('/public/bookings', async (c) => {
       timezone: hostRow?.timezone ?? 'UTC',
       coHostEmails,
     });
-    if (zoomMeeting) {
+    if (zoomMeeting.ok) {
       resolvedMeetUrl = zoomMeeting.joinUrl;
-      await adminClient
+      const { error: zErr } = await adminClient
         .from('meet_booking')
         .update({ zoom_meeting_id: zoomMeeting.meetingId, meet_url: zoomMeeting.joinUrl })
         .eq('id', booking.id);
+      if (zErr) console.error('[meet bookings] could not store the Zoom link', { bookingId: booking.id, error: zErr });
+    } else {
+      // Before the calendar event, so the room rides into it like a Zoom
+      // link would have.
+      const fb = await zoomFallback({
+        bookingId: booking.id,
+        hostUserId: hostRow?.user_id ?? null,
+        reason: zoomMeeting.reason,
+      });
+      resolvedMeetUrl = fb.url;
+      linkNotice = fb.notice;
     }
   }
 
@@ -1359,7 +1429,7 @@ meetRoutes.post('/public/bookings', async (c) => {
     }
     if (common.hostEmail) {
       try {
-        const host = bookingNotificationHost({ ...common, locale: bookingLocalePair.host });
+        const host = bookingNotificationHost({ ...common, linkNotice, locale: bookingLocalePair.host });
         const sender3 = await meetSender(mt.workspace_id);
         await sendEmail({
           ...sender3,
@@ -3363,6 +3433,14 @@ meetRoutes.get('/me', async (c) => {
     zoom_connected: zoom.connected,
     zoom_account_email: zoom.email,
     zoom_configured: isZoomConfigured(),
+    // Additive (2026-10-16): the last time this process failed to refresh
+    // the host's Zoom token, or null. The meeting-type editor warns on it —
+    // a connection that is stored but no longer works was invisible until a
+    // guest arrived at a booking with no link. In memory (lib/zoom/host.ts).
+    zoom_refresh_failed_at: (() => {
+      const at = zoomRefreshFailedAt(ctx.userId);
+      return at ? new Date(at).toISOString() : null;
+    })(),
     // Teams, added with Meet's connect card. Additive: this route is Meet's
     // own, not the published /api/v1/apps/* contract, and every existing
     // field above is unchanged. /meet/connections has reported these since
@@ -4692,11 +4770,17 @@ async function runConfirmationSideEffects(
   // Stored now, as on the direct path: only the Google block below wrote it,
   // so a host without Google kept a booking whose reschedule mail had no room.
   if (meetUrl) {
-    await adminClient.from('meet_booking').update({ meet_url: meetUrl }).eq('id', bookingId);
+    const { error: roomErr } = await adminClient
+      .from('meet_booking')
+      .update({ meet_url: meetUrl })
+      .eq('id', bookingId);
+    if (roomErr) console.error('[meet confirm-side-effects] could not store the personal room', { bookingId, error: roomErr });
   }
+  let linkNotice: string | null = null;
   if (mt.conferencing_provider === 'zoom') {
     const z = await createZoomForBooking({
       hostId: booking.host_id,
+      bookingId,
       topic: mt.name,
       agenda: mt.description,
       startsAt: new Date(booking.starts_at),
@@ -4705,12 +4789,21 @@ async function runConfirmationSideEffects(
       ),
       timezone: hostRow.timezone ?? 'UTC',
     });
-    if (z) {
+    if (z.ok) {
       meetUrl = z.joinUrl;
-      await adminClient
+      const { error: zErr } = await adminClient
         .from('meet_booking')
         .update({ zoom_meeting_id: z.meetingId, meet_url: z.joinUrl })
         .eq('id', bookingId);
+      if (zErr) console.error('[meet confirm-side-effects] could not store the Zoom link', { bookingId, error: zErr });
+    } else {
+      const fb = await zoomFallback({
+        bookingId,
+        hostUserId: (hostRow as { user_id?: string | null }).user_id ?? null,
+        reason: z.reason,
+      });
+      meetUrl = fb.url;
+      linkNotice = fb.notice;
     }
   }
   const confirmGToken = await hostGoogleToken(booking.host_id);
@@ -4793,7 +4886,7 @@ async function runConfirmationSideEffects(
   }
   if (common.hostEmail) {
     try {
-      const m = bookingNotificationHost({ ...common, locale: confirmLocales.host });
+      const m = bookingNotificationHost({ ...common, linkNotice, locale: confirmLocales.host });
       const sender11 = await meetSender(booking.workspace_id);
       await sendEmail({
         ...sender11,
@@ -5335,6 +5428,97 @@ meetRoutes.post('/bookings/:id/approve', async (c) => {
   return c.json({ ok: true });
 });
 
+const LinkBody = z.object({
+  meet_url: z.string().trim().url().max(500).refine((u) => /^https:\/\//i.test(u), 'must be https'),
+});
+
+// POST /api/v1/meet/bookings/:id/link — the host adds or replaces the join
+// link on a booking, and the guest gets an updated invitation.
+//
+// The other half of zoomFallback (2026-10-16). A booking can confirm with no
+// link — Zoom unavailable and no personal room — and nothing ever added one
+// afterwards: the host's mail said so, and there was nowhere to act on it.
+// Same shape as a reschedule's update: the SEQUENCE is raised and persisted
+// before the invitation goes out, or the guest's calendar ignores it.
+meetRoutes.post('/bookings/:id/link', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const body = LinkBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: booking, error } = await loadBookingWithJoins(id);
+  if (error || !booking) return c.json({ error: 'booking not found' }, 404);
+  const { data: callerHost } = await adminClient
+    .from('meet_host')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!callerHost || callerHost.id !== booking.host_id) {
+    return c.json({ error: 'only the host can change the link' }, 403);
+  }
+  if (booking.status === 'cancelled') return c.json({ error: 'booking is cancelled' }, 409);
+
+  const sequence = (booking.invite_sequence ?? 0) + 1;
+  const { error: uErr } = await adminClient
+    .from('meet_booking')
+    .update({ meet_url: body.data.meet_url, invite_sequence: sequence })
+    .eq('id', id);
+  if (uErr) {
+    console.error('[meet bookings/link] update failed', { bookingId: id, error: uErr });
+    return c.json({ error: uErr.message }, 500);
+  }
+
+  // A pending request has sent no invitation yet; approval sends the first
+  // one, and it will carry this link. Only a confirmed booking is told now.
+  let notified = false;
+  const mt = Array.isArray(booking.meeting_type) ? booking.meeting_type[0] : booking.meeting_type;
+  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
+  const hostUser = hostRow?.user ? (Array.isArray(hostRow.user) ? hostRow.user[0] : hostRow.user) : null;
+  if (booking.status === 'confirmed' && mt && hostRow) {
+    const locales = await bookingLocales({
+      meetingTypeId: booking.meeting_type_id,
+      hostEmail: hostUser?.email ?? null,
+      inviteeEmail: booking.invitee_email,
+    });
+    const common: EmailCommon = {
+      locale: locales.invitee,
+      brand: await meetBrand(booking.workspace_id),
+      inviteeName: booking.invitee_name,
+      inviteeEmail: booking.invitee_email,
+      hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
+      hostEmail: hostUser?.email ?? null,
+      meetingName: mt.name,
+      startsAt: new Date(booking.starts_at),
+      endsAt: new Date(booking.ends_at),
+      hostTimezone: hostRow.timezone ?? 'UTC',
+      inviteeTimezone: booking.invitee_timezone ?? null,
+      meetUrl: body.data.meet_url,
+      location: booking.alternative_location ?? mt.default_location ?? null,
+      bookingId: booking.id,
+      meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
+      hostSlug: hostRow.slug ?? '',
+      meetingTypeSlug: mt.slug ?? '',
+    };
+    try {
+      const m = bookingLinkUpdatedInvitee(common);
+      const sender = await meetSender(booking.workspace_id);
+      await sendEmail({
+        ...sender,
+        to: booking.invitee_email,
+        subject: m.subject,
+        text: m.text,
+        html: m.html,
+        replyTo: common.hostEmail ?? sender.replyTo,
+        attachments: [guestInvite(common, 'REQUEST', sequence)],
+      });
+      notified = true;
+    } catch (e) {
+      console.error('[meet bookings/link] invitee email failed (non-fatal)', { bookingId: id, error: e });
+    }
+  }
+  return c.json({ ok: true, meet_url: body.data.meet_url, guest_notified: notified });
+});
+
 const RejectBody = z.object({
   reason: z.string().max(500).optional(),
 });
@@ -5433,7 +5617,7 @@ meetRoutes.get('/bookings', async (c) => {
       // /{team-or-host slug}/{mt slug}/…, and without the host's slug the
       // dialog could only build them for TEAM bookings — so a personal
       // booking, which is most of them, showed no actions at all.
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, approval_notice_failed_at, host:host_id (slug), meeting_type:meeting_type_id (id, name, slug, team_id, event_type, team:team_id (id, name, slug))',
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, approval_notice_failed_at, host:host_id (slug), meeting_type:meeting_type_id (id, name, slug, team_id, event_type, conferencing_provider, team:team_id (id, name, slug))',
     )
     .eq('host_id', host.id);
 
@@ -5465,7 +5649,24 @@ meetRoutes.get('/bookings', async (c) => {
       return mt.team_id === teamFilter;
     });
   }
-  return c.json({ items });
+  // Additive (2026-10-16): a live booking whose meeting type promises an
+  // online meeting and which has no link to join it. The list marks it
+  // "No join link — add one"; the dialog is where it is added. Decided
+  // here, once, rather than by each surface that draws a booking.
+  const ONLINE = new Set(['zoom', 'google_meet', 'teams', 'personal_room']);
+  return c.json({
+    items: items.map((row) => {
+      const mt = Array.isArray(row.meeting_type) ? row.meeting_type[0] : row.meeting_type;
+      return {
+        ...row,
+        no_join_link:
+          !row.meet_url &&
+          row.status !== 'cancelled' &&
+          ONLINE.has((mt as { conferencing_provider?: string | null } | null)?.conferencing_provider ?? '') &&
+          new Date(row.ends_at).getTime() > Date.now(),
+      };
+    }),
+  });
 });
 
 // ===========================================================================

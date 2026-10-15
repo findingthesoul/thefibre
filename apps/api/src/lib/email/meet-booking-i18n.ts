@@ -317,6 +317,40 @@ const CATALOG = {
     de: 'Vorher', // MT
     fr: 'Avant', // MT
   },
+
+  // ── join link added, to the invitee (2026-10-16) ────────────────────────
+  link_subject_invitee: {
+    en: 'Join link: {meeting} with {host}',
+    nl: 'Deelnamelink: {meeting} met {host}', // MT
+    es: 'Enlace para unirte: {meeting} con {host}', // MT
+    pt: 'Link para entrar: {meeting} com {host}', // MT
+    de: 'Teilnahmelink: {meeting} mit {host}', // MT
+    fr: 'Lien pour rejoindre : {meeting} avec {host}', // MT
+  },
+  link_title: {
+    en: 'Join link',
+    nl: 'Deelnamelink', // MT
+    es: 'Enlace para unirte', // MT
+    pt: 'Link para entrar', // MT
+    de: 'Teilnahmelink', // MT
+    fr: 'Lien pour rejoindre', // MT
+  },
+  link_headline_invitee: {
+    en: 'Your booking with {host} has a join link.',
+    nl: 'Je afspraak met {host} heeft een deelnamelink.', // MT
+    es: 'Tu reserva con {host} tiene un enlace para unirte.', // MT
+    pt: 'A tua marcação com {host} tem um link para entrar.', // MT
+    de: 'Dein Termin mit {host} hat einen Teilnahmelink.', // MT
+    fr: 'Ta réservation avec {host} a un lien pour rejoindre.', // MT
+  },
+  link_text_invitee: {
+    en: 'Your booking now has a join link. The attached invitation updates the one in your calendar.',
+    nl: 'Je afspraak heeft nu een deelnamelink. De bijgevoegde uitnodiging werkt die in je agenda bij.', // MT
+    es: 'Tu reserva ya tiene un enlace para unirte. La invitación adjunta actualiza la de tu calendario.', // MT
+    pt: 'A tua marcação tem agora um link para entrar. O convite em anexo atualiza o do teu calendário.', // MT
+    de: 'Dein Termin hat jetzt einen Teilnahmelink. Die angehängte Einladung aktualisiert die in deinem Kalender.', // MT
+    fr: "Ta réservation a maintenant un lien pour rejoindre. L'invitation jointe met à jour celle de ton agenda.", // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MeetBookingKey = keyof typeof CATALOG;

@@ -823,6 +823,55 @@ const CATALOG = {
     de: 'Microsoft-Konto: {email}', // MT
     fr: 'Compte Microsoft : {email}', // MT
   },
+  // ── Zoom unavailable / no join link (2026-10-16) ───────────────────────
+  zoom_not_configured_hint: {
+    en: "Zoom isn't available on this platform yet. A meeting type set to Zoom uses your personal room instead.",
+    nl: 'Zoom is op dit platform nog niet beschikbaar. Een afspraaktype met Zoom gebruikt in plaats daarvan je persoonlijke ruimte.', // MT
+    es: 'Zoom aún no está disponible en esta plataforma. Un tipo de reunión con Zoom usa tu sala personal en su lugar.', // MT
+    pt: 'O Zoom ainda não está disponível nesta plataforma. Um tipo de reunião com Zoom usa a sua sala pessoal.', // MT
+    de: 'Zoom ist auf dieser Plattform noch nicht verfügbar. Ein Termintyp mit Zoom nutzt stattdessen deinen persönlichen Raum.', // MT
+    fr: "Zoom n'est pas encore disponible sur cette plateforme. Un type de rendez-vous Zoom utilise ta salle personnelle à la place.", // MT
+  },
+  zoom_refresh_failed_hint: {
+    en: 'Your Zoom connection stopped working recently — reconnect it in',
+    nl: 'Je Zoom-koppeling werkt sinds kort niet meer — koppel opnieuw in', // MT
+    es: 'Tu conexión con Zoom dejó de funcionar hace poco; vuelve a conectarla en', // MT
+    pt: 'A sua ligação ao Zoom deixou de funcionar recentemente — volte a ligá-la em', // MT
+    de: 'Deine Zoom-Verbindung funktioniert seit Kurzem nicht mehr — verbinde sie neu unter', // MT
+    fr: 'Ta connexion Zoom a cessé de fonctionner récemment — reconnecte-la dans', // MT
+  },
+  zoom_saved_unusable: {
+    en: "This meeting type is set to Zoom, which can't create meetings right now. Bookings use your personal room instead, or get no link if you have none saved.",
+    nl: 'Dit afspraaktype staat op Zoom, dat nu geen meetings kan maken. Boekingen gebruiken je persoonlijke ruimte, of krijgen geen link als je die niet hebt opgeslagen.', // MT
+    es: 'Este tipo de reunión usa Zoom, que ahora no puede crear reuniones. Las reservas usan tu sala personal o no tendrán enlace si no tienes una guardada.', // MT
+    pt: 'Este tipo de reunião usa o Zoom, que agora não consegue criar reuniões. As marcações usam a sua sala pessoal, ou ficam sem link se não tiver uma guardada.', // MT
+    de: 'Dieser Termintyp nutzt Zoom, das gerade keine Meetings erstellen kann. Buchungen nutzen deinen persönlichen Raum oder bekommen keinen Link, wenn keiner gespeichert ist.', // MT
+    fr: "Ce type de rendez-vous utilise Zoom, qui ne peut pas créer de réunions pour l'instant. Les réservations utilisent ta salle personnelle, ou n'ont pas de lien si tu n'en as pas enregistré.", // MT
+  },
+  no_join_link: {
+    en: 'No join link — add one',
+    nl: 'Geen deelnamelink — voeg er een toe', // MT
+    es: 'Sin enlace — añade uno', // MT
+    pt: 'Sem link — adicione um', // MT
+    de: 'Kein Teilnahmelink — füge einen hinzu', // MT
+    fr: 'Pas de lien — ajoute-en un', // MT
+  },
+  no_join_link_desc: {
+    en: 'Your guest has no link to join this meeting. Add one and they are sent an updated invitation.',
+    nl: 'Je gast heeft geen link om deel te nemen. Voeg er een toe en ze krijgen een bijgewerkte uitnodiging.', // MT
+    es: 'Tu invitado no tiene enlace para unirse. Añade uno y recibirá una invitación actualizada.', // MT
+    pt: 'O seu convidado não tem link para entrar. Adicione um e ele recebe um convite atualizado.', // MT
+    de: 'Dein Gast hat keinen Link zum Teilnehmen. Füge einen hinzu, dann bekommt er eine aktualisierte Einladung.', // MT
+    fr: "Ton invité n'a pas de lien pour rejoindre. Ajoutes-en un et il recevra une invitation mise à jour.", // MT
+  },
+  add_join_link: {
+    en: 'Add link',
+    nl: 'Link toevoegen', // MT
+    es: 'Añadir enlace', // MT
+    pt: 'Adicionar link', // MT
+    de: 'Link hinzufügen', // MT
+    fr: 'Ajouter le lien', // MT
+  },
   zoom_not_connected_hint: {
     en: 'Zoom becomes selectable once you connect your account in',
     nl: 'Zoom wordt kiesbaar zodra je je account koppelt in',

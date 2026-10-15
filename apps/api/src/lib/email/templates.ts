@@ -46,6 +46,10 @@ type Common = {
   /** Pay-by-invoice bookings: e.g. "€60.00 — the host will send you an
    *  invoice." Shown on the invitee's confirmation only. */
   paymentNote?: string | null;
+  /** Host mail only: what happened to the join link when the meeting type's
+   *  own could not be made (routes/meet.ts zoomFallback). Absent = nothing
+   *  to say. */
+  linkNotice?: string | null;
   /** The workspace's mark, when it has one. Absent = The Thread's. */
   brand?: EmailBrand | undefined;
 };
@@ -406,8 +410,9 @@ export function bookingNotificationHost(c: Common): {
   // act on them — and it is the host, more often than the invitee, who needs
   // to move a meeting. The links are the same public ones; they identify the
   // booking, not the person clicking.
+  const notice = c.linkNotice ? `\n${c.linkNotice}\n` : '';
   const text = `${c.inviteeName} (${c.inviteeEmail}) booked ${c.meetingName}.
-
+${notice}
 ${detailsText(c, 'host')}
 
 Add to your calendar: ${icsUrl(c, 'host')}
@@ -419,6 +424,7 @@ ${emailSignoff()}`;
     'New booking',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(c.inviteeName)} booked ${escapeHtml(c.meetingName)}.</h1>
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(c.inviteeEmail)}</div>
+${c.linkNotice ? `<div style="margin-top:16px;padding:12px 14px;border:1px solid #e5e5e5;border-radius:8px;font-size:14px;color:#171717;">${escapeHtml(c.linkNotice)}</div>` : ''}
 ${detailsHtml(c, 'host')}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'host')}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
     c.brand,
@@ -492,6 +498,31 @@ ${emailSignoff()}`;
 <div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(meetT(L, 'was_label'))}: <s>${escapeHtml(was)}</s></div>
 ${detailsHtml(c, audience)}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, audience)}" style="color:#171717;">${escapeHtml(meetT(L, 'add_to_calendar'))}</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'cancel'))}</a></div>`,
+    c.brand,
+  );
+  return { subject, text, html };
+}
+
+/** The guest's mail when the host adds or replaces the join link on a
+ *  booking (POST /meet/bookings/:id/link). Carries the updated invitation:
+ *  the reason this exists is the booking that went out with no link. */
+export function bookingLinkUpdatedInvitee(c: Common): { subject: string; text: string; html: string } {
+  const L = loc(c);
+  const subject = meetT(L, 'link_subject_invitee', { meeting: c.meetingName, host: c.hostName });
+  const text = `${meetT(L, 'link_text_invitee')}
+
+${detailsText(c, 'invitee')}
+
+${meetT(L, 'add_to_calendar_line', { url: icsUrl(c, 'invitee') })}
+${meetT(L, 'need_cancel_line', { url: cancelUrl(c) })}
+
+${emailSignoff()}`;
+  const html = shell(
+    meetT(L, 'link_title'),
+    `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(meetT(L, 'link_headline_invitee', { host: c.hostName }))}</h1>
+<div style="margin-top:6px;font-size:14px;color:#525252;">${escapeHtml(meetT(L, 'link_text_invitee'))}</div>
+${detailsHtml(c, 'invitee')}
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c, 'invitee')}" style="color:#171717;">${escapeHtml(meetT(L, 'add_to_calendar'))}</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">${escapeHtml(meetT(L, 'cancel'))}</a></div>`,
     c.brand,
   );
   return { subject, text, html };

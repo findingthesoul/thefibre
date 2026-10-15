@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.213.0] — 2026-10-15
+
+### Meet: a Zoom booking that can't get a Zoom meeting uses your personal room — and says so (Meet 2.33.0)
+
+Sjoerd, on production: *"my invite has no Zoom link in my agenda"*, then
+*"Zoom is not working yet. But the personal room should work."* Zoom is not
+available on production yet (the Marketplace app is in review), and a
+meeting type set to Zoom confirmed every booking with **no link**, telling
+nobody: not the guest, not the host, not the log.
+
+- **Fallback to the personal room.** When Zoom can't make the meeting —
+  not available on this platform, account not connected, or Zoom returned an
+  error — the booking uses the host's personal room, in the confirmation, the
+  invite and the calendar entry. On both booking paths (confirmed at once,
+  and after approval or payment).
+- **The host is told.** The host's "New booking" mail says what happened:
+  *"No Zoom meeting was created for this booking (Zoom isn't available on
+  this platform yet), so it uses your personal room instead"* — or, with no
+  room saved, that the booking has no join link and how to add one. The log
+  now names the booking and the reason.
+- **"No join link — add one."** A live booking that promises an online
+  meeting and has no link is marked in the host's bookings list. Its dialog
+  has a field to add the link; the guest is sent an updated invitation (the
+  calendar entry updates in place). New `POST /meet/bookings/:id/link`,
+  host-only.
+- **No more crash on a failing Zoom token.** A token refresh that failed for
+  any reason other than a revoked grant escaped the booking route after the
+  booking was written and before any mail went out — a confirmed booking
+  nobody was told about. Now it is one more reason to fall back. (Proven: the
+  new test answers 500 against the old code.)
+- **The editor stops offering Zoom where it can't work.** Zoom is selectable
+  only when it is available on the platform AND the host's account is
+  connected (it used to check only the second). A connection whose last
+  refresh failed says so, with a link to reconnect; a meeting type already
+  set to Zoom that can't use it now says what its bookings will get instead.
+  `/meet/me` gains `zoom_refresh_failed_at` (in memory, so a restart forgets
+  it until the next failure).
+- Every `meet_booking` link write on these paths now logs its error instead
+  of ignoring it.
+
+Tests: `meet-zoom-fallback.int.test.ts` (real route, in process, staging
+database, mail recorded): Zoom not configured → personal room + host told;
+refresh throws → no crash, confirmed with the room, both sides mailed; no
+room → no link + host told to add one. `zoom-state.test.ts` pins when the
+editor offers Zoom.
+
+Also: `e2e/portal-members-speed.spec.ts` now asserts that `/members` is
+rendered at `/members` (no redirect). Measured with it after v1.211.1 on
+staging: `/members` 3.9s → 1.42s, `/members/<community>` 2.0s → 1.05s.
+
 ## [1.212.0] — 2026-10-15
 
 ### my.thread → Purchases: your memberships, and stopping or resuming a renewal (my 0.14.0, Members 1.4.0)

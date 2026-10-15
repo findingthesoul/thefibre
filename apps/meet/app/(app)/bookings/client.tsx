@@ -6,6 +6,7 @@ import { List, LayoutGrid, CalendarDays, MapPin } from 'lucide-react';
 import { ClickableBookingRow } from '@/components/clickable-booking-row';
 import { JoinMeetingLink } from '@/components/join-meeting-link';
 import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
+import { PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 
 export type BookingRow = {
   id: string;
@@ -19,6 +20,8 @@ export type BookingRow = {
   /** Non-null when the host was never successfully emailed about a request
    *  awaiting their approval — the dialog says so. */
   approval_notice_failed_at?: string | null;
+  /** Live, promises an online meeting, and has no link (API-decided). */
+  no_join_link?: boolean;
   meeting_type:
     | {
         id: string;
@@ -239,6 +242,11 @@ function BookingItem({ b, locale }: { b: BookingRow; locale: Locale }) {
               cancelled, unapproved, finished or link-less booking — see
               canJoinMeeting. */}
           <JoinMeetingLink booking={b} locale={locale} />
+          {b.no_join_link && (
+            // The booking that went out with no way in. Tapping the row
+            // opens the dialog, which is where the link is added.
+            <span className={`${PILL} ${PILL_TONE.attention}`}>{t(locale, 'no_join_link')}</span>
+          )}
           <span
             className={`text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 ${
               b.status === 'cancelled'

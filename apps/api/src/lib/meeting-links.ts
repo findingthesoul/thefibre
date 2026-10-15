@@ -58,6 +58,28 @@ export type MintResult =
   | { ok: true; url: string; id?: string }
   | { ok: false; reason: 'not_configured' | 'not_connected' | 'failed' };
 
+const FAILED = Symbol('token refresh failed');
+
+/** The access token, or FAILED when getting one threw.
+ *
+ *  A token refresh that fails for any reason other than a revoked grant
+ *  THROWS (zoom/host.ts — wrong credentials, a provider outage). It used to
+ *  be called outside every try, so that throw left the booking route after
+ *  the booking row was written and before a single mail went out: a
+ *  confirmed booking nobody was told about. Now it is a reason like any
+ *  other, and the caller falls back. */
+async function tokenOrFailed(
+  provider: 'zoom' | 'teams',
+  get: () => Promise<string | null>,
+): Promise<string | null | typeof FAILED> {
+  try {
+    return await get();
+  } catch (e) {
+    console.error(`[meeting-links] ${provider} token refresh failed`, e);
+    return FAILED;
+  }
+}
+
 export function isMintable(provider: string | null | undefined): provider is MintableProvider {
   return provider === 'zoom' || provider === 'google_meet' || provider === 'teams';
 }
@@ -86,7 +108,8 @@ export async function createMeetingLink(args: {
 
   if (args.provider === 'zoom') {
     if (!isZoomConfigured()) return { ok: false, reason: 'not_configured' };
-    const token = await zoomAccessTokenForUser(args.userId);
+    const token = await tokenOrFailed('zoom', () => zoomAccessTokenForUser(args.userId));
+    if (token === FAILED) return { ok: false, reason: 'failed' };
     if (!token) return { ok: false, reason: 'not_connected' };
 
     const base = {
@@ -122,7 +145,8 @@ export async function createMeetingLink(args: {
 
   if (args.provider === 'teams') {
     if (!isTeamsConfigured()) return { ok: false, reason: 'not_configured' };
-    const token = await teamsAccessTokenForUser(args.userId);
+    const token = await tokenOrFailed('teams', () => teamsAccessTokenForUser(args.userId));
+    if (token === FAILED) return { ok: false, reason: 'failed' };
     if (!token) return { ok: false, reason: 'not_connected' };
     try {
       // Instants, not wall clock: Graph takes UTC and there is no timezone

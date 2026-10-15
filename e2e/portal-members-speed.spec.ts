@@ -128,6 +128,9 @@ test('the member list arrives in about a second, through either door', async ({ 
         timeout: 30_000,
       });
       timings[path].push(Date.now() - start);
+      // No redirect: the list is rendered at the address asked for. A
+      // /members that lands on /members/<ws> is the old double render back.
+      expect(new URL(page.url()).pathname).toBe(path);
     }
   }
 

@@ -24,6 +24,22 @@ export async function approveBooking(id: string): Promise<ApproveResult> {
   return { ok: true };
 }
 
+/** Add or replace a booking's join link. The API sends a confirmed
+ *  booking's guest the updated invitation. */
+export async function setBookingLink(id: string, meetUrl: string): Promise<ApproveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/bookings/${id}/link`, {
+      method: 'POST',
+      body: JSON.stringify({ meet_url: meetUrl }),
+    });
+  } catch (e) {
+    return { error: formatError(e) };
+  }
+  revalidatePath('/bookings');
+  revalidatePath('/dashboard');
+  return { ok: true };
+}
+
 export async function rejectBooking(
   id: string,
   reason?: string,

@@ -38,9 +38,11 @@ async function refreshAndStore(userId: string): Promise<string | null> {
       tokenCache.delete(userId);
       return null;
     }
+    refreshFailedAt.set(userId, Date.now());
     throw err;
   }
 
+  refreshFailedAt.delete(userId);
   await saveZoomConnection(userId, tokens.refreshToken).catch(() => undefined);
   tokenCache.set(userId, {
     accessToken: tokens.accessToken,
@@ -61,7 +63,22 @@ export async function zoomAccessTokenForUser(userId: string | null | undefined):
   return p;
 }
 
+/** When this process last failed to refresh a user's Zoom token for a reason
+ *  other than a revoked grant (a revoked grant clears the connection, which
+ *  the editor already reads as "not connected"). The editor shows it so a
+ *  host whose Zoom has quietly stopped working is told before a guest is.
+ *
+ *  IN MEMORY, on purpose: it costs no migration, and the state it describes
+ *  is itself transient — the next successful refresh clears it. A restart
+ *  forgets it; the next booking that fails records it again. */
+const refreshFailedAt = new Map<string, number>();
+
+export function zoomRefreshFailedAt(userId: string | null | undefined): number | null {
+  return userId ? (refreshFailedAt.get(userId) ?? null) : null;
+}
+
 /** Called on disconnect so a wiped refresh token can't keep working from cache. */
 export function clearZoomTokenCache(userId: string): void {
   tokenCache.delete(userId);
+  refreshFailedAt.delete(userId);
 }
