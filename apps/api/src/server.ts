@@ -40,6 +40,7 @@ import { runBillingMeterTick } from './routes/billing.js';
 import { runHygieneSweep } from './lib/hygiene.js';
 import { currenciesRoutes } from './routes/currencies.js';
 import { membershipPortalRoutes } from './routes/membership-portal.js';
+import { membershipPurchaseRoutes } from './routes/membership-purchases.js';
 import { portalRoutes } from './routes/portal.js';
 import { myTasksRoutes, fileFinishedTasks } from './routes/my-tasks.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
@@ -300,6 +301,8 @@ v1.route('/connections', connectionsEffortRoutes);
 v1.route('/membership', membershipRoutes);
 v1.route('/currencies', currenciesRoutes);
 v1.route('/membership/portal', membershipPortalRoutes);
+// my.thread → Purchases (P1, 2026-10-15): renewals, managed in The Fibre.
+v1.route('/membership/portal', membershipPurchaseRoutes);
 // The in-app assistant (docs/assistant-in-app.md). User sessions only; the
 // app-key allow-list in middleware/app-context.ts keeps keys out of it.
 v1.route('/assistant', assistantRoutes);

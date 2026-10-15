@@ -874,7 +874,23 @@ function TierCard({
             {payLine && <p className="text-sm text-ink-subtle">{payLine}{vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}</p>}
             {state === 'already' && (
               <p className="text-sm text-ink rounded-md border border-line bg-surface px-3 py-2.5">
-                {t(locale, 'already_member_form')}
+                {t(locale, 'already_member_form')}{' '}
+                {/* Where an existing member changes their membership or adds
+                    to it: my.thread → Purchases, on this stack. */}
+                <a
+                  href={(() => {
+                    try {
+                      return `${new URL(membersAreaUrl).origin}/purchases`;
+                    } catch {
+                      return membersAreaUrl;
+                    }
+                  })()}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2 hover:opacity-70"
+                >
+                  {t(locale, 'already_member_purchases_link')}
+                </a>
               </p>
             )}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}

@@ -333,7 +333,7 @@ async function isMembershipAdmin(workspaceId: string, userId: string): Promise<b
 
 // The email-locale chain (i18n P1): member.locale ?? membership_settings
 // .locale ?? 'en'. Every member-facing send resolves through here.
-async function memberEmailLocale(
+export async function memberEmailLocale(
   workspaceId: string,
   memberLocale: string | null | undefined,
 ): Promise<Locale> {

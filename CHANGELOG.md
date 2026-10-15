@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.212.0] — 2026-10-15
+
+### my.thread → Purchases: your memberships, and stopping or resuming a renewal (my 0.14.0, Members 1.4.0)
+
+Sjoerd: *"Manage payment should not go to Stripe. We want to organise
+everything in THE FIBRE."* P1 of the Purchases plan.
+
+- **Your memberships** on my.thread → Purchases, above the invoices: per
+  membership, when it renews and for how much — Stripe's own preview of the
+  next invoice, so the figure is what will be charged ("Renews on 1 January
+  2027 at €363.00 incl. VAT (€300.00 + VAT €63.00)") — or "managed directly
+  by the community" for a manual or comped membership.
+- **Stop renewal / Resume renewal**, with a confirm ("stays active until …,
+  nothing more is charged"). `cancel_at_period_end` on the subscription: the
+  membership stays active to the end of the period, nothing is charged or
+  refunded now. An email both ways (six languages) and an activity row.
+  `GET /membership/portal/me/renewals`, `POST /membership/portal/me/renewals/:memberId`
+  — in their own router (`routes/membership-purchases.ts`) on the portal's
+  prefix; a member reaches only memberships held by their verified email.
+- **The join card's "already a member"** links to my.thread → Purchases.
+- **Kept on purpose:** the "Manage payment" (Stripe portal) button on
+  Memberships stays until P4 — it is today the only way to change a failing
+  card, and removing it first would strand a member with an expired card.
+  P4 replaces it with a card change embedded in our own page.
+- Tests: `membership-renewals.int.test.ts` on staging against a Stripe TEST
+  subscription (4 — listed with Stripe's figure, stop leaves it active with
+  no invoice created, resume, another person gets 404). It runs in a
+  PERMANENT fixture workspace (`int-renewal-fixtures`): stopping writes an
+  activity row, and activity is append-only. It ends by asking the database,
+  by id, that it left nothing (testing-approach §17). Two throwaway shells
+  from its first runs (`int-test-renew-43f23e49`, `int-test-renew-14f6aeee`)
+  were retired in place on staging (content stripped, persons soft-deleted,
+  archived) — the sweep script's own steps, targeted at those two.
+
 ## [1.211.1] — 2026-10-15
 
 ### my.thread: the Members page stops waiting on itself (my.thread 0.13.1)

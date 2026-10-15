@@ -245,6 +245,46 @@ const CATALOG = {
     de: 'Meist ist es eine abgelaufene Karte — das Aktualisieren deiner Zahlungsmethode behebt es. Wenn du Hilfe brauchst, antworte einfach auf diese E-Mail.', // MT
     fr: 'La plupart du temps, c’est une carte expirée — mettre à jour ton moyen de paiement règle le problème. Si tu as besoin d’aide, réponds simplement à cet e-mail.', // MT
   },
+  m_stopped_subject: {
+    en: 'Your {community} membership will not renew',
+    nl: 'Je lidmaatschap van {community} wordt niet verlengd',
+    es: 'Tu membresía de {community} no se renovará', // MT
+    pt: 'A sua adesão a {community} não será renovada', // MT
+    de: 'Deine Mitgliedschaft bei {community} wird nicht verlängert', // MT
+    fr: 'Ton adhésion à {community} ne sera pas renouvelée', // MT
+  },
+  m_stopped_line: {
+    en: 'You stopped the renewal of your {tier} membership of {community}. It stays active until {until}; nothing more will be charged.',
+    nl: 'Je hebt de verlenging van je {tier}-lidmaatschap van {community} stopgezet. Het blijft actief tot {until}; er wordt niets meer afgeschreven.',
+    es: 'Has detenido la renovación de tu membresía {tier} de {community}. Sigue activa hasta el {until}; no se cobrará nada más.', // MT
+    pt: 'Parou a renovação da sua adesão {tier} a {community}. Fica ativa até {until}; não será cobrado mais nada.', // MT
+    de: 'Du hast die Verlängerung deiner {tier}-Mitgliedschaft bei {community} gestoppt. Sie bleibt bis {until} aktiv; es wird nichts mehr abgebucht.', // MT
+    fr: 'Tu as arrêté le renouvellement de ton adhésion {tier} à {community}. Elle reste active jusqu’au {until} ; rien de plus ne sera prélevé.', // MT
+  },
+  m_resumed_subject: {
+    en: 'Your {community} membership will renew',
+    nl: 'Je lidmaatschap van {community} wordt verlengd',
+    es: 'Tu membresía de {community} se renovará', // MT
+    pt: 'A sua adesão a {community} será renovada', // MT
+    de: 'Deine Mitgliedschaft bei {community} wird verlängert', // MT
+    fr: 'Ton adhésion à {community} sera renouvelée', // MT
+  },
+  m_resumed_line: {
+    en: 'Your {tier} membership of {community} will renew again on {until}.',
+    nl: 'Je {tier}-lidmaatschap van {community} wordt weer verlengd op {until}.',
+    es: 'Tu membresía {tier} de {community} se renovará de nuevo el {until}.', // MT
+    pt: 'A sua adesão {tier} a {community} será renovada de novo a {until}.', // MT
+    de: 'Deine {tier}-Mitgliedschaft bei {community} wird am {until} wieder verlängert.', // MT
+    fr: 'Ton adhésion {tier} à {community} sera de nouveau renouvelée le {until}.', // MT
+  },
+  m_change_in_purchases: {
+    en: 'You can change this any time in my.thread → Purchases.',
+    nl: 'Je kunt dit altijd wijzigen in my.thread → Aankopen.',
+    es: 'Puedes cambiarlo cuando quieras en my.thread → Compras.', // MT
+    pt: 'Pode alterar isto a qualquer momento em my.thread → Compras.', // MT
+    de: 'Du kannst das jederzeit in my.thread → Käufe ändern.', // MT
+    fr: 'Tu peux modifier cela à tout moment dans my.thread → Achats.', // MT
+  },
   m_lapsed_subject: {
     en: 'Your {community} membership has ended',
     nl: 'Je lidmaatschap van {community} is beëindigd',
@@ -627,5 +667,37 @@ export function membershipLapsed(opts: {
     subject,
     html: shell(subject, body, opts.brand),
     text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}${opts.joinUrl ? `\n\n${rejoinLabel}: ${opts.joinUrl}` : ''}`,
+  };
+}
+
+/** The renewal was stopped or resumed by the member (my.thread → Purchases). */
+export function membershipRenewalChanged(opts: {
+  name: string;
+  communityName: string;
+  tierName: string;
+  stopped: boolean;
+  /** The last day it stays active (stopped) or the renewal date (resumed). */
+  until: string;
+  locale?: string | null;
+  brand?: EmailBrand;
+}): { subject: string; html: string; text: string } {
+  const loc = toLocale(opts.locale);
+  const subject = t(loc, opts.stopped ? 'm_stopped_subject' : 'm_resumed_subject', { community: opts.communityName });
+  const key = opts.stopped ? 'm_stopped_line' : 'm_resumed_line';
+  const lineHtml = t(loc, key, {
+    tier: `<strong>${escapeHtml(opts.tierName)}</strong>`,
+    community: `<strong>${escapeHtml(opts.communityName)}</strong>`,
+    until: escapeHtml(opts.until),
+  });
+  const lineText = t(loc, key, { tier: opts.tierName, community: opts.communityName, until: opts.until });
+  const more = t(loc, 'm_change_in_purchases');
+  const body = `
+    <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
+    <p>${lineHtml}</p>
+    <p>${escapeHtml(more)}</p>`;
+  return {
+    subject,
+    html: shell(subject, body, opts.brand),
+    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${more}`,
   };
 }

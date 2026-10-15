@@ -715,3 +715,30 @@ export async function fetchDirectoryMembers(
     return { state: 'failed' };
   }
 }
+
+/** A membership's renewal, as Stripe will do it (my.thread → Purchases, P1). */
+export type MyRenewal = {
+  member_id: string;
+  community: string;
+  tier: string;
+  status: string;
+  /** Manual, comped or invoiced: nothing renews through a card here. */
+  managed_by_community: boolean;
+  unavailable?: boolean;
+  renews_at?: string | null;
+  stops_at_period_end?: boolean;
+  next_invoice?: { total: number; tax: number; subtotal: number; currency: string } | null;
+};
+
+export async function fetchRenewals(accessToken: string): Promise<MyRenewal[] | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/membership/portal/me/renewals`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return ((await res.json()) as { items?: MyRenewal[] }).items ?? [];
+  } catch {
+    return null;
+  }
+}

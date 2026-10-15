@@ -15,6 +15,8 @@ import { loadInvoices, loadSession } from '@/lib/session';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { InvoiceList } from './invoice-list';
+import { Renewals } from './renewals';
+import { fetchRenewals } from '@/lib/portal-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,11 +33,12 @@ export async function PurchasesView({ openId = null }: { openId?: string | null 
   const session = await loadSession();
   if (!session) return <SignedOut />;
 
-  const { rows, failed } = await loadInvoices();
+  const [{ rows, failed }, renewals] = await Promise.all([loadInvoices(), fetchRenewals(session.token)]);
   const outstanding = rows.filter((r) => r.status !== 'paid' && r.status !== 'refunded');
 
   return (
     <PageShell title="Purchases">
+      {renewals && <Renewals items={renewals} />}
       {/* A failed call is NOT an empty list, and this page used to show both
           as "Nothing invoiced yet" — which is how a reported missing invoice
           became an hour of ruling things out on 2026-10-13. Somebody who paid

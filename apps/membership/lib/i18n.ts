@@ -322,6 +322,16 @@ const CATALOG = {
     de: 'USt-IdNr. (Unternehmen, optional)', // MT
     fr: 'Numéro de TVA (entreprises, facultatif)', // MT
   },
+  // P1 offers renewals and invoices; the wording grows when add-ons and
+  // changing membership arrive (P3) — never promise what is not there yet.
+  already_member_purchases_link: {
+    en: 'See your membership in my.thread → Purchases.',
+    nl: 'Bekijk je lidmaatschap in my.thread → Aankopen.', // MT pending native review
+    es: 'Consulta tu membresía en my.thread → Compras.', // MT
+    pt: 'Veja a sua adesão em my.thread → Compras.', // MT
+    de: 'Sieh dir deine Mitgliedschaft in my.thread → Käufe an.', // MT
+    fr: 'Retrouve ton adhésion dans my.thread → Achats.', // MT
+  },
   already_member_note: {
     en: "You're already a member — check your email for sign-in.",
     nl: 'Je bent al lid — kijk in je e-mail om in te loggen.',
