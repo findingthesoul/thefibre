@@ -866,10 +866,14 @@ meetRoutes.post('/public/bookings', async (c) => {
   }
 
   // Now load the chosen host (refresh token, slug, user info — for emails + GCal).
+  // `user_id` AS A COLUMN, beside the `user:user_id (…)` embed: the alias
+  // returns the embedded row, not the id. Without it the personal room below
+  // was looked up for user null, and every direct personal-room booking went
+  // out with no link (2026-10-15; meet-personal-room.int.test.ts).
   const { data: chosenHostRow } = await adminClient
     .from('meet_host')
     .select(
-      'id, timezone, slug, user:user_id (full_name, email)',
+      'id, timezone, slug, user_id, user:user_id (full_name, email)',
     )
     .eq('id', chosenHostId)
     .single();
@@ -1175,8 +1179,15 @@ meetRoutes.post('/public/bookings', async (c) => {
   // zoom link."
   let resolvedMeetUrl: string | null =
     mt.conferencing_provider === 'personal_room'
-      ? await userPersonalRoom((hostRow as { user_id?: string | null } | null)?.user_id ?? null)
+      ? await userPersonalRoom(hostRow?.user_id ?? null)
       : null;
+  // Stored on the booking NOW, not only inside the Google block below: a host
+  // without Google Calendar never reached that write, so meet_url stayed
+  // null, and a later reschedule or cancellation — which re-sends
+  // booking.meet_url — would have sent an invite without the room.
+  if (resolvedMeetUrl && booking) {
+    await adminClient.from('meet_booking').update({ meet_url: resolvedMeetUrl }).eq('id', booking.id);
+  }
   // A paid booking never waits for approval: payment (or the invoice) is
   // the gate, the rule the Stripe path has always followed.
   if (effectiveRequiresApproval && !isPaidBooking && booking) {
@@ -4678,6 +4689,11 @@ async function runConfirmationSideEffects(
     mt.conferencing_provider === 'personal_room'
       ? await userPersonalRoom((hostRow as { user_id?: string | null }).user_id ?? null)
       : null;
+  // Stored now, as on the direct path: only the Google block below wrote it,
+  // so a host without Google kept a booking whose reschedule mail had no room.
+  if (meetUrl) {
+    await adminClient.from('meet_booking').update({ meet_url: meetUrl }).eq('id', bookingId);
+  }
   if (mt.conferencing_provider === 'zoom') {
     const z = await createZoomForBooking({
       hostId: booking.host_id,

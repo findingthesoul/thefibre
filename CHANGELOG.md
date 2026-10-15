@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.209.1] — 2026-10-15
+
+### Meet: a personal-room booking carries the room again (Meet 2.32.1, hotfix)
+
+Sjoerd, on production: *"my invite has no Zoom link in my agenda."*
+
+**The cause.** A booking that confirms at once (free, no approval) looked
+up the host's personal room for user `null`. The host query selected
+`user:user_id (…)` — the embedded user ROW under the alias `user` — but not
+the `user_id` column itself, and a cast (`as { user_id?: … }`) kept
+TypeScript from saying so. The room lookup answered nothing, and the
+booking went out with no link in the confirmation, the invite or the host's
+calendar entry. Bookings confirmed later — after approval or payment — read
+a different query that did include `user_id`, which is why v1.92.1's fix
+looked complete.
+
+**A second gap on the same path, fixed with it.** The room was saved onto
+the booking only inside the Google Calendar step, so for a host without
+Google the booking kept `meet_url` empty even when the mail had the room —
+and a reschedule or cancellation, which re-sends `booking.meet_url`, would
+have sent an invite with no link. Both booking paths now store the room as
+soon as they have it.
+
+New: `meet-personal-room.int.test.ts` books a free personal-room meeting
+through the real route (in process, staging database, mail recorded) and
+asserts the room is on the booking, in the mail and in the invite's
+LOCATION and URL. It failed on the old code on both counts.
+
+Checked the rest of the API for the same shape (a `user_id` read through a
+cast off a row whose select only embeds `user:user_id`): seven other sites,
+all of which select `user_id` — no other instance.
+
 ## [1.209.0] — 2026-10-15
 
 ### Thread and Meet prices are now EXCLUDING VAT — VAT is added on top (Thread 4.10.0, Meet 2.32.0)
