@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.201.1] — 2026-10-15
+
+### The public contract asserts `hosts`
+
+- `hosts` on the public agenda items (v1.199.0) reached production with
+  batch 25, so `verify-public-api.mjs` moves it from PENDING into the
+  published shape: from now on a release that drops it fails the gate.
+
 ## [1.201.0] — 2026-10-15
 
 ### my.thread: the threads you host

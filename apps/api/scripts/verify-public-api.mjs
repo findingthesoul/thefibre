@@ -160,7 +160,7 @@ const SHAPES = {
     'enrolled_count',
     'enrolment_open',
   ],
-  agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online'],
+  agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online', 'hosts'],
 };
 
 const INTERNAL = ['workspace_id', 'team_id', 'organiser_id', 'payment_destination'];
@@ -187,10 +187,9 @@ const PENDING = {
   // collection was somebody else's field and somebody else's deploy; the gate
   // does not care whose, which is the point of it going red for all of us.
   organiser: [],
-  // Who hosts each session, by name (main facilitator work, 2026-10-14).
-  // Collect into SHAPES.agendaItem in the session that deploys it to
-  // production.
-  agendaItem: ['hosts'],
+  // Empty again: `hosts` (added 2026-10-15, v1.199.0) was collected into
+  // SHAPES.agendaItem the morning batch 25 put it on production.
+  agendaItem: [],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
