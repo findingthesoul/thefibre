@@ -260,3 +260,61 @@ describe('rooms per session, and who hosts each one', () => {
   });
 });
 
+describe('two hosts sharing one room address, and hosts in the calendar', () => {
+  const SHARED = `https://meet.example/shared-${randomUUID().slice(0, 6)}`;
+  const NEW = `https://meet.example/new-${randomUUID().slice(0, 6)}`;
+  let annaRow2 = '';
+  let peterRow2 = '';
+  let s1 = '';
+  let s2 = '';
+
+  const pinnedSession = async (title: string, owner: string) => {
+    const res = await call(`/threads/${threadId}/engagements`, {
+      method: 'POST',
+      body: JSON.stringify({ title, type: 'event', status: 'draft', starts_at: day(30), ends_at: day(30.05), meeting_provider: 'personal_room', room_owner_id: owner }),
+    });
+    expect(res.status, await res.clone().text()).toBe(201);
+    const row = await res.json();
+    made.unshift({ table: 'thread_engagement', id: row.id });
+    return row.id as string;
+  };
+
+  it('the owner filter is what keeps one host’s room change off the other’s session', async () => {
+    annaRow2 = (await service.from('thread_thread_organiser').select('id').eq('thread_id', threadId).eq('organiser_id', facilitatorOrgId).single()).data!.id as string;
+    peterRow2 = await insert('thread_thread_organiser', { thread_id: threadId, organiser_id: thirdOrgId, role: 'host' });
+    await connections.savePersonalRoom(facilitator.userId, SHARED);
+    await connections.savePersonalRoom(third.userId, SHARED);
+    s1 = await pinnedSession('Pinned to Anna', annaRow2);
+    s2 = await pinnedSession('Pinned to Peter', peterRow2);
+    expect([await urlOf(s1), await urlOf(s2)]).toEqual([SHARED, SHARED]);
+    await connections.savePersonalRoom(third.userId, NEW);
+    expect(await urlOf(s2), 'Peter’s session moves').toBe(NEW);
+    expect(await urlOf(s1), 'Anna’s session — same old URL — stays').toBe(SHARED);
+  });
+
+  it('unticking a host on a sent session queues a hosts change; the SEND cancels for them only', async () => {
+    const { hostReach, pendingChanges, calendarAudience, sendPendingChanges } = await import('../lib/calendar-invite.js');
+    // Out there, held by both hosts.
+    await service
+      .from('thread_engagement')
+      .update({ status: 'published', show_in_agenda: true, calendar_sent_at: day(-1), invited_hosts: [facilitator.email, third.email] })
+      .eq('id', s1);
+    await service.from('thread_calendar_change').delete().eq('thread_id', threadId).is('sent_at', null);
+
+    const res = await call(`/engagements/${s1}`, { method: 'PATCH', body: JSON.stringify({ excluded_people: [peterRow2] }) });
+    expect(res.status, await res.clone().text()).toBe(200);
+    const q = await pendingFor(s1);
+    expect(q?.kind).toBe('people');
+    expect(q?.reason).toMatch(/Peter Third removed/);
+
+    const changes = await pendingChanges(threadId);
+    expect(await hostReach(threadId, changes, await calendarAudience(threadId)), 'the reach line counts one host').toBe(1);
+
+    const result = await sendPendingChanges({ threadId });
+    expect(result.recipients, JSON.stringify(result)).toBe(1);
+    const after = (await service.from('thread_engagement').select('invited_hosts').eq('id', s1).single()).data!.invited_hosts;
+    expect(after).toEqual([facilitator.email.toLowerCase()]);
+    expect(await pendingFor(s1)).toBeNull();
+  });
+});
+

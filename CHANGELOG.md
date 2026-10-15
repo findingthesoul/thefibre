@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.200.0] — 2026-10-15
+
+### The Thread: a session's hosts get its calendar invitation
+
+Sjoerd: *"And A."* — ticked hosts and facilitators receive the calendar
+entry for each session they are on, and its updates.
+
+- **Invited with the participants.** A session's ticked hosts with an email
+  get its invitation and every update through the organiser's SEND, each
+  their own copy naming only them. The organiser is the invitation's
+  organiser, never also an attendee; a host who is also a participant gets
+  one copy.
+- **Taken off → cancelled for them only.** Unticking a host on a session that
+  has gone out, or removing them from the thread, queues a "Hosts:" change;
+  the next SEND sends them a CANCEL of the same event (same UID, next
+  SEQUENCE) and participants hear nothing. Ticking or adding a host sends
+  them the invitation the same way. A moved or cancelled session carries the
+  host changes with it.
+- **The SEND dialog counts them**: "N participants · M followers · K hosts".
+- A session remembers which host addresses hold its invitation
+  (`invited_hosts`), so the next send knows whom to add and whom to cancel.
+- Tests: `calendar-invite.hosts.test.ts` — who gets which copy for each kind
+  of change, one UID and SEQUENCE on every copy, the queue rules;
+  `main-facilitator.int.test.ts` on staging — unticking a host queues the
+  change, the reach line counts one host, the SEND cancels for them only;
+  and two hosts sharing one room address, where only the one who changes
+  their room moves (both fail under mutation).
+
 ## [1.199.0] — 2026-10-15
 
 ### The Thread: a room per session, and who hosts each one

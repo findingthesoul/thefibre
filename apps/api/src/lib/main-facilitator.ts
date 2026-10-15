@@ -310,3 +310,28 @@ export function sessionHosts(hosts: ThreadHost[], excluded: string[] | null | un
   const out = new Set(excluded ?? []);
   return hosts.filter((h) => !out.has(h.id));
 }
+
+/**
+ * WHO HOSTS changed on sessions that have gone out: queue a `people` change
+ * on each, so the next SEND invites the hosts added and cancels for the ones
+ * taken off (lib/calendar-invite.ts planRecipients). Sessions never sent are
+ * left alone — their first send carries whoever is ticked then.
+ */
+export async function queueHostChange(args: {
+  threadId: string;
+  engagementIds?: string[];
+  reason: string;
+  actorUserId?: string | null;
+}): Promise<number> {
+  let q = adminClient.from('thread_engagement').select('*').eq('thread_id', args.threadId).not('calendar_sent_at', 'is', null);
+  if (args.engagementIds) q = q.in('id', args.engagementIds.length ? args.engagementIds : ['00000000-0000-0000-0000-000000000000']);
+  const { data, error } = await q;
+  if (error) throw new Error(`host change: ${error.message}`);
+  let n = 0;
+  for (const e of data ?? []) {
+    if (!isCalendarSession(e)) continue;
+    await recordCalendarChange({ engagement: e, kind: 'people', actorUserId: args.actorUserId ?? null, reason: args.reason });
+    n += 1;
+  }
+  return n;
+}

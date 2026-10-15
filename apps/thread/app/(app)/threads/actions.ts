@@ -621,7 +621,8 @@ export async function getCalendarImpact(engagementId: string): Promise<CalendarI
 export type CalendarChange = {
   id: string;
   engagement_id: string | null;
-  kind: 'added' | 'moved' | 'cancelled';
+  /** `people`: who hosts a sent session changed — only those hosts hear. */
+  kind: 'added' | 'moved' | 'cancelled' | 'people';
   title: string;
   was: { starts_at: string | null; ends_at: string | null; location: string | null } | null;
   now_state: { starts_at: string | null; ends_at: string | null; location: string | null } | null;
@@ -633,7 +634,7 @@ export type CalendarChange = {
 
 export async function getCalendarChanges(
   threadId: string,
-): Promise<{ changes: CalendarChange[]; audience_count: number; followers_count?: number }> {
+): Promise<{ changes: CalendarChange[]; audience_count: number; followers_count?: number; hosts_count?: number }> {
   try {
     return await apiFetch(`/api/v1/thread/threads/${threadId}/calendar-changes`);
   } catch {

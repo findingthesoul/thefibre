@@ -32,6 +32,7 @@ import {
   calendarStateOf,
   isCalendarSession,
   pendingChanges,
+  hostReach,
   recordCalendarChange,
   startSendingPendingChanges,
 } from '../lib/calendar-invite.js';
@@ -154,7 +155,7 @@ import { claimSend, recordSendResult } from '../lib/send-record.js';
 // returned the email in whatever case the provider sent — see
 // lib/participant-auth.ts, which exists for exactly this reason.
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
-import { allowsOrganiserMeetings, mintingAccount, propagateRoom, sessionHosts, sessionRoom, threadHosts, threadRoom, type ThreadHost } from '../lib/main-facilitator.js';
+import { allowsOrganiserMeetings, mintingAccount, propagateRoom, queueHostChange, sessionHosts, sessionRoom, threadHosts, threadRoom, type ThreadHost } from '../lib/main-facilitator.js';
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -1988,6 +1989,25 @@ threadRoutes.patch('/engagements/:id', async (c) => {
         actorUserId: ctx.userId,
       });
     }
+    // WHO HOSTS changed on a session that has gone out: the hosts added get
+    // the invitation and the ones taken off a CANCEL, at the next SEND.
+    if (wasSession && isSession && people.data.excluded_people !== undefined) {
+      const before = new Set((existing.excluded_people as string[] | null) ?? []);
+      const after = new Set(people.data.excluded_people);
+      const changed = before.size !== after.size || [...after].some((x) => !before.has(x));
+      if (changed) {
+        const hosts = await threadHosts(existing.thread_id as string);
+        const added = hosts.filter((h) => before.has(h.id) && !after.has(h.id)).map((h) => h.name);
+        const removed = hosts.filter((h) => !before.has(h.id) && after.has(h.id)).map((h) => h.name);
+        const parts = [added.length ? `${added.join(', ')} added` : '', removed.length ? `${removed.join(', ')} removed` : ''].filter(Boolean);
+        await recordCalendarChange({
+          engagement: data,
+          kind: 'people',
+          actorUserId: ctx.userId,
+          reason: `hosts changed: ${parts.join('; ') || 'who hosts this session'}`,
+        });
+      }
+    }
   } catch (e) {
     console.error('[thread/engagements] calendar change not queued', { id, e });
   }
@@ -2046,7 +2066,9 @@ threadRoutes.get('/threads/:id/calendar-changes', async (c) => {
   // followers_count (additive): members who follow this team calendar and
   // hold no place — they hear about the SEND in-app and by the digest. The
   // dialog says the reach before the press.
-  return c.json({ changes, audience_count: audience.length, followers_count: reach.followers });
+  // hosts_count (additive): the session hosts this SEND writes to.
+  const hostsCount = await hostReach(threadId, changes, audience).catch(() => 0);
+  return c.json({ changes, audience_count: audience.length, followers_count: reach.followers, hosts_count: hostsCount });
 });
 
 threadRoutes.post('/threads/:id/calendar-changes/send', async (c) => {
@@ -2724,6 +2746,12 @@ threadRoutes.post('/threads/:id/members', async (c) => {
     console.error('[thread/members] upsert failed', error);
     return c.json({ error: error.message }, 500);
   }
+  // A new host is on every session by default: the sessions already sent
+  // owe them an invitation at the next SEND.
+  const addedName = (Array.isArray(data?.organiser) ? data?.organiser[0] : data?.organiser)?.display_name ?? 'A host';
+  await queueHostChange({ threadId, reason: `hosts changed: ${addedName} added`, actorUserId: ctx.userId }).catch((e) =>
+    console.error('[thread/members] host change not queued', { threadId, e }),
+  );
   return c.json(data, 201);
 });
 
@@ -2758,6 +2786,10 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
   const after = await threadRoom(threadId);
   const gone = (leavingOrg?.display_name as string | undefined) ?? roomBefore.account.name;
+  // Taken off every session: the sessions already sent owe them a CANCEL.
+  await queueHostChange({ threadId, reason: `hosts changed: ${gone} removed`, actorUserId: ctx.userId }).catch((e) =>
+    console.error('[thread/members] host change not queued', { threadId, e }),
+  );
   const reason = `room changed: ${gone} is no longer on this thread, so sessions use ${after.account.name}'s room`;
   try {
     // They ran the thread: its following sessions fall back (guard d).

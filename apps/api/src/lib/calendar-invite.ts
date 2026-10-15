@@ -60,9 +60,16 @@ export type CalendarState = {
   location: string | null;
   location_url: string | null;
   meeting_url: string | null;
+  /** The host addresses holding the invitation when this state was taken —
+   *  carried on a cancellation, because the session row may be deleted
+   *  before the send and those hosts still need their CANCEL. Not compared
+   *  by calendarStateChanged: who hosts is not where or when. */
+  invited_hosts?: string[];
 };
 
-export type ChangeKind = 'added' | 'moved' | 'cancelled';
+/** `people`: WHO HOSTS a session that has gone out changed — only the hosts
+ *  added or removed are written to, never the participants. */
+export type ChangeKind = 'added' | 'moved' | 'cancelled' | 'people';
 
 /**
  * Whether this row is something a calendar could hold at all.
@@ -88,6 +95,14 @@ export function calendarStateOf(row: Record<string, unknown>): CalendarState {
     location_url: (row.location_url as string | null) ?? null,
     meeting_url: (row.meeting_url as string | null) ?? null,
   };
+}
+
+/** The state a change stores: a CANCELLATION also carries who held the
+ *  invitation, because the row may be deleted before the send. */
+function storedState(row: Record<string, unknown>, kind: ChangeKind): CalendarState {
+  return kind === 'cancelled'
+    ? { ...calendarStateOf(row), invited_hosts: (row.invited_hosts as string[] | null) ?? [] }
+    : calendarStateOf(row);
 }
 
 /** Whether anything a calendar would care about actually differs. */
@@ -146,6 +161,14 @@ export function collapseDecision(args: {
   pendingKind: ChangeKind | null;
   kind: ChangeKind;
 }): CollapseDecision {
+  // WHO HOSTS changed. Before the first send there is nothing to correct —
+  // the first invitation goes to whoever is ticked then. With anything
+  // already queued, that change carries it: its send diffs the hosts from
+  // `invited_hosts` anyway, so a bigger change never loses a host's update.
+  if (args.kind === 'people') {
+    if (!args.everSent || args.pendingKind) return { do: 'ignore' };
+    return { do: 'insert', kind: 'people' };
+  }
   if (!args.everSent) {
     // Nobody holds it. A cancellation erases the episode entirely: no message
     // is ever sent about a session that existed for one afternoon.
@@ -158,7 +181,9 @@ export function collapseDecision(args: {
   }
 
   // It is out there. A cancellation supersedes a pending move — the move no
-  // longer matters to anybody.
+  // longer matters to anybody. A pending `people` change is superseded by
+  // any real change, whose send diffs the hosts too.
+  if (args.pendingKind === 'people') return { do: 'update', kind: args.kind };
   if (args.pendingKind) {
     return { do: 'update', kind: args.kind === 'cancelled' ? 'cancelled' : args.pendingKind };
   }
@@ -207,10 +232,12 @@ export async function recordCalendarChange(args: {
       .update({
         kind: decision.kind,
         title: e.title as string,
-        now_state: calendarStateOf(e),
+        now_state: storedState(e, decision.kind),
         // A later change made BY the organiser clears an old reason: the
         // line then describes their edit, not somebody else's.
         reason: args.reason ?? null,
+        // A queued `people` row has no `was`; a move landing on it brings one.
+        ...(pending!.was == null && args.before ? { was: args.before } : {}),
       })
       .eq('id', pending!.id as string);
     return;
@@ -223,7 +250,7 @@ export async function recordCalendarChange(args: {
     kind: decision.kind,
     title: e.title as string,
     was: args.before ?? null,
-    now_state: calendarStateOf(e),
+    now_state: storedState(e, decision.kind),
     created_by: args.actorUserId ?? null,
     reason: args.reason ?? null,
   });
@@ -306,6 +333,141 @@ const one = <T>(v: unknown): T | null =>
   !v ? null : Array.isArray(v) ? ((v[0] ?? null) as T | null) : (v as T);
 
 // ---------------------------------------------------------------------------
+// Who gets which copy — participants and the session's HOSTS
+// ---------------------------------------------------------------------------
+
+export type Recipient = {
+  email: string;
+  name: string | null;
+  method: 'REQUEST' | 'CANCEL';
+  /** A host's copy when who hosts changed (added / taken off), else null. */
+  hostChange: 'added' | 'removed' | null;
+};
+
+/**
+ * Pure: everybody one change is sent to, and how.
+ *
+ *   * `added` / `moved` → every participant and every TICKED host gets the
+ *     invitation; a host ticked before (in `invitedHosts`) and not now gets
+ *     a CANCEL of the same event.
+ *   * `cancelled` → a CANCEL to every participant and every host who held it.
+ *   * `people` → only hosts: REQUEST to the newly ticked, CANCEL to the
+ *     unticked. Participants hear nothing — nothing about their session moved.
+ *
+ * The organiser is the invitation's ORGANIZER and never also an attendee;
+ * a host who is also a participant holds the participant copy already.
+ */
+export function planRecipients(args: {
+  kind: ChangeKind;
+  participants: { email: string; name: string | null }[];
+  hostsNow: { email: string; name: string | null }[];
+  invitedHosts: string[];
+  organiserEmail?: string | null;
+}): Recipient[] {
+  const norm = (e: string) => e.trim().toLowerCase();
+  const org = args.organiserEmail ? norm(args.organiserEmail) : null;
+  const participantSet = new Set(args.participants.map((p) => norm(p.email)));
+  const hosts = new Map<string, string | null>();
+  for (const h of args.hostsNow) {
+    const e = norm(h.email);
+    if (e && e !== org && !participantSet.has(e) && !hosts.has(e)) hosts.set(e, h.name);
+  }
+  const invited = new Set(args.invitedHosts.map(norm).filter((e) => e && e !== org && !participantSet.has(e)));
+  const out: Recipient[] = [];
+  const removed = [...invited].filter((e) => !hosts.has(e));
+
+  if (args.kind === 'cancelled') {
+    for (const p of args.participants) out.push({ email: norm(p.email), name: p.name, method: 'CANCEL', hostChange: null });
+    const all = new Set([...invited, ...hosts.keys()]);
+    for (const e of all) out.push({ email: e, name: hosts.get(e) ?? null, method: 'CANCEL', hostChange: null });
+    return out;
+  }
+  if (args.kind !== 'people') {
+    for (const p of args.participants) out.push({ email: norm(p.email), name: p.name, method: 'REQUEST', hostChange: null });
+  }
+  for (const [e, name] of hosts) {
+    const isNew = !invited.has(e);
+    if (args.kind === 'people' && !isNew) continue;
+    out.push({ email: e, name, method: 'REQUEST', hostChange: isNew ? 'added' : null });
+  }
+  for (const e of removed) out.push({ email: e, name: null, method: 'CANCEL', hostChange: 'removed' });
+  return out;
+}
+
+/** The host addresses that HOLD the invitation once this change is sent. */
+export function invitedAfter(kind: ChangeKind, recipients: Recipient[], hostsNow: { email: string }[]): string[] {
+  if (kind === 'cancelled') return [];
+  const removed = new Set(recipients.filter((r) => r.hostChange === 'removed').map((r) => r.email));
+  return [...new Set(hostsNow.map((h) => h.email.trim().toLowerCase()))].filter((e) => !removed.has(e));
+}
+
+/**
+ * Every .ics of one change: ONE event — the same UID and the same SEQUENCE
+ * on every copy, participants' and hosts', REQUEST and CANCEL alike — so a
+ * calendar treats a host's CANCEL as this event leaving their calendar and
+ * not as some other event. Each copy names only its own recipient.
+ */
+export function changeInvites(args: {
+  uid: string;
+  sequence: number;
+  recipients: Recipient[];
+  startsAt: Date;
+  endsAt: Date;
+  summary: string;
+  description: string;
+  location: string | null;
+  url: string | null;
+  organizerName: string;
+  organizerEmail: string;
+  cancelled: boolean;
+}): { recipient: Recipient; ics: string }[] {
+  return args.recipients.map((r) => ({
+    recipient: r,
+    ics: buildInviteIcal({
+      method: r.method,
+      uid: args.uid,
+      sequence: args.sequence,
+      startsAt: args.startsAt,
+      endsAt: args.endsAt,
+      summary: args.summary,
+      description: args.description,
+      location: args.location,
+      url: args.url,
+      organizerName: args.organizerName,
+      organizerEmail: args.organizerEmail,
+      attendees: [{ name: r.name, email: r.email }],
+      status: args.cancelled || r.method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED',
+    }),
+  }));
+}
+
+/** How many HOSTS the next SEND writes to — for the dialog's reach line,
+ *  computed by the same planner the send uses so the two cannot disagree. */
+export async function hostReach(threadId: string, changes: PendingChange[], audience: { email: string; name: string | null }[]): Promise<number> {
+  if (!changes.length) return 0;
+  const { threadHosts, sessionHosts } = await import('./main-facilitator.js');
+  const hosts = await threadHosts(threadId);
+  const ids = changes.map((c) => c.engagement_id).filter((x): x is string => !!x);
+  const { data: rows } = ids.length
+    ? await adminClient.from('thread_engagement').select('id, excluded_people, invited_hosts').in('id', ids)
+    : { data: [] as { id: string; excluded_people: string[] | null; invited_hosts: string[] | null }[] };
+  const byId = new Map((rows ?? []).map((r) => [r.id as string, r]));
+  const participants = new Set(audience.map((a) => a.email));
+  const told = new Set<string>();
+  for (const ch of changes) {
+    const state = ch.now_state ?? ch.was;
+    const row = ch.engagement_id ? byId.get(ch.engagement_id) : undefined;
+    const hostsNow = ch.kind === 'cancelled' || !row
+      ? []
+      : sessionHosts(hosts, row.excluded_people as string[] | null).filter((h) => !!h.email).map((h) => ({ email: h.email!, name: h.name }));
+    for (const r of planRecipients({ kind: ch.kind, participants: audience, hostsNow, invitedHosts: (row?.invited_hosts as string[] | null) ?? state?.invited_hosts ?? [] })) {
+      if (!participants.has(r.email)) told.add(r.email);
+    }
+  }
+  return told.size;
+}
+
+// ---------------------------------------------------------------------------
 // Sending
 // ---------------------------------------------------------------------------
 
@@ -371,14 +533,19 @@ export async function sendPendingChanges(args: {
   const organizerEmail = platformFromAddress();
 
   const audience = await calendarAudience(args.threadId);
-  if (!audience.length) {
-    // Nothing to tell, but the changes are still resolved: leaving them
-    // queued would show the organiser a permanent unsent bar for an empty room.
-    await markSent(changes.map((ch) => ch.id));
-    return { sent: 0, recipients: 0, changes: changes.length, skipped: ['nobody enrolled'] };
-  }
+  // The session's HOSTS (lib/main-facilitator.ts): the thread's hosts and
+  // facilitators minus those unticked on each session, by address. Read
+  // once; each change narrows it by its own session's exclusion list.
+  const { threadHosts, sessionHosts } = await import('./main-facilitator.js');
+  const hosts = await threadHosts(args.threadId);
+  const engagementIds = changes.map((ch) => ch.engagement_id).filter((x): x is string => !!x);
+  const { data: rows } = engagementIds.length
+    ? await adminClient.from('thread_engagement').select('id, excluded_people, invited_hosts').in('id', engagementIds)
+    : { data: [] as { id: string; excluded_people: string[] | null; invited_hosts: string[] | null }[] };
+  const rowById = new Map((rows ?? []).map((r) => [r.id as string, r]));
 
   let sent = 0;
+  const reached = new Set<string>();
   for (const change of changes) {
     // Marked one at a time, below, as each finishes. It used to be one
     // markSent for all of them after the loop, and the loop does not always
@@ -396,44 +563,65 @@ export async function sendPendingChanges(args: {
       ? new Date(state.ends_at)
       : new Date(startsAt.getTime() + DEFAULT_EVENT_MINUTES * 60_000);
 
+    const row = change.engagement_id ? rowById.get(change.engagement_id) : undefined;
+    // A deleted session's hosts come from the state carried on the change.
+    const invitedHosts = (row?.invited_hosts as string[] | null | undefined) ?? state.invited_hosts ?? [];
+    const hostsNow =
+      change.kind === 'cancelled' || !row
+        ? []
+        : sessionHosts(hosts, row.excluded_people as string[] | null)
+            .filter((h) => !!h.email)
+            .map((h) => ({ email: h.email!, name: h.name }));
+    const recipients = planRecipients({
+      kind: change.kind,
+      participants: audience,
+      hostsNow,
+      invitedHosts,
+      organiserEmail,
+    });
+    if (!recipients.length) {
+      // Nothing to tell anyone; resolved so the bar does not stay forever.
+      await markSent([change.id]);
+      continue;
+    }
+
     // The sequence a calendar will compare against what it already holds.
     // Read and incremented per SEND, never per edit, so three moves before one
-    // press advance it once.
+    // press advance it once. ONE number for every copy of this change.
     const sequence = await nextSequence(change.engagement_id);
-
-    const method = change.kind === 'cancelled' ? 'CANCEL' : 'REQUEST';
     const uid = agendaEventUid(change.engagement_id ?? change.id);
+    const mailKind = change.kind === 'people' ? 'added' : change.kind;
 
-    const mail = calendarInviteEmail({
-      kind: change.kind,
-      sessionTitle: change.title,
-      threadTitle,
-      organiserName,
-      whenLine: whenLine(startsAt, endsAt),
-      wasLine: change.kind === 'moved' && change.was?.starts_at
-        ? whenLine(new Date(change.was.starts_at), change.was.ends_at ? new Date(change.was.ends_at) : null)
-        : null,
-      whereLine: state.location ?? null,
-      note: args.note ?? null,
+    const invites = changeInvites({
+      uid,
+      sequence,
+      recipients,
+      startsAt,
+      endsAt,
+      summary: change.title,
+      description: threadTitle,
+      location: state.location,
+      url: state.meeting_url ?? state.location_url,
+      organizerName: organiserName,
+      organizerEmail,
+      cancelled: change.kind === 'cancelled',
     });
 
-    for (const person of audience) {
-      const ics = buildInviteIcal({
-        method,
-        uid,
-        sequence,
-        startsAt,
-        endsAt,
-        summary: change.title,
-        description: threadTitle,
-        location: state.location,
-        url: state.meeting_url ?? state.location_url,
-        organizerName: organiserName,
-        organizerEmail,
-        attendees: [{ name: person.name, email: person.email }],
-        status: change.kind === 'cancelled' ? 'CANCELLED' : 'CONFIRMED',
+    for (const { recipient: person, ics } of invites) {
+      const mail = calendarInviteEmail({
+        kind: person.hostChange === 'removed' ? 'cancelled' : mailKind,
+        sessionTitle: change.title,
+        threadTitle,
+        organiserName,
+        whenLine: whenLine(startsAt, endsAt),
+        wasLine: change.kind === 'moved' && change.was?.starts_at
+          ? whenLine(new Date(change.was.starts_at), change.was.ends_at ? new Date(change.was.ends_at) : null)
+          : null,
+        whereLine: state.location ?? null,
+        note: args.note ?? null,
+        hostChange: person.hostChange,
       });
-
+      const method = person.method;
       try {
         await sendEmail({
           to: person.email,
@@ -458,6 +646,7 @@ export async function sendPendingChanges(args: {
           ],
         });
         sent += 1;
+        reached.add(person.email);
         // Resend accepts two requests a second. A thread of forty people with
         // three moved sessions is a hundred and twenty sends in a tight loop,
         // and the rejections would land silently in `skipped` — a send that
@@ -469,6 +658,14 @@ export async function sendPendingChanges(args: {
       }
     }
 
+    // Who holds the invitation now — the next send diffs against this.
+    if (change.engagement_id && row) {
+      await adminClient
+        .from('thread_engagement')
+        .update({ invited_hosts: invitedAfter(change.kind, recipients, hostsNow) })
+        .eq('id', change.engagement_id);
+    }
+
     // This change is done. Recorded now so a later failure cannot undo it —
     // and recorded even when every address bounced, because the alternative
     // is a queue that can never be cleared and a button that re-sends forever
@@ -476,7 +673,7 @@ export async function sendPendingChanges(args: {
     await markSent([change.id]);
   }
 
-  return { sent, recipients: audience.length, changes: changes.length, skipped };
+  return { sent, recipients: reached.size, changes: changes.length, skipped };
 }
 
 /** Just inside Resend's two-per-second ceiling, with room for jitter. */

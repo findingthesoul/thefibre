@@ -417,9 +417,16 @@ export function calendarInviteEmail(c: {
   /** The organiser's own words, typed once at the moment of sending. */
   note?: string | null;
   brand?: EmailBrand | undefined;
+  /** A HOST's copy when who hosts changed: added to the session, or taken
+   *  off it (the session itself goes on for everyone else). */
+  hostChange?: 'added' | 'removed' | null;
 }): { subject: string; text: string; html: string } {
   const subject =
-    c.kind === 'cancelled'
+    c.hostChange === 'removed'
+      ? `Removed: ${c.sessionTitle}`
+      : c.hostChange === 'added'
+        ? `Invitation to host: ${c.sessionTitle}`
+        : c.kind === 'cancelled'
       ? `Cancelled: ${c.sessionTitle}`
       : c.kind === 'moved'
         ? `Moved: ${c.sessionTitle} — now ${c.whenLine}`
@@ -427,7 +434,11 @@ export function calendarInviteEmail(c: {
 
   const lines: string[] = [];
   lines.push(
-    c.kind === 'cancelled'
+    c.hostChange === 'removed'
+      ? `${c.organiserName} has taken you off this session of ${c.threadTitle}. It goes ahead without you hosting it.`
+      : c.hostChange === 'added'
+        ? `${c.organiserName} has added you as a host of this session of ${c.threadTitle}.`
+        : c.kind === 'cancelled'
       ? `${c.organiserName} has cancelled this session of ${c.threadTitle}.`
       : c.kind === 'moved'
         ? `${c.organiserName} has moved this session of ${c.threadTitle}.`

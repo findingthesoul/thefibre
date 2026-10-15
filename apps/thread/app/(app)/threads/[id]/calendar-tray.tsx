@@ -33,6 +33,7 @@ export function CalendarTray({ threadId }: { threadId: string }) {
   const [changes, setChanges] = useState<CalendarChange[]>([]);
   const [audience, setAudience] = useState(0);
   const [followers, setFollowers] = useState(0);
+  const [hostsTold, setHostsTold] = useState(0);
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export function CalendarTray({ threadId }: { threadId: string }) {
       setChanges(r.changes);
       setAudience(r.audience_count);
       setFollowers(r.followers_count ?? 0);
+      setHostsTold(r.hosts_count ?? 0);
     });
     return () => {
       alive = false;
@@ -149,6 +151,12 @@ export function CalendarTray({ threadId }: { threadId: string }) {
                 {followersTold} {followersTold === 1 ? 'follower' : 'followers'} (in my.thread and by email)
               </>
             )}
+            {hostsTold > 0 && (
+              <>
+                {' · '}
+                {hostsTold} {hostsTold === 1 ? 'host' : 'hosts'} (calendar update)
+              </>
+            )}
           </p>
 
           <ul className="mt-4 divide-y divide-line rounded-xl border border-line">
@@ -188,7 +196,8 @@ export function CalendarTray({ threadId }: { threadId: string }) {
 }
 
 function Kind({ kind }: { kind: CalendarChange['kind'] }) {
-  const label = kind === 'added' ? 'New:' : kind === 'moved' ? 'Moved:' : 'Cancelled:';
+  const label =
+    kind === 'added' ? 'New:' : kind === 'moved' ? 'Moved:' : kind === 'people' ? 'Hosts:' : 'Cancelled:';
   return <span className="text-ink-subtle">{label}</span>;
 }
 
@@ -198,6 +207,14 @@ function Kind({ kind }: { kind: CalendarChange['kind'] }) {
 function Lines({ change }: { change: CalendarChange }) {
   if (change.kind === 'cancelled') {
     return <p className="mt-0.5 text-xs text-ink-muted">It will disappear from their calendars.</p>;
+  }
+  // Who hosts changed: only those hosts are written to; the reason names them.
+  if (change.kind === 'people') {
+    return (
+      <p className="mt-0.5 text-xs text-ink">
+        {change.reason ?? 'Who hosts this session changed.'} Participants are not written to.
+      </p>
+    );
   }
   const now = when(change.now_state?.starts_at, change.now_state?.ends_at);
   const was = change.kind === 'moved' ? when(change.was?.starts_at, change.was?.ends_at) : null;
