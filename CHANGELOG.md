@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.214.0] — 2026-10-15
+
+### Two columns, ahead of their code (migration only)
+
+- `thread_settings.card_dates` (jsonb): what a thread card's date line shows,
+  the workspace default (thread dates part 3).
+- `identity_billing.buyer_details` (jsonb): a person's billing details as a
+  buyer, kept in The Fibre (Purchases P2).
+- Additive. Nothing reads them until the releases after this one.
+
 ## [1.213.0] — 2026-10-15
 
 ### Meet: a Zoom booking that can't get a Zoom meeting uses your personal room — and says so (Meet 2.33.0)
