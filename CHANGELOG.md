@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.205.0] — 2026-10-15
+
+### Meet: a paid meeting type needs a way to take the money (Meet 2.31.0)
+
+Sjoerd, asked whether Meet needs Thread's publish guard: *"of course. No
+stripe, or invoice only."*
+
+- **One rule** (`lib/meet-payment-route.ts`): a paid type is bookable only
+  when a method would actually complete — card needs the platform key and
+  the OWNER host's connected account (the same lookup the booking route
+  charges through); invoice needs nothing. Read by the editor's save, the
+  public page, the booking route and the audit.
+- **The editor refuses** to make a paid type bookable without one —
+  creating it switched on, switching it on, setting a price, narrowing the
+  methods — judged as the type will be after the save, with "Connect Stripe
+  or allow invoice…" and a link to Settings → Payments. It used to check
+  only a save that carried a price, against the EDITOR's Stripe, and never
+  a switch-on. A save that changes none of price / methods / switched-on is
+  never refused, and switching a type off always works.
+- **The public page says "Booking not open yet"** (six languages) instead of
+  a form that ended in "host has not connected Stripe". The booking route
+  now refuses such a type before anything else, so no unpaid booking holds
+  the slot any more (`booking_not_open`).
+- **The page only offers methods that would work**: card is dropped
+  whenever it could not complete, not only when invoice is also on.
+- `scripts/audit-paid-meeting-types.ts prod|staging [--platform-stripe=on]`
+  lists bookable paid types nobody can pay for; writes nothing. Staging: 0
+  of 0.
+- Bookable = switched on. An unlisted type is still bookable by its link,
+  so "listed" does not decide it.
+- No `/apps/*` route creates or activates meeting types, so the external
+  contract is untouched.
+- Tests: `meet-payment-guard.int.test.ts` on staging, 12 cases.
+
 ## [1.204.1] — 2026-10-15
 
 ### Calendar invitations: the thread's own time, the organiser's name

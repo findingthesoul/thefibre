@@ -102,6 +102,7 @@ import { getWorkspaceBrand } from '../lib/workspace-brand.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { personalStripeAccount, defaultPaymentMethods } from '../lib/payment-accounts.js';
+import { configuredMethods, meetRouteProblem, workingMethods } from '../lib/meet-payment-route.js';
 import {
   bookingConfirmationInvitee,
   bookingRequestReceived,
@@ -557,6 +558,9 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
       ...mt,
       poll_slots: pollSlots,
       payment_methods: await meetingTypePaymentMethods(mt),
+      // False when the type is paid and nobody could pay for it: the page
+      // says "not open yet" instead of a form that dead-ends at payment.
+      booking_open: !(await meetRouteProblem(mt)),
     },
     workspace: await publicWorkspace(host.workspace_id),
     host: {
@@ -579,32 +583,16 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
 
 type PayMethod = 'stripe' | 'invoice';
 
-/** How an invitee may pay for this meeting type. The MT's own list wins;
- *  NULL inherits the owner's account default from Settings → Payments (the
- *  same inheritance Thread uses). Online payment is dropped when the owner
- *  has no connected Stripe account but invoice is on offer, so the page
- *  never offers a button that can only fail. */
+/** How an invitee may pay for this meeting type: the methods that would
+ *  actually complete (lib/meet-payment-route.ts), so the page never offers a
+ *  button that can only fail. When none would, the configured list is shown
+ *  as it is and `booking_open: false` closes the page instead. */
 async function meetingTypePaymentMethods(mt: {
   payment_methods?: string[] | null;
   host_id: string;
 }): Promise<PayMethod[]> {
-  const { data: owner } = await adminClient
-    .from('meet_host')
-    .select('user_id')
-    .eq('id', mt.host_id)
-    .maybeSingle();
-  const own = (mt.payment_methods ?? []).filter(
-    (m): m is PayMethod => m === 'stripe' || m === 'invoice',
-  );
-  const methods: PayMethod[] = own.length
-    ? own
-    : owner?.user_id
-      ? await defaultPaymentMethods(owner.user_id)
-      : ['stripe'];
-  if (methods.includes('stripe') && methods.includes('invoice') && owner?.user_id) {
-    if (!(await personalStripeAccount(owner.user_id))) return ['invoice'];
-  }
-  return methods;
+  const working = await workingMethods(mt);
+  return working.length ? working : await configuredMethods(mt);
 }
 
 /** Billing details an invoice needs — same shape as Thread's enrol form. */
@@ -690,6 +678,15 @@ meetRoutes.post('/public/bookings', async (c) => {
     .single();
   if (mErr || !mt || !mt.is_active) {
     return c.json({ error: 'meeting type not available' }, 404);
+  }
+
+  // A paid type nobody can pay for is refused FIRST, before any slot is
+  // looked at or held. Until 2026-10-16 the missing account surfaced only
+  // after the booking was inserted, as 'host_stripe_unconnected', and the
+  // unpaid booking kept holding the slot. The page shows "not open yet" from
+  // the same rule (booking_open), so a guest normally never gets here.
+  if ((mt.price_cents ?? 0) > 0 && !(await workingMethods(mt)).length) {
+    return c.json({ error: 'booking is not open yet', code: 'booking_not_open' }, 409);
   }
 
   // Approval mode: MT-level value wins; null falls back to the owner host's
@@ -3416,19 +3413,7 @@ meetRoutes.get('/meeting-types', async (c) => {
   return c.json({ items: data ?? [] });
 });
 
-/** A price needs a way to be paid. Invoice needs nothing connected; online
- *  payment needs the owner's Stripe account, read through the payments SPoT.
- *  (This used to read meet_host.stripe_account_id, a fallback column, so a
- *  host who connected Stripe in The Fibre could be told to connect Stripe.) */
-async function paidNeedsStripe(
-  userId: string,
-  methods: PayMethod[] | null,
-): Promise<string | null> {
-  const effective = methods?.length ? methods : await defaultPaymentMethods(userId);
-  if (effective.includes('invoice')) return null;
-  if (await personalStripeAccount(userId)) return null;
-  return 'connect Stripe in Settings → Payments, or offer payment by invoice, before setting a price';
-}
+const PAYMENT_ROUTE_REFUSAL = (message: string) => ({ error: message, code: 'payment_route_missing' });
 
 const MeetingTypeUpsert = z.object({
   /** Public language override. NULL/absent = inherit the host's own.
@@ -3518,10 +3503,17 @@ meetRoutes.post('/meeting-types', async (c) => {
     .single();
   if (!host) return c.json({ error: 'host not found' }, 404);
 
-  // Phase 2 guard: a paid MT requires a Stripe Connect account on the host.
-  if (body.data.price_cents && body.data.price_cents > 0) {
-    const blocked = await paidNeedsStripe(ctx.userId, body.data.payment_methods ?? null);
-    if (blocked) return c.json({ error: blocked }, 400);
+  // THE PAYMENT GUARD (Sjoerd, 2026-10-16 — Thread's publish guard, for
+  // Meet): a paid type cannot be bookable without a way to take the money.
+  // A new type is active unless the save says otherwise (column default).
+  {
+    const problem = await meetRouteProblem({
+      host_id: host.id as string,
+      payment_methods: body.data.payment_methods ?? null,
+      price_cents: body.data.price_cents ?? null,
+      is_active: body.data.is_active ?? true,
+    });
+    if (problem) return c.json(PAYMENT_ROUTE_REFUSAL(problem), 409);
   }
 
   // If team-owned, verify current user is a lead of that team. RLS would
@@ -3647,10 +3639,31 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
-  // Phase 2 guard: paid MT requires the host to have connected Stripe.
-  if (body.data.price_cents && body.data.price_cents > 0) {
-    const blocked = await paidNeedsStripe(ctx.userId, body.data.payment_methods ?? null);
-    if (blocked) return c.json({ error: blocked }, 400);
+  // THE PAYMENT GUARD — see POST. Checked whenever this save touches what
+  // decides it (switching on, the price, the methods), judged as the type will
+  // be AFTER the save and against its OWNER host's account, not the editor's.
+  // A save that changes none of them is never refused, even on a type that
+  // slipped through before this guard: the audit script finds those.
+  // The editor sends every field on every save, so "touches" means CHANGES.
+  if (['is_active', 'price_cents', 'payment_methods'].some((k) => k in body.data)) {
+    const { data: cur, error: curErr } = await adminClient
+      .from('meet_meeting_type')
+      .select('host_id, price_cents, payment_methods, is_active')
+      .eq('id', id)
+      .maybeSingle();
+    if (curErr) return c.json({ error: curErr.message }, 500);
+    const changes = (k: 'is_active' | 'price_cents' | 'payment_methods') =>
+      k in body.data && JSON.stringify(body.data[k] ?? null) !== JSON.stringify((cur as Record<string, unknown> | null)?.[k] ?? null);
+    if (cur && (changes('is_active') || changes('price_cents') || changes('payment_methods'))) {
+      const problem = await meetRouteProblem({
+        host_id: cur.host_id as string,
+        price_cents: 'price_cents' in body.data ? (body.data.price_cents ?? null) : (cur.price_cents as number | null),
+        payment_methods:
+          'payment_methods' in body.data ? (body.data.payment_methods ?? null) : (cur.payment_methods as string[] | null),
+        is_active: 'is_active' in body.data ? (body.data.is_active ?? null) : (cur.is_active as boolean | null),
+      });
+      if (problem) return c.json(PAYMENT_ROUTE_REFUSAL(problem), 409);
+    }
   }
 
   // If the caller is moving the MT from personal → team (or between teams),
@@ -6044,6 +6057,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
     ...mt,
     poll_slots: pollSlots,
     payment_methods: await meetingTypePaymentMethods(mt),
+    booking_open: !(await meetRouteProblem(mt)),
     workspace: await publicWorkspace(team.workspace_id),
     team,
   });

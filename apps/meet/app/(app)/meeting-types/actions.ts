@@ -4,7 +4,29 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
 
-export type SaveResult = { ok?: boolean; error?: string };
+export type SaveResult = {
+  ok?: boolean;
+  error?: string;
+  /** 'payment_route_missing': the form adds a link to Settings → Payments. */
+  code?: string;
+};
+
+/** A refusal with a code reads as the API's own sentence (it is written for
+ *  the host); anything else keeps the status prefix for debugging. */
+function failure(e: unknown): SaveResult {
+  const code = apiCode(e);
+  if (code === 'payment_route_missing' && e instanceof ApiError) {
+    const msg = (e.body as { error?: unknown } | undefined)?.error;
+    if (typeof msg === 'string') return { error: msg, code };
+  }
+  return { error: formatApiError(e), code };
+}
+
+function apiCode(e: unknown): string | undefined {
+  if (!(e instanceof ApiError)) return undefined;
+  const code = (e.body as { code?: unknown } | undefined)?.code;
+  return typeof code === 'string' ? code : undefined;
+}
 
 // Surface the API's error detail (zod flatten, RLS hint, Postgres message)
 // in the form's red banner so we don't lose the actual reason behind a
@@ -215,7 +237,7 @@ export async function createMeetingType(
       body: JSON.stringify(body),
     });
   } catch (e) {
-    return { error: formatApiError(e) };
+    return failure(e);
   }
   revalidatePath('/meeting-types');
   redirect(`/meeting-types/${created.id}`);
@@ -265,7 +287,7 @@ export async function updateMeetingType(
       body: JSON.stringify(body),
     });
   } catch (e) {
-    return { error: formatApiError(e) };
+    return failure(e);
   }
   revalidatePath('/meeting-types');
   revalidatePath(`/meeting-types/${id}`);

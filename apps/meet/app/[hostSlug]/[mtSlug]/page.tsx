@@ -44,6 +44,9 @@ type MeetingType = {
   fixed_starts_at?: string | null;
   fixed_ends_at?: string | null;
   poll_slots?: { starts_at: string; ends_at: string }[];
+  /** False when the type is paid and nobody could pay (no Stripe, no
+   *  invoice). Absent from an older API = open, as before. */
+  booking_open?: boolean;
 };
 
 type HostMtResp = {
@@ -291,14 +294,21 @@ async function Card({
             </aside>
 
             <section className="p-8">
-              <BookingFlow
-                ownerSlug={ownerSlug}
-                ownerKind={ownerKind}
-                hostTimezone={hostTimezone}
-                meetingType={meetingType}
-                reschedule={reschedule}
-                L={L}
-              />
+              {meetingType.booking_open === false ? (
+                <div className="py-8 text-center">
+                  <h2 className="text-lg font-semibold text-neutral-900">{publicT(L, 'booking_not_open_title')}</h2>
+                  <p className="mt-2 text-sm text-neutral-600">{publicT(L, 'booking_not_open_body')}</p>
+                </div>
+              ) : (
+                <BookingFlow
+                  ownerSlug={ownerSlug}
+                  ownerKind={ownerKind}
+                  hostTimezone={hostTimezone}
+                  meetingType={meetingType}
+                  reschedule={reschedule}
+                  L={L}
+                />
+              )}
             </section>
           </div>
         </div>

@@ -68,6 +68,24 @@ const CATALOG = {
     de: '{n} Min.', // MT
     fr: '{n} min', // MT
   },
+  // A paid meeting type whose host cannot take payment yet (no Stripe, no
+  // invoice). Shown instead of the booking form, which would dead-end.
+  booking_not_open_title: {
+    en: 'Booking not open yet',
+    nl: 'Boeken is nog niet mogelijk', // MT pending native review
+    es: 'Las reservas aún no están abiertas', // MT
+    pt: 'As marcações ainda não estão abertas', // MT
+    de: 'Buchung noch nicht möglich', // MT
+    fr: 'Les réservations ne sont pas encore ouvertes', // MT
+  },
+  booking_not_open_body: {
+    en: 'This meeting cannot be booked online yet. Please check back later, or contact the host.',
+    nl: 'Deze afspraak kan nog niet online worden geboekt. Kijk later nog eens, of neem contact op met de host.', // MT pending native review
+    es: 'Esta reunión aún no se puede reservar en línea. Vuelve más tarde o contacta con el anfitrión.', // MT
+    pt: 'Esta reunião ainda não pode ser marcada online. Volte mais tarde ou contacte o anfitrião.', // MT
+    de: 'Dieser Termin kann noch nicht online gebucht werden. Schau später wieder vorbei oder kontaktiere die Gastgeberin oder den Gastgeber.', // MT
+    fr: 'Ce rendez-vous ne peut pas encore être réservé en ligne. Revenez plus tard ou contactez l’hôte.', // MT
+  },
   powered_by: {
     en: 'Powered by',
     nl: 'Mogelijk gemaakt door',

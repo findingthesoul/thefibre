@@ -266,7 +266,19 @@ export function MeetingTypeForm({
           </nav>
           <div className="flex items-center gap-3">
             {state.ok && <span className="text-xs text-emerald-700">{t(locale, 'saved')}</span>}
-            {state.error && <span className="text-xs text-red-700">{state.error}</span>}
+            {state.error && (
+              <span className="text-xs text-red-700">
+                {state.error}
+                {state.code === 'payment_route_missing' && (
+                  <>
+                    {' '}
+                    <Link href="/settings/payments" className="underline underline-offset-2">
+                      {t(locale, 'settings_payments_link')}
+                    </Link>
+                  </>
+                )}
+              </span>
+            )}
             <Button type="submit" disabled={pending}>
               {pending ? t(locale, 'saving') : isEdit ? t(locale, 'save_changes') : t(locale, 'create')}
             </Button>
