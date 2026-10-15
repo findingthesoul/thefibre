@@ -111,6 +111,63 @@ const CATALOG = {
     de: 'Wird ausgeführt…', // MT
     fr: 'En cours…', // MT
   },
+  // Thread dates (2026-10-16): a key moment defines the public event dates.
+  key_moment: {
+    en: 'Key moment',
+    nl: 'Kernmoment', // MT pending native review
+    es: 'Momento clave', // MT
+    pt: 'Momento-chave', // MT
+    de: 'Schlüsselmoment', // MT
+    fr: 'Moment clé', // MT
+  },
+  key_moment_hint: {
+    en: 'Key moments make up the public event dates. Sign-ups close when the first one starts, unless you choose another session.',
+    nl: 'Kernmomenten vormen de publieke eventdata. De inschrijving sluit wanneer het eerste begint, tenzij je een andere sessie kiest.', // MT pending native review
+    es: 'Los momentos clave forman las fechas públicas del evento. Las inscripciones se cierran cuando empieza el primero, salvo que elijas otra sesión.', // MT
+    pt: 'Os momentos-chave formam as datas públicas do evento. As inscrições fecham quando o primeiro começa, salvo se escolher outra sessão.', // MT
+    de: 'Schlüsselmomente bilden die öffentlichen Veranstaltungsdaten. Die Anmeldung schließt, wenn der erste beginnt, außer du wählst eine andere Sitzung.', // MT
+    fr: 'Les moments clés forment les dates publiques de l’événement. Les inscriptions ferment quand le premier commence, sauf si vous choisissez une autre session.', // MT
+  },
+  signups_close_label: {
+    en: 'Sign-ups close',
+    nl: 'Inschrijving sluit', // MT pending native review
+    es: 'Las inscripciones cierran', // MT
+    pt: 'As inscrições fecham', // MT
+    de: 'Anmeldung schließt', // MT
+    fr: 'Les inscriptions ferment', // MT
+  },
+  signups_close_auto: {
+    en: 'When the first key moment starts',
+    nl: 'Wanneer het eerste kernmoment begint', // MT pending native review
+    es: 'Cuando empieza el primer momento clave', // MT
+    pt: 'Quando começa o primeiro momento-chave', // MT
+    de: 'Wenn der erste Schlüsselmoment beginnt', // MT
+    fr: 'Quand le premier moment clé commence', // MT
+  },
+  signups_close_at_session: {
+    en: 'When this session starts:',
+    nl: 'Wanneer deze sessie begint:', // MT pending native review
+    es: 'Cuando empieza esta sesión:', // MT
+    pt: 'Quando esta sessão começa:', // MT
+    de: 'Wenn diese Sitzung beginnt:', // MT
+    fr: 'Quand cette session commence :', // MT
+  },
+  signups_close_now: {
+    en: 'Now closes',
+    nl: 'Sluit nu op', // MT pending native review
+    es: 'Ahora cierra', // MT
+    pt: 'Agora fecha', // MT
+    de: 'Schließt jetzt', // MT
+    fr: 'Ferme maintenant', // MT
+  },
+  signups_close_never: {
+    en: 'Never by date — this thread has no timed session yet.',
+    nl: 'Niet op datum — deze thread heeft nog geen sessie met een tijd.', // MT pending native review
+    es: 'Nunca por fecha: este hilo aún no tiene ninguna sesión con hora.', // MT
+    pt: 'Nunca por data — este fio ainda não tem nenhuma sessão com hora.', // MT
+    de: 'Nie nach Datum – dieser Thread hat noch keine Sitzung mit Uhrzeit.', // MT
+    fr: 'Jamais par date — ce fil n’a encore aucune session avec une heure.', // MT
+  },
   ask_who_is_coming: {
     en: 'Ask who is coming',
     nl: 'Vraag wie er komt',

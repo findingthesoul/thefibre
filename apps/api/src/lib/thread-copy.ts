@@ -43,6 +43,7 @@ export const THREAD_COPY: CopySpec = {
     slug: 'must be unique: the source slug with -copy-xxx',
     is_public_listed: 'a copy starts unlisted, so it never appears on a public page by accident',
     created_by: 'the person who pressed duplicate',
+    signups_close_engagement_id: 'remapped to the COPY of that session after the engagements are made',
   },
   skip: {
     id: 'a new row',
@@ -60,7 +61,7 @@ export const ENGAGEMENT_COPY: CopySpec = {
     'title', 'description', 'type', 'system_role', 'starts_at', 'ends_at', 'daily_schedule',
     'location', 'location_url', 'image_url', 'meeting_url', 'meeting_provider', 'scheduled_at',
     'trigger_kind', 'trigger_anchor', 'trigger_offset_days', 'trigger_time', 'content', 'position',
-    'show_in_agenda', 'rsvp_enabled',
+    'show_in_agenda', 'rsvp_enabled', 'is_key_moment',
     // The meeting_url is copied, so the account that made it comes along:
     // later edits of the copy's link then use the same account.
     'meeting_account_user_id',

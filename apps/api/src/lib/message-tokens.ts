@@ -40,6 +40,7 @@
 
 import { stackSurfaceUrl } from './stack-urls.js';
 import { fillTokens } from '@thefibre/shared/merge-tokens';
+import { threadDateTokens, type ThreadDates } from '@thefibre/shared/thread-dates';
 
 /** The token an organiser types. A dot, not an underscore — Sjoerd's
  *  spelling, and it reads as the product's name rather than a variable.
@@ -81,6 +82,12 @@ export function messageTokens(opts: {
   facilitator?: string | null;
   /** The thread's hosts, already a list in the reader's language. */
   hosts?: string | null;
+  /** The thread's dates (lib/thread-dates.ts loadThreadDates), for the date
+   *  tags; absent = those tags fill empty. */
+  dates?: ThreadDates | null;
+  timeZone?: string | null;
+  /** An Intl locale tag for the date words; en-GB when absent. */
+  intlLocale?: string | null;
   env?: Record<string, string | undefined>;
 }): Record<string, string> {
   const date =
@@ -92,7 +99,11 @@ export function messageTokens(opts: {
       : '');
   const first = opts.firstName || (opts.name.split(/\s+/)[0] ?? opts.name);
   const full = [opts.firstName, opts.lastName].filter(Boolean).join(' ') || opts.name;
+  const dateTags = opts.dates
+    ? threadDateTokens(opts.dates, opts.timeZone || 'Europe/Amsterdam', opts.intlLocale || 'en-GB')
+    : { thread_dates: '', thread_start: date, event_dates: '', first_event: '', sessions: '', signups_close: '' };
   return {
+    ...dateTags,
     first_name: first,
     last_name: opts.lastName ?? '',
     full_name: full,

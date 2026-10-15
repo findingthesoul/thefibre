@@ -11,6 +11,7 @@ import type { RegistrationField } from '@/lib/thread-types';
 import { Button } from '@/components/ui/button';
 import { EmptyState, SectionLabel } from '@/components/ui/page';
 import { SwitchField } from '@/components/ui/switch';
+import { SelectField } from '@/components/ui/field';
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
@@ -28,6 +29,14 @@ function keyFromLabel(label: string, taken: Set<string>): string {
   return key;
 }
 
+function fmtWhen(iso: string, timeZone: string, locale: Locale): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { timeZone, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+  } catch {
+    return new Date(iso).toISOString().slice(0, 16).replace('T', ' ');
+  }
+}
+
 export function RegistrationPanel({
   locale,
   threadId,
@@ -43,6 +52,10 @@ export function RegistrationPanel({
   onSaved,
   live = false,
   onChangeDestination,
+  sessions = [],
+  closeSessionId: initialCloseSessionId = null,
+  closesAt = null,
+  timeZone = 'Europe/Amsterdam',
 }: {
   locale: Locale;
   threadId: string;
@@ -61,6 +74,13 @@ export function RegistrationPanel({
   live?: boolean;
   /** Opens the thread's payment setting, from the check. */
   onChangeDestination?: () => void;
+  /** The thread's timed sessions, for "open until session N". */
+  sessions?: { id: string; title: string; starts_at: string }[];
+  /** The chosen close session; null = the first key moment (or fallback). */
+  closeSessionId?: string | null;
+  /** When sign-ups close as saved (API, lib/thread-dates.ts); null = never by date. */
+  closesAt?: string | null;
+  timeZone?: string;
 }) {
   const router = useRouter();
   const payCheck = usePaymentCheck({ threadId, locale, onChangeDestination: () => onChangeDestination?.() });
@@ -69,6 +89,7 @@ export function RegistrationPanel({
   const [shareParticipants, setShareParticipants] = useState(initialShareParticipants);
   const [requiresApproval, setRequiresApproval] = useState(initialRequiresApproval);
   const [publicEnrolmentOpen, setPublicEnrolmentOpen] = useState(initialPublicEnrolmentOpen);
+  const [closeSessionId, setCloseSessionId] = useState<string | null>(initialCloseSessionId);
   // Null and '' are different answers: null inherits the workspace's note, ''
   // says this thread deliberately adds nothing. A textarea cannot express both,
   // so the switch carries the distinction.
@@ -124,6 +145,7 @@ export function RegistrationPanel({
         share_participants_participants: shareParticipants,
         requires_approval: requiresApproval,
         public_enrolment_open: publicEnrolmentOpen,
+        signups_close_engagement_id: closeSessionId,
         enrolment_note: ownNote ? note : null,
       });
       if (!r.ok) return setError(r.error);
@@ -236,6 +258,31 @@ export function RegistrationPanel({
               {t(locale, 'public_enrolment_note')}
             </p>
           )}
+        </div>
+        {/* When sign-ups close (thread dates, 2026-10-16). The line below
+            the choice is the API's answer as saved, from the same rule the
+            enrol route will use — never computed here. */}
+        <div className="mt-4">
+          <SelectField
+            label={t(locale, 'signups_close_label')}
+            value={closeSessionId ?? ''}
+            onChange={(e) => {
+              setCloseSessionId(e.target.value || null);
+              setSaved(false);
+            }}
+            options={[
+              { value: '', label: t(locale, 'signups_close_auto') },
+              ...sessions.map((x) => ({
+                value: x.id,
+                label: `${t(locale, 'signups_close_at_session')} ${x.title} · ${fmtWhen(x.starts_at, timeZone, locale)}`,
+              })),
+            ]}
+          />
+          <p className="mt-2 text-xs text-ink-muted">
+            {closesAt
+              ? `${t(locale, 'signups_close_now')} ${fmtWhen(closesAt, timeZone, locale)}`
+              : t(locale, 'signups_close_never')}
+          </p>
         </div>
       </div>
 

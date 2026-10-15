@@ -1,0 +1,99 @@
+import { describe, expect, it } from 'vitest';
+import { fallbackSignupsCloseAt, signupsOpenAt, startOfDayAfter, threadDates, threadDateTokens, type ThreadDatesInput } from './thread-dates.js';
+
+const base = (over: Partial<ThreadDatesInput> = {}): ThreadDatesInput => ({
+  program: { starts_on: '2027-01-01', ends_on: '2027-06-30' },
+  keyMoments: [],
+  closeSession: null,
+  firstSession: null,
+  onTeamCalendar: false,
+  timeZone: 'Europe/Amsterdam',
+  ...over,
+});
+
+describe('event dates come from the key moments', () => {
+  it('none: no event dates', () => {
+    expect(threadDates(base()).event).toBeNull();
+  });
+  it('several, in any order: first start to last end, and how many', () => {
+    const d = threadDates(base({
+      keyMoments: [
+        { id: 'b', starts_at: '2027-06-15T13:00:00Z', ends_at: '2027-06-15T15:00:00Z' },
+        { id: 'a', starts_at: '2027-01-12T14:00:00Z', ends_at: '2027-01-12T16:00:00Z' },
+      ],
+    }));
+    expect(d.event).toEqual({ start: '2027-01-12T14:00:00Z', end: '2027-06-15T15:00:00Z', count: 2 });
+  });
+});
+
+describe('when sign-ups close', () => {
+  const moments = [{ id: 'a', starts_at: '2027-01-12T14:00:00Z', ends_at: null }];
+
+  it('a chosen session wins over everything', () => {
+    const d = threadDates(base({ keyMoments: moments, closeSession: { starts_at: '2027-03-01T09:00:00Z' }, firstSession: { starts_at: '2027-01-05T09:00:00Z' } }));
+    expect(d).toMatchObject({ signupsCloseAt: '2027-03-01T09:00:00.000Z', closeRule: 'session' });
+  });
+  it('else the first key moment starts — even on a team calendar', () => {
+    const d = threadDates(base({ keyMoments: moments, firstSession: { starts_at: '2027-01-05T09:00:00Z' }, onTeamCalendar: true }));
+    expect(d).toMatchObject({ signupsCloseAt: '2027-01-12T14:00:00.000Z', closeRule: 'first_key_moment' });
+  });
+  it('no key moment: when the first timed session starts', () => {
+    const d = threadDates(base({ firstSession: { starts_at: '2027-01-05T09:00:00Z' } }));
+    expect(d).toMatchObject({ signupsCloseAt: '2027-01-05T09:00:00.000Z', closeRule: 'fallback' });
+  });
+  it('no key moment, ON a team calendar: today’s rule — the end of the last day, in the thread’s zone', () => {
+    const d = threadDates(base({ firstSession: { starts_at: '2027-01-05T09:00:00Z' }, onTeamCalendar: true }));
+    // 30 June ends at midnight Amsterdam summer time = 22:00 UTC.
+    expect(d).toMatchObject({ signupsCloseAt: '2027-06-30T22:00:00.000Z', closeRule: 'fallback' });
+  });
+  it('team calendar with no end date falls back to the start date', () => {
+    expect(fallbackSignupsCloseAt({ program: { starts_on: '2027-01-01', ends_on: null }, firstSession: null, onTeamCalendar: true, timeZone: 'Europe/Amsterdam' }))
+      .toBe('2027-01-01T23:00:00.000Z');
+  });
+  it('an undated thread (no timed session) stays open', () => {
+    expect(threadDates(base()).signupsCloseAt).toBeNull();
+    expect(threadDates(base({ program: { starts_on: null, ends_on: null }, onTeamCalendar: true })).closeRule).toBe('none');
+  });
+  it('closes AT the moment, not after it', () => {
+    const d = { signupsCloseAt: '2027-01-12T14:00:00.000Z' };
+    expect(signupsOpenAt(d, new Date('2027-01-12T13:59:59Z'))).toBe(true);
+    expect(signupsOpenAt(d, new Date('2027-01-12T14:00:00Z'))).toBe(false);
+    expect(signupsOpenAt({ signupsCloseAt: null }, new Date('2099-01-01T00:00:00Z'))).toBe(true);
+  });
+});
+
+describe('startOfDayAfter — midnight in the zone, across DST', () => {
+  it('winter', () => expect(startOfDayAfter('2027-02-09', 'Europe/Amsterdam')).toBe('2027-02-09T23:00:00.000Z'));
+  it('summer', () => expect(startOfDayAfter('2027-07-09', 'Europe/Amsterdam')).toBe('2027-07-09T22:00:00.000Z'));
+  it('the night the clocks go forward', () => expect(startOfDayAfter('2027-03-27', 'Europe/Amsterdam')).toBe('2027-03-27T23:00:00.000Z'));
+  it('the night the clocks go back', () => expect(startOfDayAfter('2027-10-30', 'Europe/Amsterdam')).toBe('2027-10-30T22:00:00.000Z'));
+  it('an unknown zone is UTC', () => expect(startOfDayAfter('2027-02-09', 'Mars/Olympus')).toBe('2027-02-10T00:00:00.000Z'));
+});
+
+describe('the date tags', () => {
+  it('fill each form, in the given language', () => {
+    const d = threadDates(base({
+      keyMoments: [
+        { id: 'a', starts_at: '2027-01-12T14:00:00Z', ends_at: null },
+        { id: 'b', starts_at: '2027-06-15T13:00:00Z', ends_at: null },
+      ],
+    }));
+    expect(threadDateTokens(d, 'Europe/Amsterdam', 'en-GB')).toEqual({
+      thread_dates: '1 January 2027 – 30 June 2027',
+      thread_start: '1 January 2027',
+      event_dates: '12 January 2027 – 15 June 2027',
+      first_event: '12 January 2027',
+      sessions: '2',
+      signups_close: '12 January 2027',
+    });
+    expect(threadDateTokens(d, 'Europe/Amsterdam', 'nl-NL').first_event).toBe('12 januari 2027');
+  });
+  it('a bare date is never moved to the day before by a zone west of UTC', () => {
+    const d = threadDates(base({ program: { starts_on: '2027-01-01', ends_on: null } }));
+    expect(threadDateTokens(d, 'America/New_York', 'en-GB').thread_start).toBe('1 January 2027');
+  });
+  it('without key moments the event tags are empty, not made up', () => {
+    const t = threadDateTokens(threadDates(base()), 'Europe/Amsterdam', 'en-GB');
+    expect([t.event_dates, t.first_event, t.sessions, t.signups_close]).toEqual(['', '', '', '']);
+  });
+});

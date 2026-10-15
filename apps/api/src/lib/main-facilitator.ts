@@ -28,6 +28,7 @@
 //   (d) removing the main facilitator falls back to the organiser, and that
 //       is propagated and queued like any other change.
 
+import type { ThreadDates } from '@thefibre/shared/thread-dates';
 import { adminClient } from '../db.js';
 import { userPersonalRoom } from './connections.js';
 import { recordCalendarChange, calendarStateOf, isCalendarSession } from './calendar-invite.js';
@@ -385,22 +386,37 @@ export async function hostedThreadsFor(email: string, personIds: string[]): Prom
  * per thread by each send path; a failure fills nothing rather than failing
  * the send.
  */
-export async function threadTokenContext(threadId: string): Promise<{ community: string; facilitator: string; hosts: string }> {
+export async function threadTokenContext(threadId: string): Promise<{
+  community: string;
+  facilitator: string;
+  hosts: string;
+  /** For the date tags (lib/thread-dates.ts). */
+  dates: ThreadDates | null;
+  timeZone: string | null;
+  intlLocale: string | null;
+}> {
   try {
     const { listOfNames } = await import('@thefibre/shared/merge-tokens');
-    const [{ data: t }, account, hosts] = await Promise.all([
-      adminClient.from('thread_thread').select('language, workspace:workspace_id (name)').eq('id', threadId).maybeSingle(),
+    const { INTL_LOCALES, toLocale } = await import('@thefibre/shared/i18n');
+    const { loadThreadDates } = await import('./thread-dates.js');
+    const [{ data: t }, account, hosts, dates] = await Promise.all([
+      adminClient.from('thread_thread').select('language, timezone, workspace:workspace_id (name)').eq('id', threadId).maybeSingle(),
       meetingAccount(threadId),
       threadHosts(threadId),
+      loadThreadDates([threadId]),
     ]);
     const ws = one<{ name: string | null }>(t?.workspace);
+    const language = (t?.language as string | null) ?? 'en';
     return {
       community: ws?.name ?? '',
       facilitator: account.name,
-      hosts: listOfNames(hosts.map((h) => h.name), (t?.language as string | null) ?? 'en'),
+      hosts: listOfNames(hosts.map((h) => h.name), language),
+      dates: dates.get(threadId) ?? null,
+      timeZone: (t?.timezone as string | null) ?? null,
+      intlLocale: INTL_LOCALES[toLocale(language)],
     };
   } catch (e) {
     console.error('[main-facilitator] token context failed', { threadId, e });
-    return { community: '', facilitator: '', hosts: '' };
+    return { community: '', facilitator: '', hosts: '', dates: null, timeZone: null, intlLocale: null };
   }
 }

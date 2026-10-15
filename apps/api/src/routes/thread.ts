@@ -6,6 +6,7 @@ import {
   placeState,
 } from '../lib/place-state.js';
 import { paymentRouteProblem, paymentRouteSummary } from '../lib/thread-payment-route.js';
+import { loadThreadDates, publicDateFields } from '../lib/thread-dates.js';
 import { sendReach } from '../lib/member-notify.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
 import {
@@ -598,7 +599,7 @@ const THREAD_SELECT = `
   intention, timezone, cover_url, is_public_listed, requires_approval,
   price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, public_enrolment_open, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
-  enrolment_note, main_facilitator_id,
+  enrolment_note, main_facilitator_id, signups_close_engagement_id,
   locked_at, locked_by,
   created_at, updated_at,
   categories:thread_thread_category (category:category_id (id, name, slug)),
@@ -913,6 +914,12 @@ threadRoutes.get('/threads/:id', async (c) => {
     // editor shows it BEFORE the click, from the same check the save runs
     // (lib/thread-payment-route.ts), so the two cannot disagree.
     publish_blocker: await paymentRouteProblem(thread.id as string),
+    // The thread's three dates (lib/thread-dates.ts), for the editor's "sign-
+    // ups close …" line: which rule decided it and when.
+    dates: await (async () => {
+      const d = (await loadThreadDates([thread.id as string])).get(thread.id as string);
+      return d ? { ...publicDateFields(d), close_rule: d.closeRule } : null;
+    })(),
     // What in Members points at this thread (additive), for the rename
     // warning beside the address field. Zeroes when the read fails.
     references: await threadReferenceCounts({
@@ -994,6 +1001,10 @@ const ThreadUpdate = z.object({
   // thread's hosts or facilitators holding an account, or null = the
   // organiser. Validated against the thread below.
   main_facilitator_id: z.string().uuid().nullable().optional(),
+  // "Open until session N": sign-ups close when this session starts. Null =
+  // the first key moment, else the fallback (@thefibre/shared/thread-dates).
+  // Validated against the thread below.
+  signups_close_engagement_id: z.string().uuid().nullable().optional(),
 });
 
 /** Is this thread — after a pending save — live with public sign-up open?
@@ -1180,6 +1191,19 @@ threadRoutes.patch('/threads/:id', async (c) => {
       }
     }
     roomBefore = await threadRoom(id);
+  }
+
+  // THE CLOSE SESSION: one of THIS thread's sessions, with a start.
+  if (threadPatch.signups_close_engagement_id) {
+    const { data: row } = await adminClient
+      .from('thread_engagement')
+      .select('id, starts_at')
+      .eq('id', threadPatch.signups_close_engagement_id as string)
+      .eq('thread_id', id)
+      .maybeSingle();
+    if (!row?.starts_at) {
+      return c.json({ error: 'Sign-ups can only close at one of this thread’s sessions that has a start time.' }, 400);
+    }
   }
 
   if (Object.keys(threadPatch).length > 0) {
@@ -1461,6 +1485,11 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
         .eq('id', mineId);
     }
   }
+  // "Open until session N" means the COPY's session N.
+  const closeAt = src.signups_close_engagement_id as string | null;
+  if (closeAt && idMap.get(closeAt)) {
+    await db.from('thread_thread').update({ signups_close_engagement_id: idMap.get(closeAt) }).eq('id', newThread.id);
+  }
 
   return c.json({ id: newThread.id }, 201);
 });
@@ -1522,6 +1551,9 @@ export const EngagementCreate = z.object({
   // workspace default — never a boolean default, so an item follows its
   // thread as the thread changes.
   rsvp_enabled: z.boolean().nullable().optional(),
+  // A session that defines the thread's public event dates (and, unless
+  // another is chosen, when sign-ups close). Any timed item may be one.
+  is_key_moment: z.boolean().optional(),
 });
 
 /** The thread's timezone — Zoom stores one on the meeting, and a meeting an
@@ -6679,6 +6711,9 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       enrolment_open:
         program.status === 'active' && (thread as { public_enrolment_open?: boolean }).public_enrolment_open !== false,
       participants,
+      // Additive (2026-10-16): event dates from the key moments, and when
+      // sign-ups close (lib/thread-dates.ts). Display only until slice 2.
+      ...publicDateFields((await loadThreadDates([thread.id as string])).get(thread.id as string)),
       // Additive (rule 8): true only for a workspace member viewing an
       // unpublished thread. Anonymous callers never see a payload with it set.
       is_preview: isPreview,
@@ -6824,6 +6859,8 @@ threadRoutes.get('/public/embed/threads', async (c) => {
       return tm?.slug ?? o?.slug;
     }),
   );
+  // The three dates (lib/thread-dates.ts), additive on each item.
+  const datesById = await loadThreadDates(live.map((t) => t.id as string));
   const items = live
     .map((t) => ({ ...t, ...effectivePrice(t, prices) }))
     .map((t) => {
@@ -6857,6 +6894,9 @@ threadRoutes.get('/public/embed/threads', async (c) => {
         // Additive (2026-10-16): the team, so a visitor can filter by it —
         // organiser_name is a team's name OR a person's and cannot be.
         team: tm ? { slug: tm.slug as string, name: tm.name as string } : null,
+        // Additive (2026-10-16): event dates from the key moments, and when
+        // sign-ups close.
+        ...publicDateFields(datesById.get(t.id as string)),
         url: `${origin}/${ownerSlug}/${t.slug}`,
       };
     })

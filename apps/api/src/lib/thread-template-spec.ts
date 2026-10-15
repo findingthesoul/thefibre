@@ -47,6 +47,7 @@ export const TEMPLATE_THREAD: TemplateSpec = {
     locked_at: 'a lock is a decision about one thread',
     locked_by: 'as locked_at',
     main_facilitator_id: 'a host row of the original thread; hosts are people of one run, not part of the shape',
+    signups_close_engagement_id: 'an id of the original thread; a thread made from a template closes at its first key moment until one is chosen',
   },
 };
 
@@ -57,6 +58,8 @@ export const TEMPLATE_ENGAGEMENT: TemplateSpec = {
     'trigger_offset_days', 'trigger_time',
     // Joined 2026-10-15.
     'rsvp_enabled', 'system_role',
+    // Joined 2026-10-16.
+    'is_key_moment',
   ],
   set: {
     workspace_id: 'the workspace applying the template',

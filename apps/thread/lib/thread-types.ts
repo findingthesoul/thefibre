@@ -33,6 +33,16 @@ export type ThreadRow = {
   /** Why it could not go live with sign-up open (paid, no working payment
    *  route), or null. From GET /threads/:id; absent on older APIs. */
   publish_blocker?: string | null;
+  /** "Open until session N" (2026-10-16); null = the first key moment. */
+  signups_close_engagement_id?: string | null;
+  /** The thread's dates as the API decided them (lib/thread-dates.ts). */
+  dates?: {
+    event_starts_at: string | null;
+    event_ends_at: string | null;
+    key_moment_count: number;
+    signups_close_at: string | null;
+    close_rule: 'session' | 'first_key_moment' | 'fallback' | 'none';
+  } | null;
   /** What in Members points at this thread (grants, product links), for the
    *  rename warning. Absent on older APIs. */
   references?: { grants: number; product_links: number };
@@ -201,6 +211,8 @@ export type EngagementRow = {
   content: Record<string, unknown>;
   position: number;
   show_in_agenda: boolean;
+  /** A session that defines the public event dates (2026-10-16). */
+  is_key_moment?: boolean;
   /** Does this item ask participants whether they are coming? The ONLY
    *  RSVP switch there is (Sjoerd 2026-09-09) — anything but an explicit
    *  true is off, so a new item does not ask. */

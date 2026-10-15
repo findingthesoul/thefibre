@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.206.0] — 2026-10-15
+
+### Thread dates, part 1: key moments, when sign-ups close, and six date tags (Thread 4.8.0)
+
+Sjoerd: a thread has three dates — its period (internal), its EVENT dates
+(public, from the sessions marked "key moment") and when SIGN-UPS CLOSE.
+This part writes and reports them; nothing is refused or hidden by them yet
+(that is part 2).
+
+- **One rule** (`@thefibre/shared/thread-dates`): event dates = first to last
+  key moment, with a count. Sign-ups close at a chosen session ("open until
+  session N"), else when the first key moment starts, else the fallback —
+  Sjoerd's option A, in ONE function (`fallbackSignupsCloseAt`): when the
+  first timed session starts, EXCEPT a thread on a team calendar (team
+  published, a membership grant carries its calendar), which keeps today's
+  rule — open through its last day, now to midnight in the thread's own zone.
+  No timed session = stays open. `lib/thread-dates.ts` loads the inputs for
+  any number of threads.
+- **Editor:** a "Key moment" switch on every timed item; under Sign-ups, a
+  "Sign-ups close" choice (the first key moment, or a session) with the
+  API's own answer below it ("Now closes …").
+- **API (additive):** `event_starts_at`, `event_ends_at`, `key_moment_count`,
+  `signups_close_at` on the embed listing's items and the public thread
+  (PENDING in `verify-public-api.mjs`), and with `close_rule` on the editor's
+  thread. `is_key_moment` on the `/apps` engagement payload, writable through
+  the existing engagement write. The close session is refused unless it is
+  this thread's and has a start.
+- **Six message tags** (Sjoerd: "create tags for different forms"):
+  {thread_dates}, {thread_start}, {event_dates}, {first_event}, {sessions},
+  {signups_close}. {date} keeps meaning the thread start.
+- A duplicate closes at the copy of the chosen session and keeps the stars;
+  a template keeps the stars and closes at its first key moment.
+- `scripts/audit-signup-close.ts prod|staging` (read-only) lists threads open
+  today that the new rule would close now or within 14 days. Staging: 9
+  open, 0 closed now, 2 within 14 days (team calendars, today's rule).
+- Tests: `thread-dates.test.ts` (28 — zones across DST, closing AT the
+  moment, the team-calendar fallback, the tags), `thread-dates.int.test.ts`
+  on staging (8 — through the editor routes, a draft key moment ignored, a
+  foreign or untimed close session refused, reordering does not move the
+  deadline, the duplicate remap, the team-calendar fallback, the tags).
+
 ## [1.205.1] — 2026-10-15
 
 ### Thread dates, step 0: the two columns (migration only)

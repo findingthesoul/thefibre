@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.205.1",
+  "version": "1.206.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -133,6 +133,10 @@
     "./merge-tokens": {
       "types": "./dist/merge-tokens.d.ts",
       "default": "./dist/merge-tokens.js"
+    },
+    "./thread-dates": {
+      "types": "./dist/thread-dates.d.ts",
+      "default": "./dist/thread-dates.js"
     },
     "./member-page": {
       "types": "./dist/member-page.d.ts",

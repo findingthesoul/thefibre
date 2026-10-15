@@ -921,6 +921,10 @@ export function ThreadTimeline({
               workspaceNote={workspaceNote}
               workspaceSlug={workspaceSlug}
               locked={locked}
+              timedSessions={engagements
+                .filter((x) => !!x.starts_at)
+                .sort((a, b) => Date.parse(a.starts_at!) - Date.parse(b.starts_at!))
+                .map((x) => ({ id: x.id, title: x.title, starts_at: x.starts_at! }))}
             />
           </div>
         </Dialog>
@@ -1194,6 +1198,7 @@ function SettingsTabs({
   workspaceNote = null,
   workspaceSlug = null,
   locked = false,
+  timedSessions = [],
 }: {
   locale: Locale;
   thread: ThreadRow;
@@ -1213,6 +1218,8 @@ function SettingsTabs({
    *  does that for every control inside it at once, and leaves the tab bar
    *  (outside them) working. */
   locked?: boolean;
+  /** For "sign-ups close when this session starts". */
+  timedSessions?: { id: string; title: string; starts_at: string }[];
 }) {
   const tabs = [
     { value: 'basics', label: t(locale, 'basics') },
@@ -1271,6 +1278,10 @@ function SettingsTabs({
             onSaved={onSaved}
             live={one(thread.program)?.status === 'active'}
             onChangeDestination={() => onTabChange('pricing')}
+            sessions={timedSessions}
+            closeSessionId={thread.signups_close_engagement_id ?? null}
+            closesAt={thread.dates?.signups_close_at ?? null}
+            timeZone={thread.timezone ?? 'Europe/Amsterdam'}
           />
         </fieldset>
       </div>

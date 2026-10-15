@@ -829,6 +829,9 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       trigger_time: row.trigger_time,
       position: row.position,
       show_in_agenda: row.show_in_agenda,
+      // Additive (2026-10-16): a session that defines the thread's public
+      // event dates.
+      is_key_moment: row.is_key_moment ?? false,
       created_at: row.created_at,
       updated_at: row.updated_at,
     };
@@ -837,7 +840,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
   // One literal, deliberately not concatenated: supabase-js infers the row type
   // from the select string, and a built-up string degrades it to GenericStringError.
   const ENGAGEMENT_SELECT =
-    'id, source_app, source_ref, type, status, title, description, content, starts_at, ends_at, daily_schedule, location, location_url, meeting_url, meeting_provider, scheduled_at, trigger_kind, trigger_anchor, trigger_engagement_id, trigger_offset_days, trigger_time, position, show_in_agenda, created_at, updated_at';
+    'id, source_app, source_ref, type, status, title, description, content, starts_at, ends_at, daily_schedule, location, location_url, meeting_url, meeting_provider, scheduled_at, trigger_kind, trigger_anchor, trigger_engagement_id, trigger_offset_days, trigger_time, position, show_in_agenda, is_key_moment, created_at, updated_at';
 
   appsRoutes.post('/:slug/thread/threads/:id/engagements', async (c) => {
     const ctx = appKeyOnly(c);

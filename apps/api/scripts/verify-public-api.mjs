@@ -192,8 +192,11 @@ const PENDING = {
   agendaItem: [],
   // The listing's team per item and its `truncated` flag (embed filters,
   // 2026-10-16). Collect into SHAPES in the sitting that deploys them.
-  embedItem: ['team'],
+  embedItem: ['team', 'event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at'],
   embedListing: ['truncated'],
+  // The thread's event dates and sign-up close (thread dates slice 1,
+  // 2026-10-16), on the public thread too. Collect with the deploy.
+  thread: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
@@ -316,6 +319,7 @@ if (threadRes.body?.thread?.agenda?.length) {
   checkShape('agenda item', threadRes.body.thread.agenda[0], SHAPES.agendaItem);
   checkPending('agendaItem', threadRes.body.thread.agenda[0], PENDING.agendaItem);
 }
+checkPending('thread', threadRes.body?.thread, PENDING.thread);
 
 // ---- Meet's public host payload ------------------------------------------
 // Not part of the Thread contract, and checked here anyway, because it is a

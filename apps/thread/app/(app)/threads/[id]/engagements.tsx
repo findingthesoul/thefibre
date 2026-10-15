@@ -317,6 +317,8 @@ export function EngagementDialog({
       type,
       description: String(fd.get('description') ?? '').trim() || null,
       show_in_agenda: fd.get('show_in_agenda') === 'on',
+      // Only asked of a timed item (any family — "every timed item").
+      ...(willHaveStart ? { is_key_moment: fd.get('is_key_moment') === 'on' } : {}),
       // Touching a switch you can see means an explicit answer, so this
       // writes a boolean rather than leaving null to inherit. Only timed
       // items are asked about at all.
@@ -1025,6 +1027,17 @@ export function EngagementDialog({
                   the Responses panel use. Inside the fieldset because it is
                   a write: a locked thread refuses it here and again at the
                   API (423 thread_locked). */}
+              {willHaveStart && (
+                <div className="mt-3">
+                  <SwitchField
+                    label={t(locale, 'key_moment')}
+                    hint={t(locale, 'key_moment_hint')}
+                    name="is_key_moment"
+                    defaultChecked={engagement?.is_key_moment === true}
+                    onChange={() => setDirty(true)}
+                  />
+                </div>
+              )}
               {family === 'activity' && willHaveStart && (
                 <div className="mt-3">
                   <SwitchField

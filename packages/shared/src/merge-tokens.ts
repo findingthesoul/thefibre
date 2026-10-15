@@ -107,6 +107,51 @@ export const MERGE_TOKENS: readonly MergeToken[] = [
     example: '4 November 2026',
     description: { en: 'The thread’s start date', nl: 'De startdatum van de thread', es: 'La fecha de inicio del hilo', pt: 'A data de início do fio', de: 'Startdatum des Threads', fr: 'La date de début du fil' },
   },
+  // The thread's dates in their different forms (Sjoerd, 2026-10-16: "create
+  // tags for different forms"). Values from ./thread-dates — {date} stays the
+  // thread start, so messages already written keep their meaning.
+  {
+    key: 'thread_dates',
+    aliases: [],
+    surfaces: msg,
+    example: '1 September 2026 – 30 June 2027',
+    description: { en: 'The thread’s period, start to end', nl: 'De periode van de thread, van begin tot eind', es: 'El periodo del hilo, de principio a fin', pt: 'O período do fio, do início ao fim', de: 'Zeitraum des Threads, Anfang bis Ende', fr: 'La période du fil, du début à la fin' },
+  },
+  {
+    key: 'thread_start',
+    aliases: [],
+    surfaces: msg,
+    example: '1 September 2026',
+    description: { en: 'The thread’s start date', nl: 'De startdatum van de thread', es: 'La fecha de inicio del hilo', pt: 'A data de início do fio', de: 'Startdatum des Threads', fr: 'La date de début du fil' },
+  },
+  {
+    key: 'event_dates',
+    aliases: [],
+    surfaces: msg,
+    example: '12 January – 15 June 2027',
+    description: { en: 'The event dates, from the key moments', nl: 'De eventdata, uit de kernmomenten', es: 'Las fechas del evento, de los momentos clave', pt: 'As datas do evento, dos momentos-chave', de: 'Die Veranstaltungsdaten, aus den Schlüsselmomenten', fr: 'Les dates de l’événement, d’après les moments clés' },
+  },
+  {
+    key: 'first_event',
+    aliases: [],
+    surfaces: msg,
+    example: '12 January 2027',
+    description: { en: 'The first key moment’s date', nl: 'De datum van het eerste kernmoment', es: 'La fecha del primer momento clave', pt: 'A data do primeiro momento-chave', de: 'Datum des ersten Schlüsselmoments', fr: 'La date du premier moment clé' },
+  },
+  {
+    key: 'sessions',
+    aliases: [],
+    surfaces: msg,
+    example: '6',
+    description: { en: 'How many key moments', nl: 'Hoeveel kernmomenten', es: 'Cuántos momentos clave', pt: 'Quantos momentos-chave', de: 'Wie viele Schlüsselmomente', fr: 'Combien de moments clés' },
+  },
+  {
+    key: 'signups_close',
+    aliases: [],
+    surfaces: msg,
+    example: '11 January 2027',
+    description: { en: 'When sign-ups close', nl: 'Wanneer de inschrijving sluit', es: 'Cuándo se cierran las inscripciones', pt: 'Quando fecham as inscrições', de: 'Wann die Anmeldung schließt', fr: 'Quand les inscriptions ferment' },
+  },
   {
     key: 'my.thread',
     aliases: [],
