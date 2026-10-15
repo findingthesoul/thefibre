@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { TEMPLATE_THREAD, TEMPLATE_TICKET } from './thread-template-spec.js';
 
 // Sjoerd, 2026-09-25: "Template for threads: settings also need to be in it
 // (pricing, image, etc.)"
@@ -21,9 +22,15 @@ import { describe, expect, it } from 'vitest';
 //             decides the thread's public address — losing it silently
 //             republished a workspace thread under the organiser.
 //
-// These read the source. Capture and apply are two lists in two functions
-// that have to agree, and nothing in the type system says so: every field is
+// These read the source. Capture and apply WERE two lists in two functions
+// that had to agree, and nothing in the type system said so: every field is
 // `unknown` on its way through jsonb. That is exactly how they drifted.
+//
+// Since 2026-10-15 both directions use ONE list (lib/thread-template-spec.ts),
+// so "captured AND applied" is now mechanical: a field in TEMPLATE_THREAD.carry
+// is written by `carriedOut` and read back by `carriedIn`. These tests check
+// the route still goes through the spec both ways; thread-template.int.test.ts
+// checks every real column against it.
 //
 // Asserting the RULE, not the line that implements it. A previous test in
 // this codebase matched the implementation it found and so pinned a bug as
@@ -41,15 +48,20 @@ const structure = (() => {
 
 /** The thread row built when a template is applied. */
 const applied = (() => {
-  const at = src.indexOf("from('thread_thread')\n    .insert({\n      workspace_id: ctx.workspaceId,\n      program_id: program.id,\n      organiser_id: organiser.id,\n      slug: body.data.slug,\n      intention: (st.intention");
-  expect(at, 'the create-from-template insert is still here').toBeGreaterThan(-1);
+  const at = src.indexOf('...carriedIn(TEMPLATE_THREAD, st)');
+  expect(at, 'the create-from-template insert reads the spec').toBeGreaterThan(-1);
   return src.slice(at, src.indexOf('.select(', at));
 })();
+
+/** Carried on the way out AND read back on the way in — both through the spec. */
+const carried = (field: string) =>
+  TEMPLATE_THREAD.carry.includes(field) && structure.includes('carriedOut(TEMPLATE_THREAD') && applied.includes('carriedIn(TEMPLATE_THREAD');
 
 describe('a template carries what a thread charges', () => {
   it('captures tickets, which ARE the price when a thread has them', () => {
     expect(structure).toMatch(/tickets:/);
-    expect(structure).toMatch(/price_cents/);
+    expect(structure).toMatch(/carriedOut\(TEMPLATE_TICKET/);
+    expect(TEMPLATE_TICKET.carry).toContain('price_cents');
   });
 
   it('does not carry a ticket sales deadline', () => {
@@ -57,6 +69,8 @@ describe('a template carries what a thread charges', () => {
     // later would arrive with a deadline already past and a ticket nobody can
     // buy — the failure would look like "the template is broken".
     expect(structure).not.toMatch(/available_until:/);
+    expect(TEMPLATE_TICKET.carry).not.toContain('available_until');
+    expect(Object.keys(TEMPLATE_TICKET.skip)).toContain('available_until');
   });
 
   it('restores them when the template is applied', () => {
@@ -93,15 +107,13 @@ describe('nothing captured is silently dropped on the way back', () => {
   // mechanically against a jsonb blob.
   for (const field of ['facilitation_language', 'public_scope']) {
     it(`${field} is captured AND applied`, () => {
-      expect(structure, `${field} missing from the template`).toContain(field);
-      expect(applied, `${field} captured but dropped when applied`).toContain(field);
+      expect(carried(field), `${field} must be in TEMPLATE_THREAD.carry, written and read through the spec`).toBe(true);
     });
   }
 
   it('and the settings that already worked still do', () => {
-    for (const field of ['cover_url', 'requires_approval', 'capacity', 'certificate_enabled']) {
-      expect(structure).toContain(field);
-      expect(applied).toContain(field);
+    for (const field of ['cover_url', 'requires_approval', 'capacity', 'certificate_enabled', 'rsvp_enabled', 'enrolment_note']) {
+      expect(carried(field), field).toBe(true);
     }
   });
 });

@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.202.2] — 2026-10-15
+
+### Thread templates carry everything — and the next new column cannot slip past
+
+The duplicate fix (v1.196.3), applied to templates. "Save as template" and
+"new thread from template" each kept a hand-written list, and both had
+fallen behind the tables.
+
+- **One spec, both directions** (`lib/thread-template-spec.ts`): every
+  column of the thread, its sessions and its tickets is carried, set when
+  applying, or skipped with a reason — and the same list writes the template
+  and reads it back.
+- **Now carried:** the thread's RSVP switch, enrolment note, sign-up open,
+  public agenda, participant sharing and payout destination; each session's
+  RSVP switch and its system-message role.
+- **System messages arrive once.** A template carried its system messages
+  without their role, so a thread made from it seeded a second set on first
+  open. The role travels now, and the one seeder marks those roles as seeded
+  — for the editor and for the published `/apps` route alike.
+- Unchanged on purpose: a thread from a template still starts with its items
+  as drafts; sales deadlines, discount codes, hosts and categories by id stay
+  out (see the reasons in the spec).
+- Test: `thread-template.int.test.ts` on staging — coverage against the real
+  columns, and a save → apply round trip through the real routes (RSVP, note,
+  sign-up closed, the session's RSVP; system messages once after first open).
+  Fails with the RSVP switch moved out of the carried list.
 ## [1.202.1] — 2026-10-15
 
 ### Thread: a pick in a dropdown shows at once — and the payment check fails closed

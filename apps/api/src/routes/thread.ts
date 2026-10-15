@@ -155,6 +155,7 @@ import { claimSend, recordSendResult } from '../lib/send-record.js';
 // returned the email in whatever case the provider sent — see
 // lib/participant-auth.ts, which exists for exactly this reason.
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
+import { TEMPLATE_ENGAGEMENT, TEMPLATE_THREAD, TEMPLATE_TICKET, carriedIn, carriedOut } from '../lib/thread-template-spec.js';
 import { allowsOrganiserMeetings, mintingAccount, propagateRoom, queueHostChange, sessionHosts, sessionRoom, threadHosts, threadRoom, type ThreadHost } from '../lib/main-facilitator.js';
 
 // ===========================================================================
@@ -3005,41 +3006,14 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
     .select('category:category_id (slug)')
     .eq('thread_id', thread.id);
 
+  // WHAT IS CARRIED is lib/thread-template-spec.ts — one list for saving
+  // and applying, covered by a test that reads the real columns.
   const structure = {
     version: 1,
     format: prog?.format ?? 'event',
-    intention: thread.intention,
-    timezone: thread.timezone,
-    language: thread.language,
-    facilitation_language: thread.facilitation_language,
-    public_scope: thread.public_scope,
-    cover_url: thread.cover_url,
-    requires_approval: thread.requires_approval,
-    public_interaction: thread.public_interaction,
-    price_cents: thread.price_cents,
-    price_currency: thread.price_currency,
-    payment_methods: thread.payment_methods,
-    capacity: thread.capacity,
-    registration_fields: thread.registration_fields,
-    certificate_enabled: thread.certificate_enabled,
-    certificate_criteria: thread.certificate_criteria,
-    certificate_template_id: thread.certificate_template_id,
-    tickets: (srcTickets ?? []).map((t) => ({
-      name: t.name,
-      description: t.description,
-      price_cents: t.price_cents,
-      price_currency: t.price_currency,
-      quantity_limit: t.quantity_limit,
-      payment_methods: t.payment_methods,
-      is_active: t.is_active,
-      position: t.position,
-      // `available_until` is deliberately NOT carried. It is an absolute
-      // date belonging to one run; a template applied three months later
-      // would arrive with a sales deadline already in the past and a ticket
-      // nobody can buy. Same reasoning keeps discount codes out entirely —
-      // a code with an expiry and an allowance belongs to a specific run,
-      // not to the shape of the offer.
-    })),
+    ...carriedOut(TEMPLATE_THREAD, thread as Record<string, unknown>),
+    // `available_until` and discount codes are not carried — see the spec.
+    tickets: (srcTickets ?? []).map((t) => carriedOut(TEMPLATE_TICKET, t as Record<string, unknown>)),
     category_slugs: (srcCats ?? [])
       .map((r) => {
         const c = Array.isArray(r.category) ? r.category[0] : r.category;
@@ -3051,18 +3025,7 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
         ? Math.round((Date.parse(prog.ends_on) - Date.parse(prog.starts_on)) / 86_400_000)
         : null,
     engagements: (engagements ?? []).map((e) => ({
-      type: e.type,
-      title: e.title,
-      description: e.description,
-      position: e.position,
-      location: e.location,
-      location_url: e.location_url,
-      image_url: e.image_url,
-      meeting_url: e.meeting_url,
-      meeting_provider: e.meeting_provider,
-      show_in_agenda: e.show_in_agenda,
-      content: e.content,
-      trigger_kind: e.trigger_kind,
+      ...carriedOut(TEMPLATE_ENGAGEMENT, e as Record<string, unknown>),
       trigger_anchor: e.trigger_anchor === 'engagement' ? 'start' : e.trigger_anchor,
       trigger_offset_days: e.trigger_offset_days,
       trigger_time: e.trigger_time,
@@ -3131,6 +3094,7 @@ export async function seedTemplateEngagements(opts: {
       }
     }
     await db.from('thread_engagement').insert({
+      ...carriedIn(TEMPLATE_ENGAGEMENT, e),
       workspace_id: workspaceId,
       thread_id: threadId,
       title: e.title,
@@ -3154,6 +3118,21 @@ export async function seedTemplateEngagements(opts: {
       show_in_agenda: e.show_in_agenda ?? true,
       created_by: createdBy,
     });
+  }
+  // SYSTEM MESSAGES the template brought are this thread's now: mark their
+  // roles seeded, or the first open (ensureSystemEngagements) adds a second
+  // set. Here, in the one seeder, so every caller — the editor's "new from
+  // template" and the published /apps route alike — gets it.
+  const roles = [
+    ...new Set(engagements.map((e) => e.system_role).filter((r): r is string => typeof r === 'string' && !!r)),
+  ];
+  if (roles.length) {
+    const { data: t } = await adminClient.from('thread_thread').select('system_messages_seeded').eq('id', threadId).maybeSingle();
+    const have = ((t?.system_messages_seeded as string[] | null) ?? []);
+    await adminClient
+      .from('thread_thread')
+      .update({ system_messages_seeded: [...new Set([...have, ...roles])] })
+      .eq('id', threadId);
   }
 }
 
@@ -3226,6 +3205,10 @@ threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
       program_id: program.id,
       organiser_id: organiser.id,
       slug: body.data.slug,
+      // Everything the template carries (lib/thread-template-spec.ts); the
+      // explicit lines below keep their old defaults for templates saved
+      // before a field was carried.
+      ...carriedIn(TEMPLATE_THREAD, st),
       intention: (st.intention as string) ?? null,
       timezone: (st.timezone as string) ?? 'Europe/Amsterdam',
       language: (st.language as string) ?? 'en',
@@ -3264,6 +3247,7 @@ threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
   const tplTickets = Array.isArray(st.tickets) ? (st.tickets as Record<string, unknown>[]) : [];
   for (const t of tplTickets) {
     await db.from('thread_ticket').insert({
+      ...carriedIn(TEMPLATE_TICKET, t),
       workspace_id: ctx.workspaceId,
       thread_id: thread.id,
       name: t.name,
