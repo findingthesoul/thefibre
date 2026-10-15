@@ -335,3 +335,45 @@ export async function queueHostChange(args: {
   }
   return n;
 }
+
+/**
+ * The threads a person HOSTS, for my.thread (Sjoerd, 2026-10-14: "they will
+ * see that they are host/facilitator"). A host is a row by account (their
+ * organiser row, found by the VERIFIED address the portal signs in with) or
+ * by person (a host without an account). Published (active) threads only.
+ */
+export async function hostedThreadsFor(email: string, personIds: string[]): Promise<{ thread_id: string; role: 'host' | 'facilitator' }[]> {
+  const addr = email.trim().toLowerCase();
+  const rows: { thread_id: string; role: 'host' | 'facilitator' }[] = [];
+  if (personIds.length) {
+    const { data, error } = await adminClient.from('thread_thread_organiser').select('thread_id, role').in('person_id', personIds);
+    if (error) throw new Error(`hosted by person: ${error.message}`);
+    rows.push(...((data ?? []) as typeof rows));
+  }
+  const { data: users, error: uErr } = await adminClient.from('user').select('id').eq('email', addr).is('deleted_at', null);
+  if (uErr) throw new Error(`hosted users: ${uErr.message}`);
+  const userIds = (users ?? []).map((u) => u.id as string);
+  if (userIds.length) {
+    const { data: orgs, error: oErr } = await adminClient.from('thread_organiser').select('id').in('user_id', userIds);
+    if (oErr) throw new Error(`hosted organisers: ${oErr.message}`);
+    const orgIds = (orgs ?? []).map((o) => o.id as string);
+    if (orgIds.length) {
+      const { data, error } = await adminClient.from('thread_thread_organiser').select('thread_id, role').in('organiser_id', orgIds);
+      if (error) throw new Error(`hosted by account: ${error.message}`);
+      rows.push(...((data ?? []) as typeof rows));
+    }
+  }
+  if (!rows.length) return [];
+  const ids = [...new Set(rows.map((r) => r.thread_id))];
+  const { data: live, error } = await adminClient.from('thread_thread').select('id, program:program_id (status)').in('id', ids);
+  if (error) throw new Error(`hosted threads: ${error.message}`);
+  const active = new Set(
+    ((live ?? []) as { id: string; program: unknown }[])
+      .filter((t) => one<{ status: string }>(t.program)?.status === 'active')
+      .map((t) => t.id),
+  );
+  const byThread = new Map<string, 'host' | 'facilitator'>();
+  // Host outranks facilitator when somebody is both on one thread.
+  for (const r of rows) if (active.has(r.thread_id) && byThread.get(r.thread_id) !== 'host') byThread.set(r.thread_id, r.role);
+  return [...byThread].map(([thread_id, role]) => ({ thread_id, role }));
+}

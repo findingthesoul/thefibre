@@ -328,3 +328,26 @@ describe('buildTimeline — certificates', () => {
     expect(out.some((e) => e.kind === 'certificate')).toBe(false);
   });
 });
+
+describe('sessions you host', () => {
+  it('say so on the entry, and carry no RSVP', () => {
+    const p = portal([
+      group({
+        threads: [
+          thread({
+            enrolment_status: null,
+            my_role: 'host',
+            agenda: [agenda({ id: 'e1', starts_at: '2026-06-20T10:00:00Z', my_role: 'host', rsvp_enabled: false })],
+          }),
+        ],
+      }),
+    ]);
+    const [e] = buildTimeline(p, NOW);
+    expect(e!.role).toBe('host');
+    expect(e!.rsvpEnabled).toBe(false);
+  });
+  it('a hosted-only thread with none of your sessions dated shows nothing of its own', () => {
+    const p = portal([group({ threads: [thread({ enrolment_status: null, my_role: 'facilitator', starts_on: '2026-06-20', agenda: [] })] })]);
+    expect(buildTimeline(p, NOW)).toEqual([]);
+  });
+});

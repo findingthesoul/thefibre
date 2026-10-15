@@ -72,6 +72,9 @@ export type ThreadItem = {
    *  certificate. */
   certificate: { number: string; issued_at: string } | null;
   agenda: AgendaItem[];
+  /** You host or facilitate this thread. A hosted-only thread lists just the
+   *  sessions you are on, without RSVP, ticket or certificate. */
+  my_role?: 'host' | 'facilitator' | null;
 };
 
 export type MeetItem = {

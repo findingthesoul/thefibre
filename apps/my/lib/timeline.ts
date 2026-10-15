@@ -50,6 +50,9 @@ export type Entry = {
   rsvpEnabled: boolean;
   rsvp: RsvpResponse | null;
   hasTicket: boolean;
+  /** You host or facilitate this session — "You're hosting", not a
+   *  participant's line. */
+  role?: 'host' | 'facilitator' | null;
 };
 
 /** A day with no clock, read in the viewer's own timezone. `new Date('2027-01-01')`
@@ -105,13 +108,16 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           rsvpEnabled: a.rsvp_enabled,
           rsvp: a.rsvp,
           hasTicket: ticketFor.has(t.thread_id),
+          role: a.my_role ?? null,
         });
       }
 
       // No dated session: the thread's own start date is the only date there
       // is, and a thread you are enrolled in with nothing scheduled still
       // has to be reachable.
-      if (timed.length === 0 && t.starts_on) {
+      // (Not for a thread you only HOST: you are on its sessions, and with
+      // none ticked there is nothing of yours to show.)
+      if (timed.length === 0 && t.starts_on && !(t.my_role && !t.enrolment_status)) {
         out.push({
           key: `thread:${t.thread_id}`,
           kind: 'session',

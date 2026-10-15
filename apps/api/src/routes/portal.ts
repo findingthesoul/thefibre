@@ -61,6 +61,7 @@
 // whoever adds them.
 // ===========================================================================
 
+import { hostedThreadsFor } from '../lib/main-facilitator.js';
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
@@ -200,6 +201,10 @@ type ThreadItem = {
    */
   certificate: { number: string; issued_at: string } | null;
   agenda: AgendaItem[];
+  /** You host or facilitate this thread. A HOSTED thread lists only the
+   *  sessions you are ticked on, with no RSVP, ticket or certificate — those
+   *  are a participant's. A host who is also enrolled appears once, as host. */
+  my_role: 'host' | 'facilitator' | null;
 };
 
 type MeetItem = {
@@ -323,7 +328,12 @@ portalRoutes.get('/portal', async (c) => {
     last_name: persons[0]?.last_name ?? null,
     email,
   };
-  if (!personIds.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
+  // The threads this address HOSTS — its own source, beside enrolments,
+  // bookings and memberships (lib/main-facilitator.ts hostedThreadsFor).
+  // Never part of the ledger or membership logic.
+  const hosted = await hostedThreadsFor(email, personIds);
+  const hostedRole = new Map(hosted.map((h) => [h.thread_id, h.role]));
+  if (!personIds.length && !hosted.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
 
   const since = new Date(Date.now() - PAST_WINDOW_DAYS * 86400_000).toISOString();
   const sinceDate = since.slice(0, 10);
@@ -405,7 +415,24 @@ portalRoutes.get('/portal', async (c) => {
     if (t && !enrolmentCanRespond(enr?.status ?? null)) droppedThreads.add(t.id);
   }
 
-  const agendaByThread = await loadAgendaByThread({ threadIds, personIds, droppedThreads, email });
+  const enrolledThreadIds = new Set(threadIds);
+  const hostedOnly = hosted.map((h) => h.thread_id).filter((id) => !enrolledThreadIds.has(id));
+  // Hosted-only threads ask for no RSVP: nothing to answer as a host.
+  for (const id of hostedOnly) droppedThreads.add(id);
+  const agendaByThread = await loadAgendaByThread({
+    threadIds: [...threadIds, ...hostedOnly],
+    // A host with an account may have no person row here; the RSVP read then
+    // matches nothing, which is right for a host.
+    personIds: personIds.length ? personIds : ['00000000-0000-0000-0000-000000000000'],
+    droppedThreads,
+    email,
+  });
+  for (const [threadId, items] of agendaByThread) {
+    // A session YOU host is not one you answer for, enrolled or not.
+    for (const it of items) if (it.my_role) it.rsvp_enabled = false;
+    // A hosted-only thread shows only the sessions you are ticked on.
+    if (hostedOnly.includes(threadId)) agendaByThread.set(threadId, items.filter((it) => it.my_role));
+  }
 
   // -- Certificates ---------------------------------------------------------
   //
@@ -744,6 +771,22 @@ portalRoutes.get('/portal', async (c) => {
   ).size;
   const couldJoinByMemberId = await couldJoinFrom(entitlements, places, MEMBERSHIP_CARD_ROWS);
 
+  // -- Hosted threads: the details the enrolments brought for theirs ---------
+  const hostedThreads = hostedOnly.length
+    ? rows(
+        'portal: hosted threads',
+        await adminClient
+          .from('thread_thread')
+          .select(
+            `id, workspace_id, slug, language, cover_url, public_scope,
+             organiser:organiser_id (slug, display_name, user:user_id (email, full_name)),
+             team:team_id (slug, name),
+             program:program_id (title, format, status, starts_on, ends_on)`,
+          )
+          .in('id', hostedOnly),
+      )
+    : [];
+
   // -- Group by workspace ---------------------------------------------------
   const workspaceIds = [
     ...new Set([
@@ -755,6 +798,7 @@ portalRoutes.get('/portal', async (c) => {
       // and the endpoint answers `groups: []` — an empty page for somebody
       // who has paid. Which is what it did until 2026-10-14.
       ...productsByWorkspace.keys(),
+      ...hostedThreads.map((t) => t.workspace_id as string),
     ]),
   ].filter(Boolean);
 
@@ -840,6 +884,8 @@ portalRoutes.get('/portal', async (c) => {
       organiser_email: orgUser?.email ?? null,
       certificate: certByEnrolment.get(e.id as string) ?? null,
       agenda: agendaByThread.get(t.id) ?? [],
+      // Enrolled AND hosting: one entry, marked as host.
+      my_role: hostedRole.get(t.id) ?? null,
     });
 
     if (e.checkin_code && ticketIsAdmissible(enr?.status ?? null, (e.payment_status as string | null) ?? null)) {
@@ -853,6 +899,43 @@ portalRoutes.get('/portal', async (c) => {
         checked_in_at: (e.checked_in_at as string | null) ?? null,
       });
     }
+  }
+
+  // HOSTED threads the person is not enrolled in. No ticket and no
+  // certificate (a participant's), no RSVP (switched off above).
+  for (const t of hostedThreads) {
+    const g = groups.get(t.workspace_id as string);
+    if (!g) continue;
+    const prog = one(t.program as never) as
+      | { title: string; format: string; status: string; starts_on: string | null; ends_on: string | null }
+      | null;
+    const org = one(t.organiser as never) as { slug: string; display_name: string; user: unknown } | null;
+    const orgUser = one(org?.user as never) as { email: string | null; full_name: string | null } | null;
+    const team = one(t.team as never) as { slug: string; name: string } | null;
+    const ownerSlug = publicOwnerSlug({
+      publicScope: t.public_scope as string | null,
+      workspaceSlug: g.slug,
+      teamSlug: team?.slug,
+      organiserSlug: org?.slug,
+    });
+    g.threads.push({
+      thread_id: t.id as string,
+      title: prog?.title ?? (t.slug as string),
+      format: prog?.format ?? 'event',
+      status: prog?.status ?? 'active',
+      starts_on: prog?.starts_on ?? null,
+      ends_on: prog?.ends_on ?? null,
+      language: (t.language as string | null) ?? 'en',
+      cover_url: (t.cover_url as string | null) ?? null,
+      enrolment_status: null,
+      progress_pct: null,
+      url: await threadPublicUrl(ownerSlug, t.slug as string),
+      organiser_name: org?.display_name ?? orgUser?.full_name ?? g.name ?? null,
+      organiser_email: orgUser?.email ?? null,
+      certificate: null,
+      agenda: agendaByThread.get(t.id as string) ?? [],
+      my_role: hostedRole.get(t.id as string) ?? null,
+    });
   }
 
   for (const b of bookings) {

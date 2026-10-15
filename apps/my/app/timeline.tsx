@@ -158,6 +158,7 @@ function MetaLine({ entry }: { entry: Entry }) {
   // programme the person has already finished.
   const meta = [
     entry.kind === 'certificate' ? 'Certificate' : entry.time,
+    entry.role === 'host' ? 'You’re hosting' : entry.role === 'facilitator' ? 'You’re facilitating' : null,
     entry.organiser,
     entry.where,
   ]

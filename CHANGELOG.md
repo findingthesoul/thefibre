@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.201.0] — 2026-10-15
+
+### my.thread: the threads you host
+
+A host or facilitator now finds the threads they run in my.thread, even
+without being enrolled — Sjoerd's "First: they will see that they are
+host/facilitator".
+
+- **Next** lists the sessions you are ticked on, marked "You're hosting" /
+  "You're facilitating"; the thread's sheet shows the same. Only sessions you
+  are on, and none of a participant's controls — no RSVP, no price, no ticket
+  or check-in code, no certificate. A host who is also enrolled appears once,
+  as host. Upcoming stays "what you can join": hosted threads are not there.
+- Hosts are found by the verified address you sign in with — your account's
+  organiser rows, or a host entry made for you as a person — and only for
+  published threads. A source of its own in the portal; nothing about
+  memberships, purchases or the ledger changes.
+- Tests: `main-facilitator.int.test.ts` — a host with an account and no
+  person row sees the thread, only their sessions, no RSVP (fails with the
+  session filter removed); `timeline.test.ts` — the role on the entry, and
+  nothing for a hosted thread with none of your sessions dated.
+
 ## [1.200.1] — 2026-10-15
 
 ### The Thread: hosts and facilitators see that they are one

@@ -72,12 +72,14 @@ const pendingFor = async (id: string) =>
 beforeAll(async () => {
   const { appContext } = await import('../middleware/app-context.js');
   const { threadRoutes } = await import('../routes/thread.js');
+  const { portalRoutes } = await import('../routes/portal.js');
   lib = await import('../lib/main-facilitator.js');
   connections = await import('../lib/connections.js');
   app = new Hono();
   const v1 = new Hono();
   v1.use('*', appContext);
   v1.route('/thread', threadRoutes);
+  v1.route('/me', portalRoutes);
   app.route('/api/v1', v1);
 
   const threadAppId = (await service.from('app').select('id').eq('slug', 'the-thread').single()).data!.id;
@@ -330,3 +332,33 @@ describe('a host or facilitator sees that they are one', () => {
     expect(theirs?.my_role).toBeNull();
   });
 });
+
+describe('a host’s my.thread', () => {
+  it('a pure host (account, no person row) sees the thread they host, only their sessions, no RSVP', async () => {
+    const annaRow = (await service.from('thread_thread_organiser').select('id').eq('thread_id', threadId).eq('organiser_id', facilitatorOrgId).single()).data!.id as string;
+    // A session Anna is NOT on, published.
+    await service.from('thread_engagement').update({ excluded_people: [annaRow], status: 'published', show_in_agenda: true }).eq('id', ids.typed);
+    await service.from('program').update({ status: 'active' }).eq('id', programId);
+    try {
+      const res = await app.request('/api/v1/me/portal', {
+        headers: { Authorization: `Bearer ${facilitator.accessToken}`, 'X-App-ID': 'fibre-platform' },
+      });
+      expect(res.status, await res.clone().text()).toBe(200);
+      const body = await res.json();
+      const t = (body.groups as { threads: { thread_id: string; my_role: string | null; enrolment_status: string | null; certificate: unknown; agenda: { id: string; my_role: string | null; rsvp_enabled: boolean }[] }[]; tickets: unknown[] }[])
+        .flatMap((g) => g.threads)
+        .find((x) => x.thread_id === threadId);
+      expect(t, 'the hosted thread is in their portal').toBeTruthy();
+      expect(t!.my_role).toBe('facilitator');
+      expect(t!.enrolment_status).toBeNull();
+      expect(t!.certificate).toBeNull();
+      expect(t!.agenda.length, 'they are on at least one session').toBeGreaterThan(0);
+      expect(t!.agenda.every((a) => a.my_role === 'facilitator'), 'only sessions they are ticked on').toBe(true);
+      expect(t!.agenda.some((a) => a.id === ids.typed), 'not the session they were taken off').toBe(false);
+      expect(t!.agenda.every((a) => a.rsvp_enabled === false), 'no RSVP for a host').toBe(true);
+    } finally {
+      await service.from('program').update({ status: 'draft' }).eq('id', programId);
+    }
+  });
+});
+
