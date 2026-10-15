@@ -18,6 +18,7 @@ import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { logMemberActivity, memberEmailLocale } from './membership.js';
 import { membershipRenewalChanged, greetingName } from '../lib/email/membership-templates.js';
 import { sendEmail } from '../lib/email/client.js';
+import { getBuyerDetails, saveBuyerDetails } from '../lib/buyer-details.js';
 import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
 
 export const membershipPurchaseRoutes = new Hono();
@@ -160,5 +161,31 @@ membershipPurchaseRoutes.post('/me/renewals/:memberId', async (c) => {
   } catch (e) {
     console.error('[membership/purchases] renewal update failed', { member: m.id, message: (e as Error).message });
     return c.json({ error: 'could not change the renewal — try again shortly' }, 502);
+  }
+});
+
+// GET /membership/portal/me/billing-details — the member's billing details as
+// a buyer (lib/buyer-details.ts): stored, else the last checkout's snapshot
+// (`from_checkout: true`, so the page can say where it came from).
+membershipPurchaseRoutes.get('/me/billing-details', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  return c.json(await getBuyerDetails(email));
+});
+
+// PUT /membership/portal/me/billing-details — save them. Stored in The Fibre,
+// synced TO each Stripe customer, and — on a new country or VAT number — the
+// VAT of every running membership re-decided from its next invoice. The
+// answer says, per membership, what changed.
+membershipPurchaseRoutes.put('/me/billing-details', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body !== 'object') return c.json({ error: 'expected a JSON body' }, 400);
+  try {
+    return c.json(await saveBuyerDetails(email, body));
+  } catch (e) {
+    console.error('[membership/purchases] billing details save failed', (e as Error).message);
+    return c.json({ error: 'could not save your billing details — try again shortly' }, 500);
   }
 });

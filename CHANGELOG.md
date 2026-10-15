@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.219.0] — 2026-10-16
+
+### my.thread → Purchases: your billing details, kept in The Fibre (my 0.15.0)
+
+Sjoerd: *"Manage payment should not go to Stripe. We want to organise
+everything in THE FIBRE."* P2 of the Purchases plan.
+
+- **Billing details on Purchases:** name, company, address, postal code,
+  city, country, VAT number — editable, stored in
+  `identity_billing.buyer_details` (keyed by email, so they follow the person
+  across communities). Before the first save the form starts from the last
+  checkout's details and says so. You shows them read-only and links here.
+- **Told to Stripe, never read from it:** saving updates each running
+  membership's Stripe customer (the name and address Stripe prints on its
+  receipts).
+- **A new country or VAT number re-decides the VAT** of each running
+  membership under the excl. rule, by the one rule (lib/sale-vat.ts): its tax
+  rate, its platform-fee percentage (on the net) and its VAT metadata change
+  from the NEXT invoice — nothing prorated, nothing charged now. The save
+  says, per community, what changed.
+- **Invoices already issued keep their details:** each purchase keeps its own
+  snapshot in `purchase.billing`.
+- `GET/PUT /membership/portal/me/billing-details`; `/me/profile` reads the
+  stored details first.
+- Pre-filling the join form from these (for a signed-in member, seen and
+  confirmed) follows with P3/P4.
+- Tests: `buyer-details.int.test.ts` on staging against a Stripe TEST
+  subscription (3 — saved and synced to the Stripe customer; moving to the US
+  takes the VAT off the next invoice with no invoice created now; back in NL
+  is 21% again), in a permanent fixture workspace, checked empty at the end.
+
 ## [1.218.0] — 2026-10-16
 
 ### Member prices use the batched walk; my.thread survives an API one release behind (my.thread 0.14.2)

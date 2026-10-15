@@ -61,6 +61,7 @@
 // whoever adds them.
 // ===========================================================================
 
+import { getBuyerDetails } from '../lib/buyer-details.js';
 import { hostedThreadsFor } from '../lib/main-facilitator.js';
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
@@ -1713,19 +1714,10 @@ portalRoutes.get('/profile', async (c) => {
   const platformName = ((identity?.display_name as string | null) ?? '').trim();
   const [pFirst, ...pRest] = platformName ? platformName.split(/\s+/) : [];
 
-  // THE BILLING DETAILS last given at a checkout (read-only here; editing
-  // them in The Fibre comes with Purchases — Sjoerd: "Manage payment should
-  // not go to Stripe"). From the newest paid ledger row of this email that
-  // carries an address.
-  const { data: billed } = await adminClient
-    .from('purchase')
-    .select('billing, paid_at')
-    .eq('payer_email', email)
-    .eq('status', 'paid')
-    .not('billing->>address', 'is', null)
-    .order('paid_at', { ascending: false })
-    .limit(1);
-  const b = ((billed ?? [])[0]?.billing ?? null) as Record<string, unknown> | null;
+  // THE BILLING DETAILS (lib/buyer-details.ts): the member's own, kept in
+  // The Fibre and edited on Purchases; else the last checkout's snapshot.
+  const buyer = await getBuyerDetails(email);
+  const b = buyer.address || buyer.company || buyer.country ? (buyer as unknown as Record<string, unknown>) : null;
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
   return c.json({

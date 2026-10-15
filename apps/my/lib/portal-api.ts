@@ -771,3 +771,28 @@ export async function fetchRenewals(accessToken: string): Promise<MyRenewal[] | 
     return null;
   }
 }
+
+/** The member's billing details as a buyer (Purchases, P2). */
+export type BuyerDetails = {
+  name: string | null;
+  company: string | null;
+  address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string | null;
+  tax_no: string | null;
+  /** Not saved yet: the last checkout's details, shown as a start. */
+  from_checkout?: boolean;
+};
+
+export async function fetchBuyerDetails(accessToken: string): Promise<BuyerDetails | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/membership/portal/me/billing-details`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    return res.ok ? ((await res.json()) as BuyerDetails) : null;
+  } catch {
+    return null;
+  }
+}

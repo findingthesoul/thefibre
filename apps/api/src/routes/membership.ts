@@ -2531,7 +2531,7 @@ const PublicJoin = z.object({
 // The workspace's plan fee, as Stripe wants it for subscriptions: a percent.
 // The fixed cap from lib/fees.ts cannot apply — application_fee_amount does
 // not exist in subscription mode (documented in the proposal §3.3).
-async function platformFeePercent(workspaceId: string): Promise<number> {
+export async function platformFeePercent(workspaceId: string): Promise<number> {
   try {
     const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', { ws_id: workspaceId });
     const row = Array.isArray(feeRows) ? (feeRows[0] as { pct: number | string } | undefined) : null;

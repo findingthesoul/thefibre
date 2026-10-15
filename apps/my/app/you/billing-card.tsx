@@ -1,5 +1,4 @@
-// The billing details a member last gave at a checkout — READ-ONLY for now.
-// Editing them in The Fibre comes with Purchases (Sjoerd, 2026-10-15:
+// The member's billing details — read-only here; edited on Purchases (P2) (Sjoerd, 2026-10-15:
 // "Manage payment should not go to Stripe. We want to organise everything in
 // THE FIBRE."), so there is deliberately no link to Stripe's portal here.
 
@@ -25,7 +24,9 @@ export function BillingCard({ details }: { details: NonNullable<MyProfile['billi
           </div>
         ))}
       </dl>
-      <p className="mt-2 text-xs text-ink-muted">As given at your last payment. Editing your billing details here is coming soon.</p>
+      <p className="mt-2 text-xs text-ink-muted">
+        Change them under <a href="/purchases" className="underline underline-offset-2">Purchases</a>.
+      </p>
     </section>
   );
 }
