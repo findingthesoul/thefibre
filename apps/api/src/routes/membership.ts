@@ -2354,6 +2354,10 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
     // community adds it by the buyer's country — so the page asks for the
     // country and shows excl. / VAT / total (GET /public/vat-quote).
     vat_registered: !!(await resolveSellerVat(ws.id)),
+    // Additive (2026-10-16): the rate a buyer pays before saying where they
+    // are — the seller's HOME rate, by THE rule (saleVat with no country).
+    // The cards show "€363 incl. 21% VAT" with it; null when no VAT is added.
+    vat_home_rate_pct: (await saleVat({ workspaceId: ws.id, net_cents: 10000, country: null })).rate_pct || null,
     tiers: (tiers ?? []).map((t) => ({
       ...t,
       // Included vs optional split (the tick-box add-ons) — the admin GET got

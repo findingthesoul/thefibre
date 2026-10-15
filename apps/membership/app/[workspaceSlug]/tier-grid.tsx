@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { applyPct, evaluatePriceLogic, type PriceLogic } from '@thefibre/shared/price-logic';
+import { VatBreakdown, VatInclNote } from '@thefibre/shared/ui/vat-price';
 import { Check } from 'lucide-react';
 import { COUNTRIES, COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import { payLineFor } from '@/lib/pay-line';
@@ -49,6 +50,7 @@ export function TierGrid({
   initialTierId,
   priceLogic = null,
   vatRegistered = false,
+  vatHomeRatePct = null,
   locale = 'en',
   workspaceName,
   membersAreaUrl,
@@ -62,6 +64,8 @@ export function TierGrid({
   /** Prices are excl. VAT and this community adds it (2026-10-15): the page
    *  asks for the country and shows excl. / VAT / total. */
   vatRegistered?: boolean;
+  /** The seller's home VAT rate: "incl. VAT" before a country is chosen. */
+  vatHomeRatePct?: number | null;
   /** Resolved server-side by the page (Thread pattern) — never from cookies. */
   locale?: Locale;
   /** The community's own name, for the consent sentence when a tier confers
@@ -133,6 +137,7 @@ export function TierGrid({
             country={country}
             priceLogic={priceLogic}
             vatRegistered={vatRegistered}
+            vatHomeRatePct={vatHomeRatePct}
             workspaceName={workspaceName}
             membersAreaUrl={membersAreaUrl}
             terms={terms}
@@ -155,6 +160,7 @@ function TierCard({
   country,
   priceLogic,
   vatRegistered = false,
+  vatHomeRatePct = null,
   locale,
   workspaceName,
   membersAreaUrl,
@@ -171,6 +177,8 @@ function TierCard({
   country: string;
   priceLogic: PriceLogic | null;
   vatRegistered?: boolean;
+  /** The seller's home VAT rate: "incl. VAT" before a country is chosen. */
+  vatHomeRatePct?: number | null;
   locale: Locale;
   /** The community's own name, for the consent sentence when a tier confers
    *  no category: "Show me in the members area of Soul". */
@@ -214,6 +222,9 @@ function TierCard({
   }
 
   const currency = tier.currency ?? 'EUR';
+  // The rate the "incl. VAT" notes use: the quote once a country is known
+  // (0 for a reverse charge or outside the EU — then no note), else home.
+  const cardRatePct = vatQuote ? vatQuote.rate_pct : vatHomeRatePct;
   const hasYear = tier.price_cents_year != null && tier.price_cents_year > 0;
   const hasMonth = tier.price_cents_month != null && tier.price_cents_month > 0;
   // THE TIER'S OWN RULE WHERE IT HAS ONE, which is what the charge uses
@@ -482,6 +493,17 @@ function TierCard({
           <span className="text-sm text-ink-subtle">{t(locale, 'price_on_request')}</span>
         )}
       </div>
+      {/* "€363 incl. 21% VAT" (shared with the product cards, Thread and
+          Meet): the home rate until a country is chosen, then that one's. */}
+      {vatRegistered && (hasYear || hasMonth) && (
+        <VatInclNote
+          netCents={hasYear ? adjustedYear! : adjustedMonth!}
+          ratePct={cardRatePct}
+          currency={currency}
+          locale={locale}
+          className="mt-0.5"
+        />
+      )}
       {hasYear && hasMonth && (
         <div className="mt-0.5 text-xs text-ink-muted">
           {t(locale, 'or_month', { price: money(adjustedMonth!, currency) })}
@@ -555,6 +577,11 @@ function TierCard({
             }}
             className="space-y-2.5"
           >
+            {/* The price incl. VAT at the top, before a country is chosen;
+                the excl. / VAT / total lines below take over once it is. */}
+            {vatRegistered && !vatQuote && (payNowCents ?? 0) > 0 && (
+              <VatInclNote netCents={payNowCents!} ratePct={vatHomeRatePct} currency={currency} locale={locale} />
+            )}
             {hasYear && hasMonth && (
               <div className="grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
                 {(
@@ -850,26 +877,11 @@ function TierCard({
             </label>
             {/* The sentence, immediately above the button that acts on it. */}
             {vatRegistered && (payNowCents ?? 0) > 0 && (
-              <div className="text-xs tabular-nums text-ink-subtle">
-                {vatQuote ? (
-                  <>
-                    <div className="flex justify-between">
-                      <span>{t(locale, 'excl_vat')}</span>
-                      <span>{money(payNowCents!, currency)}</span>
-                    </div>
-                    <div className="mt-0.5 flex justify-between">
-                      <span>{vatQuote.reverse_charge ? t(locale, 'vat_reverse_charged') : vatQuote.rate_pct > 0 ? `${t(locale, 'vat')} ${vatQuote.rate_pct}%` : t(locale, 'vat_out_of_scope')}</span>
-                      <span>{money(Math.round((payNowCents! * vatQuote.rate_pct) / 100), currency)}</span>
-                    </div>
-                    <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
-                      <span>{t(locale, 'total_incl_vat')}</span>
-                      <span>{money(payNowCents! + Math.round((payNowCents! * vatQuote.rate_pct) / 100), currency)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <p>{t(locale, 'prices_excl_vat_choose_country')}</p>
-                )}
-              </div>
+              vatQuote ? (
+                <VatBreakdown netCents={payNowCents!} quote={vatQuote} currency={currency} locale={locale} />
+              ) : (
+                <p className="text-xs text-ink-subtle">{t(locale, 'prices_excl_vat_choose_country')}</p>
+              )
             )}
             {payLine && <p className="text-sm text-ink-subtle">{payLine}{vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}</p>}
             {state === 'already' && (

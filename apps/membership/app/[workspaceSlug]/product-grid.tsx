@@ -15,6 +15,7 @@ import { publicFetch, PublicApiError, type PublicProduct } from '@/lib/public-ap
 import { money } from '@/lib/money';
 import { t, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
+import { VatBreakdown, VatInclNote } from '@thefibre/shared/ui/vat-price';
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
@@ -26,11 +27,14 @@ export function ProductGrid({
   products,
   locale = 'en',
   vatRegistered = false,
+  vatHomeRatePct = null,
 }: {
   workspaceSlug: string;
   products: PublicProduct[];
   /** Prices are excl. VAT and this community adds it (2026-10-15). */
   vatRegistered?: boolean;
+  /** The seller's home rate, for "incl. VAT" before a country is chosen. */
+  vatHomeRatePct?: number | null;
   /** Resolved server-side by the page (Thread pattern) — never from cookies. */
   locale?: Locale;
 }) {
@@ -59,6 +63,7 @@ export function ProductGrid({
             product={product}
             locale={locale}
             vatRegistered={vatRegistered}
+            vatHomeRatePct={vatHomeRatePct}
           />
         ))}
       </div>
@@ -71,11 +76,13 @@ function ProductCard({
   product,
   locale,
   vatRegistered,
+  vatHomeRatePct,
 }: {
   workspaceSlug: string;
   product: PublicProduct;
   locale: Locale;
   vatRegistered: boolean;
+  vatHomeRatePct: number | null;
 }) {
   const currency = product.currency ?? 'EUR';
   const [open, setOpen] = useState(false);
@@ -99,7 +106,6 @@ function ProductCard({
     return () => clearTimeout(timer);
   }, [vatRegistered, country, vatNo, workspaceSlug]);
   const net = product.price_cents ?? 0;
-  const tax = vatQuote ? Math.round((net * vatQuote.rate_pct) / 100) : 0;
 
   // One idempotency key per page visit — double-submits collapse server-side
   // (it doubles as the Stripe idempotency key on the session create).
@@ -167,6 +173,17 @@ function ProductCard({
           {vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}
         </span>
       </div>
+      {/* "€363 incl. 21% VAT": the home rate until a country is chosen,
+          then that country's (nothing for a reverse charge or outside the EU). */}
+      {vatRegistered && (
+        <VatInclNote
+          netCents={net}
+          ratePct={vatQuote ? vatQuote.rate_pct : vatHomeRatePct}
+          currency={currency}
+          locale={locale}
+          className="mt-0.5"
+        />
+      )}
 
       {product.description && (
         <p className="mt-3 text-sm text-ink-subtle leading-relaxed">{product.description}</p>
@@ -226,22 +243,7 @@ function ProductCard({
                   autoComplete="off"
                   className={INPUT}
                 />
-                {vatQuote && (
-                  <div className="text-xs tabular-nums text-ink-subtle">
-                    <div className="flex justify-between">
-                      <span>{t(locale, 'excl_vat')}</span>
-                      <span>{money(net, currency)}</span>
-                    </div>
-                    <div className="mt-0.5 flex justify-between">
-                      <span>{vatQuote.reverse_charge ? t(locale, 'vat_reverse_charged') : vatQuote.rate_pct > 0 ? `${t(locale, 'vat')} ${vatQuote.rate_pct}%` : t(locale, 'vat_out_of_scope')}</span>
-                      <span>{money(tax, currency)}</span>
-                    </div>
-                    <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
-                      <span>{t(locale, 'total_incl_vat')}</span>
-                      <span>{money(net + tax, currency)}</span>
-                    </div>
-                  </div>
-                )}
+                {vatQuote && <VatBreakdown netCents={net} quote={vatQuote} currency={currency} locale={locale} />}
               </>
             )}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}

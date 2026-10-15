@@ -116,6 +116,7 @@ export default async function PublicJoinPage({
             initialTierId={initialTierId}
             priceLogic={catalog.price_logic ?? null}
             vatRegistered={catalog.vat_registered === true}
+            vatHomeRatePct={catalog.vat_home_rate_pct ?? null}
             locale={locale}
             workspaceName={workspace.name}
             // Where "Show me in …" points: this community's members area on
@@ -131,7 +132,7 @@ export default async function PublicJoinPage({
         )}
 
         {/* À-la-carte products — renders nothing when no product is purchasable. */}
-        <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} vatRegistered={catalog.vat_registered === true} />
+        <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} vatRegistered={catalog.vat_registered === true} vatHomeRatePct={catalog.vat_home_rate_pct ?? null} />
 
         <footer className="mt-16 text-xs text-ink-muted text-center">
           {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · {ENTITY.publicName}

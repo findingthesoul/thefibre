@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.221.0] — 2026-10-16
+
+### Prices show what they cost incl. VAT, small (Members 1.4.1)
+
+Sjoerd: *"in the purchasing popup (and maybe in the overview) also show
+(small) the price incl. VAT if applicable"* — *"Like in the product."*
+
+- **One shared piece, `@thefibre/shared/ui/vat-price`:** `VatInclNote` (the
+  small muted line "€363 incl. 21% VAT", nothing when no VAT applies) and
+  `VatBreakdown` (excl. / VAT, reverse-charged or outside the EU / total).
+  Labels in six locales. They only multiply the API's rate with the checkout
+  rule's rounding; the rate itself is never stated in a page. Thread and Meet
+  reuse them (builder 4).
+- **Members join page:** tier and product cards show the incl.-VAT line
+  under the price, at the seller's HOME rate until a country is chosen, then
+  that country's (none for a reverse charge or outside the EU). The join
+  popup shows it at the top before a country is chosen, and the existing
+  breakdown, now the shared one, once it is. The product popup's breakdown
+  is the shared one too.
+- **API:** the public catalogue gains `vat_home_rate_pct` (additive): the
+  rate by THE rule with no country (lib/sale-vat.ts), null when the
+  community is not VAT-registered.
+
 ## [1.220.0] — 2026-10-16
 
 ### Thread dates, part 4: every thread date line reads one rule (Thread 4.13.0, my.thread 0.15.1)
