@@ -1010,6 +1010,13 @@ const ThreadUpdate = z.object({
   // the first key moment, else the fallback (@thefibre/shared/thread-dates).
   // Validated against the thread below.
   signups_close_engagement_id: z.string().uuid().nullable().optional(),
+  // Moving the start date: move the timed items by the same number of days
+  // too (true, the default — what it always did) or change ONLY the start
+  // (false). Sjoerd, 2026-10-15: "In principle great behaviour, except that
+  // I did not want it. Maybe it should ask." The editor now asks and sends
+  // the answer; an absent value keeps the old behaviour for every other
+  // caller.
+  move_sessions: z.boolean().optional(),
 });
 
 /** Is this thread — after a pending save — live with public sign-up open?
@@ -1041,7 +1048,7 @@ threadRoutes.patch('/threads/:id', async (c) => {
   const db = userClient(ctx.jwt);
   const id = c.req.param('id');
 
-  const { title, status, starts_on, ends_on, ...threadPatch } = body.data;
+  const { title, status, starts_on, ends_on, move_sessions, ...threadPatch } = body.data;
 
   // Fetch the thread first — we need program_id and it confirms visibility.
   // The slug too: a rename keeps the old address answering (slug history).
@@ -1138,6 +1145,10 @@ threadRoutes.patch('/threads/:id', async (c) => {
         (Date.parse(starts_on) - Date.parse(prog.starts_on)) / 86_400_000,
       );
       const endUnchanged = ends_on === undefined || ends_on === prog.ends_on;
+      // "Only change the start date": nothing else moves — not the end, not
+      // the sessions. (Messages timed relative to the start follow it either
+      // way: they are computed from starts_on when they are sent.)
+      if (move_sessions === false) shiftDays = 0;
       if (shiftDays !== 0 && endUnchanged && prog.ends_on) {
         programPatch.ends_on = shiftDateOnly(prog.ends_on, shiftDays);
       }
@@ -1257,6 +1268,10 @@ threadRoutes.patch('/threads/:id', async (c) => {
       if (e.starts_at) patch.starts_at = shiftTimestamp(e.starts_at, shiftDays);
       if (e.ends_at) patch.ends_at = shiftTimestamp(e.ends_at, shiftDays);
       if (e.scheduled_at) patch.scheduled_at = shiftTimestamp(e.scheduled_at, shiftDays);
+      // A multi-day session's per-day dates move too. They did not until
+      // 2026-10-15, so a shifted session's outer range and its days disagreed.
+      const days = shiftDailySchedule(e.daily_schedule, shiftDays);
+      if (days) (patch as Record<string, unknown>).daily_schedule = days;
       if (Object.keys(patch).length) {
         const { data: moved } = await db
           .from('thread_engagement')
@@ -1295,6 +1310,14 @@ function shiftDateOnly(dateOnly: string, days: number): string {
   const d = new Date(`${dateOnly}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/** The per-day schedule moved by `days`, or null when there is none. */
+export function shiftDailySchedule(schedule: unknown, days: number): { date: string; start: string; end: string }[] | null {
+  if (!Array.isArray(schedule) || !schedule.length || !days) return null;
+  return (schedule as { date: string; start: string; end: string }[]).map((d) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(d?.date ?? '') ? { ...d, date: shiftDateOnly(d.date, days) } : d,
+  );
 }
 
 function shiftTimestamp(iso: string, days: number): string {

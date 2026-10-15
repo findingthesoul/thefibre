@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.211.0] — 2026-10-15
+
+### Moving a thread's start date asks first — and can be undone (Thread 4.11.0)
+
+Sjoerd moved the start date of a 2027 thread and every session moved with
+it: *"In principle great behaviour, except that I did not want it. Maybe it
+should ask."*
+
+- **The editor asks:** when the start date changes and the thread has dated
+  items, "Move the N items with a date by X days too?" — **Move sessions
+  too** / **Only change the start date** / Cancel. Messages timed relative
+  to the start follow the new start either way, and the dialog says so.
+- **The API takes the answer** as `move_sessions` on PATCH
+  `/threads/:id`: false changes only the start date (not the end, not the
+  items); true — and absent, for every other caller — moves everything dated
+  by the same number of days, as before.
+- **Fixed on the way:** a multi-day session's per-day dates
+  (`daily_schedule`) did not move with it, so its outer range and its days
+  disagreed after a shift. They now move too.
+- **Undo for a shift that already happened:**
+  `scripts/restore-thread-dates.ts prod|staging --workspace <slug> --thread
+  <slug> --was-start YYYY-MM-DD [--apply]`. The old shift moved every dated
+  item by ONE number of days, so given the original start date it reverses
+  exactly: the dry run lists every item now → restored and cross-checks
+  sent sessions against the calendar queue (one moved separately since is
+  flagged and left alone); `--apply` moves the rest back, restores the start
+  and end dates, and queues the calendar change for sent sessions. The
+  per-day dates move back only where they moved with the session — the old
+  shift left them in place. Rehearsed on a staging throwaway: shifted +21
+  days the old way, restored exactly (a first rehearsal caught the per-day
+  dates being moved back twice, fixed before this entry). Prod run is
+  Sjoerd's, with the thread and its original start date.
+- Tests: `thread-start-shift.int.test.ts` on staging (3 — only the start, the
+  start with everything including the per-day dates, absent = the old
+  behaviour).
+
 ## [1.210.0] — 2026-10-15
 
 ### A member's name survives the join; my.thread shows billing details (my 0.13.0)

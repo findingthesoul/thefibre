@@ -112,6 +112,63 @@ const CATALOG = {
     fr: 'En cours…', // MT
   },
   // Thread dates (2026-10-16): a key moment defines the public event dates.
+  // Moving the start date asks first (2026-10-15).
+  shift_sessions_title: {
+    en: 'Move the sessions too?',
+    nl: 'Ook de sessies verplaatsen?', // MT pending native review
+    es: '¿Mover también las sesiones?', // MT
+    pt: 'Mover também as sessões?', // MT
+    de: 'Auch die Sitzungen verschieben?', // MT
+    fr: 'Déplacer aussi les sessions ?', // MT
+  },
+  shift_sessions_body: {
+    en: 'The start date moves {days} days {direction}. Move the {count} items with a date by {days} days too?',
+    nl: 'De startdatum verschuift {days} dagen {direction}. Ook de {count} items met een datum {days} dagen verplaatsen?', // MT pending native review
+    es: 'La fecha de inicio se mueve {days} días {direction}. ¿Mover también los {count} elementos con fecha {days} días?', // MT
+    pt: 'A data de início muda {days} dias {direction}. Mover também os {count} itens com data {days} dias?', // MT
+    de: 'Das Startdatum verschiebt sich um {days} Tage {direction}. Auch die {count} Einträge mit Datum um {days} Tage verschieben?', // MT
+    fr: 'La date de début se décale de {days} jours {direction}. Déplacer aussi les {count} éléments datés de {days} jours ?', // MT
+  },
+  shift_later: {
+    en: 'later',
+    nl: 'later', // MT pending native review
+    es: 'más tarde', // MT
+    pt: 'mais tarde', // MT
+    de: 'später', // MT
+    fr: 'plus tard', // MT
+  },
+  shift_earlier: {
+    en: 'earlier',
+    nl: 'eerder', // MT pending native review
+    es: 'antes', // MT
+    pt: 'mais cedo', // MT
+    de: 'früher', // MT
+    fr: 'plus tôt', // MT
+  },
+  shift_relative_note: {
+    en: 'Messages timed relative to the start date follow the new start either way.',
+    nl: 'Berichten die relatief aan de startdatum zijn ingesteld, volgen hoe dan ook de nieuwe start.', // MT pending native review
+    es: 'Los mensajes programados respecto a la fecha de inicio siguen el nuevo inicio en cualquier caso.', // MT
+    pt: 'As mensagens programadas em relação à data de início seguem o novo início em qualquer caso.', // MT
+    de: 'Nachrichten, die relativ zum Startdatum geplant sind, folgen in jedem Fall dem neuen Start.', // MT
+    fr: 'Les messages programmés par rapport à la date de début suivent le nouveau début dans tous les cas.', // MT
+  },
+  shift_only_start: {
+    en: 'Only change the start date',
+    nl: 'Alleen de startdatum wijzigen', // MT pending native review
+    es: 'Cambiar solo la fecha de inicio', // MT
+    pt: 'Alterar só a data de início', // MT
+    de: 'Nur das Startdatum ändern', // MT
+    fr: 'Changer seulement la date de début', // MT
+  },
+  shift_move_too: {
+    en: 'Move sessions too',
+    nl: 'Sessies ook verplaatsen', // MT pending native review
+    es: 'Mover también las sesiones', // MT
+    pt: 'Mover também as sessões', // MT
+    de: 'Sitzungen auch verschieben', // MT
+    fr: 'Déplacer aussi les sessions', // MT
+  },
   key_moment: {
     en: 'Key moment',
     nl: 'Kernmoment', // MT pending native review

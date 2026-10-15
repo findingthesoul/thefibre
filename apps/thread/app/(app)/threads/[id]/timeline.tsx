@@ -1243,6 +1243,7 @@ function SettingsTabs({
             categories={categories}
             workspaceSlug={workspaceSlug}
             onSaved={onSaved}
+            timedSessionCount={timedSessions.length}
           />
           <MembersPanel
             locale={locale}

@@ -15,6 +15,7 @@ import { uploadAsset } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
 import { SwitchField } from '@/components/ui/switch';
 import { SectionLabel } from '@/components/ui/page';
+import { Dialog } from '@/components/ui/dialog';
 import { THREAD_HOST } from '@/lib/public-host';
 
 type PublishScope = 'personal' | 'team' | 'workspace';
@@ -27,6 +28,7 @@ export function ThreadEditorForm({
   categories = [],
   workspaceSlug = null,
   onSaved,
+  timedSessionCount = 0,
 }: {
   locale: Locale;
   thread: ThreadRow;
@@ -39,6 +41,8 @@ export function ThreadEditorForm({
   workspaceSlug?: string | null;
   /** Popups close after save (Sjoerd 2026-07-02). */
   onSaved?: () => void;
+  /** How many items have a start — what a new start date would move. */
+  timedSessionCount?: number;
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -64,6 +68,11 @@ export function ThreadEditorForm({
   // End date can only follow the start date.
   const [startsOn, setStartsOn] = useState(program?.starts_on ?? '');
   const [pending, startTransition] = useTransition();
+  // MOVING THE START DATE ASKS FIRST (Sjoerd, 2026-10-15: "In principle great
+  // behaviour, except that I did not want it. Maybe it should ask."). Holds
+  // the save until the organiser chooses; the choice goes to the API as
+  // move_sessions.
+  const [askShift, setAskShift] = useState<{ days: number; patch: Record<string, unknown> } | null>(null);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(
     () =>
       new Set(
@@ -101,8 +110,22 @@ export function ThreadEditorForm({
     if (!patch.slug) return setError(t(locale, 'err_thread_needs_slug'));
     if (scope === 'team' && !teamId) return setError(t(locale, 'err_pick_team'));
 
+    const was = program?.starts_on ?? null;
+    const days = was && patch.starts_on ? Math.round((Date.parse(patch.starts_on) - Date.parse(was)) / 86_400_000) : 0;
+    if (days !== 0 && timedSessionCount > 0) {
+      setAskShift({ days, patch });
+      return;
+    }
+    save(patch);
+  }
+
+  function save(patch: Record<string, unknown>, moveSessions?: boolean) {
+    setAskShift(null);
     startTransition(async () => {
-      const r = await updateThread(thread.id, patch);
+      const r = await updateThread(thread.id, {
+        ...patch,
+        ...(moveSessions === undefined ? {} : { move_sessions: moveSessions }),
+      } as Parameters<typeof updateThread>[1]);
       if (!r.ok) return setError(r.error);
       const rc = await setThreadCategories(thread.id, [...selectedCats]);
       if (!rc.ok) return setError(rc.error);
@@ -116,6 +139,35 @@ export function ThreadEditorForm({
     // In the settings dialog (compact) the Save button lives in the shared
     // dialog footer and submits this form by id.
     <form id="thread-basics-form" onSubmit={onSubmit} className="mt-8 space-y-8">
+      <Dialog
+        open={!!askShift}
+        onClose={() => setAskShift(null)}
+        title={t(locale, 'shift_sessions_title')}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setAskShift(null)}>
+              {t(locale, 'cancel')}
+            </Button>
+            <Button type="button" variant="secondary" disabled={pending} onClick={() => askShift && save(askShift.patch, false)}>
+              {t(locale, 'shift_only_start')}
+            </Button>
+            <Button type="button" variant="save" disabled={pending} onClick={() => askShift && save(askShift.patch, true)}>
+              {t(locale, 'shift_move_too')}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-subtle">
+          {askShift &&
+            t(locale, 'shift_sessions_body', {
+              count: String(timedSessionCount),
+              days: String(Math.abs(askShift.days)),
+              direction: t(locale, askShift.days > 0 ? 'shift_later' : 'shift_earlier'),
+            })}
+        </p>
+        <p className="mt-2 text-xs text-ink-muted">{t(locale, 'shift_relative_note')}</p>
+      </Dialog>
       <div>
         <SectionLabel>{t(locale, 'basics')}</SectionLabel>
         <div className="mt-3 space-y-6">
