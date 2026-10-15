@@ -490,7 +490,7 @@ export async function sendPendingChanges(args: {
   const { data: thread } = await adminClient
     .from('thread_thread')
     .select(
-      `id, workspace_id,
+      `id, workspace_id, timezone,
        program:program_id (title),
        organiser:organiser_id (display_name, user:user_id (email, full_name))`,
     )
@@ -526,6 +526,13 @@ export async function sendPendingChanges(args: {
   // "Sjoerd Luteijn" in the inbox and in the calendar entry, and Reply-To
   // still reaches them. What a person sees is the organiser; what the
   // protocol checks is consistent.
+  //
+  // ORGANIZER MUST BE A MAILBOX THAT ACCEPTS MAIL. An attendee who presses
+  // Accept makes their calendar send an iTIP REPLY to it; when it did not
+  // exist, every Accept came back as a 550 "account does not exist" bounce in
+  // the attendee's inbox (Sjoerd's calendar check, 2026-10-15).
+  // noreply@thethread.app is a Google Group (no members, external posting
+  // on) for exactly that reason: a 550 bounce on Accept means it was removed.
   //
   // The alternative — invitations genuinely FROM each organiser's address —
   // needs every organiser to verify their own domain with us, which is real
@@ -613,9 +620,9 @@ export async function sendPendingChanges(args: {
         sessionTitle: change.title,
         threadTitle,
         organiserName,
-        whenLine: whenLine(startsAt, endsAt),
+        whenLine: whenLine(startsAt, endsAt, (thread.timezone as string | null) ?? 'UTC'),
         wasLine: change.kind === 'moved' && change.was?.starts_at
-          ? whenLine(new Date(change.was.starts_at), change.was.ends_at ? new Date(change.was.ends_at) : null)
+          ? whenLine(new Date(change.was.starts_at), change.was.ends_at ? new Date(change.was.ends_at) : null, (thread.timezone as string | null) ?? 'UTC')
           : null,
         whereLine: state.location ?? null,
         note: args.note ?? null,
@@ -708,17 +715,33 @@ async function nextSequence(engagementId: string | null): Promise<number> {
 /** A date a person can read, in the organiser's words rather than ISO. The
  *  calendar entry itself carries the real instant; this is the sentence in the
  *  email beside it. */
-export function whenLine(startsAt: Date, endsAt: Date | null): string {
+export function whenLine(startsAt: Date, endsAt: Date | null, timeZone = 'UTC'): string {
+  // In the THREAD's timezone, with the zone named (2026-10-15: Sjoerd's
+  // invitation read "15:00–16:00 UTC" for a session at 17:00 in Amsterdam).
+  // The .ics carries the exact instant either way; this is the sentence.
+  const tz = safeZone(timeZone);
   const day = startsAt.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    timeZone: 'UTC',
+    timeZone: tz,
   });
   const time = (d: Date) =>
-    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-  return endsAt ? `${day}, ${time(startsAt)}–${time(endsAt)} UTC` : `${day}, ${time(startsAt)} UTC`;
+    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+  const zone = tz === 'UTC' ? 'UTC' : `${tz.split('/').pop()!.replace(/_/g, ' ')} time`;
+  return endsAt ? `${day}, ${time(startsAt)}–${time(endsAt)} (${zone})` : `${day}, ${time(startsAt)} (${zone})`;
+}
+
+/** A zone name Intl accepts, else UTC — a typo in a thread's timezone must
+ *  not throw inside a send. */
+function safeZone(tz: string): string {
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: tz });
+    return tz;
+  } catch {
+    return 'UTC';
+  }
 }
 
 // ---------------------------------------------------------------------------

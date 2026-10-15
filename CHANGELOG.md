@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.204.1] — 2026-10-15
+
+### Calendar invitations: the thread's own time, the organiser's name
+
+- **The time is in the thread's timezone.** Every invitation email printed
+  UTC, so an Amsterdam session at 15:00 read "13:00–15:00 UTC" in summer and
+  "14:00–16:00 UTC" in winter. It now reads "15:00–17:00 (Amsterdam time)".
+  An unknown zone falls back to UTC rather than failing the send.
+- **Signed by the organiser**, not "— The Fibre": the invitation is theirs.
+- **The cancellation says what was sent:** "We've sent your calendar the
+  cancellation. If the session is still there, open the attached file to
+  remove it." Measured in Apple Calendar (the event went on its own); Gmail
+  is not yet measured, so it does not claim more.
+- A note in `calendar-invite.ts`: the ORGANIZER address must accept mail.
+  `noreply@thethread.app` is now a Google Group; an Accept that bounces 550
+  means it was removed. Verified 2026-10-15 on staging: Sjoerd accepted a
+  fresh invitation and no bounce came back (it used to arrive within about
+  two minutes).
 ## [1.204.0] — 2026-10-15
 
 ### Thread list embeds: filters for visitors, include/exclude for the site

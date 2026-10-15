@@ -10,6 +10,7 @@ import {
   calendarStateChanged,
   calendarStateOf,
   collapseDecision,
+  whenLine,
   type CalendarState,
 } from './calendar-invite.js';
 import { calendarInviteEmail } from './email/thread-templates.js';
@@ -175,7 +176,19 @@ describe('calendarInviteEmail — what it promises', () => {
       expect(mail.text).not.toMatch(/has been updated/i);
     }
     expect(calendarInviteEmail({ ...base, kind: 'moved' }).text).toMatch(/attached if you need to add it/i);
-    expect(calendarInviteEmail({ ...base, kind: 'cancelled' }).text).toMatch(/take it out/i);
+    expect(calendarInviteEmail({ ...base, kind: 'cancelled' }).text).toMatch(/open the attached file to remove it/i);
+  });
+
+  // The invitation is the organiser's, so the mail is signed by them — not
+  // "— The Fibre" under a Thread invitation.
+  it('is signed by the organiser, in both halves', () => {
+    for (const kind of ['added', 'moved', 'cancelled'] as const) {
+      const mail = calendarInviteEmail({ ...base, kind });
+      expect(mail.text.trimEnd().endsWith('— Sjoerd Luteijn')).toBe(true);
+      expect(mail.html).toContain('— Sjoerd Luteijn');
+      expect(mail.text).not.toMatch(/The Fibre/);
+    }
+    expect(calendarInviteEmail({ ...base, kind: 'added', organiserName: '' }).text.trimEnd().endsWith('— The Thread')).toBe(true);
   });
 
   it('keeps an organiser’s own words, and does not let them inject markup', () => {
@@ -199,5 +212,30 @@ describe('enrolmentHoldsAPlace', () => {
   });
   it('every live status is', () => {
     for (const s of ['invited', 'enrolled', 'active', 'completed']) expect(enrolmentHoldsAPlace(s), s).toBe(true);
+  });
+});
+
+// THE TIME IN THE THREAD'S OWN ZONE. Until 2026-10-15 every invitation email
+// printed UTC, so an Amsterdam session at 15:00 read "13:00–15:00 UTC" in
+// summer and "14:00–16:00 UTC" in winter.
+describe('whenLine', () => {
+  it('summer time in Amsterdam', () => {
+    expect(whenLine(new Date('2027-06-08T13:00:00Z'), new Date('2027-06-08T15:00:00Z'), 'Europe/Amsterdam')).toBe(
+      'Tuesday, 8 June 2027, 15:00–17:00 (Amsterdam time)',
+    );
+  });
+  it('winter time in Amsterdam — the same wall clock, an hour different in UTC', () => {
+    expect(whenLine(new Date('2027-02-09T14:00:00Z'), new Date('2027-02-09T16:00:00Z'), 'Europe/Amsterdam')).toBe(
+      'Tuesday, 9 February 2027, 15:00–17:00 (Amsterdam time)',
+    );
+  });
+  it('the day follows the zone, not UTC', () => {
+    expect(whenLine(new Date('2027-02-09T23:30:00Z'), null, 'Europe/Amsterdam')).toBe('Wednesday, 10 February 2027, 00:30 (Amsterdam time)');
+  });
+  it('an unknown zone falls back to UTC rather than throwing', () => {
+    expect(whenLine(new Date('2027-02-09T14:00:00Z'), null, 'Mars/Olympus')).toBe('Tuesday, 9 February 2027, 14:00 (UTC)');
+  });
+  it('a multi-word zone reads as words', () => {
+    expect(whenLine(new Date('2027-02-09T14:00:00Z'), null, 'America/New_York')).toBe('Tuesday, 9 February 2027, 09:00 (New York time)');
   });
 });

@@ -479,14 +479,21 @@ export function calendarInviteEmail(c: {
   // explicitly not to act.
   lines.push(
     c.kind === 'cancelled'
-      ? 'If you have this in your calendar, you can take it out.'
+      // Measured 2026-10-15: Apple Calendar removed the event on its own, and
+      // opening the file showed the cancellation. Gmail is not yet measured,
+      // so this says what was SENT, not what the calendar did.
+      ? "We've sent your calendar the cancellation. If the session is still there, open the attached file to remove it."
       : c.kind === 'moved'
         ? 'The new time is above. The invitation is attached if you need to add it.'
         : 'The invitation is attached, if you would like it in your calendar.',
   );
 
+  // Signed by the ORGANISER: the invitation is theirs (its ORGANIZER name),
+  // not the platform's. "— The Fibre" under a Thread invitation read as
+  // somebody else's mail (Sjoerd, 2026-10-15).
+  const signoff = `— ${c.organiserName || 'The Thread'}`;
   const body = lines.join('\n');
-  const text = `${body}\n\n${emailSignoff()}`;
+  const text = `${body}\n\n${signoff}`;
 
   const html = shell(
     c.threadTitle,
@@ -504,7 +511,7 @@ export function calendarInviteEmail(c: {
           : ''
       }
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(lines[lines.length - 1]!)}</p>
-      <p style="margin:16px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
+      <p style="margin:16px 0 0;font-size:14px;color:#525252;">${escapeHtml(signoff)}</p>
     `,
     c.brand,
   );
