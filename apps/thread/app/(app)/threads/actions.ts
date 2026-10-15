@@ -657,3 +657,24 @@ export async function sendCalendarChanges(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+/** Where this thread's money goes (GET /threads/:id/payment-route) — for the
+ *  check before going live. Null when it cannot be read: the caller then
+ *  proceeds, because the publish guard on the server still refuses a thread
+ *  with no working route. */
+export type PaymentRoute =
+  | { paid: false }
+  | {
+      paid: true;
+      card: { owner: 'organiser' | 'workspace' | 'team_lead' | 'unknown'; owner_name: string; stripe_name: string | null } | null;
+      invoice: { seller_name: string | null } | null;
+    };
+
+export async function getPaymentRoute(threadId: string): Promise<PaymentRoute | null> {
+  try {
+    return await apiFetch<PaymentRoute>(`/api/v1/thread/threads/${threadId}/payment-route`);
+  } catch {
+    return null;
+  }
+}
+

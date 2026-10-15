@@ -58,6 +58,7 @@ import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { Button } from '@/components/ui/button';
 import { DateTimeField } from '@/components/ui/date-field';
 import { EngagementDialog, toLocalInput } from './engagements';
+import { usePaymentCheck } from './payment-check';
 import { ThreadEditorForm } from './form';
 import { RegistrationsDialog } from './registrations-dialog';
 import { saveThreadAsTemplate } from '../../templates/threads/actions';
@@ -396,12 +397,24 @@ export function ThreadTimeline({
   // The save's refusal, said where the click was. It used to be dropped:
   // a refused publish simply did not happen, with nothing on screen.
   const [statusError, setStatusError] = useState<string | null>(null);
+  // The check before a PAID thread goes live: where its money goes.
+  const payCheck = usePaymentCheck({
+    threadId: thread.id,
+    locale,
+    onChangeDestination: () => {
+      setSettingsTab('pricing');
+      setSettingsOpen(true);
+    },
+  });
   function setStatus(next: string) {
-    startTransition(async () => {
-      const r = await updateThread(thread.id, { status: next });
-      setStatusError(r.ok ? null : r.error);
-      router.refresh();
-    });
+    const save = () =>
+      startTransition(async () => {
+        const r = await updateThread(thread.id, { status: next });
+        setStatusError(r.ok ? null : r.error);
+        router.refresh();
+      });
+    if (next === 'active' && status !== 'active') void payCheck.check('publish', save);
+    else save();
   }
   // Before the click: a paid thread with no way to pay cannot go live, and
   // the API says why on the thread itself (publish_blocker), from the same
@@ -781,6 +794,8 @@ export function ThreadTimeline({
           onClose={() => setEditorState({ mode: 'closed' })}
         />
       )}
+
+      {payCheck.dialog}
 
       {settingsOpen && (
         <Dialog
@@ -1244,6 +1259,8 @@ function SettingsTabs({
             enrolmentNote={thread.enrolment_note ?? null}
             workspaceNote={workspaceNote}
             onSaved={onSaved}
+            live={one(thread.program)?.status === 'active'}
+            onChangeDestination={() => onTabChange('pricing')}
           />
         </fieldset>
       </div>

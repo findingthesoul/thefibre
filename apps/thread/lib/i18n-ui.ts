@@ -3900,6 +3900,78 @@ const CATALOG = {
     de: '{name} ist nicht mehr in dieser Sitzung, daher nutzt sie den Raum der Hauptmoderation.', // MT
     fr: '{name} ne fait plus partie de cette session : elle utilise la salle de l’animateur principal.', // MT
   },
+  pay_check_title: {
+    en: 'Where do payments for this thread go?',
+    nl: 'Waar gaan de betalingen voor deze thread naartoe?', // MT
+    es: '¿Adónde van los pagos de este hilo?', // MT
+    pt: 'Para onde vão os pagamentos deste fio?', // MT
+    de: 'Wohin gehen die Zahlungen für diesen Thread?', // MT
+    fr: 'Où vont les paiements de ce fil ?', // MT
+  },
+  pay_check_intro: {
+    en: 'Before people can pay, check that this is right.',
+    nl: 'Controleer dit voordat mensen kunnen betalen.', // MT
+    es: 'Antes de que la gente pueda pagar, comprueba que es correcto.', // MT
+    pt: 'Antes de as pessoas poderem pagar, confirma que está certo.', // MT
+    de: 'Bevor Menschen zahlen können, prüfe, ob das stimmt.', // MT
+    fr: 'Avant que les gens puissent payer, vérifie que c’est correct.', // MT
+  },
+  pay_check_card: {
+    en: 'Card payments go to {name}.',
+    nl: 'Kaartbetalingen gaan naar {name}.', // MT
+    es: 'Los pagos con tarjeta van a {name}.', // MT
+    pt: 'Os pagamentos com cartão vão para {name}.', // MT
+    de: 'Kartenzahlungen gehen an {name}.', // MT
+    fr: 'Les paiements par carte vont à {name}.', // MT
+  },
+  pay_check_card_stripe: {
+    en: 'Stripe account: “{stripe}”.',
+    nl: 'Stripe-account: ‘{stripe}’.', // MT
+    es: 'Cuenta de Stripe: «{stripe}».', // MT
+    pt: 'Conta Stripe: «{stripe}».', // MT
+    de: 'Stripe-Konto: „{stripe}“.', // MT
+    fr: 'Compte Stripe : « {stripe} ».', // MT
+  },
+  pay_check_invoice: {
+    en: 'Invoices are issued by {seller}.',
+    nl: 'Facturen worden uitgegeven door {seller}.', // MT
+    es: 'Las facturas las emite {seller}.', // MT
+    pt: 'As faturas são emitidas por {seller}.', // MT
+    de: 'Rechnungen stellt {seller} aus.', // MT
+    fr: 'Les factures sont émises par {seller}.', // MT
+  },
+  pay_check_invoice_unnamed: {
+    en: 'Invoices have no seller name yet — add invoice details in Settings → Payments.',
+    nl: 'Facturen hebben nog geen verkopersnaam — vul factuurgegevens in bij Instellingen → Betalingen.', // MT
+    es: 'Las facturas aún no tienen nombre de vendedor: añade los datos en Ajustes → Pagos.', // MT
+    pt: 'As faturas ainda não têm nome do vendedor — adiciona os dados em Definições → Pagamentos.', // MT
+    de: 'Rechnungen haben noch keinen Verkäufernamen — ergänze die Rechnungsdaten unter Einstellungen → Zahlungen.', // MT
+    fr: 'Les factures n’ont pas encore de nom de vendeur — ajoute les données dans Réglages → Paiements.', // MT
+  },
+  pay_check_publish: {
+    en: 'Publish',
+    nl: 'Publiceren', // MT
+    es: 'Publicar', // MT
+    pt: 'Publicar', // MT
+    de: 'Veröffentlichen', // MT
+    fr: 'Publier', // MT
+  },
+  pay_check_open: {
+    en: 'Open sign-up',
+    nl: 'Inschrijving openen', // MT
+    es: 'Abrir inscripciones', // MT
+    pt: 'Abrir inscrições', // MT
+    de: 'Anmeldung öffnen', // MT
+    fr: 'Ouvrir les inscriptions', // MT
+  },
+  pay_check_change: {
+    en: 'Change where payments go',
+    nl: 'Wijzig waar betalingen naartoe gaan', // MT
+    es: 'Cambiar adónde van los pagos', // MT
+    pt: 'Alterar para onde vão os pagamentos', // MT
+    de: 'Ändern, wohin Zahlungen gehen', // MT
+    fr: 'Changer la destination des paiements', // MT
+  },
   uses_personal_room: {
     en: 'Uses your personal room from Meet:',
     nl: 'Gebruikt je persoonlijke ruimte uit Meet:',

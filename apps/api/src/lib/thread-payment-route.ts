@@ -155,3 +155,122 @@ export async function paymentRouteProblem(
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// WHERE THE MONEY GOES — the check before going live (Sjoerd, 2026-10-16:
+// "before going live, a check screen would be nice. Something like: the
+// payment for these events will go to: ...").
+//
+// The publish guard above answers "CAN this thread take money". This answers
+// "WHERE does it go", for the case where a route exists but may be the wrong
+// one. Resolved by the SAME functions a real payment uses — the card account
+// by threadDestinationAccount (what the enrol route charges), the invoice
+// issuer by the seller resolver an invoice is issued under — and only
+// LABELLED here: the owner's name comes from matching the resolved account
+// against the candidates, never from restating the routing rule.
+// ---------------------------------------------------------------------------
+
+export type PaymentRouteSummary =
+  | { paid: false }
+  | {
+      paid: true;
+      /** Card payments: whose connected account, and what Stripe calls it. */
+      card: { owner: 'organiser' | 'workspace' | 'team_lead' | 'unknown'; owner_name: string; stripe_name: string | null } | null;
+      /** Invoices: who issues them. */
+      invoice: { seller_name: string | null } | null;
+    };
+
+export async function paymentRouteSummary(
+  threadId: string,
+  /** The invoice seller resolver (routes/purchases.ts sellerForSale), passed
+   *  in so this lib does not import a route module. */
+  sellerFor: (workspaceId: string, organiserUserId: string | null) => Promise<{ legal_name?: string } | null>,
+): Promise<PaymentRouteSummary | null> {
+  const { data: t, error } = await adminClient
+    .from('thread_thread')
+    .select('id, workspace_id, team_id, payment_destination, payment_methods, price_cents, organiser:organiser_id (user_id, display_name)')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (error) throw new Error(`payment route: ${error.message}`);
+  if (!t) return null;
+  const { data: tickets, error: tkErr } = await adminClient
+    .from('thread_ticket')
+    .select('price_cents, payment_methods, is_active')
+    .eq('thread_id', threadId);
+  if (tkErr) throw new Error(`payment route tickets: ${tkErr.message}`);
+  const active = (tickets ?? []).filter((k) => k.is_active !== false);
+  const paid = active.length
+    ? active.some((k) => ((k.price_cents as number | null) ?? 0) > 0)
+    : ((t.price_cents as number | null) ?? 0) > 0;
+  if (!paid) return { paid: false };
+
+  const org = (Array.isArray(t.organiser) ? t.organiser[0] : t.organiser) as { user_id: string | null; display_name: string | null } | null;
+  const route: RouteThread = {
+    workspace_id: t.workspace_id as string,
+    team_id: (t.team_id as string | null) ?? null,
+    payment_destination: (t.payment_destination as string | null) ?? null,
+    payment_methods: (t.payment_methods as string[] | null) ?? null,
+    organiser_user_id: org?.user_id ?? null,
+  };
+  const resolve = await routeResolver(route);
+  const methodSets = active.length
+    ? await Promise.all(active.map((k) => resolve((k.payment_methods as string[] | null) ?? null)))
+    : [await resolve(null)];
+  const methods = new Set(methodSets.flat());
+
+  let card: Extract<PaymentRouteSummary, { paid: true }>['card'] = null;
+  if (methods.has('stripe')) {
+    const account = await threadDestinationAccount(route);
+    if (account) card = await labelAccount(account, route, org?.display_name ?? null);
+  }
+  let invoice: Extract<PaymentRouteSummary, { paid: true }>['invoice'] = null;
+  if (methods.has('invoice')) {
+    const seller = await sellerFor(route.workspace_id, route.organiser_user_id);
+    invoice = { seller_name: seller?.legal_name?.trim() || null };
+  }
+  return { paid: true, card, invoice };
+}
+
+/** Whose account `account` is, by matching it against the candidates. */
+async function labelAccount(
+  account: string,
+  t: RouteThread,
+  organiserName: string | null,
+): Promise<{ owner: 'organiser' | 'workspace' | 'team_lead' | 'unknown'; owner_name: string; stripe_name: string | null }> {
+  const { personalStripeAccount, workspaceStripeAccount } = await import('./payment-accounts.js');
+  const stripe_name = await stripeDisplayName(account);
+  if (t.organiser_user_id && (await personalStripeAccount(t.organiser_user_id)) === account) {
+    return { owner: 'organiser', owner_name: organiserName ?? 'The organiser', stripe_name };
+  }
+  if ((await workspaceStripeAccount(t.workspace_id)) === account) {
+    const { data: w } = await adminClient.from('workspace').select('name').eq('id', t.workspace_id).maybeSingle();
+    return { owner: 'workspace', owner_name: (w?.name as string | undefined) ?? 'The workspace', stripe_name };
+  }
+  if (t.team_id) {
+    const { data: lead } = await adminClient
+      .from('team_member')
+      .select('user_id, user:user_id (full_name, email)')
+      .eq('team_id', t.team_id)
+      .eq('role', 'lead')
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    const u = (Array.isArray(lead?.user) ? lead?.user[0] : lead?.user) as { full_name: string | null; email: string | null } | null;
+    if (lead?.user_id && (await personalStripeAccount(lead.user_id as string)) === account) {
+      return { owner: 'team_lead', owner_name: u?.full_name ?? u?.email ?? 'The team lead', stripe_name };
+    }
+  }
+  return { owner: 'unknown', owner_name: stripe_name ?? 'A connected account', stripe_name };
+}
+
+/** What Stripe calls the account, when the platform key can ask. */
+async function stripeDisplayName(account: string): Promise<string | null> {
+  const stripe = stripeOrNull();
+  if (!stripe) return null;
+  try {
+    const a = await stripe.accounts.retrieve(account);
+    return a.settings?.dashboard?.display_name || a.business_profile?.name || null;
+  } catch {
+    return null;
+  }
+}

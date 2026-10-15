@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePaymentCheck } from './payment-check';
 import { Plus, Trash2 } from 'lucide-react';
 import type { Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
@@ -40,6 +41,8 @@ export function RegistrationPanel({
   enrolmentNote: initialNote = null,
   workspaceNote = null,
   onSaved,
+  live = false,
+  onChangeDestination,
 }: {
   locale: Locale;
   threadId: string;
@@ -53,8 +56,14 @@ export function RegistrationPanel({
   /** The workspace default, shown so you can see what you are replacing. */
   workspaceNote?: string | null;
   onSaved?: () => void;
+  /** The thread is published: opening sign-up now lets people pay, so a
+   *  paid thread shows where the money goes first. */
+  live?: boolean;
+  /** Opens the thread's payment setting, from the check. */
+  onChangeDestination?: () => void;
 }) {
   const router = useRouter();
+  const payCheck = usePaymentCheck({ threadId, locale, onChangeDestination: () => onChangeDestination?.() });
   const [fields, setFields] = useState<RegistrationField[]>(initial);
   const [sharePublic, setSharePublic] = useState(initialSharePublic);
   const [shareParticipants, setShareParticipants] = useState(initialShareParticipants);
@@ -108,7 +117,7 @@ export function RegistrationPanel({
           : {}),
       });
     }
-    startTransition(async () => {
+    const save = () => startTransition(async () => {
       const r = await updateThread(threadId, {
         registration_fields: cleaned,
         share_participants_public: sharePublic,
@@ -122,11 +131,15 @@ export function RegistrationPanel({
       router.refresh();
       onSaved?.();
     });
+    // Opening sign-up on a live thread: where its money goes, first.
+    if (live && publicEnrolmentOpen && !initialPublicEnrolmentOpen) void payCheck.check('open', save);
+    else save();
   }
 
   return (
     // Saved from the shared dialog footer (submits by form id).
     <form id="thread-registration-form" onSubmit={onSave}>
+      {payCheck.dialog}
       <div className="flex items-center justify-between">
         <SectionLabel>{t(locale, 'registration_questions')}</SectionLabel>
         <Button type="button" size="sm" variant="secondary" leading={<Plus size={15} />} onClick={addField}>

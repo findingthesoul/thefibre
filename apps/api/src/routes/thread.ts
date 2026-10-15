@@ -5,7 +5,7 @@ import {
   invoicedEnrolmentIds,
   placeState,
 } from '../lib/place-state.js';
-import { paymentRouteProblem } from '../lib/thread-payment-route.js';
+import { paymentRouteProblem, paymentRouteSummary } from '../lib/thread-payment-route.js';
 import { sendReach } from '../lib/member-notify.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
 import {
@@ -68,7 +68,7 @@ import { resolvePerson } from '../lib/resolve-person.js';
 // Circular with routes/purchases.ts (it imports finalizePaidEnrolment from
 // here) — safe: both are hoisted function declarations, called only at
 // request time.
-import { sendReceipt } from './purchases.js';
+import { sendReceipt, sellerForSale } from './purchases.js';
 import { createThreadPaymentLink, threadPayButtonHtml } from '../lib/thread-payment-link.js';
 import { userPersonalRoom, userGoogleToken, userZoomToken } from '../lib/connections.js';
 import { createMeetingLink, isMintable } from '../lib/meeting-links.js';
@@ -920,6 +920,18 @@ threadRoutes.get('/threads/:id', async (c) => {
       workspace_id: thread.workspace_id as string,
     }).catch(() => ({ grants: 0, product_links: 0 })),
   });
+});
+
+// GET /api/v1/thread/threads/:id/payment-route — where this thread's money
+// goes, for the check before going live (lib/thread-payment-route.ts
+// paymentRouteSummary). Read-only; resolved by the functions a real payment
+// uses. `{ paid: false }` for a free thread, which skips the check.
+threadRoutes.get('/threads/:id/payment-route', async (c) => {
+  const ctx = c.get('ctx');
+  const { data: visible } = await userClient(ctx.jwt).from('thread_thread').select('id').eq('id', c.req.param('id')).maybeSingle();
+  if (!visible) return c.json({ error: 'not found' }, 404);
+  const summary = await paymentRouteSummary(c.req.param('id'), (ws, userId) => sellerForSale('the-thread', ws, userId));
+  return summary ? c.json(summary) : c.json({ error: 'not found' }, 404);
 });
 
 // PATCH /api/v1/thread/threads/:id — update thread + paired program fields

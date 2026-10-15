@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.202.0] — 2026-10-15
+
+### Before a paid thread goes live: where the money goes
+
+Sjoerd: *"before going live, a check screen would be nice. Something like:
+the payment for these events will go to: ..."*
+
+- **Publishing a paid thread, or opening public sign-up on a live one,
+  first shows where its payments go**: "Card payments go to <the organiser /
+  the workspace / the team lead>" with the Stripe account's own name, and
+  "Invoices are issued by <seller>" (or that invoice details are missing).
+  Buttons: Publish (or Open sign-up) and "Change where payments go", which
+  opens the payment setting. A free thread skips it.
+- **The answer is what a real payment would do**, from the new read-only
+  `GET /api/v1/thread/threads/:id/payment-route`: the card account is the
+  one the enrol route charges (`threadDestinationAccount`), labelled by
+  whose it is; the seller is the one an invoice is issued under
+  (`sellerForSale`). Nothing is worked out in the editor. It shows, for
+  example, a workspace-paid thread whose invoices are still issued in the
+  organiser's name — Thread sells personal-first.
+- When no way to pay exists at all, the publish guard (v1.193) still
+  refuses; this screen is for a route that exists but may be the wrong one.
+- Test: `payment-route.int.test.ts` on staging — a new team-scope thread
+  from the editor pays its organiser; free → nothing to check; paid → card
+  to the organiser, then to the workspace when pointed there (the account
+  the enrol route would charge), invoices by `sellerForSale`'s seller;
+  invoice-only → no card line.
+
 ## [1.201.3] — 2026-10-15
 
 ### Migration only: a new thread pays its organiser by default
