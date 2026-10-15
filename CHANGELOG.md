@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.222.2] — 2026-10-16
+
+### The thread page's own price shows what it costs incl. VAT (Thread 4.13.3, Meet 2.34.1)
+
+The last three places of Sjoerd's incl.-VAT line: the enrol card on the
+public thread page, in the single-thread embed and in the organiser page's
+popup now pass the seller's home rate (`vat_home_pct`, v1.222.0) to the
+enrol card's `vatHomePct` (v1.222.1, builder 3), which shows
+"€363 incl. 21% VAT" under the headline price until the form knows the
+buyer's country, then the full breakdown.
+
+Also: Meet's paid booking page read "€300.00 excl. vat · — paid by invoice"
+— the whole label lower-cased, and a "·" in front of payment phrases that
+already open with "—". It now reads "€300.00 excl. VAT — paid by invoice"
+(seen on staging while looking at the incl.-VAT note).
+
 ## [1.222.1] — 2026-10-16
 
 ### "Sign up by" names the last day, in the reader’s language (Thread 4.13.2 · Members 1.4.2)

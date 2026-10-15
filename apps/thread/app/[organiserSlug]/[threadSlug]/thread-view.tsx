@@ -79,6 +79,8 @@ export type PublicThreadDetail = {
     event_starts_at?: string | null;
     event_ends_at?: string | null;
     key_moment_count?: number;
+    /** The seller's home VAT rate, or null (additive, 2026-10-16). */
+    vat_home_pct?: number | null;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     is_preview?: boolean;
@@ -371,6 +373,7 @@ export function PublicThreadView({
 
           {/* Right: enrolment card */}
           <EnrolCard
+            vatHomePct={thread.vat_home_pct ?? null}
             organiserSlug={organiser.slug}
             organiserName={organiserName}
             threadSlug={thread.slug}

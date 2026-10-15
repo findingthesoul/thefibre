@@ -68,6 +68,8 @@ type PopupDetail = {
     event_starts_at?: string | null;
     event_ends_at?: string | null;
     key_moment_count?: number;
+    /** The seller's home VAT rate, or null (additive, 2026-10-16). */
+    vat_home_pct?: number | null;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     timezone?: string;
@@ -319,6 +321,7 @@ function PopupBody({ detail, onClose }: { detail: PopupDetail; onClose: () => vo
         )}
         <div className="mt-4">
           <EnrolCard
+            vatHomePct={th.vat_home_pct ?? null}
             organiserSlug={detail.organiser.slug}
             organiserName={detail.organiser.display_name ?? detail.organiser.slug}
             threadSlug={th.slug}

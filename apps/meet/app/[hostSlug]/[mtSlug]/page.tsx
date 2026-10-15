@@ -271,7 +271,15 @@ async function Card({
                         style: 'currency',
                         currency: (meetingType.price_currency ?? 'eur').toUpperCase(),
                       }).format(meetingType.price_cents / 100)}{' '}
-                      {meetingType.vat_registered ? `${publicT(L, 'excl_vat').toLowerCase()} · ` : ''}
+                      {/* "€300.00 excl. VAT — paid by invoice". Only the first
+                          letter is lowered (mid-sentence), so the acronym
+                          stays "VAT"; and no "·" here, because each payment
+                          phrase below already opens with its own "—" — the
+                          two together read "excl. vat · — paid" (seen on
+                          staging, 2026-10-16). */}
+                      {meetingType.vat_registered
+                        ? `${publicT(L, 'excl_vat').charAt(0).toLowerCase()}${publicT(L, 'excl_vat').slice(1)} `
+                        : ''}
                       <span className="text-neutral-500">
                         {meetingType.payment_methods?.includes('invoice')
                           ? meetingType.payment_methods.includes('stripe')

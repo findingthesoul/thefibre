@@ -265,6 +265,7 @@ export default async function EmbedThreadPage({
       {elements.has('enrol') && (
         <div className={enrolOnly ? 'mt-4' : 'mt-6 max-w-md'}>
           <EnrolCard
+            vatHomePct={thread.vat_home_pct ?? null}
             organiserSlug={organiser.slug}
             organiserName={organiserName}
             threadSlug={thread.slug}
