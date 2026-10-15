@@ -10,16 +10,16 @@
 // none, it says so rather than 404ing.
 
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { loadDirectoryChoices, loadSession } from '@/lib/session';
+import { loadDirectoryChoices, loadDirectoryMembers, loadSession } from '@/lib/session';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
+import { CommunityMembers, membersTitle } from './community-members';
 
 export default async function MembersIndex() {
-  const session = await loadSession();
+  // Side by side: the session (already under way in the layout) decides only
+  // signed-in or not, and the choices need just the token.
+  const [session, choices] = await Promise.all([loadSession(), loadDirectoryChoices()]);
   if (!session) return <SignedOut />;
-
-  const choices = await loadDirectoryChoices();
 
   if (choices === null) {
     return (
@@ -32,7 +32,20 @@ export default async function MembersIndex() {
   }
 
   const withDirectory = choices.filter((c) => c.directory_enabled);
-  if (withDirectory.length === 1) redirect(`/members/${withDirectory[0].workspace_id}`);
+  // One community: its list, HERE. This was a redirect to /members/<ws>
+  // until 2026-10-15, and a redirect is a second request — layout, session,
+  // portal and all — so the commonest case cost twice the slowest page in
+  // the app. The address stays /members; the nav highlights it either way.
+  if (withDirectory.length === 1) {
+    const only = withDirectory[0].workspace_id;
+    return (
+      <CommunityMembers
+        workspaceId={only}
+        list={await loadDirectoryMembers(only)}
+        title={membersTitle(choices, only)}
+      />
+    );
+  }
 
   return (
     <PageShell title="Members">

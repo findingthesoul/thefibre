@@ -29,14 +29,32 @@ import {
 
 export type Session = { token: string; portal: Portal };
 
-export const loadSession = cache(async (): Promise<Session | null> => {
+/** Just the access token, without the portal payload.
+ *
+ *  /me/portal is the heaviest call this app makes (~1.5s on staging), and a
+ *  page that only needs to ask the API its own question used to wait for it
+ *  before asking — the Members list was a 1.5s portal fetch followed by its
+ *  own calls, end to end. With the token alone a page starts its calls at
+ *  once, and the portal (which the layout still needs, for the nav) runs
+ *  beside them instead of in front of them.
+ *
+ *  Null means no session cookie. It does NOT mean the token is still valid:
+ *  an expired one is only discovered by the API, which is why a page that
+ *  uses this still awaits loadSession() for its signed-out decision — in
+ *  parallel, so it costs nothing extra. */
+export const loadToken = cache(async (): Promise<string | null> => {
   const supabase = await serverSupabase();
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) return null;
+  return session?.access_token ?? null;
+});
+
+export const loadSession = cache(async (): Promise<Session | null> => {
+  const token = await loadToken();
+  if (!token) return null;
   try {
-    return { token: session.access_token, portal: await fetchPortal(session.access_token) };
+    return { token, portal: await fetchPortal(token) };
   } catch (e) {
     // An expired token reads as signed out, which is what it is. Anything
     // else is a real failure and must not be disguised as one.
@@ -102,18 +120,18 @@ export const loadCalendarStatus = cache(async (): Promise<CalendarStatus> => {
  *  looked exactly like a working page with nothing on it, which is the one
  *  mistake this repo keeps catching. The page now says so instead. */
 export const loadDirectoryChoices = cache(async (): Promise<DirectoryChoice[] | null> => {
-  const s = await loadSession();
-  if (!s) return [];
-  return fetchDirectoryChoices(s.token);
+  const token = await loadToken();
+  if (!token) return [];
+  return fetchDirectoryChoices(token);
 });
 
-/** The member list of one community. Takes the workspace id from the page,
- *  so it is not memoised across communities. */
-export async function loadDirectoryMembers(workspaceId: string): Promise<DirectoryList> {
-  const s = await loadSession();
-  if (!s) return { state: 'failed' };
-  return fetchDirectoryMembers(s.token, workspaceId);
-}
+/** The member list of one community. Memoised per workspace id, so the index
+ *  page and a list rendered inside it never fetch it twice in one request. */
+export const loadDirectoryMembers = cache(async (workspaceId: string): Promise<DirectoryList> => {
+  const token = await loadToken();
+  if (!token) return { state: 'failed' };
+  return fetchDirectoryMembers(token, workspaceId);
+});
 
 export const loadErasure = cache(async (): Promise<ErasurePicture | null> => {
   const s = await loadSession();

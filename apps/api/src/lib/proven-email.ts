@@ -44,9 +44,18 @@ import { adminClient } from '../db.js';
  * stamps it. It is logged, because silently never stamping would look exactly
  * like this feature working.
  */
-export async function markEmailProven(email: string): Promise<void> {
+export async function markEmailProven(email: string, now = Date.now()): Promise<void> {
   const value = email.trim().toLowerCase();
   if (!value) return;
+  // CONDITIONAL since 2026-10-15. The update was already a no-op once the
+  // rows were stamped, but it was still a round trip to the database in
+  // front of every participant request — the Members page alone made three.
+  // So an address this process stamped in the last ten minutes is skipped.
+  // A contact point typed onto somebody in that window waits until the next
+  // one to be stamped, which is the same "next visit stamps it" the failure
+  // case below already accepts.
+  const last = stampedAt.get(value);
+  if (last !== undefined && now - last < RESTAMP_AFTER_MS) return;
   const { error } = await adminClient
     .from('person_contact_point')
     .update({ verified_at: new Date().toISOString() })
@@ -55,8 +64,18 @@ export async function markEmailProven(email: string): Promise<void> {
     .is('verified_at', null);
   if (error) {
     console.error('[proven-email] could not stamp verified_at', { error: error.message });
+    return; // not remembered: a failure is retried on the next request
   }
+  if (stampedAt.size >= STAMPED_MAX) stampedAt.clear();
+  stampedAt.set(value, now);
 }
+
+/** Addresses this process stamped, and when. Bounded by clearing outright —
+ *  forgetting costs one cheap update per address, so nothing cleverer is
+ *  worth its code. */
+const stampedAt = new Map<string, number>();
+const RESTAMP_AFTER_MS = 10 * 60_000;
+const STAMPED_MAX = 10_000;
 
 /**
  * The person rows a proven email may act for: the rows whose own `email` is

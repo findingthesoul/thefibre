@@ -114,10 +114,12 @@ cmd_request() {
   #             reads as "your whole diff is out of lane" with no hint why.
   #             Refused, because there is no lane for which a comma is right.
   #
-  #   brackets  "apps/thread/app/[organiserSlug]" is a CHARACTER CLASS — it
-  #             matches one character from the set {o,r,g,a,n,i,s,e,S,l,u}, not
-  #             that directory. Warned rather than refused: a bracket could in
-  #             principle be meant, and the controller can still clear it.
+  #   brackets  "apps/thread/app/[organiserSlug]" was, as a glob, a CHARACTER
+  #             CLASS matching one letter — and Next.js puts brackets in real
+  #             paths, so a file listed exactly was refused. Since 2026-10-15
+  #             `clear` tries every entry LITERALLY before it tries it as a
+  #             glob, so a bracketed path means that path and nothing needs
+  #             saying here.
   #
   # Both cost a real round trip on 2026-10-11 — three refusals on one request.
   case "$lane" in
@@ -125,13 +127,6 @@ cmd_request() {
     Build it from the commit instead of from memory:
         git show --name-only --format= <sha> | sort
     and pass the paths separated by spaces." ;;
-  esac
-  case "$lane" in
-    *'['*|*']'*)
-      say "WARNING: a lane entry contains [ or ], which a shell glob reads as a CHARACTER CLASS, not a literal path."
-      say "  \"apps/thread/app/[organiserSlug]\" matches one character from that set — not the directory."
-      say "  Use a plain prefix such as \"apps/thread/app\" unless you really mean a class."
-      ;;
   esac
 
   [ -n "$sha" ] || sha="$(git rev-parse HEAD)"
@@ -374,6 +369,14 @@ cmd_clear() {
           case "$f" in CHANGELOG.md|package.json|apps/*/package.json|packages/*/package.json|apps/web/lib/version.ts) continue ;; esac
           hit=0
           for pat in $lane; do
+            # LITERALLY first, then as a glob. Next.js routes put brackets in
+            # real paths — apps/my/app/members/[workspaceId]/page.tsx — and
+            # as a glob "[workspaceId]" is a character class matching ONE
+            # letter, so a file listed exactly was reported "OUTSIDE THE
+            # LANE" (2026-10-15). Quoted, a pattern matches only itself, or
+            # as a directory, anything under it; unquoted, it is still the
+            # glob a lane like "apps/web/parts/*" means.
+            case "$f" in "$pat"|"${pat%/}"/*) hit=1; break ;; esac
             # shellcheck disable=SC2254
             case "$f" in $pat|${pat%/}/*) hit=1; break ;; esac
           done

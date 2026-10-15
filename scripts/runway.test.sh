@@ -337,11 +337,31 @@ grep -q "SPACE-separated" <<<"$OUT" && ok "and says so in those words" || bad "a
 [ -z "$(ls -A "$T/w/.git/runway/queue")" ] && ok "and nothing was queued" || bad "and nothing was queued"
 rm -f "$T/w/.git/runway/queue/"*
 
-# A bracket is a character class, not a directory — warned, not refused,
-# because it could in principle be meant.
-OUT="$(RUNWAY_SESSION=a $R request --kind release --lane "apps/thread/app/[organiserSlug]" --what x --verified v --unverified n 2>&1)" \
-  && ok "a bracketed lane is allowed through" || bad "a bracketed lane is allowed through"
-grep -q "CHARACTER CLASS" <<<"$OUT" && ok "but warns that it is a character class" || bad "but warns that it is a character class"
+echo "a bracketed path in a lane means that path"
+# Next.js routes put brackets in real paths. As a glob, "[workspaceId]" is a
+# character class matching ONE letter, so on 2026-10-15 a file listed in the
+# lane exactly was refused as "OUTSIDE THE LANE". Three shapes: the file
+# listed exactly, a bracketed DIRECTORY covering a file under it, and a decoy
+# outside both so the check is seen to run at all.
+git fetch -q origin; git checkout -q -B brackets origin/staging
+mkdir -p "apps/my/app/members/[workspaceId]/[personId]" apps/elsewhere
+echo p > "apps/my/app/members/[workspaceId]/page.tsx"
+echo q > "apps/my/app/members/[workspaceId]/[personId]/page.tsx"
+echo s > apps/elsewhere/stray.tsx
+rel 0.0.11
+RUNWAY_SESSION=a $R request --kind release \
+  --lane "apps/my/app/members/[workspaceId]/page.tsx apps/my/app/members/[workspaceId]/[personId]" \
+  --what x --verified v --unverified none >/dev/null
+OUT="$($R clear a --by atc 2>&1 || true)"
+grep -q "OUTSIDE THE LANE: apps/elsewhere/stray.tsx" <<<"$OUT" \
+  && ok "(the lane check ran: a genuinely out-of-lane file is named)" \
+  || bad "(the lane check did not run — the assertions below would be vacuous)"
+grep -qF "OUTSIDE THE LANE: apps/my/app/members/[workspaceId]/page.tsx" <<<"$OUT" \
+  && bad "a bracketed file listed exactly is inside the lane" \
+  || ok "a bracketed file listed exactly is inside the lane"
+grep -qF "OUTSIDE THE LANE: apps/my/app/members/[workspaceId]/[personId]/page.tsx" <<<"$OUT" \
+  && bad "a file under a bracketed directory is inside the lane" \
+  || ok "a file under a bracketed directory is inside the lane"
 rm -f "$T/w/.git/runway/queue/"*
 $R abort --by atc >/dev/null 2>&1 || true
 

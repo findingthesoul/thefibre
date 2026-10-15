@@ -54,13 +54,13 @@ export default async function MemberPage({
   params: Promise<{ workspaceId: string; personId: string }>;
 }) {
   const { workspaceId, personId } = await params;
-  const session = await loadSession();
-  if (!session) return <SignedOut />;
-
-  const [list, choices] = await Promise.all([
+  // Side by side, as on the list page: the session only decides signed-out.
+  const [session, list, choices] = await Promise.all([
+    loadSession(),
     loadDirectoryMembers(workspaceId),
     loadDirectoryChoices(),
   ]);
+  if (!session) return <SignedOut />;
   const community = (choices ?? []).find((c) => c.workspace_id === workspaceId);
   const backHref = `/members/${workspaceId}`;
   const back = (

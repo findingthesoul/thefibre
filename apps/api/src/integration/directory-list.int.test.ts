@@ -44,11 +44,24 @@ const made: { persons: string[]; members: string[]; products: string[] } = {
   products: [],
 };
 
+/** DIRECTORY_IN_PROCESS=1 runs the same assertions against THIS checkout's
+ *  route, mounted in-process on the staging database, instead of the
+ *  deployed API — so a change to the route can be proven before it ships.
+ *  In-process rather than a local server because server.ts starts the
+ *  schedulers, and a laptop running staging's schedulers is not a test. */
 async function call(path: string) {
-  const res = await fetch(`${API}${path}`, {
+  const init = {
     headers: { Authorization: `Bearer ${viewer.accessToken}`, 'X-App-ID': 'membership' },
-  });
+  };
+  const res =
+    process.env.DIRECTORY_IN_PROCESS === '1' ? await inProcess(path, init) : await fetch(`${API}${path}`, init);
   return { status: res.status, body: (await res.json().catch(() => null)) as any };
+}
+
+async function inProcess(path: string, init: RequestInit): Promise<Response> {
+  const { Hono } = await import('hono');
+  const { membershipPortalRoutes } = await import('../routes/membership-portal.js');
+  return new Hono().route('/api/v1/membership/portal', membershipPortalRoutes).request(path, init);
 }
 
 async function setSettings(patch: Record<string, unknown>) {

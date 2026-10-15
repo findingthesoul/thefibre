@@ -4,6 +4,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
+import { selectAll, selectIn } from '../lib/select-in.js';
 import { setDirectoryListing } from '../lib/directory-consent.js';
 import {
   markEmailProven,
@@ -623,7 +624,18 @@ type DirectoryMember = {
 };
 
 /** Categories a set of people hold, by person: the union over the products
- *  in their tier plus anything bought on its own (§5). */
+ *  in their tier plus anything bought on its own (§5).
+ *
+ *  Every read is scoped to this workspace — including the product→category
+ *  links, which until 2026-10-15 were read for EVERY workspace on the
+ *  platform. That never showed anybody another community's category NAMES
+ *  (names come from membership_directory_category, which was always
+ *  filtered, and a link only counted if its product was in one of this
+ *  workspace's tiers or purchases). What it did do was read the whole
+ *  table, and past 1,000 links platform-wide PostgREST would have cut it
+ *  short without a word — dropping categories, and in category mode,
+ *  silently hiding members from each other. The table has no workspace_id
+ *  of its own; the product carries it, so the filter goes through the join. */
 async function categoriesByPerson(
   workspaceId: string,
   personIds: string[],
@@ -632,45 +644,57 @@ async function categoriesByPerson(
   if (!personIds.length) return out;
 
   const [members, links, purchases] = await Promise.all([
-    adminClient
-      .from('membership_member')
-      .select('person_id, tier_id')
-      .eq('workspace_id', workspaceId)
-      .in('person_id', personIds)
-      .is('deleted_at', null),
-    adminClient.from('membership_product_category').select('product_id, category_id'),
-    adminClient
-      .from('membership_product_purchase')
-      .select('person_id, product_id')
-      .eq('workspace_id', workspaceId)
-      .in('person_id', personIds),
+    selectIn<{ person_id: string; tier_id: string }>('directory categories (members)', personIds, (chunk) =>
+      adminClient
+        .from('membership_member')
+        .select('id, person_id, tier_id')
+        .eq('workspace_id', workspaceId)
+        .in('person_id', chunk)
+        .is('deleted_at', null)
+        .order('id'),
+    ),
+    selectAll<{ product_id: string; category_id: string }>('directory categories (links)', () =>
+      adminClient
+        .from('membership_product_category')
+        .select('product_id, category_id, membership_product!inner(workspace_id)')
+        .eq('membership_product.workspace_id', workspaceId)
+        .order('product_id')
+        .order('category_id'),
+    ),
+    selectIn<{ person_id: string; product_id: string }>('directory categories (purchases)', personIds, (chunk) =>
+      adminClient
+        .from('membership_product_purchase')
+        .select('id, person_id, product_id')
+        .eq('workspace_id', workspaceId)
+        .in('person_id', chunk)
+        .order('id'),
+    ),
   ]);
-  if (members.error) throw new Error(`directory categories (members): ${members.error.message}`);
-  if (links.error) throw new Error(`directory categories (links): ${links.error.message}`);
-  if (purchases.error) throw new Error(`directory categories (purchases): ${purchases.error.message}`);
 
-  const tierIds = [...new Set((members.data ?? []).map((m) => m.tier_id as string))];
-  const tierProducts = tierIds.length
-    ? await adminClient
+  const tierIds = [...new Set(members.map((m) => m.tier_id))];
+  const tierProducts = await selectIn<{ tier_id: string; product_id: string }>(
+    'directory categories (tier products)',
+    tierIds,
+    (chunk) =>
+      adminClient
         .from('membership_tier_product')
         .select('tier_id, product_id')
-        .in('tier_id', tierIds)
-    : { data: [], error: null };
-  if (tierProducts.error) {
-    throw new Error(`directory categories (tier products): ${tierProducts.error.message}`);
-  }
+        .in('tier_id', chunk)
+        .order('tier_id')
+        .order('product_id'),
+  );
 
   const catsOfProduct = new Map<string, string[]>();
-  for (const l of links.data ?? []) {
-    const list = catsOfProduct.get(l.product_id as string) ?? [];
-    list.push(l.category_id as string);
-    catsOfProduct.set(l.product_id as string, list);
+  for (const l of links) {
+    const list = catsOfProduct.get(l.product_id) ?? [];
+    list.push(l.category_id);
+    catsOfProduct.set(l.product_id, list);
   }
   const productsOfTier = new Map<string, string[]>();
-  for (const tp of tierProducts.data ?? []) {
-    const list = productsOfTier.get(tp.tier_id as string) ?? [];
-    list.push(tp.product_id as string);
-    productsOfTier.set(tp.tier_id as string, list);
+  for (const tp of tierProducts) {
+    const list = productsOfTier.get(tp.tier_id) ?? [];
+    list.push(tp.product_id);
+    productsOfTier.set(tp.tier_id, list);
   }
 
   const add = (personId: string, productId: string) => {
@@ -678,10 +702,10 @@ async function categoriesByPerson(
     for (const c of catsOfProduct.get(productId) ?? []) set.add(c);
     out.set(personId, set);
   };
-  for (const m of members.data ?? []) {
-    for (const p of productsOfTier.get(m.tier_id as string) ?? []) add(m.person_id as string, p);
+  for (const m of members) {
+    for (const p of productsOfTier.get(m.tier_id) ?? []) add(m.person_id, p);
   }
-  for (const p of purchases.data ?? []) add(p.person_id as string, p.product_id as string);
+  for (const p of purchases) add(p.person_id, p.product_id);
   return out;
 }
 
@@ -698,25 +722,36 @@ const DIRECTORY_STATUSES = ['active', 'grace'] as const;
 membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
-  await markEmailProven(email);
-
   const workspaceId = c.req.param('workspaceId');
-  const byWorkspace = await memberWorkspaces(email);
+
+  // FOUR ROUNDS, not eleven. Until 2026-10-15 every question below waited
+  // for the one before it, though most do not depend on each other — about
+  // a second of the Members page on staging was this handler queueing. Each
+  // round now asks everything it can in parallel; what decides the round is
+  // only what needs an answer from the last one. The refusals, and their
+  // order, are unchanged.
+  //
+  // Round 1: who the reader is here, and whether there is a list at all.
+  // markEmailProven stays IN FRONT of memberWorkspaces — a verified contact
+  // point is what lets a merged address find its own person rows.
+  const [byWorkspace, settings] = await Promise.all([
+    markEmailProven(email).then(() => memberWorkspaces(email)),
+    adminClient
+      .from('membership_settings')
+      .select('directory_enabled, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id')
+      .eq('workspace_id', workspaceId)
+      .maybeSingle(),
+  ]);
   const viewerPersonIds = byWorkspace.get(workspaceId);
   // Not a member there: the list does not exist for them. Same refusal as
   // the write path, for the same reason.
   if (!viewerPersonIds?.length) return c.json({ error: 'not a member of that community' }, 403);
-
-  const settings = await adminClient
-    .from('membership_settings')
-    .select('directory_enabled, directory_visibility, directory_show_contact, directory_show_category, directory_default_category_id')
-    .eq('workspace_id', workspaceId)
-    .maybeSingle();
   if (settings.error) return fail(c, 'directory list: settings', settings.error);
   // Off unless the community turned it on (slice 3). 404 rather than an empty
   // list: "there is no directory here" and "the directory is empty" are
   // different answers and must not look alike.
   if (!settings.data?.directory_enabled) return c.json({ error: 'no member directory here' }, 404);
+  const showCategory = Boolean(settings.data.directory_show_category);
 
   // WHO MAY READ IT: any member in good standing. Sjoerd, 2026-10-14, after
   // re-reporting this with screenshots.
@@ -741,13 +776,48 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
   // on `memberWorkspaces`: the GET and PATCH of one's own listing still use
   // it unfiltered, because withdrawing a consent must stay possible after a
   // membership ends.
-  const viewerMembership = await adminClient
-    .from('membership_member')
-    .select('person_id')
-    .eq('workspace_id', workspaceId)
-    .in('person_id', viewerPersonIds)
-    .in('status', DIRECTORY_STATUSES)
-    .is('deleted_at', null);
+  //
+  // Round 2: the viewer's standing, the viewer's own entry, the candidates,
+  // and the category names — none needs another.
+  const [viewerMembership, viewerEntry, listedRes, categoryNames] = await Promise.all([
+    adminClient
+      .from('membership_member')
+      .select('person_id')
+      .eq('workspace_id', workspaceId)
+      .in('person_id', viewerPersonIds)
+      .in('status', DIRECTORY_STATUSES)
+      .is('deleted_at', null),
+  // Whether the VIEWER appears in it. Additive beside `can_view`, which is
+  // now what decides whether the page renders a list at all — the two were
+  // one field when they were one rule.
+    adminClient
+      .from('membership_directory_entry')
+      .select('person_id')
+      .eq('workspace_id', workspaceId)
+      .in('person_id', viewerPersonIds)
+      .eq('listed', true),
+    // Candidates: listed IS TRUE. Paged — a community past 1,000 listed
+    // members would otherwise lose the rest without a word.
+    selectAll<{ person_id: string; show_contact: boolean | null; tags: string[] | null }>(
+      'directory list: entries',
+      () =>
+        adminClient
+          .from('membership_directory_entry')
+          .select('person_id, show_contact, tags')
+          .eq('workspace_id', workspaceId)
+          .eq('listed', true)
+          .order('person_id'),
+    ).then(
+      (data) => ({ data, error: null }),
+      (e: Error) => ({ data: null, error: { message: e.message } }),
+    ),
+    showCategory
+      ? adminClient
+          .from('membership_directory_category')
+          .select('id, name')
+          .eq('workspace_id', workspaceId)
+      : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
+  ]);
   if (viewerMembership.error) {
     return fail(c, 'directory list: viewer membership', viewerMembership.error);
   }
@@ -758,97 +828,90 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
   if (!(viewerMembership.data ?? []).length) {
     return c.json({ error: 'not a member of that community' }, 403);
   }
-
-  // Whether the VIEWER appears in it. Additive beside `can_view`, which is
-  // now what decides whether the page renders a list at all — the two were
-  // one field when they were one rule.
-  const viewerEntry = await adminClient
-    .from('membership_directory_entry')
-    .select('person_id')
-    .eq('workspace_id', workspaceId)
-    .in('person_id', viewerPersonIds)
-    .eq('listed', true);
   if (viewerEntry.error) return fail(c, 'directory list: viewer entry', viewerEntry.error);
+  if (listedRes.error) return fail(c, 'directory list: entries', listedRes.error);
+  if (categoryNames.error) return fail(c, 'directory list: category names', categoryNames.error);
   const youAreListed = (viewerEntry.data ?? []).length > 0;
+  const listed = listedRes.data;
 
-  // Candidates: listed IS TRUE, active membership, person not soft-deleted.
-  const listed = await adminClient
-    .from('membership_directory_entry')
-    .select('person_id, show_contact, tags')
-    .eq('workspace_id', workspaceId)
-    .eq('listed', true);
-  if (listed.error) return fail(c, 'directory list: entries', listed.error);
-  const candidateIds = (listed.data ?? []).map((e) => e.person_id as string);
+  const candidateIds = listed.map((e) => e.person_id);
   if (!candidateIds.length) {
     return c.json({ items: [], you_are_listed: youAreListed, can_view: true });
   }
 
-  const [activeMembers, persons] = await Promise.all([
-    adminClient
-      .from('membership_member')
-      .select('person_id')
-      .eq('workspace_id', workspaceId)
-      .in('person_id', candidateIds)
+  // Round 3: of the candidates, who is current, who they are, and what
+  // categories everybody holds. Chunked and paged (lib/select-in.ts): these
+  // are the lists that grow with the community.
+  let activeMembers: { person_id: string }[];
+  let persons: Record<string, unknown>[];
+  let cats: Map<string, Set<string>>;
+  try {
+    [activeMembers, persons, cats] = await Promise.all([
+      selectIn<{ person_id: string }>('directory list: memberships', candidateIds, (chunk) =>
+        adminClient
+          .from('membership_member')
+          .select('id, person_id')
+          .eq('workspace_id', workspaceId)
+          .in('person_id', chunk)
       // The same set the VIEWER gate uses, from the same constant — not a
       // second spelling of it. Who may appear and who may look are different
       // rules now, but they draw the line at the same place, and two literals
       // that must agree are two literals that will eventually not.
-      .in('status', DIRECTORY_STATUSES)
-      .is('deleted_at', null),
-    adminClient
-      // person carries NO photo_url and NO bio — they live on
-      // identity_profile, keyed by EMAIL, which is the platform's one profile
-      // per human (§9.1, and the same source A2 taught the public organiser
-      // page to read). Checked against the real table: selecting
-      // person.photo_url is a runtime 400, and TypeScript never reads a
-      // PostgREST select string.
-      .from('person')
-      .select(
-        'id, first_name, last_name, preferred_name, email, phone, linkedin_url, website_url, city, country, deleted_at',
-      )
-      .in('id', candidateIds)
-      .is('deleted_at', null),
-  ]);
-  if (activeMembers.error) return fail(c, 'directory list: memberships', activeMembers.error);
-  if (persons.error) return fail(c, 'directory list: persons', persons.error);
-  const activeIds = new Set((activeMembers.data ?? []).map((m) => m.person_id as string));
-
-  // The profile half, by email. A member with no profile row still appears —
-  // with their person name and no photo — because being unlisted for want of
-  // a profile is not a choice anybody made.
-  const emails = [...new Set((persons.data ?? []).map((p) => p.email as string).filter(Boolean))];
-  const profiles = emails.length
-    ? await adminClient
-        .from('identity_profile')
-        .select('email, display_name, bio, photo_url')
-        .in('email', emails)
-    : { data: [], error: null };
-  if (profiles.error) return fail(c, 'directory list: profiles', profiles.error);
-  const profileOf = new Map(
-    (profiles.data ?? []).map((r) => [String(r.email).toLowerCase(), r]),
-  );
-
-  const cats = await categoriesByPerson(workspaceId, [...candidateIds, ...viewerPersonIds]);
+          .in('status', DIRECTORY_STATUSES)
+          .is('deleted_at', null)
+          .order('id'),
+      ),
+      selectIn<Record<string, unknown>>('directory list: persons', candidateIds, (chunk) =>
+        adminClient
+          // person carries NO photo_url and NO bio — they live on
+          // identity_profile, keyed by EMAIL, which is the platform's one profile
+          // per human (§9.1, and the same source A2 taught the public organiser
+          // page to read). Checked against the real table: selecting
+          // person.photo_url is a runtime 400, and TypeScript never reads a
+          // PostgREST select string.
+          .from('person')
+          .select(
+            'id, first_name, last_name, preferred_name, email, phone, linkedin_url, website_url, city, country, deleted_at',
+          )
+          .in('id', chunk)
+          .is('deleted_at', null)
+          .order('id'),
+      ),
+      categoriesByPerson(workspaceId, [...candidateIds, ...viewerPersonIds]),
+    ]);
+  } catch (e) {
+    return fail(c, 'directory list', { message: (e as Error).message });
+  }
+  const activeIds = new Set(activeMembers.map((m) => m.person_id));
   const viewerCats = new Set<string>();
   for (const id of viewerPersonIds) for (const c2 of cats.get(id) ?? []) viewerCats.add(c2);
   const byCategory = settings.data.directory_visibility === 'category';
-
-  const categoryNames = settings.data.directory_show_category
-    ? await adminClient
-        .from('membership_directory_category')
-        .select('id, name')
-        .eq('workspace_id', workspaceId)
-    : { data: [], error: null };
-  if (categoryNames.error) return fail(c, 'directory list: category names', categoryNames.error);
   const nameOf = new Map(
     (categoryNames.data ?? []).map((r) => [r.id as string, r.name as string]),
   );
 
-  const entryOf = new Map(
-    (listed.data ?? []).map((e) => [e.person_id as string, e]),
-  );
+  // Round 4.
+  // The profile half, by email. A member with no profile row still appears —
+  // with their person name and no photo — because being unlisted for want of
+  // a profile is not a choice anybody made.
+  const emails = [...new Set(persons.map((p) => p.email as string).filter(Boolean))];
+  let profiles: { email: string; display_name: string | null; bio: string | null; photo_url: string | null }[];
+  try {
+    profiles = await selectIn('directory list: profiles', emails, (chunk) =>
+      adminClient
+        .from('identity_profile')
+        .select('email, display_name, bio, photo_url')
+        .in('email', chunk)
+        .order('email'),
+    );
+  } catch (e) {
+    return fail(c, 'directory list: profiles', { message: (e as Error).message });
+  }
+  const profileOf = new Map(profiles.map((r) => [String(r.email).toLowerCase(), r]));
+
+  const entryOf = new Map(listed.map((e) => [e.person_id, e]));
   const items: DirectoryMember[] = [];
-  for (const p of persons.data ?? []) {
+  for (const p of persons) {
     const id = p.id as string;
     if (!activeIds.has(id)) continue;
     if (viewerPersonIds.includes(id)) continue; // you are not a row in your own list

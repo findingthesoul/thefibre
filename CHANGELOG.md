@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.211.1] — 2026-10-15
+
+### my.thread: the Members page stops waiting on itself (my.thread 0.13.1)
+
+Builder 3 timed my.thread → Members on staging at about 4.3s. Measured again
+before this change with a fixture member (`e2e/portal-members-speed.spec.ts`,
+five visits, medians): **`/members` 3.9s, `/members/<community>` 2.0s.**
+Three causes, all fixed:
+
+- **The page waited for the whole portal before asking its own question.**
+  Every Members page fetched `/me/portal` (~1.5s) just to get the sign-in
+  token, then fetched the list. A new `loadToken()` gives the token alone,
+  so the list starts at once and the portal (which the nav still needs) runs
+  beside it instead of in front of it.
+- **`/members` was a redirect.** With one community — nearly everybody —
+  it bounced to `/members/<community>`, so the layout, the portal and the
+  page all ran twice. It now shows that community's list itself (one shared
+  `CommunityMembers` component, so both addresses render the same thing).
+- **The API asked eleven questions one after another.** The member-list
+  route now asks them in four rounds, each in parallel. The refusals and
+  their order are unchanged; `directory-list.int.test.ts` (14 cases) passes
+  against the new route, run in-process on the staging database.
+
+Hardening that rode along, in the same route:
+
+- **Long lists stay whole.** A new `lib/select-in.ts` splits `.in(…)` lists
+  into URL-sized chunks and pages every read past PostgREST's silent
+  1,000-row cap. Before, a community past 1,000 listed members would have
+  shown 1,000 of them, and one a little larger would have failed on URL
+  length.
+- **The category links are read for this community only.** The
+  product→category read had no workspace filter: it read the whole table
+  for every community on the platform. It never showed anybody another
+  community's category NAMES — names were always read per community, and a
+  link only counted if its product belonged to this one — but past 1,000
+  links platform-wide the read would have been cut short without a word,
+  and in a category-scoped list that silently hides members from each
+  other.
+- **`markEmailProven` is conditional.** It was a database write in front of
+  every participant request (three per Members page). An address stamped by
+  this process in the last ten minutes is now skipped; a failed stamp is not
+  remembered, so it retries on the next request.
+
+Also: **the runway's lane check takes Next.js paths literally.** A lane entry
+like `apps/my/app/members/[workspaceId]/page.tsx` was read as a glob, where
+`[workspaceId]` is a character class matching one letter, so a file listed
+exactly was refused as "OUTSIDE THE LANE". `clear` now tries each entry
+literally first, then as a glob; `runway.test.sh` has the case, and fails
+without the fix.
+
 ## [1.211.0] — 2026-10-15
 
 ### Moving a thread's start date asks first — and can be undone (Thread 4.11.0)
