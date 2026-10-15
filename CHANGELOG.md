@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.205.1] — 2026-10-15
+
+### Thread dates, step 0: the two columns (migration only)
+
+- `thread_engagement.is_key_moment` (boolean, default false): a session
+  that defines a thread's public event dates. Any timed item may be one.
+- `thread_thread.signups_close_engagement_id` (uuid, on delete set null):
+  "open until session N", stored as the session's id so reordering cannot
+  move the deadline.
+- Additive. Nothing reads them until the code that writes them ships, and a
+  thread with no key moment behaves exactly as before.
 ## [1.205.0] — 2026-10-15
 
 ### Meet: a paid meeting type needs a way to take the money (Meet 2.31.0)
