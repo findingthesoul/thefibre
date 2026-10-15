@@ -56,7 +56,7 @@ export default async function EmbedsSettingsPage() {
       listed: t.is_public_listed,
     };
   });
-  const generatorTeams: GeneratorTeam[] = teamsRes.items.map((t) => ({ id: t.id, name: t.name }));
+  const generatorTeams: GeneratorTeam[] = teamsRes.items.map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
 
   const snippets: { title: string; desc: string; code: string }[] = [
     {

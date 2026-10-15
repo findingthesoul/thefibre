@@ -3980,6 +3980,70 @@ const CATALOG = {
     de: 'Wir konnten nicht prüfen, wohin die Zahlungen für diesen Thread gehen. Trotzdem veröffentlichen?', // MT
     fr: 'Nous n’avons pas pu vérifier où vont les paiements de ce fil. Publier quand même ?', // MT
   },
+  embed_only_categories: {
+    en: 'Only these categories',
+    nl: 'Alleen deze categorieën', // MT
+    es: 'Solo estas categorías', // MT
+    pt: 'Apenas estas categorias', // MT
+    de: 'Nur diese Kategorien', // MT
+    fr: 'Seulement ces catégories', // MT
+  },
+  embed_leave_out_categories: {
+    en: 'Leave out these categories',
+    nl: 'Laat deze categorieën weg', // MT
+    es: 'Excluir estas categorías', // MT
+    pt: 'Excluir estas categorias', // MT
+    de: 'Diese Kategorien weglassen', // MT
+    fr: 'Exclure ces catégories', // MT
+  },
+  embed_leave_out_teams: {
+    en: 'Leave out these teams',
+    nl: 'Laat deze teams weg', // MT
+    es: 'Excluir estos equipos', // MT
+    pt: 'Excluir estas equipas', // MT
+    de: 'Diese Teams weglassen', // MT
+    fr: 'Exclure ces équipes', // MT
+  },
+  embed_visitor_filters: {
+    en: 'Filters visitors can use',
+    nl: 'Filters voor bezoekers', // MT
+    es: 'Filtros para los visitantes', // MT
+    pt: 'Filtros para os visitantes', // MT
+    de: 'Filter für Besuchende', // MT
+    fr: 'Filtres pour les visiteurs', // MT
+  },
+  embed_vf_date: {
+    en: 'Date',
+    nl: 'Datum', // MT
+    es: 'Fecha', // MT
+    pt: 'Data', // MT
+    de: 'Datum', // MT
+    fr: 'Date', // MT
+  },
+  embed_vf_team: {
+    en: 'Team',
+    nl: 'Team', // MT
+    es: 'Equipo', // MT
+    pt: 'Equipa', // MT
+    de: 'Team', // MT
+    fr: 'Équipe', // MT
+  },
+  embed_vf_category: {
+    en: 'Category',
+    nl: 'Categorie', // MT
+    es: 'Categoría', // MT
+    pt: 'Categoria', // MT
+    de: 'Kategorie', // MT
+    fr: 'Catégorie', // MT
+  },
+  embed_vf_language: {
+    en: 'Language',
+    nl: 'Taal', // MT
+    es: 'Idioma', // MT
+    pt: 'Idioma', // MT
+    de: 'Sprache', // MT
+    fr: 'Langue', // MT
+  },
   uses_personal_room: {
     en: 'Uses your personal room from Meet:',
     nl: 'Gebruikt je persoonlijke ruimte uit Meet:',

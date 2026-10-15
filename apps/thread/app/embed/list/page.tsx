@@ -3,6 +3,8 @@ import { publicFetch } from '@/lib/public-api';
 import { richTextPreview } from '@/lib/rich-text-preview';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { ViewButton } from './view-button';
+import { FilteredList, type Card } from './filtered-list';
+import { parseFilters } from '@/lib/embed-filters';
 
 type EmbedThreadItem = {
   id: string;
@@ -21,6 +23,9 @@ type EmbedThreadItem = {
   language: string;
   public_interaction: 'page' | 'popup';
   url: string;
+  /** Additive (2026-10-16); absent on an older API. */
+  team?: { slug: string; name: string } | null;
+  categories?: { slug: string; name: string }[];
 };
 
 function fmtDates(a: string | null, b: string | null): string | null {
@@ -57,6 +62,12 @@ export default async function EmbedListPage({
   const workspace = str(sp.workspace);
   const format = str(sp.format);
   const category = str(sp.category);
+  // The site owner's include/exclude (server-side) and the visitor filters
+  // to show (client-side) — data-exclude-category, data-exclude-team,
+  // data-filters on the snippet.
+  const excludeCategory = str(sp.excludeCategory);
+  const excludeTeam = str(sp.excludeTeam);
+  const filters = parseFilters(str(sp.filters));
   const compact = str(sp.compact) === '1';
   // `theme=light` is accepted (and is the only theme); other values are
   // ignored for now — the layout forces light regardless.
@@ -84,13 +95,17 @@ export default async function EmbedListPage({
   if (workspace) qs.set('workspace', workspace);
   if (format === 'event' || format === 'journey') qs.set('format', format);
   if (category) qs.set('category', category);
+  if (excludeCategory) qs.set('exclude_category', excludeCategory);
+  if (excludeTeam) qs.set('exclude_team', excludeTeam);
 
   let items: EmbedThreadItem[] = [];
+  let truncated = false;
   try {
-    const data = await publicFetch<{ items: EmbedThreadItem[] }>(
+    const data = await publicFetch<{ items: EmbedThreadItem[]; truncated?: boolean }>(
       `/api/v1/thread/public/embed/threads?${qs.toString()}`,
     );
     items = data.items ?? [];
+    truncated = data.truncated === true;
   } catch {
     return <p className="text-sm text-ink-subtle">Couldn&apos;t load threads right now.</p>;
   }
@@ -99,15 +114,13 @@ export default async function EmbedListPage({
     return <p className="text-sm text-ink-subtle">{t(chromeLang, 'nothing_public')}</p>;
   }
 
-  return (
-    <ul className={`te-list ${compact ? 'space-y-2' : 'space-y-3'}`}>
-      {items.map((item) => {
+  const cards: Card[] = items.map((item) => {
         const Icon = item.format === 'journey' ? Route : CalendarRange;
         const dates = fmtDates(item.starts_on, item.ends_on);
         // data-lang wins; otherwise the item speaks its thread's language.
         const itemLang: Locale =
           forcedLang ?? (isLocale(item.language) ? item.language : 'en');
-        return (
+        const node = (
           <li
             key={item.id}
             className={`te-card rounded-xl border border-line bg-surface-raised overflow-hidden ${
@@ -152,7 +165,23 @@ export default async function EmbedListPage({
             </div>
           </li>
         );
-      })}
-    </ul>
+    return {
+      id: item.id,
+      starts_on: item.starts_on,
+      ends_on: item.ends_on,
+      team: item.team ?? null,
+      categories: item.categories ?? [],
+      language: item.language,
+      node,
+    };
+  });
+
+  return (
+    <>
+      {/* More threads exist than one response carries: say so, and offer no
+          visitor filters — a filter must never run over a partial list. */}
+      {truncated && <p className="te-truncated mb-2 text-xs text-ink-muted">{t(chromeLang, 'list_truncated', { n: String(items.length) })}</p>}
+      <FilteredList cards={cards} filters={truncated ? [] : filters} locale={chromeLang} compact={compact} />
+    </>
   );
 }

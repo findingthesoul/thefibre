@@ -43,7 +43,7 @@ const JS = buildEmbedLoader({
   kinds: {
     list: {
       path: '/embed/list',
-      params: ['organiser', 'team', 'org', 'workspace', 'format', 'category', 'compact', 'theme', 'lang'],
+      params: ['organiser', 'team', 'org', 'workspace', 'format', 'category', 'excludeCategory', 'excludeTeam', 'filters', 'compact', 'theme', 'lang'],
       fixed: { popup: '1' },
     },
     card: {

@@ -190,6 +190,10 @@ const PENDING = {
   // Empty again: `hosts` (added 2026-10-15, v1.199.0) was collected into
   // SHAPES.agendaItem the morning batch 25 put it on production.
   agendaItem: [],
+  // The listing's team per item and its `truncated` flag (embed filters,
+  // 2026-10-16). Collect into SHAPES in the sitting that deploys them.
+  embedItem: ['team'],
+  embedListing: ['truncated'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
@@ -388,6 +392,8 @@ check(
   `${embedRes.body?.items?.length ?? 0} items`,
 );
 checkShape('embed item', embedRes.body?.items?.[0], SHAPES.embedItem);
+checkPending('embedItem', embedRes.body?.items?.[0], PENDING.embedItem);
+checkPending('embedListing', embedRes.body, PENDING.embedListing);
 
 // ---- 2. Nothing internal rides along --------------------------------------
 step(2, 'Internal columns stay on our side of the wire');

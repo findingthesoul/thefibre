@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.204.0] — 2026-10-15
+
+### Thread list embeds: filters for visitors, include/exclude for the site
+
+- **Visitors can filter** a thread list embedded on a website — by date
+  (upcoming, this month, next month, past), team, category and language —
+  with `data-filters="date,team,category,language"` (any of them). The
+  choices come from the threads actually listed, a filter with one value is
+  not shown, and the URL hash keeps the choice so a shared link reopens
+  filtered. The cards keep their exact markup, so a site's custom CSS still
+  fits.
+- **The site owner decides what can ever show:** `data-category` now takes a
+  comma list, and `data-exclude-category` / `data-exclude-team` leave
+  threads out — applied on the server, so an excluded thread never reaches
+  the page. Settings → Website embeds gets chips for all of it.
+- **The listing says when it is incomplete.** It returned at most 1,000 rows
+  silently (Supabase's server cap), counted before drafts were dropped. It
+  now filters to showable threads in the query, asks for 1,000 explicitly,
+  and returns `truncated: true` when more exist; the embed then says so and
+  shows no visitor filters, so a filter never runs over a partial list.
+- `GET /public/embed/threads` changes are additive: new params
+  (`exclude_category`, `exclude_team`, comma `category`), new fields (`team`
+  per item, `truncated`). Both new fields are PENDING in
+  `verify-public-api.mjs` until production serves them.
+- Tests: `embed-list-filters.int.test.ts` on staging — a draft never listed,
+  `team` per item, a single `?category=` unchanged, comma include, both
+  excludes, and `truncated` under a small test cap (the draft does not fill
+  the cap); `embed-filters.test.ts` — the visitor filters with a pinned clock
+  (month boundaries, December into January).
 ## [1.203.1] — 2026-10-15
 
 ### verify-external-app runs as a staging fixture, never as a real person

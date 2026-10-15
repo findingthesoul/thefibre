@@ -6698,8 +6698,16 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   // documented at /developers). Anything else is ignored rather than an
   // error, so a typo degrades to the full list, not a broken widget.
   const format = c.req.query('format');
-  // Optional ?category=<slug> — same additive contract as ?format.
-  const categorySlugFilter = c.req.query('category');
+  // Optional ?category= — one slug as before, or (additive, 2026-10-16) a
+  // comma list: a thread in ANY of them is listed. ?exclude_category= and
+  // ?exclude_team= (comma lists of slugs) take threads out — the site
+  // owner's include/exclude, applied here so an excluded thread never
+  // reaches the page.
+  const slugList = (v: string | undefined) =>
+    (v ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  const includeCategories = slugList(c.req.query('category'));
+  const excludeCategories = slugList(c.req.query('exclude_category'));
+  const excludeTeamSlugs = slugList(c.req.query('exclude_team'));
   if (!organiserSlug && !teamId && !orgId && !workspaceId) {
     return c.json({ error: 'pass organiser, team, org or workspace' }, 400);
   }
@@ -6747,9 +6755,25 @@ threadRoutes.get('/public/embed/threads', async (c) => {
        team:team_id (slug, name),
        organisation:organisation_id (id, name),
        categories:thread_thread_category (category:category_id (name, slug)),
-       program:program_id (title, format, status, starts_on, ends_on)`,
+       program:program_id!inner (title, format, status, starts_on, ends_on)`,
+      { count: 'exact' },
     )
-    .eq('is_public_listed', true);
+    .eq('is_public_listed', true)
+    // In the QUERY, not after it (2026-10-16): the cap below then counts only
+    // threads that can be shown, so `truncated` means what it says.
+    .in('program.status', ['active', 'completed'])
+    // Newest first for the cap, so if it is ever hit the most recent stay;
+    // the response is re-sorted by start date below.
+    .order('created_at', { ascending: false })
+    .range(0, embedListCap() - 1);
+  if (format === 'event' || format === 'journey') q = q.eq('program.format', format);
+  if (excludeTeamSlugs.length) {
+    const { data: ex } = await adminClient.from('team').select('id').in('slug', excludeTeamSlugs);
+    const ids = (ex ?? []).map((t) => t.id as string);
+    // The ids are read from the database above, never taken from the
+    // request, so interpolating them into .or() cannot inject a filter.
+    if (ids.length) q = q.or(`team_id.is.null,team_id.not.in.(${ids.join(',')})`);
+  }
   if (resolvedTeamId) q = q.eq('team_id', resolvedTeamId);
   if (orgId) q = q.eq('organisation_id', orgId);
   // Whole workspace: every public thread, personal and team alike.
@@ -6764,7 +6788,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     q = q.eq('organiser_id', org.id);
   }
 
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) {
     // Second layer, after the uuid check above: a 500 on this route reached
     // somebody's website, and `error.message` put the database's own words in
@@ -6774,16 +6798,19 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     console.error('[embed/threads] query failed', error);
     return c.json({ error: pgErrorMessage(error) }, pgErrorStatus(error));
   }
+  // Status and format are filtered in the query. CATEGORIES are filtered
+  // here: through the many-to-many an inner-join filter would also trim each
+  // thread's own category list. They can only narrow what the cap let
+  // through; `truncated` is about the cap, from the query's own count.
+  const truncated = (count ?? 0) > embedListCap();
   const live = (data ?? []).filter((t) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
-    if (!p || (p.status !== 'active' && p.status !== 'completed')) return false;
-    if ((format === 'event' || format === 'journey') && p.format !== format) return false;
-    if (categorySlugFilter) {
-      const cats = (Array.isArray(t.categories) ? t.categories : [])
-        .map((row: Record<string, unknown>) => (Array.isArray(row.category) ? row.category[0] : row.category))
-        .filter(Boolean) as { slug?: string }[];
-      if (!cats.some((cat) => cat.slug === categorySlugFilter)) return false;
-    }
+    if (!p) return false;
+    const cats = (Array.isArray(t.categories) ? t.categories : [])
+      .map((row: Record<string, unknown>) => (Array.isArray(row.category) ? row.category[0] : row.category))
+      .filter(Boolean) as { slug?: string }[];
+    if (includeCategories.length && !cats.some((cat) => includeCategories.includes(cat.slug ?? ''))) return false;
+    if (excludeCategories.length && cats.some((cat) => excludeCategories.includes(cat.slug ?? ''))) return false;
     return true;
   });
   const prices = await ticketPrices(live.map((t) => t.id));
@@ -6827,12 +6854,26 @@ threadRoutes.get('/public/embed/threads', async (c) => {
           .map((row) => (Array.isArray(row.category) ? row.category[0] : row.category))
           .filter(Boolean)
           .map((cat) => ({ name: (cat as { name: string }).name, slug: (cat as { slug: string }).slug })),
+        // Additive (2026-10-16): the team, so a visitor can filter by it —
+        // organiser_name is a team's name OR a person's and cannot be.
+        team: tm ? { slug: tm.slug as string, name: tm.name as string } : null,
         url: `${origin}/${ownerSlug}/${t.slug}`,
       };
     })
     .sort((a, b) => (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999'));
-  return c.json({ items });
+  // `truncated` (additive): more listable threads exist than one response
+  // carries. The list says so and hides its visitor filters, so a filter is
+  // never applied to a partial set.
+  return c.json({ items, truncated });
 });
+
+/** The most threads one embed list response carries. A constant, with a
+ *  test-only override so the "more than fit" case can be exercised without
+ *  a thousand fixtures. */
+function embedListCap(): number {
+  const o = Number(process.env.EMBED_LIST_CAP_FOR_TESTS);
+  return Number.isFinite(o) && o > 0 ? o : 1000;
+}
 
 // GET /api/v1/thread/public/my-enrolments — the signed-in participant's
 // personal page payload. Bearer = their Supabase session token (verified

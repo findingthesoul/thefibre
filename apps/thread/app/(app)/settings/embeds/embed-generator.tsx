@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import { CodeBlock } from '@thefibre/shared/ui/code-block';
+import { CHIP, CHIP_STATE } from '@thefibre/shared/ui/recipes';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n-ui';
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
@@ -22,7 +23,7 @@ export type GeneratorThread = {
   listed: boolean;
 };
 
-export type GeneratorTeam = { id: string; name: string };
+export type GeneratorTeam = { id: string; name: string; slug?: string };
 
 type Kind = 'list' | 'thread' | 'card' | 'card_form' | 'enrol';
 
@@ -58,8 +59,18 @@ export function EmbedGenerator({
   const [listOwner, setListOwner] = useState<string>('mine'); // 'mine' | 'workspace' | team id
   // list: narrow to one kind of thread ('all' | 'event' | 'journey')
   const [listFormat, setListFormat] = useState<string>('all');
-  // list: narrow to one category slug ('' = all) — Settings \u2192 Categories
-  const [listCategory, setListCategory] = useState<string>('');
+  // list: the site owner's include/exclude (server-side) and the filters a
+  // visitor may use (client-side) — backlog 2jt, 2026-10-16.
+  const [onlyCats, setOnlyCats] = useState<Set<string>>(new Set());
+  const [skipCats, setSkipCats] = useState<Set<string>>(new Set());
+  const [skipTeams, setSkipTeams] = useState<Set<string>>(new Set());
+  const [visitorFilters, setVisitorFilters] = useState<Set<string>>(new Set());
+  const flip = (set: Set<string>, v: string) => {
+    const next = new Set(set);
+    if (next.has(v)) next.delete(v);
+    else next.add(v);
+    return next;
+  };
   // changes the labels around the two blocks — Webflow has named places
   const [target, setTarget] = useState<'any' | 'webflow'>('any');
   const [threadId, setThreadId] = useState<string>(threads[0]?.id ?? '');
@@ -95,8 +106,16 @@ export function EmbedGenerator({
         listFormat === 'event' || listFormat === 'journey'
           ? ` data-format="${listFormat}"`
           : '';
-      const categoryAttr = listCategory ? ` data-category="${listCategory}"` : '';
-      return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${categoryAttr}${langAttr}>${styleBlock}</div>`;
+      const list = (set: Set<string>) => [...set].join(',');
+      const categoryAttr = onlyCats.size ? ` data-category="${list(onlyCats)}"` : '';
+      const skipCatAttr = skipCats.size ? ` data-exclude-category="${list(skipCats)}"` : '';
+      // Leaving teams out only means something when the list is not one team.
+      const skipTeamAttr = skipTeams.size && (listOwner === 'mine' || listOwner === 'workspace') ? ` data-exclude-team="${list(skipTeams)}"` : '';
+      // Canonical order, so the same choice always gives the same snippet.
+      const filterAttr = visitorFilters.size
+        ? ` data-filters="${['date', 'team', 'category', 'language'].filter((k) => visitorFilters.has(k)).join(',')}"`
+        : '';
+      return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${categoryAttr}${skipCatAttr}${skipTeamAttr}${filterAttr}${langAttr}>${styleBlock}</div>`;
     }
     if (!thread) return '<!-- create a thread first -->';
     if (kind === 'card' || kind === 'card_form') {
@@ -114,7 +133,7 @@ export function EmbedGenerator({
           .map((e) => e.key)
           .join(',')}"`;
     return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}>${styleBlock}</div>`;
-  }, [kind, listOwner, listFormat, listCategory, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
+  }, [kind, listOwner, listFormat, onlyCats, skipCats, skipTeams, visitorFilters, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
 
   const scriptTag = `<script src="${THREAD_ORIGIN}/embed.js" defer></script>`;
 
@@ -185,23 +204,39 @@ export function EmbedGenerator({
               </select>
               {categories.length > 0 && (
                 <>
-                  <span className="mt-2 block text-xs text-ink-subtle">
-                    {t(locale, 'category')}
-                  </span>
-                  <select
-                    value={listCategory}
-                    onChange={(e) => setListCategory(e.target.value)}
-                    className={`${SELECT} mt-1`}
-                  >
-                    <option value="">{t(locale, 'all_categories')}</option>
-                    {categories.map((cat) => (
-                      <option key={cat.slug} value={cat.slug}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                  <ChipRow
+                    label={t(locale, 'embed_only_categories')}
+                    options={categories.map((c) => ({ value: c.slug, label: c.name }))}
+                    chosen={onlyCats}
+                    onToggle={(v) => setOnlyCats((s) => flip(s, v))}
+                  />
+                  <ChipRow
+                    label={t(locale, 'embed_leave_out_categories')}
+                    options={categories.map((c) => ({ value: c.slug, label: c.name }))}
+                    chosen={skipCats}
+                    onToggle={(v) => setSkipCats((s) => flip(s, v))}
+                  />
                 </>
               )}
+              {(listOwner === 'mine' || listOwner === 'workspace') && teams.some((tm) => tm.slug) && (
+                <ChipRow
+                  label={t(locale, 'embed_leave_out_teams')}
+                  options={teams.filter((tm) => tm.slug).map((tm) => ({ value: tm.slug!, label: tm.name }))}
+                  chosen={skipTeams}
+                  onToggle={(v) => setSkipTeams((s) => flip(s, v))}
+                />
+              )}
+              <ChipRow
+                label={t(locale, 'embed_visitor_filters')}
+                options={[
+                  { value: 'date', label: t(locale, 'embed_vf_date') },
+                  { value: 'team', label: t(locale, 'embed_vf_team') },
+                  { value: 'category', label: t(locale, 'embed_vf_category') },
+                  { value: 'language', label: t(locale, 'embed_vf_language') },
+                ]}
+                chosen={visitorFilters}
+                onToggle={(v) => setVisitorFilters((s) => flip(s, v))}
+              />
             </label>
           ) : (
             <div>
@@ -313,3 +348,36 @@ export function EmbedGenerator({
     </section>
   );
 }
+
+/** A row of toggle chips (the shared CHIP recipe) — several may be on. */
+function ChipRow({
+  label,
+  options,
+  chosen,
+  onToggle,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  chosen: Set<string>;
+  onToggle: (value: string) => void;
+}) {
+  return (
+    <div className="mt-2">
+      <span className="block text-xs text-ink-subtle">{label}</span>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={chosen.has(o.value)}
+            onClick={() => onToggle(o.value)}
+            className={`${CHIP} ${chosen.has(o.value) ? CHIP_STATE.on : CHIP_STATE.off}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+

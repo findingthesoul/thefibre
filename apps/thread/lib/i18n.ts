@@ -108,6 +108,102 @@ const CATALOG = {
     fr: 'Rien de public pour le moment.', // MT
   },
 
+  filter_when: {
+    en: 'When',
+    nl: 'Wanneer',
+    es: 'Cuándo', // MT
+    pt: 'Quando', // MT
+    de: 'Wann', // MT
+    fr: 'Quand', // MT
+  },
+  filter_upcoming: {
+    en: 'Upcoming',
+    nl: 'Binnenkort',
+    es: 'Próximamente', // MT
+    pt: 'Em breve', // MT
+    de: 'Demnächst', // MT
+    fr: 'À venir', // MT
+  },
+  filter_this_month: {
+    en: 'This month',
+    nl: 'Deze maand',
+    es: 'Este mes', // MT
+    pt: 'Este mês', // MT
+    de: 'Diesen Monat', // MT
+    fr: 'Ce mois-ci', // MT
+  },
+  filter_next_month: {
+    en: 'Next month',
+    nl: 'Volgende maand',
+    es: 'El mes que viene', // MT
+    pt: 'No próximo mês', // MT
+    de: 'Nächsten Monat', // MT
+    fr: 'Le mois prochain', // MT
+  },
+  filter_past: {
+    en: 'Past',
+    nl: 'Afgelopen',
+    es: 'Pasados', // MT
+    pt: 'Passados', // MT
+    de: 'Vergangen', // MT
+    fr: 'Passés', // MT
+  },
+  filter_any_time: {
+    en: 'Any time',
+    nl: 'Altijd',
+    es: 'Cualquier fecha', // MT
+    pt: 'Qualquer data', // MT
+    de: 'Jederzeit', // MT
+    fr: 'À tout moment', // MT
+  },
+  filter_team: {
+    en: 'Team',
+    nl: 'Team',
+    es: 'Equipo', // MT
+    pt: 'Equipa', // MT
+    de: 'Team', // MT
+    fr: 'Équipe', // MT
+  },
+  filter_category: {
+    en: 'Category',
+    nl: 'Categorie',
+    es: 'Categoría', // MT
+    pt: 'Categoria', // MT
+    de: 'Kategorie', // MT
+    fr: 'Catégorie', // MT
+  },
+  filter_language: {
+    en: 'Language',
+    nl: 'Taal',
+    es: 'Idioma', // MT
+    pt: 'Idioma', // MT
+    de: 'Sprache', // MT
+    fr: 'Langue', // MT
+  },
+  filter_all: {
+    en: 'All',
+    nl: 'Alle',
+    es: 'Todos', // MT
+    pt: 'Todos', // MT
+    de: 'Alle', // MT
+    fr: 'Tous', // MT
+  },
+  filter_nothing: {
+    en: 'Nothing matches these filters.',
+    nl: 'Niets past bij deze filters.',
+    es: 'Nada coincide con estos filtros.', // MT
+    pt: 'Nada corresponde a estes filtros.', // MT
+    de: 'Nichts passt zu diesen Filtern.', // MT
+    fr: 'Rien ne correspond à ces filtres.', // MT
+  },
+  list_truncated: {
+    en: 'Showing the first {n} threads.',
+    nl: 'De eerste {n} threads worden getoond.',
+    es: 'Se muestran los primeros {n} hilos.', // MT
+    pt: 'A mostrar os primeiros {n} fios.', // MT
+    de: 'Die ersten {n} Threads werden angezeigt.', // MT
+    fr: 'Affichage des {n} premiers fils.', // MT
+  },
   // ── thread page ──────────────────────────────────────────────────────
   agenda: {
     en: 'Agenda',
