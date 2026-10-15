@@ -19,6 +19,16 @@ async function workspaceCardDates(workspaceId: string): Promise<CardDates> {
   const { data } = await adminClient.from('thread_settings').select('card_dates').eq('workspace_id', workspaceId).maybeSingle();
   return toCardDates((data as { card_dates?: unknown } | null)?.card_dates);
 }
+
+/** A public thread list with each item's event dates and close date added
+ *  (publicDateFields), in one batched read — the organiser pages' cards then
+ *  read them through cardDateLine, as the embeds do (thread dates slice 4). */
+async function withPublicDates<T extends Record<string, unknown>>(items: T[]): Promise<T[]> {
+  const ids = items.map((t) => t.id as string).filter(Boolean);
+  if (!ids.length) return items;
+  const datesById = await loadThreadDates(ids);
+  return items.map((t) => ({ ...t, ...publicDateFields(datesById.get(t.id as string)) }));
+}
 import { sendReach } from '../lib/member-notify.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
 import {
@@ -705,7 +715,17 @@ threadRoutes.get('/threads', async (c) => {
       for (const r of rows ?? []) roleByThread.set(r.thread_id as string, r.role as 'host' | 'facilitator');
     }
   }
-  return c.json({ items: (data ?? []).map((t) => ({ ...t, my_role: roleByThread.get(t.id as string) ?? null })) });
+  // The event dates and when sign-ups close (additive, thread dates slice 4),
+  // so the organiser's list reads them through the same rule as every card
+  // instead of only the program period.
+  const datesById = ids.length ? await loadThreadDates(ids) : new Map();
+  return c.json({
+    items: (data ?? []).map((t) => ({
+      ...t,
+      my_role: roleByThread.get(t.id as string) ?? null,
+      ...publicDateFields(datesById.get(t.id as string)),
+    })),
+  });
 });
 
 // POST /api/v1/thread/threads — create thread (+ paired program row)
@@ -6170,6 +6190,10 @@ function publicThreadListItem(t: Record<string, unknown>): Record<string, unknow
     price_cents: t.price_cents ?? null,
     price_currency: t.price_currency ?? null,
     public_interaction: t.public_interaction ?? 'page',
+    // Additive (thread dates slice 4): what a card's date line is written in.
+    // Undefined (omitted) where a caller's select did not ask for them.
+    language: t.language ?? undefined,
+    timezone: t.timezone ?? undefined,
     program: prog
       ? {
           title: prog.title ?? null,
@@ -6404,7 +6428,7 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     .from('thread_thread')
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency, capacity,
-       public_interaction,
+       public_interaction, language, timezone,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true);
@@ -6422,8 +6446,11 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
 
   return c.json({
     organiser: publicOrganiser(owner),
-    threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
+    threads: await withPublicDates(listed.map((t) => publicThreadListItem(t as Record<string, unknown>))),
     owner_kind: owner.kind,
+    // Additive (thread dates slice 4): the owner workspace's card choice, so
+    // the page's cards read their dates the way its embeds do.
+    card_dates: await workspaceCardDates(ownerWorkspaceId(owner)),
     // Additive (rule 8): the workspace's public site — theme and ingredients.
     site: await publicSite(ownerWorkspaceId(owner)),
     // The people, on an ORGANISATION page only. A person's own page is the
@@ -6461,7 +6488,7 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
     .from('thread_thread')
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency, capacity,
-       public_interaction,
+       public_interaction, language, timezone,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true)
@@ -6481,7 +6508,9 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
   return c.json({
     workspace: { slug: owner.workspace.slug, name: owner.workspace.name },
     organiser: publicOrganiser({ kind: 'organiser', organiser: organiserOut }),
-    threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
+    threads: await withPublicDates(listed.map((t) => publicThreadListItem(t as Record<string, unknown>))),
+    // Additive (thread dates slice 4): the workspace's card choice.
+    card_dates: await workspaceCardDates(owner.workspace.id),
     // Additive (rule 8): the workspace's public site — theme and ingredients.
     site: await publicSite(owner.workspace.id),
   });

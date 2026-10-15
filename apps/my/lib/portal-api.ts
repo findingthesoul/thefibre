@@ -61,6 +61,14 @@ export type ThreadItem = {
   enrolment_status: string | null;
   progress_pct: number | null;
   url: string;
+  /** Thread dates (additive, slice 4): what the date line is made of, and the
+   *  zone it is read in. Absent on an older API — the line then falls back to
+   *  the thread period. */
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
+  key_moment_count?: number;
+  signups_close_at?: string | null;
+  timezone?: string | null;
   /** Who the sessions are FROM — the name a calendar entry carries so it is
    *  not a block of time from nobody. Null when a workspace or team owns the
    *  thread rather than a person. */
@@ -145,6 +153,15 @@ export type CouldJoin = {
   title: string;
   url: string;
   starts_on: string | null;
+  /** Thread dates (additive, slice 4): the rest of what a card's date line
+   *  needs, and whose card choice (card_dates on the page) applies. */
+  ends_on?: string | null;
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
+  key_moment_count?: number;
+  signups_close_at?: string | null;
+  workspace_id?: string;
+  timezone?: string | null;
   team: string;
   list_price_cents: number;
   your_price_cents: number;
@@ -311,7 +328,13 @@ export async function fetchNotifyPrefs(accessToken: string): Promise<NotifyPref[
 }
 
 /** One page of everything the member's team calendars let them join. */
-export type UpcomingPage = { entitled: boolean; items: CouldJoin[]; next_cursor: string | null };
+export type UpcomingPage = {
+  entitled: boolean;
+  items: CouldJoin[];
+  next_cursor: string | null;
+  /** Each community's card date choice, by workspace id (additive, slice 4). */
+  card_dates?: Record<string, unknown>;
+};
 
 /** THROWS on failure, like fetchInvoices: an empty calendar and a broken call
  *  must not look the same on the page. */

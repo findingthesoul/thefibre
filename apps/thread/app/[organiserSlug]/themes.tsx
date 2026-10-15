@@ -52,6 +52,7 @@ import { FOOTER_LINKS, appName } from '@thefibre/shared';
 import type { PublicSite } from '@/lib/public-site';
 import { DrawnThread, Shape } from '@thefibre/shared/ui/marks';
 import { ThreadsGrid, type PublicThreadListItem } from './threads-grid';
+import type { CardDates } from '@thefibre/shared/thread-dates';
 import { SiteNav, SiteFooter } from './site-chrome';
 
 export type ThemeProps = {
@@ -69,6 +70,8 @@ export type ThemeProps = {
    *  thing as baseSlug on every route except /{workspace}/{organiser}. */
   ownerSlug: string;
   threads: PublicThreadListItem[];
+  /** The workspace's card date choice; absent from an older API = default. */
+  cardDates?: CardDates;
   /** Rendered above everything: the "← back to the workspace" line. */
   crumb?: React.ReactNode;
   /** Rendered under the threads. A SLOT rather than data, so the six themes
@@ -127,7 +130,7 @@ export function PlainTheme(p: ThemeProps) {
         <section className="mt-12">
           <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">Threads</h2>
           {p.threads.length === 0 && <p className="mt-3 text-sm text-ink-subtle">{EMPTY}</p>}
-          <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} />
+          <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} cardDates={p.cardDates} />
         {p.below}
         </section>
 
@@ -211,7 +214,7 @@ export function FestivalTheme(p: ThemeProps) {
       <main id="programme" className="mx-auto max-w-5xl px-6 py-20">
         <h2 className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">Programme</h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
-        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="poster" />
+        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} cardDates={p.cardDates} variant="poster" />
         {p.below}
       </main>
 
@@ -259,7 +262,7 @@ export function CorporateTheme(p: ThemeProps) {
       <main className="mx-auto max-w-5xl px-6 py-16">
         <h2 className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">Upcoming</h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
-        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="row" />
+        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} cardDates={p.cardDates} variant="row" />
         {p.below}
       </main>
 
@@ -326,7 +329,7 @@ export function CommunityTheme(p: ThemeProps) {
       <main className="mx-auto max-w-2xl px-6 pb-16">
         <h2 className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">What’s on</h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
-        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} />
+        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} cardDates={p.cardDates} />
         {p.below}
       </main>
 
@@ -439,7 +442,7 @@ export function StudioTheme(p: ThemeProps) {
           What’s on
         </h2>
         {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
-        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="poster" />
+        <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} cardDates={p.cardDates} variant="poster" />
         {p.below}
       </main>
 
@@ -499,7 +502,7 @@ export function JournalTheme(p: ThemeProps) {
             Entries
           </h2>
           {p.threads.length === 0 && <p className="mt-4 text-sm text-ink-subtle">{EMPTY}</p>}
-          <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} variant="row" />
+          <ThreadsGrid organiserSlug={p.baseSlug} threads={p.threads} cardDates={p.cardDates} variant="row" />
         {p.below}
         </div>
       </main>

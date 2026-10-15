@@ -2,6 +2,8 @@
 //
 //   node apps/api/scripts/sweep-int-test-fixtures.mjs            # DRY RUN
 //   node apps/api/scripts/sweep-int-test-fixtures.mjs --apply    # does it
+//   node apps/api/scripts/sweep-int-test-fixtures.mjs --slug int-test-x-1a2b3c4d [--apply]
+//   node apps/api/scripts/sweep-int-test-fixtures.mjs --id <workspace uuid>     [--apply]
 //
 // DRY BY DEFAULT, and that is the whole safety model: this deletes workspaces
 // and auth users, and the one thing it must never be is a script somebody
@@ -58,6 +60,26 @@ const KEEP = process.argv.reduce(
   (acc, a, i) => (a === '--keep' && process.argv[i + 1] ? [...acc, process.argv[i + 1]] : acc),
   /** @type {string[]} */ ([]),
 );
+// ONE stranded fixture, by name: `--slug <slug>` or `--id <workspace id>`,
+// repeatable (testing-approach §17). Until 2026-10-16 retiring a single
+// fixture meant either the whole sweep — which also removes every orphan
+// account it finds — or doing by hand what this script already does
+// correctly, in the order the foreign keys allow. A target is still only ever
+// an `int-test-` workspace: the pattern is applied ON TOP of the target, so a
+// mistyped id cannot reach a real one. In target mode the account sweep is
+// skipped entirely — naming one workspace must not also delete accounts.
+const argValues = (flag) =>
+  process.argv.reduce(
+    (acc, a, i) => (a === flag && process.argv[i + 1] ? [...acc, process.argv[i + 1]] : acc),
+    /** @type {string[]} */ ([]),
+  );
+const TARGET_SLUGS = argValues('--slug');
+const TARGET_IDS = argValues('--id');
+const TARGETED = TARGET_SLUGS.length + TARGET_IDS.length > 0;
+if (TARGETED && KEEP.length) {
+  console.error('REFUSED: --keep with --slug/--id says two things at once. Name only what to retire.');
+  process.exit(64);
+}
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) {
@@ -131,12 +153,28 @@ const CONTENT = [
 ];
 
 async function main() {
-  const { data: workspaces, error } = await c
+  const { data: listed, error } = await c
     .from('workspace')
     .select('id, slug, name, archived_at')
     .like('slug', PATTERN)
     .order('slug');
   if (error) throw new Error(`listing workspaces: ${error.message}`);
+  const workspaces = TARGETED
+    ? (listed ?? []).filter((w) => TARGET_SLUGS.includes(w.slug) || TARGET_IDS.includes(w.id))
+    : listed;
+  if (TARGETED) {
+    // Every named target must be found, or nothing happens: a target that
+    // matches nothing is either a typo or not an int-test fixture, and
+    // retiring "the rest" of a list somebody typed is not what they asked.
+    const missing = [
+      ...TARGET_SLUGS.filter((s) => !(workspaces ?? []).some((w) => w.slug === s)),
+      ...TARGET_IDS.filter((id) => !(workspaces ?? []).some((w) => w.id === id)),
+    ];
+    if (missing.length) {
+      console.error(`REFUSED: no ${PATTERN} workspace matches: ${missing.join(', ')}. Nothing was touched.`);
+      process.exit(65);
+    }
+  }
 
   const kept = (workspaces ?? []).filter((w) => KEEP.includes(w.slug));
   const unmatched = KEEP.filter((k) => !(workspaces ?? []).some((w) => w.slug === k));
@@ -156,7 +194,7 @@ async function main() {
   // row. listUsers pages at 1000; keep asking until a short page comes back,
   // or a sweep silently stops at the first thousand.
   const authUsers = [];
-  for (let page = 1; ; page++) {
+  for (let page = 1; !TARGETED; page++) {
     const { data, error: lErr } = await c.auth.admin.listUsers({ page, perPage: 1000 });
     if (lErr) throw new Error(`listing auth users: ${lErr.message}`);
     authUsers.push(...(data?.users ?? []));
@@ -197,6 +235,7 @@ async function main() {
 
   const already = (workspaces ?? []).filter((w) => w.archived_at).length;
   console.log(`\n${APPLY ? 'APPLYING' : 'DRY RUN — nothing is written'}`);
+  if (TARGETED) console.log(`  TARGET MODE: only ${(workspaces ?? []).map((w) => w.slug).join(', ')} — no accounts are swept`);
   console.log(`  workspaces matching ${PATTERN}: ${(workspaces ?? []).length}  (${already} already archived)`);
   console.log(`    DELETABLE (no activity):      ${deletable.length}`);
   console.log(`    PINNED by activity → retire:  ${pinned.length}`);

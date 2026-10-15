@@ -6,6 +6,7 @@ import { OrganiserListing, type PublicOrganiser } from './organiser-listing';
 import type { PublicSite } from '@/lib/public-site';
 import type { OrgPerson } from './org-people';
 import type { OrgLink } from './org-links';
+import { toCardDates } from '@thefibre/shared/thread-dates';
 
 // The first URL segment is any public owner slug — workspace, team or
 // organiser (docs/brief-workspace-urls.md D3: one namespace, workspaces
@@ -69,6 +70,8 @@ export default async function PublicOrganiserPage({
     people?: OrgPerson[];
     organisations?: OrgLink[];
     owner_kind?: 'organiser' | 'team' | 'workspace';
+    /** Additive (thread dates slice 4). */
+    card_dates?: unknown;
   };
   try {
     data = await publicFetch(`/api/v1/thread/public/organiser/${organiserSlug}`);
@@ -81,6 +84,7 @@ export default async function PublicOrganiserPage({
     <OrganiserListing
       organiser={data.organiser}
       threads={data.threads}
+      cardDates={toCardDates(data.card_dates)}
       baseSlug={data.organiser.slug}
       site={data.site ?? null}
       people={data.people ?? []}

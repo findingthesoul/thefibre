@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { PLAIN_SITE, type PublicSite } from '@/lib/public-site';
 import { THEMES } from './themes';
 import type { PublicThreadListItem } from './threads-grid';
+import type { CardDates } from '@thefibre/shared/thread-dates';
 
 export type PublicOrganiser = {
   id?: string;
@@ -34,6 +35,7 @@ export type PublicOrganiser = {
 export function OrganiserListing({
   organiser,
   threads,
+  cardDates,
   baseSlug,
   workspace = null,
   site = null,
@@ -52,6 +54,8 @@ export function OrganiserListing({
 }: {
   organiser: PublicOrganiser;
   threads: PublicThreadListItem[];
+  /** The workspace's card date choice (card_dates on the page payload). */
+  cardDates?: CardDates | undefined;
   /** The owner slug thread links (and the enrol popup) live under —
    *  the workspace's for a workspace listing, else the organiser's. */
   baseSlug: string;
@@ -129,6 +133,7 @@ export function OrganiserListing({
       baseSlug={baseSlug}
       ownerSlug={ownerSlug}
       threads={threads}
+      cardDates={cardDates}
       below={
         ownerKind === 'organiser' ? (
           <OrgLinks organisations={organisations} label={organisationsTitle} />

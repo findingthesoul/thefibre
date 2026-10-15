@@ -14,7 +14,8 @@ import Link from 'next/link';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { loadFrame } from '@/lib/session';
 import { fetchUpcoming, type UpcomingPage } from '@/lib/portal-api';
-import { fmtDate } from '@/lib/format';
+import { threadDateLine } from '@thefibre/shared/thread-date-line';
+import { toCardDates } from '@thefibre/shared/thread-dates';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { JoinPrice } from '../join-price';
@@ -71,7 +72,17 @@ export default async function UpcomingPage({
                   {j.title}
                 </a>
                 <p className="mt-0.5 text-sm text-ink-muted">
-                  {j.starts_on ? `${fmtDate(j.starts_on)} · ` : ''}
+                  {(() => {
+                    // A card from a community's calendar: that community's
+                    // card choice, through the shared rule (thread dates
+                    // slice 4). It printed the start date alone until then.
+                    const line = threadDateLine(
+                      { ...j, ends_on: j.ends_on ?? null },
+                      toCardDates(j.workspace_id ? page.card_dates?.[j.workspace_id] : null),
+                      { language: 'en', timezone: j.timezone },
+                    );
+                    return line ? `${line} · ` : '';
+                  })()}
                   {j.team} · <JoinPrice j={j} />
                 </p>
                 {j.payment === 'unavailable' ? (

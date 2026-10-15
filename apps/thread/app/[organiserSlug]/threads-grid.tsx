@@ -20,6 +20,8 @@ import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { EnrolCard } from './[threadSlug]/enrol-form';
 import { one } from '@/lib/thread-types';
+import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
+import { DEFAULT_CARD_DATES, type CardDates } from '@thefibre/shared/thread-dates';
 
 export type PublicThreadListItem = {
   id: string;
@@ -33,6 +35,14 @@ export type PublicThreadListItem = {
     | { title: string; format: string; status: string; starts_on: string | null; ends_on: string | null }
     | { title: string; format: string; status: string; starts_on: string | null; ends_on: string | null }[]
     | null;
+  /** Thread dates (additive, slice 4): what the card's date line is made of,
+   *  and the language and zone it is written in. */
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
+  key_moment_count?: number;
+  signups_close_at?: string | null;
+  language?: string;
+  timezone?: string;
 };
 
 type PopupDetail = {
@@ -50,24 +60,17 @@ type PopupDetail = {
       | { title: string; starts_on: string | null; ends_on: string | null }[]
       | null;
     enrolment_open: boolean;
-    /** Thread dates (additive): when sign-ups close. */
+    /** Thread dates (additive): when sign-ups close, and the key moments. */
     signups_close_at?: string | null;
+    event_starts_at?: string | null;
+    event_ends_at?: string | null;
+    key_moment_count?: number;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     timezone?: string;
     tickets?: PublicTicket[];
   };
 };
-
-function fmtDates(a: string | null, b: string | null): string | null {
-  if (!a && !b) return null;
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-      new Date(d),
-    );
-  if (a && b && a !== b) return `${fmt(a)} → ${fmt(b)}`;
-  return fmt((a ?? b)!);
-}
 
 function fmtPrice(cents: number | null, currency: string | null): string {
   if (!cents) return 'Free';
@@ -89,10 +92,14 @@ export function ThreadsGrid({
   organiserSlug,
   threads,
   variant = 'list',
+  cardDates = DEFAULT_CARD_DATES,
 }: {
   organiserSlug: string;
   threads: PublicThreadListItem[];
   variant?: GridVariant;
+  /** The workspace's card choice (thread_settings.card_dates), from the page
+   *  payload. These are cards, so they read their dates the way the embeds do. */
+  cardDates?: CardDates;
 }) {
   const [popupSlug, setPopupSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<PopupDetail | null>(null);
@@ -131,7 +138,11 @@ export function ThreadsGrid({
         {threads.map((th) => {
           const p = one(th.program);
           const Icon = p?.format === 'journey' ? Route : CalendarRange;
-          const dates = fmtDates(p?.starts_on ?? null, p?.ends_on ?? null);
+          const dates = threadDateLine(
+            { ...th, starts_on: p?.starts_on ?? null, ends_on: p?.ends_on ?? null },
+            cardDates,
+            th,
+          );
           const title = p?.title ?? th.slug;
           const price = fmtPrice(th.price_cents, th.price_currency);
 
@@ -249,7 +260,12 @@ function PopupBody({ detail, onClose }: { detail: PopupDetail; onClose: () => vo
   const th = detail.thread;
   const p = one(th.program);
   const lang: Locale = isLocale(th.language) ? (th.language as Locale) : 'en';
-  const dates = fmtDates(p?.starts_on ?? null, p?.ends_on ?? null);
+  // The popup is the thread's page in a frame, so it reads like the page.
+  const dates = threadDateLine(
+    { ...th, starts_on: p?.starts_on ?? null, ends_on: p?.ends_on ?? null },
+    PAGE_DATES,
+    th,
+  );
 
   return (
     <div>

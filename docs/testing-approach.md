@@ -176,6 +176,11 @@ why §1.5's render-check rule is a rule and not a nicety.
    in flight on the same database. A test that writes `activity` cannot use
    a throwaway workspace at all: the log is append-only and pins it, so it
    uses a permanent fixture workspace and retires its people.
+   One stranded fixture is retired with the script, not by hand:
+   `node --env-file=apps/api/.env.staging apps/api/scripts/sweep-int-test-fixtures.mjs
+   --slug <int-test-…>` (or `--id`), dry until `--apply`. It touches only the
+   named `int-test-` workspaces, refuses if any name matches nothing, and
+   sweeps no accounts.
 18. **A list that follows something needs a test that reads the something.**
    The v1.97.3 round found six of these in one sitting: allowed CORS methods
    against the verbs routes register, dev origins against each app's

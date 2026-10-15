@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.219.0",
+  "version": "1.220.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -137,6 +137,10 @@
     "./thread-dates": {
       "types": "./dist/thread-dates.d.ts",
       "default": "./dist/thread-dates.js"
+    },
+    "./thread-date-line": {
+      "types": "./dist/thread-date-line.d.ts",
+      "default": "./dist/thread-date-line.js"
     },
     "./member-page": {
       "types": "./dist/member-page.d.ts",

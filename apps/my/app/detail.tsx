@@ -17,6 +17,7 @@ import { RichText } from '@thefibre/shared/ui/rich-text';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { Certificate } from './certificate';
 import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X, HelpCircle } from 'lucide-react';
+import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
 import {
   agendaIcsUrl,
   appleWalletUrl,
@@ -56,15 +57,6 @@ function fmtDateTime(iso: string): string {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(iso));
-}
-
-function fmtDate(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
   }).format(new Date(iso));
 }
 
@@ -430,7 +422,10 @@ export function ThreadSheet({
   onClose: () => void;
 }) {
   const [zoom, setZoom] = useState(false);
-  const when = fmtDate(thread.starts_on);
+  // The thread's dates through the shared rule (thread dates slice 4): the
+  // key-moment span and the count, not just the start date. In English,
+  // because that is the language this app speaks.
+  const when = threadDateLine(thread, PAGE_DATES, { language: 'en', timezone: thread.timezone });
 
   // Escape must close the TOPMOST layer. The shared Dialog listens for it on
   // `document` in the bubble phase, and it registered first because it opened

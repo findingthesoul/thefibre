@@ -112,6 +112,8 @@ import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 // block cannot differ between a member's screen and their emailed copy.
 import { sellerForSale, type SellerDetails } from './purchases.js';
 import { threadSlugFromConfig } from '../lib/thread-access.js';
+import { cardDatesByWorkspace, loadThreadDates, publicDateFields } from '../lib/thread-dates.js';
+import { selectIn } from '../lib/select-in.js';
 
 /** A product's `links` column, read defensively — it is jsonb and a product
  *  can be older than the shape. */
@@ -206,6 +208,14 @@ type ThreadItem = {
    *  sessions you are ticked on, with no RSVP, ticket or certificate — those
    *  are a participant's. A host who is also enrolled appears once, as host. */
   my_role: 'host' | 'facilitator' | null;
+  /** Additive (thread dates slice 4): the key-moment span and when sign-ups
+   *  close, so my.thread reads the thread's dates through the shared rule
+   *  (cardDateLine) like every other surface. */
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
+  key_moment_count?: number;
+  signups_close_at?: string | null;
+  timezone?: string | null;
 };
 
 type MeetItem = {
@@ -1038,6 +1048,24 @@ portalRoutes.get('/portal', async (c) => {
       (a.tickets.length + a.threads.length + a.meets.length + a.memberships.length),
   );
 
+  // The dates of every thread listed, in one batched read, merged in last so
+  // neither push site above has to know about them (thread dates slice 4).
+  const listedThreads = out.flatMap((g) => g.threads);
+  if (listedThreads.length) {
+    const ids = listedThreads.map((t) => t.thread_id);
+    const [datesById, zones] = await Promise.all([
+      loadThreadDates(ids),
+      // The zone the dates are read in — a key moment at 23:30 in New York is
+      // a different DAY in Amsterdam.
+      selectIn<{ id: string; timezone: string | null }>('portal: thread zones', ids, (chunk) =>
+        adminClient.from('thread_thread').select('id, timezone').in('id', chunk).order('id'),
+      ),
+    ]);
+    const zoneOf = new Map(zones.map((z) => [z.id, z.timezone]));
+    for (const t of listedThreads) {
+      Object.assign(t, publicDateFields(datesById.get(t.thread_id)), { timezone: zoneOf.get(t.thread_id) ?? null });
+    }
+  }
   return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming, unread_notifications, communities });
 });
 
@@ -1255,7 +1283,11 @@ portalRoutes.get('/portal/upcoming', async (c) => {
     c.req.query('cursor') ?? null,
     size,
   );
-  return c.json({ entitled: holdsTeamCalendar(entitlements), items, next_cursor: nextCursor });
+  // Each community's card choice, keyed by workspace (additive, thread dates
+  // slice 4): these rows are cards from a community's calendar, so each reads
+  // its dates the way that community chose for its cards.
+  const card_dates = await cardDatesByWorkspace(items.map((i) => i.workspace_id ?? ''));
+  return c.json({ entitled: holdsTeamCalendar(entitlements), items, next_cursor: nextCursor, card_dates });
 });
 
 // ===========================================================================

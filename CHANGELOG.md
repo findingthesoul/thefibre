@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.220.0] — 2026-10-16
+
+### Thread dates, part 4: every thread date line reads one rule (Thread 4.13.0, my.thread 0.15.1)
+
+Slices 1–3 gave threads key moments, a sign-up close date and a card choice
+per workspace, and moved the embeds onto them. Five other places still
+printed a thread's dates their own way — the program period only, always in
+en-GB — so the same thread read differently depending on where you looked.
+They all go through the shared rule now (`cardDateLine`, through one new
+helper `@thefibre/shared/thread-date-line`), in the thread's language and
+zone:
+
+| Where | Was | Now |
+|---|---|---|
+| Public organiser page cards (all six themes) | program period, en-GB | the workspace's card choice — as the embeds |
+| Public thread page, its popup, the single-thread embed | program period, long month, en-GB | key-moment span + "· N sessions", in the page's language |
+| The organiser's own Threads list | program period | thread period + "· N sessions · Sign up by …" |
+| my.thread thread detail | start date only | key-moment span + count |
+| my.thread Upcoming | start date only | that community's card choice |
+
+my.thread's Next timeline is unchanged: its rows are sessions with their
+own times, not thread ranges.
+
+**Thread's `/my` is a redirect to my.thread** — one member portal. It was
+Thread's own participant page and carried the last private copy of the date
+formatting; the address stays valid (it is in sent emails and the enrol
+form) and lands on my.thread.
+
+**API, all additive:** the organiser list, both public organiser-page
+routes and `/me/portal` items carry `event_starts_at`, `event_ends_at`,
+`key_moment_count`, `signups_close_at` (and the zone/language where they
+were missing); the organiser pages and `/me/portal/upcoming` carry the card
+choice (`card_dates`, per workspace on Upcoming).
+
+**Wrong dates past 1,000 sessions, fixed.** `lib/thread-dates.ts` read every
+timed session of a batch of threads in one request, and PostgREST stops at
+1,000 rows without an error — so a big batch (the organiser list is up to
+200 threads) would have computed event ends, counts and close dates from
+whichever sessions came back first. All four of its reads now go through
+`lib/select-in.ts`; the logic is unchanged (agreed with builder 3, whose
+module it is).
+
+Tests: `thread-date-line.test.ts` (7: each choice, the language and its
+fallback, a late-evening moment read in the thread's zone, no key moment,
+no dates); `thread-dates-surfaces.int.test.ts` (Upcoming and the public
+organiser page carry a real key moment added to the seeded fixture, the
+zone, the workspace and the card choice).
+
+`verify-public-api.mjs`: `thread.card_dates`, `embedItem.timezone` and
+`embedListing.card_dates` collected into SHAPES (live since batch 31 — they
+were failing everyone's gate; builder 3's fields, moved here at their
+request); this release's organiser-page additions wait in PENDING.
+
+Also: `sweep-int-test-fixtures.mjs --slug/--id` retires ONE stranded
+fixture (testing-approach §17) — only named `int-test-` workspaces, refused
+if any name matches nothing, no accounts swept, dry until `--apply`.
+
 ## [1.219.0] — 2026-10-16
 
 ### my.thread → Purchases: your billing details, kept in The Fibre (my 0.15.0)

@@ -37,6 +37,14 @@ export type CouldJoin = {
    *  so the list can say "Sign up by …". */
   event_starts_at?: string | null;
   signups_close_at?: string | null;
+  /** Additive (thread dates slice 4): the rest of what a card's date line
+   *  needs (cardDateLine), and whose card choice applies. */
+  ends_on?: string | null;
+  event_ends_at?: string | null;
+  key_moment_count?: number;
+  workspace_id?: string;
+  timezone?: string | null;
+  language?: string | null;
   /** The calendar it is on, by name — the member joined a community, not a
    *  uuid. */
   team: string;
@@ -200,7 +208,7 @@ export async function couldJoinFrom(
       .from('thread_thread')
       .select(
         `id, slug, workspace_id, team_id, price_cents, price_currency, public_scope,
-         registration_fields,
+         registration_fields, timezone, language,
          team:team_id (slug, name, is_published, is_active),
          payment_destination, payment_methods,
          organiser:organiser_id (slug, user_id),
@@ -292,7 +300,7 @@ export async function couldJoinFrom(
       // guarded, because a cast is not a check.
       const team = one(t.team as never) as { slug: string; name: string } | null;
       const organiser = one(t.organiser as never) as { slug: string } | null;
-      const program = one(t.program as never) as { title: string; starts_on: string | null } | null;
+      const program = one(t.program as never) as { title: string; starts_on: string | null; ends_on?: string | null } | null;
       if (!team || !program) continue;
       const ownerSlug = publicOwnerSlug({
         publicScope: t.public_scope as string | null,
@@ -326,6 +334,12 @@ export async function couldJoinFrom(
         starts_on: program.starts_on ?? null,
         event_starts_at: datesById.get(t.id as string)?.event?.start ?? null,
         signups_close_at: datesById.get(t.id as string)?.signupsCloseAt ?? null,
+        ends_on: program.ends_on ?? null,
+        event_ends_at: datesById.get(t.id as string)?.event?.end ?? null,
+        key_moment_count: datesById.get(t.id as string)?.event?.count ?? 0,
+        workspace_id: t.workspace_id as string,
+        timezone: (t.timezone as string | null) ?? null,
+        language: (t.language as string | null) ?? null,
         team: team.name,
         list_price_cents: base.basePriceCents,
         your_price_cents: priced.cents,

@@ -14,9 +14,17 @@
 //     rule when it has no key moment (the fallback in the shared module).
 
 import { adminClient } from '../db.js';
-import { rows } from './rows.js';
+import { selectIn } from './select-in.js';
 import { teamCalendarConfig } from './member-discount.js';
-import { threadDates, type ThreadDates } from '@thefibre/shared/thread-dates';
+import { threadDates, toCardDates, type CardDates, type ThreadDates } from '@thefibre/shared/thread-dates';
+
+// EVERY READ HERE IS CHUNKED AND PAGED (lib/select-in.ts), since 2026-10-16.
+// The sessions read in particular asked for every timed session of every
+// thread given in one request, and PostgREST stops at 1,000 rows without a
+// word — so a batch of threads past that (the organiser's own list is up to
+// 200) would have computed a thread's event end, its key-moment count and its
+// close date from whichever sessions happened to come back first. Wrong
+// dates, no error. The logic below is unchanged; only how rows arrive.
 
 export type { ThreadDates } from '@thefibre/shared/thread-dates';
 
@@ -26,14 +34,14 @@ const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ?
 export async function teamsWithACalendar(teamIds: string[]): Promise<Set<string>> {
   const wanted = new Set(teamIds.filter(Boolean));
   if (!wanted.size) return new Set();
-  const grants = rows(
-    'team calendar grants',
-    await adminClient
+  const grants = (await selectIn('team calendar grants', [...wanted], (chunk) =>
+    adminClient
       .from('membership_access_grant')
-      .select('config')
+      .select('id, config')
       .eq('kind', 'team_calendar')
-      .in('config->>team_id', [...wanted]),
-  ) as { config: Record<string, unknown> | null }[];
+      .in('config->>team_id', chunk)
+      .order('id'),
+  )) as { config: Record<string, unknown> | null }[];
   const out = new Set<string>();
   for (const g of grants) {
     const cfg = teamCalendarConfig(g.config);
@@ -51,10 +59,14 @@ export async function threadsInAMembershipGrant(
   const out = new Set<string>();
   const workspaces = [...new Set(threads.map((t) => t.workspace_id))];
   if (!workspaces.length) return out;
-  const grants = rows(
-    'thread grants',
-    await adminClient.from('membership_access_grant').select('workspace_id, config').eq('kind', 'thread').in('workspace_id', workspaces),
-  ) as { workspace_id: string; config: Record<string, unknown> | null }[];
+  const grants = (await selectIn('thread grants', workspaces, (chunk) =>
+    adminClient
+      .from('membership_access_grant')
+      .select('id, workspace_id, config')
+      .eq('kind', 'thread')
+      .in('workspace_id', chunk)
+      .order('id'),
+  )) as { workspace_id: string; config: Record<string, unknown> | null }[];
   const { threadSlugFromConfig } = await import('./thread-access.js');
   for (const t of threads) {
     const hit = grants.some((g) => {
@@ -73,21 +85,23 @@ export async function loadThreadDates(threadIds: string[]): Promise<Map<string, 
   const out = new Map<string, ThreadDates>();
   if (!ids.length) return out;
 
-  const threads = rows(
-    'thread dates: threads',
-    await adminClient
-      .from('thread_thread')
-      .select('id, slug, workspace_id, timezone, team_id, signups_close_engagement_id, program:program_id (starts_on, ends_on), team:team_id (is_published, is_active)')
-      .in('id', ids),
-  ) as Record<string, unknown>[];
-  const sessions = rows(
-    'thread dates: sessions',
-    await adminClient
-      .from('thread_engagement')
-      .select('id, thread_id, starts_at, ends_at, is_key_moment, status')
-      .in('thread_id', ids)
-      .not('starts_at', 'is', null),
-  ) as { id: string; thread_id: string; starts_at: string; ends_at: string | null; is_key_moment: boolean; status: string }[];
+  const [threads, sessions] = await Promise.all([
+    selectIn('thread dates: threads', ids, (chunk) =>
+      adminClient
+        .from('thread_thread')
+        .select('id, slug, workspace_id, timezone, team_id, signups_close_engagement_id, program:program_id (starts_on, ends_on), team:team_id (is_published, is_active)')
+        .in('id', chunk)
+        .order('id'),
+    ) as Promise<Record<string, unknown>[]>,
+    selectIn('thread dates: sessions', ids, (chunk) =>
+      adminClient
+        .from('thread_engagement')
+        .select('id, thread_id, starts_at, ends_at, is_key_moment, status')
+        .in('thread_id', chunk)
+        .not('starts_at', 'is', null)
+        .order('id'),
+    ) as Promise<{ id: string; thread_id: string; starts_at: string; ends_at: string | null; is_key_moment: boolean; status: string }[]>,
+  ]);
 
   const calendarTeams = await teamsWithACalendar(
     threads
@@ -146,4 +160,20 @@ export function publicDateFields(d: ThreadDates | undefined): {
     key_moment_count: d?.event?.count ?? 0,
     signups_close_at: d?.signupsCloseAt ?? null,
   };
+}
+
+/** Each workspace's card date choice (thread_settings.card_dates), cleaned,
+ *  in one read — for a list whose cards come from several communities
+ *  (my.thread's Upcoming). A workspace with no row gets the default; a card
+ *  never fails over its date line. */
+export async function cardDatesByWorkspace(workspaceIds: string[]): Promise<Record<string, CardDates>> {
+  const ids = [...new Set(workspaceIds.filter(Boolean))];
+  const out: Record<string, CardDates> = {};
+  for (const id of ids) out[id] = toCardDates(null);
+  if (!ids.length) return out;
+  const settings = (await selectIn('card dates by workspace', ids, (chunk) =>
+    adminClient.from('thread_settings').select('workspace_id, card_dates').in('workspace_id', chunk).order('workspace_id'),
+  )) as { workspace_id: string; card_dates: unknown }[];
+  for (const r of settings) out[r.workspace_id] = toCardDates(r.card_dates);
+  return out;
 }

@@ -20,6 +20,7 @@
 // person's filter. Ownership here is a three-way, exactly as it is in the
 // URL: personal, workspace, or a team.
 
+import { threadDateLine, ORGANISER_DATES } from '@thefibre/shared/thread-date-line';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { CalendarRange, ChevronDown, Lock, Route } from 'lucide-react';
@@ -36,16 +37,17 @@ const STATUS_STYLES: Record<string, string> = {
   archived: 'bg-surface-sunken text-ink-muted ring-line',
 };
 
-function formatDates(locale: Locale, startsOn: string | null, endsOn: string | null): string {
-  if (!startsOn && !endsOn) return t(locale, 'no_dates_yet');
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat(INTL_LOCALES[locale], {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(new Date(d));
-  if (startsOn && endsOn && startsOn !== endsOn) return `${fmt(startsOn)} → ${fmt(endsOn)}`;
-  return fmt((startsOn ?? endsOn)!);
+/** The row's dates through the shared rule (thread dates slice 4): the
+ *  thread period — the organiser's working window — with the key-moment count
+ *  and when sign-ups close, in the organiser's own language and the thread's
+ *  zone. It printed the program period alone until then. */
+function formatDates(locale: Locale, row: ThreadRow, startsOn: string | null, endsOn: string | null): string {
+  return (
+    threadDateLine({ ...row, starts_on: startsOn, ends_on: endsOn }, ORGANISER_DATES, {
+      language: locale,
+      timezone: row.timezone,
+    }) ?? t(locale, 'no_dates_yet')
+  );
 }
 
 export function ThreadsList({
@@ -230,7 +232,7 @@ export function ThreadsList({
                     </div>
                     <div className="text-xs text-ink-subtle mt-0.5">
                       {program?.format === 'journey' ? t(locale, 'journey') : t(locale, 'event')} ·{' '}
-                      {formatDates(locale, program?.starts_on ?? null, program?.ends_on ?? null)}
+                      {formatDates(locale, row, program?.starts_on ?? null, program?.ends_on ?? null)}
                       {team ? ` · ${team.name}` : ''}
                     </div>
                   </div>

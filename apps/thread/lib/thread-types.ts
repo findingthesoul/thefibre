@@ -43,6 +43,12 @@ export type ThreadRow = {
     signups_close_at: string | null;
     close_rule: 'session' | 'first_key_moment' | 'fallback' | 'none';
   } | null;
+  /** On the thread LIST (GET /threads, additive — thread dates slice 4): the
+   *  same four facts, at the top level, for the row's date line. */
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
+  key_moment_count?: number;
+  signups_close_at?: string | null;
   /** What in Members points at this thread (grants, product links), for the
    *  rename warning. Absent on older APIs. */
   references?: { grants: number; product_links: number };

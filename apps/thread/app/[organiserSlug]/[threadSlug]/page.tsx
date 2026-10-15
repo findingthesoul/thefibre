@@ -6,6 +6,7 @@ import type { PublicThreadListItem } from '../threads-grid';
 import { OrganiserListing, type PublicOrganiser } from '../organiser-listing';
 import type { PublicSite } from '@/lib/public-site';
 import { fetchPublicThread, publicThreadMovedTo, PublicThreadView } from './thread-view';
+import { toCardDates } from '@thefibre/shared/thread-dates';
 
 // /{owner}/{thread} — the canonical thread address (personal · team ·
 // workspace, docs/brief-workspace-urls.md D1). With ONE fallback: when no
@@ -82,6 +83,8 @@ export default async function PublicThreadPage({
     organiser: PublicOrganiser;
     threads: PublicThreadListItem[];
     site?: PublicSite;
+    /** Additive (thread dates slice 4). */
+    card_dates?: unknown;
   };
   try {
     listing = await publicFetch(
@@ -96,6 +99,7 @@ export default async function PublicThreadPage({
     <OrganiserListing
       organiser={listing.organiser}
       threads={listing.threads}
+      cardDates={toCardDates(listing.card_dates)}
       // Workspace-scoped threads live under the WORKSPACE slug.
       baseSlug={listing.workspace.slug}
       workspace={listing.workspace}

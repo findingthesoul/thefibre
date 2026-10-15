@@ -20,6 +20,7 @@ import { one } from '@/lib/thread-types';
 import { siteOf, type PublicSite } from '@/lib/public-site';
 import { SiteNav, SiteFooter } from '../site-chrome';
 import { THREAD_ORIGIN } from '@/lib/public-host';
+import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
 
 type AgendaItem = {
   id: string;
@@ -73,8 +74,11 @@ export type PublicThreadDetail = {
     agenda: AgendaItem[];
     enrolled_count: number;
     enrolment_open: boolean;
-    /** Thread dates (additive): when sign-ups close. */
+    /** Thread dates (additive): when sign-ups close, and the key moments. */
     signups_close_at?: string | null;
+    event_starts_at?: string | null;
+    event_ends_at?: string | null;
+    key_moment_count?: number;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     is_preview?: boolean;
@@ -121,16 +125,6 @@ export async function publicThreadMovedTo(ownerSlug: string, threadSlug: string)
   }
 }
 
-function fmtDates(a: string | null, b: string | null): string | null {
-  if (!a && !b) return null;
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-      new Date(d),
-    );
-  if (a && b && a !== b) return `${fmt(a)} → ${fmt(b)}`;
-  return fmt((a ?? b)!);
-}
-
 function fmtDay(date: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
@@ -169,7 +163,14 @@ export function PublicThreadView({
   const program = one(thread.program);
   const organiserName = organiser.display_name ?? organiser.slug;
   const lang = thread.language ?? 'en';
-  const dates = fmtDates(program?.starts_on ?? null, program?.ends_on ?? null);
+  // Through the shared rule (thread dates slice 4): the key-moment span and
+  // the count, in the thread's own language and zone — not the program
+  // period in en-GB, which is what this page printed until then.
+  const dates = threadDateLine(
+    { ...thread, starts_on: program?.starts_on ?? null, ends_on: program?.ends_on ?? null },
+    PAGE_DATES,
+    { language: lang, timezone: thread.timezone },
+  );
   const spotsLeft =
     thread.capacity != null ? Math.max(0, thread.capacity - thread.enrolled_count) : null;
   // Informational meta line — only when the thread is run in something other

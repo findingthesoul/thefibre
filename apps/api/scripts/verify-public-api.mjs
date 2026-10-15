@@ -143,9 +143,13 @@ const SHAPES = {
     'event_ends_at',
     'key_moment_count',
     'signups_close_at',
+    // The thread's zone (thread dates part 3), collected with batch 31
+    // (2026-10-16).
+    'timezone',
   ],
-  // The listing envelope. `truncated` collected with batch 27.
-  embedListing: ['items', 'truncated'],
+  // The listing envelope. `truncated` collected with batch 27; the card
+  // choice (thread dates part 3) with batch 31.
+  embedListing: ['items', 'truncated', 'card_dates'],
   thread: [
     'id',
     'slug',
@@ -177,6 +181,9 @@ const SHAPES = {
     'signups_closed',
     // VAT on top (Thread/Meet), collected with batch 30 (2026-10-15).
     'vat_registered',
+    // The workspace's card choice (thread dates part 3), collected with
+    // batch 31 (2026-10-16).
+    'card_dates',
   ],
   agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online', 'hosts'],
 };
@@ -210,12 +217,17 @@ const PENDING = {
   agendaItem: [],
   // Empty again: `team`, `truncated` and the four thread-date fields were
   // collected into SHAPES the day batch 27 put them on production.
-  // The thread's zone on each item (thread dates part 3). Collect with its batch.
-  embedItem: ['timezone'],
-  // Thread dates part 3: the workspace's card choice. Collect with its batch.
-  embedListing: ['card_dates'],
-  // `vat_registered` collected with batch 30; the card choice (part 3) waits.
-  thread: ['card_dates'],
+  // Empty again: `timezone` and the listing's `card_dates` (thread dates
+  // part 3) were collected into SHAPES with batch 31.
+  embedItem: [],
+  embedListing: [],
+  thread: [],
+  // Thread dates part 4 (v1.220.0): the organiser page's cards read their
+  // dates through the shared rule, so each item carries what it needs and
+  // the page carries the owner's card choice. Collect with the batch that
+  // puts v1.220.0 on production.
+  listItem: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at', 'language', 'timezone'],
+  organiserPage: ['card_dates'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
@@ -304,6 +316,8 @@ check(organiserRes.status === 200, 'GET /public/organiser/:slug', `HTTP ${organi
 checkShape('organiser', organiserRes.body?.organiser, SHAPES.organiser);
 checkPending('organiser', organiserRes.body?.organiser, PENDING.organiser);
 checkShape('organiser thread', organiserRes.body?.threads?.[0], SHAPES.listItem);
+checkPending('organiser thread', organiserRes.body?.threads?.[0], PENDING.listItem);
+checkPending('organiser page', organiserRes.body, PENDING.organiserPage);
 check(
   typeof organiserRes.body?.owner_kind === 'string',
   'organiser payload keeps owner_kind',

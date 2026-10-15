@@ -7,6 +7,7 @@ import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { t, isLocale, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
 import { one } from '@/lib/thread-types';
+import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
 
 type AgendaItem = {
   id: string;
@@ -47,8 +48,11 @@ type PublicThreadDetail = {
     agenda: AgendaItem[];
     enrolled_count: number;
     enrolment_open: boolean;
-    /** Thread dates (additive): when sign-ups close. */
+    /** Thread dates (additive): when sign-ups close, and the key moments. */
     signups_close_at?: string | null;
+    event_starts_at?: string | null;
+    event_ends_at?: string | null;
+    key_moment_count?: number;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     tickets?: PublicTicket[];
@@ -57,16 +61,6 @@ type PublicThreadDetail = {
 
 const ALL_ELEMENTS = ['cover', 'intention', 'agenda', 'price', 'enrol'] as const;
 type Element = (typeof ALL_ELEMENTS)[number];
-
-function fmtDates(a: string | null, b: string | null): string | null {
-  if (!a && !b) return null;
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-      new Date(d),
-    );
-  if (a && b && a !== b) return `${fmt(a)} → ${fmt(b)}`;
-  return fmt((a ?? b)!);
-}
 
 function fmtSlot(starts: string | null, ends: string | null, tz: string): string | null {
   if (!starts) return null;
@@ -135,7 +129,12 @@ export default async function EmbedThreadPage({
     : isLocale(thread.language)
       ? thread.language
       : 'en';
-  const dates = fmtDates(program?.starts_on ?? null, program?.ends_on ?? null);
+  // The shared rule, in the language this embed speaks (data-lang wins).
+  const dates = threadDateLine(
+    { ...thread, starts_on: program?.starts_on ?? null, ends_on: program?.ends_on ?? null },
+    PAGE_DATES,
+    { language: lang, timezone: thread.timezone },
+  );
   const spotsLeft =
     thread.capacity != null ? Math.max(0, thread.capacity - thread.enrolled_count) : null;
   const enrolOnly = elements.size === 1 && elements.has('enrol');
