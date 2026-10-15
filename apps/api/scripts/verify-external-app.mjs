@@ -177,6 +177,22 @@ function checkWall(label, obj) {
   );
 }
 
+/** Fields published by this repo and not yet deployed to the API this runs
+ *  against. Silent while absent; once served, this FAILS and says to move
+ *  them into CONTRACT_SHAPES — in the sitting that deploys them (the same
+ *  mechanism as verify-public-api.mjs PENDING). */
+const CONTRACT_PENDING = {
+  // Thread dates part 2 (2026-10-16).
+  thread: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at', 'signups_closed'],
+};
+function checkPending(label, obj, keys) {
+  if (!obj || typeof obj !== 'object') return;
+  for (const k of keys) {
+    if (k in obj) check(false, `${label}.${k} is live`, `MOVE it into CONTRACT_SHAPES.${label} — the API serves it now`);
+    else console.log(`   · ${label}.${k} — published by this repo, not deployed yet`);
+  }
+}
+
 /** Every key the contract promises is still present. Extra keys are fine. */
 function checkShape(label, obj, keys) {
   if (!obj || typeof obj !== 'object') {
@@ -1451,6 +1467,7 @@ async function main() {
   // The published shape, asserted here rather than in 7b because 7b runs
   // before this step and these bindings would not exist yet.
   checkShape('thread', patched.body, CONTRACT_SHAPES.thread);
+  checkPending('thread', patched.body, CONTRACT_PENDING.thread);
   checkShape('enrolment', registrant, CONTRACT_SHAPES.enrolment);
 
   // ---- 7d. Review — admit and decline through the key ---------------------

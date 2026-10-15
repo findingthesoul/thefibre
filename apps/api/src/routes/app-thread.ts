@@ -66,6 +66,8 @@
 // (The Thread's storefront) into one object, because an app should not have to
 // know that the split exists.
 
+import { loadThreadDates, publicDateFields, type ThreadDates } from '../lib/thread-dates.js';
+import { signupsOpenAt } from '@thefibre/shared/thread-dates';
 import type { Context, Hono } from 'hono';
 import { paymentRouteProblem } from '../lib/thread-payment-route.js';
 import { z } from 'zod';
@@ -149,8 +151,21 @@ async function shapeThreadWithRoute(row: Record<string, any>) {
   const program = one(row.program) ?? {};
   return {
     ...shapeThread(row),
+    ...appDateFields((await loadThreadDates([row.id as string])).get(row.id as string)),
     payment_route_missing:
       program.status === 'active' ? !!(await paymentRouteProblem(row.id as string)) : false,
+  };
+}
+
+/** Thread dates (additive, 2026-10-16): the public event dates from the key
+ *  moments, when sign-ups close, and whether they have — the same answer the
+ *  public page gives (lib/thread-dates.ts). `signups_closed` is the WINDOW
+ *  only: this API's enrol path does not refuse on it, as it does not on the
+ *  organiser's switch. */
+function appDateFields(d: ThreadDates | undefined) {
+  return {
+    ...publicDateFields(d),
+    signups_closed: !!d && !signupsOpenAt(d, new Date()),
   };
 }
 
@@ -618,7 +633,10 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       .in('program_id', ids)
       .order('created_at', { ascending: false });
     if (error) return c.json({ error: error.message }, 500);
-    return c.json({ threads: (data ?? []).map(shapeThread) });
+    const datesById = await loadThreadDates((data ?? []).map((r) => r.id as string));
+    return c.json({
+      threads: (data ?? []).map((r) => ({ ...shapeThread(r), ...appDateFields(datesById.get(r.id as string)) })),
+    });
   });
 
   // -------------------------------------------------------------------------

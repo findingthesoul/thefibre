@@ -7,6 +7,7 @@ import {
 } from '../lib/place-state.js';
 import { paymentRouteProblem, paymentRouteSummary } from '../lib/thread-payment-route.js';
 import { loadThreadDates, publicDateFields } from '../lib/thread-dates.js';
+import { signupsOpenAt } from '@thefibre/shared/thread-dates';
 import { sendReach } from '../lib/member-notify.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
 import {
@@ -6632,6 +6633,10 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   // sentence is true, and it says nothing whatever about who is a member:
   // that question must not be answerable by typing an address into a form.
   const memberDiscountPct = await memberDiscountOffered(thread.id as string);
+  // The sign-up window (thread dates part 2): the same rule couldJoin and the
+  // member calendar read.
+  const threadDatesHere = (await loadThreadDates([thread.id as string])).get(thread.id as string);
+  const signupsClosed = !!threadDatesHere && !signupsOpenAt(threadDatesHere, new Date());
 
   return c.json({
     organiser,
@@ -6708,12 +6713,21 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       // default, but this payload is also built from rows selected before it
       // existed in some tests, and a missing value must mean OPEN — the
       // direction that cannot lose somebody a cohort.
+      //
+      // A THIRD condition since thread dates part 2 (2026-10-16): the sign-up
+      // window (signups_close_at) has not passed. `signups_closed` says which
+      // of them closed it, so the page can say "Sign-ups closed" rather than
+      // nothing. The enrol endpoint still does not refuse on it — see the
+      // note there (an external app submits through it).
       enrolment_open:
-        program.status === 'active' && (thread as { public_enrolment_open?: boolean }).public_enrolment_open !== false,
+        program.status === 'active' &&
+        (thread as { public_enrolment_open?: boolean }).public_enrolment_open !== false &&
+        !signupsClosed,
+      signups_closed: signupsClosed,
       participants,
       // Additive (2026-10-16): event dates from the key moments, and when
-      // sign-ups close (lib/thread-dates.ts). Display only until slice 2.
-      ...publicDateFields((await loadThreadDates([thread.id as string])).get(thread.id as string)),
+      // sign-ups close (lib/thread-dates.ts).
+      ...publicDateFields(threadDatesHere),
       // Additive (rule 8): true only for a workspace member viewing an
       // unpublished thread. Anonymous callers never see a payload with it set.
       is_preview: isPreview,

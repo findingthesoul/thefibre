@@ -303,6 +303,15 @@ const CATALOG = {
     de: 'Anmeldung läuft…',
     fr: 'Inscription en cours…', // MT
   },
+  // "Sign up by …" above the form (thread dates, 2026-10-16).
+  signup_by: {
+    en: 'Sign up by',
+    nl: 'Schrijf je in vóór', // MT pending native review
+    es: 'Inscríbete antes del', // MT
+    pt: 'Inscreva-se até', // MT
+    de: 'Anmelden bis', // MT
+    fr: 'Inscrivez-vous avant le', // MT
+  },
   enrolment_closed: {
     en: 'Enrolment is closed for this thread.',
     nl: 'Inschrijven is gesloten voor deze thread.',

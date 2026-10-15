@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.207.0] — 2026-10-15
+
+### Thread dates, part 2: the sign-up window closes our own pages (Thread 4.9.0)
+
+- **The public thread page closes when sign-ups close** (`enrolment_open`
+  now also needs the window open), and says so: additive `signups_closed`
+  is true when it was the window rather than the organiser's switch. Above
+  an open form: "Sign up by …", in the thread's zone.
+- **A member's calendar follows the window:** `calendarVisible` (couldJoin,
+  the portal's Upcoming, new-on-your-calendar, followers' session news)
+  reads the sign-up window instead of the old UTC-date check. A team-calendar
+  thread with no key moment keeps the old rule, now to midnight in its own
+  zone; a failed date load falls back to the old check rather than emptying a
+  calendar. CouldJoin gains `event_starts_at` and `signups_close_at`.
+- **The embed's visitor date filter** reads the event dates when a thread
+  has key moments — "upcoming" is about the event, not the preparation.
+- **NOT the enrol endpoint.** It still accepts after the window, as it does
+  with sign-ups switched off: the Festival of Trust planner submits through
+  it as the visitor (Sjoerd, 2026-09-23, "only on the landing page"). A hard
+  gate is a separate decision.
+- `signups_closed` joins the PENDING public-thread fields in
+  `verify-public-api.mjs`. Collected into SHAPES in the same release, now
+  that batch 27 serves them on production: the embed item's `team` and four
+  date fields, the public thread's four date fields, and the listing's
+  `truncated` (a new `embedListing` shape).
+- **`/apps/*` thread payload (additive, rule 8):** `event_starts_at`,
+  `event_ends_at`, `key_moment_count`, `signups_close_at`, `signups_closed`
+  on every thread response (the list, read, create, update). PENDING in
+  `verify-external-app.mjs`, which gains the same PENDING mechanism as the
+  public check.
+- Correction to 1.206.0: `thread-dates.test.ts` has 17 tests, not 28.
+- Tests: `signup-window.int.test.ts` on staging (5 — open before the first
+  session, closed and saying why after it, a later key moment re-opens, the
+  organiser's switch is not reported as the window, a team-calendar thread
+  leaves the member calendar exactly at its close); `embed-filters.test.ts`
+  +2 (event dates decide upcoming/past and the month).
+
 ## [1.206.0] — 2026-10-15
 
 ### Thread dates, part 1: key moments, when sign-ups close, and six date tags (Thread 4.8.0)
@@ -41,7 +78,7 @@ This part writes and reports them; nothing is refused or hidden by them yet
 - `scripts/audit-signup-close.ts prod|staging` (read-only) lists threads open
   today that the new rule would close now or within 14 days. Staging: 9
   open, 0 closed now, 2 within 14 days (team calendars, today's rule).
-- Tests: `thread-dates.test.ts` (28 — zones across DST, closing AT the
+- Tests: `thread-dates.test.ts` (17 — corrected in the next release; 28 counted the merge-tokens file too — zones across DST, closing AT the
   moment, the team-calendar fallback, the tags), `thread-dates.int.test.ts`
   on staging (8 — through the editor routes, a draft key moment ignored, a
   foreign or untimed close session refused, reordering does not move the

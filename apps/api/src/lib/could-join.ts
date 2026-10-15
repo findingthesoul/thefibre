@@ -13,6 +13,8 @@
 // number — because a list that worked its own prices out would be a third
 // statement of one rule.
 import { adminClient } from '../db.js';
+import { loadThreadDates, type ThreadDates } from './thread-dates.js';
+import { signupsOpenAt } from '@thefibre/shared/thread-dates';
 import { rows } from './rows.js';
 import { publicOwnerSlug } from './public-owner-slug.js';
 import { threadPublicUrl } from './public-origin.js';
@@ -30,6 +32,10 @@ export type CouldJoin = {
   title: string;
   url: string;
   starts_on: string | null;
+  /** Additive (thread dates): the first key moment, and when sign-ups close —
+   *  so the list can say "Sign up by …". */
+  event_starts_at?: string | null;
+  signups_close_at?: string | null;
   /** The calendar it is on, by name — the member joined a community, not a
    *  uuid. */
   team: string;
@@ -96,20 +102,24 @@ export function stillJoinable(
 
 
 /** Is this thread ON its team's calendar, as a member sees it: team
- *  published and active, programme active, still joinable on `today`.
+ *  published and active, programme active, and its SIGN-UP WINDOW still open
+ *  at `now` (thread dates, 2026-10-16 — @thefibre/shared/thread-dates; with
+ *  no key moment a team-calendar thread keeps the old rule, open through its
+ *  last day, now in its own zone). `dates` missing (a failed load) falls back
+ *  to stillJoinable, so a read error never empties a member's calendar.
  *  (Sign-up open is filtered in the query that loads the candidates.)
  *
  *  ONE definition, for the Upcoming list and for "new on your calendar"
  *  (lib/member-notify.ts): a thread announced as new must be a thread the
  *  member then finds in the list. */
-export function calendarVisible(t: Record<string, unknown>, today: string): boolean {
+export function calendarVisible(t: Record<string, unknown>, dates: ThreadDates | undefined, now: Date): boolean {
   const team = one(t.team as never) as { is_published: boolean | null; is_active: boolean | null } | null;
   const program = one(t.program as never) as
     | { status: string; starts_on: string | null; ends_on: string | null }
     | null;
   if (!team || team.is_published !== true || team.is_active === false) return false;
   if (!program || program.status !== 'active') return false;
-  return stillJoinable(program, today);
+  return dates ? signupsOpenAt(dates, now) : stillJoinable(program, now.toISOString().slice(0, 10));
 }
 
 /** Everything these memberships can join, by membership id.
@@ -176,7 +186,7 @@ export async function couldJoinFrom(
   ];
   if (!teamIds.length) return out;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
   const candidates = rows(
     'portal: could join',
     await adminClient
@@ -199,7 +209,8 @@ export async function couldJoinFrom(
   );
 
   // Reachable, or it does not belong in a list of what you can join.
-  const open = candidates.filter((t) => calendarVisible(t, today));
+  const datesById = await loadThreadDates(candidates.map((t) => t.id as string));
+  const open = candidates.filter((t) => calendarVisible(t, datesById.get(t.id as string), now));
 
   // Tickets for all of them at once, and the price from the same two
   // functions the enrol POST uses.
@@ -306,6 +317,8 @@ export async function couldJoinFrom(
         title: program.title,
         url: await threadPublicUrl(ownerSlug, t.slug as string),
         starts_on: program.starts_on ?? null,
+        event_starts_at: datesById.get(t.id as string)?.event?.start ?? null,
+        signups_close_at: datesById.get(t.id as string)?.signupsCloseAt ?? null,
         team: team.name,
         list_price_cents: base.basePriceCents,
         your_price_cents: priced.cents,

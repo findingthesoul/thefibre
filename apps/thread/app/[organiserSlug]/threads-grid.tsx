@@ -50,6 +50,9 @@ type PopupDetail = {
       | { title: string; starts_on: string | null; ends_on: string | null }[]
       | null;
     enrolment_open: boolean;
+    /** Thread dates (additive): when sign-ups close. */
+    signups_close_at?: string | null;
+    timezone?: string;
     tickets?: PublicTicket[];
   };
 };
@@ -286,6 +289,8 @@ function PopupBody({ detail, onClose }: { detail: PopupDetail; onClose: () => vo
             tickets={th.tickets ?? []}
             registrationFields={th.registration_fields ?? []}
             enrolmentOpen={th.enrolment_open}
+            signupsCloseAt={th.signups_close_at ?? null}
+            timeZone={th.timezone ?? 'Europe/Amsterdam'}
             locale={lang}
           />
         </div>

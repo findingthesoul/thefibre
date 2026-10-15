@@ -73,6 +73,8 @@ export type PublicThreadDetail = {
     agenda: AgendaItem[];
     enrolled_count: number;
     enrolment_open: boolean;
+    /** Thread dates (additive): when sign-ups close. */
+    signups_close_at?: string | null;
     is_preview?: boolean;
     participants?: string[];
     share_participants_public?: boolean;
@@ -374,6 +376,8 @@ export function PublicThreadView({
             tickets={thread.tickets ?? []}
             registrationFields={thread.registration_fields ?? []}
             enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
+            signupsCloseAt={thread.signups_close_at ?? null}
+            timeZone={thread.timezone}
             locale={lang}
             sharesParticipants={
               !!thread.share_participants_public || false

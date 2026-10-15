@@ -24,6 +24,9 @@ type PublicThreadPayload = {
     public_interaction?: 'page' | 'popup';
     program: { title: string; format: string; starts_on: string | null; ends_on: string | null } | null;
     enrolment_open: boolean;
+    /** Thread dates (additive): when sign-ups close. */
+    signups_close_at?: string | null;
+    timezone?: string;
     capacity: number | null;
     enrolled_count: number;
     registration_fields: RegistrationField[];
@@ -135,6 +138,8 @@ export default async function EmbedCardPage({
               tickets={thread.tickets ?? []}
               registrationFields={thread.registration_fields ?? []}
               enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
+              signupsCloseAt={thread.signups_close_at ?? null}
+              timeZone={thread.timezone ?? 'Europe/Amsterdam'}
               locale={lang}
             />
           </div>

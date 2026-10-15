@@ -45,3 +45,19 @@ describe('visitor filters', () => {
     expect(o.language).toEqual(['en', 'nl']);
   });
 });
+
+describe('event dates, when the thread has key moments', () => {
+  const now = new Date('2027-03-10T12:00:00Z');
+  const base = { team: null, categories: [], language: 'en' };
+  it('decide upcoming / past over the preparation period', () => {
+    // Prepared since January, the event itself was in February: past.
+    const past = { ...base, starts_on: '2027-01-01', ends_on: '2027-06-30', event_starts_at: '2027-02-01T10:00:00Z', event_ends_at: '2027-02-02T16:00:00Z' };
+    expect(applyFilters([past], { date: 'past' }, now)).toHaveLength(1);
+    expect(applyFilters([past], { date: 'upcoming' }, now)).toHaveLength(0);
+  });
+  it('decide the month', () => {
+    const april = { ...base, starts_on: '2027-01-01', ends_on: null, event_starts_at: '2027-04-12T10:00:00Z', event_ends_at: null };
+    expect(applyFilters([april], { date: 'next_month' }, now)).toHaveLength(1);
+    expect(applyFilters([april], { date: 'this_month' }, now)).toHaveLength(0);
+  });
+});

@@ -37,6 +37,7 @@
 import { randomBytes } from 'node:crypto';
 import { adminClient } from '../db.js';
 import { calendarVisible, couldJoinByMember, entitlementsByMember, type CouldJoin } from './could-join.js';
+import { loadThreadDates } from './thread-dates.js';
 import { placesByThread } from './place-state.js';
 import { getSetting, setSetting } from './platform-settings.js';
 import { stackSurfaceUrl } from './stack-urls.js';
@@ -151,7 +152,6 @@ export async function runNewThreadPass(
    *  never moves staging's real baseline or announces somebody else's thread. */
   scope: { workspaceIds?: string[]; baselineKey?: string } = {},
 ): Promise<{ baseline: number; announced: number; told: number; held: number }> {
-  const today = now.toISOString().slice(0, 10);
   let query = adminClient
     .from('thread_thread')
     .select(THREAD_SELECT)
@@ -160,7 +160,9 @@ export async function runNewThreadPass(
   if (scope.workspaceIds) query = query.in('workspace_id', scope.workspaceIds);
   const { data, error } = await query;
   if (error) throw new Error(`calendar threads: ${error.message}`);
-  const visible = ((data ?? []) as Record<string, unknown>[]).filter((t) => calendarVisible(t, today));
+  const all = (data ?? []) as Record<string, unknown>[];
+  const datesById = await loadThreadDates(all.map((t) => t.id as string));
+  const visible = all.filter((t) => calendarVisible(t, datesById.get(t.id as string), now));
   if (!visible.length) return { baseline: 0, announced: 0, told: 0, held: 0 };
 
   const seen = new Set<string>();
@@ -314,9 +316,10 @@ export async function heldThreads(ws: string, now: Date = new Date()): Promise<H
     .in('id', seen.map((r) => r.thread_id as string));
   if (tErr) throw new Error(`held thread rows: ${tErr.message}`);
   const heldAt = new Map(seen.map((r) => [r.thread_id as string, r.held_at as string]));
-  const today = now.toISOString().slice(0, 10);
-  return ((threads ?? []) as Record<string, unknown>[])
-    .filter((t) => calendarVisible(t, today))
+  const list = (threads ?? []) as Record<string, unknown>[];
+  const datesById = await loadThreadDates(list.map((t) => t.id as string));
+  return list
+    .filter((t) => calendarVisible(t, datesById.get(t.id as string), now))
     .map((t) => {
       const program = one(t.program) as { title?: string; starts_on?: string | null } | null;
       return {
@@ -376,7 +379,7 @@ export async function sendReach(threadId: string, now: Date = new Date()): Promi
   if (!t) return { participants: 0, followers: 0 };
   const placed = await personsWithAPlace(threadId);
   const participants = [...placed.values()].filter((s) => s !== 'dropped').length;
-  if (!t.team_id || !calendarVisible(t, now.toISOString().slice(0, 10))) return { participants, followers: 0 };
+  if (!t.team_id || !calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now)) return { participants, followers: 0 };
   // A count for a dialog: a failed switch read shows no followers rather
   // than taking the dialog down.
   const on = await notifyMembersOn(t.workspace_id as string).catch(() => false);
@@ -415,7 +418,7 @@ export async function notifyCalendarSend(
   const placed = await personsWithAPlace(threadId);
   const participants = [...placed.entries()].filter(([, s]) => s !== 'dropped').map(([p]) => p);
   let followers: string[] = [];
-  if (t.team_id && calendarVisible(t, now.toISOString().slice(0, 10))) {
+  if (t.team_id && calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now)) {
     const fans = (await followersByTeam(ws)).get(t.team_id as string) ?? new Set<string>();
     followers = [...fans].filter((p) => !placed.has(p));
   }

@@ -43,6 +43,14 @@ function fmtPrice(cents: number | null, currency: string | null): string {
 const INPUT =
   'te-input mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
 
+function fmtSignupBy(iso: string, timeZone: string, locale: Locale): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { timeZone, day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+  } catch {
+    return new Date(iso).toISOString().slice(0, 10);
+  }
+}
+
 export function EnrolCard({
   organiserSlug,
   organiserName,
@@ -57,6 +65,8 @@ export function EnrolCard({
   paymentMethods = ['stripe'],
   memberDiscountPct = null,
   initialNotice = null,
+  signupsCloseAt = null,
+  timeZone = 'Europe/Amsterdam',
 }: {
   organiserSlug: string;
   organiserName: string;
@@ -78,6 +88,10 @@ export function EnrolCard({
    *  member price itself is only applied to a signed-in session whose email
    *  matches the one being enrolled (lib/member-discount.ts). */
   memberDiscountPct?: number | null;
+  /** When sign-ups close (thread dates), for "Sign up by …"; null = no date. */
+  signupsCloseAt?: string | null;
+  /** The thread's zone, to say that date in. */
+  timeZone?: string;
   /** From ?paid= on return from Stripe Checkout. */
   initialNotice?: 'success' | 'cancelled' | null;
 }) {
@@ -359,6 +373,11 @@ export function EnrolCard({
         </p>
       ) : (
         <form onSubmit={onSubmit} className="mt-4 space-y-3.5">
+          {signupsCloseAt && (
+            <p className="text-xs text-ink-subtle">
+              {t(locale, 'signup_by')} {fmtSignupBy(signupsCloseAt, timeZone, locale)}
+            </p>
+          )}
           {initialNotice === 'cancelled' && (
             <p className="text-xs text-amber-800 border border-amber-200 bg-amber-50 rounded-md px-2.5 py-2">
               {t(locale, 'payment_cancelled_msg')}

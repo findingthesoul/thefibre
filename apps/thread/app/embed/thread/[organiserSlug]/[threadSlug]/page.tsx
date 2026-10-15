@@ -47,6 +47,8 @@ type PublicThreadDetail = {
     agenda: AgendaItem[];
     enrolled_count: number;
     enrolment_open: boolean;
+    /** Thread dates (additive): when sign-ups close. */
+    signups_close_at?: string | null;
     tickets?: PublicTicket[];
   };
 };
@@ -259,6 +261,8 @@ export default async function EmbedThreadPage({
             priceCurrency={thread.price_currency}
             registrationFields={thread.registration_fields ?? []}
             enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
+            signupsCloseAt={thread.signups_close_at ?? null}
+            timeZone={thread.timezone}
             locale={lang}
           />
         </div>

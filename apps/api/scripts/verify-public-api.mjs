@@ -136,7 +136,16 @@ const SHAPES = {
     'public_interaction',
     'categories',
     'url',
+    // Collected 2026-10-15, the day batch 27 put them on production: the
+    // team per item (embed filters) and the thread dates (part 1).
+    'team',
+    'event_starts_at',
+    'event_ends_at',
+    'key_moment_count',
+    'signups_close_at',
   ],
+  // The listing envelope. `truncated` collected with batch 27.
+  embedListing: ['items', 'truncated'],
   thread: [
     'id',
     'slug',
@@ -159,6 +168,11 @@ const SHAPES = {
     'agenda',
     'enrolled_count',
     'enrolment_open',
+    // Thread dates part 1, collected with batch 27 (2026-10-15).
+    'event_starts_at',
+    'event_ends_at',
+    'key_moment_count',
+    'signups_close_at',
   ],
   agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online', 'hosts'],
 };
@@ -190,13 +204,13 @@ const PENDING = {
   // Empty again: `hosts` (added 2026-10-15, v1.199.0) was collected into
   // SHAPES.agendaItem the morning batch 25 put it on production.
   agendaItem: [],
-  // The listing's team per item and its `truncated` flag (embed filters,
-  // 2026-10-16). Collect into SHAPES in the sitting that deploys them.
-  embedItem: ['team', 'event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at'],
-  embedListing: ['truncated'],
-  // The thread's event dates and sign-up close (thread dates slice 1,
-  // 2026-10-16), on the public thread too. Collect with the deploy.
-  thread: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at'],
+  // Empty again: `team`, `truncated` and the four thread-date fields were
+  // collected into SHAPES the day batch 27 put them on production.
+  embedItem: [],
+  embedListing: [],
+  // Thread dates part 2: why the page is closed. Collect with the batch
+  // that puts it on production.
+  thread: ['signups_closed'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
@@ -397,6 +411,7 @@ check(
 );
 checkShape('embed item', embedRes.body?.items?.[0], SHAPES.embedItem);
 checkPending('embedItem', embedRes.body?.items?.[0], PENDING.embedItem);
+checkShape('embed listing', embedRes.body, SHAPES.embedListing);
 checkPending('embedListing', embedRes.body, PENDING.embedListing);
 
 // ---- 2. Nothing internal rides along --------------------------------------

@@ -16,6 +16,11 @@ export type DateChoice = 'upcoming' | 'this_month' | 'next_month' | 'past' | 'al
 export type FilterableItem = {
   starts_on: string | null;
   ends_on: string | null;
+  /** Thread dates (additive): the public event dates, from the key moments.
+   *  When present they are what "upcoming", "this month" and "past" mean —
+   *  a visitor asks about the event, not the preparation period. */
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
   team: { slug: string; name: string } | null;
   categories: { slug: string; name: string }[];
   language: string;
@@ -41,8 +46,10 @@ const monthOf = (iso: string) => iso.slice(0, 7);
 function matchesDate(item: FilterableItem, choice: DateChoice, now: Date): boolean {
   if (choice === 'all') return true;
   const today = day(now);
-  const end = item.ends_on ?? item.starts_on;
-  const start = item.starts_on ?? item.ends_on;
+  const evStart = item.event_starts_at?.slice(0, 10) ?? null;
+  const evEnd = item.event_ends_at?.slice(0, 10) ?? null;
+  const end = evEnd ?? evStart ?? item.ends_on ?? item.starts_on;
+  const start = evStart ?? evEnd ?? item.starts_on ?? item.ends_on;
   if (choice === 'upcoming') return !end || end >= today;
   if (choice === 'past') return !!end && end < today;
   if (!start) return false;

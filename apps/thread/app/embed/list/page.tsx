@@ -26,6 +26,9 @@ type EmbedThreadItem = {
   /** Additive (2026-10-16); absent on an older API. */
   team?: { slug: string; name: string } | null;
   categories?: { slug: string; name: string }[];
+  /** Thread dates (additive): the public event dates; absent on an older API. */
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
 };
 
 function fmtDates(a: string | null, b: string | null): string | null {
