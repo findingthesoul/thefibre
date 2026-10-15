@@ -175,6 +175,8 @@ const SHAPES = {
     'signups_close_at',
     // Thread dates part 2, collected with batch 28 (2026-10-15).
     'signups_closed',
+    // VAT on top (Thread/Meet), collected with batch 30 (2026-10-15).
+    'vat_registered',
   ],
   agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online', 'hosts'],
 };
@@ -210,8 +212,8 @@ const PENDING = {
   // collected into SHAPES the day batch 27 put them on production.
   embedItem: [],
   embedListing: [],
-  // VAT on top (2026-10-15): whether the seller adds VAT. Collect with its batch.
-  thread: ['vat_registered'],
+  // Empty again: `vat_registered` collected the day batch 30 served it.
+  thread: [],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */

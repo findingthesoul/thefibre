@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { fillEmptyPlatformName } from '../lib/identity-profile.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
 import { saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
@@ -7709,7 +7710,10 @@ threadRoutes.post('/public/enrol', async (c) => {
     name: d.name,
     source: 'thread_enrolment',
     create: true,
+    // The person typing is the person named (2026-10-15): fill empty only.
+    fillEmptyName: true,
   });
+  await fillEmptyPlatformName(email, d.name);
   if (!resolvedEnrolee.ok) {
     console.error('[thread/public/enrol] person resolve failed', resolvedEnrolee.reason);
     return c.json({ error: 'could not register you — try again' }, 500);

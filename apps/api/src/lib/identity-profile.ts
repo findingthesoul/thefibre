@@ -185,3 +185,32 @@ export async function saveBilling(
     .upsert({ email, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'email' });
   return error ? { error: error.message } : {};
 }
+
+/**
+ * Give the PLATFORM profile a name where it has none — never over one that is
+ * there. The platform profile (identity_profile.display_name, by email) is
+ * what greetings and profileFor read; the seat's public."user".full_name is
+ * filled the same way. For the public self-service doors, where the person
+ * typing the name is the one named (2026-10-15). Failures are logged, never
+ * thrown: a missing name must not fail a payment.
+ */
+export async function fillEmptyPlatformName(email: string, name: string | null | undefined): Promise<void> {
+  const clean = name?.trim();
+  const e = email.trim().toLowerCase();
+  if (!clean || !e) return;
+  try {
+    const { data, error } = await adminClient.from('identity_profile').select('display_name').eq('email', e).maybeSingle();
+    // A FAILED read is not "no row" (see ensureProfile): do nothing.
+    if (error) throw new Error(error.message);
+    if (!data) {
+      const { error: insErr } = await adminClient.from('identity_profile').insert({ email: e, display_name: clean, timezone: 'Europe/Amsterdam' });
+      // 23505: somebody created it a moment ago — theirs stands.
+      if (insErr && insErr.code !== '23505') throw new Error(insErr.message);
+    } else if (!data.display_name?.trim()) {
+      await adminClient.from('identity_profile').update({ display_name: clean }).eq('email', e);
+    }
+    await adminClient.from('user').update({ full_name: clean }).eq('email', e).or('full_name.is.null,full_name.eq.');
+  } catch (err) {
+    console.error('[identity-profile] fill-empty name failed', { message: (err as Error).message });
+  }
+}

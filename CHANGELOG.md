@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.210.0] — 2026-10-15
+
+### A member's name survives the join; my.thread shows billing details (my 0.13.0)
+
+marieke@soul.com joined soul.com and my.thread → You showed no first name,
+no last name, no address — and her welcome mail said "Hi there".
+
+- **Why:** the join's single name field was split into first / last ONLY
+  when the join CREATED the contact. A contact with her email already
+  existed in soul (imported, invited, an earlier abandoned checkout), so
+  the match returned early and the typed name was thrown away. And You
+  showed the NEWEST contact across all communities, so a newer nameless one
+  anywhere blanked the page even where a name existed.
+- **Fill empty, never overwrite:** `resolvePerson({ fillEmptyName })` writes
+  the typed name into first_name / last_name where those are EMPTY on a
+  matched contact; a named contact keeps its name. Used by the three
+  self-service doors — the membership join, the product buy and the Thread
+  enrol — where the person typing is the person named.
+  `fillEmptyPlatformName` does the same for the platform profile
+  (identity_profile.display_name, the seat's full_name — what greetings
+  read).
+- **You** shows the newest contact WITH a name (the platform profile's name
+  as the last resort), and — read-only — the billing details of the last
+  paid checkout. No link to Stripe's portal (Sjoerd: *"Manage payment should
+  not go to Stripe"*); editing them in The Fibre comes with Purchases.
+- **Risk, accepted:** the public doors are self-service and the email is
+  typed, so a FREE enrolment with somebody else's address can now set that
+  person's name where it was EMPTY. Only empty fields, never a name that is
+  there, and the owner can correct it on You — judged acceptable (coordinator,
+  2026-10-15).
+- `scripts/backfill-member-names.ts prod|staging [--workspace <slug>]
+  [--apply]`: for live members, fills empty contact names and empty
+  platform-profile names from the newest purchase they paid AS THEMSELVES —
+  never from a company's name (an organisation-paid invoice is named after
+  the company) — else the contact's own name for the profile. Dry run by
+  default; the prod run is Sjoerd's.
+- `verify-public-api.mjs`: `vat_registered` collected from PENDING into
+  SHAPES — batch 30 put it on production.
+- `scripts/audit-fee-on-vat.ts prod|staging` (read-only): membership
+  invoices where the platform fee was taken on the VAT between 1.208.0 and
+  1.209.0 — amount, fee taken, fee on net, difference, total. Staging: 13
+  paid membership invoices, none with VAT on top.
+- Tests: `member-names.int.test.ts` on staging (5 — a nameless contact gets
+  the typed name, a named one keeps it, the platform profile fills empty
+  only, You shows the named contact over a newer nameless one, the billing
+  details read back). The lane scanner named 18 integration files; all 18
+  pass (122 tests).
+
 ## [1.209.1] — 2026-10-15
 
 ### Meet: a personal-room booking carries the room again (Meet 2.32.1, hotfix)

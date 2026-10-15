@@ -363,6 +363,15 @@ export type MyProfile = {
   locale: string | null;
   /** How many communities a name change will reach. Said before they save. */
   person_rows: number;
+  /** As given at the last checkout; read-only (additive, 2026-10-15). */
+  billing_details?: {
+    company: string | null;
+    address: string | null;
+    postal_code: string | null;
+    city: string | null;
+    country: string | null;
+    tax_no: string | null;
+  } | null;
 };
 
 export async function fetchProfile(accessToken: string): Promise<MyProfile | null> {

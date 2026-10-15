@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono';
+import { fillEmptyPlatformName } from '../lib/identity-profile.js';
 import { z } from 'zod';
 import { announceHeld, dismissHeld, heldThreads } from '../lib/member-notify.js';
 import { GRANT_THREAD_PROBLEM, resolveGrantThread } from '../lib/thread-grant.js';
@@ -2686,7 +2687,11 @@ membershipRoutes.post('/public/join', async (c) => {
     name: d.name,
     source: 'membership_join',
     create: true,
+    // The person typing is the person named: an existing nameless contact
+    // gets the name, a named one keeps theirs (2026-10-15).
+    fillEmptyName: true,
   });
+  await fillEmptyPlatformName(email, d.name);
   if (!resolved.ok) {
     console.error('[membership/public/join] person resolve failed', resolved.reason);
     return c.json({ error: 'could not create your contact record' }, 500);
@@ -3113,7 +3118,9 @@ membershipRoutes.post('/public/buy', async (c) => {
     name: d.name,
     source: 'membership_purchase',
     create: true,
+    fillEmptyName: true,
   });
+  await fillEmptyPlatformName(email, d.name);
   if (!resolved.ok) {
     console.error('[membership/public/buy] person resolve failed', resolved.reason);
     return c.json({ error: 'could not create your contact record' }, 500);

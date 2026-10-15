@@ -26,6 +26,7 @@ import { VERSION } from '@/lib/version';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
 import { DetailsForm } from './details-form';
+import { BillingCard } from './billing-card';
 import { CalendarCard } from './calendar-card';
 import { DirectoryCard } from './directory-card';
 import { NotifyCard } from './notify-card';
@@ -73,7 +74,10 @@ export default async function YouPage() {
   return (
     <PageShell title="You">
       {profile ? (
-        <DetailsForm profile={profile} />
+        <>
+          <DetailsForm profile={profile} />
+          {profile.billing_details && <BillingCard details={profile.billing_details} />}
+        </>
       ) : (
         // The details call failed. Show what the portal payload already knows
         // rather than an error where a name should be — and say plainly that

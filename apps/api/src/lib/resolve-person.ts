@@ -178,6 +178,15 @@ export type ResolvePersonInput = {
   create?: boolean;
   /** Extra columns to set when creating. Never applied to a match. */
   extra?: Record<string, unknown> | undefined;
+  /**
+   * On a MATCH, write the given name into first_name / last_name where those
+   * are EMPTY — never over a name that is there (2026-10-15: a member who
+   * joined soul.com had an existing, nameless contact, the typed name was
+   * thrown away, and my.thread → You showed blanks). For the public
+   * self-service doors (membership join, product buy, Thread enrol), where
+   * the person typing is the person named.
+   */
+  fillEmptyName?: boolean;
 };
 
 export type ResolvePersonResult =
@@ -218,7 +227,7 @@ export async function resolvePerson(input: ResolvePersonInput): Promise<ResolveP
   // exists to close.
   const { data: rows, error: selErr } = await adminClient
     .from('person')
-    .select('id, first_name')
+    .select('id, first_name, last_name')
     .eq('workspace_id', input.workspaceId)
     .eq('email', email)
     .is('deleted_at', null)
@@ -251,7 +260,7 @@ export async function resolvePerson(input: ResolvePersonInput): Promise<ResolveP
       .map((r) => r.person as unknown as { id: string; first_name: string | null; created_at: string; deleted_at: string | null } | null)
       .filter((x): x is { id: string; first_name: string | null; created_at: string; deleted_at: string | null } => !!x && !x.deleted_at)
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
-    if (alive.length) rows?.push(...alive.map(({ id, first_name }) => ({ id, first_name })));
+    if (alive.length) rows?.push(...alive.map(({ id, first_name }) => ({ id, first_name, last_name: null })));
   }
 
   const matches = rows?.length ?? 0;
@@ -265,12 +274,28 @@ export async function resolvePerson(input: ResolvePersonInput): Promise<ResolveP
         source: input.source,
       });
     }
+    let firstName = (first.first_name as string | null) ?? null;
+    if (input.fillEmptyName) {
+      const split = splitPersonName(input.name);
+      const want = { first: input.firstName ?? split.first, last: input.lastName ?? split.last };
+      // Re-read both fields for this row: a contact-point match above carries
+      // only first_name, and "empty" must be judged on what is stored.
+      const { data: cur } = await adminClient.from('person').select('first_name, last_name').eq('id', first.id).maybeSingle();
+      const patch: Record<string, string> = {};
+      if (want.first?.trim() && !cur?.first_name?.trim()) patch.first_name = want.first.trim();
+      if (want.last?.trim() && !cur?.last_name?.trim()) patch.last_name = want.last.trim();
+      if (Object.keys(patch).length) {
+        const { error: upErr } = await adminClient.from('person').update(patch).eq('id', first.id);
+        if (upErr) console.error('[resolvePerson] fill-empty name failed', { person: first.id, message: upErr.message });
+        else if (patch.first_name) firstName = patch.first_name;
+      }
+    }
     return {
       ok: true,
       personId: first.id as string,
       created: false,
       matches,
-      firstName: (first.first_name as string | null) ?? null,
+      firstName,
     };
   }
 

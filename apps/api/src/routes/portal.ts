@@ -1648,18 +1648,50 @@ portalRoutes.get('/profile', async (c) => {
       // against the live schema, which is the only way to know: a PostgREST
       // select is a string and the type-checker never reads it.
       .order('created_at', { ascending: false }),
-    adminClient.from('identity_profile').select('locale').eq('email', email).maybeSingle(),
+    adminClient.from('identity_profile').select('locale, display_name').eq('email', email).maybeSingle(),
   ]);
 
-  // The newest row wins when they disagree, which they can: two organisers
-  // typed the name independently before this page existed.
-  const first = (persons ?? [])[0] as { first_name?: string; last_name?: string } | undefined;
+  // The newest row WITH A NAME wins when they disagree, which they can: two
+  // organisers typed the name independently before this page existed. "With
+  // a name" since 2026-10-15 — the newest row alone let a nameless contact
+  // in another community blank the page (marieke@soul.com). The platform
+  // profile's name is the last resort.
+  const rowsByAge = (persons ?? []) as { first_name?: string | null; last_name?: string | null }[];
+  const named = rowsByAge.find((p) => p.first_name?.trim() || p.last_name?.trim());
+  const platformName = ((identity?.display_name as string | null) ?? '').trim();
+  const [pFirst, ...pRest] = platformName ? platformName.split(/\s+/) : [];
+
+  // THE BILLING DETAILS last given at a checkout (read-only here; editing
+  // them in The Fibre comes with Purchases — Sjoerd: "Manage payment should
+  // not go to Stripe"). From the newest paid ledger row of this email that
+  // carries an address.
+  const { data: billed } = await adminClient
+    .from('purchase')
+    .select('billing, paid_at')
+    .eq('payer_email', email)
+    .eq('status', 'paid')
+    .not('billing->>address', 'is', null)
+    .order('paid_at', { ascending: false })
+    .limit(1);
+  const b = ((billed ?? [])[0]?.billing ?? null) as Record<string, unknown> | null;
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
   return c.json({
     email,
-    first_name: first?.first_name ?? null,
-    last_name: first?.last_name ?? null,
+    first_name: named?.first_name?.trim() || (named ? null : (pFirst ?? null)),
+    last_name: named?.last_name?.trim() || (named ? null : (pRest.join(' ') || null)),
     locale: (identity?.locale as string | null) ?? null,
+    // Additive (2026-10-15): read-only, null when no checkout carried one.
+    billing_details: b
+      ? {
+          company: str(b.company),
+          address: str(b.address),
+          postal_code: str(b.postal_code),
+          city: str(b.city),
+          country: str(b.country),
+          tax_no: str(b.tax_no),
+        }
+      : null,
     /** How many communities the change will reach. The page says so before
      *  they save, because "this updates your name everywhere" is a fact they
      *  are entitled to before they press it, not after. */
