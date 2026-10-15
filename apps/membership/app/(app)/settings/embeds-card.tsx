@@ -7,7 +7,7 @@
 // language (i18n P3); the GENERATED SNIPPETS are code and stay verbatim.
 
 import { useMemo, useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { CodeBlock } from '@thefibre/shared/ui/code-block';
 import { LOCALES, LOCALE_LABELS, type Locale as PublicLocale } from '@/lib/i18n';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { SectionLabel } from './page-chrome';
@@ -31,7 +31,6 @@ export function EmbedsCard({
   // embed's own (data-lang / workspace) — deliberately not this UI's.
   const [label, setLabel] = useState('Become a member');
   const [lang, setLang] = useState<string>('auto');
-  const [copied, setCopied] = useState<'script' | 'snippet' | 'all' | null>(null);
 
   const scriptTag = `<script src="${host}/embed.js" defer></script>`;
 
@@ -56,16 +55,6 @@ export function EmbedsCard({
   }, [kind, label, lang, workspaceSlug]);
 
   const allInOne = `${scriptTag}\n${snippet}`;
-
-  async function copy(which: 'script' | 'snippet' | 'all', text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(which);
-      setTimeout(() => setCopied(null), 1500);
-    } catch {
-      // Clipboard unavailable (permissions) — the user can select manually.
-    }
-  }
 
   return (
     <section className="rounded-lg border border-line bg-surface-raised p-5">
@@ -138,77 +127,11 @@ export function EmbedsCard({
 
         {/* Output */}
         <div className="space-y-3 pt-1">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">{t(locale, 'embed_step1')}</span>
-              <CopyButton
-                copied={copied === 'script'}
-                locale={locale}
-                onClick={() => void copy('script', scriptTag)}
-              />
-            </div>
-            <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-              {scriptTag}
-            </pre>
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">{t(locale, 'embed_step2')}</span>
-              <CopyButton
-                copied={copied === 'snippet'}
-                locale={locale}
-                onClick={() => void copy('snippet', snippet)}
-              />
-            </div>
-            <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-              {snippet}
-            </pre>
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">{t(locale, 'embed_all_in_one')}</span>
-              <CopyButton
-                copied={copied === 'all'}
-                locale={locale}
-                onClick={() => void copy('all', allInOne)}
-              />
-            </div>
-            <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-              {allInOne}
-            </pre>
-          </div>
+          <CodeBlock label={t(locale, 'embed_step1')} code={scriptTag} />
+          <CodeBlock label={t(locale, 'embed_step2')} code={snippet} />
+          <CodeBlock label={t(locale, 'embed_all_in_one')} code={allInOne} />
         </div>
       </div>
     </section>
-  );
-}
-
-function CopyButton({
-  copied,
-  locale,
-  onClick,
-}: {
-  copied: boolean;
-  locale: Locale;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken"
-    >
-      {copied ? (
-        <>
-          <Check size={12} strokeWidth={2} className="text-emerald-600" />
-          {t(locale, 'copied')}
-        </>
-      ) : (
-        <>
-          <Copy size={12} strokeWidth={1.75} />
-          {t(locale, 'copy')}
-        </>
-      )}
-    </button>
   );
 }

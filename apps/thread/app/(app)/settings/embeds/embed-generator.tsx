@@ -5,7 +5,7 @@
 // Lives at the bottom of Settings → Website embeds, under the docs.
 
 import { useMemo, useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { CodeBlock } from '@thefibre/shared/ui/code-block';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n-ui';
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
@@ -67,7 +67,6 @@ export function EmbedGenerator({
   const [lang, setLang] = useState<string>('auto');
   const [buttonText, setButtonText] = useState('Enrol now');
   const [includeCss, setIncludeCss] = useState(false);
-  const [copied, setCopied] = useState<'script' | 'snippet' | null>(null);
 
   const thread = threads.find((t) => t.id === threadId) ?? null;
 
@@ -118,16 +117,6 @@ export function EmbedGenerator({
   }, [kind, listOwner, listFormat, listCategory, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
 
   const scriptTag = `<script src="${THREAD_ORIGIN}/embed.js" defer></script>`;
-
-  async function copy(which: 'script' | 'snippet', text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(which);
-      setTimeout(() => setCopied(null), 1500);
-    } catch {
-      // Clipboard unavailable (permissions) — the user can select manually.
-    }
-  }
 
   return (
     <section>
@@ -311,72 +300,16 @@ export function EmbedGenerator({
 
         {/* Output */}
         <div className="space-y-3 pt-1">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">
-                {target === 'webflow'
-                  ? t(locale, 'head_label_webflow')
-                  : t(locale, 'head_label_any')}
-              </span>
-              <CopyButton
-                locale={locale}
-                copied={copied === 'script'}
-                onClick={() => void copy('script', scriptTag)}
-              />
-            </div>
-            <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-              {scriptTag}
-            </pre>
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">
-                {target === 'webflow'
-                  ? t(locale, 'body_label_webflow')
-                  : t(locale, 'body_label_any')}
-              </span>
-              <CopyButton
-                locale={locale}
-                copied={copied === 'snippet'}
-                onClick={() => void copy('snippet', snippet)}
-              />
-            </div>
-            <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-              {snippet}
-            </pre>
-          </div>
+          <CodeBlock
+            label={target === 'webflow' ? t(locale, 'head_label_webflow') : t(locale, 'head_label_any')}
+            code={scriptTag}
+          />
+          <CodeBlock
+            label={target === 'webflow' ? t(locale, 'body_label_webflow') : t(locale, 'body_label_any')}
+            code={snippet}
+          />
         </div>
       </div>
     </section>
-  );
-}
-
-function CopyButton({
-  locale,
-  copied,
-  onClick,
-}: {
-  locale: Locale;
-  copied: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken"
-    >
-      {copied ? (
-        <>
-          <Check size={12} strokeWidth={2} className="text-emerald-600" />
-          {t(locale, 'copied_word')}
-        </>
-      ) : (
-        <>
-          <Copy size={12} strokeWidth={1.75} />
-          {t(locale, 'copy')}
-        </>
-      )}
-    </button>
   );
 }

@@ -1040,6 +1040,30 @@ const CHROME = {
     de: 'Einfügen:', // MT
     fr: 'Insérer :', // MT
   },
+  code_copy: {
+    en: 'Copy',
+    nl: 'Kopiëren',
+    es: 'Copiar', // MT
+    pt: 'Copiar', // MT
+    de: 'Kopieren', // MT
+    fr: 'Copier', // MT
+  },
+  code_copied: {
+    en: 'Copied',
+    nl: 'Gekopieerd',
+    es: 'Copiado', // MT
+    pt: 'Copiado', // MT
+    de: 'Kopiert', // MT
+    fr: 'Copié', // MT
+  },
+  code_copy_failed: {
+    en: 'Couldn’t copy — select and copy by hand',
+    nl: 'Kopiëren lukte niet — selecteer en kopieer zelf',
+    es: 'No se pudo copiar: selecciona y copia a mano', // MT
+    pt: 'Não foi possível copiar — seleciona e copia à mão', // MT
+    de: 'Kopieren fehlgeschlagen — bitte markieren und selbst kopieren', // MT
+    fr: 'Copie impossible — sélectionne et copie à la main', // MT
+  },
   clear_formatting: {
     en: 'Clear formatting',
     nl: 'Opmaak wissen',

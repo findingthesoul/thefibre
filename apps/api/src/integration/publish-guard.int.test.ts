@@ -56,6 +56,11 @@ async function thread(price: number, methods: string[] | null = null) {
     organiser_id: organiserId,
     slug: `guard-${randomUUID().slice(0, 8)}`,
     public_scope: 'workspace',
+    // Paid to the WORKSPACE's account, which is what these cases connect.
+    // Explicit since the column default became 'personal' (the organiser,
+    // migration 20261015070231): before that, NULL = auto did this for a
+    // workspace thread, and the case below went red the day it changed.
+    payment_destination: 'workspace',
     public_enrolment_open: true,
     price_cents: price,
     price_currency: 'EUR',

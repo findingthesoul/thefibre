@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.203.0] — 2026-10-15
+
+### One list of tags — and a copy button on every code block
+
+Sjoerd: *"Make one consistent list from now on. Add a few like facilitator
+and host."* And: *"please a copy button."*
+
+- **One registry** (`@thefibre/shared/merge-tokens`): every tag that can be
+  typed into per-person text, which surface offers it (thread messages, the
+  member page), its description in six languages and an example. Both the
+  insert buttons and the filling read it; a test holds each surface's filler
+  to exactly the registry's tags for it.
+- **The list:** {first_name} (alias {name}), {last_name}, {full_name},
+  {community}, {my.thread} — on both; {thread} (alias {thread_title}),
+  {organiser}, {facilitator} (the main facilitator, else the organiser),
+  {hosts} ("Anna and Peter", in the thread's language), {date} (alias
+  {start_date}) — in thread messages; {tier}, {next_event} — on the member
+  page. Every message already written keeps working: the old spellings are
+  aliases.
+- **The Thread message editor gets insert buttons** for its tags, like the
+  member page.
+- **One rule everywhere:** an unknown tag stays as typed; a missing value is
+  empty; values are escaped (on the member page per value, in emails with
+  the whole body) so a name can never inject markup.
+- **Copy buttons** on every code block in Thread → Settings → Website embeds,
+  from one shared `CodeBlock` (copy → "Copied" for two seconds, a real
+  button, says so if the clipboard refuses). The three hand-rolled copies
+  (Thread's embed generator and per-thread embed panel, Members' embeds
+  card) now use it.
+- Tests: aliases fill exactly like their canonical tag; a tag not valid on a
+  surface is left as typed; {hosts} with 0–3 names in English and Dutch; a
+  `<script>` name escaped on both surfaces; both surfaces fill exactly their
+  registry list.
+- `publish-guard.int.test.ts`: its workspace-thread fixture now says
+  `payment_destination: 'workspace'` explicitly. It relied on NULL = auto,
+  and went red when v1.201.3 made the organiser the default.
+
 ## [1.202.3] — 2026-10-15
 
 ### A host's subscribed calendar holds the sessions they host

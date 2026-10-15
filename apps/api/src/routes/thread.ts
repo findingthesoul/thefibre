@@ -156,7 +156,7 @@ import { claimSend, recordSendResult } from '../lib/send-record.js';
 // lib/participant-auth.ts, which exists for exactly this reason.
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { TEMPLATE_ENGAGEMENT, TEMPLATE_THREAD, TEMPLATE_TICKET, carriedIn, carriedOut } from '../lib/thread-template-spec.js';
-import { allowsOrganiserMeetings, mintingAccount, propagateRoom, queueHostChange, sessionHosts, sessionRoom, threadHosts, threadRoom, type ThreadHost } from '../lib/main-facilitator.js';
+import { allowsOrganiserMeetings, mintingAccount, propagateRoom, queueHostChange, sessionHosts, sessionRoom, threadHosts, threadRoom, threadTokenContext, type ThreadHost } from '../lib/main-facilitator.js';
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -8187,6 +8187,7 @@ export async function sendTriggeredMessages(opts: {
     threadTitle: opts.threadTitle,
     organiserName: opts.organiserName,
     startsOn: opts.startsOn,
+    ...(await threadTokenContext(opts.threadId)),
   });
   const substitute = (s: string) => substituteTokens(s, tokens);
 
@@ -8358,6 +8359,18 @@ async function issueDueCertificates(engagementId: string, threadId: string): Pro
 }
 
 /** The shape a send needs from an engagement row. */
+/** The thread-level tag values, read once per thread per minute: a
+ *  scheduler pass sends one message to many people, and each send asking
+ *  again would be the same three reads forty times. */
+const tokenContextCache = new Map<string, { at: number; value: Awaited<ReturnType<typeof threadTokenContext>> }>();
+async function threadTokenContextCached(threadId: string) {
+  const hit = tokenContextCache.get(threadId);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
+  const value = await threadTokenContext(threadId);
+  tokenContextCache.set(threadId, { at: Date.now(), value });
+  return value;
+}
+
 type EngagementForSend = {
   id: string;
   type: string;
@@ -8383,6 +8396,8 @@ type EngagementForSend = {
  */
 async function sendEngagementEmail(opts: {
   engagement: EngagementForSend;
+  /** For the thread-level tags ({community}, {facilitator}, {hosts}). */
+  threadId: string;
   person: { first_name?: string | null; last_name?: string | null; email: string };
   threadTitle: string;
   organiserName: string;
@@ -8394,9 +8409,11 @@ async function sendEngagementEmail(opts: {
   const tokens = messageTokens({
     name,
     firstName: person.first_name ?? null,
+    lastName: person.last_name ?? null,
     threadTitle: opts.threadTitle,
     organiserName: opts.organiserName,
     dateLabel: opts.dateLabel,
+    ...(await threadTokenContextCached(opts.threadId)),
   });
   const substitute = (s: string) => substituteTokens(s, tokens);
   const body = substitute(
@@ -8497,6 +8514,7 @@ export async function releaseHeldMessages(
     const startsOn = program?.starts_on ?? null;
     const ok = await sendEngagementEmail({
       engagement: eng as unknown as EngagementForSend,
+      threadId: thread.id as string,
       person,
       threadTitle: program?.title ?? '',
       organiserName: team?.name ?? organiser?.display_name ?? '',
@@ -8710,6 +8728,7 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
 
       const delivered = await sendEngagementEmail({
         engagement: d.engagement as EngagementForSend,
+        threadId: d.threadId,
         person,
         threadTitle: d.threadTitle,
         organiserName: d.organiserName,

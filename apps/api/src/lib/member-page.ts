@@ -21,6 +21,7 @@ import { adminClient } from '../db.js';
 import { sanitizeRichText } from './rich-text.js';
 import { fillMemberPageTags, safeLinkUrl } from '@thefibre/shared/member-page';
 import { greetingName } from './email/membership-templates.js';
+import { myThreadUrl } from './message-tokens.js';
 import { EXT, MIME, sniff, stripMetadata } from './file-sniff.js';
 import { couldJoinByMember } from './could-join.js';
 import { loadAgendaByThread, personsForEmail } from './portal-agenda.js';
@@ -333,15 +334,17 @@ export async function communityView(
   const person = one<{ first_name?: string | null; last_name?: string | null; email?: string | null }>(who?.person);
   const firstName = (person?.first_name ?? '').trim();
   const intro = page.intro_html
-    ? fillMemberPageTags(page.intro_html, {
-        // A name derived from the mailbox is capitalised, as the welcome
-        // email does; a typed name is left as its owner wrote it.
-        first_name: firstName ? greetingName(firstName, person?.email) : '',
-        last_name: person?.last_name ?? '',
-        community,
-        tier: one<{ name?: string | null }>(who?.tier)?.name ?? '',
-        next_event: next?.title ?? '',
-      })
+    ? fillMemberPageTags(
+        page.intro_html,
+        memberTagValues({
+          firstName,
+          lastName: person?.last_name ?? null,
+          email: person?.email ?? null,
+          community,
+          tier: one<{ name?: string | null }>(who?.tier)?.name ?? null,
+          nextEvent: next?.title ?? null,
+        }),
+      )
     : null;
 
   return {
@@ -358,3 +361,33 @@ export async function communityView(
     next,
   };
 }
+
+/**
+ * The values the member page fills, by canonical key of THE registry
+ * (@thefibre/shared/merge-tokens). Pure, so a test can hold it against the
+ * registry's member-page list: every tag offered there is filled here.
+ */
+export function memberTagValues(v: {
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  community: string;
+  tier: string | null;
+  nextEvent: string | null;
+}): Record<string, string> {
+  // A name derived from the mailbox is capitalised, as the welcome email
+  // does; a typed name is left as its owner wrote it.
+  const first = v.firstName ? greetingName(v.firstName, v.email) : '';
+  return {
+    first_name: first,
+    last_name: v.lastName ?? '',
+    full_name: [first, v.lastName ?? ''].filter(Boolean).join(' '),
+    community: v.community,
+    tier: v.tier ?? '',
+    next_event: v.nextEvent ?? '',
+    // The member's own page — as text: the intro is the admin's HTML and a
+    // value never becomes markup.
+    'my.thread': myThreadUrl(),
+  };
+}
+

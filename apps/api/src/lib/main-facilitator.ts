@@ -377,3 +377,30 @@ export async function hostedThreadsFor(email: string, personIds: string[]): Prom
   for (const r of rows) if (active.has(r.thread_id) && byThread.get(r.thread_id) !== 'host') byThread.set(r.thread_id, r.role);
   return [...byThread].map(([thread_id, role]) => ({ thread_id, role }));
 }
+
+/**
+ * The thread-level values a message's tags fill (@thefibre/shared
+ * merge-tokens): its community, its main facilitator (the organiser when
+ * none is named) and its hosts as a list in the thread's language. Read once
+ * per thread by each send path; a failure fills nothing rather than failing
+ * the send.
+ */
+export async function threadTokenContext(threadId: string): Promise<{ community: string; facilitator: string; hosts: string }> {
+  try {
+    const { listOfNames } = await import('@thefibre/shared/merge-tokens');
+    const [{ data: t }, account, hosts] = await Promise.all([
+      adminClient.from('thread_thread').select('language, workspace:workspace_id (name)').eq('id', threadId).maybeSingle(),
+      meetingAccount(threadId),
+      threadHosts(threadId),
+    ]);
+    const ws = one<{ name: string | null }>(t?.workspace);
+    return {
+      community: ws?.name ?? '',
+      facilitator: account.name,
+      hosts: listOfNames(hosts.map((h) => h.name), (t?.language as string | null) ?? 'en'),
+    };
+  } catch (e) {
+    console.error('[main-facilitator] token context failed', { threadId, e });
+    return { community: '', facilitator: '', hosts: '' };
+  }
+}

@@ -39,6 +39,7 @@
 // forward of it.
 
 import { stackSurfaceUrl } from './stack-urls.js';
+import { fillTokens } from '@thefibre/shared/merge-tokens';
 
 /** The token an organiser types. A dot, not an underscore — Sjoerd's
  *  spelling, and it reads as the product's name rather than a variable.
@@ -55,16 +56,31 @@ export function myThreadUrl(env: Record<string, string | undefined> = process.en
   return stackSurfaceUrl('my-portal', env);
 }
 
+/**
+ * The values a thread message fills, by CANONICAL key of THE registry
+ * (@thefibre/shared/merge-tokens). Since 2026-10-16 this is one surface of
+ * that one list rather than a vocabulary of its own: the old spellings
+ * ({name}, {start_date}) are aliases there, so every message already written
+ * keeps working, and the newer tags ({facilitator}, {hosts}, {community}, …)
+ * fill here as they do on the member page.
+ */
 export function messageTokens(opts: {
   /** The participant's full name, or their email if we have no name. */
   name: string;
   /** Their first name, when the caller already knows it. */
   firstName?: string | null;
+  lastName?: string | null;
   threadTitle: string;
   organiserName: string;
   /** Either a date to format, or an already-formatted label. */
   startsOn?: string | null;
   dateLabel?: string | null;
+  /** The thread's community (workspace) name. */
+  community?: string | null;
+  /** The main facilitator's name; falls back to the organiser. */
+  facilitator?: string | null;
+  /** The thread's hosts, already a list in the reader's language. */
+  hosts?: string | null;
   env?: Record<string, string | undefined>;
 }): Record<string, string> {
   const date =
@@ -74,18 +90,25 @@ export function messageTokens(opts: {
           new Date(opts.startsOn),
         )
       : '');
+  const first = opts.firstName || (opts.name.split(/\s+/)[0] ?? opts.name);
+  const full = [opts.firstName, opts.lastName].filter(Boolean).join(' ') || opts.name;
   return {
-    '{name}': opts.firstName || (opts.name.split(/\s+/)[0] ?? opts.name),
-    '{thread}': opts.threadTitle,
-    '{organiser}': opts.organiserName,
-    '{date}': date,
-    // Same value, two names: {start_date} reads better in a sentence somebody
-    // is writing by hand, and is the one Sjoerd reached for unprompted.
-    '{start_date}': date,
-    [MY_THREAD_TOKEN]: myThreadUrl(opts.env),
+    first_name: first,
+    last_name: opts.lastName ?? '',
+    full_name: full,
+    community: opts.community ?? '',
+    thread: opts.threadTitle,
+    organiser: opts.organiserName,
+    facilitator: opts.facilitator || opts.organiserName,
+    hosts: opts.hosts ?? '',
+    date,
+    'my.thread': myThreadUrl(opts.env),
   };
 }
 
+/** Fill a thread message's tags. Plain text: the email escapes the whole
+ *  body afterwards (engagementMessage), so values are NOT escaped here —
+ *  that is the "after sanitising" step for this surface. */
 export function substituteTokens(s: string, tokens: Record<string, string>): string {
-  return Object.entries(tokens).reduce((acc, [k, v]) => acc.replaceAll(k, v), s);
+  return fillTokens(s, tokens, 'thread_message', { html: false });
 }

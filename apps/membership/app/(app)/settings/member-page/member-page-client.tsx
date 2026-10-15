@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { FileText, GripVertical, Image as ImageIcon, Link2, Trash2 } from 'lucide-react';
 import { RichTextField } from '@thefibre/shared/ui/rich-text-field';
 import { RichText } from '@thefibre/shared/ui/rich-text';
-import { MEMBER_PAGE_TAGS, safeLinkUrl } from '@thefibre/shared/member-page';
+import { safeLinkUrl } from '@thefibre/shared/member-page';
+import { tokenChips } from '@thefibre/shared/merge-tokens';
 import { CHIP, CHIP_STATE, NOTICE } from '@thefibre/shared/ui/recipes';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -22,7 +23,7 @@ export type MemberDocument =
   | { id: string; title: string; kind: 'file'; mime: string; bytes: number; uploaded_at: string }
   | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string };
 
-const TAG_CHIPS = MEMBER_PAGE_TAGS.map((tag) => `{${tag}}`);
+const TAG_CHIPS = tokenChips('member_page');
 
 const size = (b: number) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 

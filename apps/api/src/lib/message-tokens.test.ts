@@ -17,16 +17,17 @@ describe('the tokens an organiser can type', () => {
   });
 
   it('{name} is the first name, because a message says hi to a person', () => {
-    expect(tokens['{name}']).toBe('Marja');
+    expect(tokens.first_name).toBe('Marja');
+    expect(substituteTokens('Hi {name}', tokens), '{name} is an alias').toBe(substituteTokens('Hi {first_name}', tokens));
   });
 
   it('{start_date} and {date} are the same value under two names', () => {
-    expect(tokens['{start_date}']).toBe(tokens['{date}']);
-    expect(tokens['{date}']).toBe('3 November 2026');
+    expect(substituteTokens('{start_date}', tokens)).toBe(substituteTokens('{date}', tokens));
+    expect(tokens.date).toBe('3 November 2026');
   });
 
   it('{my.thread} is the portal address', () => {
-    expect(tokens[MY_THREAD_TOKEN]).toBe('https://my.example.test');
+    expect(substituteTokens(MY_THREAD_TOKEN, tokens)).toBe('https://my.example.test');
   });
 
   it('leaves a token it does not know alone rather than blanking it', () => {
@@ -40,15 +41,14 @@ describe('the tokens an organiser can type', () => {
   });
 
   it('falls back to the whole name when there is no space to split on', () => {
-    expect(messageTokens({ name: 'marja@example.com', threadTitle: 't', organiserName: 'o', env: ENV })['{name}']).toBe(
+    expect(messageTokens({ name: 'marja@example.com', threadTitle: 't', organiserName: 'o', env: ENV }).first_name).toBe(
       'marja@example.com',
     );
   });
 
   it('leaves the date EMPTY rather than printing "Invalid Date" when a thread has no start', () => {
     const t = messageTokens({ name: 'M', threadTitle: 't', organiserName: 'o', env: ENV });
-    expect(t['{date}']).toBe('');
-    expect(t['{start_date}']).toBe('');
+    expect(substituteTokens('[{date}][{start_date}]', t)).toBe('[][]');
   });
 });
 

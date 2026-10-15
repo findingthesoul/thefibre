@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.202.3",
+  "version": "1.203.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -129,6 +129,10 @@
     "./link-kinds": {
       "types": "./dist/link-kinds.d.ts",
       "default": "./dist/link-kinds.js"
+    },
+    "./merge-tokens": {
+      "types": "./dist/merge-tokens.d.ts",
+      "default": "./dist/merge-tokens.js"
     },
     "./member-page": {
       "types": "./dist/member-page.d.ts",
@@ -377,6 +381,10 @@
     "./ui/rich-text": {
       "types": "./dist/ui/rich-text.d.ts",
       "default": "./dist/ui/rich-text.js"
+    },
+    "./ui/code-block": {
+      "types": "./dist/ui/code-block.d.ts",
+      "default": "./dist/ui/code-block.js"
     },
     "./ui/rich-text-field": {
       "types": "./dist/ui/rich-text-field.d.ts",

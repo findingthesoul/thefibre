@@ -28,6 +28,10 @@ import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField, DateTimeField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
+import { tokenChips } from '@thefibre/shared/merge-tokens';
+
+/** The tags a thread message offers — THE registry's list for this surface. */
+const MESSAGE_TAG_CHIPS = tokenChips('thread_message');
 import { Button } from '@/components/ui/button';
 import { Switch, SwitchField } from '@/components/ui/switch';
 import { InfoHint } from '@thefibre/shared/ui/info-hint';
@@ -1350,6 +1354,7 @@ export function MessageContentFields({
             defaultValue={str('body')}
             minHeight={64}
             hint={t(locale, 'body_tokens_hint')}
+            insertTokens={MESSAGE_TAG_CHIPS}
           />
         </>
       );
@@ -1362,6 +1367,7 @@ export function MessageContentFields({
             name="body"
             defaultValue={str('body')}
             hint={t(locale, 'body_tokens_hint')}
+            insertTokens={MESSAGE_TAG_CHIPS}
           />
           <TextField
             label={t(locale, 'link_optional')}
@@ -1382,6 +1388,7 @@ export function MessageContentFields({
           defaultValue={str('body')}
           minHeight={140}
           hint={t(locale, 'body_tokens_hint')}
+            insertTokens={MESSAGE_TAG_CHIPS}
         />
       );
   }

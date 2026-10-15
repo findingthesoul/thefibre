@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { one, type OrganiserRow, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { uiLocale } from '@/lib/locale';
+import { CodeBlock } from '@thefibre/shared/ui/code-block';
 import { t } from '@/lib/i18n-ui';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel } from '@/components/ui/page';
 import {
@@ -99,9 +100,7 @@ export default async function EmbedsSettingsPage() {
           <section key={s.title}>
             <SectionLabel>{s.title}</SectionLabel>
             <p className="mt-1.5 text-xs text-ink-subtle">{s.desc}</p>
-            <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
-              {s.code}
-            </pre>
+            <CodeBlock className="mt-2" code={s.code} />
           </section>
         ))}
         <section>
@@ -117,9 +116,7 @@ export default async function EmbedsSettingsPage() {
             ))}
             {t(locale, 'embeds_lang_3')}
           </p>
-          <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
-            {`<div data-thread-embed="thread" data-organiser="${organiser.slug}"\n     data-thread="your-thread-slug" data-lang="nl"></div>`}
-          </pre>
+          <CodeBlock className="mt-2" code={`<div data-thread-embed="thread" data-organiser="${organiser.slug}"\n     data-thread="your-thread-slug" data-lang="nl"></div>`} />
           <p className="mt-2 text-xs text-ink-subtle leading-relaxed">
             {t(locale, 'embeds_popup_note')}
           </p>
@@ -132,15 +129,13 @@ export default async function EmbedsSettingsPage() {
             container with a class and style that. In Webflow: put the snippet in an Embed
             element inside a styled Div Block, or add this to the page&apos;s custom code:
           </p>
-          <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
-{`.thread-embed-wrap {
+          <CodeBlock className="mt-2" code={`.thread-embed-wrap {
   max-width: 720px;
   margin: 0 auto;
   border-radius: 16px;
   overflow: hidden;            /* clips the iframe to the radius */
   box-shadow: 0 8px 30px rgba(0,0,0,.08);
-}`}
-          </pre>
+}`} />
           <p className="mt-2 text-xs text-ink-subtle leading-relaxed">
             For full design freedom, build the page natively in Webflow and embed only the
             transactional piece: <code className="font-mono">data-elements=&quot;enrol&quot;</code>{' '}
@@ -155,12 +150,10 @@ export default async function EmbedsSettingsPage() {
             of your page. This is the complete element list with the default look; change the
             values:
           </p>
-          <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
-            {`<div data-thread-embed="thread" data-organiser="${organiser.slug}" data-thread="your-thread-slug">
+          <CodeBlock className="mt-2" code={`<div data-thread-embed="thread" data-organiser="${organiser.slug}" data-thread="your-thread-slug">
   <style>
 ${DEFAULT_EMBED_CSS.split('\n').map((l) => (l ? '    ' + l : l)).join('\n')}  </style>
-</div>`}
-          </pre>
+</div>`} />
         </section>
 
         <EmbedGenerator

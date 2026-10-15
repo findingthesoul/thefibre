@@ -17,30 +17,20 @@
 // typed, so the admin sees the typo on the page; a known tag with no value
 // (no last name) becomes empty, never the literal `{last_name}`.
 
-export const MEMBER_PAGE_TAGS = ['first_name', 'last_name', 'community', 'tier', 'next_event'] as const;
-export type MemberPageTag = (typeof MEMBER_PAGE_TAGS)[number];
+import { fillTokens, tokensFor } from './merge-tokens.js';
 
-/** Accepted but not offered: the spelling other Fibre texts use. */
-const ALIASES: Record<string, MemberPageTag> = { name: 'first_name' };
+/** The tags the member page offers — read from THE registry
+ *  (./merge-tokens.ts), so the chips and the filling cannot disagree with
+ *  each other or with any other surface. */
+export const MEMBER_PAGE_TAGS: readonly string[] = tokensFor('member_page');
 
-export type MemberPageTagValues = Partial<Record<MemberPageTag, string | null | undefined>>;
+/** Values by canonical key (first_name, last_name, full_name, community,
+ *  tier, next_event, my.thread). */
+export type MemberPageTagValues = Partial<Record<string, string | null | undefined>>;
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/** Fill the tags in already-sanitised HTML with escaped per-member values. */
+/** Fill the member page's tags in already-sanitised HTML, values escaped. */
 export function fillMemberPageTags(html: string, values: MemberPageTagValues): string {
-  return html.replace(/\{([a-z_]+)\}/g, (whole, raw: string) => {
-    const tag = (MEMBER_PAGE_TAGS as readonly string[]).includes(raw) ? (raw as MemberPageTag) : ALIASES[raw];
-    if (!tag) return whole;
-    return escapeHtml((values[tag] ?? '').trim());
-  });
+  return fillTokens(html, values, 'member_page', { html: true });
 }
 
 /** An address a member may be sent to from a document entry: http or https

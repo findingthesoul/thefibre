@@ -4313,13 +4313,14 @@ const CATALOG = {
   // was invisible here; {my.thread} is new (2026-09-24) and becomes a link to
   // the participant's own page.
   body_tokens_hint: {
-    en: 'Tokens: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — replaced per participant when sent.',
-    nl: 'Tokens: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — per deelnemer vervangen bij verzending.',
-    es: 'Variables: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — se reemplazan por participante al enviar.', // MT
-    pt: 'Variáveis: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — substituídas por participante no envio.', // MT
-    de: 'Platzhalter: {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — beim Senden pro Teilnehmer:in ersetzt.', // MT
-    fr: 'Jetons : {name}, {thread}, {organiser}, {date}, {start_date}, {my.thread} — remplacés par participant à l’envoi.', // MT
+    en: 'The tags are filled in for each participant when it is sent. An unknown tag is sent as typed.',
+    nl: 'De tags worden bij verzending per deelnemer ingevuld. Een onbekende tag gaat mee zoals getypt.', // MT
+    es: 'Las etiquetas se rellenan para cada participante al enviar. Una etiqueta desconocida se envía tal cual.', // MT
+    pt: 'As etiquetas são preenchidas para cada participante no envio. Uma etiqueta desconhecida segue como foi escrita.', // MT
+    de: 'Die Tags werden beim Versand für jede teilnehmende Person ausgefüllt. Ein unbekannter Tag geht so raus, wie er getippt wurde.', // MT
+    fr: 'Les balises sont remplies pour chaque participant à l’envoi. Une balise inconnue part telle quelle.', // MT
   },
+
   // ── image upload + rich text ──────────────────────────────────────────
   or_paste_url: {
     en: 'or paste URL',

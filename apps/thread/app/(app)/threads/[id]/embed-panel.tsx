@@ -6,8 +6,8 @@
 // filters) lives in Settings → Website embeds; this tab is deliberately only
 // what makes sense for ONE thread.
 
+import { CodeBlock } from '@thefibre/shared/ui/code-block';
 import { useMemo, useState } from 'react';
-import { Check, Copy } from 'lucide-react';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n-ui';
 import { THREAD_ORIGIN } from '@/lib/public-host';
@@ -28,7 +28,6 @@ export function ThreadEmbedPanel({
   const [target, setTarget] = useState<'any' | 'webflow'>('any');
   const [lang, setLang] = useState('auto');
   const [buttonText, setButtonText] = useState('Enrol now');
-  const [copied, setCopied] = useState<string | null>(null);
 
   const scriptTag = `<script src="${THREAD_ORIGIN}/embed.js" defer></script>`;
   const snippet = useMemo(() => {
@@ -39,16 +38,6 @@ export function ThreadEmbedPanel({
     const formAttr = kind === 'card_form' ? ' data-form="1"' : '';
     return `<div data-thread-embed="card" data-organiser="${ownerSlug}"\n     data-thread="${threadSlug}"${formAttr}${langAttr}></div>`;
   }, [kind, lang, buttonText, ownerSlug, threadSlug]);
-
-  async function copy(which: string, text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(which);
-      setTimeout(() => setCopied(null), 1500);
-    } catch {
-      /* clipboard unavailable — select manually */
-    }
-  }
 
   const headLabel =
     target === 'webflow' ? t(locale, 'head_label_webflow') : t(locale, 'head_label_any');
@@ -109,62 +98,11 @@ export function ThreadEmbedPanel({
       </div>
 
       <div className="space-y-3">
-        <div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-subtle">{headLabel}</span>
-            <CopyBtn locale={locale} copied={copied === 'script'} onClick={() => void copy('script', scriptTag)} />
-          </div>
-          <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-            {scriptTag}
-          </pre>
-        </div>
-        <div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-subtle">{bodyLabel}</span>
-            <CopyBtn locale={locale} copied={copied === 'snippet'} onClick={() => void copy('snippet', snippet)} />
-          </div>
-          <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-            {snippet}
-          </pre>
-        </div>
-        {target === 'any' && (
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">{t(locale, 'all_in_one')}</span>
-              <CopyBtn
-                locale={locale}
-                copied={copied === 'both'}
-                onClick={() => void copy('both', `${scriptTag}\n${snippet}`)}
-              />
-            </div>
-            <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
-              {`${scriptTag}\n${snippet}`}
-            </pre>
-          </div>
-        )}
+        <CodeBlock label={headLabel} code={scriptTag} />
+        <CodeBlock label={bodyLabel} code={snippet} />
+        {target === 'any' && <CodeBlock label={t(locale, 'all_in_one')} code={`${scriptTag}\n${snippet}`} />}
       </div>
       <p className="text-xs text-ink-muted">{t(locale, 'embed_more_note')}</p>
     </div>
-  );
-}
-
-function CopyBtn({
-  locale,
-  copied,
-  onClick,
-}: {
-  locale: Locale;
-  copied: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 text-xs text-ink-subtle hover:text-ink"
-    >
-      {copied ? <Check size={12} strokeWidth={2} /> : <Copy size={12} strokeWidth={1.75} />}
-      {copied ? t(locale, 'copied_word') : t(locale, 'copy')}
-    </button>
   );
 }
