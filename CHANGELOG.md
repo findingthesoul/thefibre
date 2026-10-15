@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.202.3] — 2026-10-15
+
+### A host's subscribed calendar holds the sessions they host
+
+- The my.thread calendar feed (the address a person subscribes to) now
+  includes the sessions you host or facilitate, beside the ones you are
+  enrolled in — only the sessions you are ticked on, under the same uid as
+  the invitation, so a calendar shows one event, not two.
+- Test: `main-facilitator.int.test.ts` — a host's feed holds a session they
+  are on and leaves out the one they were taken off (fails with that filter
+  removed).
+
+### A locally run app never sends anyone to production
+
+- **Running an app on your own machine no longer redirects to the live
+  site.** A Members app run on localhost against staging sent a participant
+  session to `https://my.thethread.app`: a tester following a redirect landed
+  on production, real data one click away. `surfaceUrl` and `appUrl`
+  (`@thefibre/shared`) now resolve a local host — localhost, 127.0.0.1,
+  [::1], `*.localhost`, `*.test` — to the local twin's own dev port
+  (my.thread 3007, the platform 3000, Thread 3002, …). An explicit URL in the
+  env still wins; staging and production hosts are unchanged.
+- Tests: no local host yields a thethread.app / thefibre.app origin, for
+  every app and both surfaces. Two existing branding tests that asserted
+  "localhost → production" are updated to the new rule, with why.
 ## [1.202.2] — 2026-10-15
 
 ### Thread templates carry everything — and the next new column cannot slip past

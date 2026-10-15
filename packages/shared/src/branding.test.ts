@@ -141,12 +141,17 @@ describe('which stack an app link points at', () => {
     // The twin: the fallback must not follow anybody off the live stack.
     expect(appUrl('fibre-meet', {}, 'connections.thethread.app')).toBe('https://meet.thethread.app');
     expect(appUrl('fibre-meet', {})).toBe('https://meet.thethread.app');
-    expect(appUrl('fibre-meet', {}, 'localhost:3008')).toBe('https://meet.thethread.app');
+    // NOT from a developer's machine any more (2026-10-15): a local app that
+    // redirected to production put a tester one click from real data. A
+    // local host now resolves to the local twin — see the appUrl block below.
+    expect(appUrl('fibre-meet', {}, 'localhost:3008')).toBe('http://localhost:3001');
   });
 
   it('is not fooled by a host that merely ends in the same letters', () => {
     expect(appUrl('fibre-meet', {}, 'notthefibre.tech')).toBe('https://meet.thethread.app');
-    expect(appUrl('fibre-meet', {}, 'thefibre.tech.evil.test')).toBe('https://meet.thethread.app');
+    // A `.test` name is a local development host, so this resolves to the
+    // local twin — still never to STAGING, which is what this guards.
+    expect(appUrl('fibre-meet', {}, 'thefibre.tech.evil.test')).not.toMatch(/thefibre\.tech/);
   });
 
   it('lets an explicit URL win over the host', () => {
@@ -178,3 +183,41 @@ describe('surfaceUrl — the portal surface on staging', () => {
     expect(surfaceUrl('my-portal', {}, 'thread.thethread.app')).toBe('https://my.thethread.app');
   });
 });
+
+describe('surfaceUrl — a local dev app never sends anyone to production', () => {
+  const keys = ['my-portal', 'website'] as const;
+  const localHosts = ['localhost:3015', 'localhost', '127.0.0.1:3005', '[::1]:3007', 'members.localhost:3000', 'thread.test'];
+  it('no local host yields a production (thethread.app / thefibre.app) origin', () => {
+    for (const key of keys) {
+      for (const host of localHosts) {
+        const url = surfaceUrl(key, {}, host);
+        expect(url, `${key} from ${host}`).not.toMatch(/thethread\.app|thefibre\.app/);
+        expect(url, `${key} from ${host}`).toMatch(/^http:\/\/localhost:\d+$/);
+      }
+    }
+  });
+  it('the local twin is the surface’s own dev port', () => {
+    expect(surfaceUrl('my-portal', {}, 'localhost:3015')).toBe('http://localhost:3007');
+    expect(surfaceUrl('website', {}, '127.0.0.1')).toBe('http://localhost:3006');
+  });
+  it('an explicit env URL still wins, and production hosts are unchanged', () => {
+    expect(surfaceUrl('my-portal', { NEXT_PUBLIC_MY_URL: 'https://my.example.test' }, 'localhost:3015')).toBe('https://my.example.test');
+    expect(surfaceUrl('my-portal', {}, 'membership.thethread.app')).toMatch(/thethread\.app/);
+  });
+});
+
+describe('appUrl — a local dev app never sends anyone to production either', () => {
+  it('no app resolves to a production origin from a local host', () => {
+    for (const slug of Object.keys(APPS) as (keyof typeof APPS)[]) {
+      for (const host of ['localhost:3015', '127.0.0.1', '[::1]:3002']) {
+        const url = appUrl(slug, {}, host);
+        expect(url, `${slug} from ${host}`).not.toMatch(/thethread\.app|thefibre\.app/);
+      }
+    }
+  });
+  it('the platform is its own dev port, and production hosts are unchanged', () => {
+    expect(appUrl('fibre-platform', {}, 'localhost:3005')).toBe('http://localhost:3000');
+    expect(appUrl('the-thread', {}, 'meet.thethread.app')).toMatch(/thethread\.app/);
+  });
+});
+

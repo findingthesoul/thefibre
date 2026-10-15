@@ -362,3 +362,29 @@ describe('a host’s my.thread', () => {
   });
 });
 
+
+describe('a host’s subscribed calendar feed', () => {
+  it('holds the sessions they host — not the ones they were taken off', async () => {
+    const { buildFeedForEmail } = await import('../lib/calendar-feed.js');
+    await service.from('program').update({ status: 'active' }).eq('id', programId);
+    try {
+      const feed = await buildFeedForEmail(facilitator.email);
+      // A session Anna is ticked on (pinned to her, published, dated ahead).
+      const { data: hers } = await service
+        .from('thread_engagement')
+        .select('id, title, excluded_people')
+        .eq('thread_id', threadId)
+        .eq('status', 'published')
+        .eq('show_in_agenda', true);
+      const annaRow = (await service.from('thread_thread_organiser').select('id').eq('thread_id', threadId).eq('organiser_id', facilitatorOrgId).single()).data!.id as string;
+      const on = (hers ?? []).filter((e) => !((e.excluded_people as string[] | null) ?? []).includes(annaRow));
+      const off = (hers ?? []).filter((e) => ((e.excluded_people as string[] | null) ?? []).includes(annaRow));
+      expect(on.length, 'a session she is on').toBeGreaterThan(0);
+      expect(off.length, 'a session she was taken off').toBeGreaterThan(0);
+      for (const e of on) expect(feed, `feed holds ${e.title}`).toContain(e.id);
+      for (const e of off) expect(feed, `feed leaves out ${e.title}`).not.toContain(e.id);
+    } finally {
+      await service.from('program').update({ status: 'draft' }).eq('id', programId);
+    }
+  });
+});

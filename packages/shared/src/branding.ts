@@ -338,7 +338,28 @@ export function appUrl(
   const fromEnv = env?.[meta.urlEnv];
   if (fromEnv && fromEnv.trim()) return fromEnv.trim();
   if (isStagingHost(host)) return stagingAppUrl(slug);
+  // Never production from a developer's machine (see surfaceUrl).
+  if (isLocalHost(host)) return localAppUrl(slug);
   return meta.url;
+}
+
+/** The port each app's dev server listens on (its package.json `dev`).
+ *  An app with no local server yet falls back to the platform's. */
+const LOCAL_APP_PORT: Record<AppId, number> = {
+  'fibre-platform': 3000,
+  'fibre-meet': 3001,
+  'the-thread': 3002,
+  'fibre-flow': 3003,
+  'fibre-pulse': 3004,
+  membership: 3005,
+  'fibre-sales': 3008,
+  'fibre-models': 3009,
+  'fibre-learn': 3000,
+};
+
+/** Where an app lives on a developer's machine. */
+export function localAppUrl(slug: AppId): string {
+  return `http://localhost:${LOCAL_APP_PORT[slug]}`;
 }
 
 /** The "from" line we want emails to use. Mirrors `EMAIL_FROM` env or builds
@@ -422,7 +443,40 @@ export function surfaceUrl(
   const fromEnv = env?.[s.urlEnv];
   if (fromEnv && fromEnv.trim()) return fromEnv.trim();
   if (isStagingHost(host)) return stagingSurfaceUrl(key);
+  // A LOCAL dev app never sends anyone to production. It did: a Members app
+  // run on localhost against staging redirected a participant session to
+  // https://my.thethread.app — a tester following a redirect lands on the
+  // real site with real data one click away (2026-10-15). The local twin's
+  // own port instead.
+  if (isLocalHost(host)) return localSurfaceUrl(key);
   return s.url;
+}
+
+/** Is this a developer's own machine? localhost, 127.0.0.1, [::1], or a
+ *  `*.localhost` / `*.test` name — the same set the platform treats as a
+ *  local development host. */
+export function isLocalHost(host?: string | null): boolean {
+  if (!host) return false;
+  const h = host.trim().toLowerCase();
+  const bare = h.startsWith('[') ? h.slice(0, h.indexOf(']') + 1) : h.split(':')[0]!;
+  return (
+    bare === 'localhost' ||
+    bare === '127.0.0.1' ||
+    bare === '[::1]' ||
+    bare.endsWith('.localhost') ||
+    bare.endsWith('.test')
+  );
+}
+
+/** The port each SURFACE's dev server listens on (its package.json `dev`). */
+const LOCAL_SURFACE_PORT: Record<SurfaceKey, number> = {
+  'my-portal': 3007,
+  website: 3006,
+};
+
+/** Where a surface lives on a developer's machine. */
+export function localSurfaceUrl(key: SurfaceKey): string {
+  return `http://localhost:${LOCAL_SURFACE_PORT[key]}`;
 }
 
 /** The label each SURFACE answers on, on the staging apex. Null = the apex.

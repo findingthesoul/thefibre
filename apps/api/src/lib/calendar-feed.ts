@@ -195,8 +195,15 @@ export async function buildFeedForEmail(email: string): Promise<string> {
     [persons[0]?.first_name, persons[0]?.last_name].filter(Boolean).join(' ') || null;
 
   const events: IcalEventInput[] = [];
-  if (personIds.length) {
-    const { data: enrolments } = await adminClient
+  // The threads this address HOSTS (lib/main-facilitator.ts), beside the
+  // ones it is enrolled in — so a host's subscribed calendar shows the
+  // sessions they run, under the same uid their invitation used.
+  const { hostedThreadsFor } = await import('./main-facilitator.js');
+  const hosted = await hostedThreadsFor(email, personIds).catch(() => [] as { thread_id: string; role: string }[]);
+  if (personIds.length || hosted.length) {
+    const { data: enrolments } = !personIds.length
+      ? { data: [] as Record<string, unknown>[] }
+      : await adminClient
       .from('thread_enrolment')
       .select(
         `workspace_id,
@@ -247,6 +254,34 @@ export async function buildFeedForEmail(email: string): Promise<string> {
       });
     }
 
+    // Hosted threads not already here through an enrolment.
+    const hostedOnly = hosted.map((h) => h.thread_id).filter((id) => !live.has(id));
+    if (hostedOnly.length) {
+      const { data: hostedRows } = await adminClient
+        .from('thread_thread')
+        .select(
+          `id, workspace_id, slug, public_scope,
+           organiser:organiser_id (slug, display_name, user:user_id (email, full_name)),
+           team:team_id (slug),
+           program:program_id (title)`,
+        )
+        .in('id', hostedOnly);
+      for (const t of (hostedRows ?? []) as Record<string, unknown>[]) {
+        const org = one(t.organiser) as { slug: string; display_name: string | null; user: unknown } | null;
+        const orgUser = one(org?.user) as { email: string | null; full_name: string | null } | null;
+        live.set(t.id as string, {
+          workspaceId: t.workspace_id as string,
+          slug: t.slug as string,
+          publicScope: (t.public_scope as string | null) ?? null,
+          teamSlug: (one(t.team) as { slug: string } | null)?.slug ?? null,
+          organiserSlug: org?.slug ?? null,
+          title: (one(t.program) as { title: string } | null)?.title ?? (t.slug as string),
+          organiserName: org?.display_name ?? orgUser?.full_name ?? null,
+          organiserEmail: orgUser?.email ?? null,
+        });
+      }
+    }
+
     const threadIds = [...live.keys()];
     const wsSlug = new Map<string, string>();
     if (threadIds.length) {
@@ -259,11 +294,14 @@ export async function buildFeedForEmail(email: string): Promise<string> {
 
     const agenda = await loadAgendaByThread({
       threadIds,
-      personIds,
+      personIds: personIds.length ? personIds : ['00000000-0000-0000-0000-000000000000'],
       // Nothing here is dropped: withdrawn threads never made it into the
       // list above. The RSVP flag this drives is unused by a calendar.
       droppedThreads: new Set(),
+      email,
     });
+    // A thread you only host contributes only the sessions you are on.
+    for (const id of hostedOnly) agenda.set(id, (agenda.get(id) ?? []).filter((it) => it.my_role));
 
     const since = Date.now() - PAST_WINDOW_DAYS * 86400_000;
     const threadBase = appUrl('the-thread', process.env);
