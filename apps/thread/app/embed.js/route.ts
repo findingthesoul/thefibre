@@ -43,12 +43,12 @@ const JS = buildEmbedLoader({
   kinds: {
     list: {
       path: '/embed/list',
-      params: ['organiser', 'team', 'org', 'workspace', 'format', 'category', 'excludeCategory', 'excludeTeam', 'filters', 'compact', 'theme', 'lang'],
+      params: ['organiser', 'team', 'org', 'workspace', 'format', 'category', 'excludeCategory', 'excludeTeam', 'filters', 'compact', 'theme', 'lang', 'dates', 'sessions', 'signupBy'],
       fixed: { popup: '1' },
     },
     card: {
       path: '/embed/card',
-      params: ['organiser', 'thread', 'form', 'theme', 'lang'],
+      params: ['organiser', 'thread', 'form', 'theme', 'lang', 'dates', 'sessions', 'signupBy'],
       fixed: { popup: '1' },
     },
     thread: {

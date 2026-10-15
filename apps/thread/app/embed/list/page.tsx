@@ -5,6 +5,8 @@ import { t, isLocale, type Locale } from '@/lib/i18n';
 import { ViewButton } from './view-button';
 import { FilteredList, type Card } from './filtered-list';
 import { parseFilters } from '@/lib/embed-filters';
+import { INTL_LOCALES } from '@thefibre/shared/i18n';
+import { DEFAULT_CARD_DATES, cardDateLine, cardDatesFromParams, toCardDates, type CardDates } from '@thefibre/shared/thread-dates';
 
 type EmbedThreadItem = {
   id: string;
@@ -29,17 +31,11 @@ type EmbedThreadItem = {
   /** Thread dates (additive): the public event dates; absent on an older API. */
   event_starts_at?: string | null;
   event_ends_at?: string | null;
+  key_moment_count?: number;
+  /** The thread's zone (additive, part 3), to say event dates in. */
+  timezone?: string;
+  signups_close_at?: string | null;
 };
-
-function fmtDates(a: string | null, b: string | null): string | null {
-  if (!a && !b) return null;
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-      new Date(d),
-    );
-  if (a && b && a !== b) return `${fmt(a)} → ${fmt(b)}`;
-  return fmt((a ?? b)!);
-}
 
 function fmtPrice(cents: number | null, currency: string | null, locale: Locale): string {
   if (!cents) return t(locale, 'free');
@@ -103,12 +99,20 @@ export default async function EmbedListPage({
 
   let items: EmbedThreadItem[] = [];
   let truncated = false;
+  let cardChoice: CardDates = DEFAULT_CARD_DATES;
   try {
-    const data = await publicFetch<{ items: EmbedThreadItem[]; truncated?: boolean }>(
+    const data = await publicFetch<{ items: EmbedThreadItem[]; truncated?: boolean; card_dates?: unknown }>(
       `/api/v1/thread/public/embed/threads?${qs.toString()}`,
     );
     items = data.items ?? [];
     truncated = data.truncated === true;
+    // What the cards show: the workspace's choice, then this embed's own
+    // data-dates / data-sessions / data-signup-by on top.
+    cardChoice = cardDatesFromParams(toCardDates(data.card_dates), {
+      dates: str(sp.dates),
+      sessions: str(sp.sessions),
+      signupBy: str(sp.signupBy),
+    });
   } catch {
     return <p className="text-sm text-ink-subtle">Couldn&apos;t load threads right now.</p>;
   }
@@ -119,10 +123,15 @@ export default async function EmbedListPage({
 
   const cards: Card[] = items.map((item) => {
         const Icon = item.format === 'journey' ? Route : CalendarRange;
-        const dates = fmtDates(item.starts_on, item.ends_on);
         // data-lang wins; otherwise the item speaks its thread's language.
         const itemLang: Locale =
           forcedLang ?? (isLocale(item.language) ? item.language : 'en');
+        // Thread dates part 3: one rule for every card (@thefibre/shared).
+        const dates = cardDateLine(item, cardChoice, {
+          locale: itemLang,
+          intlLocale: INTL_LOCALES[itemLang],
+          timeZone: item.timezone ?? 'Europe/Amsterdam',
+        });
         const node = (
           <li
             key={item.id}

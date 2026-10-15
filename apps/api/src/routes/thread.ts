@@ -11,7 +11,14 @@ import {
 } from '../lib/place-state.js';
 import { paymentRouteProblem, paymentRouteSummary } from '../lib/thread-payment-route.js';
 import { loadThreadDates, publicDateFields } from '../lib/thread-dates.js';
-import { signupsOpenAt } from '@thefibre/shared/thread-dates';
+import { DEFAULT_CARD_DATES, signupsOpenAt, toCardDates, type CardDates } from '@thefibre/shared/thread-dates';
+
+/** A workspace's card date choice (thread_settings.card_dates), cleaned; the
+ *  default when unset or unreadable — a card must never fail over it. */
+async function workspaceCardDates(workspaceId: string): Promise<CardDates> {
+  const { data } = await adminClient.from('thread_settings').select('card_dates').eq('workspace_id', workspaceId).maybeSingle();
+  return toCardDates((data as { card_dates?: unknown } | null)?.card_dates);
+}
 import { sendReach } from '../lib/member-notify.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
 import {
@@ -569,6 +576,15 @@ const SettingsUpdate = z.object({
   // asked yet and the page is grandfathered as published. A workspace that
   // has answered sends true or false; the column comment is the full story.
   site_is_published: z.boolean().nullable().optional(),
+  // What a thread card shows (thread dates part 3). NULL = the default.
+  card_dates: z
+    .object({
+      range: z.enum(['event', 'thread', 'start_thread', 'start_event']),
+      sessions: z.boolean(),
+      signup_by: z.boolean(),
+    })
+    .nullable()
+    .optional(),
 });
 
 threadRoutes.patch('/settings', async (c) => {
@@ -6759,6 +6775,9 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       // adds it by the buyer's country, so the enrol form asks for it and
       // shows excl. / VAT / total (GET /public/vat-quote).
       vat_registered: !!(await resolveSellerVat(thread.workspace_id as string, threadOrganiserUserId)),
+      // Additive (thread dates part 3): the workspace's card choice, for the
+      // card embed (data-* may override it on the page).
+      card_dates: await workspaceCardDates(thread.workspace_id as string),
       participants,
       // Additive (2026-10-16): event dates from the key moments, and when
       // sign-ups close (lib/thread-dates.ts).
@@ -6834,7 +6853,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   let q = adminClient
     .from('thread_thread')
     .select(
-      `id, slug, intention, cover_url, price_cents, price_currency, language, public_interaction,
+      `id, slug, workspace_id, timezone, intention, cover_url, price_cents, price_currency, language, public_interaction,
        organiser:organiser_id (slug, display_name),
        team:team_id (slug, name),
        organisation:organisation_id (id, name),
@@ -6946,6 +6965,8 @@ threadRoutes.get('/public/embed/threads', async (c) => {
         // Additive (2026-10-16): event dates from the key moments, and when
         // sign-ups close.
         ...publicDateFields(datesById.get(t.id as string)),
+        // Additive (part 3): the zone those dates are said in.
+        timezone: (t as { timezone?: string | null }).timezone ?? 'Europe/Amsterdam',
         url: `${origin}/${ownerSlug}/${t.slug}`,
       };
     })
@@ -6953,7 +6974,13 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   // `truncated` (additive): more listable threads exist than one response
   // carries. The list says so and hides its visitor filters, so a filter is
   // never applied to a partial set.
-  return c.json({ items, truncated });
+  // Additive (thread dates part 3): what the cards show by default — the
+  // workspace's choice in Settings when the listing is one workspace's,
+  // else the platform default. An embed's data-dates/-sessions/-signup-by
+  // override it on the page.
+  const workspaces = [...new Set(live.map((t) => (t as { workspace_id?: string }).workspace_id).filter(Boolean))] as string[];
+  const card_dates = workspaces.length === 1 ? await workspaceCardDates(workspaces[0]!) : DEFAULT_CARD_DATES;
+  return c.json({ items, truncated, card_dates });
 });
 
 /** The most threads one embed list response carries. A constant, with a

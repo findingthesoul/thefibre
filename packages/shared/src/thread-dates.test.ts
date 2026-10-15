@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEMBERSHIP_THREADS_KEEP_TODAYS_RULE, fallbackSignupsCloseAt, signupsOpenAt, startOfDayAfter, threadDates, threadDateTokens, type ThreadDatesInput } from './thread-dates.js';
+import { DEFAULT_CARD_DATES, MEMBERSHIP_THREADS_KEEP_TODAYS_RULE, cardDateLine, cardDatesFromParams, toCardDates, fallbackSignupsCloseAt, signupsOpenAt, startOfDayAfter, threadDates, threadDateTokens, type ThreadDatesInput } from './thread-dates.js';
 
 const base = (over: Partial<ThreadDatesInput> = {}): ThreadDatesInput => ({
   program: { starts_on: '2027-01-01', ends_on: '2027-06-30' },
@@ -108,5 +108,46 @@ describe('the date tags', () => {
   it('without key moments the event tags are empty, not made up', () => {
     const t = threadDateTokens(threadDates(base()), 'Europe/Amsterdam', 'en-GB');
     expect([t.event_dates, t.first_event, t.sessions, t.signups_close]).toEqual(['', '', '', '']);
+  });
+});
+
+describe('what a card shows', () => {
+  const opts = { locale: 'en', intlLocale: 'en-GB', timeZone: 'Europe/Amsterdam' };
+  const journey = {
+    starts_on: '2026-11-01', ends_on: '2027-07-01',
+    event_starts_at: '2027-01-12T14:00:00Z', event_ends_at: '2027-06-15T15:00:00Z',
+    key_moment_count: 6, signups_close_at: '2027-01-12T14:00:00Z',
+  };
+  const choose = (o: Partial<import('./thread-dates.js').CardDates>) => ({ ...DEFAULT_CARD_DATES, sessions: false, ...o });
+  it('event dates, with the number of sessions', () => {
+    expect(cardDateLine(journey, choose({ range: 'event', sessions: true }), opts)).toBe('12 Jan 2027 – 15 Jun 2027 · 6 sessions');
+  });
+  it('the thread period', () => {
+    expect(cardDateLine(journey, choose({ range: 'thread' }), opts)).toBe('1 Nov 2026 – 1 Jul 2027');
+  });
+  it('start = the thread’s start, or = the first event', () => {
+    expect(cardDateLine(journey, choose({ range: 'start_thread' }), opts)).toBe('1 Nov 2026');
+    expect(cardDateLine(journey, choose({ range: 'start_event' }), opts)).toBe('12 Jan 2027');
+  });
+  it('sign up by, in the reader’s language', () => {
+    expect(cardDateLine(journey, choose({ range: 'start_event', signup_by: true }), { ...opts, locale: 'nl', intlLocale: 'nl-NL' }))
+      .toBe('12 jan 2027 · Inschrijven vóór 12 jan 2027');
+  });
+  it('an event choice with no key moment shows the thread’s dates, never blank', () => {
+    const plain = { starts_on: '2027-03-01', ends_on: null, key_moment_count: 0 };
+    expect(cardDateLine(plain, choose({ range: 'event', sessions: true }), opts)).toBe('1 Mar 2027');
+    expect(cardDateLine(plain, choose({ range: 'start_event' }), opts)).toBe('1 Mar 2027');
+  });
+  it('one key moment is not "1 sessions"', () => {
+    expect(cardDateLine({ ...journey, key_moment_count: 1, event_ends_at: journey.event_starts_at }, choose({ sessions: true }), opts)).toBe('12 Jan 2027');
+  });
+  it('no dates at all: nothing', () => {
+    expect(cardDateLine({ starts_on: null, ends_on: null }, DEFAULT_CARD_DATES, opts)).toBeNull();
+  });
+  it('a stored value is cleaned field by field, and an embed overrides on top', () => {
+    expect(toCardDates({ range: 'nonsense', sessions: false })).toEqual({ range: 'event', sessions: false, signup_by: false });
+    expect(cardDatesFromParams(DEFAULT_CARD_DATES, { dates: 'start-thread', signupBy: '1', sessions: '0' }))
+      .toEqual({ range: 'start_thread', sessions: false, signup_by: true });
+    expect(cardDatesFromParams(DEFAULT_CARD_DATES, { dates: 'bogus' })).toEqual(DEFAULT_CARD_DATES);
   });
 });

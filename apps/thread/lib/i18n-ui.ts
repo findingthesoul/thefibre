@@ -4118,6 +4118,95 @@ const CATALOG = {
     de: 'Diese Teams weglassen', // MT
     fr: 'Exclure ces équipes', // MT
   },
+  // What a card's date line shows (thread dates part 3, 2026-10-16).
+  embed_card_dates: {
+    en: 'Dates on the card',
+    nl: 'Data op de kaart', // MT pending native review
+    es: 'Fechas en la tarjeta', // MT
+    pt: 'Datas no cartão', // MT
+    de: 'Daten auf der Karte', // MT
+    fr: 'Dates sur la carte', // MT
+  },
+  embed_cd_default: {
+    en: 'As in Settings',
+    nl: 'Zoals in Instellingen', // MT pending native review
+    es: 'Como en Ajustes', // MT
+    pt: 'Como nas Definições', // MT
+    de: 'Wie in den Einstellungen', // MT
+    fr: 'Comme dans les réglages', // MT
+  },
+  embed_cd_event: {
+    en: 'Event dates',
+    nl: 'Eventdata', // MT pending native review
+    es: 'Fechas del evento', // MT
+    pt: 'Datas do evento', // MT
+    de: 'Veranstaltungsdaten', // MT
+    fr: 'Dates de l’événement', // MT
+  },
+  embed_cd_thread: {
+    en: 'Thread dates',
+    nl: 'Threaddata', // MT pending native review
+    es: 'Fechas del hilo', // MT
+    pt: 'Datas do fio', // MT
+    de: 'Thread-Daten', // MT
+    fr: 'Dates du fil', // MT
+  },
+  embed_cd_start_thread: {
+    en: 'Start: thread',
+    nl: 'Start: thread', // MT pending native review
+    es: 'Inicio: hilo', // MT
+    pt: 'Início: fio', // MT
+    de: 'Beginn: Thread', // MT
+    fr: 'Début : fil', // MT
+  },
+  embed_cd_start_event: {
+    en: 'Start: first event',
+    nl: 'Start: eerste event', // MT pending native review
+    es: 'Inicio: primer evento', // MT
+    pt: 'Início: primeiro evento', // MT
+    de: 'Beginn: erste Veranstaltung', // MT
+    fr: 'Début : premier événement', // MT
+  },
+  embed_cd_add: {
+    en: 'Add to the date',
+    nl: 'Toevoegen aan de datum', // MT pending native review
+    es: 'Añadir a la fecha', // MT
+    pt: 'Adicionar à data', // MT
+    de: 'Zum Datum hinzufügen', // MT
+    fr: 'Ajouter à la date', // MT
+  },
+  embed_cd_sessions: {
+    en: '+ number of sessions',
+    nl: '+ aantal sessies', // MT pending native review
+    es: '+ número de sesiones', // MT
+    pt: '+ número de sessões', // MT
+    de: '+ Anzahl der Sitzungen', // MT
+    fr: '+ nombre de sessions', // MT
+  },
+  embed_cd_signup_by: {
+    en: '+ Sign up by …',
+    nl: '+ Inschrijven vóór …', // MT pending native review
+    es: '+ Inscríbete antes del …', // MT
+    pt: '+ Inscreva-se até …', // MT
+    de: '+ Anmelden bis …', // MT
+    fr: '+ Inscription avant le …', // MT
+  },
+  card_dates_settings_title: {
+    en: 'What thread cards show',
+    nl: 'Wat threadkaarten tonen', // MT pending native review
+    es: 'Qué muestran las tarjetas', // MT
+    pt: 'O que os cartões mostram', // MT
+    de: 'Was Thread-Karten zeigen', // MT
+    fr: 'Ce que montrent les cartes', // MT
+  },
+  card_dates_settings_hint: {
+    en: 'The default for every card in your embeds. Each embed can choose otherwise.',
+    nl: 'De standaard voor elke kaart in je embeds. Elke embed kan anders kiezen.', // MT pending native review
+    es: 'El valor por defecto para cada tarjeta de tus inserciones. Cada inserción puede elegir otra cosa.', // MT
+    pt: 'O padrão para cada cartão nas suas incorporações. Cada incorporação pode escolher outra coisa.', // MT
+    de: 'Die Vorgabe für jede Karte in deinen Einbettungen. Jede Einbettung kann anders wählen.', // MT
+    fr: 'Le réglage par défaut pour chaque carte de vos intégrations. Chaque intégration peut choisir autrement.', // MT
+  },
   embed_visitor_filters: {
     en: 'Filters visitors can use',
     nl: 'Filters voor bezoekers', // MT

@@ -65,6 +65,10 @@ export function EmbedGenerator({
   const [skipCats, setSkipCats] = useState<Set<string>>(new Set());
   const [skipTeams, setSkipTeams] = useState<Set<string>>(new Set());
   const [visitorFilters, setVisitorFilters] = useState<Set<string>>(new Set());
+  // What the card's date line shows (thread dates part 3). 'default' = the
+  // workspace's choice in Settings; the two extras are only ADDED here.
+  const [cardRange, setCardRange] = useState<string>('default');
+  const [cardExtras, setCardExtras] = useState<Set<string>>(new Set());
   const flip = (set: Set<string>, v: string) => {
     const next = new Set(set);
     if (next.has(v)) next.delete(v);
@@ -92,6 +96,10 @@ export function EmbedGenerator({
 
   const snippet = useMemo(() => {
     const langAttr = lang !== 'auto' ? ` data-lang="${lang}"` : '';
+    const cardAttrs =
+      (cardRange !== 'default' ? ` data-dates="${cardRange.replace(/_/g, '-')}"` : '') +
+      (cardExtras.has('sessions') ? ' data-sessions="1"' : '') +
+      (cardExtras.has('signup_by') ? ' data-signup-by="1"' : '');
     // The <style> goes INSIDE the embed element — embed.js lifts it into
     // the iframe so it styles the embed, never the host page.
     const styleBlock = includeCss ? `\n  <style>\n${DEFAULT_EMBED_CSS}  </style>\n` : '';
@@ -115,12 +123,12 @@ export function EmbedGenerator({
       const filterAttr = visitorFilters.size
         ? ` data-filters="${['date', 'team', 'category', 'language'].filter((k) => visitorFilters.has(k)).join(',')}"`
         : '';
-      return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${categoryAttr}${skipCatAttr}${skipTeamAttr}${filterAttr}${langAttr}>${styleBlock}</div>`;
+      return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${categoryAttr}${skipCatAttr}${skipTeamAttr}${filterAttr}${cardAttrs}${langAttr}>${styleBlock}</div>`;
     }
     if (!thread) return '<!-- create a thread first -->';
     if (kind === 'card' || kind === 'card_form') {
       const formAttr = kind === 'card_form' ? ' data-form="1"' : '';
-      return `<div data-thread-embed="card" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${formAttr}${langAttr}>${styleBlock}</div>`;
+      return `<div data-thread-embed="card" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${formAttr}${cardAttrs}${langAttr}>${styleBlock}</div>`;
     }
     if (kind === 'enrol') {
       return `<a href="#" data-thread-embed="enrol" data-organiser="${thread.ownerSlug}"\n   data-thread="${thread.slug}"${langAttr}>${styleBlock}${buttonText || 'Enrol now'}</a>`;
@@ -133,7 +141,7 @@ export function EmbedGenerator({
           .map((e) => e.key)
           .join(',')}"`;
     return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}>${styleBlock}</div>`;
-  }, [kind, listOwner, listFormat, onlyCats, skipCats, skipTeams, visitorFilters, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
+  }, [kind, listOwner, listFormat, onlyCats, skipCats, skipTeams, visitorFilters, cardRange, cardExtras, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
 
   const scriptTag = `<script src="${THREAD_ORIGIN}/embed.js" defer></script>`;
 
@@ -248,6 +256,32 @@ export function EmbedGenerator({
                 options={threads.map((th) => ({ value: th.id, label: th.title }))}
                 placeholder={t(locale, 'pick_thread')}
                 searchPlaceholder={t(locale, 'search_threads')}
+              />
+            </div>
+          )}
+
+          {(kind === 'list' || kind === 'card' || kind === 'card_form') && (
+            <div className="sm:col-span-2 space-y-2">
+              <ChipRow
+                label={t(locale, 'embed_card_dates')}
+                options={[
+                  { value: 'default', label: t(locale, 'embed_cd_default') },
+                  { value: 'event', label: t(locale, 'embed_cd_event') },
+                  { value: 'thread', label: t(locale, 'embed_cd_thread') },
+                  { value: 'start_thread', label: t(locale, 'embed_cd_start_thread') },
+                  { value: 'start_event', label: t(locale, 'embed_cd_start_event') },
+                ]}
+                chosen={new Set([cardRange])}
+                onToggle={(v) => setCardRange(v)}
+              />
+              <ChipRow
+                label={t(locale, 'embed_cd_add')}
+                options={[
+                  { value: 'sessions', label: t(locale, 'embed_cd_sessions') },
+                  { value: 'signup_by', label: t(locale, 'embed_cd_signup_by') },
+                ]}
+                chosen={cardExtras}
+                onToggle={(v) => setCardExtras((s) => flip(s, v))}
               />
             </div>
           )}

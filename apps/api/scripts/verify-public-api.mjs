@@ -210,10 +210,12 @@ const PENDING = {
   agendaItem: [],
   // Empty again: `team`, `truncated` and the four thread-date fields were
   // collected into SHAPES the day batch 27 put them on production.
-  embedItem: [],
-  embedListing: [],
-  // Empty again: `vat_registered` collected the day batch 30 served it.
-  thread: [],
+  // The thread's zone on each item (thread dates part 3). Collect with its batch.
+  embedItem: ['timezone'],
+  // Thread dates part 3: the workspace's card choice. Collect with its batch.
+  embedListing: ['card_dates'],
+  // `vat_registered` collected with batch 30; the card choice (part 3) waits.
+  thread: ['card_dates'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */

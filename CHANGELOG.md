@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.216.0] — 2026-10-15
+
+### Thread dates, part 3: what a thread card shows (Thread 4.12.0)
+
+Sjoerd: each embed — and a workspace default in Settings — chooses what the
+card's date line shows.
+
+- **The choices** (`cardDateLine` in `@thefibre/shared/thread-dates`, one
+  rule for every card): the event dates (first to last key moment), the
+  thread's dates, only the thread's start (when preparation begins), or only
+  the first event — plus "· N sessions" and "· Sign up by …". An event choice
+  on a thread with no key moment shows the thread's dates, so a card never
+  goes blank; one key moment is never "1 sessions".
+- **Settings → Website embeds:** "What thread cards show", the workspace
+  default (`thread_settings.card_dates`, saved through PATCH /settings, a
+  value outside the choices refused).
+- **Each embed overrides it:** `data-dates="event|thread|start-thread|start-event"`,
+  `data-sessions="1|0"`, `data-signup-by="1|0"` on the list and card embeds
+  (forwarded by embed.js); the generator has chips for them. The list and
+  card pages render through the shared rule in the thread's own zone.
+- **API (additive):** `card_dates` on the embed listing envelope and the
+  public thread, `timezone` on each embed item — all PENDING in
+  `verify-public-api.mjs`.
+- Not yet through the rule: the organiser page, /my and the public thread
+  page keep their own date lines (part 4).
+- Tests: `thread-dates.test.ts` +8 (each choice, the fallback with no key
+  moment, the override on top of the default); `card-dates.int.test.ts` on
+  staging (4 — unset reads the default, a saved choice is served by the
+  listing and the public thread, a bad value refused, cleared falls back).
+
 ## [1.215.0] — 2026-10-15
 
 ### my.thread: every page stops waiting for the whole portal (my.thread 0.14.1, Meet 2.33.1)

@@ -11,6 +11,8 @@ import { t, isLocale, type Locale } from '@/lib/i18n';
 import { ViewButton } from '../list/view-button';
 import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
+import { INTL_LOCALES } from '@thefibre/shared/i18n';
+import { cardDateLine, cardDatesFromParams, toCardDates } from '@thefibre/shared/thread-dates';
 
 type PublicThreadPayload = {
   organiser: { slug: string };
@@ -29,22 +31,17 @@ type PublicThreadPayload = {
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     timezone?: string;
+    event_starts_at?: string | null;
+    event_ends_at?: string | null;
+    key_moment_count?: number;
+    /** The workspace's card choice (additive, part 3). */
+    card_dates?: unknown;
     capacity: number | null;
     enrolled_count: number;
     registration_fields: RegistrationField[];
     tickets?: PublicTicket[];
   };
 };
-
-function fmtDates(a: string | null, b: string | null): string | null {
-  if (!a && !b) return null;
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-      new Date(d),
-    );
-  if (a && b && a !== b) return `${fmt(a)} → ${fmt(b)}`;
-  return fmt((a ?? b)!);
-}
 
 function fmtPrice(cents: number | null, currency: string | null, locale: Locale): string {
   if (!cents) return t(locale, 'free');
@@ -99,7 +96,20 @@ export default async function EmbedCardPage({
       : 'en';
   const spotsLeft =
     thread.capacity != null ? Math.max(0, thread.capacity - thread.enrolled_count) : null;
-  const dates = fmtDates(program?.starts_on ?? null, program?.ends_on ?? null);
+  // Thread dates part 3: the workspace's card choice, this embed's data-*
+  // on top, one rule for every card (@thefibre/shared/thread-dates).
+  const dates = cardDateLine(
+    {
+      starts_on: program?.starts_on ?? null,
+      ends_on: program?.ends_on ?? null,
+      event_starts_at: thread.event_starts_at ?? null,
+      event_ends_at: thread.event_ends_at ?? null,
+      key_moment_count: thread.key_moment_count ?? 0,
+      signups_close_at: thread.signups_close_at ?? null,
+    },
+    cardDatesFromParams(toCardDates(thread.card_dates), { dates: str(sp.dates), sessions: str(sp.sessions), signupBy: str(sp.signupBy) }),
+    { locale: lang, intlLocale: INTL_LOCALES[lang], timeZone: thread.timezone ?? 'Europe/Amsterdam' },
+  );
   const Icon = program?.format === 'journey' ? Route : CalendarRange;
   const publicUrl = `/${organiser}/${thread.slug}`;
 

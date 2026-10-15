@@ -20,10 +20,12 @@ import {
 // .split on the proxy was exactly the production 500 this page had.
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
 import { THREAD_ORIGIN } from '@/lib/public-host';
+import { toCardDates } from '@thefibre/shared/thread-dates';
+import { CardDatesDefault } from './card-dates-default';
 
 export default async function EmbedsSettingsPage() {
   const locale = await uiLocale();
-  const [organiser, threadsRes, teamsRes, categoriesRes, brand] = await Promise.all([
+  const [organiser, threadsRes, teamsRes, categoriesRes, brand, settings] = await Promise.all([
     apiFetch<OrganiserRow>('/api/v1/thread/me'),
     apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads').catch(() => ({
       items: [] as ThreadRow[],
@@ -39,6 +41,8 @@ export default async function EmbedsSettingsPage() {
     apiFetch<{ slug: string | null }>('/api/v1/workspace-brand').catch(() => ({
       slug: null as string | null,
     })),
+    // The card date default (thread dates part 3).
+    apiFetch<{ card_dates?: unknown }>('/api/v1/thread/settings').catch(() => ({ card_dates: null as unknown })),
   ]);
 
   // Feed the generator real threads: title from the program, public owner
@@ -155,6 +159,8 @@ export default async function EmbedsSettingsPage() {
 ${DEFAULT_EMBED_CSS.split('\n').map((l) => (l ? '    ' + l : l)).join('\n')}  </style>
 </div>`} />
         </section>
+
+        <CardDatesDefault locale={locale} initial={toCardDates(settings.card_dates)} />
 
         <EmbedGenerator
           locale={locale}
