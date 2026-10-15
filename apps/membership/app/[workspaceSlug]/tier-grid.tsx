@@ -48,6 +48,7 @@ export function TierGrid({
   products,
   initialTierId,
   priceLogic = null,
+  vatRegistered = false,
   locale = 'en',
   workspaceName,
   membersAreaUrl,
@@ -58,6 +59,9 @@ export function TierGrid({
   products: PublicProduct[];
   initialTierId: string | null;
   priceLogic?: PriceLogic | null;
+  /** Prices are excl. VAT and this community adds it (2026-10-15): the page
+   *  asks for the country and shows excl. / VAT / total. */
+  vatRegistered?: boolean;
   /** Resolved server-side by the page (Thread pattern) — never from cookies. */
   locale?: Locale;
   /** The community's own name, for the consent sentence when a tier confers
@@ -93,14 +97,14 @@ export function TierGrid({
 
   return (
     <>
-      {hasCountryRules && (
+      {(hasCountryRules || vatRegistered) && (
         // Left, to match the prose above and the control below — the picker
         // itself has always been left-aligned, so a centred label over it was
         // the odd one out the moment the intro stopped being centred. The
         // block stays centred on the page.
         <div className="mt-8 mx-auto max-w-md text-left">
           <label className="block text-sm text-ink-subtle mb-1.5">
-            {t(locale, 'country_question')}
+            {t(locale, hasCountryRules ? 'country_question' : 'country_question_vat')}
           </label>
           <SearchSelect
             value={country}
@@ -128,6 +132,7 @@ export function TierGrid({
             onClose={() => setOpenTierId(null)}
             country={country}
             priceLogic={priceLogic}
+            vatRegistered={vatRegistered}
             workspaceName={workspaceName}
             membersAreaUrl={membersAreaUrl}
             terms={terms}
@@ -149,6 +154,7 @@ function TierCard({
   onClose,
   country,
   priceLogic,
+  vatRegistered = false,
   locale,
   workspaceName,
   membersAreaUrl,
@@ -164,6 +170,7 @@ function TierCard({
   onClose: () => void;
   country: string;
   priceLogic: PriceLogic | null;
+  vatRegistered?: boolean;
   locale: Locale;
   /** The community's own name, for the consent sentence when a tier confers
    *  no category: "Show me in the members area of Soul". */
@@ -178,6 +185,25 @@ function TierCard({
   // THE TERMS, default off and never remembered: an agreement is given each
   // time it is asked for.
   const [termsAccepted, setTermsAccepted] = useState(false);
+  // VAT ON TOP (2026-10-15). The rate comes from the API — THE rule the
+  // checkout charges by — for the page's country and, for a business, the
+  // VAT number typed below (reverse charge abroad). Shown as excl. / VAT /
+  // total right above the button.
+  const [vatNo, setVatNo] = useState('');
+  const [vatQuote, setVatQuote] = useState<{ rate_pct: number; label: string | null; reverse_charge: boolean } | null>(null);
+  useEffect(() => {
+    if (!vatRegistered || !country) {
+      setVatQuote(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const q = new URLSearchParams({ workspace_slug: workspaceSlug, country, ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}) });
+      publicFetch<{ rate_pct: number; label: string | null; reverse_charge: boolean }>(`/api/v1/membership/public/vat-quote?${q}`)
+        .then(setVatQuote)
+        .catch(() => setVatQuote(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [vatRegistered, country, vatNo, workspaceSlug]);
 
   /** "A", "A and B", "A, B and C" — the categories a tier confers, said the
    *  way a person would say them. */
@@ -382,6 +408,7 @@ function TierCard({
     const email = String(fd.get('email') ?? '').trim();
     if (!name || !email) return setError(t(locale, 'fill_name_email'));
     if (!termsAccepted) return setError(t(locale, 'accept_terms_required'));
+    if (vatRegistered && (payNowCents ?? 0) > 0 && !country) return setError(t(locale, 'vat_country_required'));
 
     setState('submitting');
     try {
@@ -518,7 +545,16 @@ function TierCard({
           onClose={onClose}
           title={t(locale, 'join_tier_title', { tier: tier.name })}
         >
-          <form onSubmit={onSubmit} className="space-y-2.5">
+          <form
+            onSubmit={onSubmit}
+            // The VAT number lives in the shared billing fields; read it as it
+            // is typed so the VAT lines can say "reverse-charged".
+            onChange={(e) => {
+              const el = e.target as unknown as HTMLInputElement;
+              if (el.name === 'billing_tax_no') setVatNo(el.value);
+            }}
+            className="space-y-2.5"
+          >
             {hasYear && hasMonth && (
               <div className="grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
                 {(
@@ -813,7 +849,34 @@ function TierCard({
               </span>
             </label>
             {/* The sentence, immediately above the button that acts on it. */}
-            {payLine && <p className="text-sm text-ink-subtle">{payLine}</p>}
+            {vatRegistered && (payNowCents ?? 0) > 0 && (
+              <div className="text-xs tabular-nums text-ink-subtle">
+                {vatQuote ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span>{t(locale, 'excl_vat')}</span>
+                      <span>{money(payNowCents!, currency)}</span>
+                    </div>
+                    <div className="mt-0.5 flex justify-between">
+                      <span>{vatQuote.reverse_charge ? t(locale, 'vat_reverse_charged') : vatQuote.rate_pct > 0 ? `${t(locale, 'vat')} ${vatQuote.rate_pct}%` : t(locale, 'vat_out_of_scope')}</span>
+                      <span>{money(Math.round((payNowCents! * vatQuote.rate_pct) / 100), currency)}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
+                      <span>{t(locale, 'total_incl_vat')}</span>
+                      <span>{money(payNowCents! + Math.round((payNowCents! * vatQuote.rate_pct) / 100), currency)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p>{t(locale, 'prices_excl_vat_choose_country')}</p>
+                )}
+              </div>
+            )}
+            {payLine && <p className="text-sm text-ink-subtle">{payLine}{vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}</p>}
+            {state === 'already' && (
+              <p className="text-sm text-ink rounded-md border border-line bg-surface px-3 py-2.5">
+                {t(locale, 'already_member_form')}
+              </p>
+            )}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
             <Button
               type="submit"

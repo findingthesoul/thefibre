@@ -93,6 +93,8 @@ export type PublicProduct = {
 };
 
 export type PublicCatalog = {
+  /** Prices are excl. VAT and this community adds VAT (2026-10-15). */
+  vat_registered?: boolean;
   price_logic?: {
     rules: { when: { attr: string; op: string; values: string[] }; pct: number; label?: string }[];
     default_pct: number;

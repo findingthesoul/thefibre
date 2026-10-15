@@ -225,6 +225,103 @@ const CATALOG = {
     de: 'Enthält', // MT
     fr: 'Comprend', // MT
   },
+  // VAT on top (2026-10-15): prices are excl. VAT.
+  country_question_vat: {
+    en: 'Which country are you in? (for VAT)',
+    nl: 'In welk land woon je? (voor de btw)', // MT pending native review
+    es: '¿En qué país estás? (para el IVA)', // MT
+    pt: 'Em que país está? (para o IVA)', // MT
+    de: 'In welchem Land bist du? (für die MwSt.)', // MT
+    fr: 'Dans quel pays es-tu ? (pour la TVA)', // MT
+  },
+  vat_country_required: {
+    en: 'Choose your country above, so the VAT can be worked out.',
+    nl: 'Kies hierboven je land, zodat de btw berekend kan worden.', // MT pending native review
+    es: 'Elige tu país arriba para calcular el IVA.', // MT
+    pt: 'Escolha o seu país acima para calcular o IVA.', // MT
+    de: 'Wähle oben dein Land, damit die MwSt. berechnet werden kann.', // MT
+    fr: 'Choisis ton pays ci-dessus pour calculer la TVA.', // MT
+  },
+  excl_vat: {
+    en: 'Excl. VAT',
+    nl: 'Excl. btw', // MT pending native review
+    es: 'Sin IVA', // MT
+    pt: 'Sem IVA', // MT
+    de: 'Ohne MwSt.', // MT
+    fr: 'HT', // MT
+  },
+  vat: {
+    en: 'VAT',
+    nl: 'Btw', // MT pending native review
+    es: 'IVA', // MT
+    pt: 'IVA', // MT
+    de: 'MwSt.', // MT
+    fr: 'TVA', // MT
+  },
+  vat_reverse_charged: {
+    en: 'VAT reverse-charged',
+    nl: 'Btw verlegd', // MT pending native review
+    es: 'IVA con inversión del sujeto pasivo', // MT
+    pt: 'IVA autoliquidado', // MT
+    de: 'MwSt. Reverse-Charge', // MT
+    fr: 'TVA autoliquidée', // MT
+  },
+  vat_out_of_scope: {
+    en: 'No VAT (outside the EU)',
+    nl: 'Geen btw (buiten de EU)', // MT pending native review
+    es: 'Sin IVA (fuera de la UE)', // MT
+    pt: 'Sem IVA (fora da UE)', // MT
+    de: 'Keine MwSt. (außerhalb der EU)', // MT
+    fr: 'Pas de TVA (hors UE)', // MT
+  },
+  total_incl_vat: {
+    en: 'Total incl. VAT',
+    nl: 'Totaal incl. btw', // MT pending native review
+    es: 'Total con IVA', // MT
+    pt: 'Total com IVA', // MT
+    de: 'Gesamt inkl. MwSt.', // MT
+    fr: 'Total TTC', // MT
+  },
+  prices_excl_vat_choose_country: {
+    en: 'Prices are excl. VAT. Choose your country above to see the VAT.',
+    nl: 'Prijzen zijn excl. btw. Kies hierboven je land om de btw te zien.', // MT pending native review
+    es: 'Los precios no incluyen IVA. Elige tu país arriba para verlo.', // MT
+    pt: 'Os preços não incluem IVA. Escolha o seu país acima para o ver.', // MT
+    de: 'Preise ohne MwSt. Wähle oben dein Land, um die MwSt. zu sehen.', // MT
+    fr: 'Prix HT. Choisis ton pays ci-dessus pour voir la TVA.', // MT
+  },
+  excl_vat_suffix: {
+    en: '(excl. VAT)',
+    nl: '(excl. btw)', // MT pending native review
+    es: '(sin IVA)', // MT
+    pt: '(sem IVA)', // MT
+    de: '(ohne MwSt.)', // MT
+    fr: '(HT)', // MT
+  },
+  already_member_form: {
+    en: "You're already a member of this community, so you can't join it a second time. Check your email to sign in.",
+    nl: 'Je bent al lid van deze community, dus je kunt niet nog een keer lid worden. Kijk in je e-mail om in te loggen.', // MT pending native review
+    es: 'Ya eres miembro de esta comunidad, así que no puedes unirte otra vez. Revisa tu correo para iniciar sesión.', // MT
+    pt: 'Já é membro desta comunidade, por isso não pode aderir outra vez. Verifique o seu e-mail para entrar.', // MT
+    de: 'Du bist bereits Mitglied dieser Community und kannst nicht ein zweites Mal beitreten. Sieh in deinem Postfach nach, um dich anzumelden.', // MT
+    fr: 'Tu es déjà membre de cette communauté, tu ne peux donc pas la rejoindre une seconde fois. Vérifie tes e-mails pour te connecter.', // MT
+  },
+  vat_country_required_here: {
+    en: 'Choose your country, so the VAT can be worked out.',
+    nl: 'Kies je land, zodat de btw berekend kan worden.', // MT pending native review
+    es: 'Elige tu país para calcular el IVA.', // MT
+    pt: 'Escolha o seu país para calcular o IVA.', // MT
+    de: 'Wähle dein Land, damit die MwSt. berechnet werden kann.', // MT
+    fr: 'Choisis ton pays pour calculer la TVA.', // MT
+  },
+  vat_number_optional: {
+    en: 'VAT number (businesses, optional)',
+    nl: 'Btw-nummer (bedrijven, optioneel)', // MT pending native review
+    es: 'Número de IVA (empresas, opcional)', // MT
+    pt: 'Número de IVA (empresas, opcional)', // MT
+    de: 'USt-IdNr. (Unternehmen, optional)', // MT
+    fr: 'Numéro de TVA (entreprises, facultatif)', // MT
+  },
   already_member_note: {
     en: "You're already a member — check your email for sign-in.",
     nl: 'Je bent al lid — kijk in je e-mail om in te loggen.',

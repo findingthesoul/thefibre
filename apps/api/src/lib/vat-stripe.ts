@@ -142,3 +142,45 @@ export async function reconcileSubscriptionTax(
 }
 
 export type { Stripe };
+
+// ---------------------------------------------------------------------------
+// TAX RATES ON A SELLER'S CONNECTED ACCOUNT (2026-10-15). App sales charge on
+// the seller's connected account, and Stripe tax_rate objects belong to ONE
+// account — the platform's (above) cannot be attached to a checkout running
+// on a connected account. So each seller account gets its own, created the
+// first time a sale there needs it, cached by account + country + rate. With
+// the rate on the line item, Stripe's checkout page and receipt show
+// subtotal / VAT / total, matching our invoice (lib/sale-vat.ts decides the
+// rate; this only makes Stripe print it).
+// ---------------------------------------------------------------------------
+
+type ConnectedRateMap = Record<string, Record<string, { id: string; pct: number }>>;
+
+export async function connectedTaxRateId(
+  stripeAccount: string,
+  country: string,
+  pct: number,
+): Promise<string | null> {
+  const stripe = stripeOrNull();
+  if (!stripe || !(pct > 0)) return null;
+  const key = country.toUpperCase();
+  const map = await getSetting<ConnectedRateMap>('vat_connected_rate_ids', {});
+  const have = map[stripeAccount]?.[key];
+  if (have && Math.abs(have.pct - pct) < 0.001) return have.id;
+  const rate = await stripe.taxRates.create(
+    {
+      display_name: 'VAT',
+      percentage: pct,
+      country: key,
+      inclusive: false,
+      description: `VAT ${pct}% ${key} (Fibre table)`,
+    },
+    { stripeAccount },
+  );
+  // Re-read before writing: two first sales on one account at once must not
+  // drop each other's entries (the loser's rate object is simply unused).
+  const fresh = await getSetting<ConnectedRateMap>('vat_connected_rate_ids', {});
+  fresh[stripeAccount] = { ...(fresh[stripeAccount] ?? {}), [key]: { id: rate.id, pct } };
+  await setSetting('vat_connected_rate_ids', fresh);
+  return rate.id;
+}

@@ -173,6 +173,8 @@ const SHAPES = {
     'event_ends_at',
     'key_moment_count',
     'signups_close_at',
+    // Thread dates part 2, collected with batch 28 (2026-10-15).
+    'signups_closed',
   ],
   agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online', 'hosts'],
 };
@@ -208,9 +210,8 @@ const PENDING = {
   // collected into SHAPES the day batch 27 put them on production.
   embedItem: [],
   embedListing: [],
-  // Thread dates part 2: why the page is closed. Collect with the batch
-  // that puts it on production.
-  thread: ['signups_closed'],
+  // Empty again: `signups_closed` collected the day batch 28 served it.
+  thread: [],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */

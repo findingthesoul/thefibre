@@ -6,7 +6,9 @@
 // one-off payment mode. Prices are FLAT — the pricing logic builder is
 // tier-scoped, so no country adjustment here.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { Check } from 'lucide-react';
 import { publicFetch, PublicApiError, type PublicProduct } from '@/lib/public-api';
@@ -23,9 +25,12 @@ export function ProductGrid({
   workspaceSlug,
   products,
   locale = 'en',
+  vatRegistered = false,
 }: {
   workspaceSlug: string;
   products: PublicProduct[];
+  /** Prices are excl. VAT and this community adds it (2026-10-15). */
+  vatRegistered?: boolean;
   /** Resolved server-side by the page (Thread pattern) — never from cookies. */
   locale?: Locale;
 }) {
@@ -53,6 +58,7 @@ export function ProductGrid({
             workspaceSlug={workspaceSlug}
             product={product}
             locale={locale}
+            vatRegistered={vatRegistered}
           />
         ))}
       </div>
@@ -64,15 +70,36 @@ function ProductCard({
   workspaceSlug,
   product,
   locale,
+  vatRegistered,
 }: {
   workspaceSlug: string;
   product: PublicProduct;
   locale: Locale;
+  vatRegistered: boolean;
 }) {
   const currency = product.currency ?? 'EUR';
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<BuyState>('idle');
   const [error, setError] = useState<string | null>(null);
+  // VAT on top (2026-10-15): the same quote as the join panel.
+  const [country, setCountry] = useState('');
+  const [vatNo, setVatNo] = useState('');
+  const [vatQuote, setVatQuote] = useState<{ rate_pct: number; reverse_charge: boolean } | null>(null);
+  useEffect(() => {
+    if (!vatRegistered || !country) {
+      setVatQuote(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const q = new URLSearchParams({ workspace_slug: workspaceSlug, country, ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}) });
+      publicFetch<{ rate_pct: number; reverse_charge: boolean }>(`/api/v1/membership/public/vat-quote?${q}`)
+        .then(setVatQuote)
+        .catch(() => setVatQuote(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [vatRegistered, country, vatNo, workspaceSlug]);
+  const net = product.price_cents ?? 0;
+  const tax = vatQuote ? Math.round((net * vatQuote.rate_pct) / 100) : 0;
 
   // One idempotency key per page visit — double-submits collapse server-side
   // (it doubles as the Stripe idempotency key on the session create).
@@ -88,6 +115,7 @@ function ProductCard({
     const name = String(fd.get('name') ?? '').trim();
     const email = String(fd.get('email') ?? '').trim();
     if (!name || !email) return setError(t(locale, 'fill_name_email'));
+    if (vatRegistered && !country) return setError(t(locale, 'vat_country_required_here'));
 
     setState('submitting');
     try {
@@ -102,6 +130,8 @@ function ProductCard({
             name,
             locale,
             request_id: requestId,
+            ...(country ? { country } : {}),
+            ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}),
           }),
         },
       );
@@ -132,7 +162,10 @@ function ProductCard({
         <span className="text-2xl font-semibold tabular-nums">
           {money(product.price_cents!, currency)}
         </span>
-        <span className="text-sm text-ink-subtle">{t(locale, 'one_off')}</span>
+        <span className="text-sm text-ink-subtle">
+          {t(locale, 'one_off')}
+          {vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}
+        </span>
       </div>
 
       {product.description && (
@@ -176,6 +209,41 @@ function ProductCard({
               required
               className={INPUT}
             />
+            {vatRegistered && (
+              <>
+                <SearchSelect
+                  value={country}
+                  onChange={setCountry}
+                  options={COUNTRY_OPTIONS}
+                  placeholder={t(locale, 'country_question_vat')}
+                  className="w-full text-left"
+                />
+                <input
+                  name="vat_id"
+                  value={vatNo}
+                  onChange={(e) => setVatNo(e.target.value)}
+                  placeholder={t(locale, 'vat_number_optional')}
+                  autoComplete="off"
+                  className={INPUT}
+                />
+                {vatQuote && (
+                  <div className="text-xs tabular-nums text-ink-subtle">
+                    <div className="flex justify-between">
+                      <span>{t(locale, 'excl_vat')}</span>
+                      <span>{money(net, currency)}</span>
+                    </div>
+                    <div className="mt-0.5 flex justify-between">
+                      <span>{vatQuote.reverse_charge ? t(locale, 'vat_reverse_charged') : vatQuote.rate_pct > 0 ? `${t(locale, 'vat')} ${vatQuote.rate_pct}%` : t(locale, 'vat_out_of_scope')}</span>
+                      <span>{money(tax, currency)}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
+                      <span>{t(locale, 'total_incl_vat')}</span>
+                      <span>{money(net + tax, currency)}</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
             <Button
               type="submit"

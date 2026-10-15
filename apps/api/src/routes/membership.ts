@@ -43,6 +43,9 @@ import { resolvePerson } from '../lib/resolve-person.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { saleVat, type SaleVat } from '../lib/sale-vat.js';
+import { connectedTaxRateId } from '../lib/vat-stripe.js';
+import { resolveSellerVat } from '../lib/seller-vat.js';
 // Half of a deliberate import cycle — see the note above the matching
 // import in routes/purchases.ts. sendReceipt must stay a hoisted `function`
 // declaration, not a const arrow, or the cycle stops being harmless.
@@ -2195,6 +2198,27 @@ async function publicWorkspace(slug: string): Promise<{ id: string; slug: string
   return wa ? ws : null;
 }
 
+// GET /public/vat-quote?workspace_slug=&country=&vat_id= — what VAT a buyer
+// would pay on top, by THE rule the checkout charges by (lib/sale-vat.ts).
+// The panel multiplies its own net figures by `rate_pct`; Stripe applies the
+// same rate per line. A rate, not an amount, so nothing priced is trusted
+// from the browser.
+membershipRoutes.get('/public/vat-quote', async (c) => {
+  const ws = await publicWorkspace(c.req.query('workspace_slug') ?? '');
+  if (!ws) return c.json({ error: 'not found' }, 404);
+  const country = (c.req.query('country') ?? '').trim().toUpperCase();
+  const vatId = (c.req.query('vat_id') ?? '').trim().slice(0, 30) || null;
+  const v = await saleVat({ workspaceId: ws.id, net_cents: 10000, country: /^[A-Z]{2}$/.test(country) ? country : null, vat_id: vatId });
+  const registered = !!(await resolveSellerVat(ws.id));
+  return c.json({
+    applies: registered,
+    rate_pct: v.rate_pct,
+    label: v.label,
+    reverse_charge: v.reverse_charge,
+    needs_country: registered && !/^[A-Z]{2}$/.test(country),
+  });
+});
+
 membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
   const ws = await publicWorkspace(c.req.param('workspaceSlug'));
   if (!ws) return c.json({ error: 'not found' }, 404);
@@ -2325,6 +2349,10 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
     // this community's own or The Thread's standard ones.
     terms: { url: terms.url, standard: terms.standard },
     price_logic: priceLogic,
+    // Additive (2026-10-15): prices are EXCL. VAT, and a VAT-registered
+    // community adds it by the buyer's country — so the page asks for the
+    // country and shows excl. / VAT / total (GET /public/vat-quote).
+    vat_registered: !!(await resolveSellerVat(ws.id)),
     tiers: (tiers ?? []).map((t) => ({
       ...t,
       // Included vs optional split (the tick-box add-ons) — the admin GET got
@@ -2752,6 +2780,28 @@ membershipRoutes.post('/public/join', async (c) => {
     proven,
   });
 
+  // VAT ON TOP (Sjoerd, 2026-10-15: "Everything excl. VAT now"). The tier's
+  // price is NET; a VAT-registered seller adds VAT by the one rule
+  // (lib/sale-vat.ts) — the buyer's country, and reverse charge for an EU
+  // business with a valid number abroad. The rate rides on every line as a
+  // Stripe tax rate on the seller's own account, so Stripe's page and its
+  // invoices show subtotal / VAT / total; renewals keep it.
+  // The country the panel showed the VAT for (the page's picker) first, so
+  // the charge matches what was shown; the invoice address otherwise.
+  const buyerCountry = (country || d.billing?.country || '').toUpperCase() || null;
+  const anythingPaid = amount > 0 || listAmount > 0 || options.some((o) => (o.price_cents ?? 0) > 0);
+  if (anythingPaid && !buyerCountry && (await resolveSellerVat(ws.id))) {
+    return c.json({ error: 'Choose your country, so the VAT can be worked out.', code: 'country_required' }, 400);
+  }
+  const vat: SaleVat = await saleVat({
+    workspaceId: ws.id,
+    net_cents: Math.max(amount, listAmount),
+    country: buyerCountry,
+    vat_id: d.billing?.tax_no ?? null,
+  });
+  const taxRateId = vat.rate_pct > 0 && vat.rate_country ? await connectedTaxRateId(account, vat.rate_country, vat.rate_pct) : null;
+  const taxed = taxRateId ? { tax_rates: [taxRateId] } : {};
+
   // WHEN THE FULL-PRICE SUBSCRIPTION STARTS.
   //
   // Two different reasons produce the same shape — the first period paid as a
@@ -2793,6 +2843,7 @@ membershipRoutes.post('/public/join', async (c) => {
                     ...(split ? {} : { recurring: { interval: d.interval } }),
                   },
                   quantity: 1,
+                  ...taxed,
                 },
               ]
             : []),
@@ -2809,6 +2860,7 @@ membershipRoutes.post('/public/join', async (c) => {
                     recurring: { interval: d.interval },
                   },
                   quantity: 1,
+                  ...taxed,
                 },
               ]
             : []),
@@ -2852,6 +2904,7 @@ membershipRoutes.post('/public/join', async (c) => {
                   unit_amount: o.price_cents!,
                 },
                 quantity: 1,
+                ...taxed,
               };
               const recurs = {
                 price_data: {
@@ -2861,6 +2914,7 @@ membershipRoutes.post('/public/join', async (c) => {
                   recurring: { interval: d.interval },
                 },
                 quantity: 1,
+                ...taxed,
               };
               // Mixed intervals are refused further up, so an extra either
               // matches this join's interval or is a one-time thing.
@@ -2925,6 +2979,9 @@ membershipRoutes.post('/public/join', async (c) => {
             // so the email could be composed before the rows exist — missing
             // the calendar for exactly the first member who bought one.
             ...(options.length ? { option_product_ids: options.map((o) => o.id).join(',') } : {}),
+            // VAT ON TOP, for the ledger on every invoice of this
+            // subscription (renewals included): which rule decided it.
+            ...vatMetadata(vat),
           },
         },
         // The customer we just wrote, so the invoice carries OUR details —
@@ -2990,6 +3047,11 @@ const PublicBuy = z.object({
   name: z.string().min(1).max(200),
   locale: z.string().max(10).optional(),
   request_id: z.string().min(8).max(100),
+  // VAT on top (2026-10-15): the buyer's country, and a business's VAT
+  // number for reverse charge abroad. Required (country) only when the
+  // community is VAT-registered.
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
+  vat_id: z.string().max(30).optional(),
 });
 
 membershipRoutes.post('/public/buy', async (c) => {
@@ -3071,6 +3133,14 @@ membershipRoutes.post('/public/buy', async (c) => {
   const feePercent = await platformFeePercent(ws.id);
   const applicationFeeCents = Math.round((amount * feePercent) / 100);
 
+  // VAT ON TOP — the same rule and Stripe tax rate as the join.
+  const buyCountry = d.country?.toUpperCase() ?? null;
+  if (!buyCountry && (await resolveSellerVat(ws.id))) {
+    return c.json({ error: 'Choose your country, so the VAT can be worked out.', code: 'country_required' }, 400);
+  }
+  const buyVat = await saleVat({ workspaceId: ws.id, net_cents: amount, country: buyCountry, vat_id: d.vat_id ?? null });
+  const buyTaxRate = buyVat.rate_pct > 0 && buyVat.rate_country ? await connectedTaxRateId(account, buyVat.rate_country, buyVat.rate_pct) : null;
+
   const base = `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}`;
   let session: Stripe.Checkout.Session;
   try {
@@ -3085,6 +3155,7 @@ membershipRoutes.post('/public/buy', async (c) => {
               unit_amount: amount,
             },
             quantity: 1,
+            ...(buyTaxRate ? { tax_rates: [buyTaxRate] } : {}),
           },
         ],
         payment_intent_data: {
@@ -3103,6 +3174,7 @@ membershipRoutes.post('/public/buy', async (c) => {
           person_id: personId,
           membership_product_id: product.id,
           request_id: d.request_id,
+          ...vatMetadata(buyVat),
         },
         success_url: `${base}/purchased?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
         cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}`,
@@ -3465,6 +3537,31 @@ Nothing was blocked — this is a heads-up so you can review the membership if i
   }
 }
 
+/** The VAT decision, as subscription metadata (strings, few keys). */
+export function vatMetadata(vat: SaleVat): Record<string, string> {
+  return {
+    vat_rule: 'excl',
+    vat_rate_pct: String(vat.rate_pct),
+    ...(vat.label ? { vat_label: vat.label } : {}),
+  };
+}
+
+/** What Stripe invoiced, as the ledger's breakdown — for invoices of a
+ *  subscription that carries vat_rule=excl. Empty otherwise. */
+export function vatBreakdownFromInvoice(
+  invoice: Pick<Stripe.Invoice, 'subtotal' | 'subtotal_excluding_tax' | 'total_taxes' | 'amount_paid'>,
+  meta: Record<string, string>,
+): Record<string, unknown> {
+  if (meta.vat_rule !== 'excl') return {};
+  const tax = (invoice.total_taxes ?? []).reduce((sum, t) => sum + (t.amount ?? 0), 0);
+  const net = invoice.subtotal_excluding_tax ?? invoice.subtotal ?? Math.max(0, (invoice.amount_paid ?? 0) - tax);
+  return {
+    subtotal_cents: net,
+    tax_cents: tax,
+    tax_label: meta.vat_label ?? null,
+  };
+}
+
 async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): Promise<void> {
   const member = await memberForInvoice(account, invoice);
   if (!member) {
@@ -3545,6 +3642,11 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
       // guess), and "who pays" is our question, not Stripe's. Spread last and
       // only when present, so nothing above is overwritten with a blank.
       ...readBillingMetadata(subMeta),
+      // VAT ON TOP (2026-10-15): the net / VAT / gross Stripe actually
+      // invoiced, so our invoice says what was charged. Only for
+      // subscriptions started under the excl. rule (they carry vat_rule);
+      // older ones keep the inclusive split recordPurchase stamps.
+      ...vatBreakdownFromInvoice(invoice, subMeta),
     },
   });
 
@@ -3790,6 +3892,15 @@ async function membershipProductPurchased(
     stripePaymentIntent: paymentIntent,
     stripeAccountId: account,
     billing: {
+      // VAT on top: what Stripe actually charged, split (sessions started
+      // under the excl. rule carry vat_rule).
+      ...(meta.vat_rule === 'excl'
+        ? {
+            subtotal_cents: session.amount_subtotal ?? amount,
+            tax_cents: session.total_details?.amount_tax ?? 0,
+            tax_label: meta.vat_label ?? null,
+          }
+        : {}),
       address: addr?.line1 ?? null,
       postal_code: addr?.postal_code ?? null,
       city: addr?.city ?? null,

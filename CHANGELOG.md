@@ -6,6 +6,70 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.208.0] — 2026-10-15
+
+### Membership prices are now EXCLUDING VAT — VAT is added on top (Members 1.3.0)
+
+Sjoerd: *"VAT — something went wrong. The price of someone who booked was
+300. She comes from NL. It means VAT needs to be added. She now paid too
+little."* and *"Everything excl. VAT now."*
+
+**What changes for buyers, plainly:** in a community that is VAT-registered
+(soul.com is), a membership or product priced €300 now costs €300 + VAT — an
+NL buyer pays €363. Until today every app sale treated its price as
+INCLUDING VAT and the invoice carved the VAT out of it. Thread and Meet
+follow in the next release (same rule), at Sjoerd's decision.
+
+- **One rule** (`lib/sale-vat.ts`, from the platform VAT table): seller not
+  VAT-registered → no VAT; buyer in NL (the seller's home) → 21%, also for an
+  NL business with an NL VAT number (domestic B2B is not reverse charge); an
+  EU business abroad with a VIES-valid number → reverse charge; an EU
+  consumer abroad → the HOME rate (NL 21%); outside the EU → none.
+- **Home rate for EU consumers, by default** (flag for the accountant): the
+  destination rate is right only for a seller registered for OSS or above
+  the €10k cross-border threshold, and admission to an in-person event is
+  taxed where it takes place. A small NL seller charges NL VAT. The table
+  can switch to destination rates (`consumer_rate: 'destination'`); the
+  /admin/vat control for it follows in the next release.
+- **Stripe shows it:** the rate rides on every line as a Stripe tax rate on
+  the community's OWN connected account (`connectedTaxRateId`), so Stripe's
+  checkout page and receipt show subtotal / VAT / total, and renewals keep
+  it.
+- **The join panel and the product form** ask for the country (required from
+  a VAT-registered community) and show excl. VAT / VAT 21% / total incl. VAT
+  from `GET /public/vat-quote` — the same rule the checkout charges by. The
+  catalogue gains `vat_registered`.
+- **The invoice says what was charged:** the ledger takes net / VAT / gross
+  from the Stripe invoice or session (`vatBreakdownFromInvoice`), labelled
+  "VAT 21%" or "VAT reverse-charged". Subscriptions started before today keep
+  the old inclusive split — see below.
+- **An existing member pressing Join** now sees, beside the button, that they
+  are already a member (it only changed the card behind the form before).
+- `scripts/audit-missed-vat.ts prod|staging` (read-only): every paid app sale
+  by a VAT-registered seller without VAT on top, the buyer's country, the VAT
+  the rule would add, and a total — for Sjoerd to decide per case. Staging:
+  14 paid sales, none by a VAT-registered seller.
+- **Existing members, from their next renewal** (Sjoerd: *"existing members
+  (only 1) should receive an invoice of 300 excl, so 363 incl, from January.
+  For the past, she is lucky."*): `scripts/apply-vat-to-subscriptions.ts
+  prod|staging --workspace <slug> [--apply]`. The dry run lists each live
+  subscription with the member, the current amount, the country and VAT
+  number, and the gross at the next renewal. `--apply` gives the subscription
+  the community's tax rate with no proration, so NOTHING is charged now and
+  nothing is back-charged; a subscription that already has one is left
+  alone. Rehearsed on staging against Stripe TEST mode: before, next invoice
+  300.00 / tax 0; after, 363.00 / tax 63.00; invoices so far unchanged
+  (300.00); a second run changed nothing. The prod run is Sjoerd's.
+- Thread and Meet: next release.
+- `verify-public-api.mjs`: `signups_closed` collected from PENDING into
+  SHAPES — batch 28 put it on production.
+- Tests: `sale-vat.test.ts` (12 — NL 363, DE consumer 21% (home) and 19% only with the destination setting, BE B2B reverse charge, an
+  unconfirmed number is a consumer, NL B2B still 21%, US none, not
+  registered none, the ledger breakdown); `membership-vat.int.test.ts` on
+  staging against Stripe TEST mode (5 — the session Stripe made: NL 300 →
+  363 with a 6300 tax line, NL B2B 363, US 300, no country refused, the
+  quote).
+
 ## [1.207.1] — 2026-10-15
 
 ### Thread dates: threads a membership gives access to stay open
