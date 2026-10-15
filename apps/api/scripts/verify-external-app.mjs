@@ -1088,6 +1088,17 @@ async function main() {
     `HTTP ${publish.status} ${publish.body?.error ?? ''}`,
   );
   const THREAD_ID = publish.body?.id;
+  // An /apps-created thread keeps payment_destination NULL ("auto"), as it
+  // always has: the editor's new threads default to the organiser
+  // (2026-10-16), and an external caller must not be re-routed by that.
+  {
+    const { data: dest } = await db.from('thread_thread').select('payment_destination').eq('id', THREAD_ID).maybeSingle();
+    check(
+      dest && dest.payment_destination === null,
+      'an /apps-created thread keeps payment_destination NULL (auto) — no re-routing for an external caller',
+      `got ${JSON.stringify(dest?.payment_destination)}`,
+    );
+  }
 
   const republish = await call(`/api/v1/apps/${SLUG}/thread/threads`, {
     method: 'POST',

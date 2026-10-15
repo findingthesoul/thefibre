@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.201.2] — 2026-10-15
+
+### Threads created by apps keep "auto" payment routing
+
+- `POST /api/v1/apps/:slug/thread/threads` (and the MCP's `thread_create`,
+  which goes through it) now writes `payment_destination: null` explicitly —
+  what an app-created thread has always had. Lands BEFORE the migration that
+  makes the organiser the default for threads made in the editor, so an
+  external caller who changed nothing is never re-routed (rule 8).
+- `verify-external-app.mjs` asserts it.
+
 ## [1.201.1] — 2026-10-15
 
 ### The public contract asserts `hosts`

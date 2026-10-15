@@ -554,6 +554,12 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
         slug: b.slug,
         intention: b.intention ?? null,
         timezone: b.timezone ?? 'Europe/Amsterdam',
+        // NULL ("auto"), explicitly — what an /apps-created thread has always
+        // had. The editor's new threads default to the organiser (column
+        // default 'personal', 2026-10-16); an EXTERNAL caller who changed
+        // nothing must not have its money re-routed or its publish guard
+        // re-judged by that (CLAUDE.md rule 8: no semantic change on /apps).
+        payment_destination: null,
       })
       .select('id')
       .single();
