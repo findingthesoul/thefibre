@@ -3972,6 +3972,14 @@ const CATALOG = {
     de: 'Ändern, wohin Zahlungen gehen', // MT
     fr: 'Changer la destination des paiements', // MT
   },
+  pay_check_unknown: {
+    en: 'We couldn’t check where payments for this thread go. Publish anyway?',
+    nl: 'We konden niet nagaan waar de betalingen voor deze thread naartoe gaan. Toch publiceren?', // MT
+    es: 'No pudimos comprobar adónde van los pagos de este hilo. ¿Publicar igualmente?', // MT
+    pt: 'Não conseguimos verificar para onde vão os pagamentos deste fio. Publicar mesmo assim?', // MT
+    de: 'Wir konnten nicht prüfen, wohin die Zahlungen für diesen Thread gehen. Trotzdem veröffentlichen?', // MT
+    fr: 'Nous n’avons pas pu vérifier où vont les paiements de ce fil. Publier quand même ?', // MT
+  },
   uses_personal_room: {
     en: 'Uses your personal room from Meet:',
     nl: 'Gebruikt je persoonlijke ruimte uit Meet:',

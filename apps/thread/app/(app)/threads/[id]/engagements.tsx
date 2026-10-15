@@ -735,32 +735,32 @@ export function EngagementDialog({
                     })}
                   </select>
                 </div>
-                {provider === 'personal_room' && people.length > 0 && (
-                  <label className="block">
-                    <span className="text-sm text-ink-subtle">{t(locale, 'session_room')}</span>
-                    <select
+                {provider === 'personal_room' && people.some((p) => p.hasAccount) && (
+                  <div>
+                    {/* The shared select (brand rule). People without an
+                        account have no room and are left out here — they
+                        stay in the checklist above; someone without a room
+                        yet can be picked and the save names the problem. */}
+                    <SelectField
+                      label={t(locale, 'session_room')}
                       value={roomOwner}
                       onChange={(e) => {
                         setRoomOwner(e.target.value);
                         setOwnerNotice(null);
                         setDirty(true);
                       }}
-                      className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
-                    >
-                      <option value="">
-                        {t(locale, 'session_room_main', { name: meetingRoom?.name ?? t(locale, 'organiser') })}
-                      </option>
-                      {people
-                        .filter((p) => !excluded.has(p.id))
-                        .map((p) => (
-                          <option key={p.id} value={p.id} disabled={!p.hasAccount || !p.room}>
-                            {t(locale, 'session_room_of', { name: p.name })}
-                            {!p.hasAccount ? t(locale, 'session_room_no_account') : !p.room ? t(locale, 'session_room_none') : ''}
-                          </option>
-                        ))}
-                    </select>
+                      options={[
+                        { value: '', label: t(locale, 'session_room_main', { name: meetingRoom?.name ?? t(locale, 'organiser') }) },
+                        ...people
+                          .filter((p) => !excluded.has(p.id) && p.hasAccount)
+                          .map((p) => ({
+                            value: p.id,
+                            label: `${t(locale, 'session_room_of', { name: p.name })}${!p.room ? t(locale, 'session_room_none') : ''}`,
+                          })),
+                      ]}
+                    />
                     {ownerNotice && <span className="mt-1 block text-xs text-ink">{ownerNotice}</span>}
-                  </label>
+                  </div>
                 )}
                 {provider === 'personal_room' ? (
                   <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">

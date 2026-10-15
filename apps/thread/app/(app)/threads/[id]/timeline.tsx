@@ -57,6 +57,7 @@ import { FormError } from '@/components/ui/form-error';
 import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { Button } from '@/components/ui/button';
 import { DateTimeField } from '@/components/ui/date-field';
+import { SelectField } from '@/components/ui/field';
 import { EngagementDialog, toLocalInput } from './engagements';
 import { usePaymentCheck } from './payment-check';
 import { ThreadEditorForm } from './form';
@@ -406,14 +407,23 @@ export function ThreadTimeline({
       setSettingsOpen(true);
     },
   });
+  // The pill keeps its OWN value: bound to the saved status alone, a pick
+  // snapped back until the save and the refresh had both landed — "the first
+  // time I select something, nothing shows" (Sjoerd, 2026-10-16). Shown at
+  // once; put back if the save fails or the payment check is cancelled.
+  const [shownStatus, setShownStatus] = useState<string>(status);
+  useEffect(() => setShownStatus(status), [status]);
   function setStatus(next: string) {
+    const before = shownStatus;
+    setShownStatus(next);
     const save = () =>
       startTransition(async () => {
         const r = await updateThread(thread.id, { status: next });
         setStatusError(r.ok ? null : r.error);
+        if (!r.ok) setShownStatus(before);
         router.refresh();
       });
-    if (next === 'active' && status !== 'active') void payCheck.check('publish', save);
+    if (next === 'active' && status !== 'active') void payCheck.check('publish', save, () => setShownStatus(before));
     else save();
   }
   // Before the click: a paid thread with no way to pay cannot go live, and
@@ -479,9 +489,9 @@ export function ThreadTimeline({
         {/* Status pill (select disguised) */}
         <div className="relative shrink-0">
           <select
-            value={status}
+            value={shownStatus}
             onChange={(e) => setStatus(e.target.value)}
-            className={`appearance-none text-xs px-3 py-1.5 pr-7 rounded-full ring-1 cursor-pointer focus:outline-none ${statusMeta.cls}`}
+            className={`appearance-none text-xs px-3 py-1.5 pr-7 rounded-full ring-1 cursor-pointer focus:outline-none ${(STATUS_META[shownStatus] ?? statusMeta).cls}`}
             aria-label={t(locale, 'thread_status_aria')}
           >
             <option value="draft">{t(locale, 'status_draft')}</option>
@@ -1429,15 +1439,25 @@ function MembersPanel({
   // the sessions meet in. Only hosts/facilitators with an account can be
   // chosen; none chosen = the organiser.
   const mainOptions = members.filter((m) => !!m.id && !!one(m.organiser)?.user_id);
-  const mainId = thread.main_facilitator_id ?? '';
+  // The select keeps its OWN value. It was bound to the thread prop alone,
+  // so a pick snapped back to the old value until the save and the refresh
+  // had both landed — "the first time I select something, nothing shows"
+  // (Sjoerd, 2026-10-16). Shown at once; put back if the save fails.
+  const [mainId, setMainId] = useState(thread.main_facilitator_id ?? '');
+  useEffect(() => setMainId(thread.main_facilitator_id ?? ''), [thread.main_facilitator_id]);
   const [notice, setNotice] = useState<string | null>(null);
 
   function chooseMain(next: string) {
+    const before = mainId;
+    setMainId(next);
     setError(null);
     setNotice(null);
     startTransition(async () => {
       const r = await updateThread(thread.id, { main_facilitator_id: next || null });
-      if (!r.ok) return setError(r.error);
+      if (!r.ok) {
+        setMainId(before);
+        return setError(r.error);
+      }
       setNotice(t(locale, 'main_facilitator_saved'));
       router.refresh();
     });
@@ -1501,25 +1521,19 @@ function MembersPanel({
       </ul>
 
       <div className="mt-5">
-        <label className="block">
-          <span className="text-sm text-ink-subtle">{t(locale, 'main_facilitator')}</span>
-          <select
-            value={mainId}
-            onChange={(e) => chooseMain(e.target.value)}
-            disabled={pending}
-            className={`mt-1 ${select}`}
-          >
-            <option value="">{t(locale, 'main_facilitator_organiser', { name: organiserName })}</option>
-            {mainOptions.map((m) => {
+        <SelectField
+          label={t(locale, 'main_facilitator')}
+          value={mainId}
+          onChange={(e) => chooseMain(e.target.value)}
+          disabled={pending}
+          options={[
+            { value: '', label: t(locale, 'main_facilitator_organiser', { name: organiserName }) },
+            ...mainOptions.map((m) => {
               const o = one(m.organiser)!;
-              return (
-                <option key={m.id} value={m.id}>
-                  {o.display_name ?? o.slug}
-                </option>
-              );
-            })}
-          </select>
-        </label>
+              return { value: m.id!, label: o.display_name ?? o.slug };
+            }),
+          ]}
+        />
         <p className="mt-1.5 text-xs text-ink-subtle">
           {thread.meeting_room
             ? thread.meeting_room.url

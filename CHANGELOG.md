@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.202.1] — 2026-10-15
+
+### Thread: a pick in a dropdown shows at once — and the payment check fails closed
+
+Sjoerd, on production: *"dropdowns, in dropdowns: the first time I select
+something, nothing shows. The second time it works."*
+
+- **The status pill and the Main facilitator select keep their own value.**
+  Both were bound to the saved thread alone, so a pick snapped back to the
+  old value until the save and the page refresh had both landed. They show
+  the pick at once and put it back if the save fails (or, for the status,
+  if the payment check is cancelled).
+- **The Main facilitator and a session's room choice use the shared select**
+  (brand rule) instead of a browser-styled one.
+- **The payment check fails closed.** When where-the-money-goes cannot be
+  read, the check still appears — "We couldn't check where payments for this
+  thread go. Publish anyway?" — instead of publishing silently.
+- Still open: the Team select in Thread settings, which needs a browser
+  reproduction.
+
 ## [1.202.0] — 2026-10-15
 
 ### Before a paid thread goes live: where the money goes
