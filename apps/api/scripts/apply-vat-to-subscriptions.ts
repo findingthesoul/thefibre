@@ -33,7 +33,7 @@ import { resolveSellerVat } from '../src/lib/seller-vat.js';
 import { saleVat } from '../src/lib/sale-vat.js';
 import { connectedTaxRateId } from '../src/lib/vat-stripe.js';
 import { readBillingMetadata } from '../src/lib/membership-customer.js';
-import { vatMetadata } from '../src/routes/membership.js';
+import { feeOnNetPercent, vatMetadata } from '../src/routes/membership.js';
 
 const STAGING_REF = 'lukhyylwhhjyihqtghvw';
 const PRODUCTION_REF = 'zfsyyokepyycefbxiblc';
@@ -113,6 +113,11 @@ for (const m of members ?? []) {
     sub.id,
     {
       ...(rateId ? { default_tax_rates: [rateId] } : {}),
+      // The platform fee stays a share of the NET: Stripe applies the
+      // percentage to the invoice total, which now carries the VAT.
+      ...(rateId && sub.application_fee_percent
+        ? { application_fee_percent: feeOnNetPercent(sub.application_fee_percent, vat.rate_pct) }
+        : {}),
       proration_behavior: 'none',
       metadata: { ...sub.metadata, ...vatMetadata(vat) },
     },

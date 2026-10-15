@@ -107,7 +107,21 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   // Only on writes that carry the amount (the creating write), and never
   // over a breakdown the caller already provided.
   const callerBilling = (w.billing ?? null) as Record<string, unknown> | null;
+  // The row this write would update — read BEFORE the VAT stamp below, so a
+  // later write (the webhook confirming a payment, a mark-paid) never carves
+  // an inclusive split over a breakdown an earlier write already stored. That
+  // matters since 2026-10-15: app sales add VAT ON TOP (lib/sale-vat.ts) and
+  // record net / VAT / gross at the moment the price is fixed; the inclusive
+  // carve is only for sales made before that rule.
+  const { data: existing } = await adminClient
+    .from('purchase')
+    .select('id, billing')
+    .eq('app_id', app)
+    .eq('item_ref', w.itemRef)
+    .maybeSingle();
+  const alreadyBrokenDown = typeof (existing?.billing as Record<string, unknown> | null)?.tax_cents === 'number';
   if (
+    !alreadyBrokenDown &&
     w.appSlug !== 'fibre-platform' &&
     typeof w.amountCents === 'number' &&
     w.amountCents > 0 &&
@@ -130,12 +144,6 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   }
 
   // No upsert-with-partial-merge in PostgREST: update first, insert if new.
-  const { data: existing } = await adminClient
-    .from('purchase')
-    .select('id, billing')
-    .eq('app_id', app)
-    .eq('item_ref', w.itemRef)
-    .maybeSingle();
   if (existing) {
     // Never clobber billing facts an earlier write stored (the invoice-method
     // enrol form's buyer details, a prior VAT stamp) — merge under this write.

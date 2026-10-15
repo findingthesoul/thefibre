@@ -20,6 +20,8 @@ async function memberAuthHeader(): Promise<Record<string, string>> {
 }
 
 import { useEffect, useMemo, useState } from 'react';
+import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { CheckCircle2 } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -51,6 +53,10 @@ function fmtSignupBy(iso: string, timeZone: string, locale: Locale): string {
   }
 }
 
+function fmtMoney(cents: number, currency: string | null): string {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency ?? 'EUR' }).format(cents / 100);
+}
+
 export function EnrolCard({
   organiserSlug,
   organiserName,
@@ -67,6 +73,7 @@ export function EnrolCard({
   initialNotice = null,
   signupsCloseAt = null,
   timeZone = 'Europe/Amsterdam',
+  vatRegistered = false,
 }: {
   organiserSlug: string;
   organiserName: string;
@@ -92,6 +99,9 @@ export function EnrolCard({
   signupsCloseAt?: string | null;
   /** The thread's zone, to say that date in. */
   timeZone?: string;
+  /** Prices are excl. VAT and this seller adds it (2026-10-15): the form asks
+   *  for the country and shows excl. / VAT / total. */
+  vatRegistered?: boolean;
   /** From ?paid= on return from Stripe Checkout. */
   initialNotice?: 'success' | 'cancelled' | null;
 }) {
@@ -148,6 +158,26 @@ export function EnrolCard({
   const effectiveMethod: 'stripe' | 'invoice' = activeMethods.includes(payMethod)
     ? payMethod
     : activeMethods[0] ?? 'stripe';
+
+  // VAT ON TOP (2026-10-15): the rate from the API (THE rule the enrol route
+  // charges by), for the chosen country and a business's VAT number.
+  const [vatCountry, setVatCountry] = useState('');
+  const [vatNo, setVatNo] = useState('');
+  const [vatQuote, setVatQuote] = useState<{ rate_pct: number; reverse_charge: boolean } | null>(null);
+  useEffect(() => {
+    if (!vatRegistered || !vatCountry) {
+      setVatQuote(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const q = new URLSearchParams({ organiser_slug: organiserSlug, thread_slug: threadSlug, country: vatCountry, ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}) });
+      publicFetch<{ rate_pct: number; reverse_charge: boolean }>(`/api/v1/thread/public/vat-quote?${q}`)
+        .then(setVatQuote)
+        .catch(() => setVatQuote(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [vatRegistered, vatCountry, vatNo, organiserSlug, threadSlug]);
+  const vatTaxCents = vatQuote && activePriceCents ? Math.round((activePriceCents * vatQuote.rate_pct) / 100) : 0;
 
   function pickTicket(id: string) {
     setTicketId(id);
@@ -239,6 +269,10 @@ export function EnrolCard({
       answers[f.key] = v;
     }
 
+    if (vatRegistered && activePriceCents && !vatCountry) {
+      setError(t(locale, 'vat_country_required'));
+      return;
+    }
     setState('submitting');
     try {
       const res = await publicFetch<{
@@ -263,6 +297,8 @@ export function EnrolCard({
           ...(ticketId ? { ticket_id: ticketId } : {}),
           ...(applied ? { coupon_code: applied.code } : {}),
           ...(activePriceCents ? { payment_method: effectiveMethod } : {}),
+          ...(activePriceCents && vatCountry ? { country: vatCountry } : {}),
+          ...(activePriceCents && vatNo.trim() ? { vat_id: vatNo.trim() } : {}),
           ...(activePriceCents && effectiveMethod === 'invoice'
             ? {
                 billing: readBillingFields(fd),
@@ -589,6 +625,45 @@ export function EnrolCard({
 {t(locale, 'keep_me_posted', { organiser: organiserName })}
             </span>
           </label>
+
+          {vatRegistered && !!activePriceCents && (
+            <div className="space-y-2">
+              <SearchSelect
+                value={vatCountry}
+                onChange={setVatCountry}
+                options={COUNTRY_OPTIONS}
+                placeholder={t(locale, 'country_for_vat')}
+                className="w-full text-left"
+              />
+              <input
+                value={vatNo}
+                onChange={(e) => setVatNo(e.target.value)}
+                placeholder={t(locale, 'vat_number_optional')}
+                autoComplete="off"
+                className={INPUT}
+              />
+              <div className="text-xs tabular-nums text-ink-subtle">
+                {vatQuote ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span>{t(locale, 'excl_vat')}</span>
+                      <span>{fmtMoney(activePriceCents, activeCurrency)}</span>
+                    </div>
+                    <div className="mt-0.5 flex justify-between">
+                      <span>{vatQuote.reverse_charge ? t(locale, 'vat_reverse_charged') : vatQuote.rate_pct > 0 ? `${t(locale, 'vat')} ${vatQuote.rate_pct}%` : t(locale, 'vat_out_of_scope')}</span>
+                      <span>{fmtMoney(vatTaxCents, activeCurrency)}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
+                      <span>{t(locale, 'total_incl_vat')}</span>
+                      <span>{fmtMoney(activePriceCents + vatTaxCents, activeCurrency)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p>{t(locale, 'prices_excl_vat')}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {error && (
             <p className="text-xs text-red-700 border border-red-200 bg-red-50 rounded-md px-2.5 py-2">

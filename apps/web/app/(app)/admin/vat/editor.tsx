@@ -86,6 +86,21 @@ export function VatEditor({ initial }: { initial: VatConfig }) {
             <span className="text-ink-muted">(0% + &ldquo;VAT reverse-charged&rdquo; on the invoice)</span>
           </span>
         </label>
+        <label className="flex items-center gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            checked={config.consumer_rate === 'destination'}
+            onChange={(e) => {
+              setSaved(false);
+              setConfig((c) => ({ ...c, consumer_rate: e.target.checked ? 'destination' : 'home' }));
+            }}
+            className="h-4 w-4 accent-neutral-900 dark:accent-neutral-100"
+          />
+          <span>
+            EU consumers abroad pay their own country&rsquo;s rate{' '}
+            <span className="text-ink-muted">(only when registered for OSS; off = the home rate)</span>
+          </span>
+        </label>
         <div className="flex items-center gap-3">
           {error && <span className="text-xs text-red-700">{error}</span>}
           {saved && !dirty && <span className="text-xs text-ink-muted">Saved.</span>}

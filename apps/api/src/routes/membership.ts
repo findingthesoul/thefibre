@@ -2924,7 +2924,12 @@ membershipRoutes.post('/public/join', async (c) => {
             }),
         ],
         subscription_data: {
-          ...(feePercent > 0 ? { application_fee_percent: feePercent } : {}),
+          // ON THE NET PRICE. Stripe applies this percentage to the invoice
+          // TOTAL, which includes the VAT added on top since 1.208.0 — and
+          // the VAT is the seller's to pass on, not revenue to take a cut of.
+          // Scaled by net/gross so the fee is feePercent of the net
+          // (feeOnNetPercent); renewals keep the same rate, so it holds.
+          ...(feePercent > 0 ? { application_fee_percent: feeOnNetPercent(feePercent, vat.rate_pct) } : {}),
           // The first renewal, and NOTHING extra charged for the stub period
           // between now and it. Without proration_behavior 'none' Stripe adds
           // a pro-rata charge on top of the one-off line above — the one word
@@ -3535,6 +3540,12 @@ Nothing was blocked — this is a heads-up so you can review the membership if i
       ...senderOf(brand),
     });
   }
+}
+
+/** A Stripe application_fee_percent that takes `pct` of the NET when the
+ *  invoice total carries `vatPct` on top (Stripe allows two decimals). */
+export function feeOnNetPercent(pct: number, vatPct: number): number {
+  return Math.round(((pct * 100) / (100 + Math.max(0, vatPct))) * 100) / 100;
 }
 
 /** The VAT decision, as subscription metadata (strings, few keys). */

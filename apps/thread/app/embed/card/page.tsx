@@ -26,6 +26,8 @@ type PublicThreadPayload = {
     enrolment_open: boolean;
     /** Thread dates (additive): when sign-ups close. */
     signups_close_at?: string | null;
+    /** The seller adds VAT on top (additive, 2026-10-15). */
+    vat_registered?: boolean;
     timezone?: string;
     capacity: number | null;
     enrolled_count: number;
@@ -139,6 +141,7 @@ export default async function EmbedCardPage({
               registrationFields={thread.registration_fields ?? []}
               enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
               signupsCloseAt={thread.signups_close_at ?? null}
+              vatRegistered={thread.vat_registered === true}
               timeZone={thread.timezone ?? 'Europe/Amsterdam'}
               locale={lang}
             />

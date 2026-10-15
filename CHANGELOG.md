@@ -6,6 +6,61 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.209.0] — 2026-10-15
+
+### Thread and Meet prices are now EXCLUDING VAT — VAT is added on top (Thread 4.10.0, Meet 2.32.0)
+
+Sjoerd: *"Everything excl. VAT now."* The same switch as Membership in
+1.208.0, for tickets, enrolments and paid bookings.
+
+**What changes for buyers, plainly:** a VAT-registered organiser or host's
+€300 ticket or meeting now costs €300 + VAT — €363 for an NL buyer. Until
+today Thread and Meet treated the price as INCLUDING VAT and carved it out
+on the invoice. Sjoerd's decision, knowing that every VAT-registered
+seller's buyers now pay 21% more than the figure they entered.
+
+- **The same one rule** (`lib/sale-vat.ts`) as Membership, with the seller
+  resolved as the ledger always did (the organiser's / host's own invoice
+  details first, then the workspace's). Decided in the enrol and booking
+  routes BEFORE anything is written: a VAT-registered seller with no country
+  from the buyer is refused (`country_required`), and no booking or
+  enrolment row is left behind.
+- **Card:** a Stripe tax rate on the seller's own connected account on the
+  line, so Stripe's page and receipt show subtotal / VAT / total. The
+  platform fee stays on the NET price.
+- **Membership fee fix (1.208.0):** the membership join's platform fee is a
+  Stripe `application_fee_percent`, which Stripe applies to the invoice
+  TOTAL — since 1.208.0 that total includes the VAT, so the fee was taken on
+  the gross. It is now scaled by net/gross (`feeOnNetPercent`: 2% on a 21%
+  invoice becomes 1.65%), so it is again a share of the net, renewals
+  included; `apply-vat-to-subscriptions.ts` scales an existing
+  subscription's percentage the same way when it adds the tax rate. Thread,
+  Meet and standalone products already took a fixed fee on the net amount.
+- **Invoice method:** the ledger row is the GROSS amount, with net / VAT /
+  label in `billing` beside the buyer's details.
+- **The ledger keeps the breakdown:** `recordPurchase` now reads the existing
+  row BEFORE stamping the old inclusive split, and never carves over a row
+  that already carries one — so the confirming write (webhook, mark-paid)
+  leaves net / VAT / gross as recorded at the sale.
+- **The forms:** the Thread enrol form (page, popup, embeds, organiser grid)
+  and the Meet booking page ask for the country and an optional VAT number
+  from a VAT-registered seller and show excl. VAT / VAT / total from
+  `GET /thread/public/vat-quote` and `GET /meet/public/vat-quote`. The public
+  thread and meeting type gain `vat_registered` (Thread's is PENDING in
+  `verify-public-api.mjs`); the Meet price line says "excl. VAT".
+- **/admin/vat:** "EU consumers abroad pay their own country's rate" — off by
+  default (the home rate, right for a seller below the OSS threshold), on
+  only for an OSS-registered seller (`consumer_rate`).
+- **Not changed:** Thread and Meet payment LINKS for an invoice already
+  issued charge the recorded amount as one line (now the gross for new
+  sales) — Stripe's page shows no separate VAT line there yet.
+- Tests: `sale-vat.test.ts` +2 (the fee on the net: 2% of a 300 net on a 363
+  total); `thread-meet-vat.int.test.ts` on staging against Stripe TEST mode
+  (9 — Thread and Meet: NL card 363 with a 6300 tax line and a ledger row of
+  36300 = 30000 + 6300, NL invoice 36300 with the breakdown and the buyer's
+  company kept, US 300, no country refused with nothing written, the
+  quotes, `vat_registered` on the public payloads).
+
 ## [1.208.0] — 2026-10-15
 
 ### Membership prices are now EXCLUDING VAT — VAT is added on top (Members 1.3.0)

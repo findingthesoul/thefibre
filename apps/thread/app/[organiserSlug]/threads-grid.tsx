@@ -52,6 +52,8 @@ type PopupDetail = {
     enrolment_open: boolean;
     /** Thread dates (additive): when sign-ups close. */
     signups_close_at?: string | null;
+    /** The seller adds VAT on top (additive, 2026-10-15). */
+    vat_registered?: boolean;
     timezone?: string;
     tickets?: PublicTicket[];
   };
@@ -290,6 +292,7 @@ function PopupBody({ detail, onClose }: { detail: PopupDetail; onClose: () => vo
             registrationFields={th.registration_fields ?? []}
             enrolmentOpen={th.enrolment_open}
             signupsCloseAt={th.signups_close_at ?? null}
+            vatRegistered={th.vat_registered === true}
             timeZone={th.timezone ?? 'Europe/Amsterdam'}
             locale={lang}
           />

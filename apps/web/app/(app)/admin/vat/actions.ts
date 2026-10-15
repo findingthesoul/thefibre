@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 export type VatConfig = {
   home_country: string;
   eu_b2b_reverse_charge: boolean;
+  consumer_rate?: 'home' | 'destination';
   rates: Record<string, number>;
 };
 

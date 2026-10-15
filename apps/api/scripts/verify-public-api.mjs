@@ -210,8 +210,8 @@ const PENDING = {
   // collected into SHAPES the day batch 27 put them on production.
   embedItem: [],
   embedListing: [],
-  // Empty again: `signups_closed` collected the day batch 28 served it.
-  thread: [],
+  // VAT on top (2026-10-15): whether the seller adds VAT. Collect with its batch.
+  thread: ['vat_registered'],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */

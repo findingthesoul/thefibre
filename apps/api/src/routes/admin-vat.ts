@@ -28,6 +28,10 @@ adminVatRoutes.post('/sync', async (c) => {
 const Body = z.object({
   home_country: z.string().regex(/^[A-Z]{2}$/),
   eu_b2b_reverse_charge: z.boolean(),
+  // Which rate an EU consumer outside the home country pays on an app sale
+  // (lib/sale-vat.ts): 'home' (default — a small seller below the OSS
+  // threshold) or 'destination' (OSS-registered). Optional: absent = home.
+  consumer_rate: z.enum(['home', 'destination']).optional(),
   rates: z.record(z.string().regex(/^[A-Z]{2}$/), z.number().min(0).max(50)),
 });
 

@@ -47,6 +47,8 @@ type MeetingType = {
   /** False when the type is paid and nobody could pay (no Stripe, no
    *  invoice). Absent from an older API = open, as before. */
   booking_open?: boolean;
+  /** The host adds VAT on top (additive, 2026-10-15). */
+  vat_registered?: boolean;
 };
 
 type HostMtResp = {
@@ -265,6 +267,7 @@ async function Card({
                         style: 'currency',
                         currency: (meetingType.price_currency ?? 'eur').toUpperCase(),
                       }).format(meetingType.price_cents / 100)}{' '}
+                      {meetingType.vat_registered ? `${publicT(L, 'excl_vat').toLowerCase()} · ` : ''}
                       <span className="text-neutral-500">
                         {meetingType.payment_methods?.includes('invoice')
                           ? meetingType.payment_methods.includes('stripe')

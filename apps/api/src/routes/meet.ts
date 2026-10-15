@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import { saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
+import { connectedTaxRateId } from '../lib/vat-stripe.js';
+import { resolveSellerVat } from '../lib/seller-vat.js';
 import { profileFor } from '../lib/identity-profile.js';
 import { showZoomPendingNotice } from '../lib/zoom-pending.js';
 import { z } from 'zod';
@@ -561,6 +564,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
       // False when the type is paid and nobody could pay for it: the page
       // says "not open yet" instead of a form that dead-ends at payment.
       booking_open: !(await meetRouteProblem(mt)),
+      vat_registered: await meetVatRegistered(mt),
     },
     workspace: await publicWorkspace(host.workspace_id),
     host: {
@@ -582,6 +586,31 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
 });
 
 type PayMethod = 'stripe' | 'invoice';
+
+/** Does this meeting type's host add VAT on top (2026-10-15)? The host's own
+ *  invoice details first, then the workspace's — the lookup the ledger uses. */
+async function meetVatRegistered(mt: { host_id: string; workspace_id: string }): Promise<boolean> {
+  const { data: h } = await adminClient.from('meet_host').select('user_id').eq('id', mt.host_id).maybeSingle();
+  return !!(await resolveSellerVat(mt.workspace_id, (h?.user_id as string | null) ?? null));
+}
+
+// GET /public/vat-quote?meeting_type_id=&country=&vat_id= — the VAT a guest
+// would pay on top, by THE rule the booking route charges by. A rate, not an
+// amount: the page multiplies its own net price.
+meetRoutes.get('/public/vat-quote', async (c) => {
+  const id = c.req.query('meeting_type_id') ?? '';
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: 'not found' }, 404);
+  const { data: mt } = await adminClient.from('meet_meeting_type').select('host_id, workspace_id, is_active').eq('id', id).maybeSingle();
+  if (!mt || !mt.is_active) return c.json({ error: 'not found' }, 404);
+  const { data: h } = await adminClient.from('meet_host').select('user_id').eq('id', mt.host_id).maybeSingle();
+  const hostUserId = (h?.user_id as string | null) ?? null;
+  const country = (c.req.query('country') ?? '').trim().toUpperCase();
+  const valid = /^[A-Z]{2}$/.test(country);
+  const vatId = (c.req.query('vat_id') ?? '').trim().slice(0, 30) || null;
+  const registered = !!(await resolveSellerVat(mt.workspace_id as string, hostUserId));
+  const v = await saleVat({ workspaceId: mt.workspace_id as string, organiserUserId: hostUserId, net_cents: 10000, country: valid ? country : null, vat_id: vatId });
+  return c.json({ applies: registered, rate_pct: v.rate_pct, label: v.label, reverse_charge: v.reverse_charge, needs_country: registered && !valid });
+});
 
 /** How an invitee may pay for this meeting type: the methods that would
  *  actually complete (lib/meet-payment-route.ts), so the page never offers a
@@ -660,6 +689,10 @@ const CreateBookingBody = z.object({
   // Paid meeting types only. Absent = the first method on offer.
   payment_method: z.enum(['stripe', 'invoice']).optional(),
   billing: InvoiceBilling.optional(),
+  // VAT on top (2026-10-15): the buyer's country and a business's VAT number.
+  // The country is required only by a VAT-registered host.
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
+  vat_id: z.string().max(30).optional(),
 });
 
 meetRoutes.post('/public/bookings', async (c) => {
@@ -881,6 +914,26 @@ meetRoutes.post('/public/bookings', async (c) => {
     }
     isInvoiceBooking = (data.payment_method ?? offered[0] ?? 'stripe') === 'invoice';
   }
+
+  // VAT ON TOP (Sjoerd, 2026-10-15: "Everything excl. VAT now"). The meeting
+  // type's price is NET; a VAT-registered host adds VAT by the one rule
+  // (lib/sale-vat.ts). Decided before the booking row exists.
+  let bookingVat: SaleVat | null = null;
+  if (isPaidBooking) {
+    const { data: vatHost } = await adminClient.from('meet_host').select('user_id').eq('id', mt.host_id).maybeSingle();
+    const hostUserId = (vatHost?.user_id as string | null) ?? null;
+    const bookingCountry = (data.country || data.billing?.country || '').toUpperCase() || null;
+    if (!bookingCountry && (await resolveSellerVat(mt.workspace_id, hostUserId))) {
+      return c.json({ error: 'Choose your country, so the VAT can be worked out.', code: 'country_required' }, 400);
+    }
+    bookingVat = await saleVat({
+      workspaceId: mt.workspace_id,
+      organiserUserId: hostUserId,
+      net_cents: mt.price_cents!,
+      country: bookingCountry,
+      vat_id: data.vat_id || data.billing?.tax_no || null,
+    });
+  }
   const initialPaymentStatus = isInvoiceBooking
     ? 'invoice_pending'
     : isPaidBooking
@@ -949,11 +1002,12 @@ meetRoutes.post('/public/bookings', async (c) => {
       itemLabel: mt.name,
       organiserUserId: invoiceOwner?.user_id ?? null,
       teamId: (mt as { team_id?: string | null }).team_id ?? null,
-      amountCents: mt.price_cents!,
+      // GROSS, with the breakdown: VAT on top (lib/sale-vat.ts).
+      amountCents: bookingVat?.gross_cents ?? mt.price_cents!,
       currency: (mt.price_currency ?? 'EUR').toUpperCase(),
       method: 'invoice',
       status: 'pending',
-      billing: data.billing ?? null,
+      billing: { ...(data.billing ?? {}), ...(bookingVat ? vatBilling(bookingVat) : {}) },
     });
   }
 
@@ -992,7 +1046,13 @@ meetRoutes.post('/public/bookings', async (c) => {
     // for some pathological reason), default to the historical Free rate
     // so we never under-skim. Conservative on the platform side; harmless
     // on the host side.
+    // (Named before VAT existed: this is the NET price the line carries; the
+    // tax rate below adds the VAT on top.)
     const grossCents = mt.price_cents!;
+    const bookingTaxRate =
+      bookingVat && bookingVat.rate_pct > 0 && bookingVat.rate_country
+        ? await connectedTaxRateId(hostAccount, bookingVat.rate_country, bookingVat.rate_pct)
+        : null;
     const applicationFeeCents = await platformFeeCents(mt.workspace_id, grossCents, hostAccount);
 
     // The owner's own host when verified, else ours (docs/domain-package.md part 2).
@@ -1017,6 +1077,8 @@ meetRoutes.post('/public/bookings', async (c) => {
                 },
               },
               quantity: 1,
+              // VAT on top, as a tax rate on the host's own account.
+              ...(bookingTaxRate ? { tax_rates: [bookingTaxRate] } : {}),
             },
           ],
           payment_intent_data: {
@@ -1077,11 +1139,12 @@ meetRoutes.post('/public/bookings', async (c) => {
         itemLabel: mt.name,
         organiserUserId: (ownerHost as { user_id?: string | null }).user_id ?? null,
         teamId: (mt as { team_id?: string | null }).team_id ?? null,
-        amountCents: grossCents,
+        amountCents: bookingVat?.gross_cents ?? grossCents,
         currency: (mt.price_currency ?? 'EUR').toUpperCase(),
         method: 'stripe',
         status: 'pending',
         stripeAccountId: hostAccount,
+        ...(bookingVat ? { billing: vatBilling(bookingVat) } : {}),
       });
       return c.json({
         booking,
@@ -6058,6 +6121,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
     poll_slots: pollSlots,
     payment_methods: await meetingTypePaymentMethods(mt),
     booking_open: !(await meetRouteProblem(mt)),
+    vat_registered: await meetVatRegistered({ host_id: mt.host_id, workspace_id: team.workspace_id }),
     workspace: await publicWorkspace(team.workspace_id),
     team,
   });

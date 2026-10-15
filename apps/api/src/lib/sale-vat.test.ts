@@ -54,3 +54,15 @@ describe('the ledger breakdown from what Stripe invoiced', async () => {
     expect(vatBreakdownFromInvoice({ subtotal: 30000, subtotal_excluding_tax: 30000, amount_paid: 30000, total_taxes: [] } as never, {})).toEqual({});
   });
 });
+
+describe('the platform fee stays a share of the NET', async () => {
+  const { feeOnNetPercent } = await import('../routes/membership.js');
+  it('2% of a 300 net, on a 363 total, is 6.00', () => {
+    const pct = feeOnNetPercent(2, 21);
+    expect(pct).toBe(1.65);
+    expect(Math.round((36300 * pct) / 100)).toBe(599); // Stripe rounds; within a cent of 600
+  });
+  it('no VAT: the percentage is unchanged', () => {
+    expect(feeOnNetPercent(2, 0)).toBe(2);
+  });
+});

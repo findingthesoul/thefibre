@@ -304,6 +304,79 @@ const CATALOG = {
     fr: 'Inscription en cours…', // MT
   },
   // "Sign up by …" above the form (thread dates, 2026-10-16).
+  // VAT on top (2026-10-15): prices are excl. VAT.
+  country_for_vat: {
+    en: 'Your country (for VAT)',
+    nl: 'Je land (voor de btw)',
+    es: 'Tu país (para el IVA)', // MT
+    pt: 'O seu país (para o IVA)', // MT
+    de: 'Dein Land (für die MwSt.)', // MT
+    fr: 'Ton pays (pour la TVA)', // MT
+  },
+  vat_number_optional: {
+    en: 'VAT number (businesses, optional)',
+    nl: 'Btw-nummer (bedrijven, optioneel)',
+    es: 'Número de IVA (empresas, opcional)', // MT
+    pt: 'Número de IVA (empresas, opcional)', // MT
+    de: 'USt-IdNr. (Unternehmen, optional)', // MT
+    fr: 'Numéro de TVA (entreprises, facultatif)', // MT
+  },
+  vat_country_required: {
+    en: 'Choose your country, so the VAT can be worked out.',
+    nl: 'Kies je land, zodat de btw berekend kan worden.',
+    es: 'Elige tu país para calcular el IVA.', // MT
+    pt: 'Escolha o seu país para calcular o IVA.', // MT
+    de: 'Wähle dein Land, damit die MwSt. berechnet werden kann.', // MT
+    fr: 'Choisis ton pays pour calculer la TVA.', // MT
+  },
+  excl_vat: {
+    en: 'Excl. VAT',
+    nl: 'Excl. btw',
+    es: 'Sin IVA', // MT
+    pt: 'Sem IVA', // MT
+    de: 'Ohne MwSt.', // MT
+    fr: 'HT', // MT
+  },
+  vat: {
+    en: 'VAT',
+    nl: 'Btw',
+    es: 'IVA', // MT
+    pt: 'IVA', // MT
+    de: 'MwSt.', // MT
+    fr: 'TVA', // MT
+  },
+  vat_reverse_charged: {
+    en: 'VAT reverse-charged',
+    nl: 'Btw verlegd',
+    es: 'IVA con inversión del sujeto pasivo', // MT
+    pt: 'IVA autoliquidado', // MT
+    de: 'MwSt. Reverse-Charge', // MT
+    fr: 'TVA autoliquidée', // MT
+  },
+  vat_out_of_scope: {
+    en: 'No VAT (outside the EU)',
+    nl: 'Geen btw (buiten de EU)',
+    es: 'Sin IVA (fuera de la UE)', // MT
+    pt: 'Sem IVA (fora da UE)', // MT
+    de: 'Keine MwSt. (außerhalb der EU)', // MT
+    fr: 'Pas de TVA (hors UE)', // MT
+  },
+  total_incl_vat: {
+    en: 'Total incl. VAT',
+    nl: 'Totaal incl. btw',
+    es: 'Total con IVA', // MT
+    pt: 'Total com IVA', // MT
+    de: 'Gesamt inkl. MwSt.', // MT
+    fr: 'Total TTC', // MT
+  },
+  prices_excl_vat: {
+    en: 'Prices are excl. VAT — choose your country to see the VAT.',
+    nl: 'Prijzen zijn excl. btw — kies je land om de btw te zien.',
+    es: 'Los precios no incluyen IVA: elige tu país para verlo.', // MT
+    pt: 'Os preços não incluem IVA — escolha o seu país para o ver.', // MT
+    de: 'Preise ohne MwSt. — wähle dein Land, um die MwSt. zu sehen.', // MT
+    fr: 'Prix HT — choisis ton pays pour voir la TVA.', // MT
+  },
   signup_by: {
     en: 'Sign up by',
     nl: 'Schrijf je in vóór', // MT pending native review

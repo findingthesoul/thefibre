@@ -70,6 +70,71 @@ const CATALOG = {
   },
   // A paid meeting type whose host cannot take payment yet (no Stripe, no
   // invoice). Shown instead of the booking form, which would dead-end.
+  // VAT on top (2026-10-15): prices are excl. VAT.
+  country_for_vat: {
+    en: 'Your country (for VAT)',
+    nl: 'Je land (voor de btw)', // MT pending native review
+    es: 'Tu país (para el IVA)', // MT
+    pt: 'O seu país (para o IVA)', // MT
+    de: 'Dein Land (für die MwSt.)', // MT
+    fr: 'Ton pays (pour la TVA)', // MT
+  },
+  vat_number_optional: {
+    en: 'VAT number (businesses, optional)',
+    nl: 'Btw-nummer (bedrijven, optioneel)', // MT pending native review
+    es: 'Número de IVA (empresas, opcional)', // MT
+    pt: 'Número de IVA (empresas, opcional)', // MT
+    de: 'USt-IdNr. (Unternehmen, optional)', // MT
+    fr: 'Numéro de TVA (entreprises, facultatif)', // MT
+  },
+  excl_vat: {
+    en: 'Excl. VAT',
+    nl: 'Excl. btw', // MT pending native review
+    es: 'Sin IVA', // MT
+    pt: 'Sem IVA', // MT
+    de: 'Ohne MwSt.', // MT
+    fr: 'HT', // MT
+  },
+  vat: {
+    en: 'VAT',
+    nl: 'Btw', // MT pending native review
+    es: 'IVA', // MT
+    pt: 'IVA', // MT
+    de: 'MwSt.', // MT
+    fr: 'TVA', // MT
+  },
+  vat_reverse_charged: {
+    en: 'VAT reverse-charged',
+    nl: 'Btw verlegd', // MT pending native review
+    es: 'IVA con inversión del sujeto pasivo', // MT
+    pt: 'IVA autoliquidado', // MT
+    de: 'MwSt. Reverse-Charge', // MT
+    fr: 'TVA autoliquidée', // MT
+  },
+  vat_out_of_scope: {
+    en: 'No VAT (outside the EU)',
+    nl: 'Geen btw (buiten de EU)', // MT pending native review
+    es: 'Sin IVA (fuera de la UE)', // MT
+    pt: 'Sem IVA (fora da UE)', // MT
+    de: 'Keine MwSt. (außerhalb der EU)', // MT
+    fr: 'Pas de TVA (hors UE)', // MT
+  },
+  total_incl_vat: {
+    en: 'Total incl. VAT',
+    nl: 'Totaal incl. btw', // MT pending native review
+    es: 'Total con IVA', // MT
+    pt: 'Total com IVA', // MT
+    de: 'Gesamt inkl. MwSt.', // MT
+    fr: 'Total TTC', // MT
+  },
+  prices_excl_vat: {
+    en: 'Prices are excl. VAT — choose your country to see the VAT.',
+    nl: 'Prijzen zijn excl. btw — kies je land om de btw te zien.', // MT pending native review
+    es: 'Los precios no incluyen IVA: elige tu país para verlo.', // MT
+    pt: 'Os preços não incluem IVA — escolha o seu país para o ver.', // MT
+    de: 'Preise ohne MwSt. — wähle dein Land, um die MwSt. zu sehen.', // MT
+    fr: 'Prix HT — choisis ton pays pour voir la TVA.', // MT
+  },
   booking_not_open_title: {
     en: 'Booking not open yet',
     nl: 'Boeken is nog niet mogelijk', // MT pending native review

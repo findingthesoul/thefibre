@@ -19,6 +19,7 @@ import { IntakeFieldsRenderer } from '@/components/intake-fields-renderer';
 import type { IntakeField } from '@/lib/intake';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/search-select';
+import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import {
   PayMethodSwitch,
   InvoiceBillingFields,
@@ -55,8 +56,11 @@ type Props = {
     fixed_ends_at?: string | null;
     poll_slots?: { starts_at: string; ends_at: string }[];
     price_cents?: number | null;
+    price_currency?: string | null;
     /** Resolved by the API (own list, else the owner's account default). */
     payment_methods?: PayMethod[] | null;
+    /** The host adds VAT on top (additive, 2026-10-15). */
+    vat_registered?: boolean;
   };
 };
 
@@ -71,15 +75,42 @@ function usePayment(meetingType: Props['meetingType']) {
     : ['stripe'];
   const [method, setMethod] = useState<PayMethod>(offered[0] ?? 'stripe');
   const billingRef = useRef<HTMLFormElement>(null);
+  // VAT ON TOP (2026-10-15): the rate from the API — THE rule the booking
+  // route charges by — for the guest's country and a business's VAT number.
+  const vatRegistered = paid && meetingType.vat_registered === true;
+  const [vatCountry, setVatCountry] = useState('');
+  const [vatNo, setVatNo] = useState('');
+  const [vatQuote, setVatQuote] = useState<{ rate_pct: number; reverse_charge: boolean } | null>(null);
+  useEffect(() => {
+    if (!vatRegistered || !vatCountry) {
+      setVatQuote(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const q = new URLSearchParams({ meeting_type_id: meetingType.id, country: vatCountry, ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}) });
+      publicFetch<{ rate_pct: number; reverse_charge: boolean }>(`/api/v1/meet/public/vat-quote?${q}`)
+        .then(setVatQuote)
+        .catch(() => setVatQuote(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [vatRegistered, vatCountry, vatNo, meetingType.id]);
   function bookingFields(): Record<string, unknown> {
     if (!paid) return {};
-    if (method !== 'invoice') return { payment_method: method };
+    const vat = {
+      ...(vatCountry ? { country: vatCountry } : {}),
+      ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}),
+    };
+    if (method !== 'invoice') return { payment_method: method, ...vat };
     return {
       payment_method: 'invoice',
       billing: billingRef.current ? readBillingFields(new FormData(billingRef.current)) : {},
+      ...vat,
     };
   }
-  return { paid, offered, method, setMethod, billingRef, bookingFields };
+  const netCents = meetingType.price_cents ?? 0;
+  const taxCents = vatQuote ? Math.round((netCents * vatQuote.rate_pct) / 100) : 0;
+  const currency = (meetingType.price_currency ?? 'EUR').toUpperCase();
+  return { paid, offered, method, setMethod, billingRef, bookingFields, currency, vatRegistered, vatCountry, setVatCountry, vatNo, setVatNo, vatQuote, netCents, taxCents };
 }
 
 function PaymentSection({
@@ -90,8 +121,46 @@ function PaymentSection({
   L: Locale;
 }) {
   if (!payment.paid) return null;
+  const fmt = (cents: number) => new Intl.NumberFormat(INTL_LOCALES[L], { style: 'currency', currency: payment.currency }).format(cents / 100);
   return (
     <div className="space-y-4">
+      {payment.vatRegistered && (
+        <div className="space-y-2">
+          <SearchSelect
+            value={payment.vatCountry}
+            onChange={payment.setVatCountry}
+            options={COUNTRY_OPTIONS}
+            placeholder={publicT(L, 'country_for_vat')}
+            className="w-full text-left"
+          />
+          <Input
+            value={payment.vatNo}
+            onChange={(e) => payment.setVatNo(e.target.value)}
+            placeholder={publicT(L, 'vat_number_optional')}
+            autoComplete="off"
+          />
+          <div className="text-xs tabular-nums text-ink-subtle">
+            {payment.vatQuote ? (
+              <>
+                <div className="flex justify-between">
+                  <span>{publicT(L, 'excl_vat')}</span>
+                  <span>{fmt(payment.netCents)}</span>
+                </div>
+                <div className="mt-0.5 flex justify-between">
+                  <span>{payment.vatQuote.reverse_charge ? publicT(L, 'vat_reverse_charged') : payment.vatQuote.rate_pct > 0 ? `${publicT(L, 'vat')} ${payment.vatQuote.rate_pct}%` : publicT(L, 'vat_out_of_scope')}</span>
+                  <span>{fmt(payment.taxCents)}</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
+                  <span>{publicT(L, 'total_incl_vat')}</span>
+                  <span>{fmt(payment.netCents + payment.taxCents)}</span>
+                </div>
+              </>
+            ) : (
+              <p>{publicT(L, 'prices_excl_vat')}</p>
+            )}
+          </div>
+        </div>
+      )}
       {payment.offered.length > 1 && (
         <PayMethodSwitch
           value={payment.method}

@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import { resolveSellerVat } from '../lib/seller-vat.js';
+import { saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
+import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import {
   closedReason,
   duplicateAnswer,
@@ -6633,6 +6636,10 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   // sentence is true, and it says nothing whatever about who is a member:
   // that question must not be answerable by typing an address into a form.
   const memberDiscountPct = await memberDiscountOffered(thread.id as string);
+  // Whose VAT registration decides (the organiser's own details first, then
+  // the workspace's — the same lookup the ledger uses).
+  const { data: vatOrg } = await adminClient.from('thread_organiser').select('user_id').eq('id', (thread as { organiser_id?: string }).organiser_id ?? '').maybeSingle();
+  const threadOrganiserUserId = (vatOrg?.user_id as string | null) ?? null;
   // The sign-up window (thread dates part 2): the same rule couldJoin and the
   // member calendar read.
   const threadDatesHere = (await loadThreadDates([thread.id as string])).get(thread.id as string);
@@ -6724,6 +6731,10 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
         (thread as { public_enrolment_open?: boolean }).public_enrolment_open !== false &&
         !signupsClosed,
       signups_closed: signupsClosed,
+      // Additive (2026-10-15): prices are EXCL. VAT; a VAT-registered seller
+      // adds it by the buyer's country, so the enrol form asks for it and
+      // shows excl. / VAT / total (GET /public/vat-quote).
+      vat_registered: !!(await resolveSellerVat(thread.workspace_id as string, threadOrganiserUserId)),
       participants,
       // Additive (2026-10-16): event dates from the key moments, and when
       // sign-ups close (lib/thread-dates.ts).
@@ -7239,6 +7250,11 @@ const PublicEnrol = z.object({
   billing: BillingFields.optional(),
   marketing_opt_in: z.boolean().optional(),
   cohort_opt_in: z.boolean().optional(),
+  // VAT on top (2026-10-15): the buyer's country (card payers have no billing
+  // block) — required only by a VAT-registered seller. The invoice path's
+  // billing.country / billing.tax_no are read too.
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
+  vat_id: z.string().max(30).optional(),
   policy_accepted: z.boolean().optional(),
   policy_version: z.string().max(200).optional(),
   request_id: z.string().min(8).max(80),
@@ -7415,6 +7431,26 @@ threadRoutes.get('/public/my-price', async (c) => {
     member_pct: member?.pct ?? null,
     ticket_id: base.ticketId,
   });
+});
+
+// GET /public/vat-quote?organiser_slug=&thread_slug=&country=&vat_id= — the
+// VAT a buyer would pay on top, by THE rule the enrol route charges by
+// (lib/sale-vat.ts). A rate, not an amount: the form multiplies its own net
+// price; nothing priced is trusted from the browser.
+threadRoutes.get('/public/vat-quote', async (c) => {
+  const owner = await resolvePublicOwner(c.req.query('organiser_slug') ?? '');
+  if (!owner) return c.json({ error: 'not found' }, 404);
+  let q = adminClient.from('thread_thread').select('id, workspace_id, organiser_id').eq('slug', c.req.query('thread_slug') ?? '');
+  q = ownerThreadFilter(q, owner);
+  const { data: t } = await q.maybeSingle();
+  if (!t) return c.json({ error: 'not found' }, 404);
+  const { data: org } = await adminClient.from('thread_organiser').select('user_id').eq('id', t.organiser_id).maybeSingle();
+  const country = (c.req.query('country') ?? '').trim().toUpperCase();
+  const valid = /^[A-Z]{2}$/.test(country);
+  const vatId = (c.req.query('vat_id') ?? '').trim().slice(0, 30) || null;
+  const registered = !!(await resolveSellerVat(t.workspace_id as string, (org?.user_id as string | null) ?? null));
+  const v = await saleVat({ workspaceId: t.workspace_id as string, organiserUserId: (org?.user_id as string | null) ?? null, net_cents: 10000, country: valid ? country : null, vat_id: vatId });
+  return c.json({ applies: registered, rate_pct: v.rate_pct, label: v.label, reverse_charge: v.reverse_charge, needs_country: registered && !valid });
 });
 
 threadRoutes.post('/public/enrol', async (c) => {
@@ -7619,6 +7655,24 @@ threadRoutes.post('/public/enrol', async (c) => {
   if (requiresPayment && !paymentMethods.includes(paymentMethod)) {
     return c.json({ error: 'this payment method is not available for this thread' }, 409);
   }
+
+  // VAT ON TOP (Sjoerd, 2026-10-15: "Everything excl. VAT now"). The price is
+  // NET; a VAT-registered seller adds VAT by the one rule (lib/sale-vat.ts),
+  // the same one Membership charges by. Decided here, before anything is
+  // written, so a missing country refuses cleanly.
+  const enrolCountry = (d.country || d.billing?.country || '').toUpperCase() || null;
+  if (requiresPayment && !enrolCountry && (await resolveSellerVat(thread.workspace_id, enrolOrg?.user_id ?? null))) {
+    return c.json({ error: 'Choose your country, so the VAT can be worked out.', code: 'country_required' }, 400);
+  }
+  const enrolVat: SaleVat | null = requiresPayment
+    ? await saleVat({
+        workspaceId: thread.workspace_id,
+        organiserUserId: enrolOrg?.user_id ?? null,
+        net_cents: finalPriceCents,
+        country: enrolCountry,
+        vat_id: d.vat_id || d.billing?.tax_no || null,
+      })
+    : null;
 
   // Capacity check.
   if (thread.capacity) {
@@ -7980,7 +8034,8 @@ threadRoutes.post('/public/enrol', async (c) => {
       itemLabel: `${program.title}${chosenTicket?.name ? ` · ${chosenTicket.name}` : ''}`,
       organiserUserId: torg?.user_id ?? null,
       teamId: (thread as { team_id?: string | null }).team_id ?? null,
-      amountCents: finalPriceCents,
+      // GROSS: what the buyer pays, VAT on top (lib/sale-vat.ts).
+      amountCents: enrolVat?.gross_cents ?? finalPriceCents,
       currency: priceCurrency,
       method: paymentMethod as 'stripe' | 'invoice',
       status,
@@ -7988,7 +8043,12 @@ threadRoutes.post('/public/enrol', async (c) => {
       // row somebody will ask about too, and the answer should not depend on
       // a tier definition that may since have changed.
       discountReason: priced.reason === 'full' ? null : priced.reason,
-      billing: paymentMethod === 'invoice' && d.billing ? d.billing : null,
+      // The breakdown is recorded at the moment the price is fixed; the later
+      // confirming write (webhook, mark-paid) keeps it (lib/purchases.ts).
+      billing: {
+        ...(paymentMethod === 'invoice' && d.billing ? d.billing : {}),
+        ...(enrolVat ? vatBilling(enrolVat) : {}),
+      },
       stripeAccountId: stripeAccountId ?? null,
     });
   }
@@ -8028,8 +8088,13 @@ threadRoutes.post('/public/enrol', async (c) => {
       return c.json({ error: 'the organiser has not connected payments yet' }, 409);
     }
 
-    // Platform fee — same plan-aware rule as Meet, via lib/fees.
+    // Platform fee — same plan-aware rule as Meet, via lib/fees. On the NET
+    // price: the VAT is the seller's to pass on, not revenue to take a cut of.
     const applicationFeeCents = await platformFeeCents(thread.workspace_id, finalPriceCents, destAccount);
+    const enrolTaxRate =
+      enrolVat && enrolVat.rate_pct > 0 && enrolVat.rate_country
+        ? await connectedTaxRateId(destAccount, enrolVat.rate_country, enrolVat.rate_pct)
+        : null;
 
     // The owner's own host when verified, else ours (part 2).
     const publicBase = `${await publicOriginFor('the-thread', d.organiser_slug)}/${d.organiser_slug}/${thread.slug}`;
@@ -8047,6 +8112,9 @@ threadRoutes.post('/public/enrol', async (c) => {
                 product_data: { name: program.title },
               },
               quantity: 1,
+              // VAT on top as a tax rate on the organiser's own account, so
+              // Stripe's page and its invoice show subtotal / VAT / total.
+              ...(enrolTaxRate ? { tax_rates: [enrolTaxRate] } : {}),
             },
           ],
           payment_intent_data: {

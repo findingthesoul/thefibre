@@ -75,6 +75,8 @@ export type PublicThreadDetail = {
     enrolment_open: boolean;
     /** Thread dates (additive): when sign-ups close. */
     signups_close_at?: string | null;
+    /** The seller adds VAT on top (additive, 2026-10-15). */
+    vat_registered?: boolean;
     is_preview?: boolean;
     participants?: string[];
     share_participants_public?: boolean;
@@ -377,6 +379,7 @@ export function PublicThreadView({
             registrationFields={thread.registration_fields ?? []}
             enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
             signupsCloseAt={thread.signups_close_at ?? null}
+            vatRegistered={thread.vat_registered === true}
             timeZone={thread.timezone}
             locale={lang}
             sharesParticipants={

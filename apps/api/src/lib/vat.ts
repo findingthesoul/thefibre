@@ -27,6 +27,8 @@ import { getSetting, setSetting } from './platform-settings.js';
 export type VatRates = {
   home_country: string;
   eu_b2b_reverse_charge: boolean;
+  /** App sales to EU consumers abroad: the home rate (default) or theirs. */
+  consumer_rate?: 'home' | 'destination' | undefined;
   rates: Record<string, number>;
 };
 

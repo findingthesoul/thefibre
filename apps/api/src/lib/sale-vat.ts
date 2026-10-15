@@ -64,7 +64,7 @@ export function saleVatFrom(
   // for OSS or above the EUR 10k cross-border threshold — and admission to an
   // in-person event is taxed where it happens. A small NL seller charges NL
   // VAT. `consumer_rate: 'destination'` in the table switches it.
-  const destination = (cfg as VatRates & { consumer_rate?: string }).consumer_rate === 'destination';
+  const destination = cfg.consumer_rate === 'destination';
   const rateCountry = destination && cfg.rates[country] !== undefined ? country : home;
   const pct = cfg.rates[rateCountry] ?? 21;
   const tax = Math.round((input.net_cents * pct) / 100);
@@ -98,4 +98,11 @@ export async function saleVat(input: {
     country: input.country,
     vat_id_valid: vatIdValid,
   });
+}
+
+/** The ledger's breakdown of a sale (purchase.billing). Always carries
+ *  tax_cents — 0 when no VAT is added — so recordPurchase never applies the
+ *  old inclusive carve to a sale made under this rule. */
+export function vatBilling(v: SaleVat): { subtotal_cents: number; tax_cents: number; tax_label: string | null } {
+  return { subtotal_cents: v.net_cents, tax_cents: v.tax_cents, tax_label: v.label };
 }
