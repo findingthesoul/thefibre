@@ -6,6 +6,74 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.223.0] — 2026-10-16
+
+### my.thread → Purchases: add to your membership, or change it (my 0.16.0 · Members 1.5.0)
+
+P3 of the Purchases plan, in The Fibre and not Stripe's portal. Everything
+happens on the ONE subscription a member already has, so there is one
+renewal date.
+
+- **"Add or change"** on each renewing membership in my.thread → Purchases
+  offers:
+  - the tier's optional add-ons the member doesn't hold yet. A recurring one
+    only at the membership's own interval (Stripe allows one per
+    subscription, as at join); a one-off always.
+  - the community's other listed tiers (hidden and archived ones never
+    appear), priced by the join's own rule (price logic for the member's
+    country and interval).
+- **Every choice is previewed first, with Stripe's own figure** for that
+  subscription (`invoices.createPreview`): what is charged now, what renews
+  and when. What the screen says is what the card is charged.
+- **A recurring add-on** joins the subscription, charged now prorated to the
+  renewal date (`always_invoice`), then renews with the membership. **A
+  one-off add-on** is its own invoice: the subscription's VAT rate, the
+  platform fee on the net, paid with the card on file, and on the ledger
+  under its own name.
+- **Changing tier** moves the membership line's price on the same
+  subscription. An upgrade pays the difference for the rest of the period.
+  A downgrade's difference is credited against the next invoice. A refund
+  instead is one switch (`DOWNGRADE_REFUNDS`), off pending Sjoerd's answer.
+- **Double-submit guard** (coordinator's review): a double click, two tabs
+  or a retry cannot add the same add-on twice or apply a change twice. Three
+  layers:
+  - a claim row is inserted before Stripe is called (unique per member ×
+    add-on, or member × target × the subscription's current price), so the
+    second request gets 409;
+  - the live subscription is checked first (already there → 409);
+  - every Stripe write carries an idempotency key from (member, add-on or
+    tier, the dialog's request id).
+  The dialog's buttons are disabled while a request runs. Tested: two
+  concurrent POSTs → one item, one invoice, for an add-on and for a tier
+  change.
+- **Stripe product mappings are one row each** (`platform_setting`
+  `membership_stripe_product:<account>:<product|tier>:<id>`), claimed by
+  insert. Two first-time creates at once can no longer lose a mapping: the
+  loser uses the winner's id, and its own Stripe product is left unused.
+- **Grants follow at once** (reconcileMemberAccess); an add-on is a
+  membership_product_purchase row (`addon-<id>`).
+- **The admin's tier change now goes through the same path.** Until now it
+  changed only our row, and Stripe kept charging the old tier's price. A
+  subscription that can't change (stopping, not active) keeps the row-only
+  behaviour; a Stripe failure stops the change, so row and charge agree.
+- **The ledger knows the new invoices:**
+  - a one-off add-on is labelled by itself (`item_label`), and never moves
+    the membership's renewal date;
+  - a change invoice reads "· change";
+  - a downgrade's zero or negative proration leaves no ledger row (it's a
+    credit, not money paid).
+- **The join page's "already a member" note** now points at adding to or
+  changing the membership.
+- **Integration test** (Stripe TEST, permanent fixture workspace): the
+  options; a recurring add-on keeping the single renewal date; a one-off on
+  the ledger once; an upgrade; a downgrade credited; a stranger refused;
+  leftover check by id.
+- **The incl.-VAT note's money follows the page's language** (builder 4's
+  render check): it was always nl-style, so an English page read "€ 363"
+  under "€300.00". `VatInclNote`/`VatBreakdown` format by `locale`
+  (INTL_LOCALES), or with the page's own `formatMoney` so the note matches
+  the price above exactly. Members passes its money().
+
 ## [1.222.2] — 2026-10-16
 
 ### The thread page's own price shows what it costs incl. VAT (Thread 4.13.3, Meet 2.34.1)

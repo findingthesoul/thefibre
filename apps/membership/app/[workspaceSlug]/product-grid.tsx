@@ -176,7 +176,7 @@ function ProductCard({
       {/* "€363 incl. 21% VAT": the home rate until a country is chosen,
           then that country's (nothing for a reverse charge or outside the EU). */}
       {vatRegistered && (
-        <VatInclNote
+        <VatInclNote formatMoney={(c, cur) => money(c, cur)}
           netCents={net}
           ratePct={vatQuote ? vatQuote.rate_pct : vatHomeRatePct}
           currency={currency}
@@ -243,7 +243,7 @@ function ProductCard({
                   autoComplete="off"
                   className={INPUT}
                 />
-                {vatQuote && <VatBreakdown netCents={net} quote={vatQuote} currency={currency} locale={locale} />}
+                {vatQuote && <VatBreakdown formatMoney={(c, cur) => money(c, cur)} netCents={net} quote={vatQuote} currency={currency} locale={locale} />}
               </>
             )}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}

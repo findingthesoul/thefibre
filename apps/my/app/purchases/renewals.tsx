@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@thefibre/shared/ui/dialog';
 import { Button } from '@thefibre/shared/ui/button';
 import { browserSupabase } from '@/lib/supabase/client';
 import type { MyRenewal } from '@/lib/portal-api';
+import { ChangeMembership } from './change-membership';
 
 const day = (iso: string, lastDay = false) =>
   new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(
@@ -36,6 +37,7 @@ export function Renewals({ items }: { items: MyRenewal[] }) {
 function RenewalRow({ r }: { r: MyRenewal }) {
   const router = useRouter();
   const [confirm, setConfirm] = useState<'stop' | 'resume' | null>(null);
+  const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,14 +76,23 @@ function RenewalRow({ r }: { r: MyRenewal }) {
           <div className="text-xs text-ink-muted">{r.tier}</div>
         </div>
         {!r.managed_by_community && !r.unavailable && r.renews_at && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfirm(r.stops_at_period_end ? 'resume' : 'stop')}
-          >
-            {r.stops_at_period_end ? 'Resume renewal' : 'Stop renewal'}
-          </Button>
+          <div className="flex shrink-0 gap-1">
+            {/* Adding or changing needs a renewing membership: a stopped one
+                is resumed first (the API says so too). */}
+            {!r.stops_at_period_end && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setChanging(true)}>
+                Add or change
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirm(r.stops_at_period_end ? 'resume' : 'stop')}
+            >
+              {r.stops_at_period_end ? 'Resume renewal' : 'Stop renewal'}
+            </Button>
+          </div>
         )}
       </div>
       <p className="mt-1 text-xs text-ink-subtle">
@@ -98,6 +109,16 @@ function RenewalRow({ r }: { r: MyRenewal }) {
                   : ''}
       </p>
       {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
+      {r.renews_at && (
+        <ChangeMembership
+          memberId={r.member_id}
+          community={r.community}
+          tier={r.tier}
+          renewsOn={day(r.renews_at)}
+          open={changing}
+          onClose={() => setChanging(false)}
+        />
+      )}
       <ConfirmDialog
         open={confirm !== null}
         onCancel={() => setConfirm(null)}

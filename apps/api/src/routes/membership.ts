@@ -1275,6 +1275,38 @@ membershipRoutes.patch('/members/:id', async (c) => {
   if (before.organisation_id) delete patch.country;
   else delete patch.seat_allowance;
   if (body.data.status === 'lapsed' && before.status !== 'lapsed') patch.lapsed_at = new Date().toISOString();
+
+  // A TIER CHANGE ON A RUNNING STRIPE SUBSCRIPTION goes through the member's
+  // own path (lib/membership-change.ts, P3): the membership line's price
+  // moves, prorated to the renewal date — an upgrade is charged, a downgrade
+  // credited. Before 2026-10-16 an admin's tier change touched only this row,
+  // so Stripe kept charging the old tier's price. A subscription that cannot
+  // change (stopping, not active, no account) keeps the old row-only
+  // behaviour; a Stripe failure stops the patch, so row and charge agree.
+  let stripeChange: { credit_cents: number; refunded_cents: number } | null = null;
+  if (body.data.tier_id && body.data.tier_id !== before.tier_id && before.stripe_subscription_id && !before.organisation_id) {
+    const { loadCtx, changeTier } = await import('../lib/membership-change.js');
+    const { data: ids } = await adminClient.from('membership_member').select('stripe_customer_id').eq('id', memberId).maybeSingle();
+    if (ids?.stripe_customer_id) {
+      const loaded = await loadCtx({
+        id: memberId,
+        workspace_id: before.workspace_id as string,
+        person_id: before.person_id as string,
+        tier_id: before.tier_id as string,
+        country: (before.country as string | null) ?? null,
+        stripe_subscription_id: before.stripe_subscription_id as string,
+        stripe_customer_id: ids.stripe_customer_id as string,
+      }).catch(() => null);
+      if (loaded && !('error' in loaded)) {
+        try {
+          stripeChange = await changeTier(loaded, body.data.tier_id, reconcileMemberAccess);
+        } catch (e) {
+          console.error('[membership] admin tier change at Stripe failed', { member: memberId, message: (e as Error).message });
+          return c.json({ error: `The membership could not be changed at Stripe: ${(e as Error).message}` }, 502);
+        }
+      }
+    }
+  }
   const { error } = await db.from('membership_member').update(patch).eq('id', memberId);
   if (error) return fail(c, 'patch member', error);
 
@@ -1317,7 +1349,7 @@ membershipRoutes.patch('/members/:id', async (c) => {
     );
     return c.json({ ok: true, repriced: true });
   }
-  return c.json({ ok: true });
+  return c.json({ ok: true, ...(stripeChange ? { stripe_change: stripeChange } : {}) });
 });
 
 // ---------------------------------------------------------------------------
@@ -3598,13 +3630,25 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
     adminClient.from('workspace').select('name').eq('id', member.workspace_id).maybeSingle(),
   ]);
 
-  const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+  // A ONE-OFF ADD-ON bought in my.thread → Purchases (lib/membership-change.ts)
+  // is an invoice of its own on the member's customer, so it resolves to the
+  // member here too. It names itself (`item_label`) and says nothing about the
+  // membership's period: no renews_at from its line, no "membership —" label.
+  const addonLabel = invoice.metadata?.membership_addon ? (invoice.metadata.item_label ?? null) : null;
+  const periodEnd = addonLabel ? undefined : invoice.lines?.data?.[0]?.period?.end;
   const renewsAt = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
   const isRenewal = invoice.billing_reason === 'subscription_cycle';
+  // A tier change or a recurring add-on is invoiced as 'subscription_update'
+  // (the proration). A downgrade's is zero or negative — a credit carried to
+  // the next invoice, not money paid — and leaves no ledger row.
+  const isChange = invoice.billing_reason === 'subscription_update';
+  if (isChange && (invoice.amount_paid ?? 0) <= 0) return;
 
-  const patch: Record<string, unknown> = { status: 'active', updated_at: new Date().toISOString() };
-  if (renewsAt) patch.renews_at = renewsAt;
-  await adminClient.from('membership_member').update(patch).eq('id', member.id);
+  if (!addonLabel) {
+    const patch: Record<string, unknown> = { status: 'active', updated_at: new Date().toISOString() };
+    if (renewsAt) patch.renews_at = renewsAt;
+    await adminClient.from('membership_member').update(patch).eq('id', member.id);
+  }
   if (isRenewal) {
     await logMemberActivity(member.workspace_id, member.person_id, 'membership_renewed', `Renewed · ${tier?.name ?? ''}`);
     await reconcileMemberAccess(member.id);
@@ -3625,9 +3669,11 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
   // Rows written before 2026-10-13 keep the label they have: a receipt
   // already sent is a document, and documents are not rewritten.
   const lastDay = periodLastDay(periodEnd ?? null);
-  const label = `${ws?.name ?? 'Community'} membership — ${tier?.name ?? ''}${
-    lastDay ? ` (until ${lastDay})` : ''
-  }`;
+  const label =
+    addonLabel ??
+    `${ws?.name ?? 'Community'} membership — ${tier?.name ?? ''}${isChange ? ' · change' : ''}${
+      lastDay ? ` (until ${lastDay})` : ''
+    }`;
   const itemRef = invoice.id ?? `membership-invoice-${member.id}-${Date.now()}`;
   await recordPurchase({
     appSlug: 'membership',
@@ -3668,7 +3714,7 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
       // invoiced, so our invoice says what was charged. Only for
       // subscriptions started under the excl. rule (they carry vat_rule);
       // older ones keep the inclusive split recordPurchase stamps.
-      ...vatBreakdownFromInvoice(invoice, subMeta),
+      ...vatBreakdownFromInvoice(invoice, addonLabel ? { vat_rule: 'excl' } : subMeta),
     },
   });
 

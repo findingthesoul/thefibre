@@ -15,7 +15,7 @@
 // saleVatFrom, so what is shown and what is charged cannot disagree. Never
 // type a rate into a page.
 
-import { makeT, type I18nEntry, type Locale } from '../i18n.js';
+import { INTL_LOCALES, makeT, toLocale, type I18nEntry, type Locale } from '../i18n.js';
 import { money } from '../money.js';
 
 const CATALOG = {
@@ -71,6 +71,17 @@ const CATALOG = {
 
 export const vatT = makeT(CATALOG);
 
+type FormatMoney = (cents: number, currency: string) => string;
+
+/** Money in the page's language (en → en-GB "€363.00"), unless the page hands
+ *  its own formatter so the note reads exactly like the price above it. It
+ *  was always nl-style, so an English page said "€ 363" under "€300.00". */
+function moneyFor(locale: Locale | string | null | undefined, formatMoney?: FormatMoney): FormatMoney {
+  if (formatMoney) return formatMoney;
+  const intl = INTL_LOCALES[toLocale(typeof locale === 'string' ? locale : null)];
+  return (cents, currency) => money(cents, currency, intl);
+}
+
 /** The VAT on a net amount at a rate — saleVatFrom's rounding. */
 export function vatOn(netCents: number, ratePct: number): number {
   return Math.round((netCents * ratePct) / 100);
@@ -83,18 +94,22 @@ export function VatInclNote({
   currency = 'EUR',
   locale,
   className = '',
+  formatMoney,
 }: {
   netCents: number;
   ratePct: number | null | undefined;
   currency?: string;
   locale?: Locale | string | null;
   className?: string;
+  /** The page's own money formatter, so the note matches the price above. */
+  formatMoney?: FormatMoney;
 }) {
+  const fmt = moneyFor(locale, formatMoney);
   if (!ratePct || ratePct <= 0 || netCents <= 0) return null;
   const pct = Number.isInteger(ratePct) ? String(ratePct) : String(ratePct).replace('.', locale === 'en' ? '.' : ',');
   return (
     <p className={`text-xs tabular-nums text-ink-subtle ${className}`}>
-      {vatT(locale, 'incl_vat_note', { price: money(netCents + vatOn(netCents, ratePct), currency), pct })}
+      {vatT(locale, 'incl_vat_note', { price: fmt(netCents + vatOn(netCents, ratePct), currency), pct })}
     </p>
   );
 }
@@ -109,13 +124,16 @@ export function VatBreakdown({
   currency = 'EUR',
   locale,
   className = '',
+  formatMoney,
 }: {
   netCents: number;
   quote: VatQuote;
   currency?: string;
   locale?: Locale | string | null;
   className?: string;
+  formatMoney?: FormatMoney;
 }) {
+  const fmt = moneyFor(locale, formatMoney);
   const tax = vatOn(netCents, quote.rate_pct);
   const vatLabel = quote.reverse_charge
     ? vatT(locale, 'vat_reverse_charged')
@@ -126,15 +144,15 @@ export function VatBreakdown({
     <div className={`text-xs tabular-nums text-ink-subtle ${className}`}>
       <div className="flex justify-between gap-3">
         <span>{vatT(locale, 'excl_vat')}</span>
-        <span>{money(netCents, currency)}</span>
+        <span>{fmt(netCents, currency)}</span>
       </div>
       <div className="mt-0.5 flex justify-between gap-3">
         <span>{vatLabel}</span>
-        <span>{money(tax, currency)}</span>
+        <span>{fmt(tax, currency)}</span>
       </div>
       <div className="mt-1 flex justify-between gap-3 border-t border-line pt-1 font-medium text-ink">
         <span>{vatT(locale, 'total_incl_vat')}</span>
-        <span>{money(netCents + tax, currency)}</span>
+        <span>{fmt(netCents + tax, currency)}</span>
       </div>
     </div>
   );

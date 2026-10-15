@@ -502,7 +502,7 @@ function TierCard({
       {/* "€363 incl. 21% VAT" (shared with the product cards, Thread and
           Meet): the home rate until a country is chosen, then that one's. */}
       {vatRegistered && (hasYear || hasMonth) && (
-        <VatInclNote
+        <VatInclNote formatMoney={(c, cur) => money(c, cur)}
           netCents={hasYear ? adjustedYear! : adjustedMonth!}
           ratePct={cardRatePct}
           currency={currency}
@@ -586,7 +586,7 @@ function TierCard({
             {/* The price incl. VAT at the top, before a country is chosen;
                 the excl. / VAT / total lines below take over once it is. */}
             {vatRegistered && !vatQuote && (payNowCents ?? 0) > 0 && (
-              <VatInclNote netCents={payNowCents!} ratePct={vatHomeRatePct} currency={currency} locale={locale} />
+              <VatInclNote formatMoney={(c, cur) => money(c, cur)} netCents={payNowCents!} ratePct={vatHomeRatePct} currency={currency} locale={locale} />
             )}
             {hasYear && hasMonth && (
               <div className="grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
@@ -884,7 +884,7 @@ function TierCard({
             {/* The sentence, immediately above the button that acts on it. */}
             {vatRegistered && (payNowCents ?? 0) > 0 && (
               vatQuote ? (
-                <VatBreakdown netCents={payNowCents!} quote={vatQuote} currency={currency} locale={locale} />
+                <VatBreakdown formatMoney={(c, cur) => money(c, cur)} netCents={payNowCents!} quote={vatQuote} currency={currency} locale={locale} />
               ) : (
                 <p className="text-xs text-ink-subtle">{t(locale, 'prices_excl_vat_choose_country')}</p>
               )

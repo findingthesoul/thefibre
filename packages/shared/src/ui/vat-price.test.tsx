@@ -16,6 +16,13 @@ describe('vat-price', () => {
     expect(renderToStaticMarkup(<VatInclNote netCents={30000} ratePct={21} locale="nl" />)).toContain('btw');
   });
 
+  it('money follows the locale, or the page’s own formatter', () => {
+    expect(renderToStaticMarkup(<VatInclNote netCents={30000} ratePct={21} locale="en" />)).toContain('€363');
+    expect(renderToStaticMarkup(<VatInclNote netCents={5000} ratePct={21} locale="en" />)).toContain('€60.50');
+    expect(renderToStaticMarkup(<VatInclNote netCents={5000} ratePct={21} locale="nl" />)).toContain('60,50');
+    expect(renderToStaticMarkup(<VatInclNote netCents={5000} ratePct={21} locale="en" formatMoney={(c) => `EUR ${c}`} />)).toContain('EUR 6050');
+  });
+
   it('no VAT, no note — not registered, reverse charge, outside the EU', () => {
     expect(renderToStaticMarkup(<VatInclNote netCents={30000} ratePct={null} />)).toBe('');
     expect(renderToStaticMarkup(<VatInclNote netCents={30000} ratePct={0} />)).toBe('');
