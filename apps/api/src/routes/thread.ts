@@ -666,7 +666,23 @@ threadRoutes.get('/threads', async (c) => {
     console.error('[thread/threads] list failed', error);
     return c.json({ error: error.message }, 500);
   }
-  return c.json({ items: data ?? [] });
+  // YOUR ROLE on each thread (additive `my_role`): a host or facilitator
+  // sees that they are one (Sjoerd, 2026-10-14: "First: they will see that
+  // they are host/facilitator"). Null when you organise it or hold no role.
+  const roleByThread = new Map<string, 'host' | 'facilitator'>();
+  const ids = (data ?? []).map((t) => t.id as string);
+  if (ids.length && ctx.userId) {
+    const { data: org } = await adminClient.from('thread_organiser').select('id').eq('user_id', ctx.userId).maybeSingle();
+    if (org) {
+      const { data: rows } = await adminClient
+        .from('thread_thread_organiser')
+        .select('thread_id, role')
+        .eq('organiser_id', org.id)
+        .in('thread_id', ids);
+      for (const r of rows ?? []) roleByThread.set(r.thread_id as string, r.role as 'host' | 'facilitator');
+    }
+  }
+  return c.json({ items: (data ?? []).map((t) => ({ ...t, my_role: roleByThread.get(t.id as string) ?? null })) });
 });
 
 // POST /api/v1/thread/threads — create thread (+ paired program row)

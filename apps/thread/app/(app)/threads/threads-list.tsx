@@ -26,6 +26,7 @@ import { CalendarRange, ChevronDown, Lock, Route } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { one, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { EmptyState } from '@/components/ui/page';
+import { PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 import { t, type UiKey } from '@/lib/i18n-ui';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -233,6 +234,11 @@ export function ThreadsList({
                       {team ? ` · ${team.name}` : ''}
                     </div>
                   </div>
+                  {row.my_role && (
+                    <span className={`${PILL} ${PILL_TONE.neutral} shrink-0`}>
+                      {row.my_role === 'host' ? t(locale, 'role_host') : t(locale, 'role_facilitator')}
+                    </span>
+                  )}
                   {row.locked_at && (
                     <Lock
                       size={13}

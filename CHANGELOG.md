@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.200.1] — 2026-10-15
+
+### The Thread: hosts and facilitators see that they are one
+
+Sjoerd: *"First: they will see that they are host/facilitator."*
+
+- The thread list marks each thread you host or facilitate with a "Host" /
+  "Facilitator" label (additive `my_role` on `GET /thread/threads`; null for
+  the organiser and for threads you hold no role on). In my.thread, a session
+  you are ticked on already says "You're hosting" / "You're facilitating"
+  (v1.199.0).
+- Test: `main-facilitator.int.test.ts` — the facilitator's list says
+  "facilitator", the organiser's says nothing.
+
 ## [1.200.0] — 2026-10-15
 
 ### The Thread: a session's hosts get its calendar invitation

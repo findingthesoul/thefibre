@@ -318,3 +318,15 @@ describe('two hosts sharing one room address, and hosts in the calendar', () => 
   });
 });
 
+
+describe('a host or facilitator sees that they are one', () => {
+  it('their thread list marks the thread with their role; the organiser’s does not', async () => {
+    const asFac = await call('/threads', {}, facilitator);
+    expect(asFac.status).toBe(200);
+    const mine = ((await asFac.json()).items as { id: string; my_role: string | null }[]).find((t) => t.id === threadId);
+    expect(mine?.my_role).toBe('facilitator');
+    const asOrg = await call('/threads');
+    const theirs = ((await asOrg.json()).items as { id: string; my_role: string | null }[]).find((t) => t.id === threadId);
+    expect(theirs?.my_role).toBeNull();
+  });
+});
