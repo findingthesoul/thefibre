@@ -423,6 +423,22 @@ export async function fetchNav(accessToken: string): Promise<PortalNav> {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: 'no-store',
   });
+  // Anything but OK or a refused session → ask the old way. Above all a 404,
+  // which means an API older than this page: the frontend and the API deploy
+  // separately (Vercel builds the branch; Fly is a second step, and on
+  // production batch-prod promotes the web apps FIRST), so for a few minutes
+  // after a release this app can be newer than the API it calls. v1.215.0
+  // showed what that costs on staging: my.thread's error page on every page
+  // until the API caught up. A 401 is not that — it is "signed out", and
+  // loadFrame turns it into the sign-in page.
+  if (!res.ok && res.status !== 401) {
+    const p = await fetchPortal(accessToken);
+    return {
+      upcoming: !!p.upcoming,
+      communities: p.communities ?? 0,
+      unread_notifications: p.unread_notifications ?? 0,
+    };
+  }
   if (!res.ok) throw new PortalApiError(res.status, `API ${res.status}: /api/v1/me/nav`);
   return res.json() as Promise<PortalNav>;
 }

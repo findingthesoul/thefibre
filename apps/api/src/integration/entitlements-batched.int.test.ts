@@ -7,8 +7,12 @@
 // `via` matters as much as the percentage: it is the grant a surface names
 // when it says which promise a price came from.
 //
-// Every case is compared two ways: against the old walk, key by key, and
-// against the answer written out by hand — a comparison alone passes just as
+// Until v1.218.0 every case was compared two ways: against the old
+// one-at-a-time walk, key by key, and against the answer written out by
+// hand. That comparison ran green against the deployed staging (v1.215.0),
+// and the old walk was then REPLACED by this one — so comparing the two now
+// would compare a function with itself. The hand-written answers are what
+// remain, and they are the stronger half: a comparison alone passes just as
 // well when both walks are wrong the same way.
 //
 // Cases (a throwaway workspace each for the two communities):
@@ -151,12 +155,12 @@ describe('the batched walk', () => {
     }
   });
 
-  it('answers exactly what the one-membership walk answers, key by key', async () => {
-    const { teamCalendarEntitlements, teamCalendarEntitlementsFor } = await import('../lib/member-discount.js');
-    const batched = await teamCalendarEntitlementsFor(keys);
-    for (const key of keys) {
-      const old = await teamCalendarEntitlements(key.personId, key.workspaceId);
-      expect(sorted(batched.get(k(key.personId, key.workspaceId)) ?? []), k(key.personId, key.workspaceId)).toEqual(sorted(old));
+  it('answers the money path (teamCalendarEntitlements, one membership) exactly as written out', async () => {
+    // The function enrol prices with — now the batched walk over one key.
+    const { teamCalendarEntitlements } = await import('../lib/member-discount.js');
+    for (const [key, want] of expected) {
+      const [personId, workspaceId] = key.split('|');
+      expect(sorted(await teamCalendarEntitlements(personId!, workspaceId!)), key).toEqual(sorted(want));
     }
   });
 
@@ -170,7 +174,7 @@ describe('the batched walk', () => {
     }
   });
 
-  it('agrees with the old walk on the seeded staging fixture (Choir 100% via tier, Band 20% via product)', async () => {
+  it('answers the seeded staging fixture: Choir 100% via the tier, Band 20% via a product', async () => {
     const { data: people, error } = await service
       .from('person')
       .select('id, workspace_id')
@@ -186,10 +190,10 @@ describe('the batched walk', () => {
     const batched = await teamCalendarEntitlementsFor(fixtureKeys);
     const pcts: number[] = [];
     for (const key of fixtureKeys) {
-      const old = await teamCalendarEntitlements(key.personId, key.workspaceId);
+      const one = await teamCalendarEntitlements(key.personId, key.workspaceId);
       const id = k(key.personId, key.workspaceId);
-      expect(sorted(batched.get(id) ?? []), id).toEqual(sorted(old));
-      pcts.push(...old.map((e) => e.pct));
+      expect(sorted(batched.get(id) ?? []), id).toEqual(sorted(one));
+      pcts.push(...one.map((e) => e.pct));
     }
     // Non-empty, said out loud: a fixture that lost its grants would make
     // both walks answer [] and this test pass about nothing.

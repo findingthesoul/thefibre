@@ -257,27 +257,14 @@ export async function teamCalendarEntitlements(
   personId: string,
   workspaceId: string,
 ): Promise<TeamCalendarEntitlement[]> {
-  const { data: member } = await adminClient
-    .from('membership_member')
-    .select('id, tier_id, status')
-    .eq('workspace_id', workspaceId)
-    .eq('person_id', personId)
-    .is('deleted_at', null)
-    .in('status', ['active', 'grace'])
-    .maybeSingle();
-  if (!member) return [];
-
-  const { data: bought } = await adminClient
-    .from('membership_product_purchase')
-    .select('product_id')
-    .eq('workspace_id', workspaceId)
-    .eq('person_id', personId)
-    .eq('status', 'paid');
-
-  return teamCalendarsCarriedBy(
-    member.tier_id as string,
-    [...new Set((bought ?? []).map((b) => b.product_id as string))].filter(Boolean),
-  );
+  // The batched walk, asked about one membership (v1.218.0). Until then this
+  // was its own sequence of queries; the two were proven equal — percentages
+  // AND `via`, on the staging fixtures and every edge case — by
+  // entitlements-batched.int.test.ts, green against the deployed staging
+  // with v1.215.0, before this body was replaced. One walk now, for the
+  // price at enrol and for every list that quotes it.
+  const key = { personId, workspaceId };
+  return (await teamCalendarEntitlementsFor([key])).get(entitlementKey(key)) ?? [];
 }
 
 /**
@@ -392,10 +379,11 @@ export const entitlementKey = (k: EntitlementKey) => `${k.personId}|${k.workspac
  * products, and those products' grants; then resolves each membership in
  * memory through `pickTeamCalendars`, the same rule.
  *
- * Kept equal to the per-membership walk by `entitlements-batched.int.test.ts`
- * — percentages AND `via` — on the staging fixtures. Until that has run green
- * on staging the money path (enrol pricing) still uses the old walk; this is
- * what the portal's lists and nav read.
+ * THE walk since v1.218.0: `teamCalendarEntitlements` (the member price at
+ * enrol) is this over one key. It replaced a one-at-a-time walk only after
+ * `entitlements-batched.int.test.ts` had proven the two equal — percentages
+ * AND `via` — and run green against the deployed staging (v1.215.0). That
+ * test now pins the answers written out by hand.
  *
  * A failed read answers nothing for the memberships it covered, as the old
  * walk did — logged here, which the old walk never was. (Two rows for one

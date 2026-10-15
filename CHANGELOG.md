@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.218.0] — 2026-10-16
+
+### Member prices use the batched walk; my.thread survives an API one release behind (my.thread 0.14.2)
+
+**The member price at enrol now resolves through the batched team-calendar
+walk** (release B of the plan in v1.215.0). `teamCalendarEntitlements` —
+what `memberDiscountFor` asks, and so what a member is charged — is the
+batched walk over one membership; its own query sequence is gone. It moved
+only after `entitlements-batched.int.test.ts` had proven the two walks equal
+(percentages AND `via`, every edge case and the seeded Choir/Band fixture)
+and v1.215.0 had run green on the deployed staging, including
+`e2e/member-price.spec.ts` through the deployed enrol route (3/3). That test
+now pins the hand-written answers against the money path itself.
+
+**my.thread no longer shows its error page while the API catches up.** The
+frame's `GET /me/nav` falls back to `/me/portal` when the route is missing
+or fails (a 401 still means signed out). Found on staging with v1.215.0:
+every my.thread page errored for the minutes between the web release and the
+API deploy — and on production `batch-prod.sh` promotes the web apps first.
+`portal-nav.test.ts` pins it; the general rule is now system-handbook §10.u.
+
+**Measured after v1.215.0, on staging** (medians of five):
+
+| | before | after |
+|---|---|---|
+| `/me/portal`, member of two communities | 1.89s | 1.77s |
+| `/me/portal/upcoming`, same member | 1.20s | 0.93s |
+| `/me/nav` (what the frame now reads), same member | — | 0.42s |
+| my.thread `/members/<community>` | 2.0s (1.05s after v1.211.1) | **0.83s** |
+| my.thread `/members` | 3.9s (1.42s after v1.211.1) | 1.00s |
+
+The six pages as the e2e fixture (no memberships), after: Next 0.93s,
+Community 0.49s, Upcoming 0.48s, Members 0.36s, You 1.22s, Purchases 0.79s —
+the baseline for whatever comes next. Next, You and Purchases still read the
+whole portal because they show it.
+
 ## [1.217.0] — 2026-10-16
 
 ### release.sh names the integration tests in your lane

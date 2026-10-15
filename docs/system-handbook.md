@@ -1512,6 +1512,29 @@ The same drift reaches the ANNOUNCEMENT: a session said `RELEASING NOW
 v1.81.0` and landed 1.82.0 on 2026-09-27. Nothing can gate a message, so say
 the number again in `released <sha>` and treat the first one as provisional.
 
+### 10.u A web app that calls a new API route must survive an older API
+
+The web apps and the API deploy SEPARATELY: `release.sh` lands the branch and
+Vercel builds it, and the API follows in a second step (`deploy-api.sh`,
+cleared on its own). On production `batch-prod.sh` promotes the web apps
+BEFORE it deploys the API. So for minutes after every release a page can be
+newer than the API it calls — and a page that needs a route the API does not
+have yet is broken for exactly that window.
+
+It happened on staging with v1.215.0 (2026-10-16): my.thread's layout moved
+to a new `GET /me/nav`, the release landed, and every my.thread page showed
+its error page until the API deploy finished. On production that window
+would have been real members.
+
+The rule: **a web app's first call to a new route falls back to what it did
+before** when that route answers 404 (or fails) — never to an error page.
+`apps/my/lib/portal-api.ts` `fetchNav` is the pattern: anything but OK or
+a refused session asks `/me/portal` the old way, and `portal-nav.test.ts`
+pins it. A 401 stays a 401 — it means signed out, not "older API".
+The other order (API first, then the web) is what `promote.sh` cannot give
+you, so the fallback is the fix, not the sequencing. Once a release with the
+route has reached production, the fallback can go in a later release.
+
 ## 11. Testing
 
 Full rationale and roadmap: `docs/testing-approach.md`. This section is the
