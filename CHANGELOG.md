@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.201.3] — 2026-10-15
+
+### Migration only: a new thread pays its organiser by default
+
+- `thread_thread.payment_destination` defaults to `'personal'` (the
+  organiser) for new rows. Sjoerd: *"Payment, by default to the organiser.
+  Not to the workspace."* Existing threads are not touched — money on a live
+  thread is never re-routed silently — and duplicates and templates copy
+  their source's value. Threads created by apps keep NULL ("auto"),
+  explicitly, since v1.201.2. The check screen before going live follows in
+  the next release.
+
 ## [1.201.2] — 2026-10-15
 
 ### Threads created by apps keep "auto" payment routing
