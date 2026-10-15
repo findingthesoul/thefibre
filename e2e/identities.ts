@@ -55,6 +55,21 @@ export const E2E_MEMBER = {
   apps: E2E_FIXTURE.apps,
 } as const;
 
+/** A MEMBER OF TWO COMMUNITIES, for the member-portal pages that are empty
+ *  without one (my.thread Upcoming). A participant, not a workspace user: no
+ *  seat anywhere, only the two calendar memberships that
+ *  `apps/api/scripts/seed-upcoming-fixture.mjs` gives it (Choir 100% via the
+ *  tier, Band 20% via a product). Its own address on purpose — the default
+ *  fixture ships with NO membership and other specs rely on that.
+ *
+ *  Re-seed with BOTH addresses, because every run replaces the memberships:
+ *    node apps/api/scripts/seed-upcoming-fixture.mjs \
+ *      --email upcoming-fixture@example.com,e2e-upcoming@example.com
+ *  The `e2e-` prefix keeps sweep-int-test-fixtures.mjs away from it. */
+export const E2E_UPCOMING = {
+  email: 'e2e-upcoming@example.com',
+} as const;
+
 /** The fixture's own thread, so the organiser screens have a thread to open
  *  that belongs to nobody. Slugs are fixed: a second run finds it. */
 export const E2E_THREAD = {

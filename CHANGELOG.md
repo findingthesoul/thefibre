@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.222.0] — 2026-10-16
+
+### Thread and Meet prices show what they cost incl. VAT (Thread 4.13.1, Meet 2.34.0)
+
+Sjoerd: show the price incl. VAT, small, where it applies. Builder 3's
+shared `VatInclNote` (v1.221.0) now sits under the price on:
+
+- **the public organiser page cards** (all three layouts);
+- **the single-thread embed's price line**;
+- **Meet's public booking page**, for paid meeting types.
+
+"€363 incl. 21% VAT" — the seller's HOME rate, from a new additive
+`vat_home_pct` on the public thread payload, each organiser-page item and
+Meet's public meeting type. It comes from `homeVatPct` in `lib/sale-vat.ts`:
+`saleVat` with no country, the same rule the enrol and booking routes charge
+by. Null when the seller is not VAT-registered, and the note shows nothing
+for a free thread, so it never promises VAT that is not charged.
+`home-vat-pct.int.test.ts` pins it against the real VAT table: none →
+registered (equal to a home-country sale) → not registered.
+
+Not yet: the thread page's own headline price, which lives in the shared
+enrol card (builder 3's file, mid-edit); it follows in the next release.
+
+Also: **a fourth e2e identity, `e2e-upcoming@example.com`** — a member of
+the two seeded calendar communities — and `e2e/portal-upcoming.spec.ts`,
+which renders my.thread Upcoming as it and asserts a row reads its
+key-moment date (testing-approach, e2e identities).
+
 ## [1.221.0] — 2026-10-16
 
 ### Prices show what they cost incl. VAT, small (Members 1.4.1)

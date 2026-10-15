@@ -21,6 +21,7 @@ import { t, isLocale, type Locale } from '@/lib/i18n';
 import { EnrolCard } from './[threadSlug]/enrol-form';
 import { one } from '@/lib/thread-types';
 import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
+import { VatInclNote } from '@thefibre/shared/ui/vat-price';
 import { DEFAULT_CARD_DATES, type CardDates } from '@thefibre/shared/thread-dates';
 
 export type PublicThreadListItem = {
@@ -43,6 +44,8 @@ export type PublicThreadListItem = {
   signups_close_at?: string | null;
   language?: string;
   timezone?: string;
+  /** The seller's home VAT rate, or null (additive, 2026-10-16). */
+  vat_home_pct?: number | null;
 };
 
 type PopupDetail = {
@@ -145,6 +148,18 @@ export function ThreadsGrid({
           );
           const title = p?.title ?? th.slug;
           const price = fmtPrice(th.price_cents, th.price_currency);
+          // "€363 incl. 21% VAT", small, under the price — the seller's home
+          // rate from the payload (Sjoerd, 2026-10-16). Nothing when the
+          // seller is not VAT-registered or the thread is free.
+          const vatNote = (
+            <VatInclNote
+              netCents={th.price_cents ?? 0}
+              ratePct={th.vat_home_pct}
+              currency={th.price_currency ?? 'EUR'}
+              locale={th.language}
+              className="mt-0.5"
+            />
+          );
 
           const inner =
             variant === 'poster' ? (
@@ -169,6 +184,7 @@ export function ThreadsGrid({
                 <span className="mt-1.5 block text-xs text-ink-muted">
                   {dates ? `${dates} · ${price}` : price}
                 </span>
+                {vatNote}
               </>
             ) : variant === 'row' ? (
               <>
@@ -191,7 +207,10 @@ export function ThreadsGrid({
                     </span>
                   )}
                 </span>
-                <span className="shrink-0 text-sm text-ink-subtle tabular-nums">{price}</span>
+                <span className="shrink-0 text-right text-sm text-ink-subtle tabular-nums">
+                  {price}
+                  {vatNote}
+                </span>
               </>
             ) : (
               <>
@@ -209,6 +228,7 @@ export function ThreadsGrid({
                     {dates && <span>{dates}</span>}
                     <span>{price}</span>
                   </div>
+                  {vatNote}
                 </div>
               </>
             );

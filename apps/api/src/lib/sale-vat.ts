@@ -100,6 +100,26 @@ export async function saleVat(input: {
   });
 }
 
+/** The seller's HOME rate, or null — what the small "€363 incl. 21% VAT"
+ *  line under a public price uses before the buyer's country is known
+ *  (Sjoerd, 2026-10-16). THE rule the enrol and booking routes charge by
+ *  (saleVat with no country = the home rate). Null when the seller is not
+ *  VAT-registered, so the line is absent. A RATE, not an amount: a page shows
+ *  several prices (tickets, a member price) and applies it to each; a price
+ *  of 0 shows no line, which is the page's check, not this one's. */
+export async function homeVatPct(input: {
+  workspaceId: string;
+  organiserUserId?: string | null;
+}): Promise<number | null> {
+  const v = await saleVat({
+    workspaceId: input.workspaceId,
+    organiserUserId: input.organiserUserId ?? null,
+    net_cents: 10000,
+    country: null,
+  });
+  return v.rate_pct > 0 ? v.rate_pct : null;
+}
+
 /** The ledger's breakdown of a sale (purchase.billing). Always carries
  *  tax_cents — 0 when no VAT is added — so recordPurchase never applies the
  *  old inclusive carve to a sale made under this rule. */

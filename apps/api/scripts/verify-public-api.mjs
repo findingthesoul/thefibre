@@ -221,12 +221,14 @@ const PENDING = {
   // part 3) were collected into SHAPES with batch 31.
   embedItem: [],
   embedListing: [],
-  thread: [],
+  // The seller's home VAT rate for the "incl. VAT" line (2026-10-16).
+  // Collect with the batch that puts it on production.
+  thread: ['vat_home_pct'],
   // Thread dates part 4 (v1.220.0): the organiser page's cards read their
   // dates through the shared rule, so each item carries what it needs and
   // the page carries the owner's card choice. Collect with the batch that
   // puts v1.220.0 on production.
-  listItem: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at', 'language', 'timezone'],
+  listItem: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at', 'language', 'timezone', 'vat_home_pct'],
   organiserPage: ['card_dates'],
 };
 

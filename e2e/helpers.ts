@@ -12,6 +12,7 @@ import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
+  E2E_UPCOMING,
   ensureFixtureIdentity,
   ensureFixtureThread,
   ensureMemberIdentity,
@@ -302,6 +303,27 @@ export async function authUserByEmail(email: string): Promise<{ id: string; emai
   const u = await authUserByEmailPaged(email);
   if (!u) throw new Error(`e2e: no auth user for ${email}`);
   return { id: u.id, email: u.email! };
+}
+
+/**
+ * Sign the browser in as the two-community member (E2E_UPCOMING) and open a
+ * my.thread page.
+ *
+ * The portal serves no /sso/land of its own; the session is minted on the
+ * Thread host and carried to my.* on the shared auth cookie — the way
+ * portal-members-list does it. This account holds no Thread seat, so the
+ * land itself ends on whatever Thread shows a participant; only the cookie
+ * matters, and the portal page is asserted by the caller.
+ */
+export async function landPortalAsUpcoming(page: import('@playwright/test').Page, next: string): Promise<void> {
+  const user = await authUserByEmail(E2E_UPCOMING.email).catch(() => {
+    throw new Error(
+      `e2e: ${E2E_UPCOMING.email} has no account — run apps/api/scripts/seed-upcoming-fixture.mjs --email upcoming-fixture@example.com,${E2E_UPCOMING.email}`,
+    );
+  });
+  await page.goto(await signedInLandUrlFor(HOSTS.thread, 'the-thread', user, '/'));
+  await page.waitForLoadState('networkidle');
+  await page.goto(`${HOSTS.my}${next}`);
 }
 
 // ---------------------------------------------------------------------------

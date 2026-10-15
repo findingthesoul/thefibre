@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { VatInclNote } from '@thefibre/shared/ui/vat-price';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
@@ -49,6 +50,8 @@ type MeetingType = {
   booking_open?: boolean;
   /** The host adds VAT on top (additive, 2026-10-15). */
   vat_registered?: boolean;
+  /** The host's home VAT rate, or null (additive, 2026-10-16). */
+  vat_home_pct?: number | null;
 };
 
 type HostMtResp = {
@@ -260,8 +263,9 @@ async function Card({
                   </li>
                 )}
                 {meetingType.price_cents && meetingType.price_cents > 0 ? (
-                  <li className="flex items-center gap-2.5">
-                    <CreditCard className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
+                  <li className="flex items-start gap-2.5">
+                    <CreditCard className="mt-0.5 h-4 w-4 text-neutral-400" strokeWidth={1.5} />
+                    <div>
                     <span>
                       {new Intl.NumberFormat(INTL_LOCALES[L], {
                         style: 'currency',
@@ -276,6 +280,17 @@ async function Card({
                           : publicT(L, 'paid_at_checkout')}
                       </span>
                     </span>
+                    {/* "€363 incl. 21% VAT" under the price — the host's home
+                        rate (Sjoerd, 2026-10-16). Nothing when the host is not
+                        VAT-registered. Once the form knows the guest's
+                        country, its own breakdown takes over. */}
+                    <VatInclNote
+                      netCents={meetingType.price_cents}
+                      ratePct={meetingType.vat_home_pct}
+                      currency={meetingType.price_currency ?? 'EUR'}
+                      locale={L}
+                    />
+                    </div>
                   </li>
                 ) : null}
               </ul>

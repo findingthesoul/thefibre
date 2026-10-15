@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
+import { homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
 import { profileFor } from '../lib/identity-profile.js';
@@ -619,6 +619,9 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
       // says "not open yet" instead of a form that dead-ends at payment.
       booking_open: !(await meetRouteProblem(mt)),
       vat_registered: await meetVatRegistered(mt),
+      // Additive (2026-10-16): the seller's HOME rate, or null — the small
+      // "€363 incl. 21% VAT" line under the price before a country is known.
+      vat_home_pct: await meetHomeVatPct(mt),
     },
     workspace: await publicWorkspace(host.workspace_id),
     host: {
@@ -643,6 +646,13 @@ type PayMethod = 'stripe' | 'invoice';
 
 /** Does this meeting type's host add VAT on top (2026-10-15)? The host's own
  *  invoice details first, then the workspace's — the lookup the ledger uses. */
+/** The seller's home VAT rate for a meeting type's public price, or null
+ *  (lib/sale-vat.ts homeVatPct — the same seller lookup as below). */
+async function meetHomeVatPct(mt: { host_id: string; workspace_id: string }): Promise<number | null> {
+  const { data: h } = await adminClient.from('meet_host').select('user_id').eq('id', mt.host_id).maybeSingle();
+  return homeVatPct({ workspaceId: mt.workspace_id, organiserUserId: (h?.user_id as string | null) ?? null });
+}
+
 async function meetVatRegistered(mt: { host_id: string; workspace_id: string }): Promise<boolean> {
   const { data: h } = await adminClient.from('meet_host').select('user_id').eq('id', mt.host_id).maybeSingle();
   return !!(await resolveSellerVat(mt.workspace_id, (h?.user_id as string | null) ?? null));
@@ -6339,6 +6349,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
     payment_methods: await meetingTypePaymentMethods(mt),
     booking_open: !(await meetRouteProblem(mt)),
     vat_registered: await meetVatRegistered({ host_id: mt.host_id, workspace_id: team.workspace_id }),
+    vat_home_pct: await meetHomeVatPct({ host_id: mt.host_id, workspace_id: team.workspace_id }),
     workspace: await publicWorkspace(team.workspace_id),
     team,
   });

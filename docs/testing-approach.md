@@ -315,6 +315,18 @@ member sees the workspace account named after the workspace, with one Save on
 the page and a sentence saying who may change it; the admin, on the same
 screen with the same data, sees two Saves and no such sentence.
 
+**A FOURTH, for the member portal (2026-10-16).** `e2e-upcoming@example.com`
+is a participant, not a workspace user: no seat, only the two calendar
+memberships `apps/api/scripts/seed-upcoming-fixture.mjs` gives it (Choir 100%
+via the tier, Band 20% via a product). It exists because my.thread's Upcoming
+is empty without a community and the default fixture ships with none on
+purpose — giving the fixture memberships would change what other specs see.
+Signed in with `landPortalAsUpcoming` (the session is minted on the Thread
+host and carried to my.* on the shared cookie). Re-seed with BOTH addresses,
+since every run replaces the memberships:
+`node apps/api/scripts/seed-upcoming-fixture.mjs --email upcoming-fixture@example.com,e2e-upcoming@example.com`.
+`e2e/portal-upcoming.spec.ts` uses it.
+
 `ensureFixtureThread` gives the fixture a thread with a session, both system
 messages and somebody to find in a search — so the three organiser-screen
 checks no longer open the owner's own thread, and no longer write a queued

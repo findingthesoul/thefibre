@@ -8,6 +8,7 @@ import { t, isLocale, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
 import { one } from '@/lib/thread-types';
 import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
+import { VatInclNote } from '@thefibre/shared/ui/vat-price';
 
 type AgendaItem = {
   id: string;
@@ -53,6 +54,8 @@ type PublicThreadDetail = {
     event_starts_at?: string | null;
     event_ends_at?: string | null;
     key_moment_count?: number;
+    /** The seller's home VAT rate, or null (additive, 2026-10-16). */
+    vat_home_pct?: number | null;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
     tickets?: PublicTicket[];
@@ -199,6 +202,14 @@ export default async function EmbedThreadPage({
           <span className="font-medium">
             {fmtPrice(thread.price_cents, thread.price_currency, lang)}
           </span>
+          {/* "€363 incl. 21% VAT" — the seller's home rate (2026-10-16). */}
+          <VatInclNote
+            netCents={thread.price_cents ?? 0}
+            ratePct={thread.vat_home_pct}
+            currency={thread.price_currency ?? 'EUR'}
+            locale={lang}
+            className="te-price-vat mt-0.5"
+          />
         </div>
       )}
 

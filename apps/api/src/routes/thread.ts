@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { fillEmptyPlatformName } from '../lib/identity-profile.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
-import { saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
+import { homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import {
   closedReason,
@@ -20,14 +20,41 @@ async function workspaceCardDates(workspaceId: string): Promise<CardDates> {
   return toCardDates((data as { card_dates?: unknown } | null)?.card_dates);
 }
 
-/** A public thread list with each item's event dates and close date added
- *  (publicDateFields), in one batched read — the organiser pages' cards then
- *  read them through cardDateLine, as the embeds do (thread dates slice 4). */
-async function withPublicDates<T extends Record<string, unknown>>(items: T[]): Promise<T[]> {
-  const ids = items.map((t) => t.id as string).filter(Boolean);
-  if (!ids.length) return items;
-  const datesById = await loadThreadDates(ids);
-  return items.map((t) => ({ ...t, ...publicDateFields(datesById.get(t.id as string)) }));
+/** A public thread list, each item with what its card needs beyond the
+ *  published shape:
+ *   · its event dates and close date (publicDateFields), in one batched read,
+ *     so the organiser pages' cards read them through cardDateLine as the
+ *     embeds do (thread dates slice 4);
+ *   · its seller's HOME VAT rate (vat_home_pct), once per seller, for the
+ *     small "€363 incl. 21% VAT" line under the price (2026-10-16).
+ *  Takes the RAW rows: the seller is workspace_id + the organiser's user,
+ *  which are read here and never emitted (both are INTERNAL to the shape). */
+async function publicListItems(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  const ids = rows.map((t) => t.id as string).filter(Boolean);
+  if (!ids.length) return [];
+  const orgIds = [...new Set(rows.map((t) => t.organiser_id as string).filter(Boolean))];
+  const [datesById, orgs] = await Promise.all([
+    loadThreadDates(ids),
+    orgIds.length
+      ? adminClient.from('thread_organiser').select('id, user_id').in('id', orgIds)
+      : Promise.resolve({ data: [] as { id: string; user_id: string | null }[] }),
+  ]);
+  const userOf = new Map((orgs.data ?? []).map((o) => [o.id as string, (o.user_id as string | null) ?? null]));
+  const rateBySeller = new Map<string, Promise<number | null>>();
+  const rateFor = (t: Record<string, unknown>) => {
+    const ws = t.workspace_id as string;
+    const user = userOf.get(t.organiser_id as string) ?? null;
+    const key = `${ws}|${user ?? ''}`;
+    if (!rateBySeller.has(key)) rateBySeller.set(key, homeVatPct({ workspaceId: ws, organiserUserId: user }));
+    return rateBySeller.get(key)!;
+  };
+  return Promise.all(
+    rows.map(async (t) => ({
+      ...publicThreadListItem(t),
+      ...publicDateFields(datesById.get(t.id as string)),
+      vat_home_pct: await rateFor(t),
+    })),
+  );
 }
 import { sendReach } from '../lib/member-notify.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
@@ -6428,7 +6455,7 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     .from('thread_thread')
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency, capacity,
-       public_interaction, language, timezone,
+       public_interaction, language, timezone, workspace_id, organiser_id,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true);
@@ -6446,7 +6473,7 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
 
   return c.json({
     organiser: publicOrganiser(owner),
-    threads: await withPublicDates(listed.map((t) => publicThreadListItem(t as Record<string, unknown>))),
+    threads: await publicListItems(listed as Record<string, unknown>[]),
     owner_kind: owner.kind,
     // Additive (thread dates slice 4): the owner workspace's card choice, so
     // the page's cards read their dates the way its embeds do.
@@ -6488,7 +6515,7 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
     .from('thread_thread')
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency, capacity,
-       public_interaction, language, timezone,
+       public_interaction, language, timezone, workspace_id, organiser_id,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true)
@@ -6508,7 +6535,7 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
   return c.json({
     workspace: { slug: owner.workspace.slug, name: owner.workspace.name },
     organiser: publicOrganiser({ kind: 'organiser', organiser: organiserOut }),
-    threads: await withPublicDates(listed.map((t) => publicThreadListItem(t as Record<string, unknown>))),
+    threads: await publicListItems(listed as Record<string, unknown>[]),
     // Additive (thread dates slice 4): the workspace's card choice.
     card_dates: await workspaceCardDates(owner.workspace.id),
     // Additive (rule 8): the workspace's public site — theme and ingredients.
@@ -6804,6 +6831,9 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       // adds it by the buyer's country, so the enrol form asks for it and
       // shows excl. / VAT / total (GET /public/vat-quote).
       vat_registered: !!(await resolveSellerVat(thread.workspace_id as string, threadOrganiserUserId)),
+      // Additive (2026-10-16): the seller's HOME rate, or null — the small
+      // "€363 incl. 21% VAT" line under each price before a country is known.
+      vat_home_pct: await homeVatPct({ workspaceId: thread.workspace_id as string, organiserUserId: threadOrganiserUserId }),
       // Additive (thread dates part 3): the workspace's card choice, for the
       // card embed (data-* may override it on the page).
       card_dates: await workspaceCardDates(thread.workspace_id as string),
