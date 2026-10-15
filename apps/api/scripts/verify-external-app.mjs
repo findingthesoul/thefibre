@@ -55,6 +55,14 @@ try {
 }
 const API = process.env.FIBRE_API ?? 'http://localhost:8080';
 const ADMIN_EMAIL = process.env.FIBRE_ADMIN_EMAIL ?? 'sjoerd@soul.com';
+// The staging fixture admin (scripts/ensure-verify-admin.mjs) — use it on
+// staging with FIBRE_ADMIN_EMAIL=verify-admin@example.com, so this script
+// never signs in as a real person. It exists on staging only, and this
+// refuses it anywhere else.
+if (ADMIN_EMAIL === 'verify-admin@example.com' && !SUPABASE_URL.includes('lukhyylwhhjyihqtghvw')) {
+  console.error('REFUSED: verify-admin@example.com is the STAGING fixture admin; this env is not staging.');
+  process.exit(2);
+}
 
 // Values nobody would ship, so a half-finished run leaves nothing confusing —
 // and so cleanup can find every row this script created.

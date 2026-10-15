@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.203.1] — 2026-10-15
+
+### verify-external-app runs as a staging fixture, never as a real person
+
+- `apps/api/scripts/ensure-verify-admin.mjs` makes (or repairs) the staging
+  fixture admin `verify-admin@example.com`: a super admin in its own
+  workspace `verify-fixture` (Pro, Thread on, a `fibre-platform` admin
+  membership so it can switch its test app on). Staging only — it refuses
+  any other project. Sjoerd: *"yes: create the staging fixture super
+  admin"*.
+- `verify-external-app.mjs` refuses that identity anywhere but staging. Run
+  with `FIBRE_ADMIN_EMAIL=verify-admin@example.com` (docs/testing-approach.md
+  has the command). First run on staging: 104/104, including an
+  /apps-created thread keeping `payment_destination` NULL.
+
 ## [1.203.0] — 2026-10-15
 
 ### One list of tags — and a copy button on every code block

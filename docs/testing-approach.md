@@ -389,7 +389,23 @@ Rules of engagement for external testing:
     external app, walks the whole app-key contract (register → approve →
     key mint → scoped calls → links → activity), asserts every published
     response shape, cleans up. Run after touching anything under
-    `/api/v1/apps/*`.
+    `/api/v1/apps/*`. **On staging it signs in as the fixture admin
+    `verify-admin@example.com`, never as a real person** (Sjoerd,
+    2026-10-16): a staging-only super admin in its own workspace
+    `verify-fixture`, made (and repaired, idempotently) by
+    `apps/api/scripts/ensure-verify-admin.mjs`, which refuses any project but
+    staging; the verify script refuses that identity anywhere but staging.
+    Run it as:
+
+        FIBRE_VERIFY_CONFIRM=1 FIBRE_ADMIN_EMAIL=verify-admin@example.com \
+          FIBRE_ENV_FILE=$PWD/apps/api/.env.staging \
+          FIBRE_API=https://thefibre-api-staging.fly.dev \
+          node apps/api/scripts/verify-external-app.mjs
+
+    (`FIBRE_ENV_FILE` is resolved from `apps/api`, so give it an absolute
+    path.) If it fails at "activated" with an RLS error, re-run
+    `ensure-verify-admin.mjs`: activating an app needs a `fibre-platform`
+    admin membership.
   - `apps/api/scripts/verify-public-api.mjs` — asserts the three Thread
     public read routes: shapes, `origin: *` CORS on exactly those paths,
     third-party rate limiting metered while our own origins are not.
