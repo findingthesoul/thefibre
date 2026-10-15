@@ -42,6 +42,31 @@ export async function teamsWithACalendar(teamIds: string[]): Promise<Set<string>
   return out;
 }
 
+/** The thread ids, of those given, named in a membership `thread` grant —
+ *  by id, or by slug for a grant not yet backfilled (as threadReferenceCounts
+ *  in lib/thread-grant.ts reads them). */
+export async function threadsInAMembershipGrant(
+  threads: { id: string; slug: string; workspace_id: string }[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const workspaces = [...new Set(threads.map((t) => t.workspace_id))];
+  if (!workspaces.length) return out;
+  const grants = rows(
+    'thread grants',
+    await adminClient.from('membership_access_grant').select('workspace_id, config').eq('kind', 'thread').in('workspace_id', workspaces),
+  ) as { workspace_id: string; config: Record<string, unknown> | null }[];
+  const { threadSlugFromConfig } = await import('./thread-access.js');
+  for (const t of threads) {
+    const hit = grants.some((g) => {
+      if (g.workspace_id !== t.workspace_id) return false;
+      const c = g.config ?? {};
+      return c.thread_id ? c.thread_id === t.id : threadSlugFromConfig(c) === t.slug;
+    });
+    if (hit) out.add(t.id);
+  }
+  return out;
+}
+
 /** Each thread's dates, by thread id. A thread that does not exist is absent. */
 export async function loadThreadDates(threadIds: string[]): Promise<Map<string, ThreadDates>> {
   const ids = [...new Set(threadIds.filter(Boolean))];
@@ -52,7 +77,7 @@ export async function loadThreadDates(threadIds: string[]): Promise<Map<string, 
     'thread dates: threads',
     await adminClient
       .from('thread_thread')
-      .select('id, timezone, team_id, signups_close_engagement_id, program:program_id (starts_on, ends_on), team:team_id (is_published, is_active)')
+      .select('id, slug, workspace_id, timezone, team_id, signups_close_engagement_id, program:program_id (starts_on, ends_on), team:team_id (is_published, is_active)')
       .in('id', ids),
   ) as Record<string, unknown>[];
   const sessions = rows(
@@ -71,6 +96,10 @@ export async function loadThreadDates(threadIds: string[]): Promise<Map<string, 
         return !!team && team.is_published === true && team.is_active !== false;
       })
       .map((t) => t.team_id as string),
+  );
+
+  const granted = await threadsInAMembershipGrant(
+    threads.map((t) => ({ id: t.id as string, slug: t.slug as string, workspace_id: t.workspace_id as string })),
   );
 
   const byThread = new Map<string, typeof sessions>();
@@ -96,6 +125,7 @@ export async function loadThreadDates(threadIds: string[]): Promise<Map<string, 
         closeSession: close ? { starts_at: close.starts_at } : null,
         firstSession: published[0] ? { starts_at: published[0].starts_at } : null,
         onTeamCalendar: !!t.team_id && calendarTeams.has(t.team_id as string),
+        inMembershipGrant: granted.has(t.id as string),
         timeZone: (t.timezone as string | null) || 'Europe/Amsterdam',
       }),
     );

@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.207.1] — 2026-10-15
+
+### Thread dates: threads a membership gives access to stay open
+
+Sjoerd, on year agendas granted by a tier: *"stay open"*.
+
+- The exception to "sign-ups close when the first session starts" now
+  covers ANY thread a membership gives access to: a team calendar (as
+  before) OR a thread named in a `thread` grant, by id or by slug for a
+  grant not yet backfilled (as `threadReferenceCounts` reads them). Such a
+  thread keeps today's rule — open through its last day, in its own zone. A
+  key moment or a chosen session still wins.
+- `MEMBERSHIP_THREADS_KEEP_TODAYS_RULE` in `@thefibre/shared/thread-dates`,
+  now on; `lib/thread-dates.ts` reads the thread grants.
+- Staging: "year-agenda" (a thread grant, no team) moves from closing at its
+  first session (5 Jan 2027) to the end of its period (31 Dec 2027).
+- `verify-external-app.mjs`: the five thread-date fields of 1.207.0 are
+  collected from CONTRACT_PENDING into CONTRACT_SHAPES — the run against
+  staging after its deploy served all five (and passed every step once
+  collected: "thread keeps its published keys — 26 keys").
+- Tests: `thread-dates.test.ts` 19 (a grant keeps today's rule, a key moment
+  still wins, a thread no membership reaches still closes at its first
+  session; the switch is asserted ON with his words).
+
 ## [1.207.0] — 2026-10-15
 
 ### Thread dates, part 2: the sign-up window closes our own pages (Thread 4.9.0)

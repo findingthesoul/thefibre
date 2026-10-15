@@ -128,6 +128,9 @@ const CONTRACT_SHAPES = {
     'created_at', 'updated_at',
     // Additive 2026-10-14: active + paid + no working payment route.
     'payment_route_missing',
+    // Thread dates part 2 (2026-10-15), collected the sitting they were
+    // deployed to staging, where this check runs.
+    'event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at', 'signups_closed',
   ],
   enrolment: [
     'id', 'enrolment_id', 'person_id', 'full_name', 'email', 'status',
@@ -182,8 +185,9 @@ function checkWall(label, obj) {
  *  them into CONTRACT_SHAPES — in the sitting that deploys them (the same
  *  mechanism as verify-public-api.mjs PENDING). */
 const CONTRACT_PENDING = {
-  // Thread dates part 2 (2026-10-16).
-  thread: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at', 'signups_closed'],
+  // Empty again: the thread dates were collected into CONTRACT_SHAPES on
+  // 2026-10-15, the sitting v1.207.0 reached the staging API.
+  thread: [],
 };
 function checkPending(label, obj, keys) {
   if (!obj || typeof obj !== 'object') return;

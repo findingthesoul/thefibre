@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fallbackSignupsCloseAt, signupsOpenAt, startOfDayAfter, threadDates, threadDateTokens, type ThreadDatesInput } from './thread-dates.js';
+import { MEMBERSHIP_THREADS_KEEP_TODAYS_RULE, fallbackSignupsCloseAt, signupsOpenAt, startOfDayAfter, threadDates, threadDateTokens, type ThreadDatesInput } from './thread-dates.js';
 
 const base = (over: Partial<ThreadDatesInput> = {}): ThreadDatesInput => ({
   program: { starts_on: '2027-01-01', ends_on: '2027-06-30' },
@@ -49,6 +49,19 @@ describe('when sign-ups close', () => {
   it('team calendar with no end date falls back to the start date', () => {
     expect(fallbackSignupsCloseAt({ program: { starts_on: '2027-01-01', ends_on: null }, firstSession: null, onTeamCalendar: true, timeZone: 'Europe/Amsterdam' }))
       .toBe('2027-01-01T23:00:00.000Z');
+  });
+  // Sjoerd, 2026-10-15, on threads a membership gives access to: "stay open".
+  it('a thread in a membership grant keeps today’s rule, like a team calendar', () => {
+    expect(MEMBERSHIP_THREADS_KEEP_TODAYS_RULE).toBe(true);
+    const input = base({ firstSession: { starts_at: '2027-01-05T09:00:00Z' }, inMembershipGrant: true });
+    expect(threadDates(input)).toMatchObject({ signupsCloseAt: '2027-06-30T22:00:00.000Z', closeRule: 'fallback' });
+    // …and a key moment still wins over it.
+    const starred = base({ ...input, keyMoments: [{ id: 'k', starts_at: '2027-02-01T10:00:00Z', ends_at: null }] });
+    expect(threadDates(starred).closeRule).toBe('first_key_moment');
+  });
+  it('a thread no membership reaches still closes when its first session starts', () => {
+    const input = base({ firstSession: { starts_at: '2027-01-05T09:00:00Z' }, inMembershipGrant: false });
+    expect(threadDates(input).signupsCloseAt).toBe('2027-01-05T09:00:00.000Z');
   });
   it('an undated thread (no timed session) stays open', () => {
     expect(threadDates(base()).signupsCloseAt).toBeNull();

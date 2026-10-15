@@ -27,6 +27,9 @@ export type ThreadDatesInput = {
   /** On a team calendar — the membership agenda that calendarVisible and
    *  could-join list (team published, team-calendar entitlement). */
   onTeamCalendar: boolean;
+  /** Named directly in a membership's `thread` grant (by id or slug) — e.g.
+   *  "Community agenda 2026" on production (MEMBERSHIP_THREADS_KEEP_TODAYS_RULE). */
+  inMembershipGrant?: boolean;
   /** The thread's IANA zone. */
   timeZone: string;
 };
@@ -54,10 +57,17 @@ export type ThreadDates = {
  *   · off a team calendar with no timed session, or with no dates at all =
  *     never closes by date ("an undated thread stays open, as today").
  */
+/** DECIDED (Sjoerd, 2026-10-15: "stay open"): the exception covers ANY
+ *  thread a membership gives access to — a team calendar OR a `thread` grant
+ *  by id or slug — so a year agenda granted by a tier ("Community agenda
+ *  2026") keeps today's rule and never closes after its first session. */
+export const MEMBERSHIP_THREADS_KEEP_TODAYS_RULE = true;
+
 export function fallbackSignupsCloseAt(
-  input: Pick<ThreadDatesInput, 'program' | 'firstSession' | 'onTeamCalendar' | 'timeZone'>,
+  input: Pick<ThreadDatesInput, 'program' | 'firstSession' | 'onTeamCalendar' | 'inMembershipGrant' | 'timeZone'>,
 ): string | null {
-  if (!input.onTeamCalendar) {
+  const membershipAgenda = input.onTeamCalendar || (MEMBERSHIP_THREADS_KEEP_TODAYS_RULE && !!input.inMembershipGrant);
+  if (!membershipAgenda) {
     if (input.firstSession && !Number.isNaN(Date.parse(input.firstSession.starts_at))) {
       return new Date(input.firstSession.starts_at).toISOString();
     }
