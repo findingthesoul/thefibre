@@ -43,7 +43,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Mail, Phone, Globe, Linkedin } from 'lucide-react';
 import { bioToHtml } from '@thefibre/shared';
 import { RichText } from '@thefibre/shared/ui/rich-text';
-import { loadDirectoryChoices, loadDirectoryMembers, loadSession } from '@/lib/session';
+import { loadDirectoryChoices, loadDirectoryMembers, loadFrame } from '@/lib/session';
 import { pickMember } from '@/lib/directory-member';
 import { SignedOut } from '../../../signed-out';
 import { PageShell } from '../../../page-shell';
@@ -56,7 +56,7 @@ export default async function MemberPage({
   const { workspaceId, personId } = await params;
   // Side by side, as on the list page: the session only decides signed-out.
   const [session, list, choices] = await Promise.all([
-    loadSession(),
+    loadFrame(),
     loadDirectoryMembers(workspaceId),
     loadDirectoryChoices(),
   ]);

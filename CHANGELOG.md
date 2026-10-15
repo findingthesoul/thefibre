@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.215.0] — 2026-10-15
+
+### my.thread: every page stops waiting for the whole portal (my.thread 0.14.1, Meet 2.33.1)
+
+**The frame has its own call now.** my.thread's layout fetched the whole
+`/me/portal` — tickets, threads, bookings, memberships, products and the
+could-join lists — on every page, to read three numbers for the nav and the
+bell. New `GET /me/nav` answers just those three (`upcoming`,
+`communities`, `unread_notifications`) from the same sources and the same
+rules; `portal-nav.int.test.ts` asserts it equals `/me/portal`'s three for a
+member of two communities and for somebody with none. The layout reads it,
+and so do the pages that only need to know the reader is signed in
+(Members, Upcoming, Community, Notifications), through `loadFrame()` — the
+same cached call. Next, Memberships, You and Purchases still read the
+portal, because they show it.
+
+**The team-calendar walk is batched — for the portal, not yet for prices.**
+Which calendars a membership carries was resolved one membership at a time,
+three to five sequential queries each; `/me/portal`, `/me/portal/upcoming`
+and the new `/me/nav` all paid for it. `teamCalendarEntitlementsFor` asks
+each source once for every membership and resolves them in memory through
+`pickTeamCalendars`, the one statement of the rule (best percentage per
+calendar; on a tie the tier's grant, then the lower grant id — so `via`,
+which promise a price came from, never depends on row order).
+
+- `entitlements-batched.int.test.ts` is the gate: the batched answer equals
+  the one-at-a-time walk, key by key, percentages AND `via`, and equals the
+  answer written out by hand — active via tier, grace with a tier 50% and a
+  product 80% on the same calendar (80 via the product), an equal tie (the
+  tier's grant), a product bought outright, lapsed, cancelled, none, a
+  second community, and the seeded staging fixture (Choir 100% via tier,
+  Band 20% via product).
+- **Enrol pricing still uses the old walk in this release**, on purpose. It
+  moves over in the next one, once this test has run green against the
+  deployed staging. `e2e/member-price.spec.ts` (the deployed enrol route)
+  was green before this change and is run again after it.
+
+Measured, a member of two communities (`scripts/time-portal.mjs`, the
+handover's harness written up, staging, medians of five): before,
+`/me/portal` 1.89s and `/me/portal/upcoming` 1.20s. The after-numbers need
+this deployed, so they are recorded with the next release (B).
+
+Also:
+- `meet-booking-link.int.test.ts`: `POST /meet/bookings/:id/link` end to
+  end with a host session — stored, SEQUENCE+1 in the row and the invitation,
+  guest mailed; another user 403, non-https 400, cancelled 409, a pending
+  request stored without a mail.
+- Meet: "Add link" no longer wraps onto two lines beside the field.
+
 ## [1.214.0] — 2026-10-15
 
 ### Two columns, ahead of their code (migration only)

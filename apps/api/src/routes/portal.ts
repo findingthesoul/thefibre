@@ -301,6 +301,58 @@ type Group = {
   products: OwnedProduct[];
 };
 
+// GET /me/nav — only what my.thread's frame needs on EVERY page.
+//
+// The layout used to fetch the whole /me/portal (tickets, threads, bookings,
+// memberships, products, could-join lists) to read three numbers from it,
+// so every page — Members, You, Purchases — paid for the heaviest call in
+// the app before it could ask its own question. This answers the three, from
+// the same sources and the same rules as /me/portal: the same person scope
+// (personsForEmail), the same entitlement walk (entitlementsByMember) for
+// `upcoming`, the same statuses for `communities`, the same unread count.
+// /me/portal still returns all three, unchanged — additive, for any reader
+// that has not moved.
+portalRoutes.get('/nav', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  await markEmailProven(email);
+  const persons = await personsForEmail(email);
+  const personIds = persons.map((p) => p.id);
+  if (!personIds.length) return c.json({ upcoming: false, communities: 0, unread_notifications: 0 });
+
+  const [members, unread] = await Promise.all([
+    adminClient
+      .from('membership_member')
+      .select('id, workspace_id, person_id, status')
+      .in('person_id', personIds)
+      .is('deleted_at', null)
+      .then((r) => rows('portal nav: memberships', r)),
+    adminClient
+      .from('member_notification')
+      .select('id', { count: 'exact', head: true })
+      .in('person_id', personIds)
+      .is('read_at', null),
+  ]);
+  const entitlements = await entitlementsByMember(
+    (members as Record<string, unknown>[])
+      .filter((m) => m.person_id)
+      .map((m) => ({
+        id: m.id as string,
+        person_id: m.person_id as string,
+        workspace_id: m.workspace_id as string,
+      })),
+  );
+  return c.json({
+    upcoming: holdsTeamCalendar(entitlements),
+    communities: new Set(
+      (members as Record<string, unknown>[])
+        .filter((m) => m.status === 'active' || m.status === 'grace')
+        .map((m) => m.workspace_id as string),
+    ).size,
+    unread_notifications: unread.count ?? 0,
+  });
+});
+
 portalRoutes.get('/portal', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);

@@ -17,6 +17,7 @@ import {
   type DirectoryChoice,
   type DirectoryList,
   fetchInvoices,
+  fetchNav,
   fetchPortal,
   fetchProfile,
   PortalApiError,
@@ -25,6 +26,7 @@ import {
   type MyProfile,
   type Portal,
   type PortalInvoice,
+  type PortalNav,
 } from './portal-api';
 
 export type Session = { token: string; portal: Portal };
@@ -48,6 +50,31 @@ export const loadToken = cache(async (): Promise<string | null> => {
     data: { session },
   } = await supabase.auth.getSession();
   return session?.access_token ?? null;
+});
+
+/** Signed in, and what the frame needs: the token plus GET /me/nav.
+ *
+ *  THE LAYOUT READS THIS, NOT THE PORTAL (2026-10-16). It used to read
+ *  loadSession(), so every page — Members, Notifications, Upcoming — paid
+ *  for the whole /me/portal walk before its own question was asked, because
+ *  the nav wanted three numbers out of it. A page that needs the portal's
+ *  contents still calls loadSession(); a page that only needs to know the
+ *  reader is signed in, and a token to ask with, calls this — the same
+ *  cached call the layout already made, so it costs nothing.
+ *
+ *  Null = signed out, as with loadSession: no cookie, or a token the API
+ *  refuses. */
+export type Frame = { token: string; nav: PortalNav };
+
+export const loadFrame = cache(async (): Promise<Frame | null> => {
+  const token = await loadToken();
+  if (!token) return null;
+  try {
+    return { token, nav: await fetchNav(token) };
+  } catch (e) {
+    if (e instanceof PortalApiError && e.status === 401) return null;
+    throw e;
+  }
 });
 
 export const loadSession = cache(async (): Promise<Session | null> => {

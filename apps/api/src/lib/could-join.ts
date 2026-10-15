@@ -24,7 +24,8 @@ import {
   enrolmentPrice,
   priceCurrencyOf,
   resolveBasePrice,
-  teamCalendarEntitlements,
+  entitlementKey,
+  teamCalendarEntitlementsFor,
 } from './member-discount.js';
 
 export type CouldJoin = {
@@ -145,14 +146,20 @@ export type Entitlements = Map<string, { teamId: string; pct: number }[]>;
 
 /** Which team calendars each membership carries, by membership id.
  *
- *  One walk per membership. Lapsed and cancelled memberships answer an empty
- *  list by the walk's own predicate (active and grace only) rather than by a
- *  filter here — one place decides who is entitled. */
+ *  ONE BATCHED WALK for all of them (since 2026-10-16) — it was one walk per
+ *  membership, three to five sequential round trips each, and every my.thread
+ *  page paid for it. Same answer by construction (`pickTeamCalendars`) and by
+ *  test (entitlements-batched.int.test.ts). Lapsed and cancelled memberships
+ *  still answer an empty list by the walk's own predicate (active and grace
+ *  only) rather than by a filter here — one place decides who is entitled. */
 export async function entitlementsByMember(members: CouldJoinMember[]): Promise<Entitlements> {
+  const live = members.filter((m): m is CouldJoinMember & { person_id: string } => !!m.person_id);
+  const byKey = await teamCalendarEntitlementsFor(
+    live.map((m) => ({ personId: m.person_id, workspaceId: m.workspace_id })),
+  );
   const entitlements: Entitlements = new Map();
-  for (const m of members) {
-    if (!m.person_id) continue;
-    entitlements.set(m.id, await teamCalendarEntitlements(m.person_id, m.workspace_id));
+  for (const m of live) {
+    entitlements.set(m.id, byKey.get(entitlementKey({ personId: m.person_id, workspaceId: m.workspace_id })) ?? []);
   }
   return entitlements;
 }

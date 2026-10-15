@@ -10,7 +10,7 @@
 // none, it says so rather than 404ing.
 
 import Link from 'next/link';
-import { loadDirectoryChoices, loadDirectoryMembers, loadSession } from '@/lib/session';
+import { loadDirectoryChoices, loadDirectoryMembers, loadFrame } from '@/lib/session';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
 import { CommunityMembers, membersTitle } from './community-members';
@@ -18,7 +18,7 @@ import { CommunityMembers, membersTitle } from './community-members';
 export default async function MembersIndex() {
   // Side by side: the session (already under way in the layout) decides only
   // signed-in or not, and the choices need just the token.
-  const [session, choices] = await Promise.all([loadSession(), loadDirectoryChoices()]);
+  const [session, choices] = await Promise.all([loadFrame(), loadDirectoryChoices()]);
   if (!session) return <SignedOut />;
 
   if (choices === null) {

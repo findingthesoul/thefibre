@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import './globals.css';
 import { SURFACES } from '@thefibre/shared';
-import { loadSession } from '@/lib/session';
+import { loadFrame } from '@/lib/session';
 import { VERSION } from '@/lib/version';
 import { MemberRail, MemberTabs } from './nav';
 import { RegisterServiceWorker } from './register-sw';
@@ -53,7 +53,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // The chrome only exists for someone who is signed in. A signed-out visitor
   // gets one page with one thing on it, and four tabs leading to four copies
   // of that same sign-in form would be noise.
-  const session = await loadSession();
+  // loadFrame, not loadSession: three numbers from /me/nav instead of the
+  // whole /me/portal on every page (lib/session.ts says why).
+  const session = await loadFrame();
   // Empty for a participant, which is almost everybody. The switcher renders
   // nothing in that case, so this costs an unused array and no chrome.
   const apps = session ? await reachableApps((await headers()).get('host')) : [];
@@ -65,7 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <RegisterServiceWorker />
         {session ? (
           <div className="flex h-full">
-            <MemberRail upcoming={!!session.portal.upcoming} communities={session.portal.communities ?? 0} />
+            <MemberRail upcoming={session.nav.upcoming} communities={session.nav.communities} />
             <div className="flex min-w-0 flex-1 flex-col">
               {/* Phone only — the rail already carries the mark on desktop.
                   Small and quiet: the page's own title does the work, this
@@ -79,7 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Wordmark className="h-12" />
                 {/* Top right, where a person looks for "has anything
                     happened" and for the way out. */}
-                <Bell unread={session.portal.unread_notifications ?? 0} className="ml-auto" />
+                <Bell unread={session.nav.unread_notifications} className="ml-auto" />
                 <AppSwitcher apps={apps} />
               </header>
 
@@ -88,11 +90,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   in the rail's list of destinations, which is about THIS app. */}
               {/* Always present now: the bell lives here on desktop too. */}
               <div className="hidden shrink-0 items-center justify-end gap-1 border-b border-line px-5 py-2 md:flex">
-                <Bell unread={session.portal.unread_notifications ?? 0} />
+                <Bell unread={session.nav.unread_notifications} />
                 {apps.length > 0 && <AppSwitcher apps={apps} />}
               </div>
               <main className="flex-1 overflow-y-auto">{children}</main>
-              <MemberTabs version={VERSION} upcoming={!!session.portal.upcoming} communities={session.portal.communities ?? 0} />
+              <MemberTabs version={VERSION} upcoming={session.nav.upcoming} communities={session.nav.communities} />
             </div>
           </div>
         ) : (

@@ -335,13 +335,38 @@ export async function teamCalendarsCarriedBy(
         .eq('kind', 'team_calendar')
     : { data: [] as { id: string; kind: string; config: Record<string, unknown> | null }[] };
 
-  const all = [...(tierGrants ?? []), ...(productGrants ?? [])] as {
-    id: string;
-    config: Record<string, unknown> | null;
-  }[];
+  return pickTeamCalendars(
+    (tierGrants ?? []) as GrantRow[],
+    (productGrants ?? []) as GrantRow[],
+  );
+}
 
+type GrantRow = { id: string; config: Record<string, unknown> | null };
+
+/**
+ * THE RULE, with no database in it: which calendar each grant opens, and at
+ * what, when several grants reach the same one.
+ *
+ * The best percentage wins per calendar. On an equal percentage the TIER's
+ * grant beats a product's, and then the lower grant id — so `via` (which
+ * promise a price came from) never depends on the order rows came back in.
+ * Until 2026-10-16 an equal-percentage tie went to whichever row the
+ * database happened to return first: the PRICE was always the same, the
+ * `via` was not. Pinned now because the batched walk below reads the same
+ * grants through different queries, and "the same answer" has to include
+ * `via` (docs/handover-portal-entitlements-batching.md, step 2).
+ *
+ * Exported for the test, and shared by the one-membership walk and the
+ * batched one so there is one statement of it.
+ */
+export function pickTeamCalendars(
+  tierGrants: GrantRow[],
+  productGrants: GrantRow[],
+): TeamCalendarEntitlement[] {
+  const byId = (a: GrantRow, b: GrantRow) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const ordered = [...tierGrants].sort(byId).concat([...productGrants].sort(byId));
   const best = new Map<string, TeamCalendarEntitlement>();
-  for (const g of all) {
+  for (const g of ordered) {
     const cfg = teamCalendarConfig(g.config);
     if (!cfg) continue;
     const held = best.get(cfg.teamId);
@@ -350,6 +375,147 @@ export async function teamCalendarsCarriedBy(
     }
   }
   return [...best.values()];
+}
+
+/** One membership to resolve: a person, in a workspace. */
+export type EntitlementKey = { personId: string; workspaceId: string };
+export const entitlementKey = (k: EntitlementKey) => `${k.personId}|${k.workspaceId}`;
+
+/**
+ * `teamCalendarEntitlements` for MANY memberships at once — the same answer,
+ * in five queries however many there are.
+ *
+ * The one-at-a-time walk made three to five round trips per membership, in
+ * sequence, and every my.thread page paid for it through /me/portal (docs/
+ * handover-portal-entitlements-batching.md). This asks each SOURCE once:
+ * the memberships, the paid purchases, the tiers' grants, the tiers'
+ * products, and those products' grants; then resolves each membership in
+ * memory through `pickTeamCalendars`, the same rule.
+ *
+ * Kept equal to the per-membership walk by `entitlements-batched.int.test.ts`
+ * — percentages AND `via` — on the staging fixtures. Until that has run green
+ * on staging the money path (enrol pricing) still uses the old walk; this is
+ * what the portal's lists and nav read.
+ *
+ * A failed read answers nothing for the memberships it covered, as the old
+ * walk did — logged here, which the old walk never was. (Two rows for one
+ * person in one workspace would also answer nothing, as the old
+ * `.maybeSingle()` did; membership_member is unique on that pair, so it is
+ * a guard, not a case.)
+ */
+export async function teamCalendarEntitlementsFor(
+  keys: EntitlementKey[],
+): Promise<Map<string, TeamCalendarEntitlement[]>> {
+  const out = new Map<string, TeamCalendarEntitlement[]>();
+  for (const k of keys) out.set(entitlementKey(k), []);
+  if (!keys.length) return out;
+  const personIds = [...new Set(keys.map((k) => k.personId))];
+  const workspaceIds = [...new Set(keys.map((k) => k.workspaceId))];
+  const wanted = new Set(out.keys());
+  const fail = (what: string, error: { message: string }) => {
+    console.error(`[member-discount] batched entitlements: ${what}`, { error: error.message });
+  };
+
+  const [members, bought] = await Promise.all([
+    adminClient
+      .from('membership_member')
+      .select('person_id, workspace_id, tier_id')
+      .in('person_id', personIds)
+      .in('workspace_id', workspaceIds)
+      .is('deleted_at', null)
+      .in('status', ['active', 'grace']),
+    adminClient
+      .from('membership_product_purchase')
+      .select('person_id, workspace_id, product_id')
+      .in('person_id', personIds)
+      .in('workspace_id', workspaceIds)
+      .eq('status', 'paid'),
+  ]);
+  if (members.error) {
+    fail('members', members.error);
+    return out;
+  }
+  if (bought.error) fail('purchases', bought.error);
+
+  // One tier per membership; two rows for one key is the old walk's "none".
+  const tierOf = new Map<string, string | null>();
+  for (const m of members.data ?? []) {
+    const key = entitlementKey({ personId: m.person_id as string, workspaceId: m.workspace_id as string });
+    if (!wanted.has(key)) continue;
+    tierOf.set(key, tierOf.has(key) ? null : (m.tier_id as string));
+  }
+  const boughtOf = new Map<string, Set<string>>();
+  for (const b of bought.error ? [] : (bought.data ?? [])) {
+    const key = entitlementKey({ personId: b.person_id as string, workspaceId: b.workspace_id as string });
+    if (!tierOf.get(key) || !b.product_id) continue;
+    const set = boughtOf.get(key) ?? new Set<string>();
+    set.add(b.product_id as string);
+    boughtOf.set(key, set);
+  }
+
+  const tierIds = [...new Set([...tierOf.values()].filter((t): t is string => !!t))];
+  if (!tierIds.length) return out;
+  const [tierGrants, tierProducts] = await Promise.all([
+    adminClient
+      .from('membership_access_grant')
+      .select('id, tier_id, config')
+      .in('tier_id', tierIds)
+      .eq('kind', 'team_calendar'),
+    adminClient
+      .from('membership_tier_product')
+      .select('tier_id, product_id')
+      .in('tier_id', tierIds)
+      .eq('optional', false),
+  ]);
+  if (tierGrants.error) fail('tier grants', tierGrants.error);
+  if (tierProducts.error) fail('tier products', tierProducts.error);
+
+  const productsOfTier = new Map<string, string[]>();
+  for (const tp of tierProducts.error ? [] : (tierProducts.data ?? [])) {
+    const list = productsOfTier.get(tp.tier_id as string) ?? [];
+    list.push(tp.product_id as string);
+    productsOfTier.set(tp.tier_id as string, list);
+  }
+  const productIds = [
+    ...new Set([
+      ...[...productsOfTier.values()].flat(),
+      ...[...boughtOf.values()].flatMap((s) => [...s]),
+    ]),
+  ].filter(Boolean);
+  const productGrants = productIds.length
+    ? await adminClient
+        .from('membership_access_grant')
+        .select('id, product_id, config')
+        .in('product_id', productIds)
+        .eq('kind', 'team_calendar')
+    : { data: [] as { id: string; product_id: string; config: Record<string, unknown> | null }[], error: null };
+  if (productGrants.error) fail('product grants', productGrants.error);
+
+  const grantsOfTier = new Map<string, GrantRow[]>();
+  for (const g of tierGrants.error ? [] : (tierGrants.data ?? [])) {
+    const list = grantsOfTier.get(g.tier_id as string) ?? [];
+    list.push({ id: g.id as string, config: (g.config as Record<string, unknown> | null) ?? null });
+    grantsOfTier.set(g.tier_id as string, list);
+  }
+  const grantsOfProduct = new Map<string, GrantRow[]>();
+  for (const g of productGrants.error ? [] : (productGrants.data ?? [])) {
+    const list = grantsOfProduct.get(g.product_id as string) ?? [];
+    list.push({ id: g.id as string, config: (g.config as Record<string, unknown> | null) ?? null });
+    grantsOfProduct.set(g.product_id as string, list);
+  }
+
+  for (const [key, tierId] of tierOf) {
+    if (!tierId) continue;
+    const products = new Set([...(productsOfTier.get(tierId) ?? []), ...(boughtOf.get(key) ?? [])]);
+    out.set(
+      key,
+      pickTeamCalendars(
+        grantsOfTier.get(tierId) ?? [],
+        [...products].flatMap((p) => grantsOfProduct.get(p) ?? []),
+      ),
+    );
+  }
+  return out;
 }
 
 /**

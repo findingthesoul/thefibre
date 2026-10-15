@@ -6,7 +6,7 @@
 // the bell: a list you have looked at is a list you have read.
 
 import Link from 'next/link';
-import { loadSession } from '@/lib/session';
+import { loadFrame } from '@/lib/session';
 import { fetchNotifications, markNotificationsRead, type MemberNotification } from '@/lib/portal-api';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
@@ -26,7 +26,7 @@ export default async function NotificationsPage({
 }: {
   searchParams: Promise<{ cursor?: string }>;
 }) {
-  const session = await loadSession();
+  const session = await loadFrame();
   if (!session) return <SignedOut />;
   const { cursor = null } = await searchParams;
 

@@ -298,7 +298,9 @@ export function BookingDetailsDialog({
                 onChange={(e) => setLinkDraft(e.target.value)}
                 className="mt-0"
               />
-              <Button type="submit" size="sm" disabled={pending || !linkDraft.trim()}>
+              {/* shrink-0 + nowrap: beside a full-width field the label
+                  wrapped onto two lines (seen on staging, 2026-10-16). */}
+              <Button type="submit" size="sm" disabled={pending || !linkDraft.trim()} className="shrink-0 whitespace-nowrap">
                 {t(locale, 'add_join_link')}
               </Button>
             </div>

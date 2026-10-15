@@ -17,7 +17,7 @@
 // Whether the READER appears in the list is no longer one of those states.
 // It is a line above the list, not a door in front of it (2026-10-14).
 
-import { loadDirectoryChoices, loadDirectoryMembers, loadSession } from '@/lib/session';
+import { loadDirectoryChoices, loadDirectoryMembers, loadFrame } from '@/lib/session';
 import { SignedOut } from '../../signed-out';
 import { CommunityMembers, membersTitle } from '../community-members';
 
@@ -31,7 +31,7 @@ export default async function MembersPage({
   // decision, and the layout has already started it (the same cached call),
   // so the list no longer waits behind the portal payload — it used to.
   const [session, list, choices] = await Promise.all([
-    loadSession(),
+    loadFrame(),
     loadDirectoryMembers(workspaceId),
     loadDirectoryChoices(),
   ]);

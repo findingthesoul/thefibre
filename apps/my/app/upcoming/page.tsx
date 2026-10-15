@@ -12,7 +12,7 @@
 
 import Link from 'next/link';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
-import { loadSession } from '@/lib/session';
+import { loadFrame } from '@/lib/session';
 import { fetchUpcoming, type UpcomingPage } from '@/lib/portal-api';
 import { fmtDate } from '@/lib/format';
 import { SignedOut } from '../signed-out';
@@ -27,7 +27,7 @@ export default async function UpcomingPage({
 }: {
   searchParams: Promise<{ cursor?: string }>;
 }) {
-  const session = await loadSession();
+  const session = await loadFrame();
   if (!session) return <SignedOut />;
   const { cursor = null } = await searchParams;
 

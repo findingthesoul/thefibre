@@ -2,7 +2,7 @@
 // that page; with several, it lists them.
 
 import Link from 'next/link';
-import { loadSession } from '@/lib/session';
+import { loadFrame } from '@/lib/session';
 import { fetchCommunities, type CommunityView } from '@/lib/portal-api';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
@@ -11,7 +11,7 @@ import { CommunityPage } from './community-view';
 export const dynamic = 'force-dynamic';
 
 export default async function CommunityIndex() {
-  const session = await loadSession();
+  const session = await loadFrame();
   if (!session) return <SignedOut />;
   let list: CommunityView[] | null = null;
   try {

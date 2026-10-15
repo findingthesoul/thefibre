@@ -414,6 +414,19 @@ export function invoicePdfUrl(id: string): string {
   return `/invoices/${id}/pdf`;
 }
 
+/** What the frame (nav, bell) needs on every page — GET /me/nav. The same
+ *  three values /me/portal carries, without the rest of it. */
+export type PortalNav = { upcoming: boolean; communities: number; unread_notifications: number };
+
+export async function fetchNav(accessToken: string): Promise<PortalNav> {
+  const res = await fetch(`${baseUrl}/api/v1/me/nav`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `API ${res.status}: /api/v1/me/nav`);
+  return res.json() as Promise<PortalNav>;
+}
+
 export async function fetchPortal(accessToken: string): Promise<Portal> {
   const res = await fetch(`${baseUrl}/api/v1/me/portal`, {
     headers: { Authorization: `Bearer ${accessToken}` },
