@@ -257,7 +257,8 @@ export function cardDatesFromParams(
 
 const CARD_WORDS = {
   sessions: { en: 'sessions', nl: 'sessies', es: 'sesiones', pt: 'sessões', de: 'Sitzungen', fr: 'sessions' },
-  signup_by: { en: 'Sign up by', nl: 'Inschrijven vóór', es: 'Inscríbete antes del', pt: 'Inscreva-se até', de: 'Anmelden bis', fr: 'Inscription avant le' },
+  // Inclusive in every language: the date shown is the LAST day (signupByDate).
+  signup_by: { en: 'Sign up by', nl: 'Inschrijven t/m', es: 'Inscríbete hasta el', pt: 'Inscreva-se até', de: 'Anmelden bis', fr: "Inscription jusqu'au" },
 } as const;
 type CardWordLocale = keyof (typeof CARD_WORDS)['sessions'];
 
@@ -280,6 +281,33 @@ function fmtShort(isoOrDate: string, timeZone: string, intlLocale: string): stri
   } catch {
     return new Intl.DateTimeFormat('en-GB', { ...opts, timeZone: 'UTC' }).format(d);
   }
+}
+
+/** The LAST DAY one can still sign up, for "Sign up by …". `signupsCloseAt`
+ *  is the instant sign-ups close, and the default rule puts it at local
+ *  midnight AFTER the last day (startOfDayAfter) — named directly, "Sign up
+ *  by 27 Oct" read as including the 27th, a day after it had closed. An
+ *  instant at local midnight is shown as the day before it; any other
+ *  instant is its own day. */
+export function signupByDate(iso: string, timeZone: string, intlLocale: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  let atMidnight = false;
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(t));
+    const n = (k: string) => Number(parts.find((p) => p.type === k)?.value);
+    atMidnight = n('hour') === 0 && n('minute') === 0 && n('second') === 0;
+  } catch {
+    atMidnight = false;
+  }
+  return fmtShort(new Date(atMidnight ? t - 1000 : t).toISOString(), timeZone, intlLocale);
+}
+
+/** One date the way the card line says it ("14 Feb 2027"), in a zone and an
+ *  Intl locale. Exported so a page beside the card (the enrol form's "Sign up
+ *  by …") says the same date the same way — never an `Intl` of its own. */
+export function cardDate(isoOrDate: string, timeZone: string, intlLocale: string): string {
+  return fmtShort(isoOrDate, timeZone, intlLocale);
 }
 
 /** The card's date line, e.g. "12 Jan 2027 – 15 Jun 2027 · 6 sessions · Sign
@@ -315,6 +343,8 @@ export function cardDateLine(
   const lang = (opts.locale in CARD_WORDS.sessions ? opts.locale : 'en') as CardWordLocale;
   const parts = main ? [main] : [];
   if (choice.sessions && (item.key_moment_count ?? 0) > 1) parts.push(`${item.key_moment_count} ${CARD_WORDS.sessions[lang]}`);
-  if (choice.signup_by && item.signups_close_at) parts.push(`${CARD_WORDS.signup_by[lang]} ${f(item.signups_close_at)}`);
+  if (choice.signup_by && item.signups_close_at) {
+    parts.push(`${CARD_WORDS.signup_by[lang]} ${signupByDate(item.signups_close_at, opts.timeZone, opts.intlLocale)}`);
+  }
   return parts.length ? parts.join(' · ') : null;
 }

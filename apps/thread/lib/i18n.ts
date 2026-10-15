@@ -377,13 +377,17 @@ const CATALOG = {
     de: 'Preise ohne MwSt. — wähle dein Land, um die MwSt. zu sehen.', // MT
     fr: 'Prix HT — choisis ton pays pour voir la TVA.', // MT
   },
+  // UP TO AND INCLUDING the date shown, in every language: the date is the
+  // LAST day one can sign up (signupByDate). "vóór" / "antes del" / "avant
+  // le" mean BEFORE, so the same day read inclusive in one language and
+  // exclusive in another (2026-10-16).
   signup_by: {
     en: 'Sign up by',
-    nl: 'Schrijf je in vóór', // MT pending native review
-    es: 'Inscríbete antes del', // MT
+    nl: 'Schrijf je in t/m', // MT pending native review
+    es: 'Inscríbete hasta el', // MT
     pt: 'Inscreva-se até', // MT
     de: 'Anmelden bis', // MT
-    fr: 'Inscrivez-vous avant le', // MT
+    fr: "Inscrivez-vous jusqu'au", // MT
   },
   enrolment_closed: {
     en: 'Enrolment is closed for this thread.',

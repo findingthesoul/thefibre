@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.222.1] — 2026-10-16
+
+### "Sign up by" names the last day, in the reader’s language (Thread 4.13.2 · Members 1.4.2)
+
+- **The enrol form's "Sign up by" date** said "February 14, 2027 at 07:00 PM"
+  (en-US, with a clock time) beside a card saying "14 Feb 2027". It now uses
+  the card line's own rule (`@thefibre/shared/thread-dates`), in the page's
+  locale and the thread's zone.
+- **The date is the LAST day you can sign up.** Sign-ups close at local
+  midnight AFTER the last day (the default rule), and naming that instant
+  said "Sign up by 27 Oct" for a thread whose sign-ups closed as the 27th
+  began. New `signupByDate`: an instant at local midnight is shown as the
+  day before; any other instant is its own day. The card line and the enrol
+  form both use it.
+- **"Sign up by" now means "up to and including" in every language.** It
+  meant BEFORE in three of them (nl "vóór", es "antes del", fr "avant le")
+  and up to and including in the others, so one date read two ways. Now nl
+  "t/m", es "hasta el", fr "jusqu'au" (the card words, the enrol form, the
+  embed builder's chip). The `{signups_close}` merge tag is unchanged: an
+  organiser's own sentence around it may mean the closing day.
+- **Thread's enrol card gains `vatHomePct`** and shows the shared
+  "€363 incl. 21% VAT" line under the price until the form has a country.
+  The excl. / VAT / total lines there are now the shared `VatBreakdown`.
+  Builder 4 passes the rate from the thread payload.
+- **Members tier cards** say "(excl. VAT)" after the interval, like the
+  product cards.
+
 ## [1.222.0] — 2026-10-16
 
 ### Thread and Meet prices show what they cost incl. VAT (Thread 4.13.1, Meet 2.34.0)

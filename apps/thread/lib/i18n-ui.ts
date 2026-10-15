@@ -4185,11 +4185,11 @@ const CATALOG = {
   },
   embed_cd_signup_by: {
     en: '+ Sign up by …',
-    nl: '+ Inschrijven vóór …', // MT pending native review
-    es: '+ Inscríbete antes del …', // MT
+    nl: '+ Inschrijven t/m …', // MT pending native review
+    es: '+ Inscríbete hasta el …', // MT
     pt: '+ Inscreva-se até …', // MT
     de: '+ Anmelden bis …', // MT
-    fr: '+ Inscription avant le …', // MT
+    fr: "+ Inscription jusqu'au …", // MT
   },
   card_dates_settings_title: {
     en: 'What thread cards show',

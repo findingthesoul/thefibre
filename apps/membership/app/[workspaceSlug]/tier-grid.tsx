@@ -480,14 +480,20 @@ function TierCard({
             <span className="text-2xl font-semibold tabular-nums">
               {money(adjustedYear!, currency)}
             </span>
-            <span className="text-sm text-ink-subtle">{t(locale, 'per_year')}</span>
+            <span className="text-sm text-ink-subtle">
+              {t(locale, 'per_year')}
+              {vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}
+            </span>
           </>
         ) : hasMonth ? (
           <>
             <span className="text-2xl font-semibold tabular-nums">
               {money(adjustedMonth!, currency)}
             </span>
-            <span className="text-sm text-ink-subtle">{t(locale, 'per_month')}</span>
+            <span className="text-sm text-ink-subtle">
+              {t(locale, 'per_month')}
+              {vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}
+            </span>
           </>
         ) : (
           <span className="text-sm text-ink-subtle">{t(locale, 'price_on_request')}</span>

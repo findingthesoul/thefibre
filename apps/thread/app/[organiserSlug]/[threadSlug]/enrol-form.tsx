@@ -21,6 +21,9 @@ async function memberAuthHeader(): Promise<Record<string, string>> {
 
 import { useEffect, useMemo, useState } from 'react';
 import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
+import { signupByDate } from '@thefibre/shared/thread-dates';
+import { INTL_LOCALES } from '@thefibre/shared/i18n';
+import { VatBreakdown, VatInclNote } from '@thefibre/shared/ui/vat-price';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { CheckCircle2 } from 'lucide-react';
@@ -45,12 +48,11 @@ function fmtPrice(cents: number | null, currency: string | null): string {
 const INPUT =
   'te-input mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
 
+// "Sign up by 26 Oct 2026": the card line's own rule (thread dates), in the
+// page's locale and the thread's zone. It said "February 14, 2027 at 07:00
+// PM" — en-US, and a clock time — beside a card saying "14 Feb 2027".
 function fmtSignupBy(iso: string, timeZone: string, locale: Locale): string {
-  try {
-    return new Intl.DateTimeFormat(locale, { timeZone, day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-  } catch {
-    return new Date(iso).toISOString().slice(0, 10);
-  }
+  return signupByDate(iso, timeZone, INTL_LOCALES[locale] ?? 'en-GB');
 }
 
 function fmtMoney(cents: number, currency: string | null): string {
@@ -74,6 +76,7 @@ export function EnrolCard({
   signupsCloseAt = null,
   timeZone = 'Europe/Amsterdam',
   vatRegistered = false,
+  vatHomePct = null,
 }: {
   organiserSlug: string;
   organiserName: string;
@@ -102,6 +105,9 @@ export function EnrolCard({
   /** Prices are excl. VAT and this seller adds it (2026-10-15): the form asks
    *  for the country and shows excl. / VAT / total. */
   vatRegistered?: boolean;
+  /** The seller's home VAT rate (from the API's homeVatPct), for the small
+   *  "incl. VAT" line under the price until a country is chosen. */
+  vatHomePct?: number | null;
   /** From ?paid= on return from Stripe Checkout. */
   initialNotice?: 'success' | 'cancelled' | null;
 }) {
@@ -177,7 +183,6 @@ export function EnrolCard({
     }, 400);
     return () => clearTimeout(timer);
   }, [vatRegistered, vatCountry, vatNo, organiserSlug, threadSlug]);
-  const vatTaxCents = vatQuote && activePriceCents ? Math.round((activePriceCents * vatQuote.rate_pct) / 100) : 0;
 
   function pickTicket(id: string) {
     setTicketId(id);
@@ -361,6 +366,12 @@ export function EnrolCard({
           </span>
         </span>
       </div>
+      {/* "€363 incl. 21% VAT" (shared with Members' cards): the seller's home
+          rate until the form has a country — then the breakdown below says
+          it exactly. */}
+      {vatRegistered && !vatQuote && (activePriceCents ?? 0) > 0 && (
+        <VatInclNote netCents={activePriceCents!} ratePct={vatHomePct} currency={activeCurrency ?? 'EUR'} locale={locale} className="mt-0.5 text-right" />
+      )}
 
       {state === 'redirecting' ? (
         <p className="mt-4 text-sm text-ink-subtle">{t(locale, 'redirecting_payment')}</p>
@@ -642,26 +653,11 @@ export function EnrolCard({
                 autoComplete="off"
                 className={INPUT}
               />
-              <div className="text-xs tabular-nums text-ink-subtle">
-                {vatQuote ? (
-                  <>
-                    <div className="flex justify-between">
-                      <span>{t(locale, 'excl_vat')}</span>
-                      <span>{fmtMoney(activePriceCents, activeCurrency)}</span>
-                    </div>
-                    <div className="mt-0.5 flex justify-between">
-                      <span>{vatQuote.reverse_charge ? t(locale, 'vat_reverse_charged') : vatQuote.rate_pct > 0 ? `${t(locale, 'vat')} ${vatQuote.rate_pct}%` : t(locale, 'vat_out_of_scope')}</span>
-                      <span>{fmtMoney(vatTaxCents, activeCurrency)}</span>
-                    </div>
-                    <div className="mt-1 flex justify-between border-t border-line pt-1 text-ink font-medium">
-                      <span>{t(locale, 'total_incl_vat')}</span>
-                      <span>{fmtMoney(activePriceCents + vatTaxCents, activeCurrency)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <p>{t(locale, 'prices_excl_vat')}</p>
-                )}
-              </div>
+              {vatQuote ? (
+                <VatBreakdown netCents={activePriceCents ?? 0} quote={vatQuote} currency={activeCurrency ?? 'EUR'} locale={locale} />
+              ) : (
+                <p className="text-xs text-ink-subtle">{t(locale, 'prices_excl_vat')}</p>
+              )}
             </div>
           )}
 

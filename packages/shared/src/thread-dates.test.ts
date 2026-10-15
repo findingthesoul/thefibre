@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CARD_DATES, MEMBERSHIP_THREADS_KEEP_TODAYS_RULE, cardDateLine, cardDatesFromParams, toCardDates, fallbackSignupsCloseAt, signupsOpenAt, startOfDayAfter, threadDates, threadDateTokens, type ThreadDatesInput } from './thread-dates.js';
+import { DEFAULT_CARD_DATES, MEMBERSHIP_THREADS_KEEP_TODAYS_RULE, cardDateLine, cardDatesFromParams, signupByDate, toCardDates, fallbackSignupsCloseAt, signupsOpenAt, startOfDayAfter, threadDates, threadDateTokens, type ThreadDatesInput } from './thread-dates.js';
 
 const base = (over: Partial<ThreadDatesInput> = {}): ThreadDatesInput => ({
   program: { starts_on: '2027-01-01', ends_on: '2027-06-30' },
@@ -131,7 +131,17 @@ describe('what a card shows', () => {
   });
   it('sign up by, in the reader’s language', () => {
     expect(cardDateLine(journey, choose({ range: 'start_event', signup_by: true }), { ...opts, locale: 'nl', intlLocale: 'nl-NL' }))
-      .toBe('12 jan 2027 · Inschrijven vóór 12 jan 2027');
+      .toBe('12 jan 2027 · Inschrijven t/m 12 jan 2027');
+  });
+  it('sign up by names the LAST day when sign-ups close at local midnight (the default rule)', () => {
+    // Closes at the start of 27 Oct in Amsterdam → the last day is 26 Oct.
+    const closes = { ...journey, signups_close_at: '2026-10-26T23:00:00.000Z' };
+    expect(cardDateLine(closes, choose({ range: 'start_event', signup_by: true }), opts)).toBe('12 Jan 2027 · Sign up by 26 Oct 2026');
+    expect(signupByDate('2026-10-26T23:00:00.000Z', 'Europe/Amsterdam', 'en-GB')).toBe('26 Oct 2026');
+    // Any other instant is its own day; and midnight in ANOTHER zone is not midnight here.
+    expect(signupByDate('2026-10-26T14:00:00.000Z', 'Europe/Amsterdam', 'en-GB')).toBe('26 Oct 2026');
+    expect(signupByDate('2026-10-27T04:00:00.000Z', 'America/New_York', 'en-GB')).toBe('26 Oct 2026');
+    expect(signupByDate('2026-10-27T04:00:00.000Z', 'Europe/Amsterdam', 'en-GB')).toBe('27 Oct 2026');
   });
   it('an event choice with no key moment shows the thread’s dates, never blank', () => {
     const plain = { starts_on: '2027-03-01', ends_on: null, key_moment_count: 0 };
