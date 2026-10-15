@@ -203,6 +203,10 @@ if git rev-parse --verify --quiet origin/staging >/dev/null; then
   fi
 fi
 
+# The base this release is measured against, captured BEFORE the push moves
+# origin/staging onto HEAD — for the integration-test note at the end.
+LANE_BASE=$(git rev-parse --verify --quiet origin/staging || true)
+
 pnpm verify
 
 # Verify took minutes. Is the runway still ours, and has staging stood still?
@@ -255,6 +259,11 @@ node scripts/changelog-order.mjs || true
 # release-time information and verify's output is long enough to scroll
 # past. Never fails, for the reason written in the script's own header.
 node scripts/check-app-versions.mjs || true
+
+# Which staging integration tests reach this release's lane — verify runs
+# unit tests only, and twice in October a lane's own integration test was red
+# under a green release. Names them; never fails (scripts/lane-integration-tests.mjs).
+if [ -n "$LANE_BASE" ]; then node scripts/lane-integration-tests.mjs "$LANE_BASE" || true; fi
 
 echo "Released $V to STAGING."
 echo

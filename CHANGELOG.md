@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.217.0] — 2026-10-16
+
+### release.sh names the integration tests in your lane
+
+- `scripts/lane-integration-tests.mjs [base]` (default `origin/staging`):
+  the staging integration tests that reach the files this release changed —
+  the test itself, a module it imports, or one level further. A change that
+  only reaches tests through a hub most of them import (`routes/thread.ts`)
+  is counted ("+ 21 more"), not listed, so the list stays short enough to
+  read. Prints a ready `vitest` command for the named ones.
+- `release.sh` prints it after the push, against the base captured before
+  the push. Never fails: information, not a gate. `docs/testing-approach.md`
+  §5 item 7: run it before a runway request and say what you ran.
+- Why: `publish-guard.int` was red from 1.201.3 to 1.203.0 under green
+  releases. Its first run here named three thread-dates tests that had not
+  been run for 1.206/1.207 (main-facilitator, member-notify,
+  team-calendar-entitlements); run on staging they passed, 48/48 with
+  payment-route.
+
 ## [1.216.0] — 2026-10-15
 
 ### Thread dates, part 3: what a thread card shows (Thread 4.12.0)

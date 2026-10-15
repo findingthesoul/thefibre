@@ -528,6 +528,16 @@ of this checklist.)
    promotion, before the code that needs them (`db-push-staging.sh`,
    `db-push-prod.sh`); `supabase migration list` on production afterwards.
 6. After deploy: prod smoke (domains by title), and read the Fly log.
+7. **Integration tests in your lane** (2026-10-15). `pnpm verify` runs unit
+   tests only. Before a runway request, run
+   `node scripts/lane-integration-tests.mjs` — it names the staging
+   integration tests that reach the files you changed (directly, or through
+   one module), counting the ones that only reach them through a hub like
+   `routes/thread.ts` — run the named ones and say so under `--verified`.
+   `release.sh` prints the same list after the push as a reminder; it never
+   fails. Written after `publish-guard.int` stayed red from 1.201.3 to 1.203.0
+   under green releases, and three tests reaching thread-dates code went
+   unrun until this scanner named them (they passed, 48/48).
 
 The multi-session serialization protocol (handbook §10) is part of testing
 too: one release at a time, explicit-path staging, and post-commit import
