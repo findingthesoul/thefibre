@@ -15,6 +15,7 @@
 import { Check } from 'lucide-react';
 import { applyPct, evaluatePriceLogic, type PriceLogic } from '@thefibre/shared/price-logic';
 import { VatInclNote } from '@thefibre/shared/ui/vat-price';
+import { JOIN_GRID, PriceBlock } from './price-block';
 import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import type { PublicProduct, PublicTier } from '@/lib/public-api';
@@ -44,17 +45,16 @@ export function TierGrid({
   const { country, setCountry } = useBasket();
   const hasCountryRules = Boolean(priceLogic?.rules?.some((r) => r.when.attr === 'country'));
   const productNames = new Map(products.map((p) => [p.id, p.name]));
-  const cols =
-    tiers.length === 1
-      ? 'sm:grid-cols-1 max-w-md mx-auto'
-      : tiers.length === 2
-        ? 'sm:grid-cols-2 max-w-2xl mx-auto'
-        : 'sm:grid-cols-2 xl:grid-cols-3';
+  // ONE grid for every card on the page, tiers and products alike: the same
+  // columns whatever the count, left-aligned, so a lone card sits where the
+  // first card of a full row would (Sjoerd, 2026-10-17: "Not these centered
+  // boxes"). JOIN_GRID is shared with product-grid.tsx.
+  const cols = JOIN_GRID;
 
   return (
     <>
       {(hasCountryRules || vatRegistered) && (
-        <div className="mt-8 mx-auto max-w-md text-left">
+        <div className="mt-8 max-w-md text-left">
           <label className="block text-sm text-ink-subtle mb-1.5">
             {t(locale, hasCountryRules ? 'country_question' : 'country_question_vat')}
           </label>
@@ -108,51 +108,26 @@ function TierCard({
   // Entered incl. VAT (and the community adds VAT): the headline is what a
   // home-rate buyer pays; the net goes small underneath.
   const incl = vatRegistered && !!tier.price_includes_vat;
-  const vatSuffix = vatRegistered ? ` ${t(locale, incl ? 'incl_vat_suffix' : 'excl_vat_suffix')}` : '';
   const shown = hasYear ? adjustedYear! : adjustedMonth ?? 0;
 
   return (
     <div className={`flex flex-col rounded-xl border bg-surface-raised p-6 ${inBasket ? 'border-line-strong' : 'border-line'}`}>
       <h2 className="text-lg font-medium">{tier.name}</h2>
 
-      <div className="mt-2 flex items-baseline gap-1.5">
-        {hasYear ? (
-          <>
-            <span className="text-2xl font-semibold tabular-nums">{money(adjustedYear!, currency)}</span>
-            <span className="text-sm text-ink-subtle">
-              {t(locale, 'per_year')}
-              {vatSuffix}
-            </span>
-          </>
-        ) : hasMonth ? (
-          <>
-            <span className="text-2xl font-semibold tabular-nums">{money(adjustedMonth!, currency)}</span>
-            <span className="text-sm text-ink-subtle">
-              {t(locale, 'per_month')}
-              {vatSuffix}
-            </span>
-          </>
-        ) : (
-          <span className="text-sm text-ink-subtle">{t(locale, 'price_on_request')}</span>
-        )}
-      </div>
-      {incl && (hasYear || hasMonth) && (
-        <p className="mt-0.5 text-xs tabular-nums text-ink-subtle">
-          {t(locale, 'excl_vat_amount', { price: money(netOf(catalog, shown, true), currency) })}
-        </p>
-      )}
-      {vatRegistered && !incl && (hasYear || hasMonth) && (
-        <VatInclNote
-          formatMoney={(c, cur) => money(c, cur)}
-          netCents={hasYear ? adjustedYear! : adjustedMonth!}
-          ratePct={noteRatePct}
-          currency={currency}
-          locale={locale}
-          className="mt-0.5"
-        />
-      )}
-      {hasYear && hasMonth && (
-        <div className="mt-0.5 text-xs text-ink-muted">{t(locale, 'or_month', { price: money(adjustedMonth!, currency) })}</div>
+      {hasYear || hasMonth ? (
+        <PriceBlock cents={shown} currency={currency} unit={hasYear ? 'year' : 'month'} vat={!vatRegistered ? 'none' : incl ? 'incl' : 'excl'} locale={locale}>
+          {incl && (
+            <p className="mt-0.5 text-xs tabular-nums text-ink-subtle">
+              {t(locale, 'excl_vat_amount', { price: money(netOf(catalog, shown, true), currency) })}
+            </p>
+          )}
+          {vatRegistered && !incl && (
+            <VatInclNote formatMoney={(c, cur) => money(c, cur)} netCents={shown} ratePct={noteRatePct} currency={currency} locale={locale} className="mt-0.5" />
+          )}
+          {hasYear && hasMonth && <div className="mt-0.5 text-xs text-ink-muted">{t(locale, 'or_month', { price: money(adjustedMonth!, currency) })}</div>}
+        </PriceBlock>
+      ) : (
+        <div className="mt-2 text-sm text-ink-subtle">{t(locale, 'price_on_request')}</div>
       )}
 
       {tier.description && <p className="mt-3 text-sm text-ink-subtle leading-relaxed">{tier.description}</p>}

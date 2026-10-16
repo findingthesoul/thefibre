@@ -757,6 +757,38 @@ const CATALOG = {
     de: 'Auch erhältlich', // MT
     fr: 'Également disponible', // MT
   },
+  unit_per_year: {
+    en: 'per year',
+    nl: 'per jaar', // MT
+    es: 'al año', // MT
+    pt: 'por ano', // MT
+    de: 'pro Jahr', // MT
+    fr: 'par an', // MT
+  },
+  unit_per_month: {
+    en: 'per month',
+    nl: 'per maand', // MT
+    es: 'al mes', // MT
+    pt: 'por mês', // MT
+    de: 'pro Monat', // MT
+    fr: 'par mois', // MT
+  },
+  vat_excl_short: {
+    en: 'excl. VAT',
+    nl: 'excl. btw', // MT
+    es: 'IVA no incl.', // MT
+    pt: 'IVA não incl.', // MT
+    de: 'zzgl. MwSt.', // MT
+    fr: 'HT', // MT
+  },
+  vat_incl_short: {
+    en: 'incl. VAT',
+    nl: 'incl. btw', // MT
+    es: 'IVA incl.', // MT
+    pt: 'IVA incl.', // MT
+    de: 'inkl. MwSt.', // MT
+    fr: 'TTC', // MT
+  },
   one_off: {
     en: 'one-off',
     nl: 'eenmalig',

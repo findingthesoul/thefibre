@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.260.1] — 2026-10-17
+
+### The join page: the price on its own line, and one left-aligned grid of cards (Members 1.19.0)
+
+- **The price stands alone, the small text goes below it** (Sjoerd). Every
+  card on a community's public join page, tier or product, now reads:
+  `€ 2.000` (large, alone on its line), then `per year · excl. VAT`, then
+  `€ 2.420 incl. 21% VAT`. A one-off reads `one-off · excl. VAT`; a product
+  entered including VAT gets its own words in the same shape. It was one
+  component change, not two: `PriceBlock` (`[workspaceSlug]/price-block.tsx`)
+  is now what both the tier and the product cards render, so they cannot lay
+  a price out differently again. Four catalog keys in six languages: per
+  year, per month, excl. VAT and incl. VAT without brackets.
+- **"Not these centred boxes."** Tiers and products sit in ONE grid with the
+  same columns whatever the number of cards (`JOIN_GRID`), left-aligned. A
+  group with a single card puts it where the first card of a full row would
+  be, the same width, instead of a wider centred box. Group headings, the
+  "Also available" heading and the country question are left-aligned. The
+  basket keeps its right column.
+- e2e `join-layout` (new, exclusive): seeds two visible tiers and two
+  product groups (Pathways ×3, Tools ×1) in the fixture community and
+  switches its VAT on, then restores and asserts. It measures:
+  - the unit line sits below the amount;
+  - "per year · excl. VAT" and "one-off · excl. VAT";
+  - all four product cards are the same width;
+  - the lone Tools card starts at the first column's x;
+  - the group headings are left-aligned.
+  It takes screenshots at 1280 and 375; `E2E_MEMBERSHIP_HOST` runs it against
+  a local Members app.
+
 ## [1.260.0] — 2026-10-17
 
 ### my.thread → Shop: what your communities offer you (my.thread 0.30.0; API: a safe return to my.thread)

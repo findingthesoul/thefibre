@@ -12,6 +12,7 @@ import { money } from '@/lib/money';
 import { t, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { VatInclNote } from '@thefibre/shared/ui/vat-price';
+import { JOIN_GRID, PriceBlock } from './price-block';
 import { addBlocker, netOf } from '@/lib/basket';
 import { AddToMembership, useMemberAddon } from './member-addon';
 import { useBasket } from './basket-provider';
@@ -36,14 +37,10 @@ export function ProductGrid({
   );
   if (buyable.length === 0) return null;
 
-  const colsFor = (n: number) =>
-    n === 1
-      ? 'sm:grid-cols-1 max-w-md mx-auto'
-      : n === 2
-        ? 'sm:grid-cols-2 max-w-2xl mx-auto'
-        : 'sm:grid-cols-2 lg:grid-cols-3';
+  // The SAME grid as the tiers (JOIN_GRID): fixed columns, left-aligned, so a
+  // group with one card does not get a wider, centred box (2026-10-17).
   const grid = (list: PublicProduct[]) => (
-    <div className={`mt-6 grid grid-cols-1 gap-6 ${colsFor(list.length)}`}>
+    <div className={`mt-4 grid grid-cols-1 gap-6 ${JOIN_GRID}`}>
       {list.map((product) => (
         <ProductCard key={product.id} product={product} locale={locale} vatRegistered={vatRegistered} />
       ))}
@@ -57,12 +54,12 @@ export function ProductGrid({
 
   return (
     <section className="mt-16">
-      <h2 className="text-xl font-medium tracking-tight text-center">
+      <h2 className="text-xl font-medium tracking-tight">
         {t(locale, 'products_headline')}
       </h2>
       {sections.map(({ group, list }) => (
         <div key={group.id} className="mt-10">
-          <h3 className="text-base font-medium tracking-tight text-center">{group.name}</h3>
+          <h3 className="text-base font-medium tracking-tight">{group.name}</h3>
           {grid(list)}
         </div>
       ))}
@@ -85,20 +82,15 @@ function ProductCard({ product, locale, vatRegistered }: { product: PublicProduc
     <div className={`flex flex-col rounded-xl border bg-surface-raised p-6 ${inBasket ? 'border-line-strong' : 'border-line'}`}>
       <h3 className="text-lg font-medium">{product.name}</h3>
 
-      <div className="mt-2 flex items-baseline gap-1.5">
-        <span className="text-2xl font-semibold tabular-nums">{money(product.price_cents!, currency)}</span>
-        <span className="text-sm text-ink-subtle">
-          {iv === 'once' ? t(locale, 'one_off') : t(locale, iv === 'month' ? 'per_month' : 'per_year')}
-          {vatRegistered ? ` ${t(locale, incl ? 'incl_vat_suffix' : 'excl_vat_suffix')}` : ''}
-        </span>
-      </div>
-      {incl ? (
-        <p className="mt-0.5 text-xs tabular-nums text-ink-subtle">
-          {t(locale, 'excl_vat_amount', { price: money(netOf(catalog, product.price_cents!, true), currency) })}
-        </p>
-      ) : (
-        vatRegistered && <VatInclNote formatMoney={(c, cur) => money(c, cur)} netCents={product.price_cents!} ratePct={noteRatePct} currency={currency} locale={locale} className="mt-0.5" />
-      )}
+      <PriceBlock cents={product.price_cents!} currency={currency} unit={iv === 'once' ? 'once' : iv === 'month' ? 'month' : 'year'} vat={!vatRegistered ? 'none' : incl ? 'incl' : 'excl'} locale={locale}>
+        {incl ? (
+          <p className="mt-0.5 text-xs tabular-nums text-ink-subtle">
+            {t(locale, 'excl_vat_amount', { price: money(netOf(catalog, product.price_cents!, true), currency) })}
+          </p>
+        ) : (
+          vatRegistered && <VatInclNote formatMoney={(c, cur) => money(c, cur)} netCents={product.price_cents!} ratePct={noteRatePct} currency={currency} locale={locale} className="mt-0.5" />
+        )}
+      </PriceBlock>
 
       {product.description && <p className="mt-3 text-sm text-ink-subtle leading-relaxed">{product.description}</p>}
 
