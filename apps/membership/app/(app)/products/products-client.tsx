@@ -31,6 +31,7 @@ function accessLine(
 export function ProductsClient({
   products,
   groups: initialGroups,
+  vatRegistered = false,
   currency,
   threadOptions,
   teamOptions,
@@ -42,6 +43,8 @@ export function ProductsClient({
   products: Product[];
   /** Product groups (2026-10-16), live, in order — organising only. */
   groups: ProductGroup[];
+  /** The "Price includes VAT" switch is shown only to a VAT-registered community. */
+  vatRegistered?: boolean;
   currency: import("@/lib/workspace-currency").WorkspaceCurrencies;
   threadOptions: { slug: string; title: string }[];
   /** The workspace's teams — a team-calendar grant stores an id and shows a
@@ -292,8 +295,8 @@ export function ProductsClient({
         <p className="mt-2 text-xs text-ink-muted">{t(locale, 'pg_help')}</p>
       </div>
 
-      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={[]} categories={categories} productCategoryIds={[]} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
-      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={grants.filter((g) => g.product_id === editing.id)} categories={categories} productCategoryIds={categoryLinks.filter((l) => l.product_id === editing.id).map((l) => l.category_id)} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
+      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={[]} categories={categories} productCategoryIds={[]} vatRegistered={vatRegistered} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
+      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={grants.filter((g) => g.product_id === editing.id)} categories={categories} productCategoryIds={categoryLinks.filter((l) => l.product_id === editing.id).map((l) => l.category_id)} vatRegistered={vatRegistered} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
     </>
   );
 }

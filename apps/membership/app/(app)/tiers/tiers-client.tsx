@@ -20,7 +20,10 @@ export function TiersClient({
   currency,
   locale,
   workspaceSlug,
+  vatRegistered = false,
 }: {
+  /** The "Price includes VAT" switch is shown only to a VAT-registered community. */
+  vatRegistered?: boolean;
   tiers: Tier[];
   products: Product[];
   categories: import('../settings/shared').DirectoryCategory[];
@@ -117,10 +120,10 @@ export function TiersClient({
       )}
 
       {creating && (
-        <TierDialog tier={null} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} workspaceSlug={workspaceSlug} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />
+        <TierDialog tier={null} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} workspaceSlug={workspaceSlug} vatRegistered={vatRegistered} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />
       )}
       {editing && (
-        <TierDialog tier={editing} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} workspaceSlug={workspaceSlug} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />
+        <TierDialog tier={editing} products={products} categories={categories} categoryLinks={categoryLinks} currency={currency} locale={locale} workspaceSlug={workspaceSlug} vatRegistered={vatRegistered} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />
       )}
     </>
   );

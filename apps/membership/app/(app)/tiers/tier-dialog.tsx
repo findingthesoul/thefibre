@@ -34,8 +34,10 @@ export function TierDialog({
   locale,
   nextSortOrder,
   workspaceSlug,
+  vatRegistered = false,
   onClose,
 }: {
+  vatRegistered?: boolean;
   tier: Tier | null; // null = new
   products: Product[];
   /** The workspace's directory categories, to SHOW what this tier confers.
@@ -77,6 +79,7 @@ export function TierDialog({
   // ticks a box to show a tier, not to hide it, and an unticked box is never
   // the thing that silently happened.
   const [hidden, setHidden] = useState(Boolean(tier?.hidden));
+  const [inclVat, setInclVat] = useState(Boolean((tier as { price_includes_vat?: boolean } | null)?.price_includes_vat));
   const [copied, setCopied] = useState(false);
   /** The address to send somebody for an unlisted tier, or null when there
    *  is not an honest one to give.
@@ -156,6 +159,7 @@ export function TierDialog({
       price_cents_month: euroToCents(priceMonth),
       first_period_ends_on: firstPeriodEndsOn.trim() || null,
       hidden,
+      ...(vatRegistered ? { price_includes_vat: inclVat } : {}),
       // Existing tiers keep their position; a new one joins at the end.
       sort_order: tier ? (tier.sort_order ?? 0) : nextSortOrder,
     };
@@ -317,6 +321,17 @@ export function TierDialog({
             {t(locale, 'first_period_yearly_only')}
           </p>
         </div>
+        {/* "Price includes VAT" (2026-10-16) — covers the yearly AND the
+            monthly price. Shown only to a VAT-registered community. */}
+        {vatRegistered && (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={inclVat} onChange={(e) => setInclVat(e.target.checked)} className="mt-0.5" />
+            <span>
+              <span className="font-medium">{t(locale, 'price_incl_vat_label')}</span>
+              <span className="block text-xs text-ink-muted mt-0.5">{t(locale, 'price_incl_vat_hint')}</span>
+            </span>
+          </label>
+        )}
         {/* ON THE PAGE, OR BY INVITATION ONLY (2026-10-14).
             Phrased as "Show on the join page" rather than "Hidden", because
             a hidden tier is not disabled: it sells and renews exactly like

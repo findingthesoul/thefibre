@@ -10,7 +10,7 @@
 // the checkout rule's rounding (vatOn). The server decides everything again
 // at checkout from what is posted — this is what the viewer is SHOWN.
 
-import { applyPct, evaluatePriceLogic, type PriceLogic } from '@thefibre/shared/price-logic';
+import { applyPct, evaluatePriceLogic, netFromInclusive, type PriceLogic } from '@thefibre/shared/price-logic';
 import { vatOn } from '@thefibre/shared/ui/vat-price';
 import type { PublicProduct, PublicTier } from './public-api';
 
@@ -18,7 +18,22 @@ export type Interval = 'year' | 'month';
 export type Basket = { tierId: string | null; interval: Interval; productIds: string[] };
 export const EMPTY_BASKET: Basket = { tierId: null, interval: 'year', productIds: [] };
 
-export type Catalog = { tiers: PublicTier[]; products: PublicProduct[]; priceLogic: PriceLogic | null };
+export type Catalog = {
+  tiers: PublicTier[];
+  products: PublicProduct[];
+  priceLogic: PriceLogic | null;
+  /** For a price entered INCL. VAT: the community adds VAT, at this home
+   *  rate. Absent → every price is its own net (as before). */
+  vat?: { registered: boolean; homeRatePct: number | null };
+};
+
+/** The NET of a price as entered — the same derivation the server charges
+ *  by (netFromInclusive at the home rate), only when the community is
+ *  VAT-registered and the row says its price includes VAT. */
+export function netOf(c: Catalog, enteredCents: number, includesVat: boolean | undefined): number {
+  if (!includesVat || !c.vat?.registered || !c.vat.homeRatePct) return enteredCents;
+  return netFromInclusive(enteredCents, c.vat.homeRatePct);
+}
 
 const tierOf = (c: Catalog, b: Basket) => (b.tierId ? c.tiers.find((t) => t.id === b.tierId) ?? null : null);
 const has = (cents: number | null | undefined) => cents != null && cents > 0;
@@ -99,11 +114,11 @@ export function lines(c: Catalog, b: Basket, country: string): Line[] {
     const base = (b.interval === 'year' ? tier.price_cents_year : tier.price_cents_month) ?? 0;
     const logic = (tier as PublicTier & { price_logic?: PriceLogic | null }).price_logic ?? c.priceLogic;
     const pct = evaluatePriceLogic(logic, { country: country || null, interval: b.interval }).pct;
-    out.push({ kind: 'tier', id: tier.id, name: tier.name, netCents: applyPct(base, pct), currency: tier.currency ?? 'EUR', recurring: true });
+    out.push({ kind: 'tier', id: tier.id, name: tier.name, netCents: netOf(c, applyPct(base, pct), tier.price_includes_vat), currency: tier.currency ?? 'EUR', recurring: true });
   }
   for (const id of b.productIds) {
     const p = c.products.find((x) => x.id === id)!;
-    out.push({ kind: 'product', id, name: p.name, netCents: p.price_cents ?? 0, currency: p.currency ?? 'EUR', recurring: (p.price_interval ?? 'once') !== 'once' });
+    out.push({ kind: 'product', id, name: p.name, netCents: netOf(c, p.price_cents ?? 0, p.price_includes_vat), currency: p.currency ?? 'EUR', recurring: (p.price_interval ?? 'once') !== 'once' });
   }
   return out;
 }

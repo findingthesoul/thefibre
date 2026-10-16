@@ -3,6 +3,7 @@ import {
   EMPTY_BASKET,
   addProduct,
   addTier,
+  netOf,
   checkoutTarget,
   initialCountry,
   lines,
@@ -117,5 +118,28 @@ describe('the initial country', () => {
   it('an unknown code is ignored, not trusted', () => {
     expect(initialCountry({ stored: 'XX', header: 'ZZ' }, valid)).toBe('');
     expect(initialCountry({ stored: 'XX', header: 'DE' }, valid)).toBe('DE');
+  });
+});
+
+describe('a price entered incl. VAT', () => {
+  const inc: Catalog = {
+    ...c,
+    tiers: [tier({ id: 'inc', price_cents_year: 36300, price_includes_vat: true } as Partial<PublicTier> & { id: string })],
+    products: [product({ id: 'w-inc', price_cents: 12100, price_includes_vat: true } as Partial<PublicProduct> & { id: string })],
+    vat: { registered: true, homeRatePct: 21 },
+  };
+  it('the line is the net; at the home rate the total is the entered price', () => {
+    const b = addProduct(inc, addTier(inc, EMPTY_BASKET, 'inc'), 'w-inc');
+    const ls = lines(inc, b, 'NL');
+    expect(ls.map((l) => l.netCents)).toEqual([30000, 10000]);
+    expect(totals(ls, 21).grossCents).toBe(36300 + 12100);
+  });
+  it('a community not VAT-registered ignores the flag: the price is the price', () => {
+    expect(netOf({ ...inc, vat: { registered: false, homeRatePct: 21 } }, 36300, true)).toBe(36300);
+    expect(netOf({ ...inc, vat: undefined }, 36300, true)).toBe(36300);
+  });
+  it('a reverse charge (rate 0) pays the net (A)', () => {
+    const b = addTier(inc, EMPTY_BASKET, 'inc');
+    expect(totals(lines(inc, b, 'DE'), 0).grossCents).toBe(30000);
   });
 });

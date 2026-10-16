@@ -164,6 +164,24 @@ const CATALOG = {
   // THE BASKET JOIN (2026-10-16, Sjoerd: "and then pay"): choose a tier,
   // add to it, see the basket, pay once.
   // THE PAGE BASKET (2026-10-16, Sjoerd: details once, a basket that fills).
+  // A price entered incl. VAT (2026-10-16): the card's headline says so, the
+  // net goes small underneath.
+  incl_vat_suffix: {
+    en: '(incl. VAT)',
+    nl: '(incl. btw)', // MT pending native review
+    es: '(IVA incl.)', // MT
+    pt: '(IVA incl.)', // MT
+    de: '(inkl. MwSt.)', // MT
+    fr: '(TTC)', // MT
+  },
+  excl_vat_amount: {
+    en: '{price} excl. VAT',
+    nl: '{price} excl. btw', // MT pending native review
+    es: '{price} sin IVA', // MT
+    pt: '{price} sem IVA', // MT
+    de: '{price} ohne MwSt.', // MT
+    fr: '{price} HT', // MT
+  },
   basket_title: {
     en: 'Your basket',
     nl: 'Je mandje', // MT pending native review

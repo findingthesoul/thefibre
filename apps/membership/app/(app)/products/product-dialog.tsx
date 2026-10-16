@@ -65,10 +65,12 @@ export function ProductDialog({
   grants,
   categories,
   productCategoryIds,
+  vatRegistered = false,
   locale,
   nextSortOrder,
   onClose,
 }: {
+  vatRegistered?: boolean;
   product: Product | null; // null = new
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
   /** The workspace's threads — thread-kind links pick a slug, never type one. */
@@ -99,6 +101,7 @@ export function ProductDialog({
     (product?.price_interval as 'once' | 'month' | 'year' | undefined) ?? 'once',
   );
   const [purchasable, setPurchasable] = useState(product?.purchasable ?? false);
+  const [inclVat, setInclVat] = useState(Boolean((product as { price_includes_vat?: boolean } | null)?.price_includes_vat));
   const [characteristics, setCharacteristics] = useState(
     (product?.characteristics ?? []).join('\n'),
   );
@@ -237,6 +240,7 @@ export function ProductDialog({
       price_cents: euroToCents(price),
       price_interval: priceInterval,
       purchasable,
+      ...(vatRegistered ? { price_includes_vat: inclVat } : {}),
       links: links
         .filter((l) => l.ref.trim())
         .map((l): ProductLink => ({
@@ -425,6 +429,15 @@ export function ProductDialog({
             </span>
           </label>
         </div>
+        {vatRegistered && (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={inclVat} onChange={(e) => setInclVat(e.target.checked)} className="mt-0.5" />
+            <span>
+              <span className="font-medium">{t(locale, 'price_incl_vat_label')}</span>
+              <span className="block text-xs text-ink-muted mt-0.5">{t(locale, 'price_incl_vat_hint')}</span>
+            </span>
+          </label>
+        )}
         {/* Directory categories (slice 1). Checkboxes, not a searchable
             multi-select: a community has a handful of categories, and the
             shared SearchSelect is single-value and built "for any list too

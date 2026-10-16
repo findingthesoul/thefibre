@@ -45,7 +45,7 @@ import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { invoiceLines } from '../lib/invoice-lines.js';
 import { recordPurchase } from '../lib/purchases.js';
-import { saleVat, type SaleVat } from '../lib/sale-vat.js';
+import { chargeNet, saleVat, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
 // Half of a deliberate import cycle — see the note above the matching
@@ -122,6 +122,9 @@ const CreateTier = z.object({
    *  (2026-10-14). Distinct from `archived`: hidden sells normally and
    *  renews normally, it is simply not advertised. */
   hidden: z.boolean().optional(),
+  // "Price includes VAT" (2026-10-16): the entered year/month price is what a
+  // home-rate buyer pays; ignored unless the community is VAT-registered.
+  price_includes_vat: z.boolean().optional(),
 });
 const PatchTier = CreateTier.partial().extend({
   archived: z.boolean().optional(),
@@ -144,6 +147,7 @@ const CreateProduct = z.object({
   // À-la-carte (2026-09-06): standalone selling is an EXPLICIT setting, not
   // inferred from price — a priced product can still be tier-only.
   purchasable: z.boolean().optional(),
+  price_includes_vat: z.boolean().optional(),
   sort_order: z.number().int().optional(),
 });
 const PatchProduct = CreateProduct.partial().extend({
@@ -687,7 +691,7 @@ membershipRoutes.get('/tiers', async (c) => {
   const { data, error } = await db
     .from('membership_tier')
     .select(
-      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, first_period_ends_on, hidden, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id, optional )',
+      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, first_period_ends_on, hidden, price_includes_vat, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id, optional )',
     )
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -788,7 +792,7 @@ membershipRoutes.get('/products', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_product')
-    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval, group_id')
+    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval, group_id, price_includes_vat')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list products', error);
@@ -2372,7 +2376,7 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
     // `hidden` is additive too, and the page reads it to say "this tier is
     // not listed" beside a tier reached by its link.
     .select(
-      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, first_period_ends_on, hidden, membership_tier_product ( product_id, optional )',
+      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, first_period_ends_on, hidden, price_includes_vat, membership_tier_product ( product_id, optional )',
     )
     .eq('workspace_id', ws.id)
     .is('archived_at', null)
@@ -2384,7 +2388,7 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .from('membership_product')
       // price/purchasable are additive (à-la-carte, 2026-09-06): the page
       // shows a Buy button only for purchasable products with a price.
-      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order, price_interval, group_id')
+      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order, price_interval, group_id, price_includes_vat')
       .eq('workspace_id', ws.id)
       .is('archived_at', null)
       .order('sort_order', { ascending: true }),
@@ -2569,7 +2573,7 @@ membershipRoutes.post('/public/validate-code', async (c) => {
 
   const { data: tier } = await adminClient
     .from('membership_tier')
-    .select('id, price_cents_year, price_cents_month, currency')
+    .select('id, price_cents_year, price_cents_month, currency, price_includes_vat')
     .eq('id', d.tier_id)
     .eq('workspace_id', ws.id)
     .is('archived_at', null)
@@ -2597,11 +2601,15 @@ membershipRoutes.post('/public/validate-code', async (c) => {
   // payment becomes; the membership renews at the full price, and the panel
   // says both numbers out loud rather than letting somebody discover the
   // second one a year later.
+  // NET figures, as the basket shows its lines: for a price entered incl.
+  // VAT the code comes off the ENTERED price, then the net is derived.
+  const incl = (tier as { price_includes_vat?: boolean }).price_includes_vat;
+  const country_ = d.country?.toUpperCase() ?? null;
   return c.json({
     valid: true,
     code: found.code.code,
-    price_cents: discountedPrice(found.code, afterCountry),
-    full_price_cents: afterCountry,
+    price_cents: await chargeNet({ workspaceId: ws.id, enteredCents: discountedPrice(found.code, afterCountry), includesVat: incl, country: country_ }),
+    full_price_cents: await chargeNet({ workspaceId: ws.id, enteredCents: afterCountry, includesVat: incl, country: country_ }),
     currency: tier.currency ?? 'EUR',
   });
 });
@@ -2708,7 +2716,7 @@ membershipRoutes.post('/public/join', async (c) => {
   // thing a direct link does not get to bypass.
   const { data: tier } = await adminClient
     .from('membership_tier')
-    .select('id, name, price_cents_year, price_cents_month, currency, first_period_ends_on')
+    .select('id, name, price_cents_year, price_cents_month, currency, first_period_ends_on, price_includes_vat')
     .eq('id', d.tier_id)
     .eq('workspace_id', ws.id)
     .is('archived_at', null)
@@ -2723,7 +2731,11 @@ membershipRoutes.post('/public/join', async (c) => {
   const country = d.country?.toUpperCase() ?? null;
   const logic = await priceLogicFor(ws.id, tier.id);
   const { pct, matched } = evaluatePriceLogic(logic, { country, interval: d.interval });
-  const listAmount = applyPct(baseAmount, pct);
+  const enteredList = applyPct(baseAmount, pct);
+  // "Price includes VAT" (2026-10-16): the logic and the code act on the
+  // ENTERED price; what is charged from here on is its NET (chargeNet).
+  const tierIncl = (tier as { price_includes_vat?: boolean }).price_includes_vat;
+  const listAmount = await chargeNet({ workspaceId: ws.id, enteredCents: enteredList, includesVat: tierIncl, country, vat_id: d.billing?.tax_no ?? null });
   if (listAmount <= 0) {
     return c.json({ error: 'This price resolves to zero — check the pricing rules.' }, 400);
   }
@@ -2765,7 +2777,9 @@ membershipRoutes.post('/public/join', async (c) => {
     }
   }
   const amount =
-    discount && 'code' in discount ? discountedPrice(discount.code, listAmount) : listAmount;
+    discount && 'code' in discount
+      ? await chargeNet({ workspaceId: ws.id, enteredCents: discountedPrice(discount.code, enteredList), includesVat: tierIncl, country, vat_id: d.billing?.tax_no ?? null })
+      : listAmount;
 
   // The terms this person is agreeing to, resolved once and carried to the
   // consent record. The form showed them the same ones (the catalogue says
@@ -2851,7 +2865,7 @@ membershipRoutes.post('/public/join', async (c) => {
   if (optionIds.length) {
     const { data: links } = await adminClient
       .from('membership_tier_product')
-      .select('product_id, product:product_id (id, name, price_cents, price_interval, archived_at)')
+      .select('product_id, product:product_id (id, name, price_cents, price_interval, archived_at, price_includes_vat)')
       .eq('tier_id', tier.id)
       .eq('optional', true)
       .in('product_id', optionIds);
@@ -2862,7 +2876,7 @@ membershipRoutes.post('/public/join', async (c) => {
     // option does below. Same lines, same VAT, same fee; no second rule.
     const { data: standalone } = await adminClient
       .from('membership_product')
-      .select('id, name, price_cents, price_interval, archived_at')
+      .select('id, name, price_cents, price_interval, archived_at, price_includes_vat')
       .eq('workspace_id', ws.id)
       .eq('purchasable', true)
       .is('archived_at', null)
@@ -2873,7 +2887,7 @@ membershipRoutes.post('/public/join', async (c) => {
         ...(links ?? []).map((l) => (Array.isArray(l.product) ? l.product[0] : l.product)),
         ...(standalone ?? []),
       ]
-        .filter((p): p is { id: string; name: string; price_cents: number | null; price_interval: string | null; archived_at: string | null } =>
+        .filter((p): p is { id: string; name: string; price_cents: number | null; price_interval: string | null; archived_at: string | null; price_includes_vat: boolean } =>
           Boolean(p && !p.archived_at),
         )
         .map((p) => [p.id, p]),
@@ -2883,6 +2897,17 @@ membershipRoutes.post('/public/join', async (c) => {
       return c.json({ error: 'One of the chosen options is not available for this tier.' }, 400);
     }
     options = optionIds.map((id) => byId.get(id)!);
+    // A product entered incl. VAT is charged at its NET (chargeNet), like the
+    // tier: from here on every line below sees net prices.
+    options = await Promise.all(
+      options.map(async (o) => ({
+        ...o,
+        price_cents:
+          o.price_cents == null
+            ? o.price_cents
+            : await chargeNet({ workspaceId: ws.id, enteredCents: o.price_cents, includesVat: (o as { price_includes_vat?: boolean }).price_includes_vat, country, vat_id: d.billing?.tax_no ?? null }),
+      })),
+    );
   }
 
   // A recurring product can only ride a subscription whose interval matches
@@ -3238,12 +3263,23 @@ membershipRoutes.post('/public/buy', async (c) => {
   // that is not refuses the WHOLE basket, never quietly drops a line.
   const { data: rows } = await adminClient
     .from('membership_product')
-    .select('id, name, price_cents, price_interval, currency, purchasable')
+    .select('id, name, price_cents, price_interval, currency, purchasable, price_includes_vat')
     .in('id', wantIds)
     .eq('workspace_id', ws.id)
     .is('archived_at', null);
-  const products = wantIds.map((id) => (rows ?? []).find((r) => r.id === id)).filter((p): p is NonNullable<typeof p> => !!p);
-  if (products.length !== wantIds.length) return c.json({ error: 'product not found' }, 404);
+  const found = wantIds.map((id) => (rows ?? []).find((r) => r.id === id)).filter((p): p is NonNullable<typeof p> => !!p);
+  if (found.length !== wantIds.length) return c.json({ error: 'product not found' }, 404);
+  // A product entered incl. VAT is charged at its NET (chargeNet) — every
+  // line and the fee below see net prices, exactly as for an excl. product.
+  const products = await Promise.all(
+    found.map(async (p) => ({
+      ...p,
+      price_cents:
+        p.price_cents == null
+          ? p.price_cents
+          : await chargeNet({ workspaceId: ws.id, enteredCents: p.price_cents, includesVat: p.price_includes_vat, country: d.country?.toUpperCase() ?? null, vat_id: d.vat_id ?? null }),
+    })),
+  );
   const unsellable = products.find((p) => !p.purchasable || p.price_cents == null || p.price_cents <= 0);
   if (unsellable) {
     return c.json({ error: products.length === 1 ? 'This product cannot be bought on its own.' : `${unsellable.name} cannot be bought on its own.` }, 400);

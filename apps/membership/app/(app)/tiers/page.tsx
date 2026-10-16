@@ -1,6 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { workspaceCurrencies } from '@/lib/workspace-currency';
 import { uiLocale } from '@/lib/locale';
+import { workspaceVatRegistered } from '@/lib/workspace-vat';
 import { TiersClient } from './tiers-client';
 import type { Tier } from './types';
 import type { Product, ProductCategoryLink } from '../products/types';
@@ -48,6 +49,7 @@ export default async function TiersPage() {
   return (
     <div className="px-6 py-10 max-w-5xl">
       <TiersClient
+        vatRegistered={await workspaceVatRegistered()}
         tiers={tiers}
         products={products}
         categories={categories}

@@ -22,6 +22,7 @@ import { money } from '@/lib/money';
 import { t, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { useBasket } from './basket-provider';
+import { netOf } from '@/lib/basket';
 
 const pctFor = (logic: PriceLogic | null, country: string, interval: 'year' | 'month') =>
   evaluatePriceLogic(logic, { country, interval }).pct;
@@ -95,7 +96,7 @@ function TierCard({
   vatRegistered: boolean;
   locale: Locale;
 }) {
-  const { basket, country, noteRatePct, addTier, removeTier, openBasket } = useBasket();
+  const { basket, catalog, country, noteRatePct, addTier, removeTier, openBasket } = useBasket();
   const currency = tier.currency ?? 'EUR';
   const hasYear = tier.price_cents_year != null && tier.price_cents_year > 0;
   const hasMonth = tier.price_cents_month != null && tier.price_cents_month > 0;
@@ -104,6 +105,11 @@ function TierCard({
   const adjustedYear = hasYear ? applyPct(tier.price_cents_year!, pctFor(logicHere, country, 'year')) : null;
   const adjustedMonth = hasMonth ? applyPct(tier.price_cents_month!, pctFor(logicHere, country, 'month')) : null;
   const inBasket = basket.tierId === tier.id;
+  // Entered incl. VAT (and the community adds VAT): the headline is what a
+  // home-rate buyer pays; the net goes small underneath.
+  const incl = vatRegistered && !!tier.price_includes_vat;
+  const vatSuffix = vatRegistered ? ` ${t(locale, incl ? 'incl_vat_suffix' : 'excl_vat_suffix')}` : '';
+  const shown = hasYear ? adjustedYear! : adjustedMonth ?? 0;
 
   return (
     <div className={`flex flex-col rounded-xl border bg-surface-raised p-6 ${inBasket ? 'border-line-strong' : 'border-line'}`}>
@@ -115,7 +121,7 @@ function TierCard({
             <span className="text-2xl font-semibold tabular-nums">{money(adjustedYear!, currency)}</span>
             <span className="text-sm text-ink-subtle">
               {t(locale, 'per_year')}
-              {vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}
+              {vatSuffix}
             </span>
           </>
         ) : hasMonth ? (
@@ -123,14 +129,19 @@ function TierCard({
             <span className="text-2xl font-semibold tabular-nums">{money(adjustedMonth!, currency)}</span>
             <span className="text-sm text-ink-subtle">
               {t(locale, 'per_month')}
-              {vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}
+              {vatSuffix}
             </span>
           </>
         ) : (
           <span className="text-sm text-ink-subtle">{t(locale, 'price_on_request')}</span>
         )}
       </div>
-      {vatRegistered && (hasYear || hasMonth) && (
+      {incl && (hasYear || hasMonth) && (
+        <p className="mt-0.5 text-xs tabular-nums text-ink-subtle">
+          {t(locale, 'excl_vat_amount', { price: money(netOf(catalog, shown, true), currency) })}
+        </p>
+      )}
+      {vatRegistered && !incl && (hasYear || hasMonth) && (
         <VatInclNote
           formatMoney={(c, cur) => money(c, cur)}
           netCents={hasYear ? adjustedYear! : adjustedMonth!}

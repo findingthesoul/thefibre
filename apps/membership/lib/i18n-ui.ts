@@ -2958,6 +2958,24 @@ const CATALOG = {
   },
   // PRODUCT GROUPS (2026-10-16): organising only — where a product is
   // listed. Never "category": that word belongs to the directory.
+  // "Price includes VAT" (2026-10-16): shown only to a VAT-registered
+  // community; says what it does AND that nobody already paying is repriced.
+  price_incl_vat_label: {
+    en: 'Price includes VAT',
+    nl: 'Prijs is inclusief btw', // MT pending native review
+    es: 'El precio incluye IVA', // MT
+    pt: 'O preço inclui IVA', // MT
+    de: 'Preis enthält MwSt.', // MT
+    fr: 'Le prix inclut la TVA', // MT
+  },
+  price_incl_vat_hint: {
+    en: 'Members at your home rate pay exactly this price; the VAT is worked out of it. Changing this affects new joins and purchases only — existing members keep what they pay.',
+    nl: 'Leden tegen je eigen tarief betalen precies deze prijs; de btw wordt eruit berekend. Wijzigen geldt alleen voor nieuwe aanmeldingen en aankopen — bestaande leden houden wat ze betalen.', // MT pending native review
+    es: 'Los miembros con tu tipo propio pagan exactamente este precio; el IVA se calcula dentro de él. Cambiarlo solo afecta a nuevas altas y compras: los miembros actuales siguen pagando lo mismo.', // MT
+    pt: 'Os membros à sua taxa pagam exatamente este preço; o IVA é calculado a partir dele. Alterar afeta só novas adesões e compras — os membros atuais continuam a pagar o mesmo.', // MT
+    de: 'Mitglieder zu deinem eigenen Satz zahlen genau diesen Preis; die MwSt. wird herausgerechnet. Eine Änderung gilt nur für neue Beitritte und Käufe — bestehende Mitglieder zahlen weiter, was sie zahlen.', // MT
+    fr: 'Les membres à ton taux paient exactement ce prix ; la TVA est calculée dedans. Changer ceci ne vaut que pour les nouvelles adhésions et achats — les membres actuels gardent ce qu’ils paient.', // MT
+  },
   pg_new_group: {
     en: 'New product group',
     nl: 'Nieuwe productgroep', // MT pending native review

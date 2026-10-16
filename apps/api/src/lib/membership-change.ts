@@ -20,6 +20,7 @@ import { workspaceStripeAccount } from './payment-accounts.js';
 import { priceLogicFor } from './pricing.js';
 import { applyPct, evaluatePriceLogic } from '@thefibre/shared/price-logic';
 import { recordPurchase } from './purchases.js';
+import { chargeNet } from './sale-vat.js';
 import { vatBreakdownFromInvoice } from '../routes/membership.js';
 
 /** The pending decision: false = a downgrade's difference is credited on the
@@ -134,7 +135,7 @@ const idem = (parts: string[]) => parts.join(':').slice(0, 255);
 export async function tierPriceFor(ctx: Ctx, tierId: string): Promise<{ cents: number; name: string } | null> {
   const { data: tier } = await adminClient
     .from('membership_tier')
-    .select('id, name, price_cents_year, price_cents_month, archived_at, workspace_id')
+    .select('id, name, price_cents_year, price_cents_month, archived_at, workspace_id, price_includes_vat')
     .eq('id', tierId)
     .maybeSingle();
   if (!tier || tier.archived_at || tier.workspace_id !== ctx.member.workspace_id) return null;
@@ -142,7 +143,9 @@ export async function tierPriceFor(ctx: Ctx, tierId: string): Promise<{ cents: n
   if (!base || base <= 0) return null;
   const logic = await priceLogicFor(ctx.member.workspace_id, tier.id as string);
   const { pct } = evaluatePriceLogic(logic, { country: ctx.member.country ?? null, interval: ctx.interval });
-  return { cents: applyPct(base as number, pct), name: tier.name as string };
+  // A price entered incl. VAT is changed at its NET, like at join.
+  const cents = await chargeNet({ workspaceId: ctx.member.workspace_id, enteredCents: applyPct(base as number, pct), includesVat: tier.price_includes_vat as boolean, country: ctx.member.country ?? null });
+  return { cents, name: tier.name as string };
 }
 
 /** How an add-on rides this membership: once (its own invoice), recurring
@@ -159,7 +162,7 @@ export function addonFit(product: { price_interval: string | null }, interval: '
 export async function availableAddons(member: OwnedMember) {
   const { data: links } = await adminClient
     .from('membership_tier_product')
-    .select('product:product_id (id, name, price_cents, price_interval, currency, archived_at)')
+    .select('product:product_id (id, name, price_cents, price_interval, currency, archived_at, price_includes_vat)')
     .eq('tier_id', member.tier_id)
     .eq('optional', true);
   const { data: held } = await adminClient
@@ -168,9 +171,16 @@ export async function availableAddons(member: OwnedMember) {
     .eq('person_id', member.person_id)
     .eq('status', 'paid');
   const owned = new Set((held ?? []).map((h) => h.product_id as string));
-  return (links ?? [])
-    .map((l) => (Array.isArray(l.product) ? l.product[0] : l.product) as { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null } | null)
+  const offered = (links ?? [])
+    .map((l) => (Array.isArray(l.product) ? l.product[0] : l.product) as { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean } | null)
     .filter((p): p is NonNullable<typeof p> => !!p && !p.archived_at && !owned.has(p.id) && (p.price_cents ?? 0) > 0);
+  // At their NET (a product entered incl. VAT), like at join.
+  return Promise.all(offered.map(async (p) => ({ ...p, price_cents: await addonNet(member, p) })));
+}
+
+/** An add-on's charged price: its net when entered incl. VAT. */
+export async function addonNet(member: OwnedMember, p: { price_cents: number | null; price_includes_vat?: boolean | null }): Promise<number> {
+  return chargeNet({ workspaceId: member.workspace_id, enteredCents: p.price_cents ?? 0, includesVat: p.price_includes_vat, country: member.country ?? null });
 }
 
 /** The tiers this member may move to: same community, listed, not archived,

@@ -1,6 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { workspaceCurrencies } from '@/lib/workspace-currency';
 import { uiLocale } from '@/lib/locale';
+import { workspaceVatRegistered } from '@/lib/workspace-vat';
 import { ProductsClient } from './products-client';
 import type { Product } from './types';
 import type { Grant, TeamOption } from '../access/types';
@@ -74,6 +75,7 @@ export default async function ProductsPage() {
   return (
     <div className="px-6 py-10 max-w-5xl">
       <ProductsClient
+        vatRegistered={await workspaceVatRegistered()}
         products={products}
         groups={groups}
         currency={currency}

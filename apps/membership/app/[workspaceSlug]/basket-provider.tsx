@@ -28,6 +28,7 @@ import {
   checkoutTarget,
   initialCountry,
   lines as basketLines,
+  netOf,
   normalize,
   parseStored,
   removeProduct,
@@ -106,7 +107,10 @@ export function BasketProvider({
   initialTierId: string | null;
   cancelled: boolean;
 }) {
-  const catalog: Catalog = useMemo(() => ({ tiers, products, priceLogic }), [tiers, products, priceLogic]);
+  const catalog: Catalog = useMemo(
+    () => ({ tiers, products, priceLogic, vat: { registered: vatRegistered, homeRatePct: vatHomeRatePct } }),
+    [tiers, products, priceLogic, vatRegistered, vatHomeRatePct],
+  );
   const BASKET_KEY = `thefibre.basket.${workspaceSlug}`;
   const COUNTRY_KEY = 'thefibre.join.country';
   const [basket, setBasket] = useState<Basket>(EMPTY_BASKET);
@@ -409,7 +413,7 @@ function BasketBody({
             <button key={p.id} type="button" onClick={() => addP(p.id)} className="mt-1 flex w-full items-baseline justify-between gap-2 text-left hover:text-ink">
               <span className="text-ink-subtle">+ {p.name}</span>
               <span className="shrink-0 tabular-nums text-ink-muted">
-                {fmt(p.price_cents ?? 0, p.currency ?? currency)}{' '}
+                {fmt(netOf(catalog, p.price_cents ?? 0, p.price_includes_vat), p.currency ?? currency)}{' '}
                 {(p.price_interval ?? 'once') === 'once' ? t(locale, 'option_once') : t(locale, basket.interval === 'year' ? 'per_year' : 'per_month')}
               </span>
             </button>

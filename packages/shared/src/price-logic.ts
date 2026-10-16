@@ -158,3 +158,33 @@ export function pickPriceLogicRow<T extends PriceLogicRow>(
 export function applyPct(amountCents: number, pct: number): number {
   return Math.max(0, Math.round((amountCents * clampPct(pct)) / 100));
 }
+
+/** THE NET OF A PRICE ENTERED INCLUDING VAT (2026-10-16, "price includes
+ *  VAT" per tier/product): the cent value `net` for which
+ *  `net + round(net * ratePct / 100) === grossCents` — so a buyer at the
+ *  community's home rate pays EXACTLY the entered price. Plain division can
+ *  land a cent off the exact net (36300 at 21% → 30000 exactly; others need
+ *  the neighbour), so the candidates around it are tried. Some prices have
+ *  NO exact cent net at a given rate — 100.00 at 21%: 82.64 gives 99.99 and
+ *  82.65 gives 100.01 — and then the nearest gross is taken (ties → the
+ *  lower net, so the buyer is never charged the extra cent).
+ *
+ *  ONE function for the charge, the cards, the basket and validate-code: a
+ *  net worked out twice is a net that drifts. The VAT itself is then added by
+ *  the one excl. rule (lib/sale-vat.ts), with the same rounding (vatOn). */
+export function netFromInclusive(grossCents: number, ratePct: number): number {
+  if (!(ratePct > 0) || grossCents <= 0) return Math.max(0, grossCents);
+  const vatOf = (n: number) => Math.round((n * ratePct) / 100);
+  const guess = Math.round((grossCents * 100) / (100 + ratePct));
+  let best = guess;
+  let bestErr = Infinity;
+  for (let n = guess - 2; n <= guess + 2; n++) {
+    if (n < 0) continue;
+    const err = Math.abs(n + vatOf(n) - grossCents);
+    if (err < bestErr) {
+      best = n;
+      bestErr = err;
+    }
+  }
+  return best;
+}

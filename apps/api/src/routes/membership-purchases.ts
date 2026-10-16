@@ -24,6 +24,7 @@ import { reconcileMemberAccess } from './membership.js';
 import {
   addAddon,
   addonFit,
+  addonNet,
   availableAddons,
   availableTiers,
   changeTier,
@@ -301,7 +302,7 @@ membershipPurchaseRoutes.post('/me/addons/:memberId', async (c) => {
       ? (
           await adminClient
             .from('membership_tier_product')
-            .select('product:product_id (id, name, price_cents, price_interval, currency, archived_at)')
+            .select('product:product_id (id, name, price_cents, price_interval, currency, archived_at, price_includes_vat)')
             .eq('tier_id', r.ctx.member.tier_id)
             .eq('optional', true)
             .eq('product_id', body.product_id)
@@ -309,12 +310,12 @@ membershipPurchaseRoutes.post('/me/addons/:memberId', async (c) => {
         ).data?.product
       : null;
   const p = (Array.isArray(product) ? product[0] : product) as
-    | { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null }
+    | { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean }
     | null
     | undefined;
   if (!p || p.archived_at || !(p.price_cents && p.price_cents > 0)) return c.json({ error: 'That add-on is not available for this membership.' }, 404);
   try {
-    const out = await addAddon(r.ctx, { ...p, price_cents: p.price_cents }, reconcileMemberAccess, requestIdOf(body.request_id));
+    const out = await addAddon(r.ctx, { ...p, price_cents: await addonNet(r.ctx.member, p) }, reconcileMemberAccess, requestIdOf(body.request_id));
     await logMemberActivity(r.ctx.member.workspace_id, r.ctx.member.person_id, 'membership_addon_added', `Add-on added by the member · ${p.name}`).catch(() => undefined);
     return c.json({ ok: true, ...out });
   } catch (e) {

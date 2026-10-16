@@ -21,6 +21,7 @@
 import { getVatRates, type VatRates } from './vat.js';
 import { resolveSellerVat } from './seller-vat.js';
 import { validateVatNumber } from './vies.js';
+import { netFromInclusive } from '@thefibre/shared/price-logic';
 
 export type SaleVat = {
   net_cents: number;
@@ -125,4 +126,41 @@ export async function homeVatPct(input: {
  *  old inclusive carve to a sale made under this rule. */
 export function vatBilling(v: SaleVat): { subtotal_cents: number; tax_cents: number; tax_label: string | null } {
   return { subtotal_cents: v.net_cents, tax_cents: v.tax_cents, tax_label: v.label };
+}
+
+/** (A) or (B) — PENDING Sjoerd and his accountant (coordinator, 2026-10-16).
+ *  For a price entered INCLUDING VAT, what does a buyer pay who owes no VAT
+ *  here (an EU business with a valid number — reverse charge — or a buyer
+ *  outside the EU)?
+ *    true  (A): the NET — "€300 including our VAT", none is due, so €247,93.
+ *    false (B): the full entered price, as the net — "€300 is the price".
+ *  A server constant, like DOWNGRADE_REFUNDS: one switch, no data. */
+export const INCLUSIVE_EXEMPT_PAYS_NET = true;
+
+/** The NET to charge for a price as entered (2026-10-16, per tier/product
+ *  "price includes VAT"). An excl. price is its own net. An incl. price is
+ *  turned into the net at the community's HOME rate (netFromInclusive), so a
+ *  buyer at home pays exactly what was entered; the VAT is then added by THE
+ *  rule above, like any other sale. A community that is not VAT-registered
+ *  ignores the flag entirely: the price is just the price.
+ *
+ *  Price logic and a discount code apply to the ENTERED price first; call
+ *  this with the result. */
+export async function chargeNet(input: {
+  workspaceId: string;
+  enteredCents: number;
+  includesVat: boolean | null | undefined;
+  /** For the (B) case only: the buyer's country and VAT number. */
+  country?: string | null;
+  vat_id?: string | null;
+}): Promise<number> {
+  if (!input.includesVat || input.enteredCents <= 0) return input.enteredCents;
+  const [cfg, seller] = await Promise.all([getVatRates(), resolveSellerVat(input.workspaceId)]);
+  if (!seller) return input.enteredCents;
+  if (!INCLUSIVE_EXEMPT_PAYS_NET) {
+    const v = await saleVat({ workspaceId: input.workspaceId, net_cents: input.enteredCents, country: input.country ?? null, vat_id: input.vat_id ?? null });
+    if (v.rate_pct === 0) return input.enteredCents;
+  }
+  const home = cfg.home_country.toUpperCase();
+  return netFromInclusive(input.enteredCents, cfg.rates[home] ?? 21);
 }

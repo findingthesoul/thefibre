@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.231.0] — 2026-10-16
+
+### "Price includes VAT" per tier and product (Members 1.9.0; off for every existing price)
+
+Sjoerd, earlier: *"Maybe when adding a price it should ask: incl VAT and
+apply VAT rules."* Since then: *"Everything excl. VAT now"*. So the switch
+exists and is OFF for every price until an admin turns it on.
+
+- **A switch in the tier and product dialogs, "Price includes VAT"**, shown
+  only to a VAT-registered community. A tier's switch covers its yearly and
+  monthly price. The help line says it: members at your home rate pay
+  exactly this price, the VAT is worked out of it, and changing it affects
+  new joins and purchases only (existing members keep what they pay).
+- **One net, one pipeline.** For an incl. price the server derives the net
+  once, at the community's HOME rate (`netFromInclusive` in
+  `@thefibre/shared/price-logic`). From there everything is today's excl.
+  code: the VAT rule, Stripe lines (net + our exclusive tax rate), the fee on
+  the net, the ledger and the invoice.
+  - Price logic and a discount code act on the ENTERED price first (363 −
+    20% = 290.40 incl. → 240.00 net).
+  - A community that isn't VAT-registered ignores the flag: the price is
+    just the price.
+  - Stripe's 'inclusive' tax rates are deliberately NOT used: they would be
+    a second pipeline, and they carve VAT at the buyer's rate.
+- **Some prices have no exact cent net** (100.00 at 21%: 82.64 gives 99.99,
+  82.65 gives 100.01). The lower net is taken, so a buyer is never charged
+  the extra cent. It's pinned in the unit test.
+- **(A) for a buyer who owes no VAT here** (reverse charge, or outside the
+  EU): they pay the net (€300.00 for a €363.00 incl. price). This waits on
+  Sjoerd and his accountant; the other answer, (B), is one server constant
+  (`INCLUSIVE_EXEMPT_PAYS_NET`).
+- **Applied everywhere a price becomes a charge:** the join (tier and
+  add-ons), validate-code (which answers net figures, as the basket's lines
+  are net), products bought on their own, and adding to or changing a
+  membership (P3).
+- **What people see:** an incl. card's headline is the entered price "(incl.
+  VAT)", with the net small underneath ("€300 excl. VAT"). The basket's
+  lines are net; subtotal, VAT and total are unchanged, and a home-rate
+  buyer's total is the entered price.
+- API (additive): `price_includes_vat` on tiers and products in the admin
+  lists, in PATCH/POST, and in the public catalogue.
+- Tests:
+  - unit: `netFromInclusive` across rates and amounts, the discounted price
+    and the no-exact case (17); the basket's incl. lines, a community that
+    isn't registered, and the reverse charge (15);
+  - integration (staging + Stripe TEST, 5): an NL consumer pays exactly
+    363.00 (300.00 + 63.00); outside the EU pays the net, 300.00 (A); a
+    20% code → validate-code net 240.00, charged 290.40; a product 121.00 →
+    100.00 + 21.00; the catalogue carries the flag;
+  - the existing VAT, basket, purchase, change and card suites re-run
+    (27/27).
+
 ## [1.230.1] — 2026-10-16
 
 ### Participants hear about every change (Thread 4.14.2, my.thread 0.17.1)

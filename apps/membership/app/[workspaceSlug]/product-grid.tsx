@@ -12,7 +12,7 @@ import { money } from '@/lib/money';
 import { t, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { VatInclNote } from '@thefibre/shared/ui/vat-price';
-import { addBlocker } from '@/lib/basket';
+import { addBlocker, netOf } from '@/lib/basket';
 import { useBasket } from './basket-provider';
 
 export function ProductGrid({
@@ -76,6 +76,7 @@ function ProductCard({ product, locale, vatRegistered }: { product: PublicProduc
   const inBasket = basket.productIds.includes(product.id);
   const blocker = addBlocker(catalog, basket, product);
   const iv = product.price_interval ?? 'once';
+  const incl = vatRegistered && !!product.price_includes_vat;
 
   return (
     <div className={`flex flex-col rounded-xl border bg-surface-raised p-6 ${inBasket ? 'border-line-strong' : 'border-line'}`}>
@@ -85,11 +86,15 @@ function ProductCard({ product, locale, vatRegistered }: { product: PublicProduc
         <span className="text-2xl font-semibold tabular-nums">{money(product.price_cents!, currency)}</span>
         <span className="text-sm text-ink-subtle">
           {iv === 'once' ? t(locale, 'one_off') : t(locale, iv === 'month' ? 'per_month' : 'per_year')}
-          {vatRegistered ? ` ${t(locale, 'excl_vat_suffix')}` : ''}
+          {vatRegistered ? ` ${t(locale, incl ? 'incl_vat_suffix' : 'excl_vat_suffix')}` : ''}
         </span>
       </div>
-      {vatRegistered && (
-        <VatInclNote formatMoney={(c, cur) => money(c, cur)} netCents={product.price_cents!} ratePct={noteRatePct} currency={currency} locale={locale} className="mt-0.5" />
+      {incl ? (
+        <p className="mt-0.5 text-xs tabular-nums text-ink-subtle">
+          {t(locale, 'excl_vat_amount', { price: money(netOf(catalog, product.price_cents!, true), currency) })}
+        </p>
+      ) : (
+        vatRegistered && <VatInclNote formatMoney={(c, cur) => money(c, cur)} netCents={product.price_cents!} ratePct={noteRatePct} currency={currency} locale={locale} className="mt-0.5" />
       )}
 
       {product.description && <p className="mt-3 text-sm text-ink-subtle leading-relaxed">{product.description}</p>}

@@ -64,6 +64,8 @@ export type PublicTier = {
    *  panel has to say before taking the money, not leave to the receipt.
    *  Optional: most tiers have no such date and renew a year after joining. */
   first_period_ends_on?: string | null;
+  /** The entered price includes VAT (2026-10-16); default false. */
+  price_includes_vat?: boolean;
   /** Not listed on the join page (2026-10-14). A tier reached by its direct
    *  link arrives with this true, so the page can say so — somebody opening
    *  an invitation should know they are looking at something not on offer to
@@ -90,6 +92,8 @@ export type PublicProduct = {
   purchasable?: boolean;
   /** The product group it is listed under (2026-10-16). */
   group_id?: string | null;
+  /** The entered price includes VAT (2026-10-16); default false. */
+  price_includes_vat?: boolean;
   links: { kind: string; ref: string; label?: string }[] | null;
   sort_order: number | null;
 };
