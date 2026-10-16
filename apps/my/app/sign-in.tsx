@@ -6,7 +6,10 @@
 // ways in is how a simple door stops feeling simple.
 
 import { useState } from 'react';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { browserSupabase } from '@/lib/supabase/client';
+import { t } from '@/lib/i18n';
+import { parts } from '@/lib/i18n-parts';
 
 type Stage = 'email' | 'code';
 
@@ -16,6 +19,7 @@ export function SignIn() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -33,7 +37,11 @@ export function SignIn() {
     });
     setBusy(false);
     if (error) {
-      setError(error.message);
+      // Supabase's own sentence is English and sometimes technical. The
+      // reader gets one of ours, in their language; the original goes to the
+      // console for whoever is debugging.
+      console.warn('[sign-in] code not sent', error);
+      setError(error.status === 429 ? t(locale, 'code_wait') : t(locale, 'code_send_failed'));
       return;
     }
     setStage('code');
@@ -50,7 +58,8 @@ export function SignIn() {
       type: 'email',
     });
     if (error) {
-      setError(error.message);
+      console.warn('[sign-in] code not accepted', error);
+      setError(error.status === 429 ? t(locale, 'code_wait') : t(locale, 'code_invalid'));
       setBusy(false);
       return;
     }
@@ -67,7 +76,7 @@ export function SignIn() {
       <form onSubmit={verify} className="space-y-4">
         <div>
           <label htmlFor="code" className="block text-sm text-ink-subtle">
-            We sent a code to <span className="text-ink">{email}</span>
+            {parts(t(locale, 'code_sent'), { email: <span className="text-ink">{email}</span> })}
           </label>
           <input
             id="code"
@@ -77,13 +86,13 @@ export function SignIn() {
             inputMode="numeric"
             autoComplete="one-time-code"
             autoFocus
-            placeholder="8-digit code"
+            placeholder={t(locale, 'code_placeholder')}
             className={`${field} mt-2 tracking-[0.3em]`}
           />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className={button}>
-          {busy ? 'Checking…' : 'Sign in'}
+          {busy ? t(locale, 'verifying') : t(locale, 'sign_in')}
         </button>
         <button
           type="button"
@@ -94,7 +103,7 @@ export function SignIn() {
           }}
           className="w-full text-sm text-ink-muted hover:text-ink"
         >
-          Use a different email
+          {t(locale, 'use_different_email')}
         </button>
       </form>
     );
@@ -104,7 +113,7 @@ export function SignIn() {
     <form onSubmit={sendCode} className="space-y-4">
       <div>
         <label htmlFor="email" className="block text-sm text-ink-subtle">
-          Your email
+          {t(locale, 'your_email')}
         </label>
         <input
           id="email"
@@ -118,12 +127,12 @@ export function SignIn() {
           className={`${field} mt-2`}
         />
         <p className="mt-2 text-sm text-ink-muted">
-          Use the address you booked with — that&rsquo;s how we find your things.
+          {t(locale, 'email_hint')}
         </p>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button type="submit" disabled={busy} className={button}>
-        {busy ? 'Sending…' : 'Email me a code'}
+        {busy ? t(locale, 'sending') : t(locale, 'email_me_code')}
       </button>
     </form>
   );

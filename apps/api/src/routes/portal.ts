@@ -336,9 +336,21 @@ portalRoutes.get('/nav', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
   await markEmailProven(email);
-  const persons = await personsForEmail(email);
+  // The reader's chosen language rides along (2026-10-16, my.thread in six
+  // languages): the layout decides the language of every page, and this is
+  // the one call it already makes. identity_profile is keyed by email — the
+  // same row the You page's picker writes and every email reads. ADDITIVE:
+  // an older web ignores it, and the web treats a missing field as "no
+  // choice made" (lib/locale.ts). A failed read is the same: null, and the
+  // page falls back to the browser's language rather than failing.
+  const [persons, identity] = await Promise.all([
+    personsForEmail(email),
+    adminClient.from('identity_profile').select('locale').eq('email', email).maybeSingle(),
+  ]);
+  if (identity.error) console.error('[portal/nav] locale read failed', identity.error);
+  const locale = isLocale(identity.data?.locale as string | null) ? (identity.data?.locale as string) : null;
   const personIds = persons.map((p) => p.id);
-  if (!personIds.length) return c.json({ upcoming: false, communities: 0, unread_notifications: 0 });
+  if (!personIds.length) return c.json({ upcoming: false, communities: 0, unread_notifications: 0, locale });
 
   const [members, unread] = await Promise.all([
     adminClient
@@ -370,6 +382,7 @@ portalRoutes.get('/nav', async (c) => {
         .map((m) => m.workspace_id as string),
     ).size,
     unread_notifications: unread.count ?? 0,
+    locale,
   });
 });
 

@@ -505,7 +505,15 @@ export function invoicePdfUrl(id: string): string {
 
 /** What the frame (nav, bell) needs on every page — GET /me/nav. The same
  *  three values /me/portal carries, without the rest of it. */
-export type PortalNav = { upcoming: boolean; communities: number; unread_notifications: number };
+export type PortalNav = {
+  upcoming: boolean;
+  communities: number;
+  unread_notifications: number;
+  /** The reader's chosen language (identity_profile.locale), or null. Absent
+   *  from an API older than 2026-10-16 and from the /me/portal fallback below
+   *  — lib/locale.ts reads either as "no choice made". */
+  locale?: string | null;
+};
 
 export async function fetchNav(accessToken: string): Promise<PortalNav> {
   const res = await fetch(`${baseUrl}/api/v1/me/nav`, {

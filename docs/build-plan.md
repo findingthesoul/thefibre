@@ -26,6 +26,21 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
+**my.thread in six languages: release 1 of 3 shipped (2026-10-16).** Sjoerd
+asked for it ahead of web push. The rule (cookie → identity_profile.locale →
+Accept-Language → en) is `resolvePortalLocale` in shared. The catalog is
+`apps/my/lib/i18n.ts`. Release 1 covered the frame, sign-in, error and Next
+(with the sheet, ticket and certificate). Still to do:
+- **Release 2:** upcoming/*, files + document-rows, notifications, community/*,
+  members/*, help, unsubscribe/*.
+- **Phase 2, after builder 3 lands the You tabs:** you/**, purchases/**,
+  memberships/*, cancellation.tsx (those are B3's), and the You language
+  picker writing the `thefibre.locale` cookie plus `router.refresh()`.
+- `public/offline.html` stays English, deliberately: it is precached, and a
+  change forces a sw.js VERSION bump.
+- es/pt/de/fr are `// MT` and want a native review.
+- **Then: web push for my.thread's bell (parked, planned).**
+
 **Meet booking approval: ON STAGING, not promoted (v1.110.2 → v1.112.0,
 2026-10-06).** A real invitee hit three faults in one booking: rescheduling
 told her the time was taken (the meeting was blocking its own move), her

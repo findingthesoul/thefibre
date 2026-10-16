@@ -36,6 +36,7 @@ export { resolveShortBio, excerptAtWord, fullBioAddsMore, SHORT_BIO_FALLBACK_CHA
 // THE language resolver — which language a surface is in, for every app.
 export {
   resolveUiLocale,
+  resolvePortalLocale,
   resolvePublicLocale,
   resolveEmailLocale,
   localeFromAcceptLanguage,

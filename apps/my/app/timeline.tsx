@@ -14,11 +14,14 @@ import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { quarterLabel, unanswered, type Entry } from '@/lib/timeline';
 import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { Rsvp, ThreadSheet } from './detail';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
+import { dayMonth } from '@/lib/format';
 
 /** Day over month — how an agenda is scanned, and the same chip the detail
  *  sheet uses, so a card and its contents read alike. */
 function DateChip({ iso, muted }: { iso: string; muted?: boolean }) {
-  const d = new Date(iso);
+  const { day, month } = dayMonth(iso, useLocale());
   return (
     <div
       aria-hidden
@@ -30,10 +33,10 @@ function DateChip({ iso, muted }: { iso: string; muted?: boolean }) {
       }`}
     >
       <span className="text-base font-medium text-ink">
-        {new Intl.DateTimeFormat('en-GB', { day: 'numeric' }).format(d)}
+        {day}
       </span>
       <span className="mt-0.5 text-[10px] uppercase tracking-wide text-ink-muted">
-        {new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d)}
+        {month}
       </span>
     </div>
   );
@@ -48,6 +51,7 @@ function Card({
   onOpen: (threadId: string, engagementId: string | null) => void;
   past?: boolean;
 }) {
+  const locale = useLocale();
   // The RSVP control needs the agenda item it answers for. The timeline
   // carries the three fields it uses rather than the whole item, so the card
   // does not have to hold a second copy of the payload.
@@ -126,7 +130,7 @@ function Card({
             className="inline-flex shrink-0 items-center gap-1.5 self-stretch rounded-lg bg-ink px-3 text-sm font-medium text-surface hover:opacity-90"
           >
             <Video className="h-4 w-4" aria-hidden />
-            Join
+            {t(locale, 'join')}
           </a>
         )}
 
@@ -153,14 +157,15 @@ function Card({
  *  with the small facts rather than out at the edge competing with the one
  *  control that does something. */
 function MetaLine({ entry }: { entry: Entry }) {
+  const locale = useLocale();
   // A certificate's row says so in words as well as by its mark: the title is
   // the thread's, so without this the line reads as one more session on a
   // programme the person has already finished.
   const meta = [
-    entry.kind === 'certificate' ? 'Certificate' : entry.time,
-    entry.role === 'host' ? 'You’re hosting' : entry.role === 'facilitator' ? 'You’re facilitating' : null,
+    entry.kind === 'certificate' ? t(locale, 'certificate') : entry.time,
+    entry.role === 'host' ? t(locale, 'you_host') : entry.role === 'facilitator' ? t(locale, 'you_facilitate') : null,
     entry.organiser,
-    entry.where,
+    entry.where ?? (entry.withHost ? t(locale, 'with_people', { names: entry.withHost }) : null),
   ]
     .filter(Boolean)
     .join(' \u00b7 ');
@@ -170,7 +175,7 @@ function MetaLine({ entry }: { entry: Entry }) {
       {entry.hasTicket && (
         // Named on the wrapper, not the glyph: an aria-hidden SVG with a
         // <title> inside it is announced by nothing.
-        <span title="You have a ticket" aria-label="You have a ticket" className="shrink-0">
+        <span title={t(locale, 'have_ticket')} aria-label={t(locale, 'have_ticket')} className="shrink-0">
           <QrCode className="h-3.5 w-3.5" aria-hidden />
         </span>
       )}
@@ -196,6 +201,7 @@ export function Timeline({
   const [onlyUnanswered, setOnlyUnanswered] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
+  const locale = useLocale();
 
   const all = useMemo(() => [...entries, ...past], [entries, past]);
   const organisers = useMemo(
@@ -234,7 +240,7 @@ export function Timeline({
   // answer was — so "Earlier" never narrows to unanswered.
   const earlier = past.filter(keep);
 
-  const showQuarters = new Set(upcoming.map((e) => quarterLabel(e.at))).size > 1;
+  const showQuarters = new Set(upcoming.map((e) => quarterLabel(e.at, locale))).size > 1;
 
   const open = openThread ? threads[openThread] : null;
 
@@ -252,7 +258,7 @@ export function Timeline({
               setThreadId('');
             }}
           >
-            Everyone
+            {t(locale, 'everyone')}
           </Chip>
           {organisers.map((o) => (
             <Chip
@@ -277,8 +283,8 @@ export function Timeline({
             value={chosenThread}
             onChange={setThreadId}
             options={threadOptions}
-            placeholder="All threads"
-            clearLabel="All threads"
+            placeholder={t(locale, 'all_threads')}
+            clearLabel={t(locale, 'all_threads')}
           />
         </div>
       )}
@@ -298,27 +304,29 @@ export function Timeline({
           }`}
         >
           {owed.length === 1
-            ? '1 still needs an answer'
-            : `${owed.length} still need an answer`}
-          {onlyUnanswered && <span className="text-xs opacity-80">· show all</span>}
+            ? t(locale, 'owed_one')
+            : t(locale, 'owed_many', { n: owed.length })}
+          {onlyUnanswered && <span className="text-xs opacity-80">{t(locale, 'show_all')}</span>}
         </button>
       )}
 
       {upcoming.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
           {chosenThread
-            ? `Nothing coming up in ${threadOptions.find((o) => o.value === chosenThread)?.label ?? 'this thread'}.`
+            ? t(locale, 'nothing_in', {
+                title: threadOptions.find((o) => o.value === chosenThread)?.label ?? t(locale, 'this_thread'),
+              })
             : organiser
-              ? `Nothing coming up with ${organiser}.`
-              : 'Nothing coming up.'}
+              ? t(locale, 'nothing_with', { name: organiser })
+              : t(locale, 'nothing_coming')}
         </p>
       ) : (
         <ul className="mt-6 space-y-3">
           {upcoming.map((e, i) => {
-            const q = quarterLabel(e.at);
+            const q = quarterLabel(e.at, locale);
             // Only where the list actually crosses a boundary. A single
             // header over everything labels nothing.
-            const newQuarter = showQuarters && (i === 0 || quarterLabel(upcoming[i - 1]!.at) !== q);
+            const newQuarter = showQuarters && (i === 0 || quarterLabel(upcoming[i - 1]!.at, locale) !== q);
             return (
               // A Fragment, not a wrapper: `Card` IS the <li>, and an <li>
               // inside an <li> is not markup a browser will keep.
@@ -344,7 +352,7 @@ export function Timeline({
             onClick={() => setShowPast((v) => !v)}
             className="inline-flex min-h-11 items-center text-sm text-ink-subtle underline underline-offset-4 hover:text-ink"
           >
-            {showPast ? 'Hide earlier' : `Earlier (${earlier.length})`}
+            {showPast ? t(locale, 'hide_earlier') : t(locale, 'earlier', { n: earlier.length })}
           </button>
           {showPast && (
             <ul className="mt-3 space-y-3">

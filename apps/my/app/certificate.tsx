@@ -25,6 +25,9 @@ import { useEffect, useState } from 'react';
 import { Award, ExternalLink } from 'lucide-react';
 import { CertView, type CertSnapshot } from '@thefibre/shared/ui/cert-view';
 import { certificateUrl, fetchCertificate } from '@/lib/portal-api';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
+import { fmtLongDate } from '@/lib/format';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://thefibre-api.fly.dev';
 
@@ -39,6 +42,7 @@ export function Certificate({
 }) {
   const [snapshot, setSnapshot] = useState<CertSnapshot | null>(null);
   const [failed, setFailed] = useState(false);
+  const locale = useLocale();
 
   useEffect(() => {
     let alive = true;
@@ -56,7 +60,7 @@ export function Certificate({
 
   return (
     <section>
-      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Certificate</h3>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">{t(locale, 'certificate')}</h3>
 
       <div className="mt-2 rounded-2xl border border-line bg-surface-sunken p-3">
         {/* Held at the page's aspect while it loads, so opening the sheet does
@@ -80,7 +84,7 @@ export function Certificate({
 
         <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-xs text-ink-muted">
-            {number} · issued {issued(issuedAt)}
+            {t(locale, 'cert_issued', { number, date: fmtLongDate(issuedAt, locale) })}
           </p>
           <a
             href={href}
@@ -88,7 +92,7 @@ export function Certificate({
             rel="noreferrer"
             className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink underline underline-offset-4"
           >
-            View online
+            {t(locale, 'view_online')}
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
           </a>
         </div>
@@ -96,17 +100,9 @@ export function Certificate({
         {failed && (
           // The number and the link still work; only the picture is missing.
           // Saying which half failed beats a blank box.
-          <p className="mt-1 text-xs text-ink-muted">
-            The preview could not be loaded. The link above still opens it.
-          </p>
+          <p className="mt-1 text-xs text-ink-muted">{t(locale, 'cert_preview_failed')}</p>
         )}
       </div>
     </section>
   );
-}
-
-function issued(iso: string): string {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return '—';
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 }

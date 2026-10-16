@@ -5,12 +5,14 @@
 
 import Link from 'next/link';
 import { Bell as BellIcon } from 'lucide-react';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
 
-export function Bell({ unread, className = '' }: { unread: number; className?: string }) {
+export function Bell({ unread, locale, className = '' }: { unread: number; locale: Locale; className?: string }) {
   return (
     <Link
       href="/notifications"
-      aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
+      aria-label={unread ? t(locale, 'notifications_unread', { n: unread }) : t(locale, 'notifications')}
       className={`relative inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-subtle hover:text-ink ${className}`}
     >
       <BellIcon size={20} strokeWidth={1.75} aria-hidden />

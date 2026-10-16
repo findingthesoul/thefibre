@@ -6,6 +6,7 @@
 // long enough to hurt, not before.
 
 import type { Portal, RsvpResponse } from './portal-api';
+import { INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared/i18n';
 
 export type Entry = {
   key: string;
@@ -37,6 +38,9 @@ export type Entry = {
   /** "16:00", or null for an all-day entry. */
   time: string | null;
   where: string | null;
+  /** A meet with no location says who it is with instead — the NAME only;
+   *  the words around it are the reader's language, added where it renders. */
+  withHost?: string | null;
   /** A map link for `where`, when there is one. */
   whereUrl: string | null;
   /** Offered only inside the window below — a Join button three months early
@@ -184,7 +188,8 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
         workspaceId: g.workspace_id,
         dateIso: m.starts_at,
         time: hhmm(m.starts_at),
-        where: m.location ?? (m.host ? `with ${m.host}` : null),
+        where: m.location ?? null,
+        withHost: m.location ? null : (m.host ?? null),
         whereUrl: null,
         joinUrl: m.meet_url && joinable(m.starts_at, m.ends_at, now) ? m.meet_url : null,
         threadId: null,
@@ -227,9 +232,18 @@ export function splitAt(
  *  it makes a long list scannable without adding a row of chrome above a
  *  short one. "Q4 2026" is a finance word; a member reads months.
  */
-export function quarterLabel(at: number): string {
+export function quarterLabel(at: number, locale?: Locale | string | null): string {
   const d = new Date(at);
   const q = Math.floor(d.getMonth() / 3);
+  const l = toLocale(locale ?? null);
+  // Another language names its own months. English keeps the table below:
+  // en-GB's short September is "Sept", and "Jul–Sept" is not what this
+  // label has always said.
+  if (l !== 'en') {
+    const month = (m: number) =>
+      new Intl.DateTimeFormat(INTL_LOCALES[l], { month: 'short' }).format(new Date(d.getFullYear(), m, 15));
+    return `${month(q * 3)}\u2013${month(q * 3 + 2)} ${d.getFullYear()}`;
+  }
   const months = [
     ['Jan', 'Mar'],
     ['Apr', 'Jun'],

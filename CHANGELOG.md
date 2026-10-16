@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.247.0] — 2026-10-16
+
+### my.thread in six languages, part 1: the frame, sign-in and Next (my.thread 0.21.0)
+
+- Sjoerd asked for my.thread in six languages, ahead of web push. Until now
+  the app was English only: `<html lang="en">`, dates fixed to en-GB, and the
+  You page's language picker reached the emails and nothing else.
+- **Which language.** `resolvePortalLocale` is new in
+  `@thefibre/shared/locale-resolution`. The order: this browser's
+  `thefibre.locale` cookie, then the person's own `identity_profile.locale`,
+  then the browser's Accept-Language, then English. The guess goes last, and
+  only here: the reader is the subject, and most participants were never
+  shown a picker.
+- **`GET /me/nav` gains `locale`** (additive). It is the call the layout
+  already makes, so the language costs nothing extra. An older API, or the
+  `/me/portal` fallback, leaves it out, and the page reads that as "no choice
+  made".
+- **The catalog.** `apps/my/lib/i18n.ts`, Thread's pattern: a key missing a
+  locale is a type error. The shared `PARTICIPANT_AUTH` sign-in strings are
+  spread in, not translated twice. es/pt/de/fr are machine-drafted (`// MT`);
+  nl is unmarked.
+- **Translated in this release:** the nav, bell, app switcher, sign-in, the
+  signed-out screen (now with a language menu that writes the cookie), the
+  error page, and Next. Next includes the timeline, a thread's sheet with
+  RSVP and agenda, tickets and certificates.
+- **Formatting.** Dates, money, quarter headings and host lists follow the
+  reader's language. English output is pinned unchanged, character for
+  character, against the old code (`lib/format.test.ts`).
+- **Sign-in errors.** These used to show Supabase's own English sentence. They
+  now show ours: "check the address", "that code didn't work", or "wait a
+  minute" on a rate limit. The original goes to the console.
+- **Not in this release:** Upcoming, Files, Notifications, Community,
+  Members, Help and Unsubscribe come in release 2. You, Purchases,
+  Memberships and the cancellation request wait for the You tabs (builder 3).
+  The offline page stays English.
+- Tested:
+  - unit `locale-resolution` (+5): cookie > profile > Accept-Language > en,
+    and unknown or garbage headers give en;
+  - `my/lib/locale` (4), including the API not sending `locale`;
+  - `my/lib/format` (8): English unchanged, nl/de/fr formats;
+  - `my/lib/i18n` (3): the same placeholders in all six locales, and the
+    tagline matches the registry;
+  - `timeline` (+1): quarter labels per locale, English unchanged.
+- Looked at locally: the signed-out screen with an en-GB browser, then
+  switched to Deutsch through its menu (cookie written, `lang="de"`, German
+  copy, no console errors).
+- New e2e `portal-locale.spec.ts` for staging: a French browser, the menu, a
+  signed-in fixture member with an `nl` cookie, and English staying English.
+  It can only run once this release is on staging.
+
 ## [1.246.5] — 2026-10-16
 
 ### A ticket priced "including VAT" no longer gets VAT added again on the organiser page cards

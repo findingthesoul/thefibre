@@ -18,6 +18,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CalendarDays, CalendarPlus, FolderOpen, Home, IdCard, Receipt, User, Users } from 'lucide-react';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
 import { Wordmark } from './wordmark';
 import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 
@@ -54,22 +57,30 @@ import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 // FILES (Sjoerd 2ij, 2026-10-16) is always present, like Members: the page
 // says plainly when there is nothing yet. It sits last in the "yours" group so
 // the phone bar's first four are unchanged; on a phone it is in More.
-export function navFor({ upcoming, communities = 0 }: { upcoming: boolean; communities?: number }): SidebarNavSection[] {
+export function navFor({
+  upcoming,
+  communities = 0,
+  locale = 'en',
+}: {
+  upcoming: boolean;
+  communities?: number;
+  locale?: Locale;
+}): SidebarNavSection[] {
   return [
     {
       items: [
-        ...(communities > 0 ? [{ href: '/community', label: 'Home', icon: Home }] : []),
-        { href: '/', label: 'Next', icon: CalendarDays },
-        ...(upcoming ? [{ href: '/upcoming', label: 'Upcoming', icon: CalendarPlus }] : []),
-        { href: '/members', label: 'Members', icon: Users },
+        ...(communities > 0 ? [{ href: '/community', label: t(locale, 'nav_home'), icon: Home }] : []),
+        { href: '/', label: t(locale, 'nav_next'), icon: CalendarDays },
+        ...(upcoming ? [{ href: '/upcoming', label: t(locale, 'nav_upcoming'), icon: CalendarPlus }] : []),
+        { href: '/members', label: t(locale, 'nav_members'), icon: Users },
       ],
     },
     {
       items: [
-        { href: '/you', label: 'You', icon: User },
-        { href: '/memberships', label: 'Memberships', icon: IdCard },
-        { href: '/purchases', label: 'Purchases', icon: Receipt },
-        { href: '/files', label: 'Files', icon: FolderOpen },
+        { href: '/you', label: t(locale, 'nav_you'), icon: User },
+        { href: '/memberships', label: t(locale, 'nav_memberships'), icon: IdCard },
+        { href: '/purchases', label: t(locale, 'nav_purchases'), icon: Receipt },
+        { href: '/files', label: t(locale, 'nav_files'), icon: FolderOpen },
       ],
     },
   ];
@@ -82,7 +93,8 @@ export const NAV: SidebarNavSection[] = navFor({ upcoming: false, communities: 0
 const BottomNavShell = createBottomNav(Link, usePathname);
 
 export function MemberTabs({ version, upcoming, communities }: { version: string; upcoming: boolean; communities: number }) {
-  return <BottomNavShell nav={navFor({ upcoming, communities })} version={version} />;
+  const locale = useLocale();
+  return <BottomNavShell nav={navFor({ upcoming, communities, locale })} version={version} />;
 }
 
 /** `/` matches everything by prefix, so it is the exception: exact only. */
@@ -92,7 +104,8 @@ function isActive(href: string, pathname: string): boolean {
 
 export function MemberRail({ upcoming, communities }: { upcoming: boolean; communities: number }) {
   const pathname = usePathname();
-  const nav = navFor({ upcoming, communities });
+  const locale = useLocale();
+  const nav = navFor({ upcoming, communities, locale });
   return (
     <nav className="hidden md:flex w-56 shrink-0 flex-col gap-1 border-r border-line bg-surface-sunken p-3">
       {/* Home, and the only thing on this surface that says whose app it is.

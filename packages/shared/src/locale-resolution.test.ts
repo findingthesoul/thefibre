@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   resolveUiLocale,
+  resolvePortalLocale,
   resolvePublicLocale,
   resolveEmailLocale,
   localeFromAcceptLanguage,
@@ -18,6 +19,31 @@ describe('the signed-in interface', () => {
   it('is English when nothing is set, or set to something we do not speak', () => {
     expect(resolveUiLocale({})).toBe('en');
     expect(resolveUiLocale({ cookie: 'kl', profile: 'zz' })).toBe('en');
+  });
+});
+
+describe('the participant portal', () => {
+  it('takes the cookie over everything', () => {
+    expect(resolvePortalLocale({ cookie: 'nl', profile: 'de', acceptLanguage: 'fr' })).toBe('nl');
+  });
+
+  it('takes the profile over the browser', () => {
+    expect(resolvePortalLocale({ profile: 'de', acceptLanguage: 'fr' })).toBe('de');
+  });
+
+  it('guesses from the browser only when nothing was chosen', () => {
+    expect(resolvePortalLocale({ acceptLanguage: 'fr-FR,fr;q=0.9,en;q=0.8' })).toBe('fr');
+  });
+
+  it('is English when the browser says nothing we speak, or nothing at all', () => {
+    expect(resolvePortalLocale({ acceptLanguage: 'is,da;q=0.9' })).toBe('en');
+    expect(resolvePortalLocale({ acceptLanguage: ';;q=x,,*' })).toBe('en');
+    expect(resolvePortalLocale({ acceptLanguage: '' })).toBe('en');
+    expect(resolvePortalLocale({})).toBe('en');
+  });
+
+  it('skips a cookie or profile we do not speak rather than stopping at it', () => {
+    expect(resolvePortalLocale({ cookie: 'kl', profile: 'zz', acceptLanguage: 'es' })).toBe('es');
   });
 });
 

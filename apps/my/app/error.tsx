@@ -14,24 +14,24 @@
 // things are gone". They are not; the page just did not get them this time.
 
 import { ENTITY } from '@thefibre/shared';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { Wordmark } from './wordmark';
+import { t } from '@/lib/i18n';
 
 export default function PortalError({ reset }: { error: Error; reset: () => void }) {
+  const locale = useLocale();
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-16">
       <Wordmark className="h-12" />
       <div className="mt-8 rounded-2xl border border-line bg-surface-sunken p-6">
-        <p className="text-ink">Your page did not load this time.</p>
-        <p className="mt-1 text-sm text-ink-muted">
-          Nothing has changed on your side — your tickets and memberships are where they were.
-          Try again in a moment.
-        </p>
+        <p className="text-ink">{t(locale, 'error_title')}</p>
+        <p className="mt-1 text-sm text-ink-muted">{t(locale, 'error_body')}</p>
         <button
           type="button"
           onClick={reset}
           className="mt-5 rounded-lg bg-ink px-5 py-3 text-sm font-medium text-ink-inverse hover:opacity-90"
         >
-          Try again
+          {t(locale, 'try_again')}
         </button>
       </div>
       <p className="mt-10 text-xs text-ink-muted">{ENTITY.publicName}</p>

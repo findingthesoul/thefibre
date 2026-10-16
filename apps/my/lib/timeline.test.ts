@@ -232,6 +232,13 @@ describe('quarterLabel', () => {
     expect(quarterLabel(new Date('2026-12-31T12:00:00').getTime())).toBe('Oct–Dec 2026');
   });
 
+  it('names them in the reader’s language, and English is unchanged by asking', () => {
+    const at = new Date('2026-09-01T12:00:00').getTime();
+    expect(quarterLabel(at, 'en')).toBe('Jul–Sep 2026');
+    expect(quarterLabel(at, 'nl')).toBe('jul–sep 2026');
+    expect(quarterLabel(at, 'fr')).toBe('juil.–sept. 2026');
+  });
+
   it('changes at the boundary, which is what a header keys on', () => {
     const sep = quarterLabel(new Date('2026-09-30T23:00:00').getTime());
     const oct = quarterLabel(new Date('2026-10-01T01:00:00').getTime());

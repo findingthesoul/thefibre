@@ -3,9 +3,13 @@
 
 import { SURFACES, ENTITY } from '@thefibre/shared';
 import { SignIn } from './sign-in';
+import { LanguageSelect } from './language-select';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 import { Wordmark } from './wordmark';
 
-export function SignedOut() {
+export async function SignedOut() {
+  const locale = await pageLocale();
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-10 sm:py-16">
       {/* The mark IS the heading. The name stays in the h1 for a screen
@@ -13,11 +17,14 @@ export function SignedOut() {
           without one. */}
       <h1 className="sr-only">{SURFACES['my-portal'].shortLabel}</h1>
       <Wordmark className="h-12" />
-      <p className="mt-1 text-ink-subtle">{SURFACES['my-portal'].tagline}</p>
+      <p className="mt-1 text-ink-subtle">{t(locale, 'tagline')}</p>
       <div className="mt-8 max-w-sm">
         <SignIn />
       </div>
-      <p className="mt-10 text-xs text-ink-muted">{ENTITY.publicName}</p>
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-ink-muted">{ENTITY.publicName}</p>
+        <LanguageSelect />
+      </div>
     </div>
   );
 }

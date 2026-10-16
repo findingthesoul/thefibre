@@ -43,6 +43,24 @@ export function resolveUiLocale(a: { cookie?: Maybe; profile?: Maybe }): Locale 
 }
 
 /**
+ * THE PARTICIPANT PORTAL (my.thread) — a signed-in interface whose reader
+ * has usually never chosen a language.
+ *
+ * The same chain as `resolveUiLocale`, plus one guess at the end. Somebody
+ * who bought one ticket was never shown a picker, so without the guess a
+ * Dutch participant reads their own tickets in English. The guess is safe
+ * here in a way it is not on a public page: the reader IS the subject, and
+ * there is nobody else's decision for a browser to overrule. Anything they
+ * have actually chosen — cookie or profile — still wins.
+ *
+ * Takes the header RAW and narrows it here, so a caller cannot pass the
+ * whole `Accept-Language` string where one tag was meant.
+ */
+export function resolvePortalLocale(a: { cookie?: Maybe; profile?: Maybe; acceptLanguage?: Maybe }): Locale {
+  return firstLocale(a.cookie, a.profile, localeFromAcceptLanguage(a.acceptLanguage));
+}
+
+/**
  * A PUBLIC PAGE — what a visitor sees before we know anything about them.
  *
  * The override comes first because it is the most specific statement anyone

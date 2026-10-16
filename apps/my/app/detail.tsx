@@ -32,34 +32,11 @@ import {
   type Ticket as TicketRow,
   type ThreadItem,
 } from '@/lib/portal-api';
-
-/** The date chip: day over month, which is how an agenda is scanned. The
- *  date used to sit right-aligned in small grey text, which is where you put
- *  something you do not want read. */
-function dayMonth(iso: string): { day: string; month: string } {
-  const d = new Date(iso);
-  return {
-    day: new Intl.DateTimeFormat('en-GB', { day: 'numeric' }).format(d),
-    month: new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d),
-  };
-}
-
-/** Just the clock, since the chip already carries the date. */
-function fmtTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
-    new Date(iso),
-  );
-}
-
-function fmtDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
+// The date chip (day over month, how an agenda is scanned) and the clock
+// come from lib/format, in the reader's language.
+import { dayMonth, fmtTime, listOf } from '@/lib/format';
 
 /** A link styled as a button. Not the shared Button: these are anchors, and a
  *  wallet pass or an .ics must be a real navigation, not an onClick. */
@@ -116,7 +93,7 @@ function IconLink({
 
 /** Day over month, left of the row. */
 function DateChip({ iso }: { iso: string }) {
-  const { day, month } = dayMonth(iso);
+  const { day, month } = dayMonth(iso, useLocale());
   return (
     <div
       aria-hidden
@@ -173,6 +150,7 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
   const router = useRouter();
   const [answer, setAnswer] = useState<RsvpResponse | null>(item.rsvp);
   const [failed, setFailed] = useState(false);
+  const locale = useLocale();
 
   // ONE button that cycles, Sjoerd 2026-09-11: "reduce it to one button, that
   // toggles between: ? / check / X".
@@ -260,9 +238,17 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
         : 'border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink';
 
   const now =
-    answer === 'coming' ? 'Coming' : answer === 'not_coming' ? 'Can\u2019t come' : 'No answer yet';
+    answer === 'coming'
+      ? t(locale, 'rsvp_coming')
+      : answer === 'not_coming'
+        ? t(locale, 'rsvp_not_coming')
+        : t(locale, 'rsvp_none');
   const nextLabel =
-    answer === 'coming' ? 'can\u2019t come' : answer === 'not_coming' ? 'no answer' : 'coming';
+    answer === 'coming'
+      ? t(locale, 'rsvp_next_not_coming')
+      : answer === 'not_coming'
+        ? t(locale, 'rsvp_next_none')
+        : t(locale, 'rsvp_next_coming');
 
   const button = (
     <button
@@ -271,8 +257,8 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
       // Never aria-pressed: this is not a two-state toggle, and announcing it
       // as one would hide the third state from exactly the people who cannot
       // see the colour.
-      aria-label={`${now} — ${item.title}. Tap for ${nextLabel}.`}
-      title={`${now} · tap for ${nextLabel}`}
+      aria-label={t(locale, 'rsvp_aria', { now, title: item.title, next: nextLabel })}
+      title={t(locale, 'rsvp_title', { now, next: nextLabel })}
       // One size down from the 44px it was (Sjoerd, 2026-10-14: "the button a
       // bit smaller"), and no smaller: 40px is the floor for a thumb.
       className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors disabled:opacity-60 ${look}`}
@@ -299,7 +285,7 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
       }`}
     >
       <span aria-hidden className={`${SECTION_LABEL} leading-none`}>
-        RSVP
+        {t(locale, 'rsvp_label')}
       </span>
       {button}
     </div>
@@ -314,13 +300,14 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
       {labelled}
       <p className="text-xs text-ink-muted">
-        {failed ? 'That didn\u2019t save. Check your connection and try again.' : `${now}. Tap for ${nextLabel}.`}
+        {failed ? t(locale, 'rsvp_failed') : t(locale, 'rsvp_hint', { now, next: nextLabel })}
       </p>
     </div>
   );
 }
 
 function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
+  const locale = useLocale();
   const link = item.meeting_url ?? item.external_url;
   return (
     <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
@@ -335,7 +322,7 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
                   nowhere (v0.68.62 fixed the public page; this is the same
                   gap on the same field). */}
               <p className="text-sm text-ink-muted">
-                {item.starts_at && fmtTime(item.starts_at)}
+                {item.starts_at && fmtTime(item.starts_at, locale)}
                 {item.starts_at && item.location && ' · '}
                 {item.location &&
                   (item.location_url ? (
@@ -352,10 +339,10 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
                   ))}
               </p>
               {item.my_role ? (
-                <p className="text-sm text-ink">{item.my_role === 'host' ? 'You’re hosting' : 'You’re facilitating'}</p>
+                <p className="text-sm text-ink">{item.my_role === 'host' ? t(locale, 'you_host') : t(locale, 'you_facilitate')}</p>
               ) : item.hosts && item.hosts.length > 0 ? (
                 <p className="text-sm text-ink-muted">
-                  with {new Intl.ListFormat('en', { type: 'conjunction' }).format(item.hosts)}
+                  {t(locale, 'with_people', { names: listOf(item.hosts, locale) })}
                 </p>
               ) : null}
             </div>
@@ -363,7 +350,7 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
                 what "no clear overview" actually meant. */}
             <div className="flex shrink-0 gap-1.5">
               {link && (
-                <IconLink href={link} label={item.meeting_url ? 'Join' : 'Open link'}>
+                <IconLink href={link} label={item.meeting_url ? t(locale, 'join') : t(locale, 'open_link')}>
                   {item.meeting_url ? (
                     <Video className="h-5 w-5" aria-hidden />
                   ) : (
@@ -376,7 +363,7 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
               {item.starts_at && (
                 <IconLink
                   href={agendaIcsUrl(threadId, item.id)}
-                  label="Add to calendar"
+                  label={t(locale, 'add_to_calendar')}
                   download
                 >
                   <CalendarPlus className="h-5 w-5" aria-hidden />
@@ -423,10 +410,11 @@ export function ThreadSheet({
   onClose: () => void;
 }) {
   const [zoom, setZoom] = useState(false);
+  const locale = useLocale();
   // The thread's dates through the shared rule (thread dates slice 4): the
   // key-moment span and the count, not just the start date. In English,
   // because that is the language this app speaks.
-  const when = threadDateLine(thread, PAGE_DATES, { language: 'en', timezone: thread.timezone });
+  const when = threadDateLine(thread, PAGE_DATES, { language: locale, timezone: thread.timezone });
 
   // Escape must close the TOPMOST layer. The shared Dialog listens for it on
   // `document` in the bubble phase, and it registered first because it opened
@@ -466,30 +454,30 @@ export function ThreadSheet({
               <button
                 type="button"
                 onClick={() => setZoom(true)}
-                aria-label="Show the check-in code full size"
+                aria-label={t(locale, 'qr_enlarge')}
                 className="shrink-0 rounded-lg bg-white p-2"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={ticketQrUrl(code)}
-                  alt={`Check-in code for ${thread.title}`}
+                  alt={t(locale, 'qr_alt', { title: thread.title })}
                   className="h-24 w-24"
                 />
               </button>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-ink">
-                  {ticket?.checked_in_at ? 'Already checked in' : 'Show this at the door'}
+                  {ticket?.checked_in_at ? t(locale, 'already_checked_in') : t(locale, 'show_at_door')}
                 </p>
-                <p className="mt-0.5 text-xs text-ink-muted">Tap the code to enlarge.</p>
+                <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'tap_to_enlarge')}</p>
                 {(wallet.apple || wallet.google) && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {wallet.apple && (
-                      <IconLink href={appleWalletUrl(code)} label="Add to Apple Wallet">
+                      <IconLink href={appleWalletUrl(code)} label={t(locale, 'add_apple_wallet')}>
                         <Wallet className="h-5 w-5" aria-hidden />
                       </IconLink>
                     )}
                     {wallet.google && (
-                      <IconLink href={googleWalletUrl(code)} label="Save to Google Wallet">
+                      <IconLink href={googleWalletUrl(code)} label={t(locale, 'save_google_wallet')}>
                         <Wallet className="h-5 w-5" aria-hidden />
                       </IconLink>
                     )}
@@ -514,7 +502,7 @@ export function ThreadSheet({
         {thread.agenda.length > 0 ? (
           <section>
             <div className="flex items-baseline justify-between gap-3">
-              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">Agenda</h3>
+              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">{t(locale, 'agenda')}</h3>
               {/* The whole programme in one go. Every row already offers its
                   own session, and a course of eight was eight downloads —
                   which nobody does (Sjoerd, 2026-09-24: "you can add the
@@ -528,7 +516,7 @@ export function ThreadSheet({
                   className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink underline underline-offset-4"
                 >
                   <CalendarPlus className="h-4 w-4" aria-hidden />
-                  Add all to calendar
+                  {t(locale, 'add_all_to_calendar')}
                 </a>
               )}
             </div>
@@ -539,7 +527,7 @@ export function ThreadSheet({
             </ul>
           </section>
         ) : (
-          <p className="text-sm text-ink-muted">No agenda published yet.</p>
+          <p className="text-sm text-ink-muted">{t(locale, 'no_agenda')}</p>
         )}
 
         <CancellationSection thread={thread} />
@@ -548,7 +536,7 @@ export function ThreadSheet({
             phone, often one-handed at a door; a 17px-tall link was under half
             the ~44px guidance (measured on staging at 375px, 2026-09-09). */}
         <div className="mt-6 border-t border-line pt-4">
-          <ActionLink href={thread.url}>Open the full page</ActionLink>
+          <ActionLink href={thread.url}>{t(locale, 'open_full_page')}</ActionLink>
         </div>
       </Dialog>
 
@@ -559,18 +547,18 @@ export function ThreadSheet({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`Check-in code for ${thread.title}`}
+          aria-label={t(locale, 'qr_alt', { title: thread.title })}
           onClick={() => setZoom(false)}
           className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-white p-6"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={ticketQrUrl(code)}
-            alt={`Check-in code for ${thread.title}`}
+            alt={t(locale, 'qr_alt', { title: thread.title })}
             className="w-full max-w-xs"
           />
           <p className="text-lg font-medium text-black">{thread.title}</p>
-          <p className="text-sm text-neutral-500">Tap anywhere to close</p>
+          <p className="text-sm text-neutral-500">{t(locale, 'tap_to_close')}</p>
         </div>
       )}
     </>

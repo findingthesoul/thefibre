@@ -15,6 +15,9 @@ import { Ticket } from './ticket';
 import { KeepTickets } from './keep-tickets';
 import type { KeptTicket } from '@/lib/kept-tickets';
 import { Timeline } from './timeline';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
+import { parts } from '@/lib/i18n-parts';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +30,7 @@ export default async function NextPage({
   if (!session) return <SignedOut />;
 
   const { portal } = session;
+  const locale = await pageLocale();
   // ARRIVING FROM SIGN-IN, a member of a community lands on Home — the first
   // tab for them (Sjoerd's nav order, 2026-10-14). Only on arrival: Next
   // stays one tap away at a plain "/", and somebody with no community lands
@@ -66,13 +70,10 @@ export default async function NextPage({
   const nothing = upcoming.length === 0 && past.length === 0 && orphans.length === 0;
 
   return (
-    <PageShell title={name ? `Hello, ${name}` : 'Next'} subtitle={portal.person.email}>
+    <PageShell title={name ? t(locale, 'hello', { name }) : t(locale, 'nav_next')} subtitle={portal.person.email}>
       <KeepTickets tickets={kept} />
       {nothing ? (
-        <Empty title="Nothing coming up.">
-          When you book a place or a call, it appears here — soonest first. If you expected
-          something, check you signed in with the address you booked with.
-        </Empty>
+        <Empty title={t(locale, 'nothing_coming')}>{t(locale, 'nothing_coming_body')}</Empty>
       ) : (
         <>
           {orphans.length > 0 && (
@@ -96,10 +97,13 @@ export default async function NextPage({
               page they have no reason to open. The control itself lives on
               YOU, because it mints a credential. */}
           <p className="mt-8 text-center text-xs text-ink-muted">
-            <Link href="/you" className="underline underline-offset-4 hover:text-ink">
-              Subscribe your calendar
-            </Link>{' '}
-            to follow every session, so moved dates move.
+            {parts(t(locale, 'subscribe_line'), {
+              link: (
+                <Link href="/you" className="underline underline-offset-4 hover:text-ink">
+                  {t(locale, 'subscribe_link')}
+                </Link>
+              ),
+            })}
           </p>
         </>
       )}

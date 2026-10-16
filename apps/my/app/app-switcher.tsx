@@ -17,15 +17,17 @@
 
 import { LayoutGrid } from 'lucide-react';
 import type { ReachableApp } from '@/lib/app-access';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
 
-export function AppSwitcher({ apps, className }: { apps: ReachableApp[]; className?: string }) {
+export function AppSwitcher({ apps, locale, className }: { apps: ReachableApp[]; locale: Locale; className?: string }) {
   if (!apps.length) return null;
 
   return (
     <details className={`relative ${className ?? ''}`}>
       <summary
         className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-lg text-ink-subtle hover:bg-surface-sunken hover:text-ink [&::-webkit-details-marker]:hidden"
-        aria-label="Your other apps"
+        aria-label={t(locale, 'your_other_apps')}
       >
         <LayoutGrid className="h-5 w-5" aria-hidden />
       </summary>
@@ -34,7 +36,7 @@ export function AppSwitcher({ apps, className }: { apps: ReachableApp[]; classNa
           menu that opens leftward off-screen is the classic version of this. */}
       <div className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
         <p className="border-b border-line px-4 py-2 text-xs font-medium uppercase tracking-wide text-ink-muted">
-          Your apps
+          {t(locale, 'your_apps')}
         </p>
         <ul>
           {apps.map((a) => (
