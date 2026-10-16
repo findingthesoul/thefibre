@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.245.1] — 2026-10-16
+
+### One grant per product per subscription, guaranteed by the database (migration only)
+
+- `20261016133940`: a partial UNIQUE index on `membership_product_purchase
+  (stripe_subscription_id, product_id) WHERE stripe_subscription_id IS NOT
+  NULL AND status IN ('paid','active','past_due')`.
+- It covers LIVE grants only, matching `LIVE_PURCHASE_STATUSES`. An ended
+  add-on stays as its cancelled row, and adding it again writes a new active
+  one, which must still be allowed. `paid` is included on purpose: a product
+  subscription's one-off line carries the subscription id and is never
+  cancelled.
+- The next release writes a product subscription's grants from whichever
+  Stripe event lands first. Stripe can deliver both at once, in parallel
+  requests, and only an index stops the grant being written twice; the
+  second insert becomes a 23505 that the handler reads as "already there".
+- Checked on staging first: 0 duplicate pairs among the 5 rows that carry a
+  subscription.
+
 ## [1.245.0] — 2026-10-16
 
 ### Subscribe to a recurring product without a membership: the API and the admin date (Members 1.13.0)
