@@ -426,6 +426,16 @@ export type CustomEmailParts = {
   closing?: string | null;
 };
 
+/** The community's own sign-off (kind 'signature'), as the LAST block of a
+ *  transactional email's body — so it sits above our footer, after every
+ *  fact. Sanitised (sanitizeSignature) and tokens filled by the caller. */
+function signatureHtmlBlock(sig: string | null | undefined): string {
+  return sig?.trim() ? `<div style="margin:24px 0 0;">${sig}</div>` : '';
+}
+function signatureText(sig: string | null | undefined): string {
+  return sig?.trim() ? `\n\n${htmlToText(sig)}` : '';
+}
+
 function customImage(c: CustomEmailParts | null): string {
   if (!c?.imageUrl) return '';
   return `<p style="margin:0 0 22px;"><img src="${escapeHtml(c.imageUrl)}" alt="${escapeHtml(c.imageAlt ?? '')}" width="560" style="display:block;border:0;width:100%;max-width:560px;height:auto;border-radius:8px;" /></p>`;
@@ -662,6 +672,8 @@ export function membershipRenewalReminder(opts: {
   renewsAt: string;
   amountCents: number | null;
   currency: string;
+  /** The community's sign-off (2ix), sanitised and filled; null = none. */
+  signatureHtml?: string | null;
   locale?: string | null;
   brand?: EmailBrand;
 }): { subject: string; html: string; text: string } {
@@ -686,11 +698,11 @@ export function membershipRenewalReminder(opts: {
   const body = `
     <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
     <p>${lineHtml}</p>
-    <p>${escapeHtml(nothing)}</p>`;
+    <p>${escapeHtml(nothing)}</p>${signatureHtmlBlock(opts.signatureHtml)}`;
   return {
     subject,
     html: shell(subject, body, opts.brand),
-    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${nothing}`,
+    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${nothing}${signatureText(opts.signatureHtml)}`,
   };
 }
 
@@ -698,6 +710,8 @@ export function membershipPaymentFailed(opts: {
   name: string;
   communityName: string;
   tierName: string;
+  /** The community's sign-off (2ix), sanitised and filled; null = none. */
+  signatureHtml?: string | null;
   locale?: string | null;
   brand?: EmailBrand;
 }): { subject: string; html: string; text: string } {
@@ -715,11 +729,11 @@ export function membershipPaymentFailed(opts: {
   const body = `
     <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
     <p>${lineHtml}</p>
-    <p>${escapeHtml(fix)}</p>`;
+    <p>${escapeHtml(fix)}</p>${signatureHtmlBlock(opts.signatureHtml)}`;
   return {
     subject,
     html: shell(subject, body, opts.brand),
-    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${fix}`,
+    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${fix}${signatureText(opts.signatureHtml)}`,
   };
 }
 
@@ -727,6 +741,8 @@ export function membershipLapsed(opts: {
   name: string;
   communityName: string;
   joinUrl: string | null;
+  /** The community's sign-off (2ix), sanitised and filled; null = none. */
+  signatureHtml?: string | null;
   locale?: string | null;
   brand?: EmailBrand;
 }): { subject: string; html: string; text: string } {
@@ -742,11 +758,11 @@ export function membershipLapsed(opts: {
     : '';
   const body = `
     <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
-    <p>${lineHtml}</p>${rejoin}`;
+    <p>${lineHtml}</p>${rejoin}${signatureHtmlBlock(opts.signatureHtml)}`;
   return {
     subject,
     html: shell(subject, body, opts.brand),
-    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}${opts.joinUrl ? `\n\n${rejoinLabel}: ${opts.joinUrl}` : ''}`,
+    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}${opts.joinUrl ? `\n\n${rejoinLabel}: ${opts.joinUrl}` : ''}${signatureText(opts.signatureHtml)}`,
   };
 }
 
@@ -758,6 +774,8 @@ export function membershipRenewalChanged(opts: {
   stopped: boolean;
   /** The last day it stays active (stopped) or the renewal date (resumed). */
   until: string;
+  /** The community's sign-off (2ix), sanitised and filled; null = none. */
+  signatureHtml?: string | null;
   locale?: string | null;
   brand?: EmailBrand;
 }): { subject: string; html: string; text: string } {
@@ -774,11 +792,11 @@ export function membershipRenewalChanged(opts: {
   const body = `
     <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
     <p>${lineHtml}</p>
-    <p>${escapeHtml(more)}</p>`;
+    <p>${escapeHtml(more)}</p>${signatureHtmlBlock(opts.signatureHtml)}`;
   return {
     subject,
     html: shell(subject, body, opts.brand),
-    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${more}`,
+    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${more}${signatureText(opts.signatureHtml)}`,
   };
 }
 
@@ -790,6 +808,8 @@ export function membershipCardChanged(opts: {
   tierName: string;
   brand: string;
   last4: string;
+  /** The community's sign-off (2ix), sanitised and filled; null = none. */
+  signatureHtml?: string | null;
   locale?: string | null;
   emailBrand?: EmailBrand;
 }): { subject: string; html: string; text: string } {
@@ -806,6 +826,10 @@ export function membershipCardChanged(opts: {
   const body = `
     <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
     <p>${lineHtml}</p>
-    <p>${escapeHtml(notYou)}</p>`;
-  return { subject, html: shell(subject, body, opts.emailBrand), text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${notYou}` };
+    <p>${escapeHtml(notYou)}</p>${signatureHtmlBlock(opts.signatureHtml)}`;
+  return {
+    subject,
+    html: shell(subject, body, opts.emailBrand),
+    text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${notYou}${signatureText(opts.signatureHtml)}`,
+  };
 }

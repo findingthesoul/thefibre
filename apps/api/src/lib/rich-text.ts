@@ -67,3 +67,21 @@ export function sanitizeRichText(html: string | null | undefined): string | null
   const text = clean.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
   return text.length > 0 ? clean : null;
 }
+
+/**
+ * A community's SIGNATURE for its member emails (Sjoerd 2ix): a sign-off,
+ * not a page. Bold, italic, links and line breaks — nothing else, so a
+ * pasted heading or image never lands at the foot of a payment notice.
+ * Links keep only http(s) and mailto. Null when nothing is left.
+ */
+export function sanitizeSignature(html: string | null | undefined): string | null {
+  if (html == null) return null;
+  const clean = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'b', 'strong', 'i', 'em', 'a'],
+    ALLOWED_ATTR: ['href'],
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
+    KEEP_CONTENT: true,
+  });
+  const text = clean.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+  return text.length > 0 ? clean : null;
+}

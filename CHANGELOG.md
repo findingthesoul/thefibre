@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.239.0] — 2026-10-16
+
+### Member emails: the community's own signature (Members 1.11.0)
+
+- Finishes 2ix. In Members → Settings → Emails, "Signature — renewal,
+  payment and card emails" holds one sign-off per language. It is added at
+  the end of the five transactional member emails we keep as ours:
+  - renewal reminder;
+  - payment failed;
+  - membership ended;
+  - renewal stopped or resumed;
+  - card changed.
+  It sits after every fact and above our footer. The facts stay ours. With
+  no signature, each email is exactly as before.
+- **A sign-off, nothing more.** `sanitizeSignature` keeps bold, italic,
+  links (http/https/mailto) and line breaks, and strips everything else on
+  the way in. A signature has no subject, image or closing of its own; they
+  are stored empty. Member tokens such as `{community}` and `{first_name}`
+  are filled with escaping.
+- **The same choice as the welcome.** The member's language, then the
+  community's page language, then none (`communitySignature`). It never
+  throws: a signature that cannot be read does not stop a payment-failed
+  email.
+- All five send sites pass it: payment failed, lapsed and the reminder job
+  in routes/membership.ts; stopped/resumed and card changed in
+  routes/membership-purchases.ts. The preview and "Send me a test" show the
+  signature on a sample renewal reminder, through the same template the
+  reminder job uses.
+- No migration: the `signature` kind and its check were in the table from
+  v1.234.0.
+- Tested:
+  - unit (14): the allow-list; the pick order; in each of the five emails,
+    the sign-off is the last block of the body, before the footer, in both
+    html and text, and an unsigned email is unchanged. That includes card
+    changed, whose live send is dark until the P4 key.
+  - integration on staging (14/14): a save strips h1/img/script and keeps
+    strong/a; the preview is a signed reminder; the send-time locale
+    fallback; a test send goes to the admin's own address. Leftovers: 0.
+  - e2e member-emails: a signature run, from write to preview, save,
+    database, reload and reset.
+
 ## [1.238.0] — 2026-10-16
 
 ### Price includes VAT, for Thread tickets and Meet (Thread 4.16.0, Meet 2.35.0, my.thread 0.19.1)

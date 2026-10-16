@@ -17,6 +17,7 @@ import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { logMemberActivity, memberEmailLocale } from './membership.js';
 import { membershipRenewalChanged, membershipCardChanged, greetingName } from '../lib/email/membership-templates.js';
+import { signatureFor } from '../lib/member-email-templates.js';
 import { sendEmail } from '../lib/email/client.js';
 import { getBuyerDetails, saveBuyerDetails } from '../lib/buyer-details.js';
 import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
@@ -163,6 +164,7 @@ membershipPurchaseRoutes.post('/me/renewals/:memberId', async (c) => {
           until,
           locale,
           brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+          signatureHtml: await signatureFor(m.workspace_id, locale, { firstName: person.first_name as string | null, communityName: ws?.name, tierName: tier?.name }),
         });
         await sendEmail({ to: person.email as string, subject: msg.subject, html: msg.html, text: msg.text, ...senderOf(brand) });
       }
@@ -479,14 +481,16 @@ membershipPurchaseRoutes.post('/me/payment-method/:memberId/confirm', async (c) 
     ]);
     if (person?.email && card) {
       const brand = await getWorkspaceBrand(r.m.workspace_id);
+      const locale = await memberEmailLocale(r.m.workspace_id, null);
       const msg = membershipCardChanged({
         name: greetingName(person.first_name as string | null, person.email as string),
         communityName: ws?.name ?? 'the community',
         tierName: tier?.name ?? 'membership',
         brand: card.brand,
         last4: card.last4,
-        locale: await memberEmailLocale(r.m.workspace_id, null),
+        locale,
         emailBrand: { logoUrl: brand.logoUrl, name: brand.fromName },
+        signatureHtml: await signatureFor(r.m.workspace_id, locale, { firstName: person.first_name as string | null, communityName: ws?.name, tierName: tier?.name }),
       });
       await sendEmail({ to: person.email as string, subject: msg.subject, html: msg.html, text: msg.text, ...senderOf(brand) });
     }

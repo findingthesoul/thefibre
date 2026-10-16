@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
 
 export type EmailDraft = {
-  kind: 'welcome' | 'digest';
+  kind: 'welcome' | 'digest' | 'signature';
   tier_id: string | null;
   locale: 'en' | 'nl' | 'es' | 'pt' | 'de' | 'fr';
   subject: string | null;

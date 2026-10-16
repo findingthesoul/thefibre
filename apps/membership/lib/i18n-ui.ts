@@ -2525,6 +2525,22 @@ const CATALOG = {
     de: 'Kalenderübersicht', // MT
     fr: 'Récapitulatif du calendrier', // MT
   },
+  em_kind_signature: {
+    en: 'Signature — renewal, payment and card emails',
+    nl: 'Ondertekening — verlenging, betaling en kaart', // MT
+    es: 'Firma — renovación, pago y tarjeta', // MT
+    pt: 'Assinatura — renovação, pagamento e cartão', // MT
+    de: 'Signatur — Verlängerung, Zahlung und Karte', // MT
+    fr: 'Signature — renouvellement, paiement et carte', // MT
+  },
+  em_signature_note: {
+    en: 'Your sign-off at the end of the renewal reminder, payment failed, membership ended, renewal stopped or resumed, and card changed emails — above our footer. Bold, italic and links only; the facts in those emails stay ours.',
+    nl: 'Je afsluiting onderaan de mails over verlenging, mislukte betaling, beëindigd lidmaatschap, gestopte of hervatte verlenging en gewijzigde kaart — boven onze voettekst. Alleen vet, cursief en links; de feiten in die mails blijven van ons.', // MT
+    es: 'Tu despedida al final de los correos de renovación, pago fallido, membresía terminada, renovación detenida o reanudada y tarjeta cambiada — sobre nuestro pie. Solo negrita, cursiva y enlaces; los datos de esos correos siguen siendo nuestros.', // MT
+    pt: 'A sua despedida no fim dos emails de renovação, pagamento falhado, adesão terminada, renovação parada ou retomada e cartão alterado — acima do nosso rodapé. Só negrito, itálico e links; os factos desses emails continuam nossos.', // MT
+    de: 'Dein Abschluss am Ende der Mails zu Verlängerung, fehlgeschlagener Zahlung, beendeter Mitgliedschaft, gestoppter oder fortgesetzter Verlängerung und geänderter Karte — über unserer Fußzeile. Nur fett, kursiv und Links; die Fakten dieser Mails bleiben unsere.', // MT
+    fr: 'Ta signature à la fin des e-mails de renouvellement, paiement échoué, adhésion terminée, renouvellement arrêté ou repris et carte modifiée — au-dessus de notre pied de page. Gras, italique et liens seulement ; les faits de ces e-mails restent les nôtres.', // MT
+  },
   em_all_tiers: {
     en: 'All tiers (default)',
     nl: 'Alle niveaus (standaard)', // MT pending native review

@@ -46,10 +46,11 @@ import { resolvePerson } from '../lib/resolve-person.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { invoiceLines } from '../lib/invoice-lines.js';
-import { sanitizeRichText } from '../lib/rich-text.js';
+import { sanitizeRichText, sanitizeSignature } from '../lib/rich-text.js';
+import { fillTokens } from '@thefibre/shared/merge-tokens';
 import { actorUserId } from '../middleware/app-context.js';
 import { memberNotifyDigest } from '../lib/email/member-notify-templates.js';
-import { communityWords, EMAIL_IMAGE_BUCKET, emailImageUrl, fillTemplate, memberEmailValues } from '../lib/member-email-templates.js';
+import { communityWords, EMAIL_IMAGE_BUCKET, emailImageUrl, fillTemplate, memberEmailValues, signatureFor } from '../lib/member-email-templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { chargeNet, saleVat, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
@@ -4055,12 +4056,14 @@ async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice)
     getWorkspaceBrand(member.workspace_id),
   ]);
   if (person?.email) {
+    const locale = await memberEmailLocale(member.workspace_id, member.locale);
     const msg = membershipPaymentFailed({
       name: person.first_name ?? 'there',
       communityName: ws?.name ?? 'the community',
       tierName: tier?.name ?? 'membership',
-      locale: await memberEmailLocale(member.workspace_id, member.locale),
+      locale,
       brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      signatureHtml: await signatureFor(member.workspace_id, locale, { firstName: person.first_name, communityName: ws?.name, tierName: tier?.name }),
     });
     await sendEmail({
       to: person.email,
@@ -4094,12 +4097,14 @@ async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscr
       getWorkspaceBrand(member.workspace_id),
     ]);
     if (person?.email) {
+      const locale = await memberEmailLocale(member.workspace_id, member.locale);
       const msg = membershipLapsed({
         name: person.first_name ?? 'there',
         communityName: ws?.name ?? 'the community',
         joinUrl: ws?.slug ? `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}` : null,
-        locale: await memberEmailLocale(member.workspace_id, member.locale),
+        locale,
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+        signatureHtml: await signatureFor(member.workspace_id, locale, { firstName: person.first_name, communityName: ws?.name }),
       });
       await sendEmail({
         to: person.email,
@@ -4458,6 +4463,12 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
         currency: tier?.currency ?? 'EUR',
         locale: await memberEmailLocale(m.workspace_id, m.locale as string | null),
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+        signatureHtml: await signatureFor(m.workspace_id, await memberEmailLocale(m.workspace_id, m.locale as string | null), {
+          firstName: person.first_name,
+          communityName: ws?.name,
+          tierName: tier?.name,
+          renewsAt: m.renews_at as string,
+        }),
       });
       await sendEmail({
         to: person.email,
@@ -4545,7 +4556,7 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
 // ===========================================================================
 
 const EmailTemplateBody = z.object({
-  kind: z.enum(['welcome', 'digest']),
+  kind: z.enum(['welcome', 'digest', 'signature']),
   tier_id: z.string().uuid().nullable().optional(),
   locale: z.enum(['en', 'nl', 'es', 'pt', 'de', 'fr']),
   subject: z.string().max(200).nullable().optional(),
@@ -4590,12 +4601,15 @@ membershipRoutes.put('/email-templates', async (c) => {
     return c.json({ error: 'image not found' }, 400);
   }
   if (imagePath && !clean(d.image_alt)) return c.json({ error: 'An image needs a short description (alt text).' }, 400);
+  // A SIGNATURE (2ix) is one sign-off: bold, italic, links — nothing else is
+  // kept, and it has no subject, image or closing of its own.
+  const sig = d.kind === 'signature';
   const fields = {
-    subject: clean(d.subject),
-    image_path: imagePath,
-    image_alt: imagePath ? clean(d.image_alt) : null,
-    intro_html: d.intro_html ? sanitizeRichText(d.intro_html) : null,
-    closing: clean(d.closing),
+    subject: sig ? null : clean(d.subject),
+    image_path: sig ? null : imagePath,
+    image_alt: sig ? null : imagePath ? clean(d.image_alt) : null,
+    intro_html: sig ? sanitizeSignature(d.intro_html) : d.intro_html ? sanitizeRichText(d.intro_html) : null,
+    closing: sig ? null : clean(d.closing),
     updated_at: new Date().toISOString(),
     updated_by: actorUserId(ctx),
   };
@@ -4651,7 +4665,7 @@ membershipRoutes.post('/email-templates/image', async (c) => {
   return c.json({ path, url: emailImageUrl(path) }, 201);
 });
 
-const PreviewBody = EmailTemplateBody.extend({ kind: z.enum(['welcome', 'digest']) });
+const PreviewBody = EmailTemplateBody.extend({ kind: z.enum(['welcome', 'digest', 'signature']) });
 
 /** The email as a member would get it, from a draft — the SAME templates the
  *  sends use, with a sample member and the tier's real facts. */
@@ -4674,6 +4688,23 @@ async function renderPreview(workspaceId: string, d: z.infer<typeof PreviewBody>
     closing: clean(d.closing),
   } as const;
   const renewsAt = new Date(Date.UTC(new Date().getUTCFullYear() + 1, 0, 1)).toISOString();
+  if (d.kind === 'signature') {
+    // The signature on a sample RENEWAL REMINDER — one of the five emails it
+    // signs, rendered by the same template the reminder job uses.
+    const values = memberEmailValues({ firstName: 'Marja', lastName: 'de Vries', communityName, tierName: 'Member', renewsAt, portalUrl, locale: d.locale });
+    const sig = sanitizeSignature(d.intro_html);
+    return membershipRenewalReminder({
+      name: 'Marja',
+      communityName,
+      tierName: 'Member',
+      renewsAt,
+      amountCents: 3000,
+      currency: 'EUR',
+      locale: d.locale,
+      brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      signatureHtml: sig ? fillTokens(sig, values, 'member_email', { html: true }) : null,
+    });
+  }
   if (d.kind === 'welcome') {
     const { data: tier } = d.tier_id
       ? await adminClient.from('membership_tier').select('name, description, characteristics').eq('id', d.tier_id).eq('workspace_id', workspaceId).maybeSingle()

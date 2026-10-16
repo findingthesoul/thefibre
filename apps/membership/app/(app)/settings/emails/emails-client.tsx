@@ -34,10 +34,11 @@ const CHIPS = tokenChips('member_email');
 
 export function EmailsClient({ templates, tiers, locale }: { templates: StoredTemplate[]; tiers: { id: string; name: string }[]; locale: Locale }) {
   const router = useRouter();
-  // Which email: 'digest', 'welcome:' (all tiers) or 'welcome:<tierId>'.
+  // Which email: 'digest', 'signature', 'welcome:' (all tiers) or
+  // 'welcome:<tierId>'.
   const [target, setTarget] = useState('welcome:');
   const [lang, setLang] = useState<AnyLocale>(locale as AnyLocale);
-  const kind: 'welcome' | 'digest' = target === 'digest' ? 'digest' : 'welcome';
+  const kind: 'welcome' | 'digest' | 'signature' = target === 'digest' ? 'digest' : target === 'signature' ? 'signature' : 'welcome';
   const tierId = kind === 'welcome' ? target.slice('welcome:'.length) || null : null;
   const stored = useMemo(
     () => templates.find((x) => x.kind === kind && (x.tier_id ?? null) === tierId && x.locale === lang) ?? null,
@@ -58,6 +59,7 @@ export function EmailsClient({ templates, tiers, locale }: { templates: StoredTe
               </option>
             ))}
             <option value="digest">{t(locale, 'em_kind_digest')}</option>
+            <option value="signature">{t(locale, 'em_kind_signature')}</option>
           </select>
         </label>
         <div className="flex flex-wrap gap-1">
@@ -92,12 +94,14 @@ function Editor({
   onSaved,
 }: {
   stored: StoredTemplate | null;
-  kind: 'welcome' | 'digest';
+  kind: 'welcome' | 'digest' | 'signature';
   tierId: string | null;
   lang: AnyLocale;
   locale: Locale;
   onSaved: () => void;
 }) {
+  // A signature is one sign-off: no subject, image or closing of its own.
+  const sig = kind === 'signature';
   const [subject, setSubject] = useState(stored?.subject ?? '');
   const [imagePath, setImagePath] = useState(stored?.image_path ?? null);
   const [imageUrl, setImageUrl] = useState(stored?.image_url ?? null);
@@ -146,11 +150,15 @@ function Editor({
   return (
     <div className="space-y-4 rounded-2xl border border-line bg-surface-raised p-5">
       <p className="text-xs text-ink-muted">{stored ? t(locale, 'em_custom') : t(locale, 'em_standard')}</p>
+      {sig && <p className={NOTICE.info}>{t(locale, 'em_signature_note')}</p>}
+      {!sig && (
       <label className="block text-sm">
         <span className="mb-1 block font-medium">{t(locale, 'em_subject')}</span>
         <input value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} className={INPUT} />
       </label>
+      )}
 
+      {!sig && (
       <div className="text-sm">
         <span className="mb-1 block font-medium">{t(locale, 'em_image')}</span>
         {imageUrl ? (
@@ -169,15 +177,18 @@ function Editor({
           </label>
         )}
       </div>
+      )}
 
-      <RichTextField locale={locale} label={t(locale, 'em_intro')} name="intro" defaultValue={intro} onHtmlChange={setIntro} insertTokens={CHIPS} minHeight={140} />
+      <RichTextField locale={locale} label={sig ? t(locale, 'em_kind_signature') : t(locale, 'em_intro')} name="intro" defaultValue={intro} onHtmlChange={setIntro} insertTokens={CHIPS} minHeight={140} />
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">{t(locale, 'em_closing')}</span>
-        <textarea value={closing} onChange={(e) => setClosing(e.target.value)} maxLength={2000} rows={2} className={INPUT} />
-      </label>
+      {!sig && (
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium">{t(locale, 'em_closing')}</span>
+          <textarea value={closing} onChange={(e) => setClosing(e.target.value)} maxLength={2000} rows={2} className={INPUT} />
+        </label>
+      )}
 
-      <p className={NOTICE.info}>{t(locale, 'em_facts_note')}</p>
+      {!sig && <p className={NOTICE.info}>{t(locale, 'em_facts_note')}</p>}
       {error && <p className={NOTICE.error}>{error}</p>}
       {notice && <p className={NOTICE.success}>{notice}</p>}
 

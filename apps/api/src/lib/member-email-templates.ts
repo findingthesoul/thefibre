@@ -94,6 +94,33 @@ export async function communityWords(input: {
   }
 }
 
+/** The community's SIGNATURE for one transactional email to one member
+ *  (renewal reminder, payment failed, lapsed, stopped/resumed, card changed),
+ *  tokens filled with escaping — or null. Same order as the welcome, without
+ *  a tier: member's language → page language → none. Never throws: a
+ *  signature that cannot be read must not stop a payment-failed email. */
+export async function communitySignature(input: {
+  workspaceId: string;
+  memberLocale: string | null | undefined;
+  values: Record<string, string | null | undefined>;
+}): Promise<string | null> {
+  try {
+    const { data } = await adminClient
+      .from('membership_email_template')
+      .select('id, kind, tier_id, locale, subject, image_path, image_alt, intro_html, closing')
+      .eq('workspace_id', input.workspaceId)
+      .eq('kind', 'signature');
+    const rows = (data ?? []) as TemplateRow[];
+    if (!rows.length) return null;
+    const page = await communityPageLocale(input.workspaceId);
+    const row = pickTemplate(rows, 'signature', null, toLocale(input.memberLocale ?? null), page);
+    return row?.intro_html ? fillTokens(row.intro_html, input.values, 'member_email', { html: true }) : null;
+  } catch (e) {
+    console.warn('[member-email-templates] signature read failed — sent without', (e as Error).message);
+    return null;
+  }
+}
+
 /** The member_email token values for one member — one place, so the welcome,
  *  the digest, the preview and the test send fill the same way. */
 export function memberEmailValues(input: {
@@ -120,4 +147,13 @@ export function memberEmailValues(input: {
     renews_on: renews,
     'my.thread': input.portalUrl ?? null,
   };
+}
+
+/** One call for a send site: the member's tokens, then their signature. */
+export async function signatureFor(
+  workspaceId: string,
+  locale: string | null | undefined,
+  who: { firstName?: string | null; lastName?: string | null; communityName?: string | null; tierName?: string | null; renewsAt?: string | null },
+): Promise<string | null> {
+  return communitySignature({ workspaceId, memberLocale: locale, values: memberEmailValues({ ...who, locale }) });
 }

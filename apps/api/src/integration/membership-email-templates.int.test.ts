@@ -159,4 +159,49 @@ describe('member emails, edited by the community', () => {
     const { count } = await service.from('membership_email_template').select('id', { count: 'exact', head: true }).eq('id', digest.id);
     expect(count).toBe(0);
   });
+
+  // ── The SIGNATURE (2ix): one sign-off for the five transactional emails.
+  it('a signature saves as a sign-off only: bold, italic, links kept; the rest stripped; no subject or image', async () => {
+    const r = await call(admin, 'PUT', '/email-templates', {
+      kind: 'signature',
+      locale: 'en',
+      subject: 'ignored',
+      closing: 'ignored',
+      intro_html: '<h1>Big</h1><p>Warmly, <strong>{community}</strong> · <a href="https://choir.example">site</a></p><img src="x"><script>x</script>',
+    });
+    expect(r.status, await r.clone().text()).toBe(200);
+    const { data: row } = await service.from('membership_email_template').select('subject, closing, image_path, intro_html').eq('workspace_id', ws).eq('kind', 'signature').eq('locale', 'en').single();
+    expect(row!.subject).toBeNull();
+    expect(row!.closing).toBeNull();
+    expect(row!.intro_html).not.toMatch(/<h1|<img|<script/);
+    expect(row!.intro_html).toContain('<strong>{community}</strong>');
+    expect(row!.intro_html).toContain('href="https://choir.example"');
+  });
+
+  it('the signature preview is a renewal reminder, signed, the facts still ours', async () => {
+    const r = await call(admin, 'POST', '/email-templates/preview', { kind: 'signature', locale: 'en', intro_html: '<p>Warmly, <em>{community}</em></p>' });
+    expect(r.status, await r.clone().text()).toBe(200);
+    const p = await r.json();
+    expect(p.html).toContain('Warmly, <em>Template Community</em>');
+    // The reminder's own facts, before the sign-off.
+    expect(p.html.indexOf('Template Community')).toBeLessThan(p.html.indexOf('Warmly'));
+  });
+
+  it('at send time: the member’s language, else the page language, else none', async () => {
+    const { communitySignature } = await import('../lib/member-email-templates.js');
+    const en = await communitySignature({ workspaceId: ws, memberLocale: 'en', values: { community: 'Template Community' } });
+    expect(en).toContain('<strong>Template Community</strong>');
+    // French: no row; the page language (EN by default) is used.
+    expect(await communitySignature({ workspaceId: ws, memberLocale: 'fr', values: { community: 'X' } })).toContain('<strong>X</strong>');
+    // A community with no signature: none.
+    const { data: other } = await service.from('workspace').select('id').neq('id', ws).limit(1).single();
+    const { count } = await service.from('membership_email_template').select('id', { count: 'exact', head: true }).eq('workspace_id', other!.id).eq('kind', 'signature');
+    if (!count) expect(await communitySignature({ workspaceId: other!.id as string, memberLocale: 'en', values: {} })).toBeNull();
+  });
+
+  it('send me a test, for the signature: to the admin’s own address', async () => {
+    const r = await call(admin, 'POST', '/email-templates/send-test', { kind: 'signature', locale: 'en', intro_html: '<p>Warmly</p>' });
+    expect(r.status, await r.clone().text()).toBe(200);
+    expect((await r.json()).sent_to).toBe(admin.email);
+  });
 });

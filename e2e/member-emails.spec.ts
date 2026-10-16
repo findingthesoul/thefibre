@@ -43,3 +43,45 @@ test('write, preview, save, reload, reset', async ({ page }) => {
   await page.getByRole('button', { name: 'Reset to the standard text' }).click();
   await expect.poll(async () => ((await rows()).data ?? []).length, { timeout: 20_000 }).toBe(0);
 });
+
+// The SIGNATURE (2ix): write a sign-off, preview it on a renewal reminder,
+// save, read it from the DATABASE, reload, reset. Its own row (kind
+// signature, EN), removed by workspace + kind + locale before and after.
+const SIGN = `E2E sign-off ${Date.now().toString(36)}`;
+const sigRows = () => stagingService().from('membership_email_template').select('id, intro_html, subject').eq('workspace_id', workspaceId).eq('kind', 'signature').eq('locale', 'en');
+
+test('signature: write, preview on a renewal reminder, save, reload, reset', async ({ page }) => {
+  test.setTimeout(120_000);
+  await stagingService().from('membership_email_template').delete().eq('workspace_id', workspaceId).eq('kind', 'signature').eq('locale', 'en');
+  try {
+    await landSignedIn(page, HOSTS.membership, 'membership', '/settings/emails', /\/settings\/emails|no-access/);
+    await waitForHydration(page, 'button, input, select');
+    await page.locator('select').first().selectOption('signature');
+    await page.getByRole('button', { name: /^English/ }).click();
+    // A signature has no subject or image of its own.
+    await expect(page.getByLabel('Subject')).toHaveCount(0);
+    const editor = page.locator('[contenteditable="true"]').first();
+    await editor.click();
+    await page.keyboard.type(SIGN);
+
+    await page.getByRole('button', { name: 'Preview' }).click();
+    const frame = page.frameLocator('iframe[title="Preview"]');
+    await expect(frame.getByText(SIGN)).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(async () => (await sigRows()).data?.[0]?.intro_html ?? '', { timeout: 20_000 }).toContain(SIGN);
+    expect((await sigRows()).data?.[0]?.subject ?? null).toBeNull();
+
+    await page.reload();
+    await waitForHydration(page, 'button, input, select');
+    await page.locator('select').first().selectOption('signature');
+    await page.getByRole('button', { name: /^English/ }).click();
+    await expect(page.locator('[contenteditable="true"]').first()).toContainText(SIGN);
+
+    await page.getByRole('button', { name: 'Reset to the standard text' }).click();
+    await expect.poll(async () => ((await sigRows()).data ?? []).length, { timeout: 20_000 }).toBe(0);
+  } finally {
+    await stagingService().from('membership_email_template').delete().eq('workspace_id', workspaceId).eq('kind', 'signature').eq('locale', 'en');
+    expect((await sigRows()).data ?? []).toHaveLength(0);
+  }
+});
