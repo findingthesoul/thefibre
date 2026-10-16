@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.255.2] — 2026-10-16
+
+### A guest who just cancelled a Meet booking reads that it is done, not "already cancelled" (Meet 2.37.3)
+
+- After pressing Cancel booking, the page told the guest "This booking is
+  already cancelled." The form showed "Booking cancelled. A confirmation
+  email is on its way." for a moment and then refreshed; the refreshed page
+  rendered the cancelled booking and unmounted the form with its line. Older
+  than v1.254.x; found by the host e2e.
+- The form now returns to the page with `?cancelled=1` (the token kept). The
+  page shows the success line as its heading when the booking IS cancelled
+  and that mark is present. The mark changes only the words, and only for a
+  cancelled booking; a later visit of the same link still says "already
+  cancelled". Reschedule does not have the pattern: it moves on to the
+  confirmed page.
+- `e2e/meet-host-manage.spec.ts` is back to the success line only (no
+  "already cancelled" on screen right after), plus a revisit without the
+  mark that must say "already cancelled" with nothing to press.
+
 ## [1.255.1] — 2026-10-16
 
 ### Test only: the Meet host e2e reads the cancel outcome from the booking, not the flash message

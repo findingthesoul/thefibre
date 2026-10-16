@@ -12,8 +12,10 @@
 // put back afterwards. Pinned:
 //   · Reschedule in the dialog opens the public page in reschedule mode with
 //     the token, and moving the booking there works;
-//   · Cancel in the dialog opens the cancel page with the token, and the
-//     booking ends cancelled.
+//   · Cancel in the dialog opens the cancel page with the token, the booking
+//     ends cancelled, and the page says it is done ("Booking cancelled. A
+//     confirmation email is on its way.", v1.255.2); a later visit of the
+//     same link says it is already cancelled.
 // That a guest mail sent from a host action still carries the token is
 // pinned in apps/api/src/integration/meet-manage-token.int.test.ts, where the
 // mail can be read; here it would only be a Resend send we cannot open.
@@ -117,15 +119,23 @@ test('the host cancels and reschedules from their own booking dialog', async ({ 
     await expect(button).toBeVisible({ timeout: 30_000 });
     await waitForHydration(cancelling);
     await button.click();
-    // The form says "Booking cancelled." and then refreshes, and the refreshed
-    // page renders the cancelled booking ("This booking is already
-    // cancelled.") — so either may be what is on screen. The status below is
-    // the proof.
+    // The guest who just cancelled reads that it is done (v1.255.2: the
+    // refresh used to re-render the page as "already cancelled").
     await expect(
-      cancelling.getByText(/Booking cancelled\. A confirmation|This booking is already cancelled/).first(),
+      cancelling.getByRole('heading', { name: 'Booking cancelled. A confirmation email is on its way.' }),
     ).toBeVisible({ timeout: 30_000 });
+    await expect(cancelling.getByText('This booking is already cancelled.')).toHaveCount(0);
     const after = (await s.from('meet_booking').select('status').eq('id', bookingId).single()).data!;
     expect(after.status).toBe('cancelled');
+
+    // A revisit of the cancelled booking — the same link, without the
+    // just-cancelled mark — still says it is already cancelled, and offers
+    // nothing to press.
+    const revisit = new URL(cancelling.url());
+    revisit.searchParams.delete('cancelled');
+    await cancelling.goto(revisit.toString());
+    await expect(cancelling.getByRole('heading', { name: 'This booking is already cancelled.' })).toBeVisible({ timeout: 30_000 });
+    await expect(cancelling.getByRole('button', { name: 'Cancel booking' })).toHaveCount(0);
   } finally {
     if (mtId) {
       await s.from('meet_booking').delete().eq('meeting_type_id', mtId);

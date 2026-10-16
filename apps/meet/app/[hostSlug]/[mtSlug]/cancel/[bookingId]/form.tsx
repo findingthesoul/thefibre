@@ -41,7 +41,12 @@ export function CancelForm({
             if (r.error) setError(r.error);
             else {
               setDone(true);
-              router.refresh();
+              // Back to this page marked as just cancelled: it re-renders the
+              // cancelled booking with the success line, not "already
+              // cancelled".
+              router.replace(
+                `?${token ? `t=${encodeURIComponent(token)}&` : ''}cancelled=1`,
+              );
             }
           });
         }}
