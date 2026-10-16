@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Bell, FileText, Globe, Plug, Code2, Percent,
-  Ticket, Users } from 'lucide-react';
+  Ticket, Users, Mail } from 'lucide-react';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { canManageWorkspace } from '@thefibre/shared';
 import { apiFetch } from '@/lib/api';
@@ -71,6 +71,12 @@ export default async function SettingsPage() {
           icon: <FileText {...ICON} />,
           title: t(locale, 'st_member_page_title'),
           desc: t(locale, 'st_member_page_desc'),
+        },
+        {
+          href: '/settings/emails',
+          icon: <Mail {...ICON} />,
+          title: t(locale, 'st_emails_title'),
+          desc: t(locale, 'st_emails_desc'),
         },
         {
           href: '/settings/notifications',

@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.234.0] — 2026-10-16
+
+### Members → Settings → Emails: a community's own words in its welcome and digest (Members 1.10.0)
+
+Sjoerd (2ix): *"would be great if it was editable in the settings"*.
+
+- **A new Settings page, Emails.** Choose the welcome email (all tiers, or
+  one tier) or the calendar digest, choose a language, and write a subject,
+  an image at the top (with alt text), your own words (rich text, with
+  {first_name}-style chips) and a closing line.
+- **Preview** renders the email with the SAME template the sends use (a
+  sample member, the tier's real facts). **Send me a test** mails it to the
+  signed-in admin's own address only: no address field, never to members,
+  rate-limited. **Reset to the standard text** removes the community's
+  version.
+- **The facts stay ours, always:** what they joined, what it includes, the
+  calendars, the portal button and sign-in, the renewal date, the invoice
+  note, and the digest's list of sessions and its unsubscribe line. A
+  community adds its voice; it can't drop the facts.
+- **Which words a member gets:** the tier's version in their language, then
+  the tier's version in the community's page language, then the default in
+  their language, then the default in the page language, then our standard
+  email. With nothing written, every email is exactly as before.
+- **Images** go to the public `fibre-assets` bucket (EU), under the
+  workspace's own prefix: PNG/JPEG/WebP/GIF, ≤ 2 MB, checked by the bytes'
+  signature, not the declared type. A saved image must be the workspace's
+  own and must carry alt text.
+- **No styles in v1:** the community brand has no accent colour yet, so the
+  emails keep the house look with the community's logo.
+- **Tokens:** a new `member_email` surface in `@thefibre/shared/merge-tokens`,
+  offering {first_name} {last_name} {full_name} {community} {tier}
+  {my.thread} and the new {renews_on}. They're filled by the same
+  `fillTokens`, with the rich text escaped.
+- API (additive, admin): `GET/PUT /email-templates` (writes through the
+  admin's own RLS client; a tier must be this workspace's), `DELETE
+  /email-templates/:id`, `POST /email-templates/image`, `/preview`,
+  `/send-test`. At send time the welcome (paid and admin-added) and the
+  digest read the community's words with the service role, and never fail
+  a send over them.
+- Tests:
+  - unit: which row (7), the email templates unchanged without custom words
+    (95);
+  - integration on staging (10): save per tier and default; the same key
+    updates; sanitised; another community's tier refused; a non-admin can
+    neither save nor read; the database rules by code (anon 42501, duplicate
+    23505, digest-with-tier 23514, image-without-alt 23514); image accepted
+    and refused (bytes, size, path, alt); welcome and digest previews keep
+    the facts; the send-time choice; the test goes to the admin's own
+    address; reset;
+  - `e2e/member-emails.spec.ts`: the fixture admin writes, previews, saves,
+    reloads and resets. It runs once deployed.
+
 ## [1.233.2] — 2026-10-16
 
 ### Cancellation requests, part 1: the table alone

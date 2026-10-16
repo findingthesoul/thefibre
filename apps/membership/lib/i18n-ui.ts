@@ -2492,6 +2492,175 @@ const CATALOG = {
   },
 
   // ── member directory (docs/member-directory-spec.md slice 1) ──────────
+  // MEMBER EMAILS (Settings → Emails, 2026-10-16, Sjoerd 2ix).
+  st_emails_title: {
+    en: 'Member emails',
+    nl: 'E-mails aan leden', // MT pending native review
+    es: 'Correos a los miembros', // MT
+    pt: 'E-mails aos membros', // MT
+    de: 'E-Mails an Mitglieder', // MT
+    fr: 'E-mails aux membres', // MT
+  },
+  st_emails_desc: {
+    en: 'Your own words in the welcome email and the calendar digest.',
+    nl: 'Je eigen woorden in de welkomstmail en het agendaoverzicht.', // MT pending native review
+    es: 'Tus propias palabras en el correo de bienvenida y el resumen del calendario.', // MT
+    pt: 'As suas próprias palavras no e-mail de boas-vindas e no resumo do calendário.', // MT
+    de: 'Deine eigenen Worte in der Willkommens-E-Mail und der Kalenderübersicht.', // MT
+    fr: 'Tes propres mots dans l’e-mail de bienvenue et le récapitulatif du calendrier.', // MT
+  },
+  em_kind_welcome: {
+    en: 'Welcome email',
+    nl: 'Welkomstmail', // MT pending native review
+    es: 'Correo de bienvenida', // MT
+    pt: 'E-mail de boas-vindas', // MT
+    de: 'Willkommens-E-Mail', // MT
+    fr: 'E-mail de bienvenue', // MT
+  },
+  em_kind_digest: {
+    en: 'Calendar digest',
+    nl: 'Agendaoverzicht', // MT pending native review
+    es: 'Resumen del calendario', // MT
+    pt: 'Resumo do calendário', // MT
+    de: 'Kalenderübersicht', // MT
+    fr: 'Récapitulatif du calendrier', // MT
+  },
+  em_all_tiers: {
+    en: 'All tiers (default)',
+    nl: 'Alle niveaus (standaard)', // MT pending native review
+    es: 'Todos los niveles (por defecto)', // MT
+    pt: 'Todos os níveis (padrão)', // MT
+    de: 'Alle Stufen (Standard)', // MT
+    fr: 'Tous les niveaux (par défaut)', // MT
+  },
+  em_subject: {
+    en: 'Subject',
+    nl: 'Onderwerp', // MT pending native review
+    es: 'Asunto', // MT
+    pt: 'Assunto', // MT
+    de: 'Betreff', // MT
+    fr: 'Objet', // MT
+  },
+  em_image: {
+    en: 'Image at the top',
+    nl: 'Afbeelding bovenaan', // MT pending native review
+    es: 'Imagen arriba', // MT
+    pt: 'Imagem no topo', // MT
+    de: 'Bild oben', // MT
+    fr: 'Image en haut', // MT
+  },
+  em_image_alt: {
+    en: 'Describe the image (for people who cannot see it)',
+    nl: 'Beschrijf de afbeelding (voor wie hem niet kan zien)', // MT pending native review
+    es: 'Describe la imagen (para quien no puede verla)', // MT
+    pt: 'Descreva a imagem (para quem não a pode ver)', // MT
+    de: 'Beschreibe das Bild (für alle, die es nicht sehen können)', // MT
+    fr: 'Décris l’image (pour qui ne peut pas la voir)', // MT
+  },
+  em_upload: {
+    en: 'Upload image',
+    nl: 'Afbeelding uploaden', // MT pending native review
+    es: 'Subir imagen', // MT
+    pt: 'Carregar imagem', // MT
+    de: 'Bild hochladen', // MT
+    fr: 'Téléverser une image', // MT
+  },
+  em_remove_image: {
+    en: 'Remove image',
+    nl: 'Afbeelding verwijderen', // MT pending native review
+    es: 'Quitar imagen', // MT
+    pt: 'Remover imagem', // MT
+    de: 'Bild entfernen', // MT
+    fr: 'Retirer l’image', // MT
+  },
+  em_intro: {
+    en: 'Your words',
+    nl: 'Je eigen woorden', // MT pending native review
+    es: 'Tus palabras', // MT
+    pt: 'As suas palavras', // MT
+    de: 'Deine Worte', // MT
+    fr: 'Tes mots', // MT
+  },
+  em_closing: {
+    en: 'Closing line',
+    nl: 'Slotregel', // MT pending native review
+    es: 'Línea de cierre', // MT
+    pt: 'Linha final', // MT
+    de: 'Schlusszeile', // MT
+    fr: 'Ligne de fin', // MT
+  },
+  em_facts_note: {
+    en: 'What they joined, what it includes, the renewal date and how to sign in are always added by us — you cannot leave them out by accident.',
+    nl: 'Waar ze lid van werden, wat erbij hoort, de verlengdatum en hoe ze inloggen voegen wij altijd toe — die kun je niet per ongeluk weglaten.', // MT pending native review
+    es: 'Siempre añadimos a qué se unieron, qué incluye, la fecha de renovación y cómo entrar; no se pueden omitir por error.', // MT
+    pt: 'Acrescentamos sempre a que aderiram, o que inclui, a data de renovação e como entrar; não podem ser omitidos por engano.', // MT
+    de: 'Wofür sie beigetreten sind, was enthalten ist, das Verlängerungsdatum und wie sie sich anmelden, fügen wir immer hinzu — das kannst du nicht versehentlich weglassen.', // MT
+    fr: 'Nous ajoutons toujours ce qu’ils ont rejoint, ce qui est inclus, la date de renouvellement et comment se connecter — impossible de les oublier par erreur.', // MT
+  },
+  em_lang_note: {
+    en: 'Write the languages you want. A member whose language you did not write gets your page language.',
+    nl: 'Schrijf de talen die je wilt. Een lid wiens taal je niet schreef, krijgt de taal van je pagina.', // MT pending native review
+    es: 'Escribe los idiomas que quieras. Quien tenga un idioma que no escribiste recibe el idioma de tu página.', // MT
+    pt: 'Escreva as línguas que quiser. Quem tiver uma língua que não escreveu recebe a língua da sua página.', // MT
+    de: 'Schreib die Sprachen, die du möchtest. Wessen Sprache du nicht geschrieben hast, bekommt die Sprache deiner Seite.', // MT
+    fr: 'Écris les langues que tu veux. Un membre dont tu n’as pas écrit la langue reçoit la langue de ta page.', // MT
+  },
+  em_preview: {
+    en: 'Preview',
+    nl: 'Voorbeeld', // MT pending native review
+    es: 'Vista previa', // MT
+    pt: 'Pré-visualizar', // MT
+    de: 'Vorschau', // MT
+    fr: 'Aperçu', // MT
+  },
+  em_send_test: {
+    en: 'Send me a test',
+    nl: 'Stuur mij een test', // MT pending native review
+    es: 'Envíame una prueba', // MT
+    pt: 'Enviar-me um teste', // MT
+    de: 'Mir einen Test senden', // MT
+    fr: 'M’envoyer un test', // MT
+  },
+  em_test_sent: {
+    en: 'Sent to {email}',
+    nl: 'Verstuurd naar {email}', // MT pending native review
+    es: 'Enviado a {email}', // MT
+    pt: 'Enviado para {email}', // MT
+    de: 'Gesendet an {email}', // MT
+    fr: 'Envoyé à {email}', // MT
+  },
+  em_reset: {
+    en: 'Reset to the standard text',
+    nl: 'Terug naar de standaardtekst', // MT pending native review
+    es: 'Volver al texto estándar', // MT
+    pt: 'Repor o texto padrão', // MT
+    de: 'Auf den Standardtext zurücksetzen', // MT
+    fr: 'Revenir au texte standard', // MT
+  },
+  em_saved: {
+    en: 'Saved',
+    nl: 'Opgeslagen', // MT pending native review
+    es: 'Guardado', // MT
+    pt: 'Guardado', // MT
+    de: 'Gespeichert', // MT
+    fr: 'Enregistré', // MT
+  },
+  em_standard: {
+    en: 'Standard text in use',
+    nl: 'Standaardtekst in gebruik', // MT pending native review
+    es: 'Texto estándar en uso', // MT
+    pt: 'Texto padrão em uso', // MT
+    de: 'Standardtext in Gebrauch', // MT
+    fr: 'Texte standard utilisé', // MT
+  },
+  em_custom: {
+    en: 'Your text',
+    nl: 'Je eigen tekst', // MT pending native review
+    es: 'Tu texto', // MT
+    pt: 'O seu texto', // MT
+    de: 'Dein Text', // MT
+    fr: 'Ton texte', // MT
+  },
   st_member_page_title: {
     en: 'Member page',
     nl: 'Ledenpagina', // MT

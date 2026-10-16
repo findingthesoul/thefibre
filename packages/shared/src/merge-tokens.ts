@@ -25,7 +25,7 @@
 
 import type { Locale } from './i18n.js';
 
-export type TokenSurface = 'thread_message' | 'member_page';
+export type TokenSurface = 'thread_message' | 'member_page' | 'member_email';
 
 export type MergeToken = {
   /** As typed, without braces: `first_name` → {first_name}. */
@@ -42,33 +42,38 @@ export type MergeToken = {
 const both: readonly TokenSurface[] = ['thread_message', 'member_page'];
 const msg: readonly TokenSurface[] = ['thread_message'];
 const page: readonly TokenSurface[] = ['member_page'];
+// A community's own words in its member emails (Members → Settings → Emails,
+// 2026-10-16): the person, the community, the tier, the renewal and the link.
+const everywhere: readonly TokenSurface[] = ['thread_message', 'member_page', 'member_email'];
+const pageAndEmail: readonly TokenSurface[] = ['member_page', 'member_email'];
+const email: readonly TokenSurface[] = ['member_email'];
 
 export const MERGE_TOKENS: readonly MergeToken[] = [
   {
     key: 'first_name',
     aliases: ['name'],
-    surfaces: both,
+    surfaces: everywhere,
     example: 'Marja',
     description: { en: 'Their first name', nl: 'Hun voornaam', es: 'Su nombre', pt: 'O primeiro nome', de: 'Vorname', fr: 'Son prénom' },
   },
   {
     key: 'last_name',
     aliases: [],
-    surfaces: both,
+    surfaces: everywhere,
     example: 'de Vries',
     description: { en: 'Their last name', nl: 'Hun achternaam', es: 'Su apellido', pt: 'O apelido', de: 'Nachname', fr: 'Son nom de famille' },
   },
   {
     key: 'full_name',
     aliases: [],
-    surfaces: both,
+    surfaces: everywhere,
     example: 'Marja de Vries',
     description: { en: 'Their full name', nl: 'Hun volledige naam', es: 'Su nombre completo', pt: 'O nome completo', de: 'Vollständiger Name', fr: 'Son nom complet' },
   },
   {
     key: 'community',
     aliases: [],
-    surfaces: both,
+    surfaces: everywhere,
     example: 'soul.com',
     description: { en: 'The community’s name', nl: 'De naam van de community', es: 'El nombre de la comunidad', pt: 'O nome da comunidade', de: 'Name der Community', fr: 'Le nom de la communauté' },
   },
@@ -155,14 +160,14 @@ export const MERGE_TOKENS: readonly MergeToken[] = [
   {
     key: 'my.thread',
     aliases: [],
-    surfaces: both,
+    surfaces: everywhere,
     example: 'https://my.thethread.app',
     description: { en: 'A link to their own page', nl: 'Een link naar hun eigen pagina', es: 'Un enlace a su propia página', pt: 'Uma ligação à própria página', de: 'Ein Link zur eigenen Seite', fr: 'Un lien vers sa propre page' },
   },
   {
     key: 'tier',
     aliases: [],
-    surfaces: page,
+    surfaces: pageAndEmail,
     example: 'Singer',
     description: { en: 'Their membership tier', nl: 'Hun lidmaatschapsniveau', es: 'Su nivel de membresía', pt: 'O nível de adesão', de: 'Mitgliedschaftsstufe', fr: 'Son niveau d’adhésion' },
   },
@@ -172,6 +177,13 @@ export const MERGE_TOKENS: readonly MergeToken[] = [
     surfaces: page,
     example: 'Open rehearsal',
     description: { en: 'What is next for them', nl: 'Wat er voor hen hierna komt', es: 'Lo próximo para esa persona', pt: 'O que vem a seguir', de: 'Was als Nächstes ansteht', fr: 'Ce qui vient ensuite pour cette personne' },
+  },
+  {
+    key: 'renews_on',
+    aliases: [],
+    surfaces: email,
+    example: '1 January 2027',
+    description: { en: 'When their membership renews', nl: 'Wanneer hun lidmaatschap verlengt', es: 'Cuándo se renueva su membresía', pt: 'Quando a adesão é renovada', de: 'Wann die Mitgliedschaft verlängert wird', fr: 'Quand son adhésion est renouvelée' },
   },
 ];
 

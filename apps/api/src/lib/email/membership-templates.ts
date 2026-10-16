@@ -414,6 +414,40 @@ function para(html: string, extra = ''): string {
  *  lowercase on purpose. So this capitalises only when the name is exactly
  *  the email's local part, case-insensitively — which is the case where
  *  nobody chose it and we are reading a mailbox, not a person. */
+/** A community's own words for one email (membership_email_template, tokens
+ *  filled by the caller). */
+export type CustomEmailParts = {
+  subject?: string | null;
+  /** Public URL (fibre-assets) and its alt text. */
+  imageUrl?: string | null;
+  imageAlt?: string | null;
+  /** Sanitised rich text (the bio_html allow-list), tokens filled. */
+  introHtml?: string | null;
+  closing?: string | null;
+};
+
+function customImage(c: CustomEmailParts | null): string {
+  if (!c?.imageUrl) return '';
+  return `<p style="margin:0 0 22px;"><img src="${escapeHtml(c.imageUrl)}" alt="${escapeHtml(c.imageAlt ?? '')}" width="560" style="display:block;border:0;width:100%;max-width:560px;height:auto;border-radius:8px;" /></p>`;
+}
+
+/** The plain-text part of a community's rich text: tags out, entities back,
+ *  list items and paragraphs as lines. */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<\s*(br|\/p|\/li|\/h[1-6])\s*\/?>/gi, '\n')
+    .replace(/<\s*li[^>]*>/gi, '\u2022 ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function greetingName(firstName: string | null | undefined, email?: string | null): string {
   const name = (firstName ?? '').trim();
   if (!name) return 'there';
@@ -463,9 +497,16 @@ export function membershipWelcome(opts: {
   invoiceFollows?: boolean;
   locale?: string | null;
   brand?: EmailBrand;
+  /** The community's OWN words (Members → Settings → Emails, 2026-10-16),
+   *  tokens already filled: a subject, an image, an intro (sanitised HTML)
+   *  and a closing. They replace our opening, our "what you joined" prose and
+   *  our sign-off — never the FACTS (what it includes, the calendars, the
+   *  portal and sign-in, the renewal, the invoice), which are always here. */
+  custom?: CustomEmailParts | null;
 }): { subject: string; html: string; text: string } {
   const loc = toLocale(opts.locale);
-  const subject = t(loc, 'm_welcome_subject', { community: opts.communityName });
+  const c = opts.custom ?? null;
+  const subject = c?.subject?.trim() || t(loc, 'm_welcome_subject', { community: opts.communityName });
 
   const greeting = t(loc, 'm_welcome_greeting', {
     community: opts.communityName,
@@ -520,11 +561,18 @@ export function membershipWelcome(opts: {
     `<p style="margin:32px 0 10px;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#737373;">${escapeHtml(text)}</p>`;
 
   const html = [
+    customImage(c),
     para(`<strong>${escapeHtml(greeting)}</strong>`),
-    para(escapeHtml(opening)),
-    heading(t(loc, 'm_welcome_community_heading')),
-    // The community's own description may be several lines; keep them.
-    para(escapeHtml(community).replace(/\n/g, '<br />')),
+    ...(c?.introHtml?.trim()
+      ? // The community's own intro replaces our opening AND our "what you
+        // joined" prose — its words about its own membership.
+        [`<div style="margin:0 0 18px;${BODY}">${c.introHtml}</div>`]
+      : [
+          para(escapeHtml(opening)),
+          heading(t(loc, 'm_welcome_community_heading')),
+          // The community's own description may be several lines; keep them.
+          para(escapeHtml(community).replace(/\n/g, '<br />')),
+        ]),
     ticks.length || calendarLines.length ? heading(t(loc, 'm_welcome_expect_heading')) : '',
     ticks.length
       ? `<ul style="margin:0 0 18px;padding-left:24px;${BODY}">${ticks
@@ -573,17 +621,16 @@ export function membershipWelcome(opts: {
     invoiceFollows
       ? `<p style="margin:0 0 18px;${SMALL}">${escapeHtml(t(loc, 'm_welcome_invoice_follows'))}</p>`
       : '',
-    para(escapeHtml(signoff).replace(/\n/g, '<br />')),
+    para(escapeHtml(c?.closing?.trim() || signoff).replace(/\n/g, '<br />')),
   ]
     .filter(Boolean)
     .join('\n    ');
 
   const text = [
     greeting,
-    opening,
-    '',
-    t(loc, 'm_welcome_community_heading').toUpperCase(),
-    community,
+    ...(c?.introHtml?.trim()
+      ? [htmlToText(c.introHtml)]
+      : [opening, '', t(loc, 'm_welcome_community_heading').toUpperCase(), community]),
     ...(ticks.length
       ? ['', t(loc, 'm_welcome_expect_heading').toUpperCase(), ...ticks.map((c) => `\u2022 ${c}`)]
       : []),
@@ -602,7 +649,7 @@ export function membershipWelcome(opts: {
     ...(renewLine ? ['', renewLine] : []),
     ...(invoiceFollows ? ['', t(loc, 'm_welcome_invoice_follows')] : []),
     '',
-    signoff,
+    c?.closing?.trim() || signoff,
   ].join('\n');
 
   return { subject, html: shell(subject, html, opts.brand), text };

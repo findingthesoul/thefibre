@@ -8,6 +8,7 @@
 // (membership-templates.ts says why there is only one size).
 
 import { INTL_LOCALES, makeT, toLocale, type I18nEntry, type Locale } from '@thefibre/shared';
+import { htmlToText, type CustomEmailParts } from './membership-templates.js';
 import { shell, escapeHtml, type EmailBrand } from './templates.js';
 
 export type DigestItem =
@@ -175,11 +176,16 @@ export function memberNotifyDigest(opts: {
   unsubscribeUrl: string;
   locale?: string | null;
   brand?: EmailBrand;
+  /** The community's own words (Members → Settings → Emails): a subject, an
+   *  image, an intro under the greeting and a closing above the "why". The
+   *  list of sessions, the button and the unsubscribe line stay ours. */
+  custom?: CustomEmailParts | null;
 }): { subject: string; html: string; text: string } {
   const loc = toLocale(opts.locale);
+  const c = opts.custom ?? null;
   const fresh = opts.items.filter((i): i is Extract<DigestItem, { kind: 'new_thread' }> => i.kind === 'new_thread');
   const changed = opts.items.filter((i) => i.kind !== 'new_thread');
-  const subject = t(loc, fresh.length ? 'n_subject' : 'n_subject_changes', { community: opts.communityName });
+  const subject = c?.subject?.trim() || t(loc, fresh.length ? 'n_subject' : 'n_subject_changes', { community: opts.communityName });
 
   const freshLines = fresh.map((i) => {
     const date = when(i.startsAt, loc, false);
@@ -208,12 +214,15 @@ export function memberNotifyDigest(opts: {
 
   const body = `
     <div style="${BODY}">
+      ${c?.imageUrl ? `<p style="margin:0 0 22px;"><img src="${escapeHtml(c.imageUrl)}" alt="${escapeHtml(c.imageAlt ?? '')}" width="560" style="display:block;border:0;width:100%;max-width:560px;height:auto;border-radius:8px;" /></p>` : ''}
       <p style="margin:0 0 18px;${BODY}">${escapeHtml(t(loc, 'n_hi', { name: opts.name }))}</p>
+      ${c?.introHtml?.trim() ? `<div style="margin:0 0 18px;${BODY}">${c.introHtml}</div>` : ''}
       ${freshLines.length ? `<div style="${LABEL}">${escapeHtml(t(loc, 'n_new_heading'))}</div>${list(freshLines)}` : ''}
       ${changedLines.length ? `<div style="${LABEL}">${escapeHtml(t(loc, 'n_changed_heading'))}</div>${list(changedLines)}` : ''}
       <p style="margin:28px 0;text-align:center;">
         <a href="${escapeHtml(opts.upcomingUrl)}" style="display:inline-block;background:#171717;color:#fff;text-decoration:none;font-size:${TEXT_SIZE};font-weight:500;padding:12px 24px;border-radius:8px;">${escapeHtml(t(loc, 'n_button'))}</a>
       </p>
+      ${c?.closing?.trim() ? `<p style="margin:0 0 18px;${BODY}">${escapeHtml(c.closing).replace(/\n/g, '<br />')}</p>` : ''}
       <p style="margin:0;${MUTED}">${escapeHtml(t(loc, 'n_why', { community: opts.communityName }))}
         <a href="${escapeHtml(opts.unsubscribeUrl)}" style="color:#525252;">${escapeHtml(t(loc, 'n_stop'))}</a>.</p>
     </div>`;
@@ -223,10 +232,12 @@ export function memberNotifyDigest(opts: {
   const text = [
     t(loc, 'n_hi', { name: opts.name }),
     '',
+    ...(c?.introHtml?.trim() ? [htmlToText(c.introHtml), ''] : []),
     ...textLines(t(loc, 'n_new_heading'), freshLines),
     ...textLines(t(loc, 'n_changed_heading'), changedLines),
     `${t(loc, 'n_button')}: ${opts.upcomingUrl}`,
     '',
+    ...(c?.closing?.trim() ? [c.closing.trim(), ''] : []),
     t(loc, 'n_why', { community: opts.communityName }),
     `${t(loc, 'n_stop')}: ${opts.unsubscribeUrl}`,
   ].join('\n');

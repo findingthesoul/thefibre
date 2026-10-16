@@ -44,6 +44,10 @@ import { resolvePerson } from '../lib/resolve-person.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { invoiceLines } from '../lib/invoice-lines.js';
+import { sanitizeRichText } from '../lib/rich-text.js';
+import { actorUserId } from '../middleware/app-context.js';
+import { memberNotifyDigest } from '../lib/email/member-notify-templates.js';
+import { communityWords, EMAIL_IMAGE_BUCKET, emailImageUrl, fillTemplate, memberEmailValues } from '../lib/member-email-templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { chargeNet, saleVat, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
@@ -1301,6 +1305,8 @@ membershipRoutes.post('/members', async (c) => {
       // wrote (the admin set it in that dialog), and the calendars come from
       // the same resolver the paid path and the member price use.
       const communityName = ws?.name ?? 'the community';
+      const welcomeLocale = await memberEmailLocale(ws?.id ?? '', null);
+      const welcomePortal = `${stackSurfaceUrl('my-portal', process.env)}/memberships`;
       const msg = membershipWelcome({
         name: person.first_name ?? 'there',
         communityName,
@@ -1315,8 +1321,16 @@ membershipRoutes.post('/members', async (c) => {
         portalUrl: `${stackSurfaceUrl('my-portal', process.env)}/memberships`,
         email: person.email,
         invoiceFollows: false,
-        locale: await memberEmailLocale(ws?.id ?? '', null),
+        locale: welcomeLocale,
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+        // The community's own words, when it wrote any (Settings → Emails).
+        custom: await communityWords({
+          workspaceId: ctx.workspaceId,
+          kind: 'welcome',
+          tierId: memberFields.tier_id,
+          memberLocale: welcomeLocale,
+          values: memberEmailValues({ firstName: person.first_name, lastName: person.last_name, communityName, tierName: tier?.name, renewsAt, portalUrl: welcomePortal, locale: welcomeLocale }),
+        }),
       });
       await sendEmail({
         to: person.email,
@@ -3604,6 +3618,8 @@ async function ensureMemberFromSubscription(
     });
 
     if (person?.email) {
+      const welcomeLocale = await memberEmailLocale(meta.workspace_id, created.locale);
+      const welcomePortal = ws?.slug ? `${stackSurfaceUrl('my-portal', process.env)}/memberships` : null;
       const msg = membershipWelcome({
         name: person.first_name ?? 'there',
         communityName: ws?.name ?? 'the community',
@@ -3620,8 +3636,15 @@ async function ensureMemberFromSubscription(
           ? `${stackSurfaceUrl('my-portal', process.env)}/memberships`
           : null,
         email: person.email,
-        locale: await memberEmailLocale(meta.workspace_id, created.locale),
+        locale: welcomeLocale,
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+        custom: await communityWords({
+          workspaceId: meta.workspace_id,
+          kind: 'welcome',
+          tierId: meta.tier_id,
+          memberLocale: welcomeLocale,
+          values: memberEmailValues({ firstName: person.first_name, communityName: ws?.name, tierName: tier?.name, renewsAt, portalUrl: welcomePortal, locale: welcomeLocale }),
+        }),
       });
       await sendEmail({
         to: person.email,
@@ -4462,3 +4485,204 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
 
   return out;
 }
+
+// ===========================================================================
+// MEMBER EMAILS, EDITABLE PER COMMUNITY (Sjoerd 2ix; Settings → Emails).
+//
+// A community's own words for its welcome (per tier, or a default) and its
+// digest, per locale — around the FACTS, which stay ours. Reads and writes go
+// through the admin's own client, so the table's RLS (admin only) is the
+// enforcement; the image upload and the test send are admin-checked here and
+// use the service role. Nothing changes for any member until a row exists.
+// ===========================================================================
+
+const EmailTemplateBody = z.object({
+  kind: z.enum(['welcome', 'digest']),
+  tier_id: z.string().uuid().nullable().optional(),
+  locale: z.enum(['en', 'nl', 'es', 'pt', 'de', 'fr']),
+  subject: z.string().max(200).nullable().optional(),
+  image_path: z.string().max(300).nullable().optional(),
+  image_alt: z.string().max(200).nullable().optional(),
+  intro_html: z.string().max(20000).nullable().optional(),
+  closing: z.string().max(2000).nullable().optional(),
+});
+
+const clean = (s: string | null | undefined) => (typeof s === 'string' && s.trim() ? s.trim() : null);
+
+membershipRoutes.get('/email-templates', async (c) => {
+  const db = userClient(c.get('ctx').jwt);
+  const { data, error } = await db
+    .from('membership_email_template')
+    .select('id, kind, tier_id, locale, subject, image_path, image_alt, intro_html, closing, updated_at')
+    .order('kind')
+    .order('locale');
+  if (error) return fail(c, 'list email templates', error);
+  return c.json({ items: (data ?? []).map((r) => ({ ...r, image_url: emailImageUrl(r.image_path as string | null) })) });
+});
+
+// PUT /email-templates — save one (kind, tier-or-default, locale). Upsert by
+// that key: the two partial unique indexes make a plain onConflict
+// impossible, so read, then update or insert.
+membershipRoutes.put('/email-templates', async (c) => {
+  const body = EmailTemplateBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const d = body.data;
+  const tierId = d.kind === 'welcome' ? d.tier_id ?? null : null;
+  // A tier of THIS workspace — read through RLS, which shows only its own
+  // (the FK alone would accept another community's tier).
+  if (tierId) {
+    const { data: t } = await db.from('membership_tier').select('id').eq('id', tierId).maybeSingle();
+    if (!t) return c.json({ error: 'tier not found' }, 400);
+  }
+  // An image is ours to have uploaded: only this workspace's prefix.
+  const imagePath = clean(d.image_path);
+  if (imagePath && !imagePath.startsWith(`membership-email/${ctx.workspaceId}/`)) {
+    return c.json({ error: 'image not found' }, 400);
+  }
+  if (imagePath && !clean(d.image_alt)) return c.json({ error: 'An image needs a short description (alt text).' }, 400);
+  const fields = {
+    subject: clean(d.subject),
+    image_path: imagePath,
+    image_alt: imagePath ? clean(d.image_alt) : null,
+    intro_html: d.intro_html ? sanitizeRichText(d.intro_html) : null,
+    closing: clean(d.closing),
+    updated_at: new Date().toISOString(),
+    updated_by: actorUserId(ctx),
+  };
+  let q = db.from('membership_email_template').select('id').eq('kind', d.kind).eq('locale', d.locale);
+  q = tierId ? q.eq('tier_id', tierId) : q.is('tier_id', null);
+  const { data: existing } = await q.maybeSingle();
+  const res = existing
+    ? await db.from('membership_email_template').update(fields).eq('id', existing.id as string).select('id').single()
+    : await db
+        .from('membership_email_template')
+        .insert({ ...fields, workspace_id: ctx.workspaceId, kind: d.kind, tier_id: tierId, locale: d.locale })
+        .select('id')
+        .single();
+  if (res.error) return fail(c, 'save email template', res.error);
+  return c.json({ id: res.data.id });
+});
+
+// DELETE /email-templates/:id — "Reset to the standard text".
+membershipRoutes.delete('/email-templates/:id', async (c) => {
+  const db = userClient(c.get('ctx').jwt);
+  const { data, error } = await db.from('membership_email_template').delete().eq('id', c.req.param('id')).select('id');
+  if (error) return fail(c, 'reset email template', error);
+  if (!data?.length) return c.json({ error: 'not found' }, 404);
+  return c.body(null, 204);
+});
+
+/** The first bytes of the image formats an email may carry. */
+function imageKind(b: Uint8Array): 'png' | 'jpg' | 'webp' | 'gif' | null {
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'png';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'jpg';
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'gif';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'webp';
+  return null;
+}
+
+// POST /email-templates/image — multipart "file". Images only, ≤ 2 MB, the
+// bytes' own signature checked (never just the declared type); stored in the
+// public EU bucket under this workspace's prefix, so mail clients can load it.
+membershipRoutes.post('/email-templates/image', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) return c.json({ error: 'admin only' }, 403);
+  const form = await c.req.parseBody();
+  const file = form['file'];
+  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
+  if (file.size > 2 * 1024 * 1024) return c.json({ error: 'Images up to 2 MB.' }, 400);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const kind = imageKind(bytes);
+  if (!kind) return c.json({ error: 'A PNG, JPEG, WebP or GIF image, please.' }, 400);
+  const path = `membership-email/${ctx.workspaceId}/${crypto.randomUUID()}.${kind}`;
+  const mime = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' }[kind];
+  const { error } = await adminClient.storage.from(EMAIL_IMAGE_BUCKET).upload(path, bytes, { contentType: mime, upsert: false });
+  if (error) return fail(c, 'upload email image', error);
+  return c.json({ path, url: emailImageUrl(path) }, 201);
+});
+
+const PreviewBody = EmailTemplateBody.extend({ kind: z.enum(['welcome', 'digest']) });
+
+/** The email as a member would get it, from a draft — the SAME templates the
+ *  sends use, with a sample member and the tier's real facts. */
+async function renderPreview(workspaceId: string, d: z.infer<typeof PreviewBody>) {
+  const [{ data: ws }, brand] = await Promise.all([
+    adminClient.from('workspace').select('name').eq('id', workspaceId).maybeSingle(),
+    getWorkspaceBrand(workspaceId),
+  ]);
+  const communityName = (ws?.name as string | undefined) ?? 'Your community';
+  const portalUrl = `${stackSurfaceUrl('my-portal', process.env)}/memberships`;
+  const row = {
+    id: 'preview',
+    kind: d.kind,
+    tier_id: d.tier_id ?? null,
+    locale: d.locale,
+    subject: clean(d.subject),
+    image_path: clean(d.image_path),
+    image_alt: clean(d.image_alt),
+    intro_html: d.intro_html ? sanitizeRichText(d.intro_html) : null,
+    closing: clean(d.closing),
+  } as const;
+  const renewsAt = new Date(Date.UTC(new Date().getUTCFullYear() + 1, 0, 1)).toISOString();
+  if (d.kind === 'welcome') {
+    const { data: tier } = d.tier_id
+      ? await adminClient.from('membership_tier').select('name, description, characteristics').eq('id', d.tier_id).eq('workspace_id', workspaceId).maybeSingle()
+      : { data: null };
+    const values = memberEmailValues({ firstName: 'Marja', lastName: 'de Vries', communityName, tierName: tier?.name ?? 'Member', renewsAt, portalUrl, locale: d.locale });
+    return membershipWelcome({
+      name: 'Marja',
+      communityName,
+      tierName: tier?.name ?? 'Member',
+      renewsAt,
+      tierDescription: tier?.description ?? null,
+      characteristics: (tier?.characteristics as string[] | null) ?? null,
+      portalUrl,
+      email: 'marja@example.com',
+      locale: d.locale,
+      brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      custom: fillTemplate({ ...row }, values),
+    });
+  }
+  const myOrigin = stackSurfaceUrl('my-portal', process.env);
+  const values = memberEmailValues({ firstName: 'Marja', lastName: 'de Vries', communityName, portalUrl: `${myOrigin}/upcoming`, locale: d.locale });
+  return memberNotifyDigest({
+    name: 'Marja',
+    communityName,
+    items: [{ kind: 'new_thread', title: 'Open rehearsal', startsAt: renewsAt, yourPriceCents: 0, listPriceCents: null, currency: 'EUR' }],
+    upcomingUrl: `${myOrigin}/upcoming`,
+    unsubscribeUrl: `${myOrigin}/unsubscribe/preview`,
+    locale: d.locale,
+    brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+    custom: fillTemplate({ ...row }, values),
+  });
+}
+
+// POST /email-templates/preview — the rendered email for the editor.
+membershipRoutes.post('/email-templates/preview', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) return c.json({ error: 'admin only' }, 403);
+  const body = PreviewBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const msg = await renderPreview(ctx.workspaceId, body.data);
+  return c.json({ subject: msg.subject, html: msg.html });
+});
+
+// POST /email-templates/send-test — the preview, mailed to the signed-in
+// admin's OWN verified address only: no address field, never a member.
+membershipRoutes.post('/email-templates/send-test', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) return c.json({ error: 'admin only' }, 403);
+  const body = PreviewBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const key = `email-test:${ctx.userId}`;
+  if (isExhausted(key, 10)) return c.json({ error: 'A few test emails an hour — try again later.' }, 429);
+  hit(key, 10, 3_600_000);
+  const { data: me } = await adminClient.from('user').select('email').eq('id', ctx.userId).maybeSingle();
+  if (!me?.email) return c.json({ error: 'no address on your account' }, 409);
+  const msg = await renderPreview(ctx.workspaceId, body.data);
+  const brand = await getWorkspaceBrand(ctx.workspaceId);
+  await sendEmail({ to: me.email as string, subject: `[Test] ${msg.subject}`, html: msg.html, text: msg.text, ...senderOf(brand) });
+  return c.json({ sent_to: me.email });
+});

@@ -35,6 +35,7 @@
 // a link in every email) stops the email and keeps the in-app list.
 
 import { randomBytes } from 'node:crypto';
+import { communityWords, memberEmailValues } from './member-email-templates.js';
 import { adminClient } from '../db.js';
 import { calendarVisible, couldJoinByMember, entitlementsByMember, type CouldJoin } from './could-join.js';
 import { loadThreadDates } from './thread-dates.js';
@@ -636,6 +637,13 @@ export async function runNotificationDigest(
       unsubscribeUrl: `${myOrigin}/unsubscribe/${pref.unsubscribe_token}`,
       locale,
       brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      // The community's own words for its digest (Settings → Emails).
+      custom: await communityWords({
+        workspaceId: ws,
+        kind: 'digest',
+        memberLocale: locale,
+        values: memberEmailValues({ firstName: person.first_name as string | null, lastName: (person as { last_name?: string | null }).last_name ?? null, communityName: wsRow?.name as string | undefined, portalUrl: `${myOrigin}/upcoming`, locale }),
+      }),
     });
     try {
       await sendEmail({ to: person.email as string, subject: msg.subject, html: msg.html, text: msg.text, ...senderOf(brand) });
