@@ -75,7 +75,7 @@ import { appUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shar
 import { stackSurfaceUrl } from '../lib/stack-urls.js';
 import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
-import { runGoogleUserSync } from '../lib/google-admin.js';
+import { googleTokenFor, runGoogleUserSync } from '../lib/google-admin.js';
 import { runThreadAccessSync } from '../lib/thread-access.js';
 import { teamCalendarNamesFor } from '../lib/member-discount.js';
 import { effectiveInterval } from '../lib/membership-interval.js';
@@ -86,6 +86,7 @@ import {
   type PriceLogic,
 } from '../lib/pricing.js';
 import { runFibreSeatSync, grantSeat } from '../lib/fibre-seat.js';
+import { declineGoogleAccount, markGoogleAccountCreated } from '../lib/google-account.js';
 import { grantStatusFor, isRecurringInterval, LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 
 // ===========================================================================
@@ -5338,4 +5339,64 @@ membershipRoutes.post('/email-templates/send-test', async (c) => {
     return c.json({ error: `The test email could not be sent to ${me.email} — the mail service refused it. Your text is fine; try again later or from another account.` }, 502);
   }
   return c.json({ sent_to: me.email });
+});
+
+// ---------------------------------------------------------------------------
+// Google Workspace addresses members asked for (lib/google-account.ts;
+// Sjoerd, 2026-10-16). The admin creates each account BY HAND in Google and
+// marks it created here; the Fibre creates nothing in Google. B3's list.
+// ---------------------------------------------------------------------------
+
+membershipRoutes.get('/google-accounts', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) return c.json({ error: 'forbidden' }, 403);
+  const status = c.req.query('status') ?? 'requested';
+  if (!['requested', 'created', 'declined', 'suggested', 'all'].includes(status)) return c.json({ error: 'bad status' }, 400);
+  let q = adminClient
+    .from('membership_google_account')
+    .select('*, person:person_id (first_name, last_name, email)')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('requested_at', { ascending: false, nullsFirst: false });
+  if (status !== 'all') q = q.eq('status', status);
+  const { data, error } = await q;
+  if (error) return c.json({ error: error.message }, 500);
+  const t = await googleTokenFor(ctx.workspaceId);
+  const items = (data ?? []).map((r) => {
+    const p = (Array.isArray(r.person) ? r.person[0] : r.person) as { first_name?: string; last_name?: string; email?: string } | null;
+    return {
+      id: r.id as string,
+      member_id: r.member_id as string,
+      person_name: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || null,
+      person_email: p?.email ?? null,
+      suggested_address: r.suggested_address as string | null,
+      requested_address: r.requested_address as string | null,
+      note: r.note as string | null,
+      status: r.status as string,
+      created_address: r.created_address as string | null,
+      decline_reason: r.decline_reason as string | null,
+      requested_at: r.requested_at as string | null,
+      decided_at: r.decided_at as string | null,
+    };
+  });
+  return c.json({ items, domain: 'error' in t ? null : t.domain });
+});
+
+membershipRoutes.post('/google-accounts/:id/created', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) return c.json({ error: 'forbidden' }, 403);
+  const body = z.object({ address: z.string().trim().min(3).max(320) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const r = await markGoogleAccountCreated(ctx.workspaceId, c.req.param('id'), body.data.address, ctx.userId);
+  if ('error' in r) return c.json({ error: r.error }, r.status);
+  return c.json({ item: r.row });
+});
+
+membershipRoutes.post('/google-accounts/:id/decline', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) return c.json({ error: 'forbidden' }, 403);
+  const body = z.object({ reason: z.string().trim().max(1000) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const r = await declineGoogleAccount(ctx.workspaceId, c.req.param('id'), body.data.reason, ctx.userId);
+  if ('error' in r) return c.json({ error: r.error }, r.status);
+  return c.json({ item: r.row });
 });

@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.249.0] — 2026-10-16
+
+### A membership with a Google account suggests the address, and the admin creates it
+
+- Sjoerd, 2026-10-16; the table landed in v1.248.3. When a membership
+  includes a Google Workspace account:
+  - **The member** sees a suggested address, firstname.lastname@ your
+    Google domain (accents dropped). A clash gets a number (ann.lee.2),
+    checked against your other members and against Google (a read only).
+    They can use it, or ask for another name with a note.
+  - **The admins** get an email for each request (at most one per member
+    per 10 minutes) and a list in Members, Settings → Google accounts
+    (B3's screen, following). You create the account by hand in the Google
+    Admin console, then mark it created. The member's access follows within
+    minutes. A decline tells the member why and changes nothing else; if
+    they ask again, the earlier reason stays visible to you.
+  - **The Fibre still never creates or deletes a Google account.** It
+    suspends an account when a membership ends and unsuspends it when it
+    starts, and now also reads one user to see whether an address is free.
+    A test asserts nothing else is ever sent to Google.
+- **What changes on the Access page.** A member whose sign-in address is
+  not in your Google domain (say they joined with a Gmail address) used to
+  show as an ERROR: "no Google Workspace account for x@gmail.com". The
+  Fibre was trying to manage their personal address, which can never exist
+  in your domain. Now that member shows as WAITING: "waiting for the Google
+  account to be created". Once you mark their account created, access is
+  managed on that address. Members whose own address is already in your
+  domain work exactly as before, with no request needed.
+- Who gets the email: the workspace admins (a default; Sjoerd may choose
+  the Google admin address instead).
+- API (additive):
+  - `GET|POST /membership/portal/me/google`;
+  - `GET /membership/google-accounts`;
+  - `POST /membership/google-accounts/:id/created|decline`.
+- Tested:
+  - `google-account.int.test.ts` 11/11 on staging, through the real routes
+    with Google faked and every call recorded: the waiting member, the
+    suggestion past an existing Google user, two simultaneous first reads
+    storing one row, the email once per window, decline/re-ask,
+    mark-created re-queue then unsuspend on the created address, and no
+    POST/PATCH/DELETE ever.
+  - The worker's unit suite: 7/7; 5 of the cases fail on the previous
+    worker.
+  - The address rules: 7/7.
+  - Not tested: a real Google Workspace (no fixture domain), and B3's
+    screens (they follow).
+
 ## [1.248.4] — 2026-10-16
 
 ### my.thread in six languages, part 2: every page outside the You tabs (my.thread 0.23.0)

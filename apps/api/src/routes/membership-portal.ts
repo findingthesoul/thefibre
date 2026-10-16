@@ -17,6 +17,7 @@ import { sellerForSale } from './purchases.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
+import { ensureGoogleAccount, googleApplies, memberView, requestGoogleAccount } from '../lib/google-account.js';
 
 // ===========================================================================
 // Member self-serve portal (membership-proposal §3.7).
@@ -869,4 +870,54 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
 
   items.sort((a, b) => a.display_name.localeCompare(b.display_name));
   return c.json({ items, you_are_listed: youAreListed, can_view: true });
+});
+
+// ---------------------------------------------------------------------------
+// The member's Google Workspace address (lib/google-account.ts; Sjoerd,
+// 2026-10-16). The card is B3's; these are its two calls.
+// ---------------------------------------------------------------------------
+
+// GET /me/google?member_id= — whether the membership includes a Google
+// account, and the address it has or is suggested. The first read stores the
+// suggestion (insert-or-nothing, so two tabs store one).
+membershipPortalRoutes.get('/me/google', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const memberId = c.req.query('member_id');
+  if (!memberId) return c.json({ error: 'member_id is required' }, 400);
+  const member = await ownedMember(memberId, email);
+  if (!member) return c.json({ error: 'not found' }, 404);
+  if (!(await googleApplies(member.id))) return c.json(memberView(null));
+  return c.json(memberView(await ensureGoogleAccount(member)));
+});
+
+const GoogleAsk = z.union([
+  z.object({ member_id: z.string().uuid(), action: z.literal('accept') }),
+  z.object({
+    member_id: z.string().uuid(),
+    action: z.literal('ask'),
+    local_part: z.string().trim().min(1).max(64),
+    note: z.string().trim().max(1000).optional(),
+  }),
+]);
+
+// POST /me/google — accept the suggestion, or ask for another address. The
+// admins are emailed (one email per member per quiet window).
+membershipPortalRoutes.post('/me/google', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = GoogleAsk.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const member = await ownedMember(body.data.member_id, email);
+  if (!member) return c.json({ error: 'not found' }, 404);
+  if (!(await googleApplies(member.id))) return c.json({ error: 'this membership does not include a Google account' }, 409);
+  const acc = await ensureGoogleAccount(member);
+  if (!acc) return c.json({ error: 'Google is not connected for this community yet' }, 409);
+  const r = await requestGoogleAccount(
+    acc.row,
+    acc.domain,
+    body.data.action === 'ask' ? { localPart: body.data.local_part, note: body.data.note ?? null } : {},
+  );
+  if ('error' in r) return c.json({ error: r.error, code: r.code }, r.status);
+  return c.json(memberView({ row: r.row, domain: acc.domain }));
 });
