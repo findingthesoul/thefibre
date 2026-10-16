@@ -6305,6 +6305,11 @@ function publicThreadListItem(t: Record<string, unknown>): Record<string, unknow
     capacity: t.capacity ?? null,
     price_cents: t.price_cents ?? null,
     price_currency: t.price_currency ?? null,
+    // Additive (v1.238.0 promised it; emitted from 2026-10-16): whether the
+    // shown price already INCLUDES VAT. Without it the organiser page's card
+    // took an incl. price as a net and put VAT on top of it again. Set by
+    // effectivePrice on every list; omitted where a caller never priced.
+    price_includes_vat: typeof t.price_includes_vat === 'boolean' ? t.price_includes_vat : undefined,
     public_interaction: t.public_interaction ?? 'page',
     // Additive (thread dates slice 4): what a card's date line is written in.
     // Undefined (omitted) where a caller's select did not ask for them.
@@ -7151,6 +7156,9 @@ threadRoutes.get('/public/embed/threads', async (c) => {
         cover_url: t.cover_url,
         price_cents: t.price_cents,
         price_currency: t.price_currency,
+        // Additive: whether price_cents already includes VAT (effectivePrice,
+        // above). v1.238.0 listed it as published; it was never emitted.
+        price_includes_vat: !!(t as { price_includes_vat?: boolean }).price_includes_vat,
         language: (t as { language?: string }).language ?? 'en',
         public_interaction: (t as { public_interaction?: string }).public_interaction ?? 'page',
         // Additive (rule 8): the thread's categories, name + public slug.

@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.246.5] — 2026-10-16
+
+### A ticket priced "including VAT" no longer gets VAT added again on the organiser page cards
+
+- Found while collecting batch 34's published fields. v1.238.0 ("price
+  includes VAT") sent `price_includes_vat` with a thread, and the organiser
+  page's cards read it too, but the list items never carried it. So a card
+  for a €363-including-VAT ticket treated €363 as the price BEFORE VAT and
+  showed roughly €439 "incl. 21% VAT". The thread's own page was right.
+- Now the organiser page's list items and the embed list's items carry it,
+  and the card shows the price that was entered. Additive on both
+  published shapes.
+- Gate: `price_includes_vat` on the THREAD is collected into SHAPES in
+  verify-public-api (production serves it since batch 34). This is what
+  turned every release's gate red. On the list and embed items it stays
+  PENDING, since v1.238.0 listed it there without ever sending it, until
+  this release reaches production.
+- Checked: verify-public-api against production, green ("All good — the
+  published contract holds"), with the two item fields reported as "not
+  deployed yet". API typecheck clean. Not checked: the card rendered with an
+  incl. ticket. It reads the field it already expected.
+
 ## [1.246.4] — 2026-10-16
 
 ### A renewing product is members-only unless the community opens it (Members 1.15.0)

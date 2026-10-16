@@ -199,6 +199,9 @@ const SHAPES = {
     // The seller's home VAT rate for the "incl. VAT" line, collected with
     // batch 32 (2026-10-16).
     'vat_home_pct',
+    // Whether the shown price already includes VAT, collected with batch 34
+    // (2026-10-16).
+    'price_includes_vat',
   ],
   agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online', 'hosts'],
 };
@@ -234,14 +237,16 @@ const PENDING = {
   // collected into SHAPES the day batch 27 put them on production.
   // Empty again: `timezone` and the listing's `card_dates` (thread dates
   // part 3) were collected into SHAPES with batch 31.
-  // `price_includes_vat` (2026-10-16, "price includes VAT" for Thread
-  // tickets): the shown price is VAT-inclusive. Collect into SHAPES the day
-  // the batch that carries it lands on production.
+  // `price_includes_vat` on the LIST and EMBED items: v1.238.0 listed it here
+  // but never emitted it — only the thread payload carried it, so batch 34
+  // served it there (collected into SHAPES.thread) and not here. Emitted on
+  // both items from v1.246.5; collect into SHAPES the day that reaches
+  // production.
   embedItem: ['price_includes_vat'],
   embedListing: [],
   // Empty again: `vat_home_pct` (thread), the seven list-item fields and the
   // organiser page's `card_dates` were collected into SHAPES with batch 32.
-  thread: ['price_includes_vat'],
+  thread: [],
   listItem: ['price_includes_vat'],
   organiserPage: [],
 };
