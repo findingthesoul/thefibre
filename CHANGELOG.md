@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.256.0] — 2026-10-16
+
+### Members → Products as rows: Unlocks as icons, a labelled group menu (Members 1.18.0)
+
+- **One row per product**, in the shared row list (edge to edge on a phone,
+  a card from `sm`), instead of a tall card each. Sjoerd asked for denser
+  rows. Line 1: name, the pills (Sold alone / Members only / Add-on for /
+  Included in / Archived) and the price on the right. Line 2, the same shape
+  on every row: the description, then up to three characteristics, then
+  "+N". Line 3: what it unlocks, as icons with a short label (icons only on a
+  phone): grants and product links together, four shown and then "+N more".
+  The full sentences are in the tooltips, and the dialog still lists
+  everything, so nothing is hidden that has no other place.
+- **The drag handle is its own target**: only it starts a drag, a click on
+  the row opens the dialog, and a drag never does.
+- **Groups**: a small GROUP label, the name, and a labelled "⋯ Group
+  options" menu with Rename (in place) and Archive group (confirm, as
+  before). This replaces the always-editable name box and an unlabelled
+  archive icon. Drag the group's handle to reorder.
+- **New product group** sits in the header next to New product. It opens a
+  one-field box with the explanation of what a group is under it; the box at
+  the bottom of the page is gone. On a phone the header buttons go below the
+  title.
+- **`ActionsMenu`**, new in `@thefibre/shared` (`./ui/actions-menu`): a
+  labelled ⋯ menu of actions (role menu/menuitem, Escape and an outside
+  click close it, destructive items in the danger colour). Flow's lifecycle
+  menu is the older private copy of the same idea.
+- No API, data or copy-meaning changes. Six new catalog keys in all six
+  languages.
+- e2e `products-rows` (new): seeds a group and three products (one with
+  four grants, one link and five characteristics) in the fixture workspace
+  and removes them by id. It checks one row per product, four icons plus
+  "+1 more" carrying the rest in its title, "+2" characteristics, that
+  dragging the handle opens no dialog while a click on the row does, and
+  that the group menu renames and archives (read back from the database).
+  It takes screenshots at 1280 and 375. `E2E_MEMBERSHIP_HOST` points it at a
+  local dev server, signed in with a planted fixture session, so the
+  screenshots can exist before a release. e2e `product-groups` now uses the
+  new controls (the header button, the handle, the menu).
+
 ## [1.255.2] — 2026-10-16
 
 ### A guest who just cancelled a Meet booking reads that it is done, not "already cancelled" (Meet 2.37.3)

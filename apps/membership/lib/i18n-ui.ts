@@ -3561,6 +3561,54 @@ const CATALOG = {
     de: 'Produktgruppen ordnen deine Produkte hier und auf deiner Beitrittsseite. Sie ändern nichts an Zugang, Preisen oder dem Mitgliederverzeichnis. Ziehe ein Produkt in eine Gruppe oder ziehe Gruppen, um sie zu ordnen.', // MT
     fr: 'Les groupes de produits servent à organiser tes produits ici et sur ta page d’adhésion. Ils n’ont aucun effet sur l’accès, les prix ou l’annuaire. Glisse un produit dans un groupe, ou glisse les groupes pour les ordonner.', // MT
   },
+  pg_label: {
+    en: 'Group',
+    nl: 'Groep', // MT
+    es: 'Grupo', // MT
+    pt: 'Grupo', // MT
+    de: 'Gruppe', // MT
+    fr: 'Groupe', // MT
+  },
+  pg_options: {
+    en: 'Group options',
+    nl: 'Groepsopties', // MT
+    es: 'Opciones del grupo', // MT
+    pt: 'Opções do grupo', // MT
+    de: 'Gruppenoptionen', // MT
+    fr: 'Options du groupe', // MT
+  },
+  pg_rename: {
+    en: 'Rename',
+    nl: 'Naam wijzigen', // MT
+    es: 'Cambiar nombre', // MT
+    pt: 'Mudar o nome', // MT
+    de: 'Umbenennen', // MT
+    fr: 'Renommer', // MT
+  },
+  pg_move: {
+    en: 'Move {name}',
+    nl: '{name} verplaatsen', // MT
+    es: 'Mover {name}', // MT
+    pt: 'Mover {name}', // MT
+    de: '{name} verschieben', // MT
+    fr: 'Déplacer {name}', // MT
+  },
+  unlocks_label: {
+    en: 'Unlocks',
+    nl: 'Ontgrendelt', // MT
+    es: 'Desbloquea', // MT
+    pt: 'Desbloqueia', // MT
+    de: 'Schaltet frei', // MT
+    fr: 'Débloque', // MT
+  },
+  unlocks_more: {
+    en: '+{n} more',
+    nl: '+{n} meer', // MT
+    es: '+{n} más', // MT
+    pt: '+{n} mais', // MT
+    de: '+{n} weitere', // MT
+    fr: '+{n} de plus', // MT
+  },
   pg_archive: {
     en: 'Archive group',
     nl: 'Groep archiveren', // MT pending native review

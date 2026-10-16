@@ -29,11 +29,13 @@ const group = (name: string) =>
   db().from('membership_product_group').select('id, sort_order, archived_at').eq('workspace_id', workspaceId).eq('name', name).maybeSingle().then((r) => r.data);
 const productGroup = async () =>
   (await db().from('membership_product').select('group_id').eq('id', productIds[0]!).single()).data?.group_id as string | null;
-const sectionOf = (page: Page, name: string) => page.locator('section').filter({ has: page.locator(`input[value="${name}"]`) });
+// Groups are labelled sections since 2026-10-16 (the name is text; a menu
+// renames and archives).
+const sectionOf = (page: Page, name: string) => page.locator(`section[data-group="${name}"]`);
 
 async function open(page: Page) {
   await landSignedIn(page, HOSTS.membership, 'membership', '/products', /\/products|no-access/);
-  await waitForHydration(page, 'input, button');
+  await waitForHydration(page, 'button');
   await expect(page.getByText(P1).first()).toBeVisible();
 }
 
@@ -60,10 +62,10 @@ test.afterAll(async () => {
 test('create, file by drag, reorder by drag, archive — saved, and still so after a reload', async ({ page }) => {
   test.setTimeout(180_000);
   await open(page);
-  const nameBox = page.getByPlaceholder('Product group name').last();
-
-  // Create two groups.
+  // Create two groups (the field opens from the header button).
   for (const n of [A, B]) {
+    await page.getByRole('button', { name: 'New product group' }).first().click();
+    const nameBox = page.getByPlaceholder('Product group name');
     await nameBox.fill(n);
     await nameBox.press('Enter');
     await poll(() => group(n), (g) => !!g, `group ${n}`);
@@ -71,33 +73,34 @@ test('create, file by drag, reorder by drag, archive — saved, and still so aft
   await expect(sectionOf(page, A)).toBeVisible();
 
   // File p1 into A by drag (onto A's empty drop area).
-  const card = page.locator('[draggable="true"]').filter({ hasText: P1 }).first();
-  await card.dragTo(sectionOf(page, A).getByText('Drop a product here'));
+  // Only the handle drags (it is its own target since 2026-10-16).
+  await page.getByRole('button', { name: `Move ${P1}` }).dragTo(sectionOf(page, A).getByText('Drop a product here'));
   const a = (await group(A))!;
   await poll(productGroup, (g) => g === a.id, 'p1 filed under A');
   await page.reload();
-  await waitForHydration(page, 'input, button');
+  await waitForHydration(page, 'button');
   await expect(sectionOf(page, A).getByText(P1)).toBeVisible();
 
   // Reorder: drag B's handle row onto A's section → B before A.
-  const bHandle = sectionOf(page, B).locator('[draggable="true"]').first();
-  await bHandle.dragTo(sectionOf(page, A).locator('[draggable="true"]').first());
+  const bHandle = sectionOf(page, B).getByRole('button', { name: `Move ${B}` });
+  await bHandle.dragTo(sectionOf(page, A).getByRole('button', { name: `Move ${A}` }));
   await poll(
     async () => [await group(A), await group(B)],
     ([ga, gb]) => !!ga && !!gb && gb.sort_order < ga.sort_order,
     'B ordered before A',
   );
   await page.reload();
-  await waitForHydration(page, 'input, button');
-  const names = await page.locator('section input[aria-label="Product group name"]').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  await waitForHydration(page, 'button');
+  const names = await page.locator('section[data-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-group')));
   expect(names.indexOf(B)).toBeLessThan(names.indexOf(A));
 
   // Archive A: the product stays, ungrouped.
   page.once('dialog', (d) => void d.accept());
-  await sectionOf(page, A).getByRole('button', { name: 'Archive group' }).click();
+  await sectionOf(page, A).getByRole('button', { name: 'Group options' }).click();
+  await page.getByRole('menuitem', { name: 'Archive group' }).click();
   await poll(async () => [await group(A), await productGroup()] as const, ([ga, pg]) => !!ga?.archived_at && pg === null, 'A archived and p1 ungrouped');
   await page.reload();
-  await waitForHydration(page, 'input, button');
-  await expect(page.locator(`input[value="${A}"]`)).toHaveCount(0);
+  await waitForHydration(page, 'button');
+  await expect(sectionOf(page, A)).toHaveCount(0);
   await expect(page.getByText(P1).first()).toBeVisible();
 });

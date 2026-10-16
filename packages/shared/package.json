@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.255.2",
+  "version": "1.256.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -433,6 +433,10 @@
     "./ui/team-calendar-grant": {
       "types": "./dist/ui/team-calendar-grant.d.ts",
       "default": "./dist/ui/team-calendar-grant.js"
+    },
+    "./ui/actions-menu": {
+      "types": "./dist/ui/actions-menu.d.ts",
+      "default": "./dist/ui/actions-menu.js"
     },
     "./ui/tabs": {
       "types": "./dist/ui/tabs.d.ts",
