@@ -106,6 +106,10 @@ export async function paymentRouteProblem(
     payment_destination?: string | null;
     /** One ticket's pending price and methods (a ticket create or edit). */
     ticket?: { id: string | null; price_cents: number; payment_methods: string[] | null; is_active: boolean };
+    /** Judge the thread as if THIS user were its organiser — a handover in
+     *  progress (docs/organiser-handover-design.md, point 7): their own
+     *  Stripe account and default methods, not the current organiser's. */
+    organiserUserId?: string | null;
   } = {},
   opts: { assumePlatformKey?: boolean } = {},
 ): Promise<string | null> {
@@ -148,7 +152,10 @@ export async function paymentRouteProblem(
     team_id: (t.team_id as string | null) ?? null,
     payment_destination: (t.payment_destination as string | null) ?? null,
     payment_methods: (t.payment_methods as string[] | null) ?? null,
-    organiser_user_id: (organiser as { user_id?: string | null } | null)?.user_id ?? null,
+    organiser_user_id:
+      'organiserUserId' in pending
+        ? (pending.organiserUserId ?? null)
+        : ((organiser as { user_id?: string | null } | null)?.user_id ?? null),
   }, opts);
   for (const ticketMethods of paidPoints) {
     if ((await routesFor(ticketMethods)).length === 0) return NO_ROUTE_MESSAGE;

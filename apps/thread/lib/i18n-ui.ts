@@ -1802,6 +1802,119 @@ const CATALOG = {
     de: 'Veranstaltungen und Journeys — jeder Thread trägt seine eigenen Engagements, Anmeldungen und sein Zertifikat.', // MT
     fr: 'Événements et parcours — chaque thread porte ses propres engagements, inscriptions et certificat.', // MT
   },
+  // ── Organiser handover (2026-10-16) ─────────────────────────────────────
+  handover_title: {
+    en: 'Hand over this thread',
+    nl: 'Deze thread overdragen', // MT
+    es: 'Ceder este hilo', // MT
+    pt: 'Passar esta thread', // MT
+    de: 'Diesen Thread übergeben', // MT
+    fr: 'Transmettre ce fil', // MT
+  },
+  handover_desc: {
+    en: 'Give this thread to another organiser in the workspace. They accept or decline within 7 days; nothing changes until they accept.',
+    nl: 'Geef deze thread aan een andere organisator in de werkruimte. Die accepteert of weigert binnen 7 dagen; tot dan verandert er niets.', // MT
+    es: 'Da este hilo a otro organizador del espacio. Acepta o rechaza en 7 días; nada cambia hasta que acepte.', // MT
+    pt: 'Dê esta thread a outro organizador do espaço. Aceita ou recusa em 7 dias; nada muda até aceitar.', // MT
+    de: 'Gib diesen Thread an eine andere Person im Arbeitsbereich. Sie nimmt innerhalb von 7 Tagen an oder lehnt ab; bis dahin ändert sich nichts.', // MT
+    fr: 'Donne ce fil à un autre organisateur de l’espace. Il accepte ou refuse sous 7 jours ; rien ne change avant.', // MT
+  },
+  handover_moves: {
+    en: 'What moves: the thread, its public page and address, new sign-ups and their money, its scheduled messages. What stays with the current organiser: past sales, invoices and their refunds.',
+    nl: 'Wat meegaat: de thread, de publieke pagina en het adres, nieuwe inschrijvingen en het geld daarvan, de geplande berichten. Wat blijft: eerdere verkopen, facturen en de terugbetalingen daarvan.', // MT
+    es: 'Lo que pasa: el hilo, su página y dirección públicas, las nuevas inscripciones y su dinero, sus mensajes programados. Lo que se queda: ventas pasadas, facturas y sus reembolsos.', // MT
+    pt: 'O que passa: a thread, a página e o endereço públicos, as novas inscrições e o seu dinheiro, as mensagens agendadas. O que fica: vendas passadas, faturas e os seus reembolsos.', // MT
+    de: 'Was übergeht: der Thread, seine öffentliche Seite und Adresse, neue Anmeldungen und deren Geld, geplante Nachrichten. Was bleibt: frühere Verkäufe, Rechnungen und deren Erstattungen.', // MT
+    fr: 'Ce qui passe : le fil, sa page et son adresse publiques, les nouvelles inscriptions et leur argent, ses messages programmés. Ce qui reste : ventes passées, factures et leurs remboursements.', // MT
+  },
+  handover_to: {
+    en: 'New organiser',
+    nl: 'Nieuwe organisator', // MT
+    es: 'Nuevo organizador', // MT
+    pt: 'Novo organizador', // MT
+    de: 'Neue organisierende Person', // MT
+    fr: 'Nouvel organisateur', // MT
+  },
+  handover_keep_host: {
+    en: 'Stay on it as a host',
+    nl: 'Blijf erbij als host', // MT
+    es: 'Seguir como anfitrión', // MT
+    pt: 'Continuar como anfitrião', // MT
+    de: 'Als Host dabei bleiben', // MT
+    fr: 'Rester comme hôte', // MT
+  },
+  handover_departed: {
+    en: 'The organiser has left the workspace (admins only)',
+    nl: 'De organisator heeft de werkruimte verlaten (alleen beheerders)', // MT
+    es: 'El organizador ha dejado el espacio (solo administradores)', // MT
+    pt: 'O organizador saiu do espaço (só administradores)', // MT
+    de: 'Die organisierende Person hat den Arbeitsbereich verlassen (nur Admins)', // MT
+    fr: 'L’organisateur a quitté l’espace (administrateurs seulement)', // MT
+  },
+  handover_reason: {
+    en: 'Why — the new organiser sees this',
+    nl: 'Waarom — de nieuwe organisator ziet dit', // MT
+    es: 'Por qué — el nuevo organizador lo verá', // MT
+    pt: 'Porquê — o novo organizador vê isto', // MT
+    de: 'Warum — die neue Person sieht das', // MT
+    fr: 'Pourquoi — le nouvel organisateur le verra', // MT
+  },
+  handover_send: {
+    en: 'Send request',
+    nl: 'Verzoek versturen', // MT
+    es: 'Enviar solicitud', // MT
+    pt: 'Enviar pedido', // MT
+    de: 'Anfrage senden', // MT
+    fr: 'Envoyer la demande', // MT
+  },
+  handover_pending_out: {
+    en: 'Handover to {name} is waiting for their answer, until {date}.',
+    nl: 'Overdracht aan {name} wacht op antwoord, tot {date}.', // MT
+    es: 'El traspaso a {name} espera respuesta, hasta el {date}.', // MT
+    pt: 'A passagem para {name} aguarda resposta, até {date}.', // MT
+    de: 'Die Übergabe an {name} wartet auf Antwort, bis {date}.', // MT
+    fr: 'La transmission à {name} attend une réponse, jusqu’au {date}.', // MT
+  },
+  handover_cancel: {
+    en: 'Cancel request',
+    nl: 'Verzoek intrekken', // MT
+    es: 'Cancelar solicitud', // MT
+    pt: 'Cancelar pedido', // MT
+    de: 'Anfrage zurückziehen', // MT
+    fr: 'Annuler la demande', // MT
+  },
+  handover_incoming: {
+    en: '{name} would like you to take over “{title}”.',
+    nl: '{name} wil dat jij “{title}” overneemt.', // MT
+    es: '{name} quiere que te encargues de “{title}”.', // MT
+    pt: '{name} gostaria que ficasse com “{title}”.', // MT
+    de: '{name} möchte, dass du „{title}“ übernimmst.', // MT
+    fr: '{name} aimerait que tu reprennes « {title} ».', // MT
+  },
+  handover_accept: {
+    en: 'Accept',
+    nl: 'Accepteren', // MT
+    es: 'Aceptar', // MT
+    pt: 'Aceitar', // MT
+    de: 'Annehmen', // MT
+    fr: 'Accepter', // MT
+  },
+  handover_decline: {
+    en: 'Decline',
+    nl: 'Weigeren', // MT
+    es: 'Rechazar', // MT
+    pt: 'Recusar', // MT
+    de: 'Ablehnen', // MT
+    fr: 'Refuser', // MT
+  },
+  handover_payment_warn: {
+    en: 'Before they can accept: {problem}',
+    nl: 'Voordat die kan accepteren: {problem}', // MT
+    es: 'Antes de que pueda aceptar: {problem}', // MT
+    pt: 'Antes de poder aceitar: {problem}', // MT
+    de: 'Bevor die Person annehmen kann: {problem}', // MT
+    fr: 'Avant de pouvoir accepter : {problem}', // MT
+  },
   no_dates_yet: {
     en: 'No dates yet',
     nl: 'Nog geen datums',

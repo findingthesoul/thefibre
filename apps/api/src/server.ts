@@ -46,6 +46,7 @@ import { myTasksRoutes, fileFinishedTasks } from './routes/my-tasks.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
+import { threadHandoverRoutes } from './routes/thread-handover.js';
 import { threadTaskRoutes } from './routes/thread-tasks.js';
 import { membersRoutes } from './routes/members.js';
 import { purchasesRoutes } from './routes/purchases.js';
@@ -321,6 +322,9 @@ v1.route('/tasks', myTasksRoutes);
 v1.route('/oauth', oauthProviderRoutes);
 v1.route('/teams', teamsRoutes);
 v1.route('/thread', threadRoutes);
+// Organiser handover (docs/organiser-handover-design.md): its own router on
+// the same prefix, so thread.ts does not grow.
+v1.route('/thread', threadHandoverRoutes);
 // A thread's own to-do list and the to-do templates, on the same prefix.
 // Its own file because routes/thread.ts is ~6000 lines and several
 // sessions edit it at once; the paths read as if they lived there.

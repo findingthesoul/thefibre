@@ -71,10 +71,11 @@ export default async function PublicThreadPage({
   const data = await fetchPublicThread(organiserSlug, threadSlug);
   if (data) return <PublicThreadView data={data} paidNotice={paidNotice} />;
 
-  // A RENAMED thread: the old address — in an email, an embed, a product
-  // link — goes on to the new one, permanently, so search engines follow.
+  // A RENAMED or HANDED-OVER thread: the old address — in an email, an
+  // embed, a product link — goes on to the new one, permanently, so search
+  // engines follow.
   const movedTo = await publicThreadMovedTo(organiserSlug, threadSlug);
-  if (movedTo) permanentRedirect(`/${organiserSlug}/${movedTo}`);
+  if (movedTo) permanentRedirect(movedTo);
 
   // No such thread — try segment1 as a WORKSPACE and segment2 as an
   // organiser inside it: the /{workspace}/{organiser} listing (D2).

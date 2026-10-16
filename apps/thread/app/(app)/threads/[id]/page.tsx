@@ -1,4 +1,6 @@
 import { loadTogether } from '@/lib/load-together';
+import { HandoverPanel } from './handover-panel';
+import type { HandoverItem } from '../actions';
 import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
@@ -45,10 +47,12 @@ export default async function ThreadDetailPage({
       personal_room_url: string | null;
       google_connected?: boolean;
       zoom_available?: boolean;
+      user_id?: string;
     }>('/api/v1/thread/me').catch(() => ({
       personal_room_url: null,
       google_connected: false,
       zoom_available: false,
+      user_id: undefined as string | undefined,
     })),
   
     apiFetch<{ items: { id: string; name: string; slug: string }[] }>(
@@ -82,9 +86,12 @@ export default async function ThreadDetailPage({
         open_count: 0,
         available: !(e instanceof ApiError && e.status === 402),
       })),
+    // Organiser handover requests (docs/organiser-handover-design.md): the
+    // panel shows this thread's pending one. A failure shows none.
+    apiFetch<{ items: HandoverItem[] }>('/api/v1/thread/handovers').catch(() => ({ items: [] as HandoverItem[] })),
   ]);
 
-  const [thread, [members, teams, certTemplates, me, categories, brand, library, tasks]] = await loadTogether(
+  const [thread, [members, teams, certTemplates, me, categories, brand, library, tasks, handovers]] = await loadTogether(
     threadP,
     sideP,
     (e) => {
@@ -101,6 +108,17 @@ export default async function ThreadDetailPage({
           — and because a bar under a long timeline is a bar nobody scrolls to.
           It renders nothing when nothing is owed. */}
       <CalendarTray threadId={thread.id} />
+      <HandoverPanel
+        locale={locale}
+        threadId={thread.id}
+        organiserUserId={(Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser)?.user_id ?? null}
+        meUserId={me.user_id ?? null}
+        isAdmin={['admin', 'super_admin'].includes(
+          members.items.find((m) => m.user_id === me.user_id)?.workspace_role ?? '',
+        )}
+        workspaceMembers={members.items}
+        pending={handovers.items.find((h) => h.thread_id === thread.id && h.status === 'pending') ?? null}
+      />
       <ThreadTimeline
         locale={locale}
         categories={categories.items}

@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.226.0] — 2026-10-16
+
+### Hand a thread to another organiser — with both of you saying yes (Thread 4.14.0)
+
+Sjoerd, 2026-10-14: *"change organiser for a thread. With approval from the
+departing organiser and the new one."* Built as designed in
+`docs/organiser-handover-design.md` (his four decisions recorded there), on
+the two migrations of v1.224.1 / v1.224.2.
+
+**In Thread.** The thread editor has **Hand over this thread**: pick another
+organiser in the workspace, stay on as a host (on by default, can be
+unticked), send. They see the request on their Threads list and on the
+thread, and get an email; they **accept or decline within 7 days**, and
+nothing changes until they accept. The request says what moves (the thread,
+its public page and address, new sign-ups and their money, its scheduled
+messages) and what stays (past sales, invoices and their refunds). A paid,
+live thread cannot be accepted by somebody who cannot take the money yet —
+the proposer is told when sending, the new organiser when accepting.
+
+**The second door.** A workspace admin may hand over the thread of an
+organiser who has LEFT the workspace (no membership any more — never "not
+answering"), with a reason the new organiser sees. They still accept.
+
+**On accept,** in one transaction (`accept_thread_handover`): the organiser
+switches; the old organiser stays as a host or leaves; the old public address
+is remembered, so `/{old organiser}/{thread}` now redirects to the new owner
+(`moved_to.owner_slug`, additive); and past card sales that never recorded
+their Stripe account are stamped with the old one, so refunding them can
+never debit the new organiser. After it: future sessions in the old
+organiser's personal room move to the new one's (`propagateRoom`, as when a
+main facilitator leaves), and both sides are mailed.
+
+API: `POST /thread/threads/:id/handover`, `GET /thread/handovers`,
+`POST /thread/handovers/:id/accept|decline|cancel` — their own router
+(`routes/thread-handover.ts`). `paymentRouteProblem` gains
+`pending.organiserUserId` to judge a thread for a proposed organiser.
+
+Tests — `thread-handover.int.test.ts`, 7, real routes on staging's database:
+only the organiser proposes; one open request per thread; the wrong person
+and an expired request are refused and nothing moves; a full accept moves the
+organiser, keeps the old one as host, redirects the old address, stamps the
+past sale with the old account (a later sale resolves to the new one), and
+moves the room; a thread whose organiser changed in between is refused and
+recorded cancelled; a paid thread to somebody without payments is refused
+with `payments_not_ready`; the second door only for a departed organiser,
+only with a reason, keep-as-host off. Plus the 7-day expiry rule in a unit
+test.
+
 ## [1.225.0] — 2026-10-16
 
 ### The basket join: a membership and what you add to it, paid once (Members 1.6.0)

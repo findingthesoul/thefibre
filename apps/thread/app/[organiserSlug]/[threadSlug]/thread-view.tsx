@@ -113,17 +113,22 @@ export async function fetchPublicThread(
   }
 }
 
-/** Where a RENAMED thread lives now, for an old address — the API answers
- *  its 404 with `moved_to` when this owner's thread used to wear this slug
- *  (thread_slug_history). Only asked on the not-found path. */
+/** Where a thread lives now, for an old address — the API answers its 404
+ *  with `moved_to` when this owner's thread was RENAMED (thread_slug_history),
+ *  or when it was HANDED OVER to another organiser and so has a new owner
+ *  slug (thread_owner_history; `owner_slug` is then set). Only asked on the
+ *  not-found path. Returns the path to go to, or null. */
 export async function publicThreadMovedTo(ownerSlug: string, threadSlug: string): Promise<string | null> {
   try {
     await publicFetch(`/api/v1/thread/public/organiser/${ownerSlug}/thread/${threadSlug}`);
     return null;
   } catch (e) {
     if (!(e instanceof PublicApiError) || e.status !== 404) return null;
-    const moved = (e.body as { moved_to?: { thread_slug?: unknown } } | undefined)?.moved_to?.thread_slug;
-    return typeof moved === 'string' && moved !== threadSlug ? moved : null;
+    const moved = (e.body as { moved_to?: { thread_slug?: unknown; owner_slug?: unknown } } | undefined)?.moved_to;
+    const slug = typeof moved?.thread_slug === 'string' ? moved.thread_slug : null;
+    const owner = typeof moved?.owner_slug === 'string' ? moved.owner_slug : ownerSlug;
+    if (!slug || (slug === threadSlug && owner === ownerSlug)) return null;
+    return `/${owner}/${slug}`;
   }
 }
 

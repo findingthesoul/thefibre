@@ -5,6 +5,8 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { ThreadsList } from './threads-list';
 import { NewThreadButton } from './new-thread-button';
+import { HandoverPanel } from './[id]/handover-panel';
+import type { HandoverItem } from './actions';
 
 export default async function ThreadsPage() {
   const locale = await uiLocale();
@@ -16,8 +18,11 @@ export default async function ThreadsPage() {
   // 2026-09-09). Failing to load it just drops the chip.
   let workspaceName: string | null = null;
   let error: string | null = null;
+  // Requests to take over somebody's thread, waiting for THIS person's answer
+  // (organiser handover). The proposal email links here, so they are first.
+  let incoming: HandoverItem[] = [];
   try {
-    const [t, tm, tpl, brand] = await Promise.all([
+    const [t, tm, tpl, brand, ho] = await Promise.all([
       apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads'),
       apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams').catch(() => ({
         items: [] as TeamOption[],
@@ -28,7 +33,9 @@ export default async function ThreadsPage() {
       apiFetch<{ name: string | null }>('/api/v1/workspace-brand').catch(() => ({
         name: null,
       })),
+      apiFetch<{ items: HandoverItem[] }>('/api/v1/thread/handovers').catch(() => ({ items: [] as HandoverItem[] })),
     ]);
+    incoming = ho.items.filter((h) => h.incoming && h.status === 'pending');
     threads = t.items;
     teams = tm.items;
     templates = tpl.items;
@@ -46,6 +53,19 @@ export default async function ThreadsPage() {
       />
 
       {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
+
+      {incoming.map((h) => (
+        <HandoverPanel
+          key={h.id}
+          locale={locale}
+          threadId={h.thread_id}
+          organiserUserId={null}
+          meUserId={null}
+          isAdmin={false}
+          workspaceMembers={[]}
+          pending={h}
+        />
+      ))}
 
       {!error && (
         <ThreadsList

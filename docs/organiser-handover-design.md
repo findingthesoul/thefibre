@@ -1,6 +1,6 @@
 # Handing a thread to another organiser — design notes (v1)
 
-Status: **design, not built.** Written 2026-10-16 by builder 4 for the
+Status: **built (v1), 2026-10-16.** Written by builder 4 for the
 coordinator and Sjoerd. Every "today" fact below has a file:line so it can be
 checked rather than trusted.
 
@@ -250,14 +250,28 @@ it reads right after the switch without change.
   (20260909210000:35-47) — untouched.
 - Activity rows carry no organiser (thread.ts:4509-4516).
 
-## Decisions for Sjoerd
+## Decisions (Sjoerd, 2026-10-16 — all as recommended)
 
-1. Certificates issued after the handover name the **new** organiser
-   (recommended), or the one the cohort ran under?
-2. Tell participants automatically, or leave it to the new organiser
-   (recommended for v1)?
-3. Expiry of a request: **7 days**?
-4. `keep_as_host` default **on** for the organiser door?
+1. Certificates issued after the handover name the **new** organiser.
+2. **No** automatic participant email in v1; the new organiser decides.
+3. A request expires after **7 days**.
+4. `keep_as_host` defaults **on** for the organiser door, and can be unticked.
+
+## Where the build differs from this draft
+
+- **Old owner slugs have their own table, `thread_owner_history`**, not a
+  column on `thread_slug_history` as (1) first proposed. That table's writes
+  upsert on `(thread_id, old_slug)` (lib/thread-grant.ts), so widening the
+  key would break them, and an owner-move row could collide with a later
+  rename back to the same slug. Same lookup, same `moved_to` answer, now
+  with `owner_slug` beside `thread_slug`.
+- **No `activity` row.** `activity.person_id` is required and a handover is
+  between organiser ACCOUNTS, not persons; the request row itself is the
+  record (who proposed, who decided, when, through which door, and why).
+- **Refusals inside the accept function change nothing.** A RAISE rolls the
+  whole call back, so an expired request is refused rather than flipped (reads
+  already report it expired) and a request whose thread changed organiser in
+  between is marked `cancelled` by the API, outside the function.
 
 ## Tests the build owes
 

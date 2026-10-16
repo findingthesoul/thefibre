@@ -269,7 +269,7 @@ type Provisioned =
   | { ok: false; reason: 'no-access' }
   | { ok: false; reason: 'failed' };
 
-async function provisionOrganiser(
+export async function provisionOrganiser(
   userId: string,
   workspaceId: string,
 ): Promise<Provisioned> {
@@ -689,7 +689,7 @@ const LOCKED = {
 /** True when the thread carries a lock. Read with the admin client on
  *  purpose: the handler's own query still runs under the caller's RLS, so
  *  this only ever adds a refusal, never grants a read. */
-async function threadLocked(threadId: string | null | undefined): Promise<boolean> {
+export async function threadLocked(threadId: string | null | undefined): Promise<boolean> {
   if (!threadId) return false;
   const { data } = await adminClient
     .from('thread_thread')
@@ -6280,6 +6280,42 @@ async function movedThreadSlug(owner: PublicOwner, oldSlug: string): Promise<str
   return served.length === 1 ? (served[0]!.slug as string) : null;
 }
 
+/** HANDED OVER? A personal-scope thread's address carries its organiser's
+ *  slug, so a new organiser (organiser handover, accept_thread_handover)
+ *  changes the first half and the old link finds nothing. thread_owner_history
+ *  remembers (old owner slug, thread slug); this answers where the thread
+ *  lives now — its CURRENT owner slug and slug — under the same rule as a
+ *  rename: only a thread the public lookup would itself serve. */
+async function movedThreadOwner(
+  oldOwnerSlug: string,
+  threadSlug: string,
+): Promise<{ owner_slug: string; thread_slug: string } | null> {
+  const { data: hist, error } = await adminClient
+    .from('thread_owner_history')
+    .select('thread_id')
+    .eq('old_owner_slug', oldOwnerSlug.toLowerCase())
+    .eq('thread_slug', threadSlug.toLowerCase())
+    .order('changed_at', { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error('[thread/public] owner history read failed', error.message);
+    return null;
+  }
+  const id = hist?.[0]?.thread_id as string | undefined;
+  if (!id) return null;
+  const { data: t } = await adminClient
+    .from('thread_thread')
+    .select('slug, public_scope, team:team_id (slug), workspace:workspace_id (slug), org:organiser_id (slug), program:program_id (status)')
+    .eq('id', id)
+    .maybeSingle();
+  if (!t) return null;
+  const program = (Array.isArray(t.program) ? t.program[0] : t.program) as { status?: string } | null;
+  if (!isPubliclyServed(program?.status)) return null;
+  const org = (Array.isArray(t.org) ? t.org[0] : t.org) as { slug?: string } | null;
+  const owner = ownerSlugOf(t, org?.slug ?? null);
+  return owner && owner !== oldOwnerSlug.toLowerCase() ? { owner_slug: owner, thread_slug: t.slug as string } : null;
+}
+
 /** Whether a thread's programme status lets the public lookup serve it:
  *  active or completed. (A workspace member may PREVIEW a draft — that is a
  *  preview for them, never a public address.) One rule for the lookup and
@@ -6567,7 +6603,13 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     // have keep working after a rename. Same owner only, and only when the
     // old slug points at exactly one of this owner's threads.
     const movedTo = await movedThreadSlug(owner, c.req.param('threadSlug'));
-    return c.json({ error: 'not found', ...(movedTo ? { moved_to: { thread_slug: movedTo } } : {}) }, 404);
+    if (movedTo) return c.json({ error: 'not found', moved_to: { thread_slug: movedTo } }, 404);
+    // HANDED OVER to another organiser: the same answer, plus the new owner
+    // (additive `moved_to.owner_slug`; an older client ignores it and 404s,
+    // as it did before).
+    const handedOver =
+      owner.kind === 'organiser' ? await movedThreadOwner(c.req.param('slug'), c.req.param('threadSlug')) : null;
+    return c.json({ error: 'not found', ...(handedOver ? { moved_to: handedOver } : {}) }, 404);
   }
 
   const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;

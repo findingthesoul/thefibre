@@ -678,3 +678,55 @@ export async function getPaymentRoute(threadId: string): Promise<PaymentRoute | 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Organiser handover (docs/organiser-handover-design.md). The API decides who
+// may do what; these only carry the request and refresh the pages.
+// ---------------------------------------------------------------------------
+
+export type HandoverItem = {
+  id: string;
+  thread_id: string;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'expired';
+  door: 'organiser' | 'admin_departed';
+  reason: string | null;
+  keep_as_host: boolean;
+  expires_at: string;
+  proposed_by_user_id: string;
+  incoming: boolean;
+  thread: { id: string; slug: string; program: { title: string } | { title: string }[] | null } | null;
+  from: { display_name: string | null } | { display_name: string | null }[] | null;
+  to: { display_name: string | null; user_id: string } | { display_name: string | null; user_id: string }[] | null;
+};
+
+export async function proposeHandover(
+  threadId: string,
+  input: { to_user_id: string; keep_as_host: boolean; door: 'organiser' | 'admin_departed'; reason?: string },
+): Promise<{ ok: true; payment_problem: string | null } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ payment_problem: string | null }>(`/api/v1/thread/threads/${threadId}/handover`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    revalidatePath('/threads');
+    return { ok: true, payment_problem: r.payment_problem ?? null };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function answerHandover(
+  handoverId: string,
+  answer: 'accept' | 'decline' | 'cancel',
+  threadId?: string,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/handovers/${handoverId}/${answer}`, { method: 'POST' });
+    revalidatePath('/threads');
+    if (threadId) revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
