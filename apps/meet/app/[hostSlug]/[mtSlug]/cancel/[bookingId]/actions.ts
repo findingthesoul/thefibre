@@ -4,9 +4,9 @@ import { publicFetch, PublicApiError } from '@/lib/public-api';
 
 export type CancelResult = { ok?: boolean; error?: string };
 
-export async function cancelBooking(bookingId: string): Promise<CancelResult> {
+export async function cancelBooking(bookingId: string, token: string): Promise<CancelResult> {
   try {
-    await publicFetch(`/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}/cancel`, {
+    await publicFetch(`/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}/cancel?t=${encodeURIComponent(token)}`, {
       method: 'POST',
     });
     return { ok: true };

@@ -7,10 +7,12 @@ import { publicT, type Locale } from '@/lib/i18n-public';
 
 export function CancelForm({
   bookingId,
+  token,
   hostSlug,
   L,
 }: {
   bookingId: string;
+  token: string;
   hostSlug: string;
   L: Locale;
 }) {
@@ -35,7 +37,7 @@ export function CancelForm({
         onClick={() => {
           setError(null);
           startTransition(async () => {
-            const r = await cancelBooking(bookingId);
+            const r = await cancelBooking(bookingId, token);
             if (r.error) setError(r.error);
             else {
               setDone(true);

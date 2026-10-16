@@ -35,6 +35,10 @@ export type Reschedule = {
   bookingId: string;
   startsAt: string;
   inviteeName: string;
+  /** The booking's manage token from the guest's link (security fix,
+   *  2026-10-16). Absent for the host's own button — the API knows the host
+   *  from their session instead. */
+  token?: string;
 };
 
 type Props = {
@@ -470,7 +474,7 @@ function SlotPickerFlow({
           // No session, or no auth client on this page. Both are fine.
         }
         await publicFetch(
-          `/api/v1/meet/public/bookings/${encodeURIComponent(reschedule.bookingId)}/reschedule`,
+          `/api/v1/meet/public/bookings/${encodeURIComponent(reschedule.bookingId)}/reschedule${reschedule.token ? `?t=${encodeURIComponent(reschedule.token)}` : ''}`,
           {
             method: 'POST',
             headers: auth,
@@ -478,7 +482,7 @@ function SlotPickerFlow({
           },
         );
         router.push(
-          `/${ownerSlug}/${meetingType.slug}/confirmed/${reschedule.bookingId}`,
+          `/${ownerSlug}/${meetingType.slug}/confirmed/${reschedule.bookingId}${reschedule.token ? `?t=${encodeURIComponent(reschedule.token)}` : ''}`,
         );
         router.refresh();
       } catch (e) {
@@ -490,6 +494,8 @@ function SlotPickerFlow({
             setError('This meeting type can\'t be moved. Cancel and book again instead.');
           } else if (code === 'cancelled') {
             setError(publicT(L, 'err_booking_cancelled'));
+          } else if (code === 'manage_token_required') {
+            setError(publicT(L, 'manage_link_explain'));
           } else {
             setError(`Couldn't move it (${e.status}). Please try again.`);
           }
@@ -513,6 +519,8 @@ function SlotPickerFlow({
           booking: { id: string };
           payment_required?: boolean;
           checkout_url?: string;
+          /** The booking's manage token, for its confirmation page. */
+          manage_token?: string;
         }>(
           '/api/v1/meet/public/bookings',
           {
@@ -542,7 +550,9 @@ function SlotPickerFlow({
           window.location.href = r.checkout_url;
           return;
         }
-        router.push(`/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}`);
+        router.push(
+          `/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}${r.manage_token ? `?t=${encodeURIComponent(r.manage_token)}` : ''}`,
+        );
       } catch (e) {
         if (e instanceof PublicApiError) {
           if (e.status === 409) {
@@ -950,6 +960,8 @@ function OneOffFlow({
           booking: { id: string };
           payment_required?: boolean;
           checkout_url?: string;
+          /** The booking's manage token, for its confirmation page. */
+          manage_token?: string;
         }>(
           '/api/v1/meet/public/bookings',
           {
@@ -972,7 +984,9 @@ function OneOffFlow({
           window.location.href = r.checkout_url;
           return;
         }
-        router.push(`/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}`);
+        router.push(
+          `/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}${r.manage_token ? `?t=${encodeURIComponent(r.manage_token)}` : ''}`,
+        );
       } catch (e) {
         if (e instanceof PublicApiError) {
           if (e.status === 409) {

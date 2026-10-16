@@ -18,6 +18,7 @@ import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { chargeAccountForItem } from './payment-accounts.js';
 import { platformFeeCents } from './fees.js';
+import { manageQuery, manageToken } from './meet-manage-token.js';
 
 export async function createMeetPaymentLink(p: {
   bookingId: string;
@@ -59,7 +60,12 @@ export async function createMeetPaymentLink(p: {
   // publicPath is `/{host}/{mt}`: the first segment is the owner root, and an
   // owner with a verified host of their own gets it here (part 2).
   const meetUrl = await publicOriginFor('fibre-meet', p.publicPath.split('/')[1] ?? null, process.env.MEET_APP_URL);
+  // The confirmation page is the guest's own view of the booking, so the
+  // return URLs carry its manage token (lib/meet-manage-token.ts).
+  const { data: salted } = await adminClient.from('meet_booking').select('manage_salt').eq('id', p.bookingId).maybeSingle();
+  const token = salted?.manage_salt ? manageToken(p.bookingId, salted.manage_salt as string) : null;
   const base = `${meetUrl}${p.publicPath}/confirmed/${p.bookingId}`;
+  const back = (stripe: 'success' | 'cancelled') => `${base}?stripe=${stripe}${manageQuery(token, '&')}`;
 
   // Same plan-aware fee rule as checkout and the other payment links.
   // On the NET (lib/fees): the link charges the gross as one line; the fee
@@ -92,8 +98,8 @@ export async function createMeetPaymentLink(p: {
         // already does for a paid booking.
         invoice_creation: { enabled: true },
         billing_address_collection: 'required',
-        success_url: `${base}?stripe=success`,
-        cancel_url: `${base}?stripe=cancelled`,
+        success_url: back('success'),
+        cancel_url: back('cancelled'),
       },
       { stripeAccount: account },
     );

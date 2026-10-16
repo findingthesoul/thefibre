@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.254.0] — 2026-10-16
+
+### A Meet booking can only be changed with the guest's own link (Meet 2.37.0) — security fix
+
+- **The hole.** A Meet booking could be cancelled or moved, and the
+  guest's and host's email addresses read, with nothing but the booking id.
+  The id is not guessable, but it IS the calendar entry's UID, so it sits in
+  every invitation and every downloaded .ics. Anyone an invitation reached
+  could do all of that: a forwarded invite, a shared or delegated calendar,
+  an assistant with calendar access.
+- **Now** each booking has a manage token, derived from a per-booking salt
+  (v1.252.2) and a server secret, and never placed in an .ics or a UID. The
+  guest's emails carry it in every link: cancel, change the time, add to
+  calendar, the confirmation page. The links in all of a booking's emails
+  stay valid.
+  - Cancel, reschedule and the .ics download refuse without it. The
+    booking's own host, signed in, can still move it from the host screens.
+  - The public read of a booking, with the id alone, shows the booking but
+    no email address and no invoice link. With the token it shows the
+    guest's own address. The host's address is never returned.
+- **Guests holding an older email** (sent before this release, without the
+  token): their link opens the booking with **"Email me a link to manage
+  this booking"**. A fresh link goes to the address the booking was made
+  with, never to one typed on the page. The page never says which address,
+  an unknown booking answers the same, it allows 3 per booking per hour,
+  and every request is logged (when, never who). So anyone holding a
+  forwarded invite can at most make the real guest receive a link.
+- **Rotating `SSO_INTERNAL_SECRET` now also invalidates every outstanding
+  Meet manage link** (the token is derived from it, label
+  `meet-manage-v1`). Written in the handbook's secrets section;
+  "Email me a link" is the recovery.
+- Thread was swept for the same pattern: none. Its invitation UIDs are
+  per SESSION and open nothing, check-in codes are random and in no .ics,
+  and participant changes need a signed-in participant.
+- Tested:
+  - `meet-manage-token.int.test.ts`, 10/10 on staging through the real
+    routes. 9 of the 10 fail on the previous code; the tenth (the host may
+    move it) was allowed before too.
+  - `meet-manage-token.test.ts`, 5/5.
+  - The Meet integration set: 12 files, 74/74. `meet-reschedule` and
+    `invite-smtp` now send the token.
+  - Unit tests: 1121/1121.
+  - Not checked: the Meet pages rendered (typecheck only, until a look
+    after deploy).
+
 ## [1.253.0] — 2026-10-16
 
 ### my.thread → You → Profile edits THE profile: photo, bio, city, links; You is three tabs (my.thread 0.26.0)

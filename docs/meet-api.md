@@ -66,13 +66,25 @@ Create a booking.
 }
 ```
 
-Idempotent on `request_id`. Returns `{ booking: { id, starts_at, ends_at, request_id } }`. Emails the invitee + host (or all collective assignees). Writes a `meeting_booked` activity row.
+Idempotent on `request_id`. Returns `{ booking: { id, starts_at, ends_at, request_id }, manage_token }`. Emails the invitee + host (or all collective assignees). Writes a `meeting_booked` activity row.
 
-### `POST /public/bookings/:id/cancel`
-Flips status to `cancelled`. Deletes the GCal event (best-effort). Emails both sides.
+**The manage token (2026-10-16).** A booking's id is also its calendar UID
+(in every invitation and .ics), so it grants nothing on its own. Cancel,
+reschedule and the `.ics` need `?t=<manage_token>` (or the booking's own
+host, signed in); the guest's email links carry it. Derived, not stored:
+`lib/meet-manage-token.ts`.
 
-### `GET /public/bookings/:id`
-Public confirmation-page payload. Limited fields only.
+### `POST /public/bookings/:id/cancel?t=`
+Flips status to `cancelled`. Deletes the GCal event (best-effort). Emails both sides. 403 `manage_token_required` without the token.
+
+### `POST /public/bookings/:id/reschedule?t=`
+Moves the booking. 403 `manage_token_required` without the token or the host's session.
+
+### `GET /public/bookings/:id[?t=]`
+Public confirmation-page payload. With the id alone: the booking, no email addresses, no invoice link, `can_manage: false`. With the token: also the guest's own `invitee_email` and the invoice link, `can_manage: true`. The host's email is never returned.
+
+### `POST /public/bookings/:id/manage-link`
+"Email me a link to manage this booking." Sends a fresh manage link to the address ON FILE (any address in the body is ignored); always answers `{ ok: true }` (an unknown id too), 429 after 3 per booking per hour. Logged in `meet_booking_link_request` (when, never who).
 
 ### `GET /public/invite/:token`
 Peek for the accept page. Returns `{ team, invitee, role, inviter }` or 410 if the token's already been used.

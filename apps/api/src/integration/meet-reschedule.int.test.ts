@@ -34,6 +34,11 @@ function mail(tag: string) {
   return e;
 }
 
+// The manage token each booking answered with (security fix, 2026-10-16):
+// moving a booking needs it. Absent from an API that predates it — then the
+// move is sent without, as before.
+const tokenOf = new Map<string, string>();
+
 async function book(f: MeetFixture, email: string, startsAt: string) {
   const r = await fetch(`${API}/api/v1/meet/public/bookings`, {
     method: 'POST',
@@ -46,12 +51,14 @@ async function book(f: MeetFixture, email: string, startsAt: string) {
       request_id: randomUUID(),
     }),
   });
-  return { status: r.status, body: (await r.json()) as { booking?: { id: string }; code?: string } };
+  const body = (await r.json()) as { booking?: { id: string }; code?: string; manage_token?: string };
+  if (body.booking?.id && body.manage_token) tokenOf.set(body.booking.id, body.manage_token);
+  return { status: r.status, body };
 }
 
 async function move(bookingId: string, startsAt: string) {
   const r = await fetch(
-    `${API}/api/v1/meet/public/bookings/${bookingId}/reschedule`,
+    `${API}/api/v1/meet/public/bookings/${bookingId}/reschedule${tokenOf.has(bookingId) ? `?t=${encodeURIComponent(tokenOf.get(bookingId)!)}` : ''}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

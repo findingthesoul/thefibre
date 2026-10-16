@@ -135,6 +135,7 @@ describe('Thread: the organiser’s SEND', () => {
 
 describe('Meet: the guest’s invitation', () => {
   let bookingId = '';
+  let token = '';
   const post = (path: string, body: unknown) =>
     app.request(`/api/v1/meet${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-App-ID': 'fibre-meet' }, body: JSON.stringify(body) });
 
@@ -143,7 +144,9 @@ describe('Meet: the guest’s invitation', () => {
     restCalls.length = 0;
     const r = await post('/public/bookings', { meeting_type_id: mf!.meetingTypeId, invitee_email: guest, invitee_name: 'Guest', starts_at: mf!.startsAt, request_id: randomUUID() });
     expect(r.status, await r.clone().text()).toBe(200);
-    bookingId = ((await r.json()) as { booking: { id: string } }).booking.id;
+    const jb = (await r.json()) as { booking: { id: string }; manage_token: string };
+    bookingId = jb.booking.id;
+    token = jb.manage_token;
     const g = built.filter((b) => b.to === guest);
     expect(g).toHaveLength(1);
     expect(isImip(g[0]!.raw, 'REQUEST')).toBe(true);
@@ -154,14 +157,14 @@ describe('Meet: the guest’s invitation', () => {
 
   it('reschedule → REQUEST', async () => {
     built.length = 0;
-    const r = await post(`/public/bookings/${bookingId}/reschedule`, { starts_at: new Date(new Date(mf!.startsAt).getTime() + 60 * 60_000).toISOString() });
+    const r = await post(`/public/bookings/${bookingId}/reschedule?t=${token}`, { starts_at: new Date(new Date(mf!.startsAt).getTime() + 60 * 60_000).toISOString() });
     expect(r.status, await r.clone().text()).toBe(200);
     expect(isImip(built.find((b) => b.to === guest)!.raw, 'REQUEST')).toBe(true);
   });
 
   it('cancel → CANCEL', async () => {
     built.length = 0;
-    const r = await post(`/public/bookings/${bookingId}/cancel`, {});
+    const r = await post(`/public/bookings/${bookingId}/cancel?t=${token}`, {});
     expect(r.status, await r.clone().text()).toBe(200);
     expect(isImip(built.find((b) => b.to === guest)!.raw, 'CANCEL')).toBe(true);
     expect(invitationsOverRest()).toEqual([]);

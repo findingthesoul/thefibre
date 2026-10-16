@@ -831,7 +831,13 @@ the ordering and why the gates sit between the push and the promote.
   blue-green overlaps two processes, every scheduled tick runs under a
   persisted lease (`scheduler_lease`, `lib/scheduler-lease.ts`). Secrets via
   `fly secrets set --stage` so they ride the next deploy instead of
-  restarting the machine. **A deploy that fails at the destroy step has
+  restarting the machine. **Rotating `SSO_INTERNAL_SECRET` has a cost
+  beyond SSO**: Meet's guest manage links are HMAC-derived from it
+  (`lib/meet-manage-token.ts`, label `meet-manage-v1`), so a rotation
+  invalidates EVERY outstanding cancel/move link at once. Guests recover
+  with "Email me a link to manage this booking" (a fresh link to the
+  address on file). To rotate gently, add a `meet-manage-v2` derivation and
+  verify both for a while. **A deploy that fails at the destroy step has
   usually already cut over: re-run the deploy, never destroy machines by
   hand** (`docs/deploy.md`). If the Depot builder will not provision, the
   legacy builder (`--depot=false`) works.

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { ManageLinkRequest } from '../../manage-link-request';
 import { formatWhenInZone } from '@thefibre/shared';
 import { publicT, toLocale, INTL_LOCALES } from '@/lib/i18n-public';
 import { When } from '@/components/when';
@@ -9,7 +10,9 @@ import { When } from '@/components/when';
 type Confirmation = {
   locale?: string | null;
   id: string;
-  invitee_email: string;
+  invitee_email?: string;
+  /** Whether this page holds the booking's manage token (`?t=`). */
+  can_manage?: boolean;
   invitee_name: string;
   starts_at: string;
   ends_at: string;
@@ -31,14 +34,21 @@ type Confirmation = {
 
 export default async function ConfirmedPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ hostSlug: string; mtSlug: string; bookingId: string }>;
+  searchParams: Promise<{ t?: string }>;
 }) {
   const { hostSlug, mtSlug, bookingId } = await params;
+  // The manage token from the guest's own email or booking (security fix,
+  // 2026-10-16). Without it the page shows the booking, no addresses, and
+  // offers a fresh link instead of Cancel / Reschedule.
+  const { t: token = '' } = await searchParams;
+  const tq = token ? `t=${encodeURIComponent(token)}` : '';
   let booking: Confirmation;
   try {
     booking = await publicFetch<Confirmation>(
-      `/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}`,
+      `/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}${tq ? `?${tq}` : ''}`,
     );
   } catch (e) {
     if (e instanceof PublicApiError && e.status === 404) notFound();
@@ -121,8 +131,12 @@ export default async function ConfirmedPage({
             </dl>
 
             <div className="mt-8 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700 leading-relaxed">
-              {publicT(L, 'email_on_its_way')}{' '}
-              <span className="font-medium">{booking.invitee_email}</span>.
+              {booking.invitee_email && (
+                <>
+                  {publicT(L, 'email_on_its_way')}{' '}
+                  <span className="font-medium">{booking.invitee_email}</span>.
+                </>
+              )}
               {booking.payment_status === 'paid' &&
                 booking.stripe_invoice_url && (
                   <>
@@ -154,10 +168,15 @@ export default async function ConfirmedPage({
               )}
             </div>
 
+            {!booking.can_manage ? (
+              <div className="mt-8">
+                <ManageLinkRequest bookingId={bookingId} L={L} />
+              </div>
+            ) : (
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               {booking.status !== 'cancelled' && !expired && (
                 <a
-                  href={`/${hostSlug}/${mtSlug}/confirmed/${bookingId}/calendar.ics`}
+                  href={`/${hostSlug}/${mtSlug}/confirmed/${bookingId}/calendar.ics?${tq}`}
                   className="inline-flex items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
                 >
                   {publicT(L, 'add_to_calendar')}
@@ -167,7 +186,7 @@ export default async function ConfirmedPage({
                   revives the same booking rather than starting a second one,
                   so the label is the only thing that changes. */}
               <Link
-                href={`/${hostSlug}/${mtSlug}?reschedule=${bookingId}`}
+                href={`/${hostSlug}/${mtSlug}?reschedule=${bookingId}&${tq}`}
                 className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50"
               >
                 {expired ? publicT(L, 'pick_new_time') : publicT(L, 'reschedule')}
@@ -176,13 +195,14 @@ export default async function ConfirmedPage({
                   offering it reads as though the meeting still stands. */}
               {!expired && (
                 <Link
-                  href={`/${hostSlug}/${mtSlug}/cancel/${bookingId}`}
+                  href={`/${hostSlug}/${mtSlug}/cancel/${bookingId}?${tq}`}
                   className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
                 >
                   {publicT(L, 'cancel')}
                 </Link>
               )}
             </div>
+            )}
           </div>
 
           <div className="border-t border-neutral-200 bg-neutral-50/50 px-8 sm:px-10 py-4">

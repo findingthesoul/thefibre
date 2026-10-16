@@ -16,10 +16,17 @@ export async function GET(
   // `for=host` asks for the host's copy of the file, whose title names the
   // invitee instead of the host. Forwarded verbatim rather than rebuilt, and
   // nothing else in the query string is passed on.
-  const forHost = new URL(req.url).searchParams.get('for') === 'host';
+  const q = new URL(req.url).searchParams;
+  const forHost = q.get('for') === 'host';
+  // The manage token: the file names the guest, so the API only serves it to
+  // a holder of the booking's token (security fix, 2026-10-16).
+  const token = q.get('t');
+  const upstreamQuery = new URLSearchParams();
+  if (forHost) upstreamQuery.set('for', 'host');
+  if (token) upstreamQuery.set('t', token);
   const upstream = await fetch(
     `${baseUrl}/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}/calendar.ics${
-      forHost ? '?for=host' : ''
+      upstreamQuery.size ? `?${upstreamQuery}` : ''
     }`,
     { cache: 'no-store' },
   );

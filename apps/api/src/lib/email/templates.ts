@@ -10,6 +10,7 @@
 import type { Locale } from '@thefibre/shared';
 import { resolveTimeZone } from '@thefibre/shared';
 import { meetT } from './meet-booking-i18n.js';
+import { manageQuery } from '../meet-manage-token.js';
 import {
   emailSignoff,
   legalFooterLine,
@@ -34,6 +35,10 @@ type Common = {
   meetUrl?: string | null;
   location?: string | null;
   bookingId: string;
+  /** The booking's manage token (lib/meet-manage-token.ts), carried by every
+   *  link that cancels, moves or shows the booking. Without it those pages
+   *  only offer "Email me a link". Never put it in the .ics or its UID. */
+  manageToken?: string | null;
   // Public URL of the Meet app (used to build cancel link).
   meetAppUrl: string;
   /** Which language this mail is written in. Resolved by the CALLER through
@@ -194,7 +199,7 @@ export function bookingWhen(c: Common, audience: 'invitee' | 'host'): string {
 function cancelUrl(c: Common): string {
   return `${c.meetAppUrl}/${encodeURIComponent(c.hostSlug)}/${encodeURIComponent(
     c.meetingTypeSlug,
-  )}/cancel/${encodeURIComponent(c.bookingId)}`;
+  )}/cancel/${encodeURIComponent(c.bookingId)}${manageQuery(c.manageToken)}`;
 }
 
 function bookingBaseUrl(c: Common): string {
@@ -211,13 +216,16 @@ function bookingBaseUrl(c: Common): string {
  *  invitee and the invitee's says the host. Get this wrong and someone books
  *  an hour with themselves. */
 function icsUrl(c: Common, audience: 'invitee' | 'host'): string {
-  return `${bookingBaseUrl(c)}/calendar.ics${audience === 'host' ? '?for=host' : ''}`;
+  return `${bookingBaseUrl(c)}/calendar.ics${audience === 'host' ? '?for=host' : ''}${manageQuery(
+    c.manageToken,
+    audience === 'host' ? '&' : '?',
+  )}`;
 }
 
 function rescheduleUrl(c: Common): string {
   return `${c.meetAppUrl}/${encodeURIComponent(c.hostSlug)}/${encodeURIComponent(
     c.meetingTypeSlug,
-  )}?reschedule=${encodeURIComponent(c.bookingId)}`;
+  )}?reschedule=${encodeURIComponent(c.bookingId)}${manageQuery(c.manageToken, '&')}`;
 }
 
 // Booking emails reuse the same visual shell as auth emails (v0.10.0):

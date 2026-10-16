@@ -83,13 +83,13 @@ export default async function MeetingTypePage({
   searchParams,
 }: {
   params: Promise<{ hostSlug: string; mtSlug: string }>;
-  searchParams: Promise<{ reschedule?: string }>;
+  searchParams: Promise<{ reschedule?: string; t?: string }>;
 }) {
   const { hostSlug, mtSlug } = await params;
   // ?reschedule=<booking id> turns this page into "pick a new time" for an
   // existing booking (the link in the confirmation page + email). A booking
   // that's gone or already cancelled just falls through to a normal booking.
-  const { reschedule: rescheduleId } = await searchParams;
+  const { reschedule: rescheduleId, t: manageTok } = await searchParams;
   let reschedule: Reschedule | null = null;
   if (rescheduleId) {
     try {
@@ -98,9 +98,11 @@ export default async function MeetingTypePage({
         starts_at: string;
         invitee_name: string;
         status: string;
-      }>(`/api/v1/meet/public/bookings/${encodeURIComponent(rescheduleId)}`);
+      }>(`/api/v1/meet/public/bookings/${encodeURIComponent(rescheduleId)}${manageTok ? `?t=${encodeURIComponent(manageTok)}` : ''}`);
       if (b.status !== 'cancelled') {
-        reschedule = { bookingId: b.id, startsAt: b.starts_at, inviteeName: b.invitee_name };
+        // The move itself needs the manage token (or the host's session);
+        // the API refuses without it and the flow says how to get one.
+        reschedule = { bookingId: b.id, startsAt: b.starts_at, inviteeName: b.invitee_name, ...(manageTok ? { token: manageTok } : {}) };
       }
     } catch {
       reschedule = null;

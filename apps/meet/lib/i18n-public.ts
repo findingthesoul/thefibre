@@ -813,6 +813,39 @@ const CATALOG = {
     de: 'Termin abgesagt. Eine Bestätigungsmail ist unterwegs.', // MT
     fr: 'Réservation annulée. Un e-mail de confirmation est en route.', // MT
   },
+  // ── The manage link (security fix, 2026-10-16) ───────────────────────────
+  manage_link_explain: {
+    en: 'To change or cancel this booking, use the link in your newest email about it — or ask for a fresh one.',
+    nl: 'Om deze afspraak te wijzigen of te annuleren, gebruik je de link in je nieuwste e-mail erover — of vraag een nieuwe aan.', // MT
+    es: 'Para cambiar o cancelar esta reserva, usa el enlace de tu correo más reciente sobre ella, o pide uno nuevo.', // MT
+    pt: 'Para alterar ou cancelar esta reserva, usa a ligação do teu email mais recente sobre ela — ou pede uma nova.', // MT
+    de: 'Um diese Buchung zu ändern oder abzusagen, nutze den Link in deiner neuesten E-Mail dazu — oder fordere einen neuen an.', // MT
+    fr: 'Pour modifier ou annuler cette réservation, utilise le lien de ton e-mail le plus récent à son sujet — ou demandes-en un nouveau.', // MT
+  },
+  manage_link_cta: {
+    en: 'Email me a link to manage this booking',
+    nl: 'Mail me een link om deze afspraak te beheren', // MT
+    es: 'Envíame un enlace para gestionar esta reserva', // MT
+    pt: 'Envia-me uma ligação para gerir esta reserva', // MT
+    de: 'Schick mir einen Link, um diese Buchung zu verwalten', // MT
+    fr: 'M’envoyer un lien pour gérer cette réservation', // MT
+  },
+  manage_link_sent: {
+    en: 'Sent to the email address this booking was made with. It can take a minute to arrive.',
+    nl: 'Verstuurd naar het e-mailadres waarmee deze afspraak is gemaakt. Het kan een minuut duren.', // MT
+    es: 'Enviado a la dirección de correo con la que se hizo esta reserva. Puede tardar un minuto.', // MT
+    pt: 'Enviado para o email com que esta reserva foi feita. Pode demorar um minuto.', // MT
+    de: 'An die E-Mail-Adresse gesendet, mit der diese Buchung gemacht wurde. Das kann eine Minute dauern.', // MT
+    fr: 'Envoyé à l’adresse e-mail utilisée pour cette réservation. Cela peut prendre une minute.', // MT
+  },
+  manage_link_wait: {
+    en: 'A link was sent a moment ago — please check your inbox before asking again.',
+    nl: 'Er is net een link verstuurd — kijk eerst in je inbox voor je het opnieuw vraagt.', // MT
+    es: 'Se envió un enlace hace un momento; revisa tu bandeja antes de pedirlo otra vez.', // MT
+    pt: 'Foi enviada uma ligação há instantes — vê a tua caixa de entrada antes de pedir outra vez.', // MT
+    de: 'Gerade wurde ein Link geschickt — schau bitte erst in dein Postfach, bevor du erneut fragst.', // MT
+    fr: 'Un lien vient d’être envoyé — vérifie ta boîte de réception avant de redemander.', // MT
+  },
   cancel_nothing_yet: {
     en: 'Changed your mind? Just close this page — nothing is cancelled until you confirm.',
     nl: 'Toch niet? Sluit deze pagina gewoon — er is niets geannuleerd tot je bevestigt.',

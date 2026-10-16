@@ -11,6 +11,7 @@ import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { adminClient, userClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { actorUserId, optionalUserId } from '../middleware/app-context.js';
+import type { Context } from 'hono';
 import { REQUEST_EXPIRY_HOURS, requestHasExpired } from '../lib/meet/request-expiry.js';
 import { conflictCalendarIdsFor, type CalendarRow } from '../lib/meet/conflict-calendars.js';
 import {
@@ -84,6 +85,7 @@ import { clearTeamsTokenCache } from '../lib/teams/host.js';
 import { createMeetingLink } from '../lib/meeting-links.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
 import { bookingIcalUid, bookingInviteAttachment, bookingOrganizer } from '../lib/meet-invite.js';
+import { isManageToken, manageQuery, manageToken } from '../lib/meet-manage-token.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { meetT } from '../lib/email/meet-booking-i18n.js';
 import {
@@ -191,6 +193,33 @@ async function meetSender(
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
   };
 }
+
+/** The booking's manage token (lib/meet-manage-token.ts), for the links a
+ *  mail carries. Null if the booking is gone; the links then carry none and
+ *  their pages offer "Email me a link" instead. */
+async function bookingManageToken(bookingId: string): Promise<string | null> {
+  const { data } = await adminClient.from('meet_booking').select('manage_salt').eq('id', bookingId).maybeSingle();
+  return data?.manage_salt ? manageToken(bookingId, data.manage_salt as string) : null;
+}
+
+/** May this request manage the booking? It holds the booking's manage token
+ *  (`?t=`) — or it is the booking's own HOST, signed in: the host UI's
+ *  Reschedule button opens the same public page and sends their session. */
+async function holdsManageToken(c: Context, bookingId: string): Promise<boolean> {
+  const { data } = await adminClient.from('meet_booking').select('manage_salt, host_id').eq('id', bookingId).maybeSingle();
+  if (!data) return false;
+  const t = c.req.query('t') ?? null;
+  if (t && isManageToken(bookingId, (data.manage_salt as string | null) ?? null, t)) return true;
+  const userId = await optionalUserId(c);
+  if (!userId) return false;
+  const { data: host } = await adminClient.from('meet_host').select('id').eq('user_id', userId).maybeSingle();
+  return !!host && host.id === data.host_id;
+}
+
+const MANAGE_REFUSED = {
+  error: 'this link cannot change the booking — use the link in your newest email, or ask for a fresh one',
+  code: 'manage_token_required',
+} as const;
 
 async function meetEmailHtml(
   workspaceId: string | null | undefined,
@@ -1053,7 +1082,7 @@ meetRoutes.post('/public/bookings', async (c) => {
         .select('id, starts_at, ends_at, request_id')
         .eq('request_id', data.request_id)
         .single();
-      if (existing) return c.json({ booking: existing, idempotent: true });
+      if (existing) return c.json({ booking: existing, idempotent: true, manage_token: await bookingManageToken(existing.id as string) });
     }
     console.error('[meet bookings] insert failed', bErr);
     return c.json({ error: bErr.message }, 500);
@@ -1138,7 +1167,7 @@ meetRoutes.post('/public/bookings', async (c) => {
 
     // The owner's own host when verified, else ours (docs/domain-package.md part 2).
     const publicOrigin = await publicOriginFor('fibre-meet', ownerHost.slug ?? null);
-    const successUrl = `${publicOrigin}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success`;
+    const successUrl = `${publicOrigin}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success${manageQuery(await bookingManageToken(booking.id), '&')}`;
     const cancelUrl = `${publicOrigin}/${ownerHost.slug ?? 'host'}/${mt.slug}?stripe=cancelled&booking=${booking.id}`;
 
     try {
@@ -1291,7 +1320,7 @@ meetRoutes.post('/public/bookings', async (c) => {
         occurred_at: new Date().toISOString(),
       });
     }
-    return c.json({ booking });
+    return c.json({ booking, manage_token: await bookingManageToken(booking.id) });
   }
 
   // Zoom (conferencing_provider='zoom'): create the meeting BEFORE the
@@ -1423,6 +1452,7 @@ meetRoutes.post('/public/bookings', async (c) => {
       meetUrl: resolvedMeetUrl,
       location: mt.default_location ?? null,
       bookingId: booking.id,
+      manageToken: await bookingManageToken(booking.id),
       meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug,
@@ -1510,7 +1540,7 @@ meetRoutes.post('/public/bookings', async (c) => {
     });
   }
 
-  return c.json({ booking });
+  return c.json({ booking, manage_token: await bookingManageToken(booking.id) });
 });
 
 /** Everything the availability engine needs about the host and the type. */
@@ -1803,6 +1833,9 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
 // invitee has. Flips status, deletes the GCal event, and emails both sides.
 meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
   const id = c.req.param('id');
+  // The booking id is also the calendar UID, in every invitation; only the
+  // manage token from the guest's own mail may cancel (2026-10-16).
+  if (!(await holdsManageToken(c, id))) return c.json(MANAGE_REFUSED, 403);
 
   const { data: booking, error } = await adminClient
     .from('meet_booking')
@@ -1886,6 +1919,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
       meetUrl: booking.meet_url,
       location: booking.alternative_location ?? mt.default_location ?? null,
       bookingId: booking.id,
+      manageToken: await bookingManageToken(booking.id),
       meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug ?? '',
@@ -1939,6 +1973,8 @@ const RescheduleBody = z.object({ starts_at: z.string().datetime() });
 
 meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
   const id = c.req.param('id');
+  // Same rule as cancel: the manage token, never the bare id.
+  if (!(await holdsManageToken(c, id))) return c.json(MANAGE_REFUSED, 403);
   const body = RescheduleBody.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
 
@@ -2201,6 +2237,7 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
       meetUrl: booking.meet_url,
       location: booking.alternative_location ?? mt.default_location ?? null,
       bookingId: booking.id,
+      manageToken: await bookingManageToken(booking.id),
       meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug ?? '',
@@ -2284,6 +2321,9 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
 // already in it as ORGANIZER and ATTENDEE.
 meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
   const id = c.req.param('id');
+  // The file names the guest (ATTENDEE) — so it is the guest's, behind the
+  // manage token like every other read of their booking (2026-10-16).
+  if (!(await holdsManageToken(c, id))) return c.json(MANAGE_REFUSED, 403);
   const forHost = c.req.query('for') === 'host';
   const { data: b, error } = await adminClient
     .from('meet_booking')
@@ -2356,13 +2396,105 @@ meetRoutes.get('/public/bookings/:id', async (c) => {
     .select('locale')
     .eq('email', (bHostUser as { email?: string } | null)?.email ?? '')
     .maybeSingle();
+  // WHO MAY READ WHAT (2026-10-16). The bare id travels in every calendar
+  // entry, so it shows the booking and nobody's address. The manage token
+  // adds the guest's OWN email. The host's email is never returned here —
+  // the page names the host; it does not need their address.
+  const canManage = await holdsManageToken(c, id);
+  // The Stripe-hosted invoice page names the guest and their address too, so
+  // it is the token holder's as well.
+  const { invitee_email: inviteeEmail, stripe_invoice_url: invoiceUrl, meeting_type: rawMt, ...rest } = data as typeof data & {
+    meeting_type: unknown;
+  };
+  const mtOut = bMt
+    ? {
+        ...(bMt as Record<string, unknown>),
+        host: bHost
+          ? {
+              ...(bHost as Record<string, unknown>),
+              user: bHostUser ? { full_name: (bHostUser as { full_name?: string | null }).full_name ?? null } : null,
+            }
+          : null,
+      }
+    : rawMt;
   return c.json({
-    ...data,
+    ...rest,
+    meeting_type: mtOut,
+    ...(canManage ? { invitee_email: inviteeEmail, stripe_invoice_url: invoiceUrl } : { stripe_invoice_url: null }),
+    // Additive: whether this caller holds the manage token — the page shows
+    // cancel and move only then, and "Email me a link" otherwise.
+    can_manage: canManage,
     locale: resolvePublicLocale({
       surfaceOverride: (bMt as { locale?: string | null } | null)?.locale ?? null,
       ownerProfile: bHostProfile?.locale ?? null,
     }),
   });
+});
+
+// POST /api/v1/meet/public/bookings/:id/manage-link — "Email me a link to
+// manage this booking". For a guest holding an older mail, or a page opened
+// from a forwarded invitation: a FRESH manage link goes to the address ON
+// FILE — never to one the caller types — and the answer never names it.
+// Anyone holding the id can, at most, make the real guest receive a link.
+// Rate-limited per booking; every request is logged (when, never who).
+const MANAGE_LINKS_PER_HOUR = 3;
+meetRoutes.post('/public/bookings/:id/manage-link', async (c) => {
+  const id = c.req.param('id');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ ok: true });
+  const { data: b } = await adminClient
+    .from('meet_booking')
+    .select(
+      'id, workspace_id, invitee_email, invitee_name, manage_salt, status, starts_at, meeting_type:meeting_type_id (name, slug, locale, host:host_id (slug))',
+    )
+    .eq('id', id)
+    .maybeSingle();
+  // Unknown id: the same answer as a known one, so the route is no oracle.
+  if (!b) return c.json({ ok: true });
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count } = await adminClient
+    .from('meet_booking_link_request')
+    .select('id', { count: 'exact', head: true })
+    .eq('booking_id', id)
+    .gte('requested_at', since);
+  const allowed = (count ?? 0) < MANAGE_LINKS_PER_HOUR && !!b.invitee_email;
+  await adminClient.from('meet_booking_link_request').insert({ booking_id: id, workspace_id: b.workspace_id, sent: allowed });
+  if ((count ?? 0) >= MANAGE_LINKS_PER_HOUR) {
+    return c.json({ error: 'a link was sent a moment ago — check your inbox', code: 'rate_limited' }, 429);
+  }
+  if (!allowed) return c.json({ ok: true });
+  const mt = (Array.isArray(b.meeting_type) ? b.meeting_type[0] : b.meeting_type) as
+    | { name?: string; slug?: string; host?: unknown }
+    | null;
+  const host = (Array.isArray(mt?.host) ? mt?.host[0] : mt?.host) as { slug?: string } | null;
+  const token = manageToken(b.id as string, b.manage_salt as string);
+  const base = `${await publicOriginFor('fibre-meet', host?.slug ?? null)}/${encodeURIComponent(host?.slug ?? '')}/${encodeURIComponent(mt?.slug ?? '')}`;
+  const manageUrl = `${base}/confirmed/${encodeURIComponent(b.id as string)}${manageQuery(token)}`;
+  const name = (b.invitee_name as string | null)?.split(' ')[0] ?? '';
+  const text = [
+    `Hi${name ? ` ${name}` : ''},`,
+    '',
+    `Here is your link to see, move or cancel your booking "${mt?.name ?? 'your meeting'}":`,
+    manageUrl,
+    '',
+    'If you did not ask for this, you can ignore it — nothing has changed.',
+  ].join('\n');
+  try {
+    const sender = await meetSender(b.workspace_id as string);
+    await sendEmail({
+      ...sender,
+      to: b.invitee_email as string,
+      subject: `Your booking: ${mt?.name ?? 'manage link'}`,
+      text,
+      html: await meetEmailHtml(
+        b.workspace_id as string,
+        'Your booking',
+        `<p style="font-size:14px;line-height:1.6;color:#171717;">${escapeHtml(text).replace(/\n/g, '<br>')}</p>`,
+      ),
+    });
+  } catch (e) {
+    console.error('[meet manage-link] email failed (non-fatal)', (e as Error).message);
+  }
+  return c.json({ ok: true });
 });
 
 // ===========================================================================
@@ -4592,7 +4724,7 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
   // instead of starting a second one.
   const askAgain = `${await publicOriginFor('fibre-meet', hostRow.slug ?? null)}/${encodeURIComponent(hostRow.slug ?? '')}/${encodeURIComponent(
     mt.slug ?? '',
-  )}?reschedule=${encodeURIComponent(booking.id)}`;
+  )}?reschedule=${encodeURIComponent(booking.id)}${manageQuery(await bookingManageToken(booking.id), '&')}`;
   const first = booking.invitee_name.split(' ')[0] ?? '';
 
   try {
@@ -4692,6 +4824,7 @@ async function runApprovalRequestSideEffects(
     inviteeTimezone: booking.invitee_timezone ?? null,
     location: booking.alternative_location ?? mt.default_location ?? null,
     bookingId: booking.id,
+    manageToken: await bookingManageToken(booking.id),
     meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
     hostSlug: hostRow.slug ?? '',
     meetingTypeSlug: mt.slug ?? '',
@@ -4906,6 +5039,7 @@ async function runConfirmationSideEffects(
     meetUrl,
     location: booking.alternative_location ?? mt.default_location ?? null,
     bookingId: booking.id,
+    manageToken: await bookingManageToken(booking.id),
     meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
     hostSlug: hostRow.slug ?? '',
     meetingTypeSlug: mt.slug ?? '',
@@ -5570,6 +5704,7 @@ meetRoutes.post('/bookings/:id/link', async (c) => {
       meetUrl: body.data.meet_url,
       location: booking.alternative_location ?? mt.default_location ?? null,
       bookingId: booking.id,
+      manageToken: await bookingManageToken(booking.id),
       meetAppUrl: await publicOriginFor('fibre-meet', hostRow.slug ?? null),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug ?? '',

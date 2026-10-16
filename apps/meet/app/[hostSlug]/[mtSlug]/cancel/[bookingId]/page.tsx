@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { CancelForm } from './form';
+import { ManageLinkRequest } from '../../manage-link-request';
 import { formatWhenInZone } from '@thefibre/shared';
 import { publicT, toLocale, INTL_LOCALES } from '@/lib/i18n-public';
 import { When } from '@/components/when';
@@ -10,7 +11,9 @@ import { When } from '@/components/when';
 type Booking = {
   locale?: string | null;
   id: string;
-  invitee_email: string;
+  invitee_email?: string;
+  /** Whether this page holds the booking's manage token (`?t=`). */
+  can_manage?: boolean;
   invitee_name: string;
   starts_at: string;
   ends_at: string;
@@ -28,14 +31,19 @@ type Booking = {
 
 export default async function CancelPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ hostSlug: string; mtSlug: string; bookingId: string }>;
+  searchParams: Promise<{ t?: string }>;
 }) {
   const { hostSlug, bookingId } = await params;
+  // The manage token from the guest's own email (security fix, 2026-10-16):
+  // without it this page shows the booking and offers a fresh link instead.
+  const { t: token = '' } = await searchParams;
   let booking: Booking;
   try {
     booking = await publicFetch<Booking>(
-      `/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}`,
+      `/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}${token ? `?t=${encodeURIComponent(token)}` : ''}`,
     );
   } catch (e) {
     if (e instanceof PublicApiError && e.status === 404) notFound();
@@ -89,7 +97,11 @@ export default async function CancelPage({
 
         {!alreadyCancelled && (
           <div className="mt-10">
-            <CancelForm bookingId={bookingId} hostSlug={hostSlug} L={L} />
+            {booking.can_manage ? (
+              <CancelForm bookingId={bookingId} token={token} hostSlug={hostSlug} L={L} />
+            ) : (
+              <ManageLinkRequest bookingId={bookingId} L={L} />
+            )}
           </div>
         )}
 
