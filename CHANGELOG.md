@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.246.1] — 2026-10-16
+
+### A thread offered to more than one team: the table (migration only)
+
+- The first half of Sjoerd's "can a thread be owned by more than one team?"
+  (approved 2026-10-16: "Yes, build it"); the code follows in the next
+  release. A thread keeps ONE owner — the public address and the money stay
+  theirs — and can be OFFERED to other teams in the same workspace, whose
+  members then see it as their own team's thread.
+- `thread_team_offer` (thread, team, workspace, who added it): RLS on, no
+  policies, reached only through the API. A guard trigger refuses a row whose
+  thread or team is in another workspace, or whose team already owns the
+  thread. Nothing existing is touched.
+
 ## [1.246.0] — 2026-10-16
 
 ### Subscribe to a product from the page, and manage it in my.thread (Members 1.14.0, my.thread 0.20.0)
