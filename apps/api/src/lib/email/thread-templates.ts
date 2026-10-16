@@ -717,3 +717,117 @@ function row(label: string, value: string, struck = false): string {
     : escapeHtml(value);
   return `<tr><td style="padding:2px 16px 2px 0;color:#737373;white-space:nowrap;">${escapeHtml(label)}</td><td style="padding:2px 0;">${v}</td></tr>`;
 }
+
+// ---------------------------------------------------------------------------
+// The nudge — to the ORGANISER, when calendar changes have waited a day for
+// their SEND (lib/calendar-nudge.ts). Says what is waiting and where the
+// button is; it never sends anything itself (Sjoerd, 2026-10-16: "keep send
+// manual with nudge").
+// ---------------------------------------------------------------------------
+
+const NUDGE_CATALOG = {
+  nu_subject: {
+    en: 'Not sent yet: changes to {thread}',
+    nl: 'Nog niet verstuurd: wijzigingen in {thread}', // MT
+    es: 'Aún sin enviar: cambios en {thread}', // MT
+    pt: 'Ainda não enviado: alterações em {thread}', // MT
+    de: 'Noch nicht gesendet: Änderungen an {thread}', // MT
+    fr: 'Pas encore envoyé : modifications de {thread}', // MT
+  },
+  nu_lead_one: {
+    en: 'You changed a session of {thread} a day or more ago. Nobody has been told yet.',
+    nl: 'Je hebt meer dan een dag geleden een sessie van {thread} gewijzigd. Er is nog niemand op de hoogte gebracht.', // MT
+    es: 'Cambiaste una sesión de {thread} hace un día o más. Todavía no se ha avisado a nadie.', // MT
+    pt: 'Você alterou uma sessão de {thread} há um dia ou mais. Ninguém foi avisado ainda.', // MT
+    de: 'Du hast vor einem Tag oder länger eine Sitzung von {thread} geändert. Bisher wurde niemand informiert.', // MT
+    fr: 'Vous avez modifié une séance de {thread} il y a un jour ou plus. Personne n’a encore été prévenu.', // MT
+  },
+  nu_lead_many: {
+    en: 'You changed {n} sessions of {thread} a day or more ago. Nobody has been told yet.',
+    nl: 'Je hebt meer dan een dag geleden {n} sessies van {thread} gewijzigd. Er is nog niemand op de hoogte gebracht.', // MT
+    es: 'Cambiaste {n} sesiones de {thread} hace un día o más. Todavía no se ha avisado a nadie.', // MT
+    pt: 'Você alterou {n} sessões de {thread} há um dia ou mais. Ninguém foi avisado ainda.', // MT
+    de: 'Du hast vor einem Tag oder länger {n} Sitzungen von {thread} geändert. Bisher wurde niemand informiert.', // MT
+    fr: 'Vous avez modifié {n} séances de {thread} il y a un jour ou plus. Personne n’a encore été prévenu.', // MT
+  },
+  nu_more: {
+    en: 'and {n} more',
+    nl: 'en nog {n}', // MT
+    es: 'y {n} más', // MT
+    pt: 'e mais {n}', // MT
+    de: 'und {n} weitere', // MT
+    fr: 'et {n} de plus', // MT
+  },
+  nu_why: {
+    en: 'Participants hear about a change only when you send it, so you can finish editing first.',
+    nl: 'Deelnemers horen pas van een wijziging als jij die verstuurt, zodat je eerst kunt afronden.', // MT
+    es: 'Los participantes solo se enteran de un cambio cuando lo envías, para que puedas terminar de editar antes.', // MT
+    pt: 'Os participantes só ficam sabendo de uma alteração quando você a envia, para que possa terminar de editar antes.', // MT
+    de: 'Teilnehmende erfahren von einer Änderung erst, wenn du sie sendest – so kannst du zuerst fertig bearbeiten.', // MT
+    fr: 'Les participants n’apprennent une modification que lorsque vous l’envoyez, pour que vous puissiez d’abord terminer.', // MT
+  },
+  nu_button: {
+    en: 'Review and send',
+    nl: 'Bekijken en versturen', // MT
+    es: 'Revisar y enviar', // MT
+    pt: 'Revisar e enviar', // MT
+    de: 'Prüfen und senden', // MT
+    fr: 'Vérifier et envoyer', // MT
+  },
+  nu_once: {
+    en: 'This is the only reminder about these changes.',
+    nl: 'Dit is de enige herinnering over deze wijzigingen.', // MT
+    es: 'Este es el único recordatorio sobre estos cambios.', // MT
+    pt: 'Este é o único lembrete sobre estas alterações.', // MT
+    de: 'Dies ist die einzige Erinnerung zu diesen Änderungen.', // MT
+    fr: 'C’est le seul rappel concernant ces modifications.', // MT
+  },
+} satisfies Record<string, I18nEntry>;
+const tn = makeT(NUDGE_CATALOG);
+
+/** Up to five change titles are named; the rest are counted. */
+export const NUDGE_TITLES_SHOWN = 5;
+
+export function calendarNudgeEmail(c: {
+  threadTitle: string;
+  count: number;
+  titles: string[];
+  /** The thread in the Thread app, where the SEND button is. */
+  url: string;
+  locale?: string | null;
+  brand?: EmailBrand;
+}): { subject: string; text: string; html: string } {
+  const loc = toLocale(c.locale);
+  const subject = tn(loc, 'nu_subject', { thread: c.threadTitle });
+  const lead = tn(loc, c.count === 1 ? 'nu_lead_one' : 'nu_lead_many', { n: c.count, thread: c.threadTitle });
+  const shown = c.titles.slice(0, NUDGE_TITLES_SHOWN);
+  const rest = c.titles.length - shown.length;
+  const items = [...shown, ...(rest > 0 ? [tn(loc, 'nu_more', { n: rest })] : [])];
+  const text = [
+    lead,
+    '',
+    ...items.map((i) => `- ${i}`),
+    '',
+    tn(loc, 'nu_why'),
+    '',
+    `${tn(loc, 'nu_button')}: ${c.url}`,
+    '',
+    tn(loc, 'nu_once'),
+  ].join('\n');
+  const html = shell(
+    c.threadTitle,
+    `
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(lead)}</p>
+      <ul style="margin:0 0 16px;padding-left:20px;font-size:15px;line-height:1.6;">${items
+        .map((i) => `<li>${escapeHtml(i)}</li>`)
+        .join('')}</ul>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#525252;">${escapeHtml(tn(loc, 'nu_why'))}</p>
+      <p style="margin:24px 0;">
+        <a href="${escapeHtml(c.url)}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">${escapeHtml(tn(loc, 'nu_button'))}</a>
+      </p>
+      <p style="margin:0;font-size:13px;color:#737373;">${escapeHtml(tn(loc, 'nu_once'))}</p>
+    `,
+    c.brand,
+  );
+  return { subject, text, html };
+}

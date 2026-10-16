@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.232.0] — 2026-10-16
+
+### Unsent calendar changes get a nudge (Thread 4.14.3)
+
+Sjoerd, 2026-10-16: "keep send manual with nudge". Session edits still wait
+for the organiser's SEND; nothing here sends a change.
+
+- **Threads list badge.** `GET /thread/threads` gains `unsent_changes` per
+  thread (additive). It counts the same rows the thread's tray reads, on the
+  caller's own client, so RLS scopes it the same way. The list shows "N
+  changes not sent" in the attention colour. The thread page already says it
+  in its tray.
+- **One reminder to the organiser** when the oldest waiting change is at
+  least a day old and under a week (`lib/calendar-nudge.ts`, scheduler job
+  `calendar-nudge`):
+  - It goes once per batch, where the batch is "since the last SEND". The
+    claim row (`thread_calendar_nudge`, v1.229.1) is taken before the mail,
+    so two ticks send one.
+  - Pressing SEND re-arms it.
+  - Sessions that are over are no reason to remind, and archived threads
+    are skipped.
+  - An organiser without an address is recorded as skipped and logged, and
+    nobody else is mailed in their place.
+  - The email names the thread, lists up to five changes and links to
+    Review and send, in the organiser's language.
+- **Dry until switched on.** The job only LOGS who it would remind (thread,
+  count, oldest, whether there is an address; never the address) until
+  `platform_setting` `calendar_nudge` is `on`. On production that list is
+  read before anybody is mailed.
+
+Tests:
+- `calendar-nudge.int.test.ts` against staging: the window (23h59 no, 24h
+  yes, 7 days no), a session that is over, two concurrent ticks giving one
+  mail, the same batch never twice, a SEND re-arming on its own clock, and
+  no address giving a skip, once.
+- Unit tests for the window edges to the millisecond, the email, and the
+  followers' digest line for an added session (in English and Dutch).
+
 ## [1.231.0] — 2026-10-16
 
 ### "Price includes VAT" per tier and product (Members 1.9.0; off for every existing price)

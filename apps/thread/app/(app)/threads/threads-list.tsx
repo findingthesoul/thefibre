@@ -236,6 +236,15 @@ export function ThreadsList({
                       {team ? ` · ${team.name}` : ''}
                     </div>
                   </div>
+                  {/* The nudge (Sjoerd, 2026-10-16: "keep send manual with
+                      nudge"): changes made, nobody told yet. */}
+                  {(row.unsent_changes ?? 0) > 0 && (
+                    <span className={`${PILL} ${PILL_TONE.attention} shrink-0`}>
+                      {t(locale, row.unsent_changes === 1 ? 'unsent_changes_one' : 'unsent_changes_many', {
+                        n: row.unsent_changes ?? 0,
+                      })}
+                    </span>
+                  )}
                   {row.my_role && (
                     <span className={`${PILL} ${PILL_TONE.neutral} shrink-0`}>
                       {row.my_role === 'host' ? t(locale, 'role_host') : t(locale, 'role_facilitator')}

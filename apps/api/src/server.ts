@@ -35,6 +35,7 @@ import { membershipRoutes, runMembershipScheduler } from './routes/membership.js
 import { withSchedulerLease } from './lib/scheduler-lease.js';
 import { bootDelay } from './lib/boot-schedule.js';
 import { runMemberNotify } from './lib/member-notify.js';
+import { runCalendarNudgeJob } from './lib/calendar-nudge.js';
 import { warmJwks as warmParticipantJwks } from './lib/participant-auth.js';
 import { runBillingMeterTick } from './routes/billing.js';
 import { runHygieneSweep } from './lib/hygiene.js';
@@ -429,6 +430,10 @@ const JOBS: [string, () => Promise<unknown>, string][] = [
   // newly on a calendar, then the one-per-person digest after 15 quiet
   // minutes. The first run anywhere only records the baseline.
   ['member-notify', runMemberNotify, 'member-notify'],
+  // Calendar changes left unsent for a day: one reminder to the organiser
+  // per batch (lib/calendar-nudge.ts). A dry run that only logs until the
+  // platform_setting `calendar_nudge` is `on`.
+  ['calendar-nudge', runCalendarNudgeJob, 'thread/calendar-nudge'],
 ];
 JOBS.forEach(([name, run, label], i) => {
   const tick = () => leased(name, run, label);

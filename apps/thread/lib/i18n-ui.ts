@@ -3620,6 +3620,22 @@ const CATALOG = {
     de: 'Veranstalter', // MT
     fr: 'Organisateur', // MT
   },
+  unsent_changes_one: {
+    en: '1 change not sent',
+    nl: '1 wijziging niet verstuurd', // MT
+    es: '1 cambio sin enviar', // MT
+    pt: '1 alteração não enviada', // MT
+    de: '1 Änderung nicht gesendet', // MT
+    fr: '1 modification non envoyée', // MT
+  },
+  unsent_changes_many: {
+    en: '{n} changes not sent',
+    nl: '{n} wijzigingen niet verstuurd', // MT
+    es: '{n} cambios sin enviar', // MT
+    pt: '{n} alterações não enviadas', // MT
+    de: '{n} Änderungen nicht gesendet', // MT
+    fr: '{n} modifications non envoyées', // MT
+  },
   role_host: {
     en: 'Host',
     nl: 'Host',

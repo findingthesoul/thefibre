@@ -27,6 +27,9 @@ export type ThreadRow = {
   /** On the thread list: you host or facilitate this thread (null when you
    *  organise it or hold no role). Absent on older APIs. */
   my_role?: 'host' | 'facilitator' | null;
+  /** On the thread list: calendar changes waiting for SEND. Absent on older
+   *  APIs (no badge). */
+  unsent_changes?: number;
   meeting_room?: MeetingRoom | null;
   /** Each account-holding host's personal room, by host row id. */
   room_by_host?: Record<string, string | null>;

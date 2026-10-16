@@ -74,6 +74,22 @@ describe('memberNotifyDigest — the email', () => {
     expect(m.text).toContain('cancelled');
   });
 
+  // A follower's session_added reaches this digest (rows written 'pending'),
+  // not only the bell (2026-10-16). Pinned so the line cannot silently fall
+  // into the "now <when>" wording of a move.
+  it('an added session is listed under Changed as a new session, with its date', () => {
+    const m = memberNotifyDigest({
+      ...base,
+      items: [{ kind: 'session_added', title: 'Weekend · Day 3', startsAt: '2026-11-16T09:00:00Z' }],
+    });
+    expect(m.subject).toBe('Choir: changes on the calendar');
+    expect(m.text).toMatch(/Weekend · Day 3 — new session · \S/);
+    expect(m.text).not.toContain('Weekend · Day 3 — now');
+    expect(m.html).toContain('new session ·');
+    const nl = memberNotifyDigest({ ...base, locale: 'nl', items: [{ kind: 'session_added', title: 'Dag 3', startsAt: '2026-11-16T09:00:00Z' }] });
+    expect(nl.text).toContain('Dag 3 — nieuwe sessie ·');
+  });
+
   it('escapes what organisers typed', () => {
     const m = memberNotifyDigest({
       ...base,

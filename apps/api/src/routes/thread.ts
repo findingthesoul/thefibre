@@ -92,6 +92,7 @@ import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
+import { selectIn } from '../lib/select-in.js';
 import { BillingFields } from '../lib/billing-fields.js';
 import { likeLiteral, isStorableCode } from '../lib/like-escape.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
@@ -745,12 +746,30 @@ threadRoutes.get('/threads', async (c) => {
   // The event dates and when sign-ups close (additive, thread dates slice 4),
   // so the organiser's list reads them through the same rule as every card
   // instead of only the program period.
-  const datesById = ids.length ? await loadThreadDates(ids) : new Map();
+  //
+  // UNSENT CALENDAR CHANGES per thread (additive `unsent_changes`), for the
+  // list's "N changes not sent" nudge (Sjoerd, 2026-10-16: "keep send manual
+  // with nudge"). The same rows the thread's tray reads — sent_at null — on
+  // the caller's own client, so RLS scopes them as it scopes the tray. A
+  // failed count shows no badge rather than failing the list: the nudge is
+  // a courtesy, the list is the page.
+  const [datesById, unsent] = await Promise.all([
+    ids.length ? loadThreadDates(ids) : Promise.resolve(new Map()),
+    selectIn<{ id: string; thread_id: string }>('threads: unsent changes', ids, (chunk) =>
+      db.from('thread_calendar_change').select('id, thread_id').in('thread_id', chunk).is('sent_at', null).order('id'),
+    ).catch((e) => {
+      console.error('[thread/threads] unsent count failed', e);
+      return [] as { id: string; thread_id: string }[];
+    }),
+  ]);
+  const unsentByThread = new Map<string, number>();
+  for (const r of unsent) unsentByThread.set(r.thread_id, (unsentByThread.get(r.thread_id) ?? 0) + 1);
   return c.json({
     items: (data ?? []).map((t) => ({
       ...t,
       my_role: roleByThread.get(t.id as string) ?? null,
       ...publicDateFields(datesById.get(t.id as string)),
+      unsent_changes: unsentByThread.get(t.id as string) ?? 0,
     })),
   });
 });
