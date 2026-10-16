@@ -351,6 +351,39 @@ const CATALOG = {
     de: 'Dein Termin hat jetzt einen Teilnahmelink. Die angehängte Einladung aktualisiert die in deinem Kalender.', // MT
     fr: "Ta réservation a maintenant un lien pour rejoindre. L'invitation jointe met à jour celle de ton agenda.", // MT
   },
+  // "Email me a link to manage this booking" (security fix, 2026-10-16).
+  manage_link_subject: {
+    en: 'Your booking: {name}',
+    nl: 'Je afspraak: {name}', // MT
+    es: 'Tu reserva: {name}', // MT
+    pt: 'A tua reserva: {name}', // MT
+    de: 'Deine Buchung: {name}', // MT
+    fr: 'Ta réservation : {name}', // MT
+  },
+  manage_link_intro: {
+    en: 'Here is your link to see, move or cancel your booking "{name}":',
+    nl: 'Hier is je link om je afspraak "{name}" te bekijken, te verzetten of te annuleren:', // MT
+    es: 'Aquí tienes tu enlace para ver, mover o cancelar tu reserva «{name}»:', // MT
+    pt: 'Aqui está a tua ligação para ver, mudar ou cancelar a tua reserva «{name}»:', // MT
+    de: 'Hier ist dein Link, um deine Buchung „{name}“ anzusehen, zu verschieben oder abzusagen:', // MT
+    fr: 'Voici ton lien pour voir, déplacer ou annuler ta réservation « {name} » :', // MT
+  },
+  manage_link_ignore: {
+    en: 'If you did not ask for this, you can ignore it — nothing has changed.',
+    nl: 'Heb je hier niet om gevraagd, dan kun je dit negeren — er is niets veranderd.', // MT
+    es: 'Si no lo pediste, puedes ignorarlo: no ha cambiado nada.', // MT
+    pt: 'Se não pediste isto, podes ignorar — nada mudou.', // MT
+    de: 'Wenn du das nicht angefordert hast, kannst du es ignorieren — es hat sich nichts geändert.', // MT
+    fr: 'Si tu ne l’as pas demandé, tu peux l’ignorer — rien n’a changé.', // MT
+  },
+  manage_link_greeting: {
+    en: 'Hi {name},',
+    nl: 'Hoi {name},', // MT
+    es: 'Hola {name}:', // MT
+    pt: 'Olá {name},', // MT
+    de: 'Hallo {name},', // MT
+    fr: 'Bonjour {name},', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MeetBookingKey = keyof typeof CATALOG;

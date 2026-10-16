@@ -211,9 +211,17 @@ async function holdsManageToken(c: Context, bookingId: string): Promise<boolean>
   const t = c.req.query('t') ?? null;
   if (t && isManageToken(bookingId, (data.manage_salt as string | null) ?? null, t)) return true;
   const userId = await optionalUserId(c);
-  if (!userId) return false;
-  const { data: host } = await adminClient.from('meet_host').select('id').eq('user_id', userId).maybeSingle();
-  return !!host && host.id === data.host_id;
+  if (!userId || !data.host_id) return false;
+  // THIS booking's host row, and is it this user's? Asking "which host row
+  // is this user's" instead errors for a user with hosts in two workspaces
+  // (maybeSingle on two rows) and refused them (coordinator review).
+  const { data: host } = await adminClient
+    .from('meet_host')
+    .select('id')
+    .eq('id', data.host_id as string)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !!host;
 }
 
 const MANAGE_REFUSED = {
@@ -2444,7 +2452,7 @@ meetRoutes.post('/public/bookings/:id/manage-link', async (c) => {
   const { data: b } = await adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, invitee_email, invitee_name, manage_salt, status, starts_at, meeting_type:meeting_type_id (name, slug, locale, host:host_id (slug))',
+      'id, workspace_id, meeting_type_id, invitee_email, invitee_name, manage_salt, status, starts_at, meeting_type:meeting_type_id (name, slug, locale, host:host_id (slug, user:user_id (email)))',
     )
     .eq('id', id)
     .maybeSingle();
@@ -2465,29 +2473,35 @@ meetRoutes.post('/public/bookings/:id/manage-link', async (c) => {
   const mt = (Array.isArray(b.meeting_type) ? b.meeting_type[0] : b.meeting_type) as
     | { name?: string; slug?: string; host?: unknown }
     | null;
-  const host = (Array.isArray(mt?.host) ? mt?.host[0] : mt?.host) as { slug?: string } | null;
+  const host = (Array.isArray(mt?.host) ? mt?.host[0] : mt?.host) as { slug?: string; user?: unknown } | null;
+  const hostEmail = ((Array.isArray(host?.user) ? host?.user[0] : host?.user) as { email?: string | null } | null)?.email ?? null;
+  // The guest's language, by the same chain as every other guest mail.
+  const L = (
+    await bookingLocales({ meetingTypeId: b.meeting_type_id as string, hostEmail, inviteeEmail: b.invitee_email as string })
+  ).invitee;
   const token = manageToken(b.id as string, b.manage_salt as string);
   const base = `${await publicOriginFor('fibre-meet', host?.slug ?? null)}/${encodeURIComponent(host?.slug ?? '')}/${encodeURIComponent(mt?.slug ?? '')}`;
   const manageUrl = `${base}/confirmed/${encodeURIComponent(b.id as string)}${manageQuery(token)}`;
-  const name = (b.invitee_name as string | null)?.split(' ')[0] ?? '';
+  const first = (b.invitee_name as string | null)?.split(' ')[0] ?? '';
+  const meeting = mt?.name ?? '';
   const text = [
-    `Hi${name ? ` ${name}` : ''},`,
-    '',
-    `Here is your link to see, move or cancel your booking "${mt?.name ?? 'your meeting'}":`,
+    // No name on file: no "Hi ," — the greeting is simply left out.
+    ...(first ? [meetT(L, 'manage_link_greeting', { name: first }), ''] : []),
+    meetT(L, 'manage_link_intro', { name: meeting }),
     manageUrl,
     '',
-    'If you did not ask for this, you can ignore it — nothing has changed.',
+    meetT(L, 'manage_link_ignore'),
   ].join('\n');
   try {
     const sender = await meetSender(b.workspace_id as string);
     await sendEmail({
       ...sender,
       to: b.invitee_email as string,
-      subject: `Your booking: ${mt?.name ?? 'manage link'}`,
+      subject: meetT(L, 'manage_link_subject', { name: meeting }),
       text,
       html: await meetEmailHtml(
         b.workspace_id as string,
-        'Your booking',
+        meetT(L, 'manage_link_subject', { name: meeting }),
         `<p style="font-size:14px;line-height:1.6;color:#171717;">${escapeHtml(text).replace(/\n/g, '<br>')}</p>`,
       ),
     });

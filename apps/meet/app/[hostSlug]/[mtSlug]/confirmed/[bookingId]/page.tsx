@@ -130,6 +130,11 @@ export default async function ConfirmedPage({
               )}
             </dl>
 
+            {/* The guest's own information — their address, their receipt or
+                invoice. Only for the holder of the manage token: without it
+                the box would be empty, and on a paid booking would even say
+                "no invoice" because the invoice link is withheld. */}
+            {booking.can_manage && (
             <div className="mt-8 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700 leading-relaxed">
               {booking.invitee_email && (
                 <>
@@ -167,6 +172,7 @@ export default async function ConfirmedPage({
                 </>
               )}
             </div>
+            )}
 
             {!booking.can_manage ? (
               <div className="mt-8">

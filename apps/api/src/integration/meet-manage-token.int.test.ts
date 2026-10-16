@@ -134,6 +134,23 @@ describe('changing the booking', () => {
     expect((await req('POST', `/public/bookings/${bookingId}/reschedule?t=${token}`, { starts_at: to })).status).toBe(200);
   });
 
+  it('a signed-in host of ANOTHER booking may not move this one', async () => {
+    const ws = (await service.from('meet_meeting_type').select('workspace_id').eq('id', f!.meetingTypeId).single()).data!.workspace_id as string;
+    const other = await createFixtureUser(ws, 'mmt-other');
+    const { data: otherHost } = await service
+      .from('meet_host')
+      .insert({ user_id: other.userId, workspace_id: ws, slug: `int-mmt-other-${randomUUID().slice(0, 6)}`, timezone: 'UTC' })
+      .select('id')
+      .single();
+    try {
+      const r = await req('POST', `/public/bookings/${bookingId}/reschedule`, { starts_at: plus(f!.startsAt, 90) }, other.accessToken);
+      expect(r.status).toBe(403);
+    } finally {
+      if (otherHost) await service.from('meet_host').delete().eq('id', otherHost.id);
+      await deleteFixtureUser(other);
+    }
+  });
+
   it('the booking’s own host, signed in, may move it without a token', async () => {
     const r = await req('POST', `/public/bookings/${bookingId}/reschedule`, { starts_at: plus(f!.startsAt, 120) }, host!.accessToken);
     expect(r.status, await r.clone().text()).toBe(200);
@@ -156,6 +173,21 @@ describe('“Email me a link”', () => {
     expect(body).toBe('{"ok":true}');
     expect(sent.map((m) => m.to)).toEqual([guest]);
     expect(sent[0]!.text).toContain(`/confirmed/${bookingId}?t=${token}`);
+  });
+
+  it('the mail speaks the guest’s language (the meeting type’s, here Dutch)', async () => {
+    await service.from('meet_meeting_type').update({ locale: 'nl' }).eq('id', f!.meetingTypeId);
+    try {
+      sent.length = 0;
+      await service.from('meet_booking_link_request').delete().eq('booking_id', bookingId);
+      expect((await req('POST', `/public/bookings/${bookingId}/manage-link`, {})).status).toBe(200);
+      expect(sent[0]!.subject).toMatch(/^Je afspraak: /);
+      expect(sent[0]!.text).toContain('te bekijken, te verzetten of te annuleren');
+    } finally {
+      // Its own logged request stays: the rate case below counts on exactly
+      // one earlier request in this hour's window.
+      await service.from('meet_meeting_type').update({ locale: null }).eq('id', f!.meetingTypeId);
+    }
   });
 
   it('an unknown id answers exactly the same and sends nothing', async () => {

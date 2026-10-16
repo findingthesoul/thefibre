@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.254.1] — 2026-10-16
+
+### The Meet manage-link email speaks the guest's language; small follow-ups to the fix (Meet 2.37.1)
+
+- Follow-ups to v1.254.0, from the coordinator's review and the staging
+  look:
+  - **"Email me a link" now arrives in the guest's language**, by the same
+    chain as every other Meet guest mail (the meeting type's language, then
+    the guest's and host's profiles). Six languages. With no first name on
+    file the greeting is left out rather than reading "Hi ,".
+  - **The confirmation page's info box shows only to the guest's own link.**
+    Opened with the bare booking id, it was an empty grey box. On a paid
+    booking it would even have said "no invoice", because the invoice link
+    is (correctly) withheld from the id alone.
+  - **The host check compares against the booking's own host row.** It
+    used to ask "which host row is this user's", which would error for a
+    user with hosts in two workspaces. That can't happen today
+    (`meet_host.user_id` is unique), but the direct check doesn't depend on
+    it.
+- Tested: `meet-manage-token.int.test.ts` 12/12 on staging. New cases: a
+  signed-in host of ANOTHER booking can't move this one; the manage-link
+  mail on a Dutch meeting type arrives in Dutch.
+
 ## [1.254.0] — 2026-10-16
 
 ### A Meet booking can only be changed with the guest's own link (Meet 2.37.0) — security fix
