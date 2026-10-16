@@ -152,8 +152,14 @@ export function ProductsClient({
       <div
         className="space-y-4 min-h-12"
         onDragOver={(e) => drag?.kind === 'product' && e.preventDefault()}
+        // Any drop that reaches the LIST (the empty-group placeholder, the gap
+        // between cards) appends to this group; a drop on a card stops at the
+        // card and lands before it. Checking target === currentTarget here
+        // ignored a drop on the placeholder text — an empty group could not
+        // be filled (found by e2e/product-groups.spec.ts, 2026-10-16).
         onDrop={(e) => {
-          if (e.target === e.currentTarget) void dropProduct(gid, null);
+          e.preventDefault();
+          void dropProduct(gid, null);
         }}
       >
         {list.length === 0 && (

@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.227.2] — 2026-10-16
+
+### An empty product group can be filled by drag (Members 1.7.1)
+
+- **Dropping a product onto an empty product group did nothing.** The list
+  only accepted a drop whose target was the list itself, and an empty
+  group's "Drop a product here" text is a child of it, so the one place
+  that said where to drop refused the drop. Any drop on the list now
+  appends to that group, and a drop on a card still lands before it.
+- **Found by a new e2e spec, `e2e/product-groups.spec.ts`**, which drives
+  Members → Products as the fixture admin. It creates two groups, files a
+  product by drag, reorders the groups by drag and archives one. It asks
+  the database after every step and checks the page again after a reload,
+  because on a drag-and-drop page "it moved" and "it was saved" can part
+  ways.
+
 ## [1.227.1] — 2026-10-16
 
 ### Handover requests name the people in them (Thread 4.14.1)
