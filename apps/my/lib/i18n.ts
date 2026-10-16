@@ -3671,6 +3671,25 @@ const CATALOG = {
     de: 'Check-in-Code', // MT
     fr: 'Code d’entrée', // MT
   },
+
+  // ── Calendar subscribe buttons ────────────────────────────────────────
+  // One-click subscribe buttons on the calendar card (lib/calendar-links.ts).
+  add_google_calendar: {
+    en: 'Add to Google Calendar',
+    nl: 'Toevoegen aan Google Agenda',
+    es: 'Añadir a Google Calendar', // MT
+    pt: 'Adicionar ao Google Agenda', // MT
+    de: 'Zu Google Kalender hinzufügen', // MT
+    fr: 'Ajouter à Google Agenda', // MT
+  },
+  add_outlook: {
+    en: 'Add to Outlook.com',
+    nl: 'Toevoegen aan Outlook.com',
+    es: 'Añadir a Outlook.com', // MT
+    pt: 'Adicionar ao Outlook.com', // MT
+    de: 'Zu Outlook.com hinzufügen', // MT
+    fr: 'Ajouter à Outlook.com', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

@@ -23,6 +23,7 @@ import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import type { Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
 import { parts } from '@/lib/i18n-parts';
+import { googleCalendarLink, outlookLink } from '@/lib/calendar-links';
 
 export function CalendarCard({ status }: { status: CalendarStatus }) {
   const [state, setState] = useState(status);
@@ -82,14 +83,34 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
               {copied ? t(locale, 'copied') : t(locale, 'copy_address')}
             </button>
             {/* webcal:// hands the address straight to the calendar app.
-                Works on Apple; Google ignores it, which is why the Google
-                route below is a link to its web page rather than this. */}
+                Works on Apple; Google ignores it, hence its own button. */}
             <a
               href={state.webcal ?? state.url}
               className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
             >
               <CalendarPlus className="h-4 w-4" aria-hidden />
               {t(locale, 'open_apple_calendar')}
+            </a>
+            {/* One click into each service's own "add a calendar" prompt
+                (lib/calendar-links.ts says which links were checked, and
+                how). A new tab: the person signs in there if they must. */}
+            <a
+              href={googleCalendarLink(state.webcal ?? state.url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden />
+              {t(locale, 'add_google_calendar')}
+            </a>
+            <a
+              href={outlookLink(state.url, 'my.thread')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden />
+              {t(locale, 'add_outlook')}
             </a>
           </div>
 

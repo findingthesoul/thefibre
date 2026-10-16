@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.259.0] — 2026-10-17
+
+### my.thread: add your calendar to Google or Outlook.com in one click (my.thread 0.29.0)
+
+- A member: "the only calendar recognized is .ics… can you add the option of
+  Google Calendar?" Until now Google was a paragraph of instructions (copy
+  the address, then Other calendars → From URL).
+- You → Notifications → Your calendar now offers **Add to Google Calendar**
+  and **Add to Outlook.com** beside Apple's button and Copy address. Each
+  opens that service's own prompt to subscribe to the person's private feed,
+  so moved sessions move there too. The instructions stay below as the
+  manual route.
+- **What was checked**, in a browser with a fixture feed address, signed
+  out (`lib/calendar-links.ts` keeps the notes):
+  - Google's plain `calendar/r?cid=` link sends a signed-out browser to
+    Google's marketing page and **loses** the subscription. The button goes in
+    through Google's sign-in entry instead, which keeps it: "Sign in to
+    continue to Google Calendar", with the cid in the continue address.
+  - Outlook.com's `addfromweb` keeps the address through its landing page
+    (`deeplink=/calendar/0/addfromweb?url=…`).
+  - **Not offered:** Outlook for work or school (`outlook.office.com`). It
+    hides the address in a sign-in token and lands on mail afterwards, so
+    it couldn't be verified.
+  - **Not verified:** what a signed-in person sees. Nobody signs in to Google
+    or Microsoft from a test.
+- Six languages.
+- Tested: unit `calendar-links` (3); new e2e `calendar-links.spec.ts`. On
+  staging, with the fixture member in en and nl, both buttons carry that
+  person's own feed. It runs after landing.
+
 ## [1.258.0] — 2026-10-17
 
 ### my.thread says what went wrong in your language, and the offline page does too (my.thread 0.28.0)
