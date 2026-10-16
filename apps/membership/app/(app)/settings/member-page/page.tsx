@@ -15,6 +15,8 @@ export default async function MemberPageSettings() {
     intro_html: string | null;
     tier_intros?: Record<string, string>;
     tiers?: PageTier[];
+    category_intros?: Record<string, string>;
+    categories?: PageTier[];
     documents: MemberDocument[];
   }>(
     '/api/v1/membership/member-page',
@@ -30,6 +32,8 @@ export default async function MemberPageSettings() {
             intro={page.intro_html}
             tierIntros={page.tier_intros}
             tiers={page.tiers}
+            categoryIntros={page.category_intros}
+            categories={page.categories}
             documents={page.documents}
             locale={locale}
           />

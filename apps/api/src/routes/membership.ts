@@ -13,7 +13,9 @@ import {
   renameDocument,
   reorderDocuments,
   saveIntro,
+  saveCategoryIntro,
   saveTierIntro,
+  setDocumentAudience,
   setDocumentTiers,
 } from '../lib/member-page.js';
 import {
@@ -1992,6 +1994,12 @@ membershipRoutes.get('/member-page', async (c) => {
     adminClient.from('membership_tier').select('id, name, archived_at').eq('workspace_id', ws).order('sort_order', { ascending: true }),
   ]);
   if (tErr) return fail(c, 'member page tiers', tErr);
+  const { data: cats, error: cErr } = await adminClient
+    .from('membership_directory_category')
+    .select('id, name, archived_at')
+    .eq('workspace_id', ws)
+    .order('sort_order', { ascending: true });
+  if (cErr) return fail(c, 'member page categories', cErr);
   return c.json({
     // Which community's members see this page. Named in the editor, because
     // with one account in several workspaces the page saves to whichever
@@ -2002,11 +2010,14 @@ membershipRoutes.get('/member-page', async (c) => {
     // to (empty = every member). The tiers name the editor's choices.
     tier_intros: page.tier_intros,
     tiers: ((tiers ?? []) as { id: string; name: string; archived_at: string | null }[]).map((t) => ({ id: t.id, name: t.name, archived: !!t.archived_at })),
+    // Directory categories (2jj follow-up), the same way.
+    category_intros: page.category_intros,
+    categories: ((cats ?? []) as { id: string; name: string; archived_at: string | null }[]).map((x) => ({ id: x.id, name: x.name, archived: !!x.archived_at })),
     // The storage path stays on the server.
     documents: page.documents.map((d) =>
       isLink(d)
-        ? { id: d.id, title: d.title, kind: 'link', url: d.url, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [] }
-        : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [] },
+        ? { id: d.id, title: d.title, kind: 'link', url: d.url, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [], category_ids: d.category_ids ?? [] }
+        : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [], category_ids: d.category_ids ?? [] },
     ),
   });
 });
@@ -2029,7 +2040,7 @@ membershipRoutes.get('/member-page/preview', async (c) => {
   const pick = ((rows ?? []) as unknown as Row[]).sort((a, b) => label(a).localeCompare(label(b)))[0];
   if (!pick) return c.json({ member_name: null, intro_html: null });
   const view = await communityView({ workspace_id: ws, person_id: pick.person_id, member_id: pick.id });
-  return c.json({ member_name: label(pick), intro_html: view.intro_html, tier_sections: view.tier_sections });
+  return c.json({ member_name: label(pick), intro_html: view.intro_html, tier_sections: view.tier_sections, category_sections: view.category_sections });
 });
 
 // A link entry: title + an http(s) address (lib/member-page.ts safeLinkUrl).
@@ -2090,6 +2101,48 @@ const tiersOfWorkspace = async (ws: string, ids: string[]): Promise<boolean> => 
   return new Set((data ?? []).map((t) => t.id as string)).size === new Set(ids).size;
 };
 const isUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v);
+// The same for directory categories.
+const categoriesOfWorkspace = async (ws: string, ids: string[]): Promise<boolean> => {
+  if (!ids.length) return true;
+  const { data, error } = await adminClient.from('membership_directory_category').select('id').eq('workspace_id', ws).in('id', ids);
+  if (error) throw new Error(`categories: ${error.message}`);
+  return new Set((data ?? []).map((x) => x.id as string)).size === new Set(ids).size;
+};
+
+// One directory category's section of the page. Null or empty removes it.
+membershipRoutes.put('/member-page/category-intros/:categoryId', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const categoryId = c.req.param('categoryId');
+  const body = (await c.req.json().catch(() => null)) as { intro_html?: unknown } | null;
+  if (!body || (body.intro_html !== null && typeof body.intro_html !== 'string')) {
+    return c.json({ error: 'intro_html must be a string or null' }, 400);
+  }
+  if (typeof body.intro_html === 'string' && body.intro_html.length > 100_000) {
+    return c.json({ error: 'the intro is too long' }, 400);
+  }
+  if (!isUuid(categoryId) || !(await categoriesOfWorkspace(ws, [categoryId]))) return c.json({ error: 'That category is not one of this community’s.' }, 400);
+  await saveCategoryIntro(ws, categoryId, body.intro_html as string | null);
+  return c.json({ ok: true });
+});
+
+// Who one document is shown to: tiers and/or directory categories; both
+// empty = every member. A superset of /documents/:id/tiers, which stays.
+membershipRoutes.put('/member-page/documents/:id/audience', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { tier_ids?: unknown; category_ids?: unknown } | null;
+  const tiers = body?.tier_ids ?? [];
+  const cats = body?.category_ids ?? [];
+  if (!Array.isArray(tiers) || !tiers.every(isUuid) || !Array.isArray(cats) || !cats.every(isUuid)) {
+    return c.json({ error: 'tier_ids and category_ids must be arrays of ids' }, 400);
+  }
+  if (!(await tiersOfWorkspace(ws, tiers as string[]))) return c.json({ error: 'That tier is not one of this community’s.' }, 400);
+  if (!(await categoriesOfWorkspace(ws, cats as string[]))) return c.json({ error: 'That category is not one of this community’s.' }, 400);
+  return (await setDocumentAudience(ws, c.req.param('id'), { tier_ids: tiers as string[], category_ids: cats as string[] }))
+    ? c.json({ ok: true })
+    : c.json({ error: 'not found' }, 404);
+});
 
 // One tier's section of the page (2jj). Null or empty removes it.
 membershipRoutes.put('/member-page/tier-intros/:tierId', async (c) => {

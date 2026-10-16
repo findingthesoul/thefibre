@@ -32,4 +32,28 @@ describe('visibleTo', () => {
   it('two tiers held (two person rows): either one opens it', () => {
     expect(visibleTo({ tier_ids: [FRIEND] }, [SINGER, FRIEND])).toBe(true);
   });
+
+  // Directory categories (2jj follow-up): tiers OR categories, one function.
+  const FELLOWS = 'c0000000-0000-4000-8000-000000000001';
+  const HOSTS = 'c0000000-0000-4000-8000-000000000002';
+
+  it('nothing chosen in either list: everyone, whatever they hold', () => {
+    expect(visibleTo({ tier_ids: [], category_ids: [] }, { tier_ids: [], category_ids: [] })).toBe(true);
+    expect(visibleTo({ category_ids: null }, { tier_ids: [SINGER] })).toBe(true);
+  });
+
+  it('categories only: holders of a chosen category', () => {
+    expect(visibleTo({ category_ids: [FELLOWS] }, { tier_ids: [SINGER], category_ids: [FELLOWS] })).toBe(true);
+    expect(visibleTo({ category_ids: [FELLOWS] }, { tier_ids: [SINGER], category_ids: [HOSTS] })).toBe(false);
+    // The old bare-array shape holds no categories.
+    expect(visibleTo({ category_ids: [FELLOWS] }, [SINGER])).toBe(false);
+  });
+
+  it('both lists: a chosen tier OR a chosen category opens it', () => {
+    const doc = { tier_ids: [FRIEND], category_ids: [FELLOWS] };
+    expect(visibleTo(doc, { tier_ids: [FRIEND], category_ids: [] })).toBe(true);
+    expect(visibleTo(doc, { tier_ids: [SINGER], category_ids: [FELLOWS] })).toBe(true);
+    expect(visibleTo(doc, { tier_ids: [SINGER], category_ids: [HOSTS] })).toBe(false);
+  });
 });
+

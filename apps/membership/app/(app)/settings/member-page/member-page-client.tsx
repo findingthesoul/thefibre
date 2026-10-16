@@ -17,16 +17,25 @@ import {
   renameMemberDocument,
   reorderMemberDocuments,
   saveMemberIntro,
+  saveMemberCategoryIntro,
   saveMemberTierIntro,
-  setMemberDocumentTiers,
+  setMemberDocumentAudience,
 } from '../actions';
 
 // tier_ids: who sees it (2jj). Empty = every member, the behaviour before tiers.
 export type MemberDocument =
-  | { id: string; title: string; kind: 'file'; mime: string; bytes: number; uploaded_at: string; tier_ids?: string[] }
-  | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string; tier_ids?: string[] };
+  | { id: string; title: string; kind: 'file'; mime: string; bytes: number; uploaded_at: string; tier_ids?: string[]; category_ids?: string[] }
+  | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string; tier_ids?: string[]; category_ids?: string[] };
 export type PageTier = { id: string; name: string; archived: boolean };
-type Preview = { member_name: string | null; intro_html: string | null; tier_sections?: { tier_id: string; tier_name: string; intro_html: string }[] };
+type Preview = {
+  member_name: string | null;
+  intro_html: string | null;
+  tier_sections?: { tier_id: string; tier_name: string; intro_html: string }[];
+  category_sections?: { category_id: string; category_name: string; intro_html: string }[];
+};
+/** The editor's target: '' (the community), 't:<tier>' or 'c:<category>'. */
+const tierKey = (id: string) => `t:${id}`;
+const catKey = (id: string) => `c:${id}`;
 
 const TAG_CHIPS = tokenChips('member_page');
 
@@ -37,6 +46,8 @@ export function MemberPageClient({
   intro,
   tierIntros: initialTierIntros = {},
   tiers = [],
+  categoryIntros: initialCategoryIntros = {},
+  categories = [],
   documents: initial,
   locale,
 }: {
@@ -44,15 +55,22 @@ export function MemberPageClient({
   intro: string | null;
   tierIntros?: Record<string, string>;
   tiers?: PageTier[];
+  categoryIntros?: Record<string, string>;
+  categories?: PageTier[];
   documents: MemberDocument[];
   locale: Locale;
 }) {
   const router = useRouter();
-  // Which text the editor writes (2jj): '' = the whole community, else a
-  // tier id. Each tier's section is ADDED under the community's intro.
+  // Which text the editor writes (2jj): '' = the whole community, 't:<id>'
+  // a tier, 'c:<id>' a directory category. Each section is ADDED under the
+  // community's intro.
   const [target, setTarget] = useState('');
   // What is saved, per target — so switching back shows what was saved.
-  const [saved, setSaved] = useState<Record<string, string>>({ '': intro ?? '', ...initialTierIntros });
+  const [saved, setSaved] = useState<Record<string, string>>(() => ({
+    '': intro ?? '',
+    ...Object.fromEntries(Object.entries(initialTierIntros).map(([k, v]) => [tierKey(k), v])),
+    ...Object.fromEntries(Object.entries(initialCategoryIntros).map(([k, v]) => [catKey(k), v])),
+  }));
   const [html, setHtml] = useState(intro ?? '');
   const [docs, setDocs] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
@@ -65,8 +83,10 @@ export function MemberPageClient({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const dirty = html !== savedHtml || saveState === 'saving';
   // Live tiers to choose from, plus an archived one a document still names.
-  const choosable = tiers.filter((x) => !x.archived || docs.some((d) => d.tier_ids?.includes(x.id)) || saved[x.id]);
-  const targetTier = tiers.find((x) => x.id === target) ?? null;
+  const choosable = tiers.filter((x) => !x.archived || docs.some((d) => d.tier_ids?.includes(x.id)) || saved[tierKey(x.id)]);
+  const choosableCats = categories.filter((x) => !x.archived || docs.some((d) => d.category_ids?.includes(x.id)) || saved[catKey(x.id)]);
+  const targetName =
+    tiers.find((x) => tierKey(x.id) === target)?.name ?? categories.find((x) => catKey(x.id) === target)?.name ?? null;
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<'upload' | 'link'>('upload');
@@ -107,7 +127,11 @@ export function MemberPageClient({
     setSaveState('saving');
     setError(null);
     const body = sending.trim() ? sending : null;
-    const r = forTarget ? await saveMemberTierIntro(forTarget, body) : await saveMemberIntro(body);
+    const r = forTarget.startsWith('t:')
+      ? await saveMemberTierIntro(forTarget.slice(2), body)
+      : forTarget.startsWith('c:')
+        ? await saveMemberCategoryIntro(forTarget.slice(2), body)
+        : await saveMemberIntro(body);
     if (r.error) {
       setSaveState('idle');
       setError(r.error);
@@ -127,10 +151,10 @@ export function MemberPageClient({
     setPreview(null);
   }
 
-  async function setShownTo(id: string, tierIds: string[]) {
+  async function setShownTo(id: string, audience: { tier_ids: string[]; category_ids: string[] }) {
     const before = docs;
-    setDocs((d) => d.map((x) => (x.id === id ? { ...x, tier_ids: tierIds } : x)));
-    const r = await setMemberDocumentTiers(id, tierIds);
+    setDocs((d) => d.map((x) => (x.id === id ? { ...x, ...audience } : x)));
+    const r = await setMemberDocumentAudience(id, audience);
     if (r.error) {
       setDocs(before);
       setError(r.error);
@@ -217,7 +241,7 @@ export function MemberPageClient({
           void saveIntro();
         }}
       >
-        {choosable.length > 0 && (
+        {choosable.length + choosableCats.length > 0 && (
           <label className="flex flex-wrap items-center gap-2 text-sm text-ink-subtle">
             {t(locale, 'mp_edit_for')}
             <select
@@ -226,20 +250,34 @@ export function MemberPageClient({
               className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-line-strong focus:outline-none"
             >
               <option value="">{t(locale, 'mp_edit_whole')}</option>
-              {choosable.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.name}
-                  {saved[x.id]?.trim() ? ' •' : ''}
-                </option>
-              ))}
+              {choosable.length > 0 && (
+                <optgroup label={t(locale, 'mp_tiers_group')}>
+                  {choosable.map((x) => (
+                    <option key={x.id} value={tierKey(x.id)}>
+                      {x.name}
+                      {saved[tierKey(x.id)]?.trim() ? ' •' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {choosableCats.length > 0 && (
+                <optgroup label={t(locale, 'mp_categories_group')}>
+                  {choosableCats.map((x) => (
+                    <option key={x.id} value={catKey(x.id)}>
+                      {x.name}
+                      {saved[catKey(x.id)]?.trim() ? ' •' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
         )}
         <RichTextField
           key={target || 'community'}
           locale={locale}
-          label={targetTier ? `${t(locale, 'mp_intro_label')} — ${targetTier.name}` : t(locale, 'mp_intro_label')}
-          hint={targetTier ? t(locale, 'mp_tier_intro_hint', { tier: targetTier.name }) : t(locale, 'mp_intro_hint')}
+          label={targetName ? `${t(locale, 'mp_intro_label')} — ${targetName}` : t(locale, 'mp_intro_label')}
+          hint={targetName ? t(locale, 'mp_tier_intro_hint', { tier: targetName }) : t(locale, 'mp_intro_hint')}
           name="intro_html"
           defaultValue={savedHtml}
           onHtmlChange={setHtml}
@@ -267,10 +305,13 @@ export function MemberPageClient({
               <>
                 <p className="mb-3 text-xs text-ink-muted">{t(locale, 'mp_preview_as', { name: preview.member_name })}</p>
                 {preview.intro_html ? <RichText html={preview.intro_html} /> : null}
-                {preview.tier_sections?.map((x) => (
-                  <div key={x.tier_id} className="mt-4 border-t border-line pt-3">
-                    <p className="mb-2 text-xs font-medium text-ink-subtle">{x.tier_name}</p>
-                    <RichText html={x.intro_html} />
+                {[
+                  ...(preview.tier_sections ?? []).map((x) => ({ key: x.tier_id, name: x.tier_name, html: x.intro_html })),
+                  ...(preview.category_sections ?? []).map((x) => ({ key: x.category_id, name: x.category_name, html: x.intro_html })),
+                ].map((x) => (
+                  <div key={x.key} className="mt-4 border-t border-line pt-3">
+                    <p className="mb-2 text-xs font-medium text-ink-subtle">{x.name}</p>
+                    <RichText html={x.html} />
                   </div>
                 ))}
               </>
@@ -328,25 +369,42 @@ export function MemberPageClient({
                   <Trash2 size={16} aria-hidden />
                 </button>
                 </div>
-                {choosable.length > 0 && (
+                {choosable.length + choosableCats.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[3.25rem]" role="group" aria-label={`${t(locale, 'mp_shown_to')}: ${d.title}`}>
                     <span className="mr-1 text-xs text-ink-muted">{t(locale, 'mp_shown_to')}</span>
                     <button
                       type="button"
-                      aria-pressed={!d.tier_ids?.length}
-                      onClick={() => d.tier_ids?.length && void setShownTo(d.id, [])}
-                      className={`${CHIP} ${!d.tier_ids?.length ? CHIP_STATE.on : CHIP_STATE.off}`}
+                      aria-pressed={!d.tier_ids?.length && !d.category_ids?.length}
+                      onClick={() => (d.tier_ids?.length || d.category_ids?.length) && void setShownTo(d.id, { tier_ids: [], category_ids: [] })}
+                      className={`${CHIP} ${!d.tier_ids?.length && !d.category_ids?.length ? CHIP_STATE.on : CHIP_STATE.off}`}
                     >
                       {t(locale, 'mp_everyone')}
                     </button>
                     {choosable.map((x) => {
                       const on = !!d.tier_ids?.includes(x.id);
+                      const tiersNext = on ? (d.tier_ids ?? []).filter((v) => v !== x.id) : [...(d.tier_ids ?? []), x.id];
                       return (
                         <button
                           key={x.id}
                           type="button"
                           aria-pressed={on}
-                          onClick={() => void setShownTo(d.id, on ? (d.tier_ids ?? []).filter((v) => v !== x.id) : [...(d.tier_ids ?? []), x.id])}
+                          onClick={() => void setShownTo(d.id, { tier_ids: tiersNext, category_ids: d.category_ids ?? [] })}
+                          className={`${CHIP} ${on ? CHIP_STATE.on : CHIP_STATE.off}`}
+                        >
+                          {x.name}
+                        </button>
+                      );
+                    })}
+                    {choosableCats.length > 0 && choosable.length > 0 && <span className="mx-0.5 text-ink-muted" aria-hidden>·</span>}
+                    {choosableCats.map((x) => {
+                      const on = !!d.category_ids?.includes(x.id);
+                      const catsNext = on ? (d.category_ids ?? []).filter((v) => v !== x.id) : [...(d.category_ids ?? []), x.id];
+                      return (
+                        <button
+                          key={x.id}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => void setShownTo(d.id, { tier_ids: d.tier_ids ?? [], category_ids: catsNext })}
                           className={`${CHIP} ${on ? CHIP_STATE.on : CHIP_STATE.off}`}
                         >
                           {x.name}

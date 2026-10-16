@@ -112,6 +112,17 @@ export async function saveMemberTierIntro(tierId: string, introHtml: string | nu
   return memberPageCall(`/tier-intros/${encodeURIComponent(tierId)}`, { method: 'PUT', body: JSON.stringify({ intro_html: introHtml }) });
 }
 
+/** One directory category's section of the page; null removes it. */
+export async function saveMemberCategoryIntro(categoryId: string, introHtml: string | null): Promise<ActionResult> {
+  return memberPageCall(`/category-intros/${encodeURIComponent(categoryId)}`, { method: 'PUT', body: JSON.stringify({ intro_html: introHtml }) });
+}
+
+/** Who one document is shown to: tiers and/or directory categories; both
+ *  empty = every member. */
+export async function setMemberDocumentAudience(id: string, audience: { tier_ids: string[]; category_ids: string[] }): Promise<ActionResult> {
+  return memberPageCall(`/documents/${encodeURIComponent(id)}/audience`, { method: 'PUT', body: JSON.stringify(audience) });
+}
+
 /** Who one document is shown to: tier ids, or [] for every member (2jj). */
 export async function setMemberDocumentTiers(id: string, tierIds: string[]): Promise<ActionResult> {
   return memberPageCall(`/documents/${encodeURIComponent(id)}/tiers`, { method: 'PUT', body: JSON.stringify({ tier_ids: tierIds }) });
@@ -147,7 +158,12 @@ export async function addMemberLink(url: string, title: string | null): Promise<
 
 /** The SAVED intro as one real member reads it, tags filled. */
 export async function previewMemberIntro(): Promise<
-  ActionResult<{ member_name: string | null; intro_html: string | null; tier_sections?: { tier_id: string; tier_name: string; intro_html: string }[] }>
+  ActionResult<{
+    member_name: string | null;
+    intro_html: string | null;
+    tier_sections?: { tier_id: string; tier_name: string; intro_html: string }[];
+    category_sections?: { category_id: string; category_name: string; intro_html: string }[];
+  }>
 > {
   try {
     return { ok: true, data: await apiFetch('/api/v1/membership/member-page/preview') };

@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.240.0] — 2026-10-16
+
+### The member page, per directory category (Members 1.12.0)
+
+- The 2jj follow-up, the same mechanism beside tiers. In Members →
+  Settings → Member page:
+  - "Write for" gains a **Directory categories** group: a section per
+    category, shown under the tier sections only to members who hold that
+    category;
+  - each document's "Shown to" lists the tiers, then the categories.
+  A document is shown when nothing is chosen (as before), or when the member
+  holds ANY chosen tier OR ANY chosen category.
+- **What a member holds is the directory's own rule.** `categoriesByPerson`
+  (the union over the products in their tier plus products bought on their
+  own) is lifted unchanged out of routes/membership-portal.ts into
+  `lib/member-categories.ts`. The directory and the member page both call
+  it: one reader, two callers. It is asked only for the person rows the
+  access predicate admits (active/grace). `memberCommunities` gains
+  `category_ids` beside `tier_ids`.
+- **One `visibleTo`** decides it everywhere: the community page, the signed
+  download address and the Files page. A category's name reaches only its
+  holders.
+- API (additive):
+  - `PUT /membership/member-page/category-intros/:categoryId`;
+  - `PUT /membership/member-page/documents/:id/audience {tier_ids,
+    category_ids}`, a superset of `/documents/:id/tiers`, which stays and
+    keeps a document's categories;
+  - the admin GET adds `category_intros`, `categories` and per-document
+    `category_ids`;
+  - the community view adds `category_sections`.
+  No migration.
+- Tested:
+  - unit `visibleTo` (12, with the none / category-only / both = OR cases);
+  - integration on staging, member-page + portal-files 23/23. It covers: a
+    category held through the tier's product opens its document and section;
+    another member sees neither, nor the name; a product bought on its own
+    grants its category; tiers OR categories; the tiers route keeps the
+    categories; the signed address follows the rule; a lapsed holder gets
+    nothing. Leftovers: 0.
+  - The directory's own suite, UNCHANGED, before and after the lift: 5 files,
+    46/46 both times.
+  - e2e `member-page-tiers` is extended with a held and an unheld category.
+
 ## [1.239.4] — 2026-10-16
 
 ### A record of who changed someone's role, part 1 again: the triggers, v2

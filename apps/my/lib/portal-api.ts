@@ -307,6 +307,9 @@ export type CommunityView = {
   /** The sections for the tiers this member holds (2jj), under the intro.
    *  Optional: an API from before tiers sends none. */
   tier_sections?: { tier_id: string; tier_name: string; intro_html: string }[];
+  /** The directory categories' sections this member holds, under the tier
+   *  sections. Optional, like tier_sections. */
+  category_sections?: { category_id: string; category_name: string; intro_html: string }[];
   documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string })[];
   thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
   next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;

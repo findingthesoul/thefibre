@@ -260,3 +260,70 @@ describe('per tier (2jj)', () => {
     }
   });
 });
+
+describe('per directory category (2jj follow-up)', () => {
+  let fellows = '';
+  let hosts = '';
+  let fellowsDoc = '';
+
+  it('a category held through the tier’s product opens its document and section; others see neither', async () => {
+    fellows = await insert('membership_directory_category', { workspace_id: ws, name: 'Fellows' });
+    hosts = await insert('membership_directory_category', { workspace_id: ws, name: 'Hosts' });
+    // Tier A includes a product in "Fellows": the member (tier A) holds it.
+    const product = await insert('membership_product', { workspace_id: ws, name: 'Fellowship' });
+    await service.from('membership_product_category').insert({ product_id: product, category_id: fellows });
+    await service.from('membership_tier_product').insert({ tier_id: tierA, product_id: product });
+
+    fellowsDoc = ((await page.addLink(ws, 'https://example.com/fellows', 'Fellows notes')) as { id: string }).id;
+    expect(await page.setDocumentAudience(ws, fellowsDoc, { tier_ids: [], category_ids: [fellows] })).toBe(true);
+    await page.saveCategoryIntro(ws, fellows, '<p>For fellows, {first_name}</p><script>x</script>');
+
+    const mine = (await page.memberCommunities(memberEmail)).find((m) => m.workspace_id === ws)!;
+    expect(mine.category_ids).toEqual([fellows]);
+    const a = await page.communityView(mine);
+    expect(a.documents.map((d) => d.id)).toContain(fellowsDoc);
+    expect(a.category_sections).toEqual([{ category_id: fellows, category_name: 'Fellows', intro_html: '<p>For fellows, M</p>' }]);
+
+    // The board member (tier B) holds no category: neither the document nor
+    // the category's NAME reaches them.
+    const theirs = (await page.memberCommunities(otherEmail)).find((m) => m.workspace_id === ws)!;
+    expect(theirs.category_ids).toEqual([]);
+    const b = await page.communityView(theirs);
+    expect(b.documents.map((d) => d.id)).not.toContain(fellowsDoc);
+    expect(b.category_sections).toEqual([]);
+    expect(JSON.stringify(b)).not.toContain('Fellows');
+  });
+
+  it('a product bought on its own grants its category too (the directory’s own rule)', async () => {
+    const solo = await insert('membership_product', { workspace_id: ws, name: 'Hosting kit', price_cents: 1000 });
+    await service.from('membership_product_category').insert({ product_id: solo, category_id: hosts });
+    await insert('membership_product_purchase', { workspace_id: ws, person_id: otherPerson, product_id: solo, stripe_session_id: `mp-${randomUUID()}`, amount_cents: 1000 });
+    const theirs = (await page.memberCommunities(otherEmail)).find((m) => m.workspace_id === ws)!;
+    expect(theirs.category_ids).toEqual([hosts]);
+  });
+
+  it('a tier OR a category: both lists, either opens it; the tiers route keeps the categories', async () => {
+    expect(await page.setDocumentTiers(ws, fellowsDoc, [tierB])).toBe(true);
+    const stored = (await page.readMemberPage(ws)).documents.find((d) => d.id === fellowsDoc)!;
+    expect(stored.tier_ids).toEqual([tierB]);
+    expect(stored.category_ids).toEqual([fellows]);
+    // Member: through the category. Board member: through the tier.
+    expect((await page.communityView((await page.memberCommunities(memberEmail)).find((m) => m.workspace_id === ws)!)).documents.map((d) => d.id)).toContain(fellowsDoc);
+    expect((await page.communityView((await page.memberCommunities(otherEmail)).find((m) => m.workspace_id === ws)!)).documents.map((d) => d.id)).toContain(fellowsDoc);
+  });
+
+  it('the signed address follows the same rule; a lapsed holder gets nothing', async () => {
+    const d = await page.addDocument(ws, { name: 'f.jpg', bytes: jpegWithExif() }, 'Fellows photo');
+    const fileId = (d as Exclude<typeof d, string>).id;
+    await page.setDocumentAudience(ws, fileId, { tier_ids: [], category_ids: [fellows] });
+    expect(await page.signedDocumentUrl(memberEmail, ws, fileId)).toMatch(/token=/);
+    expect(await page.signedDocumentUrl(otherEmail, ws, fileId)).toBeNull();
+    await service.from('membership_member').update({ status: 'lapsed' }).eq('id', memberId);
+    try {
+      expect(await page.signedDocumentUrl(memberEmail, ws, fileId)).toBeNull();
+    } finally {
+      await service.from('membership_member').update({ status: 'active' }).eq('id', memberId);
+    }
+  });
+});
+

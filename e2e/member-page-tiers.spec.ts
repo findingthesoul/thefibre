@@ -33,6 +33,11 @@ const link = (title: string, tier_ids?: string[]) => ({
   ...(tier_ids ? { tier_ids } : {}),
 });
 let docs: ReturnType<typeof link>[] = [];
+// Directory categories (2jj follow-up): "fellows" is held through a product
+// in the held tier; "hosts" is held by nobody.
+let fellows = '';
+let hosts = '';
+let product = '';
 
 test.beforeAll(async () => {
   const db = stagingService();
@@ -53,12 +58,30 @@ test.beforeAll(async () => {
     .select('id');
   if (m.error) throw new Error(`seed member: ${m.error.message}`);
 
+  fellows = (await db.from('membership_directory_category').insert({ workspace_id: workspaceId, name: `${TAG} fellows` }).select('id').single()).data!.id as string;
+  hosts = (await db.from('membership_directory_category').insert({ workspace_id: workspaceId, name: `${TAG} hosts` }).select('id').single()).data!.id as string;
+  product = (await db.from('membership_product').insert({ workspace_id: workspaceId, name: `${TAG} fellowship` }).select('id').single()).data!.id as string;
+  await db.from('membership_product_category').insert({ product_id: product, category_id: fellows });
+  await db.from('membership_tier_product').insert({ tier_id: held, product_id: product });
+
   const s = await db.from('membership_settings').select('*').eq('workspace_id', workspaceId).maybeSingle();
   settingsBefore = s.data ?? null;
-  docs = [link(`${TAG} everyone`), link(`${TAG} for singers`, [held]), link(`${TAG} board minutes`)];
+  docs = [
+    link(`${TAG} everyone`),
+    link(`${TAG} for singers`, [held]),
+    link(`${TAG} board minutes`),
+    { ...link(`${TAG} fellows notes`), category_ids: [fellows] },
+    { ...link(`${TAG} hosts notes`), category_ids: [hosts] },
+  ];
   const up = await db
     .from('membership_settings')
-    .upsert({ workspace_id: workspaceId, member_page: { intro_html: `<p>Welcome ${TAG}</p>`, documents: docs } }, { onConflict: 'workspace_id' })
+    .upsert(
+      {
+        workspace_id: workspaceId,
+        member_page: { intro_html: `<p>Welcome ${TAG}</p>`, documents: docs, category_intros: { [fellows]: `<p>Fellows read this ${TAG}</p>`, [hosts]: `<p>Hosts read this ${TAG}</p>` } },
+      },
+      { onConflict: 'workspace_id' },
+    )
     .select('workspace_id');
   if (up.error) throw new Error(`seed page: ${up.error.message}`);
 });
@@ -69,7 +92,11 @@ test.afterAll(async () => {
   else await db.from('membership_settings').delete().eq('workspace_id', workspaceId);
   if (memberBefore) await db.from('membership_member').upsert(memberBefore, { onConflict: 'workspace_id,person_id' });
   else await db.from('membership_member').delete().eq('workspace_id', workspaceId).eq('person_id', personId);
+  if (product) await db.from('membership_product').delete().eq('id', product);
+  await db.from('membership_directory_category').delete().in('id', [fellows, hosts].filter(Boolean));
   await db.from('membership_tier').delete().in('id', [held, other].filter(Boolean));
+  const { count: cats } = await db.from('membership_directory_category').select('id', { count: 'exact', head: true }).in('id', [fellows, hosts]);
+  expect(cats).toBe(0);
   // Read back: nothing of ours is left.
   const { count } = await db.from('membership_tier').select('id', { count: 'exact', head: true }).in('id', [held, other]);
   expect(count).toBe(0);
@@ -114,4 +141,13 @@ test('a section for one tier, a document for another: saved, and the member sees
   await expect(page.getByText(`${TAG} for singers`)).toBeVisible();
   await expect(page.getByText(`${TAG} board minutes`)).toHaveCount(0);
   await expect(page.getByRole('heading', { name: `${TAG} board` })).toHaveCount(0);
+
+  // Directory categories: the one held through the tier's product shows its
+  // section and document; the one nobody holds shows neither, nor its name.
+  await expect(page.getByRole('heading', { name: `${TAG} fellows` })).toBeVisible();
+  await expect(page.getByText(`Fellows read this ${TAG}`)).toBeVisible();
+  await expect(page.getByText(`${TAG} fellows notes`)).toBeVisible();
+  await expect(page.getByText(`${TAG} hosts notes`)).toHaveCount(0);
+  await expect(page.getByText(`Hosts read this ${TAG}`)).toHaveCount(0);
+  await expect(page.getByText(`${TAG} hosts`)).toHaveCount(0);
 });

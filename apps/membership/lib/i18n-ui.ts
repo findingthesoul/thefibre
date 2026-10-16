@@ -2949,6 +2949,22 @@ const CATALOG = {
     de: 'Unter der Einführung, nur für Mitglieder mit {tier}. Leer lassen für keinen Abschnitt.', // MT
     fr: 'Sous l’introduction, seulement pour les membres ayant {tier}. Laisse vide pour aucune section.', // MT
   },
+  mp_tiers_group: {
+    en: 'Tiers',
+    nl: 'Niveaus', // MT
+    es: 'Niveles', // MT
+    pt: 'Níveis', // MT
+    de: 'Stufen', // MT
+    fr: 'Niveaux', // MT
+  },
+  mp_categories_group: {
+    en: 'Directory categories',
+    nl: 'Ledengids-categorieën', // MT
+    es: 'Categorías del directorio', // MT
+    pt: 'Categorias do diretório', // MT
+    de: 'Verzeichniskategorien', // MT
+    fr: 'Catégories de l’annuaire', // MT
+  },
   mp_shown_to: {
     en: 'Shown to',
     nl: 'Zichtbaar voor', // MT

@@ -5,8 +5,8 @@
 //
 // NO RULE OF ITS OWN. Each item is admitted by the reader that already admits
 // it elsewhere:
-//   · community documents — memberCommunities (active/grace, every tier held)
-//     and visibleTo, exactly as the community page and signedDocumentUrl;
+//   · community documents — memberCommunities (active/grace, every tier and
+//     directory category held) and visibleTo, exactly as the community page and signedDocumentUrl;
 //   · thread documents — threadPlaces (a LIVE place) and
 //     releasedThreadDocuments (the thread's own trigger has sent it to them),
 //     exactly as the community page.
@@ -91,7 +91,7 @@ export async function filesFor(email: string): Promise<FilesGroup[]> {
   const community = await Promise.all(
     mine.map(async (m) => ({
       workspace_id: m.workspace_id,
-      documents: (await readMemberPage(m.workspace_id)).documents.filter((d) => visibleTo(d, m.tier_ids)),
+      documents: (await readMemberPage(m.workspace_id)).documents.filter((d) => visibleTo(d, m)),
     })),
   );
   const wsOf = new Map(live.map((p) => [p.thread_id, p.workspace_id]));
