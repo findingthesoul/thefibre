@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.248.3] — 2026-10-16
+
+### A member's Google Workspace address: the table (migration only)
+
+- The first half of Sjoerd's Google-address item (2026-10-16); the code
+  follows. When a membership includes a Google account, the member will see
+  a suggested address and accept it or ask for another; an admin creates the
+  account by hand and marks it created.
+- `membership_google_account`, one row per membership:
+  - the suggested address;
+  - the address asked for, with the member's note;
+  - its status (suggested, requested, created, declined);
+  - the address actually created, and the decline reason;
+  - when the admins were last emailed.
+  RLS on, no policies, service role only. An address promised or created for
+  one member can't be promised to another in the same workspace. Nothing
+  existing is touched.
+
 ## [1.248.2] — 2026-10-16
 
 ### Manage it in The Fibre, never on Stripe; You as tabs; a clear choice in "Add or change" (my.thread 0.22.0, Members 1.16.1)
