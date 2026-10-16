@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.250.1] — 2026-10-16
+
+### Web push for my.thread: the table (migration only)
+
+- The first half of web push (`docs/web-push-plan.md`). Sjoerd answered its
+  five questions on 2026-10-16, all as recommended. The code follows.
+- `20261016161531`:
+  - **`push_subscription`**: one row per device that opted in. Keyed by the
+    participant's verified email, not person_id, because a phone belongs to the
+    human and not to one community. Email is stored lower-case (a check refuses anything else). Holds the endpoint (unique), its two
+    keys, a short device label, and its last success and failures. RLS on, no
+    policies, service role only.
+  - **`member_notification.push_state`** (`pending | sent | skipped | none`)
+    and `pushed_at`. The default is **`none`**, so every existing bell row
+    stays unpushed and switching push on never replays the backlog.
+- **An exception to "soft delete only", approved by Sjoerd (2026-10-16):**
+  push subscriptions are HARD-deleted. That happens when the push service
+  answers 404/410, after 5 failures over at least 3 days, on sign-out, and
+  on erasure. A dead endpoint is not a record of anything, only a device
+  identifier nobody can use.
+- Nothing existing changes behaviour. Nothing reads these columns yet.
+
 ## [1.250.0] — 2026-10-16
 
 ### Members → Settings → Google addresses: the requests, to create or decline (Members 1.17.0)
