@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.232.1] — 2026-10-16
+
+### Production sittings build the shared package first; the "Price includes VAT" switch has an e2e
+
+- **`scripts/batch-prod.sh` builds `@thefibre/shared` right after the
+  fast-forward** (coordinator's inbox 2kz). The fast-forward brings shared's
+  source but not its compiled `dist/`. After batch 31 the production scripts
+  died with `ERR_MODULE_NOT_FOUND` (fixed-renewal.js): a new module in the
+  source, an old dist on disk.
+  - The new step runs BEFORE the database step and is fail-closed: a failed
+    build stops the sitting with nothing pushed, promoted or deployed. A dry
+    run only says it would run.
+  - Syntax-checked. The dry run couldn't be rehearsed while another release
+    held the runway (it refuses with a clearance of the wrong kind).
+- **`e2e/price-includes-vat.spec.ts`**, as the fixture admin with the
+  fixture workspace made VAT-registered for the run and restored by value:
+  tick the switch in the tier dialog → the database says true → still ticked
+  after a reload → the public card shows the entered price "(incl. VAT)" with
+  "€300 excl. VAT" underneath. Passes on staging.
+  - Because it flips SHARED fixture state and the suite runs two workers,
+    it runs in a new Playwright project, `exclusive`, which depends on the
+    other two. It starts only after they've finished, so no other spec reads
+    the fixture mid-flip.
+
 ## [1.232.0] — 2026-10-16
 
 ### Unsent calendar changes get a nudge (Thread 4.14.3)

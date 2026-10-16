@@ -44,6 +44,9 @@ if (ownerSpecs.length && !ownerOptIn) {
   );
 }
 
+/** Specs that flip shared fixture state; see the 'exclusive' project. */
+const EXCLUSIVE = /price-includes-vat\.spec\.ts/;
+
 export default defineConfig({
   testDir: '.',
   testIgnore: ownerOptIn ? [] : ownerSpecs,
@@ -55,7 +58,10 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { browserName: 'chromium' } },
+    // Specs that change SHARED fixture state for their run (e.g. making the
+    // fixture workspace VAT-registered) are kept out of the parallel pool
+    // and run alone, after it — so no other spec reads that state mid-flip.
+    { name: 'chromium', use: { browserName: 'chromium' }, testIgnore: EXCLUSIVE },
     // Safari, because Sjoerd uses Safari — every screenshot he sends is one —
     // and because the only place browsers genuinely disagree here is text
     // editing: a contenteditable is wrapped differently by each engine, which
@@ -70,6 +76,14 @@ export default defineConfig({
       name: 'webkit',
       use: { browserName: 'webkit' },
       testMatch: /profile-(bio-save|editor|limits)\.spec\.ts/,
+    },
+    {
+      name: 'exclusive',
+      use: { browserName: 'chromium' },
+      testMatch: EXCLUSIVE,
+      // Runs only after both projects above have finished: nothing else is
+      // running while it flips the shared fixture.
+      dependencies: ['chromium', 'webkit'],
     },
   ],
 });

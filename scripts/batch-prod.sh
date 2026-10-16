@@ -183,6 +183,25 @@ fi
   || fail "checkout" "this checkout has uncommitted changes. A production sitting runs what was reviewed, not what is lying around."
 say "  origin/staging == ${SHA:0:8}, tree clean"
 
+# ── 1b. The shared package's build ────────────────────────────────────────
+# @thefibre/shared emits a compiled dist/, and the fast-forward above brings
+# its SOURCE but not its build. Everything this sitting runs with node — the
+# preflight gate's helper, and every apps/api/scripts/*.mjs Sjoerd runs on
+# production after it — imports the dist. After batch 31 those scripts died
+# with ERR_MODULE_NOT_FOUND (fixed-renewal.js): a new shared module in the
+# source, an old dist on disk. Built HERE, before the database step, and
+# fail-closed: a build that fails stops the sitting with nothing pushed,
+# promoted or deployed.
+step "Shared build"
+if [ "$DRY" = 1 ]; then
+  say "  would run: pnpm --filter @thefibre/shared build"
+else
+  pnpm --filter @thefibre/shared build >/dev/null 2>&1 \
+    || fail "shared build" "pnpm --filter @thefibre/shared build failed (run it by hand to see why; a fresh worktree needs pnpm install first).
+   Nothing pushed, nothing promoted, nothing deployed."
+  say "  @thefibre/shared built at ${SHA:0:8}"
+fi
+
 # ── 2. Migrations ─────────────────────────────────────────────────────────
 step "Database"
 if [ "$DRY" = 1 ]; then
