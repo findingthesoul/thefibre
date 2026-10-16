@@ -7,9 +7,7 @@
 
 import Link from 'next/link';
 import { Tabs } from '@thefibre/shared/ui/tabs';
-
-export const YOU_TABS = ['profile', 'memberships', 'billing', 'notifications', 'privacy'] as const;
-export type YouTab = (typeof YOU_TABS)[number];
+import { YOU_TABS, type YouTab } from './tabs';
 
 const LABELS: Record<YouTab, string> = {
   profile: 'Profile',

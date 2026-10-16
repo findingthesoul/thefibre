@@ -174,6 +174,11 @@ test('the card behind the membership: "change" opens Stripe’s card form in The
   await change.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.locator('iframe[name^="__privateStripeFrame"]').first()).toBeAttached({ timeout: 30_000 });
+  // An attached frame can still be Stripe's grey skeleton (the first shot of
+  // this test was exactly that). The form is REAL only once a card input
+  // inside Stripe's frame is visible.
+  const cardInput = dialog.frameLocator('iframe[name^="__privateStripeFrame"]').first().locator('input').first();
+  await expect(cardInput, 'Stripe card form loaded, not only its skeleton').toBeVisible({ timeout: 30_000 });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/5-mythread-change-card-form.png` });
 
   // And NOWHERE does a member get sent to Stripe to manage it (Sjoerd,

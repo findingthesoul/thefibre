@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.249.1] — 2026-10-16
+
+### my.thread → You opens again (my.thread 0.23.1)
+
+- **Every You tab showed "Your page did not load this time"** on staging
+  after v1.248.2. The page is a server component and read the list of tab
+  names from `you-tabs.tsx`, which is a `'use client'` module. A value
+  imported from a client module reaches the server as a client reference,
+  not as the array, so `YOU_TABS.includes(…)` threw on every render. The list
+  moved to a plain module, `apps/my/app/you/tabs.ts`, which both read. No
+  copy or behaviour changes.
+- Found by the `you-tabs` e2e on staging, which is what it is for: the
+  production build and typecheck had both passed, because neither renders
+  the page.
+- e2e `member-addon`: the card-form test now waits for a card INPUT inside
+  Stripe's frame, not only for the frame. The first screenshot showed Stripe's
+  grey skeleton, which an attached frame alone does not rule out. It passes
+  on staging, with the card number, expiry and CVC fields showing.
+- Verified: typecheck clean; the stronger card-form test passes against
+  staging. Unverified until it lands: the `you-tabs` e2e on staging, which is
+  the real test of this fix.
+
 ## [1.249.0] — 2026-10-16
 
 ### A membership with a Google account suggests the address, and the admin creates it
