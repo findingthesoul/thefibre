@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.254.3] — 2026-10-16
+
+### Change your card: no Link box, and Save card always in view (my.thread 0.26.1)
+
+- **The card dialog's buttons are the Fibre bottom bar.** "Cancel · Save
+  card" sit in the dialog's pinned footer and the card form scrolls above
+  them. At a 720px-high window, Save card used to sit below the fold. Stripe's
+  `Elements` now wraps the whole dialog, which lets the footer's Save reach
+  Stripe's hooks. The loading and error states use the same dialog, with
+  Cancel in the footer.
+- **No Link box.** The PaymentElement is card only, with
+  `wallets: { link: 'never', applePay: 'never', googlePay: 'never' }`. "Save
+  my information for faster checkout" and its email field made the dialog
+  long and read as a second sign-up. This is "change your card", not a
+  checkout. No copy changes; builder 5's translated strings are kept as they
+  were.
+- e2e `member-addon` (the card test): Stripe's frame shows no "Save my
+  information", and Save card and Cancel are in the viewport at 1280×720
+  without scrolling. It runs on staging after the release.
+
 ## [1.254.2] — 2026-10-16
 
 ### One profile, one name: my.thread keeps a member's seats in step; a removed photo stops being served within minutes (API)

@@ -179,6 +179,13 @@ test('the card behind the membership: "change" opens Stripe’s card form in The
   // inside Stripe's frame is visible.
   const cardInput = dialog.frameLocator('iframe[name^="__privateStripeFrame"]').first().locator('input').first();
   await expect(cardInput, 'Stripe card form loaded, not only its skeleton').toBeVisible({ timeout: 30_000 });
+  // No Link box (2026-10-16): its "Save my information" field made the
+  // dialog long and read as a second sign-up.
+  await expect(dialog.frameLocator('iframe[name^="__privateStripeFrame"]').first().getByText(/Save my information/i)).toHaveCount(0);
+  // The bottom bar is pinned: Save card is on screen at a 720px-high window
+  // without scrolling, and Cancel beside it.
+  await expect(dialog.getByRole('button', { name: 'Save card' })).toBeInViewport();
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeInViewport();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/5-mythread-change-card-form.png` });
 
   // And NOWHERE does a member get sent to Stripe to manage it (Sjoerd,

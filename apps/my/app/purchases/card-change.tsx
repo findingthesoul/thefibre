@@ -95,22 +95,35 @@ function ChangeCard({ memberId, onClose, onChanged }: { memberId: string; onClos
     [setup],
   );
 
+  if (error || !setup || !stripePromise) {
+    return (
+      <Dialog
+        open
+        onClose={onClose}
+        title={t(locale, 'change_card_title')}
+        description={t(locale, 'change_card_desc')}
+        footer={
+          <Button type="button" variant="ghost" onClick={onClose}>
+            {t(locale, 'cancel')}
+          </Button>
+        }
+      >
+        {error ? <p className={NOTICE.error}>{error}</p> : <p className="text-sm text-ink-subtle">{t(locale, 'loading')}</p>}
+      </Dialog>
+    );
+  }
+  // Elements wraps the WHOLE dialog, so the buttons in its footer can reach
+  // Stripe's hooks. The footer is the Fibre bottom bar: pinned, while the
+  // body (the card form) scrolls under it on a short screen (2026-10-16:
+  // "Save card" sat below the fold at 720px).
   return (
-    <Dialog open onClose={onClose} title={t(locale, 'change_card_title')} description={t(locale, 'change_card_desc')}>
-      {error ? (
-        <p className={NOTICE.error}>{error}</p>
-      ) : !setup || !stripePromise ? (
-        <p className="text-sm text-ink-subtle">{t(locale, 'loading')}</p>
-      ) : (
-        <Elements stripe={stripePromise} options={{ clientSecret: setup.client_secret, locale: STRIPE_LOCALE[locale] }}>
-          <CardForm memberId={memberId} setupIntentId={setup.setup_intent_id} onClose={onClose} onChanged={onChanged} />
-        </Elements>
-      )}
-    </Dialog>
+    <Elements stripe={stripePromise} options={{ clientSecret: setup.client_secret, locale: STRIPE_LOCALE[locale] }}>
+      <CardDialog memberId={memberId} setupIntentId={setup.setup_intent_id} onClose={onClose} onChanged={onChanged} />
+    </Elements>
   );
 }
 
-function CardForm({ memberId, setupIntentId, onClose, onChanged }: { memberId: string; setupIntentId: string; onClose: () => void; onChanged: (c: Card) => void }) {
+function CardDialog({ memberId, setupIntentId, onClose, onChanged }: { memberId: string; setupIntentId: string; onClose: () => void; onChanged: (c: Card) => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
@@ -143,30 +156,41 @@ function CardForm({ memberId, setupIntentId, onClose, onChanged }: { memberId: s
     }
   }
 
-  if (done) {
-    return (
-      <div className="space-y-3">
-        <p className={NOTICE.success}>
-          {t(locale, 'card_saved', { brand: brandName(done.brand), last4: done.last4 })}
-        </p>
-        <Button type="button" onClick={onClose}>
-          {t(locale, 'close')}
-        </Button>
-      </div>
-    );
-  }
   return (
-    <div className="space-y-3">
-      <PaymentElement options={{ layout: 'tabs' }} />
-      {error && <p className={NOTICE.error}>{error}</p>}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          {t(locale, 'cancel')}
-        </Button>
-        <Button type="button" onClick={save} disabled={!stripe || busy}>
-          {busy ? t(locale, 'saving') : t(locale, 'save_card')}
-        </Button>
-      </div>
-    </div>
+    <Dialog
+      open
+      onClose={onClose}
+      title={t(locale, 'change_card_title')}
+      description={t(locale, 'change_card_desc')}
+      footer={
+        done ? (
+          <Button type="button" onClick={onClose}>
+            {t(locale, 'close')}
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {t(locale, 'cancel')}
+            </Button>
+            <Button type="button" onClick={save} disabled={!stripe || busy}>
+              {busy ? t(locale, 'saving') : t(locale, 'save_card')}
+            </Button>
+          </>
+        )
+      }
+    >
+      {done ? (
+        <p className={NOTICE.success}>{t(locale, 'card_saved', { brand: brandName(done.brand), last4: done.last4 })}</p>
+      ) : (
+        <div className="space-y-3">
+          {/* Card only, and no Link box: "Save my information for faster
+              checkout" and its email field made this dialog long and read
+              as a second sign-up (2026-10-16). Wallets are off for the same
+              reason — this is "change your card", not a checkout. */}
+          <PaymentElement options={{ layout: 'tabs', wallets: { link: 'never', applePay: 'never', googlePay: 'never' } }} />
+          {error && <p className={NOTICE.error}>{error}</p>}
+        </div>
+      )}
+    </Dialog>
   );
 }
