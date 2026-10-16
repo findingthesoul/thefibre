@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.248.1] — 2026-10-16
+
+### portal-nav integration test: `/me/nav` may carry more than three keys (test only)
+
+- v1.247.0 added `locale` to `GET /me/nav`, additively. `portal-nav.int.test.ts`
+  deep-equalled `/me/nav` to three keys picked from `/me/portal`, so it failed
+  on staging on the new key alone. Builder 4 hit it ahead of a release that
+  touches could-join.
+- It now compares the three numbers with `/me/portal`, and checks that `locale`
+  is null or a language we speak. No code change.
+- Run against staging: 3/3.
+
 ## [1.248.0] — 2026-10-16
 
 ### A thread can be offered to more than one team (Thread 4.19.0)

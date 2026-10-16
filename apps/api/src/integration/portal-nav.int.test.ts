@@ -10,6 +10,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { Hono } from 'hono';
+import { isLocale } from '@thefibre/shared';
 import { anonKey, url } from './staging.js';
 
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -54,11 +55,17 @@ describe('/me/nav', () => {
     it(`equals /me/portal's upcoming, communities and unread for ${label}`, async () => {
       const token = await tokenFor(email);
       const [nav, portal] = await Promise.all([get('/nav', token), get('/portal', token)]);
-      expect(nav).toEqual({
+      // The three numbers /me/portal also carries must agree. `locale` is
+      // /me/nav's own (v1.247.0, my.thread in six languages): the reader's
+      // identity_profile.locale, so null or one we speak — never compared
+      // against /me/portal, which does not send it.
+      const { locale, ...numbers } = nav;
+      expect(numbers).toEqual({
         upcoming: portal.upcoming,
         communities: portal.communities,
         unread_notifications: portal.unread_notifications,
       });
+      expect(locale === null || isLocale(locale as string)).toBe(true);
       if (label === 'two team-calendar memberships') {
         // Said out loud, or a fixture that lost its memberships passes this
         // as two empty answers agreeing.
