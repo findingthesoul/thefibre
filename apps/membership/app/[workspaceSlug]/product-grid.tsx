@@ -28,9 +28,13 @@ export function ProductGrid({
   locale = 'en',
   vatRegistered = false,
   vatHomeRatePct = null,
+  groups = [],
 }: {
   workspaceSlug: string;
   products: PublicProduct[];
+  /** Product groups in their order (2026-10-16): a heading over each group's
+   *  products; ungrouped ones last, under no heading. */
+  groups?: { id: string; name: string }[];
   /** Prices are excl. VAT and this community adds it (2026-10-15). */
   vatRegistered?: boolean;
   /** The seller's home rate, for "incl. VAT" before a country is chosen. */
@@ -43,30 +47,44 @@ export function ProductGrid({
   );
   if (buyable.length === 0) return null;
 
-  const cols =
-    buyable.length === 1
+  const colsFor = (n: number) =>
+    n === 1
       ? 'sm:grid-cols-1 max-w-md mx-auto'
-      : buyable.length === 2
+      : n === 2
         ? 'sm:grid-cols-2 max-w-2xl mx-auto'
         : 'sm:grid-cols-2 lg:grid-cols-3';
+  const grid = (list: PublicProduct[]) => (
+    <div className={`mt-6 grid grid-cols-1 gap-6 ${colsFor(list.length)}`}>
+      {list.map((product) => (
+        <ProductCard
+          key={product.id}
+          workspaceSlug={workspaceSlug}
+          product={product}
+          locale={locale}
+          vatRegistered={vatRegistered}
+          vatHomeRatePct={vatHomeRatePct}
+        />
+      ))}
+    </div>
+  );
+  const known = new Set(groups.map((g) => g.id));
+  const sections = groups
+    .map((g) => ({ group: g, list: buyable.filter((p) => p.group_id === g.id) }))
+    .filter((x) => x.list.length > 0);
+  const ungrouped = buyable.filter((p) => !p.group_id || !known.has(p.group_id));
 
   return (
     <section className="mt-16">
       <h2 className="text-xl font-medium tracking-tight text-center">
         {t(locale, 'products_headline')}
       </h2>
-      <div className={`mt-8 grid grid-cols-1 gap-6 ${cols}`}>
-        {buyable.map((product) => (
-          <ProductCard
-            key={product.id}
-            workspaceSlug={workspaceSlug}
-            product={product}
-            locale={locale}
-            vatRegistered={vatRegistered}
-            vatHomeRatePct={vatHomeRatePct}
-          />
-        ))}
-      </div>
+      {sections.map(({ group, list }) => (
+        <div key={group.id} className="mt-10">
+          <h3 className="text-base font-medium tracking-tight text-center">{group.name}</h3>
+          {grid(list)}
+        </div>
+      ))}
+      {ungrouped.length > 0 && <div className={sections.length ? 'mt-10' : 'mt-2'}>{grid(ungrouped)}</div>}
     </section>
   );
 }

@@ -64,12 +64,18 @@ export default async function ProductsPage() {
     .then((r) => r.items)
     .catch(() => [] as TeamOption[]);
 
+  // Product groups (2026-10-16): organising only. Fails soft to none.
+  const groups = await apiFetch<{ items: import('./actions').ProductGroup[] }>('/api/v1/membership/product-groups')
+    .then((r) => r.items)
+    .catch(() => [] as import('./actions').ProductGroup[]);
+
   const locale = await uiLocale();
 
   return (
     <div className="px-6 py-10 max-w-5xl">
       <ProductsClient
         products={products}
+        groups={groups}
         currency={currency}
         threadOptions={threads}
         teamOptions={teamOptions}

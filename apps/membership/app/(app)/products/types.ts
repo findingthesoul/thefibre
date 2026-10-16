@@ -27,6 +27,8 @@ export type Product = {
   links: ProductLink[] | null;
   sort_order: number | null;
   archived_at: string | null;
+  /** The product group it is listed under (2026-10-16); null = none. */
+  group_id?: string | null;
 };
 
 /** A product->category link for the member directory (slice 1). No

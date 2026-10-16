@@ -132,7 +132,7 @@ export default async function PublicJoinPage({
         )}
 
         {/* À-la-carte products — renders nothing when no product is purchasable. */}
-        <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} vatRegistered={catalog.vat_registered === true} vatHomeRatePct={catalog.vat_home_rate_pct ?? null} />
+        <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} vatRegistered={catalog.vat_registered === true} vatHomeRatePct={catalog.vat_home_rate_pct ?? null} groups={catalog.product_groups ?? []} />
 
         <footer className="mt-16 text-xs text-ink-muted text-center">
           {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · {ENTITY.publicName}

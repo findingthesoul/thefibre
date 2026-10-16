@@ -2956,13 +2956,74 @@ const CATALOG = {
     de: 'Eine Kategorie neben einem Namen sagt allen anderen Mitgliedern, was dieses Mitglied halt — und ein Produkt hat einen Preis. Standardmassig aus.', // MT
     fr: "Une categorie a cote d'un nom indique a tous les autres membres ce que ce membre detient — et un produit a un prix. Desactive par defaut.", // MT
   },
+  // PRODUCT GROUPS (2026-10-16): organising only — where a product is
+  // listed. Never "category": that word belongs to the directory.
+  pg_new_group: {
+    en: 'New product group',
+    nl: 'Nieuwe productgroep', // MT pending native review
+    es: 'Nuevo grupo de productos', // MT
+    pt: 'Novo grupo de produtos', // MT
+    de: 'Neue Produktgruppe', // MT
+    fr: 'Nouveau groupe de produits', // MT
+  },
+  pg_name_ph: {
+    en: 'Product group name',
+    nl: 'Naam van de productgroep', // MT pending native review
+    es: 'Nombre del grupo de productos', // MT
+    pt: 'Nome do grupo de produtos', // MT
+    de: 'Name der Produktgruppe', // MT
+    fr: 'Nom du groupe de produits', // MT
+  },
+  pg_ungrouped: {
+    en: 'Not in a product group',
+    nl: 'Niet in een productgroep', // MT pending native review
+    es: 'Sin grupo de productos', // MT
+    pt: 'Sem grupo de produtos', // MT
+    de: 'In keiner Produktgruppe', // MT
+    fr: 'Dans aucun groupe de produits', // MT
+  },
+  pg_help: {
+    en: 'Product groups are for organising your products here and on your join page. They don’t affect access, prices or the member directory. Drag a product into a group, or drag groups to reorder them.',
+    nl: 'Productgroepen zijn om je producten te ordenen, hier en op je aanmeldpagina. Ze veranderen niets aan toegang, prijzen of het ledenoverzicht. Sleep een product in een groep, of sleep groepen om ze te ordenen.', // MT pending native review
+    es: 'Los grupos de productos sirven para organizar tus productos aquí y en tu página de alta. No afectan al acceso, los precios ni el directorio. Arrastra un producto a un grupo, o arrastra los grupos para ordenarlos.', // MT
+    pt: 'Os grupos de produtos servem para organizar os seus produtos aqui e na sua página de adesão. Não afetam o acesso, os preços nem o diretório. Arraste um produto para um grupo, ou arraste os grupos para os ordenar.', // MT
+    de: 'Produktgruppen ordnen deine Produkte hier und auf deiner Beitrittsseite. Sie ändern nichts an Zugang, Preisen oder dem Mitgliederverzeichnis. Ziehe ein Produkt in eine Gruppe oder ziehe Gruppen, um sie zu ordnen.', // MT
+    fr: 'Les groupes de produits servent à organiser tes produits ici et sur ta page d’adhésion. Ils n’ont aucun effet sur l’accès, les prix ou l’annuaire. Glisse un produit dans un groupe, ou glisse les groupes pour les ordonner.', // MT
+  },
+  pg_archive: {
+    en: 'Archive group',
+    nl: 'Groep archiveren', // MT pending native review
+    es: 'Archivar grupo', // MT
+    pt: 'Arquivar grupo', // MT
+    de: 'Gruppe archivieren', // MT
+    fr: 'Archiver le groupe', // MT
+  },
+  pg_archive_confirm: {
+    en: 'Archive “{name}”? Its products stay, outside any product group.',
+    nl: '“{name}” archiveren? De producten blijven, buiten een productgroep.', // MT pending native review
+    es: '¿Archivar «{name}»? Sus productos se quedan, sin grupo.', // MT
+    pt: 'Arquivar “{name}”? Os produtos ficam, sem grupo.', // MT
+    de: '„{name}“ archivieren? Die Produkte bleiben, ohne Gruppe.', // MT
+    fr: 'Archiver « {name} » ? Ses produits restent, sans groupe.', // MT
+  },
+  pg_drop_here: {
+    en: 'Drop a product here',
+    nl: 'Sleep hier een product naartoe', // MT pending native review
+    es: 'Suelta aquí un producto', // MT
+    pt: 'Largue aqui um produto', // MT
+    de: 'Produkt hier ablegen', // MT
+    fr: 'Dépose un produit ici', // MT
+  },
+  // "Directory categories", never a bare "Categories": product GROUPS
+  // (organising) arrived beside them on 2026-10-16, and the two must not be
+  // mistaken for each other.
   directory_categories_title: {
-    en: 'Categories',
-    nl: 'Categorieen',
-    es: 'Categorias', // MT
-    pt: 'Categorias', // MT
-    de: 'Kategorien', // MT
-    fr: 'Categories', // MT
+    en: 'Directory categories',
+    nl: 'Directorycategorieën', // MT pending native review
+    es: 'Categorías del directorio', // MT
+    pt: 'Categorias do diretório', // MT
+    de: 'Verzeichniskategorien', // MT
+    fr: 'Catégories de l’annuaire', // MT
   },
   directory_categories_desc: {
     en: "This community's own words. A product carries categories; a member's are the union of what they hold.",
@@ -2973,20 +3034,20 @@ const CATALOG = {
     fr: "Les mots propres de cette communaute. Un produit porte des categories ; celles d'un membre sont l'union de ce qu'il detient.", // MT
   },
   directory_no_categories: {
-    en: 'No categories yet.',
-    nl: 'Nog geen categorieen.',
-    es: 'Aun no hay categorias.', // MT
-    pt: 'Ainda nao ha categorias.', // MT
-    de: 'Noch keine Kategorien.', // MT
-    fr: 'Pas encore de categories.', // MT
+    en: 'No directory categories yet.',
+    nl: 'Nog geen directorycategorieën.', // MT pending native review
+    es: 'Aún no hay categorías del directorio.', // MT
+    pt: 'Ainda não há categorias do diretório.', // MT
+    de: 'Noch keine Verzeichniskategorien.', // MT
+    fr: 'Pas encore de catégories de l’annuaire.', // MT
   },
   directory_new_category_ph: {
-    en: 'New category name',
-    nl: 'Naam van nieuwe categorie',
-    es: 'Nombre de la nueva categoria', // MT
-    pt: 'Nome da nova categoria', // MT
-    de: 'Name der neuen Kategorie', // MT
-    fr: 'Nom de la nouvelle categorie', // MT
+    en: 'New directory category name',
+    nl: 'Naam van nieuwe directorycategorie', // MT pending native review
+    es: 'Nombre de la nueva categoría del directorio', // MT
+    pt: 'Nome da nova categoria do diretório', // MT
+    de: 'Name der neuen Verzeichniskategorie', // MT
+    fr: 'Nom de la nouvelle catégorie de l’annuaire', // MT
   },
   product_categories_label: {
     en: 'Directory categories',

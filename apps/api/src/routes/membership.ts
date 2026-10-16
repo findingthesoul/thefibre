@@ -148,6 +148,8 @@ const CreateProduct = z.object({
 });
 const PatchProduct = CreateProduct.partial().extend({
   archived: z.boolean().optional(),
+  // The product group it is listed under (2026-10-16); null = none.
+  group_id: z.string().uuid().nullable().optional(),
 });
 
 const MemberStatus = z.enum(['active', 'grace', 'lapsed', 'cancelled']);
@@ -786,7 +788,7 @@ membershipRoutes.get('/products', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_product')
-    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval')
+    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval, group_id')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list products', error);
@@ -816,8 +818,81 @@ membershipRoutes.patch('/products/:id', async (c) => {
   const { archived, ...rest } = body.data;
   const patch: Record<string, unknown> = { ...rest, updated_at: new Date().toISOString() };
   if (archived !== undefined) patch.archived_at = archived ? new Date().toISOString() : null;
+  // A group of THIS workspace, live — read through RLS, which only shows
+  // this workspace's rows (the FK alone would accept another's).
+  if (rest.group_id) {
+    const { data: g } = await db.from('membership_product_group').select('id').eq('id', rest.group_id).is('archived_at', null).maybeSingle();
+    if (!g) return c.json({ error: 'product group not found' }, 400);
+  }
   const { error } = await db.from('membership_product').update(patch).eq('id', c.req.param('id'));
   if (error) return fail(c, 'patch product', error);
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Product groups (2026-10-16) — organising only: where a product is listed in
+// Members → Products and on the join page. No effect on access, pricing or
+// the directory (that is membership_directory_category). Through userClient,
+// so the RLS (read: the workspace; write: an admin) is the enforcement.
+// ---------------------------------------------------------------------------
+
+membershipRoutes.get('/product-groups', async (c) => {
+  const db = userClient(c.get('ctx').jwt);
+  const { data, error } = await db
+    .from('membership_product_group')
+    .select('id, name, sort_order, archived_at')
+    .is('archived_at', null)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) return fail(c, 'list product groups', error);
+  return c.json({ items: data ?? [] });
+});
+
+membershipRoutes.post('/product-groups', async (c) => {
+  const body = z.object({ name: z.string().trim().min(1).max(120) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: last } = await db.from('membership_product_group').select('sort_order').order('sort_order', { ascending: false }).limit(1);
+  const { data, error } = await db
+    .from('membership_product_group')
+    .insert({ workspace_id: ctx.workspaceId, name: body.data.name, sort_order: ((last ?? [])[0]?.sort_order ?? 0) + 10 })
+    .select('id, name, sort_order, archived_at')
+    .single();
+  if (error) return fail(c, 'create product group', error);
+  return c.json(data, 201);
+});
+
+membershipRoutes.patch('/product-groups/:id', async (c) => {
+  const body = z
+    .object({ name: z.string().trim().min(1).max(120).optional(), archived: z.boolean().optional() })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const db = userClient(c.get('ctx').jwt);
+  const id = c.req.param('id');
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.data.name !== undefined) patch.name = body.data.name;
+  if (body.data.archived !== undefined) patch.archived_at = body.data.archived ? new Date().toISOString() : null;
+  const { data, error } = await db.from('membership_product_group').update(patch).eq('id', id).select('id').maybeSingle();
+  if (error) return fail(c, 'patch product group', error);
+  if (!data) return c.json({ error: 'not found' }, 404);
+  // Archiving UNGROUPS its products; it never hides them.
+  if (body.data.archived) {
+    const { error: uErr } = await db.from('membership_product').update({ group_id: null }).eq('group_id', id);
+    if (uErr) return fail(c, 'ungroup products', uErr);
+  }
+  return c.json({ ok: true });
+});
+
+// PUT /product-groups/order {ids} — drag-and-drop order (never a number field).
+membershipRoutes.put('/product-groups/order', async (c) => {
+  const body = z.object({ ids: z.array(z.string().uuid()).max(200) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const db = userClient(c.get('ctx').jwt);
+  for (const [i, id] of body.data.ids.entries()) {
+    const { error } = await db.from('membership_product_group').update({ sort_order: (i + 1) * 10 }).eq('id', id);
+    if (error) return fail(c, 'order product groups', error);
+  }
   return c.json({ ok: true });
 });
 
@@ -2309,7 +2384,7 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .from('membership_product')
       // price/purchasable are additive (à-la-carte, 2026-09-06): the page
       // shows a Buy button only for purchasable products with a price.
-      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order, price_interval')
+      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order, price_interval, group_id')
       .eq('workspace_id', ws.id)
       .is('archived_at', null)
       .order('sort_order', { ascending: true }),
@@ -2417,6 +2492,19 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       membership_tier_product: undefined,
     })),
     products: products ?? [],
+    // Additive (2026-10-16): the community's product groups, in their order —
+    // the page puts a heading over each group's products (group_id on each
+    // product); ungrouped ones go last, under no heading.
+    product_groups:
+      (
+        await adminClient
+          .from('membership_product_group')
+          .select('id, name')
+          .eq('workspace_id', ws.id)
+          .is('archived_at', null)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true })
+      ).data ?? [],
     join_page: settings?.join_page ?? {},
   });
 });

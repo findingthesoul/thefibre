@@ -88,6 +88,8 @@ export type PublicProduct = {
   price_interval?: string | null;
   currency?: string | null;
   purchasable?: boolean;
+  /** The product group it is listed under (2026-10-16). */
+  group_id?: string | null;
   links: { kind: string; ref: string; label?: string }[] | null;
   sort_order: number | null;
 };
@@ -97,6 +99,8 @@ export type PublicCatalog = {
   vat_registered?: boolean;
   /** The seller's home VAT rate, before the buyer's country is known. */
   vat_home_rate_pct?: number | null;
+  /** Product groups, in order (2026-10-16). */
+  product_groups?: { id: string; name: string }[];
   price_logic?: {
     rules: { when: { attr: string; op: string; values: string[] }; pct: number; label?: string }[];
     default_pct: number;

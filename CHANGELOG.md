@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.227.0] — 2026-10-16
+
+### Product groups: organise your products, here and on the join page (Members 1.7.0)
+
+Sjoerd approved, 2026-10-16. Builds on the table that went out alone.
+
+- **Members → Products is grouped.**
+  - A heading per product group, each renamed in place and archived from its
+    row; "Not in a product group" comes last.
+  - Drag a product within a group or into another one; drag a group by its
+    handle to reorder groups. It's drag-and-drop throughout, never a number.
+  - "New product group" adds one. A note says what groups are for, and that
+    they don't affect access, prices or the member directory.
+- **The join page's products** get a heading per group, in the same order,
+  with ungrouped products last and under no heading.
+- **"Directory categories", never a bare "Categories"**: the settings
+  labels that said "Categories" now say so in full in six locales, so the
+  two can't be mistaken for each other.
+- API (additive):
+  - `GET/POST /product-groups`, `PATCH /product-groups/:id` (name,
+    archived; archiving ungroups its products), `PUT /product-groups/order`;
+  - `group_id` on the products list and on `PATCH /products/:id` (a group of
+    this workspace only, checked through RLS);
+  - the public catalogue gains `product_groups` and each product's
+    `group_id`.
+  All writes go through the user's own client, so the RLS (admin-only
+  writes) is the enforcement.
+- Integration test (staging): create, order, file; another workspace's group
+  refused; a non-admin can't create; the catalogue's order and grouping;
+  archiving ungroups and never hides.
+
 ## [1.226.0] — 2026-10-16
 
 ### Hand a thread to another organiser — with both of you saying yes (Thread 4.14.0)

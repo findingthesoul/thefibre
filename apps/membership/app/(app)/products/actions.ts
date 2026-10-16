@@ -49,13 +49,46 @@ export async function createProduct(input: ProductInput): Promise<ActionResult<{
 // Also carries archive/unarchive — PATCH {archived} flips archived_at server-side.
 export async function patchProduct(
   id: string,
-  input: Partial<ProductInput> & { archived?: boolean },
+  input: Partial<ProductInput> & { archived?: boolean; group_id?: string | null },
 ): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/membership/products/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(input),
     });
+    revalidatePath('/products');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// PRODUCT GROUPS (2026-10-16) — organising only.
+export type ProductGroup = { id: string; name: string; sort_order: number; archived_at: string | null };
+
+export async function createProductGroup(name: string): Promise<ActionResult<ProductGroup>> {
+  try {
+    const g = await apiFetch<ProductGroup>('/api/v1/membership/product-groups', { method: 'POST', body: JSON.stringify({ name }) });
+    revalidatePath('/products');
+    return { ok: true, data: g };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function patchProductGroup(id: string, input: { name?: string; archived?: boolean }): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/product-groups/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+    revalidatePath('/products');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function orderProductGroups(ids: string[]): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/membership/product-groups/order', { method: 'PUT', body: JSON.stringify({ ids }) });
     revalidatePath('/products');
     return { ok: true };
   } catch (e) {
