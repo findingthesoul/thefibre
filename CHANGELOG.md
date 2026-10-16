@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.233.2] — 2026-10-16
+
+### Cancellation requests, part 1: the table alone
+
+`thread_cancellation_request`. A participant asks to cancel their place and
+the organiser approves (dropped, with an optional card refund) or rejects
+(the place stays, with a note) (Sjoerd's 2iv; plan approved 2026-10-16).
+- One pending request per place (partial unique index).
+- `thread_id` is carried beside `enrolment_id` for the organiser's list.
+- `refunded_cents`, plus `refund_error` for a refund that was asked for and
+  failed.
+- RLS: staff with the Thread app in their workspace, as on
+  `thread_enrolment`. Participants have no policy and reach their own
+  requests only through the API.
+
+Nothing reads the table yet; the code follows in its own release.
+
+## [1.232.1] — 2026-10-16
+
+### Production sittings build the shared package first; the "Price includes VAT" switch has an e2e
+
+- **`scripts/batch-prod.sh` builds `@thefibre/shared` right after the
+  fast-forward** (coordinator's inbox 2kz). The fast-forward brings shared's
+  source but not its compiled `dist/`. After batch 31 the production scripts
+  died with `ERR_MODULE_NOT_FOUND` (fixed-renewal.js): a new module in the
+  source, an old dist on disk.
+  - The new step runs BEFORE the database step and is fail-closed: a failed
+    build stops the sitting with nothing pushed, promoted or deployed. A dry
+    run only says it would run.
+  - Syntax-checked. The dry run couldn't be rehearsed while another release
+    held the runway (it refuses with a clearance of the wrong kind).
+- **`e2e/price-includes-vat.spec.ts`**, as the fixture admin with the
+  fixture workspace made VAT-registered for the run and restored by value:
+  tick the switch in the tier dialog → the database says true → still ticked
+  after a reload → the public card shows the entered price "(incl. VAT)" with
+  "€300 excl. VAT" underneath. Passes on staging.
+  - Because it flips SHARED fixture state and the suite runs two workers,
+    it runs in a new Playwright project, `exclusive`, which depends on the
+    other two. It starts only after they've finished, so no other spec reads
+    the fixture mid-flip.
+
 ## [1.233.1] — 2026-10-16
 
 ### The nudge's dry list: readable, and said once
