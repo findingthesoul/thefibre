@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { localPartFrom, validLocalPart } from './google-account.js';
+import { localPartFrom, ownDomainAddress, validLocalPart } from './google-account.js';
 import { googleDomainOf, managedAddress } from './google-admin.js';
 
 // The suggested address and which address the worker manages — the rules,
@@ -44,5 +44,21 @@ describe('the address the worker manages', () => {
     expect(managedAddress({ status: 'declined', created_address: null }, 'bob@gmail.com', D)).toBeNull();
     // A look-alike domain is not the domain.
     expect(managedAddress(null, 'bob@notexample.org', D)).toBeNull();
+  });
+});
+
+describe('ownDomainAddress — the member already has the account (2026-10-17)', () => {
+  it('their own email on the domain, case-insensitive, lowercased', () => {
+    expect(ownDomainAddress('Sjoerd.Luteyn@Soul.com', 'soul.com')).toBe('sjoerd.luteyn@soul.com');
+    expect(ownDomainAddress(' ann@soul.com ', 'SOUL.COM')).toBe('ann@soul.com');
+  });
+  it('another domain, a subdomain, a lookalike, or nothing: no', () => {
+    expect(ownDomainAddress('ann@gmail.com', 'soul.com')).toBeNull();
+    expect(ownDomainAddress('ann@mail.soul.com', 'soul.com')).toBeNull();
+    expect(ownDomainAddress('ann@notsoul.com', 'soul.com')).toBeNull();
+    expect(ownDomainAddress('ann@soul.com.evil', 'soul.com')).toBeNull();
+    expect(ownDomainAddress('@soul.com', 'soul.com')).toBeNull();
+    expect(ownDomainAddress(null, 'soul.com')).toBeNull();
+    expect(ownDomainAddress('ann@soul.com', null)).toBeNull();
   });
 });

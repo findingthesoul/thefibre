@@ -11,7 +11,7 @@
 // Service role: every query filters workspace_id itself (handbook §2).
 
 import { adminClient } from '../db.js';
-import { googleTokenFor, googleUserExists } from './google-admin.js';
+import { googleDomainOf, googleTokenFor, googleUserExists } from './google-admin.js';
 import { sendEmail } from './email/client.js';
 import { escapeHtml } from './email/templates.js';
 import { workspaceSender } from './workspace-brand.js';
@@ -52,6 +52,64 @@ export function localPartFrom(first: string | null | undefined, last: string | n
 /** What a member may ask for: letters, digits, dot, dash, underscore; 1–64. */
 export function validLocalPart(s: string): boolean {
   return /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/.test(s) && !s.includes('..');
+}
+
+/**
+ * The member's OWN address when it is already in the community's Google
+ * domain — they have the account (Sjoerd, 2026-10-17: "Iedereen die
+ * inschrijft met een @soul.com adres laat hier natuurlijk dat adres zien").
+ * Case-insensitive; the domain must match exactly, so a subdomain
+ * (x@mail.soul.com) is not the community's. The same rule the grant worker
+ * already follows (managedAddress in google-admin.ts).
+ */
+export function ownDomainAddress(email: string | null | undefined, domain: string | null | undefined): string | null {
+  const e = (email ?? '').trim().toLowerCase();
+  const d = (domain ?? '').trim().toLowerCase();
+  if (!e || !d) return null;
+  const at = e.lastIndexOf('@');
+  if (at < 1 || e.slice(at + 1) !== d) return null;
+  return e;
+}
+
+/** The community's Google domain when Google is connected — from settings
+ *  alone, without minting a token. */
+async function connectedGoogleDomain(workspaceId: string): Promise<string | null> {
+  const { data } = await adminClient
+    .from('membership_settings')
+    .select('google_sa_json, google_admin_email')
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  if (!data?.google_sa_json || !data.google_admin_email) return null;
+  return googleDomainOf(data.google_admin_email as string);
+}
+
+/**
+ * The card for a member whose own email is on the domain: their account
+ * exists, as itself — no suggestion, no request, no admin email. Derived at
+ * read time; nothing is written. An address an admin explicitly marked
+ * created still wins (the worker reads it first too). Null when the member's
+ * email is elsewhere, or Google is not connected.
+ */
+export async function ownGoogleAccountView(member: { id: string; workspace_id: string; person_id: string }) {
+  const domain = await connectedGoogleDomain(member.workspace_id);
+  if (!domain) return null;
+  const { data: person } = await adminClient
+    .from('person')
+    .select('email')
+    .eq('id', member.person_id)
+    .eq('workspace_id', member.workspace_id)
+    .maybeSingle();
+  const own = ownDomainAddress(person?.email as string | null, domain);
+  if (!own) return null;
+  const { data: row } = await adminClient
+    .from('membership_google_account')
+    .select('*')
+    .eq('member_id', member.id)
+    .eq('workspace_id', member.workspace_id)
+    .maybeSingle();
+  const r = row as GoogleAccountRow | null;
+  if (r?.status === 'created' && r.created_address) return memberView({ row: r, domain });
+  return ownAddressView(own, domain);
 }
 
 /** Does this membership include a Google account? Its access journal holds a
@@ -291,13 +349,16 @@ async function requeueGoogleGrant(memberId: string): Promise<void> {
     .in('id', ids);
 }
 
-/** The member-facing shape (B3's card). */
+/** The member-facing shape (B3's card). `own_address` (additive,
+ *  2026-10-17): the created address is the member's own email, already on
+ *  the domain. */
 export function memberView(r: { row: GoogleAccountRow; domain: string } | null) {
   if (!r) {
-    return { applies: false, domain: null, status: 'none' as const, suggested_address: null, requested_address: null, created_address: null, note: null, decline_reason: null };
+    return { applies: false, domain: null, status: 'none' as const, suggested_address: null, requested_address: null, created_address: null, note: null, decline_reason: null, own_address: false };
   }
   const { row, domain } = r;
   return {
+    own_address: false,
     applies: true,
     domain,
     status: row.status,
@@ -306,5 +367,20 @@ export function memberView(r: { row: GoogleAccountRow; domain: string } | null) 
     created_address: row.created_address,
     note: row.note,
     decline_reason: row.decline_reason,
+  };
+}
+
+/** The card for a member whose own email IS their Google account. */
+export function ownAddressView(address: string, domain: string) {
+  return {
+    applies: true,
+    domain,
+    status: 'created' as const,
+    suggested_address: null,
+    requested_address: null,
+    created_address: address,
+    note: null,
+    decline_reason: null,
+    own_address: true,
   };
 }

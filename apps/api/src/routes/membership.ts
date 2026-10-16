@@ -86,7 +86,7 @@ import {
   type PriceLogic,
 } from '../lib/pricing.js';
 import { runFibreSeatSync, grantSeat } from '../lib/fibre-seat.js';
-import { declineGoogleAccount, markGoogleAccountCreated } from '../lib/google-account.js';
+import { declineGoogleAccount, markGoogleAccountCreated, ownDomainAddress } from '../lib/google-account.js';
 import { grantStatusFor, isRecurringInterval, LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 
 // ===========================================================================
@@ -5357,12 +5357,35 @@ membershipRoutes.get('/google-accounts', async (c) => {
     .select('*, person:person_id (first_name, last_name, email)')
     .eq('workspace_id', ctx.workspaceId)
     .order('requested_at', { ascending: false, nullsFirst: false });
-  if (status !== 'all') q = q.eq('status', status);
+  // Not filtered by status in the query: a member whose own email is on the
+  // domain HAS their account (derived below, nothing written — Sjoerd,
+  // 2026-10-17), whatever their row says, so the filter applies to the
+  // derived status.
   const { data, error } = await q;
   if (error) return c.json({ error: error.message }, 500);
   const t = await googleTokenFor(ctx.workspaceId);
+  const domain = 'error' in t ? null : t.domain;
   const items = (data ?? []).map((r) => {
     const p = (Array.isArray(r.person) ? r.person[0] : r.person) as { first_name?: string; last_name?: string; email?: string } | null;
+    const own = r.status === 'created' && r.created_address ? null : ownDomainAddress(p?.email, domain);
+    if (own) {
+      return {
+        id: r.id as string,
+        member_id: r.member_id as string,
+        person_name: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || null,
+        person_email: p?.email ?? null,
+        suggested_address: null,
+        requested_address: null,
+        note: null,
+        status: 'created',
+        created_address: own,
+        decline_reason: null,
+        requested_at: null,
+        decided_at: null,
+        // Additive: the created address is their own email, on the domain.
+        own_address: true,
+      };
+    }
     return {
       id: r.id as string,
       member_id: r.member_id as string,
@@ -5376,9 +5399,10 @@ membershipRoutes.get('/google-accounts', async (c) => {
       decline_reason: r.decline_reason as string | null,
       requested_at: r.requested_at as string | null,
       decided_at: r.decided_at as string | null,
+      own_address: false,
     };
-  });
-  return c.json({ items, domain: 'error' in t ? null : t.domain });
+  }).filter((i) => status === 'all' || i.status === status);
+  return c.json({ items, domain });
 });
 
 membershipRoutes.post('/google-accounts/:id/created', async (c) => {

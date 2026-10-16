@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.257.3] — 2026-10-17
+
+### A member who signed up with an address on the community's Google domain sees that address as their account (API)
+
+- Reported by Sjoerd on production: his my.thread → Memberships Google card
+  suggested "sjoerd.luteyn@soul.com · Use this address / Ask for another",
+  though he signed up with his @soul.com address and has that account. His
+  words: "Iedereen die inschrijft met een @soul.com adres laat hier
+  natuurlijk dat adres zien."
+- `GET /membership/portal/me/google`: when the member's own email is on the
+  community's Google domain (case-insensitive; the domain must match exactly,
+  so a subdomain is not it), the answer is `status: 'created'` with
+  `created_address` = their email and a new additive `own_address: true`. No
+  suggestion is stored, Google is not asked, and `POST /me/google` refuses
+  with `already_created`, so no request and no admin email. An address an
+  admin explicitly marked created still wins, as it does for the grant worker,
+  which already managed an in-domain email (`managedAddress`).
+- Members → Settings → Google addresses (`GET /membership/google-accounts`):
+  such a member is listed as created at their own address (`own_address`),
+  never as one to make, even over a suggestion stored before this rule (as
+  on production for Sjoerd). The status filter applies to that derived state.
+  Derived at read time; nothing is written.
+- B3's card needs no change: its created state already reads "Your Google
+  account: {address}".
+- Tests: `ownDomainAddress` (own domain, mixed case, other domain, subdomain,
+  lookalike, empty), and `google-account.int.test.ts` gains an own-domain
+  member in a second throwaway community (mixed-case email and admin domain):
+  the card, the refused ask with no mail, and the admin list over a stored
+  suggestion with the row left untouched; the existing member on another
+  domain still gets a suggestion (`own_address: false`). 14/14; the three new
+  cases fail on the old routes.
+
 ## [1.257.2] — 2026-10-17
 
 ### The public API gate collects batch 35's fields; its "move it" hint names the right list (tooling only)

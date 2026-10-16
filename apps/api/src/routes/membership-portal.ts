@@ -15,7 +15,7 @@ import {
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
 import { LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
-import { ensureGoogleAccount, googleApplies, memberView, requestGoogleAccount } from '../lib/google-account.js';
+import { ensureGoogleAccount, googleApplies, memberView, ownGoogleAccountView, requestGoogleAccount } from '../lib/google-account.js';
 
 // ===========================================================================
 // Member self-serve portal (membership-proposal §3.7).
@@ -847,6 +847,10 @@ membershipPortalRoutes.get('/me/google', async (c) => {
   const member = await ownedMember(memberId, email);
   if (!member) return c.json({ error: 'not found' }, 404);
   if (!(await googleApplies(member.id))) return c.json(memberView(null));
+  // Their own email is on the domain: they have the account already. Asked
+  // before ensureGoogleAccount, so no suggestion is ever stored for them.
+  const own = await ownGoogleAccountView(member);
+  if (own) return c.json(own);
   return c.json(memberView(await ensureGoogleAccount(member)));
 });
 
@@ -870,6 +874,8 @@ membershipPortalRoutes.post('/me/google', async (c) => {
   const member = await ownedMember(body.data.member_id, email);
   if (!member) return c.json({ error: 'not found' }, 404);
   if (!(await googleApplies(member.id))) return c.json({ error: 'this membership does not include a Google account' }, 409);
+  // Nothing to ask for, and no admin email, when their own address is it.
+  if (await ownGoogleAccountView(member)) return c.json({ error: 'your Google account already exists', code: 'already_created' }, 409);
   const acc = await ensureGoogleAccount(member);
   if (!acc) return c.json({ error: 'Google is not connected for this community yet' }, 409);
   const r = await requestGoogleAccount(
