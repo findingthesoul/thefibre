@@ -64,8 +64,8 @@ export function HandoverPanel({
   }
 
   if (pending) {
-    const toName = one(pending.to)?.display_name ?? '—';
-    const fromName = one(pending.from)?.display_name ?? '—';
+    const toName = pending.to_name ?? one(pending.to)?.display_name ?? '—';
+    const fromName = pending.from_name ?? one(pending.from)?.display_name ?? '—';
     const title = one(one(pending.thread)?.program)?.title ?? '';
     return (
       <div className={`${NOTICE.warning} mb-4`}>

@@ -6,7 +6,20 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../db.js', () => ({ adminClient: {} }));
 vi.mock('./thread.js', () => ({ provisionOrganiser: vi.fn(), threadLocked: vi.fn() }));
 
-const { effectiveStatus, HANDOVER_DAYS } = await import('./thread-handover.js');
+const { effectiveStatus, HANDOVER_DAYS, personName } = await import('./thread-handover.js');
+
+describe('personName', () => {
+  it('prefers the organiser display name', () => {
+    expect(personName({ display_name: 'Anna', user: { full_name: 'Anna B', email: 'a@x.test' } })).toBe('Anna');
+  });
+  it('falls back to the account name, then the address — never "—" when a person exists', () => {
+    expect(personName({ display_name: null, user: { full_name: 'Anna B', email: 'a@x.test' } })).toBe('Anna B');
+    expect(personName({ display_name: '  ', user: [{ full_name: null, email: 'a@x.test' }] })).toBe('a@x.test');
+  });
+  it('is null when there is nobody', () => {
+    expect(personName(null)).toBeNull();
+  });
+});
 
 describe('effectiveStatus', () => {
   const now = new Date('2026-10-16T12:00:00Z');

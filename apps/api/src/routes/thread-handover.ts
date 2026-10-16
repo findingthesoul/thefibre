@@ -67,6 +67,17 @@ export function effectiveStatus(h: Pick<HandoverRow, 'status' | 'expires_at'>, n
 
 const threadUrl = () => appUrl('the-thread', process.env as Record<string, string>);
 
+const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
+
+/** An organiser as a person reads them: their display name, else the
+ *  account's name, else its address. Never empty when there is a person. */
+export function personName(org: unknown): string | null {
+  const o = one(org as { display_name?: string | null; user?: unknown } | null);
+  if (!o) return null;
+  const u = one(o.user as { full_name?: string | null; email?: string | null } | null);
+  return o.display_name?.trim() || u?.full_name?.trim() || u?.email || null;
+}
+
 async function organiserOf(userId: string): Promise<{ id: string; user_id: string; slug: string | null; display_name: string | null } | null> {
   const { data } = await adminClient
     .from('thread_organiser')
@@ -241,7 +252,7 @@ threadHandoverRoutes.get('/handovers', async (c) => {
   const { data, error } = await adminClient
     .from('thread_organiser_handover')
     .select(
-      '*, thread:thread_id (id, slug, program:program_id (title)), from:from_organiser_id (display_name), to:to_organiser_id (display_name, user_id)',
+      '*, thread:thread_id (id, slug, program:program_id (title)), from:from_organiser_id (display_name, user:user_id (full_name, email)), to:to_organiser_id (display_name, user_id, user:user_id (full_name, email))',
     )
     .eq('workspace_id', ctx.workspaceId)
     .or(ors.join(','))
@@ -250,12 +261,17 @@ threadHandoverRoutes.get('/handovers', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
   const now = new Date();
   const items = (data ?? []).map((h) => {
-    const row = h as HandoverRow & { to?: { user_id?: string } | { user_id?: string }[] | null };
-    const to = Array.isArray(row.to) ? row.to[0] : row.to;
+    const row = h as HandoverRow & { to?: unknown; from?: unknown };
+    const to = one(row.to) as { user_id?: string } | null;
     return {
       ...h,
       status: effectiveStatus(row, now),
       incoming: to?.user_id === ctx.userId,
+      // Additive (2026-10-16): who, as a person reads it. An organiser row
+      // can have no display name (provisioned for somebody who never set
+      // one) — the banner then said "Handover to —", seen on staging.
+      from_name: personName(row.from),
+      to_name: personName(row.to),
     };
   });
   return c.json({ items });

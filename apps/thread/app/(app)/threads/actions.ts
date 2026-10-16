@@ -693,6 +693,9 @@ export type HandoverItem = {
   expires_at: string;
   proposed_by_user_id: string;
   incoming: boolean;
+  /** Who, as a person reads them (additive; absent on an older API). */
+  from_name?: string | null;
+  to_name?: string | null;
   thread: { id: string; slug: string; program: { title: string } | { title: string }[] | null } | null;
   from: { display_name: string | null } | { display_name: string | null }[] | null;
   to: { display_name: string | null; user_id: string } | { display_name: string | null; user_id: string }[] | null;

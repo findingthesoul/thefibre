@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.227.1] — 2026-10-16
+
+### Handover requests name the people in them (Thread 4.14.1)
+
+Seen on staging the moment v1.226.0 was looked at: the old organiser's
+banner read "Handover to — is waiting for their answer". An organiser row
+can have no display name (provisioned for somebody who never set one), and
+the list only read that field. `GET /thread/handovers` now also returns
+`from_name` / `to_name` (additive): the display name, else the account's
+name, else its email address. The address only ever reaches the parties to
+that handover — the list returns only requests you proposed, were proposed
+for, or hand over. The panel uses them; `personName` has a unit test.
+
 ## [1.227.0] — 2026-10-16
 
 ### Product groups: organise your products, here and on the join page (Members 1.7.0)
