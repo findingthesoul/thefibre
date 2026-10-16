@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.236.1] — 2026-10-16
+
+### Cancellation requests, seen in a browser
+
+`e2e/cancellation-request.spec.ts` runs against the deployed staging apps:
+1. The member fixture opens the fixture thread's session in my.thread,
+   presses Request cancellation, gives a reason and sends it. The sheet says
+   "Cancellation requested".
+2. The fixture organiser opens the registrations from the email's link
+   (`?registrations=1`), sees the badge and the "(1)" chip, reads the
+   reason, and approves.
+3. The request reads approved and the place dropped.
+
+The place and the request are removed afterwards. It passed 2/2 on staging
+before batch 33. The card refund is the integration test's (a real Stripe
+TEST charge); the fixture thread is free.
+
+**Who sees a participant's reason:** anybody with the Thread app in the
+workspace who can see that person, the same people who see the
+registrations (`GET /thread/threads/:id/cancellation-requests` runs on the
+caller's own client under RLS). It is not organiser-only. Deciding is
+narrower: an admin, the thread's organiser, or a co-organising host, the
+same as Decline.
+
 ## [1.236.0] — 2026-10-16
 
 ### The member page, per tier
