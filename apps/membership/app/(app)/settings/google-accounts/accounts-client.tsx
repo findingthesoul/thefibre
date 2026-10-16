@@ -11,8 +11,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { declineGoogleAccount, markGoogleAccountCreated } from '../actions';
 
-export const GA_STATUSES = ['requested', 'created', 'declined', 'all'] as const;
-export type GaStatus = (typeof GA_STATUSES)[number];
+import { GA_STATUSES, type GaStatus } from './statuses';
 
 export type GoogleAccountItem = {
   id: string;

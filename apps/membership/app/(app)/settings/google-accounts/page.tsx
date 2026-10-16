@@ -2,7 +2,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { Breadcrumb, PageContainer, PageHeader } from '../page-chrome';
-import { AccountsClient, GA_STATUSES, type GaStatus, type GoogleAccountItem } from './accounts-client';
+import { AccountsClient, type GoogleAccountItem } from './accounts-client';
+import { GA_STATUSES, type GaStatus } from './statuses';
 
 // Google Workspace addresses members asked for (builder 4's routes,
 // lib/google-account.ts; Sjoerd, 2026-10-16). The Fibre creates nothing in

@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.250.2] — 2026-10-16
+
+### Members → Settings → Google addresses opens; verify refuses the mistake that broke it (Members 1.17.1)
+
+- **The Google addresses page answered "Application error"** on staging
+  after v1.250.0. It was the same mistake as my.thread's You tabs in
+  v1.248.2: the server page read the list of tab names (`GA_STATUSES`) from
+  the `'use client'` component file. A value imported from a client module
+  reaches the server as a client reference, not the array. The list moved to
+  `settings/google-accounts/statuses.ts`.
+- **`scripts/check-client-value-imports.mjs`, in `pnpm verify`.** It refuses
+  any server file in an app that imports a non-component value from a
+  `'use client'` module. Neither typecheck nor `next build` sees this,
+  because neither renders the page; both releases were caught only by an e2e
+  on staging. Shown to bite: with the v1.250.0 files put back it refuses
+  exactly that import (exit 1), and on this tree it passes across 826 files.
+  A scan of every app found no other case.
+- Verified: typecheck clean. Unverified until it lands: the
+  `google-accounts` e2e on staging.
+
 ## [1.250.1] — 2026-10-16
 
 ### Web push for my.thread: the table (migration only)
