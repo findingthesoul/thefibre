@@ -1484,30 +1484,6 @@ the organiser approves (dropped, with an optional card refund) or rejects
 
 Nothing reads the table yet; the code follows in its own release.
 
-## [1.232.1] — 2026-10-16
-
-### Production sittings build the shared package first; the "Price includes VAT" switch has an e2e
-
-- **`scripts/batch-prod.sh` builds `@thefibre/shared` right after the
-  fast-forward** (coordinator's inbox 2kz). The fast-forward brings shared's
-  source but not its compiled `dist/`. After batch 31 the production scripts
-  died with `ERR_MODULE_NOT_FOUND` (fixed-renewal.js): a new module in the
-  source, an old dist on disk.
-  - The new step runs BEFORE the database step and is fail-closed: a failed
-    build stops the sitting with nothing pushed, promoted or deployed. A dry
-    run only says it would run.
-  - Syntax-checked. The dry run couldn't be rehearsed while another release
-    held the runway (it refuses with a clearance of the wrong kind).
-- **`e2e/price-includes-vat.spec.ts`**, as the fixture admin with the
-  fixture workspace made VAT-registered for the run and restored by value:
-  tick the switch in the tier dialog → the database says true → still ticked
-  after a reload → the public card shows the entered price "(incl. VAT)" with
-  "€300 excl. VAT" underneath. Passes on staging.
-  - Because it flips SHARED fixture state and the suite runs two workers,
-    it runs in a new Playwright project, `exclusive`, which depends on the
-    other two. It starts only after they've finished, so no other spec reads
-    the fixture mid-flip.
-
 ## [1.233.1] — 2026-10-16
 
 ### The nudge's dry list: readable, and said once
@@ -27349,8 +27325,6 @@ from the fibre brand SPoT via `tileArtUrl`, never copied) and a plain
 feature list. The overall site design remains awaiting Sjoerd's own
 design (build-plan verdict stands: no cut).
 
-## [0.59.2] — 2026-09-07
-
 ## [0.59.2] — 2026-09-07 — the workspace becomes the public face (Thread 3.37.0)
 
 ### Added
@@ -27408,8 +27382,6 @@ once Sjoerd approves the preview and the apex moves.
 Sjoerd reviews the live preview → the apex + www move from the
 `thethread-v3` project (then smoke/E2E gain the new-apex assertions, and
 V3 can be archived). Scissors hero animation + photography pass follow.
-
-## [0.59.0] — 2026-09-07 — Meet catches up with Suite: Zoom, moving a booking, fair rotation
 
 ## [0.59.0] — 2026-09-07 — Meet catches up with Suite: Zoom, moving a booking, fair rotation
 
