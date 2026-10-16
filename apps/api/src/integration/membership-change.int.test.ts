@@ -153,6 +153,62 @@ afterAll(async () => {
   expect({ members, tiers, products, bought, ledger, livePersons }).toEqual({ members: 0, tiers: 0, products: 0, bought: 0, ledger: 0, livePersons: 0 });
 }, 180_000);
 
+// The my.thread SHOP (GET /me/shop, lib/shop.ts): runs FIRST, before any
+// add-on is added below. One community (the fixture), seen by a Singer with a
+// yearly Stripe subscription. Seeds three more products — archived,
+// unpurchasable, and one this member OWNS — removed with the rest by id.
+describe('the shop: what this person may get, from where', () => {
+  it('members-only = the add-on offer; open = sold alone; owned never offered; archived and unpurchasable never listed', async () => {
+    const extra = await service
+      .from('membership_product')
+      .insert([
+        { workspace_id: ws, name: 'Old songbook', price_cents: 1500, price_interval: 'once', purchasable: true, sold_without_membership: false, archived_at: new Date().toISOString() },
+        { workspace_id: ws, name: 'Private lesson', price_cents: 4500, price_interval: 'once', purchasable: false, sold_without_membership: false, archived_at: null },
+        { workspace_id: ws, name: 'Concert ticket', price_cents: 2500, price_interval: 'once', purchasable: true, sold_without_membership: false, archived_at: null },
+      ])
+      .select('id, name');
+    expect(extra.error).toBeNull();
+    for (const p of extra.data!) productIds.push(p.id as string);
+    const ticket = extra.data!.find((p) => p.name === 'Concert ticket')!.id as string;
+    const session = `int-shop-${Date.now()}`;
+    const owned = await service
+      .from('membership_product_purchase')
+      .insert({ workspace_id: ws, person_id: personId, product_id: ticket, stripe_session_id: session, amount_cents: 2500, status: 'paid' });
+    expect(owned.error).toBeNull();
+    try {
+
+    const r = await call('/me/shop');
+    expect(r.status, await r.clone().text()).toBe(200);
+    const { communities } = (await r.json()) as { communities: { workspace_id: string; member_id: string | null; members_only: { name: string; action: string; recurring: boolean }[]; open: { name: string; action: string }[]; owned: { name: string }[] }[] };
+    const here = communities.find((x) => x.workspace_id === ws)!;
+    expect(here, 'the community this person belongs to is listed').toBeTruthy();
+    expect(here.member_id).toBe(memberId);
+
+    const names = (xs: { name: string }[]) => xs.map((x) => x.name).sort();
+    // The same list "Add or change" offers (GET /me/options): the tier's
+    // optional yearly and one-off add-ons, the any-tier members-only email —
+    // NOT the weekly one (wrong interval), NOT Soloist pathway (other tier).
+    const options = (await (await call(`/me/options/${memberId}`)).json()) as { addons: { name: string }[] };
+    expect(names(here.members_only)).toEqual(names(options.addons));
+    expect(names(here.members_only)).toEqual(['Members email', 'Sheet music', 'Workshop']);
+    expect(here.members_only.every((x) => x.action === 'add_to_membership')).toBe(true);
+    // Open: sold without a membership. Open circle (renewing, opened) is
+    // subscribed to; the purchasable one-offs not already in members-only
+    // are bought.
+    expect(here.open.map((x) => [x.name, x.action]).sort()).toEqual([['Open circle', 'subscribe']]);
+    // Owned: shown, and in neither list.
+    expect(names(here.owned)).toEqual(['Concert ticket']);
+    const everywhere = [...here.members_only, ...here.open].map((x) => x.name);
+    for (const never of ['Concert ticket', 'Old songbook', 'Private lesson', 'Weekly coaching', 'Soloist pathway']) {
+      expect(everywhere, `${never} is not offered`).not.toContain(never);
+    }
+    } finally {
+      // The tests below count this person's grants; leave them as found.
+      await service.from('membership_product_purchase').delete().eq('stripe_session_id', session);
+    }
+  });
+});
+
 describe('adding to a membership, and changing it', () => {
   it('lists what may be added and moved to — not a hidden tier, not a weekly add-on on a yearly membership', async () => {
     const r = await call(`/me/options/${memberId}`);

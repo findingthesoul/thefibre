@@ -211,6 +211,18 @@ export async function availableAddons(member: OwnedMember) {
   return Promise.all(offered.map(async (p) => ({ ...p, price_cents: await addonNet(member, p) })));
 }
 
+/** What this member may add to their membership NOW, as offered by
+ *  my.thread's "Add or change" (GET /me/options) and the shop (GET /me/shop):
+ *  the available add-ons that FIT the subscription's interval (a one-off, or
+ *  a renewing product on the same schedule). One function, so the two can
+ *  never offer what the add route (addAddon → addonFit) would refuse. */
+export async function memberAddonOffer(ctx: Ctx) {
+  return (await availableAddons(ctx.member))
+    .map((p) => ({ ...p, fit: addonFit(p, ctx.interval) }))
+    .filter((p): p is typeof p & { fit: 'once' | 'recurring' } => p.fit !== null)
+    .map((p) => ({ id: p.id, name: p.name, price_cents: p.price_cents, currency: (p.currency ?? ctx.currency).toUpperCase(), recurring: p.fit === 'recurring', price_interval: p.price_interval }));
+}
+
 /** An add-on's charged price: its net when entered incl. VAT. */
 export async function addonNet(member: OwnedMember, p: { price_cents: number | null; price_includes_vat?: boolean | null }): Promise<number> {
   return chargeNet({ workspaceId: member.workspace_id, enteredCents: p.price_cents ?? 0, includesVat: p.price_includes_vat, country: member.country ?? null });

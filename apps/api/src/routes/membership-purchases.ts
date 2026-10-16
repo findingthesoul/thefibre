@@ -23,9 +23,9 @@ import { sendEmail } from '../lib/email/client.js';
 import { getBuyerDetails, saveBuyerDetails } from '../lib/buyer-details.js';
 import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
 import { reconcileMemberAccess } from './membership.js';
+import { composeShop, type ShopProductRow } from '../lib/shop.js';
 import {
   addAddon,
-  addonFit,
   addonNet,
   availableAddons,
   addonCandidates,
@@ -33,6 +33,7 @@ import {
   changeTier,
   DOWNGRADE_REFUNDS,
   loadCtx,
+  memberAddonOffer,
   previewAddon,
   previewTierChange,
   tierPriceFor,
@@ -366,16 +367,80 @@ membershipPurchaseRoutes.get('/me/member-in/:workspaceSlug', async (c) => {
   return c.json({ member_id: m.id, can_add: !!(m.stripe_subscription_id && m.stripe_customer_id) });
 });
 
+// GET /me/shop — what this person may get from the communities they BELONG
+// TO OR BOUGHT FROM (default (1), coordinator/Sjoerd 2026-10-16: no browsing
+// of strangers' shops), one entry per community: members_only (added to
+// their membership), open (bought or subscribed to without one), owned.
+// The rules are lib/shop.ts; the members-only list is the same function as
+// "Add or change" (memberAddonOffer). A community with nothing in any list
+// is left out. Read-only: every action calls a route that exists already.
+membershipPurchaseRoutes.get('/me/shop', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const { data: persons, error: pErr } = await adminClient.from('person').select('id').eq('email', email).is('deleted_at', null);
+  if (pErr) return c.json({ error: 'could not read your communities' }, 500);
+  const personIds = (persons ?? []).map((p) => p.id as string);
+  if (!personIds.length) return c.json({ communities: [] });
+
+  const [members, purchasesRes] = await Promise.all([
+    membersForEmail(email),
+    adminClient.from('membership_product_purchase').select('product_id, workspace_id, status').in('person_id', personIds),
+  ]);
+  if (purchasesRes.error) return c.json({ error: 'could not read your purchases' }, 500);
+  const purchases = purchasesRes.data ?? [];
+  const live = new Set<string>(LIVE_PURCHASE_STATUSES);
+  const ownedIds = new Set(purchases.filter((r) => live.has(r.status as string)).map((r) => r.product_id as string));
+  const wsIds = [...new Set([...members.map((m) => m.workspace_id), ...purchases.map((r) => r.workspace_id as string)])];
+  if (!wsIds.length) return c.json({ communities: [] });
+
+  const [wsRes, prodRes] = await Promise.all([
+    adminClient.from('workspace').select('id, slug, name').in('id', wsIds),
+    adminClient
+      .from('membership_product')
+      .select('id, workspace_id, name, description, price_cents, price_interval, currency, price_includes_vat, purchasable, sold_without_membership, archived_at')
+      .in('workspace_id', wsIds),
+  ]);
+  if (wsRes.error || prodRes.error) return c.json({ error: 'could not read the shops' }, 500);
+  const products = (prodRes.data ?? []) as ShopProductRow[];
+
+  const communities = [];
+  for (const ws of wsRes.data ?? []) {
+    const member = members.find((m) => m.workspace_id === ws.id && m.stripe_subscription_id && m.stripe_customer_id) ?? null;
+    let membersOnly: Awaited<ReturnType<typeof memberAddonOffer>> = [];
+    if (member) {
+      // The member's own context (their subscription's interval and
+      // currency), exactly as "Add or change" loads it. A failure leaves this
+      // list empty for this community, never the whole shop.
+      const ctx = await loadCtx({ ...member, stripe_subscription_id: member.stripe_subscription_id!, stripe_customer_id: member.stripe_customer_id! }).catch((e: Error) => ({ error: e.message, status: 502 }));
+      if ('error' in ctx) console.error('[membership/shop] member context failed', { member: member.id, message: ctx.error });
+      else membersOnly = await memberAddonOffer(ctx).catch(() => []);
+    }
+    const canSell = !!(await workspaceStripeAccount(ws.id as string));
+    const shop = composeShop({
+      workspace: { id: ws.id as string, slug: ws.slug as string, name: ws.name as string },
+      memberId: member?.id ?? null,
+      membersOnly,
+      products,
+      ownedIds,
+      canSell,
+      defaultCurrency: 'EUR',
+    });
+    if (shop.members_only.length || shop.open.length || shop.owned.length) communities.push(shop);
+  }
+  communities.sort((a, b) => a.workspace_name.localeCompare(b.workspace_name));
+  return c.json({ communities });
+});
+
 // GET /me/options/:memberId — what this member may add, and move to, with
 // prices for their interval and country (net; VAT rides on the subscription).
 membershipPurchaseRoutes.get('/me/options/:memberId', async (c) => {
   const r = await changeable(c);
   if (r.res) return r.res;
   const { ctx } = r;
-  const addons = (await availableAddons(ctx.member))
-    .map((p) => ({ ...p, fit: addonFit(p, ctx.interval) }))
-    .filter((p) => p.fit !== null)
-    .map((p) => ({ id: p.id, name: p.name, price_cents: p.price_cents, currency: (p.currency ?? ctx.currency).toUpperCase(), recurring: p.fit === 'recurring' }));
+  // The one offer (lib/membership-change.ts memberAddonOffer), shared with
+  // the shop. The published shape here is unchanged: id, name, price, currency,
+  // recurring.
+  const addons = (await memberAddonOffer(ctx)).map(({ price_interval: _iv, ...a }) => a);
   const tiers = [];
   for (const t of await availableTiers(ctx.member)) {
     const price = await tierPriceFor(ctx, t.id as string);

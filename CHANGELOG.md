@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.257.0] — 2026-10-16
+
+### The my.thread shop: the read (API; the page waits for Sjoerd's answer on where it lives)
+
+- **`GET /api/v1/membership/portal/me/shop`.** For each community the person
+  belongs to or bought from (no browsing of strangers' shops), three lists:
+  `members_only` (added to their membership), `open` (bought or subscribed to
+  without one) and `owned`. A community with nothing in any list is left out.
+  Read-only: every action calls a route that already exists (add to the
+  membership; `/public/buy`; `/public/subscribe`).
+- **No new data and no new settings; offer = enforcement.** The rules live in
+  `lib/shop.ts`. Members-only is `memberAddonOffer`, a new function in
+  `lib/membership-change.ts` that is now also what GET `/me/options` ("Add or
+  change") returns, so the two cannot drift; `/me/options`' published shape
+  is unchanged. Open mirrors the `/public/buy` and `/public/subscribe` gates:
+  purchasable, not archived, priced; a renewing product only when the
+  community opened it; never without the community's payment account. Owned
+  is a live grant: shown, and offered in neither list. A product appears in
+  one place only.
+- Tests: `shop.test.ts` (9: each open rule, including that archived,
+  unpurchasable, unpriced, free and members-only renewing products are
+  excluded; members-only minus owned; no payment account means no open shop;
+  a non-member gets no members-only list). The integration test
+  (membership-change, against staging and a Stripe TEST subscription) seeds
+  an archived, an unpurchasable and an owned product beside the existing ones
+  and asserts the shop for a Singer. Members-only equals what `/me/options`
+  offers (Members email, Sheet music, Workshop; not the weekly one, not the
+  other tier's). Open is Open circle (subscribe). Owned is Concert ticket.
+  The archived, the unpurchasable and the owned product are offered nowhere.
+  All 11 tests in that file pass, including the existing `/me/options` ones.
+
 ## [1.256.1] — 2026-10-16
 
 ### The last member-facing Stripe portal route is gone (API)
