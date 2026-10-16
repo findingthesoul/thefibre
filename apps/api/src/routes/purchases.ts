@@ -404,6 +404,7 @@ export function receiptHtml(
            <span style="font-size:15px;font-weight:600;color:#171717;">${escapeHtml(m.line.label)}</span>
          </td>
        </tr>
+       ${m.lines.length > 1 ? m.lines.map((l) => row(escapeHtml(l.label), fmt(l.amountCents))).join('') : ''}
        ${row('Date', date)}
        ${row('Payment', EMAIL_METHOD[m.method] ?? m.raw.method)}
        ${sellerRows}

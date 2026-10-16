@@ -128,9 +128,21 @@ export function TierGrid({
             includedProducts={tier.product_ids
               .map((id) => productNames.get(id))
               .filter((n): n is string => Boolean(n))}
-            optionalProducts={(tier.optional_product_ids ?? [])
-              .map((id) => productById.get(id))
-              .filter((p): p is PublicProduct => Boolean(p))}
+            // THE BASKET (2026-10-16): the tier's optional add-ons AND the
+            // community's purchasable products, bought in the same checkout.
+            // A product the tier already includes is not offered again.
+            optionalProducts={[
+              ...(tier.optional_product_ids ?? [])
+                .map((id) => productById.get(id))
+                .filter((p): p is PublicProduct => Boolean(p)),
+              ...products.filter(
+                (p) =>
+                  p.purchasable &&
+                  (p.price_cents ?? 0) > 0 &&
+                  !tier.product_ids.includes(p.id) &&
+                  !(tier.optional_product_ids ?? []).includes(p.id),
+              ),
+            ]}
             open={openTierId === tier.id}
             onOpen={() => setOpenTierId(tier.id)}
             onClose={() => setOpenTierId(null)}
@@ -265,6 +277,10 @@ function TierCard({
   const [state, setState] = useState<JoinState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [chosenOptions, setChosenOptions] = useState<Set<string>>(new Set());
+  // TWO STEPS when there is something to add: the basket (what, and what it
+  // costs), then the details (who, invoicing, terms). Hidden with CSS rather
+  // than unmounted, so going back keeps what was typed.
+  const [step, setStep] = useState<'basket' | 'details'>('basket');
   function toggleOption(id: string) {
     setChosenOptions((prev) => {
       const next = new Set(prev);
@@ -291,6 +307,12 @@ function TierCard({
    *  Derived from `chosen`, never from the raw tick-box set, so an id that
    *  has become incompatible is simply not sent. */
   const chosenIds = chosen.map((p) => p.id);
+  const twoStep = compatibleOptions.length > 0;
+  const inBasket = twoStep && step === 'basket';
+  const inDetails = twoStep && step === 'details';
+  useEffect(() => {
+    if (open) setStep('basket');
+  }, [open]);
 
   /** The code's answer, but only where it is still TRUE.
    *
@@ -588,6 +610,8 @@ function TierCard({
             {vatRegistered && !vatQuote && (payNowCents ?? 0) > 0 && (
               <VatInclNote formatMoney={(c, cur) => money(c, cur)} netCents={payNowCents!} ratePct={vatHomeRatePct} currency={currency} locale={locale} />
             )}
+            {/* STEP 1 — THE BASKET: billing period, what to add, the code. */}
+            <div className={inDetails ? 'hidden' : 'space-y-2.5'}>
             {hasYear && hasMonth && (
               <div className="grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
                 {(
@@ -611,25 +635,10 @@ function TierCard({
                 ))}
               </div>
             )}
-            <input
-              name="name"
-              placeholder={t(locale, 'your_name')}
-              autoComplete="name"
-              required
-              className={INPUT}
-            />
-            <input
-              name="email"
-              type="email"
-              placeholder={t(locale, 'email_placeholder')}
-              autoComplete="email"
-              required
-              className={INPUT}
-            />
             {optionalProducts.length > 0 && (
               <div className="rounded-md border border-line bg-surface px-3 py-2.5">
                 <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-                  {t(locale, 'optional_extras')}
+                  {t(locale, 'add_to_membership')}
                 </div>
                 <div className="mt-1.5 space-y-1.5">
                   {compatibleOptions.map((p) => (
@@ -669,11 +678,27 @@ function TierCard({
                             // know is that choosing it costs nothing.
                             t(locale, 'option_no_extra_cost')}
                       </span>
+                      {(p.price_cents ?? 0) > 0 && (
+                        <span className="basis-full text-xs text-ink-muted">
+                          {(p.price_interval ?? 'once') === 'once'
+                            ? t(locale, 'option_once')
+                            : t(locale, interval === 'year' ? 'renews_with_membership_year' : 'renews_with_membership_month')}
+                          {vatRegistered && (
+                            <VatInclNote
+                              formatMoney={(c, cur) => money(c, cur)}
+                              netCents={p.price_cents!}
+                              ratePct={cardRatePct}
+                              currency={p.currency ?? currency}
+                              locale={locale}
+                            />
+                          )}
+                        </span>
+                      )}
                       </span>
                     </label>
                   ))}
                 </div>
-                {optionsExtraCents > 0 && (
+                {chosen.length > 0 && (
                   <div className="mt-2 border-t border-line pt-1.5 text-xs tabular-nums">
                     {/* THE TOTAL, with the membership in it (Sjoerd, asking
                         for it on his own join page). The extras box used to
@@ -688,10 +713,14 @@ function TierCard({
                         {money(interval === 'year' ? adjustedYear! : adjustedMonth!, currency)}
                       </span>
                     </div>
-                    <div className="mt-0.5 flex justify-between text-ink-subtle">
-                      <span>{t(locale, 'optional_extras')}</span>
-                      <span>+ {money(optionsExtraCents, currency)}</span>
-                    </div>
+                    {/* ONE LINE PER THING IN THE BASKET, so the reader can see
+                        what each costs and the lines add up to the total. */}
+                    {chosen.map((p) => (
+                      <div key={p.id} className="mt-0.5 flex justify-between gap-3 text-ink-subtle">
+                        <span className="min-w-0">{p.name}</span>
+                        <span className="shrink-0">+ {money(p.price_cents ?? 0, p.currency ?? currency)}</span>
+                      </div>
+                    ))}
                     {/* THE CODE, AS A LINE OF ITS OWN.
                         Without it these lines did not add up: the tier row
                         showed the full price, the extras row showed the
@@ -770,6 +799,27 @@ function TierCard({
                 }}
               />
             )}
+            {chosen.length > 0 && (listCents ?? 0) > 0 && (
+              <p className="text-xs text-ink-muted">{t(locale, 'code_applies_membership')}</p>
+            )}
+            </div>
+            {/* STEP 2 — THE DETAILS: who, invoicing, consent, terms. */}
+            <div className={inBasket ? 'hidden' : 'space-y-2.5'}>
+            <input
+              name="name"
+              placeholder={t(locale, 'your_name')}
+              autoComplete="name"
+              required
+              className={INPUT}
+            />
+            <input
+              name="email"
+              type="email"
+              placeholder={t(locale, 'email_placeholder')}
+              autoComplete="email"
+              required
+              className={INPUT}
+            />
             {/* THE INVOICING DETAILS, asked here rather than on Stripe's page
                 (Sjoerd: "nothing of Stripe is the rule, except payment", and
                 "it should be a single point,,, invoicing payments"). The same
@@ -881,6 +931,7 @@ function TierCard({
                 </a>
               </span>
             </label>
+            </div>
             {/* The sentence, immediately above the button that acts on it. */}
             {vatRegistered && (payNowCents ?? 0) > 0 && (
               vatQuote ? (
@@ -912,6 +963,11 @@ function TierCard({
               </p>
             )}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+            {inBasket ? (
+              <Button type="button" className="w-full" onClick={() => setStep('details')}>
+                {t(locale, 'basket_continue')}
+              </Button>
+            ) : (
             <Button
               type="submit"
               className="w-full"
@@ -927,6 +983,16 @@ function TierCard({
                   ? t(locale, 'one_moment')
                   : t(locale, 'continue_to_payment')}
             </Button>
+            )}
+            {inDetails && (
+              <button
+                type="button"
+                onClick={() => setStep('basket')}
+                className="w-full text-xs text-ink-muted hover:text-ink"
+              >
+                {t(locale, 'basket_back')}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}

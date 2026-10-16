@@ -261,12 +261,12 @@ export function InvoiceDialog({
           </div>
 
           <div className="mt-5 rounded-md border border-line">
-            <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3">
-              <span className="min-w-0">{m.line.label}</span>
-              <span className="shrink-0 font-mono">
-                {money(m.line.amountCents, m.currency)}
-              </span>
-            </div>
+            {m.lines.map((l, i) => (
+              <div key={i} className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3">
+                <span className="min-w-0">{l.label}</span>
+                <span className="shrink-0 font-mono">{money(l.amountCents, m.currency)}</span>
+              </div>
+            ))}
             {m.totals.tax && (
               <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3 text-ink-subtle">
                 <span>{m.totals.tax.label ?? chromeT(locale, 'vat')}</span>

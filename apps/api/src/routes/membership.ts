@@ -43,6 +43,7 @@ import { organisationBilling, organisationBillingSnapshot } from '../lib/org-bil
 import { resolvePerson } from '../lib/resolve-person.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
+import { invoiceLines } from '../lib/invoice-lines.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { saleVat, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
@@ -2766,9 +2767,24 @@ membershipRoutes.post('/public/join', async (c) => {
       .eq('tier_id', tier.id)
       .eq('optional', true)
       .in('product_id', optionIds);
+    // THE BASKET (2026-10-16): beside the tier's optional add-ons, any
+    // product this community sells on its own (purchasable, priced, not
+    // archived) may ride the same checkout — one-off on the first invoice,
+    // recurring as a line of the membership's subscription, exactly as an
+    // option does below. Same lines, same VAT, same fee; no second rule.
+    const { data: standalone } = await adminClient
+      .from('membership_product')
+      .select('id, name, price_cents, price_interval, archived_at')
+      .eq('workspace_id', ws.id)
+      .eq('purchasable', true)
+      .is('archived_at', null)
+      .gt('price_cents', 0)
+      .in('id', optionIds);
     const byId = new Map(
-      (links ?? [])
-        .map((l) => (Array.isArray(l.product) ? l.product[0] : l.product))
+      [
+        ...(links ?? []).map((l) => (Array.isArray(l.product) ? l.product[0] : l.product)),
+        ...(standalone ?? []),
+      ]
         .filter((p): p is { id: string; name: string; price_cents: number | null; price_interval: string | null; archived_at: string | null } =>
           Boolean(p && !p.archived_at),
         )
@@ -3715,6 +3731,8 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
       // subscriptions started under the excl. rule (they carry vat_rule);
       // older ones keep the inclusive split recordPurchase stamps.
       ...vatBreakdownFromInvoice(invoice, addonLabel ? { vat_rule: 'excl' } : subMeta),
+      // Line by line, when there is more than one thing on the invoice.
+      ...((invoice.lines?.data?.length ?? 0) > 1 ? { lines: invoiceLines(invoice) } : {}),
     },
   });
 

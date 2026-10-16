@@ -33,6 +33,9 @@ export type InvoiceBilling = {
   subtotal_cents?: number | null;
   tax_cents?: number | null;
   tax_label?: string | null;
+  /** What was bought, line by line, when an invoice has more than one thing
+   *  on it (the basket join, 2026-10-16). Net per line. */
+  lines?: { label: string; net_cents: number; vat_cents?: number; recurring?: boolean }[] | null;
 };
 
 /** The ledger row, as every invoice surface reads it. */
@@ -94,6 +97,10 @@ export type InvoiceModel = {
   seller: InvoiceParty;
   buyer: InvoiceParty;
   line: { label: string; serviceUntilIso: string | null; amountCents: number };
+  /** Every line of the document: the ledger's `billing.lines` when it has
+   *  them, else just `line`. Renderers list these; `line` stays for readers
+   *  that only know one (additive). */
+  lines: { label: string; amountCents: number; recurring: boolean }[];
   totals: {
     subtotalCents: number;
     /** Present only when there is tax to state. */
@@ -180,6 +187,10 @@ export function invoiceModel(p: InvoicePurchase, seller?: InvoiceSeller | null):
       serviceUntilIso: b.period_end ?? null,
       amountCents: b.subtotal_cents ?? p.amount_cents,
     },
+    lines:
+      b.lines && b.lines.length > 0
+        ? b.lines.map((l) => ({ label: l.label, amountCents: l.net_cents, recurring: !!l.recurring }))
+        : [{ label: p.item_label, amountCents: b.subtotal_cents ?? p.amount_cents, recurring: false }],
     totals: {
       subtotalCents: b.subtotal_cents ?? p.amount_cents,
       tax,

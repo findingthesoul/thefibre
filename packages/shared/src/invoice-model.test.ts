@@ -45,3 +45,23 @@ describe('the buyer country on an invoice', () => {
     expect(line.endsWith('Rotterdam'), 'no trailing separator').toBe(true);
   });
 });
+
+describe('the lines of a basket invoice', () => {
+  const base = { id: 'p1', item_label: 'Soul membership — Singer', amount_cents: 44770, currency: 'EUR', method: 'stripe', created_at: '2026-10-16T00:00:00Z', payer_name: 'A' };
+  it('lists billing.lines when the ledger has them', () => {
+    const m = invoiceModel({ ...base, billing: { subtotal_cents: 37000, tax_cents: 7770, lines: [
+      { label: 'Soul membership — Singer', net_cents: 30000, recurring: true },
+      { label: 'Sheet music', net_cents: 5000, recurring: true },
+      { label: 'Workshop', net_cents: 2000 },
+    ] } });
+    expect(m.lines).toEqual([
+      { label: 'Soul membership — Singer', amountCents: 30000, recurring: true },
+      { label: 'Sheet music', amountCents: 5000, recurring: true },
+      { label: 'Workshop', amountCents: 2000, recurring: false },
+    ]);
+    expect(m.lines.reduce((s, l) => s + l.amountCents, 0), 'the lines add up to the subtotal').toBe(m.totals.subtotalCents);
+  });
+  it('one line when there is one thing (every row written before the basket)', () => {
+    expect(invoiceModel({ ...base, amount_cents: 30000 }).lines).toEqual([{ label: 'Soul membership — Singer', amountCents: 30000, recurring: false }]);
+  });
+});

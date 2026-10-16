@@ -6,6 +6,60 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.225.0] — 2026-10-16
+
+### The basket join: a membership and what you add to it, paid once (Members 1.6.0)
+
+Sjoerd: *"and then pay"*. Choose a tier, add to it, see the basket, pay in
+ONE Stripe Checkout.
+
+- **"Add to your membership"** in the join popup offers the tier's optional
+  add-ons AND the products the community sells on its own (purchasable,
+  priced), filtered to what fits the billing period. Each shows its price,
+  the small "incl. VAT" line, and whether it's "one-time" or "renews yearly
+  with your membership". A product the tier already includes isn't offered
+  again.
+- **Two steps when there is something to add.** First the basket: one line
+  per item, the discount code (which applies to the membership line only, and
+  says so: "Code applies to your membership"), the VAT breakdown, and the pay
+  sentence. Then the details: name, email, invoicing, consent, terms. Going
+  back keeps what was typed. With nothing to add, the popup stays one step.
+- **One checkout, no second rule.** The join route widens from the tier's
+  options to options ∪ purchasable products. The existing line building
+  does the rest:
+  - a recurring item is a line of the membership's subscription (one renewal
+    date);
+  - a one-off is on the first invoice;
+  - each line carries the VAT rule's rate, with the fee on the net.
+  A product the community doesn't sell on its own is refused (400).
+- **One ledger row per invoice, with its lines.** `invoice.paid` adds
+  `billing.lines` (label, net, VAT, recurring) when an invoice has more than
+  one line. Stripe's "1 × … (at …)" is trimmed to the name. The invoice
+  model gains `lines` (additive; `line` stays). The invoice dialog in
+  my.thread → Purchases, the PDF and the receipt email list every line.
+- **Grants per product** through the existing checkout path
+  (membership_product_purchase per chosen product), now including
+  standalone ones.
+- Tests:
+  - integration (staging + Stripe TEST): tier + recurring add-on + one-off
+    product in one session gives 370.00 + 77.70 VAT = 447.70, every line at
+    21%, both recurring lines yearly, the one-off not recurring; an unsold
+    product refused; the catalogue offering both.
+  - unit: `invoiceLines`; the invoice model's lines adding up to the
+    subtotal.
+  - **After payment, proven** (coordinator's review): the real join makes
+    the real TEST Checkout session. The subscription it would create is
+    built from that session's own lines, tax rate and metadata, and paid
+    server-side with Stripe's `pm_card_visa`. A signed
+    `checkout.session.completed` and the real first `invoice.paid` are then
+    delivered to this code's webhook route. Result: membership active, ONE
+    renewal date across both recurring lines (equal to `renews_at`), ONE
+    ledger row (447.70) whose three lines match the session (net and VAT
+    each, recurring or not, summing to the subtotal), a grant for each
+    product, and the leftover check by id. The events are delivered
+    in-process because this runs before the basket lands, while the deployed
+    webhook is still the old code.
+
 ## [1.224.2] — 2026-10-16
 
 ### Organiser handover, part 2: the accept step (migration only)

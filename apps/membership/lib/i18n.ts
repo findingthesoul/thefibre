@@ -161,6 +161,56 @@ const CATALOG = {
     de: 'Rechnung f\u00fcr eine Organisation? Daten erg\u00e4nzen', // MT
     fr: 'Besoin d\u2019une facture pour une organisation ? Ajoute les informations', // MT
   },
+  // THE BASKET JOIN (2026-10-16, Sjoerd: "and then pay"): choose a tier,
+  // add to it, see the basket, pay once.
+  add_to_membership: {
+    en: 'Add to your membership',
+    nl: 'Voeg toe aan je lidmaatschap', // MT pending native review
+    es: 'Añade a tu membresía', // MT
+    pt: 'Acrescente à sua adesão', // MT
+    de: 'Zu deiner Mitgliedschaft hinzufügen', // MT
+    fr: 'Ajoute à ton adhésion', // MT
+  },
+  renews_with_membership_year: {
+    en: 'renews yearly with your membership',
+    nl: 'verlengt jaarlijks met je lidmaatschap', // MT pending native review
+    es: 'se renueva cada año con tu membresía', // MT
+    pt: 'renova anualmente com a sua adesão', // MT
+    de: 'verlängert sich jährlich mit deiner Mitgliedschaft', // MT
+    fr: 'se renouvelle chaque année avec ton adhésion', // MT
+  },
+  renews_with_membership_month: {
+    en: 'renews monthly with your membership',
+    nl: 'verlengt maandelijks met je lidmaatschap', // MT pending native review
+    es: 'se renueva cada mes con tu membresía', // MT
+    pt: 'renova mensalmente com a sua adesão', // MT
+    de: 'verlängert sich monatlich mit deiner Mitgliedschaft', // MT
+    fr: 'se renouvelle chaque mois avec ton adhésion', // MT
+  },
+  code_applies_membership: {
+    en: 'Code applies to your membership',
+    nl: 'De code geldt voor je lidmaatschap', // MT pending native review
+    es: 'El código se aplica a tu membresía', // MT
+    pt: 'O código aplica-se à sua adesão', // MT
+    de: 'Der Code gilt für deine Mitgliedschaft', // MT
+    fr: 'Le code s’applique à ton adhésion', // MT
+  },
+  basket_continue: {
+    en: 'Continue',
+    nl: 'Verder', // MT pending native review
+    es: 'Continuar', // MT
+    pt: 'Continuar', // MT
+    de: 'Weiter', // MT
+    fr: 'Continuer', // MT
+  },
+  basket_back: {
+    en: 'Back to your basket',
+    nl: 'Terug naar je mandje', // MT pending native review
+    es: 'Volver a tu cesta', // MT
+    pt: 'Voltar ao seu cesto', // MT
+    de: 'Zurück zum Warenkorb', // MT
+    fr: 'Retour à ton panier', // MT
+  },
   option_once: {
     en: 'one-time',
     nl: 'eenmalig',

@@ -327,7 +327,7 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
         .fontSize(size)
         .text(val, L, yy, { width: W, align: 'right' });
 
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(INK).text(m.line.label, L, y, {
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(INK).text(m.lines.length > 1 ? m.lines[0]!.label : m.line.label, L, y, {
       width: W * 0.62,
     });
     let lineBottom = doc.y;
@@ -349,8 +349,15 @@ export async function buildInvoicePdf(inv: PdfInvoice, seller: PdfSeller): Promi
       lineBottom = doc.y;
     }
     doc.fillColor(INK);
-    amountAt(money(m.line.amountCents, m.currency), y, false, 10.5);
+    amountAt(money((m.lines.length > 1 ? m.lines[0]!.amountCents : m.line.amountCents), m.currency), y, false, 10.5);
     y = Math.max(lineBottom, y + 14) + 22;
+    // The basket: the further lines, one row each (the first is above).
+    for (const extra of m.lines.length > 1 ? m.lines.slice(1) : []) {
+      doc.font('Helvetica').fontSize(10.5).fillColor(INK).text(extra.label, L, y - 10, { width: W * 0.62 });
+      const bottom = doc.y;
+      amountAt(money(extra.amountCents, m.currency), y - 10, false, 10.5);
+      y = Math.max(bottom, y + 4) + 16;
+    }
 
     if (m.totals.tax) {
       rule(y - 10);
