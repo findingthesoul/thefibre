@@ -17,7 +17,7 @@ import { expect, test } from '@playwright/test';
 import { HOSTS, fixtureIdentity, landSignedIn, stagingService, waitForHydration } from './helpers.js';
 
 const env = Object.fromEntries(
-  readFileSync(resolve(import.meta.dirname, '../apps/api/.env.staging'), 'utf8')
+  readFileSync(resolve(__dirname, '../apps/api/.env.staging'), 'utf8')
     .split('\n')
     .filter((l) => l.includes('=') && !l.trim().startsWith('#'))
     .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim().replace(/^"|"$/g, '')]),
@@ -35,7 +35,10 @@ async function stripe<T = Record<string, unknown>>(path: string, account: string
   return body;
 }
 
-const NAME = `E2E members email ${Date.now().toString(36)}`;
+const STAMP = Date.now().toString(36);
+const NAME = `E2E members email ${STAMP}`;
+// Named apart from the product, so a wait for the product never matches the tier.
+const TIER = `E2E addon tier ${STAMP}`;
 let workspaceId = '';
 let slug = '';
 let personId = '';
@@ -60,7 +63,7 @@ test.beforeAll(async () => {
   await db.from('workspace').update({ stripe_account_id: account }).eq('id', workspaceId);
   personId = ((await db.from('person').select('id').eq('workspace_id', workspaceId).ilike('email', identity.email).limit(1).single()).data!.id) as string;
 
-  tierId = (await db.from('membership_tier').insert({ workspace_id: workspaceId, name: `${NAME} tier`, price_cents_year: 30000, hidden: true }).select('id').single()).data!.id as string;
+  tierId = (await db.from('membership_tier').insert({ workspace_id: workspaceId, name: TIER, price_cents_year: 30000, hidden: true }).select('id').single()).data!.id as string;
   // Purchasable, renewing, MEMBERS ONLY (the default), no tier links = any tier.
   productId = (await db.from('membership_product').insert({ workspace_id: workspaceId, name: NAME, price_cents: 20000, price_interval: 'year', purchasable: true }).select('id').single()).data!.id as string;
 
@@ -68,7 +71,7 @@ test.beforeAll(async () => {
   customerId = customer.id;
   const pm = await stripe<{ id: string }>(`payment_methods/pm_card_visa/attach`, account, { customer: customerId });
   await stripe(`customers/${customerId}`, account, { 'invoice_settings[default_payment_method]': pm.id });
-  const product = await stripe<{ id: string }>('products', account, { name: `${slug} membership — ${NAME} tier` });
+  const product = await stripe<{ id: string }>('products', account, { name: `${slug} membership — ${TIER}` });
   const sub = await stripe<{ id: string }>('subscriptions', account, {
     customer: customerId,
     default_payment_method: pm.id,
@@ -108,10 +111,35 @@ test.afterAll(async () => {
   expect(ws!.stripe_account_id ?? null).toBe(accountBefore);
 });
 
+// Screenshots for Sjoerd (who holds no card membership of his own, so cannot
+// see this himself): only when E2E_SHOTS names a directory.
+const SHOTS = process.env.E2E_SHOTS ?? '';
+
 test('a signed-in member adds a members-only product to their membership from the public page', async ({ page }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(180_000);
   // Signed in on the Members host — the session cookie spans the apex.
   await landSignedIn(page, HOSTS.membership, 'membership', '/tiers', /\/tiers|no-access/);
+
+  // my.thread → Purchases: "Add or change" on the membership, and its window
+  // offering the members-only product (the same rule as the page).
+  await page.goto(`${HOSTS.my}/purchases`);
+  const change = page.getByRole('button', { name: 'Add or change' }).first();
+  await expect(change).toBeVisible({ timeout: 30_000 });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/1-mythread-purchases-renewals.png`, fullPage: true });
+  await change.click();
+  const offer = page.getByRole('dialog');
+  // The product's own row in the offer list — not the window's subtitle.
+  const pick = offer.getByRole('radio', { name: new RegExp(NAME) });
+  await expect(pick).toBeVisible({ timeout: 30_000 });
+  await expect(pick).not.toBeChecked();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/2-mythread-add-or-change-window.png` });
+  // Choosing it is what enables Confirm, and the radio says so.
+  await pick.check();
+  await expect(pick).toBeChecked();
+  await expect(offer.getByRole('button', { name: /^(Pay |Confirm)/ })).toBeEnabled({ timeout: 30_000 });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/2b-mythread-add-or-change-selected.png` });
+  await page.keyboard.press('Escape');
+
   await page.goto(`${HOSTS.membership}/${slug}`);
   await waitForHydration(page, 'button');
   const card = page.locator('div').filter({ has: page.getByRole('heading', { name: NAME }) }).last();
@@ -120,10 +148,41 @@ test('a signed-in member adds a members-only product to their membership from th
   await add.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText(/now/)).toBeVisible({ timeout: 30_000 });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/3-public-page-add-to-membership.png` });
   await dialog.getByRole('button', { name: /^Pay / }).click();
   await expect(dialog.getByText('is added to your membership')).toBeVisible({ timeout: 30_000 });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/4-public-page-added.png` });
   // Asked of the DATABASE: active, on that subscription.
   await expect
     .poll(async () => (await stagingService().from('membership_product_purchase').select('status, stripe_subscription_id').eq('product_id', productId).maybeSingle()).data, { timeout: 20_000 })
     .toEqual({ status: 'active', stripe_subscription_id: subId });
+});
+
+// P4 — the card behind a membership, changed HERE, not on Stripe (Sjoerd,
+// 2026-10-15: "Manage payment should not go to Stripe"). Needs the platform's
+// publishable key inlined in the my.thread build (NEXT_PUBLIC_STRIPE_
+// PUBLISHABLE_KEY, pk_test on staging): without it the "change" link is not
+// offered at all. Asserts the card form RENDERS — Stripe's PaymentElement
+// iframe inside the window. No card number is ever typed here.
+test('the card behind the membership: "change" opens Stripe’s card form in The Fibre', async ({ page }) => {
+  test.setTimeout(120_000);
+  await landSignedIn(page, HOSTS.membership, 'membership', '/tiers', /\/tiers|no-access/);
+  await page.goto(`${HOSTS.my}/purchases`);
+  await expect(page.getByText(/Card · Visa ···· 4242/)).toBeVisible({ timeout: 30_000 });
+  const change = page.getByRole('button', { name: 'change', exact: true });
+  await expect(change, 'the change link needs the publishable key in the build').toBeVisible();
+  await change.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('iframe[name^="__privateStripeFrame"]').first()).toBeAttached({ timeout: 30_000 });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/5-mythread-change-card-form.png` });
+
+  // And NOWHERE does a member get sent to Stripe to manage it (Sjoerd,
+  // 2026-10-16, the fourth time of asking): no "Manage payment" button, no
+  // link to Stripe, on Memberships or Purchases.
+  for (const path of ['/memberships', '/purchases']) {
+    await page.goto(`${HOSTS.my}${path}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /Manage payment/i }), path).toHaveCount(0);
+    await expect(page.locator('a[href*="stripe.com"]'), path).toHaveCount(0);
+  }
 });

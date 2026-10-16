@@ -67,14 +67,13 @@ const GUIDES: HelpGuide[] = [
     `),
   },
   {
-    title: 'See your memberships and manage payment',
-    href: '/memberships',
+    title: 'See your memberships, change your card, stop or add to it',
+    href: '/purchases',
     steps: guideSteps(`
       Open Memberships. Each community you belong to is a card with its tier and status — active, grace, lapsed or cancelled — and what the membership includes.
       Grace means a payment is overdue but your access continues for now. Lapsed means it has ended; rejoin with the community to get it back.
-      Press Manage payment to change your card or cancel. This opens your community's payment page.
-      If it says "Your community handles the payments for this one", the community bills you outside this app — contact them directly.
-      What you paid links to Purchases.
+      Everything about paying for it is done here, in Purchases, never on another site: press "change" beside your card to use a different one, Stop renewal to let it end at the end of the period, and Add or change to add to it or move to another tier.
+      If it says the membership is managed directly by the community, they bill you outside this app — contact them directly.
     `),
   },
   {

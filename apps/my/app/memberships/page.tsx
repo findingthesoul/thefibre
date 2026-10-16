@@ -17,7 +17,6 @@ import { fmtDate } from '@/lib/format';
 import { JoinPrice } from '../join-price';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
-import { ManagePayment } from './manage-payment';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,8 +187,19 @@ export default async function MembershipsPage() {
                   >
                     What you paid
                   </Link>
+                  {/* Managed HERE, never on Stripe (Sjoerd, 2026-10-16, the
+                      fourth time of asking): the card, stopping the renewal
+                      and adding to it all live under Purchases. The old
+                      "Manage payment" button opened Stripe's portal; gone. */}
+                  {m.has_stripe && (
+                    <Link
+                      href="/purchases"
+                      className="inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
+                    >
+                      Card, renewal and add-ons
+                    </Link>
+                  )}
                 </div>
-                <ManagePayment memberId={m.member_id} hasStripe={!!m.has_stripe} />
               </li>
             );
           })}

@@ -155,8 +155,10 @@ export function AddToMembership({ memberId, addon, interval }: { memberId: strin
             )}
             {addon.recurring && quote.then_cents > 0 && (
               <>
-                {' '}Then {money(quote.then_cents, quote.currency)} per {per}
-                {quote.then_tax_cents > 0 ? ` (incl. ${money(quote.then_tax_cents, quote.currency)} VAT)` : ''} with your membership.
+                {/* then_cents is the WHOLE next renewal (membership + this),
+                    so it is said as the total, never as this product's price. */}
+                {' '}From your renewal, your membership comes to {money(quote.then_cents, quote.currency)} per {per} in total
+                {quote.then_tax_cents > 0 ? ` (incl. ${money(quote.then_tax_cents, quote.currency)} VAT)` : ''}, this included.
               </>
             )}
           </p>

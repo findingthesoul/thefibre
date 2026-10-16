@@ -30,54 +30,55 @@ import { BillingCard } from './billing-card';
 import { CalendarCard } from './calendar-card';
 import { DirectoryCard } from './directory-card';
 import { NotifyCard } from './notify-card';
-import { fetchNotifyPrefs } from '@/lib/portal-api';
+import { YouTabs, YOU_TABS, type YouTab } from './you-tabs';
+import { ProductRenewals, Renewals } from '../purchases/renewals';
+import { fetchNotifyPrefs, fetchRenewals } from '@/lib/portal-api';
 import { ErasureBody, ErasureFallback } from './erasure-section';
 import { SignOutButton } from './sign-out-button';
 
 export const dynamic = 'force-dynamic';
 
-export default async function YouPage() {
+export default async function YouPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await loadSession();
   if (!session) return <SignedOut />;
 
-  // AT ONCE, not in a queue. These five were awaited one after another, and
-  // not one of them needs anything from the others — so the page cost the
-  // SUM of five round trips where it could cost the longest of them.
-  //
-  // `loadSession` above stays first and alone because it is the gate: there
-  // is no point asking what somebody's profile is before knowing whether
-  // anybody is signed in.
-  //
-  // `loadErasure` is NOT here, deliberately. At 576ms it was the second
-  // heaviest call on the page and it feeds a disclosure almost nobody opens,
-  // so it streams in its own boundary below instead of holding the page up.
-  const [profile, calendar, directory, apps, notifyPrefs] = await Promise.all([
+  // TABS (Sjoerd, 2026-10-16: the page "has become highly complicated").
+  // One tab at a time, each a deep link; an unknown or missing tab is the
+  // Profile, never a blank page. Each panel fetches only what it shows.
+  const requested = (await searchParams).tab;
+  const tab: YouTab = (YOU_TABS as readonly string[]).includes(requested ?? '') ? (requested as YouTab) : 'profile';
+
+  return (
+    <PageShell title="You">
+      <YouTabs value={tab} />
+      {tab === 'profile' && <ProfilePanel person={session.portal.person} />}
+      {tab === 'memberships' && <MembershipsPanel token={session.token} />}
+      {tab === 'billing' && <BillingPanel />}
+      {tab === 'notifications' && <NotificationsPanel token={session.token} />}
+      {tab === 'privacy' && <PrivacyPanel />}
+
+      <p className="mt-12 text-xs text-ink-muted">
+        {ENTITY.publicName} · v{VERSION}
+      </p>
+    </PageShell>
+  );
+}
+
+type PortalPerson = { first_name?: string | null; last_name?: string | null; email: string };
+
+/** Who you are, and whether other members can find you. */
+async function ProfilePanel({ person }: { person: PortalPerson }) {
+  const [profile, directory] = await Promise.all([
     loadProfile(),
-    loadCalendarStatus(),
     // Empty when there are no communities OR when the call failed; the
     // section is omitted either way, because a privacy switch showing a state
     // we are not sure of is worse than no switch.
     loadDirectoryChoices(),
-    // Drives the sentence below: with no seat anywhere, 'back to the site' is
-    // the only door there is and deserves explaining.
-    headers().then((h) => reachableApps(h.get('host'))),
-    // Null when the call failed: the section is then omitted rather than
-    // showing switches in a state we are not sure of.
-    fetchNotifyPrefs(session.token),
   ]);
-  const { person } = session.portal;
-  // Label derived from the resolved href, not from the constant: on staging
-  // this page is my.thefibre.tech and a link reading "thethread.app" would be
-  // telling the visitor they are somewhere they are not.
-  const siteUrl = surfaceUrl('website', process.env, (await headers()).get('host'));
-
   return (
-    <PageShell title="You">
+    <>
       {profile ? (
-        <>
-          <DetailsForm profile={profile} />
-          {profile.billing_details && <BillingCard details={profile.billing_details} />}
-        </>
+        <DetailsForm profile={profile} />
       ) : (
         // The details call failed. Show what the portal payload already knows
         // rather than an error where a name should be — and say plainly that
@@ -102,9 +103,6 @@ export default async function YouPage() {
           </p>
         </>
       )}
-
-      <CalendarCard status={calendar} />
-
       {directory === null ? (
         // Say it. An omitted section looks like a page with nothing on it.
         <section className="mt-8">
@@ -116,9 +114,76 @@ export default async function YouPage() {
       ) : (
         directory.length > 0 && <DirectoryCard choices={directory} />
       )}
+    </>
+  );
+}
 
+/** What renews — memberships and products on their own — stopped or resumed
+ *  here; every invoice is under Purchases. */
+async function MembershipsPanel({ token }: { token: string }) {
+  const renewals = await fetchRenewals(token);
+  const none = renewals && !renewals.memberships.length && !renewals.products.length;
+  return (
+    <>
+      {renewals === null && (
+        <p className="mt-8 rounded-2xl border border-line bg-surface px-4 py-3 text-xs text-ink-subtle">
+          We couldn&apos;t load your memberships right now. Try again in a moment.
+        </p>
+      )}
+      {renewals && <Renewals items={renewals.memberships} />}
+      {renewals && <ProductRenewals items={renewals.products} />}
+      {none && <p className="mt-8 text-sm text-ink-muted">Nothing renews for you at the moment.</p>}
+      <p className="mt-8 text-sm text-ink-muted">
+        Every invoice, and what you paid, is under{' '}
+        <Link href="/purchases" className="text-ink underline underline-offset-2 hover:opacity-70">
+          Purchases
+        </Link>
+        .
+      </p>
+    </>
+  );
+}
+
+/** The details your invoices carry. */
+async function BillingPanel() {
+  const profile = await loadProfile();
+  return profile?.billing_details ? (
+    <BillingCard details={profile.billing_details} />
+  ) : (
+    <p className="mt-8 text-sm text-ink-muted">
+      {profile ? 'No billing details yet. They are filled in the first time you pay.' : 'Your billing details could not be loaded right now.'}
+    </p>
+  );
+}
+
+/** What we tell you, and the calendar that follows along. */
+async function NotificationsPanel({ token }: { token: string }) {
+  const [calendar, notifyPrefs] = await Promise.all([
+    loadCalendarStatus(),
+    // Null when the call failed: the section is then omitted rather than
+    // showing switches in a state we are not sure of.
+    fetchNotifyPrefs(token),
+  ]);
+  return (
+    <>
+      <CalendarCard status={calendar} />
       {notifyPrefs && <NotifyCard prefs={notifyPrefs} />}
+      {/* SLOT for builder 5's per-device push opt-in: <PushCard /> from
+          apps/my/app/push-card.tsx (no props, a button, never a prompt on
+          load) goes here, below the email switch, once that file exists. */}
+    </>
+  );
+}
 
+/** Your data, and the way out. */
+async function PrivacyPanel() {
+  const apps = await headers().then((h) => reachableApps(h.get('host')));
+  // Label derived from the resolved href, not from the constant: on staging
+  // this page is my.thefibre.tech and a link reading "thethread.app" would be
+  // telling the visitor they are somewhere they are not.
+  const siteUrl = surfaceUrl('website', process.env, (await headers()).get('host'));
+  return (
+    <>
       {/* Below the calendar and above the way out — last of the things you
           DO here, which is where a page puts the one you hope nobody needs.
           Omitted entirely when the picture could not be read: offering a
@@ -176,9 +241,6 @@ export default async function YouPage() {
         </Link>
       </div>
 
-      <p className="mt-12 text-xs text-ink-muted">
-        {ENTITY.publicName} · v{VERSION}
-      </p>
-    </PageShell>
+    </>
   );
 }

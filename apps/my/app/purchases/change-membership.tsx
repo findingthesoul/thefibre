@@ -114,24 +114,28 @@ export function ChangeMembership({
   }
 
   const per = options?.interval === 'month' ? 'month' : 'year';
-  const row = (c: Choice, price: string, note: string) => (
-    <li key={`${c.kind}:${c.id}`}>
-      <button
-        type="button"
-        onClick={() => pick(c)}
-        disabled={busy}
-        className={`flex w-full items-baseline justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-surface-sunken ${
-          choice?.id === c.id ? 'bg-surface-sunken' : ''
-        }`}
-      >
-        <span className="min-w-0">
-          <span className="text-ink">{c.name}</span>
-          <span className="block text-xs text-ink-muted">{note}</span>
-        </span>
-        <span className="shrink-0 tabular-nums text-ink-subtle">{price}</span>
-      </button>
-    </li>
-  );
+  // A RADIO per choice (the shared pattern, as in ui/billing-choice): before
+  // this a choice was a plain card, and nothing said it could be selected or
+  // that selecting it is what enables Confirm (2026-10-16).
+  const row = (c: Choice, price: string, note: string) => {
+    const on = choice?.id === c.id && choice.kind === c.kind;
+    return (
+      <li key={`${c.kind}:${c.id}`}>
+        <label
+          className={`flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left text-sm hover:bg-surface-sunken ${
+            on ? 'bg-surface-sunken ring-1 ring-inset ring-line-strong' : ''
+          } ${busy ? 'pointer-events-none opacity-60' : ''}`}
+        >
+          <input type="radio" name="change-choice" checked={on} onChange={() => pick(c)} disabled={busy} className="mt-1 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="text-ink">{c.name}</span>
+            <span className="block text-xs text-ink-muted">{note}</span>
+          </span>
+          <span className="shrink-0 tabular-nums text-ink-subtle">{price}</span>
+        </label>
+      </li>
+    );
+  };
 
   return (
     <Dialog

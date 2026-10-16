@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.248.2] — 2026-10-16
+
+### Manage it in The Fibre, never on Stripe; You as tabs; a clear choice in "Add or change" (my.thread 0.22.0, Members 1.16.1)
+
+- **my.thread → You is tabs.** Sjoerd: the page "has become highly
+  complicated". The tabs are Profile · Memberships & purchases · Billing ·
+  Notifications · Privacy, using the shared tab bar in link mode, so each tab
+  is a deep link (`/you?tab=…`) that works before JavaScript. An unknown tab
+  falls back to Profile. Each panel fetches only what it shows (the page used
+  to fetch five things at once). Memberships & purchases holds the renewals
+  and "Your subscriptions", and links to Purchases for the invoices. The
+  Notifications panel has a slot for builder 5's push opt-in.
+- **"Add or change" shows what can be chosen.** Each choice was a plain card,
+  with Confirm greyed out until a card was clicked and nothing saying so. It
+  is now a radio per choice (the shared pattern), with a selected state.
+- **The add-on total, said right** (public page, "Add to your membership").
+  "Then €500.00 per year with your membership" read as the product's price,
+  when €500 is the whole next renewal. It now says: "From your renewal, your
+  membership comes to €500.00 per year in total, this included."
+- **Nothing sends a member to Stripe to manage a membership any more.**
+  Sjoerd, 2026-10-16: "If I do manage payment… I go to Stripe… I thought we
+  agreed that we all manage this in the Thread. I also feel this is the 4th
+  time we talked about this." Removed or replaced:
+  - my.thread → Memberships, the **"Manage payment" button**
+    (`app/memberships/manage-payment.tsx`, deleted), which opened Stripe's
+    billing portal through `/me/portal-session`. In its place is a link,
+    "Card, renewal and add-ons" → Purchases, where the card change, Stop
+    renewal and Add or change all are.
+  - my.thread → Help, the guide that said "Press Manage payment … This opens
+    your community's payment page". It now explains changing the card,
+    stopping and adding, all in Purchases.
+  Checked and already clean, so nothing to change:
+  - the invoice window (our own invoice and PDF only, never Stripe's);
+  - the member emails (no portal link);
+  - the Members app and the shared UI (no member-facing portal link; its
+    `manage_payment` string is unused).
+  The API's portal route stays, unlinked: the API is additive-only. Paying an
+  open invoice through Stripe Checkout is paying, not managing, and is
+  unchanged.
+- **This release also rebuilds my.thread**, so it inlines the Stripe
+  publishable key Sjoerd set in Vercel. That lets the P4 card form render.
+  The e2e asserts it renders, and that Memberships and Purchases carry no
+  "Manage payment" button and no link to stripe.com.
+- Tested:
+  - e2e `you-tabs`: each deep link selects its tab and shows its panel, and
+    an unknown tab is Profile;
+  - e2e `member-addon`: the add-on is a radio, unchecked until chosen, and
+    choosing it enables Confirm. Its wait now looks for the product's own row;
+    the old one matched the tier's name in the window's subtitle.
+  - my.thread and Members production builds pass; typecheck is clean; unit
+    tests pass (my 51, members 42).
+
 ## [1.248.1] — 2026-10-16
 
 ### portal-nav integration test: `/me/nav` may carry more than three keys (test only)
