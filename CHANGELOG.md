@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.244.1] — 2026-10-16
+
+### A handover for an organiser who has left says an admin is asking (Thread 4.18.1)
+
+- Seen in the staging look at v1.244.0. On the departed-organiser door, the
+  new organiser's card read "Dora would like you to take over…". But Dora
+  had left the workspace; it was an admin asking. The email already said
+  so. Both the single-thread card (since v1's admin door) and the
+  several-threads bar (v1.244.0) said it wrong.
+- Now both read "Dora has left the workspace — an admin would like you to
+  take over …", in all six of Thread's languages. The organiser's own door
+  is unchanged ("Anna would like you to take over …").
+- Thread only; no API change. Checked by typecheck (a missing translation is
+  a type error). Not rendered: the strings swap on a field the look already
+  exercised.
+
 ## [1.244.0] — 2026-10-16
 
 ### Hand over all the threads of an organiser who has left, in one request (Thread 4.18.0)

@@ -1980,13 +1980,23 @@ const CATALOG = {
     de: 'Nicht enthalten — {title}: {reason}', // MT
     fr: 'Laissé de côté — {title} : {reason}', // MT
   },
-  handover_batch_incoming: {
-    en: '{name} would like you to take over {count} threads.',
-    nl: '{name} wil dat jij {count} threads overneemt.', // MT
-    es: '{name} quiere que te encargues de {count} hilos.', // MT
-    pt: '{name} gostaria que ficasse com {count} threads.', // MT
-    de: '{name} möchte, dass du {count} Threads übernimmst.', // MT
-    fr: '{name} aimerait que tu reprennes {count} fils.', // MT
+  // The departed door: the organiser has LEFT, so the ask is an admin's —
+  // as the email says. (Until 2026-10-16 these read "{name} would like you…".)
+  handover_incoming_departed: {
+    en: '{name} has left the workspace — an admin would like you to take over “{title}”.',
+    nl: '{name} heeft de werkruimte verlaten — een beheerder wil dat jij “{title}” overneemt.', // MT
+    es: '{name} ha dejado el espacio — un administrador quiere que te encargues de “{title}”.', // MT
+    pt: '{name} saiu do espaço — um administrador gostaria que ficasse com “{title}”.', // MT
+    de: '{name} hat den Arbeitsbereich verlassen — ein Admin möchte, dass du „{title}“ übernimmst.', // MT
+    fr: '{name} a quitté l’espace — un administrateur aimerait que tu reprennes « {title} ».', // MT
+  },
+  handover_batch_incoming_departed: {
+    en: '{name} has left the workspace — an admin would like you to take over {count} threads.',
+    nl: '{name} heeft de werkruimte verlaten — een beheerder wil dat jij {count} threads overneemt.', // MT
+    es: '{name} ha dejado el espacio — un administrador quiere que te encargues de {count} hilos.', // MT
+    pt: '{name} saiu do espaço — um administrador gostaria que ficasse com {count} threads.', // MT
+    de: '{name} hat den Arbeitsbereich verlassen — ein Admin möchte, dass du {count} Threads übernimmst.', // MT
+    fr: '{name} a quitté l’espace — un administrateur aimerait que tu reprennes {count} fils.', // MT
   },
   handover_accept_all: {
     en: 'Accept all',

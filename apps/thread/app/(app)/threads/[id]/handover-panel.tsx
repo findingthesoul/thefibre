@@ -71,7 +71,7 @@ export function HandoverPanel({
       <div className={`${NOTICE.warning} mb-4`}>
         <p>
           {pending.incoming
-            ? t(locale, 'handover_incoming', { name: fromName, title })
+            ? t(locale, pending.door === 'admin_departed' ? 'handover_incoming_departed' : 'handover_incoming', { name: fromName, title })
             : t(locale, 'handover_pending_out', { name: toName, date: fmt(pending.expires_at) })}
         </p>
         {pending.reason && <p className="mt-1 text-xs">{pending.reason}</p>}

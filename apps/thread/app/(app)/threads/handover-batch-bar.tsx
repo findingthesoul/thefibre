@@ -46,7 +46,8 @@ export function HandoverBatchBar({
 
   return (
     <div className={`${NOTICE.warning} mb-2`}>
-      <p>{t(locale, 'handover_batch_incoming', { name: fromName, count: String(count) })}</p>
+      {/* A batch only ever comes from the departed door: the ask is an admin's. */}
+      <p>{t(locale, 'handover_batch_incoming_departed', { name: fromName, count: String(count) })}</p>
       {reason && <p className="mt-1 text-xs">{reason}</p>}
       <p className="mt-1 text-xs">{t(locale, 'handover_moves')}</p>
       {waiting.map((w, i) => (
