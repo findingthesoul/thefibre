@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.251.0] — 2026-10-16
+
+### Calendar invitations show Accept / Decline in the mail itself
+
+- Sjoerd, 2026-10-16: "Yes, build it." His calendar check on 15 October
+  found the invitations work, but arrive as a FILE: no inline Accept /
+  Maybe / Decline bar.
+- Why: mail clients show that bar only when the event is part of the message
+  BODY (a `text/calendar; method=REQUEST` alternative, iMIP), not only an
+  attachment. Resend's REST API, which sends all our mail, takes text, HTML
+  and attachments and no other body part (checked against its docs).
+- Now invitations, and only invitations, go through Resend's SMTP relay as
+  a proper iMIP message: the text, the HTML and the calendar event as body
+  alternatives, plus the same `invite.ics` attachment. That covers Thread
+  session invitations and updates, and Meet guest invitations, moves and
+  cancellations.
+  - Same verified domain, same key, same From and ORGANIZER as before.
+  - Every other mail stays on the REST path, unchanged.
+  - If the SMTP send fails for any reason, the invitation still goes out as
+    before, as a file over REST.
+- On staging the calendar event's own title also carries `[STAGING]`, so a
+  test invitation is recognisable in the calendar it lands in.
+- One dependency: `nodemailer` 10.0.13, pinned exactly; it builds the MIME.
+  Fly staging reaches smtp.resend.com (checked).
+- Tested:
+  - `invite-smtp.test.ts`, 8/8: the exact part structure for REQUEST and
+    CANCEL; the event unchanged (UID, SEQUENCE, ORGANIZER, ATTENDEE);
+    non-invitation mail stays on REST; the SMTP-failure fallback; the
+    staging mark.
+  - `invite-smtp.int.test.ts`, 4/4 on staging, through the real routes and
+    the real SEND with the transport in stream mode (nothing sent): Thread
+    moved → REQUEST and cancelled → CANCEL; Meet book → REQUEST, reschedule →
+    REQUEST, cancel → CANCEL. All iMIP; no invitation over REST. All four
+    fail on the previous client.
+  - Not tested: a real inbox showing the bar. That waits for Sjoerd's three
+    fixture mailboxes (Gmail, Outlook.com, iCloud).
+
 ## [1.250.4] — 2026-10-16
 
 ### One profile gains a city and two links: the columns (migration only)

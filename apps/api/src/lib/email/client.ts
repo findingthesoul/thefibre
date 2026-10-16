@@ -30,7 +30,8 @@ export type EmailMessage = {
 };
 
 import { defaultEmailFrom } from '@thefibre/shared';
-import { markHtml, marksMailAsTest, markSubject, markText } from './test-marking.js';
+import { markHtml, marksMailAsTest, markSubject, markText, TEST_SUBJECT_PREFIX } from './test-marking.js';
+import { invitationIn, markIcsSummary, sendInvitationSmtp } from './invite-smtp.js';
 
 function fromAddress(): string {
   return defaultEmailFrom(process.env);
@@ -86,6 +87,23 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
       subject: markSubject(msg.subject),
       html: markHtml(msg.html),
       text: markText(msg.text),
+      // And the calendar event's own title, so a staging invitation is
+      // recognisable in the calendar it lands in (2026-10-16).
+      ...(msg.attachments
+        ? {
+            attachments: msg.attachments.map((a) =>
+              /^text\/calendar/i.test(a.contentType ?? '')
+                ? {
+                    ...a,
+                    content: Buffer.from(
+                      markIcsSummary(Buffer.from(a.content, 'base64').toString('utf8'), TEST_SUBJECT_PREFIX),
+                      'utf8',
+                    ).toString('base64'),
+                  }
+                : a,
+            ),
+          }
+        : {}),
     };
     // One line, so "is staging marking its mail?" is answerable from the Fly
     // log instead of from a mailbox nobody here can read. Asked exactly that
@@ -109,6 +127,29 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     });
     return;
   }
+  // An INVITATION goes over SMTP, with the event as a body alternative, so
+  // mail clients show the inline Accept bar (lib/email/invite-smtp.ts). Any
+  // failure there — an unverified workspace sender, a network blip — falls
+  // through to the REST path below, where the invitation still arrives as a
+  // file and the unverified-sender fallback still applies.
+  const invite = invitationIn(msg.attachments);
+  if (invite) {
+    try {
+      await sendInvitationSmtp(
+        key,
+        { from: composeFrom(msg), to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, replyTo: msg.replyTo },
+        invite,
+      );
+      return;
+    } catch (e) {
+      // Known and accepted: a failure AFTER Resend accepted the message
+      // (e.g. the connection drops before its final reply) means this
+      // fallback sends a second copy. Rare; a duplicate invitation for the
+      // same UID files as one event, which beats losing it.
+      console.error('[email] invitation over SMTP failed — sending it as an attachment over REST instead', (e as Error).message);
+    }
+  }
+
   const body: Record<string, unknown> = {
     from: composeFrom(msg),
     to: msg.to,
