@@ -3192,7 +3192,12 @@ membershipRoutes.post('/public/join', async (c) => {
 
 const PublicBuy = z.object({
   workspace_slug: z.string().min(1).max(100),
-  product_id: z.string().uuid(),
+  // One product (as since 2026-09-06), or several from the page's basket
+  // (2026-10-16, additive): `product_ids` with two or more. Exactly one of
+  // the two. A page sends `product_id` alone for a single product, so an
+  // API one release behind still understands it.
+  product_id: z.string().uuid().optional(),
+  product_ids: z.array(z.string().uuid()).min(1).max(10).optional(),
   email: z.string().email(),
   name: z.string().min(1).max(200),
   locale: z.string().max(10).optional(),
@@ -3209,6 +3214,10 @@ membershipRoutes.post('/public/buy', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const d = body.data;
   const email = d.email.trim().toLowerCase();
+  const wantIds = [...new Set(d.product_ids ?? (d.product_id ? [d.product_id] : []))];
+  if (!wantIds.length || (d.product_id && d.product_ids)) {
+    return c.json({ error: 'name one product (product_id) or several (product_ids)' }, 400);
+  }
 
   const ws = await publicWorkspace(d.workspace_slug);
   if (!ws) return c.json({ error: 'not found' }, 404);
@@ -3225,18 +3234,22 @@ membershipRoutes.post('/public/buy', async (c) => {
 
   // Server-authoritative price: the product row IS the price. purchasable
   // is the product's own setting — a priced tier-only product stays unbuyable.
-  const { data: product } = await adminClient
+  // Every product named must be one this community sells on its own — one
+  // that is not refuses the WHOLE basket, never quietly drops a line.
+  const { data: rows } = await adminClient
     .from('membership_product')
     .select('id, name, price_cents, price_interval, currency, purchasable')
-    .eq('id', d.product_id)
+    .in('id', wantIds)
     .eq('workspace_id', ws.id)
-    .is('archived_at', null)
-    .maybeSingle();
-  if (!product) return c.json({ error: 'product not found' }, 404);
-  if (!product.purchasable || product.price_cents == null || product.price_cents <= 0) {
-    return c.json({ error: 'This product cannot be bought on its own.' }, 400);
+    .is('archived_at', null);
+  const products = wantIds.map((id) => (rows ?? []).find((r) => r.id === id)).filter((p): p is NonNullable<typeof p> => !!p);
+  if (products.length !== wantIds.length) return c.json({ error: 'product not found' }, 404);
+  const unsellable = products.find((p) => !p.purchasable || p.price_cents == null || p.price_cents <= 0);
+  if (unsellable) {
+    return c.json({ error: products.length === 1 ? 'This product cannot be bought on its own.' : `${unsellable.name} cannot be bought on its own.` }, 400);
   }
-  const amount = product.price_cents;
+  const product = products[0]!;
+  const amount = products.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
 
   // Auto-account (the join-flow pattern): email-only, verify at sign-in.
   try {
@@ -3271,14 +3284,15 @@ membershipRoutes.post('/public/buy', async (c) => {
   // flow's already_member).
   const { data: owned } = await adminClient
     .from('membership_product_purchase')
-    .select('id')
+    .select('product_id')
     .eq('workspace_id', ws.id)
     .eq('person_id', personId)
-    .eq('product_id', product.id)
-    .eq('status', 'paid')
-    .limit(1)
-    .maybeSingle();
-  if (owned) return c.json({ already_purchased: true });
+    .in('product_id', wantIds)
+    .eq('status', 'paid');
+  if ((owned ?? []).length) {
+    // Which ones (additive): a basket can say which line is already theirs.
+    return c.json({ already_purchased: true, product_ids: [...new Set((owned ?? []).map((o) => o.product_id as string))] });
+  }
 
   // One-off payment mode allows the FIXED fee amount — same plan-aware
   // percent as the join flow, applied to this charge.
@@ -3299,17 +3313,16 @@ membershipRoutes.post('/public/buy', async (c) => {
     session = await stripe.checkout.sessions.create(
       {
         mode: 'payment',
-        line_items: [
-          {
-            price_data: {
-              currency: (product.currency ?? 'EUR').toLowerCase(),
-              product_data: { name: `${ws.name} — ${product.name}` },
-              unit_amount: amount,
-            },
-            quantity: 1,
-            ...(buyTaxRate ? { tax_rates: [buyTaxRate] } : {}),
+        // One line per product, each with the VAT rule's rate.
+        line_items: products.map((p) => ({
+          price_data: {
+            currency: (p.currency ?? 'EUR').toLowerCase(),
+            product_data: { name: `${ws.name} — ${p.name}` },
+            unit_amount: p.price_cents!,
           },
-        ],
+          quantity: 1,
+          ...(buyTaxRate ? { tax_rates: [buyTaxRate] } : {}),
+        })),
         payment_intent_data: {
           ...(applicationFeeCents > 0 ? { application_fee_amount: applicationFeeCents } : {}),
           metadata: { workspace_id: ws.id, person_id: personId, membership_product_id: product.id },
@@ -3325,6 +3338,9 @@ membershipRoutes.post('/public/buy', async (c) => {
           workspace_id: ws.id,
           person_id: personId,
           membership_product_id: product.id,
+          // The whole basket, when there is more than one (the first stays in
+          // membership_product_id, which an older webhook reads).
+          ...(products.length > 1 ? { membership_product_ids: products.map((p) => p.id).join(',') } : {}),
           request_id: d.request_id,
           ...vatMetadata(buyVat),
         },
@@ -4008,34 +4024,41 @@ async function membershipProductPurchased(
     return;
   }
 
-  const { data: product } = await adminClient
+  // The page's basket can buy several in one session (2026-10-16).
+  const ids = (meta.membership_product_ids ?? productId).split(',').filter(Boolean);
+  const { data: found } = await adminClient
     .from('membership_product')
     .select('id, name, links, price_cents, currency')
-    .eq('id', productId)
-    .eq('workspace_id', workspaceId)
-    .maybeSingle();
+    .in('id', ids)
+    .eq('workspace_id', workspaceId);
+  const products = ids.map((id) => (found ?? []).find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p);
+  const product = products[0];
   if (!product) {
     console.error('[membership/webhook] purchased product not found', productId);
     return;
   }
 
-  const amount = session.amount_total ?? product.price_cents ?? 0;
+  const amount = session.amount_total ?? products.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
   const currency = (session.currency ?? product.currency ?? 'eur').toUpperCase();
 
-  const { error: insertErr } = await adminClient.from('membership_product_purchase').insert({
-    workspace_id: workspaceId,
-    person_id: personId,
-    product_id: product.id,
-    stripe_session_id: session.id,
-    amount_cents: amount,
-    currency,
-    status: 'paid',
-  });
-  if (insertErr) {
-    if (insertErr.code === '23505') return; // webhook retry — already done
-    console.error('[membership/webhook] product purchase insert failed', insertErr);
-    return;
+  // One grant row per product, keyed (session, product): a retry is 23505.
+  let firstTime = false;
+  for (const p of products) {
+    const { error: insertErr } = await adminClient.from('membership_product_purchase').insert({
+      workspace_id: workspaceId,
+      person_id: personId,
+      product_id: p.id,
+      stripe_session_id: session.id,
+      // A single product keeps the session's total (as before); in a basket
+      // each row carries its own net price.
+      amount_cents: products.length === 1 ? amount : (p.price_cents ?? 0),
+      currency,
+      status: 'paid',
+    });
+    if (!insertErr) firstTime = true;
+    else if (insertErr.code !== '23505') console.error('[membership/webhook] product purchase insert failed', insertErr);
   }
+  if (!firstTime) return; // webhook retry — already done
 
   const [{ data: person }, { data: ws }] = await Promise.all([
     adminClient.from('person').select('first_name, last_name, email').eq('id', personId).maybeSingle(),
@@ -4058,7 +4081,7 @@ async function membershipProductPurchased(
       session.customer_details?.name ??
       [person?.first_name, person?.last_name].filter(Boolean).join(' '),
     payerEmail: session.customer_details?.email ?? person?.email ?? null,
-    itemLabel: `${ws?.name ?? 'Community'} — ${product.name}`,
+    itemLabel: `${ws?.name ?? 'Community'} — ${products.map((p) => p.name).join(', ')}`,
     amountCents: amount,
     currency,
     method: 'stripe',
@@ -4079,10 +4102,23 @@ async function membershipProductPurchased(
       postal_code: addr?.postal_code ?? null,
       city: addr?.city ?? null,
       country: addr?.country ?? null,
+      // A basket: one ledger row for the session, its lines inside.
+      ...(products.length > 1
+        ? {
+            lines: products.map((p) => ({
+              label: p.name,
+              net_cents: p.price_cents ?? 0,
+              vat_cents: Math.round(((p.price_cents ?? 0) * Number(meta.vat_rate_pct ?? 0)) / 100),
+              recurring: false,
+            })),
+          }
+        : {}),
     },
   });
 
-  await logMemberActivity(workspaceId, personId, 'membership_product_purchased', `Purchased · ${product.name}`);
+  for (const p of products) {
+    await logMemberActivity(workspaceId, personId, 'membership_product_purchased', `Purchased · ${p.name}`);
+  }
 
   // Access: the reconcile folds paid product purchases into the member's
   // entitlement, so an existing member (any status — bought grants survive
@@ -4107,11 +4143,13 @@ async function membershipProductPurchased(
     .eq('item_ref', itemRef)
     .maybeSingle();
   if (saved) {
-    const links = Array.isArray(product.links)
-      ? (product.links as { kind?: string; ref?: string; label?: string }[]).filter(
-          (l) => l?.kind === 'url' && typeof l.ref === 'string' && /^https?:\/\//.test(l.ref),
-        )
-      : [];
+    // Every product's links (a basket can hold several), each labelled by
+    // its own product when the link has no label.
+    const links = products.flatMap((p) =>
+      (Array.isArray(p.links) ? (p.links as { kind?: string; ref?: string; label?: string }[]) : [])
+        .filter((l) => l?.kind === 'url' && typeof l.ref === 'string' && /^https?:\/\//.test(l.ref))
+        .map((l) => ({ ...l, label: l.label || p.name })),
+    );
     const linksHtml = links.length
       ? `<p style="margin:24px 0 0;">${links
           .map(

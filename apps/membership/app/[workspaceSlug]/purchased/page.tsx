@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { ClearBasket } from '../clear-basket';
 import { ENTITY, appName, surfaceUrl } from '@thefibre/shared';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -36,6 +37,7 @@ export default async function PurchasedPage({
 
   return (
     <div className="min-h-screen bg-surface-sunken">
+      <ClearBasket workspaceSlug={workspaceSlug} />
       <main className="mx-auto max-w-lg px-6 py-24 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/10">
           <Check size={24} strokeWidth={2} className="text-emerald-700 dark:text-emerald-400" />

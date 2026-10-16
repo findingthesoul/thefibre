@@ -2,6 +2,7 @@ import { fetchCatalog, PublicApiError } from '@/lib/public-api';
 import { isLocale, t, toLocale, type Locale } from '@/lib/i18n';
 import { surfaceUrl } from '@thefibre/shared';
 import { TierGrid } from '../../[workspaceSlug]/tier-grid';
+import { BasketProvider } from '../../[workspaceSlug]/basket-provider';
 import { ProductGrid } from '../../[workspaceSlug]/product-grid';
 
 // The WHOLE join page, for a host website — headline, intro, tiers and
@@ -59,25 +60,28 @@ export default async function EmbedJoinPage({
           {intro}
         </p>
       )}
-      {tiers.length === 0 ? (
-        <p className="me-empty mt-10 text-center text-sm text-ink-subtle">{t(locale, 'no_tiers')}</p>
-      ) : (
-        <TierGrid
-          workspaceSlug={workspace.slug}
-          tiers={tiers}
-          products={products}
-          initialTierId={null}
-          priceLogic={catalog.price_logic ?? null}
-          locale={locale}
-          workspaceName={workspace.name}
-          membersAreaUrl={`${surfaceUrl('my-portal', process.env)}/members/${workspace.slug}`}
-          // Which terms this community asks a joiner to accept — its own if
-          // it set one, The Thread's standard ones otherwise. The API
-          // decides; the page only shows what it was told.
-          terms={catalog.terms ?? { url: '', standard: true }}
-        />
-      )}
-      <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} />
+      {/* The page basket (2026-10-16) — the same one as the join page. */}
+      <BasketProvider
+        workspaceSlug={workspace.slug}
+        workspaceName={workspace.name}
+        tiers={tiers}
+        products={products}
+        priceLogic={catalog.price_logic ?? null}
+        vatRegistered={catalog.vat_registered === true}
+        vatHomeRatePct={catalog.vat_home_rate_pct ?? null}
+        locale={locale}
+        membersAreaUrl={`${surfaceUrl('my-portal', process.env)}/members/${workspace.slug}`}
+        terms={catalog.terms ?? { url: '', standard: true }}
+        initialTierId={null}
+        cancelled={false}
+      >
+        {tiers.length === 0 ? (
+          <p className="me-empty mt-10 text-center text-sm text-ink-subtle">{t(locale, 'no_tiers')}</p>
+        ) : (
+          <TierGrid tiers={tiers} products={products} priceLogic={catalog.price_logic ?? null} vatRegistered={catalog.vat_registered === true} locale={locale} />
+        )}
+        <ProductGrid products={products} locale={locale} vatRegistered={catalog.vat_registered === true} groups={catalog.product_groups ?? []} />
+      </BasketProvider>
     </div>
   );
 }

@@ -163,6 +163,135 @@ const CATALOG = {
   },
   // THE BASKET JOIN (2026-10-16, Sjoerd: "and then pay"): choose a tier,
   // add to it, see the basket, pay once.
+  // THE PAGE BASKET (2026-10-16, Sjoerd: details once, a basket that fills).
+  basket_title: {
+    en: 'Your basket',
+    nl: 'Je mandje', // MT pending native review
+    es: 'Tu cesta', // MT
+    pt: 'O seu cesto', // MT
+    de: 'Dein Warenkorb', // MT
+    fr: 'Ton panier', // MT
+  },
+  basket_empty: {
+    en: 'Add a membership or a product.',
+    nl: 'Voeg een lidmaatschap of product toe.', // MT pending native review
+    es: 'Añade una membresía o un producto.', // MT
+    pt: 'Acrescente uma adesão ou um produto.', // MT
+    de: 'Füge eine Mitgliedschaft oder ein Produkt hinzu.', // MT
+    fr: 'Ajoute une adhésion ou un produit.', // MT
+  },
+  basket_add: {
+    en: 'Add to basket',
+    nl: 'In mandje', // MT pending native review
+    es: 'Añadir a la cesta', // MT
+    pt: 'Adicionar ao cesto', // MT
+    de: 'In den Warenkorb', // MT
+    fr: 'Ajouter au panier', // MT
+  },
+  basket_in: {
+    en: 'In your basket',
+    nl: 'In je mandje', // MT pending native review
+    es: 'En tu cesta', // MT
+    pt: 'No seu cesto', // MT
+    de: 'Im Warenkorb', // MT
+    fr: 'Dans ton panier', // MT
+  },
+  basket_remove: {
+    en: 'Remove',
+    nl: 'Verwijderen', // MT pending native review
+    es: 'Quitar', // MT
+    pt: 'Remover', // MT
+    de: 'Entfernen', // MT
+    fr: 'Retirer', // MT
+  },
+  basket_view: {
+    en: 'View',
+    nl: 'Bekijken', // MT pending native review
+    es: 'Ver', // MT
+    pt: 'Ver', // MT
+    de: 'Ansehen', // MT
+    fr: 'Voir', // MT
+  },
+  basket_items: {
+    en: '{n} items',
+    nl: '{n} items', // MT pending native review
+    es: '{n} artículos', // MT
+    pt: '{n} itens', // MT
+    de: '{n} Artikel', // MT
+    fr: '{n} articles', // MT
+  },
+  basket_one_item: {
+    en: '1 item',
+    nl: '1 item', // MT pending native review
+    es: '1 artículo', // MT
+    pt: '1 item', // MT
+    de: '1 Artikel', // MT
+    fr: '1 article', // MT
+  },
+  basket_subtotal: {
+    en: 'Subtotal excl. VAT',
+    nl: 'Subtotaal excl. btw', // MT pending native review
+    es: 'Subtotal sin IVA', // MT
+    pt: 'Subtotal sem IVA', // MT
+    de: 'Zwischensumme ohne MwSt.', // MT
+    fr: 'Sous-total HT', // MT
+  },
+  basket_vat_home_note: {
+    en: 'At {pct}%, the community’s own rate — exact once you choose your country.',
+    nl: 'Tegen {pct}%, het tarief van de community — precies zodra je je land kiest.', // MT pending native review
+    es: 'Al {pct}%, el tipo propio de la comunidad — exacto en cuanto elijas tu país.', // MT
+    pt: 'A {pct}%, a taxa da comunidade — exata assim que escolher o seu país.', // MT
+    de: 'Mit {pct} %, dem Satz der Community — genau, sobald du dein Land wählst.', // MT
+    fr: 'À {pct} %, le taux de la communauté — exact dès que tu choisis ton pays.', // MT
+  },
+  country_change: {
+    en: 'change',
+    nl: 'wijzigen', // MT pending native review
+    es: 'cambiar', // MT
+    pt: 'alterar', // MT
+    de: 'ändern', // MT
+    fr: 'modifier', // MT
+  },
+  basket_total: {
+    en: 'Total',
+    nl: 'Totaal', // MT pending native review
+    es: 'Total', // MT
+    pt: 'Total', // MT
+    de: 'Gesamt', // MT
+    fr: 'Total', // MT
+  },
+  basket_with_membership: {
+    en: 'With a membership',
+    nl: 'Bij een lidmaatschap', // MT pending native review
+    es: 'Con una membresía', // MT
+    pt: 'Com uma adesão', // MT
+    de: 'Mit einer Mitgliedschaft', // MT
+    fr: 'Avec une adhésion', // MT
+  },
+  basket_try_again: {
+    en: 'Something changed on our side just now — please try again in a minute.',
+    nl: 'Er veranderde net iets aan onze kant — probeer het over een minuutje opnieuw.', // MT pending native review
+    es: 'Algo cambió de nuestro lado — inténtalo de nuevo en un minuto.', // MT
+    pt: 'Algo mudou do nosso lado — tente de novo dentro de um minuto.', // MT
+    de: 'Bei uns hat sich gerade etwas geändert — versuch es in einer Minute noch einmal.', // MT
+    fr: 'Quelque chose vient de changer de notre côté — réessaie dans une minute.', // MT
+  },
+  basket_already_have: {
+    en: 'You already have: {names}. Remove it from the basket to continue.',
+    nl: 'Je hebt al: {names}. Haal het uit je mandje om verder te gaan.', // MT pending native review
+    es: 'Ya tienes: {names}. Quítalo de la cesta para continuar.', // MT
+    pt: 'Já tem: {names}. Retire do cesto para continuar.', // MT
+    de: 'Du hast bereits: {names}. Entferne es aus dem Warenkorb, um fortzufahren.', // MT
+    fr: 'Tu as déjà : {names}. Retire-le du panier pour continuer.', // MT
+  },
+  basket_checkout_title: {
+    en: 'Your details',
+    nl: 'Je gegevens', // MT pending native review
+    es: 'Tus datos', // MT
+    pt: 'Os seus dados', // MT
+    de: 'Deine Angaben', // MT
+    fr: 'Tes informations', // MT
+  },
   add_to_membership: {
     en: 'Add to your membership',
     nl: 'Voeg toe aan je lidmaatschap', // MT pending native review

@@ -5,6 +5,7 @@ import { isLocale, t, toLocale, type Locale } from '@/lib/i18n';
 import { surfaceUrl } from '@thefibre/shared';
 import { TierGrid } from './tier-grid';
 import { ProductGrid } from './product-grid';
+import { BasketProvider } from './basket-provider';
 
 // Public join page — no auth, no sidebar. Anyone with the link sees the
 // workspace's tiers and joins via Stripe Checkout.
@@ -73,7 +74,7 @@ export default async function PublicJoinPage({
 
   return (
     <div className="min-h-screen bg-surface-sunken">
-      <main className="mx-auto max-w-5xl px-6 py-16">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-16">
         <div className="text-[11px] uppercase tracking-wider text-ink-muted text-center">
           {workspace.name}
         </div>
@@ -106,33 +107,34 @@ export default async function PublicJoinPage({
           </p>
         )}
 
-        {tiers.length === 0 ? (
-          <p className="mt-12 text-center text-sm text-ink-subtle">{t(locale, 'no_tiers')}</p>
-        ) : (
-          <TierGrid
-            workspaceSlug={workspace.slug}
-            tiers={tiers}
-            products={products}
-            initialTierId={initialTierId}
-            priceLogic={catalog.price_logic ?? null}
-            vatRegistered={catalog.vat_registered === true}
-            vatHomeRatePct={catalog.vat_home_rate_pct ?? null}
-            locale={locale}
-            workspaceName={workspace.name}
-            // Where "Show me in …" points: this community's members area on
-            // my.thread — the participant's own portal, not the Members app.
-            // Resolved server-side from the environment, like every other
-            // cross-surface link.
-            membersAreaUrl={`${surfaceUrl('my-portal', process.env)}/members/${workspace.slug}`}
-            // Which terms this community asks a joiner to accept — its own if
-            // it set one, The Thread's standard ones otherwise. The API
-            // decides; the page only shows what it was told.
-            terms={catalog.terms ?? { url: '', standard: true }}
-          />
-        )}
-
-        {/* À-la-carte products — renders nothing when no product is purchasable. */}
-        <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} vatRegistered={catalog.vat_registered === true} vatHomeRatePct={catalog.vat_home_rate_pct ?? null} groups={catalog.product_groups ?? []} />
+        {/* THE PAGE BASKET (2026-10-16): every card adds to one basket; the
+            basket asks for the details once and starts one checkout. A
+            ?tier= link lands with that tier in it; a cancelled checkout comes
+            back to the basket as it was. */}
+        <BasketProvider
+          workspaceSlug={workspace.slug}
+          workspaceName={workspace.name}
+          tiers={tiers}
+          products={products}
+          priceLogic={catalog.price_logic ?? null}
+          vatRegistered={catalog.vat_registered === true}
+          vatHomeRatePct={catalog.vat_home_rate_pct ?? null}
+          locale={locale}
+          // Where "Show me in …" points: this community's members area on
+          // my.thread. Resolved server-side from the environment.
+          membersAreaUrl={`${surfaceUrl('my-portal', process.env)}/members/${workspace.slug}`}
+          // Which terms a joiner accepts — the API decides.
+          terms={catalog.terms ?? { url: '', standard: true }}
+          initialTierId={initialTierId}
+          cancelled={cancelled}
+        >
+          {tiers.length === 0 ? (
+            <p className="mt-12 text-center text-sm text-ink-subtle">{t(locale, 'no_tiers')}</p>
+          ) : (
+            <TierGrid tiers={tiers} products={products} priceLogic={catalog.price_logic ?? null} vatRegistered={catalog.vat_registered === true} locale={locale} />
+          )}
+          <ProductGrid products={products} locale={locale} vatRegistered={catalog.vat_registered === true} groups={catalog.product_groups ?? []} />
+        </BasketProvider>
 
         <footer className="mt-16 text-xs text-ink-muted text-center">
           {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · {ENTITY.publicName}

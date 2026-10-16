@@ -6,6 +6,80 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.228.0] — 2026-10-16
+
+### One basket for the whole join page: add a membership and products, fill in your details once (Members 1.8.0)
+
+Sjoerd: *"can I add the membership... and then add products... and I see the
+basket filling.... and I only have to fill in emails and data only once. Not
+at product level (membership is a product too, in a sense)"*.
+
+- **Every card adds to one basket.** A tier is just another item: one
+  membership per basket, and choosing another tier replaces it. A product
+  is added the same way. A recurring product can only ride a membership's
+  subscription; without one its button says "With a membership".
+- **The basket fills visibly and stays with you.** On phones it's a sticky
+  bottom bar ("Your basket · 2 items · €459,80") that opens into a sheet; on
+  wide screens, a sticky panel beside the cards.
+  - Each line shows its price, the small incl.-VAT note and ✕, plus a
+    year/month toggle on a tier sold both ways.
+  - With a membership in, its add-ons are suggested ("+ Sheet music
+    library").
+  - The discount code is offered with a membership: "Code applies to your
+    membership".
+- **VAT lives in the totals, always** (Sjoerd: *"VAT is at the top, not in
+  the basket overview"*): subtotal excl. VAT, then VAT at the quote's rate
+  (reverse-charged, or outside the EU), then the total.
+  - Before a country is chosen, the community's own rate is used, and the
+    basket says so.
+  - The pay sentence uses the incl. amounts ("You pay €459,80 now, then €363
+    once a year").
+- **One checkout step, everything asked once:** the country (a line, "Belgium
+  · change"), name, email, invoicing, directory consent and terms (consent
+  only with a membership, never pre-ticked), then ONE Stripe Checkout. The
+  per-product buy forms are gone, and the per-product country picker with
+  them; one country serves the whole page.
+- **The country is guessed, then the viewer's** (Sjoerd: *"recognize where
+  people are from and preselect the country... they can refine it"*).
+  - The new `/api/geo` reads Vercel's `x-vercel-ip-country` and returns it
+    to this browser only (`private, no-store`). It's a route of its own, so
+    the page stays cached.
+  - A stored choice wins over the guess; an unknown code leaves the picker
+    empty. Nothing is stored server-side or logged, and the API never sees
+    an IP.
+- **Remembered in this browser** (localStorage, every access in try/catch).
+  - Add, reload, and it's still there.
+  - A `?tier=` invitation lands with that tier in the basket and the basket
+    open.
+  - A cancelled checkout comes back to the basket exactly as it was.
+  - A stale stored basket loses what no longer exists and never gains
+    anything.
+  - The success pages empty it.
+- **Server, additive, one route: `/public/buy` takes `product_ids`** beside
+  `product_id`. It's the same route and the same line building: one line per
+  product, each with the VAT rate and the fee on the net. The webhook writes a
+  grant per product, logs activity and lists receipt links for each, and keeps
+  ONE ledger row per session with `billing.lines`.
+  - A product not sold on its own refuses the whole basket (400).
+  - A membership basket goes through `/public/join` as v1.225.0 left it.
+- **Safe with an API one release behind:** a single-product basket sends
+  `product_id` alone; only two or more send `product_ids`. The older API
+  refuses those (400), and the page says "try again in a minute", never a
+  quiet single-product purchase.
+- Tests:
+  - unit, the basket model (12): one tier, replace, interval fit, add-ons,
+    stale ids, totals with VAT per line, the code on the membership only, the
+    checkout target, the initial-country order (stored > restore > header >
+    empty, unknown codes ignored);
+  - integration on staging + Stripe TEST (4): two products → one session, a
+    line each at 21%, then via the signed webhook a grant each + ONE ledger
+    row with lines; one product as `product_id`; an unsold product refuses
+    the basket; both fields refused;
+  - the v1.225.0 join, paid-basket, VAT and buyer-details tests re-run
+    (15/15);
+  - `e2e/page-basket.spec.ts`: add, reload, still there; `?tier=`; the
+    cancelled restore; the phone bar.
+
 ## [1.227.3] — 2026-10-16
 
 ### The e2e identities keep their names
