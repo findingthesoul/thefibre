@@ -83,7 +83,7 @@ import {
 import { clearTeamsTokenCache } from '../lib/teams/host.js';
 import { createMeetingLink } from '../lib/meeting-links.js';
 import { bookingCalendarTitle, buildBookingIcal } from '../lib/ical.js';
-import { bookingIcalUid, bookingInviteAttachment } from '../lib/meet-invite.js';
+import { bookingIcalUid, bookingInviteAttachment, bookingOrganizer } from '../lib/meet-invite.js';
 import { spreadAcrossDays } from '../lib/spread-slots.js';
 import { meetT } from '../lib/email/meet-booking-i18n.js';
 import {
@@ -307,11 +307,10 @@ function guestInvite(
       meetingName: c.meetingName,
       description: description ?? null,
       location: c.meetUrl ?? c.location ?? null,
+      // The ORGANIZER is the platform address under this name
+      // (bookingOrganizer, lib/meet-invite.ts); the host's own address rides
+      // as the mail's Reply-To, set by each sender.
       hostName: c.hostName,
-      // ORGANIZER has to be an address, and a host without one is possible.
-      // The platform address is the honest stand-in: a reply reaches us, not
-      // nobody.
-      hostEmail: c.hostEmail ?? platformFromAddress(),
       guestName: c.inviteeName,
       guestEmail: c.inviteeEmail,
       sequence,
@@ -2319,8 +2318,8 @@ meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
       .filter(Boolean)
       .join('\n\n'),
     location: b.meet_url ?? b.alternative_location ?? mt?.default_location ?? null,
-    organizerName: hostUser?.full_name ?? hostRow?.slug ?? 'Host',
-    organizerEmail: hostUser?.email ?? platformFromAddress(),
+    // The same ORGANIZER as the mailed invitation: one uid, one organiser.
+    ...bookingOrganizer(hostUser?.full_name ?? hostRow?.slug ?? 'Host'),
     attendeeName: b.invitee_name,
     attendeeEmail: b.invitee_email,
     status: b.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED',

@@ -25,6 +25,7 @@
 // holds it, bumped when a booking moves.
 
 import { buildInviteIcal, icalContentType, bookingCalendarTitle } from '@thefibre/shared/ical';
+import { platformFromAddress } from './email/client.js';
 
 export type BookingInvite = {
   bookingId: string;
@@ -35,11 +36,31 @@ export type BookingInvite = {
   /** Join link or room; what the guest needs to actually turn up. */
   location?: string | null;
   hostName: string;
-  hostEmail: string;
   guestName: string;
   guestEmail: string;
   sequence: number;
 };
+
+/**
+ * Who a Meet invitation names as its ORGANIZER: the PLATFORM's address,
+ * under the host's NAME — Thread's rule (lib/calendar-invite.ts, "WHOSE
+ * ADDRESS GOES IN ORGANIZER"), for the same reason. The mail leaves from the
+ * platform address, and an ORGANIZER at the host's own domain is what Gmail
+ * refuses as a forged invitation ("Unable to load event"). The address accepts
+ * mail (a Google Group), so a guest's Accept does not bounce; the guest's
+ * mail has Reply-To = the host, so a written reply still reaches them.
+ *
+ * Until 2026-10-16 this was the host's own address, on every sending path
+ * (the step-1 capture). Sjoerd, 2026-10-16: "A now, B later" — B, Google
+ * sending the invitation for a Google-connected host so an Accept lands in
+ * their own calendar, is in the backlog.
+ *
+ * The mailed invitation AND the downloadable file both use this: one uid, one
+ * organiser, or a calendar holding both sees two owners of one event.
+ */
+export function bookingOrganizer(hostName: string): { organizerName: string; organizerEmail: string } {
+  return { organizerName: hostName, organizerEmail: platformFromAddress() };
+}
 
 /** The UID a booking's calendar entry has, everywhere it appears. */
 export function bookingIcalUid(bookingId: string): string {
@@ -68,8 +89,7 @@ export function bookingInviteAttachment(
       .join('\n\n'),
     location: b.location ?? null,
     url: b.location ?? null,
-    organizerName: b.hostName,
-    organizerEmail: b.hostEmail,
+    ...bookingOrganizer(b.hostName),
     attendeeName: b.guestName,
     attendeeEmail: b.guestEmail,
     sequence: b.sequence,

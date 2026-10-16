@@ -20,12 +20,13 @@ type Sent = {
   subject: string;
   text?: string;
   html?: string;
+  replyTo?: string;
   attachments?: { filename: string; content: string; contentType?: string }[];
 };
 const sent: Sent[] = [];
 
-// The recorder. platformFromAddress is used for ORGANIZER when a host has no
-// address, so it has to keep working.
+// The recorder. platformFromAddress is every invitation's ORGANIZER (since
+// 2026-10-16, Thread's rule), so it has to keep working.
 vi.mock('../lib/email/client.js', () => ({
   sendEmail: async (msg: Sent) => {
     sent.push(msg);
@@ -116,6 +117,18 @@ describe('a booking made from a US Eastern browser', () => {
     expect(ics).toContain(`UID:meet-${bookingId}@thefibre.app`);
     expect(ics).toContain('RSVP=TRUE');
     expect(ics).toContain(guest);
+  });
+
+  it('names the PLATFORM as ORGANIZER under the host’s name, and the host as Reply-To', async () => {
+    // Thread's rule. Until 2026-10-16 the ORGANIZER was the host's own
+    // address while the mail left from the platform's — the shape Gmail
+    // refuses as a forged invitation.
+    const mail = guestMail()!;
+    const ics = Buffer.from(mail.attachments![0]!.content, 'base64').toString('utf8');
+    const organizer = ics.replace(/\r\n[ \t]/g, '').split('\r\n').find((l) => l.startsWith('ORGANIZER')) ?? '';
+    expect(organizer).toMatch(/^ORGANIZER;CN=[^:]+:mailto:noreply@thefibre\.app$/);
+    expect(organizer).not.toContain(f.hostEmail);
+    expect(mail.replyTo).toBe(f.hostEmail);
   });
 
   it('sent the HOST their own mail, in the host zone, with no invitation', async () => {

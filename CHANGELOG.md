@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.245.3] — 2026-10-16
+
+### Meet's calendar invitations follow Thread's rule, so Gmail files them (Meet 2.36.1)
+
+- Sjoerd, 2026-10-16: "A now, B later."
+- **What was wrong.** A captured run of every Meet sending path showed the
+  guest's invitation naming the HOST's own address as its ORGANIZER, while
+  the mail leaves from the platform address. That is the shape Thread
+  dropped on 2026-09-25, after Gmail refused every such invitation ("Unable
+  to load event", a forged-looking invite). So Meet invitations were likely
+  failing the same way in Gmail.
+- **Now** the ORGANIZER is the platform's address (`noreply@thethread.app`,
+  a mailbox that accepts mail, so an Accept doesn't bounce), shown under the
+  host's NAME. The mail's Reply-To is still the host, so a written reply
+  reaches them. This is exactly Thread's rule. One function decides it
+  (`bookingOrganizer`, lib/meet-invite.ts), used by the mailed invitation
+  and by the "Add to calendar" download, so one event never has two
+  organisers.
+- Every path, captured on staging through the real routes (mail recorded,
+  nothing sent): the same From and Reply-To before and after, and the
+  ORGANIZER changed on all of them:
+  - a guest books;
+  - the guest reschedules;
+  - the host sets the meeting link;
+  - the guest cancels;
+  - the host books someone by hand;
+  - the host approves a request;
+  - the download file.
+  A booking waiting for approval still gets no invitation (correct: it is
+  not a meeting yet).
+- **What it costs, as in Thread:** a guest's Accept goes to the platform
+  mailbox, not to the host. **B (backlog):** for a host with Google
+  connected, let Google send the invitation, so an Accept lands in the
+  host's own calendar.
+- Tested:
+  - `meet-guest-invite` asserts the platform ORGANIZER and Reply-To = host on
+    the real booking route, and fails on the previous code.
+  - `meet-invite.test` pins the ORGANIZER line on REQUEST and CANCEL.
+  - The Meet integration set passes, 10 files, 62/62; `lib` unit tests
+    964/964.
+- Not tested: a real Gmail, Outlook or Apple client. Waiting on the three
+  fixture mailboxes Sjoerd will name.
+
 ## [1.245.2] — 2026-10-16
 
 ### A product subscription's first invoice is never lost

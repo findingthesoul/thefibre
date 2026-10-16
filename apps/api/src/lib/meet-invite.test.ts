@@ -8,7 +8,8 @@
 // which looks fine when wrong.
 
 import { describe, expect, it } from 'vitest';
-import { bookingIcalUid, bookingInviteAttachment, type BookingInvite } from './meet-invite.js';
+import { bookingIcalUid, bookingInviteAttachment, bookingOrganizer, type BookingInvite } from './meet-invite.js';
+import { platformFromAddress } from './email/client.js';
 
 const booking: BookingInvite = {
   bookingId: '7c2f1a90-0000-4000-8000-000000000001',
@@ -18,7 +19,6 @@ const booking: BookingInvite = {
   description: 'A quick one.',
   location: 'https://zoom.us/j/123456789',
   hostName: 'Sjoerd Luteijn',
-  hostEmail: 'host@example.com',
   guestName: 'Guest Person',
   guestEmail: 'guest@example.com',
   sequence: 0,
@@ -63,7 +63,17 @@ describe('the attachment is an invitation', () => {
     expect(text).not.toMatch(/SUMMARY:.*Guest Person/);
     expect(text).toContain('ATTENDEE');
     expect(text).toContain('guest@example.com');
-    expect(text).toMatch(/ORGANIZER[^\r\n]*host@example\.com/);
+  });
+
+  it('ORGANIZER is the platform address under the host’s NAME — Thread’s rule', () => {
+    // Until 2026-10-16 it was the host's own address while the mail left from
+    // the platform's: the shape Gmail refuses ("Unable to load event").
+    const text = body(bookingInviteAttachment(booking, 'REQUEST'));
+    const organizer = text.split('\r\n').find((l) => l.startsWith('ORGANIZER')) ?? '';
+    expect(organizer).toBe(`ORGANIZER;CN=Sjoerd Luteijn:mailto:${platformFromAddress()}`);
+    expect(bookingOrganizer('Sjoerd Luteijn')).toEqual({ organizerName: 'Sjoerd Luteijn', organizerEmail: platformFromAddress() });
+    // The same on the cancellation: one event, one organiser.
+    expect(body(bookingInviteAttachment(booking, 'CANCEL'))).toContain(organizer);
   });
 
   it('asks for an answer: RSVP is on', () => {
