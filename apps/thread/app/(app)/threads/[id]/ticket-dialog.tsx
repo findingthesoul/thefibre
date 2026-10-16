@@ -41,12 +41,16 @@ function fromLocalInput(v: string): string | null {
 export function TicketDialog({
   locale,
   threadId,
+  sellerVatRegistered = false,
   ticket,
   onClose,
   onSaved,
 }: {
   locale: Locale;
   threadId: string;
+  /** The thread's seller is VAT-registered: only then is "Price includes
+   *  VAT" offered — for anyone else the charge would ignore it. */
+  sellerVatRegistered?: boolean;
   ticket: TicketRow | null;
   onClose: () => void;
   onSaved: () => void;
@@ -80,6 +84,9 @@ export function TicketDialog({
       is_active: fd.get('is_active') === 'on',
       // The shared picker never lets a custom list go empty.
       payment_methods: methods,
+      // Sent only when the switch is shown, so saving a ticket for an
+      // unregistered seller never touches a flag they cannot see.
+      ...(sellerVatRegistered ? { price_includes_vat: fd.get('price_includes_vat') === 'on' } : {}),
     };
 
     startTransition(async () => {
@@ -155,6 +162,14 @@ export function TicketDialog({
             options={CURRENCIES}
           />
         </div>
+        {sellerVatRegistered && (
+          <SwitchField
+            label={t(locale, 'price_incl_vat_label')}
+            name="price_includes_vat"
+            defaultChecked={ticket?.price_includes_vat ?? false}
+            hint={t(locale, 'price_incl_vat_hint')}
+          />
+        )}
         <TextField
             label={t(locale, 'quantity_limit')}
             name="quantity_limit"

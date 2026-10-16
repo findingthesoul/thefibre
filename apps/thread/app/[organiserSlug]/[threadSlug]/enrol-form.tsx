@@ -24,6 +24,7 @@ import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import { signupByDate } from '@thefibre/shared/thread-dates';
 import { INTL_LOCALES } from '@thefibre/shared/i18n';
 import { VatBreakdown, VatInclNote } from '@thefibre/shared/ui/vat-price';
+import { netFromInclusive } from '@thefibre/shared/price-logic';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { redirectToCheckout } from '@thefibre/shared/checkout-redirect';
 import { CheckCircle2 } from 'lucide-react';
@@ -154,6 +155,13 @@ export function EnrolCard({
   const memberPriceCents =
     myPrice && myPrice.reason === 'membership' ? myPrice.price_cents : null;
   const activePriceCents = memberPriceCents ?? listPriceCents;
+  // PRICE INCLUDES VAT (2026-10-16): a ticket so marked was entered as what a
+  // home buyer pays. VatInclNote and VatBreakdown are only ever handed a NET,
+  // so the net is derived here by the same shared rule the charge uses
+  // (netFromInclusive at the seller's home rate) — never VAT on top of VAT.
+  const activeIncl = !!(vatRegistered && vatHomePct && selectedTicket?.price_includes_vat);
+  const activeNetCents =
+    activePriceCents != null && activeIncl ? netFromInclusive(activePriceCents, vatHomePct!) : activePriceCents;
   const activeCurrency = tickets.length
     ? selectedTicket?.price_currency ?? 'EUR'
     : priceCurrency;
@@ -370,7 +378,7 @@ export function EnrolCard({
           rate until the form has a country — then the breakdown below says
           it exactly. */}
       {vatRegistered && !vatQuote && (activePriceCents ?? 0) > 0 && (
-        <VatInclNote netCents={activePriceCents!} ratePct={vatHomePct} currency={activeCurrency ?? 'EUR'} locale={locale} className="mt-0.5 text-right" />
+        <VatInclNote netCents={activeNetCents!} ratePct={vatHomePct} currency={activeCurrency ?? 'EUR'} locale={locale} className="mt-0.5 text-right" />
       )}
 
       {state === 'redirecting' ? (
@@ -654,9 +662,9 @@ export function EnrolCard({
                 className={INPUT}
               />
               {vatQuote ? (
-                <VatBreakdown netCents={activePriceCents ?? 0} quote={vatQuote} currency={activeCurrency ?? 'EUR'} locale={locale} />
+                <VatBreakdown netCents={activeNetCents ?? 0} quote={vatQuote} currency={activeCurrency ?? 'EUR'} locale={locale} />
               ) : (
-                <p className="text-xs text-ink-subtle">{t(locale, 'prices_excl_vat')}</p>
+                <p className="text-xs text-ink-subtle">{t(locale, activeIncl ? 'prices_incl_vat' : 'prices_excl_vat')}</p>
               )}
             </div>
           )}

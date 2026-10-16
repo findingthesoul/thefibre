@@ -204,6 +204,8 @@ export type CouldJoin = {
   list_price_cents: number;
   your_price_cents: number;
   currency: string;
+  /** The prices include VAT (additive; absent = excl., as before). */
+  price_includes_vat?: boolean;
   pct: number;
   /** The public address in two halves, so a join goes through the ONE enrol
    *  route. Optional: an API older than v1.192 does not send them. */

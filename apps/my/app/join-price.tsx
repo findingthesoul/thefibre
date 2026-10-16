@@ -20,6 +20,9 @@ export function JoinPrice({ j }: { j: CouldJoin }) {
       {j.list_price_cents > j.your_price_cents && (
         <span className="text-ink-muted"> instead of {money(j.list_price_cents, j.currency)}</span>
       )}
+      {/* Said only when it is so: a price marked "includes VAT" is the whole
+          price; an excl. one gets its VAT at checkout. */}
+      {j.price_includes_vat && <span className="text-ink-muted"> incl. VAT</span>}
     </>
   );
 }

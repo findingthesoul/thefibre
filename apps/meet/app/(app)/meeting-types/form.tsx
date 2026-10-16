@@ -57,6 +57,8 @@ export type MeetingTypeFormValues = {
   intake_form?: { id: string; name: string; fields: IntakeField[] } | null;
   price_cents?: number | null;
   price_currency?: string | null;
+  /** The price is what a home buyer pays, VAT included (2026-10-16). */
+  price_includes_vat?: boolean;
   /** NULL = inherit the account default from Settings → Payments. */
   payment_methods?: PayMethod[] | null;
 };
@@ -76,6 +78,7 @@ export function MeetingTypeForm({
   teams = [],
   calendars = [],
   zoomState = 'not_connected',
+  sellerVatRegistered = false,
   locale,
 }: {
   initial: MeetingTypeFormValues;
@@ -86,6 +89,9 @@ export function MeetingTypeForm({
   /** Whether Zoom can make meetings for this host (lib/zoom-state.ts):
    *  configured on this platform, connected, and refreshing. */
   zoomState?: ZoomState;
+  /** This host, as a seller, is VAT-registered (GET /meet/me): only then is
+   *  "Price includes VAT" offered — for anyone else the charge ignores it. */
+  sellerVatRegistered?: boolean;
   locale: Locale;
 }) {
   const isEdit = !!initial.id;
@@ -779,6 +785,25 @@ export function MeetingTypeForm({
                 ]}
               />
             </div>
+          )}
+          {pricing === 'paid' && sellerVatRegistered && (
+            // Price includes VAT (2026-10-16, as Members and Thread tickets).
+            // A plain checkbox, as in Members' tier dialog; the hidden marker
+            // tells the action the question was asked at all, so a host who
+            // never sees it never has the flag written.
+            <label className="mt-4 flex items-start gap-2 text-sm">
+              <input type="hidden" name="price_includes_vat_shown" value="1" />
+              <input
+                type="checkbox"
+                name="price_includes_vat"
+                defaultChecked={initial.price_includes_vat ?? false}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="text-ink">{t(locale, 'price_incl_vat_label')}</span>
+                <span className="mt-0.5 block text-xs text-ink-subtle">{t(locale, 'price_incl_vat_hint')}</span>
+              </span>
+            </label>
           )}
           {pricing === 'paid' && (
             // Suite let a meeting type be paid by invoice; Meet only knew

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { VatInclNote } from '@thefibre/shared/ui/vat-price';
+import { netFromInclusive } from '@thefibre/shared/price-logic';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
@@ -52,6 +53,8 @@ type MeetingType = {
   vat_registered?: boolean;
   /** The host's home VAT rate, or null (additive, 2026-10-16). */
   vat_home_pct?: number | null;
+  /** The price is what a home buyer pays, VAT included (2026-10-16). */
+  price_includes_vat?: boolean;
 };
 
 type HostMtResp = {
@@ -293,7 +296,13 @@ async function Card({
                         VAT-registered. Once the form knows the guest's
                         country, its own breakdown takes over. */}
                     <VatInclNote
-                      netCents={meetingType.price_cents}
+                      // A NET only: an incl. price is turned back into its
+                      // net by the rule the charge uses.
+                      netCents={
+                        meetingType.price_includes_vat && meetingType.vat_home_pct
+                          ? netFromInclusive(meetingType.price_cents ?? 0, meetingType.vat_home_pct)
+                          : meetingType.price_cents
+                      }
                       ratePct={meetingType.vat_home_pct}
                       currency={meetingType.price_currency ?? 'EUR'}
                       locale={L}

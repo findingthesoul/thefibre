@@ -36,6 +36,10 @@ export type ThreadRow = {
   /** Why it could not go live with sign-up open (paid, no working payment
    *  route), or null. From GET /threads/:id; absent on older APIs. */
   publish_blocker?: string | null;
+  /** Is this thread's SELLER VAT-registered (organiser first, then team or
+   *  workspace)? Only then does a ticket offer "Price includes VAT". From
+   *  GET /threads/:id; absent on older APIs (no switch). */
+  seller_vat_registered?: boolean;
   /** "Open until session N" (2026-10-16); null = the first key moment. */
   signups_close_engagement_id?: string | null;
   /** The thread's dates as the API decided them (lib/thread-dates.ts). */
@@ -145,6 +149,9 @@ export type PublicTicket = {
   /** Resolved server-side through the inheritance chain (ticket→thread→account). */
   payment_methods?: ('stripe' | 'invoice')[];
   sold_out: boolean;
+  /** The price is what a home buyer pays, VAT included (2026-10-16).
+   *  Absent on older APIs = excl., as before. */
+  price_includes_vat?: boolean;
 };
 
 export type RegistrationField = {

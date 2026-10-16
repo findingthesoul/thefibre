@@ -16,6 +16,7 @@ type Host = {
   zoom_connected?: boolean;
   zoom_configured?: boolean;
   zoom_refresh_failed_at?: string | null;
+  seller_vat_registered?: boolean;
 };
 
 export default async function NewMeetingTypePage({
@@ -29,6 +30,7 @@ export default async function NewMeetingTypePage({
   let calendars: CalendarOption[] = [];
   let hostSlug: string | null = null;
   let zoom: ZoomState = 'not_connected';
+  let sellerVatRegistered = false;
   try {
     const [t, c, h] = await Promise.all([
       apiFetch<{ items: Team[] }>('/api/v1/meet/teams'),
@@ -41,6 +43,7 @@ export default async function NewMeetingTypePage({
     calendars = c.items;
     hostSlug = h?.slug ?? null;
     zoom = zoomState(h);
+    sellerVatRegistered = !!h?.seller_vat_registered;
   } catch {
     // Non-fatal — falls back to personal-only.
   }
@@ -68,6 +71,7 @@ export default async function NewMeetingTypePage({
           calendars={calendars}
           hostSlug={hostSlug}
           zoomState={zoom}
+          sellerVatRegistered={sellerVatRegistered}
           locale={locale}
         />
       </div>

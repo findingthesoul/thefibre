@@ -369,6 +369,7 @@ export function PricingPanel({
         <TicketDialog
           locale={locale}
           threadId={thread.id}
+          sellerVatRegistered={!!thread.seller_vat_registered}
           ticket={dialog.ticket}
           onClose={() => setDialog(null)}
           onSaved={onSaved}

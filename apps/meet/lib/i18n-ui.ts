@@ -2421,6 +2421,22 @@ const CATALOG = {
     de: 'Preis', // MT
     fr: 'Prix', // MT
   },
+  price_incl_vat_label: {
+    en: 'Price includes VAT',
+    nl: 'Prijs is inclusief btw', // MT
+    es: 'El precio incluye IVA', // MT
+    pt: 'O preço inclui IVA', // MT
+    de: 'Preis enthält MwSt.', // MT
+    fr: 'Le prix inclut la TVA', // MT
+  },
+  price_incl_vat_hint: {
+    en: 'Invitees at your home rate pay exactly this price; the VAT is worked out of it. Changing it affects new bookings only.',
+    nl: 'Genodigden tegen je eigen tarief betalen precies deze prijs; de btw wordt eruit berekend. Wijzigen geldt alleen voor nieuwe boekingen.', // MT
+    es: 'Los invitados con tu tipo propio pagan exactamente este precio; el IVA se calcula dentro de él. Cambiarlo solo afecta a nuevas reservas.', // MT
+    pt: 'Os convidados à sua taxa pagam exatamente este preço; o IVA é calculado a partir dele. Alterar afeta só novas reservas.', // MT
+    de: 'Eingeladene zu deinem eigenen Satz zahlen genau diesen Preis; die MwSt. wird herausgerechnet. Eine Änderung gilt nur für neue Buchungen.', // MT
+    fr: 'Les invités à ton taux paient exactement ce prix ; la TVA est calculée dedans. Changer ceci ne vaut que pour les nouvelles réservations.', // MT
+  },
   price_hint: {
     en: 'Excluding tax. Stripe minimum is roughly 0.50 in most currencies.',
     nl: 'Exclusief btw. Het Stripe-minimum is ongeveer 0,50 in de meeste valuta.',

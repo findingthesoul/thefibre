@@ -6,6 +6,73 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.238.0] — 2026-10-16
+
+### Price includes VAT, for Thread tickets and Meet (Thread 4.16.0, Meet 2.35.0, my.thread 0.19.1)
+
+This is the switch Members has had since v1.231.0, now on a Thread ticket
+and a Meet meeting type. It works the same way: one net, one excl.
+pipeline, and no Stripe "inclusive" tax rates. It needs migration
+20261016103134, applied in v1.236.2. Nothing changes until a ticket or a
+meeting type is switched on.
+
+- **Charge.** A ticket or meeting type marked "Price includes VAT" was
+  entered as what a buyer at the home rate pays. The net is derived once,
+  with `chargeNet`, after any code or member price, and everything after
+  that runs on the net exactly as for an excl. price: VAT by the one rule,
+  the Stripe line plus tax rate, the fee, the place's amount and the ledger
+  breakdown. A home buyer pays exactly the entered price. A reverse-charge
+  or non-EU buyer pays the net (option A, as in Members). A seller who is
+  not VAT-registered has the flag ignored.
+- **The seller is the person first.** `chargeNet` gains `organiserUserId`,
+  because Thread and Meet sell as the organiser or host before the team or
+  workspace (`lib/seller-vat.ts`). Members passes none and is unchanged.
+  The test seller is registered in person while their workspace is not, so
+  the 363 → 300 + 63 case proves the per-person lookup.
+- **Editors.**
+  - Thread's ticket dialog and Meet's meeting-type form offer the switch
+    only when the real seller is VAT-registered.
+  - `GET /thread/threads/:id` and `GET /meet/me` gain
+    `seller_vat_registered`, judged on the seller rather than on the
+    workspace.
+  - A save from someone who never saw the switch never writes the flag.
+- **Public pages.**
+  - The enrol form, the thread cards, the embedded thread page, Meet's
+    booking page and its checkout breakdown derive the net with the shared
+    `netFromInclusive` at `vat_home_pct`. `VatInclNote` and `VatBreakdown`
+    are only ever handed a net, so nothing can add VAT on top of VAT.
+  - Before a country is chosen, the form says "This price includes VAT"
+    instead of "Prices are excl. VAT".
+  - my.thread adds "incl. VAT" to a could-join price that is.
+- **Additive fields.**
+  - `price_includes_vat` on the public thread (and each of its
+    `tickets[]`), list and embed items.
+  - `/thread/public/my-price`, could-join rows and Meet's meeting-type
+    payload.
+  - `verify-public-api.mjs` has `thread`, `listItem` and `embedItem` in
+    PENDING, to be collected the day production serves them.
+- **Not changed, waiting for Sjoerd.** An organiser adding an invoiced
+  participant, and a host creating a booking, still record the price
+  without a breakdown, and the ledger carves VAT out of it. The platform fee
+  is still taken on the gross on the Thread webhook and payment-link paths.
+- **Audit, read-only:** `apps/api/scripts/audit-fee-on-gross.ts prod|staging`
+  lists the Thread card payments whose fee was taken (payment link: money) or
+  only recorded (webhook: ledger) on the price incl. VAT. It prints purchase
+  ids and amounts only, and refuses with a sentence when the env file has no
+  Stripe key. Staging: one card purchase, none affected.
+
+Tests: `thread-meet-vat.int.test.ts` (17, up from 9) against staging with
+Stripe TEST. For an incl. €363 ticket and an incl. €363 meeting type:
+- an NL card checkout is exactly 363 = 300 + 63 (subtotal, tax and total
+  read from the Checkout session);
+- the ledger reads the same breakdown, and the Thread place stores the net
+  of 300;
+- an NL invoice comes to 363;
+- a US buyer pays 300;
+- an unregistered seller charges 363 with no tax line;
+- the public payloads carry the flag.
+The nine excl. cases are unchanged.
+
 ## [1.237.0] — 2026-10-16
 
 ### Files in my.thread: every document in one place (my.thread 0.19.0)

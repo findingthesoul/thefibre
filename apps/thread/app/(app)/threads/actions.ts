@@ -240,6 +240,8 @@ export type TicketRow = {
   is_active: boolean;
   position: number;
   payment_methods?: ('stripe' | 'invoice')[] | null;
+  /** The price is what a home buyer pays, VAT included (2026-10-16). */
+  price_includes_vat?: boolean;
 };
 
 export type CouponRow = {

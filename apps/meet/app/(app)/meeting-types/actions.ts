@@ -156,6 +156,10 @@ function bodyFromForm(formData: FormData) {
         price_cents: Number.isFinite(cents) && cents > 0 ? cents : 0,
         price_currency: currency,
         payment_methods,
+        // Only when the editor asked (the seller is VAT-registered).
+        ...(formData.get('price_includes_vat_shown')
+          ? { price_includes_vat: formData.get('price_includes_vat') === 'on' }
+          : {}),
       };
     })(),
     team_id: teamId && teamId !== 'personal' ? teamId : null,

@@ -22,6 +22,7 @@ import { EnrolCard } from './[threadSlug]/enrol-form';
 import { one } from '@/lib/thread-types';
 import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
 import { VatInclNote } from '@thefibre/shared/ui/vat-price';
+import { netFromInclusive } from '@thefibre/shared/price-logic';
 import { DEFAULT_CARD_DATES, type CardDates } from '@thefibre/shared/thread-dates';
 
 export type PublicThreadListItem = {
@@ -46,6 +47,8 @@ export type PublicThreadListItem = {
   timezone?: string;
   /** The seller's home VAT rate, or null (additive, 2026-10-16). */
   vat_home_pct?: number | null;
+  /** The shown price includes VAT (its cheapest ticket says so). */
+  price_includes_vat?: boolean;
 };
 
 type PopupDetail = {
@@ -155,7 +158,13 @@ export function ThreadsGrid({
           // seller is not VAT-registered or the thread is free.
           const vatNote = (
             <VatInclNote
-              netCents={th.price_cents ?? 0}
+              // A NET only (vat-price.tsx): an incl. price is turned back into
+              // its net by the rule the charge uses, never VAT on top of VAT.
+              netCents={
+                th.price_includes_vat && th.vat_home_pct
+                  ? netFromInclusive(th.price_cents ?? 0, th.vat_home_pct)
+                  : (th.price_cents ?? 0)
+              }
               ratePct={th.vat_home_pct}
               currency={th.price_currency ?? 'EUR'}
               locale={th.language}

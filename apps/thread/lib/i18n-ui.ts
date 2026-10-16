@@ -3620,6 +3620,30 @@ const CATALOG = {
     de: 'Veranstalter', // MT
     fr: 'Organisateur', // MT
   },
+  price_incl_vat_label: {
+    en: 'Price includes VAT',
+    nl: 'Prijs is inclusief btw', // MT
+    es: 'El precio incluye IVA', // MT
+    pt: 'O preço inclui IVA', // MT
+    de: 'Preis enthält MwSt.', // MT
+    fr: 'Le prix inclut la TVA', // MT
+  },
+  price_incl_vat_hint: {
+    en: 'Participants at your home rate pay exactly this price; the VAT is worked out of it. Changing it affects new sign-ups only.',
+    nl: 'Deelnemers tegen je eigen tarief betalen precies deze prijs; de btw wordt eruit berekend. Wijzigen geldt alleen voor nieuwe inschrijvingen.', // MT
+    es: 'Los participantes con tu tipo propio pagan exactamente este precio; el IVA se calcula dentro de él. Cambiarlo solo afecta a nuevas inscripciones.', // MT
+    pt: 'Os participantes à sua taxa pagam exatamente este preço; o IVA é calculado a partir dele. Alterar afeta só novas inscrições.', // MT
+    de: 'Teilnehmende zu deinem eigenen Satz zahlen genau diesen Preis; die MwSt. wird herausgerechnet. Eine Änderung gilt nur für neue Anmeldungen.', // MT
+    fr: 'Les participants à ton taux paient exactement ce prix ; la TVA est calculée dedans. Changer ceci ne vaut que pour les nouvelles inscriptions.', // MT
+  },
+  incl_vat_suffix: {
+    en: 'incl. VAT',
+    nl: 'incl. btw', // MT
+    es: 'IVA incl.', // MT
+    pt: 'IVA incl.', // MT
+    de: 'inkl. MwSt.', // MT
+    fr: 'TTC', // MT
+  },
   cancel_req_badge: {
     en: 'Cancellation requested',
     nl: 'Annulering gevraagd', // MT

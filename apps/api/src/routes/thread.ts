@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { fillEmptyPlatformName } from '../lib/identity-profile.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
-import { homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
+import { chargeNet, homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import {
   closedReason,
@@ -1001,6 +1001,15 @@ threadRoutes.get('/threads/:id', async (c) => {
     // editor shows it BEFORE the click, from the same check the save runs
     // (lib/thread-payment-route.ts), so the two cannot disagree.
     publish_blocker: await paymentRouteProblem(thread.id as string),
+    // Additive (2026-10-16): is the SELLER of this thread VAT-registered — the
+    // organiser's own details first, then the team or workspace, the lookup
+    // the charge uses (lib/seller-vat.ts). The ticket editor offers "Price
+    // includes VAT" only when it is; for anyone else the flag would be
+    // ignored at the charge, so offering it would be a lie.
+    seller_vat_registered: !!(await resolveSellerVat(
+      thread.workspace_id as string,
+      ((Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser) as { user_id?: string | null } | null)?.user_id ?? null,
+    )),
     // The thread's three dates (lib/thread-dates.ts), for the editor's "sign-
     // ups close …" line: which rule decided it and when.
     dates: await (async () => {
@@ -3887,6 +3896,9 @@ const TicketBody = z.object({
   is_active: z.boolean().optional(),
   // Null = inherit thread-level (which may inherit the account default).
   payment_methods: z.array(z.enum(['stripe', 'invoice'])).nullable().optional(),
+  /** The entered price is what a buyer at the home rate pays (2026-10-16,
+   *  as Members). Ignored unless the thread's seller is VAT-registered. */
+  price_includes_vat: z.boolean().optional(),
 });
 
 threadRoutes.get('/threads/:id/tickets', async (c) => {
@@ -6428,12 +6440,12 @@ function ownerWorkspaceId(owner: PublicOwner): string {
 // stays blocked on the derived price.
 async function ticketPrices(
   threadIds: string[],
-): Promise<Map<string, { price_cents: number; price_currency: string }>> {
-  const map = new Map<string, { price_cents: number; price_currency: string }>();
+): Promise<Map<string, { price_cents: number; price_currency: string; price_includes_vat: boolean }>> {
+  const map = new Map<string, { price_cents: number; price_currency: string; price_includes_vat: boolean }>();
   if (!threadIds.length) return map;
   const { data } = await adminClient
     .from('thread_ticket')
-    .select('thread_id, price_cents, price_currency, available_until')
+    .select('thread_id, price_cents, price_currency, available_until, price_includes_vat')
     .in('thread_id', threadIds)
     .eq('is_active', true);
   const now = Date.now();
@@ -6441,7 +6453,11 @@ async function ticketPrices(
     if (t.available_until && new Date(t.available_until).getTime() < now) continue;
     const cur = map.get(t.thread_id);
     if (!cur || t.price_cents < cur.price_cents) {
-      map.set(t.thread_id, { price_cents: t.price_cents, price_currency: t.price_currency });
+      map.set(t.thread_id, {
+        price_cents: t.price_cents,
+        price_currency: t.price_currency,
+        price_includes_vat: !!(t as { price_includes_vat?: boolean }).price_includes_vat,
+      });
     }
   }
   return map;
@@ -6450,11 +6466,13 @@ async function ticketPrices(
 /** Effective public price: cheapest active ticket, else legacy price_cents. */
 function effectivePrice(
   t: { id: string; price_cents: number | null; price_currency?: string | null },
-  tickets: Map<string, { price_cents: number; price_currency: string }>,
-): { price_cents: number | null; price_currency: string | null } {
+  tickets: Map<string, { price_cents: number; price_currency: string; price_includes_vat: boolean }>,
+): { price_cents: number | null; price_currency: string | null; price_includes_vat: boolean } {
+  // `price_includes_vat` (additive, 2026-10-16): the shown price is what a
+  // home buyer pays, VAT included. A thread's own legacy price never is.
   const tk = tickets.get(t.id);
-  if (tk) return { price_cents: tk.price_cents, price_currency: tk.price_currency };
-  return { price_cents: t.price_cents, price_currency: t.price_currency ?? null };
+  if (tk) return { price_cents: tk.price_cents, price_currency: tk.price_currency, price_includes_vat: tk.price_includes_vat };
+  return { price_cents: t.price_cents, price_currency: t.price_currency ?? null, price_includes_vat: false };
 }
 
 // GET /api/v1/thread/public/organiser/:slug — organiser page payload
@@ -6717,7 +6735,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   const { data: ticketRows } = await adminClient
     .from('thread_ticket')
     .select(
-      'id, name, description, price_cents, price_currency, quantity_limit, available_until, payment_methods',
+      'id, name, description, price_cents, price_currency, quantity_limit, available_until, payment_methods, price_includes_vat',
     )
     .eq('thread_id', thread.id)
     .eq('is_active', true)
@@ -6776,6 +6794,8 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     description: t.description,
     price_cents: t.price_cents,
     price_currency: t.price_currency,
+    // Additive (2026-10-16): this price is VAT-inclusive at the home rate.
+    price_includes_vat: !!(t as { price_includes_vat?: boolean }).price_includes_vat,
     // Inheritance resolved server-side: ticket ?? thread(+account default).
     // Tickets can't resurrect card if the thread-level filter dropped it.
     payment_methods: ((t as { payment_methods?: string[] | null }).payment_methods?.length
@@ -6848,6 +6868,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       registration_fields: thread.registration_fields ?? [],
       price_cents: price.price_cents,
       price_currency: price.price_currency,
+      price_includes_vat: price.price_includes_vat,
       payment_methods: threadMethods,
       program: program
         ? {
@@ -7546,7 +7567,7 @@ threadRoutes.get('/public/my-price', async (c) => {
 
   const { data: activeTickets } = await adminClient
     .from('thread_ticket')
-    .select('id, name, price_cents, price_currency, quantity_limit, sales_open_at, sales_close_at')
+    .select('id, name, price_cents, price_currency, quantity_limit, sales_open_at, sales_close_at, price_includes_vat')
     .eq('thread_id', thread.id)
     .eq('is_active', true);
   const nowIso = new Date().toISOString();
@@ -7554,7 +7575,7 @@ threadRoutes.get('/public/my-price', async (c) => {
     (t) =>
       (!t.sales_open_at || t.sales_open_at <= nowIso) &&
       (!t.sales_close_at || t.sales_close_at >= nowIso),
-  ) as { id: string; price_cents: number; price_currency?: string }[];
+  ) as { id: string; price_cents: number; price_currency?: string; price_includes_vat?: boolean }[];
 
   const base = resolveBasePrice(
     { price_cents: thread.price_cents ?? null, price_currency: priceCurrencyOf(thread) },
@@ -7601,6 +7622,10 @@ threadRoutes.get('/public/my-price', async (c) => {
     // 100 and "20% off" below it without a second rule for which to show.
     member_pct: member?.pct ?? null,
     ticket_id: base.ticketId,
+    // Additive (2026-10-16): the price above is VAT-INCLUSIVE when the picked
+    // ticket says so; the form derives the net with the shared rule
+    // (netFromInclusive at vat_home_pct), as the charge does.
+    price_includes_vat: openTickets.find((t) => t.id === base.ticketId)?.price_includes_vat ?? false,
   });
 });
 
@@ -7696,7 +7721,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   let ticketId: string | null = null;
   const { data: activeTickets } = await adminClient
     .from('thread_ticket')
-    .select('id, name, price_cents, price_currency, quantity_limit, available_until, payment_methods')
+    .select('id, name, price_cents, price_currency, quantity_limit, available_until, payment_methods, price_includes_vat')
     .eq('thread_id', thread.id)
     .eq('is_active', true)
     .order('position');
@@ -7804,8 +7829,10 @@ threadRoutes.post('/public/enrol', async (c) => {
   const proven = provenEmail(verifiedEmail, email);
   const memberDiscount = proven ? await memberDiscountForVerifiedEmail(proven, thread.id) : null;
   const priced = enrolmentPrice(basePriceCents, coupon, memberDiscount?.pct ?? null);
-  const finalPriceCents = priced.cents;
-  const requiresPayment = finalPriceCents > 0;
+  // The ENTERED price after the code or member price (both act on the price
+  // as entered, as in Members); its net comes below, once the seller is known.
+  const enteredPriceCents = priced.cents;
+  const requiresPayment = enteredPriceCents > 0;
   // Inheritance: ticket ?? thread ?? organiser's account default ?? {stripe}.
   const { data: enrolOrg } = await adminClient
     .from('thread_organiser')
@@ -7835,6 +7862,19 @@ threadRoutes.post('/public/enrol', async (c) => {
   if (requiresPayment && !enrolCountry && (await resolveSellerVat(thread.workspace_id, enrolOrg?.user_id ?? null))) {
     return c.json({ error: 'Choose your country, so the VAT can be worked out.', code: 'country_required' }, 400);
   }
+  // PRICE INCLUDES VAT (2026-10-16, as Members): a ticket so marked was
+  // entered as what a home buyer pays; its net is derived ONCE here and
+  // everything after — VAT, Stripe, the place's amount, the ledger — runs on
+  // the net exactly as for an excl. price. An unregistered seller ignores it.
+  const chosenForVat = openTickets.find((t) => t.id === ticketId) as { price_includes_vat?: boolean } | undefined;
+  const finalPriceCents = await chargeNet({
+    workspaceId: thread.workspace_id,
+    organiserUserId: enrolOrg?.user_id ?? null,
+    enteredCents: enteredPriceCents,
+    includesVat: chosenForVat?.price_includes_vat ?? false,
+    country: enrolCountry,
+    vat_id: d.vat_id || d.billing?.tax_no || null,
+  });
   const enrolVat: SaleVat | null = requiresPayment
     ? await saleVat({
         workspaceId: thread.workspace_id,

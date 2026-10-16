@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
 import { publicT, INTL_LOCALES, type Locale } from '@/lib/i18n-public';
+import { netFromInclusive } from '@thefibre/shared/price-logic';
 import { useRouter } from 'next/navigation';
 import { Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,10 @@ type Props = {
     payment_methods?: PayMethod[] | null;
     /** The host adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
+    /** The host's home VAT rate, or null (additive, 2026-10-16). */
+    vat_home_pct?: number | null;
+    /** The price is what a home buyer pays, VAT included (2026-10-16). */
+    price_includes_vat?: boolean;
   };
 };
 
@@ -107,10 +112,15 @@ function usePayment(meetingType: Props['meetingType']) {
       ...vat,
     };
   }
-  const netCents = meetingType.price_cents ?? 0;
+  // A price "includes VAT" (2026-10-16): the NET is derived by the same
+  // shared rule the booking charge uses, so the breakdown below adds VAT to
+  // the net and never on top of VAT.
+  const entered = meetingType.price_cents ?? 0;
+  const incl = !!(vatRegistered && meetingType.price_includes_vat && meetingType.vat_home_pct);
+  const netCents = incl ? netFromInclusive(entered, meetingType.vat_home_pct!) : entered;
   const taxCents = vatQuote ? Math.round((netCents * vatQuote.rate_pct) / 100) : 0;
   const currency = (meetingType.price_currency ?? 'EUR').toUpperCase();
-  return { paid, offered, method, setMethod, billingRef, bookingFields, currency, vatRegistered, vatCountry, setVatCountry, vatNo, setVatNo, vatQuote, netCents, taxCents };
+  return { paid, offered, method, setMethod, billingRef, bookingFields, currency, vatRegistered, vatCountry, setVatCountry, vatNo, setVatNo, vatQuote, netCents, taxCents, incl };
 }
 
 function PaymentSection({
@@ -156,7 +166,7 @@ function PaymentSection({
                 </div>
               </>
             ) : (
-              <p>{publicT(L, 'prices_excl_vat')}</p>
+              <p>{publicT(L, payment.incl ? 'prices_incl_vat' : 'prices_excl_vat')}</p>
             )}
           </div>
         </div>

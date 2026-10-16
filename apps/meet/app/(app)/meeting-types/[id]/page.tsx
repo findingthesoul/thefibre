@@ -39,6 +39,7 @@ type Host = {
   zoom_connected?: boolean;
   zoom_configured?: boolean;
   zoom_refresh_failed_at?: string | null;
+  seller_vat_registered?: boolean;
 };
 type TeamDetail = {
   id: string;
@@ -61,6 +62,7 @@ export default async function EditMeetingTypePage({
   let calendars: CalendarOption[] = [];
   let hostSlug: string | null = null;
   let zoom: ZoomState = 'not_connected';
+  let sellerVatRegistered = false;
   // The slug the public URL is built from: the TEAM's for a team meeting
   // type, the host's own otherwise — the same rule the list page follows.
   // Read from the unfiltered team list, because `teams` below keeps only the
@@ -80,6 +82,7 @@ export default async function EditMeetingTypePage({
     calendars = c.items;
     hostSlug = h?.slug ?? null;
     zoom = zoomState(h);
+    sellerVatRegistered = !!h?.seller_vat_registered;
     ownerSlug = mt?.team_id
       ? (t.items.find((x) => x.id === mt!.team_id)?.slug ?? null)
       : hostSlug;
@@ -193,6 +196,7 @@ export default async function EditMeetingTypePage({
           calendars={calendars}
           hostSlug={hostSlug}
           zoomState={zoom}
+          sellerVatRegistered={sellerVatRegistered}
           locale={locale}
         />
       </div>

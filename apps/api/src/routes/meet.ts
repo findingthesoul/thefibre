@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
+import { chargeNet, homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
 import { profileFor } from '../lib/identity-profile.js';
@@ -769,7 +769,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency, round_robin_fairness, payment_methods, conflict_calendar_ids',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency, price_includes_vat, round_robin_fairness, payment_methods, conflict_calendar_ids',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -987,6 +987,11 @@ meetRoutes.post('/public/bookings', async (c) => {
   // type's price is NET; a VAT-registered host adds VAT by the one rule
   // (lib/sale-vat.ts). Decided before the booking row exists.
   let bookingVat: SaleVat | null = null;
+  // The NET the booking is charged on. A meeting type marked "price includes
+  // VAT" (2026-10-16, as Members and Thread tickets) was entered as what a
+  // home buyer pays; its net is derived ONCE, below, and everything after —
+  // VAT, the Stripe line, the fee, the ledger — runs on it as for any price.
+  let bookingNetCents = mt.price_cents ?? 0;
   if (isPaidBooking) {
     const { data: vatHost } = await adminClient.from('meet_host').select('user_id').eq('id', mt.host_id).maybeSingle();
     const hostUserId = (vatHost?.user_id as string | null) ?? null;
@@ -994,10 +999,18 @@ meetRoutes.post('/public/bookings', async (c) => {
     if (!bookingCountry && (await resolveSellerVat(mt.workspace_id, hostUserId))) {
       return c.json({ error: 'Choose your country, so the VAT can be worked out.', code: 'country_required' }, 400);
     }
+    bookingNetCents = await chargeNet({
+      workspaceId: mt.workspace_id,
+      organiserUserId: hostUserId,
+      enteredCents: mt.price_cents!,
+      includesVat: (mt as { price_includes_vat?: boolean | null }).price_includes_vat ?? false,
+      country: bookingCountry,
+      vat_id: data.vat_id || data.billing?.tax_no || null,
+    });
     bookingVat = await saleVat({
       workspaceId: mt.workspace_id,
       organiserUserId: hostUserId,
-      net_cents: mt.price_cents!,
+      net_cents: bookingNetCents,
       country: bookingCountry,
       vat_id: data.vat_id || data.billing?.tax_no || null,
     });
@@ -1071,7 +1084,7 @@ meetRoutes.post('/public/bookings', async (c) => {
       organiserUserId: invoiceOwner?.user_id ?? null,
       teamId: (mt as { team_id?: string | null }).team_id ?? null,
       // GROSS, with the breakdown: VAT on top (lib/sale-vat.ts).
-      amountCents: bookingVat?.gross_cents ?? mt.price_cents!,
+      amountCents: bookingVat?.gross_cents ?? bookingNetCents,
       currency: (mt.price_currency ?? 'EUR').toUpperCase(),
       method: 'invoice',
       status: 'pending',
@@ -1116,7 +1129,7 @@ meetRoutes.post('/public/bookings', async (c) => {
     // on the host side.
     // (Named before VAT existed: this is the NET price the line carries; the
     // tax rate below adds the VAT on top.)
-    const grossCents = mt.price_cents!;
+    const grossCents = bookingNetCents;
     const bookingTaxRate =
       bookingVat && bookingVat.rate_pct > 0 && bookingVat.rate_country
         ? await connectedTaxRateId(hostAccount, bookingVat.rate_country, bookingVat.rate_pct)
@@ -3443,6 +3456,11 @@ meetRoutes.get('/me', async (c) => {
     zoom_connected: zoom.connected,
     zoom_account_email: zoom.email,
     zoom_configured: isZoomConfigured(),
+    // Additive (2026-10-16): is this host — as a SELLER — VAT-registered
+    // (their own invoice details first, then the workspace's; the lookup the
+    // booking charge uses). The meeting-type editor offers "Price includes
+    // VAT" only when it is.
+    seller_vat_registered: !!(await resolveSellerVat(ctx.workspaceId, ctx.userId)),
     // Additive (2026-10-16): the last time this process failed to refresh
     // the host's Zoom token, or null. The meeting-type editor warns on it —
     // a connection that is stored but no longer works was invisible until a
@@ -3622,6 +3640,9 @@ const MeetingTypeUpsert = z.object({
     .optional(),
   // How invitees may pay. NULL = inherit the account default.
   payment_methods: z.array(z.enum(['stripe', 'invoice'])).min(1).nullable().optional(),
+  // The price is what a home buyer pays, VAT included (2026-10-16, as
+  // Members and Thread tickets). Ignored unless the host is VAT-registered.
+  price_includes_vat: z.boolean().optional(),
   // When set, the meeting type lives under the team's slug instead of the
   // host's. The caller must be a lead of the team.
   team_id: z.string().uuid().nullable().optional(),
@@ -6327,7 +6348,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency, payment_methods, event_type, capacity, fixed_starts_at, fixed_ends_at, host:host_id (slug, user:user_id (full_name, avatar_url))',
+      'id, slug, host_id, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency, price_includes_vat, payment_methods, event_type, capacity, fixed_starts_at, fixed_ends_at, host:host_id (slug, user:user_id (full_name, avatar_url))',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)

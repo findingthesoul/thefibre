@@ -369,6 +369,14 @@ const CATALOG = {
     de: 'Gesamt inkl. MwSt.', // MT
     fr: 'Total TTC', // MT
   },
+  prices_incl_vat: {
+    en: 'This price includes VAT — choose your country to see the breakdown.',
+    nl: 'Deze prijs is inclusief btw — kies je land om de opbouw te zien.', // MT
+    es: 'Este precio incluye IVA: elige tu país para ver el desglose.', // MT
+    pt: 'Este preço inclui IVA — escolha o seu país para ver o detalhe.', // MT
+    de: 'Dieser Preis enthält MwSt. — wähle dein Land, um die Aufschlüsselung zu sehen.', // MT
+    fr: 'Ce prix est TTC — choisis ton pays pour voir le détail.', // MT
+  },
   prices_excl_vat: {
     en: 'Prices are excl. VAT — choose your country to see the VAT.',
     nl: 'Prijzen zijn excl. btw — kies je land om de btw te zien.',

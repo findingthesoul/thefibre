@@ -150,15 +150,19 @@ export async function chargeNet(input: {
   workspaceId: string;
   enteredCents: number;
   includesVat: boolean | null | undefined;
+  /** Thread and Meet sell as the PERSON first (lib/seller-vat.ts): the
+   *  organiser or host whose registration decides. Members passes none and
+   *  is judged on the workspace, as before. */
+  organiserUserId?: string | null;
   /** For the (B) case only: the buyer's country and VAT number. */
   country?: string | null;
   vat_id?: string | null;
 }): Promise<number> {
   if (!input.includesVat || input.enteredCents <= 0) return input.enteredCents;
-  const [cfg, seller] = await Promise.all([getVatRates(), resolveSellerVat(input.workspaceId)]);
+  const [cfg, seller] = await Promise.all([getVatRates(), resolveSellerVat(input.workspaceId, input.organiserUserId ?? null)]);
   if (!seller) return input.enteredCents;
   if (!INCLUSIVE_EXEMPT_PAYS_NET) {
-    const v = await saleVat({ workspaceId: input.workspaceId, net_cents: input.enteredCents, country: input.country ?? null, vat_id: input.vat_id ?? null });
+    const v = await saleVat({ workspaceId: input.workspaceId, organiserUserId: input.organiserUserId ?? null, net_cents: input.enteredCents, country: input.country ?? null, vat_id: input.vat_id ?? null });
     if (v.rate_pct === 0) return input.enteredCents;
   }
   const home = cfg.home_country.toUpperCase();

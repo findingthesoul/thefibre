@@ -9,6 +9,7 @@ import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
 import { one } from '@/lib/thread-types';
 import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
 import { VatInclNote } from '@thefibre/shared/ui/vat-price';
+import { netFromInclusive } from '@thefibre/shared/price-logic';
 
 type AgendaItem = {
   id: string;
@@ -58,6 +59,8 @@ type PublicThreadDetail = {
     vat_home_pct?: number | null;
     /** The seller adds VAT on top (additive, 2026-10-15). */
     vat_registered?: boolean;
+    /** The shown price includes VAT (its cheapest ticket says so). */
+    price_includes_vat?: boolean;
     tickets?: PublicTicket[];
   };
 };
@@ -204,7 +207,11 @@ export default async function EmbedThreadPage({
           </span>
           {/* "€363 incl. 21% VAT" — the seller's home rate (2026-10-16). */}
           <VatInclNote
-            netCents={thread.price_cents ?? 0}
+            netCents={
+              thread.price_includes_vat && thread.vat_home_pct
+                ? netFromInclusive(thread.price_cents ?? 0, thread.vat_home_pct)
+                : (thread.price_cents ?? 0)
+            }
             ratePct={thread.vat_home_pct}
             currency={thread.price_currency ?? 'EUR'}
             locale={lang}

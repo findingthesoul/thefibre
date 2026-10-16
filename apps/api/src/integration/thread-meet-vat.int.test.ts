@@ -172,3 +172,99 @@ describe('Meet: VAT on top', () => {
     expect(after).toBe(before);
   });
 });
+
+// PRICE INCLUDES VAT (2026-10-16, as Members): a ticket or meeting type
+// marked so was entered as what a HOME buyer pays. The seller here is the
+// organiser/host in person — their own details are VAT-registered, the
+// workspace's are not — so the NL case also proves the seller is looked up
+// per person (organiserUserId): judged on the workspace alone, the flag would
+// be ignored and Stripe would charge 363 + 21%.
+describe('Thread: a ticket whose price includes VAT', () => {
+  let ticketId = '';
+  beforeAll(async () => {
+    const { data, error } = await service
+      .from('thread_ticket')
+      .insert({ workspace_id: tf.workspaceId, thread_id: tf.threadId, name: 'Incl. VAT', price_cents: 36300, price_currency: 'EUR', is_active: true, payment_methods: ['stripe', 'invoice'], price_includes_vat: true, position: 0 })
+      .select('id')
+      .single();
+    if (error) throw new Error(error.message);
+    ticketId = data!.id as string;
+  });
+  afterAll(async () => {
+    await service.from('thread_enrolment').delete().eq('ticket_id', ticketId);
+    await service.from('thread_ticket').delete().eq('id', ticketId);
+  });
+
+  it('the public payload says so on the ticket', async () => {
+    const t = (await (await app.request(`/api/v1/thread/public/organiser/${tf.organiserSlug}/thread/${tf.threadSlug}`)).json()).thread;
+    expect(t.tickets.find((k: { id: string }) => k.id === ticketId)).toMatchObject({ price_cents: 36300, price_includes_vat: true });
+  });
+
+  it('NL card: Stripe charges exactly 363 — 300 net + 63 VAT; the place stores the net', async () => {
+    const r = await enrol({ payment_method: 'stripe', country: 'NL', ticket_id: ticketId });
+    expect(r.status, await r.clone().text()).toBe(201);
+    const body = await r.json();
+    const s = await sessionFrom(body.checkout_url);
+    expect(s.amount_subtotal).toBe(30000);
+    expect(s.total_details?.amount_tax).toBe(6300);
+    expect(s.amount_total).toBe(36300);
+    expect(await ledger(body.enrolment_id)).toMatchObject({ amount_cents: 36300, billing: { subtotal_cents: 30000, tax_cents: 6300 } });
+    expect((await service.from('thread_enrolment').select('amount_cents').eq('id', body.enrolment_id).single()).data!.amount_cents).toBe(30000);
+  });
+
+  it('outside the EU: the net, 300 (option A, as Members)', async () => {
+    const r = await enrol({ payment_method: 'stripe', country: 'US', ticket_id: ticketId });
+    const s = await sessionFrom((await r.json()).checkout_url);
+    expect(s.amount_total).toBe(30000);
+  });
+
+  it('a seller who is not VAT-registered: the flag is ignored, 363 is the price', async () => {
+    await service.from('user_profile').update({ invoice_details: { legal_name: 'Vat Organiser', vat_registered: false } }).eq('user_id', tf.userRowId);
+    try {
+      const r = await enrol({ payment_method: 'stripe', country: 'NL', ticket_id: ticketId });
+      expect(r.status, await r.clone().text()).toBe(201);
+      const s = await sessionFrom((await r.json()).checkout_url);
+      expect(s.amount_total).toBe(36300);
+      expect(s.total_details?.amount_tax ?? 0).toBe(0);
+    } finally {
+      await service.from('user_profile').update({ invoice_details: VAT_DETAILS }).eq('user_id', tf.userRowId);
+    }
+  });
+});
+
+describe('Meet: a meeting type whose price includes VAT', () => {
+  beforeAll(async () => {
+    await service.from('meet_meeting_type').update({ price_cents: 36300, price_includes_vat: true }).eq('id', mf.meetingTypeId);
+  });
+  afterAll(async () => {
+    await service.from('meet_meeting_type').update({ price_cents: 30000, price_includes_vat: false }).eq('id', mf.meetingTypeId);
+  });
+
+  it('the public page says so', async () => {
+    const p = await (await app.request(`/api/v1/meet/public/host/${mf.hostSlug}/mt/${mf.meetingTypeSlug}`)).json();
+    expect(p.meeting_type).toMatchObject({ price_cents: 36300, price_includes_vat: true });
+  });
+
+  it('NL card: Stripe charges exactly 363 — 300 net + 63 VAT', async () => {
+    const r = await book({ payment_method: 'stripe', country: 'NL' });
+    expect(r.status, await r.clone().text()).toBe(200);
+    const body = await r.json();
+    const s = await sessionFrom(body.checkout_url);
+    expect(s.amount_subtotal).toBe(30000);
+    expect(s.total_details?.amount_tax).toBe(6300);
+    expect(s.amount_total).toBe(36300);
+    expect(await ledger(body.booking.id)).toMatchObject({ amount_cents: 36300, billing: { subtotal_cents: 30000, tax_cents: 6300 } });
+  });
+
+  it('NL invoice: the ledger row is 363 = 300 + 63', async () => {
+    const r = await book({ payment_method: 'invoice', billing: { company: 'Bandora BV', country: 'NL' } });
+    expect(r.status, await r.clone().text()).toBe(200);
+    expect(await ledger((await r.json()).booking.id)).toMatchObject({ amount_cents: 36300, billing: { subtotal_cents: 30000, tax_cents: 6300 } });
+  });
+
+  it('outside the EU: the net, 300', async () => {
+    const r = await book({ payment_method: 'stripe', country: 'US' });
+    const s = await sessionFrom((await r.json()).checkout_url);
+    expect(s.amount_total).toBe(30000);
+  });
+});

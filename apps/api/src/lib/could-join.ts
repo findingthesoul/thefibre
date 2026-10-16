@@ -53,6 +53,9 @@ export type CouldJoin = {
   /** What THEY pay, from the same function that charges them. */
   your_price_cents: number;
   currency: string;
+  /** Additive (2026-10-16): the two prices above include VAT (the ticket is
+   *  marked so); otherwise VAT, if any, is added at checkout. */
+  price_includes_vat?: boolean;
   /** The percentage, so the page can say "included" at 100 without a second
    *  rule for which sentence to use. */
   pct: number;
@@ -262,7 +265,7 @@ export async function couldJoinFrom(
     candidateIds.length
       ? adminClient
           .from('thread_ticket')
-          .select('id, thread_id, price_cents, price_currency, payment_methods, sales_open_at, sales_close_at')
+          .select('id, thread_id, price_cents, price_currency, payment_methods, sales_open_at, sales_close_at, price_includes_vat')
           .in('thread_id', candidateIds)
           .eq('is_active', true)
       : Promise.resolve({ data: [] }),
@@ -281,7 +284,7 @@ export async function couldJoinFrom(
   const nowIso = new Date().toISOString();
   const ticketsByThread = new Map<
     string,
-    { id: string; price_cents: number; price_currency?: string; payment_methods: string[] | null }[]
+    { id: string; price_cents: number; price_currency?: string; payment_methods: string[] | null; price_includes_vat: boolean }[]
   >();
   for (const tk of (ticketsRes.data ?? []) as Record<string, unknown>[]) {
     const openAt = tk.sales_open_at as string | null;
@@ -293,6 +296,7 @@ export async function couldJoinFrom(
       id: tk.id as string,
       price_cents: tk.price_cents as number,
       payment_methods: (tk.payment_methods as string[] | null) ?? null,
+      price_includes_vat: !!tk.price_includes_vat,
       ...(tk.price_currency ? { price_currency: tk.price_currency as string } : {}),
     });
     ticketsByThread.set(tk.thread_id as string, list);
@@ -391,6 +395,8 @@ export async function couldJoinFrom(
         language: (t.language as string | null) ?? null,
         team: team.name,
         list_price_cents: base.basePriceCents,
+        price_includes_vat:
+          (ticketsByThread.get(t.id as string) ?? []).find((k) => k.id === base.ticketId)?.price_includes_vat ?? false,
         your_price_cents: priced.cents,
         currency: base.priceCurrency,
         pct,

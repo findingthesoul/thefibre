@@ -234,12 +234,15 @@ const PENDING = {
   // collected into SHAPES the day batch 27 put them on production.
   // Empty again: `timezone` and the listing's `card_dates` (thread dates
   // part 3) were collected into SHAPES with batch 31.
-  embedItem: [],
+  // `price_includes_vat` (2026-10-16, "price includes VAT" for Thread
+  // tickets): the shown price is VAT-inclusive. Collect into SHAPES the day
+  // the batch that carries it lands on production.
+  embedItem: ['price_includes_vat'],
   embedListing: [],
   // Empty again: `vat_home_pct` (thread), the seven list-item fields and the
   // organiser page's `card_dates` were collected into SHAPES with batch 32.
-  thread: [],
-  listItem: [],
+  thread: ['price_includes_vat'],
+  listItem: ['price_includes_vat'],
   organiserPage: [],
 };
 
