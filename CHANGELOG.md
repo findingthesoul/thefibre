@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.258.0] — 2026-10-17
+
+### my.thread says what went wrong in your language, and the offline page does too (my.thread 0.28.0)
+
+- On production a member saw "Token has expired or is invalid", Supabase's
+  own English, with no hint what to do. Production ran the old sign-in
+  screen until batch 35. This goes further.
+- **Sign-in errors are read by their code, never their text**
+  (`lib/errors.ts`, `authErrorView`):
+  - an expired or wrong code gets "This code no longer works. Ask for a new
+    one." with a **Send a new code** button on the same screen;
+  - the rate limit names the wait ("Please wait 52 seconds…");
+  - a malformed address gets its own sentence;
+  - anything else gets a generic sentence.
+  All in six languages.
+- **Every other my.thread form** used to show the API's English `error`:
+  the card change, the cancellation request, renewals, billing details, and
+  the Google card's fallback. They now go through `friendlyError`. Add or
+  change follows after builder 3's Shop release, which has an open edit in
+  that file:
+  - a known code gets its own sentence;
+  - otherwise the HTTP status decides (session ended, not allowed, no longer
+    there, changed meanwhile, too many tries, our side, no connection);
+  - only a validation message nothing else can describe keeps its English
+    detail, inside the reader's sentence ("Dat lukte niet: …").
+  API messages themselves are untouched. Stripe's card errors already come
+  in the reader's language (Elements has the locale).
+- **The offline page** (`public/offline.html`), the last English page, now
+  shows the reader's language:
+  - the language comes from this browser's `thefibre.locale` cookie, then the
+    browser's languages, then English;
+  - its words are a copy of catalog keys, and `lib/offline.test.ts` fails if
+    the two disagree;
+  - the English stays in the markup as the fallback;
+  - dates follow the language.
+  The worker goes to v6, because a precached file changed. Help's install
+  guide now quotes the page's own words in each language.
+- Tested:
+  - unit `errors` (9), `offline` (3); apps/my 63/63;
+  - new e2e `sign-in-errors.spec.ts`, with Supabase's two calls answered in
+    the browser so no email is sent:
+    - nl: a wrong code shows the Dutch sentence and no English, and "Stuur
+      een nieuwe code" sends one;
+    - de: the rate limit names 52 seconds.
+    2/2 against a local dev server; screenshots looked at (sign-in error
+    and offline page, nl).
+
 ## [1.257.3] — 2026-10-17
 
 ### A member who signed up with an address on the community's Google domain sees that address as their account (API)

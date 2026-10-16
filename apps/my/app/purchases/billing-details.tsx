@@ -15,6 +15,8 @@ import { browserSupabase } from '@/lib/supabase/client';
 import type { BuyerDetails } from '@/lib/portal-api';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
+import { friendlyError } from '@/lib/errors';
+import { PortalCallError } from '@/lib/membership-portal-client';
 
 const INPUT = 'w-full rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
 
@@ -46,11 +48,11 @@ export function BillingDetailsForm({ initial }: { initial: BuyerDetails }) {
         body: JSON.stringify(d),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((body as { error?: string }).error ?? t(locale, 'could_not_save', { status: res.status }));
+      if (!res.ok) throw new PortalCallError((body as { error?: string }).error ?? '', res.status, (body as { code?: string }).code);
       setDone(body as Outcome);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, locale));
     } finally {
       setBusy(false);
     }

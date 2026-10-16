@@ -64,19 +64,19 @@
              icon is for app launchers. Precached with this page, so it is
              here when the network is not. -->
         <img src="/wordmark.png" alt="my.thread" />
-        <h1>You’re offline</h1>
+        <h1 id="h1">You’re offline</h1>
         <p id="lede">My Thread needs a connection to show what you’re part of.</p>
       </header>
 
       <!-- Filled from localStorage below. Hidden until there is something in
            it, so somebody with no tickets is not shown an empty heading. -->
       <section id="tickets" hidden>
-        <h2>Your tickets</h2>
+        <h2 id="h2">Your tickets</h2>
         <ul id="list"></ul>
         <p class="muted" id="note"></p>
       </section>
 
-      <button type="button" onclick="location.reload()">Try again</button>
+      <button type="button" id="retry" onclick="location.reload()">Try again</button>
     </main>
 
     <!-- Full size, white, nothing else on screen — the same treatment the app
@@ -85,9 +85,137 @@
     <div id="zoom" role="dialog" aria-modal="true" aria-label="Check-in code">
       <img id="zoom-img" alt="" />
       <p class="name" id="zoom-name"></p>
-      <p class="hint">Tap anywhere to close</p>
+      <p class="hint" id="hint">Tap anywhere to close</p>
     </div>
 
+    <!-- In the reader's language (2026-10-17). This page cannot read the
+         catalog — it is precached static HTML — so it carries a copy of the
+         keys it shows, from apps/my/lib/i18n.ts; offline.test.ts fails a
+         release where the two disagree. The English above stays as the
+         fallback when anything here fails. Which language: this browser's
+         thefibre.locale cookie (the app's own choice, readable here), then
+         the browser's languages, then English — the account's profile is
+         out of reach with no network. -->
+    <script type="application/json" id="strings">
+{
+  "en": {
+    "offline_doc_title": "My Thread — offline",
+    "offline_title": "You’re offline",
+    "offline_lede": "My Thread needs a connection to show what you’re part of.",
+    "offline_lede_tickets": "Your tickets are here. Everything else needs a connection.",
+    "your_tickets": "Your tickets",
+    "offline_note": "Kept on this device from the last time you were online.",
+    "your_ticket": "Your ticket",
+    "your_ticket_lc": "your ticket",
+    "check_in_code": "Check-in code",
+    "try_again": "Try again",
+    "tap_to_close": "Tap anywhere to close",
+    "qr_alt": "Check-in code for {title}"
+  },
+  "nl": {
+    "offline_doc_title": "My Thread — offline",
+    "offline_title": "Je bent offline",
+    "offline_lede": "My Thread heeft een verbinding nodig om te laten zien waar je bij hoort.",
+    "offline_lede_tickets": "Je tickets staan hier. Voor de rest is een verbinding nodig.",
+    "your_tickets": "Je tickets",
+    "offline_note": "Bewaard op dit apparaat sinds de laatste keer dat je online was.",
+    "your_ticket": "Je ticket",
+    "your_ticket_lc": "je ticket",
+    "check_in_code": "Check-incode",
+    "try_again": "Opnieuw proberen",
+    "tap_to_close": "Tik ergens om te sluiten",
+    "qr_alt": "Check-incode voor {title}"
+  },
+  "es": {
+    "offline_doc_title": "My Thread — sin conexión",
+    "offline_title": "Estás sin conexión",
+    "offline_lede": "My Thread necesita conexión para mostrar aquello de lo que formas parte.",
+    "offline_lede_tickets": "Tus entradas están aquí. Todo lo demás necesita conexión.",
+    "your_tickets": "Tus entradas",
+    "offline_note": "Guardadas en este dispositivo desde la última vez que tuviste conexión.",
+    "your_ticket": "Tu entrada",
+    "your_ticket_lc": "tu entrada",
+    "check_in_code": "Código de acceso",
+    "try_again": "Reintentar",
+    "tap_to_close": "Toca en cualquier lugar para cerrar",
+    "qr_alt": "Código de acceso para {title}"
+  },
+  "pt": {
+    "offline_doc_title": "My Thread — offline",
+    "offline_title": "Você está offline",
+    "offline_lede": "O My Thread precisa de conexão para mostrar do que você faz parte.",
+    "offline_lede_tickets": "Seus ingressos estão aqui. Todo o resto precisa de conexão.",
+    "your_tickets": "Seus ingressos",
+    "offline_note": "Guardados neste dispositivo desde a última vez que você esteve online.",
+    "your_ticket": "Seu ingresso",
+    "your_ticket_lc": "seu ingresso",
+    "check_in_code": "Código de check-in",
+    "try_again": "Tentar de novo",
+    "tap_to_close": "Toque em qualquer lugar para fechar",
+    "qr_alt": "Código de check-in para {title}"
+  },
+  "de": {
+    "offline_doc_title": "My Thread — offline",
+    "offline_title": "Du bist offline",
+    "offline_lede": "My Thread braucht eine Verbindung, um zu zeigen, wovon du ein Teil bist.",
+    "offline_lede_tickets": "Deine Tickets sind hier. Alles andere braucht eine Verbindung.",
+    "your_tickets": "Deine Tickets",
+    "offline_note": "Auf diesem Gerät gespeichert, seit du zuletzt online warst.",
+    "your_ticket": "Dein Ticket",
+    "your_ticket_lc": "dein Ticket",
+    "check_in_code": "Check-in-Code",
+    "try_again": "Erneut versuchen",
+    "tap_to_close": "Irgendwo tippen zum Schließen",
+    "qr_alt": "Check-in-Code für {title}"
+  },
+  "fr": {
+    "offline_doc_title": "My Thread — hors ligne",
+    "offline_title": "Tu es hors ligne",
+    "offline_lede": "My Thread a besoin d’une connexion pour montrer ce dont tu fais partie.",
+    "offline_lede_tickets": "Tes billets sont ici. Tout le reste nécessite une connexion.",
+    "your_tickets": "Tes billets",
+    "offline_note": "Conservés sur cet appareil depuis ta dernière connexion.",
+    "your_ticket": "Ton billet",
+    "your_ticket_lc": "ton billet",
+    "check_in_code": "Code d’entrée",
+    "try_again": "Réessayer",
+    "tap_to_close": "Touche n’importe où pour fermer",
+    "qr_alt": "Code d’entrée pour {title}"
+  }
+}
+    </script>
+    <script>
+      var L = 'en';
+      var S = {};
+      try {
+        S = JSON.parse(document.getElementById('strings').textContent);
+        var m = document.cookie.match(/(?:^|;\s*)thefibre\.locale=([a-z]{2})/);
+        var wanted = (m ? [m[1]] : []).concat(
+          (navigator.languages || [navigator.language || '']).map(function (l) { return String(l).slice(0, 2).toLowerCase(); }),
+        );
+        for (var i = 0; i < wanted.length; i++) {
+          if (S[wanted[i]]) { L = wanted[i]; break; }
+        }
+      } catch (e) { /* English, as written above */ }
+      function tr(key, vars) {
+        var s = (S[L] && S[L][key]) || (S.en && S.en[key]) || '';
+        for (var k in vars || {}) s = s.split('{' + k + '}').join(vars[k]);
+        return s;
+      }
+      var INTL = { en: 'en-GB', nl: 'nl-NL', es: 'es-ES', pt: 'pt-BR', de: 'de-DE', fr: 'fr-FR' };
+      try {
+        if (L !== 'en') {
+          document.documentElement.lang = L;
+          document.title = tr('offline_doc_title');
+          document.getElementById('h1').textContent = tr('offline_title');
+          document.getElementById('lede').textContent = tr('offline_lede');
+          document.getElementById('h2').textContent = tr('your_tickets');
+          document.getElementById('retry').textContent = tr('try_again');
+          document.getElementById('hint').textContent = tr('tap_to_close');
+          document.getElementById('zoom').setAttribute('aria-label', tr('check_in_code'));
+        }
+      } catch (e) { /* a half-translated page still works */ }
+    </script>
     <script>
       // The four facts per ticket, written by the app while it was online
       // (apps/my/lib/kept-tickets.ts). The QR images are held by the service
@@ -111,7 +239,7 @@
           var fmt = function (iso) {
             if (!iso) return '';
             var d = new Date(iso);
-            return isNaN(d) ? '' : d.toLocaleDateString(undefined, {
+            return isNaN(d) ? '' : d.toLocaleDateString(INTL[L] || undefined, {
               weekday: 'short', day: 'numeric', month: 'short',
             });
           };
@@ -121,11 +249,11 @@
             var li = document.createElement('li');
             var img = document.createElement('img');
             img.src = '/ticket/' + encodeURIComponent(t.code) + '/qr';
-            img.alt = 'Check-in code for ' + (t.title || 'your ticket');
+            img.alt = tr('qr_alt', { title: t.title || tr('your_ticket_lc') });
             var box = document.createElement('div');
             box.className = 't';
             var name = document.createElement('strong');
-            name.textContent = t.title || 'Your ticket';
+            name.textContent = t.title || tr('your_ticket');
             var when = document.createElement('span');
             when.textContent = [fmt(t.startsAt), t.where].filter(Boolean).join(' · ');
             box.appendChild(name);
@@ -140,16 +268,14 @@
             li.addEventListener('click', function () {
               zoomImg.src = img.src;
               zoomImg.alt = img.alt;
-              zoomName.textContent = t.title || 'Your ticket';
+              zoomName.textContent = t.title || tr('your_ticket');
               zoom.classList.add('on');
             });
             list.appendChild(li);
           });
           document.getElementById('tickets').hidden = false;
-          document.getElementById('lede').textContent =
-            'Your tickets are here. Everything else needs a connection.';
-          document.getElementById('note').textContent =
-            'Kept on this device from the last time you were online.';
+          document.getElementById('lede').textContent = tr('offline_lede_tickets');
+          document.getElementById('note').textContent = tr('offline_note');
         }
       } catch (e) {
         /* A ticket that cannot be drawn must not take the page with it. */

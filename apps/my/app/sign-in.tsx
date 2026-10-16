@@ -10,6 +10,7 @@ import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { browserSupabase } from '@/lib/supabase/client';
 import { t } from '@/lib/i18n';
 import { parts } from '@/lib/i18n-parts';
+import { authErrorView, type AuthErrorView } from '@/lib/errors';
 
 type Stage = 'email' | 'code';
 
@@ -18,12 +19,13 @@ export function SignIn() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // What went wrong, as a catalog sentence — never Supabase's own words
+  // (lib/errors.ts). `resend` offers a fresh code beside it.
+  const [error, setError] = useState<AuthErrorView | null>(null);
+  const [resent, setResent] = useState(false);
   const locale = useLocale();
 
-  async function sendCode(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
+  async function requestCode(): Promise<boolean> {
     setBusy(true);
     setError(null);
     const { error } = await browserSupabase().auth.signInWithOtp({
@@ -41,10 +43,23 @@ export function SignIn() {
       // reader gets one of ours, in their language; the original goes to the
       // console for whoever is debugging.
       console.warn('[sign-in] code not sent', error);
-      setError(error.status === 429 ? t(locale, 'code_wait') : t(locale, 'code_send_failed'));
-      return;
+      setError(authErrorView(error, 'send'));
+      return false;
     }
-    setStage('code');
+    return true;
+  }
+
+  async function sendCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    if (await requestCode()) setStage('code');
+  }
+
+  // "This code no longer works" → one tap for a fresh one, on this screen.
+  async function resend() {
+    setResent(false);
+    setCode('');
+    if (await requestCode()) setResent(true);
   }
 
   async function verify(e: React.FormEvent) {
@@ -52,6 +67,7 @@ export function SignIn() {
     if (code.trim().length < 6) return;
     setBusy(true);
     setError(null);
+    setResent(false);
     const { error } = await browserSupabase().auth.verifyOtp({
       email: email.trim(),
       token: code.trim(),
@@ -59,7 +75,7 @@ export function SignIn() {
     });
     if (error) {
       console.warn('[sign-in] code not accepted', error);
-      setError(error.status === 429 ? t(locale, 'code_wait') : t(locale, 'code_invalid'));
+      setError(authErrorView(error, 'verify'));
       setBusy(false);
       return;
     }
@@ -90,7 +106,22 @@ export function SignIn() {
             className={`${field} mt-2 tracking-[0.3em]`}
           />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="text-sm text-red-600">
+            <p>{t(locale, error.key, error.vars)}</p>
+            {error.resend && (
+              <button
+                type="button"
+                onClick={() => void resend()}
+                disabled={busy}
+                className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-ink underline underline-offset-2 disabled:opacity-50"
+              >
+                {t(locale, 'send_new_code')}
+              </button>
+            )}
+          </div>
+        )}
+        {resent && !error && <p className="text-sm text-ink-muted">{t(locale, 'new_code_sent')}</p>}
         <button type="submit" disabled={busy} className={button}>
           {busy ? t(locale, 'verifying') : t(locale, 'sign_in')}
         </button>
@@ -130,7 +161,7 @@ export function SignIn() {
           {t(locale, 'email_hint')}
         </p>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600">{t(locale, error.key, error.vars)}</p>}
       <button type="submit" disabled={busy} className={button}>
         {busy ? t(locale, 'sending') : t(locale, 'email_me_code')}
       </button>

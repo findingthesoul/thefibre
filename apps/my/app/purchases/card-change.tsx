@@ -20,6 +20,7 @@ import { portalCall } from '@/lib/membership-portal-client';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { toLocale, type Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
+import { friendlyError } from '@/lib/errors';
 
 // Stripe's own form speaks the reader's language too. pt is Brazilian here,
 // as everywhere in this app (INTL_LOCALES.pt).
@@ -74,7 +75,7 @@ function ChangeCard({ memberId, onClose, onChanged }: { memberId: string; onClos
   useEffect(() => {
     api<{ client_secret: string; setup_intent_id: string; stripe_account: string }>(`/me/payment-method/${memberId}/setup`, { request_id: requestId }, locale).then(
       setSetup,
-      (e: Error) => setError(e.message),
+      (e: unknown) => setError(friendlyError(e, locale)),
     );
   }, [memberId, requestId, locale]);
   // Stripe.js on the community's account, loaded once per dialog.
@@ -138,7 +139,7 @@ function CardDialog({ memberId, setupIntentId, onClose, onChanged }: { memberId:
       onChanged(r.card);
       router.refresh();
     } catch (err) {
-      setError((err as Error).message);
+      setError(friendlyError(err, locale));
     } finally {
       setBusy(false);
     }

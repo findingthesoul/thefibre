@@ -69,7 +69,9 @@
 // v5 (2026-10-16): web push — the `push` and `notificationclick` handlers at
 // the bottom. No precached file changed; the bump is so a phone being
 // debugged visibly runs the new worker.
-const VERSION = 'v5';
+// v6 (2026-10-17): the offline page speaks the reader's language. A
+// precached file changed, so the worker must change with it.
+const VERSION = 'v6';
 const SHELL = `my-shell-${VERSION}`;
 const STATIC = `my-static-${VERSION}`;
 const PRECACHE = ['/offline.html', '/wordmark.png', '/icon-192.png', '/apple-touch-icon.png'];

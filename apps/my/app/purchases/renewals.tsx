@@ -16,6 +16,8 @@ import { CardLine } from './card-change';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import type { Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
+import { friendlyError } from '@/lib/errors';
+import { PortalCallError } from '@/lib/membership-portal-client';
 import { intlTag, money as fmtMoney } from '@/lib/format';
 
 // In the reader's language; English is en-GB, as these always were.
@@ -78,12 +80,12 @@ function RenewalRow({ r }: { r: MyRenewal }) {
       });
       if (!res.ok) {
         const b = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(b.error ?? t(locale, 'renew_change_failed', { status: res.status }));
+        throw new PortalCallError(b.error ?? '', res.status, (b as { code?: string }).code);
       }
       setConfirm(null);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, locale));
     } finally {
       setBusy(false);
     }
@@ -207,12 +209,12 @@ function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
       });
       if (!res.ok) {
         const b = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(b.error ?? t(locale, 'renew_change_failed', { status: res.status }));
+        throw new PortalCallError(b.error ?? '', res.status, (b as { code?: string }).code);
       }
       setConfirm(null);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, locale));
     } finally {
       setBusy(false);
     }

@@ -1289,8 +1289,9 @@ const CATALOG = {
   // They name buttons by the words on them, so a step must say what this
   // catalog says on the button — and for You, Memberships and Purchases,
   // what phase 2 will say there (until then those pages are English).
-  // "You're offline" and "Try again" stay English in every language: they
-  // quote public/offline.html, which is English on purpose.
+  // The install guide quotes the offline page ("You’re offline", "Try
+  // again") in each language's own words, as that page shows them since
+  // 2026-10-17 (offline_title, try_again).
   help_signin_title: {
     en: "Sign in, and sign out",
     nl: "Inloggen en uitloggen",
@@ -1349,11 +1350,11 @@ const CATALOG = {
   },
   help_install_steps: {
     en: "On an iPhone, open this page in Safari, press Share, then Add to Home Screen. On Android, use Chrome's menu and choose Install app (or Add to Home screen). On a Mac, Safari's File menu has Add to Dock.\nOpen the app once while you are online. Every ticket you hold is then kept on this device: the code, what it is for, when and where — nothing else.\nWith no connection, the app shows \"You're offline\" and your tickets under it. Tap a ticket to show its code full size for the door.\nPress Try again once the signal is back to return to the live app.\nThe kept tickets are removed when you sign out.",
-    nl: "Op een iPhone: open deze pagina in Safari, druk op Deel en dan op Zet op beginscherm. Op Android: kies in het menu van Chrome App installeren (of Toevoegen aan startscherm). Op een Mac staat Voeg toe aan Dock in het Archief-menu van Safari.\nOpen de app één keer terwijl je online bent. Elk ticket dat je hebt wordt dan op dit apparaat bewaard: de code, waarvoor het is, wanneer en waar — verder niets.\nZonder verbinding toont de app ‘You're offline’ met je tickets eronder. Tik op een ticket om de code groot te tonen bij de deur.\nDruk op Try again zodra je weer bereik hebt om terug te gaan naar de live app.\nDe bewaarde tickets verdwijnen als je uitlogt.",
-    es: "En un iPhone, abre esta página en Safari, pulsa Compartir y luego Añadir a pantalla de inicio. En Android, usa el menú de Chrome y elige Instalar app (o Añadir a pantalla de inicio). En un Mac, el menú Archivo de Safari tiene Añadir al Dock.\nAbre la app una vez con conexión. Cada entrada que tengas se guarda entonces en este dispositivo: el código, para qué es, cuándo y dónde; nada más.\nSin conexión, la app muestra «You're offline» y tus entradas debajo. Toca una entrada para mostrar su código a tamaño completo en la puerta.\nPulsa Try again cuando vuelva la cobertura para volver a la app en directo.\nLas entradas guardadas se eliminan al cerrar sesión.", // MT
-    pt: "No iPhone, abra esta página no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início. No Android, use o menu do Chrome e escolha Instalar app (ou Adicionar à tela inicial). No Mac, o menu Arquivo do Safari tem Adicionar ao Dock.\nAbra o app uma vez com internet. Cada ingresso seu fica então guardado neste dispositivo: o código, para que é, quando e onde — mais nada.\nSem conexão, o app mostra “You're offline” e seus ingressos logo abaixo. Toque num ingresso para mostrar o código em tamanho grande na entrada.\nToque em Try again quando o sinal voltar para retornar ao app ao vivo.\nOs ingressos guardados são removidos quando você sai.", // MT
-    de: "Auf dem iPhone: Öffne diese Seite in Safari, tippe auf Teilen und dann auf Zum Home-Bildschirm. Auf Android: Wähle im Chrome-Menü App installieren (oder Zum Startbildschirm hinzufügen). Auf dem Mac hat das Ablage-Menü von Safari Zum Dock hinzufügen.\nÖffne die App einmal, während du online bist. Jedes Ticket, das du hast, wird dann auf diesem Gerät gespeichert: der Code, wofür es ist, wann und wo – sonst nichts.\nOhne Verbindung zeigt die App „You're offline“ und darunter deine Tickets. Tippe auf ein Ticket, um seinen Code am Eingang groß zu zeigen.\nTippe auf Try again, sobald du wieder Empfang hast, um zur Live-App zurückzukehren.\nDie gespeicherten Tickets werden entfernt, wenn du dich abmeldest.", // MT
-    fr: "Sur iPhone, ouvre cette page dans Safari, appuie sur Partager, puis Sur l’écran d’accueil. Sur Android, dans le menu de Chrome, choisis Installer l’application (ou Ajouter à l’écran d’accueil). Sur Mac, le menu Fichier de Safari propose Ajouter au Dock.\nOuvre l’app une fois en étant connecté·e. Chaque billet que tu as est alors gardé sur cet appareil : le code, à quoi il sert, quand et où, rien d’autre.\nSans connexion, l’app affiche « You're offline » avec tes billets en dessous. Touche un billet pour afficher son code en grand à l’entrée.\nAppuie sur Try again quand le réseau revient pour retrouver l’app en direct.\nLes billets gardés sont supprimés quand tu te déconnectes.", // MT
+    nl: "Op een iPhone: open deze pagina in Safari, druk op Deel en dan op Zet op beginscherm. Op Android: kies in het menu van Chrome App installeren (of Toevoegen aan startscherm). Op een Mac staat Voeg toe aan Dock in het Archief-menu van Safari.\nOpen de app één keer terwijl je online bent. Elk ticket dat je hebt wordt dan op dit apparaat bewaard: de code, waarvoor het is, wanneer en waar — verder niets.\nZonder verbinding toont de app ‘Je bent offline’ met je tickets eronder. Tik op een ticket om de code groot te tonen bij de deur.\nDruk op Opnieuw proberen zodra je weer bereik hebt om terug te gaan naar de live app.\nDe bewaarde tickets verdwijnen als je uitlogt.",
+    es: "En un iPhone, abre esta página en Safari, pulsa Compartir y luego Añadir a pantalla de inicio. En Android, usa el menú de Chrome y elige Instalar app (o Añadir a pantalla de inicio). En un Mac, el menú Archivo de Safari tiene Añadir al Dock.\nAbre la app una vez con conexión. Cada entrada que tengas se guarda entonces en este dispositivo: el código, para qué es, cuándo y dónde; nada más.\nSin conexión, la app muestra «Estás sin conexión» y tus entradas debajo. Toca una entrada para mostrar su código a tamaño completo en la puerta.\nPulsa Reintentar cuando vuelva la cobertura para volver a la app en directo.\nLas entradas guardadas se eliminan al cerrar sesión.", // MT
+    pt: "No iPhone, abra esta página no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início. No Android, use o menu do Chrome e escolha Instalar app (ou Adicionar à tela inicial). No Mac, o menu Arquivo do Safari tem Adicionar ao Dock.\nAbra o app uma vez com internet. Cada ingresso seu fica então guardado neste dispositivo: o código, para que é, quando e onde — mais nada.\nSem conexão, o app mostra “Você está offline” e seus ingressos logo abaixo. Toque num ingresso para mostrar o código em tamanho grande na entrada.\nToque em Tentar de novo quando o sinal voltar para retornar ao app ao vivo.\nOs ingressos guardados são removidos quando você sai.", // MT
+    de: "Auf dem iPhone: Öffne diese Seite in Safari, tippe auf Teilen und dann auf Zum Home-Bildschirm. Auf Android: Wähle im Chrome-Menü App installieren (oder Zum Startbildschirm hinzufügen). Auf dem Mac hat das Ablage-Menü von Safari Zum Dock hinzufügen.\nÖffne die App einmal, während du online bist. Jedes Ticket, das du hast, wird dann auf diesem Gerät gespeichert: der Code, wofür es ist, wann und wo – sonst nichts.\nOhne Verbindung zeigt die App „Du bist offline“ und darunter deine Tickets. Tippe auf ein Ticket, um seinen Code am Eingang groß zu zeigen.\nTippe auf Erneut versuchen, sobald du wieder Empfang hast, um zur Live-App zurückzukehren.\nDie gespeicherten Tickets werden entfernt, wenn du dich abmeldest.", // MT
+    fr: "Sur iPhone, ouvre cette page dans Safari, appuie sur Partager, puis Sur l’écran d’accueil. Sur Android, dans le menu de Chrome, choisis Installer l’application (ou Ajouter à l’écran d’accueil). Sur Mac, le menu Fichier de Safari propose Ajouter au Dock.\nOuvre l’app une fois en étant connecté·e. Chaque billet que tu as est alors gardé sur cet appareil : le code, à quoi il sert, quand et où, rien d’autre.\nSans connexion, l’app affiche « Tu es hors ligne » avec tes billets en dessous. Touche un billet pour afficher son code en grand à l’entrée.\nAppuie sur Réessayer quand le réseau revient pour retrouver l’app en direct.\nLes billets gardés sont supprimés quand tu te déconnectes.", // MT
   },
   help_memberships_title: {
     en: "See your memberships, change your card, stop or add to it",
@@ -3498,6 +3499,177 @@ const CATALOG = {
     pt: 'Não funcionou. Tente de novo daqui a pouco.', // MT
     de: 'Das hat nicht geklappt. Versuch es gleich noch einmal.', // MT
     fr: 'Ça n’a pas fonctionné. Réessaie dans un instant.', // MT
+  },
+
+  // ── Errors, in the reader’s language ──────────────────────────────────
+  // Sign-in errors, by Supabase's error code (lib/errors.ts). Never its own
+  // English message.
+  code_expired: {
+    en: 'This code no longer works. Ask for a new one.',
+    nl: 'Deze code werkt niet meer. Vraag een nieuwe aan.',
+    es: 'Este código ya no funciona. Pide uno nuevo.', // MT
+    pt: 'Este código não funciona mais. Peça um novo.', // MT
+    de: 'Dieser Code funktioniert nicht mehr. Fordere einen neuen an.', // MT
+    fr: 'Ce code ne fonctionne plus. Demandes-en un nouveau.', // MT
+  },
+  send_new_code: {
+    en: 'Send a new code',
+    nl: 'Stuur een nieuwe code',
+    es: 'Enviar un código nuevo', // MT
+    pt: 'Enviar um novo código', // MT
+    de: 'Neuen Code senden', // MT
+    fr: 'Envoyer un nouveau code', // MT
+  },
+  new_code_sent: {
+    en: 'A new code is on its way.',
+    nl: 'Er is een nieuwe code onderweg.',
+    es: 'Hay un código nuevo en camino.', // MT
+    pt: 'Um novo código está a caminho.', // MT
+    de: 'Ein neuer Code ist unterwegs.', // MT
+    fr: 'Un nouveau code est en route.', // MT
+  },
+  code_wait_seconds: {
+    en: 'Please wait {n} seconds, then ask for another code.',
+    nl: 'Wacht nog {n} seconden en vraag dan een nieuwe code.',
+    es: 'Espera {n} segundos y luego pide otro código.', // MT
+    pt: 'Aguarde {n} segundos e peça outro código.', // MT
+    de: 'Bitte warte {n} Sekunden und fordere dann einen neuen Code an.', // MT
+    fr: 'Attends {n} secondes, puis demande un autre code.', // MT
+  },
+  email_invalid: {
+    en: 'That doesn’t look like an email address. Check it and try again.',
+    nl: 'Dat lijkt geen e-mailadres. Controleer het en probeer het opnieuw.',
+    es: 'Eso no parece una dirección de correo. Revísala e inténtalo de nuevo.', // MT
+    pt: 'Isso não parece um endereço de e-mail. Confira e tente de novo.', // MT
+    de: 'Das sieht nicht nach einer E-Mail-Adresse aus. Prüfe sie und versuch es noch einmal.', // MT
+    fr: 'Cela ne ressemble pas à une adresse e-mail. Vérifie-la et réessaie.', // MT
+  },
+  // What an API refusal means, by status, when it sends no code we know.
+  err_session_ended: {
+    en: 'Your session ended. Sign in again.',
+    nl: 'Je sessie is verlopen. Log opnieuw in.',
+    es: 'Tu sesión ha terminado. Vuelve a entrar.', // MT
+    pt: 'Sua sessão terminou. Entre de novo.', // MT
+    de: 'Deine Sitzung ist abgelaufen. Melde dich erneut an.', // MT
+    fr: 'Ta session a expiré. Reconnecte-toi.', // MT
+  },
+  err_not_allowed: {
+    en: 'You can’t do that from here.',
+    nl: 'Dat kan vanaf hier niet.',
+    es: 'No puedes hacer eso desde aquí.', // MT
+    pt: 'Você não pode fazer isso daqui.', // MT
+    de: 'Das geht von hier aus nicht.', // MT
+    fr: 'Tu ne peux pas faire cela d’ici.', // MT
+  },
+  err_gone: {
+    en: 'That is no longer there. Reload the page.',
+    nl: 'Dat bestaat niet meer. Laad de pagina opnieuw.',
+    es: 'Eso ya no existe. Recarga la página.', // MT
+    pt: 'Isso não existe mais. Recarregue a página.', // MT
+    de: 'Das gibt es nicht mehr. Lade die Seite neu.', // MT
+    fr: 'Cela n’existe plus. Recharge la page.', // MT
+  },
+  err_conflict: {
+    en: 'Something changed in the meantime. Reload the page and try again.',
+    nl: 'Er is intussen iets veranderd. Laad de pagina opnieuw en probeer het nog eens.',
+    es: 'Algo ha cambiado mientras tanto. Recarga la página e inténtalo de nuevo.', // MT
+    pt: 'Algo mudou nesse meio-tempo. Recarregue a página e tente de novo.', // MT
+    de: 'Inzwischen hat sich etwas geändert. Lade die Seite neu und versuch es noch einmal.', // MT
+    fr: 'Quelque chose a changé entre-temps. Recharge la page et réessaie.', // MT
+  },
+  err_offline: {
+    en: 'Could not reach the server. Check your connection and try again.',
+    nl: 'De server was niet bereikbaar. Controleer je verbinding en probeer het opnieuw.',
+    es: 'No se ha podido conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.', // MT
+    pt: 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.', // MT
+    de: 'Der Server war nicht erreichbar. Prüfe deine Verbindung und versuch es noch einmal.', // MT
+    fr: 'Impossible de joindre le serveur. Vérifie ta connexion et réessaie.', // MT
+  },
+  // The last resort: a validation message the API sent only in English.
+  err_failed_detail: {
+    en: 'That did not work: {detail}',
+    nl: 'Dat lukte niet: {detail}',
+    es: 'No ha funcionado: {detail}', // MT
+    pt: 'Não funcionou: {detail}', // MT
+    de: 'Das hat nicht geklappt: {detail}', // MT
+    fr: 'Ça n’a pas fonctionné : {detail}', // MT
+  },
+
+  // ── The offline page ──────────────────────────────────────────────────
+  // The offline page (public/offline.html). It cannot import this file: it is
+  // precached static HTML. It carries a copy of these keys, and offline.test.ts
+  // holds the two together.
+  offline_doc_title: {
+    en: 'My Thread — offline',
+    nl: 'My Thread — offline',
+    es: 'My Thread — sin conexión', // MT
+    pt: 'My Thread — offline', // MT
+    de: 'My Thread — offline', // MT
+    fr: 'My Thread — hors ligne', // MT
+  },
+  offline_title: {
+    en: 'You’re offline',
+    nl: 'Je bent offline',
+    es: 'Estás sin conexión', // MT
+    pt: 'Você está offline', // MT
+    de: 'Du bist offline', // MT
+    fr: 'Tu es hors ligne', // MT
+  },
+  offline_lede: {
+    en: 'My Thread needs a connection to show what you’re part of.',
+    nl: 'My Thread heeft een verbinding nodig om te laten zien waar je bij hoort.',
+    es: 'My Thread necesita conexión para mostrar aquello de lo que formas parte.', // MT
+    pt: 'O My Thread precisa de conexão para mostrar do que você faz parte.', // MT
+    de: 'My Thread braucht eine Verbindung, um zu zeigen, wovon du ein Teil bist.', // MT
+    fr: 'My Thread a besoin d’une connexion pour montrer ce dont tu fais partie.', // MT
+  },
+  offline_lede_tickets: {
+    en: 'Your tickets are here. Everything else needs a connection.',
+    nl: 'Je tickets staan hier. Voor de rest is een verbinding nodig.',
+    es: 'Tus entradas están aquí. Todo lo demás necesita conexión.', // MT
+    pt: 'Seus ingressos estão aqui. Todo o resto precisa de conexão.', // MT
+    de: 'Deine Tickets sind hier. Alles andere braucht eine Verbindung.', // MT
+    fr: 'Tes billets sont ici. Tout le reste nécessite une connexion.', // MT
+  },
+  your_tickets: {
+    en: 'Your tickets',
+    nl: 'Je tickets',
+    es: 'Tus entradas', // MT
+    pt: 'Seus ingressos', // MT
+    de: 'Deine Tickets', // MT
+    fr: 'Tes billets', // MT
+  },
+  offline_note: {
+    en: 'Kept on this device from the last time you were online.',
+    nl: 'Bewaard op dit apparaat sinds de laatste keer dat je online was.',
+    es: 'Guardadas en este dispositivo desde la última vez que tuviste conexión.', // MT
+    pt: 'Guardados neste dispositivo desde a última vez que você esteve online.', // MT
+    de: 'Auf diesem Gerät gespeichert, seit du zuletzt online warst.', // MT
+    fr: 'Conservés sur cet appareil depuis ta dernière connexion.', // MT
+  },
+  your_ticket: {
+    en: 'Your ticket',
+    nl: 'Je ticket',
+    es: 'Tu entrada', // MT
+    pt: 'Seu ingresso', // MT
+    de: 'Dein Ticket', // MT
+    fr: 'Ton billet', // MT
+  },
+  your_ticket_lc: {
+    en: 'your ticket',
+    nl: 'je ticket',
+    es: 'tu entrada', // MT
+    pt: 'seu ingresso', // MT
+    de: 'dein Ticket', // MT
+    fr: 'ton billet', // MT
+  },
+  check_in_code: {
+    en: 'Check-in code',
+    nl: 'Check-incode',
+    es: 'Código de acceso', // MT
+    pt: 'Código de check-in', // MT
+    de: 'Check-in-Code', // MT
+    fr: 'Code d’entrée', // MT
   },
 } satisfies Record<string, I18nEntry>;
 

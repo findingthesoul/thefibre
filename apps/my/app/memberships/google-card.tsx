@@ -18,6 +18,7 @@ import { TextField, TextAreaField } from '@thefibre/shared/ui/fields';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { portalCall, PortalCallError } from '@/lib/membership-portal-client';
 import { t } from '@/lib/i18n';
+import { friendlyError } from '@/lib/errors';
 
 type View = {
   applies: boolean;
@@ -55,7 +56,7 @@ export function GoogleCard({ memberId }: { memberId: string }) {
       setAsking(false);
     } catch (e) {
       const code = e instanceof PortalCallError ? e.code : undefined;
-      setError(code === 'address_taken' ? t(locale, 'g_taken') : code === 'bad_local_part' ? t(locale, 'g_bad') : (e as Error).message);
+      setError(code === 'address_taken' ? t(locale, 'g_taken') : code === 'bad_local_part' ? t(locale, 'g_bad') : friendlyError(e, locale));
     } finally {
       setBusy(false);
     }

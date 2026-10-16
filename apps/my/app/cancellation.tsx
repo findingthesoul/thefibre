@@ -21,6 +21,7 @@ import { requestCancellation, withdrawCancellation, type ThreadItem } from '@/li
 import { fmtDate } from '@/lib/format';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
+import { friendlyError } from '@/lib/errors';
 
 export function CancellationSection({ thread }: { thread: ThreadItem }) {
   const router = useRouter();
@@ -43,7 +44,7 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
       setReason('');
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, locale));
     } finally {
       setBusy(false);
     }
@@ -57,7 +58,7 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
       await withdrawCancellation(id);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, locale));
     } finally {
       setBusy(false);
     }
