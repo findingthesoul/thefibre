@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.252.2] — 2026-10-16
+
+### A Meet booking's manage link gets its own secret: the columns (migration only)
+
+- The first half of a security fix (the code follows). A Meet guest could
+  cancel or move a booking, and see the guest's and host's email, with
+  nothing but the booking id. That id is also the calendar UID, which is
+  inside every invitation and every downloaded .ics, so anyone an invitation
+  reached held it.
+- `meet_booking.manage_salt`: a random value per booking, from which the API
+  derives the guest's manage token. Nothing secret is stored; a new salt
+  revokes the booking's links. Existing bookings get their own random salt
+  here.
+- `meet_booking_link_request`: the log and rate limit of "email me a link to
+  manage this booking". It records when, never who (no address, no IP).
+  RLS on, no policies.
+
 ## [1.252.1] — 2026-10-16
 
 ### Web push: claim before send, so two passes never push a group twice
