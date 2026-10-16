@@ -40,6 +40,11 @@ export type BookingForDialog = {
   /** The host this booking belongs to. Its slug is the first half of every
    *  public link for the booking — see `ownerSlug` below. */
   host?: { slug: string } | { slug: string }[] | null;
+  /** The booking's manage token — sent by GET /meet/bookings to the
+   *  booking's own host only. Cancel and Reschedule below open the GUEST's
+   *  public pages, which need it (security fix, 2026-10-16); without it the
+   *  host would see "Email me a link" on their own booking. */
+  manage_token?: string | null;
   meeting_type:
     | {
         name: string;
@@ -351,7 +356,7 @@ export function BookingDetailsDialog({
           <div className="pt-2 border-t border-line flex items-center gap-4">
             {reschedulable && (
               <Link
-                href={`/${ownerSlug}/${mt.slug}?reschedule=${booking.id}`}
+                href={`/${ownerSlug}/${mt.slug}?reschedule=${booking.id}${booking.manage_token ? `&t=${encodeURIComponent(booking.manage_token)}` : ''}`}
                 className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
                 target="_blank"
               >
@@ -359,7 +364,7 @@ export function BookingDetailsDialog({
               </Link>
             )}
             <Link
-              href={`/${ownerSlug}/${mt.slug}/cancel/${booking.id}`}
+              href={`/${ownerSlug}/${mt.slug}/cancel/${booking.id}${booking.manage_token ? `?t=${encodeURIComponent(booking.manage_token)}` : ''}`}
               className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
               target="_blank"
             >

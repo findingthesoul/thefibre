@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.254.4] — 2026-10-16
+
+### A Meet host can cancel their own booking again; the host's Reschedule carries the token too (API + Meet 2.37.2)
+
+- **Regression from v1.254.0, staging only.** The host's booking dialog
+  (Bookings, Dashboard, Contacts) opens the guest's public pages for Cancel
+  and Reschedule. Those links carried no manage token. The cancel page reads
+  and cancels server-side with no session, so after v1.254.0 a host could no
+  longer cancel their own meeting. Reschedule still worked only because that
+  page sends the host's session.
+- `GET /api/v1/meet/bookings` now returns `manage_token` per row
+  (additive), for the booking's OWN host only. It is checked per row
+  (`host_id` = the caller's meet_host), so a later widening of this list to
+  team or colleague views cannot widen the capability with it (coordinator's
+  scoping rule). `manage_salt` itself never leaves the API. The dialog's
+  Cancel and Reschedule links carry `t`.
+- Tests: `meet-manage-token.int.test.ts` gains "the host's own screens". The
+  host list returns the token and never the salt; a guest mail sent from a
+  host action (send link) carries `t`, while the .ics does not. 14/14; the
+  list case fails on the old route. New e2e `meet-host-manage.spec.ts`, signed
+  in as the FIXTURE host on a throwaway meeting type: Reschedule from the
+  dialog opens reschedule mode with `t` and moves the booking; Cancel from the
+  dialog opens the cancel page with `t` and the booking ends cancelled. Before
+  the fix, on staging, it fails on the missing `t`.
+
 ## [1.254.3] — 2026-10-16
 
 ### Change your card: no Link box, and Save card always in view (my.thread 0.26.1)

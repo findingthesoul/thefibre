@@ -66,6 +66,12 @@ beforeAll(async () => {
   const ws = (await service.from('meet_meeting_type').select('workspace_id').eq('id', f.meetingTypeId).single()).data!.workspace_id as string;
   host = await createFixtureUser(ws, 'mmt-host');
   await service.from('meet_host').update({ user_id: host.userId }).eq('id', f.hostId);
+  // Seated like a real host: a workspace member with the Meet app, so the
+  // host's own screens (RLS-read) see their bookings.
+  await service.from('workspace_member').upsert({ workspace_id: ws, user_id: host.userId, workspace_role: 'organiser', relationship_type: 'internal' }, { onConflict: 'user_id,workspace_id' });
+  const meetApp = (await service.from('app').select('id').eq('slug', 'fibre-meet').single()).data!.id as string;
+  await service.from('workspace_app').upsert({ workspace_id: ws, app_id: meetApp }, { onConflict: 'workspace_id,app_id' });
+  await service.from('app_membership').upsert({ user_id: host.userId, app_id: meetApp, role: 'admin' }, { onConflict: 'user_id,app_id' });
 }, 180_000);
 
 afterAll(async () => {
@@ -77,7 +83,11 @@ afterAll(async () => {
     await service.from('meet_host').update({ user_id: f.userRowId }).eq('id', f.hostId);
     await cleanupMeetFixture(f, [guest]);
   }
-  if (host) await deleteFixtureUser(host);
+  if (host) {
+    await service.from('app_membership').delete().eq('user_id', host.userId);
+    await service.from('workspace_member').delete().eq('user_id', host.userId);
+    await deleteFixtureUser(host);
+  }
 }, 180_000);
 
 describe('booking hands out the token, and only through the guest’s own channels', () => {
@@ -94,6 +104,28 @@ describe('booking hands out the token, and only through the guest’s own channe
     expect(mail.text).toContain(`/calendar.ics?t=${token}`);
     const ics = Buffer.from(mail.attachments![0]!.content, 'base64').toString('utf8');
     expect(ics).toContain(`UID:meet-${bookingId}@thefibre.app`);
+    expect(ics).not.toContain(token);
+  });
+});
+
+describe('the host’s own screens', () => {
+  it('the host list gives the booking’s OWN host a working manage token — and never the salt', async () => {
+    const r = await req('GET', '/bookings?scope=all&include_cancelled=1', undefined, host!.accessToken);
+    expect(r.status, await r.clone().text()).toBe(200);
+    const items = ((await r.json()) as { items: Record<string, unknown>[] }).items;
+    const mine = items.find((i) => i.id === bookingId)!;
+    expect(mine.manage_token).toBe(token);
+    expect(items.every((i) => !('manage_salt' in i))).toBe(true);
+  });
+
+  it('a guest mail sent from a host action (setting the join link) carries the token in its links', async () => {
+    sent.length = 0;
+    const r = await req('POST', `/bookings/${bookingId}/link`, { meet_url: 'https://example.com/room-mmt' }, host!.accessToken);
+    expect(r.status, await r.clone().text()).toBe(200);
+    const g = sent.find((m) => m.to === guest);
+    expect(g, `sent to: ${sent.map((m) => m.to).join(', ')}`).toBeTruthy();
+    expect(g!.text).toContain(`t=${token}`);
+    const ics = Buffer.from(g!.attachments![0]!.content, 'base64').toString('utf8');
     expect(ics).not.toContain(token);
   });
 });

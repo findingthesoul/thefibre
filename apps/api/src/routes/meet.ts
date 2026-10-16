@@ -5841,7 +5841,7 @@ meetRoutes.get('/bookings', async (c) => {
       // /{team-or-host slug}/{mt slug}/…, and without the host's slug the
       // dialog could only build them for TEAM bookings — so a personal
       // booking, which is most of them, showed no actions at all.
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, approval_notice_failed_at, host:host_id (slug), meeting_type:meeting_type_id (id, name, slug, team_id, event_type, conferencing_provider, team:team_id (id, name, slug))',
+      'id, host_id, manage_salt, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, approval_notice_failed_at, host:host_id (slug), meeting_type:meeting_type_id (id, name, slug, team_id, event_type, conferencing_provider, team:team_id (id, name, slug))',
     )
     .eq('host_id', host.id);
 
@@ -5881,8 +5881,18 @@ meetRoutes.get('/bookings', async (c) => {
   return c.json({
     items: items.map((row) => {
       const mt = Array.isArray(row.meeting_type) ? row.meeting_type[0] : row.meeting_type;
+      // The salt never leaves the API. The TOKEN goes only to the booking's
+      // own host — which every row here is, since the list is the caller's
+      // host_id; checked per row anyway, so a later widening of this list
+      // (team views, colleagues) cannot widen the capability with it
+      // (coordinator, 2026-10-16). The host's dialog needs it: its Cancel
+      // and Reschedule open the guest's public pages, which need the token.
+      const { manage_salt: salt, ...rest } = row as typeof row & { manage_salt?: string | null; host_id?: string };
+      const ownHost = (row as { host_id?: string }).host_id === host.id;
       return {
-        ...row,
+        ...rest,
+        // Additive: the booking's manage token, for its own host only.
+        manage_token: ownHost && salt ? manageToken(row.id as string, salt) : null,
         no_join_link:
           !row.meet_url &&
           row.status !== 'cancelled' &&
