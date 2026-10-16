@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.224.2] — 2026-10-16
+
+### Organiser handover, part 2: the accept step (migration only)
+
+`accept_thread_handover(handover_id, acting_user, old_account)` — the one
+transaction that hands a thread to its new organiser
+(`docs/organiser-handover-design.md`). It locks the request and the thread,
+refuses a request that is not pending, has expired, is accepted by anybody
+but the proposed organiser, or describes a thread whose organiser has since
+changed; then records the old public owner (personal-scope threads), stamps
+the thread's past card sales that do not record their Stripe account with the
+pre-handover account (so a refund can never debit the new organiser), switches
+`organiser_id`, keeps the old organiser as a host unless unticked and drops
+the new one's own host row, and marks the request accepted. Refusals change
+nothing: a RAISE rolls the whole call back, so expiry and a moved organiser
+are refused, not flipped.
+
+Born closed — revoked from public, anon and authenticated, executable by
+`service_role` only. Released alone, ahead of the code that calls it.
+
 ## [1.224.1] — 2026-10-16
 
 ### Organiser handover, part 1: the two tables (migration only)
