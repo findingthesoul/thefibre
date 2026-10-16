@@ -32,7 +32,7 @@ export const dynamic = 'force-dynamic';
  *  A plain component rather than a page, because a Next page's props are
  *  typechecked against PageProps and cannot carry an `openId`. Both route
  *  files are three lines and render this. */
-export async function PurchasesView({ openId = null }: { openId?: string | null }) {
+export async function PurchasesView({ openId = null, justPaid = false }: { openId?: string | null; justPaid?: boolean }) {
   const session = await loadSession();
   if (!session) return <SignedOut />;
   const locale = await pageLocale();
@@ -46,6 +46,11 @@ export async function PurchasesView({ openId = null }: { openId?: string | null 
 
   return (
     <PageShell title={t(locale, 'nav_purchases')}>
+      {/* Back from a Shop checkout: Stripe has taken the payment, but the
+          invoice and the grant are written when its webhook arrives, which
+          can be a few seconds later. Say so, rather than let an unchanged
+          list read as "nothing happened". */}
+      {justPaid && <p className={`mt-6 ${NOTICE.success}`} role="status">{t(locale, 'shop_paid_thanks')}</p>}
       {renewals && <Renewals items={renewals.memberships} />}
       {renewals && <ProductRenewals items={renewals.products} />}
       {buyer && <BillingDetailsForm initial={buyer} />}

@@ -7,6 +7,7 @@ import { PurchasesView } from './view';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PurchasesPage() {
-  return <PurchasesView />;
+export default async function PurchasesPage({ searchParams }: { searchParams: Promise<{ paid?: string }> }) {
+  // ?paid=1 — back from a Stripe checkout started in the Shop (2026-10-17).
+  return <PurchasesView justPaid={(await searchParams).paid === '1'} />;
 }

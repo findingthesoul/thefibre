@@ -943,3 +943,31 @@ export async function fetchBuyerDetails(accessToken: string): Promise<BuyerDetai
     return null;
   }
 }
+
+/** The shop (GET /membership/portal/me/shop, lib/shop.ts in the API): per
+ *  community the person belongs to or bought from, what they may add to their
+ *  membership, buy or subscribe to without one, and what they already have. */
+export type ShopCommunity = {
+  workspace_id: string;
+  workspace_slug: string;
+  workspace_name: string;
+  member_id: string | null;
+  members_only: { id: string; name: string; price_cents: number | null; currency: string; recurring: boolean; price_interval: string | null; action: 'add_to_membership' }[];
+  open: { id: string; name: string; description: string | null; price_cents: number; price_interval: string; currency: string; price_includes_vat: boolean; action: 'buy' | 'subscribe' }[];
+  owned: { id: string; name: string; recurring: boolean }[];
+};
+
+/** Null when the call failed — never an empty shop, which would read as
+ *  "nothing to offer". */
+export async function fetchShop(accessToken: string): Promise<ShopCommunity[] | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/membership/portal/me/shop`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return ((await res.json()) as { communities: ShopCommunity[] }).communities;
+  } catch {
+    return null;
+  }
+}

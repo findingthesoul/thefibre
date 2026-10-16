@@ -16,7 +16,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, CalendarPlus, FolderOpen, Home, IdCard, Receipt, User, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, FolderOpen, Home, IdCard, Receipt, User, Users, ShoppingBag } from 'lucide-react';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import type { Locale } from '@thefibre/shared/i18n';
@@ -80,6 +80,7 @@ export function navFor({
         { href: '/you', label: t(locale, 'nav_you'), icon: User },
         { href: '/memberships', label: t(locale, 'nav_memberships'), icon: IdCard },
         { href: '/purchases', label: t(locale, 'nav_purchases'), icon: Receipt },
+        { href: '/shop', label: t(locale, 'nav_shop'), icon: ShoppingBag },
         { href: '/files', label: t(locale, 'nav_files'), icon: FolderOpen },
       ],
     },

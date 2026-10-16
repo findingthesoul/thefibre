@@ -53,6 +53,7 @@ export function ChangeMembership({
   renewsOn,
   open,
   onClose,
+  preselect,
 }: {
   memberId: string;
   community: string;
@@ -61,6 +62,9 @@ export function ChangeMembership({
   renewsOn: string;
   open: boolean;
   onClose: () => void;
+  /** An add-on to choose as the dialog opens — the shop's "Add" (2026-10-16),
+   *  so the member lands on its preview rather than picking it again. */
+  preselect?: { id: string; name: string };
 }) {
   const router = useRouter();
   const [options, setOptions] = useState<Options | null>(null);
@@ -85,6 +89,14 @@ export function ChangeMembership({
     setDone(null);
     api<Options>(`/me/options/${memberId}`, undefined, locale).then(setOptions, (e: Error) => setError(e.message));
   }, [open, memberId, locale]);
+
+  // The shop's preselected add-on: picked (and previewed) once the options
+  // say it is still on offer — never a choice the options no longer hold.
+  useEffect(() => {
+    if (!open || !preselect || !options || choice) return;
+    if (options.addons.some((a) => a.id === preselect.id)) void pick({ kind: 'addon', id: preselect.id, name: preselect.name });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, preselect?.id, options]);
 
   async function pick(c: Choice) {
     if (busy) return;

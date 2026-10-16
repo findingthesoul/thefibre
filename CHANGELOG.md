@@ -6,6 +6,59 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.260.0] — 2026-10-17
+
+### my.thread → Shop: what your communities offer you (my.thread 0.30.0; API: a safe return to my.thread)
+
+- **A Shop page** in the my.thread sidebar (after Purchases; under More on a
+  phone). Sjoerd chose "shop as recommended": only the communities you
+  belong to or bought from, its own page, no setting. One section per
+  community:
+  - **For members**: what you may add to your membership, with "Add to
+    membership";
+  - **For everyone**: what is sold without a membership, with "Buy" or
+    "Subscribe";
+  - **You have this**: what you already own, never offered again. A
+    renewing one links "Stop renewal in Purchases".
+  There is an empty state when nothing is on offer, and an error panel when
+  the read fails (never shown as an empty shop).
+- **Built on GET `/me/shop` (v1.257.0); the page decides nothing.** Every
+  action is a route that already exists. "Add to membership" opens the
+  Add-or-change dialog with that product already chosen and Stripe's preview
+  loaded: a new `preselect` prop on `ChangeMembership`, picked only when
+  `/me/options` still offers it. "Buy" calls `/public/buy` and "Subscribe"
+  calls `/public/subscribe` (Stripe Checkout), with the signed-in address
+  and the saved billing name, country and VAT number. A VAT-registered
+  community with no country on file says where to add it. Members-only
+  prices are net; a footer says "Prices are excl. VAT.", and an open product
+  entered including VAT says so on its row.
+- Fourteen catalog keys in all six languages (es/pt/de/fr MT); builder 5 was
+  told, and there is no collision.
+- **Back to my.thread after Stripe** (API, additive): `/public/buy` and
+  `/public/subscribe` accept `return_to: 'my'`. A checkout started in the
+  Shop returns to my.thread → Purchases on success and to the Shop on cancel;
+  without it, the community's page as before. It is a TOKEN, never a URL:
+  `lib/checkout-return.ts` maps `'my'` to this stack's own my.thread origin,
+  and the schema refuses anything else, so a checkout's return cannot be
+  pointed at another site. Test: `checkout-return.test.ts` (3: my.thread,
+  community default, and a URL, a protocol-relative URL, a bare host or
+  another word all refused).
+- **Back on Purchases after paying**, a "Thank you, your payment went
+  through. It appears here in a moment" notice shows (`?paid=1`). The invoice
+  and the grant are written when Stripe's webhook arrives, which can be a few
+  seconds after the return, so an unchanged list must not read as "nothing
+  happened".
+- e2e `shop` (new, exclusive project): the fixture is made a member with a
+  real Stripe TEST subscription, and its community gets five products. It
+  checks that members-only, open and owned are each in their place and
+  nowhere else, that archived and unpurchasable products appear nowhere,
+  and that the owned row has no button. "Add to membership" opens the
+  dialog with that product's radio checked and Pay enabled (nothing
+  confirmed). "Buy" reaches Stripe's checkout host (no card typed).
+  Everything is restored and asserted. `E2E_MY_HOST` runs it against a local
+  my.thread with a planted fixture session, which is how the screenshots
+  existed before the release.
+
 ## [1.259.0] — 2026-10-17
 
 ### my.thread: add your calendar to Google or Outlook.com in one click (my.thread 0.29.0)

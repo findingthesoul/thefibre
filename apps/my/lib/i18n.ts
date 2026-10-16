@@ -87,6 +87,126 @@ const CATALOG = {
     de: 'Käufe', // MT
     fr: 'Achats', // MT
   },
+  nav_shop: {
+    en: 'Shop',
+    nl: 'Winkel',
+    es: 'Tienda', // MT
+    pt: 'Loja', // MT
+    de: 'Shop', // MT
+    fr: 'Boutique', // MT
+  },
+  shop_blurb: {
+    en: 'What your communities offer you: add to your membership, buy, or subscribe.',
+    nl: 'Wat je community’s je aanbieden: toevoegen aan je lidmaatschap, kopen of abonneren.',
+    es: 'Lo que te ofrecen tus comunidades: añadir a tu membresía, comprar o suscribirte.', // MT
+    pt: 'O que as suas comunidades lhe oferecem: adicionar à adesão, comprar ou subscrever.', // MT
+    de: 'Was deine Communitys dir anbieten: zur Mitgliedschaft hinzufügen, kaufen oder abonnieren.', // MT
+    fr: 'Ce que tes communautés te proposent : ajouter à ton adhésion, acheter ou t’abonner.', // MT
+  },
+  shop_members_only: {
+    en: 'For members',
+    nl: 'Voor leden',
+    es: 'Para miembros', // MT
+    pt: 'Para membros', // MT
+    de: 'Für Mitglieder', // MT
+    fr: 'Pour les membres', // MT
+  },
+  shop_open: {
+    en: 'For everyone',
+    nl: 'Voor iedereen',
+    es: 'Para todos', // MT
+    pt: 'Para todos', // MT
+    de: 'Für alle', // MT
+    fr: 'Pour tous', // MT
+  },
+  shop_owned: {
+    en: 'You have this',
+    nl: 'Heb je al',
+    es: 'Ya lo tienes', // MT
+    pt: 'Já tem', // MT
+    de: 'Hast du schon', // MT
+    fr: 'Tu l’as déjà', // MT
+  },
+  shop_add: {
+    en: 'Add to membership',
+    nl: 'Toevoegen aan lidmaatschap',
+    es: 'Añadir a la membresía', // MT
+    pt: 'Adicionar à adesão', // MT
+    de: 'Zur Mitgliedschaft hinzufügen', // MT
+    fr: 'Ajouter à l’adhésion', // MT
+  },
+  shop_buy: {
+    en: 'Buy',
+    nl: 'Kopen',
+    es: 'Comprar', // MT
+    pt: 'Comprar', // MT
+    de: 'Kaufen', // MT
+    fr: 'Acheter', // MT
+  },
+  shop_subscribe: {
+    en: 'Subscribe',
+    nl: 'Abonneren',
+    es: 'Suscribirse', // MT
+    pt: 'Subscrever', // MT
+    de: 'Abonnieren', // MT
+    fr: 'S’abonner', // MT
+  },
+  shop_stop_in_purchases: {
+    en: 'Stop renewal in Purchases',
+    nl: 'Verlenging stoppen bij Aankopen',
+    es: 'Detener la renovación en Compras', // MT
+    pt: 'Parar a renovação em Compras', // MT
+    de: 'Verlängerung unter Käufe beenden', // MT
+    fr: 'Arrêter le renouvellement dans Achats', // MT
+  },
+  shop_empty_title: {
+    en: 'Nothing on offer right now',
+    nl: 'Op dit moment geen aanbod',
+    es: 'Nada disponible por ahora', // MT
+    pt: 'Nada disponível de momento', // MT
+    de: 'Gerade kein Angebot', // MT
+    fr: 'Rien à proposer pour l’instant', // MT
+  },
+  shop_empty_body: {
+    en: 'When a community you belong to offers something you can add or buy, it shows here.',
+    nl: 'Als een community waar je bij hoort iets aanbiedt dat je kunt toevoegen of kopen, zie je het hier.',
+    es: 'Cuando una comunidad a la que perteneces ofrezca algo que puedas añadir o comprar, aparecerá aquí.', // MT
+    pt: 'Quando uma comunidade a que pertence oferecer algo que possa adicionar ou comprar, aparece aqui.', // MT
+    de: 'Wenn eine Community, zu der du gehörst, etwas anbietet, das du hinzufügen oder kaufen kannst, erscheint es hier.', // MT
+    fr: 'Quand une communauté dont tu fais partie propose quelque chose à ajouter ou acheter, cela apparaît ici.', // MT
+  },
+  shop_failed: {
+    en: 'The shop did not load just now. Try again in a moment.',
+    nl: 'De winkel laadde nu niet. Probeer het zo opnieuw.',
+    es: 'La tienda no se cargó ahora. Inténtalo de nuevo en un momento.', // MT
+    pt: 'A loja não carregou agora. Tente de novo daqui a pouco.', // MT
+    de: 'Der Shop wurde gerade nicht geladen. Versuche es gleich noch einmal.', // MT
+    fr: 'La boutique ne s’est pas chargée. Réessaie dans un instant.', // MT
+  },
+  shop_need_details: {
+    en: 'Add your country under Purchases → Billing details first; prices are shown before VAT.',
+    nl: 'Vul eerst je land in bij Aankopen → Factuurgegevens; prijzen zijn exclusief btw.',
+    es: 'Indica primero tu país en Compras → Datos de facturación; los precios no incluyen IVA.', // MT
+    pt: 'Indique primeiro o seu país em Compras → Dados de faturação; os preços não incluem IVA.', // MT
+    de: 'Gib zuerst dein Land unter Käufe → Rechnungsdaten an; Preise verstehen sich ohne MwSt.', // MT
+    fr: 'Indique d’abord ton pays dans Achats → Coordonnées de facturation ; les prix sont hors TVA.', // MT
+  },
+  shop_paid_thanks: {
+    en: 'Thank you — your payment went through. It appears here in a moment; refresh if it has not yet.',
+    nl: 'Dank je — je betaling is gelukt. Hij verschijnt hier zo; ververs de pagina als hij er nog niet staat.',
+    es: 'Gracias: tu pago se ha realizado. Aparecerá aquí en un momento; actualiza si aún no está.', // MT
+    pt: 'Obrigado — o seu pagamento foi efetuado. Aparece aqui dentro de momentos; atualize se ainda não estiver.', // MT
+    de: 'Danke – deine Zahlung ist durch. Sie erscheint hier gleich; lade neu, falls sie noch fehlt.', // MT
+    fr: 'Merci — ton paiement est passé. Il apparaît ici dans un instant ; actualise s’il n’y est pas encore.', // MT
+  },
+  shop_already: {
+    en: 'You already have {name}.',
+    nl: 'Je hebt {name} al.',
+    es: 'Ya tienes {name}.', // MT
+    pt: 'Já tem {name}.', // MT
+    de: 'Du hast {name} schon.', // MT
+    fr: 'Tu as déjà {name}.', // MT
+  },
   nav_files: {
     en: 'Files',
     nl: 'Bestanden',

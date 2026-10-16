@@ -73,6 +73,7 @@ import {
 } from '../lib/email/membership-templates.js';
 import { appUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
 import { stackSurfaceUrl } from '../lib/stack-urls.js';
+import { ReturnTo, checkoutReturn } from '../lib/checkout-return.js';
 import { LINK_KINDS } from '@thefibre/shared/link-kinds';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { googleTokenFor, runGoogleUserSync } from '../lib/google-admin.js';
@@ -3389,6 +3390,7 @@ const PublicBuy = z.object({
   // community is VAT-registered.
   country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
   vat_id: z.string().max(30).optional(),
+  return_to: ReturnTo,
 });
 
 membershipRoutes.post('/public/buy', async (c) => {
@@ -3545,8 +3547,10 @@ membershipRoutes.post('/public/buy', async (c) => {
           request_id: d.request_id,
           ...vatMetadata(buyVat),
         },
-        success_url: `${base}/purchased?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
-        cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}`,
+        ...(() => {
+          const r = checkoutReturn(d.return_to, { communityBase: base, myOrigin: stackSurfaceUrl('my-portal', process.env), lang: resolvedLocale });
+          return { success_url: r.success, cancel_url: r.cancel };
+        })(),
       },
       // request_id doubles as the Stripe idempotency key: a double-submit
       // from the same page visit returns the SAME session, never two.
@@ -3582,6 +3586,7 @@ const PublicSubscribe = z.object({
   request_id: z.string().min(8).max(100),
   country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
   billing: BillingFields.optional(),
+  return_to: ReturnTo,
 });
 
 membershipRoutes.post('/public/subscribe', async (c) => {
@@ -3727,8 +3732,10 @@ membershipRoutes.post('/public/subscribe', async (c) => {
       email,
       collectCardAlways: false,
       sessionMetadata: { kind: 'product_subscription', workspace_id: ws.id, person_id: personId, product_ids: productIds, request_id: d.request_id },
-      successUrl: `${base}/purchased?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
-      cancelUrl: `${base}?cancelled=1&lang=${resolvedLocale}`,
+      ...(() => {
+        const r = checkoutReturn(d.return_to, { communityBase: base, myOrigin: stackSurfaceUrl('my-portal', process.env), lang: resolvedLocale });
+        return { successUrl: r.success, cancelUrl: r.cancel };
+      })(),
     });
   } catch (e) {
     console.error('[membership/public/subscribe] checkout create failed', e);
