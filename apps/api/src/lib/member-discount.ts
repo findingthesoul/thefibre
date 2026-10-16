@@ -22,6 +22,7 @@
 // file now calls this one, so there is no second copy to drift.
 
 import { adminClient } from '../db.js';
+import { LIVE_PURCHASE_STATUSES } from './product-ownership.js';
 
 /** The coupon fields the arithmetic needs — deliberately not the whole row,
  *  so this module has no opinion about how a coupon is found or validated. */
@@ -417,7 +418,7 @@ export async function teamCalendarEntitlementsFor(
       .select('person_id, workspace_id, product_id')
       .in('person_id', personIds)
       .in('workspace_id', workspaceIds)
-      .eq('status', 'paid'),
+      .in('status', LIVE_PURCHASE_STATUSES),
   ]);
   if (members.error) {
     fail('members', members.error);
@@ -542,7 +543,7 @@ export async function teamCalendarNamesFor(
           .select('product_id')
           .eq('workspace_id', owner.workspaceId)
           .eq('person_id', owner.personId)
-          .eq('status', 'paid')
+          .in('status', LIVE_PURCHASE_STATUSES)
       : { data: [] as { product_id: string }[] };
     const held = await teamCalendarsCarriedBy(
       tierId,

@@ -7,6 +7,7 @@
 
 import { adminClient } from '../db.js';
 import { selectAll, selectIn } from './select-in.js';
+import { LIVE_PURCHASE_STATUSES } from './product-ownership.js';
 
 /** Categories a set of people hold, by person: the union over the products
  *  in their tier plus anything bought on its own (§5).
@@ -52,6 +53,8 @@ export async function categoriesByPerson(
         .select('id, person_id, product_id')
         .eq('workspace_id', workspaceId)
         .in('person_id', chunk)
+        // Owned only while live — a cancelled add-on's category goes with it.
+        .in('status', LIVE_PURCHASE_STATUSES)
         .order('id'),
     ),
   ]);

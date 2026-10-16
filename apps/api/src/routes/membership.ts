@@ -86,6 +86,7 @@ import {
   type PriceLogic,
 } from '../lib/pricing.js';
 import { runFibreSeatSync, grantSeat } from '../lib/fibre-seat.js';
+import { grantStatusFor, isRecurringInterval, LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 
 // ===========================================================================
 // Fibre Membership — the community-subscription API.
@@ -418,7 +419,9 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
   // products (tier → membership_tier_product → product → grants) + grants
   // carried by products this person BOUGHT à la carte (2026-09-06). Bought
   // products are owned outright — their grants ride the member's journal
-  // rows but survive tier changes AND lapse.
+  // rows but survive tier changes AND lapse. A RECURRING add-on is owned
+  // only while its subscription lives (lib/product-ownership.ts): when the
+  // membership's subscription ends, its rows are 'cancelled' and drop here.
   const [{ data: tierGrants }, { data: tierProducts }, { data: bought }] = await Promise.all([
     adminClient.from('membership_access_grant').select('id').eq('tier_id', member.tier_id),
     adminClient.from('membership_tier_product').select('product_id').eq('tier_id', member.tier_id).eq('optional', false),
@@ -427,7 +430,7 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
       .select('product_id')
       .eq('workspace_id', member.workspace_id)
       .eq('person_id', member.person_id)
-      .eq('status', 'paid'),
+      .in('status', LIVE_PURCHASE_STATUSES),
   ]);
   const productIds = (tierProducts ?? []).map((tp) => tp.product_id);
   const { data: productGrants } = productIds.length
@@ -3937,6 +3940,8 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
     const patch: Record<string, unknown> = { status: 'active', updated_at: new Date().toISOString() };
     if (renewsAt) patch.renews_at = renewsAt;
     await adminClient.from('membership_member').update(patch).eq('id', member.id);
+    // Paid again: the add-ons riding this subscription are live again too.
+    await setSubscriptionGrants(member.id, 'past_due', 'active');
   }
   if (isRenewal) {
     await logMemberActivity(member.workspace_id, member.person_id, 'membership_renewed', `Renewed · ${tier?.name ?? ''}`);
@@ -4099,6 +4104,8 @@ async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice)
       .from('membership_member')
       .update({ status: 'grace', updated_at: new Date().toISOString() })
       .eq('id', member.id);
+    // Its recurring add-ons go past_due with it — still owned, as grace is.
+    await setSubscriptionGrants(member.id, 'active', 'past_due');
     await logMemberActivity(member.workspace_id, member.person_id, 'membership_payment_failed', 'Payment failed — grace period');
   }
 
@@ -4136,6 +4143,38 @@ async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice)
   }
 }
 
+/** Every grant riding one subscription stops: status 'cancelled', ends_at
+ *  now. Only live ones — a row already cancelled keeps its first end date.
+ *  Never throws past a log: the lapse itself must still complete. */
+export async function endSubscriptionGrants(subscriptionId: string): Promise<number> {
+  const { data, error } = await adminClient
+    .from('membership_product_purchase')
+    .update({ status: 'cancelled', ends_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('stripe_subscription_id', subscriptionId)
+    .in('status', ['active', 'past_due'])
+    .select('id');
+  if (error) {
+    console.error('[membership/webhook] ending subscription grants failed', subscriptionId, error);
+    return 0;
+  }
+  return data?.length ?? 0;
+}
+
+/** Move the grants riding a member's subscription from one live status to
+ *  the other (active ⇄ past_due), following the membership through grace.
+ *  Both are owned; this keeps the row truthful. Logged, never fatal. */
+async function setSubscriptionGrants(memberId: string, from: 'active' | 'past_due', to: 'active' | 'past_due'): Promise<void> {
+  const { data: m } = await adminClient.from('membership_member').select('stripe_subscription_id').eq('id', memberId).maybeSingle();
+  const subId = m?.stripe_subscription_id as string | null | undefined;
+  if (!subId) return;
+  const { error } = await adminClient
+    .from('membership_product_purchase')
+    .update({ status: to, updated_at: new Date().toISOString() })
+    .eq('stripe_subscription_id', subId)
+    .eq('status', from);
+  if (error) console.error('[membership/webhook] subscription grants status failed', subId, error);
+}
+
 async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscription): Promise<void> {
   const { data: member } = await adminClient
     .from('membership_member')
@@ -4149,6 +4188,10 @@ async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscr
     .update({ status: 'lapsed', lapsed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', member.id);
   await logMemberActivity(member.workspace_id, member.person_id, 'membership_lapsed', 'Membership lapsed');
+  // The recurring add-ons that rode this subscription end with it — BEFORE
+  // the reconcile, so their grants drop in the same pass. A status change,
+  // never a delete: the row is the record that they held it.
+  await endSubscriptionGrants(sub.id);
   await reconcileMemberAccess(member.id);
 
   try {
@@ -4413,10 +4456,14 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
           const ids = session.metadata.option_product_ids.split(',').filter(Boolean);
           const { data: prods } = await adminClient
             .from('membership_product')
-            .select('id, price_cents, currency')
+            .select('id, price_cents, currency, price_interval')
             .eq('workspace_id', wsId)
             .in('id', ids);
+          const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
           for (const prod of prods ?? []) {
+            // A one-off add-on is owned for good ('paid'); a RECURRING one
+            // rides this membership's subscription and ends with it.
+            const recurringAddon = isRecurringInterval(prod.price_interval as string | null);
             const { error: optErr } = await adminClient.from('membership_product_purchase').insert({
               workspace_id: wsId,
               person_id: pId,
@@ -4424,7 +4471,8 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
               stripe_session_id: session.id,
               amount_cents: prod.price_cents ?? 0,
               currency: (prod.currency ?? 'EUR').toUpperCase(),
-              status: 'paid',
+              status: grantStatusFor(prod.price_interval as string | null),
+              ...(recurringAddon && subId ? { stripe_subscription_id: subId } : {}),
             });
             if (optErr && optErr.code !== '23505') {
               console.error('[membership/webhook] option purchase insert failed', optErr);

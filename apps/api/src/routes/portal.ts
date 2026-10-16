@@ -116,6 +116,7 @@ import { sellerForSale, type SellerDetails } from './purchases.js';
 import { threadSlugFromConfig } from '../lib/thread-access.js';
 import { cardDatesByWorkspace, loadThreadDates, publicDateFields } from '../lib/thread-dates.js';
 import { selectIn } from '../lib/select-in.js';
+import { LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 
 /** A product's `links` column, read defensively — it is jsonb and a product
  *  can be older than the shape. */
@@ -488,7 +489,7 @@ portalRoutes.get('/portal', async (c) => {
           .from('membership_product_purchase')
           .select('workspace_id, product_id, created_at')
           .in('person_id', personIds)
-          .eq('status', 'paid')
+          .in('status', LIVE_PURCHASE_STATUSES)
           .order('created_at', { ascending: false })
       : { data: [] },
   );

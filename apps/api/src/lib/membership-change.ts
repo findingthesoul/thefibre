@@ -22,6 +22,7 @@ import { applyPct, evaluatePriceLogic } from '@thefibre/shared/price-logic';
 import { recordPurchase } from './purchases.js';
 import { chargeNet } from './sale-vat.js';
 import { vatBreakdownFromInvoice } from '../routes/membership.js';
+import { grantStatusFor, isRecurringInterval, LIVE_PURCHASE_STATUSES } from './product-ownership.js';
 
 /** The pending decision: false = a downgrade's difference is credited on the
  *  next invoice (recommended); true = refunded now. */
@@ -169,7 +170,7 @@ export async function availableAddons(member: OwnedMember) {
     .from('membership_product_purchase')
     .select('product_id')
     .eq('person_id', member.person_id)
-    .eq('status', 'paid');
+    .in('status', LIVE_PURCHASE_STATUSES);
   const owned = new Set((held ?? []).map((h) => h.product_id as string));
   const offered = (links ?? [])
     .map((l) => (Array.isArray(l.product) ? l.product[0] : l.product) as { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean } | null)
@@ -290,7 +291,7 @@ export async function addAddon(
     .select('id', { count: 'exact', head: true })
     .eq('person_id', ctx.member.person_id)
     .eq('product_id', product.id)
-    .eq('status', 'paid');
+    .in('status', LIVE_PURCHASE_STATUSES);
   const prodKey = `membership_stripe_product:${ctx.account}:product:${product.id}`;
   const mapped = (await adminClient.from('platform_setting').select('value').eq('key', prodKey).maybeSingle()).data?.value as string | undefined;
   const onSub = !!mapped && ctx.sub.items.data.some((it) => (typeof it.price.product === 'string' ? it.price.product : it.price.product.id) === mapped);
@@ -390,7 +391,9 @@ async function addAddonOnce(
     stripe_session_id: ref,
     amount_cents: amount,
     currency: (product.currency ?? ctx.currency).toUpperCase(),
-    status: 'paid',
+    // A recurring add-on rides THIS subscription and ends with it.
+    status: grantStatusFor(product.price_interval),
+    ...(isRecurringInterval(product.price_interval) ? { stripe_subscription_id: ctx.sub.id } : {}),
   });
   if (error && error.code !== '23505') throw new Error(`add-on record: ${error.message}`);
   await reconcile(ctx.member.id);

@@ -242,9 +242,30 @@ describe('a paid basket: tier + recurring add-on + one-off product', () => {
     expect(b.lines.reduce((s, l) => s + l.net_cents, 0)).toBe(b.subtotal_cents);
   });
 
-  it.skipIf(DEPLOYED)('a grant per product bought', async () => {
-    const { data: bought } = await service.from('membership_product_purchase').select('product_id, status, stripe_session_id').eq('person_id', personId);
+  it.skipIf(DEPLOYED)('a grant per product bought: the one-off owned for good, the RECURRING add-on on the subscription', async () => {
+    const { data: bought } = await service.from('membership_product_purchase').select('product_id, status, stripe_session_id, stripe_subscription_id').eq('person_id', personId);
     expect(bought!.map((p) => p.product_id).sort()).toEqual([sheetMusic, workshop].sort());
-    expect(bought!.every((p) => p.status === 'paid' && p.stripe_session_id === session.id)).toBe(true);
+    expect(bought!.every((p) => p.stripe_session_id === session.id)).toBe(true);
+    expect(bought!.find((p) => p.product_id === workshop)).toMatchObject({ status: 'paid', stripe_subscription_id: null });
+    expect(bought!.find((p) => p.product_id === sheetMusic)).toMatchObject({ status: 'active', stripe_subscription_id: subId });
+  });
+
+  // The bug this fixes (2026-10-16): a recurring add-on's grant outlived a
+  // lapsed membership. When the subscription ends, it ends too — a status
+  // change, never a delete — and the one-off stays owned.
+  it.skipIf(DEPLOYED)('the membership lapses: the recurring add-on is cancelled with it; the one-off stays', async () => {
+    const { data: m } = await service.from('membership_member').select('id').eq('person_id', personId).single();
+    await deliver('customer.subscription.deleted', { id: subId, object: 'subscription', status: 'canceled', metadata: {}, items: { data: [] } });
+    const { data: member } = await service.from('membership_member').select('status').eq('id', m!.id).single();
+    expect(member!.status).toBe('lapsed');
+    const { data: bought } = await service.from('membership_product_purchase').select('product_id, status, ends_at').eq('person_id', personId);
+    const sheet = bought!.find((p) => p.product_id === sheetMusic)!;
+    expect(sheet.status).toBe('cancelled');
+    expect(sheet.ends_at).not.toBeNull();
+    expect(bought!.find((p) => p.product_id === workshop)!.status).toBe('paid');
+    // Owned no more, by THE rule: the live statuses no longer include it.
+    const { LIVE_PURCHASE_STATUSES } = await import('../lib/product-ownership.js');
+    const { data: live } = await service.from('membership_product_purchase').select('product_id').eq('person_id', personId).in('status', [...LIVE_PURCHASE_STATUSES]);
+    expect(live!.map((p) => p.product_id)).toEqual([workshop]);
   });
 });

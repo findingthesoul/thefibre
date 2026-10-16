@@ -16,6 +16,7 @@ import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
+import { LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 
 // ===========================================================================
 // Member self-serve portal (membership-proposal §3.7).
@@ -174,7 +175,7 @@ membershipPortalRoutes.get('/me', async (c) => {
        workspace:workspace_id (name, slug)`,
       )
       .in('person_id', personIds)
-      .eq('status', 'paid')
+      .in('status', LIVE_PURCHASE_STATUSES)
       .order('created_at', { ascending: false }),
   );
 

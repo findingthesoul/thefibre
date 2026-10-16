@@ -167,8 +167,10 @@ describe('adding to a membership, and changing it', () => {
     const again = await call(`/me/addons/${memberId}`, { product_id: sheetMusic });
     expect(again.status).toBe(409);
     expect(new Set(await periodEnd())).toEqual(new Set(before));
-    const { data: bought } = await service.from('membership_product_purchase').select('product_id, status, stripe_session_id').eq('person_id', personId);
-    expect(bought).toEqual([expect.objectContaining({ product_id: sheetMusic, status: 'paid' })]);
+    // A RECURRING add-on rides the membership's subscription and ends with it
+    // (2026-10-16): 'active' on that subscription, not 'paid' for good.
+    const { data: bought } = await service.from('membership_product_purchase').select('product_id, status, stripe_session_id, stripe_subscription_id').eq('person_id', personId);
+    expect(bought).toEqual([expect.objectContaining({ product_id: sheetMusic, status: 'active', stripe_subscription_id: subId })]);
     // Held now, so no longer offered.
     const o = await (await call(`/me/options/${memberId}`)).json();
     expect(o.addons.map((a: { name: string }) => a.name)).toEqual(['Workshop']);

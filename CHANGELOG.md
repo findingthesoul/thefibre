@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.243.0] — 2026-10-16
+
+### A recurring add-on ends with its membership
+
+- **The bug.** A member who took a recurring add-on (yearly sheet music, a
+  monthly circle) with their membership kept it after the membership lapsed
+  or was cancelled. That meant the add-on's thread access, its member
+  discount and team calendars, its directory category, and its place in the
+  portal's product list. The grant was a purchase row with status `paid`,
+  and every reader treated `paid` as owned forever. It applied to add-ons
+  taken at join and added later in my.thread.
+- **One rule now.** `LIVE_PURCHASE_STATUSES = paid | active | past_due`
+  (lib/product-ownership.ts) replaces `status = 'paid'` in every reader:
+  - access (`reconcileMemberAccess`);
+  - member discount and team calendars;
+  - add-on offers and the already-held check;
+  - the member portal's and my.thread's product lists;
+  - directory categories, which had no status filter at all before.
+  A one-off is still `paid` and owned for good.
+- **Grants know their subscription.** A recurring add-on is written `active`
+  with the membership's subscription id: at join (the webhook) and when added
+  in my.thread. When that subscription is deleted, every grant on it becomes
+  `cancelled` with `ends_at`. That is a status change, never a delete, and it
+  runs before the access reconcile, so the grants drop in the same pass. A
+  failed payment moves them to `past_due` (still owned, as grace is); a paid
+  invoice moves them back to `active`.
+- **Rows written before this release** are converted by a script per
+  database, not a migration: `scripts/backfill-recurring-addon-grants.ts`.
+  It is a dry run by default; `--apply` writes a restore file FIRST, then
+  converts. It sets `active`/`past_due` on the member's subscription, or
+  `cancelled` for a lapsed one, and reconciles the members whose add-on
+  ended. `--restore <file>` undoes it. It skips anything bought through
+  `/public/buy` (audit list a). It runs only after this API is deployed: the
+  old readers would read `active` as not owned.
+- Tested:
+  - unit: the rule (2);
+  - integration, membership-basket-paid against Stripe TEST 5/5: the one-off
+    add-on is `paid`, the yearly one is `active` on the subscription; the
+    subscription is deleted → the member is lapsed, the yearly add-on is
+    `cancelled` with `ends_at`, the one-off is still `paid`, and only the
+    one-off is live by the rule;
+  - the readers' suites on staging, 105 files: 101 passed. Mine is green
+    after its update: membership-change now expects a recurring add-on added
+    in my.thread to be `active` on the subscription (6/6). The other 3
+    failures are not in this change: two coverage tests miss
+    `thread_ticket.price_includes_vat` (from v1.236.2), and one embed test
+    expects the old exact listing shape. Reported to the coordinator.
+  - the backfill dry run on staging: 5 to convert, 0 left.
+
 ## [1.242.1] — 2026-10-16
 
 ### Handing over a departed organiser's threads in one request: the column (migration only)
