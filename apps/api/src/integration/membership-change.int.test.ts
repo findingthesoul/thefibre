@@ -26,6 +26,9 @@ let singer = '';
 let soloist = '';
 let sheetMusic = '';
 let workshop = '';
+let membersEmail = '';
+let soloistPathway = '';
+let openCircle = '';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-04-22.dahlia' as Stripe.LatestApiVersion });
 
 const call = (path: string, body?: unknown) =>
@@ -77,6 +80,24 @@ beforeAll(async () => {
   sheetMusic = products.data!.find((p) => p.name === 'Sheet music')!.id as string;
   workshop = products.data!.find((p) => p.name === 'Workshop')!.id as string;
   await service.from('membership_tier_product').insert(productIds.map((product_id) => ({ tier_id: singer, product_id, optional: true })));
+  // The MEMBER PATH (2026-10-16, soul.com): members-only renewing products,
+  // purchasable but not opened to non-members. One with no tier links (any
+  // tier), one offered only with Soloist, and one opened to anyone (not an
+  // add-on). Uniform keys — a multi-row insert NULLs a missing key.
+  const mo = await service
+    .from('membership_product')
+    .insert([
+      { workspace_id: ws, name: 'Members email', price_cents: 20000, price_interval: 'year', purchasable: true, sold_without_membership: false },
+      { workspace_id: ws, name: 'Soloist pathway', price_cents: 40000, price_interval: 'year', purchasable: true, sold_without_membership: false },
+      { workspace_id: ws, name: 'Open circle', price_cents: 3000, price_interval: 'year', purchasable: true, sold_without_membership: true },
+    ])
+    .select('id, name');
+  expect(mo.error).toBeNull();
+  for (const p of mo.data!) productIds.push(p.id as string);
+  membersEmail = mo.data!.find((p) => p.name === 'Members email')!.id as string;
+  soloistPathway = mo.data!.find((p) => p.name === 'Soloist pathway')!.id as string;
+  openCircle = mo.data!.find((p) => p.name === 'Open circle')!.id as string;
+  await service.from('membership_tier_product').insert({ tier_id: soloist, product_id: soloistPathway, optional: true });
 
   const { data: person } = await service.from('person').insert({ workspace_id: ws, email: user.email, first_name: 'Carla' }).select('id').single();
   personId = person!.id as string;
@@ -138,7 +159,9 @@ describe('adding to a membership, and changing it', () => {
     expect(r.status, await r.clone().text()).toBe(200);
     const o = await r.json();
     expect(o).toMatchObject({ interval: 'year', currency: 'EUR', current_price_cents: 30000, downgrade: 'credit' });
-    expect(o.addons.map((a: { name: string }) => a.name).sort()).toEqual(['Sheet music', 'Workshop']);
+    // + the members-only renewing product with no tier links (offered with ANY
+    // tier, 2026-10-16); not the Soloist-only one, not the opened one.
+    expect(o.addons.map((a: { name: string }) => a.name).sort()).toEqual(['Members email', 'Sheet music', 'Workshop']);
     expect(o.addons.find((a: { name: string }) => a.name === 'Sheet music').recurring).toBe(true);
     expect(o.tiers.map((t: { name: string }) => t.name)).toEqual(['Soloist']);
   });
@@ -173,7 +196,7 @@ describe('adding to a membership, and changing it', () => {
     expect(bought).toEqual([expect.objectContaining({ product_id: sheetMusic, status: 'active', stripe_subscription_id: subId })]);
     // Held now, so no longer offered.
     const o = await (await call(`/me/options/${memberId}`)).json();
-    expect(o.addons.map((a: { name: string }) => a.name)).toEqual(['Workshop']);
+    expect(o.addons.map((a: { name: string }) => a.name).filter((n: string) => n !== 'Members email')).toEqual(['Workshop']);
   });
 
   it('a one-off add-on: its own invoice, paid, on the ledger once', async () => {
@@ -240,3 +263,44 @@ describe('adding to a membership, and changing it', () => {
     }
   });
 });
+
+// THE MEMBER PATH (2026-10-16, production soul.com: an existing member could
+// not buy the members-only email address). The offer widens by ONE rule —
+// addonCandidates — read by the offer list, the preview and the charge.
+describe('a members-only renewing product, added to an existing membership', () => {
+  it('the public page finds the membership: /me/member-in/<slug>', async () => {
+    const r = await call('/me/member-in/int-renewal-fixtures');
+    expect(r.status, await r.clone().text()).toBe(200);
+    expect(await r.json()).toEqual({ member_id: memberId, can_add: true });
+  });
+
+  it('offered: members-only with no tier links (any tier); not: one opened to anyone, nor one for another tier', async () => {
+    const { data: m } = await service.from('membership_member').select('tier_id').eq('id', memberId).single();
+    const r = await call(`/me/options/${memberId}`);
+    expect(r.status, await r.clone().text()).toBe(200);
+    const ids = ((await r.json()).addons as { id: string }[]).map((a) => a.id);
+    expect(ids).toContain(membersEmail);
+    expect(ids).not.toContain(openCircle);
+    // Offered only with Soloist: present exactly when the member is on it.
+    expect(ids.includes(soloistPathway)).toBe(m!.tier_id === soloist);
+  });
+
+  it('preview, then add: a prorated charge now on THEIR subscription; the grant is active on it', async () => {
+    const p = await call(`/me/addons/${memberId}/preview`, { product_id: membersEmail });
+    expect(p.status, await p.clone().text()).toBe(200);
+    expect((await p.json()).due_now_cents).toBeGreaterThan(0);
+    const r = await call(`/me/addons/${memberId}`, { product_id: membersEmail });
+    expect(r.status, await r.clone().text()).toBe(200);
+    const { data: g } = await service.from('membership_product_purchase').select('status, stripe_subscription_id').eq('person_id', personId).eq('product_id', membersEmail).single();
+    expect(g).toEqual({ status: 'active', stripe_subscription_id: subId });
+    // Held now: no longer offered, and a second add is refused.
+    const ids = ((await (await call(`/me/options/${memberId}`)).json()).addons as { id: string }[]).map((a) => a.id);
+    expect(ids).not.toContain(membersEmail);
+  });
+
+  it('a product opened to anyone is not an add-on here (the page subscribes to it instead)', async () => {
+    const r = await call(`/me/addons/${memberId}`, { product_id: openCircle });
+    expect(r.status).toBe(404);
+  });
+});
+

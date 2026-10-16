@@ -55,6 +55,8 @@ const fmt = (c: number, cur: string) => money(c, cur);
 
 type Quote = { rate_pct: number; reverse_charge: boolean };
 type Ctx = {
+  /** The community's slug — the member path asks which membership is theirs here. */
+  workspaceSlug: string;
   basket: Basket;
   catalog: Catalog;
   country: string;
@@ -199,6 +201,7 @@ export function BasketProvider({
   const barTotal = basketTotals(barLines, vatRegistered ? noteRatePct ?? 0 : 0);
 
   const ctx: Ctx = {
+    workspaceSlug,
     basket,
     catalog,
     country,

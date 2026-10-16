@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.247.1] — 2026-10-16
+
+### A member adds a members-only product to their membership, from the page or my.thread (Members 1.16.0)
+
+- **From production soul.com.** Marieke, an existing member, could not buy
+  the community email address or the Fellowship pathway: members-only
+  renewing products that her tier does not list as optional extras. The
+  page said "With a membership" (she has one), and my.thread's "Add or
+  change" offered nothing.
+- **ONE offer rule, `addonCandidates`** (lib/membership-change.ts). It is
+  read by the offer list, the preview and the charge, so they cannot
+  disagree. A member may add:
+  - the tier's optional products, as before; and
+  - members-only renewing products (purchasable, recurring, not opened to
+    non-members) that are offered with THIS tier, by the product's own tier
+    links. No links means any tier.
+  Never a product the tier already includes. A product opened to anyone is
+  subscribed to on its own, not added.
+- **The public page.** A signed-in member (the session cookie spans the
+  apex, so a my.thread sign-in counts) sees "Add to your membership" on
+  such a product. It opens P3's own preview: "€X now (incl. VAT) for the
+  rest of your current period, then €Y per year with your membership".
+  Confirming adds it to THEIR subscription, on the same card and renewal
+  date. It is never a new subscription. New route: `GET
+  /membership/portal/me/member-in/:workspaceSlug` (the member id, whether
+  it can be added to). Everything else is P3's routes. Anonymous visitors
+  still see "With a membership".
+- **my.thread → "Add or change"** offers the same products, through the
+  same rule.
+- Tested:
+  - integration `membership-change` on staging with a real Stripe TEST
+    subscription (10): member-in finds the membership; the options include
+    the members-only product with no links, and exclude the opened one and
+    the one offered with another tier; preview, then add, gives a prorated
+    charge and an active grant on THEIR subscription; held, it is no longer
+    offered; an opened product is not an add-on (404). The suite's two
+    exact add-on lists now include the members-only product, as intended.
+  - e2e `member-addon` (exclusive project): the fixture, a member with a
+    real Stripe TEST subscription, adds it from the public page and the
+    grant is read back. Runs after the deploy.
+
 ## [1.247.0] — 2026-10-16
 
 ### my.thread in six languages, part 1: the frame, sign-in and Next (my.thread 0.21.0)

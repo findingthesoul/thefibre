@@ -158,23 +158,55 @@ export function addonFit(product: { price_interval: string | null }, interval: '
   return iv === interval ? 'recurring' : null;
 }
 
-/** The add-ons this member may add: optional products of their tier, not
- *  archived, not already held. */
+export type AddonProduct = { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean };
+
+/** THE OFFER RULE for adding to an existing membership (one rule for the
+ *  join page, my.thread and the charge — 2026-10-16, soul.com):
+ *    · the tier's OPTIONAL products, as before; and
+ *    · MEMBERS-ONLY renewing products (purchasable, recurring, not opened to
+ *      non-members) that are open to THIS tier: the product's optional tier
+ *      links name this tier, or it has none at all (none = any tier).
+ *  Never a product the tier already INCLUDES. Archived, unpriced and held
+ *  products are filtered by the callers (held only where it should be). */
+export async function addonCandidates(member: OwnedMember): Promise<AddonProduct[]> {
+  const cols = 'id, name, price_cents, price_interval, currency, archived_at, price_includes_vat';
+  const [{ data: tierLinks }, { data: membersOnly }] = await Promise.all([
+    adminClient.from('membership_tier_product').select(`optional, product:product_id (${cols})`).eq('tier_id', member.tier_id),
+    adminClient
+      .from('membership_product')
+      .select(`${cols}, membership_tier_product (tier_id, optional)`)
+      .eq('workspace_id', member.workspace_id)
+      .eq('purchasable', true)
+      .eq('sold_without_membership', false)
+      .neq('price_interval', 'once')
+      .is('archived_at', null),
+  ]);
+  const one = (v: unknown) => (Array.isArray(v) ? v[0] : v) as AddonProduct | null;
+  const included = new Set((tierLinks ?? []).filter((l) => !l.optional).map((l) => one(l.product)?.id).filter(Boolean) as string[]);
+  const byId = new Map<string, AddonProduct>();
+  for (const l of tierLinks ?? []) {
+    const p = one(l.product);
+    if (l.optional && p) byId.set(p.id, p);
+  }
+  for (const row of (membersOnly ?? []) as (AddonProduct & { membership_tier_product?: { tier_id: string; optional: boolean }[] })[]) {
+    if (included.has(row.id) || byId.has(row.id)) continue;
+    const offeredWith = (row.membership_tier_product ?? []).filter((l) => l.optional).map((l) => l.tier_id);
+    if (offeredWith.length && !offeredWith.includes(member.tier_id)) continue;
+    const { membership_tier_product: _links, ...product } = row;
+    byId.set(row.id, product);
+  }
+  return [...byId.values()];
+}
+
+/** The add-ons this member may add: the offer rule above, not archived,
+ *  priced, not already held. */
 export async function availableAddons(member: OwnedMember) {
-  const { data: links } = await adminClient
-    .from('membership_tier_product')
-    .select('product:product_id (id, name, price_cents, price_interval, currency, archived_at, price_includes_vat)')
-    .eq('tier_id', member.tier_id)
-    .eq('optional', true);
-  const { data: held } = await adminClient
-    .from('membership_product_purchase')
-    .select('product_id')
-    .eq('person_id', member.person_id)
-    .in('status', LIVE_PURCHASE_STATUSES);
+  const [candidates, { data: held }] = await Promise.all([
+    addonCandidates(member),
+    adminClient.from('membership_product_purchase').select('product_id').eq('person_id', member.person_id).in('status', LIVE_PURCHASE_STATUSES),
+  ]);
   const owned = new Set((held ?? []).map((h) => h.product_id as string));
-  const offered = (links ?? [])
-    .map((l) => (Array.isArray(l.product) ? l.product[0] : l.product) as { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean } | null)
-    .filter((p): p is NonNullable<typeof p> => !!p && !p.archived_at && !owned.has(p.id) && (p.price_cents ?? 0) > 0);
+  const offered = candidates.filter((p) => !p.archived_at && !owned.has(p.id) && (p.price_cents ?? 0) > 0);
   // At their NET (a product entered incl. VAT), like at join.
   return Promise.all(offered.map(async (p) => ({ ...p, price_cents: await addonNet(member, p) })));
 }

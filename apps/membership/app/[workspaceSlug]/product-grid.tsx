@@ -13,6 +13,7 @@ import { t, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { VatInclNote } from '@thefibre/shared/ui/vat-price';
 import { addBlocker, netOf } from '@/lib/basket';
+import { AddToMembership, useMemberAddon } from './member-addon';
 import { useBasket } from './basket-provider';
 
 export function ProductGrid({
@@ -71,7 +72,9 @@ export function ProductGrid({
 }
 
 function ProductCard({ product, locale, vatRegistered }: { product: PublicProduct; locale: Locale; vatRegistered: boolean }) {
-  const { basket, catalog, noteRatePct, addProduct, removeProduct, openBasket } = useBasket();
+  const { workspaceSlug, basket, catalog, noteRatePct, addProduct, removeProduct, openBasket } = useBasket();
+  // A signed-in MEMBER may add a members-only product to their membership.
+  const memberAddon = useMemberAddon(workspaceSlug, product.id);
   const currency = product.currency ?? 'EUR';
   const inBasket = basket.productIds.includes(product.id);
   const blocker = addBlocker(catalog, basket, product);
@@ -120,6 +123,8 @@ function ProductCard({ product, locale, vatRegistered }: { product: PublicProduc
               {t(locale, 'basket_remove')}
             </button>
           </div>
+        ) : blocker && memberAddon ? (
+          <AddToMembership memberId={memberAddon.memberId} addon={memberAddon.addon} interval={memberAddon.interval} />
         ) : blocker ? (
           // A recurring product rides a membership's subscription: without
           // one (or at another interval) it cannot be bought on its own.

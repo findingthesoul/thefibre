@@ -28,6 +28,7 @@ import {
   addonFit,
   addonNet,
   availableAddons,
+  addonCandidates,
   availableTiers,
   changeTier,
   DOWNGRADE_REFUNDS,
@@ -351,6 +352,20 @@ const failed = (c: import('hono').Context, what: string, e: unknown) => {
   return c.json({ error: `could not ${what} — try again shortly` }, 502);
 };
 
+// GET /me/member-in/:workspaceSlug — is the signed-in address a live member
+// of this community, and which membership (2026-10-16): so the public join
+// page can offer "Add to your membership" through the P3 routes below. Only
+// the id and whether it can be added to (a card subscription); nothing else.
+membershipPurchaseRoutes.get('/me/member-in/:workspaceSlug', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const { data: ws } = await adminClient.from('workspace').select('id').eq('slug', c.req.param('workspaceSlug')).maybeSingle();
+  if (!ws) return c.json({ error: 'not found' }, 404);
+  const m = (await membersForEmail(email)).find((x) => x.workspace_id === ws.id);
+  if (!m) return c.json({ error: 'not a member here' }, 404);
+  return c.json({ member_id: m.id, can_add: !!(m.stripe_subscription_id && m.stripe_customer_id) });
+});
+
 // GET /me/options/:memberId — what this member may add, and move to, with
 // prices for their interval and country (net; VAT rides on the subscription).
 membershipPurchaseRoutes.get('/me/options/:memberId', async (c) => {
@@ -410,22 +425,10 @@ membershipPurchaseRoutes.post('/me/addons/:memberId', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { product_id?: unknown; request_id?: unknown };
   // Not filtered by "already held" here: the guard inside addAddon answers a
   // second click with 409 "already part of your membership", not a 404.
-  const product =
-    typeof body.product_id === 'string'
-      ? (
-          await adminClient
-            .from('membership_tier_product')
-            .select('product:product_id (id, name, price_cents, price_interval, currency, archived_at, price_includes_vat)')
-            .eq('tier_id', r.ctx.member.tier_id)
-            .eq('optional', true)
-            .eq('product_id', body.product_id)
-            .maybeSingle()
-        ).data?.product
-      : null;
-  const p = (Array.isArray(product) ? product[0] : product) as
-    | { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean }
-    | null
-    | undefined;
+  // THE OFFER RULE (addonCandidates) — the same one the offer list uses, so
+  // what is offered and what is charged cannot disagree.
+  const p =
+    typeof body.product_id === 'string' ? (await addonCandidates(r.ctx.member)).find((x) => x.id === body.product_id) ?? null : null;
   if (!p || p.archived_at || !(p.price_cents && p.price_cents > 0)) return c.json({ error: 'That add-on is not available for this membership.' }, 404);
   try {
     const out = await addAddon(r.ctx, { ...p, price_cents: await addonNet(r.ctx.member, p) }, reconcileMemberAccess, requestIdOf(body.request_id));
