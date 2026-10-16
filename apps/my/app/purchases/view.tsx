@@ -15,7 +15,7 @@ import { loadInvoices, loadSession } from '@/lib/session';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { InvoiceList } from './invoice-list';
-import { Renewals } from './renewals';
+import { ProductRenewals, Renewals } from './renewals';
 import { fetchBuyerDetails, fetchRenewals } from '@/lib/portal-api';
 import { BillingDetailsForm } from './billing-details';
 
@@ -43,7 +43,8 @@ export async function PurchasesView({ openId = null }: { openId?: string | null 
 
   return (
     <PageShell title="Purchases">
-      {renewals && <Renewals items={renewals} />}
+      {renewals && <Renewals items={renewals.memberships} />}
+      {renewals && <ProductRenewals items={renewals.products} />}
       {buyer && <BillingDetailsForm initial={buyer} />}
       {/* A failed call is NOT an empty list, and this page used to show both
           as "Nothing invoiced yet" — which is how a reported missing invoice

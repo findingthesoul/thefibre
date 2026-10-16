@@ -848,14 +848,28 @@ export type MyRenewal = {
   next_invoice?: { total: number; tax: number; subtotal: number; currency: string } | null;
 };
 
-export async function fetchRenewals(accessToken: string): Promise<MyRenewal[] | null> {
+/** A product subscribed to on its own (2026-10-16): one per subscription. */
+export type MyProductSubscription = {
+  subscription_id: string;
+  community: string;
+  products: string[];
+  status: string;
+  unavailable?: boolean;
+  renews_at?: string | null;
+  stops_at_period_end?: boolean;
+  next_invoice?: { total: number; tax: number; subtotal: number; currency: string } | null;
+};
+
+export async function fetchRenewals(accessToken: string): Promise<{ memberships: MyRenewal[]; products: MyProductSubscription[] } | null> {
   try {
     const res = await fetch(`${baseUrl}/api/v1/membership/portal/me/renewals`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',
     });
     if (!res.ok) return null;
-    return ((await res.json()) as { items?: MyRenewal[] }).items ?? [];
+    const body = (await res.json()) as { items?: MyRenewal[]; product_subscriptions?: MyProductSubscription[] };
+    // product_subscriptions is additive: an API one release behind sends none.
+    return { memberships: body.items ?? [], products: body.product_subscriptions ?? [] };
   } catch {
     return null;
   }

@@ -18,6 +18,7 @@ import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { logMemberActivity, memberEmailLocale } from './membership.js';
 import { membershipRenewalChanged, membershipCardChanged, greetingName } from '../lib/email/membership-templates.js';
 import { signatureFor } from '../lib/member-email-templates.js';
+import { LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 import { sendEmail } from '../lib/email/client.js';
 import { getBuyerDetails, saveBuyerDetails } from '../lib/buyer-details.js';
 import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
@@ -109,7 +110,117 @@ membershipPurchaseRoutes.get('/me/renewals', async (c) => {
       items.push({ ...base, managed_by_community: false, unavailable: true });
     }
   }
-  return c.json({ items });
+  // PRODUCTS SUBSCRIBED TO ON THEIR OWN (2026-10-16), additive: one entry per
+  // subscription, read from Stripe the same way as a membership's.
+  const productSubscriptions = [];
+  for (const ps of await productSubscriptionsForEmail(email)) {
+    const { data: ws } = await adminClient.from('workspace').select('name').eq('id', ps.workspace_id).maybeSingle();
+    const base = { subscription_id: ps.subscription_id, community: ws?.name ?? '', products: ps.products, status: ps.status };
+    const account = stripe ? await workspaceStripeAccount(ps.workspace_id) : null;
+    if (!stripe || !account) {
+      productSubscriptions.push({ ...base, unavailable: true });
+      continue;
+    }
+    try {
+      const sub = await stripe.subscriptions.retrieve(ps.subscription_id, {}, { stripeAccount: account });
+      const periodEnd = sub.items.data[0]?.current_period_end ?? null;
+      let next: { total: number; tax: number; subtotal: number; currency: string } | null = null;
+      if (!sub.cancel_at_period_end && sub.status !== 'canceled') {
+        const preview = await stripe.invoices.createPreview({ subscription: sub.id }, { stripeAccount: account });
+        const tax = (preview.total_taxes ?? []).reduce((sum, t) => sum + (t.amount ?? 0), 0);
+        next = { total: preview.total, tax, subtotal: preview.subtotal_excluding_tax ?? preview.subtotal, currency: preview.currency.toUpperCase() };
+      }
+      productSubscriptions.push({
+        ...base,
+        renews_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+        stops_at_period_end: !!sub.cancel_at_period_end,
+        next_invoice: next,
+      });
+    } catch (e) {
+      console.error('[membership/purchases] product renewal read failed', { sub: ps.subscription_id, message: (e as Error).message });
+      productSubscriptions.push({ ...base, unavailable: true });
+    }
+  }
+  return c.json({ items, product_subscriptions: productSubscriptions });
+});
+
+type OwnedProductSubscription = { subscription_id: string; workspace_id: string; person_id: string; products: string[]; status: string };
+
+/** The product subscriptions this verified address holds: subscriptions its
+ *  persons have LIVE grants on that are NOT a membership's (an add-on rides
+ *  the membership, and stops with it — that is the membership's toggle). */
+async function productSubscriptionsForEmail(email: string): Promise<OwnedProductSubscription[]> {
+  const { data: persons } = await adminClient.from('person').select('id').eq('email', email).is('deleted_at', null);
+  const ids = (persons ?? []).map((p) => p.id as string);
+  if (!ids.length) return [];
+  const { data: grants } = await adminClient
+    .from('membership_product_purchase')
+    .select('workspace_id, person_id, status, stripe_subscription_id, product:product_id (name)')
+    .in('person_id', ids)
+    .not('stripe_subscription_id', 'is', null)
+    .in('status', [...LIVE_PURCHASE_STATUSES]);
+  const subIds = [...new Set((grants ?? []).map((g) => g.stripe_subscription_id as string))];
+  if (!subIds.length) return [];
+  const { data: memberSubs } = await adminClient.from('membership_member').select('stripe_subscription_id').in('stripe_subscription_id', subIds);
+  const isMembership = new Set((memberSubs ?? []).map((m) => m.stripe_subscription_id as string));
+  const bySub = new Map<string, OwnedProductSubscription>();
+  for (const g of grants ?? []) {
+    const sid = g.stripe_subscription_id as string;
+    if (isMembership.has(sid)) continue;
+    const name = (Array.isArray(g.product) ? g.product[0] : (g.product as { name?: string } | null))?.name ?? '';
+    const row = bySub.get(sid) ?? { subscription_id: sid, workspace_id: g.workspace_id as string, person_id: g.person_id as string, products: [], status: g.status as string };
+    if (name) row.products.push(name);
+    // past_due wins over active: the subscription is behind on payment.
+    if (g.status === 'past_due') row.status = 'past_due';
+    bySub.set(sid, row);
+  }
+  return [...bySub.values()];
+}
+
+/** One product subscription this address owns, or null — the ownership check
+ *  every product-subscription action goes through (and the card change will,
+ *  once P4's publishable key exists). */
+export async function ownedProductSubscription(email: string, subscriptionId: string): Promise<OwnedProductSubscription | null> {
+  return (await productSubscriptionsForEmail(email)).find((x) => x.subscription_id === subscriptionId) ?? null;
+}
+
+// POST /membership/portal/me/product-renewals/:subscriptionId {stop} — stop a
+// product subscription at the end of its period, or resume it. Nothing is
+// charged or refunded now; the grant stays live until the period ends.
+membershipPurchaseRoutes.post('/me/product-renewals/:subscriptionId', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = (await c.req.json().catch(() => ({}))) as { stop?: unknown };
+  if (typeof body.stop !== 'boolean') return c.json({ error: 'stop must be true or false' }, 400);
+  const owned = await ownedProductSubscription(email, c.req.param('subscriptionId'));
+  if (!owned) return c.json({ error: 'not found' }, 404);
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
+  const account = await workspaceStripeAccount(owned.workspace_id);
+  if (!account) return c.json({ error: 'This community has not connected a payment account yet.' }, 409);
+  try {
+    const sub = await stripe.subscriptions.update(owned.subscription_id, { cancel_at_period_end: body.stop }, { stripeAccount: account });
+    const periodEnd = sub.items.data[0]?.current_period_end ?? null;
+    await adminClient
+      .from('membership_product_purchase')
+      .update({ cancel_at_period_end: body.stop, updated_at: new Date().toISOString() })
+      .eq('stripe_subscription_id', owned.subscription_id)
+      .in('status', ['active', 'past_due']);
+    await logMemberActivity(
+      owned.workspace_id,
+      owned.person_id,
+      body.stop ? 'membership_renewal_stopped' : 'membership_renewal_resumed',
+      body.stop ? 'Product renewal stopped by the subscriber' : 'Product renewal resumed by the subscriber',
+    ).catch(() => undefined);
+    return c.json({
+      subscription_id: owned.subscription_id,
+      stops_at_period_end: !!sub.cancel_at_period_end,
+      renews_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+    });
+  } catch (e) {
+    console.error('[membership/purchases] product renewal update failed', { sub: owned.subscription_id, message: (e as Error).message });
+    return c.json({ error: 'could not change the renewal — try again shortly' }, 502);
+  }
 });
 
 // POST /membership/portal/me/renewals/:memberId {stop: boolean} — stop the

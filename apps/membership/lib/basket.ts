@@ -43,10 +43,23 @@ export function intervalsOf(tier: PublicTier): Interval[] {
   return [...(has(tier.price_cents_year) ? (['year'] as const) : []), ...(has(tier.price_cents_month) ? (['month'] as const) : [])];
 }
 
-/** May this product be in this basket? A one-off always fits; a recurring
- *  one only rides a membership of its own interval (one subscription, one
- *  interval — as at join). It must be sold on its own (purchasable) or be an
- *  optional add-on of the tier in the basket. */
+/** The renewal interval of the renewing products in the basket other than
+ *  `except` — null when there are none. */
+function basketProductInterval(c: Catalog, b: Basket, except?: string): string | null {
+  for (const id of b.productIds) {
+    if (id === except) continue;
+    const iv = c.products.find((x) => x.id === id)?.price_interval ?? 'once';
+    if (iv !== 'once') return iv;
+  }
+  return null;
+}
+
+/** May this product be in this basket? A one-off always fits. A recurring
+ *  one rides a membership of its own interval (one subscription, one
+ *  interval — as at join); WITHOUT a membership it is subscribed to on its
+ *  own (2026-10-16, /public/subscribe), as long as every renewing product in
+ *  the basket shares one interval. It must be sold on its own (purchasable)
+ *  or be an optional add-on of the tier in the basket. */
 export function fits(c: Catalog, b: Basket, p: PublicProduct): boolean {
   if (!has(p.price_cents)) return false;
   const tier = tierOf(c, b);
@@ -54,14 +67,17 @@ export function fits(c: Catalog, b: Basket, p: PublicProduct): boolean {
   if (!p.purchasable && !asOption) return false;
   const iv = p.price_interval ?? 'once';
   if (iv === 'once') return true;
-  return !!tier && iv === b.interval;
+  if (tier) return iv === b.interval;
+  const other = basketProductInterval(c, b, p.id);
+  return other === null || other === iv;
 }
 
 /** Why a product cannot be added right now — for the button's words. */
 export function addBlocker(c: Catalog, b: Basket, p: PublicProduct): 'needs_membership' | 'other_interval' | null {
   if (fits(c, b, p)) return null;
   const iv = p.price_interval ?? 'once';
-  if (iv !== 'once' && !tierOf(c, b)) return 'needs_membership';
+  // Not sold on its own: only with the membership it belongs to.
+  if (!p.purchasable) return 'needs_membership';
   if (iv !== 'once') return 'other_interval';
   return 'needs_membership';
 }
@@ -148,19 +164,26 @@ export function totals(ls: Line[], ratePct: number, discountCents = 0): Totals {
 /** What the checkout posts — and to which route.
  *
  *  A basket with a membership is a JOIN: every product rides it.
- *  Products only is a BUY. One product goes as `product_id` alone, which an
+ *  Products only, one of them renewing, is a SUBSCRIBE (2026-10-16).
+ *  Products only, none renewing, is a BUY. One product goes as `product_id` alone, which an
  *  API one release behind still understands; several as `product_ids`,
  *  which that older API refuses (400) rather than quietly buying one of them
  *  — never a silent partial purchase. */
-export function checkoutTarget(b: Basket):
+export function checkoutTarget(b: Basket, c?: Catalog):
   | { route: '/api/v1/membership/public/join'; body: { tier_id: string; interval: Interval; option_product_ids?: string[] } }
   | { route: '/api/v1/membership/public/buy'; body: { product_id: string } | { product_ids: string[] } }
+  | { route: '/api/v1/membership/public/subscribe'; body: { product_ids: string[] } }
   | null {
   if (b.tierId) {
     return {
       route: '/api/v1/membership/public/join',
       body: { tier_id: b.tierId, interval: b.interval, ...(b.productIds.length ? { option_product_ids: b.productIds } : {}) },
     };
+  }
+  // No membership, but something renews: a SUBSCRIPTION of its own
+  // (2026-10-16). Every product goes along — a one-off as a first-invoice line.
+  if (c && b.productIds.length && basketProductInterval(c, b) !== null) {
+    return { route: '/api/v1/membership/public/subscribe', body: { product_ids: b.productIds } };
   }
   if (b.productIds.length === 1) return { route: '/api/v1/membership/public/buy', body: { product_id: b.productIds[0]! } };
   if (b.productIds.length > 1) return { route: '/api/v1/membership/public/buy', body: { product_ids: b.productIds } };

@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.246.0] — 2026-10-16
+
+### Subscribe to a product from the page, and manage it in my.thread (Members 1.14.0, my.thread 0.20.0)
+
+- The last part of the P4 remainder.
+- **The join page.** A recurring product sold on its own can go in the
+  basket without a membership. The basket checks out through
+  `POST /public/subscribe` (v1.245.0) instead of being refused with "With
+  a membership". Rules, in `lib/basket.ts` and pinned in its tests:
+  - renewing products in one basket share one interval; a product on
+    another schedule says "Renews on another schedule";
+  - a one-off product rides along as a first-invoice line;
+  - a tier-only add-on still needs its membership;
+  - a basket with a membership is still a join, and one with nothing
+    renewing is still a buy.
+  A VAT number goes in `billing.tax_no`, as at join.
+- **my.thread → Purchases → Your subscriptions.** Each product subscription
+  shows its renewal date and Stripe's own next-invoice figure, with Stop and
+  Resume, as memberships have. It is never sent to Stripe. The API is
+  `GET /membership/portal/me/renewals`, which gains `product_subscriptions`
+  (additive), and the new `POST /me/product-renewals/:subscriptionId
+  {stop}`. Ownership goes through ONE resolver, `ownedProductSubscription`:
+  the verified email's persons, their live grants, on a subscription that is
+  not a membership's. A membership's add-on stays under the membership's own
+  toggle. The card change for a product subscription follows once P4's
+  publishable key exists.
+- Not in this: non-member product buyers get no access journal. Sjoerd: "In
+  this case members only."
+- **Future direction, noted and not built:** "Later we will build an 'open
+  shop' and a 'members only shop'" (Sjoerd, 2026-10-16).
+- Tested:
+  - unit `basket` (18): subscribe without a tier, one interval, a tier-only
+    add-on still blocked, the subscribe/buy targets;
+  - integration `membership-product-renewals` on staging with a real Stripe
+    TEST subscription (4): listed with the next invoice; stop sets cancel at
+    period end on Stripe and on the grant, with nothing charged; resume;
+    another address gets 404; a membership's subscription is not listed and
+    not touchable here;
+  - `membership-renewals` unchanged (4/4).
+
 ## [1.245.3] — 2026-10-16
 
 ### Meet's calendar invitations follow Thread's rule, so Gmail files them (Meet 2.36.1)

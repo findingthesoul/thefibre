@@ -4,6 +4,7 @@ import {
   addProduct,
   addTier,
   netOf,
+  addBlocker,
   checkoutTarget,
   initialCountry,
   lines,
@@ -65,9 +66,33 @@ describe('the page basket', () => {
     expect(b.productIds).toEqual([]);
   });
 
-  it('a recurring product cannot be bought without a membership', () => {
-    expect(addProduct(c, EMPTY_BASKET, 'yearly-solo').productIds).toEqual([]);
+  // Since 2026-10-16 a recurring product sold on its own is SUBSCRIBED to
+  // without a membership (/public/subscribe); a tier-only add-on still needs
+  // its membership, and renewing products in one basket share one interval.
+  it('a recurring product sold on its own can be subscribed to without a membership', () => {
+    expect(addProduct(c, EMPTY_BASKET, 'yearly-solo').productIds).toEqual(['yearly-solo']);
     expect(addProduct(c, addTier(c, EMPTY_BASKET, 'member'), 'yearly-solo').productIds).toEqual(['yearly-solo']);
+  });
+
+  it('a tier-only add-on still needs its membership', () => {
+    const sheet = c.products.find((p) => p.id === 'sheet')!;
+    expect(addProduct(c, EMPTY_BASKET, 'sheet').productIds).toEqual([]);
+    expect(addBlocker(c, EMPTY_BASKET, sheet)).toBe('needs_membership');
+  });
+
+  it('without a membership, renewing products share one interval; a one-off rides along', () => {
+    const monthly = { ...c.products.find((p) => p.id === 'yearly-solo')!, id: 'monthly-solo', price_interval: 'month' as const };
+    const c2 = { ...c, products: [...c.products, monthly] };
+    const b = addProduct(c2, EMPTY_BASKET, 'yearly-solo');
+    expect(addProduct(c2, b, 'monthly-solo').productIds).toEqual(['yearly-solo']);
+    expect(addBlocker(c2, b, monthly)).toBe('other_interval');
+    expect(addProduct(c2, b, 'workshop').productIds).toEqual(['yearly-solo', 'workshop']);
+  });
+
+  it('a no-tier basket with a renewing product checks out as a SUBSCRIBE; none renewing stays a BUY', () => {
+    const sub = addProduct(c, addProduct(c, EMPTY_BASKET, 'yearly-solo'), 'workshop');
+    expect(checkoutTarget(sub, c)).toEqual({ route: '/api/v1/membership/public/subscribe', body: { product_ids: ['yearly-solo', 'workshop'] } });
+    expect(checkoutTarget(addProduct(c, EMPTY_BASKET, 'workshop'), c)).toEqual({ route: '/api/v1/membership/public/buy', body: { product_id: 'workshop' } });
   });
 
   it('suggests the tier’s add-ons that fit and are not in yet', () => {

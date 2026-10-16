@@ -286,6 +286,14 @@ const CATALOG = {
     de: 'Mit einer Mitgliedschaft', // MT
     fr: 'Avec une adhésion', // MT
   },
+  basket_other_schedule: {
+    en: 'Renews on another schedule',
+    nl: 'Verlengt op een ander schema', // MT
+    es: 'Se renueva con otra frecuencia', // MT
+    pt: 'Renova com outra frequência', // MT
+    de: 'Verlängert sich in einem anderen Rhythmus', // MT
+    fr: 'Se renouvelle à un autre rythme', // MT
+  },
   basket_try_again: {
     en: 'Something changed on our side just now — please try again in a minute.',
     nl: 'Er veranderde net iets aan onze kant — probeer het over een minuutje opnieuw.', // MT pending native review

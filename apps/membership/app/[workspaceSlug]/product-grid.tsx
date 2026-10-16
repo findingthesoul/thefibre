@@ -124,7 +124,9 @@ function ProductCard({ product, locale, vatRegistered }: { product: PublicProduc
           // A recurring product rides a membership's subscription: without
           // one (or at another interval) it cannot be bought on its own.
           <Button type="button" className="w-full" disabled>
-            {t(locale, 'basket_with_membership')}
+            {/* A tier-only add-on waits for its membership; a renewing product on
+                another schedule than the basket's cannot share its subscription. */}
+            {t(locale, blocker === 'other_interval' ? 'basket_other_schedule' : 'basket_with_membership')}
           </Button>
         ) : (
           <Button type="button" className="w-full" onClick={() => addProduct(product.id)}>

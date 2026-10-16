@@ -526,7 +526,7 @@ function Checkout({
   const [error, setError] = useState<string | null>(null);
   const [editingCountry, setEditingCountry] = useState(!country);
   const requestId = useMemo(() => `mbasket_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`, []);
-  const target = checkoutTarget(basket);
+  const target = checkoutTarget(basket, catalog);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -551,7 +551,12 @@ function Checkout({
             billing: readBillingFields(fd),
             ...(code ? { code } : {}),
           }
-        : { ...common, ...target.body, ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}) };
+        : target.route.endsWith('/subscribe')
+          ? // A subscription of its own takes the VAT number where the join
+            // does: in `billing` (tax_no), for the Stripe customer and the
+            // reverse-charge rule alike.
+            { ...common, ...target.body, ...(vatNo.trim() ? { billing: { tax_no: vatNo.trim() } } : {}) }
+          : { ...common, ...target.body, ...(vatNo.trim() ? { vat_id: vatNo.trim() } : {}) };
       const res = await publicFetch<{ url?: string | null; already_member?: boolean; already_purchased?: boolean; product_ids?: string[] }>(target.route, {
         method: 'POST',
         body: JSON.stringify(body),
