@@ -88,7 +88,7 @@ export const ENGAGEMENT_COPY: CopySpec = {
 };
 
 export const TICKET_COPY: CopySpec = {
-  copy: ['name', 'description', 'price_cents', 'price_currency', 'quantity_limit', 'available_until', 'payment_methods', 'is_active', 'position'],
+  copy: ['name', 'description', 'price_cents', 'price_currency', 'price_includes_vat', 'quantity_limit', 'available_until', 'payment_methods', 'is_active', 'position'],
   set: {
     workspace_id: "the duplicating user's workspace",
     thread_id: 'the copy',

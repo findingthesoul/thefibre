@@ -89,7 +89,7 @@ export const TEMPLATE_ENGAGEMENT: TemplateSpec = {
 };
 
 export const TEMPLATE_TICKET: TemplateSpec = {
-  carry: ['name', 'description', 'price_cents', 'price_currency', 'quantity_limit', 'payment_methods', 'is_active', 'position'],
+  carry: ['name', 'description', 'price_cents', 'price_currency', 'price_includes_vat', 'quantity_limit', 'payment_methods', 'is_active', 'position'],
   set: { workspace_id: 'the workspace applying the template', thread_id: 'the new thread' },
   skip: {
     id: 'a new row',

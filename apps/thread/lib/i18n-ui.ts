@@ -1915,6 +1915,103 @@ const CATALOG = {
     de: 'Bevor die Person annehmen kann: {problem}', // MT
     fr: 'Avant de pouvoir accepter : {problem}', // MT
   },
+  // ── Handover v2: a departed organiser's threads, in one request ─────────
+  handover_batch_title: {
+    en: 'Hand over a departed organiser’s threads',
+    nl: 'Threads van een vertrokken organisator overdragen', // MT
+    es: 'Ceder los hilos de un organizador que se fue', // MT
+    pt: 'Passar as threads de um organizador que saiu', // MT
+    de: 'Threads einer ausgeschiedenen Person übergeben', // MT
+    fr: 'Transmettre les fils d’un organisateur parti', // MT
+  },
+  handover_batch_desc: {
+    en: 'For an organiser who has left the workspace: give their threads to one new organiser in one request. They accept or decline each thread, or all at once, within 7 days.',
+    nl: 'Voor een organisator die de werkruimte heeft verlaten: geef de threads in één verzoek aan één nieuwe organisator. Die accepteert of weigert elke thread, of alles tegelijk, binnen 7 dagen.', // MT
+    es: 'Para un organizador que dejó el espacio: da sus hilos a un nuevo organizador en una sola solicitud. Acepta o rechaza cada hilo, o todos a la vez, en 7 días.', // MT
+    pt: 'Para um organizador que saiu do espaço: dê as threads a um novo organizador num só pedido. Aceita ou recusa cada thread, ou todas de uma vez, em 7 dias.', // MT
+    de: 'Für eine Person, die den Arbeitsbereich verlassen hat: ihre Threads in einer Anfrage an eine neue Person geben. Diese nimmt jeden Thread oder alle auf einmal innerhalb von 7 Tagen an oder lehnt ab.', // MT
+    fr: 'Pour un organisateur qui a quitté l’espace : donne ses fils à un nouvel organisateur en une seule demande. Il accepte ou refuse chaque fil, ou tous d’un coup, sous 7 jours.', // MT
+  },
+  handover_batch_from: {
+    en: 'Organiser who has left',
+    nl: 'Vertrokken organisator', // MT
+    es: 'Organizador que se fue', // MT
+    pt: 'Organizador que saiu', // MT
+    de: 'Ausgeschiedene Person', // MT
+    fr: 'Organisateur parti', // MT
+  },
+  handover_batch_pick: {
+    en: 'Pick both people to see the threads.',
+    nl: 'Kies beide personen om de threads te zien.', // MT
+    es: 'Elige a ambas personas para ver los hilos.', // MT
+    pt: 'Escolha as duas pessoas para ver as threads.', // MT
+    de: 'Wähle beide Personen, um die Threads zu sehen.', // MT
+    fr: 'Choisis les deux personnes pour voir les fils.', // MT
+  },
+  handover_batch_keep_host: {
+    en: 'Keep as host',
+    nl: 'Blijft host', // MT
+    es: 'Sigue como anfitrión', // MT
+    pt: 'Continua como anfitrião', // MT
+    de: 'Bleibt Host', // MT
+    fr: 'Reste hôte', // MT
+  },
+  handover_batch_send: {
+    en: 'Send request for {count}',
+    nl: 'Verzoek versturen voor {count}', // MT
+    es: 'Enviar solicitud para {count}', // MT
+    pt: 'Enviar pedido para {count}', // MT
+    de: 'Anfrage für {count} senden', // MT
+    fr: 'Envoyer la demande pour {count}', // MT
+  },
+  handover_batch_sent: {
+    en: 'Sent: {count} threads are waiting for their answer.',
+    nl: 'Verstuurd: {count} threads wachten op antwoord.', // MT
+    es: 'Enviado: {count} hilos esperan respuesta.', // MT
+    pt: 'Enviado: {count} threads aguardam resposta.', // MT
+    de: 'Gesendet: {count} Threads warten auf Antwort.', // MT
+    fr: 'Envoyé : {count} fils attendent une réponse.', // MT
+  },
+  handover_batch_left_out: {
+    en: 'Left out — {title}: {reason}',
+    nl: 'Niet meegenomen — {title}: {reason}', // MT
+    es: 'Excluido — {title}: {reason}', // MT
+    pt: 'Deixada de fora — {title}: {reason}', // MT
+    de: 'Nicht enthalten — {title}: {reason}', // MT
+    fr: 'Laissé de côté — {title} : {reason}', // MT
+  },
+  handover_batch_incoming: {
+    en: '{name} would like you to take over {count} threads.',
+    nl: '{name} wil dat jij {count} threads overneemt.', // MT
+    es: '{name} quiere que te encargues de {count} hilos.', // MT
+    pt: '{name} gostaria que ficasse com {count} threads.', // MT
+    de: '{name} möchte, dass du {count} Threads übernimmst.', // MT
+    fr: '{name} aimerait que tu reprennes {count} fils.', // MT
+  },
+  handover_accept_all: {
+    en: 'Accept all',
+    nl: 'Alles accepteren', // MT
+    es: 'Aceptar todo', // MT
+    pt: 'Aceitar tudo', // MT
+    de: 'Alle annehmen', // MT
+    fr: 'Tout accepter', // MT
+  },
+  handover_decline_all: {
+    en: 'Decline all',
+    nl: 'Alles weigeren', // MT
+    es: 'Rechazar todo', // MT
+    pt: 'Recusar tudo', // MT
+    de: 'Alle ablehnen', // MT
+    fr: 'Tout refuser', // MT
+  },
+  handover_batch_waiting: {
+    en: 'Still waiting — {title}: {reason}',
+    nl: 'Wacht nog — {title}: {reason}', // MT
+    es: 'Aún pendiente — {title}: {reason}', // MT
+    pt: 'Ainda pendente — {title}: {reason}', // MT
+    de: 'Wartet noch — {title}: {reason}', // MT
+    fr: 'En attente — {title} : {reason}', // MT
+  },
   no_dates_yet: {
     en: 'No dates yet',
     nl: 'Nog geen datums',

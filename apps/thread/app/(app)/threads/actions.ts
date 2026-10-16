@@ -695,6 +695,8 @@ export type HandoverItem = {
   expires_at: string;
   proposed_by_user_id: string;
   incoming: boolean;
+  /** Rows proposed together for a departed organiser (handover v2). */
+  batch_id?: string | null;
   /** Who, as a person reads them (additive; absent on an older API). */
   from_name?: string | null;
   to_name?: string | null;
@@ -715,6 +717,73 @@ export async function proposeHandover(
     revalidatePath(`/threads/${threadId}`);
     revalidatePath('/threads');
     return { ok: true, payment_problem: r.payment_problem ?? null };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+// Handover v2: a departed organiser's threads, in one request (admin door).
+export type DepartedOrganiser = { organiser_id: string; name: string | null; thread_count: number };
+export type BatchCandidate = {
+  thread_id: string;
+  title: string;
+  status: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
+  suggested: boolean;
+  excluded: { code: string; reason: string } | null;
+  payment_problem: string | null;
+};
+
+export async function previewDepartedHandover(
+  organiserId: string,
+  toUserId: string,
+): Promise<{ ok: true; items: BatchCandidate[] } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ items: BatchCandidate[] }>(
+      `/api/v1/thread/handovers/departed/${organiserId}?to=${encodeURIComponent(toUserId)}`,
+    );
+    return { ok: true, items: r.items };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function proposeHandoverBatch(input: {
+  from_organiser_id: string;
+  to_user_id: string;
+  reason: string;
+  threads: { id: string; keep_as_host: boolean }[];
+}): Promise<
+  | { ok: true; count: number; excluded: { thread_id: string; title: string | null; reason: string }[] }
+  | { ok: false; error: string }
+> {
+  try {
+    const r = await apiFetch<{ handovers: unknown[]; excluded: { thread_id: string; title: string | null; reason: string }[] }>(
+      '/api/v1/thread/handovers/batch',
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+    revalidatePath('/threads');
+    return { ok: true, count: r.handovers.length, excluded: r.excluded };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function answerHandoverBatch(
+  batchId: string,
+  answer: 'accept' | 'decline',
+): Promise<
+  | { ok: true; results: { thread_id: string; title: string; ok: boolean; error?: string }[] }
+  | { ok: false; error: string }
+> {
+  try {
+    const r = await apiFetch<{ results: { thread_id: string; title: string; ok: boolean; error?: string }[] }>(
+      `/api/v1/thread/handovers/batch/${batchId}/${answer}`,
+      { method: 'POST' },
+    );
+    revalidatePath('/threads');
+    return { ok: true, results: r.results };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };
   }

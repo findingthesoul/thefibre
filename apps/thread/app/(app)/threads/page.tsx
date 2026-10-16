@@ -6,7 +6,19 @@ import { t } from '@/lib/i18n-ui';
 import { ThreadsList } from './threads-list';
 import { NewThreadButton } from './new-thread-button';
 import { HandoverPanel } from './[id]/handover-panel';
-import type { HandoverItem } from './actions';
+import { HandoverBatchBar } from './handover-batch-bar';
+import { DepartedHandover } from './departed-handover';
+import type { DepartedOrganiser, HandoverItem } from './actions';
+import type { WorkspaceMember } from '@/lib/thread-types';
+
+/** Open incoming rows grouped by batch — only batches with more than one
+ *  open thread; a single one is answered on its own card. */
+function batches(items: HandoverItem[]): Map<string, HandoverItem[]> {
+  const out = new Map<string, HandoverItem[]>();
+  for (const h of items) if (h.batch_id) out.set(h.batch_id, [...(out.get(h.batch_id) ?? []), h]);
+  for (const [k, v] of out) if (v.length < 2) out.delete(k);
+  return out;
+}
 
 export default async function ThreadsPage() {
   const locale = await uiLocale();
@@ -21,8 +33,12 @@ export default async function ThreadsPage() {
   // Requests to take over somebody's thread, waiting for THIS person's answer
   // (organiser handover). The proposal email links here, so they are first.
   let incoming: HandoverItem[] = [];
+  // Organisers who have LEFT and still own threads: admins only (the API
+  // answers 403 for anyone else, which simply hides the door).
+  let departed: DepartedOrganiser[] = [];
+  let members: WorkspaceMember[] = [];
   try {
-    const [t, tm, tpl, brand, ho] = await Promise.all([
+    const [t, tm, tpl, brand, ho, dep, mem] = await Promise.all([
       apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads'),
       apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams').catch(() => ({
         items: [] as TeamOption[],
@@ -34,8 +50,16 @@ export default async function ThreadsPage() {
         name: null,
       })),
       apiFetch<{ items: HandoverItem[] }>('/api/v1/thread/handovers').catch(() => ({ items: [] as HandoverItem[] })),
+      apiFetch<{ items: DepartedOrganiser[] }>('/api/v1/thread/handovers/departed').catch(() => ({
+        items: [] as DepartedOrganiser[],
+      })),
+      apiFetch<{ items: WorkspaceMember[] }>('/api/v1/thread/workspace-members').catch(() => ({
+        items: [] as WorkspaceMember[],
+      })),
     ]);
     incoming = ho.items.filter((h) => h.incoming && h.status === 'pending');
+    departed = dep.items;
+    members = mem.items;
     threads = t.items;
     teams = tm.items;
     templates = tpl.items;
@@ -53,6 +77,23 @@ export default async function ThreadsPage() {
       />
 
       {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
+
+      {departed.length > 0 && (
+        <DepartedHandover locale={locale} departed={departed} workspaceMembers={members} />
+      )}
+
+      {/* A request for several threads gets one bar to answer them all;
+          each thread keeps its own card below it. */}
+      {[...batches(incoming)].map(([batchId, rows]) => (
+        <HandoverBatchBar
+          key={batchId}
+          locale={locale}
+          batchId={batchId}
+          fromName={rows[0]!.from_name ?? '—'}
+          count={rows.length}
+          reason={rows[0]!.reason}
+        />
+      ))}
 
       {incoming.map((h) => (
         <HandoverPanel

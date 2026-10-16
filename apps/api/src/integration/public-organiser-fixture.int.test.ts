@@ -129,7 +129,9 @@ describe('the embed listing takes an owner by uuid or by slug, and never 500s on
     for (const q of ['workspace=default', 'team=default', 'org=default', 'workspace=no-such-workspace']) {
       const r = await get(`/public/embed/threads?${q}`);
       expect(r.status, q).toBe(200);
-      expect((await r.json()) as unknown, q).toEqual({ items: [] });
+      // The ITEMS are what this pins. The envelope is additive (truncated in
+      // v1.204.0, card_dates in v1.216.0) and equalling it whole went stale.
+      expect(((await r.json()) as { items: unknown }).items, q).toEqual([]);
     }
   });
 

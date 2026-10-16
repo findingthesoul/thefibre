@@ -96,7 +96,7 @@ beforeAll(async () => {
     ends_at: '2027-03-01T11:00:00Z',
     rsvp_enabled: true,
   });
-  sourceTicket = await insert('thread_ticket', { workspace_id: ws, thread_id: sourceThread, name: 'Early', price_cents: 1000, is_active: true });
+  sourceTicket = await insert('thread_ticket', { workspace_id: ws, thread_id: sourceThread, name: 'Early', price_cents: 1000, price_includes_vat: true, is_active: true });
 }, 180_000);
 
 afterAll(async () => {
@@ -164,6 +164,9 @@ describe('round trip: save as template, then a new thread from it', () => {
     const { data: e } = await service.from('thread_engagement').select('rsvp_enabled, starts_at').eq('thread_id', madeThread).eq('title', 'Session one').single();
     expect(e!.rsvp_enabled).toBe(true);
     expect(e!.starts_at).toMatch(/^2027-06-01T10:00/);
+    // The ticket's "price includes VAT" is carried (dropped until this release).
+    const { data: tk } = await service.from('thread_ticket').select('price_cents, price_includes_vat').eq('thread_id', madeThread);
+    expect(tk).toEqual([{ price_cents: 1000, price_includes_vat: true }]);
   });
 
   it('its system messages arrive ONCE — opening the new thread seeds no second set', async () => {

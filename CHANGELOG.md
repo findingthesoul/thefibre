@@ -6,6 +6,74 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.244.0] — 2026-10-16
+
+### Hand over all the threads of an organiser who has left, in one request (Thread 4.18.0)
+
+- Coordinator's plan, approved 2026-10-16; the column landed in v1.242.1.
+  An organiser who has LEFT the workspace often leaves several threads
+  behind. Until now an admin had to open each one and send a separate
+  request.
+- **For admins: Threads → "Hand over a departed organiser's threads".**
+  - The button shows only when someone has left and still owns threads.
+  - Pick who left and who takes over; their threads are listed, archived
+    ones left out. Upcoming and running threads come ticked; past ones are
+    listed unticked.
+  - Each thread gets the same checks as a single handover, judged as the
+    NEW organiser. A locked thread, or one with a request already open, is
+    shown with its reason and stays out of the request. A paid thread the
+    new organiser can't take money for yet is flagged, but still goes in:
+    only accepting it waits, as before.
+  - One reason, one request, one email to the new organiser listing every
+    thread.
+- **For the new organiser:** a bar above the cards says "X would like you to
+  take over N threads", with **Accept all** and **Decline all**. Each thread
+  keeps its own card, so it can also be answered alone. Accept all moves
+  every thread it can. A thread that can't be accepted yet (payments not
+  ready) stays waiting and is named. The admin and the departed organiser
+  get one summary email, not one per thread.
+- **"Keep as host" is OFF by default on this door.** The organiser has left,
+  so staying on as a host is the exception. Sjoerd's "on by default" was for
+  an organiser who hands a thread over and stays in the workspace. That door
+  is unchanged. The admin can still tick it per thread.
+- How it is built: a request is ordinary per-thread handovers sharing a
+  `batch_id`, each with its own status and expiry. Each is accepted through
+  the same step as a single handover (`acceptOne`, which the single accept
+  route now calls too), so there is one accept path. The single accept's
+  and decline's responses are unchanged. A stored "pending" request past
+  its expiry no longer blocks a new request for that thread: it is closed
+  as expired.
+- API (additive):
+  - `GET /thread/handovers/departed`;
+  - `GET /thread/handovers/departed/:organiserId?to=`;
+  - `POST /thread/handovers/batch`;
+  - `POST /thread/handovers/batch/:batchId/accept|decline`;
+  - `batch_id` on the rows of `GET /thread/handovers`.
+
+### A duplicated or templated thread keeps its tickets' "price includes VAT"
+
+- Found by builder 3's integration sweep. `thread_ticket.price_includes_vat`
+  (v1.236.2, this lane) was missing from `lib/thread-copy.ts` and
+  `lib/thread-template-spec.ts`. So a copy of a €363-incl. ticket became
+  €363 *plus* VAT. Now both carry it. The duplicate and template tests'
+  source tickets set the flag and assert it on the copy. They fail on the
+  old code (copy reads `false`).
+- Also from that sweep: `public-organiser-fixture` expected the embed listing
+  to equal exactly `{ items: [] }`. The listing has since gained `truncated`
+  (v1.204.0, list-embed filters) and `card_dates` (v1.216.0, thread dates
+  part 3), both additive. So the test now asserts the items, not the whole
+  envelope.
+
+- Tested, on staging integration:
+  - The Thread set: 15 files, 139/139. This includes the new
+    `thread-handover-batch` (11), the existing `thread-handover` (7,
+    unchanged, also 7/7 before the refactor), duplicate, template and
+    public-organiser.
+  - Unit: handover 8/8 unchanged, the new batch rule 2/2, template-settings
+    8/8.
+  - Not tested: the dialog and bar as rendered on staging. They are checked
+    by typecheck only, until the look after deploy.
+
 ## [1.243.0] — 2026-10-16
 
 ### A recurring add-on ends with its membership

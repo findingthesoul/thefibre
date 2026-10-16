@@ -87,7 +87,7 @@ beforeAll(async () => {
     starts_at: new Date(Date.now() + 10 * 86_400_000).toISOString(),
     rsvp_enabled: true,
   });
-  source.ticket = await insert('thread_ticket', { workspace_id: ws, thread_id: source.thread, name: 'Early', price_cents: 1000, is_active: true });
+  source.ticket = await insert('thread_ticket', { workspace_id: ws, thread_id: source.thread, name: 'Early', price_cents: 1000, price_includes_vat: true, is_active: true });
   source.coupon = await insert('thread_coupon', {
     workspace_id: ws,
     thread_id: source.thread,
@@ -172,6 +172,10 @@ describe('behaviour: the duplicate route copies what it should', () => {
     const { data: tickets } = await service.from('thread_ticket').select('id').eq('thread_id', copyId);
     const { data: coupon } = await service.from('thread_coupon').select('ticket_id, used_count').eq('thread_id', copyId).single();
     expect(tickets).toHaveLength(1);
+    // The ticket's "price includes VAT" comes along (it was dropped until
+    // this release: a €363 incl. ticket became €363 + VAT on the copy).
+    const { data: tk } = await service.from('thread_ticket').select('price_cents, price_includes_vat').eq('id', tickets![0]!.id).single();
+    expect(tk).toEqual({ price_cents: 1000, price_includes_vat: true });
     expect(coupon!.ticket_id).toBe(tickets![0]!.id);
     expect(coupon!.ticket_id).not.toBe(source.ticket);
     expect(coupon!.used_count ?? 0).toBe(0);
