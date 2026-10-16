@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.229.1] — 2026-10-16
+
+### Unsent calendar changes get a nudge, part 1: the table alone
+
+`thread_calendar_nudge`, the claim row for the organiser reminder about
+calendar changes left unsent for 24 hours (Sjoerd, 2026-10-16: "keep send
+manual with nudge"). One row per thread per batch, where the batch is
+"since the last SEND" (`unique (thread_id, after_send_at)`). The scheduler
+claims before it mails, so two ticks send one email. RLS is on with no
+policies (service role only). Nothing reads the table yet; the reminder
+follows in its own release.
+
 ## [1.229.0] — 2026-10-16
 
 ### my.thread → Purchases: change your card in The Fibre (my 0.17.0; dark until the publishable key is set)
