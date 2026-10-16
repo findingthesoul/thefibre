@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.257.2] — 2026-10-17
+
+### The public API gate collects batch 35's fields; its "move it" hint names the right list (tooling only)
+
+- `verify-public-api.mjs`: `price_includes_vat` on the organiser-page items
+  and the embed items, and the organiser-page item's `path` (multi-team), are
+  served by production since batch 35. They were PENDING, so the next
+  `pnpm verify` would have gone red for everyone; they are now in
+  `SHAPES.listItem` and `SHAPES.embedItem`, and every PENDING list is empty.
+- The "MOVE it into SHAPES.x" hint guessed x from the label's last word, so it
+  sent the organiser-page item fields to `SHAPES.thread` and the page
+  envelope to `SHAPES.page`. `checkPending` now takes the shape's name and the
+  hint says `SHAPES.listItem` / `SHAPES.organiserPage`.
+- Checked against production (`FIBRE_API=https://thefibre-api.fly.dev`, the
+  gate's own read): exit 0, nothing pending; a copy with `path` put back into
+  PENDING fails with "MOVE it into SHAPES.listItem".
+
 ## [1.257.1] — 2026-10-16
 
 ### Sign-in emails carry the code only: a mail scanner can no longer burn it (API, hotfix)

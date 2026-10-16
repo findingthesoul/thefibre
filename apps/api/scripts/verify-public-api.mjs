@@ -126,6 +126,11 @@ const SHAPES = {
     'language',
     'timezone',
     'vat_home_pct',
+    // Whether the shown price already includes VAT, and the item's own
+    // address (multi-team: on a team's page an offered thread lives at its
+    // owner's), collected with batch 35 (2026-10-17).
+    'price_includes_vat',
+    'path',
   ],
   // The organiser page envelope: the owner's card choice (thread dates part
   // 4), collected with batch 32.
@@ -158,6 +163,9 @@ const SHAPES = {
     // The thread's zone (thread dates part 3), collected with batch 31
     // (2026-10-16).
     'timezone',
+    // Whether the shown price already includes VAT, collected with batch 35
+    // (2026-10-17).
+    'price_includes_vat',
   ],
   // The listing envelope. `truncated` collected with batch 27; the card
   // choice (thread dates part 3) with batch 31.
@@ -237,29 +245,29 @@ const PENDING = {
   // collected into SHAPES the day batch 27 put them on production.
   // Empty again: `timezone` and the listing's `card_dates` (thread dates
   // part 3) were collected into SHAPES with batch 31.
-  // `price_includes_vat` on the LIST and EMBED items: v1.238.0 listed it here
-  // but never emitted it — only the thread payload carried it, so batch 34
-  // served it there (collected into SHAPES.thread) and not here. Emitted on
-  // both items from v1.246.5; collect into SHAPES the day that reaches
-  // production.
-  embedItem: ['price_includes_vat'],
+  // Empty again: `price_includes_vat` on the list and embed items (emitted
+  // from v1.246.5) and the list item's `path` were collected into SHAPES
+  // the day batch 35 put them on production (2026-10-17).
+  embedItem: [],
   embedListing: [],
   // Empty again: `vat_home_pct` (thread), the seven list-item fields and the
   // organiser page's `card_dates` were collected into SHAPES with batch 32.
   thread: [],
-  // `path` (2026-10-16, multi-team): each organiser-page item's OWN address —
-  // on a team's page an offered thread lives at its owner's. Collect into
-  // SHAPES the day the batch that carries it lands on production.
-  listItem: ['price_includes_vat', 'path'],
+  listItem: [],
   organiserPage: [],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
-function checkPending(label, obj, keys) {
+// `shape` names the PENDING list and the SHAPES list it moves to. The hint
+// used to guess it from the label's last word, which sent the organiser-page
+// items to SHAPES.thread (they are SHAPES.listItem) and the page envelope to
+// SHAPES.page (it is SHAPES.organiserPage).
+function checkPending(label, obj, shape) {
   if (!obj || typeof obj !== 'object') return;
+  const keys = PENDING[shape];
   for (const k of keys) {
     if (k in obj) {
-      check(false, `${label}.${k} is live`, `MOVE it into SHAPES.${label.split(' ').pop()} — production serves it now`);
+      check(false, `${label}.${k} is live`, `MOVE it into SHAPES.${shape} — production serves it now`);
     } else {
       console.log(`   · ${label}.${k} — published by this repo, not deployed yet`);
     }
@@ -338,11 +346,11 @@ step(1, 'The three published routes keep their shape');
 const organiserRes = await get(`/api/v1/thread/public/organiser/${OWNER}`);
 check(organiserRes.status === 200, 'GET /public/organiser/:slug', `HTTP ${organiserRes.status}`);
 checkShape('organiser', organiserRes.body?.organiser, SHAPES.organiser);
-checkPending('organiser', organiserRes.body?.organiser, PENDING.organiser);
+checkPending('organiser', organiserRes.body?.organiser, 'organiser');
 checkShape('organiser thread', organiserRes.body?.threads?.[0], SHAPES.listItem);
-checkPending('organiser thread', organiserRes.body?.threads?.[0], PENDING.listItem);
+checkPending('organiser thread', organiserRes.body?.threads?.[0], 'listItem');
 checkShape('organiser page', organiserRes.body, SHAPES.organiserPage);
-checkPending('organiser page', organiserRes.body, PENDING.organiserPage);
+checkPending('organiser page', organiserRes.body, 'organiserPage');
 check(
   typeof organiserRes.body?.owner_kind === 'string',
   'organiser payload keeps owner_kind',
@@ -370,14 +378,14 @@ const threadRes = await get(`/api/v1/thread/public/organiser/${OWNER}/thread/${T
 check(threadRes.status === 200, 'GET /public/organiser/:slug/thread/:slug', `HTTP ${threadRes.status}`);
 checkShape('thread', threadRes.body?.thread, SHAPES.thread);
 checkShape('thread organiser', threadRes.body?.organiser, SHAPES.organiser);
-checkPending('thread organiser', threadRes.body?.organiser, PENDING.organiser);
+checkPending('thread organiser', threadRes.body?.organiser, 'organiser');
 checkPlain('thread organiser.bio', threadRes.body?.organiser?.bio);
 checkPlain('thread organiser.short_bio', threadRes.body?.organiser?.short_bio);
 if (threadRes.body?.thread?.agenda?.length) {
   checkShape('agenda item', threadRes.body.thread.agenda[0], SHAPES.agendaItem);
-  checkPending('agendaItem', threadRes.body.thread.agenda[0], PENDING.agendaItem);
+  checkPending('agendaItem', threadRes.body.thread.agenda[0], 'agendaItem');
 }
-checkPending('thread', threadRes.body?.thread, PENDING.thread);
+checkPending('thread', threadRes.body?.thread, 'thread');
 
 // ---- Meet's public host payload ------------------------------------------
 // Not part of the Thread contract, and checked here anyway, because it is a
@@ -454,9 +462,9 @@ check(
   `${embedRes.body?.items?.length ?? 0} items`,
 );
 checkShape('embed item', embedRes.body?.items?.[0], SHAPES.embedItem);
-checkPending('embedItem', embedRes.body?.items?.[0], PENDING.embedItem);
+checkPending('embedItem', embedRes.body?.items?.[0], 'embedItem');
 checkShape('embed listing', embedRes.body, SHAPES.embedListing);
-checkPending('embedListing', embedRes.body, PENDING.embedListing);
+checkPending('embedListing', embedRes.body, 'embedListing');
 
 // ---- 2. Nothing internal rides along --------------------------------------
 step(2, 'Internal columns stay on our side of the wire');
