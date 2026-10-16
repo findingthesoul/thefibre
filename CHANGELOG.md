@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.250.4] — 2026-10-16
+
+### One profile gains a city and two links: the columns (migration only)
+
+- `identity_profile`, the one email-keyed profile that The Fibre, Thread and
+  Meet already edit, gains `city`, `website_url` and `linkedin_url`. It also
+  gains a generated `id`, so a stored photo's path never has to contain the
+  email. Sjoerd: the my.thread profile is "the same profile as people would
+  have in the Thread. Not a new profile." The next release writes these from
+  my.thread and from the shared profile form. Until then nothing reads them.
+- Additive: four nullable or defaulted columns and one unique index; nothing
+  existing changes. Read access is unchanged. The `person` row columns stay
+  as the member directory's fallback; nothing is copied.
+
 ## [1.250.3] — 2026-10-16
 
 ### my.thread says it can live on your phone (my.thread 0.25.0)
