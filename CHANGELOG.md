@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.230.0] — 2026-10-16
+
+### "Price includes VAT" per tier and product: the columns (migration only)
+
+- `membership_tier.price_includes_vat` and
+  `membership_product.price_includes_vat`, boolean, **default false**. Every
+  existing price stays excl. VAT, so nothing changes for any member,
+  subscription or price.
+- No code reads them yet. The next release adds the switch (shown only to a
+  VAT-registered community), the net derivation (`netFromInclusive`, so a
+  home-rate buyer pays exactly the entered price) and the cards' "incl. VAT"
+  headline. That code is dark per row.
+- docs/data-model.md names the column.
+
 ## [1.229.1] — 2026-10-16
 
 ### Unsent calendar changes get a nudge, part 1: the table alone
