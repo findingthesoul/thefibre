@@ -66,7 +66,10 @@
 // file changed, so the worker must change with it or every installed phone
 // keeps serving the old page out of my-shell-v2 — the failure this VERSION
 // exists for, and the one check-sw-freshness.mjs enforces.
-const VERSION = 'v4';
+// v5 (2026-10-16): web push — the `push` and `notificationclick` handlers at
+// the bottom. No precached file changed; the bump is so a phone being
+// debugged visibly runs the new worker.
+const VERSION = 'v5';
 const SHELL = `my-shell-${VERSION}`;
 const STATIC = `my-static-${VERSION}`;
 const PRECACHE = ['/offline.html', '/wordmark.png', '/icon-192.png', '/apple-touch-icon.png'];
@@ -164,5 +167,48 @@ self.addEventListener('message', (event) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k.startsWith('my-tickets-')).map((k) => caches.delete(k))),
     ),
+  );
+});
+
+// ── Web push (docs/web-push-plan.md) ────────────────────────────────────────
+//
+// The payload is a title, a my.thread path and a tag — nothing else (§8). The
+// tag is per thread, so a second change to the same thread REPLACES the first
+// on the lock screen instead of stacking. Opening it focuses a my.thread
+// window if one is open; it only ever opens a path on THIS origin, so a bad
+// payload cannot send a phone anywhere else.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  const title = typeof data.title === 'string' && data.title ? data.title : 'my.thread';
+  const url = typeof data.url === 'string' && data.url.startsWith('/') && !data.url.startsWith('//') ? data.url : '/notifications';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: typeof data.tag === 'string' ? data.tag : undefined,
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const path = (event.notification.data && event.notification.data.url) || '/notifications';
+  const target = new URL(path, self.location.origin);
+  if (target.origin !== self.location.origin) return;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const w of windows) {
+        if (new URL(w.url).origin === self.location.origin && 'focus' in w) {
+          return w.focus().then((f) => (f && 'navigate' in f ? f.navigate(target.href) : f));
+        }
+      }
+      return self.clients.openWindow(target.href);
+    }),
   );
 });

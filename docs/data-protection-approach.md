@@ -265,7 +265,12 @@ to extend rather than the place to fork.
   memberships, contact points, notes or Connect entries — an open gap (§5).
 - **Erasure (Art. 17)**: files a `data_subject_request` for a person to
   handle. *Automation is §5 P2; the append-only tables mean erasure is
-  anonymisation, not deletion, and that needs a design.*
+  anonymisation, not deletion, and that needs a design.* When processing a
+  request by hand, also delete the person's web-push devices:
+  `delete from push_subscription where email = lower('<their email>')`. That
+  is a hard delete, the exception Sjoerd approved on 2026-10-16: a push
+  device is an identifier, not a record. Signing out already removes the
+  device it happens on.
 - **Retention**: Free workspaces archive after 13 months' inactivity
   (`retention_months`, `usage-meters.ts`); paid ones do not expire. *The
   `retention_policy` table exists and nothing reads it — §5 P2.*

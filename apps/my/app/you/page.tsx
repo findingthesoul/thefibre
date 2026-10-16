@@ -36,6 +36,7 @@ import { ProductRenewals, Renewals } from '../purchases/renewals';
 import { fetchNotifyPrefs, fetchRenewals } from '@/lib/portal-api';
 import { ErasureBody, ErasureFallback } from './erasure-section';
 import { SignOutButton } from './sign-out-button';
+import { PushCard } from '../push-card';
 import type { Locale } from '@thefibre/shared/i18n';
 import { pageLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
@@ -176,9 +177,9 @@ async function NotificationsPanel({ token }: { token: string }) {
     <>
       <CalendarCard status={calendar} />
       {notifyPrefs && <NotifyCard prefs={notifyPrefs} />}
-      {/* SLOT for builder 5's per-device push opt-in: <PushCard /> from
-          apps/my/app/push-card.tsx (no props, a button, never a prompt on
-          load) goes here, below the email switch, once that file exists. */}
+      {/* Web push on this device (builder 5, in the slot builder 3 left):
+          a button, never a prompt on load; nothing while push is dark. */}
+      <PushCard />
     </>
   );
 }

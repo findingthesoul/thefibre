@@ -43,6 +43,7 @@ import { currenciesRoutes } from './routes/currencies.js';
 import { membershipPortalRoutes } from './routes/membership-portal.js';
 import { membershipPurchaseRoutes } from './routes/membership-purchases.js';
 import { portalRoutes } from './routes/portal.js';
+import { pushRoutes } from './routes/portal-push.js';
 import { myTasksRoutes, fileFinishedTasks } from './routes/my-tasks.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
@@ -318,6 +319,8 @@ v1.route('/mcp-auth', mcpAuthRoutes);
 v1.route('/mcp', mcpRoutes);
 // The visitor's own place, across every app (docs/visitor-portal-proposal.md).
 v1.route('/me', portalRoutes);
+// Web push devices (routes/portal-push.ts): the same verified-email scope.
+v1.route('/me', pushRoutes);
 // A participant asking to cancel their place (routes/thread-cancellation.ts):
 // the participant half, verified email inside the handler like the portal.
 v1.route('/me', cancellationMeRoutes);

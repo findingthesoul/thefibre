@@ -3216,6 +3216,137 @@ const CATALOG = {
     de: 'So funktioniert’s', // MT
     fr: 'Comment ça marche', // MT
   },
+
+  // ── Web push on this device ───────────────────────────────────────────
+  // Web push on this device (push-card.tsx, on You → Notifications).
+  push_title: {
+    en: 'Notifications on this device',
+    nl: 'Meldingen op dit apparaat',
+    es: 'Notificaciones en este dispositivo', // MT
+    pt: 'Notificações neste dispositivo', // MT
+    de: 'Benachrichtigungen auf diesem Gerät', // MT
+    fr: 'Notifications sur cet appareil', // MT
+  },
+  push_intro: {
+    en: 'Changes to your sessions, and new threads on your calendars, as a notification on this phone or computer.',
+    nl: 'Wijzigingen in je sessies, en nieuwe threads in je agenda’s, als melding op deze telefoon of computer.',
+    es: 'Cambios en tus sesiones y nuevos threads en tus calendarios, como notificación en este móvil u ordenador.', // MT
+    pt: 'Mudanças nas suas sessões e novos threads nos seus calendários, como notificação neste celular ou computador.', // MT
+    de: 'Änderungen an deinen Sitzungen und neue Threads in deinen Kalendern, als Benachrichtigung auf diesem Handy oder Computer.', // MT
+    fr: 'Les changements de tes séances et les nouveaux threads de tes agendas, en notification sur ce téléphone ou cet ordinateur.', // MT
+  },
+  push_rules: {
+    en: 'Never between 22:00 and 08:00, unless a session in the next 12 hours changes. At most six a day.',
+    nl: 'Nooit tussen 22:00 en 08:00, tenzij er een sessie in de komende 12 uur verandert. Hooguit zes per dag.',
+    es: 'Nunca entre las 22:00 y las 08:00, salvo que cambie una sesión de las próximas 12 horas. Seis al día como máximo.', // MT
+    pt: 'Nunca entre 22:00 e 08:00, a menos que mude uma sessão nas próximas 12 horas. No máximo seis por dia.', // MT
+    de: 'Nie zwischen 22:00 und 08:00 Uhr, außer eine Sitzung in den nächsten 12 Stunden ändert sich. Höchstens sechs am Tag.', // MT
+    fr: 'Jamais entre 22 h et 8 h, sauf si une séance des 12 prochaines heures change. Six par jour au maximum.', // MT
+  },
+  push_turn_on: {
+    en: 'Turn on notifications on this device',
+    nl: 'Meldingen aanzetten op dit apparaat',
+    es: 'Activar notificaciones en este dispositivo', // MT
+    pt: 'Ativar notificações neste dispositivo', // MT
+    de: 'Benachrichtigungen auf diesem Gerät einschalten', // MT
+    fr: 'Activer les notifications sur cet appareil', // MT
+  },
+  push_turning_on: {
+    en: 'Turning on…',
+    nl: 'Aanzetten…',
+    es: 'Activando…', // MT
+    pt: 'Ativando…', // MT
+    de: 'Wird eingeschaltet…', // MT
+    fr: 'Activation…', // MT
+  },
+  push_on: {
+    en: 'On for this device.',
+    nl: 'Aan voor dit apparaat.',
+    es: 'Activadas en este dispositivo.', // MT
+    pt: 'Ativadas neste dispositivo.', // MT
+    de: 'Auf diesem Gerät eingeschaltet.', // MT
+    fr: 'Activées sur cet appareil.', // MT
+  },
+  push_turn_off: {
+    en: 'Turn off',
+    nl: 'Uitzetten',
+    es: 'Desactivar', // MT
+    pt: 'Desativar', // MT
+    de: 'Ausschalten', // MT
+    fr: 'Désactiver', // MT
+  },
+  push_blocked: {
+    en: 'Notifications are blocked for my.thread in this browser’s settings.',
+    nl: 'Meldingen zijn voor my.thread geblokkeerd in de instellingen van deze browser.',
+    es: 'Las notificaciones de my.thread están bloqueadas en los ajustes de este navegador.', // MT
+    pt: 'As notificações do my.thread estão bloqueadas nas configurações deste navegador.', // MT
+    de: 'Benachrichtigungen für my.thread sind in den Einstellungen dieses Browsers blockiert.', // MT
+    fr: 'Les notifications de my.thread sont bloquées dans les réglages de ce navigateur.', // MT
+  },
+  push_unsupported: {
+    en: 'This browser can’t show notifications.',
+    nl: 'Deze browser kan geen meldingen tonen.',
+    es: 'Este navegador no puede mostrar notificaciones.', // MT
+    pt: 'Este navegador não consegue mostrar notificações.', // MT
+    de: 'Dieser Browser kann keine Benachrichtigungen anzeigen.', // MT
+    fr: 'Ce navigateur ne peut pas afficher de notifications.', // MT
+  },
+  push_ios: {
+    en: 'On an iPhone or iPad, add my.thread to your Home Screen first, then turn this on there.',
+    nl: 'Zet my.thread op een iPhone of iPad eerst op je beginscherm, en zet dit daar aan.',
+    es: 'En un iPhone o iPad, añade primero my.thread a tu pantalla de inicio y actívalo desde ahí.', // MT
+    pt: 'Num iPhone ou iPad, adicione primeiro o my.thread à Tela de Início e ative isto lá.', // MT
+    de: 'Füge my.thread auf einem iPhone oder iPad zuerst zum Home-Bildschirm hinzu und schalte es dort ein.', // MT
+    fr: 'Sur iPhone ou iPad, ajoute d’abord my.thread à ton écran d’accueil, puis active ceci depuis là.', // MT
+  },
+  push_ios_link: {
+    en: 'How to add it',
+    nl: 'Hoe je het toevoegt',
+    es: 'Cómo añadirlo', // MT
+    pt: 'Como adicionar', // MT
+    de: 'So fügst du es hinzu', // MT
+    fr: 'Comment l’ajouter', // MT
+  },
+  push_other_devices: {
+    en: 'Your other devices',
+    nl: 'Je andere apparaten',
+    es: 'Tus otros dispositivos', // MT
+    pt: 'Seus outros dispositivos', // MT
+    de: 'Deine anderen Geräte', // MT
+    fr: 'Tes autres appareils', // MT
+  },
+  push_a_device: {
+    en: 'A device',
+    nl: 'Een apparaat',
+    es: 'Un dispositivo', // MT
+    pt: 'Um dispositivo', // MT
+    de: 'Ein Gerät', // MT
+    fr: 'Un appareil', // MT
+  },
+  push_since: {
+    en: 'since {date}',
+    nl: 'sinds {date}',
+    es: 'desde el {date}', // MT
+    pt: 'desde {date}', // MT
+    de: 'seit {date}', // MT
+    fr: 'depuis le {date}', // MT
+  },
+  push_remove: {
+    en: 'Remove',
+    nl: 'Verwijderen',
+    es: 'Quitar', // MT
+    pt: 'Remover', // MT
+    de: 'Entfernen', // MT
+    fr: 'Retirer', // MT
+  },
+  push_failed: {
+    en: 'That did not work. Try again in a moment.',
+    nl: 'Dat lukte niet. Probeer het zo nog eens.',
+    es: 'No ha funcionado. Vuelve a intentarlo en un momento.', // MT
+    pt: 'Não funcionou. Tente de novo daqui a pouco.', // MT
+    de: 'Das hat nicht geklappt. Versuch es gleich noch einmal.', // MT
+    fr: 'Ça n’a pas fonctionné. Réessaie dans un instant.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

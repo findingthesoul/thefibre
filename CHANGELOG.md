@@ -6,6 +6,66 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.252.0] — 2026-10-16
+
+### Web push for my.thread: the code, dark until the keys are set (my.thread 0.26.0)
+
+- The second half of web push (`docs/web-push-plan.md`; the table shipped in
+  v1.250.1). The bell's rows arrive on a phone or computer for anyone who
+  turned it on, on that device. **Nothing is sent until Sjoerd sets the VAPID
+  keys** on a stack; until then the button doesn't show and the pass does
+  nothing.
+- **Sjoerd's answers (2026-10-16), all built as recommended:**
+  - **Quiet hours** 22:00–08:00 in the thread's own timezone. Held until
+    morning, except a change to a session starting within 12 hours.
+  - **A cap of 6 pushes per person per day.** Over it, the change stays in
+    the bell.
+  - **The lock screen shows the session title**, in the reader's language:
+    "Verplaatst: Koorrepetitie". Only the title and a link to
+    /notifications, nothing else.
+  - **Dead devices are hard-deleted**, the exception to soft delete he
+    approved. That happens on 404/410 from the push service, after 5
+    failures over at least 3 days, on sign-out, and through the manual
+    erasure steps (`docs/data-protection-approach.md`).
+- **API.**
+  - `lib/web-push.ts` sends a push with the `web-push` package (MIT). It
+    holds the endpoint ALLOW-LIST: FCM, Mozilla, Apple, Windows, https only.
+    An endpoint is an address the server POSTs to, so anything else would
+    be an SSRF handle.
+  - `lib/push-pass.ts` runs at the end of every member-notify tick:
+    - one push per SEND per thread;
+    - new threads wait for the digest's 15 quiet minutes and go as one push
+      per community;
+    - rows pending over 48 hours are skipped rather than delivered late.
+  - `routes/portal-push.ts`: config / subscriptions list / add / remove,
+    under /me. It sits beside portal.ts, which carries no hunk.
+  - `member-notify.ts` (announced to builder 4) writes `push_state:
+    'pending'` only for people with a device.
+- **my.thread.**
+  - `sw.js` v5 gains `push` and `notificationclick`. A tap only ever opens a
+    path on my.thread itself, and a second change to one thread replaces the
+    first.
+  - `push-card.tsx` sits on You → Notifications, in the slot builder 3 left.
+    It's a button, never a prompt on load. Its states: on, off, blocked, "not
+    in this browser", and on an iPhone in Safari "add it to your Home Screen
+    first", with a link to Help. Your other devices are listed with Remove.
+  - Signing out takes this device off first.
+  - Six languages.
+- Tested:
+  - unit `push-pass` (18): grouping, quiet hours in two timezones, the
+    12-hour exception, the cap, stale rows, no device, the lock-screen
+    words in en and nl, the allow-list (SSRF targets and lookalikes
+    refused), 404/410 vs other failures, device labels;
+  - integration `portal-push` on staging (4): 401 without a session, the
+    public key, a refused metadata endpoint, and add/list/remove with
+    the email stored lower-case;
+  - every new select run against the staging database;
+  - `member-notify` tests unchanged (19).
+- Not tested yet:
+  - a real push to a real device;
+  - the pass end to end.
+  Both need the staging keys, then Sjoerd's phone.
+
 ## [1.251.0] — 2026-10-16
 
 ### Calendar invitations show Accept / Decline in the mail itself

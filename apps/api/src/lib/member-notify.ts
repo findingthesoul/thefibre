@@ -49,6 +49,7 @@ import { platformEmailLocale } from './email/platform-i18n.js';
 import { greetingName } from './email/membership-templates.js';
 import { memberNotifyDigest, type DigestItem } from './email/member-notify-templates.js';
 import type { PendingChange } from './calendar-invite.js';
+import { personsWithDevices, runPushPass } from './push-pass.js';
 
 export const QUIET_MS = 15 * 60 * 1000;
 /** More newly visible threads than this in one community in one pass are
@@ -98,6 +99,9 @@ type NotificationRow = {
   subject: string;
   starts_at: string | null;
   email_state: 'pending' | 'none';
+  /** Web push (lib/push-pass.ts): 'pending' only when the person has a
+   *  device that opted in. Set here, at insert; absent = the default 'none'. */
+  push_state?: 'pending';
 };
 
 /** The community's switch. No settings row = the default, on. */
@@ -156,8 +160,12 @@ async function personsWithAPlace(threadId: string): Promise<Map<string, string |
 /** Insert, and treat "already told about this thread" as done. The once-ever
  *  rule is a partial unique index, which PostgREST's upsert cannot target, so
  *  a batch that collides falls back to one row at a time. */
-async function insertNotifications(rows: NotificationRow[]): Promise<number> {
-  if (!rows.length) return 0;
+async function insertNotifications(input: NotificationRow[]): Promise<number> {
+  if (!input.length) return 0;
+  // Only people with a device that opted in get a push. Everyone else's row
+  // keeps the column default, 'none', and the push pass never looks at it.
+  const withDevices = await personsWithDevices([...new Set(input.map((r) => r.person_id))]);
+  const rows = input.map((r) => (withDevices.has(r.person_id) ? { ...r, push_state: 'pending' as const } : r));
   const { error } = await adminClient.from('member_notification').insert(rows);
   if (!error) return rows.length;
   if (error.code !== '23505') throw new Error(`member_notification insert: ${error.message}`);
@@ -695,4 +703,6 @@ export async function runNotificationDigest(
 export async function runMemberNotify(): Promise<void> {
   await runNewThreadPass();
   await runNotificationDigest();
+  // Web push, last: the rows the two passes above just wrote (lib/push-pass.ts).
+  await runPushPass();
 }

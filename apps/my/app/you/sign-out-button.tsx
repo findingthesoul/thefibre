@@ -7,6 +7,7 @@
 import { SignOut } from '@thefibre/shared/ui/sign-out';
 import { browserSupabase } from '@/lib/supabase/client';
 import { forgetTickets } from '@/lib/kept-tickets';
+import { turnOffThisDevice } from '@/lib/push';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
 
@@ -22,6 +23,10 @@ export function SignOutButton() {
         // the rule the service worker follows for pages, and the condition on
         // which tickets were allowed onto devices at all.
         forgetTickets();
+        // A signed-out phone must not keep buzzing with someone's sessions:
+        // take this device off push first, while the token can still say who
+        // it is. Never blocks sign-out (turnOffThisDevice does not throw).
+        await turnOffThisDevice();
         // The QRs live in the worker's cache, which this page cannot reach
         // directly, so it asks. Best-effort: no worker means no cache.
         navigator.serviceWorker?.controller?.postMessage('forget-tickets');

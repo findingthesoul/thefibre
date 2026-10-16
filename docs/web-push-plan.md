@@ -1,8 +1,8 @@
 # Web push for my.thread — plan
 
-Status: **plan, not built** (builder 5, 2026-10-16). Sjoerd ordered it after
-my.thread in six languages. Nothing here is decided until he answers the
-questions in §10.
+Status: **built, dark until the VAPID keys are set** (builder 5, 2026-10-16).
+Sjoerd answered §10 on 2026-10-16, all as recommended: quiet hours, a cap of
+six, hard delete, the session title on the lock screen, staging first.
 
 ## 1. What it is
 
