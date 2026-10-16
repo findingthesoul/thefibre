@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/pulse",
-  "version": "1.234.0",
+  "version": "1.234.1",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3004",

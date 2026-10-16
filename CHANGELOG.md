@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.234.1] — 2026-10-16
+
+### "Send me a test" says why when the mail service refuses
+
+- On staging, the fixture admin's test send answered a bare 500. The log
+  showed the email rendered, marked and posted, and that Resend refused the
+  recipient (`@example.com`, 422). The route now answers 502 with a sentence
+  that names the address and says the text is fine. The refusal is logged.
+- The send itself is proven on staging: a temporary fixture admin with
+  Resend's own test inbox (`delivered@resend.dev`, not a person) got HTTP 200
+  `{"sent_to":"delivered@resend.dev"}` from the deployed API. Its throwaway
+  workspace and auth user were removed afterwards.
+
 ## [1.234.0] — 2026-10-16
 
 ### Members → Settings → Emails: a community's own words in its welcome and digest (Members 1.10.0)

@@ -4683,6 +4683,15 @@ membershipRoutes.post('/email-templates/send-test', async (c) => {
   if (!me?.email) return c.json({ error: 'no address on your account' }, 409);
   const msg = await renderPreview(ctx.workspaceId, body.data);
   const brand = await getWorkspaceBrand(ctx.workspaceId);
-  await sendEmail({ to: me.email as string, subject: `[Test] ${msg.subject}`, html: msg.html, text: msg.text, ...senderOf(brand) });
+  try {
+    await sendEmail({ to: me.email as string, subject: `[Test] ${msg.subject}`, html: msg.html, text: msg.text, ...senderOf(brand) });
+  } catch (e) {
+    // Say WHY, not a bare 500: the mail service refuses some addresses
+    // outright (on 2026-10-16 the staging fixture's @example.com was refused
+    // with a 422), and an admin should see that it was the address, not
+    // their words.
+    console.error('[membership/email-templates] test send refused', (e as Error).message);
+    return c.json({ error: `The test email could not be sent to ${me.email} — the mail service refused it. Your text is fine; try again later or from another account.` }, 502);
+  }
   return c.json({ sent_to: me.email });
 });
