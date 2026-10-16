@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.241.1] — 2026-10-16
+
+### A renewing product's grant can end: the columns (migration only)
+
+- The bug this prepares to fix: a member who took a RECURRING add-on with
+  their membership kept that add-on's grants after the membership lapsed or
+  was cancelled. That meant its thread access, its member discount and its
+  directory category. The grant was a purchase row with status `paid`, which
+  every reader treats as owned forever.
+- This release is the migration alone (`20261016115200`).
+  `membership_product_purchase` gains:
+  - `stripe_subscription_id`, `stripe_customer_id`, `current_period_end`,
+    `cancel_at_period_end` and `ends_at`;
+  - statuses `active | past_due | cancelled` beside `paid | refunded`;
+  - an index on the subscription id.
+  Additive only: existing rows are untouched, and a one-off purchase is
+  unchanged.
+- The next release writes these columns and puts ONE "live" rule behind every
+  reader, so an add-on's grants end with its membership's subscription.
+
 ## [1.241.0] — 2026-10-16
 
 ### A record of who changed someone's role, part 2: the names, and where to read them
