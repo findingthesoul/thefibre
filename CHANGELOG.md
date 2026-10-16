@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.249.2] — 2026-10-16
+
+### my.thread in six languages, phase 2: You, Purchases, Memberships (my.thread 0.24.0)
+
+- The last English pages of my.thread are translated: You (all five tabs),
+  Purchases (invoices, billing details, renewals, the card change, Add or
+  change), Memberships, and the cancellation request in a thread's sheet.
+  Only the offline page stays English, on purpose.
+- **The You language picker now switches the app itself.** Saving it writes
+  this browser's `thefibre.locale` cookie and refreshes, as well as the
+  profile. Before, a cookie left by another app kept my.thread in the old
+  language, because the cookie wins.
+- **Stripe's card form** gets the reader's language too: Elements `locale`,
+  with pt as pt-BR, as everywhere in this app.
+- Invoice statuses use the shared chrome's words (the invoice dialog's), so
+  the list and the dialog say the same thing. English is unchanged ("Paid",
+  "Pending"…).
+- Help's guides already named these pages' buttons in each language
+  (v1.248.4). The new labels use the same words, checked guide by guide in all
+  six languages.
+- English is unchanged. Every string was moved, not rewritten. The relative
+  times ("2 hours ago") and the counts ("1 invoice", "3 enrolments") keep
+  their one/many forms.
+- Coordinated with builder 3: these four paths were fenced to builder 5 for
+  this release, after builder 3's v1.249.1 fix to /you. Builder 3's two
+  card-change tweaks (Link off, footer buttons) follow on top of this.
+- Tested: typecheck; apps/my unit 51/51, including the placeholder-parity
+  check over the whole catalog. Added to `portal-locale.spec.ts`: You (title,
+  Profile tab, the calendar heading under Notifications) and Purchases in
+  Dutch, plus the Members heading. Unrun until this is on staging.
+
 ## [1.249.1] — 2026-10-16
 
 ### my.thread → You opens again (my.thread 0.23.1)

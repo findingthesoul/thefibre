@@ -30,13 +30,25 @@ import { InvoiceDialog } from '@thefibre/shared/ui/invoice-dialog';
 import type { PortalInvoice } from '@/lib/portal-api';
 import { invoicePdfUrl } from '@/lib/portal-api';
 import { fmtDate, money } from '@/lib/format';
+import { chromeT, useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t, type MyKey } from '@/lib/i18n';
 
 /** What the member calls the thing that sold it. The slug is ours. */
-const SOLD_BY: Record<string, string> = {
-  membership: 'Membership',
+// What a row says it was when the purchase carries no label. "Thread" and
+// "The Thread" are product names and stay as they are in every language.
+const SOLD_BY: Record<string, MyKey | string> = {
+  membership: 'sold_membership',
   'the-thread': 'Thread',
-  'fibre-meet': 'Meeting',
+  'fibre-meet': 'sold_meeting',
   'fibre-platform': 'The Thread',
+};
+// The shared chrome already names these (the invoice dialog uses the same
+// words); anything else is shown as the API sent it.
+const STATUS: Record<string, 'status_pending' | 'status_paid' | 'status_refunded' | 'status_failed'> = {
+  pending: 'status_pending',
+  paid: 'status_paid',
+  refunded: 'status_refunded',
+  failed: 'status_failed',
 };
 
 export function InvoiceList({
@@ -49,6 +61,11 @@ export function InvoiceList({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState<string | null>(openId);
+  const locale = useLocale();
+  const soldBy = (app: string) => {
+    const v = SOLD_BY[app];
+    return v === 'sold_membership' || v === 'sold_meeting' ? t(locale, v) : v;
+  };
   const current = invoices.find((i) => i.id === open) ?? null;
 
   function close() {
@@ -72,22 +89,22 @@ export function InvoiceList({
               className="min-w-0 flex-1 text-left"
             >
               <span className="block truncate text-sm text-ink underline-offset-2 hover:underline">
-                {inv.item_label || SOLD_BY[inv.app] || 'Purchase'}
+                {inv.item_label || soldBy(inv.app) || t(locale, 'purchase')}
               </span>
               <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                 {inv.workspace && <span className="truncate">{inv.workspace}</span>}
                 {inv.workspace && <span aria-hidden>·</span>}
-                <span>{fmtDate(inv.created_at)}</span>
+                <span>{fmtDate(inv.created_at, locale)}</span>
                 {inv.status !== 'paid' && (
                   <>
                     <span aria-hidden>·</span>
-                    <span className="capitalize">{inv.status}</span>
+                    <span className="capitalize">{STATUS[inv.status] ? chromeT(locale, STATUS[inv.status]!) : inv.status}</span>
                   </>
                 )}
               </span>
             </button>
             <span className="shrink-0 tabular-nums text-sm text-ink">
-              {money(inv.amount_cents, inv.currency)}
+              {money(inv.amount_cents, inv.currency, locale)}
             </span>
             {/* The PDF link stays. Opening the document is the new thing, not
                 a replacement: somebody who came here to file a receipt wants

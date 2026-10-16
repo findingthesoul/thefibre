@@ -1490,6 +1490,1695 @@ const CATALOG = {
     de: 'Hilfe', // MT
     fr: 'Aide', // MT
   },
+
+  // ── Purchases, renewals, Add or change, a cancellation request ────────
+  purchases_failed: {
+    en: 'We could not load your invoices just now. Nothing is lost — this is us, not your payment. Reload the page in a moment, and tell the community you joined if it keeps happening.',
+    nl: 'We konden je facturen nu niet laden. Er is niets verloren — dit ligt aan ons, niet aan je betaling. Laad de pagina zo opnieuw, en laat het de community weten waar je lid van bent als het blijft gebeuren.',
+    es: 'No hemos podido cargar tus facturas ahora. No se ha perdido nada: el problema es nuestro, no de tu pago. Recarga la página en un momento y avisa a la comunidad a la que te uniste si sigue pasando.', // MT
+    pt: 'Não conseguimos carregar suas faturas agora. Nada se perdeu — o problema é nosso, não do seu pagamento. Recarregue a página daqui a pouco e avise a comunidade em que você entrou se continuar acontecendo.', // MT
+    de: 'Wir konnten deine Rechnungen gerade nicht laden. Es ist nichts verloren – das liegt an uns, nicht an deiner Zahlung. Lade die Seite gleich neu und sag der Community Bescheid, der du beigetreten bist, falls es so bleibt.', // MT
+    fr: 'Impossible de charger tes factures pour le moment. Rien n’est perdu : le problème vient de nous, pas de ton paiement. Recharge la page dans un instant et préviens la communauté que tu as rejointe si cela continue.', // MT
+  },
+  purchases_none_title: {
+    en: 'Nothing invoiced yet.',
+    nl: 'Nog niets gefactureerd.',
+    es: 'Aún no hay nada facturado.', // MT
+    pt: 'Nada faturado ainda.', // MT
+    de: 'Noch nichts in Rechnung gestellt.', // MT
+    fr: 'Rien de facturé pour l’instant.', // MT
+  },
+  purchases_none_body: {
+    en: 'Anything you pay for — a membership, a ticket, a booking — appears here with its invoice to download. If you expected something, check you signed in with the address you paid with.',
+    nl: 'Alles waarvoor je betaalt — een lidmaatschap, een ticket, een boeking — verschijnt hier met de factuur om te downloaden. Verwachtte je iets? Kijk dan of je bent ingelogd met het adres waarmee je hebt betaald.',
+    es: 'Todo lo que pagues (una membresía, una entrada, una reserva) aparece aquí con su factura para descargar. Si esperabas algo, comprueba que has entrado con la dirección con la que pagaste.', // MT
+    pt: 'Tudo o que você paga — uma assinatura, um ingresso, uma reserva — aparece aqui com a fatura para baixar. Se esperava algo, confira se entrou com o endereço com que pagou.', // MT
+    de: 'Alles, wofür du bezahlst – eine Mitgliedschaft, ein Ticket, eine Buchung –, erscheint hier mit seiner Rechnung zum Herunterladen. Falls du etwas erwartet hast, prüfe, ob du mit der Adresse angemeldet bist, mit der du bezahlt hast.', // MT
+    fr: 'Tout ce que tu paies (une adhésion, un billet, une réservation) apparaît ici avec sa facture à télécharger. Si tu attendais quelque chose, vérifie que tu t’es connecté·e avec l’adresse utilisée pour payer.', // MT
+  },
+  outstanding_one: {
+    en: 'One invoice is still outstanding.',
+    nl: 'Er staat nog één factuur open.',
+    es: 'Aún queda una factura pendiente.', // MT
+    pt: 'Ainda há uma fatura em aberto.', // MT
+    de: 'Eine Rechnung ist noch offen.', // MT
+    fr: 'Une facture est encore en attente.', // MT
+  },
+  outstanding_many: {
+    en: '{n} invoices are still outstanding.',
+    nl: 'Er staan nog {n} facturen open.',
+    es: 'Aún quedan {n} facturas pendientes.', // MT
+    pt: 'Ainda há {n} faturas em aberto.', // MT
+    de: '{n} Rechnungen sind noch offen.', // MT
+    fr: '{n} factures sont encore en attente.', // MT
+  },
+  // What an invoice row says it was, when the purchase carries no label.
+  sold_membership: {
+    en: 'Membership',
+    nl: 'Lidmaatschap',
+    es: 'Membresía', // MT
+    pt: 'Assinatura', // MT
+    de: 'Mitgliedschaft', // MT
+    fr: 'Adhésion', // MT
+  },
+  sold_meeting: {
+    en: 'Meeting',
+    nl: 'Gesprek',
+    es: 'Reunión', // MT
+    pt: 'Reunião', // MT
+    de: 'Termin', // MT
+    fr: 'Rendez-vous', // MT
+  },
+  purchase: {
+    en: 'Purchase',
+    nl: 'Aankoop',
+    es: 'Compra', // MT
+    pt: 'Compra', // MT
+    de: 'Kauf', // MT
+    fr: 'Achat', // MT
+  },
+  billing_title: {
+    en: 'Billing details',
+    nl: 'Factuurgegevens',
+    es: 'Datos de facturación', // MT
+    pt: 'Dados de faturamento', // MT
+    de: 'Rechnungsdaten', // MT
+    fr: 'Coordonnées de facturation', // MT
+  },
+  billing_from_checkout: {
+    en: 'As given at your last payment — check them and save to keep them here.',
+    nl: 'Zoals opgegeven bij je laatste betaling — controleer ze en sla ze op om ze hier te bewaren.',
+    es: 'Tal como los diste en tu último pago: revísalos y guárdalos para conservarlos aquí.', // MT
+    pt: 'Como informados no seu último pagamento — confira e salve para mantê-los aqui.', // MT
+    de: 'So wie bei deiner letzten Zahlung angegeben – prüfe sie und speichere sie, um sie hier zu behalten.', // MT
+    fr: 'Tels que donnés lors de ton dernier paiement : vérifie-les et enregistre-les pour les garder ici.', // MT
+  },
+  billing_used_next: {
+    en: 'Used for your next invoices. Invoices already issued keep the details they were issued with.',
+    nl: 'Gebruikt voor je volgende facturen. Facturen die al zijn uitgereikt houden de gegevens waarmee ze zijn opgesteld.',
+    es: 'Se usan para tus próximas facturas. Las facturas ya emitidas conservan los datos con los que se emitieron.', // MT
+    pt: 'Usados nas suas próximas faturas. As faturas já emitidas mantêm os dados com que foram emitidas.', // MT
+    de: 'Werden für deine nächsten Rechnungen verwendet. Bereits ausgestellte Rechnungen behalten die Angaben, mit denen sie ausgestellt wurden.', // MT
+    fr: 'Utilisées pour tes prochaines factures. Les factures déjà émises gardent les informations avec lesquelles elles ont été établies.', // MT
+  },
+  f_name: {
+    en: 'Name',
+    nl: 'Naam',
+    es: 'Nombre', // MT
+    pt: 'Nome', // MT
+    de: 'Name', // MT
+    fr: 'Nom', // MT
+  },
+  f_company: {
+    en: 'Company (optional)',
+    nl: 'Bedrijf (optioneel)',
+    es: 'Empresa (opcional)', // MT
+    pt: 'Empresa (opcional)', // MT
+    de: 'Firma (optional)', // MT
+    fr: 'Entreprise (facultatif)', // MT
+  },
+  f_address: {
+    en: 'Address',
+    nl: 'Adres',
+    es: 'Dirección', // MT
+    pt: 'Endereço', // MT
+    de: 'Adresse', // MT
+    fr: 'Adresse', // MT
+  },
+  f_postal_code: {
+    en: 'Postal code',
+    nl: 'Postcode',
+    es: 'Código postal', // MT
+    pt: 'CEP', // MT
+    de: 'Postleitzahl', // MT
+    fr: 'Code postal', // MT
+  },
+  f_city: {
+    en: 'City',
+    nl: 'Plaats',
+    es: 'Ciudad', // MT
+    pt: 'Cidade', // MT
+    de: 'Ort', // MT
+    fr: 'Ville', // MT
+  },
+  f_country: {
+    en: 'Country',
+    nl: 'Land',
+    es: 'País', // MT
+    pt: 'País', // MT
+    de: 'Land', // MT
+    fr: 'Pays', // MT
+  },
+  choose_country: {
+    en: 'Choose a country',
+    nl: 'Kies een land',
+    es: 'Elige un país', // MT
+    pt: 'Escolha um país', // MT
+    de: 'Wähle ein Land', // MT
+    fr: 'Choisis un pays', // MT
+  },
+  f_vat: {
+    en: 'VAT number (businesses, optional)',
+    nl: 'Btw-nummer (bedrijven, optioneel)',
+    es: 'Número de IVA (empresas, opcional)', // MT
+    pt: 'Número fiscal (empresas, opcional)', // MT
+    de: 'USt-IdNr. (Unternehmen, optional)', // MT
+    fr: 'Numéro de TVA (entreprises, facultatif)', // MT
+  },
+  save: {
+    en: 'Save',
+    nl: 'Opslaan',
+    es: 'Guardar', // MT
+    pt: 'Salvar', // MT
+    de: 'Speichern', // MT
+    fr: 'Enregistrer', // MT
+  },
+  saving: {
+    en: 'Saving…',
+    nl: 'Opslaan…',
+    es: 'Guardando…', // MT
+    pt: 'Salvando…', // MT
+    de: 'Wird gespeichert…', // MT
+    fr: 'Enregistrement…', // MT
+  },
+  saved: {
+    en: 'Saved.',
+    nl: 'Opgeslagen.',
+    es: 'Guardado.', // MT
+    pt: 'Salvo.', // MT
+    de: 'Gespeichert.', // MT
+    fr: 'Enregistré.', // MT
+  },
+  could_not_save: {
+    en: 'Could not save ({status}).',
+    nl: 'Opslaan lukte niet ({status}).',
+    es: 'No se ha podido guardar ({status}).', // MT
+    pt: 'Não foi possível salvar ({status}).', // MT
+    de: 'Speichern hat nicht geklappt ({status}).', // MT
+    fr: 'Impossible d’enregistrer ({status}).', // MT
+  },
+  billing_sub_error: {
+    en: 'could not update the payment details just now — tell the community if this stays.',
+    nl: 'de betaalgegevens konden nu niet worden bijgewerkt — laat het de community weten als dit zo blijft.',
+    es: 'no se han podido actualizar los datos de pago ahora; avisa a la comunidad si sigue así.', // MT
+    pt: 'não foi possível atualizar os dados de pagamento agora — avise a comunidade se continuar assim.', // MT
+    de: 'die Zahlungsdaten konnten gerade nicht aktualisiert werden – sag der Community Bescheid, falls das so bleibt.', // MT
+    fr: 'impossible de mettre à jour les informations de paiement pour le moment ; préviens la communauté si cela persiste.', // MT
+  },
+  billing_sub_vat: {
+    en: 'from your next invoice, {vat}.',
+    nl: 'vanaf je volgende factuur, {vat}.',
+    es: 'a partir de tu próxima factura, {vat}.', // MT
+    pt: 'a partir da sua próxima fatura, {vat}.', // MT
+    de: 'ab deiner nächsten Rechnung, {vat}.', // MT
+    fr: 'à partir de ta prochaine facture, {vat}.', // MT
+  },
+  billing_sub_updated: {
+    en: 'details updated.',
+    nl: 'gegevens bijgewerkt.',
+    es: 'datos actualizados.', // MT
+    pt: 'dados atualizados.', // MT
+    de: 'Angaben aktualisiert.', // MT
+    fr: 'informations mises à jour.', // MT
+  },
+  // Renewals: a membership's and a product subscription's.
+  your_memberships: {
+    en: 'Your memberships',
+    nl: 'Je lidmaatschappen',
+    es: 'Tus membresías', // MT
+    pt: 'Suas assinaturas', // MT
+    de: 'Deine Mitgliedschaften', // MT
+    fr: 'Tes adhésions', // MT
+  },
+  your_subscriptions: {
+    en: 'Your subscriptions',
+    nl: 'Je abonnementen',
+    es: 'Tus suscripciones', // MT
+    pt: 'Suas assinaturas avulsas', // MT
+    de: 'Deine Abonnements', // MT
+    fr: 'Tes abonnements', // MT
+  },
+  add_or_change: {
+    en: 'Add or change',
+    nl: 'Toevoegen of wijzigen',
+    es: 'Añadir o cambiar', // MT
+    pt: 'Adicionar ou alterar', // MT
+    de: 'Hinzufügen oder ändern', // MT
+    fr: 'Ajouter ou modifier', // MT
+  },
+  stop_renewal: {
+    en: 'Stop renewal',
+    nl: 'Verlenging stoppen',
+    es: 'Detener la renovación', // MT
+    pt: 'Parar renovação', // MT
+    de: 'Verlängerung beenden', // MT
+    fr: 'Arrêter le renouvellement', // MT
+  },
+  resume_renewal: {
+    en: 'Resume renewal',
+    nl: 'Verlenging hervatten',
+    es: 'Reanudar la renovación', // MT
+    pt: 'Retomar renovação', // MT
+    de: 'Verlängerung fortsetzen', // MT
+    fr: 'Reprendre le renouvellement', // MT
+  },
+  renew_managed: {
+    en: 'This membership is managed directly by the community.',
+    nl: 'Dit lidmaatschap wordt rechtstreeks door de community beheerd.',
+    es: 'Esta membresía la gestiona directamente la comunidad.', // MT
+    pt: 'Esta assinatura é gerenciada diretamente pela comunidade.', // MT
+    de: 'Diese Mitgliedschaft wird direkt von der Community verwaltet.', // MT
+    fr: 'Cette adhésion est gérée directement par la communauté.', // MT
+  },
+  renew_unavailable: {
+    en: 'The renewal could not be read just now.',
+    nl: 'De verlenging kon nu niet worden gelezen.',
+    es: 'No se ha podido leer la renovación ahora.', // MT
+    pt: 'Não foi possível ler a renovação agora.', // MT
+    de: 'Die Verlängerung konnte gerade nicht gelesen werden.', // MT
+    fr: 'Le renouvellement n’a pas pu être lu pour le moment.', // MT
+  },
+  renew_stops: {
+    en: 'Does not renew. Active until {date}.',
+    nl: 'Wordt niet verlengd. Actief tot en met {date}.',
+    es: 'No se renueva. Activa hasta el {date}.', // MT
+    pt: 'Não renova. Ativa até {date}.', // MT
+    de: 'Wird nicht verlängert. Aktiv bis {date}.', // MT
+    fr: 'Ne se renouvelle pas. Active jusqu’au {date}.', // MT
+  },
+  renew_stops_product: {
+    en: 'Does not renew. Yours until {date}.',
+    nl: 'Wordt niet verlengd. Van jou tot en met {date}.',
+    es: 'No se renueva. Tuyo hasta el {date}.', // MT
+    pt: 'Não renova. Seu até {date}.', // MT
+    de: 'Wird nicht verlängert. Deins bis {date}.', // MT
+    fr: 'Ne se renouvelle pas. À toi jusqu’au {date}.', // MT
+  },
+  renews_on_at: {
+    en: 'Renews on {date} at {total}.',
+    nl: 'Wordt verlengd op {date} voor {total}.',
+    es: 'Se renueva el {date} por {total}.', // MT
+    pt: 'Renova em {date} por {total}.', // MT
+    de: 'Wird am {date} für {total} verlängert.', // MT
+    fr: 'Se renouvelle le {date} pour {total}.', // MT
+  },
+  renews_on_at_vat: {
+    en: 'Renews on {date} at {total} incl. VAT ({subtotal} + VAT {tax}).',
+    nl: 'Wordt verlengd op {date} voor {total} incl. btw ({subtotal} + btw {tax}).',
+    es: 'Se renueva el {date} por {total} IVA incl. ({subtotal} + IVA {tax}).', // MT
+    pt: 'Renova em {date} por {total} com impostos ({subtotal} + impostos {tax}).', // MT
+    de: 'Wird am {date} für {total} inkl. MwSt. verlängert ({subtotal} + MwSt. {tax}).', // MT
+    fr: 'Se renouvelle le {date} pour {total} TTC ({subtotal} + TVA {tax}).', // MT
+  },
+  renews_on: {
+    en: 'Renews on {date}.',
+    nl: 'Wordt verlengd op {date}.',
+    es: 'Se renueva el {date}.', // MT
+    pt: 'Renova em {date}.', // MT
+    de: 'Wird am {date} verlängert.', // MT
+    fr: 'Se renouvelle le {date}.', // MT
+  },
+  renew_change_failed: {
+    en: 'Could not change the renewal ({status}).',
+    nl: 'De verlenging kon niet worden gewijzigd ({status}).',
+    es: 'No se ha podido cambiar la renovación ({status}).', // MT
+    pt: 'Não foi possível alterar a renovação ({status}).', // MT
+    de: 'Die Verlängerung konnte nicht geändert werden ({status}).', // MT
+    fr: 'Impossible de modifier le renouvellement ({status}).', // MT
+  },
+  stop_q: {
+    en: 'Stop the renewal?',
+    nl: 'De verlenging stoppen?',
+    es: '¿Detener la renovación?', // MT
+    pt: 'Parar a renovação?', // MT
+    de: 'Verlängerung beenden?', // MT
+    fr: 'Arrêter le renouvellement ?', // MT
+  },
+  resume_q: {
+    en: 'Resume the renewal?',
+    nl: 'De verlenging hervatten?',
+    es: '¿Reanudar la renovación?', // MT
+    pt: 'Retomar a renovação?', // MT
+    de: 'Verlängerung fortsetzen?', // MT
+    fr: 'Reprendre le renouvellement ?', // MT
+  },
+  stop_msg: {
+    en: 'Your {tier} membership of {community} stays active until {date}, and nothing more is charged. You can resume it until then.',
+    nl: 'Je {tier}-lidmaatschap van {community} blijft actief tot en met {date}, en er wordt niets meer afgeschreven. Tot dan kun je het hervatten.',
+    es: 'Tu membresía {tier} de {community} sigue activa hasta el {date} y no se cobra nada más. Puedes reanudarla hasta entonces.', // MT
+    pt: 'Sua assinatura {tier} de {community} continua ativa até {date}, e nada mais é cobrado. Você pode retomá-la até lá.', // MT
+    de: 'Deine {tier}-Mitgliedschaft bei {community} bleibt bis {date} aktiv, und es wird nichts mehr berechnet. Bis dahin kannst du sie fortsetzen.', // MT
+    fr: 'Ton adhésion {tier} à {community} reste active jusqu’au {date}, et plus rien n’est prélevé. Tu peux la reprendre d’ici là.', // MT
+  },
+  resume_msg: {
+    en: 'Your {tier} membership of {community} will renew on {date} again.',
+    nl: 'Je {tier}-lidmaatschap van {community} wordt weer verlengd op {date}.',
+    es: 'Tu membresía {tier} de {community} se renovará de nuevo el {date}.', // MT
+    pt: 'Sua assinatura {tier} de {community} voltará a renovar em {date}.', // MT
+    de: 'Deine {tier}-Mitgliedschaft bei {community} wird am {date} wieder verlängert.', // MT
+    fr: 'Ton adhésion {tier} à {community} se renouvellera de nouveau le {date}.', // MT
+  },
+  end_of_period: {
+    en: 'the end of this period',
+    nl: 'het einde van deze periode',
+    es: 'el final de este periodo', // MT
+    pt: 'o fim deste período', // MT
+    de: 'zum Ende dieses Zeitraums', // MT
+    fr: 'la fin de cette période', // MT
+  },
+  its_renewal_date: {
+    en: 'its renewal date',
+    nl: 'de verlengingsdatum',
+    es: 'su fecha de renovación', // MT
+    pt: 'a data de renovação', // MT
+    de: 'zum Verlängerungsdatum', // MT
+    fr: 'sa date de renouvellement', // MT
+  },
+  stop_msg_product: {
+    en: '{what} from {community} stays yours until {date}, and nothing more is charged. You can resume it until then.',
+    nl: '{what} van {community} blijft van jou tot en met {date}, en er wordt niets meer afgeschreven. Tot dan kun je het hervatten.',
+    es: '{what} de {community} sigue siendo tuyo hasta el {date} y no se cobra nada más. Puedes reanudarlo hasta entonces.', // MT
+    pt: '{what} de {community} continua seu até {date}, e nada mais é cobrado. Você pode retomar até lá.', // MT
+    de: '{what} von {community} bleibt bis {date} deins, und es wird nichts mehr berechnet. Bis dahin kannst du es fortsetzen.', // MT
+    fr: '{what} de {community} reste à toi jusqu’au {date}, et plus rien n’est prélevé. Tu peux le reprendre d’ici là.', // MT
+  },
+  resume_msg_product: {
+    en: '{what} from {community} will renew on {date} again.',
+    nl: '{what} van {community} wordt weer verlengd op {date}.',
+    es: '{what} de {community} se renovará de nuevo el {date}.', // MT
+    pt: '{what} de {community} voltará a renovar em {date}.', // MT
+    de: '{what} von {community} wird am {date} wieder verlängert.', // MT
+    fr: '{what} de {community} se renouvellera de nouveau le {date}.', // MT
+  },
+  this_subscription: {
+    en: 'this subscription',
+    nl: 'dit abonnement',
+    es: 'esta suscripción', // MT
+    pt: 'esta assinatura', // MT
+    de: 'dieses Abonnement', // MT
+    fr: 'cet abonnement', // MT
+  },
+  // The card renewals are charged to (card-change.tsx).
+  card_line: {
+    en: 'Card · {brand} ···· {last4}',
+    nl: 'Kaart · {brand} ···· {last4}',
+    es: 'Tarjeta · {brand} ···· {last4}', // MT
+    pt: 'Cartão · {brand} ···· {last4}', // MT
+    de: 'Karte · {brand} ···· {last4}', // MT
+    fr: 'Carte · {brand} ···· {last4}', // MT
+  },
+  no_card: {
+    en: 'No card on file',
+    nl: 'Geen kaart bekend',
+    es: 'No hay tarjeta guardada', // MT
+    pt: 'Nenhum cartão cadastrado', // MT
+    de: 'Keine Karte hinterlegt', // MT
+    fr: 'Aucune carte enregistrée', // MT
+  },
+  change: {
+    en: 'change',
+    nl: 'wijzigen',
+    es: 'cambiar', // MT
+    pt: 'alterar', // MT
+    de: 'ändern', // MT
+    fr: 'modifier', // MT
+  },
+  something_wrong_status: {
+    en: 'Something went wrong ({status}).',
+    nl: 'Er ging iets mis ({status}).',
+    es: 'Algo ha fallado ({status}).', // MT
+    pt: 'Algo deu errado ({status}).', // MT
+    de: 'Etwas ist schiefgelaufen ({status}).', // MT
+    fr: 'Un problème est survenu ({status}).', // MT
+  },
+  change_card_title: {
+    en: 'Change your card',
+    nl: 'Je kaart wijzigen',
+    es: 'Cambiar tu tarjeta', // MT
+    pt: 'Trocar seu cartão', // MT
+    de: 'Karte ändern', // MT
+    fr: 'Changer ta carte', // MT
+  },
+  change_card_desc: {
+    en: 'Your new card is used from the next renewal. Nothing is charged now.',
+    nl: 'Je nieuwe kaart wordt gebruikt vanaf de volgende verlenging. Er wordt nu niets afgeschreven.',
+    es: 'Tu nueva tarjeta se usará desde la próxima renovación. Ahora no se cobra nada.', // MT
+    pt: 'Seu novo cartão é usado a partir da próxima renovação. Nada é cobrado agora.', // MT
+    de: 'Deine neue Karte wird ab der nächsten Verlängerung verwendet. Jetzt wird nichts berechnet.', // MT
+    fr: 'Ta nouvelle carte sera utilisée dès le prochain renouvellement. Rien n’est prélevé maintenant.', // MT
+  },
+  loading: {
+    en: 'Loading…',
+    nl: 'Laden…',
+    es: 'Cargando…', // MT
+    pt: 'Carregando…', // MT
+    de: 'Wird geladen…', // MT
+    fr: 'Chargement…', // MT
+  },
+  card_not_confirmed: {
+    en: 'The card could not be confirmed.',
+    nl: 'De kaart kon niet worden bevestigd.',
+    es: 'No se ha podido confirmar la tarjeta.', // MT
+    pt: 'Não foi possível confirmar o cartão.', // MT
+    de: 'Die Karte konnte nicht bestätigt werden.', // MT
+    fr: 'La carte n’a pas pu être confirmée.', // MT
+  },
+  card_saved: {
+    en: 'Saved. Your membership now renews on your {brand} card ending {last4}. A confirmation is on its way.',
+    nl: 'Opgeslagen. Je lidmaatschap wordt nu verlengd met je {brand}-kaart eindigend op {last4}. Er is een bevestiging onderweg.',
+    es: 'Guardado. Tu membresía se renueva ahora con tu tarjeta {brand} terminada en {last4}. Te enviamos una confirmación.', // MT
+    pt: 'Salvo. Sua assinatura agora renova no seu cartão {brand} final {last4}. Uma confirmação está a caminho.', // MT
+    de: 'Gespeichert. Deine Mitgliedschaft wird jetzt mit deiner {brand}-Karte mit der Endung {last4} verlängert. Eine Bestätigung ist unterwegs.', // MT
+    fr: 'Enregistré. Ton adhésion se renouvelle désormais avec ta carte {brand} se terminant par {last4}. Une confirmation est en route.', // MT
+  },
+  close: {
+    en: 'Close',
+    nl: 'Sluiten',
+    es: 'Cerrar', // MT
+    pt: 'Fechar', // MT
+    de: 'Schließen', // MT
+    fr: 'Fermer', // MT
+  },
+  save_card: {
+    en: 'Save card',
+    nl: 'Kaart opslaan',
+    es: 'Guardar tarjeta', // MT
+    pt: 'Salvar cartão', // MT
+    de: 'Karte speichern', // MT
+    fr: 'Enregistrer la carte', // MT
+  },
+  // Add or change (change-membership.tsx). per_* stand inside sentences.
+  per_month: {
+    en: 'month',
+    nl: 'maand',
+    es: 'mes', // MT
+    pt: 'mês', // MT
+    de: 'Monat', // MT
+    fr: 'mois', // MT
+  },
+  per_year: {
+    en: 'year',
+    nl: 'jaar',
+    es: 'año', // MT
+    pt: 'ano', // MT
+    de: 'Jahr', // MT
+    fr: 'an', // MT
+  },
+  one_moment: {
+    en: 'One moment…',
+    nl: 'Een moment…',
+    es: 'Un momento…', // MT
+    pt: 'Um momento…', // MT
+    de: 'Einen Moment…', // MT
+    fr: 'Un instant…', // MT
+  },
+  pay_amount: {
+    en: 'Pay {amount}',
+    nl: 'Betaal {amount}',
+    es: 'Pagar {amount}', // MT
+    pt: 'Pagar {amount}', // MT
+    de: '{amount} bezahlen', // MT
+    fr: 'Payer {amount}', // MT
+  },
+  confirm: {
+    en: 'Confirm',
+    nl: 'Bevestigen',
+    es: 'Confirmar', // MT
+    pt: 'Confirmar', // MT
+    de: 'Bestätigen', // MT
+    fr: 'Confirmer', // MT
+  },
+  change_done_addon: {
+    en: '{name} is added to your membership.',
+    nl: '{name} is toegevoegd aan je lidmaatschap.',
+    es: '{name} se ha añadido a tu membresía.', // MT
+    pt: '{name} foi adicionado à sua assinatura.', // MT
+    de: '{name} wurde deiner Mitgliedschaft hinzugefügt.', // MT
+    fr: '{name} a été ajouté à ton adhésion.', // MT
+  },
+  change_done_tier: {
+    en: 'You are now a {name} member.',
+    nl: 'Je bent nu {name}-lid.',
+    es: 'Ahora eres miembro {name}.', // MT
+    pt: 'Agora você é membro {name}.', // MT
+    de: 'Du bist jetzt {name}-Mitglied.', // MT
+    fr: 'Tu es maintenant membre {name}.', // MT
+  },
+  receipt_on_way: {
+    en: 'Your receipt is on its way and appears under Purchases.',
+    nl: 'Je bon is onderweg en staat onder Aankopen.',
+    es: 'Tu recibo está en camino y aparece en Compras.', // MT
+    pt: 'Seu recibo está a caminho e aparece em Compras.', // MT
+    de: 'Deine Quittung ist unterwegs und erscheint unter Käufe.', // MT
+    fr: 'Ton reçu est en route et apparaît dans Achats.', // MT
+  },
+  add_to_membership: {
+    en: 'Add to your membership',
+    nl: 'Toevoegen aan je lidmaatschap',
+    es: 'Añadir a tu membresía', // MT
+    pt: 'Adicionar à sua assinatura', // MT
+    de: 'Zu deiner Mitgliedschaft hinzufügen', // MT
+    fr: 'Ajouter à ton adhésion', // MT
+  },
+  renews_with_per: {
+    en: 'Renews with your membership, per {per}',
+    nl: 'Wordt verlengd met je lidmaatschap, per {per}',
+    es: 'Se renueva con tu membresía, por {per}', // MT
+    pt: 'Renova com sua assinatura, por {per}', // MT
+    de: 'Verlängert sich mit deiner Mitgliedschaft, pro {per}', // MT
+    fr: 'Se renouvelle avec ton adhésion, par {per}', // MT
+  },
+  one_off: {
+    en: 'One-off',
+    nl: 'Eenmalig',
+    es: 'Pago único', // MT
+    pt: 'Avulso', // MT
+    de: 'Einmalig', // MT
+    fr: 'Ponctuel', // MT
+  },
+  change_your_membership: {
+    en: 'Change your membership',
+    nl: 'Je lidmaatschap wijzigen',
+    es: 'Cambiar tu membresía', // MT
+    pt: 'Alterar sua assinatura', // MT
+    de: 'Mitgliedschaft ändern', // MT
+    fr: 'Modifier ton adhésion', // MT
+  },
+  price_per: {
+    en: '{price} / {per}',
+    nl: '{price} / {per}',
+    es: '{price} / {per}', // MT
+    pt: '{price} / {per}', // MT
+    de: '{price} / {per}', // MT
+    fr: '{price} / {per}', // MT
+  },
+  less_than_now: {
+    en: 'Less than now',
+    nl: 'Minder dan nu',
+    es: 'Menos que ahora', // MT
+    pt: 'Menos que agora', // MT
+    de: 'Weniger als jetzt', // MT
+    fr: 'Moins qu’aujourd’hui', // MT
+  },
+  more_than_now: {
+    en: 'More than now',
+    nl: 'Meer dan nu',
+    es: 'Más que ahora', // MT
+    pt: 'Mais que agora', // MT
+    de: 'Mehr als jetzt', // MT
+    fr: 'Plus qu’aujourd’hui', // MT
+  },
+  nothing_to_change: {
+    en: 'There is nothing to add or change to here right now.',
+    nl: 'Er is hier op dit moment niets toe te voegen of te wijzigen.',
+    es: 'Ahora mismo no hay nada que añadir o cambiar aquí.', // MT
+    pt: 'Não há nada para adicionar ou alterar aqui agora.', // MT
+    de: 'Hier gibt es gerade nichts hinzuzufügen oder zu ändern.', // MT
+    fr: 'Il n’y a rien à ajouter ou à modifier ici pour l’instant.', // MT
+  },
+  prices_excl_vat: {
+    en: 'Prices are excl. VAT.',
+    nl: 'Prijzen zijn excl. btw.',
+    es: 'Precios sin IVA.', // MT
+    pt: 'Preços sem impostos.', // MT
+    de: 'Preise zzgl. MwSt.', // MT
+    fr: 'Prix HT.', // MT
+  },
+  // {amount} is rendered bold, so it is a slot; {vat} is quote_vat or empty.
+  quote_pay_now: {
+    en: 'You pay {amount} now{vat}, for the rest of this period, with the card on your membership.',
+    nl: 'Je betaalt nu {amount}{vat}, voor de rest van deze periode, met de kaart van je lidmaatschap.',
+    es: 'Pagas {amount} ahora{vat}, por el resto de este periodo, con la tarjeta de tu membresía.', // MT
+    pt: 'Você paga {amount} agora{vat}, pelo resto deste período, com o cartão da sua assinatura.', // MT
+    de: 'Du zahlst jetzt {amount}{vat} für den Rest dieses Zeitraums, mit der Karte deiner Mitgliedschaft.', // MT
+    fr: 'Tu paies {amount} maintenant{vat}, pour le reste de cette période, avec la carte de ton adhésion.', // MT
+  },
+  quote_vat: {
+    en: ' (incl. {tax} VAT)',
+    nl: ' (incl. {tax} btw)',
+    es: ' (IVA de {tax} incl.)', // MT
+    pt: ' (com {tax} de impostos)', // MT
+    de: ' (inkl. {tax} MwSt.)', // MT
+    fr: ' (dont {tax} de TVA)', // MT
+  },
+  quote_credit_refund: {
+    en: 'Nothing is charged now. The {amount} difference for the rest of this period is refunded to your card.',
+    nl: 'Er wordt nu niets afgeschreven. Het verschil van {amount} voor de rest van deze periode wordt teruggestort op je kaart.',
+    es: 'Ahora no se cobra nada. La diferencia de {amount} por el resto de este periodo se reembolsa en tu tarjeta.', // MT
+    pt: 'Nada é cobrado agora. A diferença de {amount} pelo resto deste período é reembolsada no seu cartão.', // MT
+    de: 'Jetzt wird nichts berechnet. Die Differenz von {amount} für den Rest dieses Zeitraums wird deiner Karte gutgeschrieben.', // MT
+    fr: 'Rien n’est prélevé maintenant. La différence de {amount} pour le reste de cette période est remboursée sur ta carte.', // MT
+  },
+  quote_credit_credit: {
+    en: 'Nothing is charged now. The {amount} difference for the rest of this period is credited against your next invoice.',
+    nl: 'Er wordt nu niets afgeschreven. Het verschil van {amount} voor de rest van deze periode wordt verrekend met je volgende factuur.',
+    es: 'Ahora no se cobra nada. La diferencia de {amount} por el resto de este periodo se descuenta de tu próxima factura.', // MT
+    pt: 'Nada é cobrado agora. A diferença de {amount} pelo resto deste período é abatida da sua próxima fatura.', // MT
+    de: 'Jetzt wird nichts berechnet. Die Differenz von {amount} für den Rest dieses Zeitraums wird mit deiner nächsten Rechnung verrechnet.', // MT
+    fr: 'Rien n’est prélevé maintenant. La différence de {amount} pour le reste de cette période est déduite de ta prochaine facture.', // MT
+  },
+  nothing_charged: {
+    en: 'Nothing is charged now.',
+    nl: 'Er wordt nu niets afgeschreven.',
+    es: 'Ahora no se cobra nada.', // MT
+    pt: 'Nada é cobrado agora.', // MT
+    de: 'Jetzt wird nichts berechnet.', // MT
+    fr: 'Rien n’est prélevé maintenant.', // MT
+  },
+  then_every_month: {
+    en: 'Then {amount}{vat} on {date}, and every month after.',
+    nl: 'Daarna {amount}{vat} op {date}, en vanaf dan elke maand.',
+    es: 'Después, {amount}{vat} el {date}, y cada mes a partir de entonces.', // MT
+    pt: 'Depois, {amount}{vat} em {date}, e todo mês a partir daí.', // MT
+    de: 'Danach {amount}{vat} am {date} und von da an jeden Monat.', // MT
+    fr: 'Puis {amount}{vat} le {date}, et chaque mois ensuite.', // MT
+  },
+  then_every_year: {
+    en: 'Then {amount}{vat} on {date}, and every year after.',
+    nl: 'Daarna {amount}{vat} op {date}, en vanaf dan elk jaar.',
+    es: 'Después, {amount}{vat} el {date}, y cada año a partir de entonces.', // MT
+    pt: 'Depois, {amount}{vat} em {date}, e todo ano a partir daí.', // MT
+    de: 'Danach {amount}{vat} am {date} und von da an jedes Jahr.', // MT
+    fr: 'Puis {amount}{vat} le {date}, et chaque année ensuite.', // MT
+  },
+  then_vat: {
+    en: ' incl. VAT',
+    nl: ' incl. btw',
+    es: ' IVA incl.', // MT
+    pt: ' com impostos', // MT
+    de: ' inkl. MwSt.', // MT
+    fr: ' TTC', // MT
+  },
+  working_price: {
+    en: 'Working out the price…',
+    nl: 'De prijs wordt berekend…',
+    es: 'Calculando el precio…', // MT
+    pt: 'Calculando o preço…', // MT
+    de: 'Der Preis wird berechnet…', // MT
+    fr: 'Calcul du prix…', // MT
+  },
+  // A cancellation request (cancellation.tsx), inside a thread's sheet.
+  cancel_requested: {
+    en: 'Cancellation requested on {date}. The organiser will let you know.',
+    nl: 'Annulering aangevraagd op {date}. De organisator laat het je weten.',
+    es: 'Cancelación solicitada el {date}. Quien organiza te avisará.', // MT
+    pt: 'Cancelamento pedido em {date}. Quem organiza vai avisar você.', // MT
+    de: 'Stornierung am {date} angefragt. Die Veranstalter:in meldet sich bei dir.', // MT
+    fr: 'Annulation demandée le {date}. L’organisateur te tiendra informé·e.', // MT
+  },
+  withdraw_request: {
+    en: 'Withdraw request',
+    nl: 'Aanvraag intrekken',
+    es: 'Retirar solicitud', // MT
+    pt: 'Retirar pedido', // MT
+    de: 'Anfrage zurückziehen', // MT
+    fr: 'Retirer la demande', // MT
+  },
+  cancel_approved: {
+    en: 'Your place was cancelled at your request.',
+    nl: 'Je plek is op jouw verzoek geannuleerd.',
+    es: 'Tu plaza se canceló a petición tuya.', // MT
+    pt: 'Sua vaga foi cancelada a seu pedido.', // MT
+    de: 'Dein Platz wurde auf deinen Wunsch storniert.', // MT
+    fr: 'Ta place a été annulée à ta demande.', // MT
+  },
+  cancel_rejected: {
+    en: 'The organiser kept your place.',
+    nl: 'De organisator heeft je plek behouden.',
+    es: 'Quien organiza ha mantenido tu plaza.', // MT
+    pt: 'Quem organiza manteve sua vaga.', // MT
+    de: 'Die Veranstalter:in hat deinen Platz behalten.', // MT
+    fr: 'L’organisateur a conservé ta place.', // MT
+  },
+  request_cancellation: {
+    en: 'Request cancellation',
+    nl: 'Annulering aanvragen',
+    es: 'Solicitar cancelación', // MT
+    pt: 'Pedir cancelamento', // MT
+    de: 'Stornierung anfragen', // MT
+    fr: 'Demander l’annulation', // MT
+  },
+  cancel_explain: {
+    en: 'The organiser decides. Until they do, your place stays yours. If you paid, they also decide about a refund.',
+    nl: 'De organisator beslist. Tot die tijd blijft je plek van jou. Heb je betaald, dan beslist de organisator ook over een terugbetaling.',
+    es: 'Quien organiza decide. Hasta entonces, tu plaza sigue siendo tuya. Si pagaste, también decide sobre el reembolso.', // MT
+    pt: 'Quem organiza decide. Até lá, sua vaga continua sua. Se você pagou, também decide sobre o reembolso.', // MT
+    de: 'Die Veranstalter:in entscheidet. Bis dahin bleibt dein Platz deiner. Wenn du bezahlt hast, entscheidet sie auch über eine Erstattung.', // MT
+    fr: 'L’organisateur décide. D’ici là, ta place reste la tienne. Si tu as payé, il décide aussi du remboursement.', // MT
+  },
+  reason_optional: {
+    en: 'Reason (optional)',
+    nl: 'Reden (optioneel)',
+    es: 'Motivo (opcional)', // MT
+    pt: 'Motivo (opcional)', // MT
+    de: 'Grund (optional)', // MT
+    fr: 'Raison (facultatif)', // MT
+  },
+  send_request: {
+    en: 'Send request',
+    nl: 'Aanvraag versturen',
+    es: 'Enviar solicitud', // MT
+    pt: 'Enviar pedido', // MT
+    de: 'Anfrage senden', // MT
+    fr: 'Envoyer la demande', // MT
+  },
+
+  // ── Memberships ───────────────────────────────────────────────────────
+  memberships_none_title: {
+    en: 'You are not a member anywhere yet.',
+    nl: 'Je bent nog nergens lid.',
+    es: 'Aún no eres miembro de ninguna parte.', // MT
+    pt: 'Você ainda não é membro de nenhum lugar.', // MT
+    de: 'Du bist noch nirgends Mitglied.', // MT
+    fr: 'Tu n’es encore membre nulle part.', // MT
+  },
+  memberships_none_body: {
+    en: 'A membership appears here when you join a community. If you expected one, check you signed in with the address you joined with.',
+    nl: 'Een lidmaatschap verschijnt hier zodra je lid wordt van een community. Verwachtte je er een? Kijk dan of je bent ingelogd met het adres waarmee je lid bent geworden.',
+    es: 'Una membresía aparece aquí cuando te unes a una comunidad. Si esperabas una, comprueba que has entrado con la dirección con la que te uniste.', // MT
+    pt: 'Uma assinatura aparece aqui quando você entra numa comunidade. Se esperava uma, confira se entrou com o endereço com que se inscreveu.', // MT
+    de: 'Eine Mitgliedschaft erscheint hier, sobald du einer Community beitrittst. Falls du eine erwartet hast, prüfe, ob du mit der Adresse angemeldet bist, mit der du beigetreten bist.', // MT
+    fr: 'Une adhésion apparaît ici quand tu rejoins une communauté. Si tu en attendais une, vérifie que tu t’es connecté·e avec l’adresse utilisée pour adhérer.', // MT
+  },
+  // A membership's status badge. The same words as Help's memberships guide.
+  state_active: {
+    en: 'Active',
+    nl: 'Actief',
+    es: 'Activa', // MT
+    pt: 'Ativa', // MT
+    de: 'Aktiv', // MT
+    fr: 'Active', // MT
+  },
+  state_grace: {
+    en: 'Grace',
+    nl: 'Respijt',
+    es: 'En gracia', // MT
+    pt: 'Em carência', // MT
+    de: 'Kulanzzeit', // MT
+    fr: 'Période de grâce', // MT
+  },
+  state_lapsed: {
+    en: 'Lapsed',
+    nl: 'Verlopen',
+    es: 'Vencida', // MT
+    pt: 'Vencida', // MT
+    de: 'Abgelaufen', // MT
+    fr: 'Expirée', // MT
+  },
+  state_cancelled: {
+    en: 'Cancelled',
+    nl: 'Opgezegd',
+    es: 'Cancelada', // MT
+    pt: 'Cancelada', // MT
+    de: 'Gekündigt', // MT
+    fr: 'Annulée', // MT
+  },
+  note_grace: {
+    en: 'Payment is overdue. Your access continues for now.',
+    nl: 'Er loopt een betaling achter. Je toegang loopt voorlopig door.',
+    es: 'Hay un pago atrasado. Tu acceso continúa por ahora.', // MT
+    pt: 'Há um pagamento atrasado. Seu acesso continua por enquanto.', // MT
+    de: 'Eine Zahlung ist überfällig. Dein Zugang läuft vorerst weiter.', // MT
+    fr: 'Un paiement est en retard. Ton accès continue pour l’instant.', // MT
+  },
+  note_lapsed: {
+    en: 'This has lapsed. Rejoin to get it back.',
+    nl: 'Dit is verlopen. Word opnieuw lid om het terug te krijgen.',
+    es: 'Ha vencido. Vuelve a unirte para recuperarla.', // MT
+    pt: 'Ela venceu. Entre de novo para recuperá-la.', // MT
+    de: 'Sie ist abgelaufen. Tritt erneut bei, um sie zurückzubekommen.', // MT
+    fr: 'Elle a expiré. Adhère de nouveau pour la retrouver.', // MT
+  },
+  note_cancelled: {
+    en: 'This has been cancelled.',
+    nl: 'Dit is opgezegd.',
+    es: 'Se ha cancelado.', // MT
+    pt: 'Ela foi cancelada.', // MT
+    de: 'Sie wurde gekündigt.', // MT
+    fr: 'Elle a été annulée.', // MT
+  },
+  renews_date: {
+    en: 'Renews {date}',
+    nl: 'Wordt verlengd op {date}',
+    es: 'Se renueva el {date}', // MT
+    pt: 'Renova em {date}', // MT
+    de: 'Verlängert sich am {date}', // MT
+    fr: 'Se renouvelle le {date}', // MT
+  },
+  member_since: {
+    en: 'Member since {date}',
+    nl: 'Lid sinds {date}',
+    es: 'Miembro desde el {date}', // MT
+    pt: 'Membro desde {date}', // MT
+    de: 'Mitglied seit {date}', // MT
+    fr: 'Membre depuis le {date}', // MT
+  },
+  what_includes: {
+    en: 'What this includes',
+    nl: 'Wat dit omvat',
+    es: 'Qué incluye', // MT
+    pt: 'O que inclui', // MT
+    de: 'Was das umfasst', // MT
+    fr: 'Ce que cela comprend', // MT
+  },
+  belonging_only: {
+    en: 'Belonging to {community}, and nothing else listed.',
+    nl: 'Erbij horen bij {community}, verder staat er niets vermeld.',
+    es: 'Pertenecer a {community}, y nada más indicado.', // MT
+    pt: 'Fazer parte de {community}, e nada mais listado.', // MT
+    de: 'Zugehörigkeit zu {community}, sonst ist nichts aufgeführt.', // MT
+    fr: 'L’appartenance à {community}, rien d’autre n’est indiqué.', // MT
+  },
+  what_join: {
+    en: 'What you can join',
+    nl: 'Waar je aan mee kunt doen',
+    es: 'A qué puedes unirte', // MT
+    pt: 'Do que você pode participar', // MT
+    de: 'Woran du teilnehmen kannst', // MT
+    fr: 'Ce que tu peux rejoindre', // MT
+  },
+  signup_not_open_lc: {
+    en: 'sign-up not open yet',
+    nl: 'aanmelden nog niet open',
+    es: 'inscripción aún no abierta', // MT
+    pt: 'inscrições ainda não abertas', // MT
+    de: 'Anmeldung noch nicht geöffnet', // MT
+    fr: 'inscriptions pas encore ouvertes', // MT
+  },
+  what_you_paid: {
+    en: 'What you paid',
+    nl: 'Wat je hebt betaald',
+    es: 'Lo que has pagado', // MT
+    pt: 'O que você pagou', // MT
+    de: 'Was du bezahlt hast', // MT
+    fr: 'Ce que tu as payé', // MT
+  },
+  card_renewal_addons: {
+    en: 'Card, renewal and add-ons',
+    nl: 'Kaart, verlenging en extra’s',
+    es: 'Tarjeta, renovación y extras', // MT
+    pt: 'Cartão, renovação e extras', // MT
+    de: 'Karte, Verlängerung und Extras', // MT
+    fr: 'Carte, renouvellement et options', // MT
+  },
+  your_products: {
+    en: 'Your products',
+    nl: 'Je producten',
+    es: 'Tus productos', // MT
+    pt: 'Seus produtos', // MT
+    de: 'Deine Produkte', // MT
+    fr: 'Tes produits', // MT
+  },
+  bought_on: {
+    en: 'Bought {date}',
+    nl: 'Gekocht op {date}',
+    es: 'Comprado el {date}', // MT
+    pt: 'Comprado em {date}', // MT
+    de: 'Gekauft am {date}', // MT
+    fr: 'Acheté le {date}', // MT
+  },
+
+  // ── The You page ──────────────────────────────────────────────────────
+  // The You page: its tabs and panels (you/page.tsx, you-tabs.tsx).
+  tab_profile: {
+    en: 'Profile',
+    nl: 'Profiel',
+    es: 'Perfil', // MT
+    pt: 'Perfil', // MT
+    de: 'Profil', // MT
+    fr: 'Profil', // MT
+  },
+  tab_memberships: {
+    en: 'Memberships & purchases',
+    nl: 'Lidmaatschappen & aankopen',
+    es: 'Membresías y compras', // MT
+    pt: 'Assinaturas e compras', // MT
+    de: 'Mitgliedschaften & Käufe', // MT
+    fr: 'Adhésions et achats', // MT
+  },
+  tab_billing: {
+    en: 'Billing',
+    nl: 'Facturatie',
+    es: 'Facturación', // MT
+    pt: 'Faturamento', // MT
+    de: 'Abrechnung', // MT
+    fr: 'Facturation', // MT
+  },
+  tab_privacy: {
+    en: 'Privacy',
+    nl: 'Privacy',
+    es: 'Privacidad', // MT
+    pt: 'Privacidade', // MT
+    de: 'Datenschutz', // MT
+    fr: 'Confidentialité', // MT
+  },
+  f_email: {
+    en: 'Email',
+    nl: 'E-mail',
+    es: 'Correo electrónico', // MT
+    pt: 'E-mail', // MT
+    de: 'E-Mail', // MT
+    fr: 'E-mail', // MT
+  },
+  editing_unreachable: {
+    en: 'Editing is not reachable right now. Try again in a moment.',
+    nl: 'Bewerken is nu niet bereikbaar. Probeer het zo nog eens.',
+    es: 'La edición no está disponible ahora. Vuelve a intentarlo en un momento.', // MT
+    pt: 'A edição não está disponível agora. Tente de novo daqui a pouco.', // MT
+    de: 'Bearbeiten ist gerade nicht erreichbar. Versuch es gleich noch einmal.', // MT
+    fr: 'La modification n’est pas accessible pour le moment. Réessaie dans un instant.', // MT
+  },
+  dir_title: {
+    en: 'Being found by other members',
+    nl: 'Gevonden worden door andere leden',
+    es: 'Que otros miembros te encuentren', // MT
+    pt: 'Ser encontrado por outros membros', // MT
+    de: 'Von anderen Mitgliedern gefunden werden', // MT
+    fr: 'Être trouvé·e par les autres membres', // MT
+  },
+  dir_failed: {
+    en: "We couldn't load this right now; your setting is unchanged.",
+    nl: 'Dit lukte nu niet te laden; je instelling is niet veranderd.',
+    es: 'No hemos podido cargarlo ahora; tu ajuste no ha cambiado.', // MT
+    pt: 'Não conseguimos carregar isto agora; sua configuração não mudou.', // MT
+    de: 'Das ließ sich gerade nicht laden; deine Einstellung ist unverändert.', // MT
+    fr: 'Impossible de charger ceci pour le moment ; ton réglage n’a pas changé.', // MT
+  },
+  mships_failed: {
+    en: "We couldn't load your memberships right now. Try again in a moment.",
+    nl: 'Je lidmaatschappen konden nu niet worden geladen. Probeer het zo nog eens.',
+    es: 'No hemos podido cargar tus membresías ahora. Vuelve a intentarlo en un momento.', // MT
+    pt: 'Não conseguimos carregar suas assinaturas agora. Tente de novo daqui a pouco.', // MT
+    de: 'Deine Mitgliedschaften ließen sich gerade nicht laden. Versuch es gleich noch einmal.', // MT
+    fr: 'Impossible de charger tes adhésions pour le moment. Réessaie dans un instant.', // MT
+  },
+  nothing_renews: {
+    en: 'Nothing renews for you at the moment.',
+    nl: 'Er wordt op dit moment niets voor je verlengd.',
+    es: 'Ahora mismo no se te renueva nada.', // MT
+    pt: 'Nada renova para você no momento.', // MT
+    de: 'Bei dir verlängert sich gerade nichts.', // MT
+    fr: 'Rien ne se renouvelle pour toi en ce moment.', // MT
+  },
+  // {link} is "Purchases" (nav_purchases), a link.
+  every_invoice_under: {
+    en: 'Every invoice, and what you paid, is under {link}.',
+    nl: 'Elke factuur, en wat je hebt betaald, staat onder {link}.',
+    es: 'Todas las facturas, y lo que has pagado, están en {link}.', // MT
+    pt: 'Todas as faturas, e o que você pagou, estão em {link}.', // MT
+    de: 'Jede Rechnung und was du bezahlt hast, findest du unter {link}.', // MT
+    fr: 'Chaque facture, et ce que tu as payé, se trouve dans {link}.', // MT
+  },
+  billing_none: {
+    en: 'No billing details yet. They are filled in the first time you pay.',
+    nl: 'Nog geen factuurgegevens. Die worden ingevuld de eerste keer dat je betaalt.',
+    es: 'Aún no hay datos de facturación. Se rellenan la primera vez que pagas.', // MT
+    pt: 'Ainda não há dados de faturamento. Eles são preenchidos na primeira vez que você paga.', // MT
+    de: 'Noch keine Rechnungsdaten. Sie werden beim ersten Bezahlen ausgefüllt.', // MT
+    fr: 'Pas encore de coordonnées de facturation. Elles sont remplies lors de ton premier paiement.', // MT
+  },
+  billing_failed: {
+    en: 'Your billing details could not be loaded right now.',
+    nl: 'Je factuurgegevens konden nu niet worden geladen.',
+    es: 'No se han podido cargar tus datos de facturación ahora.', // MT
+    pt: 'Não foi possível carregar seus dados de faturamento agora.', // MT
+    de: 'Deine Rechnungsdaten konnten gerade nicht geladen werden.', // MT
+    fr: 'Tes coordonnées de facturation n’ont pas pu être chargées pour le moment.', // MT
+  },
+  not_organiser_note: {
+    en: 'This page is everything you take part in. The Thread itself — where programmes are built and run — is for organisers, and you would need to be invited to a workspace to open it.',
+    nl: 'Deze pagina is alles waar je aan meedoet. The Thread zelf — waar programma’s worden gemaakt en gedraaid — is voor organisatoren, en je moet voor een workspace worden uitgenodigd om het te openen.',
+    es: 'Esta página es todo aquello en lo que participas. The Thread en sí —donde se crean y gestionan los programas— es para quienes organizan, y necesitarías una invitación a un espacio de trabajo para abrirlo.', // MT
+    pt: 'Esta página é tudo de que você participa. O The Thread em si — onde os programas são criados e conduzidos — é para quem organiza, e você precisaria ser convidado para um espaço de trabalho para abri-lo.', // MT
+    de: 'Diese Seite ist alles, woran du teilnimmst. The Thread selbst – wo Programme gebaut und durchgeführt werden – ist für Veranstalter:innen, und du müsstest in einen Workspace eingeladen werden, um es zu öffnen.', // MT
+    fr: 'Cette page rassemble tout ce à quoi tu participes. The Thread lui-même, où les programmes sont conçus et menés, est réservé aux organisateurs : il faudrait être invité·e dans un espace de travail pour l’ouvrir.', // MT
+  },
+  back_to: {
+    en: 'Back to {site}',
+    nl: 'Terug naar {site}',
+    es: 'Volver a {site}', // MT
+    pt: 'Voltar para {site}', // MT
+    de: 'Zurück zu {site}', // MT
+    fr: 'Retour à {site}', // MT
+  },
+  sign_out: {
+    en: 'Sign out',
+    nl: 'Uitloggen',
+    es: 'Cerrar sesión', // MT
+    pt: 'Sair', // MT
+    de: 'Abmelden', // MT
+    fr: 'Se déconnecter', // MT
+  },
+  signing_out: {
+    en: 'Signing out…',
+    nl: 'Uitloggen…',
+    es: 'Cerrando sesión…', // MT
+    pt: 'Saindo…', // MT
+    de: 'Wird abgemeldet…', // MT
+    fr: 'Déconnexion…', // MT
+  },
+  // The profile form (details-form.tsx).
+  first_name: {
+    en: 'First name',
+    nl: 'Voornaam',
+    es: 'Nombre', // MT
+    pt: 'Nome', // MT
+    de: 'Vorname', // MT
+    fr: 'Prénom', // MT
+  },
+  last_name: {
+    en: 'Last name',
+    nl: 'Achternaam',
+    es: 'Apellidos', // MT
+    pt: 'Sobrenome', // MT
+    de: 'Nachname', // MT
+    fr: 'Nom', // MT
+  },
+  email_fixed: {
+    en: 'This is how every community finds you, so it cannot be changed here.',
+    nl: 'Hiermee vindt elke community je, dus dit kun je hier niet wijzigen.',
+    es: 'Así te encuentra cada comunidad, por eso no se puede cambiar aquí.', // MT
+    pt: 'É assim que cada comunidade encontra você, por isso não pode ser alterado aqui.', // MT
+    de: 'Darüber findet dich jede Community, deshalb lässt es sich hier nicht ändern.', // MT
+    fr: 'C’est ainsi que chaque communauté te retrouve, elle ne peut donc pas être modifiée ici.', // MT
+  },
+  no_preference: {
+    en: 'No preference',
+    nl: 'Geen voorkeur',
+    es: 'Sin preferencia', // MT
+    pt: 'Sem preferência', // MT
+    de: 'Keine Präferenz', // MT
+    fr: 'Aucune préférence', // MT
+  },
+  language_hint: {
+    en: 'What emails and pages arrive in, everywhere.',
+    nl: 'De taal van e-mails en pagina’s, overal.',
+    es: 'El idioma de los correos y las páginas, en todas partes.', // MT
+    pt: 'O idioma dos e-mails e das páginas, em todo lugar.', // MT
+    de: 'In dieser Sprache kommen E-Mails und Seiten an, überall.', // MT
+    fr: 'La langue des e-mails et des pages, partout.', // MT
+  },
+  did_not_save: {
+    en: 'That did not save.',
+    nl: 'Dat is niet opgeslagen.',
+    es: 'No se ha guardado.', // MT
+    pt: 'Não foi salvo.', // MT
+    de: 'Das wurde nicht gespeichert.', // MT
+    fr: 'Ce n’a pas été enregistré.', // MT
+  },
+  name_used_by: {
+    en: 'Your name is used by {n} communities. Saving corrects it in all of them.',
+    nl: 'Je naam wordt door {n} community’s gebruikt. Opslaan verbetert hem in allemaal.',
+    es: 'Tu nombre lo usan {n} comunidades. Al guardar, se corrige en todas.', // MT
+    pt: 'Seu nome é usado por {n} comunidades. Salvar corrige em todas.', // MT
+    de: 'Dein Name wird von {n} Communitys verwendet. Speichern korrigiert ihn in allen.', // MT
+    fr: 'Ton nom est utilisé par {n} communautés. Enregistrer le corrige partout.', // MT
+  },
+  // The billing card (billing-card.tsx), read-only.
+  bc_company: {
+    en: 'Company',
+    nl: 'Bedrijf',
+    es: 'Empresa', // MT
+    pt: 'Empresa', // MT
+    de: 'Firma', // MT
+    fr: 'Entreprise', // MT
+  },
+  vat_number: {
+    en: 'VAT number',
+    nl: 'Btw-nummer',
+    es: 'Número de IVA', // MT
+    pt: 'Número fiscal', // MT
+    de: 'USt-IdNr.', // MT
+    fr: 'Numéro de TVA', // MT
+  },
+  // {link} is "Purchases" (nav_purchases), a link.
+  change_them_under: {
+    en: 'Change them under {link}.',
+    nl: 'Wijzig ze onder {link}.',
+    es: 'Cámbialos en {link}.', // MT
+    pt: 'Altere-os em {link}.', // MT
+    de: 'Ändere sie unter {link}.', // MT
+    fr: 'Modifie-les dans {link}.', // MT
+  },
+  // Emails about the calendars (notify-card.tsx).
+  notify_title: {
+    en: 'Emails about new and changed threads',
+    nl: 'E-mails over nieuwe en gewijzigde threads',
+    es: 'Correos sobre threads nuevos y modificados', // MT
+    pt: 'E-mails sobre threads novos e alterados', // MT
+    de: 'E-Mails zu neuen und geänderten Threads', // MT
+    fr: 'E-mails sur les threads nouveaux ou modifiés', // MT
+  },
+  this_community: {
+    en: 'This community',
+    nl: 'Deze community',
+    es: 'Esta comunidad', // MT
+    pt: 'Esta comunidade', // MT
+    de: 'Diese Community', // MT
+    fr: 'Cette communauté', // MT
+  },
+  notify_hint: {
+    en: 'One email after a quiet quarter of an hour, never one per change.',
+    nl: 'Eén e-mail na een stil kwartier, nooit één per wijziging.',
+    es: 'Un correo tras un cuarto de hora sin cambios, nunca uno por cambio.', // MT
+    pt: 'Um e-mail depois de quinze minutos sem mudanças, nunca um por mudança.', // MT
+    de: 'Eine E-Mail nach einer ruhigen Viertelstunde, nie eine pro Änderung.', // MT
+    fr: 'Un e-mail après un quart d’heure calme, jamais un par changement.', // MT
+  },
+  notify_failed: {
+    en: 'That did not save. Check your connection and try again.',
+    nl: 'Dat is niet opgeslagen. Controleer je verbinding en probeer het opnieuw.',
+    es: 'No se ha guardado. Comprueba tu conexión e inténtalo de nuevo.', // MT
+    pt: 'Não foi salvo. Verifique sua conexão e tente de novo.', // MT
+    de: 'Das wurde nicht gespeichert. Prüfe deine Verbindung und versuch es noch einmal.', // MT
+    fr: 'Ce n’a pas été enregistré. Vérifie ta connexion et réessaie.', // MT
+  },
+  // The calendar subscription (calendar-card.tsx). Help's calendar guide names
+  // these buttons: Subscribe, Open in Apple Calendar, Copy address.
+  cal_title: {
+    en: 'Your calendar',
+    nl: 'Je agenda',
+    es: 'Tu calendario', // MT
+    pt: 'Seu calendário', // MT
+    de: 'Dein Kalender', // MT
+    fr: 'Ton agenda', // MT
+  },
+  cal_intro: {
+    en: 'Follow every session you are taking part in. When an organiser moves a date, your calendar follows — you do not have to add anything again.',
+    nl: 'Volg elke sessie waar je aan meedoet. Als een organisator een datum verplaatst, schuift je agenda mee — je hoeft niets opnieuw toe te voegen.',
+    es: 'Sigue cada sesión en la que participas. Cuando quien organiza cambia una fecha, tu calendario la sigue: no tienes que volver a añadir nada.', // MT
+    pt: 'Acompanhe cada sessão de que você participa. Quando quem organiza muda uma data, seu calendário acompanha — você não precisa adicionar nada de novo.', // MT
+    de: 'Folge jeder Sitzung, an der du teilnimmst. Wenn eine Veranstalter:in einen Termin verschiebt, zieht dein Kalender mit – du musst nichts erneut hinzufügen.', // MT
+    fr: 'Suis chaque séance à laquelle tu participes. Quand un organisateur déplace une date, ton agenda suit : tu n’as rien à rajouter.', // MT
+  },
+  cal_address: {
+    en: 'Your calendar address',
+    nl: 'Je agenda-adres',
+    es: 'La dirección de tu calendario', // MT
+    pt: 'O endereço do seu calendário', // MT
+    de: 'Deine Kalenderadresse', // MT
+    fr: 'L’adresse de ton agenda', // MT
+  },
+  copied: {
+    en: 'Copied',
+    nl: 'Gekopieerd',
+    es: 'Copiado', // MT
+    pt: 'Copiado', // MT
+    de: 'Kopiert', // MT
+    fr: 'Copié', // MT
+  },
+  copy_address: {
+    en: 'Copy address',
+    nl: 'Adres kopiëren',
+    es: 'Copiar dirección', // MT
+    pt: 'Copiar endereço', // MT
+    de: 'Adresse kopieren', // MT
+    fr: 'Copier l’adresse', // MT
+  },
+  open_apple_calendar: {
+    en: 'Open in Apple Calendar',
+    nl: 'Openen in Apple Agenda',
+    es: 'Abrir en Calendario de Apple', // MT
+    pt: 'Abrir no Calendário da Apple', // MT
+    de: 'In Apple Kalender öffnen', // MT
+    fr: 'Ouvrir dans Calendrier Apple', // MT
+  },
+  // {google} is the bold product name "Google Calendar".
+  cal_google: {
+    en: '{google} — on a computer, open calendar.google.com, then Other calendars → From URL and paste this. Its phone app cannot add one, on Android or iPhone; once the computer has it, it appears on your phone by itself. This page is where the address lives, so open it on the computer rather than typing it across.',
+    nl: '{google} — open op een computer calendar.google.com, dan Andere agenda’s → Via URL en plak dit. De telefoonapp kan er geen toevoegen, op Android noch iPhone; zodra de computer hem heeft, verschijnt hij vanzelf op je telefoon. Het adres staat op deze pagina, dus open hem op de computer in plaats van het over te typen.',
+    es: '{google}: en un ordenador, abre calendar.google.com, luego Otros calendarios → Desde URL y pega esto. Su app para el móvil no puede añadirlo, ni en Android ni en iPhone; cuando el ordenador lo tiene, aparece solo en tu móvil. La dirección está en esta página, así que ábrela en el ordenador en lugar de copiarla a mano.', // MT
+    pt: '{google} — num computador, abra calendar.google.com, depois Outras agendas → A partir do URL e cole isto. O app do celular não consegue adicionar, nem no Android nem no iPhone; quando o computador tiver, aparece sozinho no seu celular. O endereço está nesta página, então abra-a no computador em vez de digitar.', // MT
+    de: '{google} – öffne am Computer calendar.google.com, dann Weitere Kalender → Per URL und füge das ein. Die Handy-App kann keinen hinzufügen, weder auf Android noch auf dem iPhone; sobald der Computer ihn hat, erscheint er von selbst auf deinem Handy. Die Adresse steht auf dieser Seite, also öffne sie am Computer, statt sie abzutippen.', // MT
+    fr: '{google} : sur un ordinateur, ouvre calendar.google.com, puis Autres agendas → À partir de l’URL et colle ceci. L’application mobile ne peut pas l’ajouter, ni sur Android ni sur iPhone ; une fois sur l’ordinateur, il apparaît tout seul sur ton téléphone. L’adresse se trouve sur cette page : ouvre-la sur l’ordinateur plutôt que de la recopier.', // MT
+  },
+  cal_own: {
+    en: 'It arrives as its own calendar beside yours. The sessions show up in your day, and you cannot edit them — which is what keeps them correct.',
+    nl: 'Hij komt binnen als een eigen agenda naast de jouwe. De sessies staan in je dag, en je kunt ze niet bewerken — zo blijven ze kloppen.',
+    es: 'Llega como un calendario propio junto al tuyo. Las sesiones aparecen en tu día y no puedes editarlas, y eso es lo que las mantiene correctas.', // MT
+    pt: 'Ele chega como um calendário próprio ao lado do seu. As sessões aparecem no seu dia, e você não pode editá-las — é isso que as mantém corretas.', // MT
+    de: 'Er kommt als eigener Kalender neben deinem an. Die Sitzungen erscheinen in deinem Tag, und du kannst sie nicht bearbeiten – genau das hält sie richtig.', // MT
+    fr: 'Il arrive comme un agenda à part, à côté du tien. Les séances apparaissent dans ta journée et tu ne peux pas les modifier : c’est ce qui les garde exactes.', // MT
+  },
+  cal_private: {
+    en: 'Keep the address private: anyone who has it can see your sessions.',
+    nl: 'Houd het adres voor jezelf: iedereen die het heeft, kan je sessies zien.',
+    es: 'No compartas la dirección: quien la tenga puede ver tus sesiones.', // MT
+    pt: 'Mantenha o endereço em sigilo: quem o tiver pode ver suas sessões.', // MT
+    de: 'Behalte die Adresse für dich: Wer sie hat, sieht deine Sitzungen.', // MT
+    fr: 'Garde l’adresse pour toi : qui la possède peut voir tes séances.', // MT
+  },
+  cal_old: {
+    en: 'You have a calendar address from before this page could show it again. Make a new one to see it — the old one stops working.',
+    nl: 'Je hebt een agenda-adres van voordat deze pagina het opnieuw kon tonen. Maak een nieuw adres om het te zien — het oude werkt dan niet meer.',
+    es: 'Tienes una dirección de calendario de antes de que esta página pudiera volver a mostrarla. Crea una nueva para verla; la antigua dejará de funcionar.', // MT
+    pt: 'Você tem um endereço de calendário de antes de esta página poder mostrá-lo de novo. Crie um novo para vê-lo — o antigo para de funcionar.', // MT
+    de: 'Du hast eine Kalenderadresse aus der Zeit, bevor diese Seite sie wieder anzeigen konnte. Erstelle eine neue, um sie zu sehen – die alte funktioniert dann nicht mehr.', // MT
+    fr: 'Tu as une adresse d’agenda antérieure au moment où cette page a pu la réafficher. Crée-en une nouvelle pour la voir ; l’ancienne cessera de fonctionner.', // MT
+  },
+  cal_last: {
+    en: 'Last collected {when}.',
+    nl: 'Voor het laatst opgehaald {when}.',
+    es: 'Última recogida {when}.', // MT
+    pt: 'Última coleta {when}.', // MT
+    de: 'Zuletzt abgerufen {when}.', // MT
+    fr: 'Dernière récupération {when}.', // MT
+  },
+  cal_never: {
+    en: 'Nothing has collected it yet — if you just added it, give your calendar an hour.',
+    nl: 'Nog niets heeft hem opgehaald — heb je hem net toegevoegd, geef je agenda dan een uur.',
+    es: 'Nada lo ha recogido todavía: si acabas de añadirlo, dale una hora a tu calendario.', // MT
+    pt: 'Nada o coletou ainda — se você acabou de adicionar, dê uma hora ao seu calendário.', // MT
+    de: 'Noch nichts hat ihn abgerufen – wenn du ihn gerade hinzugefügt hast, gib deinem Kalender eine Stunde.', // MT
+    fr: 'Rien ne l’a encore récupéré : si tu viens de l’ajouter, laisse une heure à ton agenda.', // MT
+  },
+  make_new_address: {
+    en: 'Make a new address',
+    nl: 'Nieuw adres maken',
+    es: 'Crear una dirección nueva', // MT
+    pt: 'Criar um novo endereço', // MT
+    de: 'Neue Adresse erstellen', // MT
+    fr: 'Créer une nouvelle adresse', // MT
+  },
+  subscribe: {
+    en: 'Subscribe',
+    nl: 'Abonneren',
+    es: 'Suscribirse', // MT
+    pt: 'Assinar', // MT
+    de: 'Abonnieren', // MT
+    fr: 'S’abonner', // MT
+  },
+  stop_calendar: {
+    en: 'Stop the calendar',
+    nl: 'Agenda stoppen',
+    es: 'Detener el calendario', // MT
+    pt: 'Parar o calendário', // MT
+    de: 'Kalender beenden', // MT
+    fr: 'Arrêter l’agenda', // MT
+  },
+  cal_new_warning: {
+    en: 'Making a new address stops the old one working everywhere you added it.',
+    nl: 'Een nieuw adres maken laat het oude overal stoppen waar je het hebt toegevoegd.',
+    es: 'Crear una dirección nueva hace que la antigua deje de funcionar allí donde la añadiste.', // MT
+    pt: 'Criar um novo endereço faz o antigo parar de funcionar em todo lugar onde você o adicionou.', // MT
+    de: 'Eine neue Adresse sorgt dafür, dass die alte überall dort nicht mehr funktioniert, wo du sie hinzugefügt hast.', // MT
+    fr: 'Créer une nouvelle adresse désactive l’ancienne partout où tu l’as ajoutée.', // MT
+  },
+  did_not_work: {
+    en: 'That did not work.',
+    nl: 'Dat werkte niet.',
+    es: 'No ha funcionado.', // MT
+    pt: 'Não funcionou.', // MT
+    de: 'Das hat nicht geklappt.', // MT
+    fr: 'Ça n’a pas fonctionné.', // MT
+  },
+  just_now: {
+    en: 'just now',
+    nl: 'zojuist',
+    es: 'hace un momento', // MT
+    pt: 'agora mesmo', // MT
+    de: 'gerade eben', // MT
+    fr: 'à l’instant', // MT
+  },
+  in_last_hour: {
+    en: 'in the last hour',
+    nl: 'in het afgelopen uur',
+    es: 'en la última hora', // MT
+    pt: 'na última hora', // MT
+    de: 'in der letzten Stunde', // MT
+    fr: 'dans la dernière heure', // MT
+  },
+  hours_ago_one: {
+    en: '{n} hour ago',
+    nl: '{n} uur geleden',
+    es: 'hace {n} hora', // MT
+    pt: 'há {n} hora', // MT
+    de: 'vor {n} Stunde', // MT
+    fr: 'il y a {n} heure', // MT
+  },
+  hours_ago_many: {
+    en: '{n} hours ago',
+    nl: '{n} uur geleden',
+    es: 'hace {n} horas', // MT
+    pt: 'há {n} horas', // MT
+    de: 'vor {n} Stunden', // MT
+    fr: 'il y a {n} heures', // MT
+  },
+  days_ago_one: {
+    en: '{n} day ago',
+    nl: '{n} dag geleden',
+    es: 'hace {n} día', // MT
+    pt: 'há {n} dia', // MT
+    de: 'vor {n} Tag', // MT
+    fr: 'il y a {n} jour', // MT
+  },
+  days_ago_many: {
+    en: '{n} days ago',
+    nl: '{n} dagen geleden',
+    es: 'hace {n} días', // MT
+    pt: 'há {n} dias', // MT
+    de: 'vor {n} Tagen', // MT
+    fr: 'il y a {n} jours', // MT
+  },
+  // Being found by other members (directory-card.tsx).
+  dir_intro: {
+    en: 'Off unless you turn it on. You can turn it off again here at any time.',
+    nl: 'Uit, tenzij je het aanzet. Je kunt het hier altijd weer uitzetten.',
+    es: 'Desactivado a menos que lo actives. Puedes volver a desactivarlo aquí cuando quieras.', // MT
+    pt: 'Desativado, a menos que você ative. Você pode desativar de novo aqui a qualquer momento.', // MT
+    de: 'Aus, solange du es nicht einschaltest. Du kannst es hier jederzeit wieder ausschalten.', // MT
+    fr: 'Désactivé tant que tu ne l’actives pas. Tu peux le désactiver ici à tout moment.', // MT
+  },
+  dir_appear: {
+    en: 'Appear in the member list of {community}',
+    nl: 'Verschijnen in de ledenlijst van {community}',
+    es: 'Aparecer en la lista de miembros de {community}', // MT
+    pt: 'Aparecer na lista de membros de {community}', // MT
+    de: 'In der Mitgliederliste von {community} erscheinen', // MT
+    fr: 'Apparaître dans la liste des membres de {community}', // MT
+  },
+  dir_listed: {
+    en: 'Other members of this community can find you.',
+    nl: 'Andere leden van deze community kunnen je vinden.',
+    es: 'Otros miembros de esta comunidad pueden encontrarte.', // MT
+    pt: 'Outros membros desta comunidade podem encontrar você.', // MT
+    de: 'Andere Mitglieder dieser Community können dich finden.', // MT
+    fr: 'Les autres membres de cette communauté peuvent te trouver.', // MT
+  },
+  dir_unlisted: {
+    en: 'Nobody can find you here.',
+    nl: 'Niemand kan je hier vinden.',
+    es: 'Nadie puede encontrarte aquí.', // MT
+    pt: 'Ninguém pode encontrar você aqui.', // MT
+    de: 'Niemand kann dich hier finden.', // MT
+    fr: 'Personne ne peut te trouver ici.', // MT
+  },
+  dir_see: {
+    en: 'See the members of {community}',
+    nl: 'Bekijk de leden van {community}',
+    es: 'Ver los miembros de {community}', // MT
+    pt: 'Ver os membros de {community}', // MT
+    de: 'Die Mitglieder von {community} ansehen', // MT
+    fr: 'Voir les membres de {community}', // MT
+  },
+  dir_show_contact: {
+    en: 'Show my contact details',
+    nl: 'Mijn contactgegevens tonen',
+    es: 'Mostrar mis datos de contacto', // MT
+    pt: 'Mostrar meus dados de contato', // MT
+    de: 'Meine Kontaktdaten zeigen', // MT
+    fr: 'Afficher mes coordonnées', // MT
+  },
+  dir_default_on: {
+    en: "Following this community's default, which is on.",
+    nl: 'Volgt de standaard van deze community, en die staat aan.',
+    es: 'Sigue el ajuste predeterminado de esta comunidad, que está activado.', // MT
+    pt: 'Segue o padrão desta comunidade, que está ativado.', // MT
+    de: 'Folgt der Voreinstellung dieser Community, und die ist an.', // MT
+    fr: 'Suit le réglage par défaut de cette communauté, qui est activé.', // MT
+  },
+  dir_default_off: {
+    en: "Following this community's default, which is off.",
+    nl: 'Volgt de standaard van deze community, en die staat uit.',
+    es: 'Sigue el ajuste predeterminado de esta comunidad, que está desactivado.', // MT
+    pt: 'Segue o padrão desta comunidade, que está desativado.', // MT
+    de: 'Folgt der Voreinstellung dieser Community, und die ist aus.', // MT
+    fr: 'Suit le réglage par défaut de cette communauté, qui est désactivé.', // MT
+  },
+  dir_own: {
+    en: 'Your own choice, whatever the community default is.',
+    nl: 'Je eigen keuze, wat de standaard van de community ook is.',
+    es: 'Tu propia elección, sea cual sea el ajuste de la comunidad.', // MT
+    pt: 'Sua própria escolha, seja qual for o padrão da comunidade.', // MT
+    de: 'Deine eigene Wahl, egal was die Community voreinstellt.', // MT
+    fr: 'Ton propre choix, quel que soit le réglage de la communauté.', // MT
+  },
+  dir_save_failed: {
+    en: 'could not save that choice',
+    nl: 'die keuze kon niet worden opgeslagen',
+    es: 'no se ha podido guardar esa elección', // MT
+    pt: 'não foi possível salvar essa escolha', // MT
+    de: 'diese Auswahl konnte nicht gespeichert werden', // MT
+    fr: 'impossible d’enregistrer ce choix', // MT
+  },
+  // Removing your data (remove-data.tsx). Counts come in one/many pairs.
+  rd_title: {
+    en: 'Removing your data',
+    nl: 'Je gegevens laten verwijderen',
+    es: 'Eliminar tus datos', // MT
+    pt: 'Remover seus dados', // MT
+    de: 'Deine Daten entfernen lassen', // MT
+    fr: 'Supprimer tes données', // MT
+  },
+  rd_pending: {
+    en: 'You asked on {asked}. Someone has to answer by {due}, and will write to you at this address.',
+    nl: 'Je hebt het gevraagd op {asked}. Iemand moet uiterlijk {due} antwoorden, en schrijft je op dit adres.',
+    es: 'Lo pediste el {asked}. Alguien tiene que responder antes del {due} y te escribirá a esta dirección.', // MT
+    pt: 'Você pediu em {asked}. Alguém precisa responder até {due} e vai escrever para você neste endereço.', // MT
+    de: 'Du hast es am {asked} angefragt. Jemand muss bis {due} antworten und schreibt dir an diese Adresse.', // MT
+    fr: 'Tu l’as demandé le {asked}. Quelqu’un doit répondre d’ici le {due} et t’écrira à cette adresse.', // MT
+  },
+  rd_intro: {
+    en: 'You can ask for everything we hold about you to be removed. Here is what that means, before you decide.',
+    nl: 'Je kunt vragen om alles wat we over je bewaren te verwijderen. Dit is wat dat betekent, voordat je beslist.',
+    es: 'Puedes pedir que se elimine todo lo que guardamos sobre ti. Esto es lo que significa, antes de que decidas.', // MT
+    pt: 'Você pode pedir que tudo o que guardamos sobre você seja removido. Veja o que isso significa antes de decidir.', // MT
+    de: 'Du kannst verlangen, dass alles, was wir über dich speichern, entfernt wird. Das bedeutet es, bevor du dich entscheidest.', // MT
+    fr: 'Tu peux demander que tout ce que nous conservons sur toi soit supprimé. Voici ce que cela implique, avant que tu décides.', // MT
+  },
+  rd_removed: {
+    en: 'Would be removed',
+    nl: 'Wordt verwijderd',
+    es: 'Se eliminaría', // MT
+    pt: 'Seria removido', // MT
+    de: 'Würde entfernt', // MT
+    fr: 'Serait supprimé', // MT
+  },
+  rd_kept: {
+    en: 'Kept anyway',
+    nl: 'Blijft toch bewaard',
+    es: 'Se conserva de todos modos', // MT
+    pt: 'Mantido mesmo assim', // MT
+    de: 'Bleibt trotzdem', // MT
+    fr: 'Conservé malgré tout', // MT
+  },
+  rd_kept_note: {
+    en: 'Invoices are financial records. We are required to keep them for several years, and that is not something anyone here can waive.',
+    nl: 'Facturen zijn financiële administratie. We zijn verplicht ze een aantal jaren te bewaren, en daar kan niemand hier van afzien.',
+    es: 'Las facturas son registros financieros. Estamos obligados a conservarlas varios años, y nadie aquí puede renunciar a ello.', // MT
+    pt: 'Faturas são registros financeiros. Somos obrigados a guardá-las por vários anos, e ninguém aqui pode abrir mão disso.', // MT
+    de: 'Rechnungen sind Finanzunterlagen. Wir müssen sie mehrere Jahre aufbewahren, und darauf kann hier niemand verzichten.', // MT
+    fr: 'Les factures sont des documents comptables. Nous sommes tenus de les conserver plusieurs années, et personne ici ne peut y renoncer.', // MT
+  },
+  rd_blocked: {
+    en: 'Has to be sorted first',
+    nl: 'Moet eerst geregeld worden',
+    es: 'Hay que resolverlo primero', // MT
+    pt: 'Precisa ser resolvido antes', // MT
+    de: 'Muss zuerst geklärt werden', // MT
+    fr: 'Doit d’abord être réglé', // MT
+  },
+  count_invoice_one: {
+    en: '{n} invoice',
+    nl: '{n} factuur',
+    es: '{n} factura', // MT
+    pt: '{n} fatura', // MT
+    de: '{n} Rechnung', // MT
+    fr: '{n} facture', // MT
+  },
+  count_invoice_many: {
+    en: '{n} invoices',
+    nl: '{n} facturen',
+    es: '{n} facturas', // MT
+    pt: '{n} faturas', // MT
+    de: '{n} Rechnungen', // MT
+    fr: '{n} factures', // MT
+  },
+  rd_organise_one: {
+    en: '{n} thread you organise',
+    nl: '{n} thread die je organiseert',
+    es: '{n} thread que organizas', // MT
+    pt: '{n} thread que você organiza', // MT
+    de: '{n} Thread, den du veranstaltest', // MT
+    fr: '{n} thread que tu organises', // MT
+  },
+  rd_organise_many: {
+    en: '{n} threads you organise',
+    nl: '{n} threads die je organiseert',
+    es: '{n} threads que organizas', // MT
+    pt: '{n} threads que você organiza', // MT
+    de: '{n} Threads, die du veranstaltest', // MT
+    fr: '{n} threads que tu organises', // MT
+  },
+  rd_enrolled_p1_t1: {
+    en: '{n} person is enrolled in it.',
+    nl: '{n} persoon is ervoor ingeschreven.',
+    es: '{n} persona está inscrita en él.', // MT
+    pt: '{n} pessoa está inscrita nele.', // MT
+    de: '{n} Person ist dafür angemeldet.', // MT
+    fr: '{n} personne y est inscrite.', // MT
+  },
+  rd_enrolled_p1_tn: {
+    en: '{n} person is enrolled in them.',
+    nl: '{n} persoon is ervoor ingeschreven.',
+    es: '{n} persona está inscrita en ellos.', // MT
+    pt: '{n} pessoa está inscrita neles.', // MT
+    de: '{n} Person ist dafür angemeldet.', // MT
+    fr: '{n} personne y est inscrite.', // MT
+  },
+  rd_enrolled_pn_t1: {
+    en: '{n} people are enrolled in it.',
+    nl: '{n} mensen zijn ervoor ingeschreven.',
+    es: '{n} personas están inscritas en él.', // MT
+    pt: '{n} pessoas estão inscritas nele.', // MT
+    de: '{n} Personen sind dafür angemeldet.', // MT
+    fr: '{n} personnes y sont inscrites.', // MT
+  },
+  rd_enrolled_pn_tn: {
+    en: '{n} people are enrolled in them.',
+    nl: '{n} mensen zijn ervoor ingeschreven.',
+    es: '{n} personas están inscritas en ellos.', // MT
+    pt: '{n} pessoas estão inscritas neles.', // MT
+    de: '{n} Personen sind dafür angemeldet.', // MT
+    fr: '{n} personnes y sont inscrites.', // MT
+  },
+  // {in} is rd_in_workspaces or empty.
+  rd_blocked_rest: {
+    en: 'Their place depends on your account, and your name is on what they have been sent. Those threads need handing to someone else or closing before your account can go{in}. We will say so when we reply; you do not have to sort it out first.',
+    nl: 'Hun plek hangt af van jouw account, en jouw naam staat op wat ze toegestuurd hebben gekregen. Die threads moeten aan iemand anders worden overgedragen of worden afgesloten voordat je account weg kan{in}. Dat zeggen we als we antwoorden; je hoeft het niet eerst zelf te regelen.',
+    es: 'Su plaza depende de tu cuenta, y tu nombre figura en lo que se les ha enviado. Esos threads tienen que pasar a otra persona o cerrarse antes de que tu cuenta pueda eliminarse{in}. Te lo diremos al responder; no tienes que resolverlo tú antes.', // MT
+    pt: 'A vaga deles depende da sua conta, e seu nome está no que foi enviado a eles. Esses threads precisam ser passados para outra pessoa ou encerrados antes que sua conta possa ser removida{in}. Diremos isso ao responder; você não precisa resolver antes.', // MT
+    de: 'Ihr Platz hängt von deinem Konto ab, und dein Name steht auf dem, was ihnen geschickt wurde. Diese Threads müssen an jemand anderen übergeben oder geschlossen werden, bevor dein Konto gehen kann{in}. Das sagen wir dir in unserer Antwort; du musst es nicht vorher klären.', // MT
+    fr: 'Leur place dépend de ton compte, et ton nom figure sur ce qui leur a été envoyé. Ces threads doivent être confiés à quelqu’un d’autre ou fermés avant que ton compte puisse être supprimé{in}. Nous te le dirons dans notre réponse ; tu n’as pas à t’en occuper avant.', // MT
+  },
+  rd_in_workspaces: {
+    en: ' — in {list}',
+    nl: ' — in {list}',
+    es: ' (en {list})', // MT
+    pt: ' — em {list}', // MT
+    de: ' – in {list}', // MT
+    fr: ' (dans {list})', // MT
+  },
+  count_enrolment_one: {
+    en: '{n} enrolment',
+    nl: '{n} inschrijving',
+    es: '{n} inscripción', // MT
+    pt: '{n} inscrição', // MT
+    de: '{n} Anmeldung', // MT
+    fr: '{n} inscription', // MT
+  },
+  count_enrolment_many: {
+    en: '{n} enrolments',
+    nl: '{n} inschrijvingen',
+    es: '{n} inscripciones', // MT
+    pt: '{n} inscrições', // MT
+    de: '{n} Anmeldungen', // MT
+    fr: '{n} inscriptions', // MT
+  },
+  count_booking_one: {
+    en: '{n} booking',
+    nl: '{n} boeking',
+    es: '{n} reserva', // MT
+    pt: '{n} reserva', // MT
+    de: '{n} Buchung', // MT
+    fr: '{n} réservation', // MT
+  },
+  count_booking_many: {
+    en: '{n} bookings',
+    nl: '{n} boekingen',
+    es: '{n} reservas', // MT
+    pt: '{n} reservas', // MT
+    de: '{n} Buchungen', // MT
+    fr: '{n} réservations', // MT
+  },
+  count_membership_one: {
+    en: '{n} membership',
+    nl: '{n} lidmaatschap',
+    es: '{n} membresía', // MT
+    pt: '{n} assinatura', // MT
+    de: '{n} Mitgliedschaft', // MT
+    fr: '{n} adhésion', // MT
+  },
+  count_membership_many: {
+    en: '{n} memberships',
+    nl: '{n} lidmaatschappen',
+    es: '{n} membresías', // MT
+    pt: '{n} assinaturas', // MT
+    de: '{n} Mitgliedschaften', // MT
+    fr: '{n} adhésions', // MT
+  },
+  rd_your_details: {
+    en: 'Your details',
+    nl: 'Je gegevens',
+    es: 'Tus datos', // MT
+    pt: 'Seus dados', // MT
+    de: 'Deine Angaben', // MT
+    fr: 'Tes informations', // MT
+  },
+  rd_and_details: {
+    en: '{list}, and your details',
+    nl: '{list}, en je gegevens',
+    es: '{list} y tus datos', // MT
+    pt: '{list} e seus dados', // MT
+    de: '{list} und deine Angaben', // MT
+    fr: '{list}, et tes informations', // MT
+  },
+  rd_ask: {
+    en: 'Ask for my data to be removed',
+    nl: 'Vraag om mijn gegevens te verwijderen',
+    es: 'Pedir que se eliminen mis datos', // MT
+    pt: 'Pedir a remoção dos meus dados', // MT
+    de: 'Entfernung meiner Daten anfragen', // MT
+    fr: 'Demander la suppression de mes données', // MT
+  },
+  rd_reason: {
+    en: 'Anything you want to say (optional)',
+    nl: 'Wil je nog iets kwijt? (optioneel)',
+    es: '¿Algo que quieras decir? (opcional)', // MT
+    pt: 'Algo que queira dizer (opcional)', // MT
+    de: 'Möchtest du etwas dazu sagen? (optional)', // MT
+    fr: 'Quelque chose à ajouter (facultatif)', // MT
+  },
+  rd_placeholder: {
+    en: 'I no longer want an account here.',
+    nl: 'Ik wil hier geen account meer.',
+    es: 'Ya no quiero una cuenta aquí.', // MT
+    pt: 'Não quero mais uma conta aqui.', // MT
+    de: 'Ich möchte hier kein Konto mehr.', // MT
+    fr: 'Je ne veux plus de compte ici.', // MT
+  },
+  rd_explain: {
+    en: 'This sends a request to a person, who has thirty days to answer and will write to you at this address. Nothing is deleted the moment you press it.',
+    nl: 'Dit stuurt een verzoek naar een persoon, die dertig dagen heeft om te antwoorden en je op dit adres schrijft. Er wordt niets verwijderd op het moment dat je erop drukt.',
+    es: 'Esto envía una solicitud a una persona, que tiene treinta días para responder y te escribirá a esta dirección. No se elimina nada en el momento en que lo pulsas.', // MT
+    pt: 'Isto envia um pedido a uma pessoa, que tem trinta dias para responder e vai escrever para você neste endereço. Nada é apagado no momento em que você toca.', // MT
+    de: 'Damit geht eine Anfrage an einen Menschen, der dreißig Tage Zeit hat zu antworten und dir an diese Adresse schreibt. Nichts wird in dem Moment gelöscht, in dem du darauf tippst.', // MT
+    fr: 'Cela envoie une demande à une personne, qui a trente jours pour répondre et t’écrira à cette adresse. Rien n’est supprimé au moment où tu appuies.', // MT
+  },
+  rd_send: {
+    en: 'Send the request',
+    nl: 'Verzoek versturen',
+    es: 'Enviar la solicitud', // MT
+    pt: 'Enviar o pedido', // MT
+    de: 'Anfrage senden', // MT
+    fr: 'Envoyer la demande', // MT
+  },
+  not_now: {
+    en: 'Not now',
+    nl: 'Niet nu',
+    es: 'Ahora no', // MT
+    pt: 'Agora não', // MT
+    de: 'Nicht jetzt', // MT
+    fr: 'Pas maintenant', // MT
+  },
+  did_not_send: {
+    en: 'That did not send.',
+    nl: 'Dat is niet verstuurd.',
+    es: 'No se ha enviado.', // MT
+    pt: 'Não foi enviado.', // MT
+    de: 'Das wurde nicht gesendet.', // MT
+    fr: 'Ce n’a pas été envoyé.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

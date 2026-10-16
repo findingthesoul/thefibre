@@ -13,19 +13,38 @@ import { browserSupabase } from '@/lib/supabase/client';
 import type { MyProductSubscription, MyRenewal } from '@/lib/portal-api';
 import { ChangeMembership } from './change-membership';
 import { CardLine } from './card-change';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
+import { intlTag, money as fmtMoney } from '@/lib/format';
 
-const day = (iso: string, lastDay = false) =>
-  new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(
+// In the reader's language; English is en-GB, as these always were.
+const dayIn = (locale: Locale) => (iso: string, lastDay = false) =>
+  new Intl.DateTimeFormat(intlTag(locale), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(
     new Date(Date.parse(iso) - (lastDay ? 1000 : 0)),
   );
-const money = (cents: number, currency: string) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(cents / 100);
+
+/** "Renews on …" — the same sentence for a membership and a product. */
+function renewsLine(
+  locale: Locale,
+  day: (iso: string, lastDay?: boolean) => string,
+  renewsAt: string | null | undefined,
+  n: { total: number; subtotal: number; tax: number; currency: string } | null | undefined,
+): string {
+  if (!renewsAt) return '';
+  if (!n) return t(locale, 'renews_on', { date: day(renewsAt) });
+  const money = (c: number) => fmtMoney(c, n.currency, locale);
+  return n.tax > 0
+    ? t(locale, 'renews_on_at_vat', { date: day(renewsAt), total: money(n.total), subtotal: money(n.subtotal), tax: money(n.tax) })
+    : t(locale, 'renews_on_at', { date: day(renewsAt), total: money(n.total) });
+}
 
 export function Renewals({ items }: { items: MyRenewal[] }) {
+  const locale = useLocale();
   if (!items.length) return null;
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-medium text-ink">Your memberships</h2>
+      <h2 className="text-sm font-medium text-ink">{t(locale, 'your_memberships')}</h2>
       <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
         {items.map((r) => (
           <RenewalRow key={r.member_id} r={r} />
@@ -37,6 +56,8 @@ export function Renewals({ items }: { items: MyRenewal[] }) {
 
 function RenewalRow({ r }: { r: MyRenewal }) {
   const router = useRouter();
+  const locale = useLocale();
+  const day = dayIn(locale);
   const [confirm, setConfirm] = useState<'stop' | 'resume' | null>(null);
   const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -57,7 +78,7 @@ function RenewalRow({ r }: { r: MyRenewal }) {
       });
       if (!res.ok) {
         const b = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(b.error ?? `Could not change the renewal (${res.status}).`);
+        throw new Error(b.error ?? t(locale, 'renew_change_failed', { status: res.status }));
       }
       setConfirm(null);
       router.refresh();
@@ -82,7 +103,7 @@ function RenewalRow({ r }: { r: MyRenewal }) {
                 is resumed first (the API says so too). */}
             {!r.stops_at_period_end && (
               <Button type="button" variant="ghost" size="sm" onClick={() => setChanging(true)}>
-                Add or change
+                {t(locale, 'add_or_change')}
               </Button>
             )}
             <Button
@@ -91,23 +112,19 @@ function RenewalRow({ r }: { r: MyRenewal }) {
               size="sm"
               onClick={() => setConfirm(r.stops_at_period_end ? 'resume' : 'stop')}
             >
-              {r.stops_at_period_end ? 'Resume renewal' : 'Stop renewal'}
+              {r.stops_at_period_end ? t(locale, 'resume_renewal') : t(locale, 'stop_renewal')}
             </Button>
           </div>
         )}
       </div>
       <p className="mt-1 text-xs text-ink-subtle">
         {r.managed_by_community
-          ? 'This membership is managed directly by the community.'
+          ? t(locale, 'renew_managed')
           : r.unavailable
-            ? 'The renewal could not be read just now.'
+            ? t(locale, 'renew_unavailable')
             : r.stops_at_period_end && r.renews_at
-              ? `Does not renew. Active until ${day(r.renews_at, true)}.`
-              : r.renews_at && n
-                ? `Renews on ${day(r.renews_at)} at ${money(n.total, n.currency)}${n.tax > 0 ? ` incl. VAT (${money(n.subtotal, n.currency)} + VAT ${money(n.tax, n.currency)})` : ''}.`
-                : r.renews_at
-                  ? `Renews on ${day(r.renews_at)}.`
-                  : ''}
+              ? t(locale, 'renew_stops', { date: day(r.renews_at, true) })
+              : renewsLine(locale, day, r.renews_at, n)}
       </p>
       {/* The card renewals are charged to — changed here, not on Stripe (P4). */}
       {!r.managed_by_community && !r.unavailable && r.renews_at && !r.stops_at_period_end && <CardLine memberId={r.member_id} />}
@@ -127,13 +144,21 @@ function RenewalRow({ r }: { r: MyRenewal }) {
         onCancel={() => setConfirm(null)}
         onConfirm={() => change(confirm === 'stop')}
         pending={busy}
-        title={confirm === 'stop' ? 'Stop the renewal?' : 'Resume the renewal?'}
+        title={confirm === 'stop' ? t(locale, 'stop_q') : t(locale, 'resume_q')}
         message={
           confirm === 'stop'
-            ? `Your ${r.tier} membership of ${r.community} stays active until ${r.renews_at ? day(r.renews_at, true) : 'the end of this period'}, and nothing more is charged. You can resume it until then.`
-            : `Your ${r.tier} membership of ${r.community} will renew on ${r.renews_at ? day(r.renews_at) : 'its renewal date'} again.`
+            ? t(locale, 'stop_msg', {
+                tier: r.tier,
+                community: r.community,
+                date: r.renews_at ? day(r.renews_at, true) : t(locale, 'end_of_period'),
+              })
+            : t(locale, 'resume_msg', {
+                tier: r.tier,
+                community: r.community,
+                date: r.renews_at ? day(r.renews_at) : t(locale, 'its_renewal_date'),
+              })
         }
-        confirmLabel={confirm === 'stop' ? 'Stop renewal' : 'Resume renewal'}
+        confirmLabel={confirm === 'stop' ? t(locale, 'stop_renewal') : t(locale, 'resume_renewal')}
         destructive={confirm === 'stop'}
       />
     </li>
@@ -144,10 +169,11 @@ function RenewalRow({ r }: { r: MyRenewal }) {
  *  same way as a membership — here, never on Stripe. The card change follows
  *  when P4's publishable key exists. */
 export function ProductRenewals({ items }: { items: MyProductSubscription[] }) {
+  const locale = useLocale();
   if (!items.length) return null;
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-medium text-ink">Your subscriptions</h2>
+      <h2 className="text-sm font-medium text-ink">{t(locale, 'your_subscriptions')}</h2>
       <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
         {items.map((r) => (
           <ProductRenewalRow key={r.subscription_id} r={r} />
@@ -159,10 +185,12 @@ export function ProductRenewals({ items }: { items: MyProductSubscription[] }) {
 
 function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
   const router = useRouter();
+  const locale = useLocale();
+  const day = dayIn(locale);
   const [confirm, setConfirm] = useState<'stop' | 'resume' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const what = r.products.join(', ') || 'this subscription';
+  const what = r.products.join(', ') || t(locale, 'this_subscription');
 
   async function change(stop: boolean) {
     setBusy(true);
@@ -179,7 +207,7 @@ function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
       });
       if (!res.ok) {
         const b = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(b.error ?? `Could not change the renewal (${res.status}).`);
+        throw new Error(b.error ?? t(locale, 'renew_change_failed', { status: res.status }));
       }
       setConfirm(null);
       router.refresh();
@@ -200,20 +228,16 @@ function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
         </div>
         {!r.unavailable && r.renews_at && (
           <Button type="button" variant="ghost" size="sm" onClick={() => setConfirm(r.stops_at_period_end ? 'resume' : 'stop')}>
-            {r.stops_at_period_end ? 'Resume renewal' : 'Stop renewal'}
+            {r.stops_at_period_end ? t(locale, 'resume_renewal') : t(locale, 'stop_renewal')}
           </Button>
         )}
       </div>
       <p className="mt-1 text-xs text-ink-subtle">
         {r.unavailable
-          ? 'The renewal could not be read just now.'
+          ? t(locale, 'renew_unavailable')
           : r.stops_at_period_end && r.renews_at
-            ? `Does not renew. Yours until ${day(r.renews_at, true)}.`
-            : r.renews_at && n
-              ? `Renews on ${day(r.renews_at)} at ${money(n.total, n.currency)}${n.tax > 0 ? ` incl. VAT (${money(n.subtotal, n.currency)} + VAT ${money(n.tax, n.currency)})` : ''}.`
-              : r.renews_at
-                ? `Renews on ${day(r.renews_at)}.`
-                : ''}
+            ? t(locale, 'renew_stops_product', { date: day(r.renews_at, true) })
+            : renewsLine(locale, day, r.renews_at, n)}
       </p>
       {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
       <ConfirmDialog
@@ -221,13 +245,21 @@ function ProductRenewalRow({ r }: { r: MyProductSubscription }) {
         onCancel={() => setConfirm(null)}
         onConfirm={() => change(confirm === 'stop')}
         pending={busy}
-        title={confirm === 'stop' ? 'Stop the renewal?' : 'Resume the renewal?'}
+        title={confirm === 'stop' ? t(locale, 'stop_q') : t(locale, 'resume_q')}
         message={
           confirm === 'stop'
-            ? `${what} from ${r.community} stays yours until ${r.renews_at ? day(r.renews_at, true) : 'the end of this period'}, and nothing more is charged. You can resume it until then.`
-            : `${what} from ${r.community} will renew on ${r.renews_at ? day(r.renews_at) : 'its renewal date'} again.`
+            ? t(locale, 'stop_msg_product', {
+                what,
+                community: r.community,
+                date: r.renews_at ? day(r.renews_at, true) : t(locale, 'end_of_period'),
+              })
+            : t(locale, 'resume_msg_product', {
+                what,
+                community: r.community,
+                date: r.renews_at ? day(r.renews_at) : t(locale, 'its_renewal_date'),
+              })
         }
-        confirmLabel={confirm === 'stop' ? 'Stop renewal' : 'Resume renewal'}
+        confirmLabel={confirm === 'stop' ? t(locale, 'stop_renewal') : t(locale, 'resume_renewal')}
         destructive={confirm === 'stop'}
       />
     </li>

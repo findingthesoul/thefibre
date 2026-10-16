@@ -26,23 +26,20 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-**my.thread in six languages: releases 1 and 2 built (2026-10-16), held for the batch after 34 on Sjoerd's word.** Sjoerd
+**my.thread in six languages: every page translated (2026-10-16).** Sjoerd
 asked for it ahead of web push. The rule (cookie → identity_profile.locale →
-Accept-Language → en) is `resolvePortalLocale` in shared. The catalog is
-`apps/my/lib/i18n.ts`. Release 1 covered the frame, sign-in, error and Next
-(with the sheet, ticket and certificate). Still to do:
-- **Release 2 (built):** upcoming/*, files + document-rows, notifications,
-  community/*, members/*, help, unsubscribe/*.
-- **Phase 2, after builder 3 lands the You tabs:** you/**, purchases/**,
-  memberships/*, cancellation.tsx (those are B3's), and the You language
-  picker writing the `thefibre.locale` cookie plus `router.refresh()`.
-  Help's guides already name those pages' buttons in each language; phase 2's
-  keys must use the same words (Uitloggen, Je agenda, Abonneren, Betaling
-  beheren, Opslaan, …).
+Accept-Language → en) is `resolvePortalLocale` in shared; the catalog is
+`apps/my/lib/i18n.ts`. Shipped as v1.247.0 (frame, sign-in, Next), v1.248.4
+(the remaining pages) and phase 2 (You, Purchases, Memberships, the
+cancellation request, and the You picker writing the cookie). What's left:
+- es/pt/de/fr are `// MT` and want a native review; Sjoerd reviews nl on
+  staging.
 - `public/offline.html` stays English, deliberately: it is precached, and a
   change forces a sw.js VERSION bump.
-- es/pt/de/fr are `// MT` and want a native review.
-- **Then: web push for my.thread's bell (parked, planned).**
+- Members' list, search and member pages were not seen rendered in Dutch:
+  the e2e fixture has no directory.
+- **Next: web push for my.thread's bell.** Planned in
+  `docs/web-push-plan.md`; five questions for Sjoerd in §10 first.
 
 **Meet booking approval: ON STAGING, not promoted (v1.110.2 → v1.112.0,
 2026-10-06).** A real invitee hit three faults in one booking: rescheduling

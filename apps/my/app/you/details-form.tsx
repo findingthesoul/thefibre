@@ -15,22 +15,23 @@
 // name everywhere" is a fact a person is entitled to in advance, not after.
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { saveProfile, type MyProfile } from '@/lib/portal-api';
+import { LOCALES, LOCALE_LABELS } from '@thefibre/shared/i18n';
+import { COOKIE_LOCALE, writePrefCookie } from '@thefibre/shared/prefs';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
-const LANGUAGES: { value: string; label: string }[] = [
-  { value: '', label: 'No preference' },
-  { value: 'en', label: 'English' },
-  { value: 'nl', label: 'Nederlands' },
-  { value: 'es', label: 'Español' },
-  { value: 'pt', label: 'Português' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
-];
+// Each language in its own name (LOCALE_LABELS); only "No preference" is
+// in the reader's language.
+const LANGUAGES = LOCALES.map((l) => ({ value: l as string, label: LOCALE_LABELS[l] }));
 
 export function DetailsForm({ profile }: { profile: MyProfile }) {
   const [first, setFirst] = useState(profile.first_name ?? '');
   const [last, setLast] = useState(profile.last_name ?? '');
   const [locale, setLocale] = useState(profile.locale ?? '');
+  const ui = useLocale();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,8 +58,17 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
       await saveProfile({ first_name: first, last_name: last, locale });
       setCommitted({ first, last, locale });
       setSaved(true);
+      // The picker is the app's language switch too (2026-10-16). The
+      // profile carries the choice to other devices; this browser's cookie
+      // is what my.thread reads first, so it is written too — or a cookie
+      // left by another app would keep the page in its old language. ''
+      // (no preference) writes an empty value, which the resolver skips.
+      if (locale !== committed.locale) {
+        writePrefCookie(COOKIE_LOCALE, locale, process.env.NEXT_PUBLIC_COOKIE_DOMAIN);
+        router.refresh();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'That did not save.');
+      setError(err instanceof Error ? err.message : t(ui, 'did_not_save'));
     } finally {
       setBusy(false);
     }
@@ -72,7 +82,7 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-            First name
+            {t(ui, 'first_name')}
           </span>
           <input
             className={`mt-1 ${field}`}
@@ -86,7 +96,7 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
         </label>
         <label className="block">
           <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-            Last name
+            {t(ui, 'last_name')}
           </span>
           <input
             className={`mt-1 ${field}`}
@@ -102,17 +112,17 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
 
       <label className="block">
         <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-          Email
+          {t(ui, 'f_email')}
         </span>
         <input className={`mt-1 ${field} text-ink-muted`} value={profile.email} readOnly disabled />
         <span className="mt-1 block text-xs text-ink-muted">
-          This is how every community finds you, so it cannot be changed here.
+          {t(ui, 'email_fixed')}
         </span>
       </label>
 
       <label className="block">
         <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-          Language
+          {t(ui, 'language')}
         </span>
         <select
           className={`mt-1 ${field}`}
@@ -122,6 +132,7 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
             setSaved(false);
           }}
         >
+          <option value="">{t(ui, 'no_preference')}</option>
           {LANGUAGES.map((l) => (
             <option key={l.value} value={l.value}>
               {l.label}
@@ -129,7 +140,7 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
           ))}
         </select>
         <span className="mt-1 block text-xs text-ink-muted">
-          What emails and pages arrive in, everywhere.
+          {t(ui, 'language_hint')}
         </span>
       </label>
 
@@ -139,16 +150,15 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
           disabled={busy || !dirty}
           className="inline-flex min-h-11 items-center rounded-lg bg-ink px-5 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-40"
         >
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t(ui, 'saving') : t(ui, 'save')}
         </button>
-        {saved && !dirty && <span className="text-sm text-ink-muted">Saved.</span>}
+        {saved && !dirty && <span className="text-sm text-ink-muted">{t(ui, 'saved')}</span>}
         {error && <span className="text-sm text-ink-muted">{error}</span>}
       </div>
 
       {profile.person_rows > 1 && (
         <p className="text-xs text-ink-muted">
-          Your name is used by {profile.person_rows} communities. Saving corrects it in all of
-          them.
+          {t(ui, 'name_used_by', { n: profile.person_rows })}
         </p>
       )}
     </form>

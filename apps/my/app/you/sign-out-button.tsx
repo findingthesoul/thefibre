@@ -7,11 +7,15 @@
 import { SignOut } from '@thefibre/shared/ui/sign-out';
 import { browserSupabase } from '@/lib/supabase/client';
 import { forgetTickets } from '@/lib/kept-tickets';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
 export function SignOutButton() {
+  const locale = useLocale();
   return (
     <SignOut
-      busyLabel="Signing out…"
+      label={t(locale, 'sign_out')}
+      busyLabel={t(locale, 'signing_out')}
       onSignOut={async () => {
         // The kept tickets go FIRST, before anything can fail. Data held for
         // convenience must not outlive the session that justified it — that is

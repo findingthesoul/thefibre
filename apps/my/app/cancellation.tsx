@@ -19,6 +19,8 @@ import { TextAreaField } from '@thefibre/shared/ui/fields';
 import { FormError } from '@thefibre/shared/ui/form-error';
 import { requestCancellation, withdrawCancellation, type ThreadItem } from '@/lib/portal-api';
 import { fmtDate } from '@/lib/format';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
 export function CancellationSection({ thread }: { thread: ThreadItem }) {
   const router = useRouter();
@@ -26,6 +28,7 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
   const req = thread.cancellation_request ?? null;
   const id = thread.enrolment_id ?? null;
   if (!id || (!req && !thread.can_request_cancellation)) return null;
@@ -65,24 +68,24 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
       {req?.status === 'pending' && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink">
-            Cancellation requested on {fmtDate(req.created_at)}. The organiser will let you know.
+            {t(locale, 'cancel_requested', { date: fmtDate(req.created_at, locale) ?? '' })}
           </p>
           <Button type="button" variant="secondary" onClick={withdraw} disabled={busy}>
-            Withdraw request
+            {t(locale, 'withdraw_request')}
           </Button>
         </div>
       )}
-      {req?.status === 'approved' && <p className="text-sm text-ink">Your place was cancelled at your request.</p>}
+      {req?.status === 'approved' && <p className="text-sm text-ink">{t(locale, 'cancel_approved')}</p>}
       {req?.status === 'rejected' && (
         <div className="text-sm text-ink">
-          <p>The organiser kept your place.</p>
+          <p>{t(locale, 'cancel_rejected')}</p>
           {req.decision_note && <p className="mt-1 whitespace-pre-wrap text-ink-subtle">{req.decision_note}</p>}
         </div>
       )}
       {thread.can_request_cancellation && req?.status !== 'pending' && !open && (
         <div className={req ? 'mt-3' : ''}>
           <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
-            Request cancellation
+            {t(locale, 'request_cancellation')}
           </Button>
         </div>
       )}
@@ -94,12 +97,11 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
       {open && (
         <div className="mt-3 rounded-xl border border-line p-4">
           <p className="text-sm text-ink">
-            The organiser decides. Until they do, your place stays yours. If you paid, they also decide about a
-            refund.
+            {t(locale, 'cancel_explain')}
           </p>
           <div className="mt-3">
             <TextAreaField
-              label="Reason (optional)"
+              label={t(locale, 'reason_optional')}
               value={reason}
               maxLength={2000}
               onChange={(e) => setReason(e.target.value)}
@@ -108,10 +110,10 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
           {error && <FormError message={error} />}
           <div className="mt-3 flex items-center justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             <Button type="button" onClick={send} disabled={busy}>
-              Send request
+              {t(locale, 'send_request')}
             </Button>
           </div>
         </div>

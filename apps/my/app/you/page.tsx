@@ -36,6 +36,10 @@ import { ProductRenewals, Renewals } from '../purchases/renewals';
 import { fetchNotifyPrefs, fetchRenewals } from '@/lib/portal-api';
 import { ErasureBody, ErasureFallback } from './erasure-section';
 import { SignOutButton } from './sign-out-button';
+import type { Locale } from '@thefibre/shared/i18n';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
+import { parts } from '@/lib/i18n-parts';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,16 +51,17 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
   // One tab at a time, each a deep link; an unknown or missing tab is the
   // Profile, never a blank page. Each panel fetches only what it shows.
   const requested = (await searchParams).tab;
+  const locale = await pageLocale();
   const tab: YouTab = (YOU_TABS as readonly string[]).includes(requested ?? '') ? (requested as YouTab) : 'profile';
 
   return (
-    <PageShell title="You">
+    <PageShell title={t(locale, 'nav_you')}>
       <YouTabs value={tab} />
-      {tab === 'profile' && <ProfilePanel person={session.portal.person} />}
-      {tab === 'memberships' && <MembershipsPanel token={session.token} />}
-      {tab === 'billing' && <BillingPanel />}
+      {tab === 'profile' && <ProfilePanel person={session.portal.person} locale={locale} />}
+      {tab === 'memberships' && <MembershipsPanel token={session.token} locale={locale} />}
+      {tab === 'billing' && <BillingPanel locale={locale} />}
       {tab === 'notifications' && <NotificationsPanel token={session.token} />}
-      {tab === 'privacy' && <PrivacyPanel />}
+      {tab === 'privacy' && <PrivacyPanel locale={locale} />}
 
       <p className="mt-12 text-xs text-ink-muted">
         {ENTITY.publicName} · v{VERSION}
@@ -68,7 +73,7 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
 type PortalPerson = { first_name?: string | null; last_name?: string | null; email: string };
 
 /** Who you are, and whether other members can find you. */
-async function ProfilePanel({ person }: { person: PortalPerson }) {
+async function ProfilePanel({ person, locale }: { person: PortalPerson; locale: Locale }) {
   const [profile, directory] = await Promise.all([
     loadProfile(),
     // Empty when there are no communities OR when the call failed; the
@@ -88,28 +93,28 @@ async function ProfilePanel({ person }: { person: PortalPerson }) {
           <dl className="mt-8 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
             {(person.first_name || person.last_name) && (
               <div className="flex items-baseline justify-between gap-4 px-4 py-3">
-                <dt className="shrink-0 text-sm text-ink-muted">Name</dt>
+                <dt className="shrink-0 text-sm text-ink-muted">{t(locale, 'f_name')}</dt>
                 <dd className="min-w-0 truncate text-sm text-ink">
                   {[person.first_name, person.last_name].filter(Boolean).join(' ')}
                 </dd>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-4 px-4 py-3">
-              <dt className="shrink-0 text-sm text-ink-muted">Email</dt>
+              <dt className="shrink-0 text-sm text-ink-muted">{t(locale, 'f_email')}</dt>
               <dd className="min-w-0 truncate text-sm text-ink">{person.email}</dd>
             </div>
           </dl>
           <p className="mt-3 text-xs text-ink-muted">
-            Editing is not reachable right now. Try again in a moment.
+            {t(locale, 'editing_unreachable')}
           </p>
         </>
       )}
       {directory === null ? (
         // Say it. An omitted section looks like a page with nothing on it.
         <section className="mt-8">
-          <h2 className="text-sm font-medium text-ink">Being found by other members</h2>
+          <h2 className="text-sm font-medium text-ink">{t(locale, 'dir_title')}</h2>
           <p className="mt-2 rounded-2xl border border-line bg-surface px-4 py-3 text-xs text-ink-subtle">
-            We couldn&apos;t load this right now; your setting is unchanged.
+            {t(locale, 'dir_failed')}
           </p>
         </section>
       ) : (
@@ -121,38 +126,40 @@ async function ProfilePanel({ person }: { person: PortalPerson }) {
 
 /** What renews — memberships and products on their own — stopped or resumed
  *  here; every invoice is under Purchases. */
-async function MembershipsPanel({ token }: { token: string }) {
+async function MembershipsPanel({ token, locale }: { token: string; locale: Locale }) {
   const renewals = await fetchRenewals(token);
   const none = renewals && !renewals.memberships.length && !renewals.products.length;
   return (
     <>
       {renewals === null && (
         <p className="mt-8 rounded-2xl border border-line bg-surface px-4 py-3 text-xs text-ink-subtle">
-          We couldn&apos;t load your memberships right now. Try again in a moment.
+          {t(locale, 'mships_failed')}
         </p>
       )}
       {renewals && <Renewals items={renewals.memberships} />}
       {renewals && <ProductRenewals items={renewals.products} />}
-      {none && <p className="mt-8 text-sm text-ink-muted">Nothing renews for you at the moment.</p>}
+      {none && <p className="mt-8 text-sm text-ink-muted">{t(locale, 'nothing_renews')}</p>}
       <p className="mt-8 text-sm text-ink-muted">
-        Every invoice, and what you paid, is under{' '}
-        <Link href="/purchases" className="text-ink underline underline-offset-2 hover:opacity-70">
-          Purchases
-        </Link>
-        .
+        {parts(t(locale, 'every_invoice_under'), {
+          link: (
+            <Link href="/purchases" className="text-ink underline underline-offset-2 hover:opacity-70">
+              {t(locale, 'nav_purchases')}
+            </Link>
+          ),
+        })}
       </p>
     </>
   );
 }
 
 /** The details your invoices carry. */
-async function BillingPanel() {
+async function BillingPanel({ locale }: { locale: Locale }) {
   const profile = await loadProfile();
   return profile?.billing_details ? (
-    <BillingCard details={profile.billing_details} />
+    <BillingCard details={profile.billing_details} locale={locale} />
   ) : (
     <p className="mt-8 text-sm text-ink-muted">
-      {profile ? 'No billing details yet. They are filled in the first time you pay.' : 'Your billing details could not be loaded right now.'}
+      {profile ? t(locale, 'billing_none') : t(locale, 'billing_failed')}
     </p>
   );
 }
@@ -177,7 +184,7 @@ async function NotificationsPanel({ token }: { token: string }) {
 }
 
 /** Your data, and the way out. */
-async function PrivacyPanel() {
+async function PrivacyPanel({ locale }: { locale: Locale }) {
   const apps = await headers().then((h) => reachableApps(h.get('host')));
   // Label derived from the resolved href, not from the constant: on staging
   // this page is my.thefibre.tech and a link reading "thethread.app" would be
@@ -209,9 +216,7 @@ async function PrivacyPanel() {
           switcher in the header instead, which goes somewhere they can use. */}
       {apps.length === 0 && (
         <p className="mt-10 border-t border-line pt-6 text-sm text-ink-muted">
-          This page is everything you take part in. The Thread itself — where
-          programmes are built and run — is for organisers, and you would need
-          to be invited to a workspace to open it.
+          {t(locale, 'not_organiser_note')}
         </p>
       )}
       <div className={`${apps.length === 0 ? 'mt-6' : 'mt-10 border-t border-line pt-6'}`}>
@@ -226,7 +231,7 @@ async function PrivacyPanel() {
           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-surface px-5 text-sm font-medium text-ink hover:bg-surface-sunken sm:w-auto"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          Back to {siteUrl.replace(/^https?:\/\//, '')}
+          {t(locale, 'back_to', { site: siteUrl.replace(/^https?:\/\//, '') })}
         </a>
       </div>
 
@@ -238,7 +243,7 @@ async function PrivacyPanel() {
           href="/help"
           className="min-h-11 inline-flex items-center text-sm text-ink-subtle underline underline-offset-4 hover:text-ink"
         >
-          Help
+          {t(locale, 'help')}
         </Link>
       </div>
 

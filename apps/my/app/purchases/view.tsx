@@ -18,6 +18,8 @@ import { InvoiceList } from './invoice-list';
 import { ProductRenewals, Renewals } from './renewals';
 import { fetchBuyerDetails, fetchRenewals } from '@/lib/portal-api';
 import { BillingDetailsForm } from './billing-details';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +35,7 @@ export const dynamic = 'force-dynamic';
 export async function PurchasesView({ openId = null }: { openId?: string | null }) {
   const session = await loadSession();
   if (!session) return <SignedOut />;
+  const locale = await pageLocale();
 
   const [{ rows, failed }, renewals, buyer] = await Promise.all([
     loadInvoices(),
@@ -42,7 +45,7 @@ export async function PurchasesView({ openId = null }: { openId?: string | null 
   const outstanding = rows.filter((r) => r.status !== 'paid' && r.status !== 'refunded');
 
   return (
-    <PageShell title="Purchases">
+    <PageShell title={t(locale, 'nav_purchases')}>
       {renewals && <Renewals items={renewals.memberships} />}
       {renewals && <ProductRenewals items={renewals.products} />}
       {buyer && <BillingDetailsForm initial={buyer} />}
@@ -53,23 +56,17 @@ export async function PurchasesView({ openId = null }: { openId?: string | null 
           the list would not load is both true and less alarming. */}
       {failed ? (
         <div className={`mt-8 ${NOTICE.error}`}>
-          We could not load your invoices just now. Nothing is lost — this is us, not your
-          payment. Reload the page in a moment, and tell the community you joined if it keeps
-          happening.
+          {t(locale, 'purchases_failed')}
         </div>
       ) : rows.length === 0 ? (
-        <Empty title="Nothing invoiced yet.">
-          Anything you pay for — a membership, a ticket, a booking — appears here with its
-          invoice to download. If you expected something, check you signed in with the address
-          you paid with.
-        </Empty>
+        <Empty title={t(locale, 'purchases_none_title')}>{t(locale, 'purchases_none_body')}</Empty>
       ) : (
         <>
           {outstanding.length > 0 && (
             <p className="mt-4 text-sm text-ink-subtle">
               {outstanding.length === 1
-                ? 'One invoice is still outstanding.'
-                : `${outstanding.length} invoices are still outstanding.`}
+                ? t(locale, 'outstanding_one')
+                : t(locale, 'outstanding_many', { n: outstanding.length })}
             </p>
           )}
           <InvoiceList invoices={rows} openId={openId} />

@@ -19,12 +19,17 @@
 import { useState } from 'react';
 import { CalendarPlus, Check, Copy, RefreshCw } from 'lucide-react';
 import { createCalendar, deleteCalendar, type CalendarStatus } from '@/lib/portal-api';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
+import { parts } from '@/lib/i18n-parts';
 
 export function CalendarCard({ status }: { status: CalendarStatus }) {
   const [state, setState] = useState(status);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
 
   async function run(fn: () => Promise<CalendarStatus | void>, next?: CalendarStatus) {
     setBusy(true);
@@ -34,7 +39,7 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
       const got = await fn();
       setState(got ?? next ?? state);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.');
+      setError(e instanceof Error ? e.message : t(locale, 'did_not_work'));
     } finally {
       setBusy(false);
     }
@@ -57,16 +62,15 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
 
   return (
     <section className="mt-10 border-t border-line pt-6">
-      <h2 className="text-sm font-medium text-ink">Your calendar</h2>
+      <h2 className="text-sm font-medium text-ink">{t(locale, 'cal_title')}</h2>
       <p className="mt-1 text-sm text-ink-muted">
-        Follow every session you are taking part in. When an organiser moves a
-        date, your calendar follows — you do not have to add anything again.
+        {t(locale, 'cal_intro')}
       </p>
 
       {state.subscribed && state.url && (
         <div className="mt-4 rounded-2xl border border-line bg-surface-sunken p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-            Your calendar address
+            {t(locale, 'cal_address')}
           </p>
           {/* Selectable and wrapping. A 64-character token in a one-line box
               that scrolls is a token nobody can copy by hand when the
@@ -75,7 +79,7 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={copy} className={`${button} bg-ink text-surface hover:opacity-90`}>
               {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
-              {copied ? 'Copied' : 'Copy address'}
+              {copied ? t(locale, 'copied') : t(locale, 'copy_address')}
             </button>
             {/* webcal:// hands the address straight to the calendar app.
                 Works on Apple; Google ignores it, which is why the Google
@@ -85,25 +89,18 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
               className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
             >
               <CalendarPlus className="h-4 w-4" aria-hidden />
-              Open in Apple Calendar
+              {t(locale, 'open_apple_calendar')}
             </a>
           </div>
 
           <div className="mt-4 space-y-2 text-xs text-ink-muted">
             <p>
-              <span className="font-medium text-ink">Google Calendar</span> — on
-              a computer, open calendar.google.com, then Other calendars → From
-              URL and paste this. Its phone app cannot add one, on Android or
-              iPhone; once the computer has it, it appears on your phone by
-              itself. This page is where the address lives, so open it on the
-              computer rather than typing it across.
+              {parts(t(locale, 'cal_google'), {
+                google: <span className="font-medium text-ink">Google Calendar</span>,
+              })}
             </p>
-            <p>
-              It arrives as its own calendar beside yours. The sessions show up
-              in your day, and you cannot edit them — which is what keeps them
-              correct.
-            </p>
-            <p>Keep the address private: anyone who has it can see your sessions.</p>
+            <p>{t(locale, 'cal_own')}</p>
+            <p>{t(locale, 'cal_private')}</p>
           </div>
         </div>
       )}
@@ -111,16 +108,15 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
       {state.subscribed && !state.url && (
         // Minted before the address was kept readable. Nothing can recover it.
         <p className="mt-4 text-sm text-ink-muted">
-          You have a calendar address from before this page could show it again.
-          Make a new one to see it — the old one stops working.
+          {t(locale, 'cal_old')}
         </p>
       )}
 
       {state.subscribed && (
         <p className="mt-3 text-xs text-ink-muted">
           {state.last_read_at
-            ? `Last collected ${relative(state.last_read_at)}.`
-            : 'Nothing has collected it yet — if you just added it, give your calendar an hour.'}
+            ? t(locale, 'cal_last', { when: relative(state.last_read_at, locale) })
+            : t(locale, 'cal_never')}
         </p>
       )}
 
@@ -136,7 +132,7 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
           }
         >
           {state.subscribed ? <RefreshCw className="h-4 w-4" aria-hidden /> : <CalendarPlus className="h-4 w-4" aria-hidden />}
-          {state.subscribed ? 'Make a new address' : 'Subscribe'}
+          {state.subscribed ? t(locale, 'make_new_address') : t(locale, 'subscribe')}
         </button>
         {state.subscribed && (
           <button
@@ -153,7 +149,7 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
             disabled={busy}
             className="min-h-11 text-sm text-ink-muted underline underline-offset-4 hover:text-ink disabled:opacity-40"
           >
-            Stop the calendar
+            {t(locale, 'stop_calendar')}
           </button>
         )}
         {error && <span className="text-sm text-ink-muted">{error}</span>}
@@ -161,7 +157,7 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
 
       {state.subscribed && (
         <p className="mt-2 text-xs text-ink-muted">
-          Making a new address stops the old one working everywhere you added it.
+          {t(locale, 'cal_new_warning')}
         </p>
       )}
     </section>
@@ -171,12 +167,12 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
 /** Coarse on purpose: "is my calendar following this" is answered by hours
  *  and days, and a precise timestamp invites reading a fetch schedule that
  *  belongs to Google, not to us. */
-function relative(iso: string): string {
+function relative(iso: string, locale: Locale): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (!Number.isFinite(minutes) || minutes < 0) return 'just now';
-  if (minutes < 60) return 'in the last hour';
+  if (!Number.isFinite(minutes) || minutes < 0) return t(locale, 'just_now');
+  if (minutes < 60) return t(locale, 'in_last_hour');
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (hours < 24) return t(locale, hours === 1 ? 'hours_ago_one' : 'hours_ago_many', { n: hours });
   const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
+  return t(locale, days === 1 ? 'days_ago_one' : 'days_ago_many', { n: days });
 }

@@ -9,10 +9,13 @@ import { useState } from 'react';
 import { Bell } from 'lucide-react';
 import { SwitchField } from '@thefibre/shared/ui/switch';
 import type { NotifyPref } from '@/lib/portal-api';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
 export function NotifyCard({ prefs }: { prefs: NotifyPref[] }) {
   const [state, setState] = useState(prefs);
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
 
   async function save(workspaceId: string, emailOn: boolean) {
     const before = state;
@@ -27,7 +30,7 @@ export function NotifyCard({ prefs }: { prefs: NotifyPref[] }) {
     }).catch(() => null);
     if (!res?.ok) {
       setState(before);
-      setError('That did not save. Check your connection and try again.');
+      setError(t(locale, 'notify_failed'));
     }
   }
 
@@ -36,14 +39,14 @@ export function NotifyCard({ prefs }: { prefs: NotifyPref[] }) {
     <section className="mt-8">
       <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
         <Bell size={16} strokeWidth={1.75} />
-        Emails about new and changed threads
+        {t(locale, 'notify_title')}
       </h2>
       <div className="mt-3 space-y-4 rounded-2xl border border-line bg-surface p-5">
         {state.map((p) => (
           <SwitchField
             key={p.workspace_id}
-            label={p.community ?? 'This community'}
-            hint="One email after a quiet quarter of an hour, never one per change."
+            label={p.community ?? t(locale, 'this_community')}
+            hint={t(locale, 'notify_hint')}
             checked={!p.email_off}
             onChange={(v) => void save(p.workspace_id, v)}
           />

@@ -12,6 +12,11 @@ import { Dialog } from '@thefibre/shared/ui/dialog';
 import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { browserSupabase } from '@/lib/supabase/client';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { toLocale, type Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
+import { parts } from '@/lib/i18n-parts';
+import { money as fmtMoney } from '@/lib/format';
 
 type Options = {
   interval: 'year' | 'month';
@@ -24,10 +29,9 @@ type Options = {
 type Quote = { due_now_cents: number; tax_now_cents: number; then_cents: number; then_tax_cents: number; credit_cents: number; currency: string };
 type Choice = { kind: 'addon' | 'tier'; id: string; name: string };
 
-const money = (cents: number, currency: string) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(cents / 100);
 
-async function api<T>(path: string, body?: unknown): Promise<T> {
+
+async function api<T>(path: string, body?: unknown, locale?: Locale): Promise<T> {
   const {
     data: { session },
   } = await browserSupabase().auth.getSession();
@@ -38,7 +42,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const json = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(json.error ?? `Something went wrong (${res.status}).`);
+  if (!res.ok) throw new Error(json.error ?? t(toLocale(locale), 'something_wrong_status', { status: res.status }));
   return json;
 }
 
@@ -69,6 +73,8 @@ export function ChangeMembership({
   // replays at Stripe instead of charging twice (the server also refuses a
   // second add with 409).
   const [requestId, setRequestId] = useState('');
+  const locale = useLocale();
+  const money = (cents: number, currency: string) => fmtMoney(cents, currency, locale);
 
   useEffect(() => {
     if (!open) return;
@@ -77,8 +83,8 @@ export function ChangeMembership({
     setQuote(null);
     setError(null);
     setDone(null);
-    api<Options>(`/me/options/${memberId}`).then(setOptions, (e: Error) => setError(e.message));
-  }, [open, memberId]);
+    api<Options>(`/me/options/${memberId}`, undefined, locale).then(setOptions, (e: Error) => setError(e.message));
+  }, [open, memberId, locale]);
 
   async function pick(c: Choice) {
     if (busy) return;
@@ -91,6 +97,7 @@ export function ChangeMembership({
         await api<Quote>(
           c.kind === 'addon' ? `/me/addons/${memberId}/preview` : `/me/change/${memberId}/preview`,
           c.kind === 'addon' ? { product_id: c.id } : { tier_id: c.id },
+          locale,
         ),
       );
     } catch (e) {
@@ -103,8 +110,8 @@ export function ChangeMembership({
     setBusy(true);
     setError(null);
     try {
-      await api(choice.kind === 'addon' ? `/me/addons/${memberId}` : `/me/change/${memberId}`, choice.kind === 'addon' ? { product_id: choice.id, request_id: requestId } : { tier_id: choice.id, request_id: requestId });
-      setDone(choice.kind === 'addon' ? `${choice.name} is added to your membership.` : `You are now a ${choice.name} member.`);
+      await api(choice.kind === 'addon' ? `/me/addons/${memberId}` : `/me/change/${memberId}`, choice.kind === 'addon' ? { product_id: choice.id, request_id: requestId } : { tier_id: choice.id, request_id: requestId }, locale);
+      setDone(choice.kind === 'addon' ? t(locale, 'change_done_addon', { name: choice.name }) : t(locale, 'change_done_tier', { name: choice.name }));
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -113,7 +120,8 @@ export function ChangeMembership({
     }
   }
 
-  const per = options?.interval === 'month' ? 'month' : 'year';
+  const monthly = options?.interval === 'month';
+  const per = monthly ? t(locale, 'per_month') : t(locale, 'per_year');
   // A RADIO per choice (the shared pattern, as in ui/billing-choice): before
   // this a choice was a plain card, and nothing said it could be selected or
   // that selecting it is what enables Confirm (2026-10-16).
@@ -141,40 +149,44 @@ export function ChangeMembership({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Add or change"
+      title={t(locale, 'add_or_change')}
       description={`${tier} · ${community}`}
       footer={
         done ? (
           <Button type="button" onClick={onClose}>
-            Close
+            {t(locale, 'close')}
           </Button>
         ) : (
           <>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             <Button type="button" onClick={confirm} disabled={!quote || busy}>
-              {busy ? 'One moment…' : quote && quote.due_now_cents > 0 ? `Pay ${money(quote.due_now_cents, quote.currency)}` : 'Confirm'}
+              {busy
+                ? t(locale, 'one_moment')
+                : quote && quote.due_now_cents > 0
+                  ? t(locale, 'pay_amount', { amount: money(quote.due_now_cents, quote.currency) })
+                  : t(locale, 'confirm')}
             </Button>
           </>
         )
       }
     >
       {done ? (
-        <p className={NOTICE.success}>{done} Your receipt is on its way and appears under Purchases.</p>
+        <p className={NOTICE.success}>{done} {t(locale, 'receipt_on_way')}</p>
       ) : !options ? (
-        error ? <p className={NOTICE.error}>{error}</p> : <p className="text-sm text-ink-subtle">Loading…</p>
+        error ? <p className={NOTICE.error}>{error}</p> : <p className="text-sm text-ink-subtle">{t(locale, 'loading')}</p>
       ) : (
         <div className="space-y-5">
           {options.addons.length > 0 && (
             <section>
-              <h3 className="text-xs font-medium text-ink-muted">Add to your membership</h3>
+              <h3 className="text-xs font-medium text-ink-muted">{t(locale, 'add_to_membership')}</h3>
               <ul className="mt-1.5 divide-y divide-line overflow-hidden rounded-xl border border-line">
                 {options.addons.map((a) =>
                   row(
                     { kind: 'addon', id: a.id, name: a.name },
                     money(a.price_cents, a.currency),
-                    a.recurring ? `Renews with your membership, per ${per}` : 'One-off',
+                    a.recurring ? t(locale, 'renews_with_per', { per }) : t(locale, 'one_off'),
                   ),
                 )}
               </ul>
@@ -182,47 +194,54 @@ export function ChangeMembership({
           )}
           {options.tiers.length > 0 && (
             <section>
-              <h3 className="text-xs font-medium text-ink-muted">Change your membership</h3>
+              <h3 className="text-xs font-medium text-ink-muted">{t(locale, 'change_your_membership')}</h3>
               <ul className="mt-1.5 divide-y divide-line overflow-hidden rounded-xl border border-line">
-                {options.tiers.map((t) =>
+                {options.tiers.map((tier) =>
                   row(
-                    { kind: 'tier', id: t.id, name: t.name },
-                    `${money(t.price_cents, options.currency)} / ${per}`,
-                    options.current_price_cents !== null && t.price_cents < options.current_price_cents ? 'Less than now' : 'More than now',
+                    { kind: 'tier', id: tier.id, name: tier.name },
+                    t(locale, 'price_per', { price: money(tier.price_cents, options.currency), per }),
+                    options.current_price_cents !== null && tier.price_cents < options.current_price_cents
+                      ? t(locale, 'less_than_now')
+                      : t(locale, 'more_than_now'),
                   ),
                 )}
               </ul>
             </section>
           )}
           {options.addons.length === 0 && options.tiers.length === 0 && (
-            <p className="text-sm text-ink-subtle">There is nothing to add or change to here right now.</p>
+            <p className="text-sm text-ink-subtle">{t(locale, 'nothing_to_change')}</p>
           )}
-          <p className="text-xs text-ink-muted">Prices are excl. VAT.</p>
+          <p className="text-xs text-ink-muted">{t(locale, 'prices_excl_vat')}</p>
           {choice && quote && (
             <div className={NOTICE.info}>
               {quote.due_now_cents > 0 ? (
                 <p>
-                  You pay <span className="font-medium text-ink">{money(quote.due_now_cents, quote.currency)}</span> now
-                  {quote.tax_now_cents > 0 ? ` (incl. ${money(quote.tax_now_cents, quote.currency)} VAT)` : ''}, for the rest
-                  of this period, with the card on your membership.
+                  {parts(t(locale, 'quote_pay_now'), {
+                    amount: <span className="font-medium text-ink">{money(quote.due_now_cents, quote.currency)}</span>,
+                    vat: quote.tax_now_cents > 0 ? t(locale, 'quote_vat', { tax: money(quote.tax_now_cents, quote.currency) }) : '',
+                  })}
                 </p>
               ) : quote.credit_cents > 0 ? (
                 <p>
-                  Nothing is charged now. The {money(quote.credit_cents, quote.currency)} difference for the rest of this period is{' '}
-                  {options.downgrade === 'refund' ? 'refunded to your card' : 'credited against your next invoice'}.
+                  {t(locale, options.downgrade === 'refund' ? 'quote_credit_refund' : 'quote_credit_credit', {
+                    amount: money(quote.credit_cents, quote.currency),
+                  })}
                 </p>
               ) : (
-                <p>Nothing is charged now.</p>
+                <p>{t(locale, 'nothing_charged')}</p>
               )}
               {quote.then_cents > 0 && (
                 <p className="mt-1">
-                  Then {money(quote.then_cents, quote.currency)}
-                  {quote.then_tax_cents > 0 ? ' incl. VAT' : ''} on {renewsOn}, and every {per} after.
+                  {t(locale, monthly ? 'then_every_month' : 'then_every_year', {
+                    amount: money(quote.then_cents, quote.currency),
+                    vat: quote.then_tax_cents > 0 ? t(locale, 'then_vat') : '',
+                    date: renewsOn,
+                  })}
                 </p>
               )}
             </div>
           )}
-          {choice && !quote && !error && <p className="text-sm text-ink-subtle">Working out the price…</p>}
+          {choice && !quote && !error && <p className="text-sm text-ink-subtle">{t(locale, 'working_price')}</p>}
           {error && <p className={NOTICE.error}>{error}</p>}
         </div>
       )}

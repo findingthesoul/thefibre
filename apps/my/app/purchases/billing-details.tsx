@@ -13,6 +13,8 @@ import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { COUNTRY_OPTIONS } from '@thefibre/shared/countries';
 import { browserSupabase } from '@/lib/supabase/client';
 import type { BuyerDetails } from '@/lib/portal-api';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
 const INPUT = 'w-full rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
 
@@ -24,6 +26,7 @@ export function BillingDetailsForm({ initial }: { initial: BuyerDetails }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Outcome | null>(null);
+  const locale = useLocale();
   const set = (k: keyof BuyerDetails) => (v: string) => {
     setD((x) => ({ ...x, [k]: v }));
     setDone(null);
@@ -43,7 +46,7 @@ export function BillingDetailsForm({ initial }: { initial: BuyerDetails }) {
         body: JSON.stringify(d),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((body as { error?: string }).error ?? `Could not save (${res.status}).`);
+      if (!res.ok) throw new Error((body as { error?: string }).error ?? t(locale, 'could_not_save', { status: res.status }));
       setDone(body as Outcome);
       router.refresh();
     } catch (e) {
@@ -62,36 +65,36 @@ export function BillingDetailsForm({ initial }: { initial: BuyerDetails }) {
 
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-medium text-ink">Billing details</h2>
+      <h2 className="text-sm font-medium text-ink">{t(locale, 'billing_title')}</h2>
       <p className="mt-1 text-xs text-ink-muted">
         {initial.from_checkout
-          ? 'As given at your last payment — check them and save to keep them here.'
-          : 'Used for your next invoices. Invoices already issued keep the details they were issued with.'}
+          ? t(locale, 'billing_from_checkout')
+          : t(locale, 'billing_used_next')}
       </p>
       <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-2">
-        {field('name', 'Name', 'name')}
-        {field('company', 'Company (optional)', 'organization')}
-        <div className="sm:col-span-2">{field('address', 'Address', 'street-address')}</div>
-        {field('postal_code', 'Postal code', 'postal-code')}
-        {field('city', 'City', 'address-level2')}
+        {field('name', t(locale, 'f_name'), 'name')}
+        {field('company', t(locale, 'f_company'), 'organization')}
+        <div className="sm:col-span-2">{field('address', t(locale, 'f_address'), 'street-address')}</div>
+        {field('postal_code', t(locale, 'f_postal_code'), 'postal-code')}
+        {field('city', t(locale, 'f_city'), 'address-level2')}
         <label className="block">
-          <span className="text-xs text-ink-subtle">Country</span>
-          <SearchSelect value={d.country ?? ''} onChange={set('country')} options={COUNTRY_OPTIONS} placeholder="Choose a country" className="mt-1 w-full text-left" />
+          <span className="text-xs text-ink-subtle">{t(locale, 'f_country')}</span>
+          <SearchSelect value={d.country ?? ''} onChange={set('country')} options={COUNTRY_OPTIONS} placeholder={t(locale, 'choose_country')} className="mt-1 w-full text-left" />
         </label>
-        {field('tax_no', 'VAT number (businesses, optional)')}
+        {field('tax_no', t(locale, 'f_vat'))}
         <div className="flex items-center gap-3 sm:col-span-2">
           <Button type="button" variant="save" onClick={save} disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
           {error && <span className="text-xs text-red-700">{error}</span>}
         </div>
         {done && (
           <div className="text-xs text-ink-subtle sm:col-span-2">
-            Saved.
+            {t(locale, 'saved')}
             {done.subscriptions.map((s) => (
               <div key={s.community}>
                 {s.community}:{' '}
-                {s.error ? 'could not update the payment details just now — tell the community if this stays.' : s.vat ? `from your next invoice, ${s.vat}.` : 'details updated.'}
+                {s.error ? t(locale, 'billing_sub_error') : s.vat ? t(locale, 'billing_sub_vat', { vat: s.vat }) : t(locale, 'billing_sub_updated')}
               </div>
             ))}
           </div>

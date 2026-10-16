@@ -21,6 +21,10 @@
 import { useState } from 'react';
 import { ShieldOff } from 'lucide-react';
 import { requestErasure, type ErasurePicture } from '@/lib/portal-api';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
+import { fmtLongDate } from '@/lib/format';
 
 export function RemoveData({ picture }: { picture: ErasurePicture }) {
   const [state, setState] = useState(picture);
@@ -28,6 +32,8 @@ export function RemoveData({ picture }: { picture: ErasurePicture }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
+  const day = (iso: string) => fmtLongDate(iso, locale);
 
   async function send() {
     setBusy(true);
@@ -36,7 +42,7 @@ export function RemoveData({ picture }: { picture: ErasurePicture }) {
       setState(await requestErasure(reason.trim() || null));
       setOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not send.');
+      setError(e instanceof Error ? e.message : t(locale, 'did_not_send'));
     } finally {
       setBusy(false);
     }
@@ -47,10 +53,9 @@ export function RemoveData({ picture }: { picture: ErasurePicture }) {
   if (state.pending) {
     return (
       <section className="mt-10 border-t border-line pt-6">
-        <h2 className="text-sm font-medium text-ink">Removing your data</h2>
+        <h2 className="text-sm font-medium text-ink">{t(locale, 'rd_title')}</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          You asked on {day(state.pending.requested_at)}. Someone has to answer
-          by {day(state.pending.due_at)}, and will write to you at this address.
+          {t(locale, 'rd_pending', { asked: day(state.pending.requested_at), due: day(state.pending.due_at) })}
         </p>
       </section>
     );
@@ -58,37 +63,44 @@ export function RemoveData({ picture }: { picture: ErasurePicture }) {
 
   return (
     <section className="mt-10 border-t border-line pt-6">
-      <h2 className="text-sm font-medium text-ink">Removing your data</h2>
+      <h2 className="text-sm font-medium text-ink">{t(locale, 'rd_title')}</h2>
       <p className="mt-1 text-sm text-ink-muted">
-        You can ask for everything we hold about you to be removed. Here is
-        what that means, before you decide.
+        {t(locale, 'rd_intro')}
       </p>
 
       <dl className="mt-4 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface text-sm">
         <Row
-          label="Would be removed"
-          value={removesLine(state.removes)}
+          label={t(locale, 'rd_removed')}
+          value={removesLine(state.removes, locale)}
         />
         {state.kept.invoices > 0 && (
           <Row
-            label="Kept anyway"
-            value={`${state.kept.invoices} ${state.kept.invoices === 1 ? 'invoice' : 'invoices'}`}
-            note="Invoices are financial records. We are required to keep them for several years, and that is not something anyone here can waive."
+            label={t(locale, 'rd_kept')}
+            value={t(locale, state.kept.invoices === 1 ? 'count_invoice_one' : 'count_invoice_many', { n: state.kept.invoices })}
+            note={t(locale, 'rd_kept_note')}
           />
         )}
         {blocked && (
           <Row
-            label="Has to be sorted first"
-            value={`${state.blocked.upcoming_threads} ${
-              state.blocked.upcoming_threads === 1 ? 'thread' : 'threads'
-            } you organise`}
-            note={`${state.blocked.participants_affected} ${
-              state.blocked.participants_affected === 1 ? 'person is' : 'people are'
-            } enrolled in ${state.blocked.upcoming_threads === 1 ? 'it' : 'them'}. Their place depends on your account, and your name is on what they have been sent. Those threads need handing to someone else or closing before your account can go${
-              state.blocked.workspaces.length
-                ? ` — in ${state.blocked.workspaces.join(', ')}`
-                : ''
-            }. We will say so when we reply; you do not have to sort it out first.`}
+            label={t(locale, 'rd_blocked')}
+            value={t(locale, state.blocked.upcoming_threads === 1 ? 'rd_organise_one' : 'rd_organise_many', {
+              n: state.blocked.upcoming_threads,
+            })}
+            note={`${t(
+              locale,
+              state.blocked.participants_affected === 1
+                ? state.blocked.upcoming_threads === 1
+                  ? 'rd_enrolled_p1_t1'
+                  : 'rd_enrolled_p1_tn'
+                : state.blocked.upcoming_threads === 1
+                  ? 'rd_enrolled_pn_t1'
+                  : 'rd_enrolled_pn_tn',
+              { n: state.blocked.participants_affected },
+            )} ${t(locale, 'rd_blocked_rest', {
+              in: state.blocked.workspaces.length
+                ? t(locale, 'rd_in_workspaces', { list: state.blocked.workspaces.join(', ') })
+                : '',
+            })}`}
           />
         )}
       </dl>
@@ -100,26 +112,24 @@ export function RemoveData({ picture }: { picture: ErasurePicture }) {
           className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-surface px-5 text-sm font-medium text-ink hover:bg-surface-sunken"
         >
           <ShieldOff className="h-4 w-4" aria-hidden />
-          Ask for my data to be removed
+          {t(locale, 'rd_ask')}
         </button>
       ) : (
         <div className="mt-4 rounded-2xl border border-line bg-surface-sunken p-4">
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-              Anything you want to say (optional)
+              {t(locale, 'rd_reason')}
             </span>
             <textarea
               className="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-line-strong focus:outline-none"
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="I no longer want an account here."
+              placeholder={t(locale, 'rd_placeholder')}
             />
           </label>
           <p className="mt-2 text-xs text-ink-muted">
-            This sends a request to a person, who has thirty days to answer and
-            will write to you at this address. Nothing is deleted the moment
-            you press it.
+            {t(locale, 'rd_explain')}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
@@ -128,7 +138,7 @@ export function RemoveData({ picture }: { picture: ErasurePicture }) {
               disabled={busy}
               className="inline-flex min-h-11 items-center rounded-lg bg-ink px-5 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-40"
             >
-              {busy ? 'Sending…' : 'Send the request'}
+              {busy ? t(locale, 'sending') : t(locale, 'rd_send')}
             </button>
             <button
               type="button"
@@ -136,7 +146,7 @@ export function RemoveData({ picture }: { picture: ErasurePicture }) {
               disabled={busy}
               className="min-h-11 text-sm text-ink-muted underline underline-offset-4 hover:text-ink disabled:opacity-40"
             >
-              Not now
+              {t(locale, 'not_now')}
             </button>
             {error && <span className="text-sm text-ink-muted">{error}</span>}
           </div>
@@ -160,18 +170,12 @@ function Row({ label, value, note }: { label: string; value: string; note?: stri
 
 /** Counted in the things a person recognises — places they took, calls they
  *  had, communities they joined — rather than in table names. */
-function removesLine(r: ErasurePicture['removes']): string {
+function removesLine(r: ErasurePicture['removes'], locale: Locale): string {
   const parts = [
-    r.enrolments ? `${r.enrolments} ${r.enrolments === 1 ? 'enrolment' : 'enrolments'}` : null,
-    r.bookings ? `${r.bookings} ${r.bookings === 1 ? 'booking' : 'bookings'}` : null,
-    r.memberships ? `${r.memberships} ${r.memberships === 1 ? 'membership' : 'memberships'}` : null,
+    r.enrolments ? t(locale, r.enrolments === 1 ? 'count_enrolment_one' : 'count_enrolment_many', { n: r.enrolments }) : null,
+    r.bookings ? t(locale, r.bookings === 1 ? 'count_booking_one' : 'count_booking_many', { n: r.bookings }) : null,
+    r.memberships ? t(locale, r.memberships === 1 ? 'count_membership_one' : 'count_membership_many', { n: r.memberships }) : null,
   ].filter(Boolean) as string[];
-  if (!parts.length) return 'Your details';
-  return `${parts.join(', ')}, and your details`;
-}
-
-function day(iso: string): string {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return '—';
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  if (!parts.length) return t(locale, 'rd_your_details');
+  return t(locale, 'rd_and_details', { list: parts.join(', ') });
 }

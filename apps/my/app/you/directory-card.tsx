@@ -23,11 +23,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { saveDirectoryChoice, type DirectoryChoice } from '@/lib/portal-api';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
 export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
   const [state, setState] = useState(choices);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
 
   async function save(workspaceId: string, patch: Partial<DirectoryChoice>) {
     const before = state;
@@ -47,7 +50,7 @@ export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
       });
     } catch (e) {
       setState(before);
-      setError(e instanceof Error ? e.message : 'could not save that choice');
+      setError(e instanceof Error ? e.message : t(locale, 'dir_save_failed'));
     } finally {
       setBusy(null);
     }
@@ -57,10 +60,10 @@ export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
     <section className="mt-8">
       <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
         <Users size={16} strokeWidth={1.75} />
-        Being found by other members
+        {t(locale, 'dir_title')}
       </h2>
       <p className="mt-1 text-xs text-ink-muted">
-        Off unless you turn it on. You can turn it off again here at any time.
+        {t(locale, 'dir_intro')}
       </p>
 
       <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
@@ -76,12 +79,12 @@ export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
               />
               <span className="min-w-0">
                 <span className="block text-sm text-ink">
-                  Appear in the member list of {c.workspace_name}
+                  {t(locale, 'dir_appear', { community: c.workspace_name })}
                 </span>
                 <span className="block text-xs text-ink-muted">
                   {c.listed
-                    ? 'Other members of this community can find you.'
-                    : 'Nobody can find you here.'}
+                    ? t(locale, 'dir_listed')
+                    : t(locale, 'dir_unlisted')}
                 </span>
                 {/* Only once they are in it: the list exists for members who
                     appear in it, so offering the door before they have opened
@@ -91,7 +94,7 @@ export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
                     href={`/members/${c.workspace_id}`}
                     className="mt-1 inline-block text-xs underline text-ink-muted hover:text-ink"
                   >
-                    See the members of {c.workspace_name}
+                    {t(locale, 'dir_see', { community: c.workspace_name })}
                   </Link>
                 )}
               </span>
@@ -109,13 +112,11 @@ export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
                   className="mt-0.5 accent-ink"
                 />
                 <span className="min-w-0">
-                  <span className="block text-sm text-ink">Show my contact details</span>
+                  <span className="block text-sm text-ink">{t(locale, 'dir_show_contact')}</span>
                   <span className="block text-xs text-ink-muted">
                     {c.show_contact === null
-                      ? `Following this community's default, which is ${
-                          c.workspace_show_contact_default ? 'on' : 'off'
-                        }.`
-                      : 'Your own choice, whatever the community default is.'}
+                      ? t(locale, c.workspace_show_contact_default ? 'dir_default_on' : 'dir_default_off')
+                      : t(locale, 'dir_own')}
                   </span>
                 </span>
               </label>

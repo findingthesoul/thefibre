@@ -17,12 +17,26 @@ import { Dialog } from '@thefibre/shared/ui/dialog';
 import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { browserSupabase } from '@/lib/supabase/client';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { toLocale, type Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
+
+// Stripe's own form speaks the reader's language too. pt is Brazilian here,
+// as everywhere in this app (INTL_LOCALES.pt).
+const STRIPE_LOCALE: Record<Locale, 'en' | 'nl' | 'es' | 'pt-BR' | 'de' | 'fr'> = {
+  en: 'en',
+  nl: 'nl',
+  es: 'es',
+  pt: 'pt-BR',
+  de: 'de',
+  fr: 'fr',
+};
 
 const PK = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 type Card = { brand: string; last4: string; exp_month: number; exp_year: number } | null;
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : '');
 
-async function api<T>(path: string, body?: unknown): Promise<T> {
+async function api<T>(path: string, body?: unknown, locale?: Locale): Promise<T> {
   const {
     data: { session },
   } = await browserSupabase().auth.getSession();
@@ -33,13 +47,14 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const json = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(json.error ?? `Something went wrong (${res.status}).`);
+  if (!res.ok) throw new Error(json.error ?? t(toLocale(locale), 'something_wrong_status', { status: res.status }));
   return json;
 }
 
 export function CardLine({ memberId }: { memberId: string }) {
   const [card, setCard] = useState<Card | undefined>(undefined);
   const [open, setOpen] = useState(false);
+  const locale = useLocale();
   useEffect(() => {
     api<{ card: Card }>(`/me/payment-method/${memberId}`).then(
       (r) => setCard(r.card),
@@ -49,12 +64,12 @@ export function CardLine({ memberId }: { memberId: string }) {
   if (card === undefined) return null;
   return (
     <p className="mt-1 text-xs text-ink-subtle">
-      {card ? `Card · ${brandName(card.brand)} ···· ${card.last4}` : 'No card on file'}
+      {card ? t(locale, 'card_line', { brand: brandName(card.brand), last4: card.last4 }) : t(locale, 'no_card')}
       {PK && (
         <>
           {' · '}
           <button type="button" onClick={() => setOpen(true)} className="underline underline-offset-2 hover:text-ink">
-            change
+            {t(locale, 'change')}
           </button>
         </>
       )}
@@ -67,12 +82,13 @@ function ChangeCard({ memberId, onClose, onChanged }: { memberId: string; onClos
   const [setup, setSetup] = useState<{ client_secret: string; setup_intent_id: string; stripe_account: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestId = useMemo(() => `card_${crypto.randomUUID().replace(/-/g, '')}`, []);
+  const locale = useLocale();
   useEffect(() => {
-    api<{ client_secret: string; setup_intent_id: string; stripe_account: string }>(`/me/payment-method/${memberId}/setup`, { request_id: requestId }).then(
+    api<{ client_secret: string; setup_intent_id: string; stripe_account: string }>(`/me/payment-method/${memberId}/setup`, { request_id: requestId }, locale).then(
       setSetup,
       (e: Error) => setError(e.message),
     );
-  }, [memberId, requestId]);
+  }, [memberId, requestId, locale]);
   // Stripe.js on the community's account, loaded once per dialog.
   const stripePromise = useMemo<Promise<Stripe | null> | null>(
     () => (setup ? loadStripe(PK, { stripeAccount: setup.stripe_account }) : null),
@@ -80,13 +96,13 @@ function ChangeCard({ memberId, onClose, onChanged }: { memberId: string; onClos
   );
 
   return (
-    <Dialog open onClose={onClose} title="Change your card" description="Your new card is used from the next renewal. Nothing is charged now.">
+    <Dialog open onClose={onClose} title={t(locale, 'change_card_title')} description={t(locale, 'change_card_desc')}>
       {error ? (
         <p className={NOTICE.error}>{error}</p>
       ) : !setup || !stripePromise ? (
-        <p className="text-sm text-ink-subtle">Loading…</p>
+        <p className="text-sm text-ink-subtle">{t(locale, 'loading')}</p>
       ) : (
-        <Elements stripe={stripePromise} options={{ clientSecret: setup.client_secret }}>
+        <Elements stripe={stripePromise} options={{ clientSecret: setup.client_secret, locale: STRIPE_LOCALE[locale] }}>
           <CardForm memberId={memberId} setupIntentId={setup.setup_intent_id} onClose={onClose} onChanged={onChanged} />
         </Elements>
       )}
@@ -101,6 +117,7 @@ function CardForm({ memberId, setupIntentId, onClose, onChanged }: { memberId: s
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Card>(null);
+  const locale = useLocale();
 
   async function save() {
     if (!stripe || !elements || busy) return;
@@ -110,12 +127,12 @@ function CardForm({ memberId, setupIntentId, onClose, onChanged }: { memberId: s
     // then our API re-reads the SetupIntent and makes the card the default.
     const { error: e } = await stripe.confirmSetup({ elements, redirect: 'if_required' });
     if (e) {
-      setError(e.message ?? 'The card could not be confirmed.');
+      setError(e.message ?? t(locale, 'card_not_confirmed'));
       setBusy(false);
       return;
     }
     try {
-      const r = await api<{ card: Card }>(`/me/payment-method/${memberId}/confirm`, { setup_intent_id: setupIntentId });
+      const r = await api<{ card: Card }>(`/me/payment-method/${memberId}/confirm`, { setup_intent_id: setupIntentId }, locale);
       setDone(r.card);
       onChanged(r.card);
       router.refresh();
@@ -130,10 +147,10 @@ function CardForm({ memberId, setupIntentId, onClose, onChanged }: { memberId: s
     return (
       <div className="space-y-3">
         <p className={NOTICE.success}>
-          Saved. Your membership now renews on your {brandName(done.brand)} card ending {done.last4}. A confirmation is on its way.
+          {t(locale, 'card_saved', { brand: brandName(done.brand), last4: done.last4 })}
         </p>
         <Button type="button" onClick={onClose}>
-          Close
+          {t(locale, 'close')}
         </Button>
       </div>
     );
@@ -144,10 +161,10 @@ function CardForm({ memberId, setupIntentId, onClose, onChanged }: { memberId: s
       {error && <p className={NOTICE.error}>{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onClose}>
-          Cancel
+          {t(locale, 'cancel')}
         </Button>
         <Button type="button" onClick={save} disabled={!stripe || busy}>
-          {busy ? 'Saving…' : 'Save card'}
+          {busy ? t(locale, 'saving') : t(locale, 'save_card')}
         </Button>
       </div>
     </div>

@@ -17,6 +17,8 @@ import { fmtDate } from '@/lib/format';
 import { JoinPrice } from '../join-price';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
+import { pageLocale } from '@/lib/locale';
+import { t, type MyKey } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,15 +30,23 @@ const STATE: Record<string, string> = {
 };
 
 /** Said in words, because a member should not have to know our vocabulary. */
-const STATE_NOTE: Record<string, string> = {
-  grace: 'Payment is overdue. Your access continues for now.',
-  lapsed: 'This has lapsed. Rejoin to get it back.',
-  cancelled: 'This has been cancelled.',
+const STATE_NOTE: Record<string, MyKey> = {
+  grace: 'note_grace',
+  lapsed: 'note_lapsed',
+  cancelled: 'note_cancelled',
+};
+// The badge's word. A status the API adds later shows as the API sent it.
+const STATE_WORD: Record<string, MyKey> = {
+  active: 'state_active',
+  grace: 'state_grace',
+  lapsed: 'state_lapsed',
+  cancelled: 'state_cancelled',
 };
 
 export default async function MembershipsPage() {
   const session = await loadSession();
   if (!session) return <SignedOut />;
+  const locale = await pageLocale();
 
   const items = session.portal.groups.flatMap((g) =>
     g.memberships.map((m) => ({ ...m, workspace: g.name })),
@@ -60,12 +70,9 @@ export default async function MembershipsPage() {
   const nothingAtAll = items.length === 0 && byWorkspace.length === 0;
 
   return (
-    <PageShell title="Memberships">
+    <PageShell title={t(locale, 'nav_memberships')}>
       {nothingAtAll ? (
-        <Empty title="You are not a member anywhere yet.">
-          A membership appears here when you join a community. If you expected one, check you
-          signed in with the address you joined with.
-        </Empty>
+        <Empty title={t(locale, 'memberships_none_title')}>{t(locale, 'memberships_none_body')}</Empty>
       ) : (
         <ul className="mt-8 space-y-3">
           {items.map((m) => {
@@ -75,26 +82,26 @@ export default async function MembershipsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-base font-medium text-ink">{m.workspace}</div>
-                    <div className="mt-0.5 text-sm text-ink-subtle">{m.tier ?? 'Member'}</div>
+                    <div className="mt-0.5 text-sm text-ink-subtle">{m.tier ?? t(locale, 'member')}</div>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] capitalize ring-1 ${
                       STATE[m.status] ?? STATE.lapsed
                     }`}
                   >
-                    {m.status}
+                    {STATE_WORD[m.status] ? t(locale, STATE_WORD[m.status]!) : m.status}
                   </span>
                 </div>
 
                 {STATE_NOTE[m.status] && (
-                  <p className="mt-2 text-sm text-ink-subtle">{STATE_NOTE[m.status]}</p>
+                  <p className="mt-2 text-sm text-ink-subtle">{t(locale, STATE_NOTE[m.status]!)}</p>
                 )}
                 {m.status === 'active' && m.renews_at && (
-                  <p className="mt-2 text-xs text-ink-muted">Renews {fmtDate(m.renews_at)}</p>
+                  <p className="mt-2 text-xs text-ink-muted">{t(locale, 'renews_date', { date: fmtDate(m.renews_at, locale) ?? '' })}</p>
                 )}
                 {m.started_at && (
                   <p className="mt-0.5 text-xs text-ink-muted">
-                    Member since {fmtDate(m.started_at)}
+                    {t(locale, 'member_since', { date: fmtDate(m.started_at, locale) ?? '' })}
                   </p>
                 )}
 
@@ -103,11 +110,11 @@ export default async function MembershipsPage() {
                     rather than showing an empty heading. */}
                 <div className="mt-4 border-t border-line pt-4">
                   <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                    What this includes
+                    {t(locale, 'what_includes')}
                   </h3>
                   {includes.length === 0 ? (
                     <p className="mt-1 text-sm text-ink-muted">
-                      Belonging to {m.workspace}, and nothing else listed.
+                      {t(locale, 'belonging_only', { community: m.workspace })}
                     </p>
                   ) : (
                     <ul className="mt-2 space-y-2">
@@ -144,7 +151,7 @@ export default async function MembershipsPage() {
                 {(m.could_join ?? []).length > 0 && (
                   <div className="mt-4 border-t border-line pt-4">
                     <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                      What you can join
+                      {t(locale, 'what_join')}
                     </h3>
                     <ul className="mt-2 space-y-2">
                       {(m.could_join ?? []).map((j) => (
@@ -158,12 +165,12 @@ export default async function MembershipsPage() {
                             {j.title}
                           </a>
                           <p className="text-ink-muted">
-                            {j.starts_on ? `${fmtDate(j.starts_on)} · ` : ''}
+                            {j.starts_on ? `${fmtDate(j.starts_on, locale)} · ` : ''}
                             {j.team} ·{' '}
                             {j.payment === 'unavailable' ? (
-                              <span>sign-up not open yet</span>
+                              <span>{t(locale, 'signup_not_open_lc')}</span>
                             ) : (
-                              <JoinPrice j={j} />
+                              <JoinPrice j={j} locale={locale} />
                             )}
                           </p>
                         </li>
@@ -174,7 +181,7 @@ export default async function MembershipsPage() {
                         href="/upcoming"
                         className="mt-1 inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
                       >
-                        Everything coming up
+                        {t(locale, 'everything_coming')}
                       </Link>
                     )}
                   </div>
@@ -185,7 +192,7 @@ export default async function MembershipsPage() {
                     href="/purchases"
                     className="inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
                   >
-                    What you paid
+                    {t(locale, 'what_you_paid')}
                   </Link>
                   {/* Managed HERE, never on Stripe (Sjoerd, 2026-10-16, the
                       fourth time of asking): the card, stopping the renewal
@@ -196,7 +203,7 @@ export default async function MembershipsPage() {
                       href="/purchases"
                       className="inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
                     >
-                      Card, renewal and add-ons
+                      {t(locale, 'card_renewal_addons')}
                     </Link>
                   )}
                 </div>
@@ -218,7 +225,7 @@ export default async function MembershipsPage() {
       {byWorkspace.length > 0 && (
         <section className="mt-10">
           <h2 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-            Your products
+            {t(locale, 'your_products')}
           </h2>
           <ul className="mt-3 space-y-3">
             {byWorkspace.map((g) => (
@@ -239,7 +246,7 @@ export default async function MembershipsPage() {
                       ) : (
                         <span className="text-ink">{pr.name}</span>
                       )}
-                      <p className="text-ink-muted">Bought {fmtDate(pr.bought_on)}</p>
+                      <p className="text-ink-muted">{t(locale, 'bought_on', { date: fmtDate(pr.bought_on, locale) ?? '' })}</p>
                       {pr.description && <p className="text-ink-muted">{pr.description}</p>}
                     </li>
                   ))}
@@ -249,7 +256,7 @@ export default async function MembershipsPage() {
                     href="/purchases"
                     className="inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
                   >
-                    What you paid
+                    {t(locale, 'what_you_paid')}
                   </Link>
                 </div>
               </li>
