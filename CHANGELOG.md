@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.233.0] — 2026-10-16
+
+### Member emails, editable per community: the table (migration only)
+
+The first slice of Sjoerd's 2ix (*"would be great if it was editable in the
+settings"*).
+
+- `membership_email_template`: a community's own words for the welcome
+  email (per tier, or a community default), the calendar digest's intro and
+  a signature line for the transactional emails, per locale. The fields are
+  subject, image (path + alt), intro (rich text, sanitised on write) and
+  closing.
+  - The facts in every email stay the platform's.
+  - No row means today's email, unchanged.
+- One row per (community, kind, tier or default, locale), enforced by two
+  partial unique indexes. Only a welcome may name a tier, and an image needs
+  alt text.
+- RLS: read and write for a workspace or Members admin only. Members never
+  read it; the send reads it with the service role.
+- docs/data-model.md lists the table.
+
 ## [1.232.1] — 2026-10-16
 
 ### Production sittings build the shared package first; the "Price includes VAT" switch has an e2e
