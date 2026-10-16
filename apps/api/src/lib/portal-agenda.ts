@@ -16,6 +16,7 @@ import { adminClient } from '../db.js';
 import { rows } from './rows.js';
 import { personIdsForProvenEmail } from './proven-email.js';
 import { resolveRsvpEnabled } from './portal.js';
+import { releasedAt } from './document-release.js';
 
 /**
  * WHO THIS IS — the scope every other query in the portal hangs off.
@@ -143,8 +144,16 @@ export async function loadAgendaByThread(args: {
   const hostsByThread = await threadHostsFor(args.threadIds).catch(() => new Map<string, ThreadHost[]>());
   const me = args.email?.trim().toLowerCase() || null;
 
+  // A DOCUMENT step's link waits for its release to this person (Sjoerd,
+  // 2026-10-16), exactly as on the community page and Files: until the
+  // thread's own trigger has sent it, the schedule shows its title and date
+  // and no link. One reader for all three (lib/document-release.ts).
+  const docIds = (engagements ?? []).filter((e) => e.type === 'document').map((e) => e.id as string);
+  const released = await releasedAt(docIds, args.personIds);
+
   for (const e of engagements ?? []) {
     const content = (e.content ?? {}) as { external_url?: string; file_url?: string };
+    const link = e.type === 'document' && !released.has(e.id as string) ? null : content.external_url ?? content.file_url ?? null;
     const ticked = sessionHosts(hostsByThread.get(e.thread_id as string) ?? [], e.excluded_people as string[] | null);
     const mine = me ? ticked.find((h) => h.email === me) : undefined;
     const list = byThread.get(e.thread_id as string) ?? [];
@@ -158,7 +167,7 @@ export async function loadAgendaByThread(args: {
       location: (e.location as string | null) ?? null,
       location_url: (e.location_url as string | null) ?? null,
       meeting_url: (e.meeting_url as string | null) ?? null,
-      external_url: content.external_url ?? content.file_url ?? null,
+      external_url: link,
       // One resolver, shared with the write path and the organiser panel.
       // A dropped participant is refused separately: they still SEE the
       // thread, they just stop answering for it.

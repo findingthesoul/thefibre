@@ -43,6 +43,7 @@ import { loadAgendaByThread, personsForEmail } from './portal-agenda.js';
 import { enrolmentIsLive } from './portal.js';
 import { placesByThread } from './place-state.js';
 import { categoriesByPerson } from './member-categories.js';
+import { releasedAt } from './document-release.js';
 
 export const BUCKET = 'member-documents';
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
@@ -429,18 +430,8 @@ export async function releasedThreadDocuments(personIds: string[], threads: { th
   if (dErr) throw new Error(`document steps: ${dErr.message}`);
   const ids = (docs ?? []).map((d) => d.id as string);
   if (!ids.length) return [];
-  const { data: sends, error: sErr } = await adminClient
-    .from('thread_message_send')
-    .select('engagement_id, sent_at')
-    .in('engagement_id', ids)
-    .in('person_id', personIds);
-  if (sErr) throw new Error(`document releases: ${sErr.message}`);
-  // The earliest release, when more than one person row got it.
-  const sent = new Map<string, string>();
-  for (const s of sends ?? []) {
-    const prev = sent.get(s.engagement_id as string);
-    if (!prev || (s.sent_at as string) < prev) sent.set(s.engagement_id as string, s.sent_at as string);
-  }
+  // The release log, through the one reader every participant surface uses.
+  const sent = await releasedAt(ids, personIds);
   const byThread = new Map<string, ReleasedGroup>();
   for (const d of docs ?? []) {
     const at = sent.get(d.id as string);

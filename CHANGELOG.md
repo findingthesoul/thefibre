@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.241.2] — 2026-10-16
+
+### A thread's document waits for its release on the my.thread schedule too
+
+- Sjoerd, 2026-10-16: yes. A document step on a thread's schedule in
+  my.thread showed its link before the thread had sent it. Steps are marked
+  "show in agenda" by default, so a week-3 reading could be opened in week 1.
+  The community page and Files already waited.
+- Now, until the thread's own trigger has sent a document to that person,
+  the schedule (and the member's calendar feed, which reads the same list)
+  shows its title and date with NO link. Once it is released, the link
+  appears.
+- One reader for every participant surface: `releasedAt` in the new
+  `lib/document-release.ts` (the `thread_message_send` log is the release).
+  The community page, Files and the schedule all call it. Organisers' own
+  views never call it; they see their thread whole.
+- Also committed: `apps/api/scripts/audit-recurring-product-grants.ts`, a
+  read-only audit for Sjoerd to run on production. It lists two kinds of
+  recurring-product grant: (a) bought once through `/public/buy` before
+  v1.240.1; (b) still live after the membership lapsed.
+- Tested: integration on staging, portal-files + member-page +
+  main-facilitator, 43/43. Week 1 has its link; week 3 is listed with no
+  link, then gets it after a release row. The organiser's stored step is
+  unchanged. The calendar FEED is pinned too. With both steps dated, the
+  .ics lists both events (so the check is not passing on an empty feed),
+  week 1's URL is there, and no URL property or description carries week
+  3's address until it is released.
+
 ## [1.241.1] — 2026-10-16
 
 ### A renewing product's grant can end: the columns (migration only)

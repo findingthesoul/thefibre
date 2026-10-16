@@ -25,6 +25,8 @@ let tierA = '';
 let tierB = '';
 let placeEnrolment = '';
 let droppedEnrolment = '';
+let threadId = '';
+let placePersonId = '';
 const made: { table: string; id: string }[] = [];
 
 async function insert(table: string, row: Record<string, unknown>) {
@@ -56,6 +58,8 @@ beforeAll(async () => {
   const user = await insert('user', { workspace_id: ws, email: `pf-org-${tag}@example.com` });
   const organiser = await insert('thread_organiser', { user_id: user, workspace_id: ws, slug: `pf-org-${tag}` });
   const thread = await insert('thread_thread', { workspace_id: ws, program_id: program, organiser_id: organiser, slug: `pf-${tag}` });
+  threadId = thread;
+  placePersonId = placePerson;
   placeEnrolment = await insert('enrolment', { program_id: program, person_id: placePerson, status: 'enrolled' });
   droppedEnrolment = await insert('enrolment', { program_id: program, person_id: droppedPerson, status: 'dropped' });
   await insert('thread_enrolment', { workspace_id: ws, thread_id: thread, enrolment_id: placeEnrolment, person_id: placePerson, request_id: `pf-${randomUUID()}` });
@@ -136,4 +140,39 @@ describe('the Files page admits what the existing readers admit', () => {
       ['Unsafe', null],
     ]);
   });
+
+  it('the my.thread SCHEDULE waits too: week 1 has its link, week 3 shows title only until released', async () => {
+    const { loadAgendaByThread } = await import('../lib/portal-agenda.js');
+    const { buildFeedForEmail } = await import('../lib/calendar-feed.js');
+    // The calendar FEED reads the same list but only dated items — so the
+    // steps get dates, or the feed check below would pass on an empty feed.
+    const day = (n: number) => new Date(Date.now() + n * 86400_000).toISOString();
+    await service.from('thread_engagement').update({ starts_at: day(7) }).eq('thread_id', threadId).eq('title', 'Week 1 reading');
+    await service.from('thread_engagement').update({ starts_at: day(21) }).eq('thread_id', threadId).eq('title', 'Week 3 reading');
+    const unfold = (ics: string) => ics.replace(/\r?\n[ \t]/g, '');
+    const feedBefore = unfold(await buildFeedForEmail(placeEmail));
+    expect(feedBefore, 'the feed lists both steps — not an empty pass').toContain('SUMMARY:Week 3 reading');
+    expect(feedBefore).toContain('SUMMARY:Week 1 reading');
+    expect(feedBefore).toContain('https://example.com/w1.pdf');
+    // Held back: no URL property and no description line carries it.
+    expect(feedBefore).not.toContain('w3.pdf');
+    const items = (await loadAgendaByThread({ threadIds: [threadId], personIds: [placePersonId], droppedThreads: new Set() })).get(threadId) ?? [];
+    const by = new Map(items.map((i) => [i.title, i]));
+    expect(by.get('Week 1 reading')?.external_url).toBe('https://example.com/w1.pdf');
+    // Still on the schedule, with its title — but no link before release.
+    expect(by.has('Week 3 reading')).toBe(true);
+    expect(by.get('Week 3 reading')?.external_url).toBeNull();
+
+    // Released now → the link appears.
+    const { data: w3 } = await service.from('thread_engagement').select('id').eq('thread_id', threadId).eq('title', 'Week 3 reading').single();
+    await insert('thread_message_send', { engagement_id: w3!.id, person_id: placePersonId, email: placeEmail });
+    const after = (await loadAgendaByThread({ threadIds: [threadId], personIds: [placePersonId], droppedThreads: new Set() })).get(threadId) ?? [];
+    expect(after.find((i) => i.title === 'Week 3 reading')?.external_url).toBe('https://example.com/w3.pdf');
+    expect(unfold(await buildFeedForEmail(placeEmail)), 'released → the feed carries it too').toContain('https://example.com/w3.pdf');
+
+    // The organiser's own view reads the step whole — the content is untouched.
+    const { data: row } = await service.from('thread_engagement').select('content').eq('id', w3!.id).single();
+    expect((row!.content as { external_url?: string }).external_url).toBe('https://example.com/w3.pdf');
+  });
 });
+
