@@ -117,7 +117,13 @@ test('the host cancels and reschedules from their own booking dialog', async ({ 
     await expect(button).toBeVisible({ timeout: 30_000 });
     await waitForHydration(cancelling);
     await button.click();
-    await expect(cancelling.getByText('Booking cancelled.')).toBeVisible({ timeout: 30_000 });
+    // The form says "Booking cancelled." and then refreshes, and the refreshed
+    // page renders the cancelled booking ("This booking is already
+    // cancelled.") — so either may be what is on screen. The status below is
+    // the proof.
+    await expect(
+      cancelling.getByText(/Booking cancelled\. A confirmation|This booking is already cancelled/).first(),
+    ).toBeVisible({ timeout: 30_000 });
     const after = (await s.from('meet_booking').select('status').eq('id', bookingId).single()).data!;
     expect(after.status).toBe('cancelled');
   } finally {

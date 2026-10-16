@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.255.1] — 2026-10-16
+
+### Test only: the Meet host e2e reads the cancel outcome from the booking, not the flash message
+
+- `e2e/meet-host-manage.spec.ts` (v1.254.4) waited for "Booking cancelled."
+  The cancel form shows that line and then refreshes; the refreshed page
+  renders the cancelled booking ("This booking is already cancelled.") in
+  its place, so on staging the line was gone before the test looked. It now
+  accepts either and keeps the proof where it was: the booking's status is
+  `cancelled`. Green on staging after the v1.254.4 API deploy (reschedule
+  and cancel from the host dialog, both with `t`); the run leaves no meeting
+  type behind and puts the fixture host's working hours back.
+
 ## [1.255.0] — 2026-10-16
 
 ### my.thread → Memberships: the Google address a membership includes (my.thread 0.27.0)
