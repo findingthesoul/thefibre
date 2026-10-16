@@ -394,9 +394,11 @@ portalRoutes.get('/portal', async (c) => {
   // The threads this address HOSTS — its own source, beside enrolments,
   // bookings and memberships (lib/main-facilitator.ts hostedThreadsFor).
   // Never part of the ledger or membership logic.
-  const hosted = await hostedThreadsFor(email, personIds);
-  const hostedRole = new Map(hosted.map((h) => [h.thread_id, h.role]));
-  if (!personIds.length && !hosted.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
+  //
+  // Started now and awaited with the reads below: none of them needs it, and
+  // it was a full wait (~150ms) in front of all of them.
+  const hostedQuery = hostedThreadsFor(email, personIds);
+  hostedQuery.catch(() => {});
 
   const since = new Date(Date.now() - PAST_WINDOW_DAYS * 86400_000).toISOString();
   const sinceDate = since.slice(0, 10);
@@ -440,12 +442,60 @@ portalRoutes.get('/portal', async (c) => {
   );
   membersQuery.catch(() => {});
 
+  // THE SAME FOR EVERY OTHER READ THAT NEEDS ONLY `personIds` (or the email):
+  // the enrolments, the bookings, what was bought, the unread count. They were
+  // awaited one after another, each where its section begins — six waits in a
+  // row for answers none of the others needed. Started together here, each
+  // section below awaits its own, and the handler waits about as long as the
+  // slowest of them. Measured against staging for a member of two
+  // communities (2026-10-16): 3.1s before, with the could-join walk's own
+  // fix (lib/could-join.ts) — see CHANGELOG for the after.
+  //
+  // The meet bookings are two queries merged, deliberately, rather than one
+  // `.or(...)`. PostgREST's or() takes a STRING, so an email would be
+  // interpolated into filter syntax — and `,` `(` `)` `.` are all meaningful
+  // there. The email is verified, not trusted-safe: what a token proves is
+  // that someone receives mail at that address, not that the address is inert
+  // inside a query language. Two typed filters have no such surface.
+  const meetSelect = `id, workspace_id, starts_at, ends_at, status, meet_url, alternative_location,
+       meeting_type:meeting_type_id (name),
+       host:host_id (slug, user:user_id (full_name))`;
+  const bookingsQuery = Promise.all([
+    adminClient
+      .from('meet_booking')
+      .select(meetSelect)
+      .in('invitee_person_id', personIds)
+      .neq('status', 'cancelled')
+      .gte('starts_at', since),
+    adminClient
+      .from('meet_booking')
+      .select(meetSelect)
+      .eq('invitee_email', email)
+      .neq('status', 'cancelled')
+      .gte('starts_at', since),
+  ]);
+  const boughtQuery = Promise.resolve(
+    personIds.length
+      ? adminClient
+          .from('membership_product_purchase')
+          .select('workspace_id, product_id, created_at')
+          .in('person_id', personIds)
+          .eq('status', 'paid')
+          .order('created_at', { ascending: false })
+      : { data: [] },
+  );
+  const unreadQuery = Promise.resolve(
+    adminClient
+      .from('member_notification')
+      .select('id', { count: 'exact', head: true })
+      .in('person_id', personIds)
+      .is('read_at', null),
+  );
   // -- Threads + tickets ----------------------------------------------------
   // The lists on this page throw on a failed read (lib/rows.ts). "No tickets"
   // with a 200 because a select broke is the silent failure §1.9 is about.
-  const enrolments = rows(
-    'portal: enrolments',
-    await adminClient
+  const enrolmentsQuery = Promise.resolve(
+    adminClient
       .from('thread_enrolment')
       .select(
         `id, workspace_id, checkin_code, checked_in_at, payment_status, created_at,
@@ -458,6 +508,13 @@ portalRoutes.get('/portal', async (c) => {
       .in('person_id', personIds)
       .order('created_at', { ascending: false }),
   );
+  for (const q of [bookingsQuery, boughtQuery, unreadQuery, enrolmentsQuery]) q.catch(() => {});
+
+  const hosted = await hostedQuery;
+  const hostedRole = new Map(hosted.map((h) => [h.thread_id, h.role]));
+  if (!personIds.length && !hosted.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
+
+  const enrolments = rows('portal: enrolments', await enrolmentsQuery);
 
   // -- Agenda, for the threads we just found --------------------------------
   const threadIds = [
@@ -482,6 +539,66 @@ portalRoutes.get('/portal', async (c) => {
   const hostedOnly = hosted.map((h) => h.thread_id).filter((id) => !enrolledThreadIds.has(id));
   // Hosted-only threads ask for no RSVP: nothing to answer as a host.
   for (const id of hostedOnly) droppedThreads.add(id);
+
+  // THREE READS THAT NEED ONLY WHAT IS NOW IN HAND, together: the agenda, the
+  // certificates and the hosted-only threads' details. Each is described
+  // where it is used below.
+  const enrolmentIds = (enrolments ?? []).map((e) => e.id as string);
+  const certsQuery = Promise.resolve(
+    enrolmentIds.length
+      ? adminClient
+          .from('thread_certificate')
+          .select('thread_enrolment_id, certificate_number, issued_at')
+          .in('thread_enrolment_id', enrolmentIds)
+      : { data: [], error: null },
+  );
+  const hostedThreadsQuery = Promise.resolve(
+    hostedOnly.length
+      ? adminClient
+          .from('thread_thread')
+          .select(
+            `id, workspace_id, slug, language, cover_url, public_scope,
+             organiser:organiser_id (slug, display_name, user:user_id (email, full_name)),
+             team:team_id (slug, name),
+             program:program_id (title, format, status, starts_on, ends_on)`,
+          )
+          .in('id', hostedOnly)
+      : { data: [], error: null },
+  );
+  for (const q of [certsQuery, hostedThreadsQuery]) q.catch(() => {});
+
+  // WHAT THIS MEMBERSHIP LETS YOU JOIN, started here and awaited far below.
+  // It needs the memberships and the enrolments and nothing in between, and
+  // it is the slowest walk on the page (the entitlements, then the open
+  // threads and their payment routes): run after the products, as it was, it
+  // added its whole length to theirs. The walk is described where its result
+  // is read.
+  const joinWalk = (async () => {
+    const members = rows('portal: memberships', await membersQuery);
+    const [places, entitlements] = await Promise.all([
+      placesByThread(
+        (enrolments ?? []).map((e) => ({
+          id: e.id as string,
+          thread_id: (one(e.thread as never) as { id?: string } | null)?.id ?? null,
+          payment_status: (e.payment_status as string | null) ?? null,
+          enrolment_status:
+            (one(e.enrolment as never) as { status?: string | null } | null)?.status ?? null,
+        })),
+      ),
+      entitlementsByMember(
+        ((members ?? []) as Record<string, unknown>[])
+          .filter((m) => m.person_id)
+          .map((m) => ({
+            id: m.id as string,
+            person_id: m.person_id as string,
+            workspace_id: m.workspace_id as string,
+          })),
+      ),
+    ]);
+    return { entitlements, couldJoinByMemberId: await couldJoinFrom(entitlements, places, MEMBERSHIP_CARD_ROWS) };
+  })();
+  joinWalk.catch(() => {});
+
   const agendaByThread = await loadAgendaByThread({
     threadIds: [...threadIds, ...hostedOnly],
     // A host with an account may have no person row here; the RSVP read then
@@ -504,15 +621,8 @@ portalRoutes.get('/portal', async (c) => {
   // personIds, so this inherits the same filter rather than trusting a second
   // one (Sjoerd, 2026-09-25: certificates belong on the person's own page).
   const certByEnrolment = new Map<string, { number: string; issued_at: string }>();
-  const enrolmentIds = (enrolments ?? []).map((e) => e.id as string);
-  if (enrolmentIds.length) {
-    const certs = rows(
-      'portal: certificates',
-      await adminClient
-        .from('thread_certificate')
-        .select('thread_enrolment_id, certificate_number, issued_at')
-        .in('thread_enrolment_id', enrolmentIds),
-    );
+  {
+    const certs = rows('portal: certificates', await certsQuery);
     for (const c of certs ?? []) {
       certByEnrolment.set(c.thread_enrolment_id as string, {
         number: c.certificate_number as string,
@@ -522,30 +632,9 @@ portalRoutes.get('/portal', async (c) => {
   }
 
   // -- Meets (dual key: person id OR the email on the booking) --------------
-  //
-  // Two queries merged, deliberately, rather than one `.or(...)`. PostgREST's
-  // or() takes a STRING, so an email would be interpolated into filter syntax
-  // — and `,` `(` `)` `.` are all meaningful there. The email is verified, not
-  // trusted-safe: what a token proves is that someone receives mail at that
-  // address, not that the address is inert inside a query language. Two typed
-  // filters have no such surface.
-  const meetSelect = `id, workspace_id, starts_at, ends_at, status, meet_url, alternative_location,
-       meeting_type:meeting_type_id (name),
-       host:host_id (slug, user:user_id (full_name))`;
-  const [byPerson, byEmail] = await Promise.all([
-    adminClient
-      .from('meet_booking')
-      .select(meetSelect)
-      .in('invitee_person_id', personIds)
-      .neq('status', 'cancelled')
-      .gte('starts_at', since),
-    adminClient
-      .from('meet_booking')
-      .select(meetSelect)
-      .eq('invitee_email', email)
-      .neq('status', 'cancelled')
-      .gte('starts_at', since),
-  ]);
+  // Two typed queries, started at the top (the comment there says why not one
+  // `.or(...)`).
+  const [byPerson, byEmail] = await bookingsQuery;
   const bookings = mergeById(
     rows('portal: bookings by person', byPerson),
     rows('portal: bookings by email', byEmail),
@@ -588,14 +677,7 @@ portalRoutes.get('/portal', async (c) => {
   //
   // `created_at` comes back now, because "when did I buy this" is the
   // question a person actually asks of a list like this.
-  const { data: bought } = personIds.length
-    ? await adminClient
-        .from('membership_product_purchase')
-        .select('workspace_id, product_id, created_at')
-        .in('person_id', personIds)
-        .eq('status', 'paid')
-        .order('created_at', { ascending: false })
-    : { data: [] };
+  const { data: bought } = await boughtQuery;
   const boughtRows = (bought ?? []) as {
     workspace_id: string;
     product_id: string;
@@ -796,34 +878,14 @@ portalRoutes.get('/portal', async (c) => {
   // The enrol route's own decision (lib/place-state.ts): only an unpaid card
   // attempt is offered again; a held place, an open invoice or a place the
   // organiser closed is not.
-  const places = await placesByThread(
-    (enrolments ?? []).map((e) => ({
-      id: e.id as string,
-      thread_id: (one(e.thread as never) as { id?: string } | null)?.id ?? null,
-      payment_status: (e.payment_status as string | null) ?? null,
-      enrolment_status:
-        (one(e.enrolment as never) as { status?: string | null } | null)?.status ?? null,
-    })),
-  );
   // The entitlements are kept, not only the list: whether ANY membership
   // carries a team calendar is what shows "Upcoming" in my.thread's nav.
-  const entitlements = await entitlementsByMember(
-    ((members ?? []) as Record<string, unknown>[])
-      .filter((m) => m.person_id)
-      .map((m) => ({
-        id: m.id as string,
-        person_id: m.person_id as string,
-        workspace_id: m.workspace_id as string,
-      })),
-  );
+  // (Both started as `joinWalk` above.)
+  const { entitlements, couldJoinByMemberId } = await joinWalk;
   const upcoming = holdsTeamCalendar(entitlements);
   // The dot on my.thread's bell (lib/member-notify.ts). Counted across every
   // community this address is a person in.
-  const { count: unreadCount } = await adminClient
-    .from('member_notification')
-    .select('id', { count: 'exact', head: true })
-    .in('person_id', personIds)
-    .is('read_at', null);
+  const { count: unreadCount } = await unreadQuery;
   const unread_notifications = unreadCount ?? 0;
   // How many communities this address is a live member of: one means
   // my.thread lands on that community's page; any means a Community item.
@@ -832,23 +894,9 @@ portalRoutes.get('/portal', async (c) => {
       .filter((m) => m.status === 'active' || m.status === 'grace')
       .map((m) => m.workspace_id as string),
   ).size;
-  const couldJoinByMemberId = await couldJoinFrom(entitlements, places, MEMBERSHIP_CARD_ROWS);
 
   // -- Hosted threads: the details the enrolments brought for theirs ---------
-  const hostedThreads = hostedOnly.length
-    ? rows(
-        'portal: hosted threads',
-        await adminClient
-          .from('thread_thread')
-          .select(
-            `id, workspace_id, slug, language, cover_url, public_scope,
-             organiser:organiser_id (slug, display_name, user:user_id (email, full_name)),
-             team:team_id (slug, name),
-             program:program_id (title, format, status, starts_on, ends_on)`,
-          )
-          .in('id', hostedOnly),
-      )
-    : [];
+  const hostedThreads = rows('portal: hosted threads', await hostedThreadsQuery);
 
   // -- Group by workspace ---------------------------------------------------
   const workspaceIds = [

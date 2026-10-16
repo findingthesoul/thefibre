@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.228.1] — 2026-10-16
+
+### my.thread's portal answers in half the time
+
+`GET /me/portal`, which my.thread's Next, You and community pages read, took
+3.1s for a member of two communities (measured in process against the
+staging database; 2.5s median on the deployed staging API). Timed section
+by section, two thirds of it was the could-join walk, and most of that was
+one thing: each open thread's payment route resolved one thread after
+another.
+
+- **`lib/could-join.ts`** builds every row at once and waits once, before it
+  sorts. The dates, tickets and workspace slugs of the candidate threads are
+  read together instead of in three waits. The walk went from 2.19s to about
+  0.7s for six open threads. `/me/portal/upcoming` uses the same walk.
+- **`routeResolver`** keeps its card check as a promise, so rows asking at
+  the same moment share one lookup.
+- **At most eight route lookups at once** (`ROUTE_LOOKUPS_AT_ONCE`, a small
+  `limiter` with its own unit test). Building every row at once would
+  otherwise send 100+ reads from one page load for a member of a community
+  with 40 open paid threads.
+- **The handler** starts every read that needs only the person (hosted
+  threads, enrolments, bookings, purchases, unread count) together, reads
+  agenda, certificates and hosted threads together, and runs the membership
+  walk beside the products instead of after them.
+
+Measured in process against staging, median of five: two-membership member
+3.1s → 1.48s, e2e fixture (no membership) 0.82s → 0.41s. The response bodies
+before and after parse to the same JSON for both. The portal,
+could-join, entitlement, payment-route and thread-date integration tests pass
+(8 files, 46 tests).
+
 ## [1.228.0] — 2026-10-16
 
 ### One basket for the whole join page: add a membership and products, fill in your details once (Members 1.8.0)

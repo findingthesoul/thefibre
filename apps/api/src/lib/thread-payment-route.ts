@@ -45,18 +45,19 @@ export async function routeResolver(
    *  into a script that never calls Stripe and only asks whether one exists. */
   opts: { assumePlatformKey?: boolean } = {},
 ): Promise<(ticketMethods: string[] | null) => Promise<Method[]>> {
-  let cardReady: boolean | null = null;
-  const card = async () => {
-    if (cardReady === null) {
-      cardReady =
-        (opts.assumePlatformKey || !!stripeOrNull()) &&
-        !!(await threadDestinationAccount({
-          workspace_id: t.workspace_id,
-          team_id: t.team_id,
-          payment_destination: t.payment_destination,
-          organiser_user_id: t.organiser_user_id,
-        }));
-    }
+  // Kept as a PROMISE, so callers asking at the same moment (the could-join
+  // walk builds its rows concurrently) share one lookup instead of each
+  // seeing "not asked yet" and asking again.
+  let cardReady: Promise<boolean> | null = null;
+  const card = () => {
+    cardReady ??= (async () =>
+      (opts.assumePlatformKey || !!stripeOrNull()) &&
+      !!(await threadDestinationAccount({
+        workspace_id: t.workspace_id,
+        team_id: t.team_id,
+        payment_destination: t.payment_destination,
+        organiser_user_id: t.organiser_user_id,
+      })))();
     return cardReady;
   };
   return async (ticketMethods) => {

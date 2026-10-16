@@ -188,6 +188,35 @@ export function hasRequiredQuestion(fields: unknown): boolean {
   );
 }
 
+/** How many payment-route lookups one walk runs at once (see couldJoinFrom).
+ *  Six open threads measured 1.36s one at a time against staging; eight at
+ *  once keeps that case a single round and bounds a big community. */
+export const ROUTE_LOOKUPS_AT_ONCE = 8;
+
+/** Run at most `n` of the given tasks at a time, in the order they ask. */
+export function limiter(n: number): <T>(task: () => Promise<T>) => Promise<T> {
+  let active = 0;
+  const queue: (() => void)[] = [];
+  const next = () => {
+    if (active >= n) return;
+    const start = queue.shift();
+    if (start) start();
+  };
+  return (task) =>
+    new Promise((resolve, reject) => {
+      queue.push(() => {
+        active++;
+        task()
+          .then(resolve, reject)
+          .finally(() => {
+            active--;
+            next();
+          });
+      });
+      next();
+    });
+}
+
 /** The walk, from entitlements already in hand. */
 export async function couldJoinFrom(
   entitlements: Entitlements,
@@ -223,8 +252,28 @@ export async function couldJoinFrom(
       .eq('public_enrolment_open', true),
   );
 
+  // The dates decide which candidates are reachable; the tickets and the
+  // workspace slugs are only needed for those. All three are asked at once,
+  // for every candidate, and the tickets of an unreachable one are simply
+  // never looked at: three waits in a row were ~440ms of the walk.
+  const candidateIds = candidates.map((t) => t.id as string);
+  const [datesById, ticketsRes, wsRes] = await Promise.all([
+    loadThreadDates(candidateIds),
+    candidateIds.length
+      ? adminClient
+          .from('thread_ticket')
+          .select('id, thread_id, price_cents, price_currency, payment_methods, sales_open_at, sales_close_at')
+          .in('thread_id', candidateIds)
+          .eq('is_active', true)
+      : Promise.resolve({ data: [] }),
+    candidateIds.length
+      ? adminClient
+          .from('workspace')
+          .select('id, slug')
+          .in('id', [...new Set(candidates.map((t) => t.workspace_id as string))])
+      : Promise.resolve({ data: [] }),
+  ]);
   // Reachable, or it does not belong in a list of what you can join.
-  const datesById = await loadThreadDates(candidates.map((t) => t.id as string));
   const open = candidates.filter((t) => calendarVisible(t, datesById.get(t.id as string), now));
 
   // Tickets for all of them at once, and the price from the same two
@@ -234,44 +283,33 @@ export async function couldJoinFrom(
     string,
     { id: string; price_cents: number; price_currency?: string; payment_methods: string[] | null }[]
   >();
-  if (open.length) {
-    const { data: tickets } = await adminClient
-      .from('thread_ticket')
-      .select('id, thread_id, price_cents, price_currency, payment_methods, sales_open_at, sales_close_at')
-      .in(
-        'thread_id',
-        open.map((t) => t.id as string),
-      )
-      .eq('is_active', true);
-    for (const tk of (tickets ?? []) as Record<string, unknown>[]) {
-      const openAt = tk.sales_open_at as string | null;
-      const closeAt = tk.sales_close_at as string | null;
-      if (openAt && openAt > nowIso) continue;
-      if (closeAt && closeAt < nowIso) continue;
-      const list = ticketsByThread.get(tk.thread_id as string) ?? [];
-      list.push({
-        id: tk.id as string,
-        price_cents: tk.price_cents as number,
-        payment_methods: (tk.payment_methods as string[] | null) ?? null,
-        ...(tk.price_currency ? { price_currency: tk.price_currency as string } : {}),
-      });
-      ticketsByThread.set(tk.thread_id as string, list);
-    }
+  for (const tk of (ticketsRes.data ?? []) as Record<string, unknown>[]) {
+    const openAt = tk.sales_open_at as string | null;
+    const closeAt = tk.sales_close_at as string | null;
+    if (openAt && openAt > nowIso) continue;
+    if (closeAt && closeAt < nowIso) continue;
+    const list = ticketsByThread.get(tk.thread_id as string) ?? [];
+    list.push({
+      id: tk.id as string,
+      price_cents: tk.price_cents as number,
+      payment_methods: (tk.payment_methods as string[] | null) ?? null,
+      ...(tk.price_currency ? { price_currency: tk.price_currency as string } : {}),
+    });
+    ticketsByThread.set(tk.thread_id as string, list);
   }
 
   const wsSlugById = new Map<string, string>();
-  if (open.length) {
-    const { data: wsRows } = await adminClient
-      .from('workspace')
-      .select('id, slug')
-      .in('id', [...new Set(open.map((t) => t.workspace_id as string))]);
-    for (const w of wsRows ?? []) wsSlugById.set(w.id as string, w.slug as string);
-  }
+  for (const w of (wsRes.data ?? []) as { id: string; slug: string }[]) wsSlugById.set(w.id, w.slug);
 
   // How each thread can be paid, resolved at most once per thread and only
   // for a thread somebody would actually pay for (a 100% member needs no
   // route). Keyed by thread, then by the ticket's methods.
   const resolvers = new Map<string, Promise<(m: string[] | null) => Promise<Method[]>>>();
+  // AT MOST ROUTE_LOOKUPS_AT_ONCE route lookups in flight. The rows below are
+  // built concurrently, and a lookup is a few PostgREST reads: a member of a
+  // community with 40 open paid threads would otherwise send 100+ requests
+  // from one page load.
+  const inFlight = limiter(ROUTE_LOOKUPS_AT_ONCE);
   const routesOf = (t: Record<string, unknown>, ticketMethods: string[] | null) => {
     const id = t.id as string;
     if (!resolvers.has(id)) {
@@ -287,12 +325,20 @@ export async function couldJoinFrom(
         }),
       );
     }
-    return resolvers.get(id)!.then((r) => r(ticketMethods));
+    return inFlight(() => resolvers.get(id)!.then((r) => r(ticketMethods)));
   };
 
+  // EVERY ROW IS BUILT AT ONCE. A row's payment route is a few reads
+  // (resolvePaymentMethods, the payout account), and awaiting them one thread
+  // after another was 1.36s of a 3.1s /me/portal for a member of two
+  // communities with six open threads (measured against staging, 2026-10-16).
+  // No row depends on another, so each is a promise and the walk waits once,
+  // for all of them, before it sorts.
+  const pending: [string, Promise<CouldJoin>[]][] = [];
   for (const [memberId, held] of entitlements) {
     const byTeam = new Map(held.map((e) => [e.teamId, e.pct]));
-    const mine: CouldJoin[] = [];
+    const mine: Promise<CouldJoin>[] = [];
+    pending.push([memberId, mine]);
     for (const t of open) {
       const pct = byTeam.get(t.team_id as string);
       if (pct === undefined) continue;
@@ -326,11 +372,14 @@ export async function couldJoinFrom(
       if (!joinableFromList(places.get(t.id as string), priced.cents > 0)) continue;
       const ticketMethods =
         (ticketsByThread.get(t.id as string) ?? []).find((k) => k.id === base.ticketId)?.payment_methods ?? null;
-      const payment = joinPayment(priced.cents, priced.cents > 0 ? await routesOf(t, ticketMethods) : []);
-      mine.push({
+      const paymentP: Promise<JoinPayment> =
+        priced.cents > 0
+          ? routesOf(t, ticketMethods).then((r) => joinPayment(priced.cents, r))
+          : Promise.resolve(joinPayment(priced.cents, []));
+      mine.push(Promise.all([paymentP, threadPublicUrl(ownerSlug, t.slug as string)]).then(([payment, url]) => ({
         thread_id: t.id as string,
         title: program.title,
-        url: await threadPublicUrl(ownerSlug, t.slug as string),
+        url,
         starts_on: program.starts_on ?? null,
         event_starts_at: datesById.get(t.id as string)?.event?.start ?? null,
         signups_close_at: datesById.get(t.id as string)?.signupsCloseAt ?? null,
@@ -351,8 +400,13 @@ export async function couldJoinFrom(
           !hasRequiredQuestion(t.registration_fields) &&
           (payment === 'none_needed' || payment === 'card'),
         payment,
-      });
+      })));
     }
+  }
+  // One wait for every member's rows: awaited member by member, a failure in
+  // the first would leave the others' promises rejecting unobserved.
+  const built = await Promise.all(pending.map(async ([memberId, rowsP]) => [memberId, await Promise.all(rowsP)] as const));
+  for (const [memberId, mine] of built) {
     // Soonest first, and undated last: a list of what is coming up is
     // ordered by when, not by when it was created. BEFORE any cap, so a
     // capped list is the soonest few and not an arbitrary few.
