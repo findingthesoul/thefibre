@@ -47,6 +47,8 @@ import { loadDirectoryChoices, loadDirectoryMembers, loadFrame } from '@/lib/ses
 import { pickMember } from '@/lib/directory-member';
 import { SignedOut } from '../../../signed-out';
 import { PageShell } from '../../../page-shell';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 export default async function MemberPage({
   params,
@@ -61,6 +63,7 @@ export default async function MemberPage({
     loadDirectoryChoices(),
   ]);
   if (!session) return <SignedOut />;
+  const locale = await pageLocale();
   const community = (choices ?? []).find((c) => c.workspace_id === workspaceId);
   const backHref = `/members/${workspaceId}`;
   const back = (
@@ -69,7 +72,7 @@ export default async function MemberPage({
       className="mt-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
     >
       <ArrowLeft size={15} strokeWidth={1.75} />
-      {community ? `Back to members of ${community.workspace_name}` : 'Back to members'}
+      {community ? t(locale, 'back_to_members_of', { name: community.workspace_name }) : t(locale, 'back_to_members')}
     </Link>
   );
 
@@ -81,12 +84,12 @@ export default async function MemberPage({
 
   if (view.kind !== 'member') {
     return (
-      <PageShell title="Member">
+      <PageShell title={t(locale, 'member')}>
         {back}
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
           {view.kind === 'failed'
-            ? "We couldn't load this right now. Nothing has changed, and nobody has been shown anything — try again in a moment."
-            : 'This member isn’t available to you.'}
+            ? t(locale, 'members_failed_private')
+            : t(locale, 'member_unavailable')}
         </p>
       </PageShell>
     );
@@ -206,7 +209,7 @@ export default async function MemberPage({
                   className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
                 >
                   <Globe size={14} strokeWidth={1.75} />
-                  Website
+                  {t(locale, 'website')}
                 </a>
               )}
             </div>

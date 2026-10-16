@@ -5,6 +5,7 @@
 import { FileText, Image as ImageIcon, Link2 } from 'lucide-react';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { fmtDate } from '@/lib/format';
+import type { Locale } from '@thefibre/shared/i18n';
 
 export type CommunityDocument =
   | { id: string; title: string; kind: 'file'; mime: string; bytes: number }
@@ -50,7 +51,15 @@ export function CommunityDocumentList({ workspaceId, documents }: { workspaceId:
 }
 
 /** One thread's released document steps: title, link, the day it came. */
-export function ThreadDocumentGroup({ title, items }: { title: string; items: { title: string; url: string | null; sent_at: string }[] }) {
+export function ThreadDocumentGroup({
+  title,
+  items,
+  locale,
+}: {
+  title: string;
+  items: { title: string; url: string | null; sent_at: string }[];
+  locale?: Locale;
+}) {
   return (
     <div className="mt-3">
       <p className="text-sm font-medium text-ink">{title}</p>
@@ -64,7 +73,7 @@ export function ThreadDocumentGroup({ title, items }: { title: string; items: { 
             ) : (
               <span className="text-ink">{i.title}</span>
             )}
-            <span className="text-ink-muted"> · {fmtDate(i.sent_at)}</span>
+            <span className="text-ink-muted"> · {fmtDate(i.sent_at, locale)}</span>
           </li>
         ))}
       </ul>

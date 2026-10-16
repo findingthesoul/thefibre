@@ -5,17 +5,18 @@
 
 import { PageShell } from '../../page-shell';
 import { StopButton } from './stop-button';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
 export default async function UnsubscribePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const locale = await pageLocale();
   return (
-    <PageShell title="Stop these emails">
+    <PageShell title={t(locale, 'unsub_title')}>
       <p className="mt-6 max-w-prose text-sm text-ink-subtle">
-        You will stop getting emails about new and changed threads on this community’s calendars.
-        They still show under Notifications when you sign in, and you can turn the emails back on
-        under You.
+        {t(locale, 'unsub_body')}
       </p>
       <StopButton token={token} />
     </PageShell>

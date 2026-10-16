@@ -20,6 +20,8 @@ import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { JoinPrice } from '../join-price';
 import { JoinButton } from './join-button';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +33,7 @@ export default async function UpcomingPage({
   const session = await loadFrame();
   if (!session) return <SignedOut />;
   const { cursor = null } = await searchParams;
+  const locale = await pageLocale();
 
   let page: UpcomingPage | null = null;
   try {
@@ -40,23 +43,16 @@ export default async function UpcomingPage({
   }
 
   return (
-    <PageShell title="Upcoming" subtitle="What your membership lets you join, at your price.">
+    <PageShell title={t(locale, 'nav_upcoming')} subtitle={t(locale, 'upcoming_subtitle')}>
       {!page ? (
         // A broken call says so. "Nothing coming up" here would be a claim
         // about the calendar that nobody checked.
-        <Empty title="This list could not be loaded.">
-          Try again in a moment. Your memberships and what you joined are unaffected.
-        </Empty>
+        <Empty title={t(locale, 'list_failed')}>{t(locale, 'upcoming_failed_body')}</Empty>
       ) : !page.entitled ? (
-        <Empty title="None of your memberships includes a team calendar.">
-          When one does, everything on that calendar appears here, at the price your membership
-          makes it.
-        </Empty>
+        <Empty title={t(locale, 'upcoming_none_title')}>{t(locale, 'upcoming_none_body')}</Empty>
       ) : page.items.length === 0 ? (
-        <Empty title={cursor ? 'That is everything.' : 'Nothing coming up right now.'}>
-          {cursor
-            ? 'There is nothing further on your calendars.'
-            : 'New threads on your team calendars appear here as soon as they are published. Anything you already joined is under Next.'}
+        <Empty title={cursor ? t(locale, 'upcoming_end_title') : t(locale, 'upcoming_empty_title')}>
+          {cursor ? t(locale, 'upcoming_end_body') : t(locale, 'upcoming_empty_body')}
         </Empty>
       ) : (
         <>
@@ -79,17 +75,17 @@ export default async function UpcomingPage({
                     const line = threadDateLine(
                       { ...j, ends_on: j.ends_on ?? null },
                       toCardDates(j.workspace_id ? page.card_dates?.[j.workspace_id] : null),
-                      { language: 'en', timezone: j.timezone },
+                      { language: locale, timezone: j.timezone },
                     );
                     return line ? `${line} · ` : '';
                   })()}
-                  {j.team} · <JoinPrice j={j} />
+                  {j.team} · <JoinPrice j={j} locale={locale} />
                 </p>
                 {j.payment === 'unavailable' ? (
                   // Paid, and the organiser has no way to take the money yet.
                   // Never a button into that dead end, and never a link to a
                   // page that has the same dead end on it.
-                  <p className="mt-1 text-sm text-ink-muted">Sign-up not open yet.</p>
+                  <p className="mt-1 text-sm text-ink-muted">{t(locale, 'signup_not_open')}</p>
                 ) : j.direct && j.owner_slug && j.thread_slug ? (
                   <JoinButton j={j} />
                 ) : (
@@ -101,7 +97,7 @@ export default async function UpcomingPage({
                     rel="noreferrer"
                     className="mt-1 inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
                   >
-                    Sign up on its page
+                    {t(locale, 'signup_on_page')}
                   </a>
                 )}
               </li>
@@ -112,7 +108,7 @@ export default async function UpcomingPage({
               href={`/upcoming?cursor=${encodeURIComponent(page.next_cursor)}`}
               className="mt-4 inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
             >
-              More
+              {t(locale, 'more')}
             </Link>
           )}
         </>

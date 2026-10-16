@@ -17,94 +17,41 @@
 
 import Link from 'next/link';
 import { guideSteps, type HelpGuide } from '@thefibre/shared/ui/help';
-import { SURFACES } from '@thefibre/shared';
 import { PageShell } from '../page-shell';
+import type { Locale } from '@thefibre/shared/i18n';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 // Written from the screens, not from a plan: every button named below is the
 // label on the page it links to. If a label changes, change it here too.
-const GUIDES: HelpGuide[] = [
-  {
-    title: 'Sign in, and sign out',
-    href: '/',
-    steps: guideSteps(`
-      Enter the email address you booked or joined with — that is how we find your things — and press Email me a code.
-      Open the email and type the 8-digit code, then press Sign in. Pressed the wrong address? Use a different email.
-      There is no password. You stay signed in on this device until you sign out.
-      To sign out, open You and press Sign out at the bottom. Any tickets kept on this device are removed with it.
-    `),
-  },
-  {
-    title: 'Find your ticket and the check-in code',
-    href: '/',
-    steps: guideSteps(`
-      Open Next. A small QR mark under a row means you hold a ticket for it.
-      Tap the row. The check-in code sits at the top of the sheet, under "Show this at the door".
-      Tap the code to show it full size, and tap anywhere to close it again.
-      Once the door has scanned it, the same place reads "Already checked in".
-      Wallet buttons appear next to the code only when the organiser offers Apple or Google Wallet passes.
-    `),
-  },
-  {
-    title: 'Add sessions to your calendar',
-    href: '/you',
-    steps: guideSteps(`
-      For one session: tap its row on Next, then press the calendar icon beside the session in the Agenda. Your calendar gets a copy — if the organiser moves it, the copy does not move.
-      For a whole programme with several dated sessions, press Add all to calendar above the Agenda.
-      To follow everything live, open You, find Your calendar and press Subscribe.
-      Press Open in Apple Calendar, or Copy address and add it in Google Calendar on a computer: Other calendars, then From URL. Google's phone app cannot add one.
-      Keep the address private — anyone who has it sees your sessions. Make a new address if it gets out; the old one stops working.
-    `),
-  },
-  {
-    title: 'Install it as an app and use it with no signal',
-    href: '/',
-    steps: guideSteps(`
-      On an iPhone, open this page in Safari, press Share, then Add to Home Screen. On Android, use Chrome's menu and choose Install app (or Add to Home screen). On a Mac, Safari's File menu has Add to Dock.
-      Open the app once while you are online. Every ticket you hold is then kept on this device: the code, what it is for, when and where — nothing else.
-      With no connection, the app shows "You're offline" and your tickets under it. Tap a ticket to show its code full size for the door.
-      Press Try again once the signal is back to return to the live app.
-      The kept tickets are removed when you sign out.
-    `),
-  },
-  {
-    title: 'See your memberships, change your card, stop or add to it',
-    href: '/purchases',
-    steps: guideSteps(`
-      Open Memberships. Each community you belong to is a card with its tier and status — active, grace, lapsed or cancelled — and what the membership includes.
-      Grace means a payment is overdue but your access continues for now. Lapsed means it has ended; rejoin with the community to get it back.
-      Everything about paying for it is done here, in Purchases, never on another site: press "change" beside your card to use a different one, Stop renewal to let it end at the end of the period, and Add or change to add to it or move to another tier.
-      If it says the membership is managed directly by the community, they bill you outside this app — contact them directly.
-    `),
-  },
-  {
-    title: 'Find a document',
-    href: '/files',
-    steps: guideSteps(`
-      Open Files. Every document you can open is here, per community.
-      From your community lists what your community shares with its members, including what it shares with your tier only.
-      From your threads lists the documents your threads have sent you, with the day each one came. A document a thread will send later appears once it is sent.
-      Tap a file to open it. The address it opens is valid for one minute, so a forwarded link stops working; send the person to Files instead.
-    `),
-  },
-  {
-    title: 'See your purchases and download invoices',
-    href: '/purchases',
-    steps: guideSteps(`
-      Open Purchases. Everything you have paid for — a ticket, a booking, a membership — is one row with the community, the date and the amount.
-      A row that is not paid shows its status, and the line at the top counts what is still outstanding.
-      Press PDF on a row to download the invoice.
-      If something is missing, check you signed in with the address you paid with. Your name on an invoice comes from You — correct it there and press Save.
-    `),
-  },
+// The guides' words are in lib/i18n.ts (help_*), in all six languages; this
+// keeps only which guide comes first and where its "Open" goes.
+const GUIDES: { key: 'signin' | 'ticket' | 'calendar' | 'install' | 'memberships' | 'files' | 'purchases'; href: string }[] = [
+  { key: 'signin', href: '/' },
+  { key: 'ticket', href: '/' },
+  { key: 'calendar', href: '/you' },
+  { key: 'install', href: '/' },
+  { key: 'memberships', href: '/purchases' },
+  { key: 'files', href: '/files' },
+  { key: 'purchases', href: '/purchases' },
 ];
 
-export default function HelpPage() {
+function guides(locale: Locale): HelpGuide[] {
+  return GUIDES.map((g) => ({
+    title: t(locale, `help_${g.key}_title`),
+    href: g.href,
+    steps: guideSteps(t(locale, `help_${g.key}_steps`)),
+  }));
+}
+
+export default async function HelpPage() {
+  const locale = await pageLocale();
   return (
-    <PageShell title="Help" subtitle={SURFACES['my-portal'].tagline}>
+    <PageShell title={t(locale, 'help')} subtitle={t(locale, 'tagline')}>
       <section className="mt-8">
-        <h2 className="text-[10px] uppercase tracking-wider text-ink-muted">How to</h2>
+        <h2 className="text-[10px] uppercase tracking-wider text-ink-muted">{t(locale, 'help_how_to')}</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {GUIDES.map((g) => (
+          {guides(locale).map((g) => (
             <article
               key={g.title}
               className="flex flex-col rounded-2xl border border-line bg-surface p-4"
@@ -120,7 +67,7 @@ export default function HelpPage() {
                   href={g.href}
                   className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-ink underline-offset-4 hover:underline"
                 >
-                  Open &rarr;
+                  {t(locale, 'help_open')}
                 </Link>
               )}
             </article>
@@ -131,8 +78,7 @@ export default function HelpPage() {
       {/* The one thing this page cannot answer. A booking belongs to whoever
           made the programme, and their name is on every row of Next. */}
       <p className="mt-10 border-t border-line pt-6 text-sm text-ink-muted">
-        Questions about a booking, a place or a refund go to the organiser who runs it — their
-        name is on the row.
+        {t(locale, 'help_organiser_note')}
       </p>
     </PageShell>
   );

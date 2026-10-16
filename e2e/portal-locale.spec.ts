@@ -43,3 +43,18 @@ test('English stays English', async ({ page, context }) => {
   await expect(page.locator('html')).toHaveAttribute('lang', 'en', { timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Members' }).first()).toBeVisible();
 });
+
+// Release 2: the pages beyond Next, in the same member's Dutch.
+test('the other pages follow: Files, Notifications, Help, Members', async ({ page, context }) => {
+  test.slow();
+  await context.addCookies([{ name: 'thefibre.locale', value: 'nl', url: HOSTS.my }]);
+  await landPortalAsUpcoming(page, '/files');
+  await expect(page.getByRole('heading', { level: 1, name: 'Bestanden' })).toBeVisible({ timeout: 30_000 });
+  await page.goto(`${HOSTS.my}/notifications`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Meldingen' })).toBeVisible();
+  await page.goto(`${HOSTS.my}/help`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Help' })).toBeVisible();
+  await expect(page.getByText('Je ticket en de check-incode vinden')).toBeVisible();
+  await page.goto(`${HOSTS.my}/upcoming`);
+  await expect(page.getByText('Waar je lidmaatschap je toegang toe geeft, tegen jouw prijs.')).toBeVisible();
+});

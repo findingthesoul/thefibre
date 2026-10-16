@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
 export function StopButton({ token }: { token: string }) {
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'gone'>('idle');
   const [community, setCommunity] = useState<string | null>(null);
+  const locale = useLocale();
 
   async function stop() {
     setState('busy');
@@ -27,21 +30,21 @@ export function StopButton({ token }: { token: string }) {
   if (state === 'done') {
     return (
       <p className={`mt-6 ${NOTICE.success}`}>
-        Done. No more of these emails{community ? ` from ${community}` : ''}.
+        {community ? t(locale, 'unsub_done_from', { community }) : t(locale, 'unsub_done')}
       </p>
     );
   }
   if (state === 'gone') {
     return (
       <p className={`mt-6 ${NOTICE.error}`}>
-        This link did not work. Sign in and turn the emails off under You instead.
+        {t(locale, 'unsub_failed')}
       </p>
     );
   }
   return (
     <div className="mt-6">
       <Button type="button" onClick={stop} disabled={state === 'busy'}>
-        {state === 'busy' ? 'Stopping…' : 'Stop these emails'}
+        {state === 'busy' ? t(locale, 'unsub_stopping') : t(locale, 'unsub_title')}
       </Button>
     </div>
   );

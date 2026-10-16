@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.248.4] — 2026-10-16
+
+### my.thread in six languages, part 2: every page outside the You tabs (my.thread 0.23.0)
+
+- Follows v1.247.0 (the frame, sign-in and Next). Now also in the reader's
+  language: Upcoming (the list, its price line, and joining from it with every
+  refusal), Files, Notifications (each bell row's kind), Home (the community
+  page), Members (list, search, a member's page), Help (all seven guides) and
+  the unsubscribe page from the digest email.
+- Join refusals are mapped to a catalog key, no longer to an English
+  sentence. The "open its page" hint used to test the English text for "by
+  invoice"; it now tests the key.
+- English is unchanged. A throwaway check compared the catalog's Help text
+  with the page's, guide by guide, before the page was switched over. The
+  members strings keep their straight apostrophes.
+- Help names buttons by their words in each language. For You, Memberships
+  and Purchases those words are what phase 2 will use, and those pages stay
+  English until then. The memberships guide is v1.248.2's new text (everything
+  in Purchases), in all six languages. "You're offline" and "Try again" are quoted in English
+  everywhere, because the offline page is English on purpose.
+- `JoinPrice`, `ThreadDocumentGroup` and `lib/format` take an OPTIONAL
+  locale, so Memberships (builder 3's lane, not touched here) still reads
+  English through them.
+- Not in this release: You, Purchases, Memberships and the cancellation
+  request (phase 2, after the You tabs land), and the offline page.
+- Tested: typecheck; apps/my unit 51/51, including the catalog check that
+  every key has the same placeholders in all six languages. Added to
+  `portal-locale.spec.ts`: Files, Notifications, Help and Upcoming in Dutch
+  for the fixture member. Unrun until this is on staging.
+
 ## [1.248.3] — 2026-10-16
 
 ### A member's Google Workspace address: the table (migration only)

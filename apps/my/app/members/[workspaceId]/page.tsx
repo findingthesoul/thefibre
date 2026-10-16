@@ -20,6 +20,7 @@
 import { loadDirectoryChoices, loadDirectoryMembers, loadFrame } from '@/lib/session';
 import { SignedOut } from '../../signed-out';
 import { CommunityMembers, membersTitle } from '../community-members';
+import { pageLocale } from '@/lib/locale';
 
 export default async function MembersPage({
   params,
@@ -36,12 +37,14 @@ export default async function MembersPage({
     loadDirectoryChoices(),
   ]);
   if (!session) return <SignedOut />;
+  const locale = await pageLocale();
 
   return (
     <CommunityMembers
       workspaceId={workspaceId}
       list={list}
-      title={membersTitle(choices, workspaceId)}
+      title={membersTitle(choices, workspaceId, locale)}
+      locale={locale}
     />
   );
 }

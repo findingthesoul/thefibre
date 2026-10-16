@@ -9,20 +9,23 @@
 
 import type { CouldJoin } from '@/lib/portal-api';
 import { money } from '@/lib/format';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
 
-export function JoinPrice({ j }: { j: CouldJoin }) {
+// `locale` is optional so a caller not yet moved to a language reads English.
+export function JoinPrice({ j, locale = 'en' }: { j: CouldJoin; locale?: Locale }) {
   if (j.your_price_cents === 0) {
-    return <span className="text-emerald-700">included in your membership</span>;
+    return <span className="text-emerald-700">{t(locale, 'price_included')}</span>;
   }
   return (
     <>
-      <span className="text-emerald-700">{money(j.your_price_cents, j.currency)}</span>
+      <span className="text-emerald-700">{money(j.your_price_cents, j.currency, locale)}</span>
       {j.list_price_cents > j.your_price_cents && (
-        <span className="text-ink-muted"> instead of {money(j.list_price_cents, j.currency)}</span>
+        <span className="text-ink-muted"> {t(locale, 'price_instead', { price: money(j.list_price_cents, j.currency, locale) })}</span>
       )}
       {/* Said only when it is so: a price marked "includes VAT" is the whole
           price; an excl. one gets its VAT at checkout. */}
-      {j.price_includes_vat && <span className="text-ink-muted"> incl. VAT</span>}
+      {j.price_includes_vat && <span className="text-ink-muted"> {t(locale, 'price_incl_vat')}</span>}
     </>
   );
 }

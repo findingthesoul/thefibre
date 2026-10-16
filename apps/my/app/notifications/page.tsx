@@ -14,14 +14,16 @@ import { fmtDate, fmtDateTime } from '@/lib/format';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
+import { pageLocale } from '@/lib/locale';
+import { t, type MyKey } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
-const WHAT: Record<MemberNotification['kind'], string> = {
-  new_thread: 'New on the calendar',
-  session_added: 'New session',
-  session_moved: 'Moved',
-  session_cancelled: 'Cancelled',
+const WHAT: Record<MemberNotification['kind'], MyKey> = {
+  new_thread: 'notif_new_thread',
+  session_added: 'notif_session_added',
+  session_moved: 'notif_session_moved',
+  session_cancelled: 'notif_session_cancelled',
 };
 
 export default async function NotificationsPage({
@@ -32,6 +34,7 @@ export default async function NotificationsPage({
   const session = await loadFrame();
   if (!session) return <SignedOut />;
   const { cursor = null } = await searchParams;
+  const locale = await pageLocale();
 
   let page: { items: MemberNotification[]; next_cursor: string | null } | null = null;
   try {
@@ -43,13 +46,12 @@ export default async function NotificationsPage({
   if (page && page.items.some((n) => !n.read)) await markNotificationsRead(session.token);
 
   return (
-    <PageShell title="Notifications" subtitle="Changes to your sessions, and what is new on your calendars.">
+    <PageShell title={t(locale, 'notifications')} subtitle={t(locale, 'notif_subtitle')}>
       {!page ? (
-        <Empty title="This list could not be loaded.">Try again in a moment.</Empty>
+        <Empty title={t(locale, 'list_failed')}>{t(locale, 'try_again_moment')}</Empty>
       ) : page.items.length === 0 ? (
-        <Empty title={cursor ? 'That is everything.' : 'Nothing yet.'}>
-          When a session of a thread you take part in is added, moved or cancelled, it shows
-          here — and so does a new thread on a calendar your membership includes.
+        <Empty title={cursor ? t(locale, 'upcoming_end_title') : t(locale, 'notif_none_title')}>
+          {t(locale, 'notif_none_body')}
         </Empty>
       ) : (
         <>
@@ -63,15 +65,15 @@ export default async function NotificationsPage({
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs uppercase tracking-wide text-ink-muted">
-                    {WHAT[n.kind]}
+                    {t(locale, WHAT[n.kind])}
                     {n.community ? ` · ${n.community}` : ''}
                   </p>
                   <p className="mt-0.5 text-base text-ink">{n.subject}</p>
                   <p className="mt-0.5 text-sm text-ink-muted">
                     {n.starts_at
                       ? n.kind === 'new_thread'
-                        ? fmtDate(n.starts_at)
-                        : fmtDateTime(n.starts_at)
+                        ? fmtDate(n.starts_at, locale)
+                        : fmtDateTime(n.starts_at, locale)
                       : ''}
                   </p>
                 </div>
@@ -83,14 +85,14 @@ export default async function NotificationsPage({
               href="/upcoming"
               className="inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
             >
-              Everything coming up
+              {t(locale, 'everything_coming')}
             </Link>
             {page.next_cursor && (
               <Link
                 href={`/notifications?cursor=${encodeURIComponent(page.next_cursor)}`}
                 className="inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70"
               >
-                Older
+                {t(locale, 'older')}
               </Link>
             )}
           </div>

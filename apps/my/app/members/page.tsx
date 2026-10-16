@@ -14,18 +14,21 @@ import { loadDirectoryChoices, loadDirectoryMembers, loadFrame } from '@/lib/ses
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
 import { CommunityMembers, membersTitle } from './community-members';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 export default async function MembersIndex() {
   // Side by side: the session (already under way in the layout) decides only
   // signed-in or not, and the choices need just the token.
   const [session, choices] = await Promise.all([loadFrame(), loadDirectoryChoices()]);
   if (!session) return <SignedOut />;
+  const locale = await pageLocale();
 
   if (choices === null) {
     return (
-      <PageShell title="Members">
+      <PageShell title={t(locale, 'nav_members')}>
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
-          We couldn&apos;t load this right now. Nothing has changed — try again in a moment.
+          {t(locale, 'members_failed')}
         </p>
       </PageShell>
     );
@@ -42,16 +45,17 @@ export default async function MembersIndex() {
       <CommunityMembers
         workspaceId={only}
         list={await loadDirectoryMembers(only)}
-        title={membersTitle(choices, only)}
+        title={membersTitle(choices, only, locale)}
+        locale={locale}
       />
     );
   }
 
   return (
-    <PageShell title="Members">
+    <PageShell title={t(locale, 'nav_members')}>
       {withDirectory.length === 0 ? (
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
-          None of your communities has a member list.
+          {t(locale, 'members_no_list_any')}
         </p>
       ) : (
         <ul className="mt-6 space-y-2">
@@ -68,7 +72,7 @@ export default async function MembersIndex() {
                   // It says what is true of them in that list, which is the
                   // thing they might want to change.
                   <span className="block text-xs text-ink-muted">
-                    You&apos;re not shown in this one
+                    {t(locale, 'members_not_shown_here')}
                   </span>
                 )}
               </Link>

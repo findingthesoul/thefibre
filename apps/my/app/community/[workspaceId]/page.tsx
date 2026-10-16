@@ -4,6 +4,7 @@ import { fetchCommunities } from '@/lib/portal-api';
 import { SignedOut } from '../../signed-out';
 import { PageShell } from '../../page-shell';
 import { CommunityPage } from '../community-view';
+import { pageLocale } from '@/lib/locale';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,9 +17,10 @@ export default async function OneCommunity({ params }: { params: Promise<{ works
   const { workspaceId } = await params;
   const c = (await fetchCommunities(session.token)).find((x) => x.workspace_id === workspaceId);
   if (!c) notFound();
+  const locale = await pageLocale();
   return (
     <PageShell title={c.name}>
-      <CommunityPage c={c} />
+      <CommunityPage c={c} locale={locale} />
     </PageShell>
   );
 }

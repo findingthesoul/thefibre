@@ -26,16 +26,19 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-**my.thread in six languages: release 1 of 3 shipped (2026-10-16).** Sjoerd
+**my.thread in six languages: releases 1 and 2 built (2026-10-16), held for the batch after 34 on Sjoerd's word.** Sjoerd
 asked for it ahead of web push. The rule (cookie → identity_profile.locale →
 Accept-Language → en) is `resolvePortalLocale` in shared. The catalog is
 `apps/my/lib/i18n.ts`. Release 1 covered the frame, sign-in, error and Next
 (with the sheet, ticket and certificate). Still to do:
-- **Release 2:** upcoming/*, files + document-rows, notifications, community/*,
-  members/*, help, unsubscribe/*.
+- **Release 2 (built):** upcoming/*, files + document-rows, notifications,
+  community/*, members/*, help, unsubscribe/*.
 - **Phase 2, after builder 3 lands the You tabs:** you/**, purchases/**,
   memberships/*, cancellation.tsx (those are B3's), and the You language
   picker writing the `thefibre.locale` cookie plus `router.refresh()`.
+  Help's guides already name those pages' buttons in each language; phase 2's
+  keys must use the same words (Uitloggen, Je agenda, Abonneren, Betaling
+  beheren, Opslaan, …).
 - `public/offline.html` stays English, deliberately: it is precached, and a
   change forces a sw.js VERSION bump.
 - es/pt/de/fr are `// MT` and want a native review.

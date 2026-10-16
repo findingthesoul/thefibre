@@ -8,8 +8,10 @@ import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import type { CommunityView } from '@/lib/portal-api';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 import { CommunityDocumentList, ThreadDocumentGroup } from '../document-rows';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
 
-export function CommunityPage({ c }: { c: CommunityView }) {
+export function CommunityPage({ c, locale }: { c: CommunityView; locale: Locale }) {
   return (
     <div className="mt-6 space-y-10">
       {c.intro_html && (
@@ -34,16 +36,16 @@ export function CommunityPage({ c }: { c: CommunityView }) {
 
       {c.next && (
         <section>
-          <h2 className={SECTION_LABEL}>Next</h2>
+          <h2 className={SECTION_LABEL}>{t(locale, 'nav_next')}</h2>
           <div className="mt-3 rounded-2xl border border-line bg-surface p-5">
             <p className="text-base text-ink">{c.next.title}</p>
             <p className="mt-0.5 text-sm text-ink-muted">
-              {c.next.kind === 'yours' ? fmtDateTime(c.next.starts_at) : fmtDate(c.next.starts_at)}
+              {c.next.kind === 'yours' ? fmtDateTime(c.next.starts_at, locale) : fmtDate(c.next.starts_at, locale)}
               {c.next.thread_title ? ` · ${c.next.thread_title}` : ''}
             </p>
             {c.next.kind === 'upcoming' && (
               <Link href="/upcoming" className="mt-2 inline-flex min-h-11 items-center text-sm text-ink underline underline-offset-2 hover:opacity-70">
-                See it under Upcoming
+                {t(locale, 'see_under_upcoming')}
               </Link>
             )}
           </div>
@@ -52,22 +54,22 @@ export function CommunityPage({ c }: { c: CommunityView }) {
 
       {c.documents.length > 0 && (
         <section>
-          <h2 className={SECTION_LABEL}>Documents</h2>
+          <h2 className={SECTION_LABEL}>{t(locale, 'documents')}</h2>
           <CommunityDocumentList workspaceId={c.workspace_id} documents={c.documents} />
         </section>
       )}
 
       {c.thread_documents.length > 0 && (
         <section>
-          <h2 className={SECTION_LABEL}>From your threads</h2>
+          <h2 className={SECTION_LABEL}>{t(locale, 'from_threads')}</h2>
           {c.thread_documents.map((g) => (
-            <ThreadDocumentGroup key={g.thread_title} title={g.thread_title} items={g.items} />
+            <ThreadDocumentGroup key={g.thread_title} title={g.thread_title} items={g.items} locale={locale} />
           ))}
         </section>
       )}
 
       {!c.intro_html && !c.tier_sections?.length && !c.category_sections?.length && !c.next && !c.documents.length && !c.thread_documents.length && (
-        <p className="text-sm text-ink-muted">Nothing here yet. Your community can add an introduction and documents.</p>
+        <p className="text-sm text-ink-muted">{t(locale, 'community_empty')}</p>
       )}
     </div>
   );

@@ -9,12 +9,15 @@ import { fetchFiles, type FilesGroup } from '@/lib/portal-api';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { CommunityDocumentList, ThreadDocumentGroup } from '../document-rows';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
 export default async function FilesPage() {
   const session = await loadFrame();
   if (!session) return <SignedOut />;
+  const locale = await pageLocale();
   let groups: FilesGroup[] | null = null;
   try {
     groups = await fetchFiles(session.token);
@@ -23,17 +26,15 @@ export default async function FilesPage() {
   }
   if (!groups) {
     return (
-      <PageShell title="Files">
-        <Empty title="This page could not be loaded.">Try again in a moment.</Empty>
+      <PageShell title={t(locale, 'nav_files')}>
+        <Empty title={t(locale, 'page_failed')}>{t(locale, 'try_again_moment')}</Empty>
       </PageShell>
     );
   }
   return (
-    <PageShell title="Files">
+    <PageShell title={t(locale, 'nav_files')}>
       {groups.length === 0 ? (
-        <Empty title="No files yet.">
-          Documents from your communities, and the ones your threads send you, are gathered here.
-        </Empty>
+        <Empty title={t(locale, 'files_none_title')}>{t(locale, 'files_none_body')}</Empty>
       ) : (
         <div className="mt-6 space-y-10">
           {groups.map((g) => (
@@ -45,15 +46,15 @@ export default async function FilesPage() {
               </h2>
               {g.community.length > 0 && (
                 <div className="mt-4">
-                  <h3 className={SECTION_LABEL}>From your community</h3>
+                  <h3 className={SECTION_LABEL}>{t(locale, 'from_community')}</h3>
                   <CommunityDocumentList workspaceId={g.workspace_id} documents={g.community} />
                 </div>
               )}
               {g.threads.length > 0 && (
                 <div className="mt-6">
-                  <h3 className={SECTION_LABEL}>From your threads</h3>
-                  {g.threads.map((t) => (
-                    <ThreadDocumentGroup key={t.thread_id} title={t.thread_title} items={t.items} />
+                  <h3 className={SECTION_LABEL}>{t(locale, 'from_threads')}</h3>
+                  {g.threads.map((th) => (
+                    <ThreadDocumentGroup key={th.thread_id} title={th.thread_title} items={th.items} locale={locale} />
                   ))}
                 </div>
               )}

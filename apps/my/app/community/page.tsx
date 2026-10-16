@@ -7,12 +7,15 @@ import { fetchCommunities, type CommunityView } from '@/lib/portal-api';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { CommunityPage } from './community-view';
+import { pageLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CommunityIndex() {
   const session = await loadFrame();
   if (!session) return <SignedOut />;
+  const locale = await pageLocale();
   let list: CommunityView[] | null = null;
   try {
     list = await fetchCommunities(session.token);
@@ -21,8 +24,8 @@ export default async function CommunityIndex() {
   }
   if (!list) {
     return (
-      <PageShell title="Home">
-        <Empty title="This page could not be loaded.">Try again in a moment.</Empty>
+      <PageShell title={t(locale, 'nav_home')}>
+        <Empty title={t(locale, 'page_failed')}>{t(locale, 'try_again_moment')}</Empty>
       </PageShell>
     );
   }
@@ -30,16 +33,14 @@ export default async function CommunityIndex() {
     const c = list[0]!;
     return (
       <PageShell title={c.name}>
-        <CommunityPage c={c} />
+        <CommunityPage c={c} locale={locale} />
       </PageShell>
     );
   }
   return (
-    <PageShell title="Home">
+    <PageShell title={t(locale, 'nav_home')}>
       {list.length === 0 ? (
-        <Empty title="You are not a member of a community yet.">
-          When you join one, its page is here: an introduction, its documents and what is next.
-        </Empty>
+        <Empty title={t(locale, 'community_none_title')}>{t(locale, 'community_none_body')}</Empty>
       ) : (
         <ul className="mt-8 space-y-3">
           {list.map((c) => (

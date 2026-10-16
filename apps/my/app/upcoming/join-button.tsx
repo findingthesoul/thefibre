@@ -17,6 +17,9 @@ import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
 import type { CouldJoin } from '@/lib/portal-api';
 import { money } from '@/lib/format';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t, type MyKey } from '@/lib/i18n';
+import { parts } from '@/lib/i18n-parts';
 
 type Outcome =
   | { kind: 'in' }
@@ -24,7 +27,7 @@ type Outcome =
   | { kind: 'invoice' }
   | { kind: 'closed'; membership: boolean }
   | { kind: 'pending' }
-  | { kind: 'error'; message: string; pageHelps: boolean };
+  | { kind: 'error'; message: MyKey; pageHelps: boolean };
 
 export function JoinButton({ j }: { j: CouldJoin }) {
   const router = useRouter();
@@ -35,10 +38,13 @@ export function JoinButton({ j }: { j: CouldJoin }) {
   // One id per attempt, kept across a retry: the enrol route is idempotent
   // on it, so a double tap or a retried request joins once.
   const [requestId] = useState(() => crypto.randomUUID());
+  const locale = useLocale();
 
   const policy = POLICIES.find((p) => p.required);
   const priceWord =
-    j.your_price_cents === 0 ? 'Join' : `Join for ${money(j.your_price_cents, j.currency)}`;
+    j.your_price_cents === 0
+      ? t(locale, 'join')
+      : t(locale, 'join_for', { price: money(j.your_price_cents, j.currency, locale) });
 
   async function join() {
     setBusy(true);
@@ -68,7 +74,7 @@ export function JoinButton({ j }: { j: CouldJoin }) {
         // The thread's page only helps when it offers something this button
         // cannot — an invoice. When nobody can take the money, the page has
         // the same dead end on it, so it is not offered.
-        setOutcome({ kind: 'error', message, pageHelps: /by invoice/.test(message) });
+        setOutcome({ kind: 'error', message, pageHelps: message === 'join_err_invoice_only' });
         return;
       }
       if (body.checkout_url) {
@@ -95,18 +101,18 @@ export function JoinButton({ j }: { j: CouldJoin }) {
       // under Next. Refresh so both say so.
       router.refresh();
     } catch {
-      setOutcome({ kind: 'error', message: 'Could not reach the server. Try again.', pageHelps: false });
+      setOutcome({ kind: 'error', message: 'join_err_network', pageHelps: false });
     } finally {
       setBusy(false);
     }
   }
 
   if (outcome?.kind === 'in') {
-    return <p className={`${NOTICE.success} mt-3`}>You’re in. It is under Next now.</p>;
+    return <p className={`${NOTICE.success} mt-3`}>{t(locale, 'join_in')}</p>;
   }
   if (outcome?.kind === 'already') {
     return (
-      <p className={`${NOTICE.info} mt-3`}>You’re already signed up for this one. It is under Next.</p>
+      <p className={`${NOTICE.info} mt-3`}>{t(locale, 'join_already')}</p>
     );
   }
   if (outcome?.kind === 'invoice') {
@@ -115,11 +121,13 @@ export function JoinButton({ j }: { j: CouldJoin }) {
     // Purchases, with its Pay link when the organiser sent one.
     return (
       <p className={`${NOTICE.info} mt-3`}>
-        You have an open invoice for this one.{' '}
-        <a href="/purchases" className="underline underline-offset-2">
-          See it under Purchases
-        </a>
-        .
+        {parts(t(locale, 'join_invoice'), {
+          link: (
+            <a href="/purchases" className="underline underline-offset-2">
+              {t(locale, 'join_invoice_link')}
+            </a>
+          ),
+        })}
       </p>
     );
   }
@@ -131,15 +139,15 @@ export function JoinButton({ j }: { j: CouldJoin }) {
     return (
       <p className={`${NOTICE.info} mt-3`}>
         {outcome.membership
-          ? 'Your place on this one came with a membership that has ended. Contact the organiser if you would like to join.'
-          : 'Your place on this one is closed. Contact the organiser if you would like to join.'}
+          ? t(locale, 'join_closed_membership')
+          : t(locale, 'join_closed')}
       </p>
     );
   }
   if (outcome?.kind === 'pending') {
     return (
       <p className={`${NOTICE.info} mt-3`}>
-        Asked. The organiser confirms places for this one, and you will get an email when they do.
+        {t(locale, 'join_pending')}
       </p>
     );
   }
@@ -147,7 +155,7 @@ export function JoinButton({ j }: { j: CouldJoin }) {
   if (!open) {
     return (
       <Button size="sm" variant="secondary" className="mt-3" onClick={() => setOpen(true)}>
-        Join
+        {t(locale, 'join')}
       </Button>
     );
   }
@@ -163,30 +171,32 @@ export function JoinButton({ j }: { j: CouldJoin }) {
             className="mt-1"
           />
           <span>
-            I agree to the{' '}
-            <a href={policy.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-              privacy statement
-            </a>
-            .
+            {parts(t(locale, 'agree_privacy'), {
+              link: (
+                <a href={policy.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                  {t(locale, 'privacy_statement')}
+                </a>
+              ),
+            })}
           </span>
         </label>
       )}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={busy || (!!policy && !agreed)} onClick={join}>
-          {busy ? 'Joining…' : priceWord}
+          {busy ? t(locale, 'joining') : priceWord}
         </Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
-          Cancel
+          {t(locale, 'cancel')}
         </Button>
       </div>
       {outcome?.kind === 'error' && (
         <div className={NOTICE.error}>
-          {outcome.message}
+          {t(locale, outcome.message)}
           {outcome.pageHelps && (
             <>
               {' '}
               <a href={j.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                Open its page
+                {t(locale, 'open_its_page')}
               </a>
               .
             </>
@@ -198,19 +208,20 @@ export function JoinButton({ j }: { j: CouldJoin }) {
 }
 
 /** The API's words are for developers, lowercase and terse. A member gets a
- *  sentence — the known refusals mapped, anything else said plainly. */
-function sentenceFor(status: number, error: unknown): string {
+ *  sentence — the known refusals mapped, anything else said plainly — as a
+ *  catalog KEY, so it is said in the reader's language. */
+function sentenceFor(status: number, error: unknown): MyKey {
   const raw = typeof error === 'string' ? error : '';
-  const known: [RegExp, string][] = [
-    [/not connected payments|payments are not configured/i, 'Sign-up is not open yet: the organiser cannot take payments.'],
-    [/payment method is not available/i, 'This one cannot be paid by card. Sign up on its page to pay by invoice.'],
-    [/full/i, 'This one is full.'],
-    [/sold out/i, 'This ticket is sold out.'],
-    [/closed/i, 'Sign-up for this one has closed.'],
-    [/too many attempts/i, 'Too many tries in a short time. Wait a few minutes and try again.'],
-    [/privacy policy/i, 'Tick the privacy statement to join.'],
-    [/sign in required/i, 'Your session ended. Sign in again to join.'],
+  const known: [RegExp, MyKey][] = [
+    [/not connected payments|payments are not configured/i, 'join_err_no_payments'],
+    [/payment method is not available/i, 'join_err_invoice_only'],
+    [/full/i, 'join_err_full'],
+    [/sold out/i, 'join_err_sold_out'],
+    [/closed/i, 'join_err_closed'],
+    [/too many attempts/i, 'join_err_too_many'],
+    [/privacy policy/i, 'join_err_privacy'],
+    [/sign in required/i, 'join_err_session'],
   ];
-  for (const [pattern, sentence] of known) if (pattern.test(raw)) return sentence;
-  return status >= 500 ? 'Something went wrong on our side. Try again in a moment.' : 'Could not join this one.';
+  for (const [pattern, key] of known) if (pattern.test(raw)) return key;
+  return status >= 500 ? 'join_err_server' : 'join_err_generic';
 }

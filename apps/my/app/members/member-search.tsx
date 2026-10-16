@@ -24,6 +24,8 @@ import { richTextToPlain } from '@thefibre/shared/rich-text-plain';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import type { DirectoryMember } from '@/lib/portal-api';
 import { MemberRow } from './member-row';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n';
 
 export function MemberSearch({
   members,
@@ -34,6 +36,7 @@ export function MemberSearch({
   workspaceId: string;
 }) {
   const [q, setQ] = useState('');
+  const locale = useLocale();
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -66,16 +69,15 @@ export function MemberSearch({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name, place or interest"
+          placeholder={t(locale, 'members_search_placeholder')}
           className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
-          aria-label="Search members"
+          aria-label={t(locale, 'members_search_label')}
         />
       </label>
 
       {shown.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
-          Nobody matches “{q.trim()}”. Search looks at names, places and interests — not contact
-          details.
+          {t(locale, 'members_no_match', { q: q.trim() })}
         </p>
       ) : (
         // ROW_LIST: edge to edge on a phone, a card from `sm` up. The

@@ -12,22 +12,27 @@ import { ArrowLeft } from 'lucide-react';
 import type { DirectoryChoice, DirectoryList } from '@/lib/portal-api';
 import { PageShell } from '../page-shell';
 import { MemberSearch } from './member-search';
+import type { Locale } from '@thefibre/shared/i18n';
+import { t } from '@/lib/i18n';
+import { parts } from '@/lib/i18n-parts';
 
-export function membersTitle(choices: DirectoryChoice[] | null, workspaceId: string): string {
+export function membersTitle(choices: DirectoryChoice[] | null, workspaceId: string, locale: Locale): string {
   // null = the choices call failed; the heading just falls back to "Members"
   // rather than naming a community we could not confirm.
   const community = (choices ?? []).find((c) => c.workspace_id === workspaceId);
-  return community ? `Members of ${community.workspace_name}` : 'Members';
+  return community ? t(locale, 'members_of', { name: community.workspace_name }) : t(locale, 'nav_members');
 }
 
 export function CommunityMembers({
   workspaceId,
   list,
   title,
+  locale,
 }: {
   workspaceId: string;
   list: DirectoryList;
   title: string;
+  locale: Locale;
 }) {
   return (
     <PageShell title={title}>
@@ -36,19 +41,18 @@ export function CommunityMembers({
         className="mt-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
       >
         <ArrowLeft size={15} strokeWidth={1.75} />
-        Back to you
+        {t(locale, 'back_to_you')}
       </Link>
 
       {list.state === 'failed' && (
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
-          We couldn&apos;t load this right now. Nothing has changed, and nobody has been shown
-          anything — try again in a moment.
+          {t(locale, 'members_failed_private')}
         </p>
       )}
 
       {list.state === 'none' && (
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
-          This community doesn&apos;t have a member list.
+          {t(locale, 'members_no_list')}
         </p>
       )}
 
@@ -60,14 +64,15 @@ export function CommunityMembers({
         // whether you can look. So this says what is true about them and
         // where to change it, and the list renders underneath.
         <div className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3">
-          <p className="text-sm text-ink">You&apos;re not shown to other members.</p>
+          <p className="text-sm text-ink">{t(locale, 'members_you_hidden')}</p>
           <p className="mt-1 text-xs text-ink-muted">
-            You can see everyone here who has chosen to appear. To appear yourself, turn that on —
-            and off again whenever you like — on your{' '}
-            <Link href="/you" className="underline hover:text-ink">
-              You
-            </Link>{' '}
-            page.
+            {parts(t(locale, 'members_you_hidden_body'), {
+              link: (
+                <Link href="/you" className="underline hover:text-ink">
+                  {t(locale, 'nav_you')}
+                </Link>
+              ),
+            })}
           </p>
         </div>
       )}
@@ -78,9 +83,7 @@ export function CommunityMembers({
         // not listed and sees nobody would be told "you're the only one here"
         // about a list they are not in.
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
-          {list.you_are_listed
-            ? "You're the only one here so far. Nobody else has chosen to appear yet."
-            : 'Nobody has chosen to appear in this list yet.'}
+          {list.you_are_listed ? t(locale, 'members_only_you') : t(locale, 'members_nobody')}
         </p>
       )}
 
