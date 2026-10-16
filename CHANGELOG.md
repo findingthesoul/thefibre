@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.257.1] — 2026-10-16
+
+### Sign-in emails carry the code only: a mail scanner can no longer burn it (API, hotfix)
+
+- **A paying member on production could not sign in to my.thread.** Every
+  8-digit code he typed answered "Token has expired or is invalid", four
+  times, three of them typed straight away. The cause, PROVEN on staging with
+  the fixture account: the code email also carried a button that was a plain
+  GET on Supabase's `/auth/v1/verify?token=<token_hash>`. A mail security
+  scanner that fetches every link on delivery (Microsoft Safe Links,
+  Proofpoint, Mimecast, …) CONSUMES the one-time token with that GET, so the
+  code then fails every time, however fast it is typed. The staging runs:
+  - control: typing the code works;
+  - GET first: the GET signs in (303 with a session) and the typed code then
+    fails with exactly that message;
+  - reverse order: the code works, and the GET afterwards is expired;
+  - a HEAD does not consume.
+- **Fix:** the emails `signInWithOtp` sends (`magiclink`, `signup`, `login`)
+  carry the CODE ONLY, with no button and no verify URL, in the HTML and in
+  the plain-text part, in all six languages. Every app's sign-in (The Fibre,
+  Thread, Meet, Flow, Pulse, Members, Connect, Models, my.thread) already asks
+  for the code (`verifyOtp`), so nothing breaks. People who used to click the
+  button type the code. The rule lives in `renderAuthEmail`
+  (`CODE_ONLY`), so the template itself enforces it. If a sign-in email ever
+  had no code it would keep its link rather than arrive empty (never
+  expected). Invite, recovery and email change keep their link: links by
+  nature, and no app's sign-in sends them.
+- **Follow-up idea, NOT built:** one-click sign-in that survives scanners. A
+  button to our own `/auth/confirm` page that shows "Sign in" and calls
+  `verifyOtp({ token_hash, type })` only on a click.
+- Tests: `auth-templates.test.ts` (23: per sign-in action and per locale, the
+  code is there and no verify URL is in the HTML or the text; the action set
+  is exactly magiclink/signup/login; no code keeps the link; invite, recovery
+  and email change keep theirs). `auth-hook.test.ts` (4: a REAL-signed
+  Supabase payload through the hook route, with the sender and database reads
+  faked; for magiclink and signup the email handed to the sender has the code
+  and no verify URL; an invite keeps its link; a bad signature is refused and
+  sends nothing). Shown to bite: with the rule switched off, 20 of these 27
+  fail.
+
 ## [1.257.0] — 2026-10-16
 
 ### The my.thread shop: the read (API; the page waits for Sjoerd's answer on where it lives)

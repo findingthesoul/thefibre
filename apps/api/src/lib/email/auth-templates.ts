@@ -52,6 +52,9 @@ type RenderArgs = {
 
 export type RenderedEmail = { subject: string; text: string; html: string };
 
+/** The actions signInWithOtp sends — code only, never a consuming link. */
+export const CODE_ONLY: ReadonlySet<AuthEmailActionType> = new Set<AuthEmailActionType>(['magiclink', 'signup', 'login']);
+
 export type AuthEmailBrand = { name?: string | null; logoUrl?: string | null };
 
 export function renderAuthEmail(
@@ -68,8 +71,21 @@ export function renderAuthEmail(
   const chrome = CHROME[loc];
   const name = brand?.name || EMAIL_BRAND.name;
   const subject = copy.subject.replaceAll('{platform}', name);
-  const text = buildText({ args, copy, chrome, senderName: brand?.name ?? undefined });
-  const html = buildHtml({ args, copy, chrome, loc, brand: brand ?? undefined });
+  // SIGN-IN EMAILS CARRY THE CODE ONLY (2026-10-16, a paying member on
+  // production could not sign in: every typed code failed with "Token has
+  // expired or is invalid"). The button was a GET on Supabase's
+  // /auth/v1/verify, and a mail security scanner that fetches every link on
+  // delivery (Safe Links, Proofpoint, Mimecast…) CONSUMES the one-time token
+  // with that GET — proven on staging: GET first, then the typed code fails
+  // with exactly that message; a HEAD does not consume. Every app's sign-in
+  // asks for the code (verifyOtp), so a sign-in email without the link loses
+  // nothing. Only when there IS a code: an email with neither would be empty.
+  // invite / recovery / email change keep their link — links by nature, and
+  // no app's sign-in sends them. A one-click /auth/confirm page that consumes
+  // only on a click is the follow-up idea (not built).
+  const safeArgs = CODE_ONLY.has(action) && args.token ? { ...args, confirmationUrl: null } : args;
+  const text = buildText({ args: safeArgs, copy, chrome, senderName: brand?.name ?? undefined });
+  const html = buildHtml({ args: safeArgs, copy, chrome, loc, brand: brand ?? undefined });
   return { subject, text, html };
 }
 
