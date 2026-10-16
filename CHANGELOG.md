@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.237.0] — 2026-10-16
+
+### Files in my.thread: every document in one place (my.thread 0.19.0)
+
+- A new **Files** page in my.thread (Sjoerd 2ij) gathers every document a
+  person may open, per community:
+  - their community's own documents, filtered by the tiers they hold;
+  - then one group per thread, with the documents that thread has sent them
+    and the day each came.
+  It is always in the nav, last in the "yours" group, so the phone bar's
+  first four are unchanged. Help gains "Find a document".
+- **No rule of its own.** Each item is admitted by the reader that admits it
+  elsewhere:
+  - community documents: `memberCommunities` (active/grace, every tier held)
+    plus `visibleTo`, as on the community page and in `signedDocumentUrl`;
+  - thread documents: a LIVE place, then RELEASED (the thread's own trigger
+    has sent it to that person, a `thread_message_send` row).
+  Both thread readers are lifted out of the community page into
+  `threadPlaces` and `releasedThreadDocuments` (lib/member-page.ts). The
+  community page now calls them too: one path, two callers.
+- **Links are checked at read time.** A thread step's link is the
+  organiser's typed text, so it now passes `safeLinkUrl` (http/https only)
+  when read. On the community page that is a small tightening. Files leaves
+  out a step with no safe link.
+- **Files keep their signed route.** A stored file opens through the
+  existing `/community-document` proxy, which issues a 60-second signed
+  address after the membership and tier check. There is no new signing
+  route, and no storage path in the list.
+- The document rows moved out of community-view.tsx into
+  `app/document-rows.tsx`, shared by both pages rather than forked.
+- API: `GET /me/portal/files` (new, additive; no migration).
+- Not in v1:
+  - links inside messages, Meet, invoice and certificate files;
+  - search;
+  - showing documents still to come.
+- Found while reading, and left for Sjoerd: the my.thread agenda shows a
+  published document step marked "show in agenda" (the default) before the
+  thread releases it. The community page and Files wait for the release.
+- Tested:
+  - unit `groupFiles` (5);
+  - integration `portal-files` on staging (6) together with `member-page`
+    (13), 19/19. It covers: tier-filtered community documents; a live place
+    without a membership sees week 1 and not week 3; a javascript: step is
+    dropped; a dropped place and a lapsed member see nothing; a stranger
+    gets an empty list. Leftovers read back as 0.
+  - e2e `portal-files` (exclusive project) runs after the deploy.
+
 ## [1.236.2] — 2026-10-16
 
 ### Price includes VAT for Thread tickets and Meet, part 1: the columns alone

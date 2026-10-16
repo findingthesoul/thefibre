@@ -314,6 +314,84 @@ export type CommunityView = {
   next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;
 };
 
+export type LivePlace = { thread_id: string; workspace_id: string; title: string };
+
+/** A person's thread places: every row (for the place-state readers) and
+ *  the LIVE ones — enrolmentIsLive, the rule every portal surface uses. One
+ *  reader for the community page and the Files page, so "holds a place"
+ *  cannot mean two things. Scoped by person id: the portal has no RLS
+ *  identity in these workspaces. */
+export async function threadPlaces(personIds: string[]): Promise<{ all: Record<string, unknown>[]; live: LivePlace[] }> {
+  if (!personIds.length) return { all: [], live: [] };
+  const { data: places, error } = await adminClient
+    .from('thread_enrolment')
+    .select('id, thread_id, payment_status, enrolment:enrolment_id (status), thread:thread_id (id, workspace_id, program:program_id (title))')
+    .in('person_id', personIds);
+  if (error) throw new Error(`places: ${error.message}`);
+  const all = (places ?? []) as Record<string, unknown>[];
+  const seen = new Set<string>();
+  const live: LivePlace[] = [];
+  for (const p of all) {
+    const t = one<{ workspace_id?: string; program?: unknown }>(p.thread);
+    const s = (one(p.enrolment) as { status?: string | null } | null)?.status ?? null;
+    const tid = p.thread_id as string;
+    if (!t?.workspace_id || !enrolmentIsLive(s) || seen.has(tid)) continue;
+    seen.add(tid);
+    live.push({ thread_id: tid, workspace_id: t.workspace_id, title: (one(t.program) as { title?: string } | null)?.title ?? '' });
+  }
+  return { all, live };
+}
+
+export type ReleasedGroup = {
+  thread_id: string;
+  thread_title: string;
+  items: { title: string; url: string | null; sent_at: string }[];
+};
+
+/** RELEASED document steps of these threads, for these people. The thread's
+ *  own triggers deliver a document and log the delivery per person in
+ *  thread_message_send. That log IS the release — a document scheduled for
+ *  week 3 has no row in week 1 — so it is read rather than restated. The
+ *  link is the organiser's typed text, so it passes safeLinkUrl (http/https
+ *  only) here, at read time; anything else becomes null. */
+export async function releasedThreadDocuments(personIds: string[], threads: { thread_id: string; title: string }[]): Promise<ReleasedGroup[]> {
+  if (!personIds.length || !threads.length) return [];
+  const titleOf = new Map(threads.map((t) => [t.thread_id, t.title]));
+  const { data: docs, error: dErr } = await adminClient
+    .from('thread_engagement')
+    .select('id, thread_id, title, content, position')
+    .in('thread_id', [...titleOf.keys()])
+    .eq('type', 'document')
+    .eq('status', 'published')
+    .order('position', { ascending: true });
+  if (dErr) throw new Error(`document steps: ${dErr.message}`);
+  const ids = (docs ?? []).map((d) => d.id as string);
+  if (!ids.length) return [];
+  const { data: sends, error: sErr } = await adminClient
+    .from('thread_message_send')
+    .select('engagement_id, sent_at')
+    .in('engagement_id', ids)
+    .in('person_id', personIds);
+  if (sErr) throw new Error(`document releases: ${sErr.message}`);
+  // The earliest release, when more than one person row got it.
+  const sent = new Map<string, string>();
+  for (const s of sends ?? []) {
+    const prev = sent.get(s.engagement_id as string);
+    if (!prev || (s.sent_at as string) < prev) sent.set(s.engagement_id as string, s.sent_at as string);
+  }
+  const byThread = new Map<string, ReleasedGroup>();
+  for (const d of docs ?? []) {
+    const at = sent.get(d.id as string);
+    if (!at) continue;
+    const content = (d.content ?? {}) as { external_url?: string; file_url?: string };
+    const tid = d.thread_id as string;
+    const g = byThread.get(tid) ?? { thread_id: tid, thread_title: titleOf.get(tid) ?? '', items: [] };
+    g.items.push({ title: d.title as string, url: safeLinkUrl(content.external_url ?? content.file_url ?? null), sent_at: at });
+    byThread.set(tid, g);
+  }
+  return [...byThread.values()];
+}
+
 /** Everything one member sees on one community's page. `tier_ids` comes from
  *  memberCommunities; without it (the admin's preview) the member row's own
  *  person is asked, by the same predicate. */
@@ -340,58 +418,16 @@ export async function communityView(
   ]);
   if (tErr) throw new Error(`tiers: ${tErr.message}`);
 
-  // The member's own live places in this community.
-  const { data: places, error: pErr } = await adminClient
-    .from('thread_enrolment')
-    .select('id, thread_id, payment_status, enrolment:enrolment_id (status), thread:thread_id (id, workspace_id, program:program_id (title))')
-    .eq('person_id', member.person_id);
-  if (pErr) throw new Error(`places: ${pErr.message}`);
-  const live = ((places ?? []) as Record<string, unknown>[]).filter((p) => {
-    const t = one(p.thread) as { workspace_id?: string } | null;
-    const s = (one(p.enrolment) as { status?: string | null } | null)?.status ?? null;
-    return t?.workspace_id === ws && enrolmentIsLive(s);
-  });
-  const threadIds = live.map((p) => p.thread_id as string);
-  const titleOf = new Map(
-    live.map((p) => [p.thread_id as string, (one(one<{ program?: unknown }>(p.thread)?.program) as { title?: string } | null)?.title ?? '']),
-  );
-
-  // RELEASED document steps: the thread's own triggers deliver a document and
-  // log the delivery per person in thread_message_send. That log IS the
-  // release — a document scheduled for week 3 has no row in week 1 — so it is
-  // read rather than restated.
-  const threadDocuments: CommunityView['thread_documents'] = [];
-  if (threadIds.length) {
-    const { data: docs, error: dErr } = await adminClient
-      .from('thread_engagement')
-      .select('id, thread_id, title, content, position')
-      .in('thread_id', threadIds)
-      .eq('type', 'document')
-      .eq('status', 'published')
-      .order('position', { ascending: true });
-    if (dErr) throw new Error(`document steps: ${dErr.message}`);
-    const ids = (docs ?? []).map((d) => d.id as string);
-    const sent = new Map<string, string>();
-    if (ids.length) {
-      const { data: sends, error: sErr } = await adminClient
-        .from('thread_message_send')
-        .select('engagement_id, sent_at')
-        .in('engagement_id', ids)
-        .eq('person_id', member.person_id);
-      if (sErr) throw new Error(`document releases: ${sErr.message}`);
-      for (const s of sends ?? []) sent.set(s.engagement_id as string, s.sent_at as string);
-    }
-    const byThread = new Map<string, CommunityView['thread_documents'][number]['items']>();
-    for (const d of docs ?? []) {
-      const at = sent.get(d.id as string);
-      if (!at) continue;
-      const content = (d.content ?? {}) as { external_url?: string; file_url?: string };
-      const list = byThread.get(d.thread_id as string) ?? [];
-      list.push({ title: d.title as string, url: content.external_url ?? content.file_url ?? null, sent_at: at });
-      byThread.set(d.thread_id as string, list);
-    }
-    for (const [tid, items] of byThread) threadDocuments.push({ thread_title: titleOf.get(tid) ?? '', items });
-  }
+  // The member's own live places in this community, and the documents their
+  // threads have released to them — the same two readers the Files page uses.
+  const { all: places, live: everywhere } = await threadPlaces([member.person_id]);
+  const live = everywhere.filter((p) => p.workspace_id === ws);
+  const threadIds = live.map((p) => p.thread_id);
+  const titleOf = new Map(live.map((p) => [p.thread_id, p.title]));
+  const threadDocuments: CommunityView['thread_documents'] = (await releasedThreadDocuments([member.person_id], live)).map((g) => ({
+    thread_title: g.thread_title,
+    items: g.items,
+  }));
 
   // NEXT: the soonest thing on their own agenda here; failing that, the
   // soonest thread their calendars offer (the Upcoming walk, which prices

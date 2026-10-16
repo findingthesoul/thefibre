@@ -85,6 +85,7 @@ import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { placesByThread } from '../lib/place-state.js';
 import { ensurePref } from '../lib/member-notify.js';
 import { communityView, memberCommunities, signedDocumentUrl } from '../lib/member-page.js';
+import { filesFor } from '../lib/portal-files.js';
 import {
   couldJoinFrom,
   entitlementsByMember,
@@ -1286,6 +1287,21 @@ portalRoutes.get('/portal/community/:ws/documents/:id', async (c) => {
   // nobody's business but a member's.
   if (!url) return c.json({ error: 'not found' }, 404);
   return c.json({ url });
+});
+
+// ===========================================================================
+// Files — GET /me/portal/files (lib/portal-files.ts, Sjoerd 2ij)
+//
+// Every document this verified address may open: its communities' member
+// pages (tier-filtered) and what its live threads have released to it. No
+// rule of its own — see the head of lib/portal-files.ts. A stored file is
+// opened through the community document route above, which signs it.
+// ===========================================================================
+
+portalRoutes.get('/portal/files', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  return c.json({ items: await filesFor(email) });
 });
 
 // ===========================================================================

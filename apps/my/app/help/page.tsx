@@ -78,6 +78,16 @@ const GUIDES: HelpGuide[] = [
     `),
   },
   {
+    title: 'Find a document',
+    href: '/files',
+    steps: guideSteps(`
+      Open Files. Every document you can open is here, per community.
+      From your community lists what your community shares with its members, including what it shares with your tier only.
+      From your threads lists the documents your threads have sent you, with the day each one came. A document a thread will send later appears once it is sent.
+      Tap a file to open it. The address it opens is valid for one minute, so a forwarded link stops working; send the person to Files instead.
+    `),
+  },
+  {
     title: 'See your purchases and download invoices',
     href: '/purchases',
     steps: guideSteps(`

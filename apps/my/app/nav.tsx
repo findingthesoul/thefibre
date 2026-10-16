@@ -16,7 +16,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, CalendarPlus, Home, IdCard, Receipt, User, Users } from 'lucide-react';
+import { CalendarDays, CalendarPlus, FolderOpen, Home, IdCard, Receipt, User, Users } from 'lucide-react';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
 import { Wordmark } from './wordmark';
 import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
@@ -50,6 +50,10 @@ import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 // Home lists them.
 //
 // UPCOMING stays conditional on a team calendar, as before.
+//
+// FILES (Sjoerd 2ij, 2026-10-16) is always present, like Members: the page
+// says plainly when there is nothing yet. It sits last in the "yours" group so
+// the phone bar's first four are unchanged; on a phone it is in More.
 export function navFor({ upcoming, communities = 0 }: { upcoming: boolean; communities?: number }): SidebarNavSection[] {
   return [
     {
@@ -65,6 +69,7 @@ export function navFor({ upcoming, communities = 0 }: { upcoming: boolean; commu
         { href: '/you', label: 'You', icon: User },
         { href: '/memberships', label: 'Memberships', icon: IdCard },
         { href: '/purchases', label: 'Purchases', icon: Receipt },
+        { href: '/files', label: 'Files', icon: FolderOpen },
       ],
     },
   ];

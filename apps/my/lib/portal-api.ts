@@ -320,6 +320,26 @@ export async function fetchCommunities(accessToken: string): Promise<CommunityVi
   return ((await res.json()) as { items: CommunityView[] }).items;
 }
 
+/** The Files page (2ij): per community, its own documents, then what each
+ *  live thread has released to this person. Admitted by the API's existing
+ *  readers; a file opens through /community-document. */
+export type FilesGroup = {
+  workspace_id: string;
+  name: string;
+  logo_url: string | null;
+  community: CommunityView['documents'];
+  threads: { thread_id: string; thread_title: string; items: { title: string; url: string; sent_at: string }[] }[];
+};
+
+export async function fetchFiles(accessToken: string): Promise<FilesGroup[]> {
+  const res = await fetch(`${baseUrl}/api/v1/me/portal/files`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `API ${res.status}: /api/v1/me/portal/files`);
+  return ((await res.json()) as { items: FilesGroup[] }).items;
+}
+
 /** One thing a member was told (type + subject + date — never a body). */
 export type MemberNotification = {
   id: string;
