@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.239.2] — 2026-10-16
+
+### A record of who changed someone's role, part 1: the table and the triggers
+
+`role_change` records every change to a workspace role, an internal/external
+relationship, a member added or removed, an app role, and the platform
+super-admin flag. That is old value, new value, who, how and when (plan
+approved by the coordinator, 2026-10-16).
+
+- **Triggers.** Every API role write goes through the service role, so the
+  triggers on `workspace_member`, `app_membership` and `user.is_super_admin`
+  record each actual change themselves. Nothing changes a role silently,
+  whoever or whatever made the write.
+- **Who did it** comes from the attributed RPCs:
+  - `member_role_write`, `member_add`, `member_remove` and `app_role_set`
+    set a transaction-local actor and source, then do the write.
+  - Anything else is recorded with `source` = 'unattributed' and no name.
+  - The routes move onto the RPCs in part 2; until then every change reads
+    'unattributed'.
+- **Append-only, like activity.** Only the database's own cascade from a
+  deleted workspace or user gets past the guard, and the logging triggers
+  skip a cascaded delete, so deleting a workspace never fails on its own
+  history.
+- **Super-admin rows** have no workspace and are for super admins only.
+- **Access.** RLS on, no policies. All functions are revoked from public,
+  anon and authenticated and granted to service_role.
+
 ## [1.239.1] — 2026-10-16
 
 ### Price includes VAT, seen on the page; a deploy probe keeps its quotes
