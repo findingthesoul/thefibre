@@ -1992,6 +1992,14 @@ const CATALOG = {
     de: 'Mitglieder, die vor dem {date} beitreten, zahlen jetzt den vollen Preis und verl\u00e4ngern am {next}. Nach dem {date} bewirkt das nichts mehr.', // MT
     fr: 'Les membres qui rejoignent avant le {date} paient le prix complet maintenant et renouvellent le {next}. Apr\u00e8s le {date}, ceci ne fait plus rien.', // MT
   },
+  product_first_period_addon: {
+    en: 'Used when someone subscribes to this product on its own. As an add-on to a membership it renews on the membership’s date.',
+    nl: 'Gebruikt wanneer iemand zich los op dit product abonneert. Als toevoeging aan een lidmaatschap verlengt het op de datum van het lidmaatschap.', // MT
+    es: 'Se usa cuando alguien se suscribe a este producto por separado. Como complemento de una membresía, se renueva en la fecha de la membresía.', // MT
+    pt: 'Usado quando alguém subscreve este produto por si só. Como extra de uma adesão, renova na data da adesão.', // MT
+    de: 'Gilt, wenn jemand dieses Produkt einzeln abonniert. Als Zusatz zu einer Mitgliedschaft verlängert es sich zum Datum der Mitgliedschaft.', // MT
+    fr: 'Utilisé quand quelqu’un s’abonne à ce produit seul. En complément d’une adhésion, il se renouvelle à la date de l’adhésion.', // MT
+  },
   first_period_yearly_only: {
     en: 'Applies to yearly payment only \u2014 monthly members renew monthly from their join date.',
     nl: 'Geldt alleen bij jaarlijkse betaling \u2014 maandleden verlengen maandelijks vanaf hun aanmelddatum.',

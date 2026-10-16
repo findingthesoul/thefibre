@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.245.0] — 2026-10-16
+
+### Subscribe to a recurring product without a membership: the API and the admin date (Members 1.13.0)
+
+- **`POST /membership/public/subscribe`** (new, additive) subscribes someone
+  to a community's recurring product (or several on one schedule, plus
+  one-off products in the same basket) without a membership. It uses the
+  join's machinery exactly: the auto account, person create-or-match, the
+  Stripe customer, VAT per line, the platform fee on the net, and the first
+  period from the product's own date. It refuses, each with a plain
+  sentence:
+  - a product not sold on its own;
+  - a basket where nothing renews (that is a buy);
+  - two renewal schedules in one basket ("Subscribe to them one at a time");
+  - two different first-period dates.
+- **One checkout builder.** The join's inline Checkout code is lifted into
+  `subscriptionLines` (the lines, pure and unit-tested) and
+  `createSubscriptionCheckout` (the session: fee on the net, `trial_end`,
+  customer, address, card at zero). Both `/public/join` and
+  `/public/subscribe` call them; there is no second copy. The join's two
+  source-reading guards now point at where that code lives, with the same
+  intent.
+- **The webhook, extended, not forked.** A product subscription's invoices
+  are recognised by their subscription FIRST. Its Stripe customer may also
+  be a membership's, and the old customer fallback would have booked a
+  product renewal as a membership one.
+  - session completed → grants: the recurring product `active` on the
+    subscription, a one-off `paid`;
+  - invoice.paid → ONE ledger row per invoice (item_ref = invoice), and the
+    grant's period end;
+  - payment failed → `past_due` plus the payment-failed email with the
+    community's signature, sent once (the active→past_due change is the
+    guard);
+  - subscription deleted → `cancelled` + `ends_at` (a status change);
+  - subscription updated → the period end and whether it stops there.
+- **Members → Products:** a recurring product gets "First period ends on
+  (optional)", with the tier dialog's own DateField and words, plus: "Used
+  when someone subscribes to this product on its own. As an add-on to a
+  membership it renews on the membership's date."
+- The public page's Subscribe button and my.thread's renewals for product
+  subscriptions follow in the next release.
+- Tested:
+  - unit: `subscriptionLines` (5) with the join's shapes and the product
+    shapes;
+  - integration `membership-subscribe` on staging with Stripe TEST (9): the
+    refusals; the session (monthly recurs, kit one-off, 21% per line); the
+    webhook through past_due and cancel; a dated yearly product's split
+    lines;
+  - the join and webhook suites, quoted unchanged before and after the lift.
+
 ## [1.244.2] — 2026-10-16
 
 ### A recurring product's first period can end on a date: the column (migration only)

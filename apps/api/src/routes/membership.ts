@@ -158,6 +158,13 @@ const CreateProduct = z.object({
   // inferred from price — a priced product can still be tier-only.
   purchasable: z.boolean().optional(),
   price_includes_vat: z.boolean().optional(),
+  // A RECURRING product's first period, as a tier's (2026-10-16): used when
+  // it is subscribed to on its own; an add-on renews with the membership.
+  first_period_ends_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'use a date like 2026-12-31')
+    .optional()
+    .nullable(),
   sort_order: z.number().int().optional(),
 });
 const PatchProduct = CreateProduct.partial().extend({
@@ -804,7 +811,7 @@ membershipRoutes.get('/products', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_product')
-    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval, group_id, price_includes_vat')
+    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval, group_id, price_includes_vat, first_period_ends_on')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list products', error);
@@ -2797,6 +2804,121 @@ export async function platformFeePercent(workspaceId: string): Promise<number> {
   return 2;
 }
 
+// ===========================================================================
+// THE SUBSCRIPTION CHECKOUT — one builder for every subscription checkout on
+// a community's connected account: the join (a tier, plus extras) and a
+// product subscribed to on its own (2026-10-16, /public/subscribe). Lifted
+// out of /public/join unchanged: the lines, the fee on the net, the trial
+// that starts full-price billing later, the customer and the address.
+// ===========================================================================
+
+type StripeInterval = 'day' | 'week' | 'month' | 'year';
+// Derived from the SDK's own signature (this version does not export the
+// params type on the namespace).
+type CheckoutLine = NonNullable<NonNullable<Parameters<Stripe['checkout']['sessions']['create']>[0]>['line_items']>[number];
+
+/** The Checkout lines. `main` is the tier (absent for a product
+ *  subscription); `extras` are products. When `split`, the subscription
+ *  starts billing later (a cohort date or a first-period discount), so what
+ *  is paid NOW is a one-off line and the recurring line is full price from
+ *  the trial end — for the tier AND for every recurring extra (an extra left
+ *  recurring alone would be billed at the anchor, not today: measured
+ *  2026-10-14 as an undercharge now and a surprise in January). The two
+ *  lines of one thing carry one name: they land on different invoices. A
+ *  zero-amount line is omitted — Stripe refuses one. Pure, for its test. */
+export function subscriptionLines(input: {
+  currency: string;
+  interval: StripeInterval;
+  split: boolean;
+  taxed: { tax_rates?: string[] };
+  main?: { name: string; nowCents: number; listCents: number } | null;
+  extras: { name: string; price_cents: number | null; price_interval?: string | null }[];
+}): CheckoutLine[] {
+  const currency = input.currency.toLowerCase();
+  const { split, taxed, interval } = input;
+  const line = (name: string, cents: number, recurring: boolean): CheckoutLine => ({
+    price_data: { currency, product_data: { name }, unit_amount: cents, ...(recurring ? { recurring: { interval } } : {}) },
+    quantity: 1,
+    ...taxed,
+  });
+  const main = input.main;
+  return [
+    // WHAT IS PAID NOW: recurring itself unless the subscription starts later.
+    ...(main && main.nowCents > 0 ? [line(main.name, main.nowCents, !split)] : []),
+    // The membership at FULL price from the trial end — only when split.
+    ...(main && split ? [line(main.name, main.listCents, true)] : []),
+    ...input.extras
+      .filter((o) => (o.price_cents ?? 0) > 0)
+      .flatMap((o) => {
+        // Mixed intervals are refused by the caller, so an extra either
+        // matches this interval or is a one-time thing.
+        const recurring = (o.price_interval ?? 'once') === interval;
+        if (!recurring) return [line(o.name, o.price_cents!, false)];
+        return split ? [line(o.name, o.price_cents!, false), line(o.name, o.price_cents!, true)] : [line(o.name, o.price_cents!, true)];
+      }),
+  ];
+}
+
+/** Create the subscription Checkout session on the connected account. */
+async function createSubscriptionCheckout(
+  stripe: Stripe,
+  account: string,
+  p: {
+    lines: CheckoutLine[];
+    feePercent: number;
+    vatRatePct: number;
+    startsBilling: number | null;
+    subscriptionMetadata: Record<string, string>;
+    sessionMetadata: Record<string, string>;
+    customer: { id: string | null; hasAddress: boolean };
+    email: string;
+    collectCardAlways: boolean;
+    successUrl: string;
+    cancelUrl: string;
+  },
+): Promise<Stripe.Checkout.Session> {
+  return stripe.checkout.sessions.create(
+    {
+      mode: 'subscription',
+      line_items: p.lines,
+      subscription_data: {
+        // ON THE NET PRICE. Stripe applies this percentage to the invoice
+        // TOTAL, which includes the VAT added on top since 1.208.0 — and the
+        // VAT is the seller's to pass on, not revenue to take a cut of.
+        // Scaled by net/gross so the fee is feePercent of the net
+        // (feeOnNetPercent); renewals keep the same rate, so it holds.
+        ...(p.feePercent > 0 ? { application_fee_percent: feeOnNetPercent(p.feePercent, p.vatRatePct) } : {}),
+        // trial_end, NOT billing_cycle_anchor. Checkout refuses
+        // `proration_behavior: 'none'` beside a one-time price outright, and
+        // without that word Stripe prorates the stub period and adds it —
+        // 365.35 instead of 300.00, measured. A trial has no proration to
+        // argue with: the one-off line is collected now and the
+        // subscription's first charge is the trial end. Rehearsed on a
+        // Stripe test clock: 300.00 on the day, 300.00 on 1 January.
+        ...(p.startsBilling ? { trial_end: p.startsBilling } : {}),
+        metadata: p.subscriptionMetadata,
+      },
+      // The customer we just wrote, so the invoice carries OUR details — and
+      // `customer_email` only when there is no customer, because Stripe
+      // refuses a session that carries both.
+      ...(p.customer.id ? { customer: p.customer.id } : { customer_email: p.email }),
+      // 'auto' only when the customer actually HAS an address; without one,
+      // 'required' — with 'auto' and no address on file Stripe may not ask at
+      // all, and every invoice would lose its address block (measured:
+      // scripts/rehearse-join-customer.mjs, case 4).
+      billing_address_collection: p.customer.hasAddress ? 'auto' : 'required',
+      ...(p.collectCardAlways ? { payment_method_collection: 'always' as const } : {}),
+      // NO Stripe promotion codes (Sjoerd, 2026-10-13: "nothing of Stripe is
+      // the rule, except payment"): discounts are OURS, Stripe is handed a
+      // final amount and nothing else.
+      metadata: p.sessionMetadata,
+      success_url: p.successUrl,
+      cancel_url: p.cancelUrl,
+    },
+    { stripeAccount: account },
+  );
+}
+
 membershipRoutes.post('/public/join', async (c) => {
   const body = PublicJoin.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -3112,128 +3234,26 @@ membershipRoutes.post('/public/join', async (c) => {
   const startsBilling = fixedPeriod ? fixedPeriod.anchor : discounted ? anniversary : null;
   const split = startsBilling !== null;
 
+  // THE CHECKOUT, through the one builder every subscription checkout uses
+  // (subscriptionLines + createSubscriptionCheckout, just above): the join
+  // decides the prices, the code, the cohort date and the metadata; how
+  // those become Stripe lines, the fee on the net, the trial and the
+  // customer is decided once, there.
   let session: Stripe.Checkout.Session;
   try {
-    session = await stripe.checkout.sessions.create(
-      {
-        mode: 'subscription',
-        line_items: [
-          // WHAT IS PAID NOW. One-off when the subscription starts later —
-          // leaving it recurring would bill the same period twice, once now
-          // and once at the anchor. Omitted entirely at zero: a 100% code
-          // charges nothing today, and Stripe refuses a zero-amount line.
-          ...(amount > 0
-            ? [
-                {
-                  price_data: {
-                    currency: (tier.currency ?? 'EUR').toLowerCase(),
-                    product_data: { name: `${ws.name} membership — ${tier.name}` },
-                    unit_amount: amount,
-                    ...(split ? {} : { recurring: { interval: d.interval } }),
-                  },
-                  quantity: 1,
-                  ...taxed,
-                },
-              ]
-            : []),
-          // THE MEMBERSHIP ITSELF, at the FULL price, from `startsBilling`.
-          // Present only when the first period was paid separately — an
-          // ordinary undiscounted join's first line IS the subscription.
-          ...(split
-            ? [
-                {
-                  price_data: {
-                    currency: (tier.currency ?? 'EUR').toLowerCase(),
-                    product_data: { name: `${ws.name} membership — ${tier.name}` },
-                    unit_amount: listAmount,
-                    recurring: { interval: d.interval },
-                  },
-                  quantity: 1,
-                  ...taxed,
-                },
-              ]
-            : []),
-          // ADD-ON LINES, SPLIT THE SAME WAY THE TIER IS.
-          //
-          // A 'once' extra bills now and never again. A recurring extra joins
-          // the subscription — and THAT is where this was wrong until
-          // 2026-10-14: every recurring line on a subscription with
-          // `trial_end` is charged at the ANCHOR, so a cohort or discounted
-          // join quietly moved the yearly extras to the renewal date while
-          // the panel promised them today.
-          //
-          // Measured on test keys with Sjoerd's own production example — a
-          // €300 cohort tier plus a €193.20 and a €2,000 yearly extra and a
-          // €1,000 one-time one: Stripe collected 1,300.00 now and 2,493.20
-          // on 1 January, against a panel that said 3,493.20 now. An
-          // UNDERCHARGE, and a promise broken in both directions: too little
-          // today, a surprise in January. Nobody had hit it — the one member
-          // on a cohort tier joined before the rule existed and bought no
-          // extras — because the date was only set on production that
-          // morning.
-          //
-          // So when the subscription starts later, a recurring extra gets the
-          // tier's treatment exactly: its first period as a one-off line now,
-          // and a recurring line at full price from the anchor. A discount
-          // code does not touch extras — it prices the tier, and an extra a
-          // code does not name is not discounted.
-          //
-          // The two lines carry the same product name on purpose. They land
-          // on DIFFERENT invoices — the one-off on today's, the recurring on
-          // January's — so nobody sees one thing twice, and it is the same
-          // treatment the tier's own two lines already have.
-          ...options
-            .filter((o) => (o.price_cents ?? 0) > 0)
-            .flatMap((o) => {
-              const currency = (tier.currency ?? 'EUR').toLowerCase();
-              const once = {
-                price_data: {
-                  currency,
-                  product_data: { name: o.name },
-                  unit_amount: o.price_cents!,
-                },
-                quantity: 1,
-                ...taxed,
-              };
-              const recurs = {
-                price_data: {
-                  currency,
-                  product_data: { name: o.name },
-                  unit_amount: o.price_cents!,
-                  recurring: { interval: d.interval },
-                },
-                quantity: 1,
-                ...taxed,
-              };
-              // Mixed intervals are refused further up, so an extra either
-              // matches this join's interval or is a one-time thing.
-              const recurring = (o.price_interval ?? 'once') === d.interval;
-              if (!recurring) return [once];
-              return split ? [once, recurs] : [recurs];
-            }),
-        ],
-        subscription_data: {
-          // ON THE NET PRICE. Stripe applies this percentage to the invoice
-          // TOTAL, which includes the VAT added on top since 1.208.0 — and
-          // the VAT is the seller's to pass on, not revenue to take a cut of.
-          // Scaled by net/gross so the fee is feePercent of the net
-          // (feeOnNetPercent); renewals keep the same rate, so it holds.
-          ...(feePercent > 0 ? { application_fee_percent: feeOnNetPercent(feePercent, vat.rate_pct) } : {}),
-          // The first renewal, and NOTHING extra charged for the stub period
-          // between now and it. Without proration_behavior 'none' Stripe adds
-          // a pro-rata charge on top of the one-off line above — the one word
-          // that decides "exactly one charge now".
-          // trial_end, NOT billing_cycle_anchor. Checkout refuses
-          // `proration_behavior: 'none'` beside a one-time price outright
-          // ("You cannot set proration_behavior to none in a Checkout Session
-          // with one-time prices"), and without that word Stripe prorates the
-          // stub period and adds it — 365.35 instead of 300.00, measured. A
-          // trial has no proration to argue with: the one-off line is
-          // collected now and the subscription's first charge is the trial
-          // end. Rehearsed on a Stripe test clock: 300.00 on the day of the
-          // join, 300.00 on 1 January, no proration on any line.
-          ...(startsBilling ? { trial_end: startsBilling } : {}),
-          metadata: {
+    session = await createSubscriptionCheckout(stripe, account, {
+      lines: subscriptionLines({
+        currency: tier.currency ?? 'EUR',
+        interval: d.interval,
+        split,
+        taxed,
+        main: { name: `${ws.name} membership — ${tier.name}`, nowCents: amount, listCents: listAmount },
+        extras: options,
+      }),
+      feePercent,
+      vatRatePct: vat.rate_pct,
+      startsBilling,
+      subscriptionMetadata: {
             workspace_id: ws.id,
             person_id: personId,
             tier_id: tier.id,
@@ -3277,47 +3297,26 @@ membershipRoutes.post('/public/join', async (c) => {
             // subscription (renewals included): which rule decided it.
             ...vatMetadata(vat),
           },
-        },
-        // The customer we just wrote, so the invoice carries OUR details —
-        // and `customer_email` only when there is no customer, because Stripe
-        // refuses a session that carries both.
-        ...(customer.id ? { customer: customer.id } : { customer_email: email }),
-        // 'auto' only when the customer actually HAS an address: asking a
-        // second time for something we just collected is the double-typing
-        // this change removes. Without one, 'required' — because with 'auto'
-        // and no address on file Stripe may not ask at all for an ordinary
-        // card, and then every invoice for somebody who typed nothing loses
-        // its address block, which 'required' always captured (measured:
-        // scripts/rehearse-join-customer.mjs, case 4).
-        billing_address_collection: customer.hasAddress ? 'auto' : 'required',
-        // A 100% code collects nothing today, and without this Stripe would
-        // take no payment method — leaving the first renewal with nothing to
-        // charge. Measured in the rehearsal, case 4.
-        ...(amount === 0 ? { payment_method_collection: 'always' as const } : {}),
-        // NO Stripe promotion codes (Sjoerd, 2026-10-13: "nothing of Stripe
-        // is the rule, except payment"). Discounts, their rules and the
-        // reason a price is what it is are OURS — Stripe is handed a final
-        // amount and nothing else. A code typed on Stripe's page would be a
-        // second discount system whose decisions never reach our ledger,
-        // where "why was this 240 and not 300" has to be answerable.
-        metadata: {
+      customer,
+      email,
+      // A 100% code collects nothing today, and without this Stripe would
+      // take no payment method — leaving the first renewal with nothing to
+      // charge. Measured in the rehearsal, case 4.
+      collectCardAlways: amount === 0,
+      sessionMetadata: {
           workspace_id: ws.id,
           person_id: personId,
           tier_id: tier.id,
           request_id: d.request_id,
           ...(options.length ? { option_product_ids: options.map((o) => o.id).join(',') } : {}),
         },
-        success_url: `${base}/joined?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
-        // BACK MUST COME BACK TO THE SAME TIER. Without `tier`, pressing Back
-        // on Stripe's page returns an invitee to the PUBLIC list — and for a
-        // hidden tier that page does not contain the thing they were invited
-        // to at all, so the cancel button quietly becomes a dead end.
-        // Invitations point at exactly such links, so this is the common case
-        // rather than an edge.
-        cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}&tier=${tier.id}`,
-      },
-      { stripeAccount: account },
-    );
+      successUrl: `${base}/joined?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
+      // BACK MUST COME BACK TO THE SAME TIER. Without `tier`, pressing Back
+      // on Stripe's page returns an invitee to the PUBLIC list — and for a
+      // hidden tier that page does not contain the thing they were invited
+      // to at all, so the cancel button quietly becomes a dead end.
+      cancelUrl: `${base}?cancelled=1&lang=${resolvedLocale}&tier=${tier.id}`,
+    });
   } catch (e) {
     console.error('[membership/public/join] checkout create failed', e);
     return c.json({ error: 'could not start checkout' }, 502);
@@ -3519,6 +3518,176 @@ membershipRoutes.post('/public/buy', async (c) => {
     return c.json({ error: 'could not start checkout' }, 502);
   }
 
+  return c.json({ url: session.url });
+});
+
+// ---------------------------------------------------------------------------
+// A RECURRING PRODUCT ON ITS OWN (2026-10-16, the P4 remainder): subscribed
+// to without a membership. The join's machinery exactly — auto account,
+// person create-or-match, the Stripe customer, VAT per line, the fee on the
+// net, the first-period date — through the same subscriptionLines +
+// createSubscriptionCheckout. The grant rows ride THIS subscription
+// (status 'active', lib/product-ownership.ts) and end with it.
+//
+// Refused, each with a sentence: a product not sold on its own; a basket with
+// no recurring product (that is a /public/buy); two different intervals (one
+// subscription has one).
+// ---------------------------------------------------------------------------
+
+const PublicSubscribe = z.object({
+  workspace_slug: z.string().min(1).max(100),
+  product_ids: z.array(z.string().uuid()).min(1).max(10),
+  email: z.string().email(),
+  name: z.string().min(1).max(200),
+  locale: z.string().max(10).optional(),
+  request_id: z.string().min(8).max(100),
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
+  billing: BillingFields.optional(),
+});
+
+membershipRoutes.post('/public/subscribe', async (c) => {
+  const body = PublicSubscribe.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const d = body.data;
+  const email = d.email.trim().toLowerCase();
+  const wantIds = [...new Set(d.product_ids)];
+
+  const ws = await publicWorkspace(d.workspace_slug);
+  if (!ws) return c.json({ error: 'not found' }, 404);
+  const subscribeLocale = isLocale(d.locale) ? d.locale : null;
+  const resolvedLocale = subscribeLocale ?? (await memberEmailLocale(ws.id, null));
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
+  const account = await workspaceStripeAccount(ws.id);
+  if (!account) return c.json({ error: 'This community has not connected payments yet.' }, 503);
+
+  const { data: found } = await adminClient
+    .from('membership_product')
+    .select('id, name, price_cents, price_interval, currency, purchasable, archived_at, price_includes_vat, first_period_ends_on')
+    .eq('workspace_id', ws.id)
+    .in('id', wantIds);
+  const products = wantIds.map((id) => (found ?? []).find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p && !p.archived_at);
+  if (products.length !== wantIds.length) return c.json({ error: 'product not found' }, 404);
+  const unsellable = products.find((p) => !p.purchasable || p.price_cents == null || p.price_cents <= 0);
+  if (unsellable) {
+    return c.json({ error: `${unsellable.name} is not sold on its own.`, code: 'not_purchasable' }, 400);
+  }
+  const recurring = products.filter((p) => isRecurringInterval(p.price_interval as string | null));
+  if (!recurring.length) {
+    return c.json({ error: 'Nothing here renews, so it is bought once rather than subscribed to.', code: 'nothing_recurring' }, 400);
+  }
+  const intervals = [...new Set(recurring.map((p) => p.price_interval as string))];
+  if (intervals.length > 1) {
+    return c.json(
+      { error: `These renew on different schedules (${intervals.map((i) => `per ${i}`).join(' and ')}). Subscribe to them one at a time.`, code: 'mixed_intervals' },
+      400,
+    );
+  }
+  const interval = intervals[0] as StripeInterval;
+  const country = d.country?.toUpperCase() ?? null;
+  // At their NET (a product entered incl. VAT), exactly as at join.
+  const priced = await Promise.all(
+    products.map(async (p) => ({
+      ...p,
+      price_cents: await chargeNet({ workspaceId: ws.id, enteredCents: p.price_cents!, includesVat: p.price_includes_vat, country, vat_id: d.billing?.tax_no ?? null }),
+    })),
+  );
+
+  // THE FIRST PERIOD, from the recurring product's own date — the same
+  // fixedFirstPeriod a tier uses (yearly only, self-expiring). Two recurring
+  // products with different dates cannot share one trial end.
+  const anchors = [...new Set(recurring.map((p) => fixedFirstPeriod((p as { first_period_ends_on?: string | null }).first_period_ends_on, new Date(), interval === 'year' ? 'year' : 'month')?.anchor ?? null))];
+  if (anchors.length > 1) {
+    return c.json({ error: 'These products start their periods on different dates. Subscribe to them one at a time.', code: 'mixed_first_periods' }, 400);
+  }
+  const startsBilling = anchors[0] ?? null;
+
+  try {
+    const { data: hasAccount } = await adminClient.rpc('auth_user_exists', { p_email: email });
+    if (hasAccount !== true) await adminClient.auth.admin.createUser({ email, email_confirm: true });
+  } catch (e) {
+    console.warn('[membership/public/subscribe] account auto-create failed', e);
+  }
+  const resolved = await resolvePerson({ workspaceId: ws.id, email, name: d.name, source: 'membership_purchase', create: true, fillEmptyName: true });
+  await fillEmptyPlatformName(email, d.name);
+  if (!resolved.ok) {
+    console.error('[membership/public/subscribe] person resolve failed', resolved.reason);
+    return c.json({ error: 'could not create your contact record' }, 500);
+  }
+  const personId = resolved.personId;
+
+  // Already holds one of these (by THE rule)? Say which, never charge twice.
+  const { data: owned } = await adminClient
+    .from('membership_product_purchase')
+    .select('product_id')
+    .eq('workspace_id', ws.id)
+    .eq('person_id', personId)
+    .in('product_id', wantIds)
+    .in('status', [...LIVE_PURCHASE_STATUSES]);
+  if ((owned ?? []).length) {
+    return c.json({ already_purchased: true, product_ids: [...new Set((owned ?? []).map((o) => o.product_id as string))] });
+  }
+
+  const provenEmail = (await participantEmailFromAuth(c))?.toLowerCase() ?? null;
+  const customer = await customerForJoin(stripe, account, {
+    workspaceId: ws.id,
+    personId,
+    email,
+    personName: d.name,
+    billing: d.billing ?? null,
+    proven: provenEmail !== null && provenEmail === email,
+  });
+
+  const buyerCountry = (country || d.billing?.country || '').toUpperCase() || null;
+  if (!buyerCountry && (await resolveSellerVat(ws.id))) {
+    return c.json({ error: 'Choose your country, so the VAT can be worked out.', code: 'country_required' }, 400);
+  }
+  const vat: SaleVat = await saleVat({
+    workspaceId: ws.id,
+    net_cents: priced.reduce((sum, p) => sum + (p.price_cents ?? 0), 0),
+    country: buyerCountry,
+    vat_id: d.billing?.tax_no ?? null,
+  });
+  const taxRateId = vat.rate_pct > 0 && vat.rate_country ? await connectedTaxRateId(account, vat.rate_country, vat.rate_pct) : null;
+  const feePercent = await platformFeePercent(ws.id);
+  const base = `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}`;
+  const productIds = priced.map((p) => p.id).join(',');
+
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await createSubscriptionCheckout(stripe, account, {
+      lines: subscriptionLines({
+        currency: priced[0]!.currency ?? 'EUR',
+        interval,
+        split: startsBilling !== null,
+        taxed: taxRateId ? { tax_rates: [taxRateId] } : {},
+        main: null,
+        extras: priced,
+      }),
+      feePercent,
+      vatRatePct: vat.rate_pct,
+      startsBilling,
+      subscriptionMetadata: {
+        kind: 'product_subscription',
+        workspace_id: ws.id,
+        person_id: personId,
+        product_ids: productIds,
+        ...(country ? { country } : {}),
+        ...(subscribeLocale ? { locale: subscribeLocale } : {}),
+        ...billingMetadata(d.billing),
+        ...vatMetadata(vat),
+      },
+      customer,
+      email,
+      collectCardAlways: false,
+      sessionMetadata: { kind: 'product_subscription', workspace_id: ws.id, person_id: personId, product_ids: productIds, request_id: d.request_id },
+      successUrl: `${base}/purchased?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
+      cancelUrl: `${base}?cancelled=1&lang=${resolvedLocale}`,
+    });
+  } catch (e) {
+    console.error('[membership/public/subscribe] checkout create failed', e);
+    return c.json({ error: 'could not start checkout' }, 502);
+  }
   return c.json({ url: session.url });
 });
 
@@ -3909,6 +4078,10 @@ export function vatBreakdownFromInvoice(
 }
 
 async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): Promise<void> {
+  // A product subscribed to on its own is recognised FIRST — its customer may
+  // be a member's too, and the customer fallback would book it as membership.
+  const productSub = await isProductSubscriptionInvoice(invoice);
+  if (productSub) return productSubscriptionInvoicePaid(account, invoice, productSub);
   const member = await memberForInvoice(account, invoice);
   if (!member) {
     // A connected account's invoice that isn't a membership (workspaces use
@@ -4097,6 +4270,8 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
 }
 
 async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice): Promise<void> {
+  const productSub = await isProductSubscriptionInvoice(invoice);
+  if (productSub) return productSubscriptionInvoiceFailed(account, invoice, productSub);
   const member = await memberForInvoice(account, invoice);
   if (!member) return;
   if (member.status === 'active') {
@@ -4143,6 +4318,173 @@ async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice)
   }
 }
 
+// ===========================================================================
+// A PRODUCT SUBSCRIBED TO ON ITS OWN (2026-10-16) — the webhook side. The
+// grants ride the subscription (membership_product_purchase.
+// stripe_subscription_id); there is no member row to find, and the Stripe
+// customer may be SHARED with a membership the same person holds — so these
+// invoices are recognised by their subscription first, and never fall
+// through to memberForInvoice's customer lookup (which would book a product
+// renewal as a membership one).
+// ===========================================================================
+
+const firstOf = <T>(v: unknown): T | null => (!v ? null : Array.isArray(v) ? ((v[0] ?? null) as T | null) : (v as T));
+
+/** Is this invoice a product subscription's? The subscription says so
+ *  (metadata kind); a payload without it is recognised by its grants. */
+async function isProductSubscriptionInvoice(invoice: Stripe.Invoice): Promise<string | null> {
+  const subId = invoiceSubscriptionId(invoice);
+  if (!subId) return null;
+  if (invoiceSubscriptionMetadata(invoice).kind === 'product_subscription') return subId;
+  const [{ count: grants }, { count: members }] = await Promise.all([
+    adminClient.from('membership_product_purchase').select('id', { count: 'exact', head: true }).eq('stripe_subscription_id', subId),
+    adminClient.from('membership_member').select('id', { count: 'exact', head: true }).eq('stripe_subscription_id', subId),
+  ]);
+  return (grants ?? 0) > 0 && (members ?? 0) === 0 ? subId : null;
+}
+
+/** The member row to reconcile after a grant changes, if this person is one. */
+async function reconcileIfMember(workspaceId: string, personId: string): Promise<void> {
+  const { data: m } = await adminClient.from('membership_member').select('id').eq('workspace_id', workspaceId).eq('person_id', personId).maybeSingle();
+  if (m) await reconcileMemberAccess(m.id as string);
+}
+
+/** checkout.session.completed for /public/subscribe: one grant per product,
+ *  keyed (session, product) — a retry is 23505. A one-off product in the
+ *  same basket is 'paid'; a recurring one 'active' on the subscription. */
+async function productSubscriptionStarted(account: string, session: Stripe.Checkout.Session): Promise<void> {
+  const meta = session.metadata ?? {};
+  const workspaceId = meta.workspace_id;
+  const personId = meta.person_id;
+  const ids = (meta.product_ids ?? '').split(',').filter(Boolean);
+  if (!workspaceId || !personId || !ids.length) {
+    console.error('[membership/webhook] product subscription without metadata', session.id);
+    return;
+  }
+  const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
+  const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
+  const { data: prods } = await adminClient.from('membership_product').select('id, name, price_cents, currency, price_interval').eq('workspace_id', workspaceId).in('id', ids);
+  let firstTime = false;
+  for (const prod of prods ?? []) {
+    const renews = isRecurringInterval(prod.price_interval as string | null);
+    const { error } = await adminClient.from('membership_product_purchase').insert({
+      workspace_id: workspaceId,
+      person_id: personId,
+      product_id: prod.id,
+      stripe_session_id: session.id,
+      amount_cents: prod.price_cents ?? 0,
+      currency: (prod.currency ?? 'EUR').toUpperCase(),
+      status: grantStatusFor(prod.price_interval as string | null),
+      ...(renews && subId ? { stripe_subscription_id: subId, stripe_customer_id: customerId } : {}),
+    });
+    if (!error) firstTime = true;
+    else if (error.code !== '23505') console.error('[membership/webhook] product subscription grant failed', error);
+  }
+  if (!firstTime) return;
+  for (const prod of prods ?? []) {
+    await logMemberActivity(workspaceId, personId, 'membership_product_purchased', `Subscribed · ${prod.name}`);
+  }
+  await reconcileIfMember(workspaceId, personId);
+}
+
+/** invoice.paid for a product subscription: ONE ledger row per invoice
+ *  (item_ref = invoice id, as a membership's), and its grants live again
+ *  until the period end. The money is the invoice's; the record is ours. */
+async function productSubscriptionInvoicePaid(account: string, invoice: Stripe.Invoice, subId: string): Promise<void> {
+  const { data: grants } = await adminClient
+    .from('membership_product_purchase')
+    .select('id, workspace_id, person_id, product:product_id (name)')
+    .eq('stripe_subscription_id', subId);
+  const first = (grants ?? [])[0];
+  if (!first) return; // the session event has not landed yet; Stripe retries invoice.paid
+  const workspaceId = first.workspace_id as string;
+  const personId = first.person_id as string;
+  const names = (grants ?? []).map((g) => firstOf<{ name?: string }>(g.product)?.name).filter(Boolean).join(', ');
+  const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+  const periodEndIso = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
+  await adminClient
+    .from('membership_product_purchase')
+    .update({ status: 'active', ...(periodEndIso ? { current_period_end: periodEndIso } : {}), updated_at: new Date().toISOString() })
+    .eq('stripe_subscription_id', subId)
+    .in('status', ['active', 'past_due']);
+
+  const [{ data: person }, { data: ws }] = await Promise.all([
+    adminClient.from('person').select('first_name, last_name, email').eq('id', personId).maybeSingle(),
+    adminClient.from('workspace').select('name').eq('id', workspaceId).maybeSingle(),
+  ]);
+  const subMeta = invoiceSubscriptionMetadata(invoice);
+  const lastDay = periodLastDay(periodEnd ?? null);
+  const addr = invoice.customer_address;
+  if ((invoice.amount_paid ?? 0) > 0) {
+    await recordPurchase({
+      appSlug: 'membership',
+      workspaceId,
+      itemRef: invoice.id ?? `product-subscription-${subId}-${Date.now()}`,
+      personId,
+      itemLabel: `${ws?.name ?? 'Community'} — ${names}${lastDay ? ` (until ${lastDay})` : ''}`,
+      payerName: invoice.customer_name ?? [person?.first_name, person?.last_name].filter(Boolean).join(' '),
+      payerEmail: invoice.customer_email ?? person?.email ?? null,
+      amountCents: invoice.amount_paid ?? 0,
+      currency: (invoice.currency ?? 'eur').toUpperCase(),
+      method: 'stripe',
+      status: 'paid',
+      stripeInvoiceId: invoice.id ?? null,
+      stripeInvoiceUrl: invoice.hosted_invoice_url ?? null,
+      stripeAccountId: account,
+      billing: {
+        number: invoice.number ?? null,
+        company: invoice.customer_name ?? null,
+        address: addr?.line1 ?? null,
+        postal_code: addr?.postal_code ?? null,
+        city: addr?.city ?? null,
+        country: addr?.country ?? null,
+        period_end: periodEndIso,
+        pdf: invoice.invoice_pdf ?? null,
+        ...readBillingMetadata(subMeta),
+        ...vatBreakdownFromInvoice(invoice, subMeta),
+        ...((invoice.lines?.data?.length ?? 0) > 1 ? { lines: invoiceLines(invoice) } : {}),
+      },
+    });
+  }
+  await reconcileIfMember(workspaceId, personId);
+}
+
+/** invoice.payment_failed for a product subscription: its grants go
+ *  past_due (still owned, as grace is) and the subscriber is told ONCE —
+ *  the active→past_due transition is the guard, so a retried event that
+ *  finds them already past_due sends nothing. */
+async function productSubscriptionInvoiceFailed(account: string, invoice: Stripe.Invoice, subId: string): Promise<void> {
+  const { data: moved } = await adminClient
+    .from('membership_product_purchase')
+    .update({ status: 'past_due', updated_at: new Date().toISOString() })
+    .eq('stripe_subscription_id', subId)
+    .eq('status', 'active')
+    .select('workspace_id, person_id, product:product_id (name)');
+  const first = (moved ?? [])[0];
+  if (!first) return;
+  const workspaceId = first.workspace_id as string;
+  const personId = first.person_id as string;
+  const names = (moved ?? []).map((g) => firstOf<{ name?: string }>(g.product)?.name).filter(Boolean).join(', ');
+  const [{ data: person }, { data: ws }, brand] = await Promise.all([
+    adminClient.from('person').select('first_name, email').eq('id', personId).maybeSingle(),
+    adminClient.from('workspace').select('name').eq('id', workspaceId).maybeSingle(),
+    getWorkspaceBrand(workspaceId),
+  ]);
+  if (!person?.email) return;
+  const locale = await memberEmailLocale(workspaceId, invoiceSubscriptionMetadata(invoice).locale ?? null);
+  const msg = membershipPaymentFailed({
+    name: person.first_name ?? 'there',
+    communityName: ws?.name ?? 'the community',
+    tierName: names || 'subscription',
+    locale,
+    brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+    signatureHtml: await signatureFor(workspaceId, locale, { firstName: person.first_name, communityName: ws?.name, tierName: names }),
+  });
+  await sendEmail({ to: person.email, subject: msg.subject, html: msg.html, text: msg.text, ...senderOf(brand) }).catch((e) =>
+    console.error('[membership/webhook] product payment-failed email', (e as Error).message),
+  );
+}
+
 /** Every grant riding one subscription stops: status 'cancelled', ends_at
  *  now. Only live ones — a row already cancelled keeps its first end date.
  *  Never throws past a log: the lapse itself must still complete. */
@@ -4176,6 +4518,13 @@ async function setSubscriptionGrants(memberId: string, from: 'active' | 'past_du
 }
 
 async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscription): Promise<void> {
+  // A product subscription ends: its grants stop (a status change), and a
+  // member who also held it is reconciled so the access goes too.
+  if (sub.metadata?.kind === 'product_subscription') {
+    await endSubscriptionGrants(sub.id);
+    if (sub.metadata.workspace_id && sub.metadata.person_id) await reconcileIfMember(sub.metadata.workspace_id, sub.metadata.person_id);
+    return;
+  }
   const { data: member } = await adminClient
     .from('membership_member')
     .select('id, workspace_id, person_id, status, locale')
@@ -4443,6 +4792,11 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
         if (session.mode !== 'subscription') break;
         // Only sessions the join flow created (Thread's checkouts share
         // these accounts — metadata is the discriminator).
+        // A product subscribed to on its own (2026-10-16): its own grants.
+        if (session.metadata?.kind === 'product_subscription') {
+          await productSubscriptionStarted(account, session);
+          break;
+        }
         if (!session.metadata?.tier_id || !session.metadata?.person_id) break;
         // Ticked add-ons FIRST: purchase rows keyed (session, product) —
         // 23505 = webhook retry, done. The subscription's own invoice.paid
@@ -4503,6 +4857,17 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
             .update({ renews_at: new Date(periodEnd * 1000).toISOString(), updated_at: new Date().toISOString() })
             .eq('stripe_subscription_id', sub.id);
         }
+        // The grants riding it (an add-on, or a product on its own) keep the
+        // period end and whether it stops there — what my.thread shows.
+        await adminClient
+          .from('membership_product_purchase')
+          .update({
+            ...(periodEnd ? { current_period_end: new Date(periodEnd * 1000).toISOString() } : {}),
+            cancel_at_period_end: !!sub.cancel_at_period_end,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', sub.id)
+          .in('status', ['active', 'past_due']);
         break;
       }
       default:

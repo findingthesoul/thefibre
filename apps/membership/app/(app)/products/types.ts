@@ -21,6 +21,8 @@ export type Product = {
   characteristics: string[] | null;
   price_cents: number | null;
   price_interval?: 'once' | 'week' | 'month' | 'year' | null;
+  /** A recurring product's first period end (subscribed to on its own). */
+  first_period_ends_on?: string | null;
   currency: string;
   /** À-la-carte (2026-09-06): can be bought standalone on the public page. */
   purchasable: boolean;

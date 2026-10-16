@@ -40,28 +40,36 @@ describe('the join route bills the first period through these rules', () => {
     // `proration_behavior: 'none'` beside a one-time price outright, and
     // without that word Stripe prorates the stub period and adds it — 365.35
     // instead of 300.00, measured. A trial has no proration to argue with.
-    expect(src).toContain('...(startsBilling ? { trial_end: startsBilling } : {})');
+    // Lifted into createSubscriptionCheckout (2026-10-16); the join passes it.
+    expect(src).toContain('...(p.startsBilling ? { trial_end: p.startsBilling } : {})');
+    expect(src).toContain('      startsBilling,\n');
     expect(src).not.toContain("proration_behavior: 'none' as const");
   });
 
   it('makes the paid-now line ONE-OFF whenever billing starts later', () => {
     // Left recurring, the same period is billed twice — once now and once at
     // the anchor.
-    expect(src).toContain('...(split ? {} : { recurring: { interval: d.interval } })');
+    // subscriptionLines: the paid-now line recurs only when NOT split (its
+    // behaviour is pinned in subscription-lines.test.ts); the join passes split.
+    expect(src).toContain('line(main.name, main.nowCents, !split)');
+    expect(src).toContain('        split,\n');
   });
 
   // ⚠️ THE DISCOUNT MUST NOT RECUR. The subscription line carries the LIST
   // price; if it carried `amount`, a 50% code would halve somebody's
   // membership for ever and nothing would ever tell the community.
   it('renews at the FULL price, never at the discounted one', () => {
-    const recurringLine = src.slice(src.indexOf('// THE MEMBERSHIP ITSELF'));
-    expect(recurringLine.slice(0, 600)).toContain('unit_amount: listAmount');
+    // The recurring line is built from listCents, and the join hands it the
+    // undiscounted list price.
+    expect(src).toContain('line(main.name, main.listCents, true)');
+    expect(src).toContain('nowCents: amount, listCents: listAmount');
   });
 
   // A 100% code charges nothing today; Stripe refuses a zero-amount line, and
   // without a card the first renewal would have nothing to charge.
   it('omits the paid-now line at zero, and still takes a card', () => {
-    expect(src).toContain('...(amount > 0');
+    expect(src).toContain('main && main.nowCents > 0');
+    expect(src).toContain('collectCardAlways: amount === 0');
     expect(src).toContain("payment_method_collection: 'always' as const");
   });
 

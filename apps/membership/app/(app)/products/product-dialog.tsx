@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DateField } from '@thefibre/shared/ui/date-field';
 import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
@@ -101,6 +102,7 @@ export function ProductDialog({
     (product?.price_interval as 'once' | 'month' | 'year' | undefined) ?? 'once',
   );
   const [purchasable, setPurchasable] = useState(product?.purchasable ?? false);
+  const [firstPeriodEndsOn, setFirstPeriodEndsOn] = useState(product?.first_period_ends_on ?? '');
   const [inclVat, setInclVat] = useState(Boolean((product as { price_includes_vat?: boolean } | null)?.price_includes_vat));
   const [characteristics, setCharacteristics] = useState(
     (product?.characteristics ?? []).join('\n'),
@@ -239,6 +241,8 @@ export function ProductDialog({
         .filter(Boolean),
       price_cents: euroToCents(price),
       price_interval: priceInterval,
+      // Only a renewing product has a first period; a one-off clears it.
+      first_period_ends_on: priceInterval !== 'once' ? firstPeriodEndsOn.trim() || null : null,
       purchasable,
       ...(vatRegistered ? { price_includes_vat: inclVat } : {}),
       links: links
@@ -396,6 +400,31 @@ export function ProductDialog({
               <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
                 {t(locale, 'interval_note')}
               </p>
+            )}
+            {/* THE FIRST PERIOD — the tier dialog's field and words, shown
+                only for a renewing product. It applies when the product is
+                subscribed to ON ITS OWN; as an add-on it rides the
+                membership's subscription and renews on its date (the add-on
+                path does not read this), and the sentence says exactly that. */}
+            {priceInterval !== 'once' && (
+              <div className="mt-3">
+                <DateField
+                  label={t(locale, 'first_period_ends_label')}
+                  name="first_period_ends_on"
+                  defaultValue={firstPeriodEndsOn || null}
+                  onValueChange={setFirstPeriodEndsOn}
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  {firstPeriodEndsOn.trim()
+                    ? t(locale, 'first_period_ends_note', {
+                        date: firstPeriodEndsOn.trim(),
+                        next: new Date(Date.parse(`${firstPeriodEndsOn.trim()}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10),
+                      })
+                    : t(locale, 'first_period_ends_off')}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'first_period_yearly_only')}</p>
+                <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'product_first_period_addon')}</p>
+              </div>
             )}
           </div>
           {currencyOptions.length > 1 && (

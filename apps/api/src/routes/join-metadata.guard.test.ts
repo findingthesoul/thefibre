@@ -27,8 +27,14 @@ const SRC = readFileSync(new URL('./membership.ts', import.meta.url), 'utf8');
  *  matching rather than by a regex over nested objects — a regex that walks
  *  into the wrong closing brace would pass for the wrong reason. */
 function subscriptionDataBlock(src: string): string {
-  const at = src.indexOf('subscription_data: {');
-  expect(at, 'subscription_data not found in membership.ts').toBeGreaterThan(-1);
+  // Since the checkout builder was lifted out of the join (2026-10-16,
+  // createSubscriptionCheckout), the join hands its metadata over as
+  // `subscriptionMetadata: { … }`, which the builder writes verbatim as
+  // subscription_data.metadata. The join's is the FIRST such block (the
+  // product subscription's comes after it in the file).
+  const at = src.indexOf('subscriptionMetadata: {');
+  expect(at, 'the join\u2019s subscriptionMetadata not found in membership.ts').toBeGreaterThan(-1);
+  expect(src, 'the builder writes it as subscription_data.metadata').toContain('metadata: p.subscriptionMetadata,');
   let depth = 0;
   for (let i = src.indexOf('{', at); i < src.length; i += 1) {
     if (src[i] === '{') depth += 1;
