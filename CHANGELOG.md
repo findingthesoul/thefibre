@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.224.1] — 2026-10-16
+
+### Organiser handover, part 1: the two tables (migration only)
+
+The schema for handing one thread to another organiser
+(`docs/organiser-handover-design.md`; Sjoerd's four decisions, 2026-10-16,
+all as recommended). Released alone, ahead of the code, as migrations are:
+
+- `thread_organiser_handover` — the request: from / to organiser, who
+  proposed it, the door (`organiser` or `admin_departed`, the second door
+  requiring a reason), `keep_as_host` (default on), status, a 7-day
+  `expires_at` checked at read and accept. One pending request per thread.
+- `thread_owner_history` — a thread's earlier OWNER slugs, so an old
+  `/{organiser}/{thread}` link can answer `moved_to` after a handover. A
+  table of its own rather than a column on `thread_slug_history` (as the
+  design notes first proposed): that table's writes upsert on
+  `(thread_id, old_slug)`, and an owner move must neither change that key
+  nor collide with a later rename back to the same slug.
+
+Both RLS on with no policies — reached only through the API. Nothing reads
+or writes them yet.
+
 ## [1.224.0] — 2026-10-16
 
 ### Product groups: the table (migration only)
