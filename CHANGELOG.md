@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.227.3] — 2026-10-16
+
+### The e2e identities keep their names
+
+The staging MEMBER account's name had become "e2e-member-price enroller".
+Nobody renamed it: its seat was created without a name, and the public enrol
+fills an EMPTY name from what was typed (`fillEmptyPlatformName`), so the
+member-price spec's first enrol under the member's address named it. Every
+screenshot and name-based assertion read that since — the handover banner
+showed it. `e2e/identities.ts` now writes the fixture's and the member's name
+on every seat their address holds and on the platform profile, every run,
+and re-reads it (a drift is an error). Written, the name can no longer be
+filled. Both names restored on staging and read back after the member-price
+spec ran.
+
+Handbook §10.u: the `/me/nav` fallback stays as permanent insurance (it was
+"can go once on production").
+
 ## [1.227.2] — 2026-10-16
 
 ### An empty product group can be filled by drag (Members 1.7.1)

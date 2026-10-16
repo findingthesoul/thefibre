@@ -1532,8 +1532,10 @@ before** when that route answers 404 (or fails) — never to an error page.
 a refused session asks `/me/portal` the old way, and `portal-nav.test.ts`
 pins it. A 401 stays a 401 — it means signed out, not "older API".
 The other order (API first, then the web) is what `promote.sh` cannot give
-you, so the fallback is the fix, not the sequencing. Once a release with the
-route has reached production, the fallback can go in a later release.
+you, so the fallback is the fix, not the sequencing. **The fallback stays**
+once the route has reached production — kept as permanent insurance (decided
+2026-10-16): it costs nothing while the route answers, and a rollback of the
+API to an older image would reopen the same window.
 
 ## 11. Testing
 

@@ -35,6 +35,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { assertStagingProject } from './staging-guard.js';
 
+/** The identity's NAME, put back on every run — on every seat the address
+ *  holds and on the platform profile. A permanent identity is never renamed
+ *  by a spec; but the public self-service doors fill an EMPTY name from what
+ *  was typed (fillEmptyPlatformName, 2026-10-15), so a seat created here
+ *  without one became "e2e-member-price enroller" the first time that spec
+ *  enrolled with the member's address, and every screenshot and name-based
+ *  assertion read it from then on. Writing the name makes the fill a no-op;
+ *  re-reading it makes a drift an error instead of a surprise. */
+async function pinName(service: SupabaseClient, email: string, name: string): Promise<void> {
+  must('pin user name', await service.from('user').update({ full_name: name }).eq('email', email).select('id'));
+  must('pin profile name', await service.from('identity_profile').update({ display_name: name }).eq('email', email).select('email'));
+  const seats = must('read user name', await service.from('user').select('full_name').eq('email', email)) ?? [];
+  const wrong = seats.filter((r) => r.full_name !== name);
+  if (wrong.length) throw new Error(`e2e identities: ${email} has a seat named ${JSON.stringify(wrong[0].full_name)}, not ${JSON.stringify(name)}`);
+}
+
 export const E2E_FIXTURE = {
   email: 'e2e-fixture@example.com',
   workspaceSlug: 'e2e-fixtures',
@@ -331,6 +347,8 @@ async function build(service: SupabaseClient, projectUrl: string): Promise<Ident
       .select('auth_user_id'),
   );
 
+  await pinName(service, F.email, F.displayName);
+
   return assertFixture({ id: auth.id, email: F.email, workspaceId, userRowId });
 }
 
@@ -442,6 +460,8 @@ async function buildMember(service: SupabaseClient, projectUrl: string): Promise
       .upsert({ auth_user_id: auth.id, workspace_id: workspaceId, updated_at: new Date().toISOString() }, { onConflict: 'auth_user_id' })
       .select('auth_user_id'),
   );
+
+  await pinName(service, M.email, M.displayName);
 
   return assertMember({ id: auth.id, email: M.email, workspaceId, userRowId });
 }
