@@ -2610,6 +2610,126 @@ const CATALOG = {
     de: 'Das Foto ist größer als 4 MB. Wähle ein kleineres oder speichere es zuerst als JPEG.', // MT
     fr: 'Cette photo dépasse 4 Mo. Choisis-en une plus petite, ou enregistre-la d’abord en JPEG.', // MT
   },
+  g_title: {
+    en: 'Google account',
+    nl: 'Google-account',
+    es: 'Cuenta de Google', // MT
+    pt: 'Conta Google', // MT
+    de: 'Google-Konto', // MT
+    fr: 'Compte Google', // MT
+  },
+  g_suggested: {
+    en: 'Your membership includes a Google account. We suggest:',
+    nl: 'Je lidmaatschap bevat een Google-account. Ons voorstel:',
+    es: 'Tu membresía incluye una cuenta de Google. Te sugerimos:', // MT
+    pt: 'A sua adesão inclui uma conta Google. Sugerimos:', // MT
+    de: 'Deine Mitgliedschaft enthält ein Google-Konto. Unser Vorschlag:', // MT
+    fr: 'Ton adhésion comprend un compte Google. Nous proposons :', // MT
+  },
+  g_use: {
+    en: 'Use this address',
+    nl: 'Dit adres gebruiken',
+    es: 'Usar esta dirección', // MT
+    pt: 'Usar este endereço', // MT
+    de: 'Diese Adresse verwenden', // MT
+    fr: 'Utiliser cette adresse', // MT
+  },
+  g_other: {
+    en: 'Ask for another',
+    nl: 'Een ander vragen',
+    es: 'Pedir otra', // MT
+    pt: 'Pedir outro', // MT
+    de: 'Eine andere anfragen', // MT
+    fr: 'En demander une autre', // MT
+  },
+  g_address: {
+    en: 'Address',
+    nl: 'Adres',
+    es: 'Dirección', // MT
+    pt: 'Endereço', // MT
+    de: 'Adresse', // MT
+    fr: 'Adresse', // MT
+  },
+  g_note: {
+    en: 'A note for the community (optional)',
+    nl: 'Een notitie voor de community (optioneel)',
+    es: 'Una nota para la comunidad (opcional)', // MT
+    pt: 'Uma nota para a comunidade (opcional)', // MT
+    de: 'Eine Notiz für die Community (optional)', // MT
+    fr: 'Une note pour la communauté (facultatif)', // MT
+  },
+  g_send: {
+    en: 'Ask for it',
+    nl: 'Aanvragen',
+    es: 'Solicitarla', // MT
+    pt: 'Pedir', // MT
+    de: 'Anfragen', // MT
+    fr: 'La demander', // MT
+  },
+  g_requested: {
+    en: 'You asked for {address}. The community creates it and lets you know.',
+    nl: 'Je vroeg {address} aan. De community maakt het aan en laat het je weten.',
+    es: 'Pediste {address}. La comunidad la crea y te avisa.', // MT
+    pt: 'Pediu {address}. A comunidade cria-a e avisa-o.', // MT
+    de: 'Du hast {address} angefragt. Die Community legt sie an und sagt dir Bescheid.', // MT
+    fr: 'Tu as demandé {address}. La communauté la crée et te prévient.', // MT
+  },
+  g_change: {
+    en: 'Ask for a different one',
+    nl: 'Een ander aanvragen',
+    es: 'Pedir otra distinta', // MT
+    pt: 'Pedir outro', // MT
+    de: 'Eine andere anfragen', // MT
+    fr: 'En demander une autre', // MT
+  },
+  g_created: {
+    en: 'Your Google account: {address}',
+    nl: 'Je Google-account: {address}',
+    es: 'Tu cuenta de Google: {address}', // MT
+    pt: 'A sua conta Google: {address}', // MT
+    de: 'Dein Google-Konto: {address}', // MT
+    fr: 'Ton compte Google : {address}', // MT
+  },
+  g_declined: {
+    en: 'The community declined your request.',
+    nl: 'De community heeft je aanvraag afgewezen.',
+    es: 'La comunidad rechazó tu solicitud.', // MT
+    pt: 'A comunidade recusou o seu pedido.', // MT
+    de: 'Die Community hat deine Anfrage abgelehnt.', // MT
+    fr: 'La communauté a refusé ta demande.', // MT
+  },
+  g_reason: {
+    en: 'Reason: {reason}',
+    nl: 'Reden: {reason}',
+    es: 'Motivo: {reason}', // MT
+    pt: 'Motivo: {reason}', // MT
+    de: 'Grund: {reason}', // MT
+    fr: 'Raison : {reason}', // MT
+  },
+  g_ask_again: {
+    en: 'Ask again',
+    nl: 'Opnieuw aanvragen',
+    es: 'Volver a pedir', // MT
+    pt: 'Pedir de novo', // MT
+    de: 'Erneut anfragen', // MT
+    fr: 'Redemander', // MT
+  },
+  g_taken: {
+    en: 'That address is already taken. Try another.',
+    nl: 'Dat adres is al bezet. Probeer een ander.',
+    es: 'Esa dirección ya está ocupada. Prueba otra.', // MT
+    pt: 'Esse endereço já está ocupado. Tente outro.', // MT
+    de: 'Diese Adresse ist schon vergeben. Versuche eine andere.', // MT
+    fr: 'Cette adresse est déjà prise. Essaie une autre.', // MT
+  },
+  g_bad: {
+    en: 'Use letters, numbers, dots, dashes or underscores.',
+    nl: 'Gebruik letters, cijfers, punten, streepjes of underscores.',
+    es: 'Usa letras, números, puntos, guiones o guiones bajos.', // MT
+    pt: 'Use letras, números, pontos, hífens ou sublinhados.', // MT
+    de: 'Verwende Buchstaben, Zahlen, Punkte, Bindestriche oder Unterstriche.', // MT
+    fr: 'Utilise des lettres, chiffres, points, tirets ou tirets bas.', // MT
+  },
   did_not_save: {
     en: 'That did not save.',
     nl: 'Dat is niet opgeslagen.',

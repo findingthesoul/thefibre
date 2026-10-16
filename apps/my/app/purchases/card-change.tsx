@@ -16,7 +16,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
-import { browserSupabase } from '@/lib/supabase/client';
+import { portalCall } from '@/lib/membership-portal-client';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { toLocale, type Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
@@ -36,20 +36,8 @@ const PK = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 type Card = { brand: string; last4: string; exp_month: number; exp_year: number } | null;
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : '');
 
-async function api<T>(path: string, body?: unknown, locale?: Locale): Promise<T> {
-  const {
-    data: { session },
-  } = await browserSupabase().auth.getSession();
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
-  const res = await fetch(`${base}/api/v1/membership/portal${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: { Authorization: `Bearer ${session?.access_token ?? ''}`, 'Content-Type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  const json = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(json.error ?? t(toLocale(locale), 'something_wrong_status', { status: res.status }));
-  return json;
-}
+// The browser-side call, shared with the Google card (lib/membership-portal-client.ts).
+const api = portalCall;
 
 export function CardLine({ memberId }: { memberId: string }) {
   const [card, setCard] = useState<Card | undefined>(undefined);

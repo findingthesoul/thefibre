@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.255.0] — 2026-10-16
+
+### my.thread → Memberships: the Google address a membership includes (my.thread 0.27.0)
+
+- **A Google card on each active (or grace) membership whose tier includes a
+  Google account**, on builder 4's routes (v1.249.0): `GET` and `POST
+  /me/google`. It says what the community suggests, offers "Use this
+  address" or "Ask for another" (the address part plus an optional note), and
+  then shows the request, the created account, or a decline with its reason
+  and "Ask again". The API's refusals are answered in words: "That address is
+  already taken" (409 `address_taken`) and the allowed characters (400
+  `bad_local_part`). The Fibre creates nothing in Google; an admin does, under
+  Members → Settings → Google addresses (v1.250.0).
+- It renders nothing when the membership has no Google account, when the
+  community has no Google connected, or when the read fails. An error line on
+  every membership card of somebody without a Google account would be noise.
+- `lib/membership-portal-client.ts` is the one browser-side call to the
+  Members portal API, now shared by this card and the card dialog. It used to
+  live inside `card-change.tsx`. Errors carry the API's `code`.
+- Every string is a catalog key in all six languages (es/pt/de/fr MT).
+- e2e `google-card` (new, staging, read-only). With no Google connected on
+  staging, the real API gives no card, and the test asserts that. The card's
+  states are then driven by intercepting only the two `/me/google` calls,
+  with the API's documented shape: suggested, then ask for another, then
+  "taken" said in words, then requested; created; declined with its reason.
+- e2e `member-addon` (card test): also checks Save card and Cancel in view at
+  375×667, and takes the desktop screenshot after Stripe's fade-in.
+
 ## [1.254.4] — 2026-10-16
 
 ### A Meet host can cancel their own booking again; the host's Reschedule carries the token too (API + Meet 2.37.2)

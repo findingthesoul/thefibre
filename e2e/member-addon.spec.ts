@@ -186,6 +186,17 @@ test('the card behind the membership: "change" opens Stripe’s card form in The
   // without scrolling, and Cancel beside it.
   await expect(dialog.getByRole('button', { name: 'Save card' })).toBeInViewport();
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeInViewport();
+  // Stripe fades its fields in; a shot taken at once shows them grey.
+  if (SHOTS) {
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${SHOTS}/5b-mythread-change-card-desktop.png` });
+  }
+  // And at a phone width, where the dialog is a bottom sheet.
+  await page.setViewportSize({ width: 375, height: 667 });
+  await expect(dialog.getByRole('button', { name: 'Save card' })).toBeInViewport();
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeInViewport();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/5c-mythread-change-card-phone.png` });
+  await page.setViewportSize({ width: 1280, height: 720 });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/5-mythread-change-card-form.png` });
 
   // And NOWHERE does a member get sent to Stripe to manage it (Sjoerd,

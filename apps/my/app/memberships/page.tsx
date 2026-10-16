@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { loadSession } from '@/lib/session';
 import { fmtDate } from '@/lib/format';
 import { JoinPrice } from '../join-price';
+import { GoogleCard } from './google-card';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
 import { pageLocale } from '@/lib/locale';
@@ -207,6 +208,9 @@ export default async function MembershipsPage() {
                     </Link>
                   )}
                 </div>
+                {/* The Google address this membership includes, if any —
+                    renders nothing otherwise (google-card.tsx). */}
+                {(m.status === 'active' || m.status === 'grace') && <GoogleCard memberId={m.member_id} />}
               </li>
             );
           })}
