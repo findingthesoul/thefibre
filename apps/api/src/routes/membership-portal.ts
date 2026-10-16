@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { appUrl, isLocale, toLocale } from '@thefibre/shared';
+import { isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { selectAll, selectIn } from '../lib/select-in.js';
@@ -14,8 +14,6 @@ import {
 } from '../lib/proven-email.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
-import { stripeOrNull } from '../lib/stripe/client.js';
-import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 import { ensureGoogleAccount, googleApplies, memberView, requestGoogleAccount } from '../lib/google-account.js';
 
@@ -55,9 +53,6 @@ async function participantEmailFromAuth(c: {
     return null;
   }
 }
-
-const MEMBERSHIP_APP_URL =
-  process.env.MEMBERSHIP_APP_URL ?? appUrl('membership', process.env);
 
 type MemberRow = {
   id: string;
@@ -366,56 +361,6 @@ membershipPortalRoutes.get('/me/invoices/:id/pdf', async (c) => {
       'Content-Disposition': `attachment; filename="invoice-${number.replace(/[^A-Za-z0-9-]/g, '')}.pdf"`,
     },
   });
-});
-
-// POST /me/portal-session {member_id} — Stripe Billing-Portal session on the
-// WORKSPACE'S CONNECTED ACCOUNT (the subscription lives there, not on the
-// platform account). 409 for manual/comped members: there is nothing in
-// Stripe for them to manage.
-membershipPortalRoutes.post('/me/portal-session', async (c) => {
-  const email = await participantEmailFromAuth(c);
-  if (!email) return c.json({ error: 'sign in required' }, 401);
-
-  const body = (await c.req.json().catch(() => ({}))) as { member_id?: unknown };
-  const memberId = typeof body.member_id === 'string' ? body.member_id : '';
-  if (!memberId) return c.json({ error: 'member_id is required' }, 400);
-
-  const member = await ownedMember(memberId, email);
-  if (!member) return c.json({ error: 'not found' }, 404);
-
-  if (!member.stripe_customer_id) {
-    return c.json(
-      {
-        error:
-          'This membership has no Stripe subscription — it is managed directly by the community.',
-      },
-      409,
-    );
-  }
-
-  const stripe = stripeOrNull();
-  if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
-  const account = await workspaceStripeAccount(member.workspace_id);
-  if (!account) {
-    return c.json(
-      { error: 'This community has not connected a payment account yet.' },
-      409,
-    );
-  }
-
-  try {
-    const session = await stripe.billingPortal.sessions.create(
-      {
-        customer: member.stripe_customer_id,
-        return_url: `${MEMBERSHIP_APP_URL}/my`,
-      },
-      { stripeAccount: account },
-    );
-    return c.json({ url: session.url });
-  } catch (e) {
-    console.error('[membership/portal] billing portal session failed', e);
-    return c.json({ error: 'could not open the payment portal — try again shortly' }, 502);
-  }
 });
 
 /** Same shape as routes/membership.ts: the Postgres error goes to stderr

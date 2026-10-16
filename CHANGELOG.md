@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.256.1] — 2026-10-16
+
+### The last member-facing Stripe portal route is gone (API)
+
+- `POST /api/v1/membership/portal/me/portal-session` is removed. It opened
+  Stripe's Billing Portal for a member's subscription. Its only caller, the
+  "Manage payment" button in my.thread, was removed in v1.248.2 (Sjoerd:
+  "Manage payment should not go to Stripe"), and since then no app, test or
+  script has called it. A member manages their card, renewal and add-ons in
+  The Fibre (my.thread → Purchases). Searched before removing: every app's
+  app/lib/components, e2e, API source and tests, and the docs. The only
+  mention left is the CHANGELOG's history.
+- Not a published contract: the route is under `/membership/portal/me`,
+  participant-authenticated, not `/api/v1/apps/*`. The workspace's own Fibre
+  plan billing portal (routes/billing.ts, for organisers) is a different thing
+  and is unchanged.
+- The imports and the `MEMBERSHIP_APP_URL` constant that only it used went
+  with it. API suite: 1148 tests pass.
+
 ## [1.256.0] — 2026-10-16
 
 ### Members → Products as rows: Unlocks as icons, a labelled group menu (Members 1.18.0)
