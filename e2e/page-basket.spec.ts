@@ -138,7 +138,8 @@ test('a recurring product without a membership checks out as a subscription', as
   const db = stagingService();
   const { data: ws } = await db.from('workspace').select('id').eq('slug', SLUG).single();
   const name = `E2E monthly circle ${Date.now().toString(36)}`;
-  const { data: prod } = await db.from('membership_product').insert({ workspace_id: ws!.id, name, price_cents: 1500, price_interval: 'month', purchasable: true }).select('id').single();
+  // Opened to non-members explicitly — members only is the default.
+  const { data: prod } = await db.from('membership_product').insert({ workspace_id: ws!.id, name, price_cents: 1500, price_interval: 'month', purchasable: true, sold_without_membership: true }).select('id').single();
   const email = `e2e-basket-sub-${Date.now()}@example.com`;
   try {
     await open(page);
@@ -168,3 +169,27 @@ test('a recurring product without a membership checks out as a subscription', as
     expect(count).toBe(0);
   }
 });
+
+// MEMBERS ONLY by default (2026-10-16, production soul.com): a purchasable
+// renewing product the community did NOT open says "With a membership" to a
+// visitor with no membership in the basket, and cannot be added.
+test('a members-only renewing product says "With a membership" without one', async ({ page }) => {
+  const db = stagingService();
+  const { data: ws } = await db.from('workspace').select('id').eq('slug', SLUG).single();
+  const name = `E2E members email ${Date.now().toString(36)}`;
+  const { data: prod } = await db.from('membership_product').insert({ workspace_id: ws!.id, name, price_cents: 20000, price_interval: 'year', purchasable: true }).select('id').single();
+  try {
+    await open(page);
+    await page.evaluate(([k]) => localStorage.removeItem(k), [KEY] as const);
+    await open(page);
+    const card = page.locator('div').filter({ has: page.getByRole('heading', { name }) }).last();
+    const button = card.getByRole('button', { name: 'With a membership' });
+    await expect(button).toBeVisible();
+    await expect(button).toBeDisabled();
+  } finally {
+    await db.from('membership_product').delete().eq('id', prod!.id);
+    const { count } = await db.from('membership_product').select('id', { count: 'exact', head: true }).eq('id', prod!.id);
+    expect(count).toBe(0);
+  }
+});
+

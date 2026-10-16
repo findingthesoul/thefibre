@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Archive, GripVertical, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
+import { PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { grantSummary } from '@/lib/grant-summary';
 import { createProductGroup, orderProductGroups, patchProduct, patchProductGroup, type ProductGroup } from './actions';
@@ -38,6 +39,9 @@ export function ProductsClient({
   grants,
   categories,
   categoryLinks,
+  tierOptions = [],
+  tierLinks = [],
+  tierIncludedLinks = [],
   locale,
 }: {
   products: Product[];
@@ -55,6 +59,9 @@ export function ProductsClient({
   categories: import('../settings/shared').DirectoryCategory[];
   /** Every product->category link; filtered per product, like grants. */
   categoryLinks: import('./types').ProductCategoryLink[];
+  tierOptions?: { id: string; name: string }[];
+  tierLinks?: { tier_id: string; product_id: string }[];
+  tierIncludedLinks?: { tier_id: string; product_id: string }[];
   locale: Locale;
 }) {
   const router = useRouter();
@@ -186,7 +193,16 @@ export function ProductsClient({
             onDragEnd={() => setDrag(null)}
             className={drag?.kind === 'product' && drag.id === p.id ? 'opacity-50' : ''}
           >
-            <ProductCard product={p} productGrants={grants.filter((g) => g.product_id === p.id)} teamOptions={teamOptions} locale={locale} onEdit={setEditing} />
+            <ProductCard
+              product={p}
+              productGrants={grants.filter((g) => g.product_id === p.id)}
+              teamOptions={teamOptions}
+              offeredWith={tierLinks.filter((l) => l.product_id === p.id).map((l) => tierOptions.find((x) => x.id === l.tier_id)?.name).filter((n): n is string => !!n)}
+              includedIn={tierIncludedLinks.filter((l) => l.product_id === p.id).map((l) => tierOptions.find((x) => x.id === l.tier_id)?.name).filter((n): n is string => !!n)}
+              vatRegistered={vatRegistered}
+              locale={locale}
+              onEdit={setEditing}
+            />
           </div>
         ))}
       </div>
@@ -295,25 +311,42 @@ export function ProductsClient({
         <p className="mt-2 text-xs text-ink-muted">{t(locale, 'pg_help')}</p>
       </div>
 
-      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={[]} categories={categories} productCategoryIds={[]} vatRegistered={vatRegistered} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
-      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={grants.filter((g) => g.product_id === editing.id)} categories={categories} productCategoryIds={categoryLinks.filter((l) => l.product_id === editing.id).map((l) => l.category_id)} vatRegistered={vatRegistered} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
+      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={[]} categories={categories} productCategoryIds={[]} tierOptions={tierOptions} productTierIds={[]} vatRegistered={vatRegistered} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
+      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} teamOptions={teamOptions} grants={grants.filter((g) => g.product_id === editing.id)} categories={categories} productCategoryIds={categoryLinks.filter((l) => l.product_id === editing.id).map((l) => l.category_id)} tierOptions={tierOptions} productTierIds={tierLinks.filter((l) => l.product_id === editing.id).map((l) => l.tier_id)} vatRegistered={vatRegistered} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
     </>
   );
+}
+
+/** Who may have it, by THE rule (2026-10-16): a renewing product is sold on
+ *  its own only when opened (sold_without_membership); a one-off when it is
+ *  purchasable. Anything else comes with a membership. */
+function soldAlone(p: Product): boolean {
+  const recurring = (p.price_interval ?? 'once') !== 'once';
+  return recurring ? !!p.purchasable && !!p.sold_without_membership : !!p.purchasable;
 }
 
 function ProductCard({
   product,
   productGrants,
   teamOptions,
+  offeredWith = [],
+  includedIn = [],
+  vatRegistered = false,
   locale,
   onEdit,
 }: {
   product: Product;
   productGrants: import('../access/types').Grant[];
   teamOptions: import('../access/types').TeamOption[];
+  /** Tiers that offer it as an optional extra. */
+  offeredWith?: string[];
+  /** Tiers that include it. */
+  includedIn?: string[];
+  vatRegistered?: boolean;
   locale: Locale;
   onEdit: (p: Product) => void;
 }) {
+  const interval = product.price_interval ?? 'once';
   const characteristics = product.characteristics ?? [];
   const links = product.links ?? [];
   return (
@@ -325,10 +358,16 @@ function ProductCard({
       <div className="flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2">
           <span className="text-base font-semibold tracking-tight text-ink">{product.name}</span>
-          {product.purchasable && (
-            <span className="rounded-full border border-emerald-300/60 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
-              {t(locale, 'buyable')}
-            </span>
+          {/* What the rule says, not "Buyable" (which stopped meaning one
+              thing on 2026-10-16). */}
+          <span className={`${PILL} ${soldAlone(product) ? PILL_TONE.positive : PILL_TONE.neutral}`}>
+            {t(locale, soldAlone(product) ? 'product_badge_sold_alone' : 'product_badge_members_only')}
+          </span>
+          {offeredWith.length > 0 && (
+            <span className={`${PILL} ${PILL_TONE.neutral}`}>{t(locale, 'product_badge_addon_for', { tiers: offeredWith.join(', ') })}</span>
+          )}
+          {includedIn.length > 0 && (
+            <span className={`${PILL} ${PILL_TONE.neutral}`}>{t(locale, 'product_badge_included_in', { tiers: includedIn.join(', ') })}</span>
           )}
           {product.archived_at && (
             <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-muted">
@@ -338,8 +377,14 @@ function ProductCard({
         </div>
         <div className="text-sm shrink-0">
           {product.price_cents != null ? (
-            <span className="font-semibold text-ink">
-              {money(product.price_cents, product.currency, INTL_LOCALES[locale])}
+            <span className="text-ink">
+              <span className="font-semibold">{money(product.price_cents, product.currency, INTL_LOCALES[locale])}</span>
+              {/* The unit and the VAT basis, so "€2,000" says what it is. */}
+              <span className="text-ink-muted">
+                {' '}
+                {t(locale, interval === 'year' ? 'price_per_year' : interval === 'month' ? 'price_per_month' : interval === 'week' ? 'price_per_week' : 'price_one_off')}
+                {vatRegistered ? ` · ${t(locale, product.price_includes_vat ? 'price_incl_vat' : 'price_excl_vat')}` : ''}
+              </span>
             </span>
           ) : (
             <span className="text-ink-muted">{t(locale, 'included_in_tier')}</span>

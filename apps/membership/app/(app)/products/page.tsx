@@ -70,6 +70,20 @@ export default async function ProductsPage() {
     .then((r) => r.items)
     .catch(() => [] as import('./actions').ProductGroup[]);
 
+  // The tiers, for "Offered with": which memberships a product rides as an
+  // optional extra (the tier's optional links). Fails soft to none.
+  const tiers = await apiFetch<{ items: { id: string; name: string; archived_at: string | null; membership_tier_product?: { product_id: string; optional: boolean }[] }[] }>(
+    '/api/v1/membership/tiers?archived=true',
+  )
+    .then((r) => r.items)
+    .catch(() => []);
+  const tierOptions = tiers.filter((t) => !t.archived_at).map((t) => ({ id: t.id, name: t.name }));
+  const tierLinks = tiers.flatMap((t) => (t.membership_tier_product ?? []).filter((l) => l.optional).map((l) => ({ tier_id: t.id, product_id: l.product_id })));
+  // And where a tier INCLUDES the product (for the list's "Included in …").
+  const tierIncludedLinks = tiers
+    .filter((t) => !t.archived_at)
+    .flatMap((t) => (t.membership_tier_product ?? []).filter((l) => !l.optional).map((l) => ({ tier_id: t.id, product_id: l.product_id })));
+
   const locale = await uiLocale();
 
   return (
@@ -84,6 +98,9 @@ export default async function ProductsPage() {
         grants={grants}
         categories={categories}
         categoryLinks={categoryLinks}
+        tierOptions={tierOptions}
+        tierLinks={tierLinks}
+        tierIncludedLinks={tierIncludedLinks}
         locale={locale}
       />
     </div>

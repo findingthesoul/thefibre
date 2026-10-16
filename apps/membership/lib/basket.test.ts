@@ -34,7 +34,10 @@ const c: Catalog = {
     product({ id: 'workshop', price_cents: 8000 }),
     product({ id: 'retreat', price_cents: 20000 }),
     product({ id: 'agenda', price_cents: 0 }),
-    product({ id: 'yearly-solo', price_cents: 4000, price_interval: 'year', purchasable: true }),
+    product({ id: 'yearly-solo', price_cents: 4000, price_interval: 'year', purchasable: true, sold_without_membership: true }),
+    // Purchasable and renewing, but MEMBERS ONLY (the default) — soul.com's
+    // community email address, 2026-10-16.
+    product({ id: 'members-email', price_cents: 20000, price_interval: 'year', purchasable: true }),
   ],
   priceLogic: null,
 };
@@ -167,4 +170,13 @@ describe('a price entered incl. VAT', () => {
     const b = addTier(inc, EMPTY_BASKET, 'inc');
     expect(totals(lines(inc, b, 'DE'), 0).grossCents).toBe(30000);
   });
+
+  it('a renewing product is MEMBERS ONLY unless opened: without a membership it says "With a membership"', () => {
+    const email = c.products.find((p) => p.id === 'members-email')!;
+    expect(addProduct(c, EMPTY_BASKET, 'members-email').productIds).toEqual([]);
+    expect(addBlocker(c, EMPTY_BASKET, email)).toBe('needs_membership');
+    // With a membership of its interval it rides the join as before.
+    expect(addProduct(c, addTier(c, EMPTY_BASKET, 'member'), 'members-email').productIds).toEqual(['members-email']);
+  });
 });
+

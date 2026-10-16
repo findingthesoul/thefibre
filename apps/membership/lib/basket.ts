@@ -57,8 +57,9 @@ function basketProductInterval(c: Catalog, b: Basket, except?: string): string |
 /** May this product be in this basket? A one-off always fits. A recurring
  *  one rides a membership of its own interval (one subscription, one
  *  interval — as at join); WITHOUT a membership it is subscribed to on its
- *  own (2026-10-16, /public/subscribe), as long as every renewing product in
- *  the basket shares one interval. It must be sold on its own (purchasable)
+ *  own (2026-10-16, /public/subscribe) only when the community opened it
+ *  (sold_without_membership), and every renewing product in the basket
+ *  shares one interval. It must be sold on its own (purchasable)
  *  or be an optional add-on of the tier in the basket. */
 export function fits(c: Catalog, b: Basket, p: PublicProduct): boolean {
   if (!has(p.price_cents)) return false;
@@ -68,6 +69,9 @@ export function fits(c: Catalog, b: Basket, p: PublicProduct): boolean {
   const iv = p.price_interval ?? 'once';
   if (iv === 'once') return true;
   if (tier) return iv === b.interval;
+  // MEMBERS ONLY unless the community opened it (sold_without_membership,
+  // 2026-10-16): without a membership a renewing product is not offered.
+  if (!p.sold_without_membership) return false;
   const other = basketProductInterval(c, b, p.id);
   return other === null || other === iv;
 }
@@ -76,8 +80,9 @@ export function fits(c: Catalog, b: Basket, p: PublicProduct): boolean {
 export function addBlocker(c: Catalog, b: Basket, p: PublicProduct): 'needs_membership' | 'other_interval' | null {
   if (fits(c, b, p)) return null;
   const iv = p.price_interval ?? 'once';
-  // Not sold on its own: only with the membership it belongs to.
+  // Not sold on its own, or members only: with the membership it belongs to.
   if (!p.purchasable) return 'needs_membership';
+  if (iv !== 'once' && !tierOf(c, b) && !p.sold_without_membership) return 'needs_membership';
   if (iv !== 'once') return 'other_interval';
   return 'needs_membership';
 }

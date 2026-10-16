@@ -69,12 +69,17 @@ beforeAll(async () => {
   const { data, error } = await service
     .from('membership_product')
     .insert([
-      { workspace_id: ws, name: 'Sub monthly circle', price_cents: 1500, price_interval: 'month', purchasable: true },
-      { workspace_id: ws, name: 'Sub kit', price_cents: 900, price_interval: 'once', purchasable: true },
-      { workspace_id: ws, name: 'Sub yearly', price_cents: 12000, price_interval: 'year', purchasable: true },
-      { workspace_id: ws, name: 'Sub yearly dated', price_cents: 12000, price_interval: 'year', purchasable: true, first_period_ends_on: nextYearEnd },
-      { workspace_id: ws, name: 'Sub yearly other date', price_cents: 6000, price_interval: 'year', purchasable: true, first_period_ends_on: otherDate },
-      { workspace_id: ws, name: 'Sub tier-only', price_cents: 500, price_interval: 'month', purchasable: false },
+      // Opened to non-members explicitly (sold_without_membership) — the
+      // default since 2026-10-16 is members only.
+      { workspace_id: ws, name: 'Sub monthly circle', price_cents: 1500, price_interval: 'month', purchasable: true, sold_without_membership: true },
+      { workspace_id: ws, name: 'Sub kit', price_cents: 900, price_interval: 'once', purchasable: true, sold_without_membership: false },
+      { workspace_id: ws, name: 'Sub yearly', price_cents: 12000, price_interval: 'year', purchasable: true, sold_without_membership: true },
+      { workspace_id: ws, name: 'Sub yearly dated', price_cents: 12000, price_interval: 'year', purchasable: true, sold_without_membership: true, first_period_ends_on: nextYearEnd },
+      { workspace_id: ws, name: 'Sub yearly other date', price_cents: 6000, price_interval: 'year', purchasable: true, sold_without_membership: true, first_period_ends_on: otherDate },
+      { workspace_id: ws, name: 'Sub tier-only', price_cents: 500, price_interval: 'month', purchasable: false, sold_without_membership: false },
+      // Purchasable and renewing but MEMBERS ONLY (the default): soul.com's
+      // community email address on production.
+      { workspace_id: ws, name: 'Sub members email', price_cents: 20000, price_interval: 'year', purchasable: true, sold_without_membership: false },
     ])
     .select('id, name');
   if (error) throw new Error(`products: ${error.message}`);
@@ -104,6 +109,11 @@ describe('refused, with a sentence', () => {
     const r = await subscribe([ids['Sub tier-only']!]);
     expect(r.status).toBe(400);
     expect(await r.json()).toMatchObject({ code: 'not_purchasable', error: 'Sub tier-only is not sold on its own.' });
+  });
+  it('a members-only renewing product (the default) — refused for a non-member, with a sentence', async () => {
+    const r = await subscribe([ids['Sub members email']!]);
+    expect(r.status).toBe(400);
+    expect(await r.json()).toMatchObject({ code: 'members_only', error: 'Sub members email is for members: it comes with a membership.' });
   });
   it('nothing that renews (that is a buy)', async () => {
     const r = await subscribe([ids['Sub kit']!]);

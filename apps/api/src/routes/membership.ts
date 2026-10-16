@@ -165,6 +165,9 @@ const CreateProduct = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'use a date like 2026-12-31')
     .optional()
     .nullable(),
+  // A RECURRING product may be subscribed to without a membership only when
+  // true (2026-10-16). Shown inverted as "Only with a membership".
+  sold_without_membership: z.boolean().optional(),
   sort_order: z.number().int().optional(),
 });
 const PatchProduct = CreateProduct.partial().extend({
@@ -758,6 +761,41 @@ membershipRoutes.patch('/tiers/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+// Which memberships a product is OFFERED with (2026-10-16, Sjoerd: "select
+// the membership it applies to"), from the PRODUCT's side: the product's
+// optional links to tiers, set to exactly these. A link where the tier
+// INCLUDES the product (optional = false) is the tier's business and is left
+// alone. Same table and RLS as the tier dialog's own write.
+membershipRoutes.put('/products/:id/tiers', async (c) => {
+  const body = z.object({ optional_tier_ids: z.array(z.string().uuid()).max(100) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const productId = c.req.param('id');
+  const { data: product } = await db.from('membership_product').select('id').eq('id', productId).maybeSingle();
+  if (!product) return c.json({ error: 'product not found' }, 404);
+  const want = new Set(body.data.optional_tier_ids);
+  if (want.size) {
+    const { data: tiers } = await db.from('membership_tier').select('id').in('id', [...want]);
+    if ((tiers ?? []).length !== want.size) return c.json({ error: 'That tier is not one of this community’s.' }, 400);
+  }
+  const { data: existing, error: readErr } = await db.from('membership_tier_product').select('id, tier_id, optional').eq('product_id', productId);
+  if (readErr) return fail(c, 'read product tiers', readErr);
+  const included = new Set((existing ?? []).filter((r) => !r.optional).map((r) => r.tier_id as string));
+  const optionalNow = new Map((existing ?? []).filter((r) => r.optional).map((r) => [r.tier_id as string, r.id as string]));
+  const toDelete = [...optionalNow.entries()].filter(([tierId]) => !want.has(tierId)).map(([, id]) => id);
+  const toInsert = [...want].filter((t) => !optionalNow.has(t) && !included.has(t)).map((tier_id) => ({ tier_id, product_id: productId, optional: true }));
+  if (toDelete.length) {
+    const { error } = await db.from('membership_tier_product').delete().in('id', toDelete);
+    if (error) return fail(c, 'unlink product tiers', error);
+  }
+  if (toInsert.length) {
+    const { error } = await db.from('membership_tier_product').insert(toInsert);
+    if (error) return fail(c, 'link product tiers', error);
+  }
+  return c.json({ ok: true, optional_tier_ids: [...want].filter((t) => !included.has(t)) });
+});
+
 // Replace a tier's included products in one call (the dialog saves whole).
 membershipRoutes.put('/tiers/:id/products', async (c) => {
   const body = z
@@ -811,7 +849,7 @@ membershipRoutes.get('/products', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_product')
-    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval, group_id, price_includes_vat, first_period_ends_on')
+    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval, group_id, price_includes_vat, first_period_ends_on, sold_without_membership')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list products', error);
@@ -2514,7 +2552,7 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .from('membership_product')
       // price/purchasable are additive (à-la-carte, 2026-09-06): the page
       // shows a Buy button only for purchasable products with a price.
-      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order, price_interval, group_id, price_includes_vat')
+      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order, price_interval, group_id, price_includes_vat, sold_without_membership')
       .eq('workspace_id', ws.id)
       .is('archived_at', null)
       .order('sort_order', { ascending: true }),
@@ -3563,7 +3601,7 @@ membershipRoutes.post('/public/subscribe', async (c) => {
 
   const { data: found } = await adminClient
     .from('membership_product')
-    .select('id, name, price_cents, price_interval, currency, purchasable, archived_at, price_includes_vat, first_period_ends_on')
+    .select('id, name, price_cents, price_interval, currency, purchasable, archived_at, price_includes_vat, first_period_ends_on, sold_without_membership')
     .eq('workspace_id', ws.id)
     .in('id', wantIds);
   const products = wantIds.map((id) => (found ?? []).find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p && !p.archived_at);
@@ -3573,6 +3611,13 @@ membershipRoutes.post('/public/subscribe', async (c) => {
     return c.json({ error: `${unsellable.name} is not sold on its own.`, code: 'not_purchasable' }, 400);
   }
   const recurring = products.filter((p) => isRecurringInterval(p.price_interval as string | null));
+  // MEMBERS ONLY unless the community opened it (2026-10-16, soul.com): a
+  // renewing product is subscribed to on its own only when
+  // sold_without_membership is true. Default false — every existing product.
+  const membersOnly = recurring.find((p) => !(p as { sold_without_membership?: boolean }).sold_without_membership);
+  if (membersOnly) {
+    return c.json({ error: `${membersOnly.name} is for members: it comes with a membership.`, code: 'members_only' }, 400);
+  }
   if (!recurring.length) {
     return c.json({ error: 'Nothing here renews, so it is bought once rather than subscribed to.', code: 'nothing_recurring' }, 400);
   }

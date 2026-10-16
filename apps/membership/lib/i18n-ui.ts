@@ -1992,6 +1992,126 @@ const CATALOG = {
     de: 'Mitglieder, die vor dem {date} beitreten, zahlen jetzt den vollen Preis und verl\u00e4ngern am {next}. Nach dem {date} bewirkt das nichts mehr.', // MT
     fr: 'Les membres qui rejoignent avant le {date} paient le prix complet maintenant et renouvellent le {next}. Apr\u00e8s le {date}, ceci ne fait plus rien.', // MT
   },
+  product_badge_members_only: {
+    en: 'Members only',
+    nl: 'Alleen leden', // MT
+    es: 'Solo miembros', // MT
+    pt: 'Só membros', // MT
+    de: 'Nur Mitglieder', // MT
+    fr: 'Membres seulement', // MT
+  },
+  product_badge_sold_alone: {
+    en: 'Sold on its own',
+    nl: 'Los te koop', // MT
+    es: 'Se vende por separado', // MT
+    pt: 'Vendido à parte', // MT
+    de: 'Einzeln erhältlich', // MT
+    fr: 'Vendu seul', // MT
+  },
+  product_badge_addon_for: {
+    en: 'Add-on for {tiers}',
+    nl: 'Extra bij {tiers}', // MT
+    es: 'Complemento de {tiers}', // MT
+    pt: 'Extra para {tiers}', // MT
+    de: 'Zusatz zu {tiers}', // MT
+    fr: 'Option pour {tiers}', // MT
+  },
+  product_badge_included_in: {
+    en: 'Included in {tiers}',
+    nl: 'Inbegrepen in {tiers}', // MT
+    es: 'Incluido en {tiers}', // MT
+    pt: 'Incluído em {tiers}', // MT
+    de: 'Enthalten in {tiers}', // MT
+    fr: 'Inclus dans {tiers}', // MT
+  },
+  price_per_year: {
+    en: '/ year',
+    nl: '/ jaar', // MT
+    es: '/ año', // MT
+    pt: '/ ano', // MT
+    de: '/ Jahr', // MT
+    fr: '/ an', // MT
+  },
+  price_per_month: {
+    en: '/ month',
+    nl: '/ maand', // MT
+    es: '/ mes', // MT
+    pt: '/ mês', // MT
+    de: '/ Monat', // MT
+    fr: '/ mois', // MT
+  },
+  price_per_week: {
+    en: '/ week',
+    nl: '/ week', // MT
+    es: '/ semana', // MT
+    pt: '/ semana', // MT
+    de: '/ Woche', // MT
+    fr: '/ semaine', // MT
+  },
+  price_one_off: {
+    en: 'one-off',
+    nl: 'eenmalig', // MT
+    es: 'pago único', // MT
+    pt: 'pagamento único', // MT
+    de: 'einmalig', // MT
+    fr: 'unique', // MT
+  },
+  price_excl_vat: {
+    en: 'excl. VAT',
+    nl: 'excl. btw', // MT
+    es: 'sin IVA', // MT
+    pt: 'sem IVA', // MT
+    de: 'zzgl. MwSt.', // MT
+    fr: 'HT', // MT
+  },
+  price_incl_vat: {
+    en: 'incl. VAT',
+    nl: 'incl. btw', // MT
+    es: 'IVA incl.', // MT
+    pt: 'IVA incl.', // MT
+    de: 'inkl. MwSt.', // MT
+    fr: 'TTC', // MT
+  },
+  product_only_members: {
+    en: 'Only with a membership',
+    nl: 'Alleen met een lidmaatschap', // MT
+    es: 'Solo con una membresía', // MT
+    pt: 'Só com uma adesão', // MT
+    de: 'Nur mit einer Mitgliedschaft', // MT
+    fr: 'Uniquement avec une adhésion', // MT
+  },
+  product_only_members_on: {
+    en: 'Members add it to their membership; nobody can subscribe to it on its own.',
+    nl: 'Leden voegen het toe aan hun lidmaatschap; niemand kan zich er los op abonneren.', // MT
+    es: 'Los miembros lo añaden a su membresía; nadie puede suscribirse por separado.', // MT
+    pt: 'Os membros juntam-no à sua adesão; ninguém o pode subscrever à parte.', // MT
+    de: 'Mitglieder fügen es ihrer Mitgliedschaft hinzu; niemand kann es einzeln abonnieren.', // MT
+    fr: 'Les membres l’ajoutent à leur adhésion ; personne ne peut s’y abonner seul.', // MT
+  },
+  product_only_members_off: {
+    en: 'Anyone can subscribe to it on its own, without a membership.',
+    nl: 'Iedereen kan zich er los op abonneren, zonder lidmaatschap.', // MT
+    es: 'Cualquiera puede suscribirse por separado, sin membresía.', // MT
+    pt: 'Qualquer pessoa o pode subscrever à parte, sem adesão.', // MT
+    de: 'Jeder kann es einzeln abonnieren, ohne Mitgliedschaft.', // MT
+    fr: 'Tout le monde peut s’y abonner seul, sans adhésion.', // MT
+  },
+  product_offered_with: {
+    en: 'Offered with these memberships',
+    nl: 'Aangeboden bij deze lidmaatschappen', // MT
+    es: 'Ofrecido con estas membresías', // MT
+    pt: 'Oferecido com estas adesões', // MT
+    de: 'Angeboten mit diesen Mitgliedschaften', // MT
+    fr: 'Proposé avec ces adhésions', // MT
+  },
+  product_tiers_save_failed: {
+    en: 'The product was saved, but its memberships were not: {error}',
+    nl: 'Het product is opgeslagen, maar de lidmaatschappen niet: {error}', // MT
+    es: 'El producto se guardó, pero sus membresías no: {error}', // MT
+    pt: 'O produto foi guardado, mas as adesões não: {error}', // MT
+    de: 'Das Produkt wurde gespeichert, seine Mitgliedschaften nicht: {error}', // MT
+    fr: 'Le produit est enregistré, mais pas ses adhésions : {error}', // MT
+  },
   product_first_period_addon: {
     en: 'Used when someone subscribes to this product on its own. As an add-on to a membership it renews on the membership’s date.',
     nl: 'Gebruikt wanneer iemand zich los op dit product abonneert. Als toevoeging aan een lidmaatschap verlengt het op de datum van het lidmaatschap.', // MT

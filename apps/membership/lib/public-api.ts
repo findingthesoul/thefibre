@@ -90,6 +90,9 @@ export type PublicProduct = {
   price_interval?: string | null;
   currency?: string | null;
   purchasable?: boolean;
+  /** A renewing product subscribed to WITHOUT a membership only when true
+   *  (2026-10-16); otherwise members only. */
+  sold_without_membership?: boolean;
   /** The product group it is listed under (2026-10-16). */
   group_id?: string | null;
   /** The entered price includes VAT (2026-10-16); default false. */

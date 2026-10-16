@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.246.4] — 2026-10-16
+
+### A renewing product is members-only unless the community opens it (Members 1.15.0)
+
+- **Why, from production soul.com.** v1.246.0 (on staging) let a
+  purchasable recurring product be subscribed to without a membership. On
+  production, soul.com's community email address and its Fellowship pathway
+  are purchasable recurring products meant for MEMBERS. Promoted as-is,
+  anybody could have subscribed to them.
+- **Now members only by default.** Standalone subscription needs the new
+  `sold_without_membership` (v1.246.3, default false), so every existing
+  product, production included, stays members-only with no data edit.
+  - `/public/subscribe` refuses a members-only renewing product with 400
+    `members_only`: "… is for members: it comes with a membership."
+  - The join page shows such a product as "With a membership" when no
+    membership is in the basket.
+  - With a membership of its interval it rides the join exactly as before.
+- **Members → Products, the dialog.** A renewing product gets Sjoerd's
+  tickbox "Only with a membership" (ticked by default; unticking opens it to
+  anyone), with a sentence saying which. It also gets "Offered with these
+  memberships": the tiers it rides as an optional extra, written as the
+  tier's optional links (new `PUT /membership/products/:id/tiers`). A tier
+  that INCLUDES the product is left alone.
+- **Members → Products, the list.** The ambiguous "Buyable" badge is
+  replaced by what the rule says: "Members only" or "Sold on its own", plus
+  "Add-on for <tiers>" and "Included in <tiers>". The badges use the shared
+  PILL tones, no colours typed in the app. The price says what it is:
+  "€2,000 / year · excl. VAT", or "one-off".
+- Next: a signed-in member adds a members-only product to their EXISTING
+  membership from the join page and from my.thread, through P3's prorated
+  add-on (not a new subscription).
+- Tested:
+  - unit basket (19): a members-only renewing product cannot go in without a
+    membership and says "With a membership", and rides with one;
+  - integration `membership-subscribe` on staging (13): a members-only
+    product is refused with the sentence, an opened one checks out;
+  - the join and basket suites (13/13);
+  - staging read-back: 0 of 10 products are opened;
+  - e2e `page-basket`: the opened product still checks out as a
+    subscription, and a members-only one shows a disabled "With a
+    membership" (runs after the deploy).
+
 ## [1.246.3] — 2026-10-16
 
 ### Members-only by default: the column (migration only)

@@ -7,7 +7,7 @@ import { Trash2 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
-import { createProduct, patchProduct } from './actions';
+import { createProduct, patchProduct, setProductTiers } from './actions';
 import { setProductCategories } from '../settings/actions';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { createGrant, deleteGrant } from '../access/actions';
@@ -66,6 +66,8 @@ export function ProductDialog({
   grants,
   categories,
   productCategoryIds,
+  tierOptions = [],
+  productTierIds = [],
   vatRegistered = false,
   locale,
   nextSortOrder,
@@ -87,6 +89,10 @@ export function ProductDialog({
   categories: import('../settings/shared').DirectoryCategory[];
   /** The categories THIS product currently confers. */
   productCategoryIds: string[];
+  /** The workspace's live tiers, and the ones THIS product is offered with
+   *  (its optional links) — "Offered with" (2026-10-16). */
+  tierOptions?: { id: string; name: string }[];
+  productTierIds?: string[];
   locale: Locale;
   /** Where a NEW product lands: the end of the list. Reordering is drag-and-drop on the list itself. */
   nextSortOrder: number;
@@ -103,6 +109,10 @@ export function ProductDialog({
   );
   const [purchasable, setPurchasable] = useState(product?.purchasable ?? false);
   const [firstPeriodEndsOn, setFirstPeriodEndsOn] = useState(product?.first_period_ends_on ?? '');
+  // MEMBERS ONLY by default (2026-10-16): a renewing product is subscribed to
+  // without a membership only when the community unticks this.
+  const [onlyMembers, setOnlyMembers] = useState(!product?.sold_without_membership);
+  const [tierIds, setTierIds] = useState<string[]>(productTierIds);
   const [inclVat, setInclVat] = useState(Boolean((product as { price_includes_vat?: boolean } | null)?.price_includes_vat));
   const [characteristics, setCharacteristics] = useState(
     (product?.characteristics ?? []).join('\n'),
@@ -243,6 +253,7 @@ export function ProductDialog({
       price_interval: priceInterval,
       // Only a renewing product has a first period; a one-off clears it.
       first_period_ends_on: priceInterval !== 'once' ? firstPeriodEndsOn.trim() || null : null,
+      sold_without_membership: priceInterval !== 'once' ? !onlyMembers : false,
       purchasable,
       ...(vatRegistered ? { price_includes_vat: inclVat } : {}),
       links: links
@@ -283,6 +294,16 @@ export function ProductDialog({
     const changed =
       categoryIds.length !== productCategoryIds.length ||
       categoryIds.some((id) => !productCategoryIds.includes(id));
+    const tiersChanged = tierIds.length !== productTierIds.length || tierIds.some((id) => !productTierIds.includes(id));
+    if (productId && tiersChanged) {
+      const tierRes = await setProductTiers(productId, tierIds);
+      if (tierRes.error) {
+        setError(t(locale, 'product_tiers_save_failed', { error: tierRes.error }));
+        setBusy(false);
+        router.refresh();
+        return;
+      }
+    }
     if (productId && changed) {
       const catRes = await setProductCategories(productId, categoryIds);
       if (catRes.error) {
@@ -424,6 +445,38 @@ export function ProductDialog({
                 </p>
                 <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'first_period_yearly_only')}</p>
                 <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'product_first_period_addon')}</p>
+              </div>
+            )}
+            {/* WHO MAY HAVE IT (Sjoerd, 2026-10-16, on production soul.com:
+                "Per product a tickbox: only with membership… and maybe select
+                the membership it applies to"). Ticked = members only; the
+                tiers are the memberships it is offered with. */}
+            {priceInterval !== 'once' && (
+              <div className="mt-3 space-y-2">
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" checked={onlyMembers} onChange={(e) => setOnlyMembers(e.target.checked)} className="mt-0.5" />
+                  <span>
+                    {t(locale, 'product_only_members')}
+                    <span className="block text-xs text-ink-muted">{t(locale, onlyMembers ? 'product_only_members_on' : 'product_only_members_off')}</span>
+                  </span>
+                </label>
+                {tierOptions.length > 0 && (
+                  <fieldset>
+                    <legend className="text-xs text-ink-muted">{t(locale, 'product_offered_with')}</legend>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                      {tierOptions.map((tier) => (
+                        <label key={tier.id} className="flex items-center gap-1.5 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={tierIds.includes(tier.id)}
+                            onChange={(e) => setTierIds((ids) => (e.target.checked ? [...ids, tier.id] : ids.filter((x) => x !== tier.id)))}
+                          />
+                          {tier.name}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
               </div>
             )}
           </div>

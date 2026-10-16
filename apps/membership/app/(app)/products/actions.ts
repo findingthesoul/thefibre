@@ -63,6 +63,20 @@ export async function patchProduct(
   }
 }
 
+/** Which memberships a product is offered with (its optional tier links). */
+export async function setProductTiers(productId: string, optionalTierIds: string[]): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/products/${productId}/tiers`, {
+      method: 'PUT',
+      body: JSON.stringify({ optional_tier_ids: optionalTierIds }),
+    });
+    revalidatePath('/products');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 // PRODUCT GROUPS (2026-10-16) — organising only.
 export type ProductGroup = { id: string; name: string; sort_order: number; archived_at: string | null };
 

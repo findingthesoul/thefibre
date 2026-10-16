@@ -23,6 +23,11 @@ export type Product = {
   price_interval?: 'once' | 'week' | 'month' | 'year' | null;
   /** A recurring product's first period end (subscribed to on its own). */
   first_period_ends_on?: string | null;
+  /** Subscribed to WITHOUT a membership only when true; shown inverted as
+   *  "Only with a membership" (2026-10-16). */
+  sold_without_membership?: boolean;
+  /** The entered price includes VAT (2026-10-16). */
+  price_includes_vat?: boolean;
   currency: string;
   /** À-la-carte (2026-09-06): can be bought standalone on the public page. */
   purchasable: boolean;
