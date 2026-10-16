@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.239.4] — 2026-10-16
+
+### A record of who changed someone's role, part 1 again: the triggers, v2
+
+The `role_change` triggers come back, rebuilt. In v1 (v1.239.2) a cascaded
+delete was skipped by `pg_trigger_depth() > 1`. An AFTER trigger fired by an
+FK cascade does not run at that depth, so hard-deleting a user wrote a row
+pointing at that user, and the delete failed. They were dropped in v1.239.3.
+
+v2 never asks about depth. One function, `role_change_write`, asks whether
+what a line would point at still exists:
+- the subject user is gone: nothing is written;
+- the workspace is gone: nothing is written;
+- the actor is gone: the line is written with no name.
+
+In an AFTER trigger the deleted parent is already invisible, which makes the
+existence check reliable. The append-only guard on `role_change` itself was
+a BEFORE trigger, where the depth check does hold, and is unchanged. It was
+proven when the leftover workspace from the failed read-back was deleted.
+
+The read-back runs the hard deletes first (`role-change-deletes`):
+- a user who is both a subject and an actor;
+- a whole workspace with members, grants and history.
+
+The rest follows after.
+
 ## [1.239.3] — 2026-10-16
 
 ### Emergency: the role_change triggers are dropped
