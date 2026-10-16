@@ -148,7 +148,9 @@ describe('a monthly product + a one-off: the session, then the webhook', () => {
     await deliver('checkout.session.completed', { ...session, subscription: SUB, customer: 'cus_local_x', status: 'complete', payment_status: 'paid' });
     const { data } = await service.from('membership_product_purchase').select('product_id, status, stripe_subscription_id').eq('person_id', personId);
     expect(data!.find((g) => g.product_id === ids['Sub monthly circle'])).toMatchObject({ status: 'active', stripe_subscription_id: SUB });
-    expect(data!.find((g) => g.product_id === ids['Sub kit'])).toMatchObject({ status: 'paid', stripe_subscription_id: null });
+    // The one-off rides the subscription's key too (so either event finds it)
+    // but is 'paid' — owned for good; ending the subscription leaves it.
+    expect(data!.find((g) => g.product_id === ids['Sub kit'])).toMatchObject({ status: 'paid', stripe_subscription_id: SUB });
   });
 
   it('invoice.paid → ONE ledger row keyed by the invoice; the grant knows its period end', async () => {
@@ -161,14 +163,14 @@ describe('a monthly product + a one-off: the session, then the webhook', () => {
     expect(rows).toHaveLength(1);
     expect(rows![0]).toMatchObject({ item_ref: inv, amount_cents: 2904 });
     expect(rows![0]!.item_label).toContain('Sub monthly circle');
-    const { data: g } = await service.from('membership_product_purchase').select('current_period_end').eq('stripe_subscription_id', SUB).single();
+    const { data: g } = await service.from('membership_product_purchase').select('current_period_end').eq('stripe_subscription_id', SUB).eq('product_id', ids['Sub monthly circle']!).single();
     expect(new Date(g!.current_period_end as string).getTime()).toBe(end * 1000);
   });
 
   it('payment failed → past_due (still owned); subscription deleted → cancelled, the kit still owned', async () => {
     const failed = { id: `in_local_f${randomUUID().slice(0, 8)}`, object: 'invoice', customer: 'cus_local_x', parent: { subscription_details: { subscription: SUB, metadata: { kind: 'product_subscription' } } } };
     await deliver('invoice.payment_failed', failed);
-    expect((await service.from('membership_product_purchase').select('status').eq('stripe_subscription_id', SUB).single()).data!.status).toBe('past_due');
+    expect((await service.from('membership_product_purchase').select('status').eq('stripe_subscription_id', SUB).eq('product_id', ids['Sub monthly circle']!).single()).data!.status).toBe('past_due');
     await deliver('customer.subscription.deleted', { id: SUB, object: 'subscription', status: 'canceled', metadata: { kind: 'product_subscription', workspace_id: ws, person_id: personId }, items: { data: [] } });
     const { data } = await service.from('membership_product_purchase').select('product_id, status, ends_at').eq('person_id', personId);
     const monthly = data!.find((g) => g.product_id === ids['Sub monthly circle'])!;
@@ -191,3 +193,63 @@ describe('a first-period date', () => {
     // does not expose before payment — the split lines are the proof here.
   });
 });
+
+// EITHER EVENT FIRST, OR BOTH AT ONCE (2026-10-16): the grants converge from
+// whichever lands first, and the database's unique (subscription, product)
+// index makes the loser of a parallel pair find the row.
+describe('the grants converge from either event', () => {
+  const invoiceFor = (sub: string, personId: string) => ({
+    id: `in_local_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+    object: 'invoice',
+    amount_paid: 2904,
+    currency: 'eur',
+    customer: 'cus_local_y',
+    subtotal: 2400,
+    total_taxes: [{ amount: 504 }],
+    lines: { data: [{ period: { end: Math.floor(Date.now() / 1000) + 30 * 86400 } }] },
+    parent: {
+      subscription_details: {
+        subscription: sub,
+        metadata: { kind: 'product_subscription', workspace_id: ws, person_id: personId, product_ids: [ids['Sub monthly circle'], ids['Sub kit']].join(','), vat_rule: 'excl' },
+      },
+    },
+  });
+  const counts = async (sub: string, personId: string, inv: string) => {
+    const { data: grants } = await service.from('membership_product_purchase').select('product_id').eq('stripe_subscription_id', sub);
+    const { count: ledger } = await service.from('purchase').select('id', { count: 'exact', head: true }).eq('item_ref', inv).eq('person_id', personId);
+    return { grants: (grants ?? []).map((g) => g.product_id as string).sort(), ledger };
+  };
+  const want = () => [ids['Sub monthly circle']!, ids['Sub kit']!].sort();
+
+  it('invoice FIRST: the grants and the ledger row are written; the late session adds nothing', async () => {
+    const s = await sessionOf(await subscribe([ids['Sub monthly circle']!, ids['Sub kit']!]));
+    const sub = `sub_local_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const inv = invoiceFor(sub, s.metadata!.person_id!);
+    await deliver('invoice.paid', inv);
+    expect(await counts(sub, s.metadata!.person_id!, inv.id)).toEqual({ grants: want(), ledger: 1 });
+    await deliver('checkout.session.completed', { ...s, subscription: sub, customer: 'cus_local_y', status: 'complete', payment_status: 'paid' });
+    expect(await counts(sub, s.metadata!.person_id!, inv.id)).toEqual({ grants: want(), ledger: 1 });
+  });
+
+  it('session FIRST: the same result', async () => {
+    const s = await sessionOf(await subscribe([ids['Sub monthly circle']!, ids['Sub kit']!]));
+    const sub = `sub_local_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const inv = invoiceFor(sub, s.metadata!.person_id!);
+    await deliver('checkout.session.completed', { ...s, subscription: sub, customer: 'cus_local_y', status: 'complete', payment_status: 'paid' });
+    await deliver('invoice.paid', inv);
+    expect(await counts(sub, s.metadata!.person_id!, inv.id)).toEqual({ grants: want(), ledger: 1 });
+  });
+
+  it('BOTH AT ONCE (parallel requests): one grant per product, one ledger row', async () => {
+    const s = await sessionOf(await subscribe([ids['Sub monthly circle']!, ids['Sub kit']!]));
+    const sub = `sub_local_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const inv = invoiceFor(sub, s.metadata!.person_id!);
+    await Promise.all([
+      deliver('checkout.session.completed', { ...s, subscription: sub, customer: 'cus_local_y', status: 'complete', payment_status: 'paid' }),
+      deliver('invoice.paid', inv),
+      deliver('invoice.paid', inv),
+    ]);
+    expect(await counts(sub, s.metadata!.person_id!, inv.id)).toEqual({ grants: want(), ledger: 1 });
+  });
+});
+

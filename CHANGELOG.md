@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.245.2] — 2026-10-16
+
+### A product subscription's first invoice is never lost
+
+- **The bug (staging only, in v1.245.0).** A product subscription's grants
+  were written only on `checkout.session.completed`, and `invoice.paid`
+  returned quietly when it found none. Stripe does not order those two
+  events. When the invoice landed first we answered 200, so Stripe never
+  retried, and that first invoice's ledger row was lost: the money was
+  taken and our record missed it. A subscription made through the API
+  sends no session event at all.
+- **Now both events converge**, the way a membership already does: one
+  `ensureProductSubscriptionGrants` writes the grants from the
+  subscription's own metadata (workspace, person, products), keyed by
+  (subscription, product). The first event creates them, the other finds
+  them. When both arrive at once, v1.245.1's unique index refuses the
+  second insert, and that 23505 is read as "already there". The existence
+  lookup uses the same live condition as the index.
+- Every grant of a product subscription now carries its subscription id.
+  The one-off line stays `paid` (owned for good), and ending the
+  subscription stops only active/past_due.
+- Tested: integration `membership-subscribe` on staging, 12/12. It adds:
+  - invoice FIRST: the grants plus one ledger row, and the late session
+    adds nothing;
+  - session first: the same;
+  - BOTH AT ONCE (session + invoice + invoice in parallel): one grant per
+    product, one ledger row.
+
 ## [1.245.1] — 2026-10-16
 
 ### One grant per product per subscription, guaranteed by the database (migration only)

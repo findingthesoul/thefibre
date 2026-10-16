@@ -4349,54 +4349,100 @@ async function reconcileIfMember(workspaceId: string, personId: string): Promise
   if (m) await reconcileMemberAccess(m.id as string);
 }
 
-/** checkout.session.completed for /public/subscribe: one grant per product,
- *  keyed (session, product) — a retry is 23505. A one-off product in the
- *  same basket is 'paid'; a recurring one 'active' on the subscription. */
-async function productSubscriptionStarted(account: string, session: Stripe.Checkout.Session): Promise<void> {
-  const meta = session.metadata ?? {};
-  const workspaceId = meta.workspace_id;
-  const personId = meta.person_id;
-  const ids = (meta.product_ids ?? '').split(',').filter(Boolean);
-  if (!workspaceId || !personId || !ids.length) {
-    console.error('[membership/webhook] product subscription without metadata', session.id);
-    return;
-  }
-  const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
-  const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
-  const { data: prods } = await adminClient.from('membership_product').select('id, name, price_cents, currency, price_interval').eq('workspace_id', workspaceId).in('id', ids);
-  let firstTime = false;
+/** THE GRANTS OF A PRODUCT SUBSCRIPTION, from whichever event lands first.
+ *  Stripe does not order checkout.session.completed and invoice.paid; a
+ *  subscription made through the API sends no session event at all. So both
+ *  call this, from the subscription's own metadata, keyed by (subscription,
+ *  product): the first creates, the second finds (found 2026-10-16 — the
+ *  invoice-first order used to return early and lose the first ledger row).
+ *  A recurring product is 'active'; a one-off in the same basket 'paid'
+ *  (owned for good — endSubscriptionGrants only stops active/past_due).
+ *  Returns how many it created. */
+async function ensureProductSubscriptionGrants(g: {
+  workspaceId: string;
+  personId: string;
+  productIds: string[];
+  subscriptionId: string;
+  customerId: string | null;
+  sessionId: string | null;
+}): Promise<number> {
+  if (!g.productIds.length) return 0;
+  const [{ data: prods }, { data: have }] = await Promise.all([
+    adminClient.from('membership_product').select('id, name, price_cents, currency, price_interval').eq('workspace_id', g.workspaceId).in('id', g.productIds),
+    // LIVE rows only — the same condition as the unique index
+    // (20261016133940): an ended grant is a record, not a holding.
+    adminClient.from('membership_product_purchase').select('product_id').eq('stripe_subscription_id', g.subscriptionId).in('status', [...LIVE_PURCHASE_STATUSES]),
+  ]);
+  const held = new Set((have ?? []).map((h) => h.product_id as string));
+  let created = 0;
   for (const prod of prods ?? []) {
-    const renews = isRecurringInterval(prod.price_interval as string | null);
+    if (held.has(prod.id as string)) continue;
     const { error } = await adminClient.from('membership_product_purchase').insert({
-      workspace_id: workspaceId,
-      person_id: personId,
+      workspace_id: g.workspaceId,
+      person_id: g.personId,
       product_id: prod.id,
-      stripe_session_id: session.id,
+      // The session when we have it; otherwise the subscription stands in
+      // (the column is the purchase's key, unique per product).
+      stripe_session_id: g.sessionId ?? `sub:${g.subscriptionId}`,
       amount_cents: prod.price_cents ?? 0,
       currency: (prod.currency ?? 'EUR').toUpperCase(),
       status: grantStatusFor(prod.price_interval as string | null),
-      ...(renews && subId ? { stripe_subscription_id: subId, stripe_customer_id: customerId } : {}),
+      stripe_subscription_id: g.subscriptionId,
+      stripe_customer_id: g.customerId,
     });
-    if (!error) firstTime = true;
-    else if (error.code !== '23505') console.error('[membership/webhook] product subscription grant failed', error);
+    if (!error) {
+      created++;
+      await logMemberActivity(g.workspaceId, g.personId, 'membership_product_purchased', `Subscribed · ${prod.name}`);
+    } else if (error.code !== '23505') console.error('[membership/webhook] product subscription grant failed', error);
   }
-  if (!firstTime) return;
-  for (const prod of prods ?? []) {
-    await logMemberActivity(workspaceId, personId, 'membership_product_purchased', `Subscribed · ${prod.name}`);
+  if (created) await reconcileIfMember(g.workspaceId, g.personId);
+  return created;
+}
+
+/** checkout.session.completed for /public/subscribe. */
+async function productSubscriptionStarted(account: string, session: Stripe.Checkout.Session): Promise<void> {
+  const meta = session.metadata ?? {};
+  const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
+  if (!meta.workspace_id || !meta.person_id || !meta.product_ids || !subId) {
+    console.error('[membership/webhook] product subscription without metadata', session.id);
+    return;
   }
-  await reconcileIfMember(workspaceId, personId);
+  await ensureProductSubscriptionGrants({
+    workspaceId: meta.workspace_id,
+    personId: meta.person_id,
+    productIds: meta.product_ids.split(',').filter(Boolean),
+    subscriptionId: subId,
+    customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null,
+    sessionId: session.id,
+  });
 }
 
 /** invoice.paid for a product subscription: ONE ledger row per invoice
  *  (item_ref = invoice id, as a membership's), and its grants live again
  *  until the period end. The money is the invoice's; the record is ours. */
 async function productSubscriptionInvoicePaid(account: string, invoice: Stripe.Invoice, subId: string): Promise<void> {
+  // The grants first, from the subscription's metadata, if the session event
+  // has not landed (or never will) — never return early and lose the row.
+  const meta = invoiceSubscriptionMetadata(invoice);
+  if (meta.workspace_id && meta.person_id && meta.product_ids) {
+    await ensureProductSubscriptionGrants({
+      workspaceId: meta.workspace_id,
+      personId: meta.person_id,
+      productIds: meta.product_ids.split(',').filter(Boolean),
+      subscriptionId: subId,
+      customerId: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? null,
+      sessionId: null,
+    });
+  }
   const { data: grants } = await adminClient
     .from('membership_product_purchase')
     .select('id, workspace_id, person_id, product:product_id (name)')
     .eq('stripe_subscription_id', subId);
   const first = (grants ?? [])[0];
-  if (!first) return; // the session event has not landed yet; Stripe retries invoice.paid
+  if (!first) {
+    console.error('[membership/webhook] product subscription invoice with no grants and no metadata', invoice.id);
+    return;
+  }
   const workspaceId = first.workspace_id as string;
   const personId = first.person_id as string;
   const names = (grants ?? []).map((g) => firstOf<{ name?: string }>(g.product)?.name).filter(Boolean).join(', ');
