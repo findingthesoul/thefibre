@@ -452,6 +452,10 @@ export type MyProfile = {
   locale: string | null;
   /** How many communities a name change will reach. Said before they save. */
   person_rows: number;
+  /** THE ONE PROFILE — identity_profile, the row Settings → Profile in The
+   *  Fibre edits (additive, 2026-10-16). Absent from an API older than that;
+   *  the profile section is then not shown. */
+  face?: ProfileFace;
   /** As given at the last checkout; read-only (additive, 2026-10-15). */
   billing_details?: {
     company: string | null;
@@ -481,10 +485,30 @@ export async function fetchProfile(accessToken: string): Promise<MyProfile | nul
  * straight to the API, so the session token never reaches the browser — the
  * same reason the .ics and the invoice PDF are served here.
  */
+export type ProfileFace = {
+  display_name: string | null;
+  bio: string | null;
+  short_bio: string | null;
+  photo_url: string | null;
+  timezone: string | null;
+  city: string | null;
+  website_url: string | null;
+  linkedin_url: string | null;
+};
+
+/** A refusal the API tied to a field (bio too long, a link without https). */
+export class ProfileFieldError extends Error {
+  constructor(message: string, public fieldErrors: Record<string, string[] | undefined>) {
+    super(message);
+  }
+}
+
 export async function saveProfile(patch: {
   first_name?: string;
   last_name?: string;
   locale?: string;
+  /** photo_url may only be null (remove); a photo is set by uploading it. */
+  face?: Partial<Omit<ProfileFace, 'photo_url'>> & { photo_url?: null };
 }): Promise<void> {
   const res = await fetch('/api/profile', {
     method: 'PATCH',
@@ -492,9 +516,21 @@ export async function saveProfile(patch: {
     body: JSON.stringify(patch),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    const body = (await res.json().catch(() => null)) as { error?: string; fieldErrors?: Record<string, string[]> } | null;
+    if (body?.fieldErrors) throw new ProfileFieldError(body.error ?? 'could not save', body.fieldErrors);
     throw new PortalApiError(res.status, body?.error ?? 'could not save');
   }
+}
+
+/** Upload your photo; it is saved to your profile at once and the URL comes
+ *  back. Through this app's own route, so the token stays on the server. */
+export async function uploadProfilePhoto(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/profile/photo', { method: 'POST', body: form });
+  const body = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+  if (!res.ok || !body?.url) throw new PortalApiError(res.status, body?.error ?? 'could not upload');
+  return body.url;
 }
 
 /** The file itself, through this app's own route — a plain link cannot carry

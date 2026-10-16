@@ -67,6 +67,11 @@ import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
+import { ProfilePatch, ProfileWhereabouts, nullEmptyFace } from './profile.js';
+import { sanitizeRichText } from '../lib/rich-text.js';
+import { removeStoredImage, storeImage } from '../lib/uploads.js';
+import { PHOTO_TYPES } from '../lib/strip-metadata.js';
+import { z } from 'zod';
 import { cancellationStateFor, REQUESTABLE_STATUSES, threadIsOver, type CancellationState } from './thread-cancellation.js';
 import {
   markEmailProven,
@@ -1839,7 +1844,11 @@ portalRoutes.get('/profile', async (c) => {
       // against the live schema, which is the only way to know: a PostgREST
       // select is a string and the type-checker never reads it.
       .order('created_at', { ascending: false }),
-    adminClient.from('identity_profile').select('locale, display_name').eq('email', email).maybeSingle(),
+    adminClient
+      .from('identity_profile')
+      .select('locale, display_name, bio, short_bio, photo_url, timezone, city, website_url, linkedin_url')
+      .eq('email', email)
+      .maybeSingle(),
   ]);
 
   // The newest row WITH A NAME wins when they disagree, which they can: two
@@ -1863,6 +1872,22 @@ portalRoutes.get('/profile', async (c) => {
     first_name: named?.first_name?.trim() || (named ? null : (pFirst ?? null)),
     last_name: named?.last_name?.trim() || (named ? null : (pRest.join(' ') || null)),
     locale: (identity?.locale as string | null) ?? null,
+    // THE ONE PROFILE (additive, 2026-10-16; Sjoerd: "the same profile as
+    // people would have in the Thread. Not a new profile."): identity_profile,
+    // the row Settings → Profile in The Fibre edits, keyed by this email. A
+    // member who later gets a seat finds it there with nothing to re-enter.
+    // `display_name` is null when never written; the form seeds it from the
+    // name above.
+    face: {
+      display_name: (identity?.display_name as string | null) ?? null,
+      bio: (identity?.bio as string | null) ?? null,
+      short_bio: (identity?.short_bio as string | null) ?? null,
+      photo_url: (identity?.photo_url as string | null) ?? null,
+      timezone: (identity?.timezone as string | null) ?? null,
+      city: (identity?.city as string | null) ?? null,
+      website_url: (identity?.website_url as string | null) ?? null,
+      linkedin_url: (identity?.linkedin_url as string | null) ?? null,
+    },
     // Additive (2026-10-15): read-only, null when no checkout carried one.
     billing_details: b
       ? {
@@ -1932,5 +1957,86 @@ portalRoutes.patch('/profile', async (c) => {
     }
   }
 
+  // THE FACE — the same fields and the same rules as Settings → Profile
+  // (routes/profile.ts ProfilePatch): one schema, one sanitiser, one limit.
+  // The photo is not taken from here: it is set by POST /profile/photo, so a
+  // member can never point their face at an arbitrary URL. `photo_url: null`
+  // is the one value accepted — it removes the photo.
+  const face = FacePatch.safeParse(body.face ?? {});
+  if (!face.success) return c.json({ error: 'some fields were not accepted', fieldErrors: face.error.flatten().fieldErrors }, 400);
+  const f: Record<string, unknown> = { ...face.data };
+  if (typeof f.bio === 'string') f.bio = sanitizeRichText(f.bio as string);
+  if (f.display_name === '') f.display_name = null;
+  nullEmptyFace(f);
+  const removePhoto = f.photo_url === null;
+  delete f.photo_url;
+  if (Object.keys(f).length || removePhoto) {
+    const before = removePhoto ? await identityRow(email) : null;
+    const { error } = await adminClient
+      .from('identity_profile')
+      .upsert({ email, ...f, ...(removePhoto ? { photo_url: null } : {}), updated_at: new Date().toISOString() }, { onConflict: 'email' });
+    if (error) {
+      console.error('[portal/profile] face update failed', error);
+      return c.json({ error: 'could not save your profile' }, 500);
+    }
+    if (before?.photo_url) await removeStoredImage(before.photo_url, `profiles/${before.id}`);
+  }
+
   return c.json({ ok: true });
+});
+
+const FacePatch = ProfilePatch.pick({ display_name: true, bio: true, short_bio: true, timezone: true })
+  .extend(ProfileWhereabouts)
+  .extend({ photo_url: z.null().optional() });
+
+/** The person's identity_profile row, made when there is none yet — a
+ *  participant without a seat has no row until they first save. */
+async function identityRow(email: string): Promise<{ id: string; photo_url: string | null }> {
+  const read = await adminClient.from('identity_profile').select('id, photo_url').eq('email', email).maybeSingle();
+  if (read.error) throw new Error(`identity_profile read failed: ${read.error.message}`);
+  if (read.data) return read.data as { id: string; photo_url: string | null };
+  const made = await adminClient
+    .from('identity_profile')
+    .upsert({ email }, { onConflict: 'email', ignoreDuplicates: true })
+    .select('id, photo_url')
+    .maybeSingle();
+  if (made.data) return made.data as { id: string; photo_url: string | null };
+  const again = await adminClient.from('identity_profile').select('id, photo_url').eq('email', email).single();
+  if (again.error || !again.data) throw new Error(`identity_profile create failed: ${again.error?.message ?? made.error?.message}`);
+  return again.data as { id: string; photo_url: string | null };
+}
+
+// POST /api/v1/me/profile/photo — the member's own photo, through THE upload
+// pipeline (lib/uploads.ts storeImage: 5MB, metadata stripped). Stored under
+// profiles/<identity_profile.id>/ in the shared public bucket — never under a
+// workspace (a participant has none) and never with the email in the path.
+// Saved at once; the photo it replaces is deleted, but only when it lies
+// under that same folder.
+portalRoutes.post('/profile/photo', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const body = await c.req.parseBody().catch(() => null);
+  const file = body?.file;
+  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
+  let row: { id: string; photo_url: string | null };
+  try {
+    row = await identityRow(email);
+  } catch (e) {
+    console.error('[portal/profile] photo: profile row', (e as Error).message);
+    return c.json({ error: 'could not save your photo' }, 500);
+  }
+  const prefix = `profiles/${row.id}`;
+  const stored = await storeImage(file, prefix, PHOTO_TYPES);
+  if ('error' in stored) return c.json({ error: stored.error }, stored.status);
+  const { error } = await adminClient
+    .from('identity_profile')
+    .update({ photo_url: stored.url, updated_at: new Date().toISOString() })
+    .eq('email', email);
+  if (error) {
+    console.error('[portal/profile] photo save failed', error);
+    await removeStoredImage(stored.url, prefix);
+    return c.json({ error: 'could not save your photo' }, 500);
+  }
+  if (row.photo_url && row.photo_url !== stored.url) await removeStoredImage(row.photo_url, prefix);
+  return c.json({ url: stored.url }, 201);
 });

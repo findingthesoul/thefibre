@@ -20,6 +20,7 @@ import { saveProfile, type MyProfile } from '@/lib/portal-api';
 import { LOCALES, LOCALE_LABELS } from '@thefibre/shared/i18n';
 import { COOKIE_LOCALE, writePrefCookie } from '@thefibre/shared/prefs';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { t } from '@/lib/i18n';
 
 // Each language in its own name (LOCALE_LABELS); only "No preference" is
@@ -120,29 +121,27 @@ export function DetailsForm({ profile }: { profile: MyProfile }) {
         </span>
       </label>
 
-      <label className="block">
+      {/* div, not label: a label wrapping SearchSelect's button misdirects
+          clicks (the same note as the shared profile form). The shared
+          select, never a native one (brand rule, 2026-10-16). */}
+      <div className="block">
         <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
           {t(ui, 'language')}
         </span>
-        <select
-          className={`mt-1 ${field}`}
+        <SearchSelect
+          className="mt-1"
           value={locale}
-          onChange={(e) => {
-            setLocale(e.target.value);
+          onChange={(v) => {
+            setLocale(v);
             setSaved(false);
           }}
-        >
-          <option value="">{t(ui, 'no_preference')}</option>
-          {LANGUAGES.map((l) => (
-            <option key={l.value} value={l.value}>
-              {l.label}
-            </option>
-          ))}
-        </select>
+          options={[{ value: '', label: t(ui, 'no_preference') }, ...LANGUAGES]}
+          placeholder={t(ui, 'no_preference')}
+        />
         <span className="mt-1 block text-xs text-ink-muted">
           {t(ui, 'language_hint')}
         </span>
-      </label>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <button

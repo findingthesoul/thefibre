@@ -46,6 +46,9 @@ export async function saveProfile(patch: {
   short_bio: string | null;
   photo_url: string | null;
   timezone: string | null;
+  city?: string | null;
+  website_url?: string | null;
+  linkedin_url?: string | null;
 }): Promise<ActionResult> {
   try {
     await apiFetch('/api/v1/profile', { method: 'PATCH', body: JSON.stringify(patch) });

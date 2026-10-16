@@ -37,7 +37,18 @@ export type ProfileValues = {
   short_bio: string;
   photo_url: string | null;
   timezone: string;
+  /** The person's own city and links — the one profile (identity_profile,
+   *  20261016162613). Empty = not written. Shown in a member directory only
+   *  where the person is listed; links only where they share contact. */
+  city: string;
+  website_url: string;
+  linkedin_url: string;
 };
+
+/** http(s) and something after it — the same rule the API applies, checked
+ *  here so the form refuses before the save (routes/profile.ts personLink). */
+const LINK_RE = /^https?:\/\/[^\s]+\.[^\s]+$/i;
+const linkOk = (v: string) => !v.trim() || LINK_RE.test(v.trim());
 
 export type ProfileSlug = {
   value: string;
@@ -85,6 +96,9 @@ export function ProfileForm({
   const [shortBio, setShortBio] = useState(initial.short_bio);
   const [photoUrl, setPhotoUrl] = useState<string | null>(initial.photo_url);
   const [timezone, setTimezone] = useState(initial.timezone);
+  const [city, setCity] = useState(initial.city);
+  const [website, setWebsite] = useState(initial.website_url);
+  const [linkedin, setLinkedin] = useState(initial.linkedin_url);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const over = bio.length > FIELD_LIMITS.bio;
@@ -142,6 +156,16 @@ export function ProfileForm({
         display_name: [tooLongMessage('A display name', FIELD_LIMITS.display_name)],
       });
     }
+    if (city.trim().length > FIELD_LIMITS.city) {
+      return setFieldErrors({ city: [tooLongMessage('A city', FIELD_LIMITS.city)] });
+    }
+    for (const [key, v, label] of [
+      ['website_url', website, 'A website'],
+      ['linkedin_url', linkedin, 'A LinkedIn link'],
+    ] as const) {
+      if (v.trim().length > FIELD_LIMITS.website) return setFieldErrors({ [key]: [tooLongMessage(label, FIELD_LIMITS.website)] });
+      if (!linkOk(v)) return setFieldErrors({ [key]: [chromeT(locale, 'profile_link_https')] });
+    }
     start(async () => {
       const r = await onSave({
         display_name: displayName.trim(),
@@ -156,6 +180,9 @@ export function ProfileForm({
         short_bio: shortBio.trim(),
         photo_url: photoUrl,
         timezone: timezone.trim() || 'Europe/Amsterdam',
+        city: city.trim(),
+        website_url: website.trim(),
+        linkedin_url: linkedin.trim(),
         ...(slug ? { slug: slugValue.trim() } : {}),
       });
       if (!r.ok) {
@@ -250,6 +277,38 @@ export function ProfileForm({
           ]),
         ]}
       />
+
+      <TextField
+        label={chromeT(locale, 'profile_city')}
+        value={city}
+        maxLength={FIELD_LIMITS.city}
+        autoComplete="address-level2"
+        onChange={(e) => touched(setCity)(e.target.value)}
+        hint={chromeT(locale, 'profile_city_hint')}
+        errors={fieldErrors.city}
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <TextField
+          label={chromeT(locale, 'profile_website')}
+          type="url"
+          inputMode="url"
+          placeholder="https://"
+          value={website}
+          maxLength={FIELD_LIMITS.website}
+          onChange={(e) => touched(setWebsite)(e.target.value)}
+          errors={fieldErrors.website_url ?? (linkOk(website) ? undefined : [chromeT(locale, 'profile_link_https')])}
+        />
+        <TextField
+          label={chromeT(locale, 'profile_linkedin')}
+          type="url"
+          inputMode="url"
+          placeholder="https://www.linkedin.com/in/…"
+          value={linkedin}
+          maxLength={FIELD_LIMITS.website}
+          onChange={(e) => touched(setLinkedin)(e.target.value)}
+          errors={fieldErrors.linkedin_url ?? (linkOk(linkedin) ? undefined : [chromeT(locale, 'profile_link_https')])}
+        />
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <PhotoField

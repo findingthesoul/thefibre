@@ -6,6 +6,76 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.253.0] — 2026-10-16
+
+### my.thread → You → Profile edits THE profile: photo, bio, city, links; You is three tabs (my.thread 0.26.0)
+
+- **One profile, not a new one.** Sjoerd: "The profile here is the same
+  profile as people would have in the Thread. Not a new profile." and "If
+  people later become part of the thread, this profile can also be used."
+  my.thread's Profile tab now renders the SHARED `ProfileForm` that The
+  Fibre's Settings → Profile renders, and it saves to the same record,
+  `identity_profile`, keyed by the verified email. The fields are the display
+  name, short bio, bio, photo, timezone, and the new city, website and
+  LinkedIn. A member who later gets a seat finds it there with nothing to
+  re-enter. A participant with no row yet gets one on first save; no
+  workspace is needed.
+- **The shared form gains city, website and LinkedIn**, so organisers get
+  them too, on Settings → Profile. `FIELD_LIMITS.city` (100) is new; links use
+  `FIELD_LIMITS.website` and must be http(s). The form refuses before the
+  save, and the API (`ProfileWhereabouts` in routes/profile.ts, shared by
+  both routes) refuses the same.
+- **API.** `GET /me/profile` gains `face` (additive). `PATCH /me/profile`
+  takes `face`: the same schema as `PATCH /profile`, with the bio through
+  `sanitizeRichText`. It never takes a photo URL, so a member cannot point
+  their face at an arbitrary address; only `null` (remove) is accepted.
+  `POST /me/profile/photo` is new.
+- **One upload pipeline.** `lib/uploads.ts` `storeImage()` is used by the
+  organiser upload (`POST /api/v1/uploads`, prefix = workspace) and by the
+  member photo (prefix = `profiles/<identity_profile.id>`: no workspace, no
+  email in the path). Both go to the public `thread-assets` bucket. JPEG,
+  PNG and WebP now **lose their metadata** (EXIF/GPS, XMP, comments, text
+  chunks) in `lib/strip-metadata.ts`, an allow-list written byte by byte
+  with no native dependency. This applies to organiser uploads too; GIF/AVIF
+  logos are stored as before, and the profile photo door refuses them. In the
+  browser my.thread also redraws the photo on a canvas (max 1024px, JPEG),
+  which applies the phone's rotation and drops metadata before upload. When
+  the browser cannot redraw it and the original would go up, a file over
+  4 MB is refused in the form with a sentence, because a hosted function
+  refuses a body past ~4.5 MB with a page that is not JSON.
+  Replacing or removing a photo deletes the old file, but only under that
+  person's own `profiles/<id>/` folder.
+- **Member directory:** a listed member's own city and links (from
+  `identity_profile`) come first, and the organiser-typed `person` row is the
+  fallback. Only `membership_directory_entry.listed` members are ever
+  candidates, and links stay behind `show_contact`. So a city typed in
+  my.thread appears in no directory the member has hidden from.
+- **Public pages unchanged.** Every public reader of the profile (the Meet
+  host page, Thread organiser pages) picks its fields by name, so none gains
+  city or links; no published shape changes. RLS on `identity_profile` is
+  unchanged: seat-holders can read the profiles of seat-holders in the same
+  workspace. A plain participant holds no seat, so their row is read by no
+  one but the API.
+- **You = Profile · Notifications · Privacy.** "Memberships & purchases" and
+  "Billing" repeated the sidebar's Memberships and Purchases pages. Their old
+  links redirect there (`?tab=memberships` → `/memberships`, `?tab=billing`
+  → `/purchases`). `billing-card.tsx` is deleted: it was a read-only copy of
+  the billing form on Purchases. The same details, from the same source
+  (`getBuyerDetails` via `/me/billing-details`), stay visible there,
+  prefilled and editable, so nothing leaves the member's view.
+- **Language** uses the shared `SearchSelect`, not a native select.
+- Tests: `strip-metadata.test.ts` (GPS EXIF, XMP and comments gone from
+  JPEG, PNG and WebP, the image parts kept in order, malformed files
+  refused); `uploads.test.ts` (an organiser upload still round-trips with the
+  same bytes, path and type; a GPS JPEG is stored without it; the photo door
+  refuses GIF/AVIF/SVG; removal stays inside its prefix). e2e `my-profile`
+  (new, staging, run after the deploy) and `you-tabs` (three tabs plus the
+  two redirects).
+- Not covered: when a member who also holds a seat changes their display
+  name in my.thread, `user.full_name` (the organiser sidebar name) is not
+  updated. The Fibre's Settings → Profile does that sync. It follows as its
+  own small release, so one profile never shows two names.
+
 ## [1.252.2] — 2026-10-16
 
 ### A Meet booking's manage link gets its own secret: the columns (migration only)

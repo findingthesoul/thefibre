@@ -5,12 +5,18 @@
 // name is spelled wrong on my invoice" — that question currently becomes an
 // email to an organiser, which is the thing this portal exists to stop.
 //
-// `ui/profile-form` was the shared candidate and is not the right one: it is
-// the ORGANISER's profile — display name, bio, photo, timezone, the face a
-// workspace sees. A member has none of that. What they have is a name that
-// several communities hold copies of, and a language.
+// Since 2026-10-16 the Profile tab also holds THE profile — the shared
+// `ui/profile-form`, saving to identity_profile, the same record The Fibre's
+// Settings → Profile edits (Sjoerd: "the same profile as people would have in
+// the Thread. Not a new profile."). The name the communities hold, and the
+// language, stay in DetailsForm above it.
+//
+// Three tabs: Profile · Notifications · Privacy. Memberships and purchases
+// live in the sidebar's own pages; the two tabs that repeated them redirect
+// there, so an old link still lands somewhere true.
 
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { ENTITY, surfaceUrl } from '@thefibre/shared';
 import { headers } from 'next/headers';
@@ -26,21 +32,19 @@ import { VERSION } from '@/lib/version';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
 import { DetailsForm } from './details-form';
-import { BillingCard } from './billing-card';
 import { CalendarCard } from './calendar-card';
 import { DirectoryCard } from './directory-card';
 import { NotifyCard } from './notify-card';
 import { YouTabs } from './you-tabs';
 import { YOU_TABS, type YouTab } from './tabs';
-import { ProductRenewals, Renewals } from '../purchases/renewals';
-import { fetchNotifyPrefs, fetchRenewals } from '@/lib/portal-api';
+import { fetchNotifyPrefs } from '@/lib/portal-api';
+import { ProfileFace } from './profile-face';
 import { ErasureBody, ErasureFallback } from './erasure-section';
 import { SignOutButton } from './sign-out-button';
 import { PushCard } from '../push-card';
 import type { Locale } from '@thefibre/shared/i18n';
 import { pageLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
-import { parts } from '@/lib/i18n-parts';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +56,10 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
   // One tab at a time, each a deep link; an unknown or missing tab is the
   // Profile, never a blank page. Each panel fetches only what it shows.
   const requested = (await searchParams).tab;
+  // The two tabs that repeated a sidebar page (2026-10-16): their links go
+  // to that page now, never to a Profile that is not what was asked for.
+  if (requested === 'memberships') redirect('/memberships');
+  if (requested === 'billing') redirect('/purchases');
   const locale = await pageLocale();
   const tab: YouTab = (YOU_TABS as readonly string[]).includes(requested ?? '') ? (requested as YouTab) : 'profile';
 
@@ -59,8 +67,6 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
     <PageShell title={t(locale, 'nav_you')}>
       <YouTabs value={tab} />
       {tab === 'profile' && <ProfilePanel person={session.portal.person} locale={locale} />}
-      {tab === 'memberships' && <MembershipsPanel token={session.token} locale={locale} />}
-      {tab === 'billing' && <BillingPanel locale={locale} />}
       {tab === 'notifications' && <NotificationsPanel token={session.token} />}
       {tab === 'privacy' && <PrivacyPanel locale={locale} />}
 
@@ -85,7 +91,15 @@ async function ProfilePanel({ person, locale }: { person: PortalPerson; locale: 
   return (
     <>
       {profile ? (
-        <DetailsForm profile={profile} />
+        <>
+          <DetailsForm profile={profile} />
+          {profile.face && (
+            <ProfileFace
+              face={profile.face}
+              fallbackName={[profile.first_name, profile.last_name].filter(Boolean).join(' ')}
+            />
+          )}
+        </>
       ) : (
         // The details call failed. Show what the portal payload already knows
         // rather than an error where a name should be — and say plainly that
@@ -122,46 +136,6 @@ async function ProfilePanel({ person, locale }: { person: PortalPerson; locale: 
         directory.length > 0 && <DirectoryCard choices={directory} />
       )}
     </>
-  );
-}
-
-/** What renews — memberships and products on their own — stopped or resumed
- *  here; every invoice is under Purchases. */
-async function MembershipsPanel({ token, locale }: { token: string; locale: Locale }) {
-  const renewals = await fetchRenewals(token);
-  const none = renewals && !renewals.memberships.length && !renewals.products.length;
-  return (
-    <>
-      {renewals === null && (
-        <p className="mt-8 rounded-2xl border border-line bg-surface px-4 py-3 text-xs text-ink-subtle">
-          {t(locale, 'mships_failed')}
-        </p>
-      )}
-      {renewals && <Renewals items={renewals.memberships} />}
-      {renewals && <ProductRenewals items={renewals.products} />}
-      {none && <p className="mt-8 text-sm text-ink-muted">{t(locale, 'nothing_renews')}</p>}
-      <p className="mt-8 text-sm text-ink-muted">
-        {parts(t(locale, 'every_invoice_under'), {
-          link: (
-            <Link href="/purchases" className="text-ink underline underline-offset-2 hover:opacity-70">
-              {t(locale, 'nav_purchases')}
-            </Link>
-          ),
-        })}
-      </p>
-    </>
-  );
-}
-
-/** The details your invoices carry. */
-async function BillingPanel({ locale }: { locale: Locale }) {
-  const profile = await loadProfile();
-  return profile?.billing_details ? (
-    <BillingCard details={profile.billing_details} locale={locale} />
-  ) : (
-    <p className="mt-8 text-sm text-ink-muted">
-      {profile ? t(locale, 'billing_none') : t(locale, 'billing_failed')}
-    </p>
   );
 }
 

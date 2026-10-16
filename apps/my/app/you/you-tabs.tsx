@@ -13,8 +13,6 @@ import { t, type MyKey } from '@/lib/i18n';
 
 const LABELS: Record<YouTab, MyKey> = {
   profile: 'tab_profile',
-  memberships: 'tab_memberships',
-  billing: 'tab_billing',
   notifications: 'notifications',
   privacy: 'tab_privacy',
 };

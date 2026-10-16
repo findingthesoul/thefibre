@@ -812,12 +812,20 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
   // with their person name and no photo — because being unlisted for want of
   // a profile is not a choice anybody made.
   const emails = [...new Set(persons.map((p) => p.email as string).filter(Boolean))];
-  let profiles: { email: string; display_name: string | null; bio: string | null; photo_url: string | null }[];
+  let profiles: {
+    email: string;
+    display_name: string | null;
+    bio: string | null;
+    photo_url: string | null;
+    city: string | null;
+    website_url: string | null;
+    linkedin_url: string | null;
+  }[];
   try {
     profiles = await selectIn('directory list: profiles', emails, (chunk) =>
       adminClient
         .from('identity_profile')
-        .select('email, display_name, bio, photo_url')
+        .select('email, display_name, bio, photo_url, city, website_url, linkedin_url')
         .in('email', chunk)
         .order('email'),
     );
@@ -852,8 +860,12 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
       photo_url: (prof?.photo_url as string | null) ?? null,
       bio: (prof?.bio as string | null) ?? null,
       // City and country only — region, street and postal code are never
-      // returned by this surface (§5).
-      city: (p.city as string | null) ?? null,
+      // returned by this surface (§5). The person's OWN city (their one
+      // profile, 20261016162613) first; the organiser-typed person row as
+      // the fallback. Only listed members reach this loop at all
+      // (membership_directory_entry.listed), so a city typed in my.thread
+      // shows nowhere the member has not chosen to appear.
+      city: prof?.city || ((p.city as string | null) ?? null),
       country: (p.country as string | null) ?? null,
       tags: (entry?.tags as string[] | undefined) ?? [],
       categories: settings.data.directory_show_category
@@ -863,8 +875,10 @@ membershipPortalRoutes.get('/me/directory/:workspaceId/members', async (c) => {
       phone: show ? ((p.phone as string | null) ?? null) : null,
       // §5 counts LinkedIn and website as contact points, so they follow
       // show(M) rather than riding along with the name.
-      linkedin_url: show ? ((p.linkedin_url as string | null) ?? null) : null,
-      website_url: show ? ((p.website_url as string | null) ?? null) : null,
+      // The member's own links first, the person row second — both still
+      // behind show(M).
+      linkedin_url: show ? prof?.linkedin_url || ((p.linkedin_url as string | null) ?? null) : null,
+      website_url: show ? prof?.website_url || ((p.website_url as string | null) ?? null) : null,
     });
   }
 

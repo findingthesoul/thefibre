@@ -16,6 +16,7 @@
 import type { Context } from 'hono';
 import DOMPurify from 'isomorphic-dompurify';
 import { adminClient } from '../db.js';
+import { PHOTO_TYPES, stripMetadata, type PhotoType } from './strip-metadata.js';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 // SVG is a document that can carry script, and this bucket is public — a raw
@@ -38,39 +39,91 @@ function sanitizeSvg(source: string): string | null {
   return clean.includes('<svg') ? clean : null;
 }
 
-export async function handleUpload(c: Context) {
-  const ctx = c.get('ctx');
-  const body = await c.req.parseBody();
-  const file = body.file;
-  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
-  if (file.size > MAX_BYTES) return c.json({ error: 'max 5MB' }, 400);
-  if (!TYPES.includes(file.type)) {
-    return c.json({ error: 'images only (png, jpeg, webp, gif, avif, svg)' }, 400);
+export type Stored = { url: string; path: string } | { error: string; status: 400 | 500 };
+
+const BUCKET = 'thread-assets';
+
+/**
+ * Store one image in the shared public bucket, under `prefix`. THE pipeline:
+ * every picture the platform keeps goes through here — an organiser's photo
+ * or logo (prefix = workspace id, POST /api/v1/uploads) and a member's own
+ * profile photo (prefix = profiles/<identity_profile.id>, my.thread).
+ *
+ * JPEG, PNG and WebP lose their metadata first (lib/strip-metadata.ts): a
+ * phone photo carries EXIF, EXIF carries GPS, and this bucket is public.
+ * GIF and AVIF are stored as they come — accepted for logos and covers, not
+ * offered for profile photos (`types` narrows them). SVG is sanitised.
+ */
+export async function storeImage(file: File, prefix: string, types: readonly string[] = TYPES): Promise<Stored> {
+  if (file.size > MAX_BYTES) return { error: 'max 5MB', status: 400 };
+  if (!types.includes(file.type)) {
+    return {
+      error: types === TYPES ? 'images only (png, jpeg, webp, gif, avif, svg)' : 'a photo: png, jpeg or webp',
+      status: 400,
+    };
   }
 
   let bytes: Buffer;
   if (file.type === 'image/svg+xml') {
     const clean = sanitizeSvg(await file.text());
-    if (!clean) return c.json({ error: 'that SVG did not survive sanitising — export it as plain shapes and retry' }, 400);
+    if (!clean) return { error: 'that SVG did not survive sanitising — export it as plain shapes and retry', status: 400 };
     bytes = Buffer.from(clean, 'utf8');
   } else {
     bytes = Buffer.from(await file.arrayBuffer());
+    if ((PHOTO_TYPES as readonly string[]).includes(file.type)) {
+      try {
+        bytes = stripMetadata(file.type as PhotoType, bytes);
+      } catch (e) {
+        // A file whose structure we cannot walk is refused, never stored
+        // with its metadata intact.
+        return { error: `${(e as Error).message} — save it again as a JPEG or PNG and retry`, status: 400 };
+      }
+    }
   }
 
   const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
-  // Workspace-prefixed so a bucket listing stays legible and a workspace's
-  // assets can be found — and deleted — as a set.
-  const path = `${ctx.workspaceId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await adminClient.storage
-    .from('thread-assets')
-    .upload(path, bytes, {
-      contentType: file.type || 'application/octet-stream',
-      upsert: false,
-    });
+  const path = `${prefix}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await adminClient.storage.from(BUCKET).upload(path, bytes, {
+    contentType: file.type || 'application/octet-stream',
+    upsert: false,
+  });
   if (error) {
     console.error('[uploads] failed', error);
-    return c.json({ error: error.message }, 500);
+    return { error: error.message, status: 500 };
   }
-  const { data } = adminClient.storage.from('thread-assets').getPublicUrl(path);
-  return c.json({ url: data.publicUrl }, 201);
+  const { data } = adminClient.storage.from(BUCKET).getPublicUrl(path);
+  return { url: data.publicUrl, path };
+}
+
+/**
+ * Remove a stored image by its public URL — only when it lies under
+ * `prefix/`. A URL outside it (an organiser's old workspace upload, a pasted
+ * link, another bucket) is left alone: it may still be referenced elsewhere.
+ * Failure is logged, not thrown; the profile already points elsewhere.
+ */
+export async function removeStoredImage(url: string | null | undefined, prefix: string): Promise<boolean> {
+  if (!url) return false;
+  const marker = `/object/public/${BUCKET}/`;
+  const at = url.indexOf(marker);
+  if (at < 0) return false;
+  const path = decodeURIComponent(url.slice(at + marker.length).split('?')[0] ?? '');
+  if (!path.startsWith(`${prefix}/`) || path.includes('..')) return false;
+  const { error } = await adminClient.storage.from(BUCKET).remove([path]);
+  if (error) {
+    console.error('[uploads] remove failed', { path, message: error.message });
+    return false;
+  }
+  return true;
+}
+
+export async function handleUpload(c: Context) {
+  const ctx = c.get('ctx');
+  const body = await c.req.parseBody();
+  const file = body.file;
+  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
+  // Workspace-prefixed so a bucket listing stays legible and a workspace's
+  // assets can be found — and deleted — as a set.
+  const r = await storeImage(file, ctx.workspaceId);
+  if ('error' in r) return c.json({ error: r.error }, r.status);
+  return c.json({ url: r.url }, 201);
 }

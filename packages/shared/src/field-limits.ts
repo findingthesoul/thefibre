@@ -43,6 +43,9 @@ export const FIELD_LIMITS = {
   photo_url: 1000,
   /** An IANA time zone name; the longest real one is ~32 characters. */
   timezone: 100,
+  /** The town a member lives in, shown in the member directory. Typed in
+   *  my.thread → You → Profile; the longest real place names run to ~60. */
+  city: 100,
 
   // ── Billing details ──────────────────────────────────────────────────────
   // Typed on Settings → Payments, which is one shared form rendered by Meet,

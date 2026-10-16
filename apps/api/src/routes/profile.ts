@@ -112,7 +112,41 @@ async function publicPageFor(userId: string): Promise<{
 // screen as `API 400` and nothing else, which is how a save that was one
 // paragraph too long looked exactly like a broken server (2026-10-03, on a
 // production account, during a demo).
+// A link the person types: http(s) only, so a stored value can never be a
+// javascript: URL rendered as an href somewhere. Empty = cleared.
+const personLink = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(FIELD_LIMITS.website, tooLongMessage(label, FIELD_LIMITS.website))
+    .refine((v) => v === '' || /^https?:\/\/[^\s]+\.[^\s]+$/i.test(v), `${label} must start with https://`)
+    .nullable()
+    .optional();
+
+/** The person's own city and links — one profile (20261016162613), shared by
+ *  Settings → Profile here and my.thread → You → Profile (routes/portal.ts).
+ *  An emptied field is stored as null by `nullEmptyFace`. */
+export const ProfileWhereabouts = {
+  city: z
+    .string()
+    .trim()
+    .max(FIELD_LIMITS.city, tooLongMessage('A city', FIELD_LIMITS.city))
+    .nullable()
+    .optional(),
+  website_url: personLink('A website'),
+  linkedin_url: personLink('A LinkedIn link'),
+};
+
+/** '' means "not written": stored as null, never as the empty string. */
+export function nullEmptyFace<T extends Record<string, unknown>>(face: T): T {
+  for (const k of ['short_bio', 'city', 'website_url', 'linkedin_url'] as const) {
+    if ((face as Record<string, unknown>)[k] === '') (face as Record<string, unknown>)[k] = null;
+  }
+  return face;
+}
+
 export const ProfilePatch = z.object({
+  ...ProfileWhereabouts,
   display_name: z
     .string()
     .max(FIELD_LIMITS.display_name, tooLongMessage('A display name', FIELD_LIMITS.display_name))
@@ -222,7 +256,7 @@ profileRoutes.patch('/', async (c) => {
   if (typeof face.bio === 'string') face.bio = sanitizeRichText(face.bio);
   // Empty means "not written", which readers turn into the bio's opening
   // (resolveShortBio). '' would read as written-and-blank.
-  if (face.short_bio === '') face.short_bio = null;
+  nullEmptyFace(face);
 
   if (Object.keys(face).length) {
     const r = await saveProfile(ctx.userId, face);

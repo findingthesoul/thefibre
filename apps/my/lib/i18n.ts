@@ -2578,6 +2578,38 @@ const CATALOG = {
     de: 'In dieser Sprache kommen E-Mails und Seiten an, überall.', // MT
     fr: 'La langue des e-mails et des pages, partout.', // MT
   },
+  face_title: {
+    en: 'Your profile',
+    nl: 'Je profiel',
+    es: 'Tu perfil', // MT
+    pt: 'O seu perfil', // MT
+    de: 'Dein Profil', // MT
+    fr: 'Ton profil', // MT
+  },
+  face_desc: {
+    en: 'The same profile you have in The Thread: what other members see of you, and your guests if you host.',
+    nl: 'Hetzelfde profiel als in The Thread: wat andere leden van je zien, en je gasten als je host bent.',
+    es: 'El mismo perfil que tienes en The Thread: lo que otros miembros ven de ti, y tus invitados si organizas.', // MT
+    pt: 'O mesmo perfil que tem no The Thread: o que os outros membros veem de si, e os seus convidados se organizar.', // MT
+    de: 'Dasselbe Profil wie in The Thread: was andere Mitglieder von dir sehen, und deine Gäste, wenn du Gastgeber bist.', // MT
+    fr: 'Le même profil que dans The Thread : ce que les autres membres voient de toi, et tes invités si tu organises.', // MT
+  },
+  face_photo_hint: {
+    en: 'Saved as soon as you choose it. Location data in the photo is removed.',
+    nl: 'Opgeslagen zodra je hem kiest. Locatiegegevens in de foto worden verwijderd.',
+    es: 'Se guarda en cuanto la eliges. Se eliminan los datos de ubicación de la foto.', // MT
+    pt: 'Guardada assim que a escolhe. Os dados de localização da foto são removidos.', // MT
+    de: 'Wird gespeichert, sobald du es auswählst. Standortdaten im Foto werden entfernt.', // MT
+    fr: 'Enregistrée dès que tu la choisis. Les données de localisation de la photo sont supprimées.', // MT
+  },
+  face_photo_too_big: {
+    en: 'That photo is over 4 MB. Choose a smaller one, or save it as a JPEG first.',
+    nl: 'Die foto is groter dan 4 MB. Kies een kleinere, of sla hem eerst op als JPEG.',
+    es: 'Esa foto pesa más de 4 MB. Elige una más pequeña o guárdala antes como JPEG.', // MT
+    pt: 'Essa foto tem mais de 4 MB. Escolha uma mais pequena ou guarde-a primeiro como JPEG.', // MT
+    de: 'Das Foto ist größer als 4 MB. Wähle ein kleineres oder speichere es zuerst als JPEG.', // MT
+    fr: 'Cette photo dépasse 4 Mo. Choisis-en une plus petite, ou enregistre-la d’abord en JPEG.', // MT
+  },
   did_not_save: {
     en: 'That did not save.',
     nl: 'Dat is niet opgeslagen.',

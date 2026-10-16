@@ -26,6 +26,11 @@ export type PublicProfile = {
   short_bio?: string | null;
   photo_url: string | null;
   timezone: string | null;
+  /** The person's own city and links (20261016162613). Optional on the
+   *  type: an API that predates the columns omits them. */
+  city?: string | null;
+  website_url?: string | null;
+  linkedin_url?: string | null;
   /** UI + email language (i18n P2) — edited by LanguagePicker, not this form. */
   locale?: string | null;
   /** The To do panel's on/off — edited by TodoPref, not this form. */
@@ -62,6 +67,9 @@ export function ProfileForm({
         short_bio: profile.short_bio ?? '',
         photo_url: profile.photo_url ?? null,
         timezone: profile.timezone ?? '',
+        city: profile.city ?? '',
+        website_url: profile.website_url ?? '',
+        linkedin_url: profile.linkedin_url ?? '',
       }}
       upload={uploadAsset}
       photoHint={t(locale, 'photo_hint')}
@@ -73,6 +81,9 @@ export function ProfileForm({
           short_bio: v.short_bio || null,
           photo_url: v.photo_url,
           timezone: v.timezone || null,
+          city: v.city || null,
+          website_url: v.website_url || null,
+          linkedin_url: v.linkedin_url || null,
         });
         return { ok: !!r.ok, error: r.error, fieldErrors: r.fieldErrors };
       }}

@@ -1104,6 +1104,46 @@ const CHROME = {
     de: 'Ein paar Zeilen für kleine Flächen, etwa deine Buchungsseiten. Leer gelassen, wird der Anfang deiner Bio verwendet.', // MT
     fr: 'Quelques lignes pour les petits espaces, comme tes pages de réservation. Laissée vide, le début de ta bio est utilisé.', // MT
   },
+  profile_city: {
+    en: 'City',
+    nl: 'Woonplaats', // MT
+    es: 'Ciudad', // MT
+    pt: 'Cidade', // MT
+    de: 'Stadt', // MT
+    fr: 'Ville', // MT
+  },
+  profile_city_hint: {
+    en: 'Shown in the member lists you choose to appear in.',
+    nl: 'Zichtbaar in de ledenlijsten waarin je zelf kiest te staan.', // MT
+    es: 'Se muestra en las listas de miembros en las que eliges aparecer.', // MT
+    pt: 'Aparece nas listas de membros em que escolhe aparecer.', // MT
+    de: 'Sichtbar in den Mitgliederlisten, in denen du erscheinen möchtest.', // MT
+    fr: 'Affichée dans les listes de membres où tu choisis d’apparaître.', // MT
+  },
+  profile_website: {
+    en: 'Website',
+    nl: 'Website', // MT
+    es: 'Sitio web', // MT
+    pt: 'Site', // MT
+    de: 'Website', // MT
+    fr: 'Site web', // MT
+  },
+  profile_linkedin: {
+    en: 'LinkedIn',
+    nl: 'LinkedIn', // MT
+    es: 'LinkedIn', // MT
+    pt: 'LinkedIn', // MT
+    de: 'LinkedIn', // MT
+    fr: 'LinkedIn', // MT
+  },
+  profile_link_https: {
+    en: 'Start the link with https://',
+    nl: 'Begin de link met https://', // MT
+    es: 'Empieza el enlace con https://', // MT
+    pt: 'Comece a ligação com https://', // MT
+    de: 'Beginne den Link mit https://', // MT
+    fr: 'Commence le lien par https://', // MT
+  },
   photo: {
     en: 'Photo',
     nl: 'Foto',

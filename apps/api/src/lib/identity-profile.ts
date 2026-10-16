@@ -27,6 +27,12 @@ export type IdentityProfile = {
    *  Here rather than in a cookie because it is about YOU, not about this
    *  browser: switching it off on a laptop must switch it off on a phone. */
   todo_enabled: boolean;
+  /** The person's own city and links (20261016162613). Shown in a member
+   *  directory only where they are listed, and on no public page: the
+   *  public host/organiser payloads pick their fields by name. */
+  city: string | null;
+  website_url: string | null;
+  linkedin_url: string | null;
 };
 
 const EMPTY: IdentityProfile = {
@@ -37,6 +43,9 @@ const EMPTY: IdentityProfile = {
   timezone: null,
   locale: null,
   todo_enabled: true,
+  city: null,
+  website_url: null,
+  linkedin_url: null,
 };
 
 async function emailFor(userId: string): Promise<string | null> {
@@ -62,7 +71,7 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
   const [{ data: identity, error: identityError }, { data: legacy }] = await Promise.all([
     adminClient
       .from('identity_profile')
-      .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled')
+      .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled, city, website_url, linkedin_url')
       .eq('email', email)
       .maybeSingle(),
     adminClient
@@ -88,6 +97,10 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
     locale: identity?.locale ?? null,
     // Default ON: a person with no row yet still gets the panel.
     todo_enabled: identity?.todo_enabled ?? true,
+    // No legacy fallback — born 20261016162613.
+    city: identity?.city ?? null,
+    website_url: identity?.website_url ?? null,
+    linkedin_url: identity?.linkedin_url ?? null,
   };
 }
 
@@ -97,7 +110,7 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
   if (!email) throw new Error('no email for user');
   const existing = await adminClient
     .from('identity_profile')
-    .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled')
+    .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled, city, website_url, linkedin_url')
     .eq('email', email)
     .maybeSingle();
   if (existing.data) return { ...existing.data, email };
@@ -128,7 +141,7 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
   const { data: created, error } = await adminClient
     .from('identity_profile')
     .upsert(seed, { onConflict: 'email' })
-    .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled')
+    .select('display_name, bio, short_bio, photo_url, timezone, locale, todo_enabled, city, website_url, linkedin_url')
     .single();
   if (error || !created) throw new Error(error?.message ?? 'could not provision profile');
   return { ...created, email };
