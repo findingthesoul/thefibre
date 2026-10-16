@@ -117,7 +117,19 @@ const SHAPES = {
     'price_currency',
     'public_interaction',
     'program',
+    // Thread dates part 4 (v1.220.0) and the incl.-VAT rate, collected with
+    // batch 32 (2026-10-16).
+    'event_starts_at',
+    'event_ends_at',
+    'key_moment_count',
+    'signups_close_at',
+    'language',
+    'timezone',
+    'vat_home_pct',
   ],
+  // The organiser page envelope: the owner's card choice (thread dates part
+  // 4), collected with batch 32.
+  organiserPage: ['card_dates'],
   embedItem: [
     'id',
     'slug',
@@ -184,6 +196,9 @@ const SHAPES = {
     // The workspace's card choice (thread dates part 3), collected with
     // batch 31 (2026-10-16).
     'card_dates',
+    // The seller's home VAT rate for the "incl. VAT" line, collected with
+    // batch 32 (2026-10-16).
+    'vat_home_pct',
   ],
   agendaItem: ['id', 'title', 'description', 'type', 'starts_at', 'ends_at', 'location', 'is_online', 'hosts'],
 };
@@ -221,15 +236,11 @@ const PENDING = {
   // part 3) were collected into SHAPES with batch 31.
   embedItem: [],
   embedListing: [],
-  // The seller's home VAT rate for the "incl. VAT" line (2026-10-16).
-  // Collect with the batch that puts it on production.
-  thread: ['vat_home_pct'],
-  // Thread dates part 4 (v1.220.0): the organiser page's cards read their
-  // dates through the shared rule, so each item carries what it needs and
-  // the page carries the owner's card choice. Collect with the batch that
-  // puts v1.220.0 on production.
-  listItem: ['event_starts_at', 'event_ends_at', 'key_moment_count', 'signups_close_at', 'language', 'timezone', 'vat_home_pct'],
-  organiserPage: ['card_dates'],
+  // Empty again: `vat_home_pct` (thread), the seven list-item fields and the
+  // organiser page's `card_dates` were collected into SHAPES with batch 32.
+  thread: [],
+  listItem: [],
+  organiserPage: [],
 };
 
 /** A pending field: silent-ish while absent, loud once it is live. */
@@ -319,6 +330,7 @@ checkShape('organiser', organiserRes.body?.organiser, SHAPES.organiser);
 checkPending('organiser', organiserRes.body?.organiser, PENDING.organiser);
 checkShape('organiser thread', organiserRes.body?.threads?.[0], SHAPES.listItem);
 checkPending('organiser thread', organiserRes.body?.threads?.[0], PENDING.listItem);
+checkShape('organiser page', organiserRes.body, SHAPES.organiserPage);
 checkPending('organiser page', organiserRes.body, PENDING.organiserPage);
 check(
   typeof organiserRes.body?.owner_kind === 'string',

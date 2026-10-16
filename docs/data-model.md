@@ -171,6 +171,7 @@ credentials and machine state, not a missing policy.
 | `membership_tier`, `membership_product`, `membership_member` (W, p3 each), `membership_tier_product` (–, p2) | Tiers; the catalogue; the member lifecycle record |
 | `membership_access_grant` (W, p1), `membership_member_access` (–, p1) | What a tier unlocks elsewhere (Thread, Circle, Google Workspace, a platform seat); the sync journal per member and grant |
 | `membership_pricing_rule` (W, p2), `membership_product_purchase` (W, p1) | Purchasing-power pricing rules; one-off product purchases |
+| `membership_product_group` (W, p3) | Product groups: how a community organises its products in Members → Products and on the join page (`membership_product.group_id`, one group per product). Not the directory categories: no effect on access, pricing or the directory |
 | `membership_settings` (W, **SR**), `membership_reminder_send` (–, **SR**) | Workspace settings including the Circle token and Google Workspace credential; renewal-reminder dedup |
 
 ## Connect

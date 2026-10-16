@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.224.0] — 2026-10-16
+
+### Product groups: the table (migration only)
+
+The first slice of product groups (Sjoerd, approved 2026-10-16): the
+schema, going out alone before any code reads it.
+
+- `membership_product_group` (workspace, name, drag-and-drop `sort_order`,
+  `archived_at`), with RLS of the same shape as membership_product: read for
+  the workspace with the app, write for a workspace or Members admin, and no
+  delete policy (groups are archived).
+- `membership_product.group_id` (nullable, `on delete set null`): each
+  product sits in at most one group.
+- Deliberately separate from `membership_directory_category`, which decides
+  directory visibility. A group decides only where a product is listed. In
+  the UI it will be "Product group"; the other is "Directory category".
+- docs/data-model.md lists the table.
+- **The public-contract gate collects what batch 32 put on production.**
+  These were builder 4's fields, waiting in PENDING; the gate went red for
+  everyone once production served them:
+  - the organiser page's list items (`event_starts_at`, `event_ends_at`,
+    `key_moment_count`, `signups_close_at`, `language`, `timezone`,
+    `vat_home_pct`; thread dates part 4, v1.220.0, and the incl.-VAT rate,
+    v1.222.x);
+  - the organiser page's `card_dates`, with a new `SHAPES.organiserPage`
+    and its shape check;
+  - the thread's `vat_home_pct`.
+  Only those nine fields; verify-public-api is green against production.
+
 ## [1.223.0] — 2026-10-16
 
 ### my.thread → Purchases: add to your membership, or change it (my 0.16.0 · Members 1.5.0)
