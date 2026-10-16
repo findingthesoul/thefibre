@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { chargeNet, homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
+import { getBuyerDetails } from '../lib/buyer-details.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
 import { profileFor } from '../lib/identity-profile.js';
@@ -5286,7 +5287,7 @@ meetRoutes.post('/bookings', async (c) => {
   const { data: mt } = await db
     .from('meet_meeting_type')
     .select(
-      'id, slug, name, workspace_id, host_id, team_id, duration_minutes, price_cents, price_currency, conferencing_provider, default_location',
+      'id, slug, name, workspace_id, host_id, team_id, duration_minutes, price_cents, price_currency, price_includes_vat, conferencing_provider, default_location',
     )
     .eq('id', d.meeting_type_id)
     .maybeSingle();
@@ -5313,6 +5314,35 @@ meetRoutes.post('/bookings', async (c) => {
   const paid = !!(mt.price_cents && mt.price_cents > 0);
   // A free meeting type has nothing to settle, whatever was asked for.
   const payment = paid ? (d.payment ?? 'comp') : null;
+
+  // THE SAME VAT AS THE ONLINE PRICE (Sjoerd, 2026-10-16: "yes"). A booking
+  // the host makes by hand recorded the price with no breakdown, so the
+  // ledger carved VAT out of it — €300 here, €363 online. Now: the price →
+  // its net (the meeting type's "price includes VAT") → VAT on top by the one
+  // rule, the host as seller, as on the public path. No country form here:
+  // the invitee's saved details decide, else their contact's country, else
+  // the host's home rate. Comped stays €0.
+  let bookingNet = 0;
+  let bookingVat: SaleVat | null = null;
+  if (payment === 'invoice' || payment === 'link') {
+    const { data: vatHost } = await adminClient.from('meet_host').select('user_id').eq('id', mt.host_id).maybeSingle();
+    const hostUserId = (vatHost?.user_id as string | null) ?? null;
+    const buyer = await getBuyerDetails(d.invitee_email);
+    const { data: contact } = personId
+      ? await adminClient.from('person').select('country').eq('id', personId).maybeSingle()
+      : { data: null };
+    const country = (buyer.country || (contact?.country as string | null) || '').toUpperCase() || null;
+    const vatId = buyer.tax_no || null;
+    bookingNet = await chargeNet({
+      workspaceId: mt.workspace_id,
+      organiserUserId: hostUserId,
+      enteredCents: mt.price_cents!,
+      includesVat: (mt as { price_includes_vat?: boolean | null }).price_includes_vat ?? false,
+      country,
+      vat_id: vatId,
+    });
+    bookingVat = await saleVat({ workspaceId: mt.workspace_id, organiserUserId: hostUserId, net_cents: bookingNet, country, vat_id: vatId });
+  }
 
   const { data: booking, error } = await adminClient
     .from('meet_booking')
@@ -5370,10 +5400,12 @@ meetRoutes.post('/bookings', async (c) => {
       payerEmail: d.invitee_email,
       itemLabel: mt.name,
       teamId: (mt as { team_id?: string | null }).team_id ?? null,
-      amountCents: payment === 'comp' ? 0 : mt.price_cents!,
+      amountCents: payment === 'comp' ? 0 : (bookingVat?.gross_cents ?? mt.price_cents!),
       currency: (mt.price_currency ?? 'EUR').toUpperCase(),
       method: payment === 'invoice' ? 'invoice' : 'stripe',
       status: payment === 'comp' ? 'paid' : 'pending',
+      // The breakdown, so the ledger never carves VAT out of a gross again.
+      ...(bookingVat ? { billing: vatBilling(bookingVat) } : {}),
     });
   }
 
@@ -5398,7 +5430,8 @@ meetRoutes.post('/bookings', async (c) => {
     payUrl = await createMeetPaymentLink({
       bookingId: booking.id,
       workspaceId: mt.workspace_id,
-      amountCents: mt.price_cents!,
+      amountCents: bookingVat?.gross_cents ?? mt.price_cents!,
+      netCents: bookingNet || mt.price_cents!,
       currency: mt.price_currency ?? 'EUR',
       itemLabel: mt.name,
       payerEmail: d.invitee_email,
@@ -5408,7 +5441,7 @@ meetRoutes.post('/bookings', async (c) => {
       const amount = new Intl.NumberFormat('en-GB', {
         style: 'currency',
         currency: (mt.price_currency ?? 'EUR').toUpperCase(),
-      }).format(mt.price_cents! / 100);
+      }).format((bookingVat?.gross_cents ?? mt.price_cents!) / 100);
       try {
         const sender = await meetSender(mt.workspace_id);
         await sendEmail({

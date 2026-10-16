@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { fillEmptyPlatformName } from '../lib/identity-profile.js';
 import { resolveSellerVat } from '../lib/seller-vat.js';
+import { getBuyerDetails } from '../lib/buyer-details.js';
 import { chargeNet, homeVatPct, saleVat, vatBilling, type SaleVat } from '../lib/sale-vat.js';
 import { connectedTaxRateId } from '../lib/vat-stripe.js';
 import {
@@ -4745,11 +4746,15 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
   let chosenTicket: { id: string; name: string } | null = null;
   let invoiceAmount = 0;
   let invoiceCurrency = 'EUR';
+  let invoiceIncludesVat = false;
+  // The NET the place is worth, and the VAT on it — decided below.
+  let invoiceNet = 0;
+  let invoiceVat: SaleVat | null = null;
   if (invoiced) {
     if (body.data.ticket_id) {
       const { data: ticket } = await adminClient
         .from('thread_ticket')
-        .select('id, name, price_cents, price_currency')
+        .select('id, name, price_cents, price_currency, price_includes_vat')
         .eq('id', body.data.ticket_id)
         .eq('thread_id', thread.id)
         .eq('is_active', true)
@@ -4760,6 +4765,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       chosenTicket = { id: ticket.id, name: ticket.name };
       invoiceAmount = ticket.price_cents;
       invoiceCurrency = ticket.price_currency ?? 'EUR';
+      invoiceIncludesVat = !!(ticket as { price_includes_vat?: boolean }).price_includes_vat;
     } else {
       const prices = await ticketPrices([thread.id]);
       const eff = effectivePrice(
@@ -4768,6 +4774,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       );
       invoiceAmount = eff.price_cents ?? 0;
       invoiceCurrency = eff.price_currency ?? 'EUR';
+      invoiceIncludesVat = eff.price_includes_vat;
     }
     if (invoiceAmount <= 0) {
       return c.json(
@@ -4775,6 +4782,46 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
         409,
       );
     }
+
+    // THE SAME VAT AS THE ONLINE PRICE (Sjoerd, 2026-10-16: "yes"). The
+    // invoice used to be the entered price with no breakdown, so the ledger
+    // carved VAT OUT of it: a €300 excl. ticket invoiced €300 here and €363
+    // online. Now: the entered price → its net (the ticket's "price includes
+    // VAT", by the one rule) → VAT on top by the one rule, with the THREAD's
+    // organiser as the seller, as on the public path. There is no country
+    // form here, so the buyer's own saved details decide (their country and
+    // VAT number — a business elsewhere in the EU is reverse-charged, as
+    // online), else the contact's country, else the seller's home rate.
+    const orgRow = thread.organiser as unknown;
+    const sellerUserId =
+      ((Array.isArray(orgRow) ? orgRow[0] : orgRow) as { user_id?: string | null } | null)?.user_id ?? null;
+    const buyer = await getBuyerDetails(body.data.email);
+    const { data: contact } = await adminClient
+      .from('person')
+      .select('country')
+      .eq('workspace_id', thread.workspace_id)
+      .ilike('email', body.data.email.trim())
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
+    const invoiceCountry = (buyer.country || (contact?.country as string | null) || '').toUpperCase() || null;
+    const invoiceVatId = buyer.tax_no || null;
+    invoiceNet = await chargeNet({
+      workspaceId: thread.workspace_id,
+      organiserUserId: sellerUserId,
+      enteredCents: invoiceAmount,
+      includesVat: invoiceIncludesVat,
+      country: invoiceCountry,
+      vat_id: invoiceVatId,
+    });
+    invoiceVat = await saleVat({
+      workspaceId: thread.workspace_id,
+      organiserUserId: sellerUserId,
+      net_cents: invoiceNet,
+      country: invoiceCountry,
+      vat_id: invoiceVatId,
+    });
+    invoiceAmount = invoiceVat.gross_cents;
   }
 
   // Capacity holds for manual adds too — raise it to add more.
@@ -4890,7 +4937,8 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       enrolment_id: enrolmentId,
       person_id: person.id,
       ticket_id: chosenTicket?.id ?? null,
-      amount_cents: invoiced ? invoiceAmount : null,
+      // The NET, as a public enrolment stores it; the ledger has the gross.
+      amount_cents: invoiced ? invoiceNet : null,
       currency: invoiced ? invoiceCurrency : null,
       payment_status: invoiced ? 'pending' : 'not_required',
       request_id: `manual:${crypto.randomUUID()}`,
@@ -4967,6 +5015,8 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
         postal_code: pFull?.postal_code ?? null,
         city: pFull?.city ?? null,
         country: pFull?.country ?? null,
+        // The breakdown, so the ledger never carves VAT out of a gross again.
+        ...(invoiceVat ? vatBilling(invoiceVat) : {}),
       },
     });
     const { data: saved } = await adminClient
@@ -4986,6 +5036,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
         threadEnrolmentId: te.id,
         workspaceId: thread.workspace_id,
         amountCents: invoiceAmount,
+        netCents: invoiceNet,
         currency: invoiceCurrency,
         itemLabel: saved.item_label,
         payerEmail: email,
@@ -5296,6 +5347,8 @@ threadRoutes.post('/stripe-webhook', async (c) => {
       const session = event.data.object as {
         id: string;
         amount_total?: number | null;
+        /** Stripe's own figure BEFORE tax — what the platform fee is on. */
+        amount_subtotal?: number | null;
         currency?: string | null;
         payment_intent?: string | null;
       };
@@ -5376,7 +5429,12 @@ threadRoutes.post('/stripe-webhook', async (c) => {
       // org share). Transfers themselves land with the payouts phase — this
       // is the auditable ledger row.
       try {
-        const platformFee = await platformFeeCents(te.workspace_id, gross);
+        // The fee RECORDED on the net, as it was TAKEN at checkout (the
+        // session's application_fee_amount was set on the net line). It was
+        // computed here on the gross until 2026-10-16, so the ledger and the
+        // payout split overstated the fee by the fee on the VAT.
+        const feeBase = session.amount_subtotal ?? gross;
+        const platformFee = await platformFeeCents(te.workspace_id, feeBase);
         const { data: ws } = await adminClient
           .from('thread_settings')
           .select('default_vendor_cut_percent')

@@ -23,6 +23,9 @@ export async function createMeetPaymentLink(p: {
   bookingId: string;
   workspaceId: string;
   amountCents: number;
+  /** The price BEFORE VAT, for the platform fee (lib/fees). The gross above
+   *  is what the payer is charged. */
+  netCents: number;
   currency: string;
   itemLabel: string;
   payerEmail: string;
@@ -59,7 +62,9 @@ export async function createMeetPaymentLink(p: {
   const base = `${meetUrl}${p.publicPath}/confirmed/${p.bookingId}`;
 
   // Same plan-aware fee rule as checkout and the other payment links.
-  const applicationFeeCents = await platformFeeCents(p.workspaceId, p.amountCents, account);
+  // On the NET (lib/fees): the link charges the gross as one line; the fee
+  // is taken on what it was before VAT.
+  const applicationFeeCents = await platformFeeCents(p.workspaceId, p.netCents, account);
   try {
     const session = await stripe.checkout.sessions.create(
       {

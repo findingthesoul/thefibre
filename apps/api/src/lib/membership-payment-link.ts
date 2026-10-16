@@ -3,6 +3,7 @@ import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { workspaceStripeAccount } from './payment-accounts.js';
 import { stackSurfaceUrl } from './stack-urls.js';
+import { netOfPurchase } from './fees.js';
 
 const MEMBERSHIP_APP_URL =
   process.env.MEMBERSHIP_APP_URL ?? appUrl('membership', process.env);
@@ -58,7 +59,12 @@ export async function createMembershipPaymentLink(p: {
   }
 
   const feePct = await membershipFeePercent(p.workspaceId);
-  const applicationFeeCents = Math.round((p.amountCents * feePct) / 100);
+  // On the NET (Sjoerd, 2026-10-16: the platform fee on the net everywhere):
+  // the link charges the row's gross, the fee is the percentage of what it
+  // was before VAT — the purchase's own breakdown, via lib/fees netOfPurchase.
+  const { data: row } = await adminClient.from('purchase').select('amount_cents, billing').eq('id', p.purchaseId).maybeSingle();
+  const feeBase = row ? netOfPurchase(row as { amount_cents: number; billing: { subtotal_cents?: number | null; tax_cents?: number | null } | null }) : p.amountCents;
+  const applicationFeeCents = Math.round((feeBase * feePct) / 100);
   try {
     const session = await stripe.checkout.sessions.create(
       {

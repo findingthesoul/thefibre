@@ -36,7 +36,7 @@ import {
   personalInvoiceDetails,
   workspaceInvoiceDetails,
 } from '../lib/payment-accounts.js';
-import { platformFeeCents } from '../lib/fees.js';
+import { netOfPurchase, platformFeeCents } from '../lib/fees.js';
 import { orIlike, orEq } from '../lib/postgrest-filter.js';
 
 export const purchasesRoutes = new Hono();
@@ -675,8 +675,13 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
     .eq('id', p.item_ref)
     .maybeSingle();
   if (!te) return c.json({ error: 'source enrolment missing' }, 409);
-  // Same plan-aware fee rule as checkout (lib/fees).
-  const applicationFeeCents = await platformFeeCents(te.workspace_id, p.amount_cents);
+  // Same plan-aware fee rule as checkout (lib/fees), on the NET: the link
+  // charges the row's gross as one line, the fee is on what it was before
+  // VAT (netOfPurchase reads the row's own breakdown).
+  const applicationFeeCents = await platformFeeCents(
+    te.workspace_id,
+    netOfPurchase(r.purchase as unknown as Parameters<typeof netOfPurchase>[0]),
+  );
 
   const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
   const organiser = thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);

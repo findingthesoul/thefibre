@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.242.0] — 2026-10-16
+
+### An invoice you add by hand has the same VAT as the online price, and the platform fee is on the price before VAT (Thread 4.17.0 · Meet 2.36.0)
+
+- Sjoerd, 2026-10-16: yes, to both.
+- **An invoice you add for a €300 ticket is now €363, like the online
+  price.** Before, a participant you added to a thread as "invoiced" (or a
+  Meet booking you made yourself, paid by invoice or by link) was invoiced
+  the entered price with no VAT breakdown, so the €300 was treated as if VAT
+  were already inside it. Now the same rule as the public form applies: the
+  ticket's (or meeting type's) "price includes VAT" setting decides the net,
+  and VAT goes on top, with the thread's organiser or the host as the
+  seller. There is no country form when you add someone by hand, so their
+  own saved billing details decide (a business elsewhere in the EU with a
+  VAT number is reverse-charged, as online). Otherwise their contact's
+  country decides, else your home rate. The invoice now carries the
+  breakdown.
+- **The platform fee is a percentage of the price before VAT, everywhere**,
+  through one function (`platformFeeCents` on the net; `netOfPurchase` reads
+  the net of a ledger row). The online checkout already did this. These
+  paths took it of the gross, and now take it of the net:
+  - the Thread Stripe webhook's ledger row and payout record;
+  - the Thread and Meet payment links;
+  - "Send payment link" on an invoice;
+  - the Members payment link.
+- Before and after, as the integration tests pin them (staging, fixture
+  plan 2% capped at €2; a €50 ticket so the cap does not hide it):
+
+  | Path | Before | After |
+  |---|---|---|
+  | Thread, add invoiced, €300 excl. ticket | €300, no breakdown | €363 = €300 + €63 |
+  | Thread, €300 incl. ticket | €300, no breakdown | €363 = €300 + €63 |
+  | Thread, buyer with no VAT registration on our side (unregistered seller) | €300 | €300, VAT €0 |
+  | Thread payment link, €50 excl. | €60.50, fee €1.21 | €60.50, fee €1.00 |
+  | Thread webhook, €60.50 paid | ledger + payout fee €1.21 | €1.00 |
+  | Meet host booking by invoice, €300 excl. | €300 | €363 |
+  | Meet host booking by link, €50 excl. | €60.50, fee €1.21 | €60.50, fee €1.00 |
+  | Meet, €300 incl. | €300 | €363 |
+  | Members payment link, €60.50 (€50 + €10.50 VAT) | fee €1.21 | fee €1.00 |
+
+- **No past record is rewritten.** Invoices and ledger rows written before
+  this release keep their amounts and fees. Only new ones follow the rule.
+- Tested: `manual-vat-fee-net.int.test.ts`, 9/9 on staging, plus the
+  existing refund, payout and payment-link tests, unchanged and green. Each
+  case was also run against the previous code and failed with the "before"
+  amount. Not tested: a real Stripe charge (the tests capture the checkout
+  parameters and sign a webhook event; nothing is paid).
+
 ## [1.241.2] — 2026-10-16
 
 ### A thread's document waits for its release on the my.thread schedule too
