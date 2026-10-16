@@ -282,7 +282,7 @@ export async function fetchCommunities(accessToken: string): Promise<CommunityVi
 /** One thing a member was told (type + subject + date — never a body). */
 export type MemberNotification = {
   id: string;
-  kind: 'new_thread' | 'session_moved' | 'session_cancelled';
+  kind: 'new_thread' | 'session_added' | 'session_moved' | 'session_cancelled';
   thread_id: string | null;
   subject: string;
   starts_at: string | null;

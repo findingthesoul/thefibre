@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.230.1] — 2026-10-16
+
+### Participants hear about every change (Thread 4.14.2, my.thread 0.17.1)
+
+Sjoerd, 2026-10-16: "yes build it". The gap report found that somebody who
+signed up for one thread was told about most session changes, but not all of
+them, and not well. Everything still rides the organiser's SEND; sending
+stays manual (a reminder for unsent changes follows separately).
+
+- **A new session reaches the bell.** `notifyCalendarSend` writes
+  `session_added` for participants and for calendar followers, the same as a
+  move or a cancellation (needs migration 20261016085530, applied in
+  v1.228.2). The followers' digest lists it as "new session".
+- **Participants are told whatever the community switch says.**
+  `notify_members` now gates only the followers. Someone with a place in the
+  thread gets the bell entry because of the place; before, a workspace with
+  the switch off, or with no community at all, gave them email only.
+- **"New place", when only the place changed.** The email said "Moved: … —
+  now <the same time>". It now says "New place", with the old place struck
+  through. The online link (meeting or location URL) is written in the email
+  as well, and not only inside the .ics; it is linked only when it is
+  http(s).
+- **In the reader's language.** The calendar email and its date line follow
+  `platformEmailLocale` (the reader's profile, then the thread's language,
+  then English), looked up once per address per send. English is unchanged
+  word for word; the other five are machine translations, marked `// MT`.
+- **A session that is over is not mailed.** Moving or cancelling a past
+  session (tidying a timeline) used to email everyone. The change is still
+  resolved, so the tray clears.
+- **my.thread → Notifications** no longer assumes a membership, and labels
+  the new kind "New session". Thread's SEND dialog counts followers for an
+  added session too.
+
+Tests: `member-notify.int.test.ts` (an added session reaches both; with the
+switch off the participant is still told and the follower is not) and a new
+`calendar-change-email.int.test.ts`, both against staging. The new test sends
+to two participants, one set to Dutch: "Nieuwe plek: …" for her, "New place"
+with Was/Now and the Online line for the other, and the past session mailed
+to nobody but still resolved. There are unit tests for the wording, the link
+guard and the Dutch date line.
+
 ## [1.230.0] — 2026-10-16
 
 ### "Price includes VAT" per tier and product: the columns (migration only)

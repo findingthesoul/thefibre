@@ -1,7 +1,7 @@
 // The Thread's transactional emails — same visual shell as Meet + auth
 // emails (branding.ts is the SPoT).
 
-import { emailSignoff, INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared';
+import { emailSignoff, INTL_LOCALES, makeT, toLocale, type I18nEntry, type Locale } from '@thefibre/shared';
 import { shell, escapeHtml, type EmailBrand } from './templates.js';
 import { myThreadUrl } from '../message-tokens.js';
 
@@ -403,6 +403,149 @@ ${emailSignoff()}`;
 
 export type CalendarInviteKind = 'added' | 'moved' | 'cancelled';
 
+// The words of the calendar email, in the RECIPIENT's language
+// (platformEmailLocale: their own profile, then the thread's language, then
+// English). English only until 2026-10-16, while every other Thread mail was
+// translated (Sjoerd: participants hear about every change). English is
+// unchanged word for word; the other five are machine translations, marked
+// like everywhere else.
+const INVITE_CATALOG = {
+  ci_subj_removed: {
+    en: 'Removed: {title}',
+    nl: 'Verwijderd: {title}', // MT
+    es: 'Eliminado: {title}', // MT
+    pt: 'Removido: {title}', // MT
+    de: 'Entfernt: {title}', // MT
+    fr: 'Retiré : {title}', // MT
+  },
+  ci_subj_host: {
+    en: 'Invitation to host: {title}',
+    nl: 'Uitnodiging om te hosten: {title}', // MT
+    es: 'Invitación para ser anfitrión: {title}', // MT
+    pt: 'Convite para ser anfitrião: {title}', // MT
+    de: 'Einladung zum Hosten: {title}', // MT
+    fr: 'Invitation à animer : {title}', // MT
+  },
+  ci_subj_cancelled: {
+    en: 'Cancelled: {title}',
+    nl: 'Geannuleerd: {title}', // MT
+    es: 'Cancelado: {title}', // MT
+    pt: 'Cancelado: {title}', // MT
+    de: 'Abgesagt: {title}', // MT
+    fr: 'Annulé : {title}', // MT
+  },
+  ci_subj_moved: {
+    en: 'Moved: {title} — now {when}',
+    nl: 'Verplaatst: {title} — nu {when}', // MT
+    es: 'Cambiado: {title} — ahora {when}', // MT
+    pt: 'Remarcado: {title} — agora {when}', // MT
+    de: 'Verschoben: {title} — jetzt {when}', // MT
+    fr: 'Déplacé : {title} — désormais {when}', // MT
+  },
+  ci_subj_place: {
+    en: 'New place: {title}',
+    nl: 'Nieuwe plek: {title}', // MT
+    es: 'Nuevo lugar: {title}', // MT
+    pt: 'Novo local: {title}', // MT
+    de: 'Neuer Ort: {title}', // MT
+    fr: 'Nouveau lieu : {title}', // MT
+  },
+  ci_subj_added: {
+    en: 'Invitation: {title}',
+    nl: 'Uitnodiging: {title}', // MT
+    es: 'Invitación: {title}', // MT
+    pt: 'Convite: {title}', // MT
+    de: 'Einladung: {title}', // MT
+    fr: 'Invitation : {title}', // MT
+  },
+  ci_lead_removed: {
+    en: '{org} has taken you off this session of {thread}. It goes ahead without you hosting it.',
+    nl: '{org} heeft je van deze sessie van {thread} gehaald. Ze gaat door zonder dat jij host.', // MT
+    es: '{org} te ha quitado de esta sesión de {thread}. Se celebra sin que tú seas anfitrión.', // MT
+    pt: '{org} retirou você desta sessão de {thread}. Ela acontece sem você como anfitrião.', // MT
+    de: '{org} hat dich von dieser Sitzung von {thread} genommen. Sie findet ohne dich als Host statt.', // MT
+    fr: '{org} vous a retiré de cette séance de {thread}. Elle a lieu sans que vous l’animiez.', // MT
+  },
+  ci_lead_host: {
+    en: '{org} has added you as a host of this session of {thread}.',
+    nl: '{org} heeft je toegevoegd als host van deze sessie van {thread}.', // MT
+    es: '{org} te ha añadido como anfitrión de esta sesión de {thread}.', // MT
+    pt: '{org} adicionou você como anfitrião desta sessão de {thread}.', // MT
+    de: '{org} hat dich als Host dieser Sitzung von {thread} hinzugefügt.', // MT
+    fr: '{org} vous a ajouté comme animateur de cette séance de {thread}.', // MT
+  },
+  ci_lead_cancelled: {
+    en: '{org} has cancelled this session of {thread}.',
+    nl: '{org} heeft deze sessie van {thread} geannuleerd.', // MT
+    es: '{org} ha cancelado esta sesión de {thread}.', // MT
+    pt: '{org} cancelou esta sessão de {thread}.', // MT
+    de: '{org} hat diese Sitzung von {thread} abgesagt.', // MT
+    fr: '{org} a annulé cette séance de {thread}.', // MT
+  },
+  ci_lead_moved: {
+    en: '{org} has moved this session of {thread}.',
+    nl: '{org} heeft deze sessie van {thread} verplaatst.', // MT
+    es: '{org} ha cambiado esta sesión de {thread}.', // MT
+    pt: '{org} remarcou esta sessão de {thread}.', // MT
+    de: '{org} hat diese Sitzung von {thread} verschoben.', // MT
+    fr: '{org} a déplacé cette séance de {thread}.', // MT
+  },
+  ci_lead_place: {
+    en: '{org} has changed where this session of {thread} takes place. The time stays the same.',
+    nl: '{org} heeft de plek van deze sessie van {thread} gewijzigd. De tijd blijft hetzelfde.', // MT
+    es: '{org} ha cambiado el lugar de esta sesión de {thread}. La hora sigue siendo la misma.', // MT
+    pt: '{org} mudou o local desta sessão de {thread}. O horário continua o mesmo.', // MT
+    de: '{org} hat den Ort dieser Sitzung von {thread} geändert. Die Zeit bleibt gleich.', // MT
+    fr: '{org} a changé le lieu de cette séance de {thread}. L’horaire reste le même.', // MT
+  },
+  ci_lead_added: {
+    en: '{org} has added a session to {thread}.',
+    nl: '{org} heeft een sessie toegevoegd aan {thread}.', // MT
+    es: '{org} ha añadido una sesión a {thread}.', // MT
+    pt: '{org} adicionou uma sessão a {thread}.', // MT
+    de: '{org} hat {thread} eine Sitzung hinzugefügt.', // MT
+    fr: '{org} a ajouté une séance à {thread}.', // MT
+  },
+  ci_was: { en: 'Was', nl: 'Was', es: 'Antes', pt: 'Antes', de: 'Vorher', fr: 'Avant' }, // MT
+  ci_now: { en: 'Now', nl: 'Nu', es: 'Ahora', pt: 'Agora', de: 'Jetzt', fr: 'Désormais' }, // MT
+  ci_when: { en: 'When', nl: 'Wanneer', es: 'Cuándo', pt: 'Quando', de: 'Wann', fr: 'Quand' }, // MT
+  ci_where: { en: 'Where', nl: 'Waar', es: 'Dónde', pt: 'Onde', de: 'Wo', fr: 'Où' }, // MT
+  ci_online: { en: 'Online', nl: 'Online', es: 'En línea', pt: 'Online', de: 'Online', fr: 'En ligne' }, // MT
+  ci_foot_cancelled: {
+    en: "We've sent your calendar the cancellation. If the session is still there, open the attached file to remove it.",
+    nl: 'We hebben de annulering naar je agenda gestuurd. Staat de sessie er nog? Open dan het bijgevoegde bestand om haar te verwijderen.', // MT
+    es: 'Hemos enviado la cancelación a tu calendario. Si la sesión sigue ahí, abre el archivo adjunto para eliminarla.', // MT
+    pt: 'Enviamos o cancelamento para o seu calendário. Se a sessão ainda estiver lá, abra o arquivo anexo para removê-la.', // MT
+    de: 'Wir haben die Absage an deinen Kalender geschickt. Steht die Sitzung noch drin, öffne die angehängte Datei, um sie zu entfernen.', // MT
+    fr: 'Nous avons envoyé l’annulation à votre agenda. Si la séance y figure encore, ouvrez le fichier joint pour la supprimer.', // MT
+  },
+  ci_foot_moved: {
+    en: 'The new time is above. The invitation is attached if you need to add it.',
+    nl: 'De nieuwe tijd staat hierboven. De uitnodiging zit in de bijlage als je haar wilt toevoegen.', // MT
+    es: 'La nueva hora está arriba. La invitación va adjunta por si necesitas añadirla.', // MT
+    pt: 'O novo horário está acima. O convite está anexado caso precise adicioná-lo.', // MT
+    de: 'Die neue Zeit steht oben. Die Einladung ist angehängt, falls du sie hinzufügen musst.', // MT
+    fr: 'Le nouvel horaire figure ci-dessus. L’invitation est jointe si vous devez l’ajouter.', // MT
+  },
+  ci_foot_place: {
+    en: 'The new place is above. The invitation is attached if you need to update it.',
+    nl: 'De nieuwe plek staat hierboven. De uitnodiging zit in de bijlage als je haar moet bijwerken.', // MT
+    es: 'El nuevo lugar está arriba. La invitación va adjunta por si necesitas actualizarla.', // MT
+    pt: 'O novo local está acima. O convite está anexado caso precise atualizá-lo.', // MT
+    de: 'Der neue Ort steht oben. Die Einladung ist angehängt, falls du sie aktualisieren musst.', // MT
+    fr: 'Le nouveau lieu figure ci-dessus. L’invitation est jointe si vous devez la mettre à jour.', // MT
+  },
+  ci_foot_added: {
+    en: 'The invitation is attached, if you would like it in your calendar.',
+    nl: 'De uitnodiging zit in de bijlage, als je haar in je agenda wilt.', // MT
+    es: 'La invitación va adjunta, por si la quieres en tu calendario.', // MT
+    pt: 'O convite está anexado, caso queira colocá-lo no seu calendário.', // MT
+    de: 'Die Einladung ist angehängt, falls du sie in deinem Kalender haben möchtest.', // MT
+    fr: 'L’invitation est jointe, si vous souhaitez l’ajouter à votre agenda.', // MT
+  },
+} satisfies Record<string, I18nEntry>;
+const ti = makeT(INVITE_CATALOG);
+
 export function calendarInviteEmail(c: {
   kind: CalendarInviteKind;
   sessionTitle: string;
@@ -414,6 +557,18 @@ export function calendarInviteEmail(c: {
    *  somebody recognises whether this affects them. */
   wasLine?: string | null;
   whereLine?: string | null;
+  /** A move where only the PLACE changed (the time did not): said as such,
+   *  with the old place struck through, instead of "Moved — now <the same
+   *  time>", which read as a time change that had not happened. */
+  placeOnly?: boolean;
+  /** The place before, for a place-only move. */
+  wasWhereLine?: string | null;
+  /** The online link (meeting or location URL). It used to travel only
+   *  inside the .ics, so a changed link was invisible in the email. Shown as
+   *  a link only when it is http(s). */
+  onlineUrl?: string | null;
+  /** The reader's language (platformEmailLocale). English when absent. */
+  locale?: string | null;
   /** The organiser's own words, typed once at the moment of sending. */
   note?: string | null;
   brand?: EmailBrand | undefined;
@@ -421,34 +576,56 @@ export function calendarInviteEmail(c: {
    *  off it (the session itself goes on for everyone else). */
   hostChange?: 'added' | 'removed' | null;
 }): { subject: string; text: string; html: string } {
-  const subject =
+  const loc = toLocale(c.locale);
+  const placeOnly = c.kind === 'moved' && !!c.placeOnly && !c.hostChange;
+  const vars = { title: c.sessionTitle, when: c.whenLine, org: c.organiserName, thread: c.threadTitle };
+  const subject = ti(
+    loc,
     c.hostChange === 'removed'
-      ? `Removed: ${c.sessionTitle}`
+      ? 'ci_subj_removed'
       : c.hostChange === 'added'
-        ? `Invitation to host: ${c.sessionTitle}`
+        ? 'ci_subj_host'
         : c.kind === 'cancelled'
-      ? `Cancelled: ${c.sessionTitle}`
-      : c.kind === 'moved'
-        ? `Moved: ${c.sessionTitle} — now ${c.whenLine}`
-        : `Invitation: ${c.sessionTitle}`;
+          ? 'ci_subj_cancelled'
+          : placeOnly
+            ? 'ci_subj_place'
+            : c.kind === 'moved'
+              ? 'ci_subj_moved'
+              : 'ci_subj_added',
+    vars,
+  );
+  const online = c.onlineUrl && /^https?:\/\//i.test(c.onlineUrl) ? c.onlineUrl : null;
 
   const lines: string[] = [];
   lines.push(
-    c.hostChange === 'removed'
-      ? `${c.organiserName} has taken you off this session of ${c.threadTitle}. It goes ahead without you hosting it.`
-      : c.hostChange === 'added'
-        ? `${c.organiserName} has added you as a host of this session of ${c.threadTitle}.`
-        : c.kind === 'cancelled'
-      ? `${c.organiserName} has cancelled this session of ${c.threadTitle}.`
-      : c.kind === 'moved'
-        ? `${c.organiserName} has moved this session of ${c.threadTitle}.`
-        : `${c.organiserName} has added a session to ${c.threadTitle}.`,
+    ti(
+      loc,
+      c.hostChange === 'removed'
+        ? 'ci_lead_removed'
+        : c.hostChange === 'added'
+          ? 'ci_lead_host'
+          : c.kind === 'cancelled'
+            ? 'ci_lead_cancelled'
+            : placeOnly
+              ? 'ci_lead_place'
+              : c.kind === 'moved'
+                ? 'ci_lead_moved'
+                : 'ci_lead_added',
+      vars,
+    ),
   );
   lines.push('');
   lines.push(c.sessionTitle);
-  if (c.kind === 'moved' && c.wasLine) lines.push(`Was: ${c.wasLine}`);
-  if (c.kind !== 'cancelled') lines.push(c.kind === 'moved' ? `Now: ${c.whenLine}` : c.whenLine);
-  if (c.whereLine && c.kind !== 'cancelled') lines.push(c.whereLine);
+  if (placeOnly) {
+    lines.push(c.whenLine);
+    if (c.wasWhereLine) lines.push(`${ti(loc, 'ci_was')}: ${c.wasWhereLine}`);
+    if (c.whereLine) lines.push(`${ti(loc, 'ci_now')}: ${c.whereLine}`);
+  } else {
+    if (c.kind === 'moved' && c.wasLine) lines.push(`${ti(loc, 'ci_was')}: ${c.wasLine}`);
+    if (c.kind !== 'cancelled') lines.push(c.kind === 'moved' ? `${ti(loc, 'ci_now')}: ${c.whenLine}` : c.whenLine);
+    if (c.whereLine && c.kind !== 'cancelled') lines.push(c.whereLine);
+  }
+  if (online && c.kind !== 'cancelled') lines.push(`${ti(loc, 'ci_online')}: ${online}`);
   if (c.note?.trim()) {
     lines.push('');
     lines.push(c.note.trim());
@@ -478,14 +655,19 @@ export function calendarInviteEmail(c: {
   // somebody to a room for a session that is not happening, having been told
   // explicitly not to act.
   lines.push(
-    c.kind === 'cancelled'
+    ti(
+      loc,
       // Measured 2026-10-15: Apple Calendar removed the event on its own, and
       // opening the file showed the cancellation. Gmail is not yet measured,
       // so this says what was SENT, not what the calendar did.
-      ? "We've sent your calendar the cancellation. If the session is still there, open the attached file to remove it."
-      : c.kind === 'moved'
-        ? 'The new time is above. The invitation is attached if you need to add it.'
-        : 'The invitation is attached, if you would like it in your calendar.',
+      c.kind === 'cancelled'
+        ? 'ci_foot_cancelled'
+        : placeOnly
+          ? 'ci_foot_place'
+          : c.kind === 'moved'
+            ? 'ci_foot_moved'
+            : 'ci_foot_added',
+    ),
   );
 
   // Signed by the ORGANISER: the invitation is theirs (its ORGANIZER name),
@@ -495,15 +677,23 @@ export function calendarInviteEmail(c: {
   const body = lines.join('\n');
   const text = `${body}\n\n${signoff}`;
 
+  const onlineRow = online
+    ? `<tr><td style="padding:2px 16px 2px 0;color:#737373;white-space:nowrap;">${escapeHtml(ti(loc, 'ci_online'))}</td><td style="padding:2px 0;"><a href="${escapeHtml(online)}" style="color:#171717;">${escapeHtml(online)}</a></td></tr>`
+    : '';
   const html = shell(
     c.threadTitle,
     `
       <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;">${escapeHtml(c.sessionTitle)}</h2>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(lines[0]!)}</p>
       <table style="font-size:15px;line-height:1.6;border-collapse:collapse;">
-        ${c.kind === 'moved' && c.wasLine ? row('Was', c.wasLine, true) : ''}
-        ${c.kind !== 'cancelled' ? row(c.kind === 'moved' ? 'Now' : 'When', c.whenLine) : ''}
-        ${c.whereLine && c.kind !== 'cancelled' ? row('Where', c.whereLine) : ''}
+        ${
+          placeOnly
+            ? `${row(ti(loc, 'ci_when'), c.whenLine)}${c.wasWhereLine ? row(ti(loc, 'ci_was'), c.wasWhereLine, true) : ''}${c.whereLine ? row(ti(loc, 'ci_where'), c.whereLine) : ''}`
+            : `${c.kind === 'moved' && c.wasLine ? row(ti(loc, 'ci_was'), c.wasLine, true) : ''}${
+                c.kind !== 'cancelled' ? row(ti(loc, c.kind === 'moved' ? 'ci_now' : 'ci_when'), c.whenLine) : ''
+              }${c.whereLine && c.kind !== 'cancelled' ? row(ti(loc, 'ci_where'), c.whereLine) : ''}`
+        }
+        ${c.kind !== 'cancelled' ? onlineRow : ''}
       </table>
       ${
         c.note?.trim()

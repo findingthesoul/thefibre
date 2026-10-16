@@ -43,9 +43,10 @@ import {
   icalContentType,
   DEFAULT_EVENT_MINUTES,
 } from '@thefibre/shared/ical';
-import { ENTITY } from '@thefibre/shared';
+import { ENTITY, INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared';
 import { platformFromAddress, sendEmail } from './email/client.js';
 import { calendarInviteEmail } from './email/thread-templates.js';
+import { platformEmailLocale } from './email/platform-i18n.js';
 import { workspaceSender } from './workspace-brand.js';
 import { notifyCalendarSend } from './member-notify.js';
 import { enrolmentIsLive } from './portal.js';
@@ -490,7 +491,7 @@ export async function sendPendingChanges(args: {
   const { data: thread } = await adminClient
     .from('thread_thread')
     .select(
-      `id, workspace_id, timezone,
+      `id, workspace_id, timezone, language,
        program:program_id (title),
        organiser:organiser_id (display_name, user:user_id (email, full_name))`,
     )
@@ -551,6 +552,24 @@ export async function sendPendingChanges(args: {
     : { data: [] as { id: string; excluded_people: string[] | null; invited_hosts: string[] | null }[] };
   const rowById = new Map((rows ?? []).map((r) => [r.id as string, r]));
 
+  // Each reader's own language (their profile, then the thread's, then
+  // English), asked once per address however many changes go to them.
+  const localeByEmail = new Map<string, Promise<Locale>>();
+  const localeOf = (email: string) => {
+    const key = email.toLowerCase();
+    if (!localeByEmail.has(key)) {
+      localeByEmail.set(
+        key,
+        platformEmailLocale(key, (thread.language as string | null) ?? null).catch(() =>
+          toLocale((thread.language as string | null) ?? null),
+        ),
+      );
+    }
+    return localeByEmail.get(key)!;
+  };
+  const zone = (thread.timezone as string | null) ?? 'UTC';
+  const now = Date.now();
+
   let sent = 0;
   const reached = new Set<string>();
   for (const change of changes) {
@@ -569,6 +588,25 @@ export async function sendPendingChanges(args: {
     const endsAt = state.ends_at
       ? new Date(state.ends_at)
       : new Date(startsAt.getTime() + DEFAULT_EVENT_MINUTES * 60_000);
+
+    // A session that is OVER is nobody's news: moving or cancelling it after
+    // the fact (tidying a past timeline) mailed every participant about a
+    // day that had gone. The bell already skipped these (member-notify);
+    // the email now does too. Resolved, so the tray does not hold it.
+    if (endsAt.getTime() <= now) {
+      skipped.push(`${change.title}: already over`);
+      await markSent([change.id]);
+      continue;
+    }
+
+    // ONLY THE PLACE moved: the time is the same, so "Moved — now <the same
+    // time>" would announce a change that did not happen.
+    const placeOnly =
+      change.kind === 'moved' &&
+      !!change.was?.starts_at &&
+      new Date(change.was.starts_at).getTime() === startsAt.getTime() &&
+      (change.was.ends_at ? new Date(change.was.ends_at).getTime() : null) ===
+        (state.ends_at ? new Date(state.ends_at).getTime() : null);
 
     const row = change.engagement_id ? rowById.get(change.engagement_id) : undefined;
     // A deleted session's hosts come from the state carried on the change.
@@ -615,16 +653,21 @@ export async function sendPendingChanges(args: {
     });
 
     for (const { recipient: person, ics } of invites) {
+      const locale = await localeOf(person.email);
       const mail = calendarInviteEmail({
         kind: person.hostChange === 'removed' ? 'cancelled' : mailKind,
         sessionTitle: change.title,
         threadTitle,
         organiserName,
-        whenLine: whenLine(startsAt, endsAt, (thread.timezone as string | null) ?? 'UTC'),
+        whenLine: whenLine(startsAt, endsAt, zone, locale),
         wasLine: change.kind === 'moved' && change.was?.starts_at
-          ? whenLine(new Date(change.was.starts_at), change.was.ends_at ? new Date(change.was.ends_at) : null, (thread.timezone as string | null) ?? 'UTC')
+          ? whenLine(new Date(change.was.starts_at), change.was.ends_at ? new Date(change.was.ends_at) : null, zone, locale)
           : null,
         whereLine: state.location ?? null,
+        placeOnly,
+        wasWhereLine: placeOnly ? (change.was?.location ?? null) : null,
+        onlineUrl: state.meeting_url ?? state.location_url ?? null,
+        locale,
         note: args.note ?? null,
         hostChange: person.hostChange,
       });
@@ -715,12 +758,17 @@ async function nextSequence(engagementId: string | null): Promise<number> {
 /** A date a person can read, in the organiser's words rather than ISO. The
  *  calendar entry itself carries the real instant; this is the sentence in the
  *  email beside it. */
-export function whenLine(startsAt: Date, endsAt: Date | null, timeZone = 'UTC'): string {
+export function whenLine(startsAt: Date, endsAt: Date | null, timeZone = 'UTC', locale?: Locale | string | null): string {
   // In the THREAD's timezone, with the zone named (2026-10-15: Sjoerd's
   // invitation read "15:00–16:00 UTC" for a session at 17:00 in Amsterdam).
   // The .ics carries the exact instant either way; this is the sentence.
+  //
+  // In the READER's language when one is given (2026-10-16); English reads
+  // exactly as before.
+  const loc = toLocale(typeof locale === 'string' ? locale : null);
+  const intl = loc === 'en' ? 'en-GB' : INTL_LOCALES[loc];
   const tz = safeZone(timeZone);
-  const day = startsAt.toLocaleDateString('en-GB', {
+  const day = startsAt.toLocaleDateString(intl, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -728,10 +776,21 @@ export function whenLine(startsAt: Date, endsAt: Date | null, timeZone = 'UTC'):
     timeZone: tz,
   });
   const time = (d: Date) =>
-    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
-  const zone = tz === 'UTC' ? 'UTC' : `${tz.split('/').pop()!.replace(/_/g, ' ')} time`;
+    d.toLocaleTimeString(intl, { hour: '2-digit', minute: '2-digit', timeZone: tz });
+  const city = tz.split('/').pop()!.replace(/_/g, ' ');
+  const zone = tz === 'UTC' ? 'UTC' : ZONE_WORD[loc].replace('{city}', city);
   return endsAt ? `${day}, ${time(startsAt)}–${time(endsAt)} (${zone})` : `${day}, ${time(startsAt)} (${zone})`;
 }
+
+/** "Amsterdam time", in each language. */
+const ZONE_WORD: Record<Locale, string> = {
+  en: '{city} time',
+  nl: '{city}-tijd', // MT
+  es: 'hora de {city}', // MT
+  pt: 'horário de {city}', // MT
+  de: 'Zeit in {city}', // MT
+  fr: 'heure de {city}', // MT
+};
 
 /** A zone name Intl accepts, else UTC — a typo in a thread's timezone must
  *  not throw inside a send. */

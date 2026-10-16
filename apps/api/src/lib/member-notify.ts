@@ -63,7 +63,7 @@ const THREAD_SELECT =
 type NotificationRow = {
   workspace_id: string;
   person_id: string;
-  kind: 'new_thread' | 'session_moved' | 'session_cancelled';
+  kind: 'new_thread' | 'session_added' | 'session_moved' | 'session_cancelled';
   thread_id: string;
   subject: string;
   starts_at: string | null;
@@ -389,23 +389,38 @@ export async function sendReach(threadId: string, now: Date = new Date()): Promi
 }
 
 /** Called when the organiser presses SEND, with the changes that press
- *  sends. Only moves and cancellations of FUTURE sessions; an `added`
- *  session reaches participants by its invitation and is not news to a
- *  follower until the thread is. */
+ *  sends: a session added, moved or cancelled, for FUTURE sessions only.
+ *  (`added` was left out until 2026-10-16, on the reasoning that its
+ *  invitation already told participants; Sjoerd: participants hear about
+ *  every change, in the bell as well.) A `people` change is the hosts'
+ *  business and tells no one here.
+ *
+ *  THE COMMUNITY SWITCH GATES THE FOLLOWERS, NOT THE PARTICIPANTS.
+ *  `notify_members` is a community's choice about telling its MEMBERS what
+ *  appears on a calendar they follow. Somebody who holds a place in this
+ *  thread is told because of the place, not the membership — before
+ *  2026-10-16 a workspace with the switch off, or with no community at all,
+ *  left them without the bell entry. Their rows carry email_state 'none':
+ *  the organiser's SEND already emailed them. */
 export async function notifyCalendarSend(
   threadId: string,
   changes: PendingChange[],
   now: Date = new Date(),
 ): Promise<number> {
   const relevant = changes
-    .filter((c) => c.kind === 'moved' || c.kind === 'cancelled')
+    .filter((c) => c.kind === 'added' || c.kind === 'moved' || c.kind === 'cancelled')
     .map((c) => ({
-      kind: c.kind === 'moved' ? ('session_moved' as const) : ('session_cancelled' as const),
+      kind:
+        c.kind === 'added'
+          ? ('session_added' as const)
+          : c.kind === 'moved'
+            ? ('session_moved' as const)
+            : ('session_cancelled' as const),
       title: c.title,
       startsAt:
-        c.kind === 'moved'
-          ? (c.now_state?.starts_at ?? null)
-          : (c.was?.starts_at ?? c.now_state?.starts_at ?? null),
+        c.kind === 'cancelled'
+          ? (c.was?.starts_at ?? c.now_state?.starts_at ?? null)
+          : (c.now_state?.starts_at ?? null),
     }))
     .filter((c) => !!c.startsAt && new Date(c.startsAt).getTime() > now.getTime());
   if (!relevant.length) return 0;
@@ -413,12 +428,15 @@ export async function notifyCalendarSend(
   const { data: t } = await adminClient.from('thread_thread').select(THREAD_SELECT).eq('id', threadId).maybeSingle();
   if (!t) return 0;
   const ws = t.workspace_id as string;
-  if (!(await notifyMembersOn(ws))) return 0;
 
   const placed = await personsWithAPlace(threadId);
   const participants = [...placed.entries()].filter(([, s]) => s !== 'dropped').map(([p]) => p);
   let followers: string[] = [];
-  if (t.team_id && calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now)) {
+  if (
+    t.team_id &&
+    calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now) &&
+    (await notifyMembersOn(ws))
+  ) {
     const fans = (await followersByTeam(ws)).get(t.team_id as string) ?? new Set<string>();
     followers = [...fans].filter((p) => !placed.has(p));
   }

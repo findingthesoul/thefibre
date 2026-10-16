@@ -59,10 +59,12 @@ export function CalendarTray({ threadId }: { threadId: string }) {
   if (!changes.length) return null;
 
   const n = changes.length;
-  // Followers of the team calendar who hold no place hear about a MOVE or a
-  // CANCELLATION (in my.thread and one email) — not about a newly added
-  // session, which reaches participants by its invitation.
-  const followersTold = changes.some((c) => c.kind === 'moved' || c.kind === 'cancelled') ? followers : 0;
+  // Followers of the team calendar who hold no place hear about a session
+  // ADDED, MOVED or CANCELLED (in my.thread and one email); a change of hosts
+  // only tells the hosts. Added sessions joined the list on 2026-10-16.
+  const followersTold = changes.some((c) => c.kind === 'added' || c.kind === 'moved' || c.kind === 'cancelled')
+    ? followers
+    : 0;
 
   function send() {
     setError(null);

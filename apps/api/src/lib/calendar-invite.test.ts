@@ -239,3 +239,62 @@ describe('whenLine', () => {
     expect(whenLine(new Date('2027-02-09T14:00:00Z'), null, 'America/New_York')).toBe('Tuesday, 9 February 2027, 09:00 (New York time)');
   });
 });
+
+// Participants hear about every change (Sjoerd, 2026-10-16): a place-only
+// move says so, the online link is in the words and not only in the .ics,
+// and the email is in the reader's language.
+describe('calendarInviteEmail — place, link and language', () => {
+  const base = {
+    sessionTitle: 'Conversation 1',
+    threadTitle: 'Year agenda',
+    organiserName: 'Sjoerd Luteijn',
+    whenLine: 'Tuesday, 9 February 2027, 15:00–17:00 (Amsterdam time)',
+  };
+
+  it('a place-only move names the new place, not a "new time" that did not change', () => {
+    const mail = calendarInviteEmail({
+      ...base,
+      kind: 'moved',
+      placeOnly: true,
+      wasLine: base.whenLine,
+      wasWhereLine: 'The old hall',
+      whereLine: 'De Nieuwe Kerk',
+    });
+    expect(mail.subject).toBe('New place: Conversation 1');
+    expect(mail.subject).not.toContain('now');
+    expect(mail.text).toContain('The time stays the same.');
+    expect(mail.text).toContain('Was: The old hall');
+    expect(mail.text).toContain('Now: De Nieuwe Kerk');
+    expect(mail.text).toMatch(/The new place is above/);
+    expect(mail.html).toContain('text-decoration:line-through;color:#737373;">The old hall');
+  });
+
+  it('a real move keeps its wording', () => {
+    const mail = calendarInviteEmail({ ...base, kind: 'moved', placeOnly: false, wasLine: 'Monday' });
+    expect(mail.subject).toBe(`Moved: Conversation 1 — now ${base.whenLine}`);
+  });
+
+  it('shows the online link in the email, as a link only when it is http(s)', () => {
+    const mail = calendarInviteEmail({ ...base, kind: 'moved', onlineUrl: 'https://meet.example.com/abc' });
+    expect(mail.text).toContain('Online: https://meet.example.com/abc');
+    expect(mail.html).toContain('href="https://meet.example.com/abc"');
+    const bad = calendarInviteEmail({ ...base, kind: 'added', onlineUrl: 'javascript:alert(1)' });
+    expect(bad.text).not.toContain('Online:');
+    expect(bad.html).not.toContain('javascript:');
+    expect(calendarInviteEmail({ ...base, kind: 'cancelled', onlineUrl: 'https://meet.example.com/abc' }).text).not.toContain('Online:');
+  });
+
+  it('is written in the reader’s language; English when none is known', () => {
+    const nl = calendarInviteEmail({ ...base, kind: 'cancelled', locale: 'nl' });
+    expect(nl.subject).toBe('Geannuleerd: Conversation 1');
+    expect(nl.text).toContain('Sjoerd Luteijn heeft deze sessie van Year agenda geannuleerd.');
+    expect(calendarInviteEmail({ ...base, kind: 'cancelled', locale: null }).subject).toBe('Cancelled: Conversation 1');
+  });
+
+  it('whenLine in Dutch; English exactly as before', () => {
+    const s = new Date('2027-02-09T14:00:00Z');
+    const e = new Date('2027-02-09T16:00:00Z');
+    expect(whenLine(s, e, 'Europe/Amsterdam', 'en')).toBe(whenLine(s, e, 'Europe/Amsterdam'));
+    expect(whenLine(s, e, 'Europe/Amsterdam', 'nl')).toBe('dinsdag 9 februari 2027, 15:00–17:00 (Amsterdam-tijd)');
+  });
+});

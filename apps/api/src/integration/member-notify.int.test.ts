@@ -237,9 +237,35 @@ describe("the organiser's SEND", () => {
     expect(moved).toHaveLength(2);
   });
 
-  it('a past session, or a newly added one, tells nobody', async () => {
+  it('a past session tells nobody', async () => {
     expect(await notify.notifyCalendarSend(t1.id, [change('moved', -5)])).toBe(0);
-    expect(await notify.notifyCalendarSend(t1.id, [change('added', 3)])).toBe(0);
+    expect(await notify.notifyCalendarSend(t1.id, [change('added', -5)])).toBe(0);
+  });
+
+  it('an added session: the participant and the follower both, like a move (2026-10-16)', async () => {
+    await service.from('member_notification').delete().eq('workspace_id', ws).neq('kind', 'new_thread');
+    expect(await notify.notifyCalendarSend(t1.id, [change('added', 3)])).toBe(2);
+    const added = (await rowsFor(t1.id)).filter((r) => r.kind === 'session_added');
+    expect(added).toEqual(
+      expect.arrayContaining([
+        { person_id: people.b.id, kind: 'session_added', email_state: 'none' },
+        { person_id: people.a.id, kind: 'session_added', email_state: 'pending' },
+      ]),
+    );
+    expect(added).toHaveLength(2);
+  });
+
+  it('with the community switch OFF the participant is still told; the follower is not', async () => {
+    await service.from('member_notification').delete().eq('workspace_id', ws).neq('kind', 'new_thread');
+    await service.from('membership_settings').update({ notify_members: false }).eq('workspace_id', ws);
+    try {
+      expect(await notify.notifyCalendarSend(t1.id, [change('cancelled', 3)])).toBe(1);
+      expect((await rowsFor(t1.id)).filter((r) => r.kind === 'session_cancelled')).toEqual([
+        { person_id: people.b.id, kind: 'session_cancelled', email_state: 'none' },
+      ]);
+    } finally {
+      await service.from('membership_settings').update({ notify_members: true }).eq('workspace_id', ws);
+    }
   });
 });
 

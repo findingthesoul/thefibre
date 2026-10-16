@@ -21,7 +21,7 @@ export type DigestItem =
       listPriceCents: number | null;
       currency: string;
     }
-  | { kind: 'session_moved' | 'session_cancelled'; title: string; startsAt: string | null };
+  | { kind: 'session_added' | 'session_moved' | 'session_cancelled'; title: string; startsAt: string | null };
 
 const CATALOG = {
   // "{community}: …" and never "the {community} calendar": a community
@@ -90,6 +90,14 @@ const CATALOG = {
     pt: 'agora {when}', // MT
     de: 'jetzt {when}', // MT
     fr: 'désormais {when}', // MT
+  },
+  n_added: {
+    en: 'new session · {when}',
+    nl: 'nieuwe sessie · {when}', // MT
+    es: 'nueva sesión · {when}', // MT
+    pt: 'nova sessão · {when}', // MT
+    de: 'neue Sitzung · {when}', // MT
+    fr: 'nouvelle séance · {when}', // MT
   },
   n_cancelled: {
     en: 'cancelled',
@@ -183,7 +191,9 @@ export function memberNotifyDigest(opts: {
     meta:
       i.kind === 'session_cancelled'
         ? [when(i.startsAt, loc, true), t(loc, 'n_cancelled')].filter(Boolean).join(' · ')
-        : t(loc, 'n_moved', { when: when(i.startsAt, loc, true) }),
+        : i.kind === 'session_added'
+          ? t(loc, 'n_added', { when: when(i.startsAt, loc, true) })
+          : t(loc, 'n_moved', { when: when(i.startsAt, loc, true) }),
   }));
 
   const list = (lines: { title: string; meta: string }[]) =>

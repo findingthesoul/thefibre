@@ -1,6 +1,8 @@
-// NOTIFICATIONS — what the member was told about their team calendars: a
-// thread newly on a calendar, a session moved or cancelled (the API's
-// lib/member-notify.ts). Type, subject and date — never a body.
+// NOTIFICATIONS — what this person was told: a thread newly on a calendar
+// their membership includes, and a session added, moved or cancelled on a
+// thread they hold a place in or follow (the API's lib/member-notify.ts).
+// Type, subject and date — never a body. Not only for members: somebody who
+// bought one thread has a place, and hears about its sessions here too.
 //
 // Opening the page marks everything read, which is what clears the dot on
 // the bell: a list you have looked at is a list you have read.
@@ -17,6 +19,7 @@ export const dynamic = 'force-dynamic';
 
 const WHAT: Record<MemberNotification['kind'], string> = {
   new_thread: 'New on the calendar',
+  session_added: 'New session',
   session_moved: 'Moved',
   session_cancelled: 'Cancelled',
 };
@@ -40,13 +43,13 @@ export default async function NotificationsPage({
   if (page && page.items.some((n) => !n.read)) await markNotificationsRead(session.token);
 
   return (
-    <PageShell title="Notifications" subtitle="New threads on your calendars, and sessions that moved.">
+    <PageShell title="Notifications" subtitle="Changes to your sessions, and what is new on your calendars.">
       {!page ? (
         <Empty title="This list could not be loaded.">Try again in a moment.</Empty>
       ) : page.items.length === 0 ? (
         <Empty title={cursor ? 'That is everything.' : 'Nothing yet.'}>
-          When a thread appears on a calendar your membership includes, or a session you can see
-          moves, it shows here.
+          When a session of a thread you take part in is added, moved or cancelled, it shows
+          here — and so does a new thread on a calendar your membership includes.
         </Empty>
       ) : (
         <>
