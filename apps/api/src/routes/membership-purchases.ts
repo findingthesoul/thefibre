@@ -16,7 +16,7 @@ import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { logMemberActivity, memberEmailLocale } from './membership.js';
-import { membershipRenewalChanged, greetingName } from '../lib/email/membership-templates.js';
+import { membershipRenewalChanged, membershipCardChanged, greetingName } from '../lib/email/membership-templates.js';
 import { sendEmail } from '../lib/email/client.js';
 import { getBuyerDetails, saveBuyerDetails } from '../lib/buyer-details.js';
 import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
@@ -355,4 +355,142 @@ membershipPurchaseRoutes.post('/me/change/:memberId', async (c) => {
   } catch (e) {
     return failed(c, 'change the membership', e);
   }
+});
+
+// ---------------------------------------------------------------------------
+// P4: CHANGE THE CARD — in The Fibre, not Stripe's portal (Sjoerd, 2026-10-15:
+// "Manage payment should not go to Stripe").
+//
+// Card details never touch our servers: the browser runs Stripe Elements on
+// the COMMUNITY's connected account against a SetupIntent made here, and we
+// only ever see a payment-method id and its last four. /confirm re-reads the
+// SetupIntent ON THIS MEMBER'S ACCOUNT (so it cannot be pointed at another),
+// requires it succeeded and belongs to this member's customer, and only then
+// makes its card the default for the customer and the subscription. Nothing
+// is charged.
+// ---------------------------------------------------------------------------
+
+/** The member's own membership with a running Stripe subscription, its
+ *  account and Stripe — or the answer. */
+async function cardTarget(c: import('hono').Context) {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return { res: c.json({ error: 'sign in required' }, 401) };
+  const m = (await membersForEmail(email)).find((x) => x.id === c.req.param('memberId'));
+  if (!m) return { res: c.json({ error: 'not found' }, 404) };
+  if (!m.stripe_subscription_id || !m.stripe_customer_id) {
+    return { res: c.json({ error: 'This membership is managed directly by the community.' }, 409) };
+  }
+  const stripe = stripeOrNull();
+  if (!stripe) return { res: c.json({ error: 'payments are not configured' }, 503) };
+  const account = await workspaceStripeAccount(m.workspace_id);
+  if (!account) return { res: c.json({ error: 'This community has not connected a payment account yet.' }, 409) };
+  return { m, stripe, account, customer: m.stripe_customer_id, subscription: m.stripe_subscription_id };
+}
+
+type CardSummary = { brand: string; last4: string; exp_month: number; exp_year: number } | null;
+const summarise = (pm: import('stripe').default.PaymentMethod | null | undefined): CardSummary =>
+  pm?.card ? { brand: pm.card.brand, last4: pm.card.last4, exp_month: pm.card.exp_month, exp_year: pm.card.exp_year } : null;
+
+// GET /me/payment-method/:memberId — the card renewals are charged to: the
+// subscription's default, else the customer's.
+membershipPurchaseRoutes.get('/me/payment-method/:memberId', async (c) => {
+  const r = await cardTarget(c);
+  if (r.res) return r.res;
+  try {
+    const sub = await r.stripe.subscriptions.retrieve(r.subscription, { expand: ['default_payment_method'] }, { stripeAccount: r.account });
+    let pm = typeof sub.default_payment_method === 'object' ? sub.default_payment_method : null;
+    if (!pm) {
+      const cust = (await r.stripe.customers.retrieve(r.customer, { expand: ['invoice_settings.default_payment_method'] }, { stripeAccount: r.account })) as import('stripe').default.Customer;
+      const d = cust.invoice_settings?.default_payment_method;
+      pm = d && typeof d === 'object' ? d : null;
+    }
+    return c.json({ card: summarise(pm) });
+  } catch (e) {
+    console.error('[membership/purchases] card read failed', { member: r.m.id, message: (e as Error).message });
+    return c.json({ error: 'could not read the card just now' }, 502);
+  }
+});
+
+// POST /me/payment-method/:memberId/setup {request_id?} — a SetupIntent on
+// the community's account, for Stripe Elements in the browser.
+membershipPurchaseRoutes.post('/me/payment-method/:memberId/setup', async (c) => {
+  const r = await cardTarget(c);
+  if (r.res) return r.res;
+  const body = (await c.req.json().catch(() => ({}))) as { request_id?: unknown };
+  const rid = typeof body.request_id === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(body.request_id) ? body.request_id : null;
+  try {
+    const si = await r.stripe.setupIntents.create(
+      {
+        customer: r.customer,
+        usage: 'off_session',
+        // A CARD — this is "change your card". Card-only also means no
+        // redirect-based method, so the page never leaves The Fibre.
+        payment_method_types: ['card'],
+        metadata: { membership_member_id: r.m.id, purpose: 'membership_card_change' },
+      },
+      { stripeAccount: r.account, ...(rid ? { idempotencyKey: `cardsetup:${r.m.id}:${rid}` } : {}) },
+    );
+    return c.json({ client_secret: si.client_secret, setup_intent_id: si.id, stripe_account: r.account });
+  } catch (e) {
+    console.error('[membership/purchases] setup intent failed', { member: r.m.id, message: (e as Error).message });
+    return c.json({ error: 'could not start the card change — try again shortly' }, 502);
+  }
+});
+
+// POST /me/payment-method/:memberId/confirm {setup_intent_id} — make the
+// card the default, once Stripe says the SetupIntent succeeded.
+membershipPurchaseRoutes.post('/me/payment-method/:memberId/confirm', async (c) => {
+  const r = await cardTarget(c);
+  if (r.res) return r.res;
+  const body = (await c.req.json().catch(() => ({}))) as { setup_intent_id?: unknown };
+  if (typeof body.setup_intent_id !== 'string' || !/^seti_[A-Za-z0-9]+$/.test(body.setup_intent_id)) {
+    return c.json({ error: 'setup_intent_id required' }, 400);
+  }
+  let si: import('stripe').default.SetupIntent;
+  try {
+    // Read on THIS member's account: a SetupIntent of any other account is
+    // simply not found here.
+    si = await r.stripe.setupIntents.retrieve(body.setup_intent_id, { expand: ['payment_method'] }, { stripeAccount: r.account });
+  } catch {
+    return c.json({ error: 'That card change was not found.' }, 404);
+  }
+  const siCustomer = typeof si.customer === 'string' ? si.customer : si.customer?.id;
+  if (siCustomer !== r.customer) return c.json({ error: 'That card change was not found.' }, 404);
+  if (si.status !== 'succeeded') return c.json({ error: 'The card was not confirmed yet.', status: si.status }, 409);
+  const pm = typeof si.payment_method === 'object' ? si.payment_method : null;
+  const pmId = pm?.id ?? (typeof si.payment_method === 'string' ? si.payment_method : null);
+  if (!pmId) return c.json({ error: 'The card was not confirmed yet.' }, 409);
+  try {
+    await r.stripe.customers.update(r.customer, { invoice_settings: { default_payment_method: pmId } }, { stripeAccount: r.account });
+    await r.stripe.subscriptions.update(r.subscription, { default_payment_method: pmId }, { stripeAccount: r.account });
+  } catch (e) {
+    console.error('[membership/purchases] card default failed', { member: r.m.id, message: (e as Error).message });
+    return c.json({ error: 'could not save the card — try again shortly' }, 502);
+  }
+  // Type + subject only — never the card's brand or digits (data wall).
+  await logMemberActivity(r.m.workspace_id, r.m.person_id, 'membership_card_changed', 'Card changed by the member').catch(() => undefined);
+  const card = summarise(pm);
+  try {
+    const [{ data: person }, { data: ws }, { data: tier }] = await Promise.all([
+      adminClient.from('person').select('first_name, email').eq('id', r.m.person_id).maybeSingle(),
+      adminClient.from('workspace').select('name').eq('id', r.m.workspace_id).maybeSingle(),
+      adminClient.from('membership_tier').select('name').eq('id', r.m.tier_id).maybeSingle(),
+    ]);
+    if (person?.email && card) {
+      const brand = await getWorkspaceBrand(r.m.workspace_id);
+      const msg = membershipCardChanged({
+        name: greetingName(person.first_name as string | null, person.email as string),
+        communityName: ws?.name ?? 'the community',
+        tierName: tier?.name ?? 'membership',
+        brand: card.brand,
+        last4: card.last4,
+        locale: await memberEmailLocale(r.m.workspace_id, null),
+        emailBrand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      });
+      await sendEmail({ to: person.email as string, subject: msg.subject, html: msg.html, text: msg.text, ...senderOf(brand) });
+    }
+  } catch (err) {
+    console.warn('[membership/purchases] card email failed', (err as Error).message);
+  }
+  return c.json({ ok: true, card });
 });

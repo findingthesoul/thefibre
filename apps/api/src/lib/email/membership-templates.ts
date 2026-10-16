@@ -245,6 +245,39 @@ const CATALOG = {
     de: 'Meist ist es eine abgelaufene Karte — das Aktualisieren deiner Zahlungsmethode behebt es. Wenn du Hilfe brauchst, antworte einfach auf diese E-Mail.', // MT
     fr: 'La plupart du temps, c’est une carte expirée — mettre à jour ton moyen de paiement règle le problème. Si tu as besoin d’aide, réponds simplement à cet e-mail.', // MT
   },
+  // P4 (2026-10-16): the card was changed in The Fibre.
+  m_card_subject: {
+    en: 'Your card for {community} was changed',
+    nl: 'Je kaart voor {community} is gewijzigd', // MT pending native review
+    es: 'Se cambió tu tarjeta para {community}', // MT
+    pt: 'O seu cartão para {community} foi alterado', // MT
+    de: 'Deine Karte für {community} wurde geändert', // MT
+    fr: 'Ta carte pour {community} a été modifiée', // MT
+  },
+  m_card_line: {
+    en: 'From now on your {tier} membership of {community} is paid with your {card}. Nothing was charged now.',
+    nl: 'Vanaf nu wordt je lidmaatschap {tier} van {community} betaald met je {card}. Er is nu niets afgeschreven.', // MT pending native review
+    es: 'A partir de ahora tu membresía {tier} de {community} se paga con tu {card}. No se ha cobrado nada ahora.', // MT
+    pt: 'A partir de agora a sua adesão {tier} a {community} é paga com o seu {card}. Nada foi cobrado agora.', // MT
+    de: 'Ab jetzt wird deine Mitgliedschaft {tier} bei {community} mit deiner {card} bezahlt. Jetzt wurde nichts abgebucht.', // MT
+    fr: 'Désormais ton adhésion {tier} à {community} est payée avec ta {card}. Rien n’a été prélevé maintenant.', // MT
+  },
+  m_card_ending: {
+    en: '{brand} card ending {last4}',
+    nl: '{brand}-kaart eindigend op {last4}', // MT pending native review
+    es: 'tarjeta {brand} terminada en {last4}', // MT
+    pt: 'cartão {brand} terminado em {last4}', // MT
+    de: '{brand}-Karte mit Endziffern {last4}', // MT
+    fr: 'carte {brand} se terminant par {last4}', // MT
+  },
+  m_card_not_you: {
+    en: 'If this wasn’t you, reply to this email.',
+    nl: 'Was jij dit niet? Beantwoord dan deze e-mail.', // MT pending native review
+    es: 'Si no has sido tú, responde a este correo.', // MT
+    pt: 'Se não foi você, responda a este e-mail.', // MT
+    de: 'Warst du das nicht? Dann antworte auf diese E-Mail.', // MT
+    fr: 'Si ce n’était pas toi, réponds à cet e-mail.', // MT
+  },
   m_stopped_subject: {
     en: 'Your {community} membership will not renew',
     nl: 'Je lidmaatschap van {community} wordt niet verlengd',
@@ -700,4 +733,32 @@ export function membershipRenewalChanged(opts: {
     html: shell(subject, body, opts.brand),
     text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${more}`,
   };
+}
+
+/** P4: the card behind a membership was changed in The Fibre. Says which card
+ *  (brand + last four — the email may; the activity row may not). */
+export function membershipCardChanged(opts: {
+  name: string;
+  communityName: string;
+  tierName: string;
+  brand: string;
+  last4: string;
+  locale?: string | null;
+  emailBrand?: EmailBrand;
+}): { subject: string; html: string; text: string } {
+  const loc = toLocale(opts.locale);
+  const subject = t(loc, 'm_card_subject', { community: opts.communityName });
+  const card = t(loc, 'm_card_ending', { brand: opts.brand.charAt(0).toUpperCase() + opts.brand.slice(1), last4: opts.last4 });
+  const lineHtml = t(loc, 'm_card_line', {
+    tier: `<strong>${escapeHtml(opts.tierName)}</strong>`,
+    community: `<strong>${escapeHtml(opts.communityName)}</strong>`,
+    card: escapeHtml(card),
+  });
+  const lineText = t(loc, 'm_card_line', { tier: opts.tierName, community: opts.communityName, card });
+  const notYou = t(loc, 'm_card_not_you');
+  const body = `
+    <p>${escapeHtml(t(loc, 'm_hi', { name: opts.name }))}</p>
+    <p>${lineHtml}</p>
+    <p>${escapeHtml(notYou)}</p>`;
+  return { subject, html: shell(subject, body, opts.emailBrand), text: `${t(loc, 'm_hi', { name: opts.name })}\n\n${lineText}\n\n${notYou}` };
 }

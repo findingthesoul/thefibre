@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.229.0] — 2026-10-16
+
+### my.thread → Purchases: change your card in The Fibre (my 0.17.0; dark until the publishable key is set)
+
+P4 of the Purchases plan. Sjoerd: *"Manage payment should not go to Stripe.
+We want to organise everything in THE FIBRE."*
+
+- **Each renewing membership shows its card**: "Card · Visa ···· 4242". With
+  the key set, a **change** link opens Stripe's own card form (PaymentElement)
+  inside the page, on the COMMUNITY's connected account. 3-D Secure appears
+  in Stripe's frame, and the member never leaves my.thread.
+- **Card details never reach our servers.** The API makes a card-only
+  SetupIntent on the community's account. After Stripe confirms it in the
+  browser, `/confirm` re-reads it on THAT member's account, so it can't be
+  pointed at another, and checks that it succeeded and belongs to this
+  member's customer. Only then does its card become the default for the
+  customer and the subscription. Nothing is charged.
+- **Recorded and told:** the activity row is `membership_card_changed`, type
+  and subject only, never the brand or digits. The email says which card
+  ("Visa card ending 4242"), with "if this wasn't you, reply", in six
+  locales.
+- **Dark until Sjoerd sets the platform's publishable key**
+  (`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` on the my.thread Vercel project).
+  Without it the line shows the card and no "change". The "Manage payment"
+  button (Stripe's portal) stays until the key is set AND an e2e has seen the
+  card form render on staging, so nobody loses the one way to change a card.
+- API (additive): `GET /me/payment-method/:memberId`, `POST
+  /me/payment-method/:memberId/setup` (idempotency key per dialog), `POST
+  /me/payment-method/:memberId/confirm`.
+- Dependencies (apps/my only, pinned exact, each at least two weeks old):
+  `@stripe/stripe-js` 9.17.0, `@stripe/react-stripe-js` 6.12.0. my.thread's
+  production build passes. The served CSP is `frame-ancestors 'self'` only,
+  so Stripe's script and frames aren't blocked.
+- Integration test (staging + Stripe TEST, permanent fixture workspace;
+  the browser's Elements step stood in for with Stripe's `pm_card_mastercard`
+  token): the current card shows; a new card becomes the default for the
+  customer and the subscription, with nothing charged; a SetupIntent that
+  hasn't succeeded is refused; another customer's is refused, even on the
+  same account; a stranger gets 404; leftovers by id.
+- Also: the page-basket e2e gains the embed-with-blocked-storage case and the
+  already-owned line, and its phone case now adds from a card.
+
 ## [1.228.2] — 2026-10-16
 
 ### Participants hear about every change, part 1: the migration alone

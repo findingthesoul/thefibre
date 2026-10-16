@@ -63,11 +63,68 @@ test('a cancelled checkout comes back to the basket as it was', async ({ page })
 
 test('a phone shows the bar with the total', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await open(page, `?tier=${tierId}`);
+  // Not via ?tier= — that opens the sheet on arrival, by design, over the bar.
+  await open(page);
+  await page.evaluate((k) => localStorage.removeItem(k), KEY);
+  await open(page);
+  await page.getByRole('button', { name: 'Add to basket' }).first().click();
   const bar = page.getByRole('button', { name: /Your basket/ });
   await expect(bar).toBeVisible();
   await expect(bar).toContainText('€');
   await bar.click();
-  await expect(page.getByText('Subtotal excl. VAT')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Continue' }).last()).toBeVisible();
+  // The sheet (the wide panel is hidden at this width).
+  await expect(page.getByRole('dialog').getByText('Subtotal excl. VAT')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Continue' })).toBeVisible();
+});
+
+// (a) The embed (a website iframe). Third-party storage can THROW there; the
+// basket must still work — it just does not remember.
+test('the embed works when storage throws', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      get() {
+        throw new DOMException('blocked', 'SecurityError');
+      },
+    });
+  });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(`${HOSTS.membership}/embed/page?workspace=${SLUG}`);
+  await waitForHydration(page, 'button');
+  await page.getByRole('button', { name: 'Add to basket' }).first().click();
+  await expect(page.getByText('In your basket').first()).toBeVisible();
+  expect(errors.filter((m) => /localStorage|SecurityError/.test(m))).toEqual([]);
+});
+
+// (b) A basket line the buyer already owns: the answer names it, and the
+// viewer can take it out.
+test('a line already owned is named, and can be removed', async ({ page }) => {
+  const db = stagingService();
+  const { data: ws } = await db.from('workspace').select('id').eq('slug', SLUG).single();
+  const { data: prod } = await db.from('membership_product').select('id, name').eq('workspace_id', ws!.id).eq('name', 'Weekend workshop').single();
+  const email = `e2e-basket-owned-${Date.now()}@example.com`;
+  const { data: person } = await db.from('person').insert({ workspace_id: ws!.id, email, first_name: 'Owned' }).select('id').single();
+  await db.from('membership_product_purchase').insert({ workspace_id: ws!.id, person_id: person!.id, product_id: prod!.id, stripe_session_id: `e2e-owned-${Date.now()}`, amount_cents: 8000, currency: 'EUR', status: 'paid' });
+  try {
+    await open(page);
+    await page.evaluate(
+      ([k, p]) => {
+        localStorage.setItem(k, JSON.stringify({ tierId: null, interval: 'year', productIds: [p] }));
+        localStorage.setItem('thefibre.join.country', 'NL');
+      },
+      [KEY, prod!.id] as const,
+    );
+    await open(page);
+    await page.getByRole('button', { name: 'Continue' }).last().click();
+    await page.getByPlaceholder('Your name').last().fill('Owned Buyer');
+    await page.getByPlaceholder('you@example.com').last().fill(email);
+    await page.getByRole('button', { name: 'Continue to payment' }).last().click();
+    await expect(page.getByText(`You already have: ${prod!.name}`).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Back to your basket' }).last().click();
+    await page.getByRole('button', { name: `Remove ${prod!.name}` }).last().click();
+    await expect.poll(async () => (await stored(page)).productIds).toEqual([]);
+  } finally {
+    await db.from('membership_product_purchase').delete().eq('person_id', person!.id);
+    await db.from('person').update({ deleted_at: new Date().toISOString() }).eq('id', person!.id);
+  }
 });

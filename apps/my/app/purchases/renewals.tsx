@@ -12,6 +12,7 @@ import { Button } from '@thefibre/shared/ui/button';
 import { browserSupabase } from '@/lib/supabase/client';
 import type { MyRenewal } from '@/lib/portal-api';
 import { ChangeMembership } from './change-membership';
+import { CardLine } from './card-change';
 
 const day = (iso: string, lastDay = false) =>
   new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam' }).format(
@@ -108,6 +109,8 @@ function RenewalRow({ r }: { r: MyRenewal }) {
                   ? `Renews on ${day(r.renews_at)}.`
                   : ''}
       </p>
+      {/* The card renewals are charged to — changed here, not on Stripe (P4). */}
+      {!r.managed_by_community && !r.unavailable && r.renews_at && !r.stops_at_period_end && <CardLine memberId={r.member_id} />}
       {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
       {r.renews_at && (
         <ChangeMembership
