@@ -72,6 +72,8 @@ test.beforeAll(async () => {
     link(`${TAG} board minutes`),
     { ...link(`${TAG} fellows notes`), category_ids: [fellows] },
     { ...link(`${TAG} hosts notes`), category_ids: [hosts] },
+    // Limited in the EDITOR below, by clicking its category chip.
+    link(`${TAG} chip pick`),
   ];
   const up = await db
     .from('membership_settings')
@@ -131,6 +133,16 @@ test('a section for one tier, a document for another: saved, and the member sees
     .poll(async () => (await storedPage()).documents?.find((d) => d.title === `${TAG} board minutes`)?.tier_ids ?? [], { timeout: 20_000 })
     .toEqual([other]);
 
+  // A CATEGORY chip: limit "chip pick" to hosts (held by nobody here).
+  const pick = page.getByRole('group', { name: `Shown to: ${TAG} chip pick` });
+  await pick.getByRole('button', { name: `${TAG} hosts` }).click();
+  await expect
+    .poll(async () => {
+      const d = ((await storedPage()).documents ?? []).find((x) => x.title === `${TAG} chip pick`) as { category_ids?: string[]; tier_ids?: string[] } | undefined;
+      return { cats: d?.category_ids ?? [], tiers: d?.tier_ids ?? [] };
+    }, { timeout: 20_000 })
+    .toEqual({ cats: [hosts], tiers: [] });
+
   // The portal, as the member holding "singer".
   await landSignedIn(page, HOSTS.thread, 'the-thread', '/dashboard', /\/dashboard/);
   await page.goto(`${HOSTS.my}/community/${workspaceId}`);
@@ -148,6 +160,7 @@ test('a section for one tier, a document for another: saved, and the member sees
   await expect(page.getByText(`Fellows read this ${TAG}`)).toBeVisible();
   await expect(page.getByText(`${TAG} fellows notes`)).toBeVisible();
   await expect(page.getByText(`${TAG} hosts notes`)).toHaveCount(0);
+  await expect(page.getByText(`${TAG} chip pick`), 'limited by the chip to a category nobody holds').toHaveCount(0);
   await expect(page.getByText(`Hosts read this ${TAG}`)).toHaveCount(0);
   await expect(page.getByText(`${TAG} hosts`)).toHaveCount(0);
 });

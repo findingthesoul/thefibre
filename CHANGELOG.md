@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.240.1] — 2026-10-16
+
+### A renewing product is never sold as a one-off
+
+- `POST /membership/public/buy` refused nothing about intervals. The page
+  only offers a recurring product with a membership, but a direct request
+  could pay ONCE for a product that renews and then own it forever. The
+  route now refuses any product whose interval is not `once`, alone or in a
+  basket, with 400 `recurring_needs_membership` and a sentence naming it.
+  This is the page's rule (`fits`/`addBlocker`) on the server: the offer and
+  the enforcement now agree.
+- Test: the buy suite on staging covers it, alone and in a basket, with
+  nothing granted. 5/5, cleanup asserted.
+- The member-page e2e now clicks a directory-category chip in the editor,
+  reads the document's `category_ids` back from the database, and sees it
+  hidden from a member who does not hold that category. This closes the gap
+  left in v1.240.0. It is green against the deployed staging build.
+
 ## [1.240.0] — 2026-10-16
 
 ### The member page, per directory category (Members 1.12.0)

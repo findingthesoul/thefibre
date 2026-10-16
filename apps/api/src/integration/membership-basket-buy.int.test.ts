@@ -25,6 +25,7 @@ let account = '';
 let workshop = '';
 let retreat = '';
 let notForSale = '';
+let monthly = '';
 const emails: string[] = [];
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-04-22.dahlia' as Stripe.LatestApiVersion });
 
@@ -59,12 +60,14 @@ beforeAll(async () => {
       { workspace_id: ws, name: 'Buy workshop', price_cents: 8000, price_interval: 'once', purchasable: true },
       { workspace_id: ws, name: 'Buy retreat', price_cents: 20000, price_interval: 'once', purchasable: true },
       { workspace_id: ws, name: 'Buy not for sale', price_cents: 900, price_interval: 'once', purchasable: false },
+      { workspace_id: ws, name: 'Buy monthly circle', price_cents: 1500, price_interval: 'month', purchasable: true },
     ])
     .select('id, name');
   if (error) throw new Error(`products: ${error.message}`);
   workshop = data!.find((p) => p.name === 'Buy workshop')!.id as string;
   retreat = data!.find((p) => p.name === 'Buy retreat')!.id as string;
   notForSale = data!.find((p) => p.name === 'Buy not for sale')!.id as string;
+  monthly = data!.find((p) => p.name === 'Buy monthly circle')!.id as string;
 }, 120_000);
 
 afterAll(async () => {
@@ -75,16 +78,29 @@ afterAll(async () => {
     await service.from('purchase').delete().in('person_id', ids);
     await service.from('person').update({ deleted_at: new Date().toISOString() }).in('id', ids);
   }
-  await service.from('membership_product').delete().in('id', [workshop, retreat, notForSale]);
+  await service.from('membership_product').delete().in('id', [workshop, retreat, notForSale, monthly]);
   const [{ count: pp }, { count: led }, { count: prods }] = await Promise.all([
     service.from('membership_product_purchase').select('id', { count: 'exact', head: true }).in('person_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
     service.from('purchase').select('id', { count: 'exact', head: true }).in('person_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
-    service.from('membership_product').select('id', { count: 'exact', head: true }).in('id', [workshop, retreat, notForSale]),
+    service.from('membership_product').select('id', { count: 'exact', head: true }).in('id', [workshop, retreat, notForSale, monthly]),
   ]);
   expect({ pp, led, prods }).toEqual({ pp: 0, led: 0, prods: 0 });
 }, 120_000);
 
 describe('the page basket, products only', () => {
+  it('a RECURRING product is refused as a one-off, alone or in a basket — the page’s rule on the server', async () => {
+    for (const body of [{ product_id: monthly }, { product_ids: [workshop, monthly] }]) {
+      const r = await buy(body);
+      expect(r.status, await r.clone().text()).toBe(400);
+      const j = (await r.json()) as { code?: string; error?: string };
+      expect(j.code).toBe('recurring_needs_membership');
+      expect(j.error).toContain('Buy monthly circle');
+    }
+    // Nothing was granted.
+    const { count } = await service.from('membership_product_purchase').select('id', { count: 'exact', head: true }).eq('product_id', monthly);
+    expect(count).toBe(0);
+  });
+
   it('two products: one session, one line each, 21% VAT on each', async () => {
     const r = await buy({ product_ids: [workshop, retreat] });
     expect(r.status, await r.clone().text()).toBe(200);

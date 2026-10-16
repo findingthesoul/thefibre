@@ -3400,6 +3400,14 @@ membershipRoutes.post('/public/buy', async (c) => {
   if (unsellable) {
     return c.json({ error: products.length === 1 ? 'This product cannot be bought on its own.' : `${unsellable.name} cannot be bought on its own.` }, 400);
   }
+  // A RECURRING product is a subscription, never a one-off charge. The page
+  // only offers it with a membership (basket.ts fits/addBlocker); this is
+  // the same rule on the server, so a direct POST cannot pay once for
+  // something that renews and then own it forever (found 2026-10-16).
+  const recurring = products.find((p) => (p.price_interval ?? 'once') !== 'once');
+  if (recurring) {
+    return c.json({ error: `${recurring.name} renews, so it is taken with a membership rather than bought once.`, code: 'recurring_needs_membership' }, 400);
+  }
   const product = products[0]!;
   const amount = products.reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
 
