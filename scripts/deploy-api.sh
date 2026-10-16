@@ -72,6 +72,10 @@ usage: ./scripts/deploy-api.sh <staging|prod>
 
   --probe "<url> | <expected>"   a request only the NEW code answers this way.
                                  Run after the deploy; a miss fails the run.
+                                 The text is matched literally, quotes
+                                 included: '<url> | "price_includes_vat":'
+                                 finds that JSON key (single quotes around the
+                                 whole argument keep the doubles).
   --probe "<url> | status:401"   or match the STATUS instead of the body —
                                  for an authenticated route, where "401 not
                                  404" is the real discriminator: the old image
@@ -312,8 +316,13 @@ else
        echo "  Got: $PROBE" >&2
        exit 64 ;;
   esac
-  URL="${PROBE%%|*}"; URL="$(echo "$URL" | xargs)"
-  WANT="${PROBE#*|}";  WANT="$(echo "$WANT" | xargs)"
+  # Trimmed with sed, NOT xargs: xargs also eats quote characters, so a probe
+  # for a JSON key ('"price_includes_vat":') became price_includes_vat:,
+  # matched nothing, and failed a deploy that had worked (2026-10-16 — which
+  # also held the runway until it was landed by hand).
+  trim() { printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+  URL="$(trim "${PROBE%%|*}")"
+  WANT="$(trim "${PROBE#*|}")"
 
   # status: — because MOST routes here are authenticated, and for those a body
   # probe cannot work at all: `curl -f` fails on any non-2xx, so the body is

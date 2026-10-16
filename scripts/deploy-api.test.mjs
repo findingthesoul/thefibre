@@ -127,6 +127,10 @@ describe('deploy-api.sh frees the runway on every success path', () => {
     ['a SCRIPT probe (the path that used to exit early)', ['--probe', join(dir, 'probe-pass.mjs')]],
     ['a status: probe (the other early exit)', ['--probe', 'https://example.test/health | status:200']],
     ['a body probe', ['--probe', 'https://example.test/health | ok']],
+    // Quotes are part of the text (2026-10-16): the trim was `xargs`, which
+    // ate them, so a probe for a JSON key ('"ok":') looked for `ok:`, missed
+    // a body that had it, and held the runway.
+    ['a body probe with quotes in it (a JSON key)', ['--probe', 'https://example.test/health | "ok":']],
   ];
   for (const [name, args] of paths) {
     it(`${name}: deploys, and lands`, () => {

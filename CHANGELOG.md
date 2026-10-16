@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.239.1] — 2026-10-16
+
+### Price includes VAT, seen on the page; a deploy probe keeps its quotes
+
+- **`e2e/thread-price-includes-vat.spec.ts`.** A throwaway public thread
+  with a €363 ticket marked "Price includes VAT", from an organiser who is
+  VAT-registered in person. The public page shows €363 and "€363 incl. 21%
+  VAT". That note is only right if the page handed it the net, and a double
+  count would read €439, which the spec refuses. Before a country is chosen
+  it says "This price includes VAT". It passed on staging against v1.238.0
+  and removes everything it made.
+- **`scripts/deploy-api.sh` probe text keeps its quotes.** The probe was
+  trimmed with `xargs`, which also strips quote characters. A probe for a
+  JSON key (`'"price_includes_vat":'`) therefore looked for
+  `price_includes_vat:`, missed a payload that had the key, failed a deploy
+  that had worked, and held the runway until it was landed by hand. It is
+  now trimmed with `sed`, and the usage text says the match is literal,
+  quotes included. A new case in `deploy-api.test.mjs` (21 tests) probes for
+  `"ok":`. It fails against the old script and passes against this one.
+
 ## [1.239.0] — 2026-10-16
 
 ### Member emails: the community's own signature (Members 1.11.0)
