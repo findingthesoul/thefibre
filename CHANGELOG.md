@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.239.3] — 2026-10-16
+
+### Emergency: the role_change triggers are dropped
+
+The read-back of v1.239.2 on staging found that hard-deleting a user failed
+with a foreign-key error on `role_change`. The user's cascade into
+`workspace_member` and `app_membership` fired the logging triggers, and the
+depth check meant to skip a cascade did not. The triggers then wrote a row
+pointing at the user being deleted. Every user hard-delete failed with it,
+and so did every throwaway workspace's cleanup.
+
+This migration drops the three logging triggers, which puts every member
+write back exactly as it was before v1.239.2. The `role_change` table, its
+rows and the RPCs stay; nothing calls the RPCs yet. A corrected design comes
+in its own migration, after a read-back of the user-delete case before
+anything else.
+
 ## [1.239.2] — 2026-10-16
 
 ### A record of who changed someone's role, part 1: the table and the triggers
