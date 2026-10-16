@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.246.3] — 2026-10-16
+
+### Members-only by default: the column (migration only)
+
+- `20261016143520`: `membership_product.sold_without_membership boolean
+  NOT NULL DEFAULT false`.
+- v1.246.0 let a purchasable recurring product be subscribed to without a
+  membership. But on production soul.com, `purchasable` on its recurring
+  products (the community email address, the Fellowship pathway) had been
+  set under the older meaning: "sold with any membership". Shipped as-is,
+  non-members could have subscribed to them.
+- This column makes standalone subscription an explicit opt-in. DEFAULT
+  false keeps every existing product members-only, with no data edit. The
+  next release gates `/public/subscribe` and the page on it, and adds the
+  admin tickbox "Only with a membership".
+
 ## [1.246.2] — 2026-10-16
 
 ### Subscribing during a promote says "try again in a minute"
