@@ -227,10 +227,52 @@ export async function runCalendarNudgeJob(): Promise<void> {
     return;
   }
   const due = await nudgesDue();
-  if (due.length) {
-    console.log(
-      '[calendar-nudge] DRY (switch off): would remind',
-      due.map((d) => ({ thread: d.thread_id, changes: d.change_count, oldest: d.oldest_at, has_address: !!d.organiser_email })),
-    );
+  const list = await dryList(due);
+  if (shouldLogDry(list, Date.now())) console.log('[calendar-nudge] DRY (switch off): would remind', list);
+}
+
+export type DryEntry = { workspace: string; thread: string; thread_id: string; changes: number; oldest: string; has_address: boolean };
+
+/** The would-remind list, readable by a person: workspace NAME and thread
+ *  TITLE (neither is personal data), never the organiser's address. For
+ *  Sjoerd's look at production before the switch goes on. */
+export async function dryList(due: NudgeDue[]): Promise<DryEntry[]> {
+  if (!due.length) return [];
+  const names = await selectIn<{ id: string; name: string | null }>(
+    'nudge: workspace names',
+    due.map((d) => d.workspace_id),
+    (chunk) => adminClient.from('workspace').select('id, name').in('id', chunk).order('id'),
+  );
+  const nameOf = new Map(names.map((w) => [w.id, w.name ?? '']));
+  return due.map((d) => ({
+    workspace: nameOf.get(d.workspace_id) ?? '',
+    thread: d.thread_title,
+    thread_id: d.thread_id,
+    changes: d.change_count,
+    oldest: d.oldest_at,
+    has_address: !!d.organiser_email,
+  }));
+}
+
+/** The dry list is logged when it CHANGES, and otherwise at most once an
+ *  hour: the same list every five minutes for a week buries every other
+ *  line in the log (coordinator, 2026-10-16). Per process, which is enough —
+ *  a restart logging it once more is the point of a restart. */
+export const DRY_LOG_EVERY_MS = 60 * 60 * 1000;
+let lastDry: { key: string; at: number } | null = null;
+
+export function shouldLogDry(list: DryEntry[], now: number): boolean {
+  const key = JSON.stringify(list.map((e) => [e.thread_id, e.changes, e.oldest, e.has_address]));
+  if (!list.length) {
+    lastDry = { key, at: now };
+    return false;
   }
+  if (lastDry && lastDry.key === key && now - lastDry.at < DRY_LOG_EVERY_MS) return false;
+  lastDry = { key, at: now };
+  return true;
+}
+
+/** Tests only. */
+export function resetDryLog(): void {
+  lastDry = null;
 }

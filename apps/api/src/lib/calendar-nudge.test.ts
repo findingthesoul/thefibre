@@ -63,3 +63,24 @@ describe('calendarNudgeEmail', () => {
     expect(calendarNudgeEmail({ ...base, count: 1, titles: ['<b>x</b>'] }).html).not.toContain('<b>x</b>');
   });
 });
+
+describe('the dry log', () => {
+  const entry = (changes: number) => ({ workspace: 'Choir', thread: 'Year agenda', thread_id: 't1', changes, oldest: '2026-10-15T10:00:00Z', has_address: true });
+  it('logs a list once, again only when it changes or an hour has passed', async () => {
+    const { shouldLogDry, resetDryLog, DRY_LOG_EVERY_MS } = await import('./calendar-nudge.js');
+    resetDryLog();
+    const t0 = Date.parse('2026-10-16T12:00:00Z');
+    expect(shouldLogDry([entry(2)], t0)).toBe(true);
+    expect(shouldLogDry([entry(2)], t0 + 5 * 60_000)).toBe(false);
+    expect(shouldLogDry([entry(3)], t0 + 10 * 60_000)).toBe(true);
+    expect(shouldLogDry([entry(3)], t0 + 10 * 60_000 + DRY_LOG_EVERY_MS - 1)).toBe(false);
+    expect(shouldLogDry([entry(3)], t0 + 10 * 60_000 + DRY_LOG_EVERY_MS)).toBe(true);
+  });
+  it('an empty list is never logged, and the next non-empty one is', async () => {
+    const { shouldLogDry, resetDryLog } = await import('./calendar-nudge.js');
+    resetDryLog();
+    const t0 = Date.parse('2026-10-16T12:00:00Z');
+    expect(shouldLogDry([], t0)).toBe(false);
+    expect(shouldLogDry([entry(1)], t0 + 1)).toBe(true);
+  });
+});

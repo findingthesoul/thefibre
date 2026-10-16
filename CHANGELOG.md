@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.233.1] — 2026-10-16
+
+### The nudge's dry list: readable, and said once
+
+The `calendar-nudge` job, while switched off, logs who it WOULD remind.
+That list now names the workspace and the thread title (neither is personal
+data; still never the organiser's address), so it can be shown to Sjoerd
+before production is switched on. It is logged when it changes and
+otherwise at most once an hour, instead of every five minutes. Unit tests
+pin both rules.
+
 ## [1.233.0] — 2026-10-16
 
 ### Member emails, editable per community: the table (migration only)
