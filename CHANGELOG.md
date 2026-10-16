@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.252.1] — 2026-10-16
+
+### Web push: claim before send, so two passes never push a group twice
+
+- v1.252.0's push pass sent first and marked afterwards. It runs inside
+  member-notify's scheduler lease, one machine at a time, but that lease
+  expires after 4 minutes. A pass that outlives it, or dies mid-group, could
+  push a group twice. The coordinator asked the question; this answers it
+  before any keys exist.
+- Each group now **claims** its rows first: `pending → sent`, only where
+  still pending, returning the ids won. It sends only what it claimed.
+  - A second runner, or the tick after a crash, finds nothing pending.
+  - If every device failed for a reason that may pass, the claim is released
+    back to pending.
+  - If every device is gone, the rows are skipped.
+- **At most once, on purpose.** A crash between the claim and the send means
+  that group is never pushed. The bell row and the email digest still carry
+  it, and a second buzz about one change is the worse failure.
+- The push contact defaults to `mailto:hello@thethread.app`, the real
+  mailbox. `support@` was never one.
+- Push is still dark: no keys on any stack.
+- Tested: new `push-pass.concurrency` (2). Two passes run at once over the
+  same pending rows, on a fake database that applies the conditional update
+  and yields between calls. Each group is pushed exactly once and every row
+  ends `sent`; a pass after a finished one sends nothing. Run against
+  v1.252.0's code, the first test FAILS (each group pushed twice). push-pass
+  18/18 unchanged.
+
 ## [1.252.0] — 2026-10-16
 
 ### Web push for my.thread: the code, dark until the keys are set (my.thread 0.26.0)

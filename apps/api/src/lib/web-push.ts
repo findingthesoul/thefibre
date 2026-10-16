@@ -50,7 +50,7 @@ export function vapidConfig(env: NodeJS.ProcessEnv = process.env): VapidConfig |
   const publicKey = env.VAPID_PUBLIC_KEY?.trim();
   const privateKey = env.VAPID_PRIVATE_KEY?.trim();
   if (!publicKey || !privateKey) return null;
-  return { publicKey, privateKey, subject: env.VAPID_SUBJECT?.trim() || 'mailto:support@thethread.app' };
+  return { publicKey, privateKey, subject: env.VAPID_SUBJECT?.trim() || 'mailto:hello@thethread.app' };
 }
 
 /** What the device receives. Title and a link, nothing else (plan §8). */

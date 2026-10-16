@@ -52,7 +52,7 @@ not announcing" SEND, the once-ever new-thread rule, and the baseline.
   never lands in shell history:
 
   ```bash
-  read -s VAPID_PRIVATE_KEY && fly secrets set -a thefibre-api-staging VAPID_PRIVATE_KEY="$VAPID_PRIVATE_KEY" VAPID_PUBLIC_KEY=<public> VAPID_SUBJECT=mailto:support@thethread.app
+  read -s VAPID_PRIVATE_KEY && fly secrets set -a thefibre-api-staging VAPID_PRIVATE_KEY="$VAPID_PRIVATE_KEY" VAPID_PUBLIC_KEY=<public> VAPID_SUBJECT=mailto:hello@thethread.app
   ```
 
   Then the same on production with its own pair.

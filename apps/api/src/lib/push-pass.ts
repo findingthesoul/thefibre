@@ -26,9 +26,21 @@
 //
 // Delivery (`runPushPass`): every device of that email. A 404/410 deletes the
 // device at once; other failures count, and the device goes after 5 of them
-// over 3+ days. A group is 'sent' when any device took it; left pending when
-// every attempt failed for a reason that may pass (retried next tick, until
-// stale); 'skipped' when every device turned out to be gone.
+// over 3+ days. A group is 'sent' when any device took it; put back to pending
+// when every attempt failed for a reason that may pass (retried next tick,
+// until stale); 'skipped' when every device turned out to be gone.
+//
+// ONE RUNNER, AND CLAIM BEFORE SEND. The pass runs inside member-notify's
+// scheduler lease (server.ts, `leased('member-notify', …)`), so one machine
+// at a time. But a lease expires (4 minutes), and a run can outlive it or die
+// mid-group. So each group CLAIMS its rows first — pending → sent, only where
+// still pending — and sends only what it claimed. A second runner, or the
+// next tick after a crash, finds nothing pending and pushes nothing twice.
+//
+// That makes a push AT MOST ONCE, on purpose. A crash between the claim and
+// the send means that group is never pushed — and that is the right trade
+// for a notification: the bell row is still there, and so is the email
+// digest. A second buzz about one change is the worse failure.
 
 import { adminClient } from '../db.js';
 import { platformEmailLocale } from './email/platform-i18n.js';
@@ -271,7 +283,10 @@ export async function runPushPass(now: Date = new Date()): Promise<{ sent: numbe
       localeCache.set(g.email, locale);
     }
     const payload = payloadFor(g, locale, communityNames.get(g.workspace_id) ?? null);
-    const ids = g.rows.map((r) => r.id);
+    // Claim: only rows still pending become ours. None claimed = another
+    // runner has this group; leave it to them.
+    const ids = await claim(g.rows.map((r) => r.id), now);
+    if (!ids.length) continue;
     const targets = devices.get(g.email) ?? [];
     let anySent = false;
     let anyFailed = false;
@@ -298,15 +313,39 @@ export async function runPushPass(now: Date = new Date()): Promise<{ sent: numbe
       }
     }
     if (anySent) {
-      await mark(ids, 'sent', now);
-      sent += 1;
+      sent += 1; // already marked sent by the claim
     } else if (!anyFailed) {
       // Every device was gone.
       await mark(ids, 'skipped', now);
+    } else {
+      // Every attempt failed for a reason that may pass: back to pending, for
+      // the next tick (until the 48-hour stale rule).
+      await release(ids);
     }
-    // else: every attempt failed for a reason that may pass — left pending.
   }
   return { sent, skipped: plan.skip.length + orphaned.length, held: plan.hold.length };
+}
+
+/** pending → sent, only where still pending. Returns the ids this runner won. */
+async function claim(ids: string[], at: Date): Promise<string[]> {
+  const { data, error } = await adminClient
+    .from('member_notification')
+    .update({ push_state: 'sent', pushed_at: at.toISOString() })
+    .in('id', ids)
+    .eq('push_state', 'pending')
+    .select('id');
+  if (error) throw new Error(`push claim: ${error.message}`);
+  return ((data ?? []) as { id: string }[]).map((r) => r.id);
+}
+
+/** Undo a claim whose every send failed for a reason that may pass. */
+async function release(ids: string[]): Promise<void> {
+  const { error } = await adminClient
+    .from('member_notification')
+    .update({ push_state: 'pending', pushed_at: null })
+    .in('id', ids)
+    .eq('push_state', 'sent');
+  if (error) throw new Error(`push release: ${error.message}`);
 }
 
 async function mark(ids: string[], state: 'sent' | 'skipped', at: Date): Promise<void> {
