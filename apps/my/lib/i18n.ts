@@ -3179,6 +3179,43 @@ const CATALOG = {
     de: 'Das wurde nicht gesendet.', // MT
     fr: 'Ce n’a pas été envoyé.', // MT
   },
+
+  // ── Install my.thread (a phone, not yet installed) ────────────────────
+  // The install bar on a phone (InstallPrompt from @thefibre/shared). The iOS
+  // steps name Safari's own menu items as iOS shows them in each language;
+  // {share} is the Share icon.
+  install_title: {
+    en: 'Install my.thread on your phone',
+    nl: 'Zet my.thread op je telefoon',
+    es: 'Instala my.thread en tu móvil', // MT
+    pt: 'Instale o my.thread no seu celular', // MT
+    de: 'Installiere my.thread auf deinem Handy', // MT
+    fr: 'Installe my.thread sur ton téléphone', // MT
+  },
+  install_button: {
+    en: 'Install',
+    nl: 'Installeren',
+    es: 'Instalar', // MT
+    pt: 'Instalar', // MT
+    de: 'Installieren', // MT
+    fr: 'Installer', // MT
+  },
+  install_ios_steps: {
+    en: 'In Safari, tap {share} Share, then “Add to Home Screen”.',
+    nl: 'Tik in Safari op {share} Deel en dan op ‘Zet op beginscherm’.',
+    es: 'En Safari, toca {share} Compartir y luego «Añadir a pantalla de inicio».', // MT
+    pt: 'No Safari, toque em {share} Compartilhar e depois em “Adicionar à Tela de Início”.', // MT
+    de: 'Tippe in Safari auf {share} Teilen und dann auf „Zum Home-Bildschirm“.', // MT
+    fr: 'Dans Safari, touche {share} Partager, puis « Sur l’écran d’accueil ».', // MT
+  },
+  install_help: {
+    en: 'How it works',
+    nl: 'Hoe het werkt',
+    es: 'Cómo funciona', // MT
+    pt: 'Como funciona', // MT
+    de: 'So funktioniert’s', // MT
+    fr: 'Comment ça marche', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "1.250.2",
+  "version": "1.250.3",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -241,6 +241,10 @@
     "./ui/bottom-nav": {
       "types": "./dist/ui/bottom-nav.d.ts",
       "default": "./dist/ui/bottom-nav.js"
+    },
+    "./ui/install-prompt": {
+      "types": "./dist/ui/install-prompt.d.ts",
+      "default": "./dist/ui/install-prompt.js"
     },
     "./ui/button": {
       "types": "./dist/ui/button.d.ts",

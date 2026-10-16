@@ -11,6 +11,7 @@ import { RegisterServiceWorker } from './register-sw';
 import { Wordmark } from './wordmark';
 import { AppSwitcher } from './app-switcher';
 import { Bell } from './bell';
+import { InstallBar } from './install-bar';
 import { reachableApps } from '@/lib/app-access';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { pageLocale } from '@/lib/locale';
@@ -100,11 +101,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   {apps.length > 0 && <AppSwitcher apps={apps} locale={locale} />}
                 </div>
                 <main className="flex-1 overflow-y-auto">{children}</main>
+                {/* In the flow, above the tabs: it can never cover them. */}
+                <InstallBar />
                 <MemberTabs version={VERSION} upcoming={session.nav.upcoming} communities={session.nav.communities} />
               </div>
             </div>
           ) : (
-            <main className="h-full overflow-y-auto">{children}</main>
+            // A column, so the install bar sits under the page instead of
+            // being pushed off it — someone installs from the sign-in screen.
+            <div className="flex h-full flex-col">
+              <main className="flex-1 overflow-y-auto">{children}</main>
+              <InstallBar />
+            </div>
           )}
         </LocaleProvider>
       </body>

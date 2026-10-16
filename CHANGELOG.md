@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.250.3] — 2026-10-16
+
+### my.thread says it can live on your phone (my.thread 0.25.0)
+
+- Sjoerd: "In the app, on mobile, there should be some sort of a message that
+  you can download the app as a webapp." It comes before web push, which on an
+  iPhone only works once the app is installed.
+- **`InstallPrompt`, new in `@thefibre/shared/ui/install-prompt`.** The app
+  passes the words as `labels`, so any installable app in the family can use
+  it. When it shows:
+  - only on a phone-sized screen, and only after hydration;
+  - never when the app is already installed (`display-mode: standalone` or
+    `navigator.standalone`);
+  - **Android / Chrome:** only once the browser itself fires
+    `beforeinstallprompt`. "Install" opens Chrome's own dialog;
+  - **iPhone Safari:** the two steps, with the Share icon: Share, then "Add to
+    Home Screen", named as iOS names them in each language. Chrome, Firefox and
+    Edge on iOS get nothing, because their Share sheet differs;
+  - **other browsers:** nothing.
+  - **"Not now"** (or the ×) hides it on this device for 30 days, in
+    localStorage, guarded so blocked storage never breaks the page.
+  It sits in the page flow, above the bottom nav, so it can never cover it. It
+  links to Help, where the install guide lives.
+- my.thread shows it on every page, the sign-in screen included, in all six
+  languages. The manifest was already complete enough to install: name,
+  start_url, standalone, and icons 192, 512 and maskable 512.
+- Tested:
+  - unit `install-prompt` (3): who counts as iPhone Safari;
+  - locally against a dev server (Playwright):
+    - iPhone Safari in nl shows the steps, and Not now survives a reload;
+    - installed: absent;
+    - a wide screen: absent;
+    - Android with a dispatched `beforeinstallprompt`: shows in de, and
+      Install calls `prompt()`.
+  The same cases are now `e2e/install-prompt.spec.ts` against staging, unrun
+  until this lands. Not seen: a real phone.
+
 ## [1.250.2] — 2026-10-16
 
 ### Members → Settings → Google addresses opens; verify refuses the mistake that broke it (Members 1.17.1)
