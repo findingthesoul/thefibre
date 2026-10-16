@@ -128,3 +128,43 @@ test('a line already owned is named, and can be removed', async ({ page }) => {
     await db.from('person').update({ deleted_at: new Date().toISOString() }).eq('id', person!.id);
   }
 });
+
+// A RECURRING product sold on its own, WITHOUT a membership (2026-10-16): it
+// goes in the basket and checks out as a SUBSCRIBE — the page posts to
+// /public/subscribe and leaves for Stripe's checkout. A product of its own,
+// seeded and removed by id; the person the checkout creates is soft-deleted.
+test('a recurring product without a membership checks out as a subscription', async ({ page }) => {
+  test.setTimeout(120_000);
+  const db = stagingService();
+  const { data: ws } = await db.from('workspace').select('id').eq('slug', SLUG).single();
+  const name = `E2E monthly circle ${Date.now().toString(36)}`;
+  const { data: prod } = await db.from('membership_product').insert({ workspace_id: ws!.id, name, price_cents: 1500, price_interval: 'month', purchasable: true }).select('id').single();
+  const email = `e2e-basket-sub-${Date.now()}@example.com`;
+  try {
+    await open(page);
+    await page.evaluate(([k]) => {
+      localStorage.removeItem(k);
+      localStorage.setItem('thefibre.join.country', 'NL');
+    }, [KEY] as const);
+    await open(page);
+    // The card offers it — no "With a membership".
+    const card = page.locator('div').filter({ has: page.getByRole('heading', { name }) }).last();
+    await card.getByRole('button', { name: 'Add to basket' }).click();
+    await expect.poll(async () => (await stored(page))?.productIds ?? []).toEqual([prod!.id]);
+    await page.getByRole('button', { name: 'Continue' }).last().click();
+    await page.getByPlaceholder('Your name').last().fill('Sub Scriber');
+    await page.getByPlaceholder('you@example.com').last().fill(email);
+    const [req] = await Promise.all([
+      page.waitForRequest((r) => r.url().includes('/membership/public/subscribe') && r.method() === 'POST', { timeout: 30_000 }),
+      page.getByRole('button', { name: 'Continue to payment' }).last().click(),
+    ]);
+    expect(JSON.parse(req.postData() ?? '{}')).toMatchObject({ product_ids: [prod!.id], workspace_slug: SLUG });
+    await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
+  } finally {
+    const { data: persons } = await db.from('person').select('id').eq('workspace_id', ws!.id).eq('email', email);
+    for (const p of persons ?? []) await db.from('person').update({ deleted_at: new Date().toISOString() }).eq('id', p.id);
+    await db.from('membership_product').delete().eq('id', prod!.id);
+    const { count } = await db.from('membership_product').select('id', { count: 'exact', head: true }).eq('id', prod!.id);
+    expect(count).toBe(0);
+  }
+});

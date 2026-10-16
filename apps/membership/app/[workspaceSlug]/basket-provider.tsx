@@ -589,6 +589,13 @@ function Checkout({
         setError(t(locale, 'basket_try_again'));
         return;
       }
+      // A subscription against an API one release behind: the route does not
+      // exist there yet (404). A batch promotes the web before the API, so for
+      // those minutes the same sentence — never the generic one.
+      if (status === 404 && target.route.endsWith('/subscribe')) {
+        setError(t(locale, 'basket_try_again'));
+        return;
+      }
       setError(typeof b?.error === 'string' ? b.error : t(locale, 'something_wrong'));
     }
   }

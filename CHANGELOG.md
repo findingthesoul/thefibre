@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.246.2] — 2026-10-16
+
+### Subscribing during a promote says "try again in a minute"
+
+- A batch promotes the web before the API. For those minutes the join
+  page's Subscribe posts to `/public/subscribe` on an API that does not have
+  it yet: a plain 404, which the basket showed as "Something went wrong".
+  It now shows the same sentence as the product_ids case: "Something
+  changed on our side just now — please try again in a minute."
+- my.thread's product-renewal toggle cannot hit that window: an older API
+  sends no `product_subscriptions`, so no product row renders.
+- e2e `page-basket`, new case: a recurring product sold on its own, with no
+  membership, goes in the basket, posts to `/public/subscribe` with its id,
+  and lands on Stripe's checkout. It is green on staging against v1.246.0.
+
 ## [1.246.1] — 2026-10-16
 
 ### A thread offered to more than one team: the table (migration only)
