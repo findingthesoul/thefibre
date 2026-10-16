@@ -17,11 +17,16 @@ import {
   renameMemberDocument,
   reorderMemberDocuments,
   saveMemberIntro,
+  saveMemberTierIntro,
+  setMemberDocumentTiers,
 } from '../actions';
 
+// tier_ids: who sees it (2jj). Empty = every member, the behaviour before tiers.
 export type MemberDocument =
-  | { id: string; title: string; kind: 'file'; mime: string; bytes: number; uploaded_at: string }
-  | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string };
+  | { id: string; title: string; kind: 'file'; mime: string; bytes: number; uploaded_at: string; tier_ids?: string[] }
+  | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string; tier_ids?: string[] };
+export type PageTier = { id: string; name: string; archived: boolean };
+type Preview = { member_name: string | null; intro_html: string | null; tier_sections?: { tier_id: string; tier_name: string; intro_html: string }[] };
 
 const TAG_CHIPS = tokenChips('member_page');
 
@@ -30,15 +35,24 @@ const size = (b: number) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} 
 export function MemberPageClient({
   workspaceName,
   intro,
+  tierIntros: initialTierIntros = {},
+  tiers = [],
   documents: initial,
   locale,
 }: {
   workspaceName: string | null;
   intro: string | null;
+  tierIntros?: Record<string, string>;
+  tiers?: PageTier[];
   documents: MemberDocument[];
   locale: Locale;
 }) {
   const router = useRouter();
+  // Which text the editor writes (2jj): '' = the whole community, else a
+  // tier id. Each tier's section is ADDED under the community's intro.
+  const [target, setTarget] = useState('');
+  // What is saved, per target — so switching back shows what was saved.
+  const [saved, setSaved] = useState<Record<string, string>>({ '': intro ?? '', ...initialTierIntros });
   const [html, setHtml] = useState(intro ?? '');
   const [docs, setDocs] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
@@ -47,14 +61,17 @@ export function MemberPageClient({
   // so the introduction does too — when the field loses focus. A Save button
   // beside instant documents was a trap: type, wander off, nothing saved
   // (Sjoerd on production, 2026-10-14).
-  const [savedHtml, setSavedHtml] = useState(intro ?? '');
+  const savedHtml = saved[target] ?? '';
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const dirty = html !== savedHtml || saveState === 'saving';
+  // Live tiers to choose from, plus an archived one a document still names.
+  const choosable = tiers.filter((x) => !x.archived || docs.some((d) => d.tier_ids?.includes(x.id)) || saved[x.id]);
+  const targetTier = tiers.find((x) => x.id === target) ?? null;
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<'upload' | 'link'>('upload');
   const [url, setUrl] = useState('');
-  const [preview, setPreview] = useState<{ member_name: string | null; intro_html: string | null } | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function addLink() {
@@ -86,16 +103,38 @@ export function MemberPageClient({
   async function saveIntro() {
     if (html === savedHtml) return;
     const sending = html;
+    const forTarget = target;
     setSaveState('saving');
     setError(null);
-    const r = await saveMemberIntro(sending.trim() ? sending : null);
+    const body = sending.trim() ? sending : null;
+    const r = forTarget ? await saveMemberTierIntro(forTarget, body) : await saveMemberIntro(body);
     if (r.error) {
       setSaveState('idle');
       setError(r.error);
       return;
     }
-    setSavedHtml(sending);
+    setSaved((m) => ({ ...m, [forTarget]: sending }));
     setSaveState('saved');
+  }
+
+  // Switching what is written saves what was typed first, then loads the
+  // other text into the editor (which is keyed on the target).
+  async function switchTarget(next: string) {
+    await saveIntro();
+    setTarget(next);
+    setHtml(saved[next] ?? '');
+    setSaveState('idle');
+    setPreview(null);
+  }
+
+  async function setShownTo(id: string, tierIds: string[]) {
+    const before = docs;
+    setDocs((d) => d.map((x) => (x.id === id ? { ...x, tier_ids: tierIds } : x)));
+    const r = await setMemberDocumentTiers(id, tierIds);
+    if (r.error) {
+      setDocs(before);
+      setError(r.error);
+    }
   }
 
   // Leaving with text not yet saved (or a save still in flight) asks first.
@@ -178,12 +217,31 @@ export function MemberPageClient({
           void saveIntro();
         }}
       >
+        {choosable.length > 0 && (
+          <label className="flex flex-wrap items-center gap-2 text-sm text-ink-subtle">
+            {t(locale, 'mp_edit_for')}
+            <select
+              value={target}
+              onChange={(e) => void switchTarget(e.target.value)}
+              className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-line-strong focus:outline-none"
+            >
+              <option value="">{t(locale, 'mp_edit_whole')}</option>
+              {choosable.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                  {saved[x.id]?.trim() ? ' •' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <RichTextField
+          key={target || 'community'}
           locale={locale}
-          label={t(locale, 'mp_intro_label')}
-          hint={t(locale, 'mp_intro_hint')}
+          label={targetTier ? `${t(locale, 'mp_intro_label')} — ${targetTier.name}` : t(locale, 'mp_intro_label')}
+          hint={targetTier ? t(locale, 'mp_tier_intro_hint', { tier: targetTier.name }) : t(locale, 'mp_intro_hint')}
           name="intro_html"
-          defaultValue={intro}
+          defaultValue={savedHtml}
           onHtmlChange={setHtml}
           minHeight={180}
           insertTokens={TAG_CHIPS}
@@ -209,6 +267,12 @@ export function MemberPageClient({
               <>
                 <p className="mb-3 text-xs text-ink-muted">{t(locale, 'mp_preview_as', { name: preview.member_name })}</p>
                 {preview.intro_html ? <RichText html={preview.intro_html} /> : null}
+                {preview.tier_sections?.map((x) => (
+                  <div key={x.tier_id} className="mt-4 border-t border-line pt-3">
+                    <p className="mb-2 text-xs font-medium text-ink-subtle">{x.tier_name}</p>
+                    <RichText html={x.intro_html} />
+                  </div>
+                ))}
               </>
             ) : (
               <p className="text-sm text-ink-muted">{t(locale, 'mp_preview_none')}</p>
@@ -230,8 +294,9 @@ export function MemberPageClient({
                 onDragStart={() => setDragIdx(i)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => void dropOn(i)}
-                className={`flex items-center gap-3 px-3 py-2 ${dragIdx === i ? 'opacity-50' : ''}`}
+                className={`px-3 py-2 ${dragIdx === i ? 'opacity-50' : ''}`}
               >
+                <div className="flex items-center gap-3">
                 <GripVertical size={16} className="shrink-0 cursor-grab text-ink-muted" aria-hidden />
                 {d.kind === 'link' ? (
                   <Link2 size={16} className="shrink-0 text-ink-subtle" aria-hidden />
@@ -262,6 +327,34 @@ export function MemberPageClient({
                 >
                   <Trash2 size={16} aria-hidden />
                 </button>
+                </div>
+                {choosable.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[3.25rem]" role="group" aria-label={`${t(locale, 'mp_shown_to')}: ${d.title}`}>
+                    <span className="mr-1 text-xs text-ink-muted">{t(locale, 'mp_shown_to')}</span>
+                    <button
+                      type="button"
+                      aria-pressed={!d.tier_ids?.length}
+                      onClick={() => d.tier_ids?.length && void setShownTo(d.id, [])}
+                      className={`${CHIP} ${!d.tier_ids?.length ? CHIP_STATE.on : CHIP_STATE.off}`}
+                    >
+                      {t(locale, 'mp_everyone')}
+                    </button>
+                    {choosable.map((x) => {
+                      const on = !!d.tier_ids?.includes(x.id);
+                      return (
+                        <button
+                          key={x.id}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => void setShownTo(d.id, on ? (d.tier_ids ?? []).filter((v) => v !== x.id) : [...(d.tier_ids ?? []), x.id])}
+                          className={`${CHIP} ${on ? CHIP_STATE.on : CHIP_STATE.off}`}
+                        >
+                          {x.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

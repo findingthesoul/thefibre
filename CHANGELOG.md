@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.236.0] — 2026-10-16
+
+### The member page, per tier
+
+- A community's page in my.thread can now say something to one tier
+  (Sjoerd 2jj). In Members → Settings → Member page, "Write for" picks the
+  whole community or a tier. A tier's section is ADDED under the community's
+  introduction and is shown only to members who hold that tier.
+- Each document has "Shown to": Every member, or one or more tiers. A
+  document saved before this, or set to Every member, is shown to everyone,
+  as before. A unit test pins that.
+- Enforced on the API, not in the page. The list a member is sent and the
+  60-second signed download address both check the tiers the member holds.
+  "Holds" means the same thing as access to the page: active or grace, not
+  deleted (`liveMemberRows` in lib/member-page.ts, the predicate
+  `memberCommunities` already used). A member in two person rows holds both
+  rows' tiers.
+- Two admin routes: `PUT /membership/member-page/tier-intros/:tierId` and
+  `PUT /membership/member-page/documents/:id/tiers`. Another community's tier
+  id is refused. The admin GET adds `tier_intros`, `tiers` and per-document
+  `tier_ids`. The portal's community view adds `tier_sections`. All additive,
+  with no migration: both live in the existing `member_page` jsonb.
+- Tested: unit (`visibleTo`) and integration on staging, 13/13. Integration
+  covers a document limited to a tier, listed and signed only for its holders,
+  with grace counting. An empty list restores it to everyone. A lapsed holder
+  loses it. A tier section is sanitised and shown only to its holders. The
+  e2e spec `member-page-tiers` (exclusive project) covers editor → database →
+  portal.
+
 ## [1.235.0] — 2026-10-16
 
 ### Cancellation requests: ask in my.thread, decide in Thread (Thread 4.15.0, my.thread 0.18.0)

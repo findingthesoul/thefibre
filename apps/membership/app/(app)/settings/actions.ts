@@ -107,6 +107,16 @@ export async function saveMemberIntro(introHtml: string | null): Promise<ActionR
   return memberPageCall('', { method: 'PUT', body: JSON.stringify({ intro_html: introHtml }) });
 }
 
+/** One tier's section of the page (2jj); null removes it. */
+export async function saveMemberTierIntro(tierId: string, introHtml: string | null): Promise<ActionResult> {
+  return memberPageCall(`/tier-intros/${encodeURIComponent(tierId)}`, { method: 'PUT', body: JSON.stringify({ intro_html: introHtml }) });
+}
+
+/** Who one document is shown to: tier ids, or [] for every member (2jj). */
+export async function setMemberDocumentTiers(id: string, tierIds: string[]): Promise<ActionResult> {
+  return memberPageCall(`/documents/${encodeURIComponent(id)}/tiers`, { method: 'PUT', body: JSON.stringify({ tier_ids: tierIds }) });
+}
+
 export async function renameMemberDocument(id: string, title: string): Promise<ActionResult> {
   return memberPageCall(`/documents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
 }
@@ -136,7 +146,9 @@ export async function addMemberLink(url: string, title: string | null): Promise<
 }
 
 /** The SAVED intro as one real member reads it, tags filled. */
-export async function previewMemberIntro(): Promise<ActionResult<{ member_name: string | null; intro_html: string | null }>> {
+export async function previewMemberIntro(): Promise<
+  ActionResult<{ member_name: string | null; intro_html: string | null; tier_sections?: { tier_id: string; tier_name: string; intro_html: string }[] }>
+> {
   try {
     return { ok: true, data: await apiFetch('/api/v1/membership/member-page/preview') };
   } catch (e) {

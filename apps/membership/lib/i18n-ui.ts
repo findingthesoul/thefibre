@@ -2909,6 +2909,46 @@ const CATALOG = {
     de: 'Dieses Dokument entfernen? Mitglieder können es nicht mehr öffnen, und die Datei wird gelöscht.', // MT
     fr: 'Retirer ce document ? Les membres ne pourront plus l’ouvrir et le fichier est supprimé.', // MT
   },
+  mp_edit_for: {
+    en: 'Write for',
+    nl: 'Schrijven voor', // MT
+    es: 'Escribir para', // MT
+    pt: 'Escrever para', // MT
+    de: 'Schreiben für', // MT
+    fr: 'Écrire pour', // MT
+  },
+  mp_edit_whole: {
+    en: 'The whole community',
+    nl: 'De hele community', // MT
+    es: 'Toda la comunidad', // MT
+    pt: 'Toda a comunidade', // MT
+    de: 'Die ganze Community', // MT
+    fr: 'Toute la communauté', // MT
+  },
+  mp_tier_intro_hint: {
+    en: 'Shown under the introduction, only to members who hold {tier}. Leave it empty for no section.',
+    nl: 'Onder de introductie, alleen voor leden met {tier}. Laat leeg voor geen sectie.', // MT
+    es: 'Se muestra bajo la introducción, solo a miembros con {tier}. Déjalo vacío para no tener sección.', // MT
+    pt: 'Mostrado sob a introdução, só a membros com {tier}. Deixe vazio para não ter secção.', // MT
+    de: 'Unter der Einführung, nur für Mitglieder mit {tier}. Leer lassen für keinen Abschnitt.', // MT
+    fr: 'Sous l’introduction, seulement pour les membres ayant {tier}. Laisse vide pour aucune section.', // MT
+  },
+  mp_shown_to: {
+    en: 'Shown to',
+    nl: 'Zichtbaar voor', // MT
+    es: 'Visible para', // MT
+    pt: 'Visível para', // MT
+    de: 'Sichtbar für', // MT
+    fr: 'Visible par', // MT
+  },
+  mp_everyone: {
+    en: 'Every member',
+    nl: 'Elk lid', // MT
+    es: 'Todos los miembros', // MT
+    pt: 'Todos os membros', // MT
+    de: 'Alle Mitglieder', // MT
+    fr: 'Tous les membres', // MT
+  },
   notify_held_title: {
     en: '{n} new threads were not announced, because more than 20 appeared at once. That is usually an import, sometimes a whole season loaded in one go.',
     nl: '{n} nieuwe threads zijn niet aangekondigd, omdat er meer dan 20 tegelijk verschenen. Meestal een import, soms een heel seizoen in één keer.', // MT

@@ -18,6 +18,16 @@ export function CommunityPage({ c }: { c: CommunityView }) {
         </section>
       )}
 
+      {/* The member's own tiers' sections, ADDED under the community's intro. */}
+      {(c.tier_sections ?? []).map((x) => (
+        <section key={x.tier_id} className="max-w-prose text-ink">
+          <h2 className={SECTION_LABEL}>{x.tier_name}</h2>
+          <div className="mt-3">
+            <RichText html={x.intro_html} />
+          </div>
+        </section>
+      ))}
+
       {c.next && (
         <section>
           <h2 className={SECTION_LABEL}>Next</h2>
@@ -101,7 +111,7 @@ export function CommunityPage({ c }: { c: CommunityView }) {
         </section>
       )}
 
-      {!c.intro_html && !c.next && !c.documents.length && !c.thread_documents.length && (
+      {!c.intro_html && !c.tier_sections?.length && !c.next && !c.documents.length && !c.thread_documents.length && (
         <p className="text-sm text-ink-muted">Nothing here yet. Your community can add an introduction and documents.</p>
       )}
     </div>

@@ -9,7 +9,10 @@
 //   · a photo is stored WITHOUT its EXIF;
 //   · removing a document deletes the stored file, not only the entry;
 //   · a thread's document step appears only once the thread's own triggers
-//     have released it to that member (a thread_message_send row).
+//     have released it to that member (a thread_message_send row);
+//   · per tier (2jj): a document limited to tiers reaches only members who
+//     hold one — in the list AND at the signed address — and a tier's section
+//     only its holders; another community's tier is refused by the routes.
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -22,6 +25,11 @@ const memberEmail = `mp-member-${randomUUID().slice(0, 6)}@example.com`;
 const strangerEmail = `mp-stranger-${randomUUID().slice(0, 6)}@example.com`;
 let memberPerson = '';
 let memberId = '';
+let tierA = '';
+let tierB = '';
+const otherEmail = `mp-other-${randomUUID().slice(0, 6)}@example.com`;
+let otherPerson = '';
+let otherMemberId = '';
 const made: { table: string; id: string }[] = [];
 
 async function insert(table: string, row: Record<string, unknown>) {
@@ -49,11 +57,14 @@ beforeAll(async () => {
   ws = await createThrowawayWorkspace('memberpage');
   memberPerson = await insert('person', { workspace_id: ws, first_name: 'M', email: memberEmail });
   await insert('person', { workspace_id: ws, first_name: 'S', email: strangerEmail });
-  const tier = await insert('membership_tier', { workspace_id: ws, name: 'Member page tier' });
+  tierA = await insert('membership_tier', { workspace_id: ws, name: 'Member page tier', sort_order: 1 });
+  tierB = await insert('membership_tier', { workspace_id: ws, name: 'Board tier', sort_order: 2 });
+  otherPerson = await insert('person', { workspace_id: ws, first_name: 'O', email: otherEmail });
+  otherMemberId = await insert('membership_member', { workspace_id: ws, person_id: otherPerson, tier_id: tierB, status: 'grace', renews_at: '2099-01-01T00:00:00Z' });
   memberId = await insert('membership_member', {
     workspace_id: ws,
     person_id: memberPerson,
-    tier_id: tier,
+    tier_id: tierA,
     status: 'active',
     renews_at: '2099-01-01T00:00:00Z',
   });
@@ -182,5 +193,70 @@ describe("a thread's document steps", () => {
     const view = await page.communityView({ workspace_id: ws, person_id: memberPerson, member_id: memberId });
     const titles = view.thread_documents.flatMap((g) => g.items.map((i) => i.title));
     expect(titles).toEqual(['Week 1 reading']);
+  });
+});
+
+describe('per tier (2jj)', () => {
+  let boardDoc = '';
+  let everyoneLink = '';
+
+  it('a document limited to a tier: listed and signed only for its holders', async () => {
+    const d = await page.addDocument(ws, { name: 'minutes.jpg', bytes: jpegWithExif() }, 'Board minutes');
+    boardDoc = (d as Exclude<typeof d, string>).id;
+    everyoneLink = ((await page.addLink(ws, 'https://example.com/handbook', 'Handbook')) as { id: string }).id;
+    expect(await page.setDocumentTiers(ws, boardDoc, [tierB])).toBe(true);
+
+    // memberCommunities carries every tier held, by the access predicate.
+    const mine = await page.memberCommunities(memberEmail);
+    expect(mine.find((m) => m.workspace_id === ws)?.tier_ids).toEqual([tierA]);
+    const theirs = (await page.memberCommunities(otherEmail)).find((m) => m.workspace_id === ws)!;
+    expect(theirs.tier_ids, 'grace counts, as it does for access').toEqual([tierB]);
+
+    const a = await page.communityView(mine.find((m) => m.workspace_id === ws)!);
+    expect(a.documents.map((x) => x.id)).toEqual([everyoneLink]);
+    expect(await page.signedDocumentUrl(memberEmail, ws, boardDoc), 'not signed for a tier they do not hold').toBeNull();
+
+    const b = await page.communityView(theirs);
+    expect(b.documents.map((x) => x.id)).toEqual([boardDoc, everyoneLink]);
+    expect(await page.signedDocumentUrl(otherEmail, ws, boardDoc)).toMatch(/token=/);
+
+    // The preview path (no tier_ids passed) derives the same answer.
+    const derived = await page.communityView({ workspace_id: ws, person_id: memberPerson, member_id: memberId });
+    expect(derived.documents.map((x) => x.id)).toEqual([everyoneLink]);
+  });
+
+  it('an empty list puts the document back in front of everyone', async () => {
+    expect(await page.setDocumentTiers(ws, boardDoc, [])).toBe(true);
+    const stored = (await page.readMemberPage(ws)).documents.find((d) => d.id === boardDoc)!;
+    expect('tier_ids' in stored).toBe(false);
+    expect(await page.signedDocumentUrl(memberEmail, ws, boardDoc)).toMatch(/token=/);
+  });
+
+  it('a lapsed holder of the tier loses the document with the page', async () => {
+    await page.setDocumentTiers(ws, boardDoc, [tierB]);
+    await service.from('membership_member').update({ status: 'lapsed' }).eq('id', otherMemberId);
+    try {
+      expect(await page.signedDocumentUrl(otherEmail, ws, boardDoc)).toBeNull();
+    } finally {
+      await service.from('membership_member').update({ status: 'grace' }).eq('id', otherMemberId);
+    }
+  });
+
+  it('a tier section reaches only its holders, tags filled, sanitised; empty removes it', async () => {
+    await page.saveIntro(ws, '<p>For all</p>');
+    await page.saveTierIntro(ws, tierB, '<p>Board, {first_name}</p><script>x</script>');
+    try {
+      const a = await page.communityView({ workspace_id: ws, person_id: memberPerson, member_id: memberId });
+      expect(a.intro_html).toContain('For all');
+      expect(a.tier_sections).toEqual([]);
+      const b = await page.communityView({ workspace_id: ws, person_id: otherPerson, member_id: otherMemberId });
+      expect(b.tier_sections).toEqual([{ tier_id: tierB, tier_name: 'Board tier', intro_html: '<p>Board, O</p>' }]);
+      // The community intro is unchanged by a tier's section: added, not replaced.
+      expect(b.intro_html).toContain('For all');
+      await page.saveTierIntro(ws, tierB, '');
+      expect((await page.readMemberPage(ws)).tier_intros).toEqual({});
+    } finally {
+      await page.saveIntro(ws, null);
+    }
   });
 });

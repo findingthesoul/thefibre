@@ -13,6 +13,8 @@ import {
   renameDocument,
   reorderDocuments,
   saveIntro,
+  saveTierIntro,
+  setDocumentTiers,
 } from '../lib/member-page.js';
 import {
   parseFibreSeatConfig,
@@ -1983,21 +1985,27 @@ const admin = async (c: Context) => {
 membershipRoutes.get('/member-page', async (c) => {
   const ws = await admin(c);
   if (!ws) return c.json({ error: 'admin only' }, 403);
-  const [page, { data: wsRow }] = await Promise.all([
+  const [page, { data: wsRow }, { data: tiers, error: tErr }] = await Promise.all([
     readMemberPage(ws),
     adminClient.from('workspace').select('name').eq('id', ws).maybeSingle(),
+    adminClient.from('membership_tier').select('id, name, archived_at').eq('workspace_id', ws).order('sort_order', { ascending: true }),
   ]);
+  if (tErr) return fail(c, 'member page tiers', tErr);
   return c.json({
     // Which community's members see this page. Named in the editor, because
     // with one account in several workspaces the page saves to whichever
     // workspace the session is acting in, and nothing else said which.
     workspace_name: (wsRow?.name as string | undefined) ?? null,
     intro_html: page.intro_html,
+    // Per tier (2jj): a section per tier id, and who each document is shown
+    // to (empty = every member). The tiers name the editor's choices.
+    tier_intros: page.tier_intros,
+    tiers: ((tiers ?? []) as { id: string; name: string; archived_at: string | null }[]).map((t) => ({ id: t.id, name: t.name, archived: !!t.archived_at })),
     // The storage path stays on the server.
     documents: page.documents.map((d) =>
       isLink(d)
-        ? { id: d.id, title: d.title, kind: 'link', url: d.url, uploaded_at: d.uploaded_at }
-        : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at },
+        ? { id: d.id, title: d.title, kind: 'link', url: d.url, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [] }
+        : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [] },
     ),
   });
 });
@@ -2020,7 +2028,7 @@ membershipRoutes.get('/member-page/preview', async (c) => {
   const pick = ((rows ?? []) as unknown as Row[]).sort((a, b) => label(a).localeCompare(label(b)))[0];
   if (!pick) return c.json({ member_name: null, intro_html: null });
   const view = await communityView({ workspace_id: ws, person_id: pick.person_id, member_id: pick.id });
-  return c.json({ member_name: label(pick), intro_html: view.intro_html });
+  return c.json({ member_name: label(pick), intro_html: view.intro_html, tier_sections: view.tier_sections });
 });
 
 // A link entry: title + an http(s) address (lib/member-page.ts safeLinkUrl).
@@ -2070,6 +2078,46 @@ membershipRoutes.patch('/member-page/documents/:id', async (c) => {
   return (await renameDocument(ws, c.req.param('id'), body.title))
     ? c.json({ ok: true })
     : c.json({ error: 'not found' }, 404);
+});
+
+// Every id must be a tier of THIS workspace — another community's tier id
+// is refused, never stored.
+const tiersOfWorkspace = async (ws: string, ids: string[]): Promise<boolean> => {
+  if (!ids.length) return true;
+  const { data, error } = await adminClient.from('membership_tier').select('id').eq('workspace_id', ws).in('id', ids);
+  if (error) throw new Error(`tiers: ${error.message}`);
+  return new Set((data ?? []).map((t) => t.id as string)).size === new Set(ids).size;
+};
+const isUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v);
+
+// One tier's section of the page (2jj). Null or empty removes it.
+membershipRoutes.put('/member-page/tier-intros/:tierId', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const tierId = c.req.param('tierId');
+  const body = (await c.req.json().catch(() => null)) as { intro_html?: unknown } | null;
+  if (!body || (body.intro_html !== null && typeof body.intro_html !== 'string')) {
+    return c.json({ error: 'intro_html must be a string or null' }, 400);
+  }
+  if (typeof body.intro_html === 'string' && body.intro_html.length > 100_000) {
+    return c.json({ error: 'the intro is too long' }, 400);
+  }
+  if (!isUuid(tierId) || !(await tiersOfWorkspace(ws, [tierId]))) return c.json({ error: 'That tier is not one of this community’s.' }, 400);
+  await saveTierIntro(ws, tierId, body.intro_html as string | null);
+  return c.json({ ok: true });
+});
+
+// Who one document is shown to: tier ids, or [] for every member (2jj).
+membershipRoutes.put('/member-page/documents/:id/tiers', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { tier_ids?: unknown } | null;
+  if (!Array.isArray(body?.tier_ids) || !body.tier_ids.every(isUuid)) {
+    return c.json({ error: 'tier_ids must be an array of tier ids' }, 400);
+  }
+  const ids = body.tier_ids as string[];
+  if (!(await tiersOfWorkspace(ws, ids))) return c.json({ error: 'That tier is not one of this community’s.' }, 400);
+  return (await setDocumentTiers(ws, c.req.param('id'), ids)) ? c.json({ ok: true }) : c.json({ error: 'not found' }, 404);
 });
 
 membershipRoutes.put('/member-page/documents/order', async (c) => {

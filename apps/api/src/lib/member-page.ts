@@ -15,6 +15,14 @@
 // deliberate and not the soft-delete rule: soft delete is for PERSONAL data,
 // and an admin's upload of a flyer or a handbook is not that — keeping the
 // file after the admin removed it would keep something they asked to be gone.
+//
+// PER TIER (Sjoerd 2jj, 2026-10-16), ADDED beside the community-wide page,
+// never instead of it: an intro section per tier (`tier_intros`, by tier id)
+// and, per document, `tier_ids` — the tiers it is shown to. A document with
+// no `tier_ids`, or an empty list, is shown to every member, exactly as
+// before. "Holds a tier" is the SAME predicate as access to the page itself
+// (liveMemberRows: active or grace, not deleted), and it is enforced here, on
+// the server — the list a member is sent AND the signed download address.
 
 import { randomUUID } from 'node:crypto';
 import { adminClient } from '../db.js';
@@ -41,6 +49,8 @@ export type StoredDocument = {
   mime: string;
   bytes: number;
   uploaded_at: string;
+  /** The tiers this document is shown to. Absent or empty: every member. */
+  tier_ids?: string[];
 };
 
 /** A document that is an ADDRESS — a Google Doc, a page elsewhere (Sjoerd,
@@ -52,12 +62,27 @@ export type LinkDocument = {
   kind: 'link';
   url: string;
   uploaded_at: string;
+  /** The tiers this document is shown to. Absent or empty: every member. */
+  tier_ids?: string[];
 };
 
 export type PageDocument = StoredDocument | LinkDocument;
 export const isLink = (d: PageDocument): d is LinkDocument => d.kind === 'link';
 
-export type MemberPage = { intro_html: string | null; documents: PageDocument[] };
+export type MemberPage = {
+  intro_html: string | null;
+  documents: PageDocument[];
+  /** A section per tier, shown under the community intro to members who
+   *  hold that tier. Sanitised on the way in, like the intro. */
+  tier_intros: Record<string, string>;
+};
+
+/** Whether a member holding `heldTierIds` sees this document. No `tier_ids`
+ *  or an empty list means everyone — the behaviour before tiers existed. */
+export function visibleTo(doc: { tier_ids?: string[] | null }, heldTierIds: readonly string[]): boolean {
+  const only = Array.isArray(doc.tier_ids) ? doc.tier_ids : [];
+  return only.length === 0 || only.some((t) => heldTierIds.includes(t));
+}
 
 const one = <T>(v: unknown): T | null =>
   !v ? null : Array.isArray(v) ? ((v[0] ?? null) as T | null) : (v as T);
@@ -70,7 +95,12 @@ export async function readMemberPage(ws: string): Promise<MemberPage> {
     .maybeSingle();
   if (error) throw new Error(`member page: ${error.message}`);
   const page = (data?.member_page ?? {}) as Partial<MemberPage>;
-  return { intro_html: page.intro_html ?? null, documents: Array.isArray(page.documents) ? page.documents : [] };
+  const intros = page.tier_intros && typeof page.tier_intros === 'object' && !Array.isArray(page.tier_intros) ? page.tier_intros : {};
+  return {
+    intro_html: page.intro_html ?? null,
+    documents: Array.isArray(page.documents) ? page.documents : [],
+    tier_intros: intros,
+  };
 }
 
 async function writeMemberPage(ws: string, page: MemberPage): Promise<void> {
@@ -84,6 +114,34 @@ async function writeMemberPage(ws: string, page: MemberPage): Promise<void> {
 export async function saveIntro(ws: string, introHtml: string | null): Promise<void> {
   const page = await readMemberPage(ws);
   await writeMemberPage(ws, { ...page, intro_html: introHtml ? sanitizeRichText(introHtml) : null });
+}
+
+/** One tier's section, sanitised; empty or null removes it. The caller has
+ *  checked the tier belongs to `ws`. */
+export async function saveTierIntro(ws: string, tierId: string, introHtml: string | null): Promise<void> {
+  const page = await readMemberPage(ws);
+  const clean = (introHtml ? sanitizeRichText(introHtml) : null) ?? '';
+  const intros = { ...page.tier_intros };
+  if (clean.trim()) intros[tierId] = clean;
+  else delete intros[tierId];
+  await writeMemberPage(ws, { ...page, tier_intros: intros });
+}
+
+/** Who one document is shown to. An empty list = every member. The caller
+ *  has checked every id is a tier of `ws`. */
+export async function setDocumentTiers(ws: string, id: string, tierIds: string[]): Promise<boolean> {
+  const page = await readMemberPage(ws);
+  if (!page.documents.some((d) => d.id === id)) return false;
+  const unique = [...new Set(tierIds)];
+  await writeMemberPage(ws, {
+    ...page,
+    documents: page.documents.map((d) => {
+      if (d.id !== id) return d;
+      const { tier_ids: _old, ...rest } = d;
+      return (unique.length ? { ...rest, tier_ids: unique } : rest) as PageDocument;
+    }),
+  });
+  return true;
 }
 
 export type UploadRefusal = 'too_large' | 'not_allowed' | 'empty' | 'corrupt';
@@ -181,33 +239,54 @@ export async function removeDocument(ws: string, id: string): Promise<boolean> {
 // THE MEMBER'S SIDE
 // ---------------------------------------------------------------------------
 
-/** The communities this verified address is an active or grace member of,
- *  with the person row it is in each. */
-export async function memberCommunities(email: string): Promise<{ workspace_id: string; person_id: string; member_id: string }[]> {
-  const persons = await personsForEmail(email);
-  if (!persons.length) return [];
-  const { data, error } = await adminClient
+type LiveRow = { id: string; workspace_id: string; person_id: string; tier_id: string | null };
+
+/** THE predicate for "is a member here": active or grace, not deleted. The
+ *  page's access AND the tier sections both ask this, so "holds a tier" can
+ *  never mean something different from "may open the page". */
+async function liveMemberRows(personIds: string[], workspaceId?: string): Promise<LiveRow[]> {
+  if (!personIds.length) return [];
+  let q = adminClient
     .from('membership_member')
-    .select('id, workspace_id, person_id')
-    .in('person_id', persons.map((p) => p.id))
+    .select('id, workspace_id, person_id, tier_id')
+    .in('person_id', personIds)
     .in('status', ['active', 'grace'])
     .is('deleted_at', null);
+  if (workspaceId) q = q.eq('workspace_id', workspaceId);
+  const { data, error } = await q;
   if (error) throw new Error(`memberships: ${error.message}`);
+  return (data ?? []) as LiveRow[];
+}
+
+const tiersOf = (rows: LiveRow[], ws: string) =>
+  [...new Set(rows.filter((r) => r.workspace_id === ws && r.tier_id).map((r) => r.tier_id as string))];
+
+export type MemberCommunity = { workspace_id: string; person_id: string; member_id: string; tier_ids: string[] };
+
+/** The communities this verified address is an active or grace member of,
+ *  with the person row it is in each and EVERY tier it holds there (one
+ *  address can sit in more than one person row, each with its own tier). */
+export async function memberCommunities(email: string): Promise<MemberCommunity[]> {
+  const persons = await personsForEmail(email);
+  const rows = await liveMemberRows(persons.map((p) => p.id));
   const seen = new Set<string>();
-  return ((data ?? []) as { id: string; workspace_id: string; person_id: string }[])
+  return rows
     .filter((m) => (seen.has(m.workspace_id) ? false : (seen.add(m.workspace_id), true)))
-    .map((m) => ({ workspace_id: m.workspace_id, person_id: m.person_id, member_id: m.id }));
+    .map((m) => ({ workspace_id: m.workspace_id, person_id: m.person_id, member_id: m.id, tier_ids: tiersOf(rows, m.workspace_id) }));
 }
 
 /** A 60-second download address for one document, or null when this address
  *  is not a member of that community or the document is not there. PDFs are
  *  served as an attachment named after their title. */
 export async function signedDocumentUrl(email: string, ws: string, docId: string): Promise<string | null> {
-  const mine = await memberCommunities(email);
-  if (!mine.some((m) => m.workspace_id === ws)) return null;
+  const mine = (await memberCommunities(email)).find((m) => m.workspace_id === ws);
+  if (!mine) return null;
   const found = (await readMemberPage(ws)).documents.find((d) => d.id === docId);
   // A link entry has no stored file to sign; the page links to it directly.
   if (!found || isLink(found)) return null;
+  // Not shown to this member's tiers: not signed for them either — the same
+  // answer as a document that is not there.
+  if (!visibleTo(found, mine.tier_ids)) return null;
   const doc = found;
   const isPdf = doc.mime === 'application/pdf';
   const filename = `${doc.title.replace(/[^\p{L}\p{N} ._-]+/gu, '').trim() || 'document'}.${doc.path.split('.').pop()}`;
@@ -223,6 +302,9 @@ export type CommunityView = {
   name: string;
   logo_url: string | null;
   intro_html: string | null;
+  /** The sections for the tiers this member holds, in the tiers' own order,
+   *  shown under the community intro. Empty when none is written. */
+  tier_sections: { tier_id: string; tier_name: string; intro_html: string }[];
   /** A file (kind 'file', fetched through the signed route) or a link
    *  (kind 'link', opened directly). */
   documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string })[];
@@ -232,13 +314,16 @@ export type CommunityView = {
   next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;
 };
 
-/** Everything one member sees on one community's page. */
+/** Everything one member sees on one community's page. `tier_ids` comes from
+ *  memberCommunities; without it (the admin's preview) the member row's own
+ *  person is asked, by the same predicate. */
 export async function communityView(
-  member: { workspace_id: string; person_id: string; member_id: string },
+  member: { workspace_id: string; person_id: string; member_id: string; tier_ids?: string[] },
   now: Date = new Date(),
 ): Promise<CommunityView> {
   const ws = member.workspace_id;
-  const [{ data: wsRow }, page, { data: who }] = await Promise.all([
+  const held = member.tier_ids ?? tiersOf(await liveMemberRows([member.person_id], ws), ws);
+  const [{ data: wsRow }, page, { data: who }, { data: tierRows, error: tErr }] = await Promise.all([
     adminClient.from('workspace').select('name, brand_logo_url').eq('id', ws).maybeSingle(),
     readMemberPage(ws),
     // For the intro's tags only — the member's own name and tier.
@@ -247,7 +332,13 @@ export async function communityView(
       .select('tier:tier_id (name), person:person_id (first_name, last_name, email)')
       .eq('id', member.member_id)
       .maybeSingle(),
+    // Names and order for the tier sections. Archived tiers too: a member
+    // can still hold one, and its section is still theirs.
+    held.length
+      ? adminClient.from('membership_tier').select('id, name, sort_order').eq('workspace_id', ws).in('id', held).order('sort_order', { ascending: true })
+      : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
   ]);
+  if (tErr) throw new Error(`tiers: ${tErr.message}`);
 
   // The member's own live places in this community.
   const { data: places, error: pErr } = await adminClient
@@ -333,26 +424,26 @@ export async function communityView(
   const community = (wsRow?.name as string | undefined) ?? '';
   const person = one<{ first_name?: string | null; last_name?: string | null; email?: string | null }>(who?.person);
   const firstName = (person?.first_name ?? '').trim();
-  const intro = page.intro_html
-    ? fillMemberPageTags(
-        page.intro_html,
-        memberTagValues({
-          firstName,
-          lastName: person?.last_name ?? null,
-          email: person?.email ?? null,
-          community,
-          tier: one<{ name?: string | null }>(who?.tier)?.name ?? null,
-          nextEvent: next?.title ?? null,
-        }),
-      )
-    : null;
+  const tags = memberTagValues({
+    firstName,
+    lastName: person?.last_name ?? null,
+    email: person?.email ?? null,
+    community,
+    tier: one<{ name?: string | null }>(who?.tier)?.name ?? null,
+    nextEvent: next?.title ?? null,
+  });
+  const intro = page.intro_html ? fillMemberPageTags(page.intro_html, tags) : null;
+  const tierSections = ((tierRows ?? []) as { id: string; name: string }[])
+    .filter((t) => page.tier_intros[t.id]?.trim())
+    .map((t) => ({ tier_id: t.id, tier_name: t.name, intro_html: fillMemberPageTags(page.tier_intros[t.id]!, tags) }));
 
   return {
     workspace_id: ws,
     name: community,
     logo_url: (wsRow?.brand_logo_url as string | null | undefined) ?? null,
     intro_html: intro,
-    documents: page.documents.map((d) =>
+    tier_sections: tierSections,
+    documents: page.documents.filter((d) => visibleTo(d, held)).map((d) =>
       isLink(d)
         ? { id: d.id, title: d.title, kind: 'link' as const, url: d.url }
         : { id: d.id, title: d.title, kind: 'file' as const, mime: d.mime, bytes: d.bytes },

@@ -2,7 +2,7 @@ import { apiFetch } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { Breadcrumb, PageContainer, PageHeader } from '../page-chrome';
-import { MemberPageClient, type MemberDocument } from './member-page-client';
+import { MemberPageClient, type MemberDocument, type PageTier } from './member-page-client';
 
 // The community page members see in my.thread (item 4): an intro written
 // here, the documents uploaded here, plus what members' own threads have
@@ -10,7 +10,13 @@ import { MemberPageClient, type MemberDocument } from './member-page-client';
 
 export default async function MemberPageSettings() {
   const locale = await uiLocale();
-  const page = await apiFetch<{ workspace_name: string | null; intro_html: string | null; documents: MemberDocument[] }>(
+  const page = await apiFetch<{
+    workspace_name: string | null;
+    intro_html: string | null;
+    tier_intros?: Record<string, string>;
+    tiers?: PageTier[];
+    documents: MemberDocument[];
+  }>(
     '/api/v1/membership/member-page',
   ).catch(() => null);
   return (
@@ -19,7 +25,14 @@ export default async function MemberPageSettings() {
       <PageHeader title={t(locale, 'st_member_page_title')} description={t(locale, 'st_member_page_desc')} />
       <div className="mt-8">
         {page ? (
-          <MemberPageClient workspaceName={page.workspace_name} intro={page.intro_html} documents={page.documents} locale={locale} />
+          <MemberPageClient
+            workspaceName={page.workspace_name}
+            intro={page.intro_html}
+            tierIntros={page.tier_intros}
+            tiers={page.tiers}
+            documents={page.documents}
+            locale={locale}
+          />
         ) : (
           <p className="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-subtle">
             {t(locale, 'workspace_admins_only')}
