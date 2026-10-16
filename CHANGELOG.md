@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.250.0] — 2026-10-16
+
+### Members → Settings → Google addresses: the requests, to create or decline (Members 1.17.0)
+
+- **A new settings page, `/settings/google-accounts`**, on builder 4's
+  routes (v1.249.0). It lists the Google Workspace addresses members asked
+  for. The admin email about a new request already links here. Tabs: Waiting
+  (the default), Created, Declined and All. Each row shows the member, the
+  address asked for (and the suggestion when the member changed it), their
+  note, and when it was asked or decided.
+- **Mark created** opens a dialog with the address filled in. The admin
+  creates the account in Google by hand, then confirms the address exactly as
+  made. The Fibre creates nothing in Google. The API's refusals are shown as
+  they come: not on the workspace's domain (400), or another member already
+  has that address (409). **Decline** asks for an optional reason. Both
+  dialogs use the Fibre bottom bar: the footer stays pinned and the body
+  scrolls.
+- While the workspace has no Google connected, the page says so, links to
+  Integrations, and keeps Mark created disabled. A failed list load says it
+  failed, never "nobody is waiting".
+- In the settings hub, under Members, before Embeds. Every string is a
+  catalog key in all six languages, MT-marked.
+- e2e `google-accounts` (new): seeds one request from a fixture member. It
+  checks the hub link, the not-connected notice and the disabled Mark created.
+  It declines with a reason through the page, reads the row back from the
+  database (declined, with that reason), and finds it under Declined. The row
+  is removed by id afterwards.
+- Verified before the request: typecheck clean; members unit tests pass (42).
+  The e2e runs on staging after the release, because the page must be served
+  there first.
+
 ## [1.249.2] — 2026-10-16
 
 ### my.thread in six languages, phase 2: You, Purchases, Memberships (my.thread 0.24.0)

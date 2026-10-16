@@ -3173,6 +3173,190 @@ const CATALOG = {
     de: 'Mitglieder informieren, wenn ein Thread in einem gefolgten Kalender erscheint oder sich eine Sitzung verschiebt.', // MT
     fr: 'Prévenir les membres quand un thread apparaît dans un agenda suivi ou qu’une session change.', // MT
   },
+  st_google_accounts_title: {
+    en: 'Google addresses',
+    nl: 'Google-adressen', // MT
+    es: 'Direcciones de Google', // MT
+    pt: 'Endereços Google', // MT
+    de: 'Google-Adressen', // MT
+    fr: 'Adresses Google', // MT
+  },
+  st_google_accounts_desc: {
+    en: 'Addresses members asked for in your Google Workspace: create them in Google, then mark them here.',
+    nl: 'Adressen die leden in jullie Google Workspace vroegen: maak ze aan in Google en markeer ze hier.', // MT
+    es: 'Direcciones que los miembros pidieron en tu Google Workspace: créalas en Google y márcalas aquí.', // MT
+    pt: 'Endereços que os membros pediram no seu Google Workspace: crie-os no Google e marque-os aqui.', // MT
+    de: 'Adressen, die Mitglieder in eurem Google Workspace angefragt haben: in Google anlegen, dann hier markieren.', // MT
+    fr: 'Adresses demandées par les membres dans votre Google Workspace : créez-les dans Google, puis marquez-les ici.', // MT
+  },
+  ga_tab_requested: {
+    en: 'Waiting',
+    nl: 'Wachtend', // MT
+    es: 'Pendientes', // MT
+    pt: 'Pendentes', // MT
+    de: 'Offen', // MT
+    fr: 'En attente', // MT
+  },
+  ga_tab_created: {
+    en: 'Created',
+    nl: 'Aangemaakt', // MT
+    es: 'Creadas', // MT
+    pt: 'Criados', // MT
+    de: 'Angelegt', // MT
+    fr: 'Créées', // MT
+  },
+  ga_tab_declined: {
+    en: 'Declined',
+    nl: 'Afgewezen', // MT
+    es: 'Rechazadas', // MT
+    pt: 'Recusados', // MT
+    de: 'Abgelehnt', // MT
+    fr: 'Refusées', // MT
+  },
+  ga_tab_all: {
+    en: 'All',
+    nl: 'Alle', // MT
+    es: 'Todas', // MT
+    pt: 'Todos', // MT
+    de: 'Alle', // MT
+    fr: 'Toutes', // MT
+  },
+  ga_status_suggested: {
+    en: 'Suggested',
+    nl: 'Voorgesteld', // MT
+    es: 'Sugerida', // MT
+    pt: 'Sugerido', // MT
+    de: 'Vorgeschlagen', // MT
+    fr: 'Proposée', // MT
+  },
+  ga_not_connected: {
+    en: 'Google Workspace is not connected yet, so no address can be marked created. Connect it under',
+    nl: 'Google Workspace is nog niet gekoppeld, dus er kan geen adres als aangemaakt worden gemarkeerd. Koppel het onder', // MT
+    es: 'Google Workspace aún no está conectado, así que no se puede marcar ninguna dirección como creada. Conéctalo en', // MT
+    pt: 'O Google Workspace ainda não está ligado, por isso nenhum endereço pode ser marcado como criado. Ligue-o em', // MT
+    de: 'Google Workspace ist noch nicht verbunden, daher kann keine Adresse als angelegt markiert werden. Verbinde es unter', // MT
+    fr: 'Google Workspace n’est pas encore connecté, aucune adresse ne peut donc être marquée créée. Connectez-le dans', // MT
+  },
+  ga_how: {
+    en: 'The Fibre creates nothing in Google. Create the account in your Google admin console, then mark it created here.',
+    nl: 'The Fibre maakt niets aan in Google. Maak het account aan in je Google-beheerconsole en markeer het hier als aangemaakt.', // MT
+    es: 'The Fibre no crea nada en Google. Crea la cuenta en tu consola de administración de Google y márcala aquí como creada.', // MT
+    pt: 'The Fibre não cria nada no Google. Crie a conta na consola de administração do Google e marque-a aqui como criada.', // MT
+    de: 'The Fibre legt in Google nichts an. Lege das Konto in deiner Google-Admin-Konsole an und markiere es hier als angelegt.', // MT
+    fr: 'The Fibre ne crée rien dans Google. Créez le compte dans votre console d’administration Google, puis marquez-le créé ici.', // MT
+  },
+  ga_empty_requested: {
+    en: 'Nobody is waiting for an address.',
+    nl: 'Niemand wacht op een adres.', // MT
+    es: 'Nadie está esperando una dirección.', // MT
+    pt: 'Ninguém está à espera de um endereço.', // MT
+    de: 'Niemand wartet auf eine Adresse.', // MT
+    fr: 'Personne n’attend d’adresse.', // MT
+  },
+  ga_empty: {
+    en: 'Nothing here.',
+    nl: 'Niets hier.', // MT
+    es: 'Nada aquí.', // MT
+    pt: 'Nada aqui.', // MT
+    de: 'Nichts hier.', // MT
+    fr: 'Rien ici.', // MT
+  },
+  ga_load_failed: {
+    en: 'The list did not load just now. Try again in a moment.',
+    nl: 'De lijst laadde nu niet. Probeer het zo opnieuw.', // MT
+    es: 'La lista no se cargó ahora. Inténtalo de nuevo en un momento.', // MT
+    pt: 'A lista não carregou agora. Tente de novo daqui a pouco.', // MT
+    de: 'Die Liste wurde gerade nicht geladen. Versuche es gleich noch einmal.', // MT
+    fr: 'La liste ne s’est pas chargée. Réessayez dans un instant.', // MT
+  },
+  ga_suggested: {
+    en: 'Suggested',
+    nl: 'Voorgesteld', // MT
+    es: 'Sugerida', // MT
+    pt: 'Sugerido', // MT
+    de: 'Vorgeschlagen', // MT
+    fr: 'Proposée', // MT
+  },
+  ga_requested_on: {
+    en: 'Asked on {date}',
+    nl: 'Gevraagd op {date}', // MT
+    es: 'Pedida el {date}', // MT
+    pt: 'Pedido em {date}', // MT
+    de: 'Angefragt am {date}', // MT
+    fr: 'Demandée le {date}', // MT
+  },
+  ga_decided_on: {
+    en: 'Decided on {date}',
+    nl: 'Besloten op {date}', // MT
+    es: 'Decidida el {date}', // MT
+    pt: 'Decidido em {date}', // MT
+    de: 'Entschieden am {date}', // MT
+    fr: 'Décidée le {date}', // MT
+  },
+  ga_mark_created: {
+    en: 'Mark created',
+    nl: 'Markeer als aangemaakt', // MT
+    es: 'Marcar como creada', // MT
+    pt: 'Marcar como criado', // MT
+    de: 'Als angelegt markieren', // MT
+    fr: 'Marquer créée', // MT
+  },
+  ga_decline: {
+    en: 'Decline',
+    nl: 'Afwijzen', // MT
+    es: 'Rechazar', // MT
+    pt: 'Recusar', // MT
+    de: 'Ablehnen', // MT
+    fr: 'Refuser', // MT
+  },
+  ga_created_title: {
+    en: 'Mark the address created',
+    nl: 'Adres als aangemaakt markeren', // MT
+    es: 'Marcar la dirección como creada', // MT
+    pt: 'Marcar o endereço como criado', // MT
+    de: 'Adresse als angelegt markieren', // MT
+    fr: 'Marquer l’adresse créée', // MT
+  },
+  ga_created_desc: {
+    en: 'For {who}. Create the account in Google first, then enter the address exactly as you created it.',
+    nl: 'Voor {who}. Maak eerst het account aan in Google en vul dan het adres in zoals je het aanmaakte.', // MT
+    es: 'Para {who}. Crea primero la cuenta en Google y luego escribe la dirección tal como la creaste.', // MT
+    pt: 'Para {who}. Crie primeiro a conta no Google e depois escreva o endereço tal como o criou.', // MT
+    de: 'Für {who}. Lege zuerst das Konto in Google an und gib dann die Adresse genau so ein, wie du sie angelegt hast.', // MT
+    fr: 'Pour {who}. Créez d’abord le compte dans Google, puis saisissez l’adresse telle que vous l’avez créée.', // MT
+  },
+  ga_address: {
+    en: 'Address',
+    nl: 'Adres', // MT
+    es: 'Dirección', // MT
+    pt: 'Endereço', // MT
+    de: 'Adresse', // MT
+    fr: 'Adresse', // MT
+  },
+  ga_decline_title: {
+    en: 'Decline this request',
+    nl: 'Dit verzoek afwijzen', // MT
+    es: 'Rechazar esta solicitud', // MT
+    pt: 'Recusar este pedido', // MT
+    de: 'Diese Anfrage ablehnen', // MT
+    fr: 'Refuser cette demande', // MT
+  },
+  ga_reason: {
+    en: 'Reason',
+    nl: 'Reden', // MT
+    es: 'Motivo', // MT
+    pt: 'Motivo', // MT
+    de: 'Grund', // MT
+    fr: 'Raison', // MT
+  },
+  ga_reason_optional: {
+    en: 'Reason (optional)',
+    nl: 'Reden (optioneel)', // MT
+    es: 'Motivo (opcional)', // MT
+    pt: 'Motivo (opcional)', // MT
+    de: 'Grund (optional)', // MT
+    fr: 'Raison (facultatif)', // MT
+  },
   notify_members_label: {
     en: 'Tell members about new and changed threads',
     nl: 'Leden informeren over nieuwe en gewijzigde threads', // MT

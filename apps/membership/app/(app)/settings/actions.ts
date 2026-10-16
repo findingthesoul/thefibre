@@ -302,3 +302,33 @@ export async function setProductCategories(
     return { error: formatApiError(e) };
   }
 }
+
+// ── Google Workspace addresses (settings/google-accounts) ─────────────────
+// The admin created the account in Google by hand; this records it. 400 =
+// not on the workspace's domain, 409 = another member already has it — the
+// API's words are shown as they come.
+export async function markGoogleAccountCreated(id: string, address: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/google-accounts/${encodeURIComponent(id)}/created`, {
+      method: 'POST',
+      body: JSON.stringify({ address }),
+    });
+    revalidatePath('/settings/google-accounts');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function declineGoogleAccount(id: string, reason: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/google-accounts/${encodeURIComponent(id)}/decline`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+    revalidatePath('/settings/google-accounts');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

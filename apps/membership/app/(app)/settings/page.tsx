@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Bell, FileText, Globe, Plug, Code2, Percent,
-  Ticket, Users, Mail } from 'lucide-react';
+  Ticket, Users, Mail, AtSign } from 'lucide-react';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { canManageWorkspace } from '@thefibre/shared';
 import { apiFetch } from '@/lib/api';
@@ -83,6 +83,14 @@ export default async function SettingsPage() {
           icon: <Bell {...ICON} />,
           title: t(locale, 'st_notify_title'),
           desc: t(locale, 'st_notify_desc'),
+        },
+        {
+          // Next to Integrations' Google card in spirit, but its own page:
+          // a queue of requests to act on, not a setting.
+          href: '/settings/google-accounts',
+          icon: <AtSign {...ICON} />,
+          title: t(locale, 'st_google_accounts_title'),
+          desc: t(locale, 'st_google_accounts_desc'),
         },
         {
           href: '/settings/embeds',
