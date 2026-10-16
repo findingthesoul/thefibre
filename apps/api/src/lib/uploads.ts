@@ -54,7 +54,16 @@ const BUCKET = 'thread-assets';
  * GIF and AVIF are stored as they come — accepted for logos and covers, not
  * offered for profile photos (`types` narrows them). SVG is sanitised.
  */
-export async function storeImage(file: File, prefix: string, types: readonly string[] = TYPES): Promise<Stored> {
+export async function storeImage(
+  file: File,
+  prefix: string,
+  types: readonly string[] = TYPES,
+  /** Seconds the CDN may cache the public file. A deleted file keeps being
+   *  served from that cache until it expires (seen on staging, 2026-10-16),
+   *  so a member's own photo passes a short one: removed means gone within
+   *  minutes, not an hour. Unset = the storage default. */
+  cacheSeconds?: number,
+): Promise<Stored> {
   if (file.size > MAX_BYTES) return { error: 'max 5MB', status: 400 };
   if (!types.includes(file.type)) {
     return {
@@ -86,6 +95,7 @@ export async function storeImage(file: File, prefix: string, types: readonly str
   const { error } = await adminClient.storage.from(BUCKET).upload(path, bytes, {
     contentType: file.type || 'application/octet-stream',
     upsert: false,
+    ...(cacheSeconds ? { cacheControl: String(cacheSeconds) } : {}),
   });
   if (error) {
     console.error('[uploads] failed', error);

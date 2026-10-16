@@ -227,3 +227,27 @@ export async function fillEmptyPlatformName(email: string, name: string | null |
     console.error('[identity-profile] fill-empty name failed', { message: (err as Error).message });
   }
 }
+
+/**
+ * Keep every SEAT this person holds in step with their one profile — the
+ * name and photo the organiser sidebar and member lists read from
+ * public."user" (full_name, avatar_url). The Fibre's Settings → Profile syncs
+ * the seat it is signed into; my.thread has no seat in hand, so it syncs
+ * every live seat with this email (Sjoerd, 2026-10-16: one profile must not
+ * show two names). Only the fields passed are written; an empty name is
+ * never written over a seat's name. Failures are logged, never thrown — the
+ * profile itself has already saved.
+ */
+export async function syncSeatsFromProfile(
+  email: string,
+  face: { full_name?: string | null; avatar_url?: string | null },
+): Promise<void> {
+  const e = email.trim().toLowerCase();
+  if (!e) return;
+  const patch: Record<string, string | null> = {};
+  if (typeof face.full_name === 'string' && face.full_name.trim()) patch.full_name = face.full_name.trim();
+  if (face.avatar_url !== undefined) patch.avatar_url = face.avatar_url;
+  if (!Object.keys(patch).length) return;
+  const { error } = await adminClient.from('user').update(patch).eq('email', e).is('deleted_at', null);
+  if (error) console.error('[identity-profile] seat sync failed', { message: error.message });
+}

@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.254.2] — 2026-10-16
+
+### One profile, one name: my.thread keeps a member's seats in step; a removed photo stops being served within minutes (API)
+
+- When a member changes their display name or photo in my.thread → You →
+  Profile, every live seat they hold with that email (`public."user"`
+  `full_name` and `avatar_url`, the organiser sidebar and member lists) now
+  shows the same. Before this, v1.253.0 saved the one profile but left a
+  seat-holder's sidebar name behind; Sjoerd: one profile must not show two
+  names. The Fibre's Settings → Profile already synced the seat it is signed
+  into; my.thread has no seat in hand, so it syncs them all.
+- `syncSeatsFromProfile` in lib/identity-profile.ts. Only the fields that
+  changed are written, an empty name is never written over a seat's name, and
+  a failure is logged, never fatal: the profile itself has already saved. It
+  is called on a face save with a display name, on a photo upload, and on a
+  photo removal.
+- Test: `identity-profile-sync.test.ts` (name to every live seat,
+  lower-cased email, deleted seats excluded; photo set and cleared; empty or
+  absent name writes nothing).
+- **A removed photo stops being served within minutes.** On staging the
+  storage CDN kept serving a deleted public file 20s later from its cache.
+  The default cache is an hour, so "remove my photo" could still show it for
+  that long. A member's photo is now uploaded with a 5-minute cache
+  (`storeImage(…, cacheSeconds)`); organiser uploads keep the default, as
+  before.
+- e2e `my-profile` now asks STORAGE whether a replaced or removed file is
+  gone, not the public URL, which is the CDN. It also removes anything a
+  half-finished run left in the fixture's folder. On v1.253.0 it failed only
+  on that URL check: the bucket listing showed the old file deleted. With
+  the storage check it passes on staging: fields saved to the database, the
+  https rule refused in the form, GPS gone from the stored bytes, the old
+  file deleted on replace, and removal clearing the column and deleting the
+  file. `you-tabs` (three tabs, two redirects) passed on v1.253.0.
+
 ## [1.254.1] — 2026-10-16
 
 ### The Meet manage-link email speaks the guest's language; small follow-ups to the fix (Meet 2.37.1)

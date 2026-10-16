@@ -68,6 +68,7 @@ import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { ProfilePatch, ProfileWhereabouts, nullEmptyFace } from './profile.js';
+import { syncSeatsFromProfile } from '../lib/identity-profile.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
 import { removeStoredImage, storeImage } from '../lib/uploads.js';
 import { PHOTO_TYPES } from '../lib/strip-metadata.js';
@@ -1980,6 +1981,11 @@ portalRoutes.patch('/profile', async (c) => {
       return c.json({ error: 'could not save your profile' }, 500);
     }
     if (before?.photo_url) await removeStoredImage(before.photo_url, `profiles/${before.id}`);
+    // The seats this person holds show the same name and photo (v1.253.1).
+    await syncSeatsFromProfile(email, {
+      ...(typeof f.display_name === 'string' ? { full_name: f.display_name } : {}),
+      ...(removePhoto ? { avatar_url: null } : {}),
+    });
   }
 
   return c.json({ ok: true });
@@ -2026,7 +2032,9 @@ portalRoutes.post('/profile/photo', async (c) => {
     return c.json({ error: 'could not save your photo' }, 500);
   }
   const prefix = `profiles/${row.id}`;
-  const stored = await storeImage(file, prefix, PHOTO_TYPES);
+  // A 5-minute CDN cache: a photo the member removes stops being served
+  // within minutes (the storage default is an hour).
+  const stored = await storeImage(file, prefix, PHOTO_TYPES, 300);
   if ('error' in stored) return c.json({ error: stored.error }, stored.status);
   const { error } = await adminClient
     .from('identity_profile')
@@ -2038,5 +2046,6 @@ portalRoutes.post('/profile/photo', async (c) => {
     return c.json({ error: 'could not save your photo' }, 500);
   }
   if (row.photo_url && row.photo_url !== stored.url) await removeStoredImage(row.photo_url, prefix);
+  await syncSeatsFromProfile(email, { avatar_url: stored.url });
   return c.json({ url: stored.url }, 201);
 });

@@ -5,15 +5,15 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const uploaded: { path: string; bytes: Buffer; contentType: string }[] = [];
+const uploaded: { path: string; bytes: Buffer; contentType: string; cacheControl?: string }[] = [];
 const removed: string[][] = [];
 
 vi.mock('../db.js', () => ({
   adminClient: {
     storage: {
       from: () => ({
-        upload: async (path: string, bytes: Buffer, opts: { contentType: string }) => {
-          uploaded.push({ path, bytes, contentType: opts.contentType });
+        upload: async (path: string, bytes: Buffer, opts: { contentType: string; cacheControl?: string }) => {
+          uploaded.push({ path, bytes, contentType: opts.contentType, cacheControl: opts.cacheControl });
           return { error: null };
         },
         getPublicUrl: (path: string) => ({ data: { publicUrl: `https://x.supabase.co/storage/v1/object/public/thread-assets/${path}` } }),
@@ -55,6 +55,12 @@ describe('storeImage', () => {
     expect(uploaded).toHaveLength(1);
     expect(uploaded[0]!.contentType).toBe('image/png');
     expect(uploaded[0]!.bytes.equals(png)).toBe(true);
+    expect(uploaded[0]!.cacheControl).toBeUndefined(); // the storage default, as before
+  });
+
+  it('a member photo asks the CDN for a short cache, so a removed photo stops being served within minutes', async () => {
+    await storeImage(new File([cleanJpeg], 'me.jpg', { type: 'image/jpeg' }), 'profiles/abc', PHOTO_TYPES, 300);
+    expect(uploaded[0]!.cacheControl).toBe('300');
   });
 
   it('a JPEG with GPS EXIF is stored WITHOUT it', async () => {

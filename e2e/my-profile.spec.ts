@@ -21,6 +21,16 @@ let before: Row | null = null;
 
 const row = async () => (await stagingService().from('identity_profile').select(FIELDS).eq('email', email).single()).data as Row;
 
+// What STORAGE holds in this person's folder. Asked of storage, not of the
+// public URL: the storage CDN keeps serving a deleted public file from its
+// cache for a while (seen on staging, 2026-10-16: deleted from the bucket,
+// still 200 at the URL 20s later), so a URL check proves nothing.
+let folder = '';
+let objectsBefore: string[] = [];
+const objects = async () =>
+  ((await stagingService().storage.from('thread-assets').list(folder, { limit: 100 })).data ?? []).map((o) => o.name);
+const nameOf = (url: string) => url.split('/').pop()!.split('?')[0]!;
+
 // A small JPEG-shaped file with an EXIF segment naming a GPS position. The
 // browser cannot decode it, so it reaches the API as-is and the SERVER's
 // strip is what is tested.
@@ -44,6 +54,10 @@ function gpsJpeg(): Buffer {
 test.beforeAll(async () => {
   email = (await fixtureIdentity()).email;
   before = (await stagingService().from('identity_profile').select(FIELDS).eq('email', email).maybeSingle()).data as Row | null;
+  if (before?.id) {
+    folder = `profiles/${before.id}`;
+    objectsBefore = await objects();
+  }
 });
 
 test.afterAll(async () => {
@@ -59,6 +73,12 @@ test.afterAll(async () => {
     })
     .eq('email', email);
   expect(error).toBeNull();
+  // Anything this run left in the folder (a run stopped half-way) goes.
+  if (folder) {
+    const extra = (await objects()).filter((n) => !objectsBefore.includes(n));
+    if (extra.length) await stagingService().storage.from('thread-assets').remove(extra.map((n) => `${folder}/${n}`));
+    expect((await objects()).filter((n) => !objectsBefore.includes(n))).toEqual([]);
+  }
 });
 
 test('city, links, short bio and a photo save to the one profile; GPS is stripped; old photos are deleted', async ({ page, request }) => {
@@ -92,6 +112,7 @@ test('city, links, short bio and a photo save to the one profile; GPS is strippe
 
   // 3. Photo: stored under profiles/<id>/, without the GPS segment.
   const id = (await row()).id;
+  folder = `profiles/${id}`;
   await form.locator('input[type="file"]').setInputFiles({ name: 'me.jpg', mimeType: 'image/jpeg', buffer: gpsJpeg() });
   await expect.poll(async () => (await row()).photo_url ?? '', { timeout: 30_000 }).toContain(`/profiles/${id}/`);
   const first = (await row()).photo_url!;
@@ -105,11 +126,12 @@ test('city, links, short bio and a photo save to the one profile; GPS is strippe
   await form.locator('input[type="file"]').setInputFiles({ name: 'me2.jpg', mimeType: 'image/jpeg', buffer: gpsJpeg() });
   await expect.poll(async () => (await row()).photo_url, { timeout: 30_000 }).not.toBe(first);
   const second = (await row()).photo_url!;
-  await expect.poll(async () => (await request.get(first)).status(), { timeout: 20_000 }).not.toBe(200);
+  await expect.poll(async () => (await objects()).includes(nameOf(first)), { timeout: 20_000 }).toBe(false);
+  expect(await objects()).toContain(nameOf(second));
 
   // 4b. Remove, then save: column cleared, file deleted.
   await form.getByRole('button', { name: /Remove/ }).click();
   await form.getByRole('button', { name: 'Save' }).click();
   await expect.poll(async () => (await row()).photo_url, { timeout: 20_000 }).toBeNull();
-  await expect.poll(async () => (await request.get(second)).status(), { timeout: 20_000 }).not.toBe(200);
+  await expect.poll(async () => (await objects()).includes(nameOf(second)), { timeout: 20_000 }).toBe(false);
 });
