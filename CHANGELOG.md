@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.244.2] — 2026-10-16
+
+### A recurring product's first period can end on a date: the column (migration only)
+
+- Sjoerd: "For products also First period ends on (optional)." This release
+  is the migration alone (`20261016131254`): `membership_product` gains
+  `first_period_ends_on date`, nullable. Tiers have had the same setting
+  since `20261013111228`, read by the same `fixedFirstPeriod`.
+- It applies to a recurring product subscribed to ON ITS OWN, which arrives
+  in the next release. An add-on to a membership renews on the membership's
+  date and never reads it. Additive only; nothing reads it yet.
+
 ## [1.244.1] — 2026-10-16
 
 ### A handover for an organiser who has left says an admin is asking (Thread 4.18.1)
