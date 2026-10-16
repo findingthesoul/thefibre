@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.242.1] — 2026-10-16
+
+### Handing over a departed organiser's threads in one request: the column (migration only)
+
+- The first half of handover v2 (the code follows in the next release). An
+  admin will be able to hand ALL the threads of an organiser who has left
+  the workspace to one new organiser in one request.
+- A request like that is simply several ordinary per-thread handovers that
+  share a `batch_id`. So this migration adds one nullable column,
+  `thread_organiser_handover.batch_id`, and an index on it. Nothing else
+  changes: no data is touched, and the accept function is the same.
+
 ## [1.242.0] — 2026-10-16
 
 ### An invoice you add by hand has the same VAT as the online price, and the platform fee is on the price before VAT (Thread 4.17.0 · Meet 2.36.0)
