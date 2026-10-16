@@ -49,6 +49,9 @@ export async function seedFirstAdmin(args: {
   name?: string | null;
   /** Skip the email in tests and when a human is being moved, not invited. */
   sendInvite?: boolean;
+  /** Who is seeding (the super admin), for the role record (role_change).
+   *  Absent = recorded as source 'first-admin' with no name. */
+  actorUserId?: string | null;
 }): Promise<FirstAdmin> {
   const email = args.email.trim().toLowerCase();
   const name = args.name?.trim() || null;
@@ -86,15 +89,17 @@ export async function seedFirstAdmin(args: {
 
   // super_admin, not admin: they are the only person here, so they have to be
   // able to do everything an owner does — including making the next admin.
-  const { error: mErr } = await adminClient.from('workspace_member').upsert(
-    {
-      user_id: user.id,
-      workspace_id: args.workspaceId,
-      workspace_role: 'super_admin',
-      relationship_type: 'internal',
-    },
-    { onConflict: 'user_id,workspace_id' },
-  );
+  // The same upsert, through member_add (upsert: an existing row takes the
+  // role), so role_change records who seeded the first admin.
+  const { error: mErr } = await adminClient.rpc('member_add', {
+    p_workspace: args.workspaceId,
+    p_user: user.id,
+    p_role: 'super_admin',
+    p_relationship: 'internal',
+    p_upsert: true,
+    p_actor: args.actorUserId ?? null,
+    p_source: 'first-admin',
+  });
   if (mErr) throw new Error(`first admin: membership failed — ${mErr.message}`);
 
   // The workspace's first admin: create both automatic teams and put them in
@@ -114,12 +119,14 @@ export async function seedFirstAdmin(args: {
     .eq('slug', 'fibre-platform')
     .maybeSingle();
   if (platform) {
-    const { error: aErr } = await adminClient
-      .from('app_membership')
-      .upsert(
-        { user_id: user.id, app_id: platform.id, role: 'admin', is_direct: true },
-        { onConflict: 'user_id,app_id' },
-      );
+    const { error: aErr } = await adminClient.rpc('app_role_set', {
+      p_user: user.id,
+      p_app: platform.id,
+      p_role: 'admin',
+      p_is_direct: true,
+      p_actor: args.actorUserId ?? null,
+      p_source: 'first-admin',
+    });
     if (aErr) throw new Error(`first admin: platform grant failed — ${aErr.message}`);
   }
 

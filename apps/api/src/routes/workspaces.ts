@@ -1,3 +1,4 @@
+import { actorUserId } from '../middleware/app-context.js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
@@ -235,6 +236,7 @@ workspacesRoutes.post('/', async (c) => {
       workspaceId: ws.id,
       email: b.admin_email,
       name: b.admin_name ?? null,
+      actorUserId: actorUserId(ctx),
     });
   } catch (e) {
     console.error('[workspaces POST] first admin failed, removing the workspace', e);
@@ -399,6 +401,7 @@ workspacesRoutes.post('/:id/first-admin', async (c) => {
       workspaceId,
       email: body.data.admin_email,
       name: body.data.admin_name ?? null,
+      actorUserId: actorUserId(ctx),
     });
   } catch (e) {
     console.error('[workspaces first-admin] failed', e);

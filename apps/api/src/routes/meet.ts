@@ -9,7 +9,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { adminClient, userClient } from '../db.js';
 import { rows } from '../lib/rows.js';
-import { optionalUserId } from '../middleware/app-context.js';
+import { actorUserId, optionalUserId } from '../middleware/app-context.js';
 import { REQUEST_EXPIRY_HOURS, requestHasExpired } from '../lib/meet/request-expiry.js';
 import { conflictCalendarIdsFor, type CalendarRow } from '../lib/meet/conflict-calendars.js';
 import {
@@ -3005,12 +3005,24 @@ meetRoutes.patch('/internal-team/:userId', async (c) => {
   if (body.data.workspace_role) updates.workspace_role = body.data.workspace_role;
   if (body.data.relationship_type) updates.relationship_type = body.data.relationship_type;
   if (body.data.member_status !== undefined) updates.member_status = body.data.member_status;
+  // The same update, through the RPC that names who made it (role_change);
+  // then the row as it now stands, which is what this route answered before.
+  const { error: writeErr } = await adminClient.rpc('member_role_write', {
+    p_workspace: ctx.workspaceId,
+    p_user: userId,
+    p_role: (updates.workspace_role as string | undefined) ?? null,
+    p_relationship: (updates.relationship_type as string | undefined) ?? null,
+    p_set_member_status: 'member_status' in updates,
+    p_member_status: (updates.member_status as string | null | undefined) ?? null,
+    p_actor: actorUserId(ctx),
+    p_source: 'meet-team',
+  });
+  if (writeErr) return c.json({ error: writeErr.message }, 500);
   const { data, error } = await adminClient
     .from('workspace_member')
-    .update(updates)
+    .select('*')
     .eq('user_id', userId)
     .eq('workspace_id', ctx.workspaceId)
-    .select('*')
     .single();
   if (error) return c.json({ error: error.message }, 500);
   return c.json(data);

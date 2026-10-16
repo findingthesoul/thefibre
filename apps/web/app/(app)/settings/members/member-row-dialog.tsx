@@ -8,6 +8,7 @@ import { APPS, type AppSlug } from '@/lib/apps';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { updateMember, type MemberPatch } from '../actions';
 import { removeMember, setTeamMembership } from './actions';
+import { RoleHistory } from './role-history';
 import type { Member } from './members-client';
 import type { InviteTeam } from './invite-dialog';
 
@@ -279,6 +280,8 @@ export function MemberRowDialog({
             {error}
           </div>
         )}
+
+        <RoleHistory locale={locale} userId={member.user_id} />
 
         <p className="text-xs text-ink-muted">
           {t(locale, 'joined')}{' '}

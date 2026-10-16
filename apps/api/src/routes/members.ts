@@ -14,7 +14,7 @@ import {
   isAdminRole,
   callerWorkspaceRole,
 } from '../lib/workspace-roles.js';
-import type { RequestContext } from '../middleware/app-context.js';
+import { actorUserId, type RequestContext } from '../middleware/app-context.js';
 import { syncUsers, inheritedByUser } from '../lib/team-grants.js';
 import { syncAutomaticTeams } from '../lib/automatic-teams.js';
 
@@ -72,7 +72,12 @@ function normalizeGrants(list: AppGrantIn[]): { slug: string; role: 'member' | '
 // deleted outright — a team the person belongs to may still owe it to them.
 // The tick is recorded as `is_direct` and lib/team-grants.ts decides what the
 // row should finally be, so there is one resolver rather than two opinions.
-async function syncAppGrants(userId: string, wanted: { slug: string; role: 'member' | 'admin' }[]) {
+async function syncAppGrants(
+  userId: string,
+  wanted: { slug: string; role: 'member' | 'admin' }[],
+  /** Who is changing them, for the role record (role_change). */
+  actor: string | null,
+) {
   const grantable = await grantableSlugs();
   const bySlug = new Map(wanted.filter((w) => grantable.includes(w.slug)).map((w) => [w.slug, w.role]));
   const { data: allApps } = await adminClient
@@ -82,12 +87,15 @@ async function syncAppGrants(userId: string, wanted: { slug: string; role: 'memb
   for (const app of allApps ?? []) {
     const role = bySlug.get(app.slug);
     if (role) {
-      await adminClient
-        .from('app_membership')
-        .upsert(
-          { user_id: userId, app_id: app.id, role, is_direct: true },
-          { onConflict: 'user_id,app_id' },
-        );
+      // The same upsert, through the RPC that names who made it (role_change).
+      await adminClient.rpc('app_role_set', {
+        p_user: userId,
+        p_app: app.id,
+        p_role: role,
+        p_is_direct: true,
+        p_actor: actor,
+        p_source: 'members',
+      });
     } else {
       await adminClient
         .from('app_membership')
@@ -398,16 +406,20 @@ membersRoutes.post('/', async (c) => {
     return c.json({ error: `membership lookup: ${existingMembership.error.message}` }, 500);
   }
   if (!existingMembership.data) {
-    const { error: insErr } = await adminClient.from('workspace_member').insert({
-      user_id: u.id,
-      workspace_id: ctx.workspaceId,
-      workspace_role: body.data.workspace_role,
-      relationship_type: body.data.relationship_type,
+    // Through member_add (role_change names who invited them). Without
+    // upsert, a row a concurrent invite created between the read and this
+    // insert is kept as it is — the old 23505-is-fine rule, now in SQL: an
+    // existing row is not rewritten.
+    const { error: insErr } = await adminClient.rpc('member_add', {
+      p_workspace: ctx.workspaceId,
+      p_user: u.id,
+      p_role: body.data.workspace_role,
+      p_relationship: body.data.relationship_type,
+      p_upsert: false,
+      p_actor: actorUserId(ctx),
+      p_source: 'members-invite',
     });
-    // 23505 means a concurrent invite created the row between the read and
-    // the insert. The other row is as good as this one would have been, and
-    // keeping it is the same rule as above: an existing row is not rewritten.
-    if (insErr && insErr.code !== '23505') {
+    if (insErr) {
       return c.json({ error: `membership: ${insErr.message}` }, 500);
     }
   }
@@ -600,6 +612,56 @@ const MemberPatch = z.object({
   apps: z.array(AppGrant).optional(),
 });
 
+// GET /members/:userId/role-history — who changed this person's role, and
+// when (role_change, 2026-10-16). Admins only. Scoped twice: the person's
+// user row must be THIS workspace's (a removed member's history still
+// shows), and only this workspace's rows are read — the platform super-admin
+// rows carry no workspace and so never appear here (lib/super-admin.ts
+// territory). Names are resolved at read; the record keeps ids.
+membersRoutes.get('/:userId/role-history', async (c) => {
+  const ctx = c.get('ctx');
+  if (!isAdminRole(await callerWorkspaceRole(ctx))) {
+    return c.json({ error: 'only admins can see role history' }, 403);
+  }
+  const userId = c.req.param('userId');
+  const { data: subject } = await adminClient
+    .from('user')
+    .select('id')
+    .eq('id', userId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!subject) return c.json({ error: 'not found' }, 404);
+
+  const { data, error } = await adminClient
+    .from('role_change')
+    .select('id, kind, old_value, new_value, source, created_at, app:app_id (slug, name), actor:changed_by (full_name, email)')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('subject_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) return c.json({ error: error.message }, 500);
+  const one = <T>(v: unknown): T | null => (Array.isArray(v) ? ((v[0] ?? null) as T | null) : ((v ?? null) as T | null));
+  return c.json({
+    items: (data ?? []).map((r) => {
+      const actor = one<{ full_name: string | null; email: string | null }>(r.actor);
+      const app = one<{ slug: string; name: string | null }>(r.app);
+      return {
+        id: r.id,
+        kind: r.kind,
+        old_value: r.old_value ?? null,
+        new_value: r.new_value ?? null,
+        // Who: a name, else an address; null when no person acted (a
+        // membership seat, an automatic team grant, a change made by hand
+        // in the database) — `source` then says what did.
+        changed_by: actor ? actor.full_name?.trim() || actor.email || null : null,
+        source: r.source,
+        app: app ? (app.name ?? app.slug) : null,
+        at: r.created_at,
+      };
+    }),
+  });
+});
+
 membersRoutes.patch('/:userId', async (c) => {
   const body = MemberPatch.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -631,17 +693,23 @@ membersRoutes.patch('/:userId', async (c) => {
   if (body.data.workspace_role) patch.workspace_role = body.data.workspace_role;
   if (body.data.relationship_type) patch.relationship_type = body.data.relationship_type;
   if (Object.keys(patch).length) {
-    const { error } = await adminClient
-      .from('workspace_member')
-      .update(patch)
-      .eq('workspace_id', ctx.workspaceId)
-      .eq('user_id', userId);
+    // The same update, through the RPC that names who made it (role_change).
+    const { error } = await adminClient.rpc('member_role_write', {
+      p_workspace: ctx.workspaceId,
+      p_user: userId,
+      p_role: (patch.workspace_role as string | undefined) ?? null,
+      p_relationship: (patch.relationship_type as string | undefined) ?? null,
+      p_set_member_status: false,
+      p_member_status: null,
+      p_actor: actorUserId(ctx),
+      p_source: 'members',
+    });
     if (error) return c.json({ error: error.message }, 500);
   }
 
   if (body.data.apps) {
     // The UI sends the full grant picture incl. roles — reconcile against it.
-    await syncAppGrants(userId, normalizeGrants(body.data.apps));
+    await syncAppGrants(userId, normalizeGrants(body.data.apps), actorUserId(ctx));
   }
 
   // The workspace's role just changed, so the Admins team is stale. ONE
@@ -724,12 +792,13 @@ membersRoutes.delete('/:userId', async (c) => {
 
   // Membership edge + app grants go with the seat (grants belong to the
   // per-workspace user row, so this strips nothing in any other workspace).
-  await adminClient
-    .from('workspace_member')
-    .delete()
-    .eq('workspace_id', ctx.workspaceId)
-    .eq('user_id', userId);
-  await adminClient.from('app_membership').delete().eq('user_id', userId);
+  // Both deletes in one RPC that names who removed them (role_change).
+  await adminClient.rpc('member_remove', {
+    p_workspace: ctx.workspaceId,
+    p_user: userId,
+    p_actor: actorUserId(ctx),
+    p_source: 'members',
+  });
 
   // Seat count just shrank — shrink the subscription quantity (no credit;
   // next period). Fire-and-forget: a Stripe hiccup never blocks the removal.

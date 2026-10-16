@@ -1712,6 +1712,102 @@ const CATALOG = {
     de: 'Bestätigen und Einladung senden', // MT
     fr: "Confirmer et envoyer l'invitation", // MT
   },
+  rh_title: {
+    en: 'Role history',
+    nl: 'Rolgeschiedenis', // MT
+    es: 'Historial de roles', // MT
+    pt: 'Histórico de funções', // MT
+    de: 'Rollenverlauf', // MT
+    fr: 'Historique des rôles', // MT
+  },
+  rh_empty: {
+    en: 'No changes recorded yet.',
+    nl: 'Nog geen wijzigingen vastgelegd.', // MT
+    es: 'Aún no hay cambios registrados.', // MT
+    pt: 'Ainda não há alterações registadas.', // MT
+    de: 'Noch keine Änderungen erfasst.', // MT
+    fr: 'Aucune modification enregistrée pour l’instant.', // MT
+  },
+  rh_added: {
+    en: 'Added as {role}',
+    nl: 'Toegevoegd als {role}', // MT
+    es: 'Añadido como {role}', // MT
+    pt: 'Adicionado como {role}', // MT
+    de: 'Hinzugefügt als {role}', // MT
+    fr: 'Ajouté comme {role}', // MT
+  },
+  rh_removed: {
+    en: 'Removed from the workspace',
+    nl: 'Uit de werkruimte verwijderd', // MT
+    es: 'Eliminado del espacio de trabajo', // MT
+    pt: 'Removido do espaço de trabalho', // MT
+    de: 'Aus dem Arbeitsbereich entfernt', // MT
+    fr: 'Retiré de l’espace de travail', // MT
+  },
+  rh_no_access: {
+    en: 'no access',
+    nl: 'geen toegang', // MT
+    es: 'sin acceso', // MT
+    pt: 'sem acesso', // MT
+    de: 'kein Zugriff', // MT
+    fr: 'aucun accès', // MT
+  },
+  rh_by: {
+    en: 'by {name}',
+    nl: 'door {name}', // MT
+    es: 'por {name}', // MT
+    pt: 'por {name}', // MT
+    de: 'von {name}', // MT
+    fr: 'par {name}', // MT
+  },
+  rh_by_membership: {
+    en: 'by a membership',
+    nl: 'door een lidmaatschap', // MT
+    es: 'por una membresía', // MT
+    pt: 'por uma assinatura', // MT
+    de: 'durch eine Mitgliedschaft', // MT
+    fr: 'par une adhésion', // MT
+  },
+  rh_by_creation: {
+    en: 'when the workspace was set up',
+    nl: 'bij het aanmaken van de werkruimte', // MT
+    es: 'al crear el espacio de trabajo', // MT
+    pt: 'ao criar o espaço de trabalho', // MT
+    de: 'beim Anlegen des Arbeitsbereichs', // MT
+    fr: 'à la création de l’espace de travail', // MT
+  },
+  rh_by_unknown: {
+    en: 'not recorded who',
+    nl: 'niet vastgelegd door wie', // MT
+    es: 'no consta quién', // MT
+    pt: 'não registado por quem', // MT
+    de: 'nicht erfasst, von wem', // MT
+    fr: 'auteur non enregistré', // MT
+  },
+  rh_organiser: {
+    en: 'Organiser',
+    nl: 'Organiser', // MT
+    es: 'Organiser', // MT
+    pt: 'Organiser', // MT
+    de: 'Organiser', // MT
+    fr: 'Organiser', // MT
+  },
+  rh_internal: {
+    en: 'Internal',
+    nl: 'Intern', // MT
+    es: 'Interno', // MT
+    pt: 'Interno', // MT
+    de: 'Intern', // MT
+    fr: 'Interne', // MT
+  },
+  rh_external: {
+    en: 'External',
+    nl: 'Extern', // MT
+    es: 'Externo', // MT
+    pt: 'Externo', // MT
+    de: 'Extern', // MT
+    fr: 'Externe', // MT
+  },
   role_member: {
     en: 'Member',
     nl: 'Lid',

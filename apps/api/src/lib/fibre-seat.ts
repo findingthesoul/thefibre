@@ -105,12 +105,18 @@ export async function grantSeat(
   // the re-invite demotion (routes/members.ts POST). So: insert if absent;
   // otherwise the seat's role is a FLOOR (lib/role-floor.ts) and the
   // relationship is the organisation's to say, not a membership's.
-  const { error: insErr } = await adminClient
-    .from('workspace_member')
-    .upsert(
-      { user_id: u.id, workspace_id: workspaceId, workspace_role: role, relationship_type: 'external' },
-      { onConflict: 'user_id,workspace_id', ignoreDuplicates: true },
-    );
+  // Insert-if-absent through member_add (no upsert = the old
+  // ignoreDuplicates), so role_change records the seat as its source. No
+  // person acted: a membership did, and the record says exactly that.
+  const { error: insErr } = await adminClient.rpc('member_add', {
+    p_workspace: workspaceId,
+    p_user: u.id,
+    p_role: role,
+    p_relationship: 'external',
+    p_upsert: false,
+    p_actor: null,
+    p_source: 'membership-seat',
+  });
   if (insErr) return { ok: false, error: insErr.message };
   const { data: wm, error: readErr } = await adminClient
     .from('workspace_member')

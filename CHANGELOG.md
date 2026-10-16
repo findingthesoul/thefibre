@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.241.0] — 2026-10-16
+
+### A record of who changed someone's role, part 2: the names, and where to read them
+
+The triggers (v1.239.4) record every role change. The routes now say who
+made each one, and an admin can read it.
+
+- **Routes move onto the attributed RPCs, each answering exactly as before.**
+  - Members: invite → `member_add`; PATCH a role or relationship →
+    `member_role_write`; PATCH apps → `app_role_set`; remove →
+    `member_remove`.
+  - Meet → internal team PATCH → `member_role_write`, with `member_status`,
+    and the row read back as it answered before.
+  - A membership seat's insert → `member_add` (source `membership-seat`, no
+    person).
+  - The first admin (super admin creating a workspace) → `member_add` and
+    `app_role_set`, attributed to that super admin.
+- **Two writes stay raw, and are recorded as 'unattributed':**
+  - the seat's role RAISE, a conditional "only over the value just read"
+    update that the RPC cannot express yet;
+  - the invite's insert-only new app grant.
+  Both are still on the record, just without a name. Making them
+  attributable needs one more RPC parameter, so its own migration.
+- **`GET /members/:userId/role-history`.**
+  - Admins only, scoped to this workspace's user and this workspace's rows,
+    so the platform super-admin rows never appear.
+  - Names are resolved at read.
+  - In Fibre web, Settings → Members → a member → **Role history**: for
+    example "13 Oct 2026 · Organiser → Admin · by Sjoerd". A line with no
+    person says what did it: a membership, the workspace being set up, or
+    "not recorded who".
+
+Tests, against staging:
+- `role-change-deletes` (2): a user hard-delete, as subject and actor, and a
+  workspace hard-delete. These are the cases that broke v1.
+- `role-change` (7): raw writes recorded unattributed, the four RPCs
+  attributed, append-only.
+- `role-change-routes` (7, in process through the real routes):
+  - PATCH role, PATCH apps, Meet team PATCH and remove each recorded under
+    the admin's name, with the responses unchanged;
+  - the history read by an admin, refused to a non-admin (403), and 404 for
+    somebody outside the workspace.
+- The existing members, seat, first-admin, automatic-teams, auth-memberships
+  and team-apps tests: 6 files, 41 tests, unchanged and green before and
+  after. `member-invite-role` runs against the DEPLOYED API, so it is run
+  again after the API deploy.
+- `definer-functions`: all nine new functions found and none open.
+
 ## [1.240.1] — 2026-10-16
 
 ### A renewing product is never sold as a one-off

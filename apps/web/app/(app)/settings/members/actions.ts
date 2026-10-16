@@ -135,3 +135,25 @@ export async function setTeamMembership(
   revalidatePath('/settings/members');
   return { ok: true };
 }
+
+/** One line of a member's role history (GET /members/:userId/role-history). */
+export type RoleHistoryItem = {
+  id: string;
+  kind: 'workspace_role' | 'relationship' | 'member_added' | 'member_removed' | 'app_role';
+  old_value: string | null;
+  new_value: string | null;
+  /** A name or address; null when no person acted — `source` says what did. */
+  changed_by: string | null;
+  source: string;
+  app: string | null;
+  at: string;
+};
+
+export async function getRoleHistory(userId: string): Promise<{ items?: RoleHistoryItem[]; error?: string }> {
+  try {
+    const r = await apiFetch<{ items: RoleHistoryItem[] }>(`/api/v1/members/${encodeURIComponent(userId)}/role-history`);
+    return { items: r.items };
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}
