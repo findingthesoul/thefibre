@@ -23,6 +23,7 @@
 
 import { adminClient } from '../db.js';
 import { LIVE_PURCHASE_STATUSES } from './product-ownership.js';
+import { audienceTeamsOf } from './thread-teams.js';
 
 /** The coupon fields the arithmetic needs — deliberately not the whole row,
  *  so this module has no opinion about how a coupon is found or validated. */
@@ -151,7 +152,10 @@ export async function memberDiscountOffered(threadId: string): Promise<number | 
     .select('team_id')
     .eq('id', threadId)
     .maybeSingle();
-  if (!thread?.team_id) return null;
+  if (!thread) return null;
+  // Its owner and the teams it is offered to (lib/thread-teams.ts).
+  const teams = await audienceTeamsOf(threadId, (thread.team_id as string | null) ?? null);
+  if (!teams.size) return null;
   const { data: grants } = await adminClient
     .from('membership_access_grant')
     .select('config')
@@ -159,7 +163,7 @@ export async function memberDiscountOffered(threadId: string): Promise<number | 
   let best: number | null = null;
   for (const g of grants ?? []) {
     const cfg = teamCalendarConfig(g.config as Record<string, unknown> | null);
-    if (!cfg || cfg.teamId !== thread.team_id) continue;
+    if (!cfg || !teams.has(cfg.teamId)) continue;
     if (best === null || cfg.pct > best) best = cfg.pct;
   }
   return best;
@@ -206,7 +210,9 @@ export async function memberDiscountForVerifiedEmail(
     .select('workspace_id, team_id')
     .eq('id', threadId)
     .maybeSingle();
-  if (!thread?.team_id) return null;
+  // No early "no team" return: a workspace thread offered to a team carries a
+  // member price too. memberDiscountFor asks the one reader.
+  if (!thread) return null;
   const { data: person } = await adminClient
     .from('person')
     .select('id')
@@ -581,12 +587,23 @@ export async function memberDiscountFor(
     .select('id, team_id, workspace_id')
     .eq('id', threadId)
     .maybeSingle();
-  // No team, no team calendar. A workspace thread carries team_id NULL and is
-  // nobody's calendar (design: team_id NULL is not personal).
-  if (!thread?.team_id) return null;
+  if (!thread) return null;
+  // The teams this thread is FOR: its owner and the teams it is offered to
+  // (lib/thread-teams.ts). A workspace thread (team_id NULL) is nobody's
+  // calendar unless it is offered to one (design: team_id NULL is not
+  // personal).
+  const teams = await audienceTeamsOf(threadId, (thread.team_id as string | null) ?? null);
+  if (!teams.size) return null;
 
-  // THE ONE WALK, then this thread's team. Nothing here decides entitlement.
+  // THE ONE WALK, then this thread's teams. Nothing here decides entitlement.
+  // A member of two of them gets the higher percentage (Sjoerd, 2026-10-16).
   const held = await teamCalendarEntitlements(personId, thread.workspace_id as string);
-  const mine = held.find((e) => e.teamId === thread.team_id);
-  return mine ? { pct: mine.pct, via: mine.via } : null;
+  return bestOf(held.filter((e) => teams.has(e.teamId)));
+}
+
+/** The highest percentage among these entitlements, or null. */
+export function bestOf(held: TeamCalendarEntitlement[]): { pct: number; via: string } | null {
+  let best: TeamCalendarEntitlement | null = null;
+  for (const e of held) if (!best || e.pct > best.pct) best = e;
+  return best ? { pct: best.pct, via: best.via } : null;
 }

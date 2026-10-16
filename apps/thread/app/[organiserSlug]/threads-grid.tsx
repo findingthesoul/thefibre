@@ -28,6 +28,9 @@ import { DEFAULT_CARD_DATES, type CardDates } from '@thefibre/shared/thread-date
 export type PublicThreadListItem = {
   id: string;
   slug: string;
+  /** Its own address (additive, 2026-10-16). On a team's page a thread
+   *  offered to that team lives at its owner's; absent on an older API. */
+  path?: string | null;
   intention: string | null;
   cover_url: string | null;
   price_cents: number | null;
@@ -250,14 +253,19 @@ export function ThreadsGrid({
               : variant === 'row'
                 ? 'flex w-full items-center gap-6 border-b border-line px-1 py-5 text-left hover:bg-surface-sunken/60 transition-colors'
                 : 'w-full flex items-start gap-4 rounded-xl border border-line bg-surface-raised p-5 hover:border-line-strong transition-colors text-left';
+          // Its OWN address. A thread offered to this team (multi-team) lives
+          // at its owner's, and the popup looks a thread up under THIS page's
+          // slug — so an offered thread is a plain link to where it lives.
+          const here = `/${organiserSlug}/${th.slug}`;
+          const href = th.path ?? here;
           return (
             <li key={th.id}>
-              {th.public_interaction === 'popup' ? (
+              {th.public_interaction === 'popup' && href === here ? (
                 <button type="button" onClick={() => setPopupSlug(th.slug)} className={cls}>
                   {inner}
                 </button>
               ) : (
-                <Link href={`/${organiserSlug}/${th.slug}`} className={cls}>
+                <Link href={href} className={cls}>
                   {inner}
                 </Link>
               )}

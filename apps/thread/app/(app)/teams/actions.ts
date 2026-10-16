@@ -39,6 +39,18 @@ export async function addTeamMember(
   }
 }
 
+/** Take a thread offered to this team off its calendar (multi-team). The
+ *  thread itself, its owner and its money are not changed. */
+export async function removeTeamOffer(teamId: string, threadId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/teams/${teamId}/offered/${threadId}`, { method: 'DELETE' });
+    revalidatePath(`/teams/${teamId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function removeTeamMember(
   teamId: string,
   userId: string,

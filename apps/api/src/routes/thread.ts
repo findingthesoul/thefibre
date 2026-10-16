@@ -58,6 +58,7 @@ async function publicListItems(rows: Record<string, unknown>[]): Promise<Record<
   );
 }
 import { sendReach } from '../lib/member-notify.js';
+import { threadsForTeams } from '../lib/thread-teams.js';
 import { recordSlugChange, threadReferenceCounts } from '../lib/thread-grant.js';
 import {
   copied,
@@ -6592,10 +6593,21 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency, capacity,
        public_interaction, language, timezone, workspace_id, organiser_id,
+       public_scope, team:team_id (slug), organiser:organiser_id (slug), workspace:workspace_id (slug),
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true);
-  q = ownerThreadFilter(q, owner);
+  if (owner.kind === 'team') {
+    // A TEAM's page lists the threads FOR it: its own, and those offered to
+    // it (lib/thread-teams.ts). The page lists; it does not own — each item
+    // carries `path`, its owner's address, and a thread is only ever SERVED
+    // at that address (ownerThreadFilter, unchanged, for every lookup).
+    const forTeam = [...(await threadsForTeams([owner.team.id])).keys()];
+    if (!forTeam.length) q = q.eq('team_id', owner.team.id);
+    else q = q.in('id', forTeam);
+  } else {
+    q = ownerThreadFilter(q, owner);
+  }
   // Throws on a failed read (lib/rows.ts): a public page saying "no threads"
   // because a select broke is the silent failure §1.9 is about.
   const threads = rows('public page: threads', await q);
@@ -6607,9 +6619,25 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
   const prices = await ticketPrices(listed.map((t) => t.id));
   listed = listed.map((t) => ({ ...t, ...effectivePrice(t, prices) }));
 
+  // Additive (2026-10-16, multi-team): each item's OWN address, which on a
+  // team's page is not always this page's — a thread offered to this team
+  // lives at its owner's. One address, one owner.
+  const items = await publicListItems(listed as Record<string, unknown>[]);
+  const slugOf = (v: unknown) => ((Array.isArray(v) ? v[0] : v) as { slug?: string } | null)?.slug ?? null;
+  const pathOf = new Map(
+    (listed as Record<string, unknown>[]).map((t) => {
+      const ownerSlug = publicOwnerSlug({
+        publicScope: (t.public_scope as string | null) ?? null,
+        workspaceSlug: slugOf(t.workspace),
+        teamSlug: slugOf(t.team),
+        organiserSlug: slugOf(t.organiser),
+      });
+      return [t.id as string, ownerSlug ? `/${ownerSlug}/${t.slug as string}` : null];
+    }),
+  );
   return c.json({
     organiser: publicOrganiser(owner),
-    threads: await publicListItems(listed as Record<string, unknown>[]),
+    threads: items.map((it) => ({ ...it, path: pathOf.get(it.id as string) ?? null })),
     owner_kind: owner.kind,
     // Additive (thread dates slice 4): the owner workspace's card choice, so
     // the page's cards read their dates the way its embeds do.
@@ -7081,7 +7109,14 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     // request, so interpolating them into .or() cannot inject a filter.
     if (ids.length) q = q.or(`team_id.is.null,team_id.not.in.(${ids.join(',')})`);
   }
-  if (resolvedTeamId) q = q.eq('team_id', resolvedTeamId);
+  if (resolvedTeamId) {
+    // The threads FOR this team: owned by it, or offered to it
+    // (lib/thread-teams.ts). Each item still links to its OWNER's address —
+    // the url below is built from the thread's own team or organiser.
+    const forTeam = [...(await threadsForTeams([resolvedTeamId])).keys()];
+    if (!forTeam.length) return c.json({ items: [] });
+    q = q.in('id', forTeam);
+  }
   if (orgId) q = q.eq('organisation_id', orgId);
   // Whole workspace: every public thread, personal and team alike.
   if (resolvedWorkspaceId) q = q.eq('workspace_id', resolvedWorkspaceId);

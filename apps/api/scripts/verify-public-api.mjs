@@ -247,7 +247,10 @@ const PENDING = {
   // Empty again: `vat_home_pct` (thread), the seven list-item fields and the
   // organiser page's `card_dates` were collected into SHAPES with batch 32.
   thread: [],
-  listItem: ['price_includes_vat'],
+  // `path` (2026-10-16, multi-team): each organiser-page item's OWN address —
+  // on a team's page an offered thread lives at its owner's. Collect into
+  // SHAPES the day the batch that carries it lands on production.
+  listItem: ['price_includes_vat', 'path'],
   organiserPage: [],
 };
 

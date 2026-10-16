@@ -48,6 +48,7 @@ import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
 import { threadHandoverRoutes } from './routes/thread-handover.js';
+import { threadTeamOfferRoutes } from './routes/thread-team-offers.js';
 import { cancellationMeRoutes, cancellationStaffRoutes } from './routes/thread-cancellation.js';
 import { threadTaskRoutes } from './routes/thread-tasks.js';
 import { membersRoutes } from './routes/members.js';
@@ -330,6 +331,7 @@ v1.route('/thread', threadRoutes);
 // Organiser handover (docs/organiser-handover-design.md): its own router on
 // the same prefix, so thread.ts does not grow.
 v1.route('/thread', threadHandoverRoutes);
+v1.route('/thread', threadTeamOfferRoutes);
 // Cancellation requests, the organiser's half (approve / reject).
 v1.route('/thread', cancellationStaffRoutes);
 // A thread's own to-do list and the to-do templates, on the same prefix.

@@ -496,6 +496,32 @@ export async function checkinEnrolment(
 }
 
 
+// A thread OFFERED to more teams than its owner (multi-team, 2026-10-16).
+// The owner keeps the address and the money; an offered team's members see
+// the thread as their own team's. The API decides who may change it.
+export type TeamOffers = { owner_team_id: string | null; offers: { team_id: string; name: string | null }[]; can_edit: boolean };
+
+export async function loadThreadTeamOffers(threadId: string): Promise<TeamOffers | null> {
+  try {
+    return await apiFetch<TeamOffers>(`/api/v1/thread/threads/${threadId}/team-offers`);
+  } catch {
+    return null;
+  }
+}
+
+export async function setThreadTeamOffers(threadId: string, teamIds: string[]): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/threads/${threadId}/team-offers`, {
+      method: 'PUT',
+      body: JSON.stringify({ team_ids: teamIds }),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function setThreadCategories(
   threadId: string,
   categoryIds: string[],

@@ -37,7 +37,8 @@
 import { randomBytes } from 'node:crypto';
 import { communityWords, memberEmailValues } from './member-email-templates.js';
 import { adminClient } from '../db.js';
-import { calendarVisible, couldJoinByMember, entitlementsByMember, type CouldJoin } from './could-join.js';
+import { calendarVisible, couldJoinByMember, entitlementsByMember, teamOpen, type CouldJoin } from './could-join.js';
+import { audienceTeams } from './thread-teams.js';
 import { loadThreadDates } from './thread-dates.js';
 import { placesByThread } from './place-state.js';
 import { getSetting, setSetting } from './platform-settings.js';
@@ -60,6 +61,34 @@ const one = <T>(v: unknown): T | null =>
 
 const THREAD_SELECT =
   'id, workspace_id, team_id, public_enrolment_open, team:team_id (is_published, is_active), program:program_id (title, status, starts_on, ends_on)';
+
+type CalendarTeam = { id: string; is_published: boolean | null; is_active: boolean | null };
+
+/** The calendars each thread is on: its owner AND the teams it is offered to
+ *  (lib/thread-teams.ts — the one reader), as team rows so visibility can be
+ *  judged on them. A thread offered to a team is announced to that team's
+ *  followers exactly as an owned one. */
+async function calendarsOf(threads: Record<string, unknown>[]): Promise<Map<string, CalendarTeam[]>> {
+  const owners = new Map(threads.map((t) => [t.id as string, (t.team_id as string | null) ?? null]));
+  const audience = await audienceTeams([...owners.keys()], owners);
+  const teamIds = [...new Set([...audience.values()].flatMap((s) => [...s]))];
+  const byId = new Map<string, CalendarTeam>();
+  if (teamIds.length) {
+    const { data, error } = await adminClient.from('team').select('id, is_published, is_active').in('id', teamIds);
+    if (error) throw new Error(`calendar teams: ${error.message}`);
+    for (const r of data ?? []) byId.set(r.id as string, r as CalendarTeam);
+  }
+  return new Map(
+    [...audience].map(([id, teams]) => [id, [...teams].map((x) => byId.get(x)).filter((x): x is CalendarTeam => !!x)]),
+  );
+}
+
+/** Everybody who follows ANY of these (showing) calendars, once each. */
+function fansOf(followers: Map<string, Set<string>>, teams: CalendarTeam[]): Set<string> {
+  const out = new Set<string>();
+  for (const tm of teams) if (teamOpen(tm)) for (const p of followers.get(tm.id) ?? []) out.add(p);
+  return out;
+}
 
 type NotificationRow = {
   workspace_id: string;
@@ -156,14 +185,18 @@ export async function runNewThreadPass(
   let query = adminClient
     .from('thread_thread')
     .select(THREAD_SELECT)
-    .not('team_id', 'is', null)
+    // No "has an owner team" filter any more: a workspace thread OFFERED to a
+    // team is on that team's calendar. One with no team at all has no
+    // calendar, and calendarsOf gives it none, so it is still never visible.
     .or('public_enrolment_open.is.null,public_enrolment_open.eq.true');
   if (scope.workspaceIds) query = query.in('workspace_id', scope.workspaceIds);
   const { data, error } = await query;
   if (error) throw new Error(`calendar threads: ${error.message}`);
   const all = (data ?? []) as Record<string, unknown>[];
-  const datesById = await loadThreadDates(all.map((t) => t.id as string));
-  const visible = all.filter((t) => calendarVisible(t, datesById.get(t.id as string), now));
+  const [datesById, calendars] = await Promise.all([loadThreadDates(all.map((t) => t.id as string)), calendarsOf(all)]);
+  const visible = all.filter((t) =>
+    calendarVisible(t, datesById.get(t.id as string), now, calendars.get(t.id as string) ?? []),
+  );
   if (!visible.length) return { baseline: 0, announced: 0, told: 0, held: 0 };
 
   const seen = new Set<string>();
@@ -269,12 +302,14 @@ async function announceThreads(
   ws: string,
   threads: Record<string, unknown>[],
 ): Promise<{ announced: number; told: number }> {
-  const followers = await followersByTeam(ws);
+  const [followers, calendars] = await Promise.all([followersByTeam(ws), calendarsOf(threads)]);
   let announced = 0;
   let told = 0;
   for (const t of threads) {
-    const fans = followers.get(t.team_id as string);
-    if (!fans?.size) continue;
+    // Followers of every showing calendar it is on — owner and offered —
+    // once each, however many of them a person follows.
+    const fans = fansOf(followers, calendars.get(t.id as string) ?? []);
+    if (!fans.size) continue;
     announced += 1;
     const placed = await personsWithAPlace(t.id as string);
     const program = one(t.program) as { title?: string; starts_on?: string | null } | null;
@@ -380,12 +415,13 @@ export async function sendReach(threadId: string, now: Date = new Date()): Promi
   if (!t) return { participants: 0, followers: 0 };
   const placed = await personsWithAPlace(threadId);
   const participants = [...placed.values()].filter((s) => s !== 'dropped').length;
-  if (!t.team_id || !calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now)) return { participants, followers: 0 };
+  const cal = (await calendarsOf([t])).get(threadId) ?? [];
+  if (!calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now, cal)) return { participants, followers: 0 };
   // A count for a dialog: a failed switch read shows no followers rather
   // than taking the dialog down.
   const on = await notifyMembersOn(t.workspace_id as string).catch(() => false);
   if (!on) return { participants, followers: 0 };
-  const fans = (await followersByTeam(t.workspace_id as string)).get(t.team_id as string) ?? new Set<string>();
+  const fans = fansOf(await followersByTeam(t.workspace_id as string), cal);
   return { participants, followers: [...fans].filter((p) => !placed.has(p)).length };
 }
 
@@ -433,13 +469,9 @@ export async function notifyCalendarSend(
   const placed = await personsWithAPlace(threadId);
   const participants = [...placed.entries()].filter(([, s]) => s !== 'dropped').map(([p]) => p);
   let followers: string[] = [];
-  if (
-    t.team_id &&
-    calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now) &&
-    (await notifyMembersOn(ws))
-  ) {
-    const fans = (await followersByTeam(ws)).get(t.team_id as string) ?? new Set<string>();
-    followers = [...fans].filter((p) => !placed.has(p));
+  const cal = (await calendarsOf([t])).get(threadId) ?? [];
+  if (calendarVisible(t, (await loadThreadDates([threadId])).get(threadId), now, cal) && (await notifyMembersOn(ws))) {
+    followers = [...fansOf(await followersByTeam(ws), cal)].filter((p) => !placed.has(p));
   }
   const threadTitle = (one(t.program) as { title?: string } | null)?.title ?? '';
   const rows: NotificationRow[] = [];

@@ -13,6 +13,7 @@ import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { AddMemberRow, RemoveMemberButton } from './members';
 import { TeamSettings } from './team-settings';
+import { RemoveOfferButton } from './offered';
 import { THREAD_HOST } from '@/lib/public-host';
 
 type TeamMember = {
@@ -69,6 +70,13 @@ export default async function TeamDetailPage({
   const workspaceMembers = await apiFetch<{ items: WorkspaceMember[] }>(
     '/api/v1/thread/workspace-members',
   ).catch(() => ({ items: [] as WorkspaceMember[] }));
+
+  // Threads other teams have offered to this one (multi-team). Absent on a
+  // failed read: the section simply does not show.
+  const offered = await apiFetch<{
+    items: { thread_id: string; title: string | null; starts_on: string | null; owner_team: string | null }[];
+    can_remove: boolean;
+  }>(`/api/v1/thread/teams/${team.id}/offered`).catch(() => null);
 
   const memberIds = new Set(team.members.map((m) => m.user_id));
   const candidates = workspaceMembers.items.filter((w) => !memberIds.has(w.user_id));
@@ -130,6 +138,27 @@ export default async function TeamDetailPage({
           <AddMemberRow locale={locale} teamId={team.id} candidates={candidates} />
         </div>
       </section>
+
+      {offered && offered.items.length > 0 && (
+        <section className="mt-10">
+          <SectionLabel>{t(locale, 'offered_to_team_title')}</SectionLabel>
+          <p className="mb-3 text-sm text-ink-muted">{t(locale, 'offered_to_team_desc')}</p>
+          <ListGroup>
+            {offered.items.map((o) => (
+              <ListRow
+                key={o.thread_id}
+                primary={o.title ?? '—'}
+                secondary={o.owner_team ? t(locale, 'offered_by', { team: o.owner_team }) : undefined}
+                trailing={
+                  offered.can_remove ? (
+                    <RemoveOfferButton locale={locale} teamId={team.id} threadId={o.thread_id} title={o.title ?? '—'} />
+                  ) : undefined
+                }
+              />
+            ))}
+          </ListGroup>
+        </section>
+      )}
 
       <TeamSettings
         locale={locale}

@@ -6,6 +6,75 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.248.0] — 2026-10-16
+
+### A thread can be offered to more than one team (Thread 4.19.0)
+
+- Sjoerd, 2026-10-14: "can a thread be owned by more than one team?" The
+  design he approved on 2026-10-16 ("Yes, build it"): a thread keeps ONE
+  owner, which keeps its public address and its money. It can also be
+  OFFERED to other teams in the same workspace, and their members then see
+  it as if it were their own team's thread. The table landed in v1.246.1.
+- **For organisers:** in a thread's settings, **"Also offer to"** lists the
+  workspace's other teams; tick the ones to offer it to.
+  - Who may change it: the thread's organiser, a lead of its own team, or a
+    workspace admin.
+  - A thread that belongs to the whole workspace (no team) can be offered
+    to teams too.
+- **For a receiving team:** its page in Thread shows **"Offered to this
+  team"**: the threads other teams have offered it, and who offered them.
+  - A lead of the team or a workspace admin can **Remove** one, taking it
+    off that team's calendar; the thread itself is not changed.
+  - There's no accept step (Sjoerd): removing is the brake.
+- **What a member of an offered team gets, as for their own team's thread:**
+  - it appears in my.thread's "you could join" and on their team calendar,
+    under their own team's name;
+  - their own team's member discount. A member of two of a thread's teams
+    gets the higher percentage (Sjoerd);
+  - the new-thread notification, if their community has it on;
+  - it appears on their team's public page and in their team's `?team=`
+    embed list.
+- **What does NOT move:** the seller, payout account, invoice, refund and
+  platform fee stay the owner's. The public address is the owner's
+  everywhere: on another team's page, an offered thread links to its
+  owner's address, and it is never served under the other team's.
+- How it is built: ONE reader, `lib/thread-teams.ts` ("which teams is this
+  thread for", and the inverse). It reads owner ∪ offers as a SET, so a
+  thread whose owner later changes to a team that already had an offer
+  counts that team once. Five places that compared `team_id` themselves now
+  ask it:
+  - could-join;
+  - the member discount (the public "member price" hint, and the price);
+  - member-notify (the new-thread pass, the send reach line, the send
+    notice);
+  - the public team page;
+  - the `?team=` embed.
+  New routes: `GET|PUT /thread/threads/:id/team-offers`,
+  `GET /thread/teams/:teamId/offered`,
+  `DELETE /thread/teams/:teamId/offered/:threadId`. Published shapes:
+  additive only. The organiser page's list items gain `path` (each item's
+  own address), which is PENDING in verify-public-api until production
+  serves it. `/api/v1/apps/*` is untouched.
+- Not in this version:
+  - teams in another workspace;
+  - offered teams editing the thread or seeing its participants;
+  - a price or capacity per team;
+  - splitting the money;
+  - an address under the offered team's name;
+  - certificates in the offered team's name.
+- Tested, on staging: `thread-team-offer.int.test.ts`, 11/11, with three
+  teams: A owns, B is offered, C must see nothing.
+  - For each reader, B's member gets the thread and C's member doesn't. The
+    five reader cases fail on the previous code.
+  - The routes: who may offer, the owner as a no-op, a foreign team
+    refused, the receiving side's list and Remove.
+  - An owner change onto an offered team counts once.
+  - The existing tests for every reader touched pass unchanged, including
+    member-notify's fail-closed suite with two new cases: a failed teams or
+    offers read stops the pass and writes nothing.
+  - Not rendered yet: the two Thread screens. Typecheck only, until a
+    signed-in look on staging.
+
 ## [1.247.1] — 2026-10-16
 
 ### A member adds a members-only product to their membership, from the page or my.thread (Members 1.16.0)

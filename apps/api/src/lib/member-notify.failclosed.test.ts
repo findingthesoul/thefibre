@@ -78,6 +78,12 @@ function db(n: number, broken: Partial<Record<string, Resp>> = {}) {
         return { data: threads(n), error: null };
       case 'thread_calendar_seen.select':
         return { data: [], error: null };
+      // The calendars a thread is on (multi-team, 2026-10-16): its own team T,
+      // showing, and no extra offers.
+      case 'team.select':
+        return { data: [{ id: 'T', is_published: true, is_active: true }], error: null };
+      case 'thread_team_offer.select':
+        return { data: [], error: null };
       case 'membership_settings.select':
         return { data: { notify_members: true }, error: null };
       case 'membership_member.select':
@@ -120,6 +126,23 @@ describe('a failed read tells NOBODY', () => {
     state.respond = db(2, { 'thread_calendar_seen.select': { data: null, error: BOOM } });
     await expect(runNewThreadPass()).rejects.toThrow(/seen threads/);
     expect(told()).toBe(0);
+  });
+
+  // Multi-team (2026-10-16): the calendars a thread is on are two more reads.
+  // Either failing must stop the pass, never be read as "on no calendar" for
+  // some and "new" for others.
+  it('the offered-teams read fails → the pass throws, nothing written', async () => {
+    state.respond = db(2, { 'thread_team_offer.select': { data: null, error: BOOM } });
+    await expect(runNewThreadPass()).rejects.toThrow(/offers/);
+    expect(told()).toBe(0);
+    expect(state.writes).toEqual([]);
+  });
+
+  it('the teams read fails → the pass throws, nothing written', async () => {
+    state.respond = db(2, { 'team.select': { data: null, error: BOOM } });
+    await expect(runNewThreadPass()).rejects.toThrow(/calendar teams/);
+    expect(told()).toBe(0);
+    expect(state.writes).toEqual([]);
   });
 
   it('the community switch read fails → that community is skipped, nothing written', async () => {

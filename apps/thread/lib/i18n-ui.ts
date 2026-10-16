@@ -3260,6 +3260,55 @@ const CATALOG = {
     de: 'Zeigt ein Programm auf der öffentlichen Seite, gebildet aus den Elementen mit aktivem „Im öffentlichen Programm zeigen“.', // MT
     fr: 'Affiche un programme sur la page publique, composé des éléments dont « Afficher au programme public » est activé.', // MT
   },
+  // ── Multi-team (2026-10-16): a thread offered to more teams ─────────────
+  offer_teams_label: {
+    en: 'Also offer to',
+    nl: 'Ook aanbieden aan', // MT
+    es: 'Ofrecer también a', // MT
+    pt: 'Oferecer também a', // MT
+    de: 'Auch anbieten für', // MT
+    fr: 'Proposer aussi à', // MT
+  },
+  offer_teams_note: {
+    en: 'Members of these teams see this thread on their own team calendar, with their own member price. The address and the money stay with this thread’s owner.',
+    nl: 'Leden van deze teams zien deze thread in hun eigen teamkalender, met hun eigen ledenprijs. Het adres en het geld blijven bij de eigenaar van deze thread.', // MT
+    es: 'Los miembros de estos equipos ven este hilo en el calendario de su propio equipo, con su propio precio de miembro. La dirección y el dinero siguen siendo del propietario.', // MT
+    pt: 'Os membros destas equipas veem esta thread no calendário da sua própria equipa, com o seu próprio preço de membro. O endereço e o dinheiro ficam com o dono.', // MT
+    de: 'Mitglieder dieser Teams sehen diesen Thread im Kalender ihres eigenen Teams, mit ihrem eigenen Mitgliederpreis. Adresse und Geld bleiben beim Eigentümer.', // MT
+    fr: 'Les membres de ces équipes voient ce fil dans le calendrier de leur propre équipe, avec leur propre prix membre. L’adresse et l’argent restent au propriétaire.', // MT
+  },
+  offered_to_team_title: {
+    en: 'Offered to this team',
+    nl: 'Aangeboden aan dit team', // MT
+    es: 'Ofrecido a este equipo', // MT
+    pt: 'Oferecido a esta equipa', // MT
+    de: 'Diesem Team angeboten', // MT
+    fr: 'Proposé à cette équipe', // MT
+  },
+  offered_to_team_desc: {
+    en: 'Threads another team owns and has offered to this team. Its members see them as this team’s own. Remove one to take it off this team’s calendar.',
+    nl: 'Threads van een ander team, aangeboden aan dit team. De leden zien ze als van dit team. Haal er een weg om hem van de kalender van dit team te halen.', // MT
+    es: 'Hilos de otro equipo ofrecidos a este equipo. Sus miembros los ven como propios. Quita uno para sacarlo del calendario de este equipo.', // MT
+    pt: 'Threads de outra equipa oferecidas a esta equipa. Os membros veem-nas como suas. Remova uma para a tirar do calendário desta equipa.', // MT
+    de: 'Threads eines anderen Teams, diesem Team angeboten. Die Mitglieder sehen sie als eigene. Entferne einen, um ihn aus dem Kalender dieses Teams zu nehmen.', // MT
+    fr: 'Fils d’une autre équipe proposés à cette équipe. Ses membres les voient comme les siens. Retire-en un pour l’ôter du calendrier de cette équipe.', // MT
+  },
+  remove_offer_msg: {
+    en: 'Take “{title}” off this team’s calendar? The thread itself is not changed.',
+    nl: '“{title}” van de kalender van dit team halen? De thread zelf verandert niet.', // MT
+    es: '¿Quitar “{title}” del calendario de este equipo? El hilo en sí no cambia.', // MT
+    pt: 'Tirar “{title}” do calendário desta equipa? A thread em si não muda.', // MT
+    de: '„{title}“ aus dem Kalender dieses Teams nehmen? Der Thread selbst bleibt unverändert.', // MT
+    fr: 'Retirer « {title} » du calendrier de cette équipe ? Le fil lui-même ne change pas.', // MT
+  },
+  offered_by: {
+    en: 'from {team}',
+    nl: 'van {team}', // MT
+    es: 'de {team}', // MT
+    pt: 'de {team}', // MT
+    de: 'von {team}', // MT
+    fr: 'de {team}', // MT
+  },
   manage_categories_note: {
     en: 'Manage the list in Settings → Categories.',
     nl: 'Beheer de lijst via Instellingen → Categorieën.',

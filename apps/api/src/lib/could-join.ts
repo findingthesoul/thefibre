@@ -20,6 +20,7 @@ import { publicOwnerSlug } from './public-owner-slug.js';
 import { threadPublicUrl } from './public-origin.js';
 import { joinableFromList, type PlaceState } from './place-state.js';
 import { joinPayment, routeResolver, type JoinPayment, type Method } from './thread-payment-route.js';
+import { threadsForTeams } from './thread-teams.js';
 import {
   enrolmentPrice,
   priceCurrencyOf,
@@ -124,12 +125,31 @@ export function stillJoinable(
  *  ONE definition, for the Upcoming list and for "new on your calendar"
  *  (lib/member-notify.ts): a thread announced as new must be a thread the
  *  member then finds in the list. */
-export function calendarVisible(t: Record<string, unknown>, dates: ThreadDates | undefined, now: Date): boolean {
-  const team = one(t.team as never) as { is_published: boolean | null; is_active: boolean | null } | null;
+type TeamGate = { is_published: boolean | null; is_active: boolean | null };
+
+/** A team whose calendar is showing: published and not switched off. */
+export function teamOpen(team: TeamGate | null | undefined): boolean {
+  return !!team && team.is_published === true && team.is_active !== false;
+}
+
+/**
+ * Is this thread on a calendar right now? `teams` are the calendars to judge
+ * by — by default the thread's own team (t.team). A thread OFFERED to a team
+ * (lib/thread-teams.ts) is judged by the team whose calendar is asking: an
+ * owner's unpublished team does not hide it from a published team it was
+ * offered to. Visible on ANY of them is visible.
+ */
+export function calendarVisible(
+  t: Record<string, unknown>,
+  dates: ThreadDates | undefined,
+  now: Date,
+  teams?: (TeamGate | null | undefined)[],
+): boolean {
   const program = one(t.program as never) as
     | { status: string; starts_on: string | null; ends_on: string | null }
     | null;
-  if (!team || team.is_published !== true || team.is_active === false) return false;
+  const judgedBy = teams ?? [one(t.team as never) as TeamGate | null];
+  if (!judgedBy.some(teamOpen)) return false;
   if (!program || program.status !== 'active') return false;
   return dates ? signupsOpenAt(dates, now) : stillJoinable(program, now.toISOString().slice(0, 10));
 }
@@ -233,6 +253,21 @@ export async function couldJoinFrom(
   ];
   if (!teamIds.length) return out;
 
+  // The threads FOR these teams — owned by one, or offered to one — with,
+  // per thread, which of these teams it is for (lib/thread-teams.ts).
+  const [forTeams, teamRows] = await Promise.all([
+    threadsForTeams(teamIds),
+    // The calendars themselves: whether each is showing, and its name — an
+    // offered thread is on the MEMBER's team's calendar, not the owner's.
+    adminClient.from('team').select('id, name, is_published, is_active').in('id', teamIds),
+  ]);
+  if (!forTeams.size) return out;
+  const teamById = new Map(
+    (teamRows.data ?? []).map((r) => [r.id as string, r as { id: string; name: string } & TeamGate]),
+  );
+  const teamsFor = (threadId: string) =>
+    [...(forTeams.get(threadId) ?? [])].map((id) => teamById.get(id)).filter((x): x is NonNullable<typeof x> => !!x);
+
   const now = new Date();
   const candidates = rows(
     'portal: could join',
@@ -246,7 +281,7 @@ export async function couldJoinFrom(
          organiser:organiser_id (slug, user_id),
          program:program_id (title, status, starts_on, ends_on)`,
       )
-      .in('team_id', teamIds)
+      .in('id', [...forTeams.keys()])
       // NOT `is_public_listed`. That switch decides whether a thread shows on
       // the PUBLIC organiser page; it says nothing about whether a member may
       // see it. Sjoerd, 2026-10-14: "As it is published they can see it. Even
@@ -277,7 +312,9 @@ export async function couldJoinFrom(
       : Promise.resolve({ data: [] }),
   ]);
   // Reachable, or it does not belong in a list of what you can join.
-  const open = candidates.filter((t) => calendarVisible(t, datesById.get(t.id as string), now));
+  const open = candidates.filter((t) =>
+    calendarVisible(t, datesById.get(t.id as string), now, teamsFor(t.id as string)),
+  );
 
   // Tickets for all of them at once, and the price from the same two
   // functions the enrol POST uses.
@@ -344,18 +381,30 @@ export async function couldJoinFrom(
     const mine: Promise<CouldJoin>[] = [];
     pending.push([memberId, mine]);
     for (const t of open) {
-      const pct = byTeam.get(t.team_id as string);
-      if (pct === undefined) continue;
-      // Narrowed above in `open`; re-read rather than carried, and still
-      // guarded, because a cast is not a check.
-      const team = one(t.team as never) as { slug: string; name: string } | null;
+      // The calendar it is on for THIS member: of the showing teams the thread
+      // is for, the one where their percentage is best (Sjoerd, 2026-10-16:
+      // the higher one wins). An offered thread reads as their own team's.
+      let pct: number | undefined;
+      let calendar: { name: string } | undefined;
+      for (const tm of teamsFor(t.id as string)) {
+        const p = byTeam.get(tm.id);
+        if (p === undefined || !teamOpen(tm)) continue;
+        if (pct === undefined || p > pct) {
+          pct = p;
+          calendar = tm;
+        }
+      }
+      if (pct === undefined || !calendar) continue;
+      // The OWNER's team only names the public address: one address, one
+      // owner, whoever it is offered to. A workspace thread has none.
+      const owner = one(t.team as never) as { slug: string } | null;
       const organiser = one(t.organiser as never) as { slug: string } | null;
       const program = one(t.program as never) as { title: string; starts_on: string | null; ends_on?: string | null } | null;
-      if (!team || !program) continue;
+      if (!program) continue;
       const ownerSlug = publicOwnerSlug({
         publicScope: t.public_scope as string | null,
         workspaceSlug: wsSlugById.get(t.workspace_id as string),
-        teamSlug: team.slug,
+        teamSlug: owner?.slug,
         organiserSlug: organiser?.slug,
       });
       // No address, no offer: a row the member cannot click is worse than
@@ -393,7 +442,7 @@ export async function couldJoinFrom(
         workspace_id: t.workspace_id as string,
         timezone: (t.timezone as string | null) ?? null,
         language: (t.language as string | null) ?? null,
-        team: team.name,
+        team: calendar.name,
         list_price_cents: base.basePriceCents,
         price_includes_vat:
           (ticketsByThread.get(t.id as string) ?? []).find((k) => k.id === base.ticketId)?.price_includes_vat ?? false,

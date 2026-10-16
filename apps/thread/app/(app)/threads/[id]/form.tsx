@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Locale } from '@thefibre/shared';
-import { setThreadCategories, updateThread } from '../actions';
+import { loadThreadTeamOffers, setThreadCategories, setThreadTeamOffers, updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
 import { t } from '@/lib/i18n-ui';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
@@ -55,6 +55,19 @@ export function ThreadEditorForm({
     thread.public_scope === 'workspace' ? 'workspace' : thread.team_id ? 'team' : 'personal',
   );
   const [teamId, setTeamId] = useState(thread.team_id ?? '');
+  // "Also offer to" (multi-team, 2026-10-16): teams beyond the owner whose
+  // members see this thread as their own team's. Loaded once; null until
+  // then, or when the API says this person may not change it.
+  const [offers, setOffers] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadThreadTeamOffers(thread.id).then((r) => {
+      if (live && r?.can_edit) setOffers(new Set(r.offers.map((o) => o.team_id)));
+    });
+    return () => {
+      live = false;
+    };
+  }, [thread.id]);
   const selectedTeam = teams.find((tm) => tm.id === teamId) ?? null;
   // Live public-URL prefix — switches with the scope choice.
   const urlOwner =
@@ -129,6 +142,12 @@ export function ThreadEditorForm({
       if (!r.ok) return setError(r.error);
       const rc = await setThreadCategories(thread.id, [...selectedCats]);
       if (!rc.ok) return setError(rc.error);
+      if (offers) {
+        // The owner is never also "offered to"; the API drops it too.
+        const owner = (patch.team_id as string | null | undefined) ?? null;
+        const ro = await setThreadTeamOffers(thread.id, [...offers].filter((id) => id !== owner));
+        if (!ro.ok) return setError(ro.error);
+      }
       setSaved(true);
       router.refresh();
       onSaved?.();
@@ -294,6 +313,42 @@ export function ThreadEditorForm({
               </div>
             )}
           </div>
+
+          {offers && teams.some((tm) => !(scope === 'team' && tm.id === teamId)) && (
+            <div>
+              <span className="text-sm text-ink-subtle">{t(locale, 'offer_teams_label')}</span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {teams
+                  .filter((tm) => !(scope === 'team' && tm.id === teamId))
+                  .map((tm) => {
+                    const on = offers.has(tm.id);
+                    return (
+                      <button
+                        key={tm.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() =>
+                          setOffers((prev) => {
+                            const next = new Set(prev ?? []);
+                            if (next.has(tm.id)) next.delete(tm.id);
+                            else next.add(tm.id);
+                            return next;
+                          })
+                        }
+                        className={`rounded-full px-3 py-1 text-xs ring-1 transition-colors ${
+                          on
+                            ? 'bg-ink text-ink-inverse ring-ink'
+                            : 'bg-surface text-ink-subtle ring-line hover:text-ink hover:ring-line-strong'
+                        }`}
+                      >
+                        {tm.name}
+                      </button>
+                    );
+                  })}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'offer_teams_note')}</p>
+            </div>
+          )}
 
           {categories.length > 0 && (
             <div>
