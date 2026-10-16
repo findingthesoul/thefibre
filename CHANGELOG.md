@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.228.2] — 2026-10-16
+
+### Participants hear about every change, part 1: the migration alone
+
+`member_notification.kind` also accepts `session_added`, so a new session can
+reach the bell the way a moved or cancelled one does (Sjoerd, 2026-10-16:
+"yes build it"). The kind check is replaced by its name read from the
+catalogue, and the migration stops if it finds anything other than exactly
+one check on `kind`. Nothing writes the new kind yet; the code follows in
+part 2.
+
 ## [1.228.1] — 2026-10-16
 
 ### my.thread's portal answers in half the time
