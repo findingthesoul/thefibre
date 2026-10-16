@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.236.2] — 2026-10-16
+
+### Price includes VAT for Thread tickets and Meet, part 1: the columns alone
+
+`thread_ticket.price_includes_vat` and `meet_meeting_type.price_includes_vat`
+are boolean, not null, default false. That is the switch Members has had
+since v1.231.0, now for Thread tickets and Meet meeting types. Every existing
+price stays excl. VAT, so nothing changes until a row is switched on.
+`thread_thread.price_cents` is left alone: it has no editor in Thread, so a
+thread without tickets keeps today's meaning. No code reads the columns yet;
+it follows in its own release.
+
 ## [1.236.1] — 2026-10-16
 
 ### Cancellation requests, seen in a browser
