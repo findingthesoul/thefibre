@@ -3620,6 +3620,94 @@ const CATALOG = {
     de: 'Veranstalter', // MT
     fr: 'Organisateur', // MT
   },
+  cancel_req_badge: {
+    en: 'Cancellation requested',
+    nl: 'Annulering gevraagd', // MT
+    es: 'Cancelación solicitada', // MT
+    pt: 'Cancelamento pedido', // MT
+    de: 'Stornierung angefragt', // MT
+    fr: 'Annulation demandée', // MT
+  },
+  cancel_req_filter: {
+    en: 'Cancellation requests ({n})',
+    nl: 'Annuleringsverzoeken ({n})', // MT
+    es: 'Solicitudes de cancelación ({n})', // MT
+    pt: 'Pedidos de cancelamento ({n})', // MT
+    de: 'Stornierungsanfragen ({n})', // MT
+    fr: 'Demandes d’annulation ({n})', // MT
+  },
+  cancel_req_title: {
+    en: 'Cancellation request',
+    nl: 'Annuleringsverzoek', // MT
+    es: 'Solicitud de cancelación', // MT
+    pt: 'Pedido de cancelamento', // MT
+    de: 'Stornierungsanfrage', // MT
+    fr: 'Demande d’annulation', // MT
+  },
+  cancel_req_reason: {
+    en: 'Their reason',
+    nl: 'Hun reden', // MT
+    es: 'Su motivo', // MT
+    pt: 'O motivo', // MT
+    de: 'Begründung', // MT
+    fr: 'Sa raison', // MT
+  },
+  cancel_req_no_reason: {
+    en: 'No reason given.',
+    nl: 'Geen reden opgegeven.', // MT
+    es: 'Sin motivo.', // MT
+    pt: 'Nenhum motivo indicado.', // MT
+    de: 'Keine Begründung angegeben.', // MT
+    fr: 'Aucune raison donnée.', // MT
+  },
+  cancel_req_refund: {
+    en: 'Refund {amount} to their card',
+    nl: '{amount} terugstorten op hun kaart', // MT
+    es: 'Reembolsar {amount} a su tarjeta', // MT
+    pt: 'Reembolsar {amount} no cartão', // MT
+    de: '{amount} auf die Karte erstatten', // MT
+    fr: 'Rembourser {amount} sur sa carte', // MT
+  },
+  cancel_req_no_card: {
+    en: 'No card payment to refund here. If they paid by invoice, refund that outside The Thread.',
+    nl: 'Geen kaartbetaling om hier terug te storten. Betaalden ze per factuur, stort dat dan buiten The Thread terug.', // MT
+    es: 'No hay pago con tarjeta que reembolsar aquí. Si pagó por factura, reembólsalo fuera de The Thread.', // MT
+    pt: 'Não há pagamento com cartão para reembolsar aqui. Se pagou por fatura, reembolse fora do The Thread.', // MT
+    de: 'Hier gibt es keine Kartenzahlung zu erstatten. Bei Zahlung per Rechnung bitte außerhalb von The Thread erstatten.', // MT
+    fr: 'Aucun paiement par carte à rembourser ici. S’il a payé par facture, remboursez en dehors de The Thread.', // MT
+  },
+  cancel_req_note: {
+    en: 'A note for them if you decline (optional)',
+    nl: 'Een toelichting als je afwijst (optioneel)', // MT
+    es: 'Una nota si rechazas (opcional)', // MT
+    pt: 'Uma nota se recusar (opcional)', // MT
+    de: 'Eine Anmerkung, falls du ablehnst (optional)', // MT
+    fr: 'Une note si vous refusez (facultatif)', // MT
+  },
+  cancel_req_approve: {
+    en: 'Approve',
+    nl: 'Goedkeuren', // MT
+    es: 'Aprobar', // MT
+    pt: 'Aprovar', // MT
+    de: 'Annehmen', // MT
+    fr: 'Accepter', // MT
+  },
+  cancel_req_reject: {
+    en: 'Decline request',
+    nl: 'Verzoek afwijzen', // MT
+    es: 'Rechazar solicitud', // MT
+    pt: 'Recusar pedido', // MT
+    de: 'Anfrage ablehnen', // MT
+    fr: 'Refuser la demande', // MT
+  },
+  cancel_req_refund_failed: {
+    en: 'The place is released, but the refund did not go through ({error}). Use Reimburse on the invoice.',
+    nl: 'De plek is vrijgegeven, maar de terugbetaling is mislukt ({error}). Gebruik Terugbetalen op de factuur.', // MT
+    es: 'La plaza está liberada, pero el reembolso no se completó ({error}). Usa Reembolsar en la factura.', // MT
+    pt: 'A vaga foi liberada, mas o reembolso falhou ({error}). Use Reembolsar na fatura.', // MT
+    de: 'Der Platz ist frei, aber die Erstattung ist fehlgeschlagen ({error}). Nutze „Erstatten“ auf der Rechnung.', // MT
+    fr: 'La place est libérée, mais le remboursement a échoué ({error}). Utilisez Rembourser sur la facture.', // MT
+  },
   unsent_changes_one: {
     en: '1 change not sent',
     nl: '1 wijziging niet verstuurd', // MT

@@ -281,6 +281,11 @@ export function ThreadTimeline({
   // tab's form (`thread-{tab}-form`) — one bottom bar, v3 style.
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('basics');
   const [registrationsOpen, setRegistrationsOpen] = useState(false);
+  // `?registrations=1` opens the list straight away: the link in a
+  // cancellation-request email lands the organiser where they decide.
+  useEffect(() => {
+    if (new URLSearchParams(globalThis.location.search).get('registrations') === '1') setRegistrationsOpen(true);
+  }, []);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [editorState, setEditorState] = useState<
     | { mode: 'closed' }

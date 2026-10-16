@@ -17,6 +17,7 @@ import { invoiceOnlineButtonHtml } from '../lib/invoice-online-link.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { reimbursePurchase, type ReimbursablePurchase } from '../lib/reimburse.js';
 import { publicOwnerSlug } from '../lib/public-owner-slug.js';
 import { settleFromPurchase } from '../lib/pulse-ledger.js';
 import { finalizePaidEnrolment } from './thread.js';
@@ -598,67 +599,11 @@ purchasesRoutes.post('/:id/refund', async (c) => {
   const ctx = c.get('ctx');
   const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
   if ('error' in r) return c.json({ error: r.error }, r.code as 404);
-  const p = r.purchase as {
-    id: string;
-    item_ref: string;
-    method: string;
-    status: string;
-    stripe_payment_intent: string | null;
-    workspace_id?: string;
-  };
-  if (p.status === 'refunded') return c.json({ ok: true, already: true });
-  if (p.status !== 'paid') return c.json({ error: 'only paid purchases can be reimbursed' }, 409);
-  if (p.method === 'free') {
-    // €0-with-code rows are ledger facts, not payments — flipping them to
-    // 'refunded' would irreversibly mislabel the enrolment.
-    return c.json({ error: 'a free enrolment has nothing to reimburse' }, 409);
-  }
-
-  if (p.method === 'stripe') {
-    const stripe = stripeOrNull();
-    if (!stripe) return c.json({ error: 'payments not configured' }, 503);
-    if (!p.stripe_payment_intent) return c.json({ error: 'no payment intent on record' }, 409);
-    // The account the charge actually landed on (stored at record time);
-    // today's settings only as fallback for pre-migration rows.
-    const account =
-      (r.purchase as { stripe_account_id?: string | null }).stripe_account_id ??
-      (await chargeAccountForItem(r.appSlug, p.item_ref));
-    if (!account) return c.json({ error: 'connected Stripe account not found' }, 409);
-    try {
-      await stripe.refunds.create(
-        // D3: the platform gives its skim back — the organiser is made whole.
-        { payment_intent: p.stripe_payment_intent, refund_application_fee: true },
-        { stripeAccount: account },
-      );
-    } catch (e) {
-      console.error('[purchases] stripe refund failed', e);
-      const msg = e instanceof Error ? e.message : 'refund failed';
-      return c.json({ error: msg }, 502);
-    }
-  }
-  // Invoice-method: money moves outside Stripe — this records the fact.
-
-  // Flip the source rows + ledger.
-  if (r.appSlug === 'the-thread') {
-    await adminClient
-      .from('thread_enrolment')
-      .update({ payment_status: 'refunded' })
-      .eq('id', p.item_ref);
-    await adminClient
-      .from('thread_payout')
-      .update({ status: 'refunded' })
-      .eq('thread_enrolment_id', p.item_ref);
-  } else if (r.appSlug === 'fibre-meet') {
-    await adminClient
-      .from('meet_booking')
-      .update({ payment_status: 'refunded' })
-      .eq('id', p.item_ref);
-  }
-  await adminClient
-    .from('purchase')
-    .update({ status: 'refunded', refunded_at: new Date().toISOString() })
-    .eq('id', p.id);
-  return c.json({ ok: true });
+  // The money and the rows: lib/reimburse.ts, shared with approving a
+  // cancellation request so there is one refund path, not two.
+  const done = await reimbursePurchase(r.purchase as unknown as ReimbursablePurchase, r.appSlug);
+  if ('error' in done) return c.json({ error: done.error }, done.code);
+  return c.json(done.already ? { ok: true, already: true } : { ok: true });
 });
 
 // POST /api/v1/purchases/:id/send-payment-link — invoice-method purchases

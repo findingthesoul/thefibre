@@ -146,7 +146,7 @@ import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-
 // lives in lib/ rather than beside the certificate routes (2026-09-23).
 import { filterVisibleTemplates } from '../lib/template-visibility.js';
 
-function threadAppUrl(): string {
+export function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
 }
 
@@ -4319,7 +4319,7 @@ const ENROLMENT_ACTION_SELECT = `id, thread_id, enrolment_id,
     team:team_id (name),
     program:program_id (title, status, starts_on))`;
 
-async function loadEnrolmentForAction(
+export async function loadEnrolmentForAction(
   jwt: string,
   threadEnrolmentId: string,
   actor?: { userId: string; workspaceId: string },
@@ -4513,7 +4513,7 @@ async function threadEmailIdentity(thread: {
   };
 }
 
-async function logEnrolmentActivity(
+export async function logEnrolmentActivity(
   workspaceId: string,
   personId: string,
   type: string,
@@ -4557,7 +4557,7 @@ threadRoutes.post('/enrolments/:id/approve', async (c) => {
 // loadEnrolmentForAction, an app key via its own-thread check); these do the
 // WHAT, identically for both.
 
-type EnrolmentActionLoaded = {
+export type EnrolmentActionLoaded = {
   te: { id: string; enrolment_id: string };
   person: { id: string; email: string | null };
   thread: { id: string; workspace_id: string; language?: string | null };

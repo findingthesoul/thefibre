@@ -83,7 +83,45 @@ export type ThreadItem = {
   /** You host or facilitate this thread. A hosted-only thread lists just the
    *  sessions you are on, without RSVP, ticket or certificate. */
   my_role?: 'host' | 'facilitator' | null;
+  /** Your place on this thread, its latest cancellation request, and
+   *  whether you may ask now. Absent on older APIs (no button). */
+  enrolment_id?: string | null;
+  cancellation_request?: CancellationRequest | null;
+  can_request_cancellation?: boolean;
 };
+
+export type CancellationRequest = {
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
+  created_at: string;
+  /** The organiser's note on a rejection. */
+  decision_note: string | null;
+};
+
+/** Ask to cancel a place, or withdraw the request. Through this app's route,
+ *  so the browser never holds a token. */
+export async function requestCancellation(enrolmentId: string, reason: string | null): Promise<void> {
+  const res = await fetch('/api/cancellation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enrolment_id: enrolmentId, reason }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not send the request');
+  }
+}
+
+export async function withdrawCancellation(enrolmentId: string): Promise<void> {
+  const res = await fetch('/api/cancellation', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enrolment_id: enrolmentId }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not withdraw the request');
+  }
+}
 
 export type MeetItem = {
   booking_id: string;

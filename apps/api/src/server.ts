@@ -48,6 +48,7 @@ import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
 import { threadHandoverRoutes } from './routes/thread-handover.js';
+import { cancellationMeRoutes, cancellationStaffRoutes } from './routes/thread-cancellation.js';
 import { threadTaskRoutes } from './routes/thread-tasks.js';
 import { membersRoutes } from './routes/members.js';
 import { purchasesRoutes } from './routes/purchases.js';
@@ -316,6 +317,9 @@ v1.route('/mcp-auth', mcpAuthRoutes);
 v1.route('/mcp', mcpRoutes);
 // The visitor's own place, across every app (docs/visitor-portal-proposal.md).
 v1.route('/me', portalRoutes);
+// A participant asking to cancel their place (routes/thread-cancellation.ts):
+// the participant half, verified email inside the handler like the portal.
+v1.route('/me', cancellationMeRoutes);
 // NOT under /me: that prefix is the visitor portal, where a participant JWT is
 // verified inside the handler and no workspace context exists. A staff route
 // mounted there gets no ctx at all (500s on staging, 2026-09-23).
@@ -326,6 +330,8 @@ v1.route('/thread', threadRoutes);
 // Organiser handover (docs/organiser-handover-design.md): its own router on
 // the same prefix, so thread.ts does not grow.
 v1.route('/thread', threadHandoverRoutes);
+// Cancellation requests, the organiser's half (approve / reject).
+v1.route('/thread', cancellationStaffRoutes);
 // A thread's own to-do list and the to-do templates, on the same prefix.
 // Its own file because routes/thread.ts is ~6000 lines and several
 // sessions edit it at once; the paths read as if they lived there.

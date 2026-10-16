@@ -67,6 +67,7 @@ import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
+import { cancellationStateFor, REQUESTABLE_STATUSES, threadIsOver, type CancellationState } from './thread-cancellation.js';
 import {
   markEmailProven,
   personIdsForProvenEmail,
@@ -208,6 +209,12 @@ type ThreadItem = {
    *  sessions you are ticked on, with no RSVP, ticket or certificate — those
    *  are a participant's. A host who is also enrolled appears once, as host. */
   my_role: 'host' | 'facilitator' | null;
+  /** Additive (cancellation requests, 2026-10-16): the place this person
+   *  holds, its latest cancellation request, and whether they may ask now.
+   *  Null / false on a hosted-only thread. */
+  enrolment_id?: string | null;
+  cancellation_request?: CancellationState;
+  can_request_cancellation?: boolean;
   /** Additive (thread dates slice 4): the key-moment span and when sign-ups
    *  close, so my.thread reads the thread's dates through the shared rule
    *  (cardDateLine) like every other surface. */
@@ -997,6 +1004,7 @@ portalRoutes.get('/portal', async (c) => {
       agenda: agendaByThread.get(t.id) ?? [],
       // Enrolled AND hosting: one entry, marked as host.
       my_role: hostedRole.get(t.id) ?? null,
+      enrolment_id: e.id as string,
     });
 
     if (e.checkin_code && ticketIsAdmissible(enr?.status ?? null, (e.payment_status as string | null) ?? null)) {
@@ -1112,6 +1120,26 @@ portalRoutes.get('/portal', async (c) => {
     const zoneOf = new Map(zones.map((z) => [z.id, z.timezone]));
     for (const t of listedThreads) {
       Object.assign(t, publicDateFields(datesById.get(t.thread_id)), { timezone: zoneOf.get(t.thread_id) ?? null });
+    }
+
+    // Cancellation: the latest request per place, and whether the button is
+    // offered — the same three rules the POST refuses by
+    // (routes/thread-cancellation.ts whyNotRequestable): a place that still
+    // holds, no certificate, the thread not over. Offer and refusal read the
+    // same facts, so the button never promises what the route then refuses.
+    const placeIds = listedThreads.map((t) => t.enrolment_id).filter((x): x is string => !!x);
+    const requests = await cancellationStateFor(placeIds);
+    const now = new Date();
+    for (const t of listedThreads) {
+      if (!t.enrolment_id) continue;
+      const req = requests.get(t.enrolment_id) ?? null;
+      t.cancellation_request = req;
+      t.can_request_cancellation =
+        req?.status !== 'pending' &&
+        req?.status !== 'approved' &&
+        REQUESTABLE_STATUSES.includes((t.enrolment_status ?? '') as (typeof REQUESTABLE_STATUSES)[number]) &&
+        !t.certificate &&
+        !threadIsOver(datesById.get(t.thread_id), now);
     }
   }
   return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming, unread_notifications, communities });

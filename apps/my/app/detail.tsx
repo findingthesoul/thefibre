@@ -16,6 +16,7 @@ import { Dialog } from '@thefibre/shared/ui/dialog';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import { SECTION_LABEL } from '@thefibre/shared/ui/recipes';
 import { Certificate } from './certificate';
+import { CancellationSection } from './cancellation';
 import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X, HelpCircle } from 'lucide-react';
 import { threadDateLine, PAGE_DATES } from '@thefibre/shared/thread-date-line';
 import {
@@ -540,6 +541,8 @@ export function ThreadSheet({
         ) : (
           <p className="text-sm text-ink-muted">No agenda published yet.</p>
         )}
+
+        <CancellationSection thread={thread} />
 
         {/* A tappable target, not a line of text. This surface is used on a
             phone, often one-handed at a door; a 17px-tall link was under half

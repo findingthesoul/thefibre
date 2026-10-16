@@ -13,8 +13,12 @@ import {
   declineEnrolment,
   completeEnrolment,
   markEnrolmentPaid,
+  listCancellationRequests,
+  type CancellationRequestItem,
   type ThreadEnrolmentItem,
 } from './registrations-actions';
+import { CancellationDialog } from './cancellation-dialog';
+import { PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 import { AddParticipantDialog } from './add-participant-dialog';
 import { one } from '@/lib/thread-types';
 import type { Locale } from '@thefibre/shared';
@@ -63,11 +67,23 @@ export function RegistrationsDialog({
   const [adding, setAdding] = useState(false);
   const [addInfo, setAddInfo] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Cancellation requests (Sjoerd's 2iv): the open one per place, a badge on
+  // its row, and a chip that narrows the list to those waiting for an answer.
+  const [requests, setRequests] = useState<CancellationRequestItem[]>([]);
+  const [onlyRequests, setOnlyRequests] = useState(false);
+  const [deciding, setDeciding] = useState<{ request: CancellationRequestItem; name: string } | null>(null);
+  const openRequest = new Map(requests.filter((r) => r.status === 'pending').map((r) => [r.enrolment_id, r]));
+
+  async function loadRequests() {
+    // A failed read shows no badges rather than failing the list.
+    const r = await listCancellationRequests(threadId);
+    if (r.ok) setRequests(r.items);
+  }
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const r = await listThreadEnrolments(threadId);
+      const [r] = await Promise.all([listThreadEnrolments(threadId), loadRequests()]);
       if (cancelled) return;
       if (r.ok) setItems(r.items);
       else setError(r.error);
@@ -75,6 +91,7 @@ export function RegistrationsDialog({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
 
   async function run(id: string, fn: (id: string) => Promise<{ ok: boolean; error?: string }>) {
@@ -173,9 +190,39 @@ export function RegistrationsDialog({
 
       {detail && <ParticipantDialog locale={locale} row={detail} onClose={() => setDetail(null)} />}
 
+      {deciding && (
+        <CancellationDialog
+          locale={locale}
+          request={deciding.request}
+          personName={deciding.name}
+          onClose={() => setDeciding(null)}
+          onDecided={() => {
+            void loadRequests();
+            void listThreadEnrolments(threadId).then((r) => {
+              if (r.ok) setItems(r.items);
+            });
+          }}
+        />
+      )}
+
+      {openRequest.size > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            aria-pressed={onlyRequests}
+            onClick={() => setOnlyRequests((v) => !v)}
+            className={`${PILL} ${onlyRequests ? PILL_TONE.attention : PILL_TONE.neutral}`}
+          >
+            {t(locale, 'cancel_req_filter', { n: openRequest.size })}
+          </button>
+        </div>
+      )}
+
       {items !== null && items.length > 0 && (
         <ul className="divide-y divide-line border border-line rounded-lg bg-surface-raised">
-          {items.map((it) => {
+          {items
+            .filter((it) => !onlyRequests || openRequest.has(it.id))
+            .map((it) => {
             const person = one(it.person);
             const enr = one(it.enrolment);
             const cert = one(it.certificate);
@@ -227,6 +274,15 @@ export function RegistrationsDialog({
                     <div className="text-xs text-ink-subtle mt-0.5 truncate">{person.email}</div>
                   )}
                 </button>
+                {openRequest.has(it.id) && (
+                  <button
+                    type="button"
+                    onClick={() => setDeciding({ request: openRequest.get(it.id)!, name })}
+                    className={`${PILL} ${PILL_TONE.attention} shrink-0`}
+                  >
+                    {t(locale, 'cancel_req_badge')}
+                  </button>
+                )}
                 {cert && (
                   <span
                     className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-yellow-300 bg-yellow-50 text-ink shrink-0"

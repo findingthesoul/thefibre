@@ -831,3 +831,188 @@ export function calendarNudgeEmail(c: {
   );
   return { subject, text, html };
 }
+
+// ---------------------------------------------------------------------------
+// Cancellation requests (Sjoerd's 2iv, 2026-10-16) — three emails:
+//   · the request, to the organiser and the thread's hosts, with the reason;
+//   · the approval, to the participant ("€x refunded to your card" when so);
+//   · the rejection, to the participant, with the organiser's note.
+// A withdrawal sends nothing. Each in its reader's language.
+// ---------------------------------------------------------------------------
+
+const CANCEL_CATALOG = {
+  cr_subject: {
+    en: 'Cancellation request: {thread}',
+    nl: 'Annuleringsverzoek: {thread}', // MT
+    es: 'Solicitud de cancelación: {thread}', // MT
+    pt: 'Pedido de cancelamento: {thread}', // MT
+    de: 'Stornierungsanfrage: {thread}', // MT
+    fr: 'Demande d’annulation : {thread}', // MT
+  },
+  cr_lead: {
+    en: '{name} asks to cancel their place in {thread}.',
+    nl: '{name} vraagt om hun plek in {thread} te annuleren.', // MT
+    es: '{name} pide cancelar su plaza en {thread}.', // MT
+    pt: '{name} pede para cancelar a sua vaga em {thread}.', // MT
+    de: '{name} bittet darum, den Platz in {thread} zu stornieren.', // MT
+    fr: '{name} demande à annuler sa place dans {thread}.', // MT
+  },
+  cr_reason: { en: 'Their reason:', nl: 'Hun reden:', es: 'Su motivo:', pt: 'O motivo:', de: 'Begründung:', fr: 'Sa raison :' }, // MT
+  cr_no_reason: {
+    en: 'They gave no reason.',
+    nl: 'Er is geen reden opgegeven.', // MT
+    es: 'No indicó ningún motivo.', // MT
+    pt: 'Nenhum motivo foi indicado.', // MT
+    de: 'Es wurde keine Begründung angegeben.', // MT
+    fr: 'Aucune raison n’a été donnée.', // MT
+  },
+  cr_decide: {
+    en: 'You decide: approve (their place is freed, with a refund to their card if you choose) or decline (they keep their place).',
+    nl: 'Jij beslist: goedkeuren (hun plek komt vrij, met terugbetaling op hun kaart als je dat kiest) of afwijzen (ze houden hun plek).', // MT
+    es: 'Tú decides: aprobar (se libera su plaza, con reembolso a su tarjeta si lo eliges) o rechazar (conserva su plaza).', // MT
+    pt: 'Você decide: aprovar (a vaga é liberada, com reembolso no cartão se escolher) ou recusar (a pessoa mantém a vaga).', // MT
+    de: 'Du entscheidest: annehmen (der Platz wird frei, auf Wunsch mit Erstattung auf die Karte) oder ablehnen (der Platz bleibt).', // MT
+    fr: 'À vous de décider : accepter (la place est libérée, avec remboursement sur la carte si vous le souhaitez) ou refuser (la place est conservée).', // MT
+  },
+  cr_button: { en: 'Open the registrations', nl: 'Inschrijvingen openen', es: 'Abrir las inscripciones', pt: 'Abrir as inscrições', de: 'Anmeldungen öffnen', fr: 'Ouvrir les inscriptions' }, // MT
+  ca_subject: {
+    en: 'Your place in {thread} is cancelled',
+    nl: 'Je plek in {thread} is geannuleerd', // MT
+    es: 'Tu plaza en {thread} está cancelada', // MT
+    pt: 'A sua vaga em {thread} foi cancelada', // MT
+    de: 'Dein Platz in {thread} ist storniert', // MT
+    fr: 'Votre place dans {thread} est annulée', // MT
+  },
+  ca_lead: {
+    en: '{org} has approved your request to cancel your place in {thread}.',
+    nl: '{org} heeft je verzoek goedgekeurd om je plek in {thread} te annuleren.', // MT
+    es: '{org} ha aprobado tu solicitud de cancelar tu plaza en {thread}.', // MT
+    pt: '{org} aprovou o seu pedido de cancelar a sua vaga em {thread}.', // MT
+    de: '{org} hat deine Anfrage angenommen, deinen Platz in {thread} zu stornieren.', // MT
+    fr: '{org} a accepté votre demande d’annuler votre place dans {thread}.', // MT
+  },
+  ca_refunded: {
+    en: '{amount} has been refunded to your card. Depending on your bank it can take a few days to show.',
+    nl: '{amount} is teruggestort op je kaart. Afhankelijk van je bank kan het een paar dagen duren voor je het ziet.', // MT
+    es: 'Se han reembolsado {amount} a tu tarjeta. Según tu banco, puede tardar unos días en aparecer.', // MT
+    pt: '{amount} foi reembolsado no seu cartão. Dependendo do banco, pode levar alguns dias para aparecer.', // MT
+    de: '{amount} wurden auf deine Karte erstattet. Je nach Bank kann es ein paar Tage dauern, bis du es siehst.', // MT
+    fr: '{amount} ont été remboursés sur votre carte. Selon votre banque, cela peut prendre quelques jours.', // MT
+  },
+  rj_subject: {
+    en: 'About your cancellation request: {thread}',
+    nl: 'Over je annuleringsverzoek: {thread}', // MT
+    es: 'Sobre tu solicitud de cancelación: {thread}', // MT
+    pt: 'Sobre o seu pedido de cancelamento: {thread}', // MT
+    de: 'Zu deiner Stornierungsanfrage: {thread}', // MT
+    fr: 'À propos de votre demande d’annulation : {thread}', // MT
+  },
+  rj_lead: {
+    en: '{org} has not cancelled your place in {thread}. You keep your place.',
+    nl: '{org} heeft je plek in {thread} niet geannuleerd. Je houdt je plek.', // MT
+    es: '{org} no ha cancelado tu plaza en {thread}. Conservas tu plaza.', // MT
+    pt: '{org} não cancelou a sua vaga em {thread}. Você mantém a vaga.', // MT
+    de: '{org} hat deinen Platz in {thread} nicht storniert. Du behältst deinen Platz.', // MT
+    fr: '{org} n’a pas annulé votre place dans {thread}. Vous conservez votre place.', // MT
+  },
+  rj_note: { en: 'Their note:', nl: 'Hun toelichting:', es: 'Su nota:', pt: 'A nota:', de: 'Anmerkung:', fr: 'Leur note :' }, // MT
+  cx_portal: {
+    en: 'Your personal page',
+    nl: 'Je persoonlijke pagina', // MT
+    es: 'Tu página personal', // MT
+    pt: 'A sua página pessoal', // MT
+    de: 'Deine persönliche Seite', // MT
+    fr: 'Votre page personnelle', // MT
+  },
+} satisfies Record<string, I18nEntry>;
+const tc = makeT(CANCEL_CATALOG);
+
+const cxButton = (url: string, label: string) =>
+  `<p style="margin:24px 0;"><a href="${escapeHtml(url)}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">${escapeHtml(label)}</a></p>`;
+const cxQuote = (label: string, body: string) =>
+  `<p style="margin:0 0 4px;font-size:14px;color:#525252;">${escapeHtml(label)}</p><div style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #e7e5e4;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(body)}</div>`;
+
+/** To the organiser and the thread's hosts. */
+export function cancellationRequestedEmail(c: {
+  threadTitle: string;
+  participantName: string;
+  reason: string | null;
+  /** The thread's registrations in the Thread app. */
+  url: string;
+  locale?: string | null;
+  brand?: EmailBrand;
+}): { subject: string; text: string; html: string } {
+  const loc = toLocale(c.locale);
+  const subject = tc(loc, 'cr_subject', { thread: c.threadTitle });
+  const lead = tc(loc, 'cr_lead', { name: c.participantName, thread: c.threadTitle });
+  const reason = c.reason?.trim() || null;
+  const text = [
+    lead,
+    '',
+    reason ? `${tc(loc, 'cr_reason')}\n${reason}` : tc(loc, 'cr_no_reason'),
+    '',
+    tc(loc, 'cr_decide'),
+    '',
+    `${tc(loc, 'cr_button')}: ${c.url}`,
+  ].join('\n');
+  const html = shell(
+    c.threadTitle,
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(lead)}</p>
+     ${reason ? cxQuote(tc(loc, 'cr_reason'), reason) : `<p style="margin:0 0 16px;font-size:14px;color:#525252;">${escapeHtml(tc(loc, 'cr_no_reason'))}</p>`}
+     <p style="margin:0;font-size:14px;line-height:1.6;color:#525252;">${escapeHtml(tc(loc, 'cr_decide'))}</p>
+     ${cxButton(c.url, tc(loc, 'cr_button'))}`,
+    c.brand,
+  );
+  return { subject, text, html };
+}
+
+/** To the participant, when the organiser approves. */
+export function cancellationApprovedEmail(c: {
+  threadTitle: string;
+  organiserName: string;
+  /** "€35.00", already formatted, when money went back to the card. */
+  refundedLine: string | null;
+  portalUrl: string;
+  locale?: string | null;
+  brand?: EmailBrand;
+}): { subject: string; text: string; html: string } {
+  const loc = toLocale(c.locale);
+  const subject = tc(loc, 'ca_subject', { thread: c.threadTitle });
+  const lead = tc(loc, 'ca_lead', { org: c.organiserName, thread: c.threadTitle });
+  const refund = c.refundedLine ? tc(loc, 'ca_refunded', { amount: c.refundedLine }) : null;
+  const text = [lead, ...(refund ? ['', refund] : []), '', `${tc(loc, 'cx_portal')}: ${c.portalUrl}`, '', `— ${c.organiserName}`].join('\n');
+  const html = shell(
+    c.threadTitle,
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(lead)}</p>
+     ${refund ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(refund)}</p>` : ''}
+     ${cxButton(c.portalUrl, tc(loc, 'cx_portal'))}
+     <p style="margin:0;font-size:14px;color:#525252;">— ${escapeHtml(c.organiserName)}</p>`,
+    c.brand,
+  );
+  return { subject, text, html };
+}
+
+/** To the participant, when the organiser declines the request. */
+export function cancellationRejectedEmail(c: {
+  threadTitle: string;
+  organiserName: string;
+  note: string | null;
+  portalUrl: string;
+  locale?: string | null;
+  brand?: EmailBrand;
+}): { subject: string; text: string; html: string } {
+  const loc = toLocale(c.locale);
+  const subject = tc(loc, 'rj_subject', { thread: c.threadTitle });
+  const lead = tc(loc, 'rj_lead', { org: c.organiserName, thread: c.threadTitle });
+  const note = c.note?.trim() || null;
+  const text = [lead, ...(note ? ['', `${tc(loc, 'rj_note')}\n${note}`] : []), '', `${tc(loc, 'cx_portal')}: ${c.portalUrl}`, '', `— ${c.organiserName}`].join('\n');
+  const html = shell(
+    c.threadTitle,
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(lead)}</p>
+     ${note ? cxQuote(tc(loc, 'rj_note'), note) : ''}
+     ${cxButton(c.portalUrl, tc(loc, 'cx_portal'))}
+     <p style="margin:0;font-size:14px;color:#525252;">— ${escapeHtml(c.organiserName)}</p>`,
+    c.brand,
+  );
+  return { subject, text, html };
+}

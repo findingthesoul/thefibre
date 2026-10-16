@@ -166,3 +166,65 @@ export async function getThreadPricing(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Cancellation requests (Sjoerd's 2iv): a participant asked, the organiser
+// decides here. Approve drops the place (Decline's own path) and, when ticked
+// on a card place, refunds through Reimburse; reject keeps it.
+// ---------------------------------------------------------------------------
+
+export type CancellationRequestItem = {
+  id: string;
+  enrolment_id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
+  reason: string | null;
+  decision_note: string | null;
+  decided_at: string | null;
+  refunded_cents: number | null;
+  refund_error: string | null;
+  created_at: string;
+  person_name: string | null;
+  person_email: string | null;
+  /** The card payment an approval could give back; null when there is none. */
+  refundable: { amount_cents: number; currency: string } | null;
+};
+
+export async function listCancellationRequests(
+  threadId: string,
+): Promise<{ ok: true; items: CancellationRequestItem[] } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ items: CancellationRequestItem[] }>(
+      `/api/v1/thread/threads/${encodeURIComponent(threadId)}/cancellation-requests`,
+    );
+    return { ok: true, items: r.items };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function approveCancellation(
+  id: string,
+  refund: boolean,
+): Promise<{ ok: true; refunded_cents: number | null; refund_error: string | null } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ refunded_cents: number | null; refund_error: string | null }>(
+      `/api/v1/thread/cancellation-requests/${encodeURIComponent(id)}/approve`,
+      { method: 'POST', body: JSON.stringify({ refund }) },
+    );
+    return { ok: true, refunded_cents: r.refunded_cents ?? null, refund_error: r.refund_error ?? null };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function rejectCancellation(id: string, note: string | null): Promise<SimpleResult> {
+  try {
+    await apiFetch(`/api/v1/thread/cancellation-requests/${encodeURIComponent(id)}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

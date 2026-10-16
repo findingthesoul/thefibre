@@ -6,6 +6,69 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.235.0] — 2026-10-16
+
+### Cancellation requests: ask in my.thread, decide in Thread (Thread 4.15.0, my.thread 0.18.0)
+
+Sjoerd's 2iv; plan approved 2026-10-16. A participant asks to cancel their
+place, and the organiser decides, including about any refund. This needs
+migration 20261016093840, applied in v1.233.2.
+
+- **my.thread.** "Request cancellation" sits in the thread sheet, with an
+  optional reason, inline rather than as a dialog over a dialog. Then
+  "Cancellation requested · Withdraw request", then the outcome: cancelled,
+  or "The organiser kept your place" with their note. The button is offered
+  by the same three rules the API refuses by: the place still holds
+  (invited, enrolled or active), no certificate has been issued, and the
+  thread is not over by its dates.
+- **Thread.** The registrations list shows "Cancellation requested" on the
+  row and a chip that narrows the list to those requests. The dialog shows
+  the reason, then:
+  - Approve, with "Refund €x to their card" when the place was paid by card.
+    An invoice place is told to refund outside The Thread.
+  - Decline request, with an optional note to the participant.
+  - It follows the bottom-bar contract.
+  - `?registrations=1` opens the list, which is where the request email
+    lands.
+- **API.**
+  - `POST`/`DELETE /me/enrolments/:id/cancellation-request` (owner-scoped by
+    verified email; a stranger gets 404).
+  - `GET /thread/threads/:id/cancellation-requests`.
+  - `POST /thread/cancellation-requests/:id/approve|reject`.
+  - my.thread's thread entries gain `enrolment_id`, `cancellation_request`
+    and `can_request_cancellation` (additive).
+- **No second copies.** Approving drops the place through Decline's own
+  `performDeclineEnrolment`. The refund is `reimbursePurchase`, lifted out of
+  `POST /purchases/:id/refund` into `lib/reimburse.ts`; the route now calls
+  it and answers exactly as before.
+- **Approve claims first.** `pending → approved` is a conditional update, so
+  two clicks or two staff refund once. A refund that fails leaves the place
+  released and records `refund_error`, and the dialog says to use Reimburse
+  on the invoice. Nothing is rolled back.
+- **Emails, in each reader's language:**
+  - the request, to the organiser and every host, with the reason;
+  - the approval, to the participant ("€35 has been refunded to your card");
+  - the rejection, with the note;
+  - a withdrawal sends nothing.
+- **Activity rows:** type and subject only (`cancellation_requested`,
+  `_withdrawn`, `_approved`, `_rejected`). Request rows are never deleted;
+  withdrawing is a status.
+
+Tests:
+- `thread-cancellation.int.test.ts` (12) against staging, with a real
+  Stripe TEST charge on the fixtures' connected account:
+  - a stranger gets 404, and a second open request is refused;
+  - withdraw, then ask again;
+  - the my.thread payload in every state;
+  - two concurrent approvals give one 200, one 409 and ONE Stripe refund,
+    with the ledger, the place and the request all reading refunded;
+  - approve without refund on an invoice place;
+  - reject with a note;
+  - all three emails rendered;
+  - leftovers read back as zero.
+- `purchase-refund.int.test.ts` (6, new: the route had no test). It ran on
+  the route before the move and after it, with the same result.
+
 ## [1.234.1] — 2026-10-16
 
 ### "Send me a test" says why when the mail service refuses
