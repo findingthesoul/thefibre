@@ -74,10 +74,33 @@ boundary is the route's own `workspace_id` filter, written by hand. Two real
 holes of exactly this shape were found and closed in September 2026 (Thread's
 service-role writes, the person-merge route), each now pinned by an
 integration test that attacks from a second workspace
-(`thread-tenancy.int.test.ts`, `persons-merge-tenancy.int.test.ts`). The rule
-for new code: use `userClient(ctx.jwt)` when the caller's own rights are the
-question; when you must use `adminClient`, filter `workspace_id` explicitly
-and write the cross-workspace test.
+(`thread-tenancy.int.test.ts`, `persons-merge-tenancy.int.test.ts`).
+
+**The rule for new code, enforced since 2026-10-17:** a raw `adminClient`
+use that is not on the baseline fails `pnpm test`
+(`lib/service-role-boundary.test.ts`). Write instead, in this order:
+
+1. `userClient(ctx.jwt)` when the caller's own rights are the question and
+   RLS answers it;
+2. `tenantDb(ctx).from('<table>')` (`lib/tenant-db.ts`): the service role with
+   the workspace bound in. Every select, update and delete carries
+   `workspace_id = ctx.workspaceId`; an insert is stamped with it and one
+   naming another workspace is refused; an upsert must have `workspace_id`
+   in its conflict target;
+3. `await tenantDb(ctx).child('<table>', { via: '<parent>', key: '<fk>', id })`
+   for a table with no `workspace_id` column: it proves the parent ids are
+   in the workspace, then pins the foreign key the same way (`null` = not
+   yours);
+4. `serviceRole('<reason>')` only for a query that must cross workspaces (a
+   webhook keyed on a Stripe id, a platform-wide uniqueness check, the
+   scheduler). The reason is a string literal the test requires; it is the
+   review record.
+
+The baseline (`lib/service-role-baseline.json`, 1,801 raw uses in 144 files
+when it was taken) only shrinks: convert a module, then
+`node apps/api/scripts/service-role-report.mjs --write-baseline`, which
+refuses to raise a count. The same script prints the numbers for anyone who
+wants to check them (`--by-file`, `--list`, `--exceptions`).
 
 The API also accepts three credentials that are not a user session: **app
 keys** for external apps (§6.4), **MCP grant tokens** for a person's own AI
@@ -129,8 +152,10 @@ Browser ──cookie──▶ Next.js app (server component / server action)
                       ▼
                     Supabase Postgres, one of two ways:
                       userClient(jwt)  → the caller's own rights; RLS applies
+                      tenantDb(ctx)    → service role with workspace_id forced in
                       adminClient      → service role; RLS does NOT apply, so
                                          the route filters workspace_id itself
+                                         (baseline only; new code cannot)
 ```
 
 ---

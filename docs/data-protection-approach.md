@@ -375,7 +375,8 @@ surface; the filter injection; the public-POST brake; Dependabot.
 | P1.4 log redaction | not done; about 47 log lines can carry an email address |
 | P1.5 admin action audit table | not done |
 | P1.6 Stripe event replay guard | not done; idempotency rests on the ledger's update-then-insert |
-| P1.7 app-key handler lint | not done |
+| P1.7 app-key handler lint | not done; becomes the first batch of the service-role conversion below |
+| Service-role boundary (F0 ratchet + F1 accessor) | **done 2026-10-17**: new raw uses fail the release; 1,801 old ones on a shrinking baseline, converted module by module (F2) |
 | P1.8 brakes keyed on the target | partial: the site contact form (per workspace), MCP (per grant) and the assistant (per user) are; coupons, portal codes and sign-up are still per IP |
 | P1.9 upload sniffing | not done; the declared type is trusted |
 | P1.10 backup and restore drill | not done; nothing scripted or documented |
@@ -409,10 +410,19 @@ surface; the filter injection; the public-POST brake; Dependabot.
   enrolments.
 - **No error tracking or alerting** exists anywhere in the stack. A security
   event would be seen in Fly's log by someone looking.
-- **The service-role boundary has no mechanical proof**: no lint or test
-  shows that every route using the service-role client filters by workspace.
-  P1.7 covers the app-key routes only; the same question applies to all
-  forty-eight modules that use that client.
+- **The service-role boundary had no mechanical proof**: no lint or test
+  showed that every route using the service-role client filters by workspace.
+  **Since 2026-10-17 (F0 + F1):** `tenantDb(ctx)` (`lib/tenant-db.ts`) binds
+  the workspace into every service-role query it makes, and
+  `lib/service-role-boundary.test.ts` fails on any NEW raw use of the client
+  outside a reasoned `serviceRole('<why>')`. What it does not do yet is make
+  the OLD code safe: 1,801 raw uses in 144 files were on the baseline when it
+  was taken, of which 411 table queries filter `workspace_id` by hand and
+  1,317 do not (most rely on an earlier line having proved an id; reading the
+  handler is still the only way to know). Converting them module by module is
+  F2, each release with a cross-workspace test; the baseline count is the
+  measure of progress (`node apps/api/scripts/service-role-report.mjs`).
+  P1.7 (the app-key routes) is the first batch of F2.
 - **A personal MCP grant holds an encrypted Supabase session** and can carry
   write scopes (`thread:write`, `models:write`). `ASSISTANT_KEY_SECRET`
   encrypts those sessions as well as workspace keys: rotating it disconnects

@@ -35,6 +35,11 @@ export function userClient(jwt: string): SupabaseClient {
  * shape of test that catches the next one.
  *
  * Prefer `userClient(ctx.jwt)` for a read that RLS can answer.
+ *
+ * Since 2026-10-17 new code does not import this: it uses `tenantDb(ctx)`
+ * (lib/tenant-db.ts), which binds the workspace in, or `serviceRole('<why>')`
+ * for a query that must cross workspaces. lib/service-role-boundary.test.ts
+ * fails on a raw use that is not on its baseline.
  */
 export const adminClient: SupabaseClient = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },

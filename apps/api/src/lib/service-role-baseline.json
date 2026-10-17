@@ -1,0 +1,1249 @@
+{
+ "lib/agenda-calendars.ts": {
+  "connections_agenda_calendar.select": 1
+ },
+ "lib/app-keys.ts": {
+  "app_key.select": 1,
+  "app_key.update": 1,
+  "workspace_app.select": 1
+ },
+ "lib/archived-workspaces.ts": {
+  "workspace.select": 1
+ },
+ "lib/assistant/access.ts": {
+  "assistant_usage.select": 3,
+  "assistant_usage.upsert": 1,
+  "workspace_assistant.delete": 1,
+  "workspace_assistant.select": 1,
+  "workspace_assistant.upsert": 1
+ },
+ "lib/automatic-teams.ts": {
+  "team.insert": 1,
+  "team.select": 3,
+  "team_member.delete": 1,
+  "team_member.select": 2,
+  "team_member.upsert": 1,
+  "workspace.select": 1,
+  "workspace_member.select": 2
+ },
+ "lib/buyer-details.ts": {
+  "identity_billing.select": 2,
+  "identity_billing.upsert": 1,
+  "membership_member.select": 1,
+  "person.select": 1,
+  "purchase.select": 1
+ },
+ "lib/calendar-feed.ts": {
+  "person_calendar_feed.insert": 1,
+  "person_calendar_feed.select": 2,
+  "person_calendar_feed.update": 3,
+  "thread_enrolment.select": 1,
+  "thread_thread.select": 1,
+  "workspace.select": 1
+ },
+ "lib/calendar-held.ts": {
+  "thread_calendar_held.upsert": 1
+ },
+ "lib/calendar-invite.ts": {
+  "thread_calendar_change.delete": 1,
+  "thread_calendar_change.insert": 1,
+  "thread_calendar_change.select": 2,
+  "thread_calendar_change.update": 2,
+  "thread_engagement.select": 3,
+  "thread_engagement.update": 2,
+  "thread_enrolment.select": 1,
+  "thread_thread.select": 1
+ },
+ "lib/calendar-nudge.ts": {
+  "platform_setting.select": 1,
+  "thread_calendar_change.select": 3,
+  "thread_calendar_nudge.update": 3,
+  "thread_calendar_nudge.upsert": 1,
+  "thread_thread.select": 1,
+  "workspace.select": 1
+ },
+ "lib/calendar-thread-end.ts": {
+  "thread_calendar_held.select": 1,
+  "thread_engagement.select": 1,
+  "thread_engagement.update": 1,
+  "thread_enrolment.select": 1,
+  "thread_thread.select": 1
+ },
+ "lib/calendar-window.ts": {
+  "person_calendar_feed.select": 1,
+  "platform_setting.select": 1,
+  "thread_calendar_change.select": 1,
+  "thread_calendar_held.from": 1,
+  "thread_calendar_held.insert": 1,
+  "thread_calendar_held.select": 1,
+  "thread_calendar_held.update": 1,
+  "thread_engagement.select": 1,
+  "thread_enrolment.select": 1,
+  "thread_thread.select": 1
+ },
+ "lib/circle.ts": {
+  "membership_member_access.select": 1,
+  "membership_member_access.update": 3,
+  "membership_settings.select": 1,
+  "person.select": 1
+ },
+ "lib/connections.ts": {
+  "meet_host.select": 4,
+  "meet_host.update": 2,
+  "user_connection.select": 7,
+  "user_connection.update": 1,
+  "user_connection.upsert": 5
+ },
+ "lib/could-join.ts": {
+  "team.select": 1,
+  "thread_thread.select": 1,
+  "thread_ticket.select": 1,
+  "workspace.select": 1
+ },
+ "lib/directory-consent.ts": {
+  "consent_record.insert": 1,
+  "consent_record.update": 1,
+  "membership_directory_entry.select": 1,
+  "membership_directory_entry.upsert": 1
+ },
+ "lib/discount-codes.ts": {
+  "<dynamic>.select": 1,
+  "discount_code.select": 1,
+  "rpc:redeem_discount_code": 1
+ },
+ "lib/document-release.ts": {
+  "thread_message_send.select": 1
+ },
+ "lib/drive-connect.ts": {
+  "activity.insert": 1,
+  "app.select": 1,
+  "membership_drive_binding.insert": 1,
+  "membership_drive_binding.select": 1,
+  "person.select": 1
+ },
+ "lib/email-cap.ts": {
+  "thread_message_hold.insert": 1,
+  "thread_message_hold.select": 3,
+  "thread_message_hold.update": 1
+ },
+ "lib/email/platform-i18n.ts": {
+  "identity_profile.select": 1
+ },
+ "lib/fee-statements.ts": {
+  "app.select": 1,
+  "purchase.select": 3,
+  "workspace.select": 1
+ },
+ "lib/fees.ts": {
+  "rpc:workspace_meet_fee": 1
+ },
+ "lib/fibre-seat.ts": {
+  "membership_member_access.select": 2,
+  "membership_member_access.update": 5,
+  "membership_settings.select": 1,
+  "person.select": 1,
+  "rpc:member_add": 1,
+  "team_member.upsert": 1,
+  "user.insert": 1,
+  "user.select": 1,
+  "user.update": 1,
+  "workspace_member.delete": 1,
+  "workspace_member.select": 3,
+  "workspace_member.update": 1
+ },
+ "lib/first-admin.ts": {
+  "app.select": 1,
+  "person.update": 1,
+  "rpc:app_role_set": 1,
+  "rpc:member_add": 1,
+  "user.insert": 1
+ },
+ "lib/google-account.ts": {
+  "membership_google_account.select": 3,
+  "membership_google_account.update": 4,
+  "membership_google_account.upsert": 1,
+  "membership_member_access.select": 2,
+  "membership_member_access.update": 1,
+  "membership_settings.select": 1,
+  "person.select": 3,
+  "workspace_member.select": 1
+ },
+ "lib/google-admin.ts": {
+  "membership_google_account.select": 1,
+  "membership_member.select": 1,
+  "membership_member_access.select": 1,
+  "membership_member_access.update": 4,
+  "membership_settings.select": 2,
+  "person.select": 1
+ },
+ "lib/grant-config.ts": {
+  "team.select": 1
+ },
+ "lib/hygiene.ts": {
+  "activity.select": 1,
+  "flow_run.select": 1,
+  "flow_run_note.select": 1,
+  "flow_run_note.update": 1,
+  "flow_task.select": 1,
+  "hygiene_finding.upsert": 1,
+  "hygiene_run.insert": 1,
+  "hygiene_run.select": 1,
+  "hygiene_run.update": 1,
+  "person.select": 2,
+  "person.update": 1,
+  "rpc:person_duplicate_candidates": 1,
+  "workspace.select": 1
+ },
+ "lib/identity-profile.ts": {
+  "identity_billing.select": 1,
+  "identity_billing.upsert": 1,
+  "identity_profile.insert": 1,
+  "identity_profile.select": 3,
+  "identity_profile.update": 1,
+  "identity_profile.upsert": 2,
+  "user.select": 2,
+  "user.update": 2,
+  "user_profile.select": 2
+ },
+ "lib/item-zones.ts": {
+  "thread_thread.select": 1
+ },
+ "lib/main-facilitator.ts": {
+  "thread_engagement.select": 2,
+  "thread_engagement.update": 1,
+  "thread_organiser.select": 3,
+  "thread_thread.select": 5,
+  "thread_thread_organiser.select": 6,
+  "user.select": 2,
+  "user_connection.select": 1,
+  "user_profile.select": 1
+ },
+ "lib/mcp/grants.ts": {
+  "auth": 1,
+  "mcp_grant.insert": 1,
+  "mcp_grant.select": 3,
+  "mcp_grant.update": 5,
+  "workspace_member.select": 1
+ },
+ "lib/meet-payment-link.ts": {
+  "meet_booking.select": 2,
+  "meet_booking.update": 1
+ },
+ "lib/meet-payment-route.ts": {
+  "meet_host.select": 1
+ },
+ "lib/member-categories.ts": {
+  "membership_member.select": 1,
+  "membership_product_category.select": 1,
+  "membership_product_purchase.select": 1,
+  "membership_tier_product.select": 1
+ },
+ "lib/member-discount.ts": {
+  "membership_access_grant.select": 5,
+  "membership_member.select": 1,
+  "membership_product_purchase.select": 2,
+  "membership_tier_product.select": 2,
+  "person.select": 1,
+  "team.select": 1,
+  "thread_thread.select": 3
+ },
+ "lib/member-email-templates.ts": {
+  "membership_email_template.select": 2,
+  "membership_settings.select": 1,
+  "storage": 1
+ },
+ "lib/member-notify.ts": {
+  "member_notification.insert": 2,
+  "member_notification.select": 1,
+  "member_notification.update": 1,
+  "member_notification_pref.select": 2,
+  "member_notification_pref.upsert": 1,
+  "membership_member.select": 2,
+  "membership_settings.select": 1,
+  "person.select": 1,
+  "team.select": 1,
+  "thread_calendar_seen.select": 2,
+  "thread_calendar_seen.update": 2,
+  "thread_calendar_seen.upsert": 2,
+  "thread_enrolment.select": 2,
+  "thread_thread.select": 5,
+  "workspace.select": 1
+ },
+ "lib/member-page.ts": {
+  "membership_directory_category.select": 1,
+  "membership_drive_binding.delete": 1,
+  "membership_member.select": 2,
+  "membership_settings.select": 1,
+  "membership_settings.upsert": 1,
+  "membership_tier.select": 1,
+  "storage": 4,
+  "thread_engagement.select": 1,
+  "thread_enrolment.select": 1,
+  "workspace.select": 1
+ },
+ "lib/membership-change.ts": {
+  "membership_member.update": 1,
+  "membership_product.select": 1,
+  "membership_product_purchase.insert": 1,
+  "membership_product_purchase.select": 2,
+  "membership_reminder_send.delete": 1,
+  "membership_reminder_send.insert": 1,
+  "membership_tier.select": 2,
+  "membership_tier_product.select": 1,
+  "person.select": 1,
+  "platform_setting.insert": 1,
+  "platform_setting.select": 3,
+  "workspace.select": 1
+ },
+ "lib/membership-customer.ts": {
+  "membership_member.select": 1
+ },
+ "lib/membership-payment-link.ts": {
+  "purchase.select": 2,
+  "purchase.update": 1,
+  "rpc:workspace_meet_fee": 1
+ },
+ "lib/org-billing.ts": {
+  "org_billing.select": 1,
+  "organisation.select": 1
+ },
+ "lib/partial-refund.ts": {
+  "purchase.select": 1,
+  "purchase.update": 1,
+  "purchase_credit_note.insert": 1,
+  "purchase_credit_note.select": 4,
+  "thread_coupon.select": 1,
+  "thread_coupon.update": 1,
+  "thread_enrolment.select": 1,
+  "thread_enrolment.update": 1,
+  "thread_payout.update": 1
+ },
+ "lib/payment-accounts.ts": {
+  "app.select": 1,
+  "meet_booking.select": 1,
+  "meet_host.select": 1,
+  "purchase.select": 1,
+  "team.select": 1,
+  "team_member.select": 1,
+  "thread_enrolment.select": 1,
+  "thread_organiser.select": 2,
+  "thread_settings.select": 2,
+  "user_profile.select": 3,
+  "workspace.select": 3
+ },
+ "lib/place-state.ts": {
+  "app.select": 1,
+  "membership_member.select": 1,
+  "membership_member_access.select": 1,
+  "purchase.select": 1
+ },
+ "lib/plan-apps.ts": {
+  "app.select": 1,
+  "team_app_grant.upsert": 1,
+  "workspace_app.insert": 1,
+  "workspace_app.select": 1
+ },
+ "lib/plan.ts": {
+  "billing_plan.select": 1,
+  "rpc:workspace_storage_bytes": 1,
+  "thread_message_send.select": 1,
+  "user.select": 1,
+  "workspace_subscription.select": 1
+ },
+ "lib/platform-settings.ts": {
+  "platform_setting.select": 1,
+  "platform_setting.upsert": 1
+ },
+ "lib/portal-agenda.ts": {
+  "person.select": 1,
+  "thread_engagement.select": 1,
+  "thread_rsvp.select": 1
+ },
+ "lib/portal-erasure.ts": {
+  "data_subject_request.insert": 1,
+  "data_subject_request.select": 1,
+  "meet_booking.select": 2,
+  "membership_member.select": 1,
+  "purchase.select": 2,
+  "thread_enrolment.select": 2,
+  "thread_organiser.select": 1,
+  "thread_thread.select": 1,
+  "user.select": 1
+ },
+ "lib/portal-files.ts": {
+  "workspace.select": 1
+ },
+ "lib/pricing.ts": {
+  "membership_pricing_rule.select": 1
+ },
+ "lib/proven-email.ts": {
+  "person.select": 1,
+  "person_contact_point.select": 1,
+  "person_contact_point.update": 1
+ },
+ "lib/public-origin.ts": {
+  "workspace_domain.select": 1
+ },
+ "lib/public-site.ts": {
+  "thread_settings.select": 2,
+  "workspace.select": 1
+ },
+ "lib/pulse-ledger.ts": {
+  "pulse_commitment.select": 1,
+  "pulse_commitment.update": 1,
+  "pulse_commitment_line.select": 1,
+  "pulse_commitment_line.update": 3,
+  "purchase.select": 2
+ },
+ "lib/pulse-pipeline.ts": {
+  "flow_definition.insert": 1,
+  "flow_definition.select": 3,
+  "flow_definition.update": 1,
+  "flow_run.insert": 1,
+  "flow_run.select": 2,
+  "flow_run.update": 2,
+  "flow_step.insert": 1,
+  "flow_step.select": 2,
+  "flow_transition.insert": 1,
+  "flow_version.insert": 1,
+  "pulse_commitment.select": 3,
+  "pulse_stage.delete": 1,
+  "pulse_stage.select": 1,
+  "pulse_stage.upsert": 2
+ },
+ "lib/purchases.ts": {
+  "app.select": 1,
+  "purchase.insert": 1,
+  "purchase.select": 1,
+  "purchase.update": 2,
+  "rpc:organisation_match_payer": 1
+ },
+ "lib/push-pass.ts": {
+  "member_notification.select": 2,
+  "member_notification.update": 3,
+  "person.select": 1,
+  "push_subscription.delete": 2,
+  "push_subscription.select": 2,
+  "push_subscription.update": 2,
+  "thread_thread.select": 1,
+  "workspace.select": 1
+ },
+ "lib/refund-quote.ts": {
+  "app.select": 1,
+  "purchase.select": 1,
+  "thread_settings.select": 1,
+  "thread_thread.select": 2
+ },
+ "lib/reimburse.ts": {
+  "meet_booking.update": 1,
+  "purchase.update": 1,
+  "thread_enrolment.update": 1,
+  "thread_payout.update": 1
+ },
+ "lib/resolve-person.ts": {
+  "person.insert": 1,
+  "person.select": 2,
+  "person.update": 1,
+  "person_contact_point.select": 1
+ },
+ "lib/root-slug.ts": {
+  "public_root_slug.select": 1
+ },
+ "lib/scheduler-lease.ts": {
+  "rpc:release_scheduler_lease": 1,
+  "rpc:try_scheduler_lease": 1
+ },
+ "lib/seat-billing.ts": {
+  "workspace_subscription.select": 1
+ },
+ "lib/send-record.ts": {
+  "thread_message_send.insert": 1,
+  "thread_message_send.select": 1,
+  "thread_message_send.update": 2
+ },
+ "lib/signup-approval.ts": {
+  "billing_plan.select": 1,
+  "signup_request.update": 1,
+  "workspace.insert": 1
+ },
+ "lib/super-admin.ts": {
+  "user.select": 1
+ },
+ "lib/team-grants.ts": {
+  "app.select": 1,
+  "app_membership.delete": 1,
+  "app_membership.select": 2,
+  "app_membership.update": 1,
+  "app_membership.upsert": 1,
+  "team_app_grant.select": 1,
+  "team_member.select": 2
+ },
+ "lib/template-visibility.ts": {
+  "team_member.select": 1,
+  "thread_template_share.select": 1
+ },
+ "lib/thread-access.ts": {
+  "enrolment.insert": 1,
+  "enrolment.select": 1,
+  "enrolment.update": 2,
+  "membership_member_access.select": 1,
+  "membership_member_access.update": 1,
+  "thread_enrolment.insert": 1,
+  "thread_enrolment.select": 1
+ },
+ "lib/thread-dates.ts": {
+  "membership_access_grant.select": 2,
+  "thread_engagement.select": 1,
+  "thread_settings.select": 1,
+  "thread_thread.select": 1
+ },
+ "lib/thread-grant.ts": {
+  "membership_access_grant.select": 1,
+  "membership_product.select": 1,
+  "thread_slug_history.select": 1,
+  "thread_slug_history.upsert": 1,
+  "thread_thread.select": 3
+ },
+ "lib/thread-payment-link.ts": {
+  "purchase.update": 1,
+  "thread_enrolment.select": 1,
+  "thread_enrolment.update": 1
+ },
+ "lib/thread-payment-route.ts": {
+  "team_member.select": 1,
+  "thread_thread.select": 2,
+  "thread_ticket.select": 2,
+  "workspace.select": 1
+ },
+ "lib/thread-teams.ts": {
+  "thread_team_offer.select": 2,
+  "thread_thread.select": 2
+ },
+ "lib/uploads.ts": {
+  "storage": 3
+ },
+ "lib/usage-meters.ts": {
+  "activity.select": 1,
+  "usage_overage_charge.insert": 1,
+  "usage_overage_charge.select": 1,
+  "usage_overage_charge.update": 1,
+  "usage_warning.insert": 1,
+  "usage_warning.select": 1,
+  "user.select": 2,
+  "workspace.select": 1,
+  "workspace.update": 3,
+  "workspace_member.select": 1,
+  "workspace_subscription.select": 1
+ },
+ "lib/web-domain-recheck.ts": {
+  "workspace_domain.select": 1,
+  "workspace_domain.update": 2
+ },
+ "lib/workspace-brand.ts": {
+  "thread_settings.select": 1,
+  "workspace.select": 1
+ },
+ "lib/workspace-domain.ts": {
+  "meet_host.select": 1,
+  "public_root_slug.select": 1,
+  "team.select": 1,
+  "workspace_domain.select": 5
+ },
+ "lib/workspace-refs.ts": {
+  "<dynamic>.select": 1,
+  "team.select": 1,
+  "workspace_member.select": 2
+ },
+ "lib/workspace-roles.ts": {
+  "workspace_member.select": 2
+ },
+ "lib/zoom-pending.ts": {
+  "workspace.select": 1
+ },
+ "middleware/app-context.ts": {
+  "app.select": 1
+ },
+ "routes/activities.ts": {
+  "organisation.select": 1,
+  "person.select": 1,
+  "reference": 1,
+  "rpc:person_and_merged": 1
+ },
+ "routes/admin-economics.ts": {
+  "app.select": 1,
+  "pulse_budget_line.select": 1,
+  "purchase.select": 2,
+  "signup_request.select": 1,
+  "workspace_member.select": 1,
+  "workspace_subscription.select": 1
+ },
+ "routes/admin-email-domains.ts": {
+  "workspace.select": 1,
+  "workspace_domain.insert": 1,
+  "workspace_domain.select": 2
+ },
+ "routes/admin-plans.ts": {
+  "billing_plan.select": 2,
+  "billing_plan.update": 1,
+  "workspace_subscription.select": 1
+ },
+ "routes/app-flow.ts": {
+  "activity.insert": 1,
+  "app.select": 1,
+  "flow_definition.select": 3,
+  "flow_run.insert": 1,
+  "flow_run.select": 3,
+  "flow_run.update": 1,
+  "flow_run_note.insert": 1,
+  "flow_run_note.select": 3,
+  "flow_run_note.update": 2,
+  "flow_step.select": 5,
+  "flow_step_default_task.select": 1,
+  "flow_task.insert": 1,
+  "flow_task.select": 2,
+  "flow_task.update": 1,
+  "reference": 2
+ },
+ "routes/app-thread.ts": {
+  "app.select": 2,
+  "app_record_link.select": 1,
+  "enrolment.select": 2,
+  "person.select": 3,
+  "program.delete": 1,
+  "program.insert": 1,
+  "program.select": 2,
+  "program.update": 1,
+  "reference": 1,
+  "thread_category.insert": 1,
+  "thread_category.select": 1,
+  "thread_engagement.delete": 1,
+  "thread_engagement.insert": 1,
+  "thread_engagement.select": 5,
+  "thread_engagement.update": 1,
+  "thread_enrolment.select": 4,
+  "thread_organiser.insert": 1,
+  "thread_organiser.select": 3,
+  "thread_template.select": 2,
+  "thread_thread.insert": 1,
+  "thread_thread.select": 3,
+  "thread_thread.update": 1,
+  "thread_thread_category.delete": 1,
+  "thread_thread_category.insert": 1,
+  "thread_thread_organiser.upsert": 1,
+  "user.select": 1,
+  "workspace.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/apps.ts": {
+  "<dynamic>.select": 1,
+  "app.insert": 1,
+  "app.select": 4,
+  "app.update": 2,
+  "app_entity_mapping.select": 2,
+  "app_entity_mapping.upsert": 1,
+  "app_key.insert": 1,
+  "app_key.select": 1,
+  "app_key.update": 1,
+  "app_record_link.select": 3,
+  "app_record_link.upsert": 1,
+  "org_membership.insert": 1,
+  "org_membership.select": 1,
+  "org_membership.update": 2,
+  "organisation.insert": 1,
+  "organisation.select": 2,
+  "user.select": 1,
+  "workspace_app.select": 1,
+  "workspace_app.update": 1,
+  "workspace_member.select": 1
+ },
+ "routes/auth-hook.ts": {
+  "person.select": 1,
+  "user.select": 1,
+  "workspace.select": 1
+ },
+ "routes/auth.ts": {
+  "app.select": 2,
+  "app_membership.select": 1,
+  "user.select": 2,
+  "user_active_workspace.select": 1,
+  "user_active_workspace.upsert": 1,
+  "workspace_app.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/billing.ts": {
+  "billing_plan.select": 6,
+  "purchase.select": 1,
+  "user.select": 1,
+  "workspace.select": 2,
+  "workspace.update": 1,
+  "workspace_member.select": 1,
+  "workspace_subscription.select": 5,
+  "workspace_subscription.update": 7
+ },
+ "routes/connections-agenda.ts": {
+  "flow_run_note.select": 1,
+  "person.select": 2,
+  "rpc:connections_landscape": 1
+ },
+ "routes/connections-calendars.ts": {
+  "connections_agenda_calendar.upsert": 1
+ },
+ "routes/connections-effort.ts": {
+  "connections_effort_default.select": 1,
+  "workspace_member.select": 2
+ },
+ "routes/connections-entries.ts": {
+  "org_membership.select": 2,
+  "organisation.select": 4,
+  "person.select": 6,
+  "person_relationship_context.select": 1,
+  "person_tag.select": 1,
+  "rpc:connections_entries": 1,
+  "tag.select": 2
+ },
+ "routes/connections-hygiene.ts": {
+  "person.select": 1
+ },
+ "routes/connections-labels.ts": {
+  "connections_axis_label.select": 1,
+  "connections_band_label.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/connections-map.ts": {
+  "flow_run_note.select": 2,
+  "org_membership.select": 2,
+  "organisation.select": 2,
+  "person.select": 4,
+  "person_relationship_context.select": 1,
+  "person_tag.select": 1,
+  "rpc:connections_attention": 1,
+  "rpc:connections_landscape": 1,
+  "rpc:connections_links_among": 1,
+  "rpc:connections_neighbourhood": 1,
+  "tag.select": 1
+ },
+ "routes/connections-tags.ts": {
+  "flow_run_note.select": 1,
+  "organisation.select": 1,
+  "person.select": 1,
+  "person_tag.select": 4,
+  "person_tag.upsert": 1,
+  "tag.delete": 2,
+  "tag.select": 6,
+  "tag.update": 2,
+  "workspace_member.select": 1
+ },
+ "routes/connections-teams.ts": {
+  "flow_run_note.select": 1,
+  "person.select": 1,
+  "team.select": 1,
+  "team_member.select": 3,
+  "team_member.update": 2
+ },
+ "routes/connections-today.ts": {
+  "activity.select": 1,
+  "app.select": 1,
+  "app_membership.select": 1,
+  "flow_run_note.select": 1,
+  "flow_task.select": 1,
+  "meet_booking.select": 1,
+  "meet_meeting_type.select": 1,
+  "organisation.select": 1,
+  "person.select": 1,
+  "pulse_commitment.select": 1,
+  "pulse_commitment_line.select": 1,
+  "pulse_settings.select": 1,
+  "rpc:last_spoken_at": 1,
+  "thread_engagement.select": 1,
+  "thread_enrolment.select": 1,
+  "thread_task.select": 1,
+  "thread_thread.select": 2
+ },
+ "routes/connections.ts": {
+  "organisation.select": 1,
+  "person.select": 3,
+  "rpc:connections_attention": 1,
+  "rpc:connections_landscape_axis": 1,
+  "tag.select": 1
+ },
+ "routes/flow.ts": {
+  "pulse_commitment.update": 1,
+  "pulse_stage.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/mcp-auth.ts": {
+  "auth": 1,
+  "oauth_code.insert": 1,
+  "user.select": 1,
+  "workspace.select": 1
+ },
+ "routes/mcp.ts": {
+  "workspace.select": 1
+ },
+ "routes/meet.ts": {
+  "activity.insert": 4,
+  "app.select": 9,
+  "app_membership.select": 2,
+  "app_membership.upsert": 3,
+  "identity_profile.select": 4,
+  "meet_booking.delete": 1,
+  "meet_booking.insert": 2,
+  "meet_booking.select": 28,
+  "meet_booking.update": 21,
+  "meet_booking_link_request.insert": 1,
+  "meet_booking_link_request.select": 1,
+  "meet_calendar.delete": 1,
+  "meet_calendar.insert": 1,
+  "meet_calendar.select": 7,
+  "meet_calendar.upsert": 1,
+  "meet_host.insert": 2,
+  "meet_host.select": 31,
+  "meet_meeting_type.select": 15,
+  "meet_meeting_type.update": 1,
+  "meet_meeting_type_assignee.delete": 1,
+  "meet_meeting_type_assignee.select": 2,
+  "meet_meeting_type_assignee.update": 1,
+  "meet_meeting_type_assignee.upsert": 1,
+  "meet_poll_invite.upsert": 1,
+  "meet_poll_slot.delete": 1,
+  "meet_poll_slot.insert": 1,
+  "meet_poll_slot.select": 4,
+  "meet_poll_vote.delete": 1,
+  "meet_poll_vote.insert": 1,
+  "meet_root_slug.select": 3,
+  "meet_team_member_hours.select": 1,
+  "person.select": 2,
+  "person.update": 3,
+  "public_root_slug.select": 1,
+  "purchase.select": 1,
+  "rpc:member_role_write": 1,
+  "storage": 2,
+  "team.insert": 1,
+  "team.select": 5,
+  "team.update": 1,
+  "team_member.delete": 1,
+  "team_member.insert": 1,
+  "team_member.select": 15,
+  "team_member.update": 2,
+  "team_member.upsert": 1,
+  "user.insert": 2,
+  "user.select": 14,
+  "user.update": 1,
+  "workspace.select": 1,
+  "workspace_member.insert": 1,
+  "workspace_member.select": 4
+ },
+ "routes/members.ts": {
+  "app.select": 4,
+  "app_membership.insert": 1,
+  "app_membership.select": 2,
+  "app_membership.update": 2,
+  "person.update": 1,
+  "role_change.select": 1,
+  "rpc:app_role_set": 1,
+  "rpc:member_add": 1,
+  "rpc:member_remove": 1,
+  "rpc:member_role_write": 1,
+  "team.select": 1,
+  "team_member.insert": 1,
+  "team_member.select": 2,
+  "team_member.update": 1,
+  "user.insert": 1,
+  "user.select": 3,
+  "user.update": 2,
+  "workspace_member.select": 5
+ },
+ "routes/membership-portal.ts": {
+  "app.select": 2,
+  "identity_profile.select": 1,
+  "membership_directory_category.select": 1,
+  "membership_directory_entry.select": 3,
+  "membership_member.select": 5,
+  "membership_product_purchase.select": 1,
+  "membership_settings.select": 3,
+  "person.select": 3,
+  "purchase.select": 2,
+  "workspace.select": 1
+ },
+ "routes/membership-purchases.ts": {
+  "membership_member.select": 2,
+  "membership_product.select": 1,
+  "membership_product_purchase.select": 2,
+  "membership_product_purchase.update": 1,
+  "membership_tier.select": 3,
+  "person.select": 5,
+  "workspace.select": 6
+ },
+ "routes/membership.ts": {
+  "activity.insert": 1,
+  "app.select": 1,
+  "app_membership.select": 1,
+  "auth": 4,
+  "consent_record.insert": 1,
+  "membership_access_grant.select": 3,
+  "membership_directory_category.select": 3,
+  "membership_google_account.select": 1,
+  "membership_member.insert": 1,
+  "membership_member.select": 20,
+  "membership_member.update": 10,
+  "membership_member_access.insert": 2,
+  "membership_member_access.select": 3,
+  "membership_member_access.update": 7,
+  "membership_product.select": 7,
+  "membership_product_category.select": 1,
+  "membership_product_group.select": 1,
+  "membership_product_purchase.insert": 3,
+  "membership_product_purchase.select": 6,
+  "membership_product_purchase.update": 5,
+  "membership_reminder_send.insert": 4,
+  "membership_settings.select": 3,
+  "membership_settings.upsert": 1,
+  "membership_tier.select": 11,
+  "membership_tier_product.select": 3,
+  "person.select": 10,
+  "person_billing.select": 1,
+  "purchase.select": 5,
+  "purchase.update": 1,
+  "rpc:auth_user_exists": 4,
+  "rpc:workspace_meet_fee": 1,
+  "storage": 1,
+  "user.select": 1,
+  "workspace.select": 15,
+  "workspace_app.select": 1,
+  "workspace_member.select": 2
+ },
+ "routes/models.ts": {
+  "models_model.select": 2,
+  "team.select": 1,
+  "team_member.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/my-tasks.ts": {
+  "app.select": 2,
+  "app_membership.select": 1,
+  "flow_run_note.select": 1,
+  "flow_task.select": 1,
+  "flow_task.update": 1,
+  "org_membership.select": 1,
+  "person.select": 1,
+  "person_tag.select": 1,
+  "team_member.select": 1,
+  "thread_task.select": 1,
+  "thread_task.update": 1,
+  "thread_thread.select": 1,
+  "user_task.insert": 2,
+  "user_task.update": 4
+ },
+ "routes/notes.ts": {
+  "activity.insert": 1,
+  "app.select": 1,
+  "flow_run_note.insert": 1,
+  "flow_run_note.select": 2,
+  "flow_run_note.update": 3,
+  "flow_run_note_mention.delete": 1,
+  "flow_run_note_mention.insert": 1,
+  "flow_task.insert": 1,
+  "organisation.select": 1,
+  "person.select": 1,
+  "person_tag.upsert": 1,
+  "tag.select": 1,
+  "tag.upsert": 1,
+  "team_member.select": 1
+ },
+ "routes/oauth-provider.ts": {
+  "membership_member.select": 1,
+  "oauth_client.insert": 1,
+  "oauth_client.select": 1,
+  "oauth_code.insert": 1,
+  "oauth_code.select": 2,
+  "oauth_code.update": 2,
+  "person.select": 1
+ },
+ "routes/organisations.ts": {
+  "organisation.insert": 1,
+  "organisation.select": 2,
+  "organisation_distinct.upsert": 1,
+  "organisation_merge.select": 2,
+  "rpc:merge_organisation": 1,
+  "rpc:organisation_duplicate_candidates": 1,
+  "rpc:organisation_merge_conflicts": 1,
+  "rpc:unmerge_organisation": 1,
+  "workspace.select": 1
+ },
+ "routes/persons.ts": {
+  "hygiene_finding.select": 1,
+  "hygiene_finding.update": 1,
+  "hygiene_finding.upsert": 1,
+  "org_membership.select": 1,
+  "organisation.select": 1,
+  "person.insert": 1,
+  "person.select": 3,
+  "person.update": 1,
+  "person_contact_point.delete": 1,
+  "person_contact_point.select": 2,
+  "person_contact_point.update": 1,
+  "person_contact_point.upsert": 1,
+  "person_merge.select": 3,
+  "rpc:merge_person": 1,
+  "rpc:person_and_merged": 1,
+  "rpc:person_contact_point_remark": 4,
+  "rpc:person_duplicate_candidates": 1,
+  "rpc:person_merge_conflicts": 1,
+  "rpc:person_merge_fill_preview_pairs": 1,
+  "rpc:unmerge_person": 1
+ },
+ "routes/plan.ts": {
+  "billing_plan.select": 1,
+  "workspace_subscription.select": 1
+ },
+ "routes/portal-push.ts": {
+  "push_subscription.delete": 1,
+  "push_subscription.select": 1,
+  "push_subscription.upsert": 1
+ },
+ "routes/portal.ts": {
+  "identity_profile.select": 4,
+  "identity_profile.update": 1,
+  "identity_profile.upsert": 3,
+  "meet_booking.select": 2,
+  "member_notification.select": 3,
+  "member_notification.update": 1,
+  "member_notification_pref.select": 1,
+  "member_notification_pref.update": 1,
+  "membership_member.select": 3,
+  "membership_product.select": 1,
+  "membership_product_purchase.select": 1,
+  "membership_tier_product.select": 1,
+  "person.select": 3,
+  "person.update": 1,
+  "purchase.select": 3,
+  "thread_certificate.select": 1,
+  "thread_engagement.select": 1,
+  "thread_enrolment.select": 3,
+  "thread_rsvp.delete": 1,
+  "thread_rsvp.upsert": 1,
+  "thread_slug_history.select": 1,
+  "thread_thread.select": 4,
+  "workspace.select": 3
+ },
+ "routes/privacy.ts": {
+  "activity.select": 1,
+  "app_membership.select": 1,
+  "app_record_link.select": 1,
+  "consent_record.insert": 1,
+  "consent_record.select": 2,
+  "consent_record.update": 1,
+  "data_subject_request.insert": 2,
+  "data_subject_request.select": 2,
+  "meet_booking.select": 1,
+  "org_membership.select": 1,
+  "person.select": 1,
+  "person_billing.select": 1,
+  "person_change_context.select": 1,
+  "person_learning.select": 1,
+  "person_professional.select": 1,
+  "person_relationship_context.select": 1,
+  "person_tag.select": 1,
+  "relationship.select": 2,
+  "user.select": 3,
+  "user_identity_provider.select": 1,
+  "workspace.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/profile.ts": {
+  "meet_host.update": 1,
+  "thread_organiser.select": 2,
+  "thread_organiser.update": 3,
+  "workspace.select": 1
+ },
+ "routes/public-domains.ts": {
+  "workspace.select": 1
+ },
+ "routes/public-notify.ts": {
+  "member_notification_pref.update": 1
+ },
+ "routes/pulse.ts": {
+  "flow_definition.select": 1,
+  "pulse_cashflow_grant.select": 1,
+  "pulse_commitment.update": 1,
+  "pulse_projection_snapshot.delete": 1,
+  "pulse_projection_snapshot.insert": 1,
+  "pulse_settings.select": 1,
+  "pulse_settings.update": 2,
+  "purchase.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/purchases.ts": {
+  "app.select": 4,
+  "meet_booking.update": 1,
+  "pulse_account.select": 1,
+  "pulse_balance_snapshot.insert": 1,
+  "pulse_balance_snapshot.select": 1,
+  "purchase.select": 2,
+  "purchase.update": 2,
+  "purchase_credit_note.select": 1,
+  "purchase_credit_note.update": 1,
+  "thread_enrolment.select": 3,
+  "thread_enrolment.update": 2,
+  "workspace.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/signup-requests.ts": {
+  "billing_plan.select": 1,
+  "signup_request.insert": 1
+ },
+ "routes/sso.ts": {
+  "auth": 1,
+  "rpc:resolve_sso_identity": 1,
+  "signup_request.select": 1,
+  "sso_handoff.insert": 1,
+  "sso_handoff.update": 1,
+  "user.select": 1
+ },
+ "routes/teams.ts": {
+  "meet_root_slug.select": 1,
+  "team.insert": 1,
+  "team.select": 4,
+  "team.update": 1,
+  "team_app_grant.delete": 1,
+  "team_app_grant.select": 3,
+  "team_app_grant.upsert": 1,
+  "team_member.delete": 1,
+  "team_member.insert": 1,
+  "team_member.select": 1,
+  "team_member.upsert": 1,
+  "workspace.select": 1,
+  "workspace_app.select": 1,
+  "workspace_member.select": 2
+ },
+ "routes/thread-cancellation.ts": {
+  "app.select": 2,
+  "purchase.select": 2,
+  "purchase_credit_note.select": 1,
+  "thread_cancellation_request.insert": 1,
+  "thread_cancellation_request.select": 2,
+  "thread_cancellation_request.update": 5,
+  "thread_certificate.select": 1,
+  "thread_enrolment.select": 1
+ },
+ "routes/thread-handover.ts": {
+  "rpc:accept_thread_handover": 1,
+  "thread_organiser.select": 8,
+  "thread_organiser_handover.insert": 2,
+  "thread_organiser_handover.select": 4,
+  "thread_organiser_handover.update": 4,
+  "thread_thread.select": 6,
+  "user.select": 1,
+  "workspace_member.select": 3
+ },
+ "routes/thread-tasks.ts": {
+  "thread_task.insert": 2,
+  "thread_task.select": 1,
+  "thread_task.update": 2,
+  "thread_template_share.delete": 1,
+  "user.select": 1
+ },
+ "routes/thread-team-offers.ts": {
+  "team.select": 2,
+  "team_member.select": 1,
+  "thread_team_offer.delete": 2,
+  "thread_team_offer.insert": 1,
+  "thread_team_offer.select": 3,
+  "thread_thread.select": 1,
+  "workspace_member.select": 1
+ },
+ "routes/thread.ts": {
+  "<dynamic>.select": 1,
+  "activity.insert": 2,
+  "activity.select": 1,
+  "app.select": 6,
+  "app_membership.select": 1,
+  "app_membership.upsert": 1,
+  "auth": 2,
+  "consent_record.insert": 2,
+  "consent_record.select": 4,
+  "enrolment.insert": 2,
+  "enrolment.select": 6,
+  "enrolment.update": 6,
+  "person.select": 4,
+  "program.delete": 4,
+  "program.select": 1,
+  "purchase.select": 4,
+  "rpc:auth_user_exists": 2,
+  "team.insert": 1,
+  "team.select": 3,
+  "team.update": 1,
+  "team_member.delete": 1,
+  "team_member.insert": 1,
+  "team_member.select": 5,
+  "team_member.upsert": 1,
+  "thread_certificate.insert": 1,
+  "thread_certificate.select": 5,
+  "thread_certificate.update": 1,
+  "thread_certificate_template.select": 3,
+  "thread_coupon.select": 2,
+  "thread_coupon.update": 2,
+  "thread_engagement.insert": 2,
+  "thread_engagement.select": 10,
+  "thread_engagement.update": 2,
+  "thread_enrolment.delete": 1,
+  "thread_enrolment.insert": 2,
+  "thread_enrolment.select": 29,
+  "thread_enrolment.update": 8,
+  "thread_message_send.insert": 1,
+  "thread_organiser.insert": 1,
+  "thread_organiser.select": 17,
+  "thread_owner_history.select": 1,
+  "thread_payout.upsert": 1,
+  "thread_settings.insert": 1,
+  "thread_settings.select": 4,
+  "thread_slug_history.select": 1,
+  "thread_template_share.delete": 3,
+  "thread_template_share.insert": 1,
+  "thread_template_share.select": 1,
+  "thread_thread.select": 20,
+  "thread_thread.update": 2,
+  "thread_thread_category.select": 1,
+  "thread_thread_organiser.select": 7,
+  "thread_thread_organiser.upsert": 1,
+  "thread_ticket.select": 8,
+  "user.select": 3,
+  "workspace.select": 3,
+  "workspace_member.select": 5
+ },
+ "routes/workspace-apps.ts": {
+  "app.select": 2,
+  "app_membership.upsert": 1,
+  "billing_plan.select": 1,
+  "team_app_grant.upsert": 1,
+  "workspace_subscription.select": 1
+ },
+ "routes/workspace-billing.ts": {
+  "thread_settings.update": 1,
+  "workspace.select": 4,
+  "workspace.update": 2,
+  "workspace_member.select": 1
+ },
+ "routes/workspace-brand.ts": {
+  "workspace.select": 2,
+  "workspace.update": 1,
+  "workspace_member.select": 1
+ },
+ "routes/workspace-domain.ts": {
+  "workspace_domain.delete": 3,
+  "workspace_domain.insert": 2,
+  "workspace_domain.select": 2,
+  "workspace_domain.update": 2,
+  "workspace_member.select": 1
+ },
+ "routes/workspaces.ts": {
+  "<dynamic>.select": 1,
+  "billing_plan.select": 2,
+  "user.select": 1,
+  "workspace.delete": 1,
+  "workspace.insert": 1,
+  "workspace.select": 2,
+  "workspace_subscription.select": 1,
+  "workspace_subscription.update": 2
+ }
+}

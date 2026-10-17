@@ -6,6 +6,69 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.0] — 2026-10-17
+
+### Security, foundation 1: the workspace is bound into service-role queries, and a new unbound one fails the release (API)
+
+- **Why.** Outside developers judged the foundation not designed with
+  security from the start. The substance behind that is real and measured:
+  most API routes reach the database through the service-role client, which
+  row level security never sees, so the wall between two customers is a
+  `workspace_id` filter each route has to remember (handbook §2). It was
+  forgotten twice in September 2026 (thread writes, person merge).
+- **The measurement, reproducible by anyone with the repo:**
+  `node apps/api/scripts/service-role-report.mjs` reads the source with the
+  TypeScript parser. Today: **1,801 raw service-role uses in 144 files;
+  1,728 are table queries, of which 411 filter `workspace_id` by hand and
+  1,317 do not.** Most of the 1,317 are safe because an earlier line proved
+  the id belongs to the workspace (three spot-checked: workspace-domain,
+  members, apps), but reading the whole handler is the only way to know.
+  `--by-file`, `--list` and `--exceptions` show the detail.
+- **`tenantDb(ctx)`** (`apps/api/src/lib/tenant-db.ts`): the service role
+  with the workspace bound in. select, update and delete always carry
+  `workspace_id = ctx.workspaceId`; an insert is stamped and one naming
+  another workspace throws; an update cannot move a row out; an upsert must
+  have `workspace_id` in its conflict target (otherwise it could overwrite
+  another workspace's row and stamp it ours). `child()` reaches the 57 tables
+  without a `workspace_id` column through their parent: it proves the parent
+  ids are in the workspace and pins the foreign key; another workspace's
+  parent returns null, the same as no row. `serviceRole('<reason>')` is the
+  named exception for a query that must cross workspaces.
+- **The ratchet** (`apps/api/src/lib/service-role-boundary.test.ts`, in
+  `pnpm test`): a raw `adminClient` use that is not on the baseline
+  (`lib/service-role-baseline.json`) fails, naming file, line, table and
+  verb, and what to write instead. The baseline only shrinks;
+  `--write-baseline` refuses to raise it. A `serviceRole()` without a
+  12+-character literal reason fails too. Known blind spot, stated in the
+  test: a raw use replaced by another of the same table and verb in the same
+  file keeps the count level.
+- **The tenant table list** (`lib/tenant-tables.ts`, 110 tables) is checked
+  against the migrations in both directions (`lib/tenant-tables.test.ts`,
+  parser in `lib/migration-tables.ts`). `user` is reviewed out: its
+  `workspace_id` is the home workspace, not membership.
+- **How to comply** (for every builder): in new code, `tenantDb(ctx).from(t)`
+  where you would write `adminClient.from(t)`, and drop your own
+  `.eq('workspace_id', …)`; `child()` for a table without the column;
+  `serviceRole('why this may cross workspaces')` only when it must. Old code
+  is untouched and keeps working.
+- Docs: handbook §2 (the rule, the four options in order),
+  data-protection-approach §5 (status table and the gap entry), `db.ts`.
+- Checked: unit, `tenant-db.test.ts` 12 (every verb carries the filter,
+  before the caller's own; refusals), `service-role-boundary.test.ts` 7
+  (the tree is at the baseline; planted files prove the scanner sees a query,
+  a renamed import, an alias, a reason; a query planted in
+  `routes/notes.ts` failed with the message above, then removed),
+  `tenant-tables.test.ts` 3; **integration on staging**,
+  `tenant-db.int.test.ts` 8: workspace A's accessor given B's person id
+  reads `[]`, updates and deletes 0 rows (B's row re-read unchanged), refuses
+  an insert into B, stamps A on an insert naming none, and `child()` returns
+  null for B's parent and B's own rows for B; fixtures checked gone
+  afterwards. `tsc --noEmit` on the API, including a pilot conversion of one
+  route module (`workspace-domain.ts`) that ships separately.
+- Not done here: converting the old code (F2, module by module, each with a
+  cross-workspace test); making a child row unable to point across
+  workspaces in the database itself (F3, a design to follow).
+
 ## [1.276.5] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 2, step 1: activity_ref, what an activity row is about (database)
