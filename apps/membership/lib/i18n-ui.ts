@@ -3769,6 +3769,16 @@ const CATALOG = {
     de: 'Google Drive ist für diese Plattform noch nicht eingerichtet.', // MT
     fr: 'Google Drive n’est pas encore configuré sur cette plateforme.', // MT
   },
+  // The platform's key is set but can't be read (API `setup: 'unreadable'`).
+  // Read by a community admin, who can't fix it: the key is ours.
+  drv_err_unreadable: {
+    en: 'Google Drive is set up on The Thread but isn’t working right now. We’ve been told; try again later.',
+    nl: 'Google Drive is ingesteld op The Thread, maar werkt nu niet. We zijn op de hoogte; probeer het later opnieuw.', // MT
+    es: 'Google Drive está configurado en The Thread, pero ahora mismo no funciona. Ya nos hemos enterado; inténtalo más tarde.', // MT
+    pt: 'O Google Drive está configurado no The Thread, mas não está funcionando agora. Já fomos avisados; tente novamente mais tarde.', // MT
+    de: 'Google Drive ist auf The Thread eingerichtet, funktioniert aber gerade nicht. Wir wissen Bescheid; versuche es später noch einmal.', // MT
+    fr: 'Google Drive est configuré sur The Thread, mais ne fonctionne pas pour le moment. Nous sommes prévenus ; réessayez plus tard.', // MT
+  },
   drv_err_unavailable: {
     en: 'Google Drive isn’t answering right now. Try again in a moment.',
     nl: 'Google Drive reageert nu niet. Probeer het zo opnieuw.', // MT

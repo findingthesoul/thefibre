@@ -363,9 +363,16 @@ async function driveCall<T>(path: string, body?: unknown): Promise<DriveResult<T
   }
 }
 
-/** The address a folder must be shared with; null = Drive isn't set up on this stack. */
-export async function driveConfig(): Promise<DriveResult<{ service_account: string | null }>> {
-  return driveCall('/config');
+/** The address a folder must be shared with; null = Drive isn't set up on
+ *  this stack. `setup` (additive since API v1.267.2; absent on an older API)
+ *  says why: 'missing' = never set up, 'unreadable' = set up but the
+ *  platform's key can't be read, which is ours to fix, so it is logged here
+ *  too and the form says we've been told. */
+export type DriveSetup = 'missing' | 'unreadable' | 'ok';
+export async function driveConfig(): Promise<DriveResult<{ service_account: string | null; setup?: DriveSetup }>> {
+  const r = await driveCall<{ service_account: string | null; setup?: DriveSetup }>('/config');
+  if (r.ok && r.data.setup === 'unreadable') console.error('[drive] setup=unreadable: GOOGLE_DRIVE_SA_JSON is set on the API but cannot be read');
+  return r;
 }
 export async function driveStart(folderUrl: string): Promise<DriveResult<DriveStart>> {
   return driveCall('/start', { folder_url: folderUrl });

@@ -52,6 +52,7 @@ function CopyField({ value, label, locale }: { value: string; label: string; loc
 
 export function DriveConnect({ locale, onConnected }: { locale: Locale; onConnected: (entry: DriveEntry) => void }) {
   const [account, setAccount] = useState<string | null | undefined>(undefined);
+  const [unreadable, setUnreadable] = useState(false);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [started, setStarted] = useState<DriveStart | null>(null);
@@ -59,11 +60,14 @@ export function DriveConnect({ locale, onConnected }: { locale: Locale; onConnec
   const [problem, setProblem] = useState<{ code: DriveCode; account?: string | null } | null>(null);
 
   useEffect(() => {
-    void driveConfig().then((r) => setAccount(r.ok ? r.data.service_account : null));
+    void driveConfig().then((r) => {
+      setUnreadable(r.ok && r.data.setup === 'unreadable');
+      setAccount(r.ok ? r.data.service_account : null);
+    });
   }, []);
 
   if (account === undefined) return <p className="text-sm text-ink-muted">{t(locale, 'drv_loading')}</p>;
-  if (account === null) return <p className="text-sm text-ink-muted">{t(locale, 'drv_err_not_configured')}</p>;
+  if (account === null) return <p className="text-sm text-ink-muted">{t(locale, unreadable ? 'drv_err_unreadable' : 'drv_err_not_configured')}</p>;
 
   async function start() {
     setBusy('start');

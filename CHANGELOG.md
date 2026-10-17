@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.267.5] — 2026-10-17
+
+### Members: when the platform's Google Drive key can't be read, the Drive form says so, and it is logged (Members 1.20.2)
+
+- **A separate sentence for a key that is set but unreadable.** The API's
+  `drive/config` has said why Drive isn't ready since v1.267.2 (`setup`:
+  missing / unreadable / ok). Members → Settings → Member page → "Google
+  Drive folder" used to say "isn't set up yet" either way. For
+  `unreadable` it now says "Google Drive is set up on The Thread but isn't
+  working right now. We've been told; try again later." (six languages,
+  coordinator's wording). The reader is a community admin, and the key is
+  the platform's to fix, not theirs. `missing` and an older API without the
+  field read exactly as before.
+- **Logged, so we are actually told**: the Members server action logs
+  `[drive] setup=unreadable …` (never the key) whenever the form meets
+  that state. Builder 4 adds the API-side log, once per boot, in their next
+  API release.
+- Checked: rendered locally against a stub API answering `unreadable`,
+  signed in as the fixture. The new sentence shows, the old one doesn't,
+  there's no link field, and the log line appears in the server output.
+  Members tsc, 42 tests and the client-value import guard pass.
+  `drive-unconfigured.spec` (the `missing` state on staging) is unchanged.
+
 ## [1.267.4] — 2026-10-17
 
 ### my.thread reads bookings, notifications and Home's "next" in their own time zone (my.thread 0.32.2)
