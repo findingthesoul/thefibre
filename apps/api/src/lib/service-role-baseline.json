@@ -378,8 +378,7 @@
  },
  "lib/proven-email.ts": {
   "person.select": 1,
-  "person_contact_point.select": 1,
-  "person_contact_point.update": 1
+  "person_contact_point.select": 1
  },
  "lib/public-origin.ts": {
   "workspace_domain.select": 1
@@ -586,53 +585,6 @@
   "billing_plan.select": 2,
   "billing_plan.update": 1,
   "workspace_subscription.select": 1
- },
- "routes/app-flow.ts": {
-  "activity.insert": 1,
-  "app.select": 1,
-  "flow_definition.select": 3,
-  "flow_run.insert": 1,
-  "flow_run.select": 3,
-  "flow_run.update": 1,
-  "flow_run_note.insert": 1,
-  "flow_run_note.select": 3,
-  "flow_run_note.update": 2,
-  "flow_step.select": 5,
-  "flow_step_default_task.select": 1,
-  "flow_task.insert": 1,
-  "flow_task.select": 2,
-  "flow_task.update": 1,
-  "reference": 2
- },
- "routes/app-thread.ts": {
-  "app.select": 2,
-  "app_record_link.select": 1,
-  "enrolment.select": 2,
-  "person.select": 3,
-  "program.delete": 1,
-  "program.insert": 1,
-  "program.select": 2,
-  "program.update": 1,
-  "reference": 1,
-  "thread_category.insert": 1,
-  "thread_category.select": 1,
-  "thread_engagement.delete": 1,
-  "thread_engagement.insert": 1,
-  "thread_engagement.select": 5,
-  "thread_engagement.update": 1,
-  "thread_enrolment.select": 4,
-  "thread_organiser.insert": 1,
-  "thread_organiser.select": 3,
-  "thread_template.select": 2,
-  "thread_thread.insert": 1,
-  "thread_thread.select": 3,
-  "thread_thread.update": 1,
-  "thread_thread_category.delete": 1,
-  "thread_thread_category.insert": 1,
-  "thread_thread_organiser.upsert": 1,
-  "user.select": 1,
-  "workspace.select": 1,
-  "workspace_member.select": 1
  },
  "routes/apps.ts": {
   "<dynamic>.select": 1,

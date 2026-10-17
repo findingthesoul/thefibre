@@ -71,7 +71,7 @@ import { signupsOpenAt } from '@thefibre/shared/thread-dates';
 import type { Context, Hono } from 'hono';
 import { paymentRouteProblem } from '../lib/thread-payment-route.js';
 import { z } from 'zod';
-import { adminClient } from '../db.js';
+import { serviceRole, tenantDb } from '../lib/tenant-db.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
 import {
   ENGAGEMENT_TYPES,
@@ -117,13 +117,12 @@ function notForUsers(c: Context) {
  * app's — the same rule, so there is one thing to reason about.
  */
 async function ownThread(ctx: RequestContext, threadId: string) {
-  const { data } = await adminClient
+  const { data } = await tenantDb(ctx)
     .from('thread_thread')
     .select(
       'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, categories:thread_thread_category (category:category_id (name, slug)), program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
     )
     .eq('id', threadId)
-    .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (!data) return null;
   const program = one(data.program);
@@ -315,17 +314,13 @@ const ENROLMENT_SELECT = 'id, enrolment_id, person_id, payment_status, created_a
 async function deriveWorkspaceOrganiser(
   workspaceId: string,
 ): Promise<{ organiser: { id: string } } | { error: string }> {
-  const { data: workspace } = await adminClient
-    .from('workspace')
-    .select('slug, name')
-    .eq('id', workspaceId)
-    .maybeSingle();
+  const db = tenantDb(workspaceId);
+  const { data: workspace } = await db.workspace().select('slug, name').maybeSingle();
   if (!workspace) return { error: 'workspace not found' };
 
-  const { data: admins } = await adminClient
+  const { data: admins } = await db
     .from('workspace_member')
     .select('user_id, workspace_role, joined_at')
-    .eq('workspace_id', workspaceId)
     .in('workspace_role', ['super_admin', 'admin'])
     .order('joined_at', { ascending: true })
     .limit(1);
@@ -349,7 +344,7 @@ async function deriveWorkspaceOrganiser(
       .slice(0, 30) || 'organiser';
   const slug = `${seed}-${Math.random().toString(36).slice(2, 5)}`;
 
-  const { data: created, error } = await adminClient
+  const { data: created, error } = await db
     .from('thread_organiser')
     .insert({
       user_id: admin.user_id,
@@ -371,7 +366,9 @@ async function deriveWorkspaceOrganiser(
     // workspace — so this admin may already have a storefront, and the lookup
     // must not filter by workspace or it will find nothing and report the
     // wrong thing. Two publishes racing land here too.
-    const { data: existing } = await adminClient
+    const { data: existing } = await serviceRole(
+      'thread_organiser.user_id is unique platform-wide: finds where this admin already organises, reads only its workspace id',
+    )
       .from('thread_organiser')
       .select('id, workspace_id')
       .eq('user_id', admin.user_id)
@@ -415,15 +412,14 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
 
     // Idempotency first, before anything is written.
     if (b.source_ref) {
-      const { data: existing } = await adminClient
+      const { data: existing } = await tenantDb(ctx)
         .from('program')
         .select('id')
-        .eq('workspace_id', ctx.workspaceId)
         .eq('source_app', ctx.appId)
         .eq('source_ref', b.source_ref)
         .maybeSingle();
       if (existing) {
-        const { data: t } = await adminClient
+        const { data: t } = await tenantDb(ctx)
           .from('thread_thread')
           .select('id')
           .eq('program_id', existing.id)
@@ -443,16 +439,17 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     let organiser: { id: string } | null = null;
 
     if (b.organiser_person_id) {
-      const { data: person } = await adminClient
+      const { data: person } = await tenantDb(ctx)
         .from('person')
         .select('id')
         .eq('id', b.organiser_person_id)
-        .eq('workspace_id', ctx.workspaceId)
         .is('deleted_at', null)
         .maybeSingle();
       if (!person) return c.json({ error: 'organiser_person_id is not a person in this workspace' }, 404);
 
-      const { data: user } = await adminClient
+      // `user` is not a tenant table (its workspace_id is the home workspace),
+      // so the filter below is written by hand, as it always was.
+      const { data: user } = await serviceRole('user by person id, filtered to this workspace by hand: user is not a tenant table')
         .from('user')
         .select('id')
         .eq('person_id', person.id)
@@ -466,11 +463,10 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
         );
       }
 
-      const { data } = await adminClient
+      const { data } = await tenantDb(ctx)
         .from('thread_organiser')
         .select('id')
         .eq('user_id', user.id)
-        .eq('workspace_id', ctx.workspaceId)
         .maybeSingle();
       if (!data) {
         return c.json(
@@ -478,20 +474,19 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
           400,
         );
       }
-      organiser = data;
+      organiser = data as { id: string };
     } else {
       // The workspace's own organiser. Earliest, which is the one the first
       // admin created — a workspace with several storefronts and no explicit
       // choice has no better answer, and a stable one beats an arbitrary one.
-      const { data } = await adminClient
+      const { data } = await tenantDb(ctx)
         .from('thread_organiser')
         .select('id')
-        .eq('workspace_id', ctx.workspaceId)
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
       if (data) {
-        organiser = data;
+        organiser = data as { id: string };
       } else {
         // Derive it from function rather than asking for a settings visit.
         //
@@ -514,11 +509,10 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     // a half-built event is left behind.
     let template: { structure: Record<string, unknown> } | null = null;
     if (b.template_id) {
-      const { data: tpl } = await adminClient
+      const { data: tpl } = await tenantDb(ctx)
         .from('thread_template')
         .select('id, structure')
         .eq('id', b.template_id)
-        .eq('workspace_id', ctx.workspaceId)
         .maybeSingle();
       if (!tpl) return c.json({ error: 'template not found in this workspace' }, 404);
       template = { structure: (tpl.structure ?? {}) as Record<string, unknown> };
@@ -532,7 +526,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       }
     }
 
-    const { data: threadApp } = await adminClient
+    const { data: threadApp } = await serviceRole('the app catalogue is platform-wide: one app id by its slug')
       .from('app')
       .select('id')
       .eq('slug', 'the-thread')
@@ -541,7 +535,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
 
     // app_id says the programme belongs to The Thread — it does, that is where
     // it is administered. source_app says who created it. Different questions.
-    const { data: program, error: pErr } = await adminClient
+    const { data: program, error: pErr } = await tenantDb(ctx)
       .from('program')
       .insert({
         workspace_id: ctx.workspaceId,
@@ -560,7 +554,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       return c.json({ error: pErr?.message ?? 'program insert failed' }, 500);
     }
 
-    const { data: thread, error: tErr } = await adminClient
+    const { data: thread, error: tErr } = await tenantDb(ctx)
       .from('thread_thread')
       .insert({
         workspace_id: ctx.workspaceId,
@@ -582,7 +576,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       console.error('[app-thread] thread insert failed', tErr);
       // Don't strand the programme — a retry would then hit the idempotency
       // index and find a programme with no page behind it.
-      await adminClient.from('program').delete().eq('id', program.id);
+      await tenantDb(ctx).from('program').delete().eq('id', program.id);
       const conflict = tErr?.code === '23505';
       return c.json(
         { error: conflict ? `slug "${b.slug}" is already taken for that organiser` : tErr?.message ?? 'thread insert failed' },
@@ -597,7 +591,9 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     // created_by is null: there is no user behind an app key.
     if (template) {
       await seedTemplateEngagements({
-        db: adminClient,
+        // Writes engagements of the thread created just above, in this
+        // workspace; seedTemplateEngagements stamps workspaceId itself.
+        db: serviceRole('seedTemplateEngagements writes the new thread\'s engagements and stamps the workspace itself'),
         workspaceId: ctx.workspaceId,
         threadId: thread.id,
         structure: template.structure,
@@ -617,15 +613,14 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const ctx = appKeyOnly(c);
     if (!ctx) return notForUsers(c);
 
-    const { data: programs } = await adminClient
+    const { data: programs } = await tenantDb(ctx)
       .from('program')
       .select('id')
-      .eq('workspace_id', ctx.workspaceId)
       .eq('source_app', ctx.appId);
     const ids = (programs ?? []).map((p) => p.id as string);
     if (!ids.length) return c.json({ threads: [] });
 
-    const { data, error } = await adminClient
+    const { data, error } = await tenantDb(ctx)
       .from('thread_thread')
       .select(
         'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, categories:thread_thread_category (category:category_id (name, slug)), program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
@@ -692,17 +687,16 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const thread = await ownThread(ctx, c.req.param('id'));
     if (!thread) return c.json({ error: 'thread not found' }, 404);
 
-    const { data: app } = await adminClient
+    const { data: app } = await serviceRole('the app catalogue is platform-wide: one app id by its slug')
       .from('app')
       .select('id')
       .eq('slug', ctx.appId)
       .maybeSingle();
     if (!app) return c.json({ error: 'unknown app' }, 404);
 
-    const { data: link } = await adminClient
+    const { data: link } = await tenantDb(ctx)
       .from('app_record_link')
       .select('platform_entity, platform_id')
-      .eq('workspace_id', ctx.workspaceId)
       .eq('app_id', app.id)
       .eq('app_entity', b.person.app_entity)
       .eq('app_record_id', b.person.app_record_id)
@@ -716,8 +710,9 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
 
     // Idempotent on (thread_id, person_id): a repeat call updates the role
     // rather than failing on the unique constraint or adding a second row.
-    const { data: host, error } = await adminClient
-      .from('thread_thread_organiser')
+    const hosts = await tenantDb(ctx).child('thread_thread_organiser', { via: 'thread_thread', key: 'thread_id', id: thread.id });
+    if (!hosts) return c.json({ error: 'thread not found' }, 404);
+    const { data: host, error } = await hosts
       .upsert(
         {
           thread_id: thread.id,
@@ -748,10 +743,9 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const ctx = appKeyOnly(c);
     if (!ctx) return notForUsers(c);
 
-    const { data, error } = await adminClient
+    const { data, error } = await tenantDb(ctx)
       .from('thread_template')
       .select('id, title, scope, structure, created_at')
-      .eq('workspace_id', ctx.workspaceId)
       .order('title', { ascending: true });
     if (error) {
       console.error('[app-thread] template list failed', error);
@@ -888,8 +882,14 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     let anchorId = b.trigger_engagement_id ?? null;
+    // An anchor named by platform id must be one of THIS thread's
+    // engagements (the database holds the same rule, 20261017141117; this is
+    // the sentence the caller gets).
+    if (anchorId && !(await isEngagementOf(ctx, thread.id, anchorId))) {
+      return c.json({ error: 'trigger_engagement_id is not an engagement of this thread' }, 400);
+    }
     if (b.trigger_anchor_ref) {
-      const { data: anchor } = await adminClient
+      const { data: anchor } = await tenantDb(ctx)
         .from('thread_engagement')
         .select('id')
         .eq('thread_id', thread.id)
@@ -913,7 +913,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     // Idempotent on (thread_id, source_app, source_ref) — same shape as the
     // thread publish above. A retried sync must not create a second welcome
     // email.
-    const { data: existing } = await adminClient
+    const { data: existing } = await tenantDb(ctx)
       .from('thread_engagement')
       .select(ENGAGEMENT_SELECT)
       .eq('thread_id', thread.id)
@@ -925,7 +925,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     const { trigger_anchor_ref: _ref, source_ref, ...rest } = b;
-    const { data: created, error } = await adminClient
+    const { data: created, error } = await tenantDb(ctx)
       .from('thread_engagement')
       .insert({
         ...rest,
@@ -944,7 +944,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       // Two syncs racing: the partial unique index caught the second. Read the
       // winner back rather than failing a caller that did nothing wrong.
       if (error.code === '23505') {
-        const { data: won } = await adminClient
+        const { data: won } = await tenantDb(ctx)
           .from('thread_engagement')
           .select(ENGAGEMENT_SELECT)
           .eq('thread_id', thread.id)
@@ -967,7 +967,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const thread = await ownThread(ctx, c.req.param('id'));
     if (!thread) return c.json({ error: 'thread not found' }, 404);
 
-    const { data, error } = await adminClient
+    const { data, error } = await tenantDb(ctx)
       .from('thread_engagement')
       .select(ENGAGEMENT_SELECT)
       .eq('thread_id', thread.id)
@@ -998,13 +998,23 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     type: z.enum(ENGAGEMENT_TYPES).optional(),
   });
 
+  /** Is `id` an engagement of thread `threadId`, in this workspace? */
+  async function isEngagementOf(ctx: RequestContext, threadId: string, id: string): Promise<boolean> {
+    const { data } = await tenantDb(ctx)
+      .from('thread_engagement')
+      .select('id')
+      .eq('id', id)
+      .eq('thread_id', threadId)
+      .maybeSingle();
+    return !!data;
+  }
+
   /** The engagement, if it is on a thread this app published. */
   async function ownEngagement(ctx: RequestContext, id: string) {
-    const { data: eng } = await adminClient
+    const { data: eng } = await tenantDb(ctx)
       .from('thread_engagement')
       .select('id, thread_id, type, starts_at, ends_at')
       .eq('id', id)
-      .eq('workspace_id', ctx.workspaceId)
       .maybeSingle();
     if (!eng) return null;
     const thread = await ownThread(ctx, eng.thread_id);
@@ -1037,6 +1047,10 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       return scopeDenied(c, 'write:messages');
     }
 
+    if (b.trigger_engagement_id && !(await isEngagementOf(ctx, eng.thread_id, b.trigger_engagement_id))) {
+      return c.json({ error: 'trigger_engagement_id is not an engagement of this thread' }, 400);
+    }
+
     const windowErr = await activityWindowError(
       eng.thread_id,
       b.type ?? eng.type,
@@ -1047,7 +1061,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const schedErr = dailyScheduleError(b.daily_schedule);
     if (schedErr) return c.json({ error: schedErr }, 400);
 
-    const { data, error } = await adminClient
+    const { data, error } = await tenantDb(ctx)
       .from('thread_engagement')
       .update({ ...b, updated_at: new Date().toISOString() })
       .eq('id', eng.id)
@@ -1070,7 +1084,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     // A message that has gone out cannot be deleted — the trigger refuses, and
     // pgErrorStatus turns that into a 409 with the reason. Deleting it would
     // drop the record of who received it, and a re-sync would send it again.
-    const { error } = await adminClient
+    const { error } = await tenantDb(ctx)
       .from('thread_engagement')
       .delete()
       .eq('id', eng.id);
@@ -1129,17 +1143,16 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '')
             .slice(0, 60) || 'category';
-        const { data: existing } = await adminClient
+        const { data: existing } = await tenantDb(ctx)
           .from('thread_category')
           .select('id')
-          .eq('workspace_id', ctx.workspaceId)
           .eq('slug', slug)
           .maybeSingle();
         if (existing) {
           ids.push(existing.id as string);
           continue;
         }
-        const { data: made, error: mkErr } = await adminClient
+        const { data: made, error: mkErr } = await tenantDb(ctx)
           .from('thread_category')
           .insert({ workspace_id: ctx.workspaceId, organiser_id: null, name, slug })
           .select('id')
@@ -1150,15 +1163,18 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
         }
         ids.push(made.id as string);
       }
-      const { error: delErr } = await adminClient
-        .from('thread_thread_category')
-        .delete()
-        .eq('thread_id', thread.id);
+      const threadCategories = await tenantDb(ctx).child('thread_thread_category', {
+        via: 'thread_thread',
+        key: 'thread_id',
+        id: thread.id,
+      });
+      if (!threadCategories) return c.json({ error: 'thread not found' }, 404);
+      const { error: delErr } = await threadCategories.delete();
       if (delErr) return c.json(pgErrorBody(delErr), pgErrorStatus(delErr));
       if (ids.length) {
-        const { error: insErr } = await adminClient
-          .from('thread_thread_category')
-          .insert(ids.map((id) => ({ thread_id: thread.id, category_id: id })));
+        const { error: insErr } = await threadCategories.insert(
+          ids.map((id) => ({ thread_id: thread.id, category_id: id })),
+        );
         if (insErr) return c.json(pgErrorBody(insErr), pgErrorStatus(insErr));
       }
     }
@@ -1171,7 +1187,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     if (Object.keys(programPatch).length && program) {
-      const { error } = await adminClient.from('program').update(programPatch).eq('id', program.id);
+      const { error } = await tenantDb(ctx).from('program').update(programPatch).eq('id', program.id);
       if (error) {
         console.error('[app-thread] program patch failed', error);
         return c.json({ error: error.message }, 500);
@@ -1179,7 +1195,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
     if (Object.keys(threadPatch).length) {
       threadPatch.updated_at = new Date().toISOString();
-      const { error } = await adminClient
+      const { error } = await tenantDb(ctx)
         .from('thread_thread')
         .update(threadPatch)
         .eq('id', thread.id);
@@ -1211,7 +1227,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     if (!program) return c.json({ error: 'thread has no programme' }, 500);
 
     // Named columns, never select('*') — see THE WALL.
-    const { data: te, error } = await adminClient
+    const { data: te, error } = await tenantDb(ctx)
       .from('thread_enrolment')
       .select(ENROLMENT_SELECT)
       .eq('thread_id', thread.id)
@@ -1222,22 +1238,23 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     const rows = te ?? [];
-    const enrolmentIds = rows.map((r) => r.enrolment_id as string);
+    const enrolmentIds = rows.map((r) => r.enrolment_id as string).filter(Boolean);
+    // `enrolment` (the platform row) has no workspace_id: reached through the
+    // thread_enrolment rows of this workspace that point at it.
+    const enrolmentScope = enrolmentIds.length
+      ? await tenantDb(ctx).child('enrolment', { via: 'thread_enrolment', parentKey: 'enrolment_id', key: 'id', id: enrolmentIds })
+      : null;
     const personIds = [...new Set(rows.map((r) => r.person_id as string))];
 
     const [{ data: enrolments }, { data: people }] = await Promise.all([
-      enrolmentIds.length
-        ? adminClient
-            .from('enrolment')
-            .select('id, status, progress_pct, enrolled_at, completed_at')
-            .in('id', enrolmentIds)
+      enrolmentScope
+        ? enrolmentScope.select('id, status, progress_pct, enrolled_at, completed_at')
         : Promise.resolve({ data: [] as Record<string, unknown>[] }),
       personIds.length
-        ? adminClient
+        ? tenantDb(ctx)
             .from('person')
             .select('id, first_name, last_name, email')
             .in('id', personIds)
-            .eq('workspace_id', ctx.workspaceId)
         : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     ]);
 
@@ -1300,11 +1317,10 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
 
   /** Load an enrolment for review iff it sits on a thread this app owns. */
   async function loadOwnEnrolment(ctx: RequestContext, threadEnrolmentId: string) {
-    const { data: te } = await adminClient
+    const { data: te } = await tenantDb(ctx)
       .from('thread_enrolment')
       .select('id, enrolment_id, person_id, thread_id')
       .eq('id', threadEnrolmentId)
-      .eq('workspace_id', ctx.workspaceId)
       .maybeSingle();
     if (!te) return null;
     const thread = await ownThread(ctx, te.thread_id as string);
@@ -1314,11 +1330,10 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       starts_on?: string | null;
     } | null;
     const organiser = one(thread.organiser) as { display_name?: string | null } | null;
-    const { data: person } = await adminClient
+    const { data: person } = await tenantDb(ctx)
       .from('person')
       .select('id, email, first_name, last_name')
       .eq('id', te.person_id as string)
-      .eq('workspace_id', ctx.workspaceId)
       .maybeSingle();
     if (!person || !program) return null;
     return {
@@ -1372,25 +1387,28 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     if (!ctx) return notForUsers(c);
     const code = c.req.param('code');
     if (!/^[0-9a-f]{32}$/.test(code)) return c.json({ error: 'not found' }, 404);
-    const { data: te } = await adminClient
+    const { data: te } = await tenantDb(ctx)
       .from('thread_enrolment')
       .select('id')
       .eq('checkin_code', code)
-      .eq('workspace_id', ctx.workspaceId)
       .maybeSingle();
     if (!te) return c.json({ error: 'not found' }, 404);
     const loaded = await loadOwnEnrolment(ctx, te.id as string);
     if (!loaded) return c.json({ error: 'not found' }, 404);
-    const { data: state } = await adminClient
+    const { data: state } = await tenantDb(ctx)
       .from('thread_enrolment')
       .select('checked_in_at, payment_status')
       .eq('id', loaded.te.id)
       .single();
-    const { data: enr } = await adminClient
-      .from('enrolment')
-      .select('status')
-      .eq('id', loaded.te.enrolment_id)
-      .maybeSingle();
+    const enrolmentRow = await tenantDb(ctx).child('enrolment', {
+      via: 'thread_enrolment',
+      parentKey: 'enrolment_id',
+      key: 'id',
+      id: loaded.te.enrolment_id,
+    });
+    const { data: enr } = enrolmentRow
+      ? await enrolmentRow.select('status').maybeSingle()
+      : { data: null as { status: string } | null };
     return c.json({
       id: loaded.te.id,
       thread_id: loaded.thread.id,

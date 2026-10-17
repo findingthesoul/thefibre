@@ -9160,13 +9160,17 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
         .map((c) => c.trigger_engagement_id as string),
     ),
   ];
-  const anchorStarts = new Map<string, string | null>();
+  // Keyed with the anchor's thread: a message is only ever timed from a
+  // session on ITS OWN thread. The database refuses a new cross-thread anchor
+  // (20261017141117); this makes one that predates that refusal time nothing,
+  // rather than the scheduler reading another workspace's session date.
+  const anchorStarts = new Map<string, { threadId: string; startsAt: string | null }>();
   if (anchorIds.length) {
     const { data: anchors } = await adminClient
       .from('thread_engagement')
-      .select('id, starts_at')
+      .select('id, thread_id, starts_at')
       .in('id', anchorIds);
-    for (const a of anchors ?? []) anchorStarts.set(a.id, a.starts_at);
+    for (const a of anchors ?? []) anchorStarts.set(a.id, { threadId: a.thread_id, startsAt: a.starts_at });
   }
 
   type Due = {
@@ -9197,7 +9201,8 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
       // thread's timezone.
       let anchorDate: string | null = null;
       if (c.trigger_anchor === 'engagement' && c.trigger_engagement_id) {
-        const s = anchorStarts.get(c.trigger_engagement_id);
+        const a = anchorStarts.get(c.trigger_engagement_id);
+        const s = a && a.threadId === c.thread_id ? a.startsAt : null;
         anchorDate = s ? s.slice(0, 10) : null;
       } else if (c.trigger_anchor === 'end') {
         anchorDate = program.ends_on;

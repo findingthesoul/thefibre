@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.9] — 2026-10-17
+
+### Security, foundation 2b: the published app surface on tenantDb — Thread and Flow for external apps (API)
+
+- `routes/app-thread.ts` and `routes/app-flow.ts`, the `/api/v1/apps/*`
+  routes that apps outside this repository call with an app key, now reach
+  the database through `tenantDb(ctx)`: the workspace is bound into every
+  query by the accessor. There is no user behind an app key and row level
+  security does not see these queries, so this is the surface where the
+  accessor matters most. Tables without a `workspace_id` (Flow's steps and
+  versions, a thread's hosts and categories, the platform enrolment) are
+  reached with `child()` through a parent the workspace owns. The app
+  catalogue and two platform-wide lookups are reasoned `serviceRole()`s.
+- Every id an app names in a write is checked to be its own workspace's (or
+  its own thread's), and the caller gets a sentence saying which field, not a
+  database error.
+- The message scheduler times a message only from a session on its own
+  thread (agreed with builder 4, whose file it is).
+- **Contract:** additive-only, no response shape changed (CLAUDE.md rule 8).
+- **Measured:** raw service-role uses 1,801 → **1,715**; the baseline is
+  lowered with it (`node apps/api/scripts/service-role-report.mjs`).
+- **Checked:** `apps-tenancy.int.test.ts` on staging, 8, with a REAL app key
+  minted the way Settings → Apps mints one, through the production
+  middleware: the key reaches nothing of a second workspace, read or write,
+  and still publishes a thread, lays sessions and a timed message on it, and
+  starts and reads a run in its own. With the new checks removed, the
+  refusal tests fail and the others pass. `tenant-db.int.test.ts` 8; API unit
+  1,328; `tsc --noEmit`.
+- The MCP sign-in metadata (`/.well-known/oauth-authorization-server`) no
+  longer names `service_documentation`: it pointed at the repository, which
+  becomes private. The field is optional (RFC 8414).
+- After landing: an api-staging deploy, then `verify-external-app.mjs`
+  against the staging API, before production.
+
 ## [1.277.8] — 2026-10-17
 
 ### Security: production dependencies patched — from 2 critical and 18 high advisories to 0 critical and 1 high (every app, API)

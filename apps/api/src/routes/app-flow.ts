@@ -60,7 +60,8 @@
 
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
-import { adminClient } from '../db.js';
+import { serviceRole, tenantDb } from '../lib/tenant-db.js';
+import { refsBelongToWorkspace } from '../lib/workspace-refs.js';
 import { materialiseAllSteps, materialiseTasksForStep } from './flow.js';
 import type { RequestContext } from '../middleware/app-context.js';
 
@@ -90,31 +91,47 @@ function notForUsers(c: Context) {
 
 /** The app's own run, or null. Every run-scoped handler starts here. */
 async function ownRun(ctx: RequestContext, runId: string) {
-  const { data } = await adminClient
+  const { data } = await tenantDb(ctx)
     .from('flow_run')
     .select(
       'id, flow_id, flow_version_id, person_id, organisation_id, subject_label, current_step_id, status, source_app, source_ref, entered_at',
     )
     .eq('id', runId)
-    .eq('workspace_id', ctx.workspaceId)
     .eq('source_app', ctx.appId)
     .is('deleted_at', null)
     .maybeSingle();
   return data;
 }
 
-async function stepByKey(versionId: string, key: string) {
-  const { data } = await adminClient
-    .from('flow_step')
-    .select('id, key, name, kind, ordinal')
-    .eq('flow_version_id', versionId)
-    .eq('key', key)
-    .maybeSingle();
+/**
+ * The steps of a flow version, proven to be this workspace's. `flow_step` and
+ * `flow_version` carry no workspace_id, so the version is reached through a
+ * row that does: a run of this workspace on it (`via: 'run'`), or a flow of
+ * this workspace whose current version it is (`via: 'flow'`). Null when it is
+ * not ours.
+ */
+function versionSteps(ctx: RequestContext, versionId: string, via: 'run' | 'flow') {
+  return tenantDb(ctx).child('flow_step', {
+    via: via === 'run' ? 'flow_run' : 'flow_definition',
+    parentKey: via === 'run' ? 'flow_version_id' : 'current_version_id',
+    key: 'flow_version_id',
+    id: versionId,
+  });
+}
+
+async function stepByKey(ctx: RequestContext, versionId: string, key: string) {
+  const steps = await versionSteps(ctx, versionId, 'run');
+  if (!steps) return null;
+  const { data } = await steps.select('id, key, name, kind, ordinal').eq('key', key).maybeSingle();
   return data;
 }
 
 async function resolveAppRow(slug: string) {
-  const { data } = await adminClient.from('app').select('id').eq('slug', slug).maybeSingle();
+  const { data } = await serviceRole('the app catalogue is platform-wide: one app id by its slug')
+    .from('app')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle();
   return data;
 }
 
@@ -123,11 +140,9 @@ async function resolveAppRow(slug: string) {
  * since 0.16.0 — this used to reconstruct it through whichever template made
  * the task, which left a manually added task belonging to no step at all.
  */
-async function stepKeyMap(versionId: string): Promise<Map<string, string>> {
-  const { data } = await adminClient
-    .from('flow_step')
-    .select('id, key')
-    .eq('flow_version_id', versionId);
+async function stepKeyMap(ctx: RequestContext, versionId: string): Promise<Map<string, string>> {
+  const steps = await versionSteps(ctx, versionId, 'run');
+  const { data } = steps ? await steps.select('id, key') : { data: [] as { id: string; key: string }[] };
   return new Map((data ?? []).map((s) => [s.id as string, s.key as string]));
 }
 
@@ -173,10 +188,9 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     const ctx = appKeyOnly(c);
     if (!ctx) return notForUsers(c);
 
-    const { data, error } = await adminClient
+    const { data, error } = await tenantDb(ctx)
       .from('flow_definition')
       .select('id, name, description, lifecycle, progression, system_key, current_version_id')
-      .eq('workspace_id', ctx.workspaceId)
       .eq('scope', 'workspace')
       .is('deleted_at', null)
       .not('current_version_id', 'is', null)
@@ -196,29 +210,27 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     const ctx = appKeyOnly(c);
     if (!ctx) return notForUsers(c);
 
-    const { data: flow } = await adminClient
+    const { data: flow } = await tenantDb(ctx)
       .from('flow_definition')
       .select('id, name, description, lifecycle, progression, system_key, current_version_id, scope')
       .eq('id', c.req.param('id'))
-      .eq('workspace_id', ctx.workspaceId)
       .is('deleted_at', null)
       .maybeSingle();
     if (!flow || flow.scope !== 'workspace') return c.json({ error: 'flow not found' }, 404);
     if (!flow.current_version_id) return c.json({ error: 'flow has no published version' }, 400);
 
-    const { data: steps } = await adminClient
-      .from('flow_step')
+    const versionScope = await versionSteps(ctx, flow.current_version_id, 'flow');
+    if (!versionScope) return c.json({ error: 'flow not found' }, 404);
+    const { data: steps } = await versionScope
       .select('id, key, name, description, kind, ordinal, group_key, group_label, meta')
-      .eq('flow_version_id', flow.current_version_id)
       .order('ordinal');
 
-    const stepIds = (steps ?? []).map((s) => s.id);
-    const { data: defaults } = stepIds.length
-      ? await adminClient
-          .from('flow_step_default_task')
-          .select('id, step_id, title, description, actor_type, ordinal')
-          .in('step_id', stepIds)
-          .order('ordinal')
+    const stepIds = (steps ?? []).map((s: { id: string }) => s.id);
+    const defaultTasks = stepIds.length
+      ? await versionScope.child('flow_step_default_task', { key: 'step_id', id: stepIds })
+      : null;
+    const { data: defaults } = defaultTasks
+      ? await defaultTasks.select('id, step_id, title, description, actor_type, ordinal').order('ordinal')
       : { data: [] as Record<string, unknown>[] };
 
     const byStep = new Map<string, unknown[]>();
@@ -270,11 +282,10 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     if (!body.success) return c.json({ error: body.error.flatten() }, 400);
 
     const flowId = c.req.param('id');
-    const { data: flow } = await adminClient
+    const { data: flow } = await tenantDb(ctx)
       .from('flow_definition')
       .select('id, name, scope, team_id, current_version_id, lifecycle, progression')
       .eq('id', flowId)
-      .eq('workspace_id', ctx.workspaceId)
       .is('deleted_at', null)
       .maybeSingle();
     if (!flow || flow.scope !== 'workspace') return c.json({ error: 'flow not found' }, 404);
@@ -286,7 +297,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     }
 
     if (body.data.source_ref) {
-      const existing = await adminClient
+      const existing = await tenantDb(ctx)
         .from('flow_run')
         .select('id')
         .eq('flow_id', flowId)
@@ -297,15 +308,22 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       if (existing.data) return c.json({ id: existing.data.id, created: false });
     }
 
-    const { data: entry } = await adminClient
-      .from('flow_step')
-      .select('id, name')
-      .eq('flow_version_id', flow.current_version_id)
-      .eq('kind', 'entry')
-      .maybeSingle();
+    const entrySteps = await versionSteps(ctx, flow.current_version_id, 'flow');
+    const { data: entry } = entrySteps
+      ? await entrySteps.select('id, name').eq('kind', 'entry').maybeSingle()
+      : { data: null as { id: string; name: string } | null };
     if (!entry) return c.json({ error: 'published version has no entry step' }, 500);
 
-    const { data: run, error: rErr } = await adminClient
+    // The subject must be this workspace's. A missing row and another
+    // workspace's are the same answer, on purpose (lib/workspace-refs.ts).
+    const owned = await refsBelongToWorkspace(ctx.workspaceId, {
+      person_id: body.data.person_id ?? null,
+      organisation_id: body.data.organisation_id ?? null,
+      flow_run_id: null,
+    });
+    if (!owned.ok) return c.json({ error: `${owned.field} is not in this workspace` }, 404);
+
+    const { data: run, error: rErr } = await tenantDb(ctx)
       .from('flow_run')
       .insert({
         workspace_id: ctx.workspaceId,
@@ -339,9 +357,9 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       createdBy: null,
     };
     if (flow.progression === 'open') {
-      await materialiseAllSteps(adminClient, seed);
+      await materialiseAllSteps(serviceRole('materialise writes tasks of the run created just above, in this workspace; it stamps workspaceId itself'), seed);
     } else {
-      await materialiseTasksForStep(adminClient, { ...seed, stepId: entry.id });
+      await materialiseTasksForStep(serviceRole('materialise writes tasks of the run created just above, in this workspace; it stamps workspaceId itself'), { ...seed, stepId: entry.id });
     }
 
     // The data wall: type + subject only, and only when there is a person to
@@ -349,7 +367,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     if (body.data.person_id) {
       const app = await resolveAppRow(ctx.appId);
       if (app) {
-        const { error } = await adminClient.from('activity').insert({
+        const { error } = await tenantDb(ctx).from('activity').insert({
           workspace_id: ctx.workspaceId,
           person_id: body.data.person_id,
           app_id: app.id,
@@ -372,12 +390,11 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     const ctx = appKeyOnly(c);
     if (!ctx) return notForUsers(c);
 
-    let q = adminClient
+    let q = tenantDb(ctx)
       .from('flow_run')
       .select(
         'id, flow_id, person_id, organisation_id, subject_label, current_step_id, status, source_ref, entered_at',
       )
-      .eq('workspace_id', ctx.workspaceId)
       .eq('source_app', ctx.appId)
       .is('deleted_at', null)
       .order('entered_at', { ascending: false })
@@ -403,13 +420,12 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     const run = await ownRun(ctx, c.req.param('id'));
     if (!run) return c.json({ error: 'run not found' }, 404);
 
-    const { data: steps } = await adminClient
-      .from('flow_step')
-      .select('id, key, name, description, kind, ordinal, group_key, group_label, meta')
-      .eq('flow_version_id', run.flow_version_id)
-      .order('ordinal');
+    const runSteps = await versionSteps(ctx, run.flow_version_id, 'run');
+    const { data: steps } = runSteps
+      ? await runSteps.select('id, key, name, description, kind, ordinal, group_key, group_label, meta').order('ordinal')
+      : { data: [] as Record<string, unknown>[] };
 
-    const { data: tasks } = await adminClient
+    const { data: tasks } = await tenantDb(ctx)
       .from('flow_task')
       .select('id, title, description, status, due_at, step_id, completed_at')
       .eq('flow_run_id', run.id)
@@ -418,7 +434,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     const app = await resolveAppRow(ctx.appId);
     const { data: notes } = app
-      ? await adminClient
+      ? await tenantDb(ctx)
           .from('flow_run_note')
           .select('step_id, body, created_at')
           .eq('flow_run_id', run.id)
@@ -426,7 +442,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
           .is('deleted_at', null)
       : { data: [] as { step_id: string | null; body: string }[] };
 
-    const keyByStepId = await stepKeyMap(run.flow_version_id);
+    const keyByStepId = await stepKeyMap(ctx, run.flow_version_id);
     const noteByStep = new Map(
       (notes ?? []).map((n) => [n.step_id as string, n.body as string]),
     );
@@ -506,11 +522,11 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     if (!run) return c.json({ error: 'run not found' }, 404);
     if (run.status !== 'active') return c.json({ error: `run is ${run.status}` }, 400);
 
-    const target = await stepByKey(run.flow_version_id, body.data.step_key);
+    const target = await stepByKey(ctx, run.flow_version_id, body.data.step_key);
     if (!target) return c.json({ error: 'step not found in this flow version' }, 404);
     if (target.id === run.current_step_id) return c.json({ ok: true, step_key: target.key });
 
-    const { error } = await adminClient
+    const { error } = await tenantDb(ctx)
       .from('flow_run')
       .update({ current_step_id: target.id, current_step_entered_at: new Date().toISOString() })
       .eq('id', run.id);
@@ -538,12 +554,12 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     let stepId: string | null = null;
     if (body.data.step_key) {
-      const step = await stepByKey(run.flow_version_id, body.data.step_key);
+      const step = await stepByKey(ctx, run.flow_version_id, body.data.step_key);
       if (!step) return c.json({ error: 'step not found in this flow version' }, 404);
       stepId = step.id;
     }
 
-    const { data, error } = await adminClient
+    const { data, error } = await tenantDb(ctx)
       .from('flow_task')
       .insert({
         workspace_id: ctx.workspaceId,
@@ -576,11 +592,10 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     if (!body.success) return c.json({ error: body.error.flatten() }, 400);
 
     // The task must belong to a run this app owns.
-    const { data: task } = await adminClient
+    const { data: task } = await tenantDb(ctx)
       .from('flow_task')
       .select('id, flow_run_id')
       .eq('id', c.req.param('id'))
-      .eq('workspace_id', ctx.workspaceId)
       .is('deleted_at', null)
       .maybeSingle();
     if (!task?.flow_run_id) return c.json({ error: 'task not found' }, 404);
@@ -595,7 +610,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       patch.completed_by = null;
     }
 
-    const { error } = await adminClient.from('flow_task').update(patch).eq('id', task.id);
+    const { error } = await tenantDb(ctx).from('flow_task').update(patch).eq('id', task.id);
     if (error) {
       console.error('[app-flow] patch task', error);
       return c.json({ error: error.message }, 500);
@@ -617,12 +632,12 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     if (!ctx) return notForUsers(c);
     const run = await ownRun(ctx, c.req.param('id'));
     if (!run) return c.json({ error: 'run not found' }, 404);
-    const step = await stepByKey(run.flow_version_id, c.req.param('step_key'));
+    const step = await stepByKey(ctx, run.flow_version_id, c.req.param('step_key'));
     if (!step) return c.json({ error: 'step not found in this flow version' }, 404);
     const app = await resolveAppRow(ctx.appId);
     if (!app) return c.json({ error: 'app not found' }, 500);
 
-    const { data } = await adminClient
+    const { data } = await tenantDb(ctx)
       .from('flow_run_note')
       .select('body, created_at')
       .eq('flow_run_id', run.id)
@@ -641,14 +656,14 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     const run = await ownRun(ctx, c.req.param('id'));
     if (!run) return c.json({ error: 'run not found' }, 404);
-    const step = await stepByKey(run.flow_version_id, c.req.param('step_key'));
+    const step = await stepByKey(ctx, run.flow_version_id, c.req.param('step_key'));
     if (!step) return c.json({ error: 'step not found in this flow version' }, 404);
     const app = await resolveAppRow(ctx.appId);
     if (!app) return c.json({ error: 'app not found' }, 500);
 
     // Empty body clears the note rather than storing a blank one.
     if (body.data.body.trim() === '') {
-      await adminClient
+      await tenantDb(ctx)
         .from('flow_run_note')
         .update({ deleted_at: new Date().toISOString() })
         .eq('flow_run_id', run.id)
@@ -658,7 +673,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       return c.json({ ok: true, body: null });
     }
 
-    const { data: existing } = await adminClient
+    const { data: existing } = await tenantDb(ctx)
       .from('flow_run_note')
       .select('id')
       .eq('flow_run_id', run.id)
@@ -668,7 +683,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       .maybeSingle();
 
     if (existing) {
-      const { error } = await adminClient
+      const { error } = await tenantDb(ctx)
         .from('flow_run_note')
         .update({ body: body.data.body })
         .eq('id', existing.id);
@@ -679,7 +694,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       return c.json({ ok: true, body: body.data.body });
     }
 
-    const { error } = await adminClient.from('flow_run_note').insert({
+    const { error } = await tenantDb(ctx).from('flow_run_note').insert({
       workspace_id: ctx.workspaceId,
       flow_run_id: run.id,
       step_id: step.id,

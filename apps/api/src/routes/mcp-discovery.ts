@@ -117,7 +117,9 @@ export function authorizationServerMetadata(origin: string) {
     token_endpoint_auth_methods_supported: ['none'],
     revocation_endpoint_auth_methods_supported: ['none'],
     scopes_supported: [...MCP_SCOPES],
-    service_documentation: 'https://github.com/findingthesoul/thefibre/blob/main/docs/mcp-personal-access-plan.md',
+    // No service_documentation (OPTIONAL in RFC 8414): it pointed at the
+    // repository, which is private since 2026-10-17, and a link that 404s
+    // for every client is worse than none. Add it back with a page we serve.
   };
 }
 
