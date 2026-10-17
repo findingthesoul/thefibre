@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.276.0] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 1, the migration: who you see is who you organise for (database)
+
+- Sjoerd, "yes contacts". Who you see in Fibre Contacts follows the
+  hierarchy workspace admin → team → organiser → host / facilitator, each
+  level seeing what is below it. `can_see_person` (the person table's row
+  policy; Contacts reads through RLS) gains:
+  - the participants (any status) of a thread you are the organiser, a host
+    or a facilitator of, NOW. Stepping off a thread loses them;
+  - the participants of a thread that belongs to a team you are an active
+    member of;
+  - Meet: the invitee of a booking whose meeting type you are an assignee of,
+    or whose type your team owns (round robin and collective are always
+    team-owned). Hosting the booking already counted.
+- **Removed:** the fellow-participant clause. Sharing a program no longer
+  shows you everyone else in it.
+- Unchanged:
+  - admins see everyone in the workspace;
+  - you see yourself and your active teammates;
+  - the explicit org_wide settings on a team or a program;
+  - the workspace role 'organiser' gives no contacts by itself (Sjoerd's
+    answer).
+- One `create or replace` with the same signature, so the grants of the
+  born-closed migration (20260914171000) are kept. Every join has an index
+  already.
+- **Migration alone, first:**
+  - `20261017133142_contacts_follow_the_hierarchy.sql`.
+  - Its RLS-matrix tests, and the cancellation test no longer leaning on
+    org_wide, follow in the next release, once it is applied to staging.
+
 ## [1.275.0] — 2026-10-17
 
 ### Members: a click shows that it took — the dialog closes when the new data is in, settings pages show they are loading, filters move at once (Members 1.21.0)
