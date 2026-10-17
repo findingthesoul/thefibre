@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.265.0] — 2026-10-17
+
+### Drive folders, slice 2: connect a folder with proof of control, and browse it (API)
+
+- **Connect** (Members → Settings → Member page; builder 3 builds the form):
+  - `GET /membership/member-page/drive/config` names the stack's read-only
+    service account.
+  - `POST /membership/member-page/drive/start {folder_url}` returns a
+    one-time code for this workspace and folder.
+  - `POST /membership/member-page/drive/verify {folder_id, title?}` finds that
+    code in the folder's Drive description, then records the binding and adds
+    the member-page entry (kind `drive`). Errors are named: `bad_url`,
+    `not_shared` (with the address to share with), `bound_elsewhere`,
+    `code_missing`, `code_expired`, `drive_not_configured`, `unavailable`.
+  - The code is an HMAC over (workspace, folder, hour) on its own key label
+    (`drive-verify-v1`). It is valid this hour and the next, and is compared in
+    constant time.
+  - Removing the entry (the ordinary document DELETE) also drops the binding.
+- **Browse** (my.thread; builder 3 builds the browser):
+  `GET /me/portal/community/:ws/drive/:docId?folder=` returns the folder,
+  breadcrumbs, items (folders first; size, date, `export_as: 'pdf'` for
+  Google Docs/Sheets/Slides/Drawings, `downloadable` + `reason`) and `limits`.
+  - Each request re-runs the member-page predicate and audience, plus "the
+    binding is still this community's".
+  - `?folder=` must sit under the BOUND root (a parents walk of at most 10
+    levels), so another community's folder id answers 404.
+  - Listings are cached for 2 minutes per workspace + bound folder + path. The
+    last listing is served when Google is busy.
+- **Service account:** one per stack, `drive.readonly`, no delegation. Its
+  key is the Fly secret `GOOGLE_DRIVE_SA_JSON` (base64), set by Sjoerd. Until
+  then, everything answers `drive_not_configured`.
+- **Additive shapes:** `kind: 'drive'` joins the member-page documents in the
+  admin read, the community view and `/portal/files`.
+- Downloads are slice 3.
+- **Tests:**
+  - `drive.test.ts` (9): link shapes; the code bound to workspace + folder;
+    the hour edge (issued 10:59 still proves at 11:30, not at 12:00); the item
+    mapping; the order; the secret's shapes.
+  - `drive-folder.int.test.ts` (10) against staging with Google faked: config,
+    start, verify, another community refused even with its own code, browse
+    and subfolder, B cannot reach A's folder through its own entry, outsider
+    and audience 404, unshared, and remove drops the binding.
+
 ## [1.264.0] — 2026-10-17
 
 ### Drive folders, slice 1: a folder belongs to one community (migration only)

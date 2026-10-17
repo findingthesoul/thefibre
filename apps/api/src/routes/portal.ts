@@ -92,6 +92,8 @@ import { placesByThread } from '../lib/place-state.js';
 import { ensurePref } from '../lib/member-notify.js';
 import { communityView, memberCommunities, signedDocumentUrl } from '../lib/member-page.js';
 import { filesFor } from '../lib/portal-files.js';
+import { admittedDriveEntry } from '../lib/drive-connect.js';
+import { DriveError, listFolder } from '../lib/drive.js';
 import {
   couldJoinFrom,
   entitlementsByMember,
@@ -1307,6 +1309,28 @@ portalRoutes.get('/portal/community/:ws/documents/:id', async (c) => {
   // nobody's business but a member's.
   if (!url) return c.json({ error: 'not found' }, 404);
   return c.json({ url });
+});
+
+// A connected Google Drive folder (lib/drive.ts, lib/drive-connect.ts;
+// 2026-10-17). Admitted on EVERY request by the member-page predicate plus
+// the binding; `?folder=` must sit under the bound root (the parents walk), so
+// another community's folder id answers 404 like a folder that is not there.
+portalRoutes.get('/portal/community/:ws/drive/:docId', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+  const ws = c.req.param('ws');
+  const doc = await admittedDriveEntry(email, ws, c.req.param('docId'));
+  if (!doc) return c.json({ error: 'not found', code: 'not_found' }, 404);
+  try {
+    return c.json(await listFolder(ws, doc.folder_id, c.req.query('folder') ?? null, c.req.query('locale') ?? 'en'));
+  } catch (e) {
+    if (e instanceof DriveError) {
+      if (e.code === 'not_found') return c.json({ error: 'not found', code: 'not_found' }, 404);
+      if (e.code === 'not_shared') return c.json({ error: 'this folder is not available right now', code: 'not_shared' }, 409);
+      return c.json({ error: 'files are not available right now', code: 'unavailable' }, 503);
+    }
+    throw e;
+  }
 });
 
 // ===========================================================================

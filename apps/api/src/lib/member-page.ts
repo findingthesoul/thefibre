@@ -79,8 +79,24 @@ export type LinkDocument = {
   category_ids?: string[];
 };
 
-export type PageDocument = StoredDocument | LinkDocument;
+/** A Google Drive FOLDER (Drive folders, 2026-10-17). Its files stay in
+ *  Drive; the member browses it through the API (lib/drive.ts). Shown only
+ *  while membership_drive_binding says the folder is this workspace's. */
+export type DriveDocument = {
+  id: string;
+  title: string;
+  kind: 'drive';
+  folder_id: string;
+  uploaded_at: string;
+  tier_ids?: string[];
+  category_ids?: string[];
+};
+
+export type PageDocument = StoredDocument | LinkDocument | DriveDocument;
 export const isLink = (d: PageDocument): d is LinkDocument => d.kind === 'link';
+export const isDrive = (d: PageDocument): d is DriveDocument => d.kind === 'drive';
+/** A file the bucket holds — the only kind with a storage path. */
+export const isStored = (d: PageDocument): d is StoredDocument => !isLink(d) && !isDrive(d);
 
 export type MemberPage = {
   intro_html: string | null;
@@ -243,6 +259,22 @@ export async function addLink(ws: string, rawUrl: unknown, title: string | null)
   return doc;
 }
 
+/** A connected Drive folder, appended where new documents go. The binding
+ *  is written by the caller first (lib/drive-connect.ts): an entry is never
+ *  stored for a folder this workspace has not proved. */
+export async function addDriveDocument(ws: string, folderId: string, title: string): Promise<DriveDocument> {
+  const doc: DriveDocument = {
+    id: randomUUID(),
+    title: title.trim().slice(0, 200) || 'Folder',
+    kind: 'drive',
+    folder_id: folderId,
+    uploaded_at: new Date().toISOString(),
+  };
+  const page = await readMemberPage(ws);
+  await writeMemberPage(ws, { ...page, documents: [...page.documents, doc] });
+  return doc;
+}
+
 export async function renameDocument(ws: string, id: string, title: string): Promise<boolean> {
   const page = await readMemberPage(ws);
   if (!page.documents.some((d) => d.id === id)) return false;
@@ -271,9 +303,19 @@ export async function removeDocument(ws: string, id: string): Promise<boolean> {
   const page = await readMemberPage(ws);
   const doc = page.documents.find((d) => d.id === id);
   if (!doc) return false;
-  if (!isLink(doc)) {
+  if (isStored(doc)) {
     const { error } = await adminClient.storage.from(BUCKET).remove([doc.path]);
     if (error) throw new Error(`remove file: ${error.message}`);
+  }
+  if (isDrive(doc)) {
+    // The proof goes with the entry, so the folder can be connected again —
+    // here or by the community it really belongs to.
+    const { error } = await adminClient
+      .from('membership_drive_binding')
+      .delete()
+      .eq('drive_folder_id', doc.folder_id)
+      .eq('workspace_id', ws);
+    if (error) throw new Error(`remove binding: ${error.message}`);
   }
   await writeMemberPage(ws, { ...page, documents: page.documents.filter((d) => d.id !== id) });
   return true;
@@ -343,7 +385,7 @@ export async function signedDocumentUrl(email: string, ws: string, docId: string
   if (!mine) return null;
   const found = (await readMemberPage(ws)).documents.find((d) => d.id === docId);
   // A link entry has no stored file to sign; the page links to it directly.
-  if (!found || isLink(found)) return null;
+  if (!found || !isStored(found)) return null;
   // Not shown to this member's tiers: not signed for them either — the same
   // answer as a document that is not there.
   if (!visibleTo(found, mine)) return null;
@@ -370,7 +412,7 @@ export type CommunityView = {
   category_sections: { category_id: string; category_name: string; intro_html: string }[];
   /** A file (kind 'file', fetched through the signed route) or a link
    *  (kind 'link', opened directly). */
-  documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string })[];
+  documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string } | { id: string; title: string; kind: 'drive' })[];
   /** Document steps from the member's own threads in this community, ONLY
    *  those already released to them by the thread's own triggers. */
   thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
@@ -545,7 +587,11 @@ export async function communityView(
     documents: page.documents.filter((d) => visibleTo(d, { tier_ids: held, category_ids: heldCats })).map((d) =>
       isLink(d)
         ? { id: d.id, title: d.title, kind: 'link' as const, url: d.url }
-        : { id: d.id, title: d.title, kind: 'file' as const, mime: d.mime, bytes: d.bytes },
+        : isDrive(d)
+          // Additive: a connected folder. No folder id leaves the API here;
+          // the browse route takes the entry id.
+          ? { id: d.id, title: d.title, kind: 'drive' as const }
+          : { id: d.id, title: d.title, kind: 'file' as const, mime: d.mime, bytes: d.bytes },
     ),
     thread_documents: threadDocuments,
     next,

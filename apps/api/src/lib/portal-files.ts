@@ -18,6 +18,7 @@
 import { adminClient } from '../db.js';
 import { personsForEmail } from './portal-agenda.js';
 import {
+  isDrive,
   isLink,
   memberCommunities,
   readMemberPage,
@@ -30,7 +31,9 @@ import {
 
 export type CommunityFile =
   | { id: string; title: string; kind: 'file'; mime: string; bytes: number }
-  | { id: string; title: string; kind: 'link'; url: string };
+  | { id: string; title: string; kind: 'link'; url: string }
+  // A connected Drive folder (2026-10-17); browsed through the API by entry id.
+  | { id: string; title: string; kind: 'drive' };
 
 export type FilesGroup = {
   workspace_id: string;
@@ -66,7 +69,11 @@ export function groupFiles(input: {
     if (!c.documents.length) continue;
     group(c.workspace_id).community.push(
       ...c.documents.map((d): CommunityFile =>
-        isLink(d) ? { id: d.id, title: d.title, kind: 'link', url: d.url } : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes },
+        isLink(d)
+          ? { id: d.id, title: d.title, kind: 'link', url: d.url }
+          : isDrive(d)
+            ? { id: d.id, title: d.title, kind: 'drive' }
+            : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes },
       ),
     );
   }

@@ -7,6 +7,7 @@ import {
   addDocument,
   addLink,
   communityView,
+  isDrive,
   isLink,
   readMemberPage,
   removeDocument,
@@ -87,6 +88,8 @@ import {
   type PriceLogic,
 } from '../lib/pricing.js';
 import { runFibreSeatSync, grantSeat } from '../lib/fibre-seat.js';
+import { startConnect, verifyConnect } from '../lib/drive-connect.js';
+import { serviceAccountEmail } from '../lib/drive.js';
 import { declineGoogleAccount, markGoogleAccountCreated, ownDomainAddress } from '../lib/google-account.js';
 import { grantStatusFor, isRecurringInterval, LIVE_PURCHASE_STATUSES } from '../lib/product-ownership.js';
 
@@ -2067,7 +2070,10 @@ membershipRoutes.get('/member-page', async (c) => {
     documents: page.documents.map((d) =>
       isLink(d)
         ? { id: d.id, title: d.title, kind: 'link', url: d.url, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [], category_ids: d.category_ids ?? [] }
-        : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [], category_ids: d.category_ids ?? [] },
+        : isDrive(d)
+          // Additive: a connected Drive folder (the admin sees its id).
+          ? { id: d.id, title: d.title, kind: 'drive', folder_id: d.folder_id, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [], category_ids: d.category_ids ?? [] }
+          : { id: d.id, title: d.title, kind: 'file', mime: d.mime, bytes: d.bytes, uploaded_at: d.uploaded_at, tier_ids: d.tier_ids ?? [], category_ids: d.category_ids ?? [] },
     ),
   });
 });
@@ -2101,6 +2107,57 @@ membershipRoutes.post('/member-page/links', async (c) => {
   const r = await addLink(ws, body?.url, typeof body?.title === 'string' ? body.title : null);
   if (r === 'bad_url') return c.json({ error: 'Use a full web address starting with https:// (or http://).' }, 400);
   return c.json({ id: r.id, title: r.title, kind: 'link', url: r.url, uploaded_at: r.uploaded_at }, 201);
+});
+
+// ---------------------------------------------------------------------------
+// A Google Drive folder on the member page (lib/drive-connect.ts; Sjoerd,
+// 2026-10-17). Two steps, because the stack's one service account reads every
+// community's shared folders: START gives a one-time code for this workspace
+// and folder; VERIFY finds it in the folder's Drive description and records
+// the binding + the entry. Rename, audience, order and remove are the
+// ordinary document routes (remove also drops the binding).
+// ---------------------------------------------------------------------------
+
+membershipRoutes.get('/member-page/drive/config', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  return c.json({ service_account: serviceAccountEmail() });
+});
+
+const DRIVE_WORDS: Record<string, string> = {
+  bad_url: 'Paste the link of a Google Drive FOLDER (drive.google.com/drive/folders/…).',
+  bad_folder: 'That is not a folder in Google Drive.',
+  not_shared: 'The Fibre cannot see that folder yet. Share it with the address shown, as Viewer.',
+  bound_elsewhere: 'That folder is already connected to another community.',
+  code_missing: 'The code is not in the folder’s description yet.',
+  code_expired: 'That code has expired. Start again for a new one.',
+  drive_not_configured: 'Google Drive is not set up here yet.',
+  unavailable: 'Google Drive did not answer. Try again in a minute.',
+};
+
+membershipRoutes.post('/member-page/drive/start', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { folder_url?: unknown } | null;
+  const r = await startConnect(ws, body?.folder_url);
+  if ('error' in r && r.error) {
+    const e = r.error;
+    return c.json({ error: DRIVE_WORDS[e.code], code: e.code, ...('service_account' in e ? { service_account: e.service_account ?? null } : {}) }, e.status);
+  }
+  return c.json(r);
+});
+
+membershipRoutes.post('/member-page/drive/verify', async (c) => {
+  const ws = await admin(c);
+  if (!ws) return c.json({ error: 'admin only' }, 403);
+  const body = (await c.req.json().catch(() => null)) as { folder_id?: unknown; title?: unknown } | null;
+  const r = await verifyConnect(ws, c.get('ctx').userId || null, body?.folder_id, body?.title);
+  if ('error' in r && r.error) {
+    const e = r.error;
+    return c.json({ error: DRIVE_WORDS[e.code], code: e.code, ...('service_account' in e ? { service_account: e.service_account ?? null } : {}) }, e.status);
+  }
+  const d = r.doc!;
+  return c.json({ id: d.id, title: d.title, kind: 'drive', folder_id: d.folder_id, uploaded_at: d.uploaded_at }, 201);
 });
 
 membershipRoutes.put('/member-page', async (c) => {
