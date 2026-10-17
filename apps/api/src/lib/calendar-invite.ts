@@ -50,6 +50,7 @@ import { platformEmailLocale } from './email/platform-i18n.js';
 import { workspaceSender } from './workspace-brand.js';
 import { notifyCalendarSend } from './member-notify.js';
 import { enrolmentIsLive } from './portal.js';
+import { recordHeld } from './calendar-held.js';
 
 /** The fields whose change is worth telling somebody about. Sjoerd set this
  *  list explicitly: date, time, place, existence — *"not when someone fixes a
@@ -697,6 +698,20 @@ export async function sendPendingChanges(args: {
         });
         sent += 1;
         reached.add(person.email);
+        // Who holds this session now (thread_calendar_held): the rolling
+        // window reads it so nobody is invited twice, and a thread ending
+        // reads it to know who needs the CANCEL.
+        if (change.engagement_id) {
+          await recordHeld({
+            workspace_id: thread.workspace_id as string,
+            thread_id: args.threadId,
+            engagement_id: change.engagement_id,
+            email: person.email,
+            method,
+            sequence,
+            source: 'send',
+          });
+        }
         // Resend accepts two requests a second. A thread of forty people with
         // three moved sessions is a hundred and twenty sends in a tight loop,
         // and the rejections would land silently in `skipped` — a send that

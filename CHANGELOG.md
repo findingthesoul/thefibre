@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.270.0] — 2026-10-17
+
+### Calendar invitations, slice 2: every participant holds the next six weeks of sessions — switched OFF until Sjoerd reads the dry run (API)
+
+- Sjoerd's "Go" ("amazing. Go."). Until now a participant got a session into
+  their calendar only when the organiser pressed SEND on a change, so anyone
+  who enrolled after a session's invitation went out never received it.
+- **`lib/calendar-window.ts`:** every few minutes, every live participant is
+  invited to each published, agenda-shown session of their thread starting
+  within the next 6 weeks that they do not hold yet.
+  - One mail per session: a REQUEST with several events is only half-read by
+    Gmail.
+  - The session's own UID and current SEQUENCE, so a later move updates the
+    same event.
+  - Paced to Resend's limit.
+- **Not twice:** a person already holds a session when either is true:
+  - a row exists in `thread_calendar_held` (written by every send from now
+    on);
+  - an organiser SEND of that session went out after their place began. This
+    is how existing members join the flow at launch without duplicates.
+- **Calendar-feed followers are skipped:** a live my.thread calendar feed
+  read in the last 14 days already shows every session.
+- **The organiser's SEND now records who holds what** (`source 'send'`). The
+  record lives in its own module, `lib/calendar-held.ts`.
+- **OFF until `platform_setting` `calendar_window` = `on`** (absent = off).
+  While off, the scheduler logs counts per thread, never an address, at most
+  hourly.
+- **`scripts/calendar-window-dry-run.ts prod|staging`:** read-only. It runs
+  the same planner and prints, per thread, the live participants, the feed
+  followers skipped, the people who would receive invitations and how many
+  invitations. No names. It refuses if the env file points at the other
+  stack. Sjoerd runs it against production before he switches it on.
+- **Tests:**
+  - `calendar-window.test.ts` (5): the planner — gaps only, held rows,
+    existing members by send history, feed followers, the sequence kept.
+  - `calendar-window.int.test.ts` (3) against staging, with mail recorded:
+    exactly the gaps get one inline REQUEST each with UID + SEQUENCE and a
+    held row; not a session beyond six weeks, not an existing member already
+    holding it, not a feed follower, not a declined place. A second run sends
+    nothing. The organiser's SEND writes held rows.
+
 ## [1.269.0] — 2026-10-17
 
 ### Calendar invitations, slice 1: a record of who holds which session (migration only)

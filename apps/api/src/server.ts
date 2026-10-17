@@ -36,6 +36,7 @@ import { withSchedulerLease } from './lib/scheduler-lease.js';
 import { bootDelay } from './lib/boot-schedule.js';
 import { runMemberNotify } from './lib/member-notify.js';
 import { runCalendarNudgeJob } from './lib/calendar-nudge.js';
+import { runCalendarWindowJob } from './lib/calendar-window.js';
 import { warmJwks as warmParticipantJwks } from './lib/participant-auth.js';
 import { runBillingMeterTick } from './routes/billing.js';
 import { runHygieneSweep } from './lib/hygiene.js';
@@ -445,6 +446,10 @@ const JOBS: [string, () => Promise<unknown>, string][] = [
   // per batch (lib/calendar-nudge.ts). A dry run that only logs until the
   // platform_setting `calendar_nudge` is `on`.
   ['calendar-nudge', runCalendarNudgeJob, 'thread/calendar-nudge'],
+  // Every live participant holds every published session in the next six
+  // weeks, one invitation per session (lib/calendar-window.ts). A dry run
+  // that only logs counts until platform_setting `calendar_window` is `on`.
+  ['calendar-window', () => runCalendarWindowJob(), 'thread/calendar-window'],
 ];
 JOBS.forEach(([name, run, label], i) => {
   const tick = () => leased(name, run, label);
