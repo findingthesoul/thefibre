@@ -38,8 +38,12 @@ cancellation request, and the You picker writing the cookie). What's left:
   change forces a sw.js VERSION bump.
 - Members' list, search and member pages were not seen rendered in Dutch:
   the e2e fixture has no directory.
-- **Next: web push for my.thread's bell.** Planned in
-  `docs/web-push-plan.md`; five questions for Sjoerd in §10 first.
+- ~~**Next: web push for my.thread's bell.**~~ **LIVE ON STAGING (groomed
+  2026-10-17).** The table shipped in v1.250.1 and the code in v1.252.0
+  (my.thread 0.26.0). Sjoerd answered §10 and everything was built as
+  recommended. The staging VAPID keys are set, and Sjoerd received a push on
+  his iPhone. **Left: the production VAPID keys** (Sjoerd's terminal); until
+  they are set, production shows no button and sends nothing.
 
 **Meet booking approval: ON STAGING, not promoted (v1.110.2 → v1.112.0,
 2026-10-06).** A real invitee hit three faults in one booking: rescheduling
@@ -132,12 +136,17 @@ directory slices 3–4 because it is live today. The member-list switch is a
 DIFFERENT thing and must not be drawn beside it: one is a community, the
 other is the internet.
 
-**Member directory — slice 1 built, awaiting its release** (spec
-`docs/member-directory-spec.md`). Categories, the product link, the four
-workspace switches, the admin screen. Slice 2 is the entry + consent at join
-+ the per-community switch; **slice 3 stays blocked** on the merged-address
-mechanism, which is still Sjoerd's to choose. Nothing of slice 1 has been
-rendered yet — the first look is the next thing after it reaches staging.
+**Member directory — SHIPPED (groomed 2026-10-17; this entry said "slice 1
+awaiting its release")** (spec `docs/member-directory-spec.md`, §10 slice
+order). On staging and production: categories and the product link
+(`20261004111303`), the entry with consent at join (`20261004140122`), the
+per-workspace switch (`20261005210243`), Members → Settings → Directory, the
+member page per category (Members 1.12.0), and my.thread → Members (list,
+member pages, and search over name, place, bio and tags; e2e
+`portal-members-list`, `portal-members-speed`). A listed member's city and
+links come from the one profile since v1.253.0. **Still open, and not the
+directory's:** the merged-away address (below, Sjoerd's choice), and a
+Dutch render of the Members pages (the fixture has no directory).
 
 
 **The profile bio is mid-conversion to rich text (Release A shipped
@@ -330,7 +339,8 @@ tabs, `/public/my-enrolments`, `/teams?mine=1`) through
 judgement per site rather than a sweep:
 - `routes/thread.ts` bulk certificate issue (~2895: "0 issued, 0 skipped" on
   a failed read), `routes/persons.ts` Meet bookings on a profile (~975/982).
-- Web: `apps/my/lib/portal-api.ts` fetchInvoices `return []` on !ok,
+- Web: ~~`apps/my/lib/portal-api.ts` fetchInvoices `return []` on !ok~~
+  (done: it throws `PortalApiError` now; groomed 2026-10-17),
   `apps/thread/app/(app)/checkin/page.tsx` ~61 (door shows nobody),
   `apps/thread` and `apps/meet` dashboard pages `.catch(() => null)?.items ?? []`,
   Pulse `safeItems`, Membership `.catch(() => [])`,
