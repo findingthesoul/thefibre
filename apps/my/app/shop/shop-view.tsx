@@ -15,6 +15,7 @@ import { NOTICE, ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import type { Locale } from '@thefibre/shared/i18n';
 import { t, type MyKey } from '@/lib/i18n';
+import { friendlyError } from '@/lib/errors';
 import { money, fmtDate } from '@/lib/format';
 import type { ShopCommunity } from '@/lib/portal-api';
 import { ChangeMembership } from '../purchases/change-membership';
@@ -64,7 +65,7 @@ export function ShopView({ communities, renewals, buyer }: { communities: ShopCo
         : { ...common, product_id: item.id, ...(buyer.taxNo ? { vat_id: buyer.taxNo } : {}) };
     try {
       const res = await fetch(`${base}${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const json = (await res.json().catch(() => ({}))) as { url?: string | null; already_purchased?: boolean; error?: unknown };
+      const json = (await res.json().catch(() => ({}))) as { url?: string | null; already_purchased?: boolean; error?: unknown; code?: string };
       if (json.already_purchased) {
         setError({ ws: c.workspace_id, message: t(locale, 'shop_already', { name: item.name }) });
       } else if (res.ok && json.url) {
@@ -74,10 +75,19 @@ export function ShopView({ communities, renewals, buyer }: { communities: ShopCo
         const msg = typeof json.error === 'string' ? json.error : '';
         // A VAT-registered community needs the buyer's country; say where
         // it is given rather than show a bare refusal.
-        setError({ ws: c.workspace_id, message: !buyer.country && /country/i.test(msg) ? t(locale, 'shop_need_details') : msg || t(locale, 'did_not_save') });
+        // Anything else: what the refusal MEANS, in the reader's language
+        // (lib/errors.ts), never the API's English on its own.
+        setError({
+          ws: c.workspace_id,
+          message:
+            !buyer.country && /country/i.test(msg)
+              ? t(locale, 'shop_need_details')
+              : friendlyError(Object.assign(new Error(msg), { status: res.ok ? undefined : res.status, code: json.code }), locale),
+        });
       }
-    } catch {
-      setError({ ws: c.workspace_id, message: t(locale, 'did_not_save') });
+    } catch (e) {
+      // fetch() itself failed: "check your connection", not "did not save".
+      setError({ ws: c.workspace_id, message: friendlyError(e, locale) });
     }
     setBusy(null);
   }

@@ -6,6 +6,66 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.262.0] — 2026-10-17
+
+### my.thread: a session straight into Google or Outlook, remembered per device (my.thread 0.31.0)
+
+- Sjoerd, from production: in a thread's dialog on Next, a session's calendar
+  icon and "Add all to calendar" only DOWNLOADED an .ics file. He wanted the
+  same choice as the calendar card.
+- **A session's icon opens a menu:** Google Calendar, Outlook.com, or "Apple
+  or other (.ics)" (today's download). One line under it says what's true:
+  "A copy: it won't move if the session moves. Subscribe your calendar to
+  follow moves."
+- **"Add all to calendar"** offers **Subscribe** (You → Notifications, where
+  the Google, Outlook and Apple feed buttons are, and a feed is one tap
+  away) or **Download all sessions (.ics)**. Its note matches the page
+  footer: subscribing follows moved dates, a download doesn't.
+- **Remembered on this device** (Sjoerd): after the first pick the icon goes
+  straight there, and a small "Other calendar…" opens the menu again. The
+  calendar card puts the same choice first. It's one localStorage key
+  (`my.calendar.choice`), every read and write guarded; blocked storage just
+  means the menu every time. No profile field, no migration.
+- **Checked signed out, as with the feed links** (notes in
+  `lib/calendar-links.ts`):
+  - Google's `render?action=TEMPLATE` loses the event signed out, so it goes
+    through Google's sign-in entry, which keeps title and UTC times.
+  - Outlook.com's `deeplink/compose` keeps the event as `deeplink=…`.
+- `ActionsMenu` (shared) gains optional `trigger`, `triggerClassName` and
+  `note`. Existing callers are unchanged and keep their accessible names
+  (agreed with builder 3).
+- Six languages.
+
+### The last two places that showed an API's English error
+
+- These finish v1.258.0's sweep. They were held back while builder 3 had an
+  open edit in them.
+  - **Add or change** (`purchases/change-membership.tsx`): loading the
+    options, the price preview, and the change itself.
+  - **Shop** (`shop/shop-view.tsx`), buying or subscribing.
+- Both now go through `friendlyError`: a known code first, otherwise the HTTP
+  status, and the API's English only as a detail inside the reader's own
+  sentence. In the Shop, the "add your country first" pointer to Billing
+  details stays first, as builder 3 asked. A fetch that never reached the
+  server now says "check your connection" instead of "that did not save".
+- Coordinated with builder 3, who had no open edits in either file.
+- Tested:
+  - unit `calendar-links` 7 (UTC stamps across offsets; every field
+    encoded; an hour when there's no end) and `calendar-pref` 4 (blocked
+    storage throws nothing); apps/my 74/74;
+  - local my.thread against STAGING with a fixture session, en and nl:
+    first click → menu; Google → a new tab on accounts.google.com carrying
+    `action=TEMPLATE`; next click → straight to Google with no menu; "Other
+    calendar…" → menu. Screenshots looked at;
+  - "Add all to calendar" seen rendered too: locally against staging, the
+    fixture's thread was given a second dated session and it was deleted
+    again afterwards. en and nl, screenshots looked at;
+  - new e2e `calendar-menu.spec.ts` with the same steps on staging, which
+    seeds and cleans that second session the same way. It runs after
+    landing.
+  A sweep of apps/my finds no other place that shows an error's raw text. The one left on purpose is
+  Stripe's card error, which Stripe already writes in the reader's language.
+
 ## [1.261.1] — 2026-10-17
 
 ### The client-value guard follows `@/` imports, and found a latent "Application error" in Thread

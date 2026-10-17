@@ -13,8 +13,10 @@ import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { browserSupabase } from '@/lib/supabase/client';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
-import { toLocale, type Locale } from '@thefibre/shared/i18n';
+import type { Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
+import { friendlyError } from '@/lib/errors';
+import { PortalCallError } from '@/lib/membership-portal-client';
 import { parts } from '@/lib/i18n-parts';
 import { money as fmtMoney } from '@/lib/format';
 
@@ -42,7 +44,7 @@ async function api<T>(path: string, body?: unknown, locale?: Locale): Promise<T>
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const json = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(json.error ?? t(toLocale(locale), 'something_wrong_status', { status: res.status }));
+  if (!res.ok) throw new PortalCallError(json.error ?? '', res.status, (json as { code?: string }).code);
   return json;
 }
 
@@ -87,7 +89,7 @@ export function ChangeMembership({
     setQuote(null);
     setError(null);
     setDone(null);
-    api<Options>(`/me/options/${memberId}`, undefined, locale).then(setOptions, (e: Error) => setError(e.message));
+    api<Options>(`/me/options/${memberId}`, undefined, locale).then(setOptions, (e: unknown) => setError(friendlyError(e, locale)));
   }, [open, memberId, locale]);
 
   // The shop's preselected add-on: picked (and previewed) once the options
@@ -113,7 +115,7 @@ export function ChangeMembership({
         ),
       );
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, locale));
     }
   }
 
@@ -126,7 +128,7 @@ export function ChangeMembership({
       setDone(choice.kind === 'addon' ? t(locale, 'change_done_addon', { name: choice.name }) : t(locale, 'change_done_tier', { name: choice.name }));
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, locale));
     } finally {
       setBusy(false);
     }

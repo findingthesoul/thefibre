@@ -37,6 +37,9 @@ import { t } from '@/lib/i18n';
 // The date chip (day over month, how an agenda is scanned) and the clock
 // come from lib/format, in the reader's language.
 import { dayMonth, fmtTime, listOf } from '@/lib/format';
+import { ActionsMenu } from '@thefibre/shared/ui/actions-menu';
+import { googleEventLink, outlookEventLink, type CalendarEvent } from '@/lib/calendar-links';
+import { readCalendarChoice, writeCalendarChoice, type CalendarChoice } from '@/lib/calendar-pref';
 
 /** A link styled as a button. Not the shared Button: these are anchors, and a
  *  wallet pass or an .ics must be a real navigation, not an onClick. */
@@ -306,7 +309,82 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
   );
 }
 
-function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
+// The add-to-calendar menus' plumbing.
+const ICON_BUTTON =
+  'inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink';
+
+function openNew(url: string) {
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function download(url: string) {
+  // Same-origin .ics routes answer with a download, so the page stays put.
+  window.location.assign(url);
+}
+
+/** A session as one calendar event: the join link (if any) and the thread's
+ *  page in the description, so the copy says where to go. */
+function eventOf(item: AgendaItem, threadUrl: string): CalendarEvent {
+  return {
+    title: item.title,
+    start: item.starts_at!,
+    end: item.ends_at,
+    details: [item.meeting_url, threadUrl].filter(Boolean).join('\n'),
+    location: item.location,
+  };
+}
+
+/**
+ * One session into a calendar. The menu — Google, Outlook.com, a file — until
+ * this device has picked one; after that the icon goes straight there and
+ * "Other calendar…" opens the menu (lib/calendar-pref.ts). The choice is read
+ * after hydration, so the server and the first paint agree.
+ */
+function SessionCalendar({ threadId, threadUrl, item }: { threadId: string; threadUrl: string; item: AgendaItem }) {
+  const locale = useLocale();
+  const [choice, setChoice] = useState<CalendarChoice | null>(null);
+  useEffect(() => setChoice(readCalendarChoice()), []);
+
+  const go = (c: CalendarChoice) => {
+    writeCalendarChoice(c);
+    setChoice(c);
+    if (c === 'google') openNew(googleEventLink(eventOf(item, threadUrl)));
+    else if (c === 'outlook') openNew(outlookEventLink(eventOf(item, threadUrl)));
+    else download(agendaIcsUrl(threadId, item.id));
+  };
+
+  const menu = (trigger?: React.ReactNode, triggerClassName?: string) => (
+    <ActionsMenu
+      label={choice ? t(locale, 'other_calendar') : t(locale, 'add_to_calendar')}
+      trigger={trigger ?? <CalendarPlus className="h-5 w-5" aria-hidden />}
+      triggerClassName={triggerClassName ?? ICON_BUTTON}
+      note={t(locale, 'menu_note_single')}
+      items={[
+        { label: t(locale, 'menu_google'), onSelect: () => go('google') },
+        { label: t(locale, 'menu_outlook'), onSelect: () => go('outlook') },
+        { label: t(locale, 'menu_ics'), onSelect: () => go('apple') },
+      ]}
+    />
+  );
+
+  if (!choice) return menu();
+
+  const label =
+    choice === 'google' ? t(locale, 'add_google_calendar') : choice === 'outlook' ? t(locale, 'add_outlook') : t(locale, 'add_to_calendar');
+  return (
+    <div className="flex flex-col items-center">
+      <button type="button" onClick={() => go(choice)} title={label} aria-label={label} className={ICON_BUTTON}>
+        <CalendarPlus className="h-5 w-5" aria-hidden />
+      </button>
+      {menu(
+        <span>{t(locale, 'other_calendar')}</span>,
+        'mt-0.5 inline-flex min-h-6 items-center text-[11px] text-ink-muted underline underline-offset-2 hover:text-ink',
+      )}
+    </div>
+  );
+}
+
+function AgendaRow({ threadId, threadUrl, item }: { threadId: string; threadUrl: string; item: AgendaItem }) {
   const locale = useLocale();
   const link = item.meeting_url ?? item.external_url;
   return (
@@ -360,15 +438,7 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
               )}
               {/* Only items with a real timestamp: a thread carries dates, and
                   an all-day VEVENT would be machinery for no benefit. */}
-              {item.starts_at && (
-                <IconLink
-                  href={agendaIcsUrl(threadId, item.id)}
-                  label={t(locale, 'add_to_calendar')}
-                  download
-                >
-                  <CalendarPlus className="h-5 w-5" aria-hidden />
-                </IconLink>
-              )}
+              {item.starts_at && <SessionCalendar threadId={threadId} threadUrl={threadUrl} item={item} />}
             </div>
           </div>
           {/* Rich text, not characters. This rendered the editor's own HTML
@@ -510,19 +580,29 @@ export function ThreadSheet({
                   real timestamp: below that it is the same file as the row
                   above it, wearing a second name. */}
               {thread.agenda.filter((a) => a.starts_at).length > 1 && (
-                <a
-                  href={threadIcsUrl(thread.thread_id)}
-                  download
-                  className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink underline underline-offset-4"
-                >
-                  <CalendarPlus className="h-4 w-4" aria-hidden />
-                  {t(locale, 'add_all_to_calendar')}
-                </a>
+                // The whole programme: SUBSCRIBE (You → Notifications, where
+                // the Google, Outlook and Apple feed buttons live and a feed
+                // is made with one tap) or a one-off file.
+                <ActionsMenu
+                  label={t(locale, 'add_all_to_calendar')}
+                  trigger={
+                    <>
+                      <CalendarPlus className="h-4 w-4" aria-hidden />
+                      {t(locale, 'add_all_to_calendar')}
+                    </>
+                  }
+                  triggerClassName="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink underline underline-offset-4"
+                  note={t(locale, 'menu_note_all')}
+                  items={[
+                    { label: t(locale, 'menu_subscribe_all'), onSelect: () => window.location.assign('/you?tab=notifications') },
+                    { label: t(locale, 'menu_download_all'), onSelect: () => download(threadIcsUrl(thread.thread_id)) },
+                  ]}
+                />
               )}
             </div>
             <ul className="mt-2">
               {thread.agenda.map((a) => (
-                <AgendaRow key={a.id} threadId={thread.thread_id} item={a} />
+                <AgendaRow key={a.id} threadId={thread.thread_id} threadUrl={thread.url} item={a} />
               ))}
             </ul>
           </section>

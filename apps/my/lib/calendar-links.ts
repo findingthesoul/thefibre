@@ -17,6 +17,15 @@
 //     not offered.
 // What a signed-IN person sees was not verified: nobody signs in to Google or
 // Microsoft from a test.
+//
+// SINGLE SESSIONS (2026-10-17, a thread's dialog on Next) were checked the
+// same way, signed out, with a fixture event:
+//   * Google's `calendar/render?action=TEMPLATE` loses the event signed out
+//     (the marketing page again); through the sign-in entry it survives —
+//     title and UTC times in the continue address. So the same wrapper.
+//   * Outlook.com's `deeplink/compose` keeps the event as `deeplink=…`.
+// A single event is a COPY: it does not move when the session moves. The
+// menus say so; subscribing is what follows moves.
 
 /** Google Calendar's "Add calendar?" prompt for a subscription. */
 export function googleCalendarLink(webcalOrHttps: string): string {
@@ -29,4 +38,57 @@ export function googleCalendarLink(webcalOrHttps: string): string {
 export function outlookLink(feedUrl: string, name: string): string {
   const https = feedUrl.replace(/^webcal:\/\//, 'https://');
   return `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${encodeURIComponent(name)}`;
+}
+
+/** Through Google's sign-in entry, so a signed-out browser keeps the target. */
+function viaGoogleSignIn(target: string): string {
+  return `https://accounts.google.com/ServiceLogin?service=cl&continue=${encodeURIComponent(target)}`;
+}
+
+export type CalendarEvent = {
+  title: string;
+  /** ISO instant. */
+  start: string;
+  /** ISO instant; an hour after `start` when the session has no end. */
+  end?: string | null;
+  details?: string | null;
+  location?: string | null;
+};
+
+const HOUR = 60 * 60 * 1000;
+
+/** "20261020T180000Z" — Google's UTC stamp. */
+export function utcStamp(iso: string): string {
+  return new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function endOf(e: CalendarEvent): string {
+  return e.end ?? new Date(Date.parse(e.start) + HOUR).toISOString();
+}
+
+/** Google Calendar's "new event" screen, filled in. */
+export function googleEventLink(e: CalendarEvent): string {
+  const q = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: e.title,
+    dates: `${utcStamp(e.start)}/${utcStamp(endOf(e))}`,
+  });
+  if (e.details) q.set('details', e.details);
+  if (e.location) q.set('location', e.location);
+  return viaGoogleSignIn(`https://calendar.google.com/calendar/render?${q.toString()}`);
+}
+
+/** Outlook.com's "new event" screen, filled in. */
+export function outlookEventLink(e: CalendarEvent): string {
+  const iso = (x: string) => new Date(x).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const q = new URLSearchParams({
+    subject: e.title,
+    startdt: iso(e.start),
+    enddt: iso(endOf(e)),
+    path: '/calendar/action/compose',
+    rru: 'addevent',
+  });
+  if (e.details) q.set('body', e.details);
+  if (e.location) q.set('location', e.location);
+  return `https://outlook.live.com/calendar/0/deeplink/compose?${q.toString()}`;
 }

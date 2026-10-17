@@ -22,7 +22,25 @@ export type ActionsMenuItem = {
   destructive?: boolean;
 };
 
-export function ActionsMenu({ label, items, className = '' }: { label: string; items: ActionsMenuItem[]; className?: string }) {
+export function ActionsMenu({
+  label,
+  items,
+  className = '',
+  trigger,
+  triggerClassName,
+  note,
+}: {
+  label: string;
+  items: ActionsMenuItem[];
+  className?: string;
+  /** Replaces the "⋯ label" button's insides — e.g. a calendar icon on a
+   *  row where the label stays the accessible name only (2026-10-17). */
+  trigger?: ReactNode;
+  /** Replaces the button's classes when `trigger` needs another shape. */
+  triggerClassName?: string;
+  /** One quiet line under the items: what the choices mean. */
+  note?: string;
+}) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -55,10 +73,17 @@ export function ActionsMenu({ label, items, className = '' }: { label: string; i
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs text-ink-subtle hover:bg-surface-sunken hover:text-ink"
+        className={
+          triggerClassName ??
+          'inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs text-ink-subtle hover:bg-surface-sunken hover:text-ink'
+        }
       >
-        <MoreHorizontal size={16} aria-hidden />
-        <span className="hidden sm:inline">{label}</span>
+        {trigger ?? (
+          <>
+            <MoreHorizontal size={16} aria-hidden />
+            <span className="hidden sm:inline">{label}</span>
+          </>
+        )}
       </button>
       {open && (
         <div role="menu" aria-label={label} className="absolute right-0 z-50 mt-1 min-w-44 rounded-lg border border-line bg-surface-raised py-1 text-sm shadow-lg">
@@ -77,6 +102,7 @@ export function ActionsMenu({ label, items, className = '' }: { label: string; i
               {it.label}
             </button>
           ))}
+          {note && <p className="max-w-64 border-t border-line px-3 pb-1 pt-2 text-xs text-ink-muted">{note}</p>}
         </div>
       )}
     </div>

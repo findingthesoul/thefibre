@@ -16,7 +16,7 @@
 // wrong device by the time you get there. Every calendar service shows you
 // your own address whenever you ask. So does this.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarPlus, Check, Copy, RefreshCw } from 'lucide-react';
 import { createCalendar, deleteCalendar, type CalendarStatus } from '@/lib/portal-api';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
@@ -24,6 +24,12 @@ import type { Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
 import { parts } from '@/lib/i18n-parts';
 import { googleCalendarLink, outlookLink } from '@/lib/calendar-links';
+import { readCalendarChoice, writeCalendarChoice, type CalendarChoice } from '@/lib/calendar-pref';
+
+function orderByChoice(choice: CalendarChoice | null): CalendarChoice[] {
+  const all: CalendarChoice[] = ['apple', 'google', 'outlook'];
+  return choice ? [choice, ...all.filter((c) => c !== choice)] : all;
+}
 
 export function CalendarCard({ status }: { status: CalendarStatus }) {
   const [state, setState] = useState(status);
@@ -31,6 +37,8 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const locale = useLocale();
+  const [choice, setChoice] = useState<CalendarChoice | null>(null);
+  useEffect(() => setChoice(readCalendarChoice()), []);
 
   async function run(fn: () => Promise<CalendarStatus | void>, next?: CalendarStatus) {
     setBusy(true);
@@ -84,34 +92,20 @@ export function CalendarCard({ status }: { status: CalendarStatus }) {
             </button>
             {/* webcal:// hands the address straight to the calendar app.
                 Works on Apple; Google ignores it, hence its own button. */}
-            <a
-              href={state.webcal ?? state.url}
-              className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
-            >
-              <CalendarPlus className="h-4 w-4" aria-hidden />
-              {t(locale, 'open_apple_calendar')}
-            </a>
-            {/* One click into each service's own "add a calendar" prompt
-                (lib/calendar-links.ts says which links were checked, and
-                how). A new tab: the person signs in there if they must. */}
-            <a
-              href={googleCalendarLink(state.webcal ?? state.url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
-            >
-              <CalendarPlus className="h-4 w-4" aria-hidden />
-              {t(locale, 'add_google_calendar')}
-            </a>
-            <a
-              href={outlookLink(state.url, 'my.thread')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
-            >
-              <CalendarPlus className="h-4 w-4" aria-hidden />
-              {t(locale, 'add_outlook')}
-            </a>
+            {/* Apple, Google, Outlook.com — the one this device chose last
+                (lib/calendar-pref.ts) leads. */}
+            {orderByChoice(choice).map((c) => (
+              <a
+                key={c}
+                href={c === 'apple' ? (state.webcal ?? state.url!) : c === 'google' ? googleCalendarLink(state.webcal ?? state.url!) : outlookLink(state.url!, 'my.thread')}
+                {...(c === 'apple' ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+                onClick={() => writeCalendarChoice(c)}
+                className={`${button} border border-line bg-surface text-ink hover:bg-surface-sunken`}
+              >
+                <CalendarPlus className="h-4 w-4" aria-hidden />
+                {t(locale, c === 'apple' ? 'open_apple_calendar' : c === 'google' ? 'add_google_calendar' : 'add_outlook')}
+              </a>
+            ))}
           </div>
 
           <div className="mt-4 space-y-2 text-xs text-ink-muted">

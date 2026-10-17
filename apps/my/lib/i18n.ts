@@ -3810,6 +3810,76 @@ const CATALOG = {
     de: 'Zu Outlook.com hinzufügen', // MT
     fr: 'Ajouter à Outlook.com', // MT
   },
+
+  // ── Add-to-calendar menus ─────────────────────────────────────────────
+  // The add-to-calendar menus in a thread's dialog (detail.tsx).
+  menu_google: {
+    en: 'Google Calendar',
+    nl: 'Google Agenda',
+    es: 'Google Calendar', // MT
+    pt: 'Google Agenda', // MT
+    de: 'Google Kalender', // MT
+    fr: 'Google Agenda', // MT
+  },
+  menu_outlook: {
+    en: 'Outlook.com',
+    nl: 'Outlook.com',
+    es: 'Outlook.com', // MT
+    pt: 'Outlook.com', // MT
+    de: 'Outlook.com', // MT
+    fr: 'Outlook.com', // MT
+  },
+  menu_ics: {
+    en: 'Apple or other (.ics)',
+    nl: 'Apple of andere (.ics)',
+    es: 'Apple u otro (.ics)', // MT
+    pt: 'Apple ou outro (.ics)', // MT
+    de: 'Apple oder andere (.ics)', // MT
+    fr: 'Apple ou autre (.ics)', // MT
+  },
+  menu_note_single: {
+    en: 'A copy: it won’t move if the session moves. Subscribe your calendar to follow moves.',
+    nl: 'Een kopie: die schuift niet mee als de sessie verschuift. Abonneer je agenda om wijzigingen te volgen.',
+    es: 'Una copia: no se mueve si cambia la sesión. Suscribe tu calendario para seguir los cambios.', // MT
+    pt: 'Uma cópia: não muda se a sessão mudar. Assine no seu calendário para acompanhar as mudanças.', // MT
+    de: 'Eine Kopie: Sie verschiebt sich nicht mit, wenn die Sitzung verschoben wird. Abonniere deinen Kalender, um Änderungen zu folgen.', // MT
+    fr: 'Une copie : elle ne bouge pas si la séance est déplacée. Abonne ton agenda pour suivre les changements.', // MT
+  },
+  menu_subscribe_all: {
+    en: 'Subscribe: Google, Outlook or Apple',
+    nl: 'Abonneren: Google, Outlook of Apple',
+    es: 'Suscribirse: Google, Outlook o Apple', // MT
+    pt: 'Assinar: Google, Outlook ou Apple', // MT
+    de: 'Abonnieren: Google, Outlook oder Apple', // MT
+    fr: 'S’abonner : Google, Outlook ou Apple', // MT
+  },
+  menu_download_all: {
+    en: 'Download all sessions (.ics)',
+    nl: 'Alle sessies downloaden (.ics)',
+    es: 'Descargar todas las sesiones (.ics)', // MT
+    pt: 'Baixar todas as sessões (.ics)', // MT
+    de: 'Alle Sitzungen herunterladen (.ics)', // MT
+    fr: 'Télécharger toutes les séances (.ics)', // MT
+  },
+  menu_note_all: {
+    en: 'Subscribing follows every session, so moved dates move. A download is a copy that won’t.',
+    nl: 'Een abonnement volgt elke sessie, dus verschoven data schuiven mee. Een download is een kopie die dat niet doet.',
+    es: 'Suscribirse sigue cada sesión, así las fechas que cambian se actualizan. Una descarga es una copia que no.', // MT
+    pt: 'Assinar acompanha cada sessão, então as datas alteradas se atualizam. Um download é uma cópia que não.', // MT
+    de: 'Ein Abonnement folgt jeder Sitzung, verschobene Termine ziehen mit. Ein Download ist eine Kopie, die das nicht tut.', // MT
+    fr: 'S’abonner suit chaque séance : les dates déplacées suivent. Un téléchargement est une copie qui ne suit pas.', // MT
+  },
+
+  // ── Remembered calendar ───────────────────────────────────────────────
+  // Beside a session icon that remembers this device's calendar.
+  other_calendar: {
+    en: 'Other calendar…',
+    nl: 'Andere agenda…',
+    es: 'Otro calendario…', // MT
+    pt: 'Outro calendário…', // MT
+    de: 'Anderer Kalender…', // MT
+    fr: 'Autre agenda…', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;
