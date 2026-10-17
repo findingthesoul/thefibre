@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/mcp",
-  "version": "1.277.7",
+  "version": "1.277.8",
   "private": true,
   "description": "The Fibre as an MCP server — an AI assistant acting as an app on the platform, through an app key",
   "type": "module",
@@ -29,7 +29,7 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "~1.31.0",
     "@thefibre/shared": "workspace:*",
     "zod": "^3.25.0"
   },

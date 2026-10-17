@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.8] — 2026-10-17
+
+### Security: production dependencies patched — from 2 critical and 18 high advisories to 0 critical and 1 high (every app, API)
+
+- `pnpm audit --prod` on staging, 2026-10-17: **2 critical, 18 high, 38
+  moderate, 8 low**, every one with a patched version. Dependabot had opened
+  the updates (findingthesoul/thefibre#14, plus three Actions bumps since
+  2026-09-14) and nobody had merged them. After this release: **0
+  critical, 1 high, 8 moderate, 2 low**.
+- **Patch level, as far as the advisories allow:** `next` 15.5.18 → 15.5.28
+  in all ten apps (range raised to `^15.5.28`); in the API `hono` 4.12.18 →
+  4.12.34, `@hono/node-server` → 1.19.17, `@modelcontextprotocol/sdk` 1.30 →
+  1.31.0 (also `packages/mcp`). These three are now `~` ranges, so a lockfile
+  refresh stays on their patch line.
+- **`pnpm.overrides` for the transitive ones** (root `package.json`), each
+  keyed on the vulnerable range only: `undici` → ~8.10.2 (TLS validation
+  bypass, DoS; via jsdom), `joi` → ^17.13.7, `nanoid` → ^3.3.18,
+  `source-map-js` → ^1.2.2. Two needed a minor step because no patch exists:
+  `postcss` 8.4.31 → 8.5.28 (Next pins 8.4.31 exactly; source-map path
+  traversal and file read) and `sharp` 0.34.5 → 0.35.5 (libvips, libheif and
+  librsvg CVEs; Next declares `^0.34.3 || ^0.35.5`).
+- **What the two criticals were, and where we stood:** both Next.js remote
+  code execution. GHSA-p293-qw3h-jr36 needs a Windows-hosted server, which
+  we have none of. GHSA-2xp9-vwfh-vxw4 is in the Image Optimization API with
+  AVIF files: `next/image` is used in three files of `apps/web`, for our own
+  static images. Our judgement is that on Vercel the optimizer is Vercel's
+  service, not our server process, so this was not reachable; that is a
+  judgement about Vercel's platform, not something tested here.
+- **The HIGH in `hono`'s CORS** (any Origin reflected with credentials when
+  the origin defaults to the wildcard): not exposed here. The API's two
+  wildcard CORS uses name `origin: '*'` and send no credentials; the
+  credentialed one is an allow-list function.
+- **Left, on purpose:** `node-forge` ≤1.4.0 (GHSA-86w9-cpqp-85rv, RSA
+  signature *verification*) has no fixed release. It reaches us only through
+  `passkit-generator`, which uses it to SIGN wallet passes; nothing here
+  verifies a signature with it. The audit gate (next release) carries it as a
+  reasoned exemption with an expiry date.
+- **Checked:** `pnpm -r build` of every package and all ten apps (a real
+  Next 15.5.28 production build of each, plus the API and both packages);
+  `pnpm test` in every workspace (API 1,328, shared 612, Connect 343,
+  my 103, MCP 59 on the new SDK, and the rest); on staging, the integration
+  suites for sign-in and tenancy (`sso-race`, `rls-floor`,
+  `definer-functions`, `persons-merge-tenancy`, `thread-tenancy`,
+  `tenant-db`), 207 tests; `pnpm audit --prod` before and after.
+- **Every builder:** `pnpm install` after pulling this.
+
 ## [1.277.7] — 2026-10-17
 
 ### Security, part 2: a script removes the portal access that typed addresses were already given (operations; dry run by default)
