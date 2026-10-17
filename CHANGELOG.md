@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.263.0] — 2026-10-17
+
+### Refund rules, slice 1: the rule columns and the credit-note record (migration only)
+
+- Sjoerd's answers A–G ("refunds as recommended"). Nothing reads these yet;
+  slices 2–4 wire the preview, the approve dialog, partial refunds, credit
+  notes and the public rule.
+- `thread_settings.refund_rule` (the workspace default) and
+  `thread_thread.refund_rule` (a thread's own; NULL inherits,
+  `{"steps": []}` = no rule): steps counted back from the start, plus an
+  optional fixed fee (A). The date that counts is the request's (C), which
+  `thread_cancellation_request.created_at` already records.
+- `purchase_credit_note`: every refund, full or partial, and every reduction
+  of an unpaid invoice (G), is one note (F). It is the record of what went
+  back, so a partial refund needs no new purchase status. Numbered in the
+  SELLER's series (`unique (seller_ref, number)`: Thread sells as the person,
+  so two organisers may both issue "INV-0001-CN-01"); net + VAT stored like the
+  invoice it corrects (`net + vat = amount`); the proportional platform fee
+  (E).
+- Guards in the database:
+  - a note can never take a purchase past what was paid — a BEFORE INSERT
+    trigger locks the purchase row, so two refunds racing are serialised;
+  - an issued note is final: its amounts, series and purchase cannot change
+    (only `emailed_at` and the Stripe ids are filled in later);
+  - it cannot be deleted, except when its workspace is hard-deleted (checked
+    by the workspace row's existence, never by trigger depth);
+  - a purchase cannot be deleted from under its note (NO ACTION).
+- Reads follow the purchase's own visibility; writes are the API's only.
+- Test: `credit-note-guard.int.test.ts` against staging — up to exactly the
+  amount and one cent over; two racing notes (one lands); another
+  workspace's purchase; net + vat; a seller's number vs another seller's; a
+  user who issued a note hard-deleted (the note stays, `issued_by` emptied); a
+  workspace with a purchase and a note hard-deleted; a lone purchase delete
+  refused; a direct note delete refused; an amount change refused,
+  `emailed_at` allowed.
+
 ## [1.262.6] — 2026-10-17
 
 ### A Meet cancellation is numbered above the last invitation, so every calendar takes it (API, Meet 2.37.4)
