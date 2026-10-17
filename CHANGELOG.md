@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.14] — 2026-10-17
+
+### Security: an app's scopes and activity types are its own declaration, and a later widening waits for review (API + Fibre /admin/apps)
+
+- **A key is capped by the scopes a platform admin approved.** On an
+  approved app, a manifest PUT asking for more scopes answers as before
+  (200), and the extra scopes now wait in `scopes_pending_review` on the
+  app's manifest. That field is new and additive in the PUT response
+  (empty when nothing waits). They reach no key until a platform admin
+  approves them. Asking for the same or fewer applies at once. Before
+  review, and for the platform admin, the request is the cap, as before.
+- **/admin/apps shows the waiting scopes** under an approved app, with
+  "Approve these scopes". That is `PATCH /api/v1/apps/:slug` with the new
+  action `approve_scopes`, additive and platform admins only.
+- **Activity types and scopes are written only by the app's own key or a
+  platform admin.** They live on the app's one catalogue row, which every
+  workspace with the app validates against. A workspace admin still
+  installs the per-workspace entity mappings and may re-send the
+  declaration unchanged. Changing it from a workspace admin's session is
+  refused (403), and the app's row is then left as it was.
+- `docs/building-on-the-fibre.md` §4.2 says who may change what, and how a
+  later widening is handled.
+- Tests:
+  - `lib/app-manifest.test.ts` (7) checks what applies and what waits:
+    after approval, before it, by the reviewer, an app that declared none,
+    and non-scopes dropped.
+  - `apps-manifest-review.int.test.ts` (7) runs on staging with a fixture
+    app and a throwaway workspace:
+    - A workspace admin's unchanged re-send installs the mappings, and a
+      change to the scopes or activity types is a 403 with the row
+      unchanged.
+    - The app's key asking for more gets a 200 listing the waiting scope,
+      the cap is unchanged, and a key minted afterwards can't carry it.
+    - A platform admin's approval raises the cap, after which a key can
+      carry the scope; a workspace admin can't approve.
+    - A sabotage run with the rule switched off fails 5 of the 7.
+  - API unit suite: 1,339 pass. The web app typechecks.
+  - Not yet run: `verify-external-app.mjs` against the deployed staging
+    API (step 7b, the published shapes). Its own install runs as a
+    platform admin, so it should behave as before; that is checked after
+    the api-staging deploy.
+
 ## [1.277.13] — 2026-10-17
 
 ### Adding to a membership without a card: the window asks for one first, and a failed payment leaves nothing behind (API + my.thread 0.35.2)

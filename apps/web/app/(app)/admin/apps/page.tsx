@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader, SectionLabel, EmptyState } from '@/components/ui/page';
-import { ReviewButtons } from './review';
+import { ApproveScopesButton, ReviewButtons } from './review';
 
 type App = {
   id: string;
@@ -30,6 +30,13 @@ const TABS = {
 
 function manifestScopes(m: Record<string, unknown> | null): string[] {
   const raw = m?.scopes_requested;
+  return Array.isArray(raw) ? raw.filter((s): s is string => typeof s === 'string') : [];
+}
+
+/** Scopes an approved app asked for later: they do not apply to its keys
+ *  until approved here (PATCH /apps/:slug, action approve_scopes). */
+function manifestPendingScopes(m: Record<string, unknown> | null): string[] {
+  const raw = m?.scopes_pending_review;
   return Array.isArray(raw) ? raw.filter((s): s is string => typeof s === 'string') : [];
 }
 
@@ -96,6 +103,7 @@ export default async function AdminAppsPage({
             {items.map((a) => {
               const scopes = manifestScopes(a.manifest);
               const types = manifestActivityTypes(a.manifest);
+              const waiting = manifestPendingScopes(a.manifest);
               return (
                 <li key={a.id} className="p-5">
                   <div className="flex items-start justify-between gap-6">
@@ -144,6 +152,25 @@ export default async function AdminAppsPage({
                                 {s}
                               </span>
                             ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {waiting.length > 0 && (
+                        <div className="mt-3">
+                          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+                            Scopes waiting for review — not on its keys until approved
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {waiting.map((s) => (
+                              <span
+                                key={s}
+                                className="rounded border border-line px-1.5 py-0.5 font-mono text-[11px] text-ink-subtle"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                            <ApproveScopesButton slug={a.slug} />
                           </div>
                         </div>
                       )}

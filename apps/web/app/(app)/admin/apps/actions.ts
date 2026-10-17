@@ -7,7 +7,7 @@ export type ReviewResult = { ok?: boolean; error?: string };
 
 export async function reviewApp(
   slug: string,
-  action: 'approve' | 'suspend' | 'reinstate',
+  action: 'approve' | 'suspend' | 'reinstate' | 'approve_scopes',
   notes?: string,
 ): Promise<ReviewResult> {
   try {

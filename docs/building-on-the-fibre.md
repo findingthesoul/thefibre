@@ -236,6 +236,20 @@ curl -X PUT -H "Content-Type: application/json" \
 
 `GET` the same path to read back what landed.
 
+**Who may change what.** The entity mappings are per workspace: a workspace
+admin may install them. Your activity types and your scopes are your app's
+own declaration, shared by every workspace that has your app, so they are
+written by your app's key (or by a platform admin), never by one workspace's
+admin. A workspace admin re-sending them unchanged is fine; changing them is
+a 403.
+
+**Asking for more scopes after approval.** The scopes your app was approved
+with are the ones keys are capped by. A later manifest PUT asking for more is
+answered as before (200), and the response lists the extra ones in
+`scopes_pending_review` (since 2026-10-17; empty when nothing waits). They do
+not reach any key until a platform admin approves them on /admin/apps. Asking
+for the same or fewer applies at once.
+
 ### 4.3 Get a key
 
 A workspace admin mints one at **Settings → Apps → your app → Manage API

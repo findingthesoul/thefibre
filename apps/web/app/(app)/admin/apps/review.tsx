@@ -64,3 +64,30 @@ export function ReviewButtons({
     </div>
   );
 }
+
+/** Approves the scopes an approved app asked for later (they wait until
+ *  then: its keys stay capped by what was approved at review). */
+export function ApproveScopesButton({ slug }: { slug: string }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Button
+        size="sm"
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            setError(null);
+            const r = await reviewApp(slug, 'approve_scopes');
+            if (r.error) setError(r.error);
+            else router.refresh();
+          })
+        }
+      >
+        {pending ? 'Working…' : 'Approve these scopes'}
+      </Button>
+      {error && <span className="text-xs text-ink-muted">{error}</span>}
+    </span>
+  );
+}

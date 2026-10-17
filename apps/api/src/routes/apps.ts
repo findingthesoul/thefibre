@@ -13,10 +13,17 @@ import { Hono, type Context } from 'hono';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
+import { serviceRole } from '../lib/tenant-db.js';
 import { resolvePerson } from '../lib/resolve-person.js';
 import { invalidateAppSlugCache } from '../middleware/app-context.js';
 import { APP_SCOPES, generateToken, partitionScopes } from '../lib/app-keys.js';
-import { readManifestActivityTypes, readManifestScopes } from '../lib/app-manifest.js';
+import {
+  readManifestActivityTypes,
+  readManifestScopes,
+  readPendingScopes,
+  sameSet,
+  settleRequestedScopes,
+} from '../lib/app-manifest.js';
 import { registerAppFlowRoutes } from './app-flow.js';
 import { registerAppThreadRoutes } from './app-thread.js';
 
@@ -144,7 +151,9 @@ appsRoutes.get('/', async (c) => {
 // app", administered rather than deployed.
 // ---------------------------------------------------------------------------
 const ReviewBody = z.object({
-  action: z.enum(['approve', 'suspend', 'reinstate']),
+  // 'approve_scopes' (additive): move scopes an approved app asked for later
+  // from pending review onto the cap its keys are held to.
+  action: z.enum(['approve', 'suspend', 'reinstate', 'approve_scopes']),
   review_notes: z.string().max(2000).nullable().optional(),
 });
 
@@ -173,6 +182,32 @@ appsRoutes.patch('/:slug', async (c) => {
   if (!app) return c.json({ error: 'unknown app' }, 404);
   if (app.kind === 'first_party' && body.data.action === 'suspend') {
     return c.json({ error: 'first-party apps cannot be suspended from here' }, 400);
+  }
+
+  if (body.data.action === 'approve_scopes') {
+    if (app.status !== 'approved') return c.json({ error: 'only an approved app has scopes waiting' }, 400);
+    const review = serviceRole('a super admin reviewing a catalogue row');
+    const { data: row } = await review.from('app').select('manifest').eq('id', app.id).single();
+    const manifest = (row?.manifest && typeof row.manifest === 'object' ? row.manifest : {}) as Record<string, unknown>;
+    const pending = readPendingScopes(manifest);
+    if (!pending.length) return c.json({ error: 'no scopes are waiting for review' }, 400);
+    const cap = readManifestScopes(manifest) ?? [];
+    const { data: updated, error } = await review
+      .from('app')
+      .update({
+        manifest: { ...manifest, scopes_requested: [...new Set([...cap, ...pending])], scopes_pending_review: [] },
+        reviewed_by: ctx.userId,
+        reviewed_at: new Date().toISOString(),
+        review_notes: body.data.review_notes ?? null,
+      })
+      .eq('id', app.id)
+      .select(APP_SELECT)
+      .single();
+    if (error) {
+      console.error('[apps PATCH] scope approval failed', error);
+      return c.json({ error: error.message }, 500);
+    }
+    return c.json({ ok: true, app: updated });
   }
 
   const status = body.data.action === 'suspend' ? 'suspended' : 'approved';
@@ -223,6 +258,17 @@ export async function requireWorkspaceAdmin(ctx: { auth: string; userId: string;
   const role = data?.workspace_role as string | undefined;
   if (role !== 'admin' && role !== 'super_admin') return 'workspace admin required';
   return null;
+}
+
+/** A platform admin — the role that reviews apps (/admin/apps). */
+async function isPlatformReviewer(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const { data } = await serviceRole("the caller's own user row: are they a platform admin")
+    .from('user')
+    .select('is_super_admin')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.is_super_admin === true;
 }
 
 /** Resolve a slug to an app row the caller may act on. */
@@ -432,6 +478,33 @@ appsRoutes.put('/:slug/manifest', async (c) => {
     if (denied) return c.json({ error: denied }, 403);
   }
 
+  // The manifest row is the APP's, shared by every workspace that has it: its
+  // activity types are what POST /activities validates against everywhere,
+  // and its scopes are what every key is capped by. So those two are written
+  // by the app itself (its key) or by a platform admin — not by an admin of
+  // one workspace. That admin may still install the per-workspace half (the
+  // entity mappings) and re-send the declaration unchanged.
+  const stored = (app.manifest && typeof app.manifest === 'object' ? app.manifest : {}) as Record<
+    string,
+    unknown
+  >;
+  const byReviewer = ctx.auth === 'user' && (await isPlatformReviewer(ctx.userId));
+  const mayDeclare = ctx.auth === 'app_key' || byReviewer;
+  if (!mayDeclare) {
+    const typesChange =
+      body.data.activity_types !== undefined &&
+      !sameSet(readManifestActivityTypes({ activity_types: body.data.activity_types }), readManifestActivityTypes(stored));
+    const scopesChange =
+      body.data.scopes_requested !== undefined &&
+      !sameSet(readManifestScopes({ scopes_requested: body.data.scopes_requested }), readManifestScopes(stored));
+    if (typesChange || scopesChange) {
+      return c.json(
+        { error: `${app.slug}'s activity types and scopes are declared by the app itself (its key) or a platform admin` },
+        403,
+      );
+    }
+  }
+
   const mappings = body.data.entity_mappings ?? [];
   if (mappings.length) {
     const { error } = await adminClient.from('app_entity_mapping').upsert(
@@ -451,27 +524,48 @@ appsRoutes.put('/:slug/manifest', async (c) => {
     }
   }
 
-  // Merge the declared activity types + scopes into the stored manifest.
-  const stored = (app.manifest && typeof app.manifest === 'object' ? app.manifest : {}) as Record<
-    string,
-    unknown
-  >;
-  const nextManifest = {
-    ...stored,
-    ...(body.data.activity_types ? { activity_types: body.data.activity_types } : {}),
-    ...(body.data.scopes_requested ? { scopes_requested: body.data.scopes_requested } : {}),
-    ...(mappings.length ? { entity_mappings: mappings } : {}),
-  };
-  const { error: appErr } = await adminClient
-    .from('app')
-    .update({ manifest: nextManifest })
-    .eq('id', app.id);
-  if (appErr) {
-    console.error('[apps/manifest PUT] app update failed', appErr);
-    return c.json({ error: appErr.message }, 500);
+  // Merge the declared activity types + scopes into the stored manifest — only
+  // for a caller who may declare them; a workspace admin's unchanged re-send
+  // leaves the app's row as it is.
+  //
+  // Scopes asked for AFTER approval do not raise the cap a key is held to:
+  // the extra ones wait for a platform admin (settleRequestedScopes).
+  let pendingReview: string[] = [];
+  if (mayDeclare) {
+    const settled = body.data.scopes_requested
+      ? settleRequestedScopes({
+          approved: readManifestScopes(stored),
+          requested: body.data.scopes_requested,
+          reviewed: app.status !== 'pending',
+          byReviewer,
+        })
+      : null;
+    pendingReview = settled?.scopes_pending_review ?? [];
+    const nextManifest = {
+      ...stored,
+      ...(body.data.activity_types ? { activity_types: body.data.activity_types } : {}),
+      ...(settled
+        ? { scopes_requested: settled.scopes_requested, scopes_pending_review: settled.scopes_pending_review }
+        : {}),
+      ...(mappings.length ? { entity_mappings: mappings } : {}),
+    };
+    const { error: appErr } = await adminClient
+      .from('app')
+      .update({ manifest: nextManifest })
+      .eq('id', app.id);
+    if (appErr) {
+      console.error('[apps/manifest PUT] app update failed', appErr);
+      return c.json({ error: appErr.message }, 500);
+    }
   }
 
-  return c.json({ ok: true, app_slug: slug, mappings_installed: mappings.length });
+  return c.json({
+    ok: true,
+    app_slug: slug,
+    mappings_installed: mappings.length,
+    // Additive: scopes this call asked for that wait for a platform admin.
+    scopes_pending_review: pendingReview,
+  });
 });
 
 // ---------------------------------------------------------------------------
