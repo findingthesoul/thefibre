@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.262.6] — 2026-10-17
+
+### A Meet cancellation is numbered above the last invitation, so every calendar takes it (API, Meet 2.37.4)
+
+- The guest's CANCEL reused the booking's current `SEQUENCE`. RFC 5546
+  allows an equal number, but some calendars ignore a cancel that is not
+  higher than the event they hold, and the guest keeps an hour blocked for a
+  meeting that is off. It is now `invite_sequence + 1`, saved, like a
+  reschedule's — so the cancel always outranks the last REQUEST.
+- A stale comment in the booking route said Google emails the guest an
+  invitation (`sendUpdates:'all'`); the event is created with `'none'`, and
+  the guest's invitation is the REQUEST attached to our own mail. Corrected.
+- Test: `meet-guest-invite.int.test.ts` gains the cancel — CANCEL, the same
+  UID, `SEQUENCE:1` after a REQUEST at 0, and the number kept on the row. It
+  fails on the previous route.
+
 ## [1.262.5] — 2026-10-17
 
 ### The shop says when your member offers couldn't be loaded (API + my.thread 0.31.3)

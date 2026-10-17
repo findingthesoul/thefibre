@@ -1434,9 +1434,11 @@ meetRoutes.post('/public/bookings', async (c) => {
   }
 
   // Send confirmation emails. Non-fatal — if email fails the booking still
-  // succeeded, we just log it. Google Calendar already emailed the invitee an
-  // ICS invite via sendUpdates:'all', but we send our own branded note too so
-  // the cancel link surfaces clearly.
+  // succeeded, we just log it. This mail IS the guest's invitation: the
+  // Google event is created with sendUpdates:'none' (google/client.ts), so
+  // Google emails nobody, and the REQUEST attached below is what puts the
+  // meeting in the guest's calendar. (This comment said 'all' until
+  // 2026-10-17.)
   if (booking && hostRow) {
     const bookingBrand = await meetBrand(mt.workspace_id);
     const bookingLocalePair = await bookingLocales({
@@ -1903,6 +1905,14 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
     await cancelZoomForBooking(booking.host_id, booking.zoom_meeting_id);
   }
 
+  // The CANCEL is numbered ABOVE the last REQUEST, like every other change
+  // (2026-10-17). It used to reuse the current number: RFC 5546 allows an
+  // equal SEQUENCE, but some calendars ignore a cancel that is not higher
+  // than the event they hold, and the guest keeps an hour blocked for a
+  // meeting that is off. Persisted, as the reschedule's is.
+  const cancelSequence = (booking.invite_sequence ?? 0) + 1;
+  await adminClient.from('meet_booking').update({ invite_sequence: cancelSequence }).eq('id', booking.id);
+
   // Cancellation emails.
   if (mt && hostRow) {
     const emailBrand = await meetBrand(booking.workspace_id);
@@ -1946,7 +1956,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
         // blocked for a meeting that is off. A CANCEL for a booking that
         // never sent a REQUEST — anything made before 2026-10-07 — is simply
         // ignored by the receiving calendar, which is the right outcome.
-        attachments: [guestInvite(common, 'CANCEL', booking.invite_sequence ?? 0)],
+        attachments: [guestInvite(common, 'CANCEL', cancelSequence)],
       });
     } catch (e) {
       console.error('[meet bookings/cancel] invitee email failed (non-fatal)', e);

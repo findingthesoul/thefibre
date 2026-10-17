@@ -38,6 +38,7 @@ let app: Hono;
 let f: MeetFixture;
 const guest = `int-tz-${randomUUID().slice(0, 8)}@example.com`;
 let bookingId = '';
+let manageToken = '';
 
 beforeAll(async () => {
   const { appContext } = await import('../middleware/app-context.js');
@@ -72,8 +73,9 @@ describe('a booking made from a US Eastern browser', () => {
       }),
     });
     expect(r.status, await r.clone().text()).toBe(200);
-    const body = (await r.json()) as { booking?: { id: string } };
+    const body = (await r.json()) as { booking?: { id: string }; manage_token?: string };
     bookingId = body.booking?.id ?? '';
+    manageToken = body.manage_token ?? '';
     expect(bookingId).toBeTruthy();
 
     const { data } = await service
@@ -157,5 +159,28 @@ describe('a booking made from a US Eastern browser', () => {
       hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York',
     }).format(new Date(data!.starts_at as string));
     expect(whenLine).not.toContain(guestReading);
+  });
+});
+
+describe('the cancel', () => {
+  it('numbers its CANCEL above the last REQUEST, and keeps the number', async () => {
+    // Some calendars ignore a cancel that is not higher than the event they
+    // hold (2026-10-17); the REQUEST above went out at 0.
+    sent.length = 0;
+    const r = await app.request(`/api/v1/meet/public/bookings/${bookingId}/cancel?t=${encodeURIComponent(manageToken)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-App-ID': 'fibre-meet' },
+    });
+    expect(r.status, await r.clone().text()).toBe(200);
+    const mail = sent.find((m) => m.to === guest);
+    expect(mail, 'no cancellation to the guest').toBeTruthy();
+    const a = mail!.attachments![0]!;
+    expect(a.contentType).toBe('text/calendar; charset=utf-8; method=CANCEL');
+    const ics = Buffer.from(a.content, 'base64').toString('utf8');
+    expect(ics).toContain('METHOD:CANCEL');
+    expect(ics).toContain(`UID:meet-${bookingId}@thefibre.app`);
+    expect(ics).toMatch(/\r\nSEQUENCE:1\r\n/);
+    const { data } = await service.from('meet_booking').select('invite_sequence, status').eq('id', bookingId).single();
+    expect(data).toEqual({ invite_sequence: 1, status: 'cancelled' });
   });
 });
