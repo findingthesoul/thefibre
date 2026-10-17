@@ -20,6 +20,7 @@
 // in this process's memory, keyed per workspace and bound folder.
 
 import { createHmac, createSign, timingSafeEqual } from 'node:crypto';
+import { stagingSurfaceUrl, surfaceUrl } from '@thefibre/shared';
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -235,6 +236,8 @@ export type DriveItem = {
   export_as: 'pdf' | null;
   downloadable: boolean;
   reason: 'too_large' | 'not_exportable' | null;
+  /** Additive: can open in the viewer (served inline) — see INLINE_TYPES. */
+  viewable: boolean;
 };
 
 type RawFile = { id: string; name: string; mimeType: string; size?: string; modifiedTime?: string };
@@ -257,7 +260,45 @@ export function toItem(f: RawFile): DriveItem {
     export_as: exportable ? 'pdf' : null,
     downloadable: !folder && reason === null,
     reason,
+    viewable: !folder && reason === null && INLINE_TYPES.has(exportable ? 'application/pdf' : f.mimeType),
   };
+}
+
+// ── Opening a file in the viewer (Sjoerd, 2026-10-17: "opens a PDF in a
+// screen … then a download button") ─────────────────────────────────────────
+//
+// Served INLINE only as a PDF (a Doc/Sheet/Slide's PDF export included) or a
+// raster image. Never SVG, HTML or text: those are documents a browser runs.
+// The type is the one Drive's metadata names (or the export's), never sniffed
+// from the bytes, and every inline response carries nosniff.
+
+export const INLINE_TYPES: ReadonlySet<string> = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+
+/** The Content-Type the stream serves for an item. */
+export function servedType(item: Pick<DriveItem, 'mime' | 'export_as'>): string {
+  return item.export_as === 'pdf' ? 'application/pdf' : item.mime;
+}
+
+/** Who may frame an inline file: my.thread only (production, plus staging's
+ *  and local dev's on the staging API / off Fly). Derived from branding. */
+export function frameAncestors(env: Record<string, string | undefined> = process.env): string[] {
+  const out = [surfaceUrl('my-portal')];
+  if (env.FLY_APP_NAME === 'thefibre-api-staging') out.push(stagingSurfaceUrl('my-portal'));
+  if (env.FLY_APP_NAME !== 'thefibre-api') out.push('http://localhost:3007');
+  return out;
+}
+
+/**
+ * The CSP for an inline file. Tested in Chromium (2026-10-17, a local lab):
+ *   · `sandbox` makes Chromium's PDF viewer render NOTHING inside an iframe,
+ *     so a PDF is served without it; `default-src 'none'` is fine for it, and
+ *     `frame-ancestors` lets my.thread frame it and refuses anyone else;
+ *   · an image keeps `sandbox` — an <img> and a tab of its own both render.
+ * Safari's viewer was not tested here.
+ */
+export function inlineCsp(contentType: string, env: Record<string, string | undefined> = process.env): string {
+  const base = `default-src 'none'; img-src 'self'; object-src 'self'; frame-ancestors ${frameAncestors(env).join(' ')}`;
+  return contentType === 'application/pdf' ? base : `sandbox; ${base}`;
 }
 
 /** Folders first, then files, each by name in the reader's language. */
@@ -375,7 +416,8 @@ function downloadKey(env: Record<string, string | undefined>): Buffer {
  *  this rides in a URL, which ends up in history, access logs and
  *  screenshots (coordinator, 2026-10-17). The email is looked up server-side
  *  from p when the file is served. */
-export type DownloadClaim = { w: string; d: string; f: string; p: string; x: number };
+/** `i: 1` = granted inline (signed, so a URL edit cannot add it). */
+export type DownloadClaim = { w: string; d: string; f: string; p: string; x: number; i?: 1 };
 
 export function signDownload(claim: Omit<DownloadClaim, 'x'>, now = Date.now(), env: Record<string, string | undefined> = process.env): string {
   const body = Buffer.from(JSON.stringify({ ...claim, x: now + TOKEN_SECONDS * 1000 })).toString('base64url');
@@ -399,6 +441,7 @@ export function readDownload(token: unknown, now = Date.now(), env: Record<strin
   }
   if (typeof c.x !== 'number' || c.x < now) return null;
   if (![c.w, c.d, c.f, c.p].every((v) => typeof v === 'string' && v.length > 0)) return null;
+  if (c.i !== undefined && c.i !== 1) return null;
   return c;
 }
 

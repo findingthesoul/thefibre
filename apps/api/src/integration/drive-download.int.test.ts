@@ -32,6 +32,9 @@ const BIGDOC = `dlBig${tag}x`;
 const FORM = `dlForm${tag}x`;
 const SUB = `dlSub${tag}x`;
 const OUTSIDE = `dlOut${tag}x`;
+const PNG = `dlPng${tag}x`;
+const SVG = `dlSvg${tag}x`;
+const HTML = `dlHtm${tag}x`;
 const files = new Map<string, F>([
   [ROOT, { id: ROOT, name: 'Repository', mimeType: FOLDER, parents: ['driveRoot0000'] }],
   [PDF, { id: PDF, name: 'Statutes.pdf', mimeType: 'application/pdf', size: '9', parents: [ROOT] }],
@@ -39,6 +42,9 @@ const files = new Map<string, F>([
   [BIGDOC, { id: BIGDOC, name: 'Huge', mimeType: 'application/vnd.google-apps.document', parents: [ROOT] }],
   [FORM, { id: FORM, name: 'Survey', mimeType: 'application/vnd.google-apps.form', parents: [ROOT] }],
   [SUB, { id: SUB, name: 'Minutes', mimeType: FOLDER, parents: [ROOT] }],
+  [PNG, { id: PNG, name: 'photo.png', mimeType: 'image/png', size: '9', parents: [ROOT] }],
+  [SVG, { id: SVG, name: 'logo.svg', mimeType: 'image/svg+xml', size: '9', parents: [ROOT] }],
+  [HTML, { id: HTML, name: 'page.html', mimeType: 'text/html', size: '9', parents: [ROOT] }],
   [OUTSIDE, { id: OUTSIDE, name: 'secret.pdf', mimeType: 'application/pdf', size: '5', parents: ['someoneElse00'] }],
 ]);
 const realFetch = globalThis.fetch;
@@ -76,7 +82,8 @@ const call = (u: FixtureUser | null, method: string, path: string, body?: unknow
     headers: { ...(u ? { Authorization: `Bearer ${u.accessToken}` } : {}), 'X-App-ID': 'membership', 'Content-Type': 'application/json' },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
-const download = async (fileId: string) => call(member, 'POST', `/me/portal/community/${ws}/drive/${entry}/download`, { file_id: fileId });
+const download = async (fileId: string, disposition?: string) =>
+  call(member, 'POST', `/me/portal/community/${ws}/drive/${entry}/download`, { file_id: fileId, ...(disposition ? { disposition } : {}) });
 const streamPath = (url: string) => new URL(url).pathname + new URL(url).search;
 const activityRows = async () =>
   ((await service.from('activity').select('type, subject').eq('person_id', personId).eq('type', 'drive_file_downloaded')).data ?? []) as { type: string; subject: string }[];
@@ -194,5 +201,65 @@ describe('the stream', () => {
     const s = await app.request(streamPath(url));
     expect(s.status).toBe(404);
     await service.from('membership_member').update({ status: 'active' }).eq('id', memberRowId);
+  });
+});
+
+describe('opening in the viewer (inline, 2026-10-17)', () => {
+  const open = async (fileId: string) => {
+    const j = (await (await download(fileId, 'inline')).json()) as { url: string; disposition: string; content_type: string; bytes: number | null };
+    return { j, s: await app.request(streamPath(j.url)) };
+  };
+
+  it('a PDF: granted inline, served inline with the PDF CSP (no sandbox) and nosniff', async () => {
+    const { j, s } = await open(PDF);
+    expect(j).toMatchObject({ disposition: 'inline', content_type: 'application/pdf', bytes: 9 });
+    expect(s.status).toBe(200);
+    expect(s.headers.get('content-disposition')).toMatch(/^inline; filename="Statutes.pdf"/);
+    expect(s.headers.get('content-type')).toBe('application/pdf');
+    expect(s.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(s.headers.get('cache-control')).toBe('private, no-store');
+    const csp = s.headers.get('content-security-policy')!;
+    expect(csp).toMatch(/^default-src 'none'; img-src 'self'; object-src 'self'; frame-ancestors https:\/\/my\.thethread\.app/);
+    expect(csp).not.toContain('sandbox');
+  });
+
+  it('a Doc: its PDF export, inline; bytes null', async () => {
+    const { j, s } = await open(DOC);
+    expect(j).toMatchObject({ disposition: 'inline', content_type: 'application/pdf', bytes: null });
+    expect(s.headers.get('content-disposition')).toMatch(/^inline; filename="Guide.pdf"/);
+  });
+
+  it('a PNG: inline, sandboxed CSP', async () => {
+    const { j, s } = await open(PNG);
+    expect(j).toMatchObject({ disposition: 'inline', content_type: 'image/png' });
+    expect(s.headers.get('content-disposition')).toMatch(/^inline;/);
+    expect(s.headers.get('content-security-policy')).toMatch(/^sandbox; default-src 'none'/);
+  });
+
+  it('an SVG and an HTML file: inline refused, attachment, no CSP exemption', async () => {
+    for (const id of [SVG, HTML]) {
+      const { j, s } = await open(id);
+      expect(j.disposition).toBe('attachment');
+      expect(s.status).toBe(200);
+      expect(s.headers.get('content-disposition')).toMatch(/^attachment;/);
+      expect(s.headers.get('content-security-policy')).toBeNull();
+      expect(s.headers.get('x-fibre-frameable')).toBeNull();
+    }
+  });
+
+  it('no disposition asked: attachment, as before; a URL edit cannot make it inline', async () => {
+    const r = (await (await download(PDF)).json()) as { url: string; disposition: string };
+    expect(r.disposition).toBe('attachment');
+    const token = new URL(r.url).searchParams.get('token')!;
+    const [body, mac] = token.split('.');
+    const claim = JSON.parse(Buffer.from(body!, 'base64url').toString('utf8'));
+    const flipped = `${Buffer.from(JSON.stringify({ ...claim, i: 1 })).toString('base64url')}.${mac}`;
+    expect((await app.request(`/api/v1/me/portal/drive-download?token=${encodeURIComponent(flipped)}`)).status).toBe(404);
+    expect((await app.request(`${streamPath(r.url)}&disposition=inline`)).headers.get('content-disposition')).toMatch(/^attachment;/);
+  });
+
+  it('an inline token can be fetched again within its minute (viewers re-fetch)', async () => {
+    const { j } = await open(PNG);
+    expect((await app.request(streamPath(j.url))).status).toBe(200);
   });
 });

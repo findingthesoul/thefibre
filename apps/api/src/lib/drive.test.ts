@@ -132,3 +132,31 @@ describe('is Drive set up here', () => {
     expect(driveSetupState({ GOOGLE_DRIVE_SA_JSON: Buffer.from('{"client_email":"a","private_key":"k"}').toString('base64') })).toBe('ok');
   });
 });
+
+describe('opening a file in the viewer (inline)', () => {
+  it('viewable: a PDF, a Doc (its PDF export), raster images; never SVG, HTML, text, a folder, or a file too large', () => {
+    const v = (mimeType: string, size = '10') => toItem({ id: 'x', name: 'n', mimeType, size }).viewable;
+    expect(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif'].map((m) => v(m))).toEqual([true, true, true, true, true]);
+    expect(v('application/vnd.google-apps.document')).toBe(true);
+    expect(['image/svg+xml', 'text/html', 'text/plain', 'application/xhtml+xml', 'application/javascript', 'video/mp4'].map((m) => v(m))).toEqual([false, false, false, false, false, false]);
+    expect(v('application/vnd.google-apps.folder')).toBe(false);
+    expect(v('application/vnd.google-apps.form')).toBe(false);
+    expect(v('application/pdf', String(DRIVE_LIMITS.max_download_bytes + 1))).toBe(false);
+  });
+
+  it('the CSP: a PDF without sandbox (Chromium\'s viewer renders nothing under it), an image with it; only my.thread may frame', async () => {
+    const { inlineCsp, frameAncestors } = await import('./drive.js');
+    const prod = { FLY_APP_NAME: 'thefibre-api' };
+    expect(frameAncestors(prod)).toEqual(['https://my.thethread.app']);
+    expect(frameAncestors({ FLY_APP_NAME: 'thefibre-api-staging' })).toEqual(['https://my.thethread.app', 'https://my.thefibre.tech', 'http://localhost:3007']);
+    expect(inlineCsp('application/pdf', prod)).toBe("default-src 'none'; img-src 'self'; object-src 'self'; frame-ancestors https://my.thethread.app");
+    expect(inlineCsp('image/png', prod)).toBe("sandbox; default-src 'none'; img-src 'self'; object-src 'self'; frame-ancestors https://my.thethread.app");
+  });
+
+  it('the token carries inline only as i:1; anything else reads as nothing', async () => {
+    const { readDownload, signDownload } = await import('./drive.js');
+    expect(readDownload(signDownload({ w: WS, d: 'd', f: 'f', p: 'p', i: 1 }, 1_000_000, ENV), 1_000_000, ENV)?.i).toBe(1);
+    expect(readDownload(signDownload({ w: WS, d: 'd', f: 'f', p: 'p' }, 1_000_000, ENV), 1_000_000, ENV)?.i).toBeUndefined();
+    expect(readDownload(signDownload({ w: WS, d: 'd', f: 'f', p: 'p', i: 2 as never }, 1_000_000, ENV), 1_000_000, ENV)).toBeNull();
+  });
+});

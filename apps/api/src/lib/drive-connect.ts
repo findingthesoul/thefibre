@@ -19,6 +19,7 @@ import {
   DRIVE_ID,
   DriveError,
   FOLDER_MIME,
+  INLINE_TYPES,
   chainToRoot,
   descriptionProves,
   downloadName,
@@ -28,6 +29,7 @@ import {
   issueCode,
   readDownload,
   serviceAccountEmail,
+  servedType,
   signDownload,
   toItem,
 } from './drive.js';
@@ -174,18 +176,33 @@ async function fileUnderRoot(doc: DriveDocument, fileId: string): Promise<Under>
  *  routes/mcp-discovery.ts — the Stripe callback's lesson): a configured
  *  fallback pointing at production would send a staging member to the
  *  production API, where a staging token can never verify. */
-export async function prepareDownload(email: string, ws: string, docId: string, fileId: unknown, origin: string, now = Date.now()) {
+export async function prepareDownload(
+  email: string,
+  ws: string,
+  docId: string,
+  fileId: unknown,
+  origin: string,
+  now = Date.now(),
+  /** Asked for; GRANTED only for a viewable type (lib/drive.ts INLINE_TYPES). */
+  disposition: unknown = 'attachment',
+) {
   const a = await admitted(email, ws, docId);
   if (!a) return { error: { status: 404, code: 'not_found' } as DownloadError };
   if (typeof fileId !== 'string') return { error: { status: 404, code: 'not_found' } as DownloadError };
   const f = await fileUnderRoot(a.doc, fileId);
   if ('error' in f) return { error: f.error };
-  const token = signDownload({ w: ws, d: docId, f: fileId, p: a.personId }, now);
+  const inline = disposition === 'inline' && f.item.viewable;
+  const token = signDownload({ w: ws, d: docId, f: fileId, p: a.personId, ...(inline ? { i: 1 as const } : {}) }, now);
   return {
     url: `${origin}/api/v1/me/portal/drive-download?token=${encodeURIComponent(token)}`,
     expires_at: new Date(now + 60_000).toISOString(),
     filename: downloadName(f.item.name, f.item.export_as),
     export_as: f.item.export_as,
+    // Additive (the viewer, with B3): what was GRANTED, what the GET serves,
+    // and the size (null for an export — Drive cannot say before it makes it).
+    disposition: inline ? ('inline' as const) : ('attachment' as const),
+    content_type: servedType(f.item),
+    bytes: f.item.bytes,
   };
 }
 
@@ -214,13 +231,17 @@ export async function serveDownload(token: unknown, now = Date.now()) {
   } catch (e) {
     return { error: downloadFailure(e) };
   }
+  const contentType = servedType(f.item);
+  // Inline only when the token says so AND the type is still one we inline
+  // (the file may have changed type since the token was signed).
+  const inline = claim.i === 1 && INLINE_TYPES.has(contentType);
   // Type + subject only (hard rule 5): which folder and which file, by id.
   // A file's name is content and never enters the activity log.
-  await logDownload(claim.w, a.personId, `${a.doc.folder_id}/${claim.f}`.slice(0, 200));
-  return { body, filename: downloadName(f.item.name, f.item.export_as), contentType: f.item.export_as === 'pdf' ? 'application/pdf' : f.item.mime };
+  await logDownload(claim.w, a.personId, `${a.doc.folder_id}/${claim.f}`.slice(0, 200), inline ? 'drive_file_viewed' : 'drive_file_downloaded');
+  return { body, filename: downloadName(f.item.name, f.item.export_as), contentType, inline };
 }
 
-async function logDownload(ws: string, personId: string, subject: string): Promise<void> {
+async function logDownload(ws: string, personId: string, subject: string, type: 'drive_file_downloaded' | 'drive_file_viewed'): Promise<void> {
   try {
     const { data: app } = await adminClient.from('app').select('id').eq('slug', 'membership').single();
     if (!app) return;
@@ -228,7 +249,7 @@ async function logDownload(ws: string, personId: string, subject: string): Promi
       workspace_id: ws,
       person_id: personId,
       app_id: app.id,
-      type: 'drive_file_downloaded',
+      type,
       subject,
       occurred_at: new Date().toISOString(),
     });

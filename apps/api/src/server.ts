@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
+import { frameableExemption } from './lib/frameable.js';
 import { cors } from 'hono/cors';
 import { hit, clientIp } from './lib/rate-limit.js';
 import { CORS_ALLOW_METHODS, isAllowedOrigin } from './lib/cors-origins.js';
@@ -87,6 +88,10 @@ import { ensureStripeTaxRates } from './lib/vat-stripe.js';
 const app = new Hono();
 
 app.use('*', logger());
+// Outside secureHeaders on purpose: it runs after it on the way out, so it
+// can lift X-Frame-Options for a response that marked itself frameable and
+// named its framers (lib/frameable.ts; an inline Drive file only).
+app.use('*', frameableExemption);
 // Baseline response headers (docs/data-protection-approach.md). The API
 // serves JSON to scripts and to our own apps; it is never framed and never
 // sniffed. Cross-origin isolation headers are left off: they change how

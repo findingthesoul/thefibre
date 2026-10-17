@@ -96,7 +96,8 @@ import { communityView, memberCommunities, signedDocumentUrl } from '../lib/memb
 import { filesFor } from '../lib/portal-files.js';
 import { admittedDriveEntry, prepareDownload, serveDownload } from '../lib/drive-connect.js';
 import { publicOrigin } from './mcp-discovery.js';
-import { DriveError, listFolder } from '../lib/drive.js';
+import { DriveError, inlineCsp, listFolder } from '../lib/drive.js';
+import { FRAMEABLE_HEADER } from '../lib/frameable.js';
 import {
   couldJoinFrom,
   entitlementsByMember,
@@ -1364,8 +1365,8 @@ portalRoutes.get('/portal/community/:ws/drive/:docId', async (c) => {
 portalRoutes.post('/portal/community/:ws/drive/:docId/download', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
-  const body = (await c.req.json().catch(() => null)) as { file_id?: unknown } | null;
-  const r = await prepareDownload(email, c.req.param('ws'), c.req.param('docId'), body?.file_id, publicOrigin(c.req.raw.headers));
+  const body = (await c.req.json().catch(() => null)) as { file_id?: unknown; disposition?: unknown } | null;
+  const r = await prepareDownload(email, c.req.param('ws'), c.req.param('docId'), body?.file_id, publicOrigin(c.req.raw.headers), Date.now(), body?.disposition);
   if ('error' in r && r.error) return c.json({ error: r.error.code.replace('_', ' '), code: r.error.code }, r.error.status);
   return c.json(r);
 });
@@ -1389,10 +1390,17 @@ portalRoutes.get('/portal/drive-download', async (c) => {
   }
   const headers = new Headers({
     'Content-Type': r.contentType || 'application/octet-stream',
-    'Content-Disposition': `attachment; filename="${r.filename.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(r.filename)}`,
+    'Content-Disposition': `${r.inline ? 'inline' : 'attachment'}; filename="${r.filename.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(r.filename)}`,
     'X-Content-Type-Options': 'nosniff',
     'Cache-Control': 'private, no-store',
   });
+  if (r.inline) {
+    // The viewer (my.thread) frames it: a CSP per type (lib/drive.ts
+    // inlineCsp) and the frameable mark server.ts reads to drop its global
+    // X-Frame-Options DENY for this response only.
+    headers.set('Content-Security-Policy', inlineCsp(r.contentType));
+    headers.set(FRAMEABLE_HEADER, '1');
+  }
   const len = r.body!.headers.get('content-length');
   if (len) headers.set('Content-Length', len);
   return new Response(r.body!.body, { status: 200, headers });

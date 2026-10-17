@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.273.0] — 2026-10-17
+
+### Drive files open in a viewer: the API serves a PDF or an image inline, for my.thread to frame (API)
+
+- Sjoerd: a file should open in a screen, with a Download button, instead of
+  downloading straight away. my.thread's viewer is B3's; this is the API
+  half, all additive.
+- **Ask, and read back what was granted.**
+  - `POST …/drive/:docId/download` takes `disposition: 'inline'`.
+  - The answer adds `disposition` (what was GRANTED), `content_type` (what
+    the stream serves) and `bytes` (null for an export).
+  - Inline is granted only for `application/pdf` (a Doc's PDF export
+    included) and png, jpeg, webp and gif. SVG, HTML, text and everything
+    else come back as `attachment`, as today.
+  - Listing items add `viewable`, by the same rule.
+- **The grant is signed into the token** (`i: 1`). A URL edit cannot add it:
+  the signature breaks and the link is a 404. At the stream it is checked
+  again against the file's type.
+- **Inline responses** carry `Content-Disposition: inline`, nosniff,
+  `private, no-store`, and a CSP:
+  - a PDF gets `default-src 'none'; img-src 'self'; object-src 'self';
+    frame-ancestors <my.thread>` with NO `sandbox`. Under `sandbox`,
+    Chromium's PDF viewer rendered nothing in an iframe; that was tested in a
+    local lab.
+  - An image keeps `sandbox`; an `<img>` and a tab of its own both render.
+  - Framers come from branding (`my-portal`): my.thethread.app, plus
+    my.thefibre.tech on the staging API and localhost:3007 off the
+    production API.
+- **The one exception to "never framed".** Hono's secureHeaders stamps
+  `X-Frame-Options: DENY` after the route has run, so `lib/frameable.ts`,
+  registered outside it, lifts the DENY only for a response that marks itself
+  frameable AND names its framers.
+- An inline token can be fetched again until it expires (60s), for viewers
+  that fetch twice. Each fetch is one activity row: `drive_file_viewed`
+  inline, `drive_file_downloaded` as before.
+- **Tests:**
+  - `drive.test.ts`: which types are viewable (PDF, Doc, four raster types
+    yes; SVG, HTML, text, XHTML, JS, video, folder, form, too large no); the
+    CSP per type and the framers per environment; the token's `i` is 1 or
+    nothing.
+  - `frameable.test.ts`: an ordinary response stays DENY; a marked response
+    with frame-ancestors loses it; the mark alone keeps it.
+  - `drive-download.int.test.ts` (staging DB, Google faked):
+    - PDF inline with the PDF CSP and no sandbox;
+    - a Doc inline as its PDF, bytes null;
+    - PNG inline, sandboxed;
+    - SVG and HTML asked inline, served as attachment with no CSP;
+    - no disposition is still attachment;
+    - a token edited to add `i` → 404, and a `&disposition=inline` query is
+      ignored;
+    - an inline token fetched twice.
+    The existing download and folder tests still pass.
+- **Not verified:** Safari's PDF viewer under this CSP, and the framing from
+  my.thread itself (B3's viewer is not on staging yet). Safari is the open
+  question; Chrome only was looked at.
+
 ## [1.272.4] — 2026-10-17
 
 ### my.thread: Files and Shop move up the sidebar, under Members (my.thread 0.33.1)
