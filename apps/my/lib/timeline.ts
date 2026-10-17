@@ -5,7 +5,7 @@
 // merely sounded right. Move it server-side when a real member's list is
 // long enough to hurt, not before.
 
-import type { Portal, RsvpResponse } from './portal-api';
+import type { AgendaItem, Portal, RsvpResponse } from './portal-api';
 import { INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared/i18n';
 import { DEFAULT_TZ, fmtTime } from './format';
 
@@ -62,6 +62,11 @@ export type Entry = {
   rsvpEnabled: boolean;
   rsvp: RsvpResponse | null;
   hasTicket: boolean;
+  /** A thread with no dated session yet, shown at its start date (Sjoerd,
+   *  2026-10-17: it read as a session on that day). The row says "Starts …"
+   *  instead of a time; it stays, because it is the only way into the
+   *  thread's dialog — the ticket, a cancellation, the full page. */
+  startsOnly?: boolean;
   /** You host or facilitate this session — "You're hosting", not a
    *  participant's line. */
   role?: 'host' | 'facilitator' | null;
@@ -144,6 +149,7 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           time: null,
           timeZone: tz,
           dayZone: 'UTC',
+          startsOnly: true,
           where: null,
           whereUrl: null,
           joinUrl: null,
@@ -281,4 +287,14 @@ export function quarterLabel(at: number, locale?: Locale | string | null): strin
  */
 export function unanswered(entries: Entry[]): Entry[] {
   return entries.filter((e) => e.rsvpEnabled && e.rsvp === null);
+}
+
+/** The agenda in time order (Sjoerd, 2026-10-17: a 12 Jan event listed after
+ *  17 Feb). The API sends the organiser's editor order across all types;
+ *  dated items are sorted by start here, and undated ones (a message, a
+ *  document) follow in that editor order. Client only: the API's order is a
+ *  contract other readers rely on. */
+export function agendaByStart(items: AgendaItem[]): AgendaItem[] {
+  const dated = items.filter((a) => a.starts_at).sort((x, y) => Date.parse(x.starts_at!) - Date.parse(y.starts_at!));
+  return [...dated, ...items.filter((a) => !a.starts_at)];
 }

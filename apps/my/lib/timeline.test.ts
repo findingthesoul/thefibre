@@ -5,7 +5,7 @@
 // instead.
 
 import { describe, expect, it } from 'vitest';
-import { buildTimeline, quarterLabel, splitAt, unanswered, type Entry } from './timeline';
+import { agendaByStart, buildTimeline, quarterLabel, splitAt, unanswered, type Entry } from './timeline';
 import type { AgendaItem, Portal } from './portal-api';
 
 const NOW = new Date('2026-06-15T12:00:00Z').getTime();
@@ -433,5 +433,36 @@ describe('times are the thread’s, never the server’s', () => {
     );
     expect(e!.time).toBe('17:00');
     expect(e!.timeZone).toBe('Europe/Amsterdam');
+  });
+});
+
+describe('a thread’s dialog lists its agenda in time order', () => {
+  it('sorts dated items by start, whatever their editor order or type', () => {
+    const ordered = agendaByStart([
+      agenda({ id: 'feb', type: 'session', starts_at: '2027-02-17T16:00:00Z' }),
+      agenda({ id: 'msg', type: 'message' }),
+      agenda({ id: 'jan', type: 'event', starts_at: '2027-01-12T16:00:00Z' }),
+      agenda({ id: 'doc', type: 'document' }),
+      agenda({ id: 'apr', type: 'session', starts_at: '2027-04-06T14:00:00Z' }),
+    ]);
+    // Production: the 12 Jan Event was listed after 17 Feb.
+    expect(ordered.map((a) => a.id)).toEqual(['jan', 'feb', 'apr', 'msg', 'doc']);
+  });
+});
+
+describe('a thread with no dated session yet', () => {
+  it('is listed at its start date as "starts", not as a session', () => {
+    const [e] = buildTimeline(portal([group({ threads: [thread({ starts_on: '2027-01-13', agenda: [] })] })]), NOW);
+    expect(e!.startsOnly).toBe(true);
+    expect(e!.time).toBeNull();
+    expect(e!.dayZone).toBe('UTC');
+  });
+
+  it('a dated session is never "starts"', () => {
+    const [e] = buildTimeline(
+      portal([group({ threads: [thread({ agenda: [agenda({ id: 's', starts_at: '2027-01-12T16:00:00Z' })] })] })]),
+      NOW,
+    );
+    expect(e!.startsOnly).toBeUndefined();
   });
 });

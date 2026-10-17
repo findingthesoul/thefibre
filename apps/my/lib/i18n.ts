@@ -3880,6 +3880,17 @@ const CATALOG = {
     de: 'Anderer Kalender…', // MT
     fr: 'Autre agenda…', // MT
   },
+
+  // ── A thread without sessions on Next ─────────────────────────────────
+  // A thread on Next with no dated session yet: its start, said as a start.
+  starts_on_date: {
+    en: 'Starts {date}',
+    nl: 'Begint {date}',
+    es: 'Empieza el {date}', // MT
+    pt: 'Começa em {date}', // MT
+    de: 'Beginnt am {date}', // MT
+    fr: 'Commence le {date}', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

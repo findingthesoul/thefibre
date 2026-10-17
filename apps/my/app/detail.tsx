@@ -39,6 +39,7 @@ import { t } from '@/lib/i18n';
 import { DEFAULT_TZ, dayMonth, fmtTime, listOf } from '@/lib/format';
 import { ActionsMenu } from '@thefibre/shared/ui/actions-menu';
 import { googleEventLink, outlookEventLink, type CalendarEvent } from '@/lib/calendar-links';
+import { agendaByStart } from '@/lib/timeline';
 import { readCalendarChoice, writeCalendarChoice, type CalendarChoice } from '@/lib/calendar-pref';
 
 /** A link styled as a button. Not the shared Button: these are anchors, and a
@@ -601,7 +602,7 @@ export function ThreadSheet({
               )}
             </div>
             <ul className="mt-2">
-              {thread.agenda.map((a) => (
+              {agendaByStart(thread.agenda).map((a) => (
                 <AgendaRow key={a.id} threadId={thread.thread_id} threadUrl={thread.url} zone={thread.timezone || DEFAULT_TZ} item={a} />
               ))}
             </ul>

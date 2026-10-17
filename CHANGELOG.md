@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.262.4] — 2026-10-17
+
+### my.thread → Next: a thread's agenda in time order, and a thread without sessions says "Starts" (my.thread 0.31.2)
+
+- Two more of Sjoerd's findings from the production screenshots, after the
+  times hotfix.
+- **The dialog's agenda is in time order.** A 12 Jan event was listed after
+  17 Feb, because the API sends the organiser's editor order across all
+  types. The dialog now sorts dated items by start, with undated ones (a
+  message, a document) after them in editor order (`agendaByStart` in
+  `lib/timeline.ts`). Client only: the API's order is a contract other readers
+  rely on.
+- **A thread with no dated session yet** used to sit on Next at its start
+  date with no time, reading like a session on that day ("Fellowship - basic
+  training", 13 Jan). It now says "Starts 13 Jan · <organiser>" (Begint 13
+  jan, Empieza el…, six languages). It stays on the list on purpose: it's the
+  only way into that thread's dialog (the ticket, a cancellation request, the
+  full page). Approved by the coordinator as proposed.
+- Tested: unit `timeline` +3 (the production order case across types; a
+  session-less thread is `startsOnly`, a dated one never is); apps/my 81/81.
+  New e2e `agenda-order.spec.ts`: on staging it adds a session that is
+  earlier in time but last in the editor to a fixture thread, and deletes it
+  after. The dialog must list it first; it runs after landing. No staging
+  fixture has a thread without sessions, so the "Starts" label is covered
+  by the unit only.
+
 ## [1.262.3] — 2026-10-17
 
 ### Hotfix: the enrolment confirmation shows a thread's description as text, not as raw HTML (API)

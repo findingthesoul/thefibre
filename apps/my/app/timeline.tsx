@@ -16,7 +16,12 @@ import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { Rsvp, ThreadSheet } from './detail';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
-import { dayMonth, zoneLabel } from '@/lib/format';
+import { dayMonth, intlTag, zoneLabel } from '@/lib/format';
+
+/** "13 Jan" — a date-only value (UTC midnight), read in UTC. */
+function shortDay(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(intlTag(locale), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(iso));
+}
 
 /** Day over month — how an agenda is scanned, and the same chip the detail
  *  sheet uses, so a card and its contents read alike. */
@@ -182,7 +187,11 @@ function MetaLine({ entry }: { entry: Entry }) {
   // the thread's, so without this the line reads as one more session on a
   // programme the person has already finished.
   const meta = [
-    entry.kind === 'certificate' ? t(locale, 'certificate') : time,
+    entry.kind === 'certificate'
+      ? t(locale, 'certificate')
+      : entry.startsOnly
+        ? t(locale, 'starts_on_date', { date: shortDay(entry.dateIso, locale) })
+        : time,
     entry.role === 'host' ? t(locale, 'you_host') : entry.role === 'facilitator' ? t(locale, 'you_facilitate') : null,
     entry.organiser,
     entry.where ?? (entry.withHost ? t(locale, 'with_people', { names: entry.withHost }) : null),
