@@ -66,6 +66,7 @@ import { hostedThreadsFor } from '../lib/main-facilitator.js';
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { rows } from '../lib/rows.js';
+import { bookingZone, threadZones } from '../lib/item-zones.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { ProfilePatch, ProfileWhereabouts, nullEmptyFace } from './profile.js';
 import { syncSeatsFromProfile } from '../lib/identity-profile.js';
@@ -245,6 +246,9 @@ type MeetItem = {
   status: string;
   meet_url: string | null;
   location: string | null;
+  /** The zone the guest reads it in (additive, 2026-10-17): the zone they
+   *  booked in, else the host's; null when neither is a real zone. */
+  timezone: string | null;
 };
 
 type MembershipItem = {
@@ -488,9 +492,9 @@ portalRoutes.get('/portal', async (c) => {
   // there. The email is verified, not trusted-safe: what a token proves is
   // that someone receives mail at that address, not that the address is inert
   // inside a query language. Two typed filters have no such surface.
-  const meetSelect = `id, workspace_id, starts_at, ends_at, status, meet_url, alternative_location,
+  const meetSelect = `id, workspace_id, starts_at, ends_at, status, meet_url, alternative_location, invitee_timezone,
        meeting_type:meeting_type_id (name),
-       host:host_id (slug, user:user_id (full_name))`;
+       host:host_id (slug, timezone, user:user_id (full_name))`;
   const bookingsQuery = Promise.all([
     adminClient
       .from('meet_booking')
@@ -1086,7 +1090,7 @@ portalRoutes.get('/portal', async (c) => {
     if (!g) continue;
     const mt = one(b.meeting_type as never) as { name: string } | null;
     const hostRow = one(b.host as never) as
-      | { slug: string | null; user: unknown }
+      | { slug: string | null; timezone?: string | null; user: unknown }
       | null;
     const hostUser = one(hostRow?.user as never) as { full_name: string | null } | null;
     g.meets.push({
@@ -1098,6 +1102,7 @@ portalRoutes.get('/portal', async (c) => {
       status: b.status as string,
       meet_url: (b.meet_url as string | null) ?? null,
       location: (b.alternative_location as string | null) ?? null,
+      timezone: bookingZone({ invitee_timezone: b.invitee_timezone, host_timezone: hostRow?.timezone }),
     });
   }
 
@@ -1209,6 +1214,7 @@ portalRoutes.get('/portal/notifications', async (c) => {
   const list = rows('portal: notifications', await q);
   const page = list.slice(0, NOTIFICATION_PAGE);
   const last = page[page.length - 1];
+  const zones = await threadZones(page.map((n) => n.thread_id as string | null));
   return c.json({
     items: page.map((n) => ({
       id: n.id,
@@ -1219,6 +1225,8 @@ portalRoutes.get('/portal/notifications', async (c) => {
       read: !!n.read_at,
       created_at: n.created_at,
       community: (one(n.workspace as never) as { name?: string } | null)?.name ?? null,
+      // The thread's own zone (additive, 2026-10-17); null without a thread.
+      timezone: (n.thread_id && zones.get(n.thread_id as string)) || null,
     })),
     next_cursor: list.length > NOTIFICATION_PAGE && last ? `${last.created_at}|${last.id}` : null,
   });

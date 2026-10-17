@@ -39,6 +39,7 @@ import { greetingName } from './email/membership-templates.js';
 import { myThreadUrl } from './message-tokens.js';
 import { EXT, MIME, sniff, stripMetadata } from './file-sniff.js';
 import { couldJoinByMember } from './could-join.js';
+import { threadZones, zoneOrNull } from './item-zones.js';
 import { loadAgendaByThread, personsForEmail } from './portal-agenda.js';
 import { enrolmentIsLive } from './portal.js';
 import { placesByThread } from './place-state.js';
@@ -416,7 +417,9 @@ export type CommunityView = {
   /** Document steps from the member's own threads in this community, ONLY
    *  those already released to them by the thread's own triggers. */
   thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
-  next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;
+  /** `timezone` (additive, 2026-10-17): the thread's own zone, null when
+   *  it is unknown — the client then keeps its default. */
+  next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming'; timezone: string | null } | null;
 };
 
 export type LivePlace = { thread_id: string; workspace_id: string; title: string };
@@ -541,7 +544,8 @@ export async function communityView(
       .filter((i) => i.starts_at && new Date(i.starts_at).getTime() >= now.getTime())
       .sort((a, b) => a.starts_at!.localeCompare(b.starts_at!))[0];
     if (soonest) {
-      next = { title: soonest.title, starts_at: soonest.starts_at!, thread_title: titleOf.get(soonest.thread_id) ?? null, url: null, kind: 'yours' };
+      const zone = (await threadZones([soonest.thread_id])).get(soonest.thread_id) ?? null;
+      next = { title: soonest.title, starts_at: soonest.starts_at!, thread_title: titleOf.get(soonest.thread_id) ?? null, url: null, kind: 'yours', timezone: zone };
     }
   }
   if (!next) {
@@ -555,7 +559,7 @@ export async function communityView(
     );
     const offers = (await couldJoinByMember([{ id: member.member_id, person_id: member.person_id, workspace_id: ws }], placeMap, 1)).get(member.member_id) ?? [];
     const first = offers.find((o) => o.starts_on);
-    if (first?.starts_on) next = { title: first.title, starts_at: first.starts_on, thread_title: null, url: first.url, kind: 'upcoming' };
+    if (first?.starts_on) next = { title: first.title, starts_at: first.starts_on, thread_title: null, url: first.url, kind: 'upcoming', timezone: zoneOrNull(first.timezone) };
   }
 
   const community = (wsRow?.name as string | undefined) ?? '';

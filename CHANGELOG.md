@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.267.3] — 2026-10-17
+
+### The portal API says which time zone each item is in: Meet bookings, notifications, a community's next (API only)
+
+- **Three my.thread payloads gain an additive `timezone`**, so my.thread
+  can show their times on the right clock and stop falling back to
+  Europe/Amsterdam (the follow-up to the agenda time hotfix):
+  - `GET /me/portal` → each group's `meets[].timezone`: the zone the guest
+    booked in (`meet_booking.invitee_timezone`, recorded since 2026-10-07),
+    else the host's (`meet_host.timezone`), which is the zone the slot was
+    offered in;
+  - `GET /me/portal/notifications` → `items[].timezone`: the thread's own
+    zone (`thread_thread.timezone`), null for a notification without a
+    thread;
+  - `GET /me/portal/community` → `items[].next.timezone`: the thread's zone,
+    for both "yours" (your agenda) and "upcoming" (what you could join).
+- **A zone that isn't a real IANA name goes out as null**
+  (`lib/item-zones.ts`, `isTimeZone`), so the client keeps its default
+  instead of crashing on one, as on 2026-09-28 ("Athenes"). Notifications
+  read the zones of all of a page's threads in one query.
+- Tests: `item-zones.test.ts` (6: real zones pass, a typo, empty and
+  non-strings are refused; a booking prefers the guest's zone, falls back
+  to the host's when the guest's is missing or invalid, and is null when
+  neither is known). Both new selects run against staging and return rows
+  with zones. my.thread starts using the fields in its own release
+  (builder 5).
+
 ## [1.267.2] — 2026-10-17
 
 ### Drive downloads link to the API they were asked on; Drive's setup says WHY it is not ready (API)
