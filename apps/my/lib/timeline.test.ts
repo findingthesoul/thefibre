@@ -5,7 +5,7 @@
 // instead.
 
 import { describe, expect, it } from 'vitest';
-import { agendaByStart, buildTimeline, quarterLabel, splitAt, unanswered, type Entry } from './timeline';
+import { agendaByStart, buildTimeline, quarterLabel, shortDay, splitAt, startsLine, UNDATED_AT, unanswered, type Entry } from './timeline';
 import type { AgendaItem, Portal } from './portal-api';
 
 const NOW = new Date('2026-06-15T12:00:00Z').getTime();
@@ -492,5 +492,71 @@ describe('a booking reads in its own zone (API v1.267.3)', () => {
       expect(e!.time).toBe('17:00');
       expect(e!.timeZone).toBe('Europe/Amsterdam');
     }
+  });
+});
+
+// A thread with NO sessions and NO start date (2026-10-17). It was dropped
+// entirely, so Next said "Nothing coming up" to somebody holding a place (on
+// production since v0.68.59; B4's golden path found it on staging).
+describe('buildTimeline — a thread with no date at all', () => {
+  const dateless = (over = {}) => portal([group({ threads: [thread({ starts_on: null, agenda: [], ...over })] })]);
+
+  it('is one upcoming, undated, coming-soon entry', () => {
+    const out = buildTimeline(dateless(), NOW);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ key: 'thread:t1', startsOnly: true, undated: true, dateIso: '', at: UNDATED_AT });
+    expect(splitAt(out, NOW).upcoming).toHaveLength(1);
+  });
+
+  it('stays upcoming whatever the clock says, and sorts after every dated entry', () => {
+    const p = portal([
+      group({
+        threads: [
+          thread({ thread_id: 'none', starts_on: null }),
+          thread({ thread_id: 'later', starts_on: '2099-12-31' }),
+        ],
+      }),
+    ]);
+    const out = buildTimeline(p, NOW);
+    expect(out.map((e) => e.threadId)).toEqual(['later', 'none']);
+    for (const now of [NOW, Date.parse('2200-01-01'), Date.parse('9999-01-01')]) {
+      expect(splitAt(out, now).past.map((e) => e.threadId)).not.toContain('none');
+    }
+  });
+
+  it('survives a trip through JSON (server page → client component)', () => {
+    const [e] = buildTimeline(dateless(), NOW);
+    const back = JSON.parse(JSON.stringify(e)) as Entry;
+    expect(back.at).toBe(UNDATED_AT);
+    expect(Number.isFinite(back.at)).toBe(true);
+  });
+
+  it('is not shown once it is over for you: certificate, completed or dropped place, finished programme', () => {
+    for (const over of [
+      { certificate: { number: 'X', issued_at: '2026-01-01T00:00:00Z' } },
+      { enrolment_status: 'completed' },
+      { enrolment_status: 'dropped' },
+      { status: 'completed' },
+      { status: 'archived' },
+    ]) {
+      expect(buildTimeline(dateless(over), NOW).filter((e) => e.undated), JSON.stringify(over)).toHaveLength(0);
+    }
+  });
+
+  it('is not shown for a thread you only HOST (same rule as the dated one)', () => {
+    expect(buildTimeline(dateless({ enrolment_status: null, my_role: 'host' }), NOW)).toHaveLength(0);
+  });
+});
+
+describe('startsLine — the one reader of a coming-soon entry’s date', () => {
+  it('an undated entry never reaches a date formatter', () => {
+    // dateIso is '' — formatting it would throw (Invalid Date). The line must
+    // not even try.
+    expect(() => shortDay('', 'en')).toThrow();
+    expect(startsLine({ undated: true, dateIso: '' }, 'en')).toBe('Date to follow');
+    expect(startsLine({ undated: true, dateIso: '' }, 'nl')).toBe('Datum volgt nog');
+  });
+  it('a dated one says when it starts', () => {
+    expect(startsLine({ undated: false, dateIso: '2027-01-13' }, 'en')).toMatch(/13 Jan/);
   });
 });

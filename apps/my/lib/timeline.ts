@@ -7,7 +7,8 @@
 
 import type { AgendaItem, Portal, RsvpResponse } from './portal-api';
 import { INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared/i18n';
-import { DEFAULT_TZ, fmtTime } from './format';
+import { DEFAULT_TZ, fmtTime, intlTag } from './format';
+import { t } from './i18n';
 
 export type Entry = {
   key: string;
@@ -67,10 +68,37 @@ export type Entry = {
    *  instead of a time; it stays, because it is the only way into the
    *  thread's dialog — the ticket, a cancellation, the full page. */
   startsOnly?: boolean;
+  /** No dated session AND no start date: the thread is all there is to say
+   *  (2026-10-17 — such a thread was dropped, and Next said "Nothing coming
+   *  up" to somebody holding a place). `at` is UNDATED_AT, so it is always
+   *  upcoming and sorts last; `dateIso` is '' and must never be formatted —
+   *  `startsLine` is the one reader. Always `startsOnly` too: it lives in the
+   *  coming-soon section, "Date to follow". */
+  undated?: boolean;
   /** You host or facilitate this session — "You're hosting", not a
    *  participant's line. */
   role?: 'host' | 'facilitator' | null;
 };
+
+/** Where an undated entry sits in time: the LAST moment a Date can hold
+ *  (8.64e15 ms, year 275760), not Infinity. Entries cross from the server page
+ *  to a client component, and Infinity does not survive every serialiser (JSON
+ *  makes it null); this is finite, sorts after every real date, and is always
+ *  "upcoming". It is never a date to show — see `startsLine`. */
+export const UNDATED_AT = 8.64e15;
+
+/** "13 Jan" — a date-only value (UTC midnight), read in UTC. */
+export function shortDay(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(intlTag(locale), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(iso));
+}
+
+/** The line a thread-without-sessions shows instead of a time: "Starts 13 Jan",
+ *  or "Date to follow" when there is no date at all. The ONE place that turns
+ *  such an entry's date into words — an undated entry's `dateIso` is '', and
+ *  formatting it would throw (Invalid Date). */
+export function startsLine(e: Pick<Entry, 'undated' | 'dateIso'>, locale: string): string {
+  return e.undated ? t(locale, 'date_to_follow') : t(locale, 'starts_on_date', { date: shortDay(e.dateIso, locale) });
+}
 
 /** A day with no clock, read in the viewer's own timezone. `new Date('2027-01-01')`
  *  is UTC midnight, which lands on the previous day west of Greenwich. */
@@ -136,7 +164,43 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
       // has to be reachable.
       // (Not for a thread you only HOST: you are on its sessions, and with
       // none ticked there is nothing of yours to show.)
-      if (timed.length === 0 && t.starts_on && !(t.my_role && !t.enrolment_status)) {
+      // No sessions AND no start date: nothing to place it by, so it goes to
+      // the coming-soon section undated — but only while it is still ahead of
+      // you. A dated thread falls into the past by itself; an undated one
+      // never would, so "over" is read from what is known instead: a
+      // certificate, a place that is completed or dropped, a programme that
+      // is completed or archived.
+      const over =
+        !!t.certificate ||
+        t.enrolment_status === 'completed' ||
+        t.enrolment_status === 'dropped' ||
+        t.status === 'completed' ||
+        t.status === 'archived';
+      if (timed.length === 0 && !t.starts_on && !over && !(t.my_role && !t.enrolment_status)) {
+        out.push({
+          key: `thread:${t.thread_id}`,
+          kind: 'session',
+          at: UNDATED_AT,
+          allDay: true,
+          title: t.title,
+          organiser: g.name,
+          workspaceId: g.workspace_id,
+          dateIso: '',
+          time: null,
+          timeZone: tz,
+          dayZone: 'UTC',
+          startsOnly: true,
+          undated: true,
+          where: null,
+          whereUrl: null,
+          joinUrl: null,
+          threadId: t.thread_id,
+          engagementId: null,
+          rsvpEnabled: false,
+          rsvp: null,
+          hasTicket: ticketFor.has(t.thread_id),
+        });
+      } else if (timed.length === 0 && t.starts_on && !(t.my_role && !t.enrolment_status)) {
         out.push({
           key: `thread:${t.thread_id}`,
           kind: 'session',

@@ -11,17 +11,12 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Award, QrCode, Video } from 'lucide-react';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
-import { quarterLabel, unanswered, type Entry } from '@/lib/timeline';
+import { quarterLabel, startsLine, unanswered, type Entry } from '@/lib/timeline';
 import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { Rsvp, ThreadSheet } from './detail';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
-import { dayMonth, intlTag, zoneLabel } from '@/lib/format';
-
-/** "13 Jan" — a date-only value (UTC midnight), read in UTC. */
-function shortDay(iso: string, locale: string): string {
-  return new Intl.DateTimeFormat(intlTag(locale), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(iso));
-}
+import { dayMonth, zoneLabel } from '@/lib/format';
 
 /** Day over month — how an agenda is scanned, and the same chip the detail
  *  sheet uses, so a card and its contents read alike. */
@@ -190,7 +185,7 @@ function MetaLine({ entry }: { entry: Entry }) {
     entry.kind === 'certificate'
       ? t(locale, 'certificate')
       : entry.startsOnly
-        ? t(locale, 'starts_on_date', { date: shortDay(entry.dateIso, locale) })
+        ? startsLine(entry, locale)
         : time,
     entry.role === 'host' ? t(locale, 'you_host') : entry.role === 'facilitator' ? t(locale, 'you_facilitate') : null,
     entry.organiser,
@@ -356,7 +351,7 @@ export function Timeline({
                 >
                   <span className="font-medium text-ink [overflow-wrap:anywhere] line-clamp-2">{e.title}</span>
                   <span className="text-sm text-ink-muted">
-                    {[t(locale, 'starts_on_date', { date: shortDay(e.dateIso, locale) }), e.organiser].join(' \u00b7 ')}
+                    {[startsLine(e, locale), e.organiser].join(' \u00b7 ')}
                   </span>
                 </button>
               </li>

@@ -4198,6 +4198,16 @@ const CATALOG = {
     de: 'Nur andere Mitglieder dieser Gemeinschaft sehen dich in ihrer Mitgliederliste. Es ist nie öffentlich im Internet. Aus, außer du schaltest es ein.', // MT
     fr: 'Seuls les autres membres de cette communauté vous voient dans sa liste de membres. Ce n’est jamais public sur internet. Désactivé, sauf si vous l’activez.', // MT
   },
+
+  // ── Threads with no date yet ──────────────────────────────────────────
+  date_to_follow: {
+    en: 'Date to follow',
+    nl: 'Datum volgt nog',
+    es: 'Fecha por confirmar', // MT
+    pt: 'Data a anunciar', // MT
+    de: 'Datum folgt', // MT
+    fr: 'Date à venir', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

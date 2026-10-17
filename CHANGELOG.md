@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.11] — 2026-10-17
+
+### my.thread → Next: a thread with no date and no sessions is shown, not "Nothing coming up" (my.thread 0.35.1)
+
+- An enrolled thread with no start date and no dated session was dropped
+  from Next entirely, so a member holding a place read "Nothing coming
+  up". This has been on production since v0.68.59; B4's golden path found
+  it on staging. It now sits in the coming-soon section as
+  "Date to follow · organiser" and opens the same dialog (ticket,
+  cancellation, full page). Six languages.
+- Only while it is still ahead of you. A dated thread falls into the past
+  by itself, but an undated one never would. So it is left out when it has
+  a certificate, the place is completed or dropped, or the programme is
+  completed or archived. A thread you only host is left out too, as for
+  dated ones.
+- It sits at the last moment a Date can hold (8.64e15), not Infinity. The
+  entry crosses from the server page to a client component, and Infinity
+  does not survive every serialiser. Its `dateIso` is '' and is never
+  formatted: `startsLine` is now the one place a coming-soon entry's date
+  becomes words (formatting '' would throw Invalid Date).
+- Tested:
+  - Units (8 new): one upcoming undated entry; stays upcoming at any `now`
+    and sorts after the dated ones; survives JSON; left out when over (5
+    ways) or only hosted; the undated line never reaches a date formatter.
+    timeline 36 under TZ=UTC, Amsterdam and Los Angeles; apps/my 110/110;
+    typecheck clean.
+  - Rendered on a local my.thread on this commit against staging at 1280
+    and 375, with a seeded dateless thread for the rehearsal fixture: the
+    row, the dialog, and no "Invalid Date" anywhere. The seed was removed
+    (read back 0).
+
 ## [1.277.10] — 2026-10-17
 
 ### Members: an add-on added while the membership is prepaid charges the full price now, then renews with the membership (API)
