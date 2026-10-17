@@ -75,6 +75,7 @@ const GUIDES = [
   { slug: 'invoices', href: '/invoices' },
   { slug: 'pricing', href: '/settings/pricing' },
   { slug: 'embeds', href: '/settings/embeds' },
+  { slug: 'drive_folder', href: '/settings/member-page' },
 ] as const;
 
 function guides(locale: Locale): HelpGuide[] {

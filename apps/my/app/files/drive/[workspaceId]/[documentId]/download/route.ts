@@ -8,6 +8,7 @@
 
 import { NextResponse } from 'next/server';
 import { serverSupabase } from '@/lib/supabase/server';
+import { safeDriveDownloadUrl } from '@/lib/drive-redirect';
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 
@@ -42,7 +43,10 @@ export async function GET(
       },
     );
     const body = (await res.json().catch(() => null)) as { url?: string; code?: string } | null;
-    if (res.ok && body?.url) return NextResponse.redirect(body.url);
+    // Only ever to the API's own download stream (lib/drive-redirect.ts).
+    const target = res.ok ? safeDriveDownloadUrl(body?.url, baseUrl) : null;
+    if (target) return NextResponse.redirect(target);
+    if (res.ok) console.error('[my] drive download: refused a redirect target outside the API download stream');
     // An exported Doc/Sheet/Slides that is too large hit Google's export cap,
     // not the download cap: a different sentence, a different number.
     const code = body?.code ?? '';

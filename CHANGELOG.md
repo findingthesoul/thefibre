@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.267.1] — 2026-10-17
+
+### Drive: the download redirect goes only to the API's stream; a Members help guide for connecting a folder (my.thread 0.32.1, Members 1.20.1)
+
+- **The my.thread Drive download route redirects only to the API's own
+  download stream** (the coordinator's hardening of v1.267.0). It still
+  passes the address through without reading the token, but first checks
+  it in `lib/drive-redirect.ts`: https (plain http only on localhost), no
+  credentials, exactly `/api/v1/me/portal/drive-download`, and a host that
+  is this app's API host or one of the API's known public hosts. Anything
+  else is refused and logged, so a misbehaving answer can never turn the
+  route into an open redirect. It is not a bare prefix check, because the
+  API builds the address from its PUBLIC host, which may differ from the
+  host this app calls. Test: `drive-redirect.test.ts` (3: the staging and
+  public hosts accepted; another host, a look-alike host, another path,
+  http, credentials, `javascript:`, protocol-relative and non-strings
+  refused; http only on localhost).
+- **Members → Help → "Connect a Google Drive folder"**, in six languages, as
+  builder 4 asked: share the folder as Viewer with the shown address, paste
+  the link → "Start", put the code in the folder's description → "Verify"
+  (the code may be removed afterwards), then choose who sees it like any
+  document; removing it disconnects the folder. Members need no Google
+  account, Docs/Sheets/Slides come as PDF, and files over 250 MB can't be
+  downloaded there. It quotes the form's real buttons in each language, and
+  `help-guides.test.ts` checks that. Shown to bite: with a quoted label that
+  doesn't exist, it fails naming this guide.
+
 ## [1.267.0] — 2026-10-17
 
 ### Google Drive folders: browse them in my.thread → Files, connect them in Members (my.thread 0.32.0, Members 1.20.0)
