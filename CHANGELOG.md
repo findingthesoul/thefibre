@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.263.1] — 2026-10-17
+
+### Members → Member page: the "Shown to" picker is one component (Members 1.19.1)
+
+- The audience chips under each member-page document ("Everyone", then one
+  per tier, then one per directory category) moved out of
+  `member-page-client.tsx` into `AudienceChips`
+  (`settings/member-page/audience-chips.tsx`). No change on screen: same
+  options (archived ones a document still names included), same labels,
+  same accessible group name, same save.
+- Why now: the connected Google Drive folders (agreed with builder 4) get
+  an audience too, and they must use this same picker rather than a second
+  copy that drifts (components first).
+- How "no change on screen" is checked: the e2e `member-page-tiers`
+  drives these chips by their accessible name and pressed state (choose a
+  tier, see the document follow on the member page) and runs on staging
+  after the release. Typecheck is clean and the members tests pass. No
+  screenshot diff was taken.
+
 ## [1.263.0] — 2026-10-17
 
 ### Refund rules, slice 1: the rule columns and the credit-note record (migration only)

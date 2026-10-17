@@ -10,6 +10,7 @@ import { tokenChips } from '@thefibre/shared/merge-tokens';
 import { CHIP, CHIP_STATE, NOTICE } from '@thefibre/shared/ui/recipes';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
+import { AudienceChips } from './audience-chips';
 import {
   addMemberLink,
   previewMemberIntro,
@@ -369,50 +370,16 @@ export function MemberPageClient({
                   <Trash2 size={16} aria-hidden />
                 </button>
                 </div>
-                {choosable.length + choosableCats.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[3.25rem]" role="group" aria-label={`${t(locale, 'mp_shown_to')}: ${d.title}`}>
-                    <span className="mr-1 text-xs text-ink-muted">{t(locale, 'mp_shown_to')}</span>
-                    <button
-                      type="button"
-                      aria-pressed={!d.tier_ids?.length && !d.category_ids?.length}
-                      onClick={() => (d.tier_ids?.length || d.category_ids?.length) && void setShownTo(d.id, { tier_ids: [], category_ids: [] })}
-                      className={`${CHIP} ${!d.tier_ids?.length && !d.category_ids?.length ? CHIP_STATE.on : CHIP_STATE.off}`}
-                    >
-                      {t(locale, 'mp_everyone')}
-                    </button>
-                    {choosable.map((x) => {
-                      const on = !!d.tier_ids?.includes(x.id);
-                      const tiersNext = on ? (d.tier_ids ?? []).filter((v) => v !== x.id) : [...(d.tier_ids ?? []), x.id];
-                      return (
-                        <button
-                          key={x.id}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => void setShownTo(d.id, { tier_ids: tiersNext, category_ids: d.category_ids ?? [] })}
-                          className={`${CHIP} ${on ? CHIP_STATE.on : CHIP_STATE.off}`}
-                        >
-                          {x.name}
-                        </button>
-                      );
-                    })}
-                    {choosableCats.length > 0 && choosable.length > 0 && <span className="mx-0.5 text-ink-muted" aria-hidden>·</span>}
-                    {choosableCats.map((x) => {
-                      const on = !!d.category_ids?.includes(x.id);
-                      const catsNext = on ? (d.category_ids ?? []).filter((v) => v !== x.id) : [...(d.category_ids ?? []), x.id];
-                      return (
-                        <button
-                          key={x.id}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => void setShownTo(d.id, { tier_ids: d.tier_ids ?? [], category_ids: catsNext })}
-                          className={`${CHIP} ${on ? CHIP_STATE.on : CHIP_STATE.off}`}
-                        >
-                          {x.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                <div className="mt-1.5 pl-[3.25rem]">
+                  <AudienceChips
+                    value={d}
+                    onChange={(next) => void setShownTo(d.id, next)}
+                    tiers={choosable}
+                    categories={choosableCats}
+                    label={`${t(locale, 'mp_shown_to')}: ${d.title}`}
+                    locale={locale}
+                  />
+                </div>
               </li>
             ))}
           </ul>
