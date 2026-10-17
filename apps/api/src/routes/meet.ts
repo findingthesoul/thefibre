@@ -4753,7 +4753,6 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
   const hostName = hostUser?.full_name ?? hostRow.slug ?? null;
   const hostEmail = hostUser?.email ?? null;
   const starts = new Date(booking.starts_at);
-  const when = formatWhen(starts, hostTz);
   // The same link the booking mails carry: it opens the picker on this
   // booking, so asking again keeps the row, its history and its ledger entry
   // instead of starting a second one.
@@ -4773,7 +4772,7 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
       inviteeName: booking.invitee_name,
       hostName,
       meeting: mt.name,
-      when,
+      when: formatWhen(starts, hostTz, locales.invitee),
       askAgainUrl: askAgain,
     });
     await sendEmail({
@@ -4795,7 +4794,7 @@ async function sendRequestExpiredMails(bookingId: string): Promise<void> {
         inviteeName: booking.invitee_name,
         inviteeEmail: booking.invitee_email,
         meeting: mt.name,
-        when,
+        when: formatWhen(starts, hostTz, locales.host),
         askAgainUrl: askAgain,
       });
       await sendEmail({
@@ -4910,8 +4909,8 @@ async function runApprovalRequestSideEffects(
         inviteeName: booking.invitee_name,
         inviteeEmail: booking.invitee_email,
         meeting: mt.name,
-        when: formatWhen(starts, hostTz),
-        movedFromWhen: moved ? formatWhen(moved, hostTz) : null,
+        when: formatWhen(starts, hostTz, locales.host),
+        movedFromWhen: moved ? formatWhen(moved, hostTz, locales.host) : null,
         reviewUrl: `${meetAppUrl()}/bookings`,
       });
       await sendEmail({

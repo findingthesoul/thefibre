@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.276.3] — 2026-10-17
+
+### Meet: every mail's date in the reader's language (API)
+
+- The second half of v1.276.1. Every Meet mail still printed its date as
+  "Monday, 2 November 2026 at 10:00 CET", whatever the language. That covers
+  the booking mails (confirmation, request received, host notification,
+  cancellation, moved) and the eight from v1.276.1. A Dutch mail now says
+  "maandag 2 november 2026 om 10:00 CET", German "Montag, 2. November 2026
+  um 10:00 MEZ", and so on.
+- `formatWhen` and `bookingWhen` (lib/email/templates.ts) take the mail's
+  locale. They use Intl in that locale with the zone passed explicitly,
+  never the server's. English is byte-identical to before (en-GB). The
+  guest's-own-clock bracket and a range across midnight are localized too.
+  The .ics invite (a machine format) is untouched.
+- Tested: `meet-mail-dates.test.ts` (10) with fixed instants. It covers
+  English unchanged, Dutch exact, de/fr/es/pt day names, the given zone
+  over the server's, a DST week, the guest bracket and a range across
+  midnight. All email tests (19 files) pass under TZ=UTC, Europe/Amsterdam
+  and America/Los_Angeles.
+
 ## [1.276.2] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 1, its proof: one test per condition, on staging's live rule (tests + a read-only count)

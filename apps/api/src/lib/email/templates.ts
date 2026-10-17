@@ -63,13 +63,21 @@ type Common = {
  *  15:00 CEST". Exported because Meet's hand-written approval mail printed a
  *  raw ISO stamp beside a sibling email that formatted the same moment
  *  (reported from a real booking, 2026-09-23). */
-export function formatWhen(d: Date, tz: string): string {
-  return fmt(d, tz);
+export function formatWhen(d: Date, tz: string, locale: Locale = 'en'): string {
+  return fmt(d, tz, locale);
 }
 
-function fmt(d: Date, tz: string): string {
+/** The Intl tag for a mail's language. English stays en-GB ("2 November",
+ *  24-hour clock), which is what every Meet mail has always said. The zone
+ *  is ALWAYS passed explicitly — never the server's (2026-10-17: dates in
+ *  the reader's language, after a Dutch mail said "Monday, 2 November"). */
+export function intlTag(locale: Locale): string {
+  return locale === 'en' ? 'en-GB' : locale;
+}
+
+function fmt(d: Date, tz: string, locale: Locale = 'en'): string {
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat(intlTag(locale), {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -106,25 +114,25 @@ function fmt(d: Date, tz: string): string {
  * A range that genuinely crosses midnight keeps both sides, because there the
  * second date is information.
  */
-function range(start: Date, end: Date, tz: string): string {
+function range(start: Date, end: Date, tz: string, locale: Locale = 'en'): string {
   const sameDay =
     new Intl.DateTimeFormat('en-CA', { timeZone: tz, dateStyle: 'short' }).format(start) ===
     new Intl.DateTimeFormat('en-CA', { timeZone: tz, dateStyle: 'short' }).format(end);
-  if (!sameDay) return `${fmt(start, tz)} → ${fmt(end, tz)}`;
+  if (!sameDay) return `${fmt(start, tz, locale)} → ${fmt(end, tz, locale)}`;
   // The end as a bare time, in the same zone, so the line reads
   // "Monday, 12 October 2026 at 13:30 – 14:00 CEST".
-  const endTime = new Intl.DateTimeFormat('en-GB', {
+  const endTime = new Intl.DateTimeFormat(intlTag(locale), {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: tz,
   }).format(end);
-  const zone = new Intl.DateTimeFormat('en-GB', {
+  const zone = new Intl.DateTimeFormat(intlTag(locale), {
     timeZone: tz,
     timeZoneName: 'short',
   })
     .formatToParts(start)
     .find((p) => p.type === 'timeZoneName')?.value;
-  const startFull = fmt(start, tz);
+  const startFull = fmt(start, tz, locale);
   // fmt ends with the zone; drop it so it is not printed twice.
   const startNoZone = zone && startFull.endsWith(zone)
     ? startFull.slice(0, -zone.length).trimEnd()
@@ -162,13 +170,13 @@ function zonePair(
 }
 
 /** "22:00 CEST" — a time and the zone it is in, no date. */
-function timeWithZone(d: Date, tz: string): string {
-  const time = new Intl.DateTimeFormat('en-GB', {
+function timeWithZone(d: Date, tz: string, locale: Locale = 'en'): string {
+  const time = new Intl.DateTimeFormat(intlTag(locale), {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: tz,
   }).format(d);
-  const zone = new Intl.DateTimeFormat('en-GB', { timeZone: tz, timeZoneName: 'short' })
+  const zone = new Intl.DateTimeFormat(intlTag(locale), { timeZone: tz, timeZoneName: 'short' })
     .formatToParts(d)
     .find((part) => part.type === 'timeZoneName')?.value;
   return zone ? `${time} ${zone}` : time;
@@ -185,14 +193,15 @@ function timeWithZone(d: Date, tz: string): string {
  */
 export function bookingWhen(c: Common, audience: 'invitee' | 'host'): string {
   const { primary, secondary } = zonePair(c, audience);
-  const main = range(c.startsAt, c.endsAt, primary);
+  const L = loc(c);
+  const main = range(c.startsAt, c.endsAt, primary, L);
   if (!secondary) return main;
   const dayIn = (tz: string) =>
     new Intl.DateTimeFormat('en-CA', { timeZone: tz, dateStyle: 'short' }).format(c.startsAt);
   const alsoReads =
     dayIn(primary) === dayIn(secondary)
-      ? timeWithZone(c.startsAt, secondary)
-      : fmt(c.startsAt, secondary);
+      ? timeWithZone(c.startsAt, secondary, L)
+      : fmt(c.startsAt, secondary, L);
   return `${main} (${alsoReads})`;
 }
 
@@ -476,7 +485,7 @@ export function bookingRescheduled(
   // The old time in the zone the reader is being written to, not the
   // host's: an invitee told "was 22:00 CEST, is now 23:00 CEST" has to do
   // the conversion twice.
-  const was = fmt(previousStartsAt, zonePair(c, audience).primary);
+  const was = fmt(previousStartsAt, zonePair(c, audience).primary, loc(c));
   const L = loc(c);
   const subject =
     audience === 'invitee'
