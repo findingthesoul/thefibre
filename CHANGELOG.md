@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.10] — 2026-10-17
+
+### Members: an add-on added while the membership is prepaid charges the full price now, then renews with the membership (API)
+
+- **Sjoerd, choice A** (2026-10-17), put to him as "full price now, whatever
+  the month (€200 + VAT = €242 for Marieke)". It applies when a member adds a
+  renewing add-on while their membership is PREPAID (the subscription
+  trialing until the renewal, as for a member who paid the current year by
+  invoice) and the product has a **first-period end** (Members → Products):
+  - **now:** the full price as a one-off invoice for the current period,
+    with the subscription's VAT, paid with the card on file through the same
+    one-off path the add flow already has. Ledger row "<community> —
+    <product> (until <first period end>)";
+  - **from the renewal:** the item joins the subscription with
+    `proration_behavior: 'none'`, so nothing more is charged now; the
+    renewal invoice carries membership and add-on together;
+  - a declined card adds nothing.
+  An ACTIVE subscription stays pro rata as before, and a product without a
+  first-period end keeps today's behaviour. The rule is the pure
+  `addonCharge` in `lib/membership-change.ts`.
+- **The window says it.** my.thread's add window (Purchases, the Shop, the
+  public page: one preview route) now shows "Pay €242.00 now (incl. €42.00
+  VAT)" and the renewal line. The renewal line was also missing for any
+  trialing membership: the "then" preview now asks Stripe for the RECURRING
+  invoice (`preview_mode: 'recurring'`); the default preview of a trialing
+  subscription is its €0 trial invoice.
+- Tests: `addon-charge.test.ts` (the rule: trialing + first-period → full
+  now; active → pro rata; no first-period → as before; one-off; no fit).
+  `addon-prepaid.int.test.ts` runs on STAGING with a Stripe TEST
+  subscription in Marieke's shape (trialing to 2027-01-01, 21% default rate,
+  €300/yr), through the real preview and add functions. The preview says
+  €242 now (€42 VAT) and €605 then (€105 VAT). Adding it paid one €242
+  invoice, wrote the ledger row "(until 2026-12-31)" and an active grant on
+  the subscription, put the item on with only a €0 change invoice (which the
+  webhook skips), and the 1 January invoice is €605. Shown to bite: with the
+  prepaid branch switched off, both fail. It runs in a permanent fixture
+  workspace (`int-addon-fixtures`), because a purchase writes append-only
+  activity. API vitest 1332.
+
 ## [1.277.9] — 2026-10-17
 
 ### Security, foundation 2b: the published app surface on tenantDb — Thread and Flow for external apps (API)

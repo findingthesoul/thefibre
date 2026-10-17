@@ -158,7 +158,30 @@ export function addonFit(product: { price_interval: string | null }, interval: '
   return iv === interval ? 'recurring' : null;
 }
 
-export type AddonProduct = { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean };
+/** HOW an add-on is charged (Sjoerd, 2026-10-17, choice A: "full price now,
+ *  whatever the month"):
+ *    · once     — a one-off product: its own invoice, now;
+ *    · prepaid  — a renewing product WITH a first-period end, added while the
+ *                 membership is prepaid (its subscription trialing until the
+ *                 renewal, the way a member who paid the current year by
+ *                 invoice is set up): the FULL price now as a one-off invoice
+ *                 for the current period, then the item on the subscription
+ *                 from the renewal, nothing prorated. The same shape the join
+ *                 uses for the membership itself;
+ *    · prorate  — any other renewing add-on: a line of the subscription,
+ *                 prorated now, as before.
+ *  Pure, so the rule is tested without Stripe. */
+export function addonCharge(
+  fit: 'once' | 'recurring' | null,
+  subStatus: string,
+  firstPeriodEndsOn: string | null | undefined,
+): 'once' | 'prepaid' | 'prorate' | null {
+  if (!fit) return null;
+  if (fit === 'once') return 'once';
+  return subStatus === 'trialing' && firstPeriodEndsOn ? 'prepaid' : 'prorate';
+}
+
+export type AddonProduct = { id: string; name: string; price_cents: number | null; price_interval: string | null; currency: string | null; archived_at: string | null; price_includes_vat?: boolean; first_period_ends_on?: string | null };
 
 /** THE OFFER RULE for adding to an existing membership (one rule for the
  *  join page, my.thread and the charge — 2026-10-16, soul.com):
@@ -169,7 +192,7 @@ export type AddonProduct = { id: string; name: string; price_cents: number | nul
  *  Never a product the tier already INCLUDES. Archived, unpriced and held
  *  products are filtered by the callers (held only where it should be). */
 export async function addonCandidates(member: OwnedMember): Promise<AddonProduct[]> {
-  const cols = 'id, name, price_cents, price_interval, currency, archived_at, price_includes_vat';
+  const cols = 'id, name, price_cents, price_interval, currency, archived_at, price_includes_vat, first_period_ends_on';
   const [{ data: tierLinks }, { data: membersOnly }] = await Promise.all([
     adminClient.from('membership_tier_product').select(`optional, product:product_id (${cols})`).eq('tier_id', member.tier_id),
     adminClient
@@ -287,10 +310,24 @@ const previewFor = (ctx: Ctx, items: Stripe.InvoiceCreatePreviewParams.Subscript
   );
 
 /** What adding this add-on costs now and per period after. */
-export async function previewAddon(ctx: Ctx, product: { id: string; name: string; price_cents: number; price_interval: string | null }): Promise<Quote> {
+export async function previewAddon(ctx: Ctx, product: { id: string; name: string; price_cents: number; price_interval: string | null; first_period_ends_on?: string | null }): Promise<Quote> {
   const now = Math.floor(Date.now() / 1000);
   const fit = addonFit(product, ctx.interval);
   if (!fit) throw Object.assign(new Error(`This add-on is billed per ${product.price_interval} and cannot join a ${ctx.interval}ly membership.`), { status: 400 });
+  const charge = addonCharge(fit, ctx.sub.status, product.first_period_ends_on);
+  if (charge === 'prepaid') {
+    // The full price now, with the subscription's VAT; then the renewal
+    // invoice with the item on it — Stripe's own RECURRING preview (the
+    // default preview of a trialing subscription is the trial's €0).
+    const rate = ctx.sub.default_tax_rates?.[0] as Stripe.TaxRate | undefined;
+    const tax = rate ? Math.round((product.price_cents * rate.percentage) / 100) : 0;
+    const then = await ctx.stripe.invoices.createPreview(
+      { customer: ctx.member.stripe_customer_id, subscription: ctx.sub.id, preview_mode: 'recurring', subscription_details: { items: await itemsWithAddon(ctx, product), proration_behavior: 'none' } } as Stripe.InvoiceCreatePreviewParams,
+      { stripeAccount: ctx.account },
+    );
+    const thenTax = (then.total_taxes ?? []).reduce((s, x) => s + (x.amount ?? 0), 0);
+    return { due_now_cents: product.price_cents + tax, tax_now_cents: tax, credit_cents: 0, then_cents: then.total, then_tax_cents: thenTax, currency: ctx.currency.toUpperCase() };
+  }
   if (fit === 'once') {
     // A one-off add-on: its price plus the subscription's VAT, once.
     const rate = ctx.sub.default_tax_rates?.[0] as Stripe.TaxRate | undefined;
@@ -299,8 +336,11 @@ export async function previewAddon(ctx: Ctx, product: { id: string; name: string
   }
   const items = await itemsWithAddon(ctx, product);
   const preview = await previewFor(ctx, items, now);
+  // RECURRING: the renewal invoice with the item on it. Without the mode,
+  // the "then" preview of a trialing subscription was its €0 trial invoice,
+  // so the window never said what the renewal would be (2026-10-17).
   const then = await ctx.stripe.invoices.createPreview(
-    { customer: ctx.member.stripe_customer_id, subscription: ctx.sub.id, subscription_details: { items, proration_behavior: 'none' } },
+    { customer: ctx.member.stripe_customer_id, subscription: ctx.sub.id, preview_mode: 'recurring', subscription_details: { items, proration_behavior: 'none' } } as Stripe.InvoiceCreatePreviewParams,
     { stripeAccount: ctx.account },
   );
   return quoteFrom(preview, then);
@@ -351,7 +391,7 @@ export async function addAddon(
 
 async function addAddonOnce(
   ctx: Ctx,
-  product: { id: string; name: string; price_cents: number; price_interval: string | null; currency: string | null },
+  product: { id: string; name: string; price_cents: number; price_interval: string | null; currency: string | null; first_period_ends_on?: string | null },
   reconcile: (memberId: string) => Promise<void>,
   requestId: string,
 ): Promise<{ invoice_id: string | null; amount_cents: number }> {
@@ -361,7 +401,10 @@ async function addAddonOnce(
   let amount = product.price_cents;
   const fit = addonFit(product, ctx.interval);
   if (!fit) throw Object.assign(new Error(`This add-on is billed per ${product.price_interval} and cannot join a ${ctx.interval}ly membership.`), { status: 400 });
-  if (fit === 'recurring') {
+  const charge = addonCharge(fit, ctx.sub.status, product.first_period_ends_on);
+  // The invoice line says which period a prepaid full price is for.
+  const label = charge === 'prepaid' ? `${ctx.workspaceName} — ${product.name} (until ${product.first_period_ends_on})` : `${ctx.workspaceName} — ${product.name}`;
+  if (charge === 'prorate') {
     const updated = await ctx.stripe.subscriptions.update(
       ctx.sub.id,
       { items: await itemsWithAddon(ctx, product), proration_behavior: 'always_invoice' },
@@ -389,7 +432,7 @@ async function addAddonOnce(
         ...(feeOnNet > 0 ? { application_fee_amount: feeOnNet } : {}),
         // item_label: the webhook's ledger write uses the same label as ours
         // below, so whichever lands second changes nothing.
-        metadata: { workspace_id: ctx.member.workspace_id, person_id: ctx.member.person_id, membership_addon: product.id, item_label: `${ctx.workspaceName} — ${product.name}` },
+        metadata: { workspace_id: ctx.member.workspace_id, person_id: ctx.member.person_id, membership_addon: product.id, item_label: label },
       },
       { stripeAccount: ctx.account, idempotencyKey: key('invoice') },
     );
@@ -413,7 +456,7 @@ async function addAddonOnce(
       workspaceId: ctx.member.workspace_id,
       itemRef: paid.id!,
       personId: ctx.member.person_id,
-      itemLabel: `${ctx.workspaceName} — ${product.name}`,
+      itemLabel: label,
       payerName: [person?.first_name, person?.last_name].filter(Boolean).join(' '),
       payerEmail: (person?.email as string | null) ?? null,
       amountCents: amount,
@@ -427,6 +470,18 @@ async function addAddonOnce(
       // priced excl. VAT, whatever rule the subscription started under).
       billing: { number: paid.number ?? null, pdf: paid.invoice_pdf ?? null, ...vatBreakdownFromInvoice(paid, { ...ctx.sub.metadata, vat_rule: 'excl' }) },
     });
+    if (charge === 'prepaid') {
+      // Paid for the current period: now the item joins the subscription
+      // from the renewal, nothing prorated. A declined card threw above, so
+      // nothing is added without the payment.
+      const updated = await ctx.stripe.subscriptions.update(
+        ctx.sub.id,
+        { items: await itemsWithAddon(ctx, product), proration_behavior: 'none' },
+        { stripeAccount: ctx.account, idempotencyKey: key('renewal-item') },
+      );
+      const added = updated.items.data.find((it) => !ctx.sub.items.data.some((o) => o.id === it.id));
+      ref = `addon-${added?.id ?? `${ctx.sub.id}-${product.id}`}`;
+    }
   }
   const { error } = await adminClient.from('membership_product_purchase').insert({
     workspace_id: ctx.member.workspace_id,
