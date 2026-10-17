@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.268.2] — 2026-10-17
+
+### A script that moves one member's one-off add-on onto her membership from her next renewal (operations; nothing user-facing changes)
+
+- **`apps/api/scripts/move-addon-to-membership.ts`**, for the one soul.com
+  member who bought the email add-on as a one-off on 2026-10-15 (a
+  workaround from before add-ons could ride a membership). Sjoerd: "ok to
+  move. Leave the 63 for now." It is a dry run by default and prints the
+  member, the subscription (renewal date, tax rate, items, latest invoice),
+  the product's net price, the one-off row and Stripe's own preview of the
+  renewal invoice. `--apply` does two things, and a re-run repeats only
+  what is missing:
+  1. **Stripe**: the product joins the membership subscription as an item
+     with `proration_behavior: 'none'`. Stripe then invoices nothing now;
+     the item is billed first, for a full period, on the renewal invoice,
+     together with the membership and under its VAT rate. It uses addAddon's
+     product mapping, so the app recognises it as "already part of your
+     membership". The script then checks that the subscription's latest
+     invoice is unchanged. It refuses a subscription driven by a schedule,
+     a product that can't renew on the membership's interval, a stopped
+     renewal, and anything ambiguous (two memberships, two one-off rows,
+     a grant already on the subscription beside a one-off).
+  2. **Ownership**: the one-off purchase row is converted in place, taking
+     the subscription id, status `active` and the period end (the shape
+     addAddon writes). One row is owned throughout: no gap, and no second
+     grant (a `paid` row never ends, so a new row beside it would be a
+     double grant for good). From then on the webhooks renew it, put it in
+     grace and end it with the membership. Its first payment stays in the
+     ledger as it was.
+- `stripeProductFor` in `lib/membership-change.ts` is exported for it
+  (unchanged otherwise).
+- **Rehearsed on STAGING** with the e2e fixture and a Stripe TEST
+  subscription in her shape: a €300/yr membership with 21% VAT set for the
+  renewal (proration none) and a one-off €60 add-on row. The dry run wrote
+  nothing. `--apply` added the item, and the latest invoice stayed the same
+  (still one invoice, the original). Stripe's next invoice is €435.60 =
+  (300 + 60) + 21% on one invoice, and the one row is now `active` on the
+  subscription. A dry re-run and an `--apply` re-run both said "nothing to
+  do", and Stripe was unchanged. Torn down and read back: no rows,
+  products or tiers left, and the fixture's member row and account restored.
+  Not run on production: that's Sjoerd's terminal, dry run first.
+
 ## [1.268.1] — 2026-10-17
 
 ### my.thread → Next: threads without sessions get their own section ("option B") (my.thread 0.32.3)

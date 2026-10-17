@@ -92,7 +92,7 @@ export async function loadCtx(member: OwnedMember): Promise<Ctx | { error: strin
 
 /** A Stripe product on the community's account for one of our products or
  *  tiers, created once (subscription items need a product id). */
-async function stripeProductFor(ctx: Ctx, key: string, name: string): Promise<string> {
+export async function stripeProductFor(ctx: Ctx, key: string, name: string): Promise<string> {
   // ONE ROW PER MAPPING (platform_setting key per account × product/tier),
   // claimed by INSERT: two first-time requests at once both create a Stripe
   // product, the second insert loses on the key and uses the winner's id.
