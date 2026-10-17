@@ -213,6 +213,7 @@ import { claimSend, recordSendResult } from '../lib/send-record.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { TEMPLATE_ENGAGEMENT, TEMPLATE_THREAD, TEMPLATE_TICKET, carriedIn, carriedOut } from '../lib/thread-template-spec.js';
 import { allowsOrganiserMeetings, mintingAccount, propagateRoom, queueHostChange, sessionHosts, sessionRoom, threadHosts, threadRoom, threadTokenContext, type ThreadHost } from '../lib/main-facilitator.js';
+import { recordActivity } from '../lib/activity-log.js';
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -4620,26 +4621,17 @@ async function threadEmailIdentity(thread: {
   };
 }
 
+/** A participant's Thread activity row, with the THREAD it is about
+ *  (activity_ref, so the timeline can be scoped to the people who run that
+ *  thread — lib/activity-log.ts). */
 export async function logEnrolmentActivity(
   workspaceId: string,
   personId: string,
   type: string,
   subject: string,
+  threadId: string,
 ) {
-  const { data: app } = await adminClient
-    .from('app')
-    .select('id')
-    .eq('slug', 'the-thread')
-    .single();
-  if (!app) return;
-  await adminClient.from('activity').insert({
-    workspace_id: workspaceId,
-    person_id: personId,
-    app_id: app.id,
-    type,
-    subject: subject.slice(0, 200),
-    occurred_at: new Date().toISOString(),
-  });
+  await recordActivity(workspaceId, { personId, appSlug: 'the-thread', type, subject }, { kind: 'thread', id: threadId });
 }
 
 // POST /enrolments/:id/approve — invited → enrolled. Sends the standard
@@ -4697,6 +4689,7 @@ export async function performApproveEnrolment(
     person.id,
     'enrolment_approved',
     `Approved: ${program.title}`,
+    thread.id,
   );
 
   if (person.email) {
@@ -5075,6 +5068,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
     person.id,
     'event_registered',
     `Registered: ${program.title}`,
+    thread.id,
   );
 
   // Invoice path: a PENDING ledger row emailed in the house receipt style
@@ -5240,6 +5234,7 @@ export async function performDeclineEnrolment(
     person.id,
     'enrolment_declined',
     `Declined: ${program.title}`,
+    thread.id,
   );
   return [{ ok: true }, 200];
 }
@@ -5282,6 +5277,7 @@ threadRoutes.post('/enrolments/:id/complete', async (c) => {
     person.id,
     'enrolment_completed',
     `Completed: ${program.title}`,
+    thread.id,
   );
 
   // COMPLETING SOMEBODY NO LONGER ISSUES THEIR CERTIFICATE (Sjoerd,
@@ -5354,6 +5350,7 @@ export async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<
     person.id,
     'payment_received',
     `Paid: ${program?.title ?? thread.slug}`,
+    thread.id,
   );
 
   // Approval-gated threads stay 'invited' — the participant already has the
@@ -6069,7 +6066,7 @@ export async function performCheckinEnrolment(
   loaded: {
     te: { id: string };
     person: { id: string };
-    thread: { workspace_id: string };
+    thread: { id: string; workspace_id: string };
     program: { title: string };
   },
   opts: { undo: boolean; byUserId: string | null },
@@ -6109,6 +6106,7 @@ export async function performCheckinEnrolment(
     person.id,
     'enrolment_checked_in',
     `Checked in: ${program.title}`,
+    thread.id,
   );
   return [{ ok: true, checked_in_at: updated.checked_in_at }, 200];
 }
@@ -8386,22 +8384,15 @@ threadRoutes.post('/public/enrol', async (c) => {
     }
   }
 
-  // Activity: type + subject only — the data wall (brief §3).
-  const { data: app } = await adminClient
-    .from('app')
-    .select('id')
-    .eq('slug', 'the-thread')
-    .single();
-  if (app) {
-    await adminClient.from('activity').insert({
-      workspace_id: thread.workspace_id,
-      person_id: person.id,
-      app_id: app.id,
-      type: 'event_registered',
-      subject: `${thread.requires_approval ? 'Requested' : 'Registered'}: ${program.title}`.slice(0, 200),
-      occurred_at: new Date().toISOString(),
-    });
-  }
+  // Activity: type + subject only — the data wall (brief §3) — and the
+  // thread it is about (lib/activity-log.ts).
+  await logEnrolmentActivity(
+    thread.workspace_id,
+    person.id,
+    'event_registered',
+    `${thread.requires_approval ? 'Requested' : 'Registered'}: ${program.title}`,
+    thread.id,
+  );
 
   // Rollback for failed checkout starts: drop the companion row AND release
   // the coupon use it consumed (review finding #8).

@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.3] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 2, step 2: every Thread and Meet activity row says which thread or booking it is about (API)
+
+- **`lib/activity-log.ts` `recordActivity`** writes the activity row and its
+  `activity_ref` (v1.276.5), both through `tenantDb` (security F1): the
+  workspace is stamped, and the ref's trigger refuses a thread or booking of
+  another workspace. The app id comes from the global catalogue through
+  `serviceRole('…')`, with its reason. Like the inserts it replaces, a failure
+  is logged and never fails the action.
+- **Thread:** `logEnrolmentActivity` takes the thread id and refs it. That
+  covers its callers: approved, registered (both paths, the public form's
+  direct insert included), declined, completed, paid, checked in, and the four
+  cancellation steps.
+- **Meet:** requested, booked, confirmed and rescheduled ref their booking.
+- **Nothing reads the refs yet.** `can_see_activity` changes in a later
+  migration, after the backfill script has given the old rows theirs. So no
+  timeline changes for anyone in this release.
+- **The service-role baseline goes DOWN by 6:** thread.ts and meet.ts lose
+  their raw `activity` inserts and `app` lookups.
+- **Tests:**
+  - `activity-ref.int.test.ts` (permanent fixture workspaces, because activity
+    is append-only):
+    - the row and its ref for a thread and for a booking; no ref when none is
+      given;
+    - `logEnrolmentActivity` refs its thread;
+    - another workspace's thread: ref refused, row kept, no throw;
+    - the database refuses a wrong workspace, a foreign thread or booking, an
+      unknown kind and any UPDATE;
+    - anon and a signed-in user read nothing.
+  - `thread-cancellation.int.test.ts`: a real cancellation request through the
+    route leaves its ref on the thread.
+  - The Meet integration tests pass (25). The in-process ones wrote refs for
+    booked and rescheduled.
+- **Not verified:** two Meet tests (approval hold, reschedule) book through the
+  DEPLOYED staging API, which still runs the old writers, so their rows had no
+  ref. That is checked again after this release's staging deploy.
+
 ## [1.277.2] — 2026-10-17
 
 ### Membership mails: the renewal day is the same on every server, and right just after midnight (API)

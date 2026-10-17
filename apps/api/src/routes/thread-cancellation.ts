@@ -201,7 +201,7 @@ cancellationMeRoutes.post('/enrolments/:id/cancellation-request', async (c) => {
     console.error('[cancellation] request insert failed', { message: error.message });
     return c.json({ error: 'could not record the request' }, 500);
   }
-  await logEnrolmentActivity(place.workspace_id, place.person_id, 'cancellation_requested', `Cancellation requested: ${place.thread_title}`);
+  await logEnrolmentActivity(place.workspace_id, place.person_id, 'cancellation_requested', `Cancellation requested: ${place.thread_title}`, place.thread_id);
 
   // To the organiser and every host with an address, each in their language.
   // A failed mail must not undo the request: it is on the organiser's list.
@@ -238,7 +238,7 @@ cancellationMeRoutes.delete('/enrolments/:id/cancellation-request', async (c) =>
     .select('id');
   if (error) return c.json({ error: 'could not withdraw the request' }, 500);
   if (!(data ?? []).length) return c.json({ error: 'there is no open request to withdraw' }, 409);
-  await logEnrolmentActivity(place.workspace_id, place.person_id, 'cancellation_withdrawn', `Cancellation withdrawn: ${place.thread_title}`);
+  await logEnrolmentActivity(place.workspace_id, place.person_id, 'cancellation_withdrawn', `Cancellation withdrawn: ${place.thread_title}`, place.thread_id);
   return c.json({ ok: true });
 });
 
@@ -459,7 +459,7 @@ cancellationStaffRoutes.post('/cancellation-requests/:id/approve', async (c) => 
       .eq('id', req.id);
   }
 
-  await logEnrolmentActivity(loaded.thread.workspace_id, loaded.person.id, 'cancellation_approved', `Cancellation approved: ${loaded.program.title}`);
+  await logEnrolmentActivity(loaded.thread.workspace_id, loaded.person.id, 'cancellation_approved', `Cancellation approved: ${loaded.program.title}`, loaded.thread.id);
 
   if (loaded.person.email) {
     try {
@@ -500,7 +500,7 @@ cancellationStaffRoutes.post('/cancellation-requests/:id/reject', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
   if (!(claimed ?? []).length) return c.json({ error: 'this request has already been decided' }, 409);
 
-  await logEnrolmentActivity(loaded.thread.workspace_id, loaded.person.id, 'cancellation_rejected', `Cancellation declined: ${loaded.program.title}`);
+  await logEnrolmentActivity(loaded.thread.workspace_id, loaded.person.id, 'cancellation_rejected', `Cancellation declined: ${loaded.program.title}`, loaded.thread.id);
   if (loaded.person.email) {
     try {
       const mail = cancellationRejectedEmail({

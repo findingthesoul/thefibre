@@ -781,8 +781,7 @@
   "workspace.select": 1
  },
  "routes/meet.ts": {
-  "activity.insert": 4,
-  "app.select": 9,
+  "app.select": 5,
   "app_membership.select": 2,
   "app_membership.upsert": 3,
   "identity_profile.select": 4,
@@ -1154,9 +1153,8 @@
  },
  "routes/thread.ts": {
   "<dynamic>.select": 1,
-  "activity.insert": 2,
   "activity.select": 1,
-  "app.select": 6,
+  "app.select": 4,
   "app_membership.select": 1,
   "app_membership.upsert": 1,
   "auth": 2,

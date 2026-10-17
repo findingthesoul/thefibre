@@ -189,6 +189,17 @@ describe('the participant asks', () => {
     expect(again.status).toBe(409);
   });
 
+  it('the request is on Alice’s timeline WITH its thread (activity_ref, contacts slice 2)', async () => {
+    const { data: rows } = await service
+      .from('activity')
+      .select('id, workspace_id')
+      .eq('person_id', places.alice.person)
+      .eq('type', 'cancellation_requested');
+    expect(rows).toHaveLength(1);
+    const { data: ref } = await service.from('activity_ref').select('workspace_id, ref_kind, ref_id').eq('activity_id', rows![0]!.id).single();
+    expect(ref).toEqual({ workspace_id: ws, ref_kind: 'thread', ref_id: threadId });
+  });
+
   it('my.thread shows it pending and no longer offers the button', async () => {
     const r = await call('/me/portal', alice);
     const thread = ((await r.json()) as { groups: { threads: Record<string, unknown>[] }[] }).groups.flatMap((g) => g.threads).find((t) => t.thread_id === threadId)!;

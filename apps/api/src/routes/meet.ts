@@ -142,6 +142,7 @@ import {
 } from '@thefibre/shared';
 import { platformFeeCents } from '../lib/fees.js';
 import { connectionsSettingsUrl, parseReturnTo } from '../lib/connections-return.js';
+import { recordActivity } from '../lib/activity-log.js';
 
 /**
  * The booking statuses that are still LIVE — a booking that is happening, or
@@ -1324,21 +1325,14 @@ meetRoutes.post('/public/bookings', async (c) => {
     // The two mails live in runApprovalRequestSideEffects, because moving a
     // pending booking has to send exactly the same pair at the new time.
     await runApprovalRequestSideEffects(booking.id);
-    // Activity event: meeting_requested so the timeline shows the pending state.
-    const { data: app } = await adminClient
-      .from('app')
-      .select('id')
-      .eq('slug', 'fibre-meet')
-      .single();
-    if (app && personId) {
-      await adminClient.from('activity').insert({
-        workspace_id: mt.workspace_id,
-        person_id: personId,
-        app_id: app.id,
-        type: 'meeting_requested',
-        subject: `Meeting requested: ${data.invitee_name}`,
-        occurred_at: new Date().toISOString(),
-      });
+    // Activity event: meeting_requested so the timeline shows the pending
+    // state — with the booking it is about (lib/activity-log.ts).
+    if (personId) {
+      await recordActivity(
+        mt.workspace_id,
+        { personId, appSlug: 'fibre-meet', type: 'meeting_requested', subject: `Meeting requested: ${data.invitee_name}` },
+        { kind: 'meet_booking', id: booking.id },
+      );
     }
     return c.json({ booking, manage_token: await bookingManageToken(booking.id) });
   }
@@ -1545,21 +1539,13 @@ meetRoutes.post('/public/bookings', async (c) => {
   }
 
   // Write an activity event so The Fibre's timeline knows a meeting was booked.
-  // Non-fatal.
-  const { data: app } = await adminClient
-    .from('app')
-    .select('id')
-    .eq('slug', 'fibre-meet')
-    .single();
-  if (app && personId) {
-    await adminClient.from('activity').insert({
-      workspace_id: mt.workspace_id,
-      person_id: personId,
-      app_id: app.id,
-      type: 'meeting_booked',
-      subject: `Meeting booked: ${data.invitee_name}`,
-      occurred_at: new Date().toISOString(),
-    });
+  // Non-fatal. With the booking it is about (lib/activity-log.ts).
+  if (personId) {
+    await recordActivity(
+      mt.workspace_id,
+      { personId, appSlug: 'fibre-meet', type: 'meeting_booked', subject: `Meeting booked: ${data.invitee_name}` },
+      booking ? { kind: 'meet_booking', id: booking.id } : null,
+    );
   }
 
   return c.json({ booking, manage_token: await bookingManageToken(booking.id) });
@@ -2310,20 +2296,12 @@ meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
 
   // Activity is append-only: a move is a NEW row, never an edit of the
   // meeting_booked one (hard rule 5).
-  const { data: app } = await adminClient
-    .from('app')
-    .select('id')
-    .eq('slug', 'fibre-meet')
-    .single();
-  if (app && booking.invitee_person_id) {
-    await adminClient.from('activity').insert({
-      workspace_id: booking.workspace_id,
-      person_id: booking.invitee_person_id,
-      app_id: app.id,
-      type: 'meeting_rescheduled',
-      subject: `Meeting moved: ${booking.invitee_name}`,
-      occurred_at: new Date().toISOString(),
-    });
+  if (booking.invitee_person_id) {
+    await recordActivity(
+      booking.workspace_id,
+      { personId: booking.invitee_person_id, appSlug: 'fibre-meet', type: 'meeting_rescheduled', subject: `Meeting moved: ${booking.invitee_name}` },
+      { kind: 'meet_booking', id: booking.id },
+    );
   }
 
   return c.json({
@@ -5121,21 +5099,13 @@ async function runConfirmationSideEffects(
     }
   }
 
-  // Activity event for the platform timeline.
-  const { data: app } = await adminClient
-    .from('app')
-    .select('id')
-    .eq('slug', 'fibre-meet')
-    .single();
-  if (app && booking.invitee_person_id) {
-    await adminClient.from('activity').insert({
-      workspace_id: booking.workspace_id,
-      person_id: booking.invitee_person_id,
-      app_id: app.id,
-      type: 'meeting_booked',
-      subject: `Meeting confirmed: ${booking.invitee_name}`,
-      occurred_at: new Date().toISOString(),
-    });
+  // Activity event for the platform timeline, with its booking.
+  if (booking.invitee_person_id) {
+    await recordActivity(
+      booking.workspace_id,
+      { personId: booking.invitee_person_id, appSlug: 'fibre-meet', type: 'meeting_booked', subject: `Meeting confirmed: ${booking.invitee_name}` },
+      { kind: 'meet_booking', id: booking.id },
+    );
   }
   return { ok: true, meetUrl };
 }
