@@ -351,6 +351,16 @@ Four more entries for the record, each with the control it produced:
   production. Control: that test; and the lesson that a function re-created
   in a migration must be re-created from its LATEST definition.
 
+- **2026-10-17 — a message could be timed from another workspace's
+  session.** `thread_engagement.trigger_engagement_id` took any engagement
+  id from four write paths, and the scheduler read the anchor's date with no
+  workspace filter. Only a date crossed, for an id the caller already had.
+  Found converting `app-thread.ts` to `tenantDb`, in production since July.
+  Control: a trigger refuses an anchor on another thread
+  (`20261017141117`, `engagement-anchor.int.test.ts`); the class it belongs
+  to, a row pointing across workspaces, is what F3 (composite foreign keys)
+  is for.
+
 Controls that exist and were not listed above: the deploy guard and the
 runway clearance (`docs/runway.md`); the scheduler lease; the Zoom
 deauthorisation webhook; `X-Robots-Tag: noindex` on everything that is not

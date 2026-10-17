@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.5] — 2026-10-17
+
+### Security: a relative message is timed from a session on its own thread — the database refuses one across threads (migration)
+
+- **Found** by the security builder converting `routes/app-thread.ts` to
+  `tenantDb`. `thread_engagement.trigger_engagement_id` (the session a
+  "relative" message is timed from) accepted ANY engagement id: another
+  thread's, or another workspace's. Four write paths took it from the
+  request body unchecked: POST and PATCH on `/api/v1/apps/:slug/thread/…`
+  and on `/api/v1/thread/…`. RLS checks a new row's own workspace, not
+  what its foreign key points at.
+- **Impact, low:** the scheduler read the anchor's start date without a
+  workspace filter, so a caller who knew the UUID of another workspace's
+  session could time their OWN message from that session's date. No title,
+  link or content crossed; only a date, for an id they already had. In
+  production since July. Staging held 2 anchored rows, both on their own
+  thread.
+- **Fix, by construction:** migration `20261017141117` adds a trigger that
+  refuses an anchor on another thread, on insert and whenever the anchor or
+  the thread changes. It closes every write path at once, present and
+  future, because it is the table that refuses. A row that already holds one
+  can still be edited in every other way; the migration prints how many exist
+  (`NOTICE`). The 400 sentence on the app path and the scheduler ignoring a
+  foreign anchor follow in the next releases.
+- **Checked:** `engagement-anchor.int.test.ts` on staging, as the service
+  role (the strongest caller, which no route-level check would stop): an
+  anchor across threads refused on insert (P0001, whose sentence
+  `lib/pg-error.ts` passes through to the person, as a 409), on re-point and on moving
+  the message away from its anchor; the same thread accepted; renaming and
+  re-timing an anchored message, and clearing its anchor, still work.
+
 ## [1.277.4] — 2026-10-17
 
 ### Security: signing in proves the mailbox, not the person; a typed address no longer opens somebody's portal (API)
