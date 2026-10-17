@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.276.2] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 1, its proof: one test per condition, on staging's live rule (tests + a read-only count)
+
+- `contacts-hierarchy.int.test.ts` reads `person` as real sessions (RLS,
+  the path Contacts takes) against the migration v1.276.0 applied to staging.
+  One throwaway workspace: thread X (team T) with participant P and a fellow
+  participant F who holds an account; thread Y with Q; a round-robin Meet
+  type owned by team V with a booking for R. Each viewer is pinned:
+  - X's organiser, host and facilitator see P and F, not Q;
+  - a member of T sees P and F; a member of another team sees no one;
+  - a host who steps off X loses P and F at once (keeps Q, whose thread they
+    organise);
+  - the booking's host and a member of V (the type's team) see R;
+  - an admin sees everyone;
+  - a stranger (workspace role organiser, no thread role, no team) sees no
+    one: the workspace role gives nothing by itself;
+  - F sees only themself (the fellow-participant clause is gone);
+  - an admin of another workspace sees nothing.
+  Under the old rule the organiser would have seen no one and F would have
+  seen P. So this is also the read-back that the new body is the one running
+  on staging.
+- `thread-cancellation.int.test.ts` no longer sets its program to org_wide.
+  Its organiser sees the participants because they organise the thread, as a
+  real organiser does. 12/12.
+- `apps/api/scripts/count-org-wide.ts prod|staging` is read-only: how many
+  teams and programs use the explicit org_wide setting, which the rule still
+  honours. Staging: 0 of 25 teams and 0 of 18 programs.
+
 ## [1.276.1] — 2026-10-17
 
 ### Meet: the last eight hand-written English mails speak the recipient's language (API)

@@ -114,11 +114,12 @@ beforeAll(async () => {
     format: 'event',
     status: 'active',
     starts_on: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
-    // How a real organiser sees the people on their thread: an internal
-    // member, on a programme visible across the organisation
-    // (can_see_person). Without it the organiser sees no participant at all,
-    // and Decline — whose loader this reuses — answers 404 just the same.
-    visibility: 'org_wide',
+    // No org_wide here (it was, until 20261017133142): the organiser sees the
+    // people on their thread because they ORGANISE it — thread_thread.
+    // organiser_id below — which is how a real organiser sees them
+    // (can_see_person, "contacts follow the hierarchy"). Without that role
+    // they would see no participant, and Decline — whose loader this reuses —
+    // would answer 404 just the same.
   });
   threadId = await insert('thread_thread', { workspace_id: ws, program_id: programId, organiser_id: orgRow, slug: `cx-${tag}`, language: 'en' });
 
