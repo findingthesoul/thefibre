@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.16] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 2, step 4, its proof: a contact's timeline per role, on staging's live rule (tests only)
+
+- `activity-visibility.int.test.ts` reads `activity` as real sessions against
+  migration v1.277.15, applied to staging. Its setup, in the permanent fixture
+  workspace (activity is append-only), is contact P with:
+  - a row on thread X (team T);
+  - a row on thread Y;
+  - a row on a booking of a round-robin type owned by team V;
+  - a membership row;
+  - a note written by X's organiser.
+- Pinned, one viewer per role:
+  - X's organiser: X's row and their own note;
+  - X's host and a T member: X's row;
+  - the booking's host and a V member: the booking's row;
+  - an admin: all five;
+  - a stranger: none;
+  - a host who steps off X: only Y's row from then on.
+- **It is also the read-back.** Under the old rule, X's organiser (who sees P)
+  would have seen all five rows. Run the same hour as the migration was
+  applied: 6/6. The definer audit on staging: `can_see_activity` closed to
+  anon, grants kept. persons-reads, contacts-hierarchy, activity-ref and
+  rls-matrix are re-run green (30).
+
 ## [1.277.15] — 2026-10-17
 
 ### Contacts follow the hierarchy, slice 2, step 4: a contact's timeline shows what they did in YOUR threads and bookings (migration)
