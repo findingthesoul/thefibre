@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.274.2] — 2026-10-17
+
+### my.thread → Members → a member: how to reach them sits next to the photo, above the bio (my.thread 0.34.1)
+
+- Sjoerd, on production: "Contacts is at the bottom. I want them next to
+  the photo." A member's email, phone, LinkedIn and website (still only what
+  that member chose to show) moved from under the full bio into the column
+  beside the photo, under place and tags. One per line, and the email wraps
+  after the "@" on a phone. They're no longer shown at the bottom, so
+  nothing appears twice. No new fields.
+- Seen rendered at 1280 and 375. Before: deployed staging. After: a local
+  my.thread on this commit against staging. Both used a fixture community
+  (the portal-members-list setup) with the member's bio made long for the
+  run and restored afterwards (read back: equal). The first contact link
+  sat at y≈726 (desktop) and y≈1011 (phone, below the fold) before, and
+  y≈258 and y≈270 after. One mailto link either way. apps/my typecheck
+  clean.
+
 ## [1.274.1] — 2026-10-17
 
 ### A read-only check that refunds with credit notes behave (tooling, API)

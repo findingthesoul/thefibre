@@ -144,6 +144,67 @@ export default async function MemberPage({
                 ))}
               </div>
             )}
+            {/* HOW TO REACH THEM, next to the photo (Sjoerd, 2026-10-17, on
+                production: "Contacts is at the bottom. I want them next to the
+                photo."). Under a long bio they sat below the fold on a phone.
+                Null unless that member chose to show them — the server
+                decided, and this page does not know the rule any more than
+                the card does. One per line: beside an 80px photo on a phone
+                the column is narrow, and a long address wraps. */}
+            {hasContact && (
+              <div className="mt-3 flex flex-col items-start gap-1.5 text-sm">
+                {m.email && (
+                  <a
+                    href={`mailto:${m.email}`}
+                    className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
+                  >
+                    <Mail size={14} strokeWidth={1.75} className="shrink-0" />
+                    {/* Wraps after the @ when the column is narrow (a phone), never
+                        mid-word unless one half is still too long. */}
+                    <span className="[overflow-wrap:anywhere]">
+                      {m.email.split('@')[0]}
+                      {m.email.includes('@') && (
+                        <>
+                          @<wbr />
+                          {m.email.slice(m.email.indexOf('@') + 1)}
+                        </>
+                      )}
+                    </span>
+                  </a>
+                )}
+                {m.phone && (
+                  <a
+                    href={`tel:${m.phone}`}
+                    className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
+                  >
+                    <Phone size={14} strokeWidth={1.75} />
+                    {m.phone}
+                  </a>
+                )}
+                {m.linkedin_url && (
+                  <a
+                    href={m.linkedin_url}
+                    rel="noreferrer noopener"
+                    target="_blank"
+                    className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
+                  >
+                    <Linkedin size={14} strokeWidth={1.75} />
+                    LinkedIn
+                  </a>
+                )}
+                {m.website_url && (
+                  <a
+                    href={m.website_url}
+                    rel="noreferrer noopener"
+                    target="_blank"
+                    className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
+                  >
+                    <Globe size={14} strokeWidth={1.75} />
+                    {t(locale, 'website')}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -165,55 +226,6 @@ export default async function MemberPage({
             html={bioToHtml(m.bio)!}
             className="mt-5 text-sm leading-relaxed text-ink-subtle [&_p]:mb-3 [&_p:last-child]:mb-0"
           />
-        )}
-
-        {/* Null unless that member chose to show them — the server decided,
-            and this page does not know the rule any more than the card does. */}
-        {hasContact && (
-          <div className="mt-5 border-t border-line pt-4">
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              {m.email && (
-                <a
-                  href={`mailto:${m.email}`}
-                  className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
-                >
-                  <Mail size={14} strokeWidth={1.75} />
-                  {m.email}
-                </a>
-              )}
-              {m.phone && (
-                <a
-                  href={`tel:${m.phone}`}
-                  className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
-                >
-                  <Phone size={14} strokeWidth={1.75} />
-                  {m.phone}
-                </a>
-              )}
-              {m.linkedin_url && (
-                <a
-                  href={m.linkedin_url}
-                  rel="noreferrer noopener"
-                  target="_blank"
-                  className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
-                >
-                  <Linkedin size={14} strokeWidth={1.75} />
-                  LinkedIn
-                </a>
-              )}
-              {m.website_url && (
-                <a
-                  href={m.website_url}
-                  rel="noreferrer noopener"
-                  target="_blank"
-                  className="inline-flex items-center gap-1.5 text-ink-muted hover:text-ink"
-                >
-                  <Globe size={14} strokeWidth={1.75} />
-                  {t(locale, 'website')}
-                </a>
-              )}
-            </div>
-          </div>
         )}
       </div>
     </PageShell>
