@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.272.4] — 2026-10-17
+
+### my.thread: Files and Shop move up the sidebar, under Members (my.thread 0.33.1)
+
+- Sjoerd: "files and shop can go above the line (under members)". The
+  rail now reads Home · Next · Upcoming · Members · Files · Shop · ———
+  · You · Memberships · Purchases. Upcoming and Home appear only for those
+  who have them, as before.
+- On a phone the bar still shows the first four (Home, Next, Upcoming,
+  Members, or Next and Members without the conditional ones). Files and
+  Shop open from More, where the sheet now lists them in the first group,
+  above the line, as on the rail.
+- Checked: rendered locally against the staging API, signed in as the
+  e2e-upcoming fixture (two communities, so Home and Upcoming show). Rail
+  order read back as Home, Next, Upcoming, Members, Files, Shop | You,
+  Memberships, Purchases, with Files highlighted on /files. At 375 the bar
+  shows Home, Next, Upcoming, Members, More, and the More sheet shows the
+  two groups with Shop highlighted on /shop. my.thread tsc clean, 103
+  tests pass.
+
 ## [1.272.3] — 2026-10-17
 
 ### Refund rules, slice 3b: the credit note reaches the member, as a PDF from the invoice's seller (API + Thread 4.23.1)

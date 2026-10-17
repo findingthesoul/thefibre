@@ -55,8 +55,13 @@ import type { SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 // UPCOMING stays conditional on a team calendar, as before.
 //
 // FILES (Sjoerd 2ij, 2026-10-16) is always present, like Members: the page
-// says plainly when there is nothing yet. It sits last in the "yours" group so
-// the phone bar's first four are unchanged; on a phone it is in More.
+// says plainly when there is nothing yet.
+//
+// FILES AND SHOP MOVED UP (Sjoerd, 2026-10-17: "files and shop can go above
+// the line (under members)"): Home · Next · Upcoming · Members · Files · Shop
+// · ---- · You · Memberships · Purchases. The phone bar still shows the
+// first four items; Files and Shop open from More, where the sheet lists
+// them in the first group, above the line, as on the rail.
 export function navFor({
   upcoming,
   communities = 0,
@@ -73,6 +78,8 @@ export function navFor({
         { href: '/', label: t(locale, 'nav_next'), icon: CalendarDays },
         ...(upcoming ? [{ href: '/upcoming', label: t(locale, 'nav_upcoming'), icon: CalendarPlus }] : []),
         { href: '/members', label: t(locale, 'nav_members'), icon: Users },
+        { href: '/files', label: t(locale, 'nav_files'), icon: FolderOpen },
+        { href: '/shop', label: t(locale, 'nav_shop'), icon: ShoppingBag },
       ],
     },
     {
@@ -80,8 +87,6 @@ export function navFor({
         { href: '/you', label: t(locale, 'nav_you'), icon: User },
         { href: '/memberships', label: t(locale, 'nav_memberships'), icon: IdCard },
         { href: '/purchases', label: t(locale, 'nav_purchases'), icon: Receipt },
-        { href: '/shop', label: t(locale, 'nav_shop'), icon: ShoppingBag },
-        { href: '/files', label: t(locale, 'nav_files'), icon: FolderOpen },
       ],
     },
   ];
