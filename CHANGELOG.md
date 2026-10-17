@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.268.0] — 2026-10-17
+
+### Refund rules, slice 2: set the rule, and see what it gives back (API + Thread 4.21.0)
+
+- Sjoerd's answers A–G ("refunds as recommended"). This slice shows the
+  rule's answer; it does not move money. Approving a cancellation still
+  refunds in full or not at all until slice 3 makes the partial refund, and
+  every screen says so.
+- **The rule:** steps counted back from the thread's start ("at least 30 days
+  before: 100%; at least 7: 50%; later: nothing"), plus an optional fixed fee
+  kept (A).
+  - The workspace default is edited in Thread → Settings → Payments (admins).
+  - A thread's own rule is edited in its Pricing ("Use the workspace's rule /
+    No rule for this thread / Its own rule").
+  - Both save through the existing PATCH routes, validated by `invalidRule`
+    (a 400 with its reason). One `RefundRuleEditor` serves both places. Under
+    it: "Refunds follow this rule from the next update; until then you refund
+    in full or not at all."
+- **The quote** (`lib/refund-quote.ts`): the effective rule (the thread's
+  own, else the workspace's; `{"steps": []}` = none) × the paid ledger row ×
+  the thread's start (first key moment, else start date), through
+  `refundFor` — the one function slice 3 will pay by. It is counted at the
+  REQUEST's date (C).
+  - Additive `refund_quote` on the organiser's cancellation-request list and
+    on my.thread places: `pct`, `fee_cents`, `refund_cents`, `reason`,
+    `currency`, `paid_cents`, `changes_at`, `next_pct` ("nothing back after
+    24 Nov" / "then 25%"), `rule_source`, `counted_at`.
+  - The participant's sentence in my.thread is held for slice 3 (builder 5),
+    so a member is never promised an amount the organiser does not yet pay.
+- **The approve dialog** shows "By the refund rule: €X back (50%), asked on
+  3 Nov. A fixed fee of €10 is kept." and "Refunding by the rule arrives in
+  an update; for now the refund below is in full." The switch and the action
+  are unchanged.
+- **Drive:** the API logs once per boot when `GOOGLE_DRIVE_SA_JSON` is set
+  but unreadable (never the value), so somebody is told.
+- **Tests:** `refund-rules.test.ts` (15, with `next_pct`) and
+  `refund-quote.int.test.ts` (5) against staging:
+  - the rules save, and invalid ones are refused with the reason;
+  - the workspace default is counted at the given date with the fee;
+  - the thread's own rule wins; `{steps: []}` means none; null inherits;
+  - nothing paid gives no quote.
+  The cancellation integration (12) still passes.
+
 ## [1.267.5] — 2026-10-17
 
 ### Members: when the platform's Google Drive key can't be read, the Drive form says so, and it is logged (Members 1.20.2)

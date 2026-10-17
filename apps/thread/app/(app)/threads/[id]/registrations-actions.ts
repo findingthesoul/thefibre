@@ -187,6 +187,21 @@ export type CancellationRequestItem = {
   person_email: string | null;
   /** The card payment an approval could give back; null when there is none. */
   refundable: { amount_cents: number; currency: string } | null;
+  /** What the refund RULE says, counted at the request's date (refund
+   *  rules, slice 2). Information only: the approve action still refunds in
+   *  full or not at all. Null when nothing was paid. */
+  refund_quote?: {
+    pct: number;
+    fee_cents: number;
+    refund_cents: number;
+    reason: 'no_rule' | 'step' | 'after_last_step' | 'started' | 'no_start' | 'nothing_paid';
+    currency: string;
+    paid_cents: number;
+    changes_at: string | null;
+    next_pct?: number | null;
+    rule_source: 'thread' | 'workspace' | null;
+    counted_at: string;
+  } | null;
 };
 
 export async function listCancellationRequests(

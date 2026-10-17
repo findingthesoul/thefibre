@@ -25,6 +25,7 @@ import { TicketDialog } from './ticket-dialog';
 import { CouponDialog, type ScopedCouponRow } from './coupon-dialog';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
+import { RefundRuleEditor } from '@/components/refund-rule-editor';
 import { InfoHint } from '@thefibre/shared/ui/info-hint';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€', USD: '$', GBP: '£' };
@@ -238,6 +239,20 @@ export function PricingPanel({
             ))}
           </ul>
         )}
+      </section>
+
+      {/* ── Refund rule (refund rules, slice 2) ───────────────────── */}
+      <section>
+        <SectionLabel>{t(locale, 'refund_rule_title')}</SectionLabel>
+        <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'refund_rule_thread_hint')}</p>
+        <div className="mt-3">
+          <RefundRuleEditor
+            locale={locale}
+            scope="thread"
+            initial={thread.refund_rule ?? null}
+            onSave={(rule) => updateThread(thread.id, { refund_rule: rule })}
+          />
+        </div>
       </section>
 
       {/* ── Discount codes ────────────────────────────────────────── */}

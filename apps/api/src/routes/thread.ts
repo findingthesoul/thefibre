@@ -111,6 +111,7 @@ import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorMessage, pgErrorStatus } from '../lib/pg-error.js';
 import { isUuid } from '../lib/ids.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
+import { invalidRule } from '../lib/refund-rules.js';
 import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
@@ -570,6 +571,24 @@ threadRoutes.get('/settings', async (c) => {
   });
 });
 
+// A refund rule as an organiser may save it (refund rules, slice 2): steps
+// counted back from the start, an optional fixed fee (A). invalidRule
+// (lib/refund-rules.ts) is THE validity rule; this only gives it a shape.
+// null = no rule here (a thread: inherit the workspace default; the
+// workspace: no rule). On a thread, {steps: []} = no rule even when the
+// workspace has one.
+const RefundRuleField = z
+  .object({
+    steps: z.array(z.object({ until_days_before: z.number().int(), refund_pct: z.number() })).max(10),
+    fee_cents: z.number().int().optional(),
+  })
+  .superRefine((r, ctx) => {
+    const why = invalidRule(r as Parameters<typeof invalidRule>[0]);
+    if (why) ctx.addIssue({ code: z.ZodIssueCode.custom, message: why });
+  })
+  .nullable()
+  .optional();
+
 const SettingsUpdate = z.object({
   // (stripe_account_id intentionally NOT accepted — the payments SPoT
   // writes workspace-level config via /api/v1/workspace-billing.)
@@ -617,6 +636,8 @@ const SettingsUpdate = z.object({
   // asked yet and the page is grandfathered as published. A workspace that
   // has answered sends true or false; the column comment is the full story.
   site_is_published: z.boolean().nullable().optional(),
+  // The workspace's default refund rule (refund rules, slice 2).
+  refund_rule: RefundRuleField,
   // What a thread card shows (thread dates part 3). NULL = the default.
   card_dates: z
     .object({
@@ -662,7 +683,7 @@ const THREAD_SELECT = `
   price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, public_enrolment_open, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   enrolment_note, main_facilitator_id, signups_close_engagement_id,
-  locked_at, locked_by,
+  locked_at, locked_by, refund_rule,
   created_at, updated_at,
   categories:thread_thread_category (category:category_id (id, name, slug)),
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -1050,6 +1071,7 @@ threadRoutes.get('/threads/:id/payment-route', async (c) => {
 // PATCH /api/v1/thread/threads/:id — update thread + paired program fields
 const ThreadUpdate = z.object({
   // program-side
+  refund_rule: RefundRuleField,
   title: z.string().min(1).max(200).optional(),
   status: z.enum(['draft', 'active', 'completed', 'archived']).optional(),
   starts_on: z.string().date().nullable().optional(),

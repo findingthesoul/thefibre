@@ -22,6 +22,9 @@ export type OrganiserCore = {
 
 export type ThreadRow = {
   id: string;
+  /** This thread's own refund rule (refund rules, slice 2). null = the
+   *  workspace's default; {steps: []} = no rule for this thread. */
+  refund_rule?: { steps: { until_days_before: number; refund_pct: number }[]; fee_cents?: number } | null;
   /** The main facilitator's host row, or null = the organiser. */
   main_facilitator_id?: string | null;
   /** On the thread list: you host or facilitate this thread (null when you

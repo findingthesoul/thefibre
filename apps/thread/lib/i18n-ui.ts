@@ -3859,6 +3859,210 @@ const CATALOG = {
     de: '{amount} auf die Karte erstatten', // MT
     fr: 'Rembourser {amount} sur sa carte', // MT
   },
+  // The refund rule editor (refund rules, slice 2): Settings → Payments and
+  // a thread's Pricing. Non-English lines machine-translated.
+  refund_rule_title: {
+    en: 'Refund rule',
+    nl: 'Terugbetaalregel',
+    es: 'Regla de reembolso', // MT
+    pt: 'Regra de reembolso', // MT
+    de: 'Erstattungsregel', // MT
+    fr: 'Règle de remboursement', // MT
+  },
+  refund_rule_workspace_hint: {
+    en: 'What a cancelled place gets back on every thread without a rule of its own, counted back from the thread\'s start, on the day they ask.',
+    nl: 'Wat een geannuleerde plek terugkrijgt bij elke thread zonder eigen regel, teruggeteld vanaf de start van de thread, op de dag dat iemand het vraagt.',
+    es: 'Lo que recibe una plaza cancelada en cada thread sin regla propia, contado hacia atrás desde el inicio del thread, el día en que lo solicitan.', // MT
+    pt: 'O que um lugar cancelado recebe em cada thread sem regra própria, contado a partir do início do thread, no dia do pedido.', // MT
+    de: 'Was ein abgesagter Platz bei jedem Thread ohne eigene Regel zurückbekommt, gezählt ab dem Start des Threads, am Tag der Anfrage.', // MT
+    fr: 'Ce qu’une place annulée récupère sur chaque thread sans règle propre, compté depuis le début du thread, le jour de la demande.', // MT
+  },
+  refund_rule_thread_hint: {
+    en: 'What a cancelled place gets back on this thread, counted back from its start, on the day they ask.',
+    nl: 'Wat een geannuleerde plek bij deze thread terugkrijgt, teruggeteld vanaf de start, op de dag dat iemand het vraagt.',
+    es: 'Lo que recibe una plaza cancelada en este thread, contado hacia atrás desde su inicio, el día en que lo solicitan.', // MT
+    pt: 'O que um lugar cancelado recebe neste thread, contado a partir do início, no dia do pedido.', // MT
+    de: 'Was ein abgesagter Platz bei diesem Thread zurückbekommt, gezählt ab dem Start, am Tag der Anfrage.', // MT
+    fr: 'Ce qu’une place annulée récupère sur ce thread, compté depuis son début, le jour de la demande.', // MT
+  },
+  refund_rule_label: {
+    en: 'Refunds',
+    nl: 'Terugbetalingen',
+    es: 'Reembolsos', // MT
+    pt: 'Reembolsos', // MT
+    de: 'Erstattungen', // MT
+    fr: 'Remboursements', // MT
+  },
+  refund_rule_inherit: {
+    en: 'Use the workspace\'s rule',
+    nl: 'De regel van de werkruimte gebruiken',
+    es: 'Usar la regla del espacio de trabajo', // MT
+    pt: 'Usar a regra do espaço de trabalho', // MT
+    de: 'Die Regel des Arbeitsbereichs verwenden', // MT
+    fr: 'Utiliser la règle de l’espace de travail', // MT
+  },
+  refund_rule_none_thread: {
+    en: 'No rule for this thread',
+    nl: 'Geen regel voor deze thread',
+    es: 'Sin regla para este thread', // MT
+    pt: 'Sem regra para este thread', // MT
+    de: 'Keine Regel für diesen Thread', // MT
+    fr: 'Pas de règle pour ce thread', // MT
+  },
+  refund_rule_own: {
+    en: 'Its own rule',
+    nl: 'Een eigen regel',
+    es: 'Una regla propia', // MT
+    pt: 'Uma regra própria', // MT
+    de: 'Eine eigene Regel', // MT
+    fr: 'Sa propre règle', // MT
+  },
+  refund_rule_none: {
+    en: 'No rule (decide each request yourself)',
+    nl: 'Geen regel (elk verzoek zelf beslissen)',
+    es: 'Sin regla (decides cada solicitud)', // MT
+    pt: 'Sem regra (decide cada pedido)', // MT
+    de: 'Keine Regel (jede Anfrage selbst entscheiden)', // MT
+    fr: 'Pas de règle (décider chaque demande)', // MT
+  },
+  refund_rule_own_workspace: {
+    en: 'A rule',
+    nl: 'Een regel',
+    es: 'Una regla', // MT
+    pt: 'Uma regra', // MT
+    de: 'Eine Regel', // MT
+    fr: 'Une règle', // MT
+  },
+  refund_rule_days: {
+    en: 'At least … days before',
+    nl: 'Minstens … dagen ervoor',
+    es: 'Al menos … días antes', // MT
+    pt: 'Pelo menos … dias antes', // MT
+    de: 'Mindestens … Tage vorher', // MT
+    fr: 'Au moins … jours avant', // MT
+  },
+  refund_rule_pct: {
+    en: 'Back (%)',
+    nl: 'Terug (%)',
+    es: 'Reembolso (%)', // MT
+    pt: 'Reembolso (%)', // MT
+    de: 'Zurück (%)', // MT
+    fr: 'Remboursé (%)', // MT
+  },
+  refund_rule_remove_step: {
+    en: 'Remove this step',
+    nl: 'Deze stap verwijderen',
+    es: 'Quitar este paso', // MT
+    pt: 'Remover este passo', // MT
+    de: 'Diesen Schritt entfernen', // MT
+    fr: 'Retirer cette étape', // MT
+  },
+  refund_rule_add_step: {
+    en: 'Add a step',
+    nl: 'Een stap toevoegen',
+    es: 'Añadir un paso', // MT
+    pt: 'Adicionar um passo', // MT
+    de: 'Schritt hinzufügen', // MT
+    fr: 'Ajouter une étape', // MT
+  },
+  refund_rule_after_last: {
+    en: 'Later than the last step, or once the thread has started: nothing back.',
+    nl: 'Later dan de laatste stap, of zodra de thread begonnen is: niets terug.',
+    es: 'Después del último paso, o una vez empezado el thread: nada.', // MT
+    pt: 'Depois do último passo, ou depois de o thread começar: nada.', // MT
+    de: 'Nach dem letzten Schritt oder sobald der Thread begonnen hat: nichts zurück.', // MT
+    fr: 'Après la dernière étape, ou une fois le thread commencé : rien.', // MT
+  },
+  refund_rule_fee: {
+    en: 'Fixed fee kept (€)',
+    nl: 'Vast bedrag ingehouden (€)',
+    es: 'Tarifa fija retenida (€)', // MT
+    pt: 'Taxa fixa retida (€)', // MT
+    de: 'Feste Gebühr einbehalten (€)', // MT
+    fr: 'Frais fixes retenus (€)', // MT
+  },
+  refund_rule_fee_hint: {
+    en: 'Optional; kept from any refund.',
+    nl: 'Optioneel; wordt van elke terugbetaling ingehouden.',
+    es: 'Opcional; se retiene de cada reembolso.', // MT
+    pt: 'Opcional; retida de cada reembolso.', // MT
+    de: 'Optional; wird von jeder Erstattung einbehalten.', // MT
+    fr: 'Facultatif ; retenu sur chaque remboursement.', // MT
+  },
+  refund_rule_quote_only: {
+    en: 'Refunds follow this rule from the next update; until then you refund in full or not at all.',
+    nl: 'Terugbetalingen volgen deze regel vanaf de volgende update; tot dan betaal je volledig of niet terug.',
+    es: 'Los reembolsos seguirán esta regla a partir de la próxima actualización; hasta entonces reembolsas por completo o no reembolsas.', // MT
+    pt: 'Os reembolsos seguem esta regra a partir da próxima atualização; até lá reembolsa na totalidade ou não reembolsa.', // MT
+    de: 'Erstattungen folgen dieser Regel ab dem nächsten Update; bis dahin erstattest du vollständig oder gar nicht.', // MT
+    fr: 'Les remboursements suivront cette règle dès la prochaine mise à jour ; d’ici là, vous remboursez en totalité ou pas du tout.', // MT
+  },
+  refund_rule_bad_days: {
+    en: 'Days must be a whole number from 0.',
+    nl: 'Dagen moeten een heel getal vanaf 0 zijn.',
+    es: 'Los días deben ser un número entero desde 0.', // MT
+    pt: 'Os dias devem ser um número inteiro a partir de 0.', // MT
+    de: 'Tage müssen eine ganze Zahl ab 0 sein.', // MT
+    fr: 'Les jours doivent être un nombre entier à partir de 0.', // MT
+  },
+  refund_rule_bad_pct: {
+    en: 'A percentage is between 0 and 100.',
+    nl: 'Een percentage ligt tussen 0 en 100.',
+    es: 'Un porcentaje está entre 0 y 100.', // MT
+    pt: 'Uma percentagem está entre 0 e 100.', // MT
+    de: 'Ein Prozentsatz liegt zwischen 0 und 100.', // MT
+    fr: 'Un pourcentage est entre 0 et 100.', // MT
+  },
+  refund_rule_same_day: {
+    en: 'Two steps can\'t be on the same day.',
+    nl: 'Twee stappen kunnen niet op dezelfde dag vallen.',
+    es: 'Dos pasos no pueden caer el mismo día.', // MT
+    pt: 'Dois passos não podem ser no mesmo dia.', // MT
+    de: 'Zwei Schritte können nicht am selben Tag liegen.', // MT
+    fr: 'Deux étapes ne peuvent pas tomber le même jour.', // MT
+  },
+  refund_rule_bad_fee: {
+    en: 'The fee is an amount from 0.',
+    nl: 'Het bedrag is een bedrag vanaf 0.',
+    es: 'La tarifa es un importe desde 0.', // MT
+    pt: 'A taxa é um valor a partir de 0.', // MT
+    de: 'Die Gebühr ist ein Betrag ab 0.', // MT
+    fr: 'Les frais sont un montant à partir de 0.', // MT
+  },
+  refund_rule_need_step: {
+    en: 'Add at least one step, or choose no rule.',
+    nl: 'Voeg minstens één stap toe, of kies geen regel.',
+    es: 'Añade al menos un paso o elige sin regla.', // MT
+    pt: 'Adicione pelo menos um passo ou escolha sem regra.', // MT
+    de: 'Füge mindestens einen Schritt hinzu oder wähle keine Regel.', // MT
+    fr: 'Ajoutez au moins une étape ou choisissez pas de règle.', // MT
+  },
+  // The refund rule's answer in the approve dialog (refund rules, slice 2).
+  // INFORMATION: the refund switch below still refunds in full.
+  cancel_req_rule_quote: {
+    en: 'By the refund rule: {amount} back ({pct}%), asked on {date}.',
+    nl: 'Volgens de terugbetaalregel: {amount} terug ({pct}%), gevraagd op {date}.',
+    es: 'Según la regla de reembolso: {amount} de vuelta ({pct} %), solicitado el {date}.', // MT
+    pt: 'Pela regra de reembolso: {amount} de volta ({pct}%), pedido em {date}.', // MT
+    de: 'Laut Erstattungsregel: {amount} zurück ({pct} %), angefragt am {date}.', // MT
+    fr: 'Selon la règle de remboursement : {amount} remboursés ({pct} %), demandé le {date}.', // MT
+  },
+  cancel_req_rule_fee: {
+    en: 'A fixed fee of {fee} is kept.',
+    nl: 'Er wordt een vast bedrag van {fee} ingehouden.',
+    es: 'Se retiene una tarifa fija de {fee}.', // MT
+    pt: 'É retida uma taxa fixa de {fee}.', // MT
+    de: 'Eine feste Gebühr von {fee} wird einbehalten.', // MT
+    fr: 'Des frais fixes de {fee} sont retenus.', // MT
+  },
+  cancel_req_rule_full_for_now: {
+    en: 'Refunding by the rule arrives in an update; for now the refund below is in full.',
+    nl: 'Terugbetalen volgens de regel komt in een update; voorlopig is de terugbetaling hieronder volledig.',
+    es: 'El reembolso según la regla llegará en una actualización; por ahora, el reembolso de abajo es completo.', // MT
+    pt: 'O reembolso pela regra chega numa atualização; por agora, o reembolso abaixo é total.', // MT
+    de: 'Erstattung nach Regel kommt mit einem Update; vorerst ist die Erstattung unten vollständig.', // MT
+    fr: 'Le remboursement selon la règle arrive dans une mise à jour ; pour l’instant, le remboursement ci-dessous est total.', // MT
+  },
   cancel_req_no_card: {
     en: 'No card payment to refund here. If they paid by invoice, refund that outside The Thread.',
     nl: 'Geen kaartbetaling om hier terug te storten. Betaalden ze per factuur, stort dat dan buiten The Thread terug.', // MT

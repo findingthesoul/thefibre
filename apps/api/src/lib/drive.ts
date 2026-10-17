@@ -51,13 +51,22 @@ export function driveServiceAccount(env: Record<string, string | undefined> = pr
   const raw = env.GOOGLE_DRIVE_SA_JSON?.trim();
   if (!raw) return null;
   const text = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+  let sa: Partial<ServiceAccount> | null = null;
   try {
-    const sa = JSON.parse(text) as Partial<ServiceAccount>;
-    return sa.client_email && sa.private_key ? { client_email: sa.client_email, private_key: sa.private_key } : null;
+    sa = JSON.parse(text) as Partial<ServiceAccount>;
   } catch {
-    return null;
+    sa = null;
   }
+  if (sa?.client_email && sa.private_key) return { client_email: sa.client_email, private_key: sa.private_key };
+  // Set but not a key: say so once per boot, so somebody is TOLD (members
+  // see "isn't working right now"). Never the value.
+  if (!warnedUnreadable) {
+    warnedUnreadable = true;
+    console.error('[drive] GOOGLE_DRIVE_SA_JSON is set but does not read as a service-account key (base64 of the downloaded JSON is expected)');
+  }
+  return null;
 }
+let warnedUnreadable = false;
 
 /** Whether the key is there and readable — never its value. 'unreadable'
  *  is the case that cost a round trip on 2026-10-17: the secret was set on

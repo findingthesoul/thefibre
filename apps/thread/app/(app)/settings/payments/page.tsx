@@ -8,6 +8,7 @@ import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { PaymentsForm } from './form';
+import { RefundRuleDefault } from './refund-rule-default';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,10 @@ export default async function PaymentsSettingsPage() {
     // rather than "Workspace account" (Sjoerd 2026-09-09).
     apiFetch<{ name: string | null }>('/api/v1/workspace-brand').catch(() => ({ name: null })),
   ]);
+  // The workspace's default refund rule lives with the Thread settings row.
+  const threadSettings = await apiFetch<{ refund_rule?: { steps: { until_days_before: number; refund_pct: number }[]; fee_cents?: number } | null }>(
+    '/api/v1/thread/settings',
+  ).catch(() => null);
 
   return (
     <PageContainer max="3xl">
@@ -52,6 +57,11 @@ export default async function PaymentsSettingsPage() {
         isAdmin={workspace.editable}
         workspaceName={brand.name}
       />
+      {workspace.editable && threadSettings && (
+        <div className="mt-10">
+          <RefundRuleDefault locale={locale} initial={threadSettings.refund_rule ?? null} />
+        </div>
+      )}
     </PageContainer>
   );
 }

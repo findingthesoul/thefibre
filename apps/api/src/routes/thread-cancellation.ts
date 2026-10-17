@@ -38,6 +38,7 @@ import { personsForEmail } from '../lib/portal-agenda.js';
 import { loadThreadDates } from '../lib/thread-dates.js';
 import { threadHosts } from '../lib/main-facilitator.js';
 import { reimbursePurchase, type ReimbursablePurchase } from '../lib/reimburse.js';
+import { quoteForPlace } from '../lib/refund-quote.js';
 import { sendEmail } from '../lib/email/client.js';
 import { platformEmailLocale } from '../lib/email/platform-i18n.js';
 import {
@@ -313,6 +314,14 @@ cancellationStaffRoutes.get('/threads/:id/cancellation-requests', async (c) => {
       .filter((p) => p.method === 'stripe' && p.status === 'paid')
       .map((p) => [p.item_ref as string, { amount_cents: p.amount_cents as number, currency: (p.currency as string) ?? 'EUR' }]),
   );
+  // What the refund RULE says for each request, counted at the request's own
+  // date (C). Information only until partial refunds ship: the approve
+  // action still refunds in full or not at all.
+  const quotes = new Map(
+    await Promise.all(
+      rows.map(async (r) => [r.id as string, await quoteForPlace(r.enrolment_id as string, c.req.param('id'), new Date(r.created_at as string))] as const),
+    ),
+  );
   return c.json({
     items: rows.map((r) => {
       const p = one<{ first_name: string | null; last_name: string | null; email: string | null }>(r.person);
@@ -331,6 +340,9 @@ cancellationStaffRoutes.get('/threads/:id/cancellation-requests', async (c) => {
         // Null when there is no card payment to give back (an invoice place,
         // a free one, or one already refunded): the dialog offers no refund.
         refundable: paidByCard.get(r.enrolment_id as string) ?? null,
+        // Additive (refund rules, slice 2): the rule's answer, or null when
+        // nothing was paid. Shown as information; it does not set the amount.
+        refund_quote: quotes.get(r.id as string) ?? null,
       };
     }),
   });

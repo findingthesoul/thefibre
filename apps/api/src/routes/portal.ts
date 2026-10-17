@@ -75,6 +75,7 @@ import { removeStoredImage, storeImage } from '../lib/uploads.js';
 import { PHOTO_TYPES } from '../lib/strip-metadata.js';
 import { z } from 'zod';
 import { cancellationStateFor, REQUESTABLE_STATUSES, threadIsOver, type CancellationState } from './thread-cancellation.js';
+import { quoteForPlace, type PlaceQuote } from '../lib/refund-quote.js';
 import {
   markEmailProven,
   personIdsForProvenEmail,
@@ -227,6 +228,10 @@ type ThreadItem = {
   enrolment_id?: string | null;
   cancellation_request?: CancellationState;
   can_request_cancellation?: boolean;
+  /** Additive (refund rules, slice 2): what the refund rule gives back for
+   *  this place — counted now, or at a pending request's own date. Null when
+   *  nothing was paid. */
+  refund_quote?: PlaceQuote | null;
   /** Additive (thread dates slice 4): the key-moment span and when sign-ups
    *  close, so my.thread reads the thread's dates through the shared rule
    *  (cardDateLine) like every other surface. */
@@ -1170,6 +1175,16 @@ portalRoutes.get('/portal', async (c) => {
         !t.certificate &&
         !threadIsOver(datesById.get(t.thread_id), now);
     }
+    // The refund rule's answer, where it matters: a place that may ask now
+    // (counted now) or one whose request is pending (counted at its date).
+    await Promise.all(
+      listedThreads.map(async (t) => {
+        if (!t.enrolment_id) return;
+        const pending = t.cancellation_request?.status === 'pending' ? t.cancellation_request : null;
+        if (!t.can_request_cancellation && !pending) return;
+        t.refund_quote = await quoteForPlace(t.enrolment_id, t.thread_id, pending ? new Date(pending.created_at) : now);
+      }),
+    );
   }
   return c.json({ person: me, wallet: walletAvailability(), groups: out, upcoming, unread_notifications, communities });
 });

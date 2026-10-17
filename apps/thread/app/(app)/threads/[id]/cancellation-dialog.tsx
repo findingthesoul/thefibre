@@ -103,6 +103,26 @@ export function CancellationDialog({
           <p className="text-sm text-ink-subtle">{t(locale, 'cancel_req_reason')}</p>
           <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{request.reason || t(locale, 'cancel_req_no_reason')}</p>
 
+          {/* What the refund RULE says (refund rules, slice 2), counted at the
+              day they asked. Information only: the switch below still does
+              exactly what it did — a full refund or none — until partial
+              refunds ship, so nothing here suggests an amount the button
+              would not pay (coordinator, 2026-10-17). */}
+          {request.refund_quote && request.refund_quote.reason !== 'no_rule' && (
+            <div className={`mt-5 ${NOTICE.info}`}>
+              <p>
+                {t(locale, 'cancel_req_rule_quote', {
+                  amount: money(request.refund_quote.refund_cents, request.refund_quote.currency, INTL_LOCALES[locale]),
+                  pct: String(request.refund_quote.pct),
+                  date: new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(request.refund_quote.counted_at)),
+                })}
+                {request.refund_quote.fee_cents > 0 &&
+                  ` ${t(locale, 'cancel_req_rule_fee', { fee: money(request.refund_quote.fee_cents, request.refund_quote.currency, INTL_LOCALES[locale]) })}`}
+              </p>
+              {amount && <p className="mt-1">{t(locale, 'cancel_req_rule_full_for_now')}</p>}
+            </div>
+          )}
+
           <div className="mt-5">
             {amount ? (
               <SwitchField
