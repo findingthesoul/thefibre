@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import type { DirectoryChoice, DirectoryList } from '@/lib/portal-api';
 import { PageShell } from '../page-shell';
+import { FindMeSlot } from '../find-me-slot';
 import { MemberSearch } from './member-search';
 import type { Locale } from '@thefibre/shared/i18n';
 import { t } from '@/lib/i18n';
@@ -43,6 +44,8 @@ export function CommunityMembers({
         <ArrowLeft size={15} strokeWidth={1.75} />
         {t(locale, 'back_to_you')}
       </Link>
+      {/* Whether YOU are in this list, and the switch for it (2026-10-17). */}
+      <FindMeSlot />
 
       {list.state === 'failed' && (
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">

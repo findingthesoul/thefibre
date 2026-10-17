@@ -19,42 +19,19 @@
 // communities, so a single flag would force somebody in three to hide from
 // all three in order to hide from one.
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
-import { saveDirectoryChoice, type DirectoryChoice } from '@/lib/portal-api';
+import type { DirectoryChoice } from '@/lib/portal-api';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
+import { ListedSwitch, useDirectoryChoices } from '../directory-choices';
 
+// The switch and its save are shared with the eye on Memberships and Members
+// (../directory-choices.tsx), so the two can never disagree on what "listed"
+// means or how a failed save is undone.
 export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
-  const [state, setState] = useState(choices);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { state, busy, error, save } = useDirectoryChoices(choices);
   const locale = useLocale();
-
-  async function save(workspaceId: string, patch: Partial<DirectoryChoice>) {
-    const before = state;
-    // Optimistic, then reverted on failure — a switch that does not move
-    // when pressed reads as broken, and a switch that moves when the save
-    // failed is a lie about a privacy setting.
-    setState((prev) =>
-      prev.map((c) => (c.workspace_id === workspaceId ? { ...c, ...patch } : c)),
-    );
-    setBusy(workspaceId);
-    setError(null);
-    try {
-      await saveDirectoryChoice({
-        workspace_id: workspaceId,
-        ...(patch.listed !== undefined ? { listed: patch.listed } : {}),
-        ...(patch.show_contact !== undefined ? { show_contact: patch.show_contact } : {}),
-      });
-    } catch (e) {
-      setState(before);
-      setError(e instanceof Error ? e.message : t(locale, 'dir_save_failed'));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   return (
     <section className="mt-8">
@@ -69,36 +46,18 @@ export function DirectoryCard({ choices }: { choices: DirectoryChoice[] }) {
       <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
         {state.map((c) => (
           <li key={c.workspace_id} className="px-4 py-3">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={c.listed}
-                disabled={busy === c.workspace_id}
-                onChange={(e) => void save(c.workspace_id, { listed: e.target.checked })}
-                className="mt-0.5 accent-ink"
-              />
-              <span className="min-w-0">
-                <span className="block text-sm text-ink">
-                  {t(locale, 'dir_appear', { community: c.workspace_name })}
-                </span>
-                <span className="block text-xs text-ink-muted">
-                  {c.listed
-                    ? t(locale, 'dir_listed')
-                    : t(locale, 'dir_unlisted')}
-                </span>
-                {/* Only once they are in it: the list exists for members who
-                    appear in it, so offering the door before they have opened
-                    it would be offering something that refuses them. */}
-                {c.listed && (
-                  <Link
-                    href={`/members/${c.workspace_id}`}
-                    className="mt-1 inline-block text-xs underline text-ink-muted hover:text-ink"
-                  >
-                    {t(locale, 'dir_see', { community: c.workspace_name })}
-                  </Link>
-                )}
-              </span>
-            </label>
+            <ListedSwitch choice={c} busy={busy === c.workspace_id} onChange={(v) => void save(c.workspace_id, { listed: v })} />
+            {/* Only once they are in it: the list exists for members who
+                appear in it, so offering the door before they have opened
+                it would be offering something that refuses them. */}
+            {c.listed && (
+              <Link
+                href={`/members/${c.workspace_id}`}
+                className="mt-1 inline-block text-xs underline text-ink-muted hover:text-ink"
+              >
+                {t(locale, 'dir_see', { community: c.workspace_name })}
+              </Link>
+            )}
 
             {/* Only once they are listed: a contact-details choice for a list
                 you are not in is a question about nothing. */}

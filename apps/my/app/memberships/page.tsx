@@ -19,6 +19,7 @@ import { JoinPrice } from '../join-price';
 import { GoogleCard } from './google-card';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
+import { FindMeSlot } from '../find-me-slot';
 import { pageLocale } from '@/lib/locale';
 import { t, type MyKey } from '@/lib/i18n';
 
@@ -82,6 +83,9 @@ export default async function MembershipsPage() {
 
   return (
     <PageShell title={t(locale, 'nav_memberships')}>
+      {/* Your photo and name, with the eye: can other members find you
+          (Sjoerd, 2026-10-17). Nothing when no list is switched on. */}
+      <FindMeSlot />
       {nothingAtAll ? (
         <Empty title={t(locale, 'memberships_none_title')}>{t(locale, 'memberships_none_body')}</Empty>
       ) : (

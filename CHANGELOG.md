@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.1] — 2026-10-17
+
+### my.thread: an eye over your own photo and name says whether other members can find you, and opens the switch (my.thread 0.35.0)
+
+- Sjoerd: "On the membership page, you can also add the choice there: Being
+  found by other members. For example, with an EYE open or closed over your
+  own photo and name (at the top then)... clicking it opens a popup, where
+  you click Being found by other members."
+- **At the top of Memberships and Members**: your photo (or initials) and
+  name, and an eye. It is **open** ("Visible to other members") when you are
+  in at least one community's member list, and **closed** ("Hidden from
+  other members") when you are in none, which is the default. Its
+  accessible name says the state ("Other members can find you in 1 of 2
+  communities. Change").
+- **Clicking it opens "Being found by other members"**, with one switch per
+  community whose member list is on, and one sentence: only that
+  community's other members see you, it is never public on the internet,
+  and it is off unless you turn it on. **Always opt-in**: closed is the
+  default and switching on is the explicit act.
+- **One store, one component.** The popup and You → "Being found by other
+  members" render the same switch and save through the same hook
+  (`app/directory-choices.tsx`, GET/PATCH `/membership/portal/me/directory`
+  with the API's consent record), so they can't drift. The You card's
+  checkbox became the shared Switch in the process. After a save the page
+  refreshes, so on Members the "You're not shown to other members" notice
+  and the list follow the switch at once.
+- **Not shown** where no community has its member list on, and not shown
+  when the choices could not be read: a privacy control never displays a
+  state we're unsure of. There is no "(you, not shown)" row in anyone's
+  list.
+- New e2e `portal-find-me.spec.ts` (exclusive project; fixtures only, in
+  the fixture workspace; settings restored by value):
+  - **privacy**: read as a second fixture account through the API, an
+    unlisted member is absent from the list; once listed, present (the
+    positive control, so an empty list can never be what passes); once
+    unlisted again, absent;
+  - on both pages: the eye starts closed, the popup's switch is off, and
+    switching it on lands `listed = true` in the store, opens the eye and
+    clears the page's notice; switching it off lands `false`.
+  It passed on staging (privacy) and against a local build of this branch
+  on the staging API (all three), with screenshots.
+
 ## [1.277.0] — 2026-10-17
 
 ### Security, foundation 1: the workspace is bound into service-role queries, and a new unbound one fails the release (API)

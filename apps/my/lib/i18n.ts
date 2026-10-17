@@ -4148,6 +4148,56 @@ const CATALOG = {
     de: 'Für diese Art von Datei gibt es keine Vorschau. Lade sie herunter, um sie auf deinem Gerät zu öffnen.', // MT
     fr: 'Pas d’aperçu pour ce type de fichier. Téléchargez-le pour l’ouvrir sur votre appareil.', // MT
   },
+  // The eye at the top of Memberships and Members (2026-10-17): whether other
+  // members can find you, and the popup's one sentence on what that means.
+  find_me_on: {
+    en: 'Visible to other members',
+    nl: 'Zichtbaar voor andere leden',
+    es: 'Visible para otros miembros', // MT
+    pt: 'Visível para outros membros', // MT
+    de: 'Für andere Mitglieder sichtbar', // MT
+    fr: 'Visible par les autres membres', // MT
+  },
+  find_me_off: {
+    en: 'Hidden from other members',
+    nl: 'Verborgen voor andere leden',
+    es: 'Oculto para otros miembros', // MT
+    pt: 'Oculto para outros membros', // MT
+    de: 'Für andere Mitglieder verborgen', // MT
+    fr: 'Masqué aux autres membres', // MT
+  },
+  find_me_aria_on: {
+    en: 'Other members can find you. Change',
+    nl: 'Andere leden kunnen je vinden. Wijzigen',
+    es: 'Otros miembros pueden encontrarte. Cambiar', // MT
+    pt: 'Outros membros podem encontrar você. Alterar', // MT
+    de: 'Andere Mitglieder können dich finden. Ändern', // MT
+    fr: 'Les autres membres peuvent vous trouver. Modifier', // MT
+  },
+  find_me_aria_some: {
+    en: 'Other members can find you in {n} of {total} communities. Change',
+    nl: 'Andere leden kunnen je vinden in {n} van {total} gemeenschappen. Wijzigen',
+    es: 'Otros miembros pueden encontrarte en {n} de {total} comunidades. Cambiar', // MT
+    pt: 'Outros membros podem encontrar você em {n} de {total} comunidades. Alterar', // MT
+    de: 'Andere Mitglieder können dich in {n} von {total} Gemeinschaften finden. Ändern', // MT
+    fr: 'Les autres membres peuvent vous trouver dans {n} communautés sur {total}. Modifier', // MT
+  },
+  find_me_aria_off: {
+    en: 'Other members can’t find you. Change',
+    nl: 'Andere leden kunnen je niet vinden. Wijzigen',
+    es: 'Otros miembros no pueden encontrarte. Cambiar', // MT
+    pt: 'Outros membros não podem encontrar você. Alterar', // MT
+    de: 'Andere Mitglieder können dich nicht finden. Ändern', // MT
+    fr: 'Les autres membres ne peuvent pas vous trouver. Modifier', // MT
+  },
+  find_me_scope: {
+    en: 'Only other members of that community see you in its member list. It is never public on the internet. Off unless you turn it on.',
+    nl: 'Alleen andere leden van die gemeenschap zien je in de ledenlijst. Het is nooit openbaar op internet. Uit, tenzij je het aanzet.',
+    es: 'Solo otros miembros de esa comunidad te ven en su lista de miembros. Nunca es público en internet. Desactivado salvo que lo actives.', // MT
+    pt: 'Só outros membros dessa comunidade veem você na lista de membros. Nunca é público na internet. Desligado, a menos que você ligue.', // MT
+    de: 'Nur andere Mitglieder dieser Gemeinschaft sehen dich in ihrer Mitgliederliste. Es ist nie öffentlich im Internet. Aus, außer du schaltest es ein.', // MT
+    fr: 'Seuls les autres membres de cette communauté vous voient dans sa liste de membres. Ce n’est jamais public sur internet. Désactivé, sauf si vous l’activez.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { loadDirectoryChoices, loadDirectoryMembers, loadFrame } from '@/lib/session';
 import { SignedOut } from '../signed-out';
 import { PageShell } from '../page-shell';
+import { FindMeSlot } from '../find-me-slot';
 import { CommunityMembers, membersTitle } from './community-members';
 import { pageLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n';
@@ -53,6 +54,7 @@ export default async function MembersIndex() {
 
   return (
     <PageShell title={t(locale, 'nav_members')}>
+      <FindMeSlot />
       {withDirectory.length === 0 ? (
         <p className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-subtle">
           {t(locale, 'members_no_list_any')}
