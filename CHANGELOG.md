@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.277.6] — 2026-10-17
+
+### Contacts follow the hierarchy, slice 2, step 3: the backfill script that gives OLD activity rows their thread or booking (tooling)
+
+- `apps/api/scripts/backfill-activity-refs.ts prod|staging [--apply]`. Rows
+  written since v1.277.3 carry their `activity_ref`; older ones carry only a
+  label and a title. This gives them a ref, conservatively, and writes ONLY
+  `activity_ref`. `activity` stays append-only and untouched.
+- **The match, inside the row's own workspace:**
+  - Thread rows: the title after the label must equal the program title of
+    exactly ONE thread the person is enrolled in. An old "Paid: <slug>" row
+    matches by slug.
+  - Meet rows: the person must have exactly ONE booking that fits: created
+    within 10 minutes of the row for requested/booked/confirmed; for moved,
+    the person's only booking.
+  - Anything else keeps no ref. Once `can_see_activity` reads refs, such rows
+    are admin-only, which is Sjoerd's rule (i).
+- Dry run by default. Idempotent: a second run writes nothing.
+- **Restore first** (the bulk-conversion rule):
+  - Before `--apply` writes a single ref, it writes a restore file listing
+    every ref it is about to insert. The file goes to `~/fibre-backfill/`,
+    and the script prints its path.
+  - It rewrites the file after each workspace, marking which refs it really
+    wrote.
+  - `--restore <file>` deletes exactly those, per target. A ref from a live
+    writer or another run is never touched.
+- Every read and write goes through `tenantDb` per workspace (enrolments via
+  `child()` through their program). The only cross-workspace read is the
+  workspace list, through `serviceRole` with its reason.
+- The ref trigger checks each write: the row's workspace, and a thread or
+  booking in that workspace.
+- **It prints counts only:** matched / ambiguous / no candidate per kind, and
+  WHY rows stayed unmatched. Never a name or a title.
+- **Staging, run and applied:**
+  - Thread: 3 matched, 760 without a candidate, 754 of them because the
+    person is on no thread that still exists. Staging has 15 threads left;
+    integration tests delete theirs.
+  - An independent query (service role, no code shared with the script)
+    found exactly 3 rows whose person is on an existing thread: the same 3.
+  - Meet: 7 matched, 2 ambiguous, 394 whose person has no booking left.
+  - Written 3 + 7; a second `--apply` wrote 0.
+  - Restore rehearsed on a fixture of two ref-less rows written the old way,
+    each step read back with an independent query:
+    - apply → 2 refs, on the right thread and booking;
+    - `--restore` → "2 of the 2 refs that run wrote are deleted", read back
+      0;
+    - the 10 refs of the earlier run, not in that file, are untouched (the
+      dry run still found only the 2);
+    - apply again → 2, on the right targets.
+- **Not verified:** how well it matches REAL data. Staging's history is mostly
+  deleted test fixtures, so production's dry run is the real measure. 👉 For
+  Sjoerd's terminal, the dry run first:
+  `cd apps/api && npx tsx --env-file=.env scripts/backfill-activity-refs.ts prod`
+  then the same with `--apply`. Keep the restore-file path it prints. The
+  visibility rule (`can_see_activity`) must not reach production before this
+  has run there.
+
 ## [1.277.5] — 2026-10-17
 
 ### Security: a relative message is timed from a session on its own thread — the database refuses one across threads (migration)
