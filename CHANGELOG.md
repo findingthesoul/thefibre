@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.264.0] — 2026-10-17
+
+### Drive folders, slice 1: a folder belongs to one community (migration only)
+
+- Sjoerd: "go Drive folders" — a Google Drive folder shown inside my.thread
+  → Files, for members who need no Google account. Plan agreed with the
+  coordinator and builder 3; nothing reads this yet.
+- `membership_drive_binding`: which Drive folder a community has PROVED it
+  controls (a one-time code put in the folder's description, read by the
+  stack's service account). The folder id is the primary key, so a folder
+  belongs to one workspace: one service account reads every community's
+  shared folders, and without this a community could connect another's.
+  The folder itself will be an ordinary member-page document entry (kind
+  'drive', same audience, same order); nothing about its files is stored.
+- `verified_by` empties on a user hard-delete; the row goes with its
+  workspace. Read by the workspace's Members app members; written by the API
+  only.
+- Test: `drive-binding.int.test.ts` against staging — a second community
+  binding the same folder is refused; a malformed id is refused; a verifying
+  user and a whole workspace hard-delete cleanly; an authenticated member
+  reads its own workspace's bindings, not another's, and cannot write.
+
 ## [1.263.1] — 2026-10-17
 
 ### Members → Member page: the "Shown to" picker is one component (Members 1.19.1)
