@@ -955,6 +955,9 @@ export type ShopCommunity = {
   members_only: { id: string; name: string; price_cents: number | null; currency: string; recurring: boolean; price_interval: string | null; action: 'add_to_membership' }[];
   open: { id: string; name: string; description: string | null; price_cents: number; price_interval: string; currency: string; price_includes_vat: boolean; action: 'buy' | 'subscribe' }[];
   owned: { id: string; name: string; recurring: boolean }[];
+  /** The member's offers could not be read this time (optional: absent on an
+   *  API before 2026-10-17). */
+  members_only_unavailable?: boolean;
 };
 
 /** Null when the call failed — never an empty shop, which would read as

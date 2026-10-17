@@ -416,8 +416,9 @@ membershipPurchaseRoutes.get('/me/shop', async (c) => {
       const hasProducts = products.some((p) => p.workspace_id === ws.id);
       if (!hasProducts) return null;
       const member = members.find((m) => m.workspace_id === ws.id && m.stripe_subscription_id && m.stripe_customer_id) ?? null;
+      // null = the member's offers could not be read (timed out or failed).
       const [membersOnly, canSell] = await Promise.all([
-        (async (): Promise<Awaited<ReturnType<typeof memberAddonOffer>>> => {
+        (async (): Promise<Awaited<ReturnType<typeof memberAddonOffer>> | null> => {
           if (!member) return [];
           // The member's own context (their subscription's interval and
           // currency), exactly as "Add or change" loads it — capped, because
@@ -431,15 +432,16 @@ membershipPurchaseRoutes.get('/me/shop', async (c) => {
             const ctx = await loadCtx({ ...member, stripe_subscription_id: member.stripe_subscription_id!, stripe_customer_id: member.stripe_customer_id! }).catch((e: Error) => ({ error: e.message, status: 502 }));
             if ('error' in ctx) {
               console.error('[membership/shop] member context failed', { member: member.id, message: ctx.error });
-              return [];
+              return null;
             }
-            return memberAddonOffer(ctx).catch(() => []);
+            return memberAddonOffer(ctx).catch(() => null);
           })();
           const capped = await withinCap(offer, SHOP_MEMBER_CAP_MS);
           const took = Date.now() - started;
           if (capped === null) {
-            console.error('[membership/shop] member offer timed out', { member: member.id, cap_ms: SHOP_MEMBER_CAP_MS });
-            return [];
+            // withinCap's null and the read's own null both mean "not known".
+            if (took >= SHOP_MEMBER_CAP_MS) console.error('[membership/shop] member offer timed out', { member: member.id, cap_ms: SHOP_MEMBER_CAP_MS });
+            return null;
           }
           if (took > 2000) console.warn('[membership/shop] member offer slow', { member: member.id, ms: took });
           return capped;
@@ -449,7 +451,8 @@ membershipPurchaseRoutes.get('/me/shop', async (c) => {
       return composeShop({
         workspace: { id: ws.id as string, slug: ws.slug as string, name: ws.name as string },
         memberId: member?.id ?? null,
-        membersOnly,
+        membersOnly: membersOnly ?? [],
+        membersOnlyUnavailable: membersOnly === null,
         products,
         ownedIds,
         canSell,
@@ -457,7 +460,9 @@ membershipPurchaseRoutes.get('/me/shop', async (c) => {
       });
     }),
   );
-  const communities = perCommunity.filter((x): x is NonNullable<typeof x> => !!x && (x.members_only.length > 0 || x.open.length > 0 || x.owned.length > 0));
+  // A community whose member offers could not be read stays listed, so the
+  // page can say so rather than drop it as if it had nothing.
+  const communities = perCommunity.filter((x): x is NonNullable<typeof x> => !!x && (x.members_only.length > 0 || x.open.length > 0 || x.owned.length > 0 || x.members_only_unavailable));
   communities.sort((a, b) => a.workspace_name.localeCompare(b.workspace_name));
   return c.json({ communities });
 });

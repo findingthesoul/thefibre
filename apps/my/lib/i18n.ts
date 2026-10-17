@@ -199,6 +199,14 @@ const CATALOG = {
     de: 'Danke – deine Zahlung ist durch. Sie erscheint hier gleich; lade neu, falls sie noch fehlt.', // MT
     fr: 'Merci — ton paiement est passé. Il apparaît ici dans un instant ; actualise s’il n’y est pas encore.', // MT
   },
+  shop_members_unavailable: {
+    en: 'Couldn’t load your member offers just now. Refresh to try again.',
+    nl: 'Je ledenaanbod kon nu niet worden geladen. Ververs de pagina om het opnieuw te proberen.',
+    es: 'No se pudieron cargar tus ofertas de miembro ahora. Actualiza para volver a intentarlo.', // MT
+    pt: 'Não foi possível carregar as suas ofertas de membro agora. Atualize para tentar de novo.', // MT
+    de: 'Deine Mitgliederangebote konnten gerade nicht geladen werden. Lade neu, um es erneut zu versuchen.', // MT
+    fr: 'Impossible de charger tes offres de membre pour l’instant. Actualise pour réessayer.', // MT
+  },
   shop_already: {
     en: 'You already have {name}.',
     nl: 'Je hebt {name} al.',

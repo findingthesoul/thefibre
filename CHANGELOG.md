@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.262.5] — 2026-10-17
+
+### The shop says when your member offers couldn't be loaded (API + my.thread 0.31.3)
+
+- **"Not known" is no longer shown as "nothing for you."** When a
+  community's members-only read times out at the shop's 3 s cap (v1.262.1)
+  or fails, `GET /me/shop` now marks that community
+  `members_only_unavailable: true` (additive) and keeps it listed even if it
+  has nothing else to show. my.thread says, quietly under that community:
+  "Couldn't load your member offers just now. Refresh to try again." (six
+  languages, `shop_members_unavailable`). Before, a timed-out community
+  looked exactly like one with nothing for members.
+- The log tells the two apart: "member offer timed out" when the cap was
+  reached, "member context failed" when the read itself failed.
+- **The after numbers for v1.262.1** (same method: deployed staging, the
+  fixture, 6 calls, the first cold; warm medians):
+  - 1 Stripe membership, no products: 653 → **292 ms** (max 441);
+  - 2 Stripe memberships, no products: 2527 → **210 ms** (max 254; before:
+    outliers of 6.2 s and 22.6 s);
+  - 2 Stripe memberships, both with products (the parallel Stripe path):
+    **647 ms** (max 698).
+  No outlier in 18 calls; the 22.5 s cause is still uncaught, now capped and
+  logged.
+- Tests: `shop.test.ts` +2 (the flag carried with an empty list; false by
+  default). Not exercised end to end: a real timeout, because the shop page
+  reads on the server, where a browser test cannot slow Stripe down.
+
 ## [1.262.4] — 2026-10-17
 
 ### my.thread → Next: a thread's agenda in time order, and a thread without sessions says "Starts" (my.thread 0.31.2)

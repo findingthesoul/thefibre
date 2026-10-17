@@ -119,6 +119,12 @@ export function ShopView({ communities, renewals, buyer }: { communities: ShopCo
             </>
           )}
 
+          {/* The member's offers timed out or failed this time: say it, so an
+              empty "For members" never reads as "nothing for you". */}
+          {c.members_only_unavailable && (
+            <p className="mt-3 text-xs text-ink-muted" role="status">{t(locale, 'shop_members_unavailable')}</p>
+          )}
+
           {c.open.length > 0 && (
             <>
               {label('shop_open')}

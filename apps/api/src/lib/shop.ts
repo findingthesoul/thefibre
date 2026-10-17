@@ -54,6 +54,11 @@ export type ShopCommunity = {
   members_only: (MembersOnlyItem & { action: 'add_to_membership' })[];
   open: { id: string; name: string; description: string | null; price_cents: number; price_interval: string; currency: string; price_includes_vat: boolean; action: OpenAction }[];
   owned: { id: string; name: string; recurring: boolean }[];
+  /** The member's offers could not be read this time (timed out at the cap,
+   *  or the read failed) — so an empty members_only means "not known", and
+   *  the page must say that rather than "nothing for members" (additive,
+   *  2026-10-17). */
+  members_only_unavailable: boolean;
 };
 
 /** Compose one community's shop. A product appears in ONE place: owned wins,
@@ -68,6 +73,8 @@ export function composeShop(input: {
   /** Open purchases need the community's payment account (the checkout
    *  answers 503 without one). */
   canSell: boolean;
+  /** True when the member's offers could not be read (see the field). */
+  membersOnlyUnavailable?: boolean;
   defaultCurrency: string;
 }): ShopCommunity {
   const { workspace, memberId, products, ownedIds } = input;
@@ -95,7 +102,7 @@ export function composeShop(input: {
         ];
       })
     : [];
-  return { workspace_id: workspace.id, workspace_slug: workspace.slug, workspace_name: workspace.name, member_id: memberId, members_only: membersOnly, open, owned };
+  return { workspace_id: workspace.id, workspace_slug: workspace.slug, workspace_name: workspace.name, member_id: memberId, members_only: membersOnly, open, owned, members_only_unavailable: !!input.membersOnlyUnavailable };
 }
 
 /** `p`, or null once `ms` have passed — whichever comes first. The shop reads

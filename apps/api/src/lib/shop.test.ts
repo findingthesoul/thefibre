@@ -91,3 +91,15 @@ describe('withinCap — one slow community cannot hold the shop page', () => {
     }
   });
 });
+
+describe('composeShop — an unread member offer is "not known", not "nothing"', () => {
+  it('carries members_only_unavailable, with an empty list, so the page can say so', () => {
+    const s = composeShop({ workspace: { id: 'ws-1', slug: 's', name: 'S' }, memberId: 'm', membersOnly: [], membersOnlyUnavailable: true, products: [], ownedIds: new Set(), canSell: true, defaultCurrency: 'eur' });
+    expect(s.members_only).toEqual([]);
+    expect(s.members_only_unavailable).toBe(true);
+  });
+  it('is false by default', () => {
+    const s = composeShop({ workspace: { id: 'ws-1', slug: 's', name: 'S' }, memberId: 'm', membersOnly: [], products: [], ownedIds: new Set(), canSell: true, defaultCurrency: 'eur' });
+    expect(s.members_only_unavailable).toBe(false);
+  });
+});
