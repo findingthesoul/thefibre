@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.274.0] — 2026-10-17
+
+### my.thread: a Drive file opens in a viewer (a PDF or an image right there) with Open and Download (my.thread 0.34.0)
+
+- Sjoerd, trying Drive folders on staging: "Super nice. It works. Would be
+  better if it opens a PDF in a screen... and then show a download
+  [button]. People may not know what they are looking at."
+- **Clicking a file in a Drive folder now opens a viewer page** (`…/view?file=`)
+  with the file's name as the title, a breadcrumb back to its folder, and
+  its type, size and date:
+  - a **PDF**, or a Google Doc/Sheet/Slide exported as PDF, shows in the
+    browser's own PDF viewer;
+  - a **png/jpeg/webp/gif** shows as an image;
+  - **anything else** shows the line "There's no preview for this kind of
+    file. Download it to open it on your device."
+- **Open and Download** are on the viewer, and on each file row where
+  there's room (not at phone width, where the row opens the viewer). Open
+  shows the file full screen in a new tab. Files without a preview get
+  only Download, because an Open that downloads would be the confusion
+  this removes (coordinator, agreed).
+- **What may be shown inline is the API's decision** (builder 4,
+  v1.273.0: `viewable` on each item, and `disposition: 'inline'` granted
+  only for PDF and those image types, never SVG/HTML/text; frame-ancestors
+  for my.thread only). The viewer only chooses the element
+  (`lib/drive-view.ts`). With an older API, nothing is inlined.
+- **Every load mints its own token.** The frame, the image and Open all go
+  through my.thread's own route with `?inline=1`, which asks the API for a
+  fresh 60-second inline address and redirects to it (still only to the
+  API's download stream, via `safeDriveDownloadUrl`). A page left open, a
+  refresh or a new tab never holds a dead link. An inline request the API
+  answers as attachment is refused (415) rather than followed, so nothing
+  downloads by itself from inside the viewer. A failure answers with a bare
+  status, never the folder page inside a frame.
+- Tests: `drive-view.test.ts` (4: what's shown inline for each type; never
+  without `viewable`; never SVG/HTML even if marked viewable; type
+  labels). A local render against a stub of B4's contract checked: rows
+  have Open plus Download, and only Download for a .docx; the PDF viewer
+  page has Open (new tab), Download, and a frame whose address answers
+  `application/pdf` inline; the image renders (naturalWidth > 0); the docx
+  shows the no-preview line and no Open; the docx's inline route answers
+  415; at 375 there's no sideways scroll. Headless Chromium shows no PDF
+  inside a frame, so the PDF's picture in the frame is for Sjoerd to see on
+  staging, with the test folder that is connected to "The Thread".
+
 ## [1.273.1] — 2026-10-17
 
 ### my.thread: stopping a renewal has one quiet home, in Purchases (my.thread 0.33.2)

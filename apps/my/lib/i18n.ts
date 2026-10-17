@@ -4122,6 +4122,32 @@ const CATALOG = {
     de: 'Verlängerung verwalten', // MT
     fr: 'Gérer le renouvellement', // MT
   },
+  // The Drive file viewer (2026-10-17): its two buttons and the line for a
+  // file with no preview.
+  drive_open: {
+    en: 'Open',
+    nl: 'Openen',
+    es: 'Abrir', // MT
+    pt: 'Abrir', // MT
+    de: 'Öffnen', // MT
+    fr: 'Ouvrir', // MT
+  },
+  drive_download: {
+    en: 'Download',
+    nl: 'Downloaden',
+    es: 'Descargar', // MT
+    pt: 'Baixar', // MT
+    de: 'Herunterladen', // MT
+    fr: 'Télécharger', // MT
+  },
+  drive_no_preview: {
+    en: 'There’s no preview for this kind of file. Download it to open it on your device.',
+    nl: 'Van dit soort bestand is geen voorbeeld. Download het om het op je apparaat te openen.',
+    es: 'No hay vista previa para este tipo de archivo. Descárgalo para abrirlo en tu dispositivo.', // MT
+    pt: 'Não há pré-visualização para este tipo de arquivo. Baixe-o para abri-lo no seu dispositivo.', // MT
+    de: 'Für diese Art von Datei gibt es keine Vorschau. Lade sie herunter, um sie auf deinem Gerät zu öffnen.', // MT
+    fr: 'Pas d’aperçu pour ce type de fichier. Téléchargez-le pour l’ouvrir sur votre appareil.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type MyKey = keyof typeof CATALOG;

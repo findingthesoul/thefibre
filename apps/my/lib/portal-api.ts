@@ -1006,6 +1006,9 @@ export type DriveItem = {
   downloadable: boolean;
   /** Why it cannot be downloaded (null when it can). */
   reason?: 'too_large' | 'not_exportable' | null;
+  /** The API would serve it inline (a PDF, a Doc as PDF, png/jpeg/webp/gif)
+   *  — additive, 2026-10-17; absent on an older API = never inline. */
+  viewable?: boolean;
 };
 export type DriveListing = {
   folder: { id: string; name: string };

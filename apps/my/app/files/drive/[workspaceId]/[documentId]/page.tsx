@@ -3,15 +3,17 @@
 // may see it — the same visibleTo as the community's documents — and lists
 // one folder at a time; this page only lays it out. Each folder is its own
 // address (?folder=), so the back button, a bookmark and a shared link all
-// land on the same folder. A file downloads through this app's own route,
+// land on the same folder. A file opens in the viewer (view/page.tsx) and
+// downloads through this app's own route,
 // which hands the browser a one-minute address on the API — never a Drive
 // URL, and nothing large passes through here.
 
 import Link from 'next/link';
-import { ChevronRight, FileText, Folder } from 'lucide-react';
+import { ChevronRight, Download, ExternalLink, FileText, Folder } from 'lucide-react';
 import { NOTICE, ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { loadFrame } from '@/lib/session';
 import { fetchDriveFolder, type DriveError, type DriveItem } from '@/lib/portal-api';
+import { viewKind } from '@/lib/drive-view';
 import { fmtBytes, fmtDate } from '@/lib/format';
 import { pageLocale } from '@/lib/locale';
 import { t, type MyKey } from '@/lib/i18n';
@@ -150,9 +152,28 @@ function DriveRow({ item, here, folder, maxDownload, locale }: { item: DriveItem
       </div>
     );
   }
+  // The row opens the viewer (view/page.tsx), which says what the file is
+  // and offers Open and Download. Where there is room, the two buttons sit
+  // on the row as well (Sjoerd, 2026-10-17); on a phone the row alone.
+  const q = `file=${encodeURIComponent(item.id)}${folder ? `&folder=${encodeURIComponent(folder)}` : ''}`;
+  const small = 'inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs text-ink-subtle hover:bg-surface hover:text-ink';
   return (
-    <a href={`${here}/download?file=${encodeURIComponent(item.id)}${folder ? `&folder=${encodeURIComponent(folder)}` : ''}${item.export_as ? '&export=1' : ''}`} className={`${ROW} text-ink hover:bg-surface-sunken`}>
-      {inner}
-    </a>
+    <div className="flex items-center hover:bg-surface-sunken">
+      <Link href={`${here}/view?${q}`} className={`${ROW} min-w-0 flex-1 text-ink`}>
+        {inner}
+      </Link>
+      <span className="hidden shrink-0 items-center gap-1 pr-3 sm:inline-flex">
+        {viewKind(item) !== 'none' && (
+          <a href={`${here}/download?${q}&inline=1`} target="_blank" rel="noopener" className={small} aria-label={`${t(locale, 'drive_open')}: ${item.name}`}>
+            <ExternalLink size={14} aria-hidden />
+            {t(locale, 'drive_open')}
+          </a>
+        )}
+        <a href={`${here}/download?${q}${item.export_as ? '&export=1' : ''}`} className={small} aria-label={`${t(locale, 'drive_download')}: ${item.name}`}>
+          <Download size={14} aria-hidden />
+          {t(locale, 'drive_download')}
+        </a>
+      </span>
+    </div>
   );
 }
