@@ -3,7 +3,8 @@
 // products in the open shop, anything owned, anything riding the membership.
 
 import { describe, expect, it } from 'vitest';
-import { composeShop, openShopAction, type ShopProductRow } from './shop.js';
+import { composeShop, openShopAction, withinCap, type ShopProductRow } from './shop.js';
+import { vi } from 'vitest';
 
 const W = 'ws-1';
 const p = (over: Partial<ShopProductRow>): ShopProductRow => ({
@@ -71,5 +72,22 @@ describe('composeShop', () => {
     const s = composeShop({ workspace: ws, memberId: null, membersOnly: [], products, ownedIds: new Set(), canSell: true, defaultCurrency: 'eur' });
     expect(s.members_only).toEqual([]);
     expect(s.open.map((x) => x.id)).toEqual(['open-once', 'open-sub', 'owned']);
+  });
+});
+
+describe('withinCap — one slow community cannot hold the shop page', () => {
+  it('returns the value when it comes in time', async () => {
+    await expect(withinCap(Promise.resolve(['x']), 50)).resolves.toEqual(['x']);
+  });
+  it('returns null once the cap has passed, without waiting for the slow read', async () => {
+    vi.useFakeTimers();
+    try {
+      const slow = new Promise<string[]>((res) => setTimeout(() => res(['late']), 22_500));
+      const r = withinCap(slow, 3000);
+      await vi.advanceTimersByTimeAsync(3000);
+      await expect(r).resolves.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

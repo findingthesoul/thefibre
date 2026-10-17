@@ -97,3 +97,16 @@ export function composeShop(input: {
     : [];
   return { workspace_id: workspace.id, workspace_slug: workspace.slug, workspace_name: workspace.name, member_id: memberId, members_only: membersOnly, open, owned };
 }
+
+/** `p`, or null once `ms` have passed — whichever comes first. The shop reads
+ *  communities in parallel, so the slowest decides the page; a read past the
+ *  cap is dropped for this answer (it is not cancelled — its result is
+ *  simply not waited for). */
+export async function withinCap<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([p, new Promise<null>((res) => (timer = setTimeout(() => res(null), ms)))]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}

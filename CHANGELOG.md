@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.262.1] — 2026-10-17
+
+### The my.thread shop answers faster, and one slow community can no longer hold it (API)
+
+- **Measured first** (staging, the deployed API, the e2e fixture, 6 calls
+  each; the first is cold). `GET /me/shop` read each community one after
+  another, with a Stripe subscription read per Stripe-backed membership:
+  - 1 Stripe membership: first 862 ms, warm median 653 ms, max 1350 ms;
+  - 2 Stripe memberships: first 1107 ms, warm median 2527 ms, outliers 6221
+    and 22575 ms.
+  A breakdown run found Stripe's subscription read steady at ~185 ms
+  (8 rounds) and the account lookup at ~60 ms. The 22.5 s outlier did not
+  recur, and its cause was not caught.
+- **Changed:**
+  - **communities are read in parallel**, and a failure still stays inside
+    its own community;
+  - **a community with no products skips its Stripe read and its account
+    lookup altogether**: nothing could be offered there, which was the case
+    measured;
+  - **each community's members-only read is capped at 3 s** (`withinCap`,
+    lib/shop.ts). With everything in parallel the slowest community decides
+    the page, and the SDK would otherwise wait for Stripe up to its default
+    80 s. Past the cap that community shows no members-only list this time
+    and the log says so ("member offer timed out"); over 2 s it logs "slow",
+    so the next spike names itself.
+- Tests: `shop.test.ts` +2 (in time returns the value; past the cap returns
+  null without waiting, with fake timers). The integration test
+  membership-change passes 11/11 against staging with the new route.
+
 ## [1.262.0] — 2026-10-17
 
 ### my.thread: a session straight into Google or Outlook, remembered per device (my.thread 0.31.0)

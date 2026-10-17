@@ -23,7 +23,7 @@ import { sendEmail } from '../lib/email/client.js';
 import { getBuyerDetails, saveBuyerDetails } from '../lib/buyer-details.js';
 import { getWorkspaceBrand, senderOf } from '../lib/workspace-brand.js';
 import { reconcileMemberAccess } from './membership.js';
-import { composeShop, type ShopProductRow } from '../lib/shop.js';
+import { composeShop, withinCap, type ShopProductRow } from '../lib/shop.js';
 import {
   addAddon,
   addonNet,
@@ -374,6 +374,9 @@ membershipPurchaseRoutes.get('/me/member-in/:workspaceSlug', async (c) => {
 // The rules are lib/shop.ts; the members-only list is the same function as
 // "Add or change" (memberAddonOffer). A community with nothing in any list
 // is left out. Read-only: every action calls a route that exists already.
+/** How long one community's members-only read may hold the shop page. */
+const SHOP_MEMBER_CAP_MS = 3000;
+
 membershipPurchaseRoutes.get('/me/shop', async (c) => {
   const email = await participantEmailFromAuth(c);
   if (!email) return c.json({ error: 'sign in required' }, 401);
@@ -403,30 +406,58 @@ membershipPurchaseRoutes.get('/me/shop', async (c) => {
   if (wsRes.error || prodRes.error) return c.json({ error: 'could not read the shops' }, 500);
   const products = (prodRes.data ?? []) as ShopProductRow[];
 
-  const communities = [];
-  for (const ws of wsRes.data ?? []) {
-    const member = members.find((m) => m.workspace_id === ws.id && m.stripe_subscription_id && m.stripe_customer_id) ?? null;
-    let membersOnly: Awaited<ReturnType<typeof memberAddonOffer>> = [];
-    if (member) {
-      // The member's own context (their subscription's interval and
-      // currency), exactly as "Add or change" loads it. A failure leaves this
-      // list empty for this community, never the whole shop.
-      const ctx = await loadCtx({ ...member, stripe_subscription_id: member.stripe_subscription_id!, stripe_customer_id: member.stripe_customer_id! }).catch((e: Error) => ({ error: e.message, status: 502 }));
-      if ('error' in ctx) console.error('[membership/shop] member context failed', { member: member.id, message: ctx.error });
-      else membersOnly = await memberAddonOffer(ctx).catch(() => []);
-    }
-    const canSell = !!(await workspaceStripeAccount(ws.id as string));
-    const shop = composeShop({
-      workspace: { id: ws.id as string, slug: ws.slug as string, name: ws.name as string },
-      memberId: member?.id ?? null,
-      membersOnly,
-      products,
-      ownedIds,
-      canSell,
-      defaultCurrency: 'EUR',
-    });
-    if (shop.members_only.length || shop.open.length || shop.owned.length) communities.push(shop);
-  }
+  // Each community is read IN PARALLEL (2026-10-17: measured on staging,
+  // one Stripe-backed membership took ~650 ms warm and two ~2.5 s, in series),
+  // and a community with NO products skips its Stripe read and its account
+  // lookup altogether — nothing could be offered there, whatever the member's
+  // subscription says. A failure still stays inside its own community.
+  const perCommunity = await Promise.all(
+    (wsRes.data ?? []).map(async (ws) => {
+      const hasProducts = products.some((p) => p.workspace_id === ws.id);
+      if (!hasProducts) return null;
+      const member = members.find((m) => m.workspace_id === ws.id && m.stripe_subscription_id && m.stripe_customer_id) ?? null;
+      const [membersOnly, canSell] = await Promise.all([
+        (async (): Promise<Awaited<ReturnType<typeof memberAddonOffer>>> => {
+          if (!member) return [];
+          // The member's own context (their subscription's interval and
+          // currency), exactly as "Add or change" loads it — capped, because
+          // with Promise.all the slowest community decides the page: one call
+          // took 22.5 s on staging (2026-10-17; the cause was not caught —
+          // Stripe reads measured ~185 ms otherwise). Past the cap this
+          // community shows no members-only list this time, and says so in
+          // the log; the page itself answers.
+          const started = Date.now();
+          const offer = (async () => {
+            const ctx = await loadCtx({ ...member, stripe_subscription_id: member.stripe_subscription_id!, stripe_customer_id: member.stripe_customer_id! }).catch((e: Error) => ({ error: e.message, status: 502 }));
+            if ('error' in ctx) {
+              console.error('[membership/shop] member context failed', { member: member.id, message: ctx.error });
+              return [];
+            }
+            return memberAddonOffer(ctx).catch(() => []);
+          })();
+          const capped = await withinCap(offer, SHOP_MEMBER_CAP_MS);
+          const took = Date.now() - started;
+          if (capped === null) {
+            console.error('[membership/shop] member offer timed out', { member: member.id, cap_ms: SHOP_MEMBER_CAP_MS });
+            return [];
+          }
+          if (took > 2000) console.warn('[membership/shop] member offer slow', { member: member.id, ms: took });
+          return capped;
+        })(),
+        workspaceStripeAccount(ws.id as string).then((a) => !!a).catch(() => false),
+      ]);
+      return composeShop({
+        workspace: { id: ws.id as string, slug: ws.slug as string, name: ws.name as string },
+        memberId: member?.id ?? null,
+        membersOnly,
+        products,
+        ownedIds,
+        canSell,
+        defaultCurrency: 'EUR',
+      });
+    }),
+  );
+  const communities = perCommunity.filter((x): x is NonNullable<typeof x> => !!x && (x.members_only.length > 0 || x.open.length > 0 || x.owned.length > 0));
   communities.sort((a, b) => a.workspace_name.localeCompare(b.workspace_name));
   return c.json({ communities });
 });
