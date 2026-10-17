@@ -29,7 +29,7 @@ import { useState } from 'react';
 import { InvoiceDialog } from '@thefibre/shared/ui/invoice-dialog';
 import type { PortalInvoice } from '@/lib/portal-api';
 import { invoicePdfUrl } from '@/lib/portal-api';
-import { fmtDate, money } from '@/lib/format';
+import { DEFAULT_TZ, fmtDate, money } from '@/lib/format';
 import { chromeT, useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t, type MyKey } from '@/lib/i18n';
 
@@ -94,7 +94,7 @@ export function InvoiceList({
               <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                 {inv.workspace && <span className="truncate">{inv.workspace}</span>}
                 {inv.workspace && <span aria-hidden>·</span>}
-                <span>{fmtDate(inv.created_at, locale)}</span>
+                <span>{fmtDate(inv.created_at, locale, DEFAULT_TZ)}</span>
                 {inv.status !== 'paid' && (
                   <>
                     <span aria-hidden>·</span>

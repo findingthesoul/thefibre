@@ -4,7 +4,7 @@
 
 import { FileText, Image as ImageIcon, Link2 } from 'lucide-react';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
-import { fmtDate } from '@/lib/format';
+import { DEFAULT_TZ, fmtDate } from '@/lib/format';
 import type { Locale } from '@thefibre/shared/i18n';
 
 export type CommunityDocument =
@@ -73,7 +73,7 @@ export function ThreadDocumentGroup({
             ) : (
               <span className="text-ink">{i.title}</span>
             )}
-            <span className="text-ink-muted"> · {fmtDate(i.sent_at, locale)}</span>
+            <span className="text-ink-muted"> · {fmtDate(i.sent_at, locale, DEFAULT_TZ)}</span>
           </li>
         ))}
       </ul>

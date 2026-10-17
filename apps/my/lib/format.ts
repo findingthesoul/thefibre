@@ -9,6 +9,18 @@
 
 import { INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared/i18n';
 
+/** A session's time is the THREAD's time (2026-10-17: Next listed 17:00
+ *  Amsterdam as 16:00 — the list was formatted on a server running in UTC,
+ *  the dialog in the browser). Every session time in my.thread is formatted
+ *  in an explicit zone: the thread's `timezone`, else this, the platform's
+ *  default (the one thread dates and the push pass fall back to too). Never
+ *  the host's zone, which is UTC on Vercel and anything at all in a browser. */
+export const DEFAULT_TZ = 'Europe/Amsterdam';
+
+/** `timeZone` option, only when one is given — so a caller that passes none
+ *  keeps exactly the output it always had (format.test.ts pins that). */
+const tzOpt = (tz?: string | null) => (tz ? { timeZone: tz } : {});
+
 /** The Intl tag for a surface locale; anything unknown is English (en-GB). */
 export function intlTag(locale?: Locale | string | null): string {
   return INTL_LOCALES[toLocale(locale ?? null)];
@@ -18,17 +30,19 @@ export function money(cents: number, currency: string, locale?: Locale | string 
   return new Intl.NumberFormat(intlTag(locale), { style: 'currency', currency }).format(cents / 100);
 }
 
-export function fmtDate(iso: string | null, locale?: Locale | string | null): string | null {
+export function fmtDate(iso: string | null, locale?: Locale | string | null, tz?: string | null): string | null {
   if (!iso) return null;
   return new Intl.DateTimeFormat(intlTag(locale), {
+    ...tzOpt(tz),
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   }).format(new Date(iso));
 }
 
-export function fmtDateTime(iso: string, locale?: Locale | string | null): string {
+export function fmtDateTime(iso: string, locale?: Locale | string | null, tz?: string | null): string {
   return new Intl.DateTimeFormat(intlTag(locale), {
+    ...tzOpt(tz),
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -38,17 +52,26 @@ export function fmtDateTime(iso: string, locale?: Locale | string | null): strin
 }
 
 /** "14:30" — the clock on a card. 24-hour in every locale we speak. */
-export function fmtTime(iso: string, locale?: Locale | string | null): string {
-  return new Intl.DateTimeFormat(intlTag(locale), { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+export function fmtTime(iso: string, locale?: Locale | string | null, tz?: string | null): string {
+  return new Intl.DateTimeFormat(intlTag(locale), { hour: '2-digit', minute: '2-digit', ...tzOpt(tz) }).format(new Date(iso));
+}
+
+/** "CET", "GMT-5" — the zone's short name at that instant, for saying so
+ *  when the session's zone is not the viewer's. */
+export function zoneLabel(iso: string, tz: string, locale?: Locale | string | null): string {
+  const part = new Intl.DateTimeFormat(intlTag(locale), { timeZone: tz, timeZoneName: 'short' })
+    .formatToParts(new Date(iso))
+    .find((p) => p.type === 'timeZoneName');
+  return part?.value ?? tz;
 }
 
 /** The two halves of a date chip: "14" over "Oct". */
-export function dayMonth(iso: string, locale?: Locale | string | null): { day: string; month: string } {
+export function dayMonth(iso: string, locale?: Locale | string | null, tz?: string | null): { day: string; month: string } {
   const d = new Date(iso);
   const tag = intlTag(locale);
   return {
-    day: new Intl.DateTimeFormat(tag, { day: 'numeric' }).format(d),
-    month: new Intl.DateTimeFormat(tag, { month: 'short' }).format(d),
+    day: new Intl.DateTimeFormat(tag, { day: 'numeric', ...tzOpt(tz) }).format(d),
+    month: new Intl.DateTimeFormat(tag, { month: 'short', ...tzOpt(tz) }).format(d),
   };
 }
 

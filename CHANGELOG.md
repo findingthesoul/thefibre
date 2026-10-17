@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.262.2] — 2026-10-17
+
+### HOTFIX: my.thread → Next lists every session at the thread's own time (my.thread 0.31.1)
+
+- **On production, Next listed sessions an hour or two early.** "Quarterly
+  Community Gathering", 12 Jan 17:00 in Amsterdam, was listed at 16:00; a
+  6 Apr 16:00 session at 14:00. The dialog said the right time. The list's
+  clock was formatted on the server, which runs in UTC on Vercel; the
+  dialog's in the browser. Members were shown wrong session times.
+- **Every session time in my.thread is now formatted in an explicit zone:**
+  the thread's own `timezone`, else the platform default `Europe/Amsterdam`.
+  That's the same fallback thread dates and the push pass use. It's never the
+  host's zone. This holds on the server and in the browser alike, so the list
+  and the dialog can't disagree again (`lib/format.ts` `DEFAULT_TZ`, a `tz`
+  argument on every formatter, and `Entry.timeZone` / `dayZone` in
+  `lib/timeline.ts`).
+- **The zone is named when it isn't the viewer's.** Someone in New York sees
+  "16:00 CET" for an Amsterdam session. That's decided after hydration,
+  because only the browser knows the viewer's zone.
+- **Swept:** the Next list and its date chips, the thread dialog (agenda times
+  and chips), Home's "next", Notifications, Files and Home document dates,
+  Memberships (renewal, member since, a thread's start in its own zone,
+  bought on), invoices, the push device list, the cancellation request date,
+  and the Shop's renewal date.
+  - Meet bookings, notifications and Home's "next" carry no zone in the
+    portal payload yet, so they use the platform default. Sending each item's
+    own zone is a follow-up in the API.
+- Tested:
+  - unit `timeline` (+4), clock and zone pinned: Amsterdam winter (UTC+1)
+    and summer (UTC+2) with production's two examples, either side of the
+    28 Mar 2027 clock change, a New York thread keeping its own clock, and a
+    zone-less thread reading as Amsterdam. 24/24 with the machine in UTC,
+    Amsterdam and Los Angeles. The 4 new ones FAIL against the old code in
+    UTC;
+  - apps/my 78/78;
+  - **reproduced on staging before the fix:** new e2e `next-times.spec.ts`
+    sees "Conversation 1" (16:00 Amsterdam) listed as "15:00". After landing
+    it must read 16:00 in the list and the dialog, and "16:00 CET" for a New
+    York viewer.
+
 ## [1.262.1] — 2026-10-17
 
 ### The my.thread shop answers faster, and one slow community can no longer hold it (API)

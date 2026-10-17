@@ -36,7 +36,7 @@ import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
 // The date chip (day over month, how an agenda is scanned) and the clock
 // come from lib/format, in the reader's language.
-import { dayMonth, fmtTime, listOf } from '@/lib/format';
+import { DEFAULT_TZ, dayMonth, fmtTime, listOf } from '@/lib/format';
 import { ActionsMenu } from '@thefibre/shared/ui/actions-menu';
 import { googleEventLink, outlookEventLink, type CalendarEvent } from '@/lib/calendar-links';
 import { readCalendarChoice, writeCalendarChoice, type CalendarChoice } from '@/lib/calendar-pref';
@@ -95,8 +95,8 @@ function IconLink({
 }
 
 /** Day over month, left of the row. */
-function DateChip({ iso }: { iso: string }) {
-  const { day, month } = dayMonth(iso, useLocale());
+function DateChip({ iso, zone }: { iso: string; zone: string }) {
+  const { day, month } = dayMonth(iso, useLocale(), zone);
   return (
     <div
       aria-hidden
@@ -384,13 +384,13 @@ function SessionCalendar({ threadId, threadUrl, item }: { threadId: string; thre
   );
 }
 
-function AgendaRow({ threadId, threadUrl, item }: { threadId: string; threadUrl: string; item: AgendaItem }) {
+function AgendaRow({ threadId, threadUrl, zone, item }: { threadId: string; threadUrl: string; zone: string; item: AgendaItem }) {
   const locale = useLocale();
   const link = item.meeting_url ?? item.external_url;
   return (
     <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
       <div className="flex gap-3">
-        {item.starts_at ? <DateChip iso={item.starts_at} /> : <NoDateChip />}
+        {item.starts_at ? <DateChip iso={item.starts_at} zone={zone} /> : <NoDateChip />}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -400,7 +400,7 @@ function AgendaRow({ threadId, threadUrl, item }: { threadId: string; threadUrl:
                   nowhere (v0.68.62 fixed the public page; this is the same
                   gap on the same field). */}
               <p className="text-sm text-ink-muted">
-                {item.starts_at && fmtTime(item.starts_at, locale)}
+                {item.starts_at && fmtTime(item.starts_at, locale, zone)}
                 {item.starts_at && item.location && ' · '}
                 {item.location &&
                   (item.location_url ? (
@@ -602,7 +602,7 @@ export function ThreadSheet({
             </div>
             <ul className="mt-2">
               {thread.agenda.map((a) => (
-                <AgendaRow key={a.id} threadId={thread.thread_id} threadUrl={thread.url} item={a} />
+                <AgendaRow key={a.id} threadId={thread.thread_id} threadUrl={thread.url} zone={thread.timezone || DEFAULT_TZ} item={a} />
               ))}
             </ul>
           </section>

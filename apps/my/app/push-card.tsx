@@ -24,7 +24,7 @@ import { Button } from '@thefibre/shared/ui/button';
 import { NOTICE } from '@thefibre/shared/ui/recipes';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
-import { fmtDate } from '@/lib/format';
+import { DEFAULT_TZ, fmtDate } from '@/lib/format';
 import {
   currentSubscription,
   listDevices,
@@ -160,7 +160,7 @@ export function PushCard() {
                 <li key={d.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                   <span className="min-w-0 truncate text-ink">
                     {d.device_label ?? t(locale, 'push_a_device')}{' '}
-                    <span className="text-ink-muted">· {t(locale, 'push_since', { date: fmtDate(d.created_at, locale) ?? '' })}</span>
+                    <span className="text-ink-muted">· {t(locale, 'push_since', { date: fmtDate(d.created_at, locale, DEFAULT_TZ) ?? '' })}</span>
                   </span>
                   <Button type="button" size="sm" variant="ghost" onClick={() => void remove(d.id)}>
                     {t(locale, 'push_remove')}

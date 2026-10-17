@@ -16,7 +16,7 @@ import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import type { Locale } from '@thefibre/shared/i18n';
 import { t, type MyKey } from '@/lib/i18n';
 import { friendlyError } from '@/lib/errors';
-import { money, fmtDate } from '@/lib/format';
+import { DEFAULT_TZ, money, fmtDate } from '@/lib/format';
 import type { ShopCommunity } from '@/lib/portal-api';
 import { ChangeMembership } from '../purchases/change-membership';
 
@@ -168,7 +168,7 @@ export function ShopView({ communities, renewals, buyer }: { communities: ShopCo
           memberId={adding.memberId}
           community={addingRenewal.community}
           tier={addingRenewal.tier}
-          renewsOn={fmtDate(addingRenewal.renews_at, locale) ?? ''}
+          renewsOn={fmtDate(addingRenewal.renews_at, locale, DEFAULT_TZ) ?? ''}
           open
           onClose={() => setAdding(null)}
           preselect={{ id: adding.id, name: adding.name }}

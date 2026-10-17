@@ -183,6 +183,8 @@ describe('splitAt', () => {
       workspaceId: 'w1',
       dateIso: iso,
       time: null,
+      timeZone: "Europe/Amsterdam",
+      dayZone: "UTC",
       where: null,
       whereUrl: null,
       joinUrl: null,
@@ -258,6 +260,8 @@ describe('unanswered', () => {
       workspaceId: 'w',
       dateIso: '2026-06-15T09:00:00Z',
       time: null,
+      timeZone: "Europe/Amsterdam",
+      dayZone: "UTC",
       where: null,
       whereUrl: null,
       joinUrl: null,
@@ -356,5 +360,78 @@ describe('sessions you host', () => {
   it('a hosted-only thread with none of your sessions dated shows nothing of its own', () => {
     const p = portal([group({ threads: [thread({ enrolment_status: null, my_role: 'facilitator', starts_on: '2026-06-20', agenda: [] })] })]);
     expect(buildTimeline(p, NOW)).toEqual([]);
+  });
+});
+
+// 2026-10-17, production: Next listed a 17:00 (Amsterdam) session at 16:00 —
+// the list was formatted on a server running in UTC — while the dialog,
+// formatted in the browser, said 17:00. A session's time is the THREAD's.
+// These pin the zone AND the clock, so they read the same on a laptop in
+// Amsterdam and on a CI runner in UTC.
+describe('times are the thread’s, never the server’s', () => {
+  const AMS = 'Europe/Amsterdam';
+
+  it('winter (UTC+1) and summer (UTC+2) both read as Amsterdam clock time', () => {
+    const entries = buildTimeline(
+      portal([
+        group({
+          threads: [
+            thread({
+              timezone: AMS,
+              agenda: [
+                // Production's examples: 12 Jan 17:00 and 6 Apr 16:00, Amsterdam.
+                agenda({ id: 'jan', starts_at: '2027-01-12T16:00:00Z', title: 'Quarterly Community Gathering' }),
+                agenda({ id: 'apr', starts_at: '2027-04-06T14:00:00Z', title: 'Meaningful Conversation' }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+      NOW,
+    );
+    const byId = Object.fromEntries(entries.map((e) => [e.engagementId, e]));
+    expect(byId.jan!.time).toBe('17:00');
+    expect(byId.apr!.time).toBe('16:00');
+    expect(byId.jan!.timeZone).toBe(AMS);
+  });
+
+  it('either side of the clocks going forward (28 Mar 2027)', () => {
+    const entries = buildTimeline(
+      portal([
+        group({
+          threads: [
+            thread({
+              timezone: AMS,
+              agenda: [
+                agenda({ id: 'before', starts_at: '2027-03-27T09:00:00Z' }), // CET  → 10:00
+                agenda({ id: 'after', starts_at: '2027-03-28T09:00:00Z' }), // CEST → 11:00
+              ],
+            }),
+          ],
+        }),
+      ]),
+      NOW,
+    );
+    const byId = Object.fromEntries(entries.map((e) => [e.engagementId, e]));
+    expect(byId.before!.time).toBe('10:00');
+    expect(byId.after!.time).toBe('11:00');
+  });
+
+  it('a thread in another zone keeps its own clock', () => {
+    const [e] = buildTimeline(
+      portal([group({ threads: [thread({ timezone: 'America/New_York', agenda: [agenda({ id: 'ny', starts_at: '2027-01-12T16:00:00Z' })] })] })]),
+      NOW,
+    );
+    expect(e!.time).toBe('11:00');
+    expect(e!.timeZone).toBe('America/New_York');
+  });
+
+  it('a thread without a zone reads as the platform default, not the host', () => {
+    const [e] = buildTimeline(
+      portal([group({ threads: [thread({ timezone: null, agenda: [agenda({ id: 'x', starts_at: '2027-01-12T16:00:00Z' })] })] })]),
+      NOW,
+    );
+    expect(e!.time).toBe('17:00');
+    expect(e!.timeZone).toBe('Europe/Amsterdam');
   });
 });

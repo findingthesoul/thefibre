@@ -7,6 +7,7 @@
 
 import type { Portal, RsvpResponse } from './portal-api';
 import { INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared/i18n';
+import { DEFAULT_TZ, fmtTime } from './format';
 
 export type Entry = {
   key: string;
@@ -35,8 +36,15 @@ export type Entry = {
   workspaceId: string;
   /** ISO of the date, for the chip. */
   dateIso: string;
-  /** "16:00", or null for an all-day entry. */
+  /** "16:00" in `timeZone`, or null for an all-day entry. */
   time: string | null;
+  /** The zone the session happens in — the thread's, else the platform
+   *  default. Its clock is formatted in this zone on the server and in the
+   *  browser alike, so the list and the dialog can never disagree again. */
+  timeZone: string;
+  /** The zone to read `dateIso`'s DAY in: the session's for a timed entry;
+   *  UTC for an all-day one, whose date-only value is UTC midnight. */
+  dayZone: string;
   where: string | null;
   /** A meet with no location says who it is with instead — the NAME only;
    *  the words around it are the reader's language, added where it renders. */
@@ -65,10 +73,9 @@ function startOfDay(dateOnly: string): number {
   return new Date(`${dateOnly.slice(0, 10)}T00:00:00`).getTime();
 }
 
-function hhmm(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
-    new Date(iso),
-  );
+function hhmm(iso: string, tz: string): string {
+  // en-GB: the 24-hour clock this list has always shown, in every language.
+  return fmtTime(iso, 'en', tz);
 }
 
 /** From 15 minutes before it starts until it ends (or two hours in, when
@@ -87,6 +94,7 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
     const ticketFor = new Map(g.tickets.map((t) => [t.thread_id, t]));
 
     for (const t of g.threads) {
+      const tz = t.timezone || DEFAULT_TZ;
       const timed = t.agenda.filter((a) => a.starts_at);
 
       // A thread with sessions contributes its SESSIONS: they are what you
@@ -103,7 +111,9 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           organiser: g.name,
           workspaceId: g.workspace_id,
           dateIso: startsAt,
-          time: hhmm(startsAt),
+          time: hhmm(startsAt, tz),
+          timeZone: tz,
+          dayZone: tz,
           where: a.location ?? null,
           whereUrl: a.location_url ?? null,
           joinUrl: a.meeting_url && joinable(startsAt, a.ends_at, now) ? a.meeting_url : null,
@@ -132,6 +142,8 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           workspaceId: g.workspace_id,
           dateIso: t.starts_on,
           time: null,
+          timeZone: tz,
+          dayZone: 'UTC',
           where: null,
           whereUrl: null,
           joinUrl: null,
@@ -165,6 +177,8 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           workspaceId: g.workspace_id,
           dateIso: t.certificate.issued_at,
           time: null,
+          timeZone: tz,
+          dayZone: 'UTC',
           where: null,
           whereUrl: null,
           joinUrl: null,
@@ -187,7 +201,11 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
         organiser: g.name,
         workspaceId: g.workspace_id,
         dateIso: m.starts_at,
-        time: hhmm(m.starts_at),
+        // A booking carries no zone of its own in the portal payload yet: the
+        // platform default, never the server's.
+        time: hhmm(m.starts_at, DEFAULT_TZ),
+        timeZone: DEFAULT_TZ,
+        dayZone: DEFAULT_TZ,
         where: m.location ?? null,
         withHost: m.location ? null : (m.host ?? null),
         whereUrl: null,

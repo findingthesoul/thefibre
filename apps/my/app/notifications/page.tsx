@@ -10,7 +10,7 @@
 import Link from 'next/link';
 import { loadFrame } from '@/lib/session';
 import { fetchNotifications, markNotificationsRead, type MemberNotification } from '@/lib/portal-api';
-import { fmtDate, fmtDateTime } from '@/lib/format';
+import { DEFAULT_TZ, fmtDate, fmtDateTime } from '@/lib/format';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { SignedOut } from '../signed-out';
 import { PageShell, Empty } from '../page-shell';
@@ -72,8 +72,8 @@ export default async function NotificationsPage({
                   <p className="mt-0.5 text-sm text-ink-muted">
                     {n.starts_at
                       ? n.kind === 'new_thread'
-                        ? fmtDate(n.starts_at, locale)
-                        : fmtDateTime(n.starts_at, locale)
+                        ? fmtDate(n.starts_at, locale, DEFAULT_TZ)
+                        : fmtDateTime(n.starts_at, locale, DEFAULT_TZ)
                       : ''}
                   </p>
                 </div>

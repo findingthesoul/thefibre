@@ -8,7 +8,7 @@
 // me" — a question nobody asks. Time is the spine now, and the organiser
 // became a filter, which is where it belongs.
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Award, QrCode, Video } from 'lucide-react';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { quarterLabel, unanswered, type Entry } from '@/lib/timeline';
@@ -16,12 +16,12 @@ import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { Rsvp, ThreadSheet } from './detail';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
-import { dayMonth } from '@/lib/format';
+import { dayMonth, zoneLabel } from '@/lib/format';
 
 /** Day over month — how an agenda is scanned, and the same chip the detail
  *  sheet uses, so a card and its contents read alike. */
-function DateChip({ iso, muted }: { iso: string; muted?: boolean }) {
-  const { day, month } = dayMonth(iso, useLocale());
+function DateChip({ iso, zone, muted }: { iso: string; zone: string; muted?: boolean }) {
+  const { day, month } = dayMonth(iso, useLocale(), zone);
   return (
     <div
       aria-hidden
@@ -92,7 +92,7 @@ function Card({
           `items-stretch` is what makes the outer columns tall; everything
           inside the middle column stays vertically centred against them. */}
       <div className="flex items-stretch gap-3">
-        <DateChip iso={entry.dateIso} muted={past} />
+        <DateChip iso={entry.dateIso} zone={entry.dayZone} muted={past} />
 
         <div className="flex min-w-0 flex-1 flex-col justify-center">
           {/* The card body is the trigger, not the whole <li> — the RSVP
@@ -156,13 +156,33 @@ function Card({
 /** Second bar: time, organiser, where — and the ticket mark, which belongs
  *  with the small facts rather than out at the edge competing with the one
  *  control that does something. */
+/** The viewer's own zone, known only in the browser — so it is read after
+ *  hydration, and the server's render (which cannot know it) matches the
+ *  first paint. */
+function useViewerZone(): string | null {
+  const [zone, setZone] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    } catch {
+      setZone(null);
+    }
+  }, []);
+  return zone;
+}
+
 function MetaLine({ entry }: { entry: Entry }) {
   const locale = useLocale();
+  const viewer = useViewerZone();
+  // "17:00 CET" when the session's zone is not the viewer's: the time is the
+  // thread's, and someone in another zone should see that it is.
+  const time =
+    entry.time && viewer && viewer !== entry.timeZone ? `${entry.time} ${zoneLabel(entry.dateIso, entry.timeZone, locale)}` : entry.time;
   // A certificate's row says so in words as well as by its mark: the title is
   // the thread's, so without this the line reads as one more session on a
   // programme the person has already finished.
   const meta = [
-    entry.kind === 'certificate' ? t(locale, 'certificate') : entry.time,
+    entry.kind === 'certificate' ? t(locale, 'certificate') : time,
     entry.role === 'host' ? t(locale, 'you_host') : entry.role === 'facilitator' ? t(locale, 'you_facilitate') : null,
     entry.organiser,
     entry.where ?? (entry.withHost ? t(locale, 'with_people', { names: entry.withHost }) : null),

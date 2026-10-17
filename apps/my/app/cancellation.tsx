@@ -18,7 +18,7 @@ import { Button } from '@thefibre/shared/ui/button';
 import { TextAreaField } from '@thefibre/shared/ui/fields';
 import { FormError } from '@thefibre/shared/ui/form-error';
 import { requestCancellation, withdrawCancellation, type ThreadItem } from '@/lib/portal-api';
-import { fmtDate } from '@/lib/format';
+import { DEFAULT_TZ, fmtDate } from '@/lib/format';
 import { useLocale } from '@thefibre/shared/ui/i18n-ui';
 import { t } from '@/lib/i18n';
 import { friendlyError } from '@/lib/errors';
@@ -69,7 +69,7 @@ export function CancellationSection({ thread }: { thread: ThreadItem }) {
       {req?.status === 'pending' && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink">
-            {t(locale, 'cancel_requested', { date: fmtDate(req.created_at, locale) ?? '' })}
+            {t(locale, 'cancel_requested', { date: fmtDate(req.created_at, locale, DEFAULT_TZ) ?? '' })}
           </p>
           <Button type="button" variant="secondary" onClick={withdraw} disabled={busy}>
             {t(locale, 'withdraw_request')}

@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { loadSession } from '@/lib/session';
-import { fmtDate } from '@/lib/format';
+import { DEFAULT_TZ, fmtDate } from '@/lib/format';
 import { JoinPrice } from '../join-price';
 import { GoogleCard } from './google-card';
 import { SignedOut } from '../signed-out';
@@ -98,11 +98,11 @@ export default async function MembershipsPage() {
                   <p className="mt-2 text-sm text-ink-subtle">{t(locale, STATE_NOTE[m.status]!)}</p>
                 )}
                 {m.status === 'active' && m.renews_at && (
-                  <p className="mt-2 text-xs text-ink-muted">{t(locale, 'renews_date', { date: fmtDate(m.renews_at, locale) ?? '' })}</p>
+                  <p className="mt-2 text-xs text-ink-muted">{t(locale, 'renews_date', { date: fmtDate(m.renews_at, locale, DEFAULT_TZ) ?? '' })}</p>
                 )}
                 {m.started_at && (
                   <p className="mt-0.5 text-xs text-ink-muted">
-                    {t(locale, 'member_since', { date: fmtDate(m.started_at, locale) ?? '' })}
+                    {t(locale, 'member_since', { date: fmtDate(m.started_at, locale, DEFAULT_TZ) ?? '' })}
                   </p>
                 )}
 
@@ -166,7 +166,7 @@ export default async function MembershipsPage() {
                             {j.title}
                           </a>
                           <p className="text-ink-muted">
-                            {j.starts_on ? `${fmtDate(j.starts_on, locale)} · ` : ''}
+                            {j.starts_on ? `${fmtDate(j.starts_on, locale, j.timezone || DEFAULT_TZ)} · ` : ''}
                             {j.team} ·{' '}
                             {j.payment === 'unavailable' ? (
                               <span>{t(locale, 'signup_not_open_lc')}</span>
@@ -250,7 +250,7 @@ export default async function MembershipsPage() {
                       ) : (
                         <span className="text-ink">{pr.name}</span>
                       )}
-                      <p className="text-ink-muted">{t(locale, 'bought_on', { date: fmtDate(pr.bought_on, locale) ?? '' })}</p>
+                      <p className="text-ink-muted">{t(locale, 'bought_on', { date: fmtDate(pr.bought_on, locale, DEFAULT_TZ) ?? '' })}</p>
                       {pr.description && <p className="text-ink-muted">{pr.description}</p>}
                     </li>
                   ))}
