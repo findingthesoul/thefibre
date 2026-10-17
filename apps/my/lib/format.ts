@@ -89,3 +89,14 @@ export function listOf(names: string[], locale?: Locale | string | null): string
   const l = toLocale(locale ?? null);
   return new Intl.ListFormat(l === 'en' ? 'en' : intlTag(l), { type: 'conjunction' }).format(names);
 }
+
+/** A file size in the reader's language: "820 KB", "4,2 MB". Units by 1024,
+ *  one decimal from MB up; null (a Google-native file has no size) → ''. */
+export function fmtBytes(bytes: number | null, locale?: Locale | string | null): string {
+  if (bytes == null || bytes < 0) return '';
+  const tag = intlTag(locale);
+  if (bytes < 1024) return `${new Intl.NumberFormat(tag).format(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${new Intl.NumberFormat(tag, { maximumFractionDigits: 0 }).format(bytes / 1024)} KB`;
+  if (bytes < 1024 ** 3) return `${new Intl.NumberFormat(tag, { maximumFractionDigits: 1 }).format(bytes / 1024 ** 2)} MB`;
+  return `${new Intl.NumberFormat(tag, { maximumFractionDigits: 1 }).format(bytes / 1024 ** 3)} GB`;
+}

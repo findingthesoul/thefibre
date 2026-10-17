@@ -3609,6 +3609,198 @@ const CATALOG = {
     de: '+{n} weitere', // MT
     fr: '+{n} de plus', // MT
   },
+  mp_type_drive: {
+    en: 'Google Drive folder',
+    nl: 'Google Drive-map', // MT
+    es: 'Carpeta de Google Drive', // MT
+    pt: 'Pasta do Google Drive', // MT
+    de: 'Google-Drive-Ordner', // MT
+    fr: 'Dossier Google Drive', // MT
+  },
+  drv_loading: {
+    en: 'Checking Google Drive…',
+    nl: 'Google Drive controleren…', // MT
+    es: 'Comprobando Google Drive…', // MT
+    pt: 'A verificar o Google Drive…', // MT
+    de: 'Google Drive wird geprüft…', // MT
+    fr: 'Vérification de Google Drive…', // MT
+  },
+  drv_folder_link: {
+    en: 'Folder link',
+    nl: 'Maplink', // MT
+    es: 'Enlace de la carpeta', // MT
+    pt: 'Ligação da pasta', // MT
+    de: 'Ordner-Link', // MT
+    fr: 'Lien du dossier', // MT
+  },
+  drv_start: {
+    en: 'Start',
+    nl: 'Begin', // MT
+    es: 'Empezar', // MT
+    pt: 'Começar', // MT
+    de: 'Starten', // MT
+    fr: 'Commencer', // MT
+  },
+  drv_checking: {
+    en: 'Checking…',
+    nl: 'Controleren…', // MT
+    es: 'Comprobando…', // MT
+    pt: 'A verificar…', // MT
+    de: 'Wird geprüft…', // MT
+    fr: 'Vérification…', // MT
+  },
+  drv_hint_share: {
+    en: 'Members see the folder inside my.thread, without a Google account. First share the folder (Viewer) with:',
+    nl: 'Leden zien de map in my.thread, zonder Google-account. Deel de map eerst (Lezer) met:', // MT
+    es: 'Los miembros ven la carpeta en my.thread, sin cuenta de Google. Primero comparte la carpeta (Lector) con:', // MT
+    pt: 'Os membros veem a pasta no my.thread, sem conta Google. Primeiro partilhe a pasta (Leitor) com:', // MT
+    de: 'Mitglieder sehen den Ordner in my.thread, ohne Google-Konto. Teile den Ordner zuerst (Betrachter) mit:', // MT
+    fr: 'Les membres voient le dossier dans my.thread, sans compte Google. Partage d’abord le dossier (Lecteur) avec :', // MT
+  },
+  drv_service_account: {
+    en: 'the community’s Drive account',
+    nl: 'het Drive-account van de community', // MT
+    es: 'la cuenta de Drive de la comunidad', // MT
+    pt: 'a conta Drive da comunidade', // MT
+    de: 'das Drive-Konto der Community', // MT
+    fr: 'le compte Drive de la communauté', // MT
+  },
+  drv_steps_title: {
+    en: 'Connect “{name}” in three steps',
+    nl: 'Koppel “{name}” in drie stappen', // MT
+    es: 'Conecta “{name}” en tres pasos', // MT
+    pt: 'Ligue “{name}” em três passos', // MT
+    de: '„{name}“ in drei Schritten verbinden', // MT
+    fr: 'Connecte « {name} » en trois étapes', // MT
+  },
+  drv_step_share: {
+    en: 'Share the folder as Viewer with',
+    nl: 'Deel de map als Lezer met', // MT
+    es: 'Comparte la carpeta como Lector con', // MT
+    pt: 'Partilhe a pasta como Leitor com', // MT
+    de: 'Teile den Ordner als Betrachter mit', // MT
+    fr: 'Partage le dossier en Lecteur avec', // MT
+  },
+  drv_step_code: {
+    en: 'Put this code in the folder’s description. In Drive: right-click the folder → Folder information → Details (or select it and open the ⓘ panel), then Description:',
+    nl: 'Zet deze code in de beschrijving van de map. In Drive: rechtsklik op de map → Mapinformatie → Details (of selecteer hem en open het ⓘ-paneel), dan Beschrijving:', // MT
+    es: 'Pon este código en la descripción de la carpeta. En Drive: clic derecho en la carpeta → Información de la carpeta → Detalles (o selecciónala y abre el panel ⓘ), luego Descripción:', // MT
+    pt: 'Coloque este código na descrição da pasta. No Drive: clique com o botão direito na pasta → Informações da pasta → Detalhes (ou selecione-a e abra o painel ⓘ), depois Descrição:', // MT
+    de: 'Setze diesen Code in die Beschreibung des Ordners. In Drive: Rechtsklick auf den Ordner → Ordnerinformationen → Details (oder auswählen und das ⓘ-Feld öffnen), dann Beschreibung:', // MT
+    fr: 'Mets ce code dans la description du dossier. Dans Drive : clic droit sur le dossier → Informations sur le dossier → Détails (ou sélectionne-le et ouvre le panneau ⓘ), puis Description :', // MT
+  },
+  drv_step_verify: {
+    en: 'Press Verify.',
+    nl: 'Druk op Controleren.', // MT
+    es: 'Pulsa Verificar.', // MT
+    pt: 'Prima Verificar.', // MT
+    de: 'Drücke Prüfen.', // MT
+    fr: 'Appuie sur Vérifier.', // MT
+  },
+  drv_verify: {
+    en: 'Verify',
+    nl: 'Controleren', // MT
+    es: 'Verificar', // MT
+    pt: 'Verificar', // MT
+    de: 'Prüfen', // MT
+    fr: 'Vérifier', // MT
+  },
+  drv_code: {
+    en: 'the verification code',
+    nl: 'de controlecode', // MT
+    es: 'el código de verificación', // MT
+    pt: 'o código de verificação', // MT
+    de: 'den Prüfcode', // MT
+    fr: 'le code de vérification', // MT
+  },
+  drv_code_after: {
+    en: 'The code is valid for an hour. Once the folder is connected you may remove it from the description.',
+    nl: 'De code is een uur geldig. Zodra de map gekoppeld is, mag je hem uit de beschrijving halen.', // MT
+    es: 'El código es válido una hora. Cuando la carpeta esté conectada puedes quitarlo de la descripción.', // MT
+    pt: 'O código é válido durante uma hora. Depois de a pasta estar ligada pode removê-lo da descrição.', // MT
+    de: 'Der Code gilt eine Stunde. Sobald der Ordner verbunden ist, darfst du ihn aus der Beschreibung entfernen.', // MT
+    fr: 'Le code est valable une heure. Une fois le dossier connecté, tu peux le retirer de la description.', // MT
+  },
+  drv_copy: {
+    en: 'Copy',
+    nl: 'Kopiëren', // MT
+    es: 'Copiar', // MT
+    pt: 'Copiar', // MT
+    de: 'Kopieren', // MT
+    fr: 'Copier', // MT
+  },
+  drv_copied: {
+    en: 'Copied',
+    nl: 'Gekopieerd', // MT
+    es: 'Copiado', // MT
+    pt: 'Copiado', // MT
+    de: 'Kopiert', // MT
+    fr: 'Copié', // MT
+  },
+  drv_err_bad_url: {
+    en: 'That isn’t a Google Drive folder link. Open the folder in Drive and copy the address from the browser.',
+    nl: 'Dat is geen link naar een Google Drive-map. Open de map in Drive en kopieer het adres uit de browser.', // MT
+    es: 'Ese no es un enlace de carpeta de Google Drive. Abre la carpeta en Drive y copia la dirección del navegador.', // MT
+    pt: 'Isso não é uma ligação de pasta do Google Drive. Abra a pasta no Drive e copie o endereço do navegador.', // MT
+    de: 'Das ist kein Link zu einem Google-Drive-Ordner. Öffne den Ordner in Drive und kopiere die Adresse aus dem Browser.', // MT
+    fr: 'Ce n’est pas un lien de dossier Google Drive. Ouvre le dossier dans Drive et copie l’adresse du navigateur.', // MT
+  },
+  drv_err_not_shared: {
+    en: 'The folder isn’t shared with the community’s Drive account yet. Share it as Viewer with:',
+    nl: 'De map is nog niet gedeeld met het Drive-account van de community. Deel hem als Lezer met:', // MT
+    es: 'La carpeta aún no está compartida con la cuenta de Drive de la comunidad. Compártela como Lector con:', // MT
+    pt: 'A pasta ainda não está partilhada com a conta Drive da comunidade. Partilhe-a como Leitor com:', // MT
+    de: 'Der Ordner ist noch nicht mit dem Drive-Konto der Community geteilt. Teile ihn als Betrachter mit:', // MT
+    fr: 'Le dossier n’est pas encore partagé avec le compte Drive de la communauté. Partage-le en Lecteur avec :', // MT
+  },
+  drv_err_bound_elsewhere: {
+    en: 'This folder is already connected to another community.',
+    nl: 'Deze map is al gekoppeld aan een andere community.', // MT
+    es: 'Esta carpeta ya está conectada a otra comunidad.', // MT
+    pt: 'Esta pasta já está ligada a outra comunidade.', // MT
+    de: 'Dieser Ordner ist bereits mit einer anderen Community verbunden.', // MT
+    fr: 'Ce dossier est déjà connecté à une autre communauté.', // MT
+  },
+  drv_err_not_configured: {
+    en: 'Google Drive isn’t set up for this platform yet.',
+    nl: 'Google Drive is nog niet ingesteld voor dit platform.', // MT
+    es: 'Google Drive aún no está configurado en esta plataforma.', // MT
+    pt: 'O Google Drive ainda não está configurado nesta plataforma.', // MT
+    de: 'Google Drive ist für diese Plattform noch nicht eingerichtet.', // MT
+    fr: 'Google Drive n’est pas encore configuré sur cette plateforme.', // MT
+  },
+  drv_err_unavailable: {
+    en: 'Google Drive isn’t answering right now. Try again in a moment.',
+    nl: 'Google Drive reageert nu niet. Probeer het zo opnieuw.', // MT
+    es: 'Google Drive no responde ahora. Inténtalo de nuevo en un momento.', // MT
+    pt: 'O Google Drive não está a responder. Tente de novo daqui a pouco.', // MT
+    de: 'Google Drive antwortet gerade nicht. Versuche es gleich noch einmal.', // MT
+    fr: 'Google Drive ne répond pas. Réessaie dans un instant.', // MT
+  },
+  drv_err_code_missing: {
+    en: 'The code isn’t in the folder’s description yet. Add it, save, and press Verify again.',
+    nl: 'De code staat nog niet in de beschrijving van de map. Voeg hem toe, sla op en druk opnieuw op Controleren.', // MT
+    es: 'El código aún no está en la descripción de la carpeta. Añádelo, guarda y pulsa Verificar de nuevo.', // MT
+    pt: 'O código ainda não está na descrição da pasta. Adicione-o, guarde e prima Verificar de novo.', // MT
+    de: 'Der Code steht noch nicht in der Beschreibung des Ordners. Füge ihn hinzu, speichere und drücke erneut Prüfen.', // MT
+    fr: 'Le code n’est pas encore dans la description du dossier. Ajoute-le, enregistre et appuie à nouveau sur Vérifier.', // MT
+  },
+  drv_err_code_expired: {
+    en: 'That code has expired. Paste the link again to get a new one.',
+    nl: 'Die code is verlopen. Plak de link opnieuw voor een nieuwe.', // MT
+    es: 'Ese código ha caducado. Pega el enlace de nuevo para obtener uno nuevo.', // MT
+    pt: 'Esse código expirou. Cole a ligação de novo para obter um novo.', // MT
+    de: 'Dieser Code ist abgelaufen. Füge den Link erneut ein, um einen neuen zu bekommen.', // MT
+    fr: 'Ce code a expiré. Colle à nouveau le lien pour en obtenir un nouveau.', // MT
+  },
+  drv_err_failed: {
+    en: 'That didn’t work just now. Try again in a moment.',
+    nl: 'Dat lukte nu niet. Probeer het zo opnieuw.', // MT
+    es: 'Eso no funcionó ahora. Inténtalo de nuevo en un momento.', // MT
+    pt: 'Isso não funcionou agora. Tente de novo daqui a pouco.', // MT
+    de: 'Das hat gerade nicht geklappt. Versuche es gleich noch einmal.', // MT
+    fr: 'Ça n’a pas marché. Réessaie dans un instant.', // MT
+  },
   pg_archive: {
     en: 'Archive group',
     nl: 'Groep archiveren', // MT pending native review

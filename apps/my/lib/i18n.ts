@@ -215,6 +215,126 @@ const CATALOG = {
     de: 'Du hast {name} schon.', // MT
     fr: 'Tu as déjà {name}.', // MT
   },
+  drive_all_files: {
+    en: 'All files',
+    nl: 'Alle bestanden',
+    es: 'Todos los archivos', // MT
+    pt: 'Todos os ficheiros', // MT
+    de: 'Alle Dateien', // MT
+    fr: 'Tous les fichiers', // MT
+  },
+  drive_empty: {
+    en: 'This folder is empty.',
+    nl: 'Deze map is leeg.',
+    es: 'Esta carpeta está vacía.', // MT
+    pt: 'Esta pasta está vazia.', // MT
+    de: 'Dieser Ordner ist leer.', // MT
+    fr: 'Ce dossier est vide.', // MT
+  },
+  drive_not_found: {
+    en: 'This folder isn’t available to you.',
+    nl: 'Deze map is niet voor jou beschikbaar.',
+    es: 'Esta carpeta no está disponible para ti.', // MT
+    pt: 'Esta pasta não está disponível para si.', // MT
+    de: 'Dieser Ordner ist für dich nicht verfügbar.', // MT
+    fr: 'Ce dossier ne t’est pas accessible.', // MT
+  },
+  drive_not_shared: {
+    en: 'This folder can’t be opened right now: it is no longer shared with the community. Let the community know.',
+    nl: 'Deze map kan nu niet worden geopend: hij wordt niet meer met de community gedeeld. Laat het de community weten.',
+    es: 'Esta carpeta no se puede abrir ahora: ya no se comparte con la comunidad. Avisa a la comunidad.', // MT
+    pt: 'Esta pasta não pode ser aberta agora: já não é partilhada com a comunidade. Avise a comunidade.', // MT
+    de: 'Dieser Ordner kann gerade nicht geöffnet werden: Er wird nicht mehr mit der Community geteilt. Sag der Community Bescheid.', // MT
+    fr: 'Ce dossier ne peut pas être ouvert : il n’est plus partagé avec la communauté. Préviens la communauté.', // MT
+  },
+  drive_unavailable: {
+    en: 'Google Drive isn’t answering right now. Try again in a moment.',
+    nl: 'Google Drive reageert nu niet. Probeer het zo opnieuw.',
+    es: 'Google Drive no responde ahora. Inténtalo de nuevo en un momento.', // MT
+    pt: 'O Google Drive não está a responder. Tente de novo daqui a pouco.', // MT
+    de: 'Google Drive antwortet gerade nicht. Versuche es gleich noch einmal.', // MT
+    fr: 'Google Drive ne répond pas pour l’instant. Réessaie dans un instant.', // MT
+  },
+  drive_failed: {
+    en: 'The folder didn’t load just now. Try again in a moment.',
+    nl: 'De map laadde nu niet. Probeer het zo opnieuw.',
+    es: 'La carpeta no se cargó ahora. Inténtalo de nuevo en un momento.', // MT
+    pt: 'A pasta não carregou agora. Tente de novo daqui a pouco.', // MT
+    de: 'Der Ordner wurde gerade nicht geladen. Versuche es gleich noch einmal.', // MT
+    fr: 'Le dossier ne s’est pas chargé. Réessaie dans un instant.', // MT
+  },
+  drive_too_large: {
+    en: 'Too large to download here',
+    nl: 'Te groot om hier te downloaden',
+    es: 'Demasiado grande para descargar aquí', // MT
+    pt: 'Demasiado grande para transferir aqui', // MT
+    de: 'Zu groß zum Herunterladen hier', // MT
+    fr: 'Trop volumineux pour être téléchargé ici', // MT
+  },
+  drive_not_exportable: {
+    en: 'Can’t be downloaded',
+    nl: 'Kan niet worden gedownload',
+    es: 'No se puede descargar', // MT
+    pt: 'Não pode ser transferido', // MT
+    de: 'Kann nicht heruntergeladen werden', // MT
+    fr: 'Ne peut pas être téléchargé', // MT
+  },
+  drive_download_failed: {
+    en: 'That file couldn’t be downloaded just now. Try again in a moment.',
+    nl: 'Dat bestand kon nu niet worden gedownload. Probeer het zo opnieuw.',
+    es: 'Ese archivo no se pudo descargar ahora. Inténtalo de nuevo en un momento.', // MT
+    pt: 'Esse ficheiro não pôde ser transferido agora. Tente de novo daqui a pouco.', // MT
+    de: 'Diese Datei konnte gerade nicht heruntergeladen werden. Versuche es gleich noch einmal.', // MT
+    fr: 'Ce fichier n’a pas pu être téléchargé. Réessaie dans un instant.', // MT
+  },
+  drive_changed: {
+    en: 'Changed {date}',
+    nl: 'Gewijzigd {date}',
+    es: 'Modificado {date}', // MT
+    pt: 'Alterado {date}', // MT
+    de: 'Geändert {date}', // MT
+    fr: 'Modifié {date}', // MT
+  },
+  drive_as_pdf: {
+    en: 'PDF',
+    nl: 'PDF',
+    es: 'PDF', // MT
+    pt: 'PDF', // MT
+    de: 'PDF', // MT
+    fr: 'PDF', // MT
+  },
+  drive_too_large_over: {
+    en: 'Over {size}, too large to download here',
+    nl: 'Groter dan {size}, te groot om hier te downloaden',
+    es: 'Más de {size}: demasiado grande para descargar aquí', // MT
+    pt: 'Mais de {size}: demasiado grande para transferir aqui', // MT
+    de: 'Über {size}, zu groß zum Herunterladen hier', // MT
+    fr: 'Plus de {size} : trop volumineux pour être téléchargé ici', // MT
+  },
+  drive_export_too_large: {
+    en: 'This document is too large to turn into a PDF here (over {size}).',
+    nl: 'Dit document is te groot om hier een pdf van te maken (meer dan {size}).',
+    es: 'Este documento es demasiado grande para convertirlo en PDF aquí (más de {size}).', // MT
+    pt: 'Este documento é demasiado grande para converter em PDF aqui (mais de {size}).', // MT
+    de: 'Dieses Dokument ist zu groß, um es hier in ein PDF umzuwandeln (über {size}).', // MT
+    fr: 'Ce document est trop volumineux pour être converti en PDF ici (plus de {size}).', // MT
+  },
+  drive_not_configured: {
+    en: 'Google Drive isn’t set up here yet.',
+    nl: 'Google Drive is hier nog niet ingesteld.',
+    es: 'Google Drive aún no está configurado aquí.', // MT
+    pt: 'O Google Drive ainda não está configurado aqui.', // MT
+    de: 'Google Drive ist hier noch nicht eingerichtet.', // MT
+    fr: 'Google Drive n’est pas encore configuré ici.', // MT
+  },
+  drive_not_exportable_long: {
+    en: 'That file can’t be downloaded here.',
+    nl: 'Dat bestand kan hier niet worden gedownload.',
+    es: 'Ese archivo no se puede descargar aquí.', // MT
+    pt: 'Esse ficheiro não pode ser transferido aqui.', // MT
+    de: 'Diese Datei kann hier nicht heruntergeladen werden.', // MT
+    fr: 'Ce fichier ne peut pas être téléchargé ici.', // MT
+  },
   nav_files: {
     en: 'Files',
     nl: 'Bestanden',

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, GripVertical, Image as ImageIcon, Link2, Trash2 } from 'lucide-react';
+import { FileText, Folder, GripVertical, Image as ImageIcon, Link2, Trash2 } from 'lucide-react';
 import { RichTextField } from '@thefibre/shared/ui/rich-text-field';
 import { RichText } from '@thefibre/shared/ui/rich-text';
 import { safeLinkUrl } from '@thefibre/shared/member-page';
@@ -11,6 +11,7 @@ import { CHIP, CHIP_STATE, NOTICE } from '@thefibre/shared/ui/recipes';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { AudienceChips } from './audience-chips';
+import { DriveConnect } from './drive-connect';
 import {
   addMemberLink,
   previewMemberIntro,
@@ -26,7 +27,10 @@ import {
 // tier_ids: who sees it (2jj). Empty = every member, the behaviour before tiers.
 export type MemberDocument =
   | { id: string; title: string; kind: 'file'; mime: string; bytes: number; uploaded_at: string; tier_ids?: string[]; category_ids?: string[] }
-  | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string; tier_ids?: string[]; category_ids?: string[] };
+  | { id: string; title: string; kind: 'link'; url: string; uploaded_at: string; tier_ids?: string[]; category_ids?: string[] }
+  // A connected Google Drive folder (2026-10-17): members browse it in
+  // my.thread → Files; same order, same audience as every other entry.
+  | { id: string; title: string; kind: 'drive'; folder_id: string; uploaded_at: string; tier_ids?: string[]; category_ids?: string[] };
 export type PageTier = { id: string; name: string; archived: boolean };
 type Preview = {
   member_name: string | null;
@@ -90,7 +94,7 @@ export function MemberPageClient({
     tiers.find((x) => tierKey(x.id) === target)?.name ?? categories.find((x) => catKey(x.id) === target)?.name ?? null;
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<'upload' | 'link'>('upload');
+  const [kind, setKind] = useState<'upload' | 'link' | 'drive'>('upload');
   const [url, setUrl] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -340,7 +344,9 @@ export function MemberPageClient({
               >
                 <div className="flex items-center gap-3">
                 <GripVertical size={16} className="shrink-0 cursor-grab text-ink-muted" aria-hidden />
-                {d.kind === 'link' ? (
+                {d.kind === 'drive' ? (
+                  <Folder size={16} className="shrink-0 text-ink-subtle" aria-hidden />
+                ) : d.kind === 'link' ? (
                   <Link2 size={16} className="shrink-0 text-ink-subtle" aria-hidden />
                 ) : d.mime === 'application/pdf' ? (
                   <FileText size={16} className="shrink-0 text-ink-subtle" aria-hidden />
@@ -353,7 +359,9 @@ export function MemberPageClient({
                   onBlur={(e) => e.target.value.trim() && e.target.value !== d.title && void rename(d.id, e.target.value)}
                   className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm hover:border-line focus:border-line-strong focus:outline-none"
                 />
-                {d.kind === 'link' ? (
+                {d.kind === 'drive' ? (
+                  <span className="shrink-0 text-xs text-ink-muted">{t(locale, 'mp_type_drive')}</span>
+                ) : d.kind === 'link' ? (
                   <a href={d.url} target="_blank" rel="noopener noreferrer" className="max-w-[12rem] shrink-0 truncate text-xs text-ink-muted underline underline-offset-2">
                     {new URL(d.url).hostname}
                   </a>
@@ -388,7 +396,7 @@ export function MemberPageClient({
         <div className="space-y-3 border-t border-line pt-4">
           <div className="flex items-center gap-1.5" role="radiogroup" aria-label={t(locale, 'mp_type')}>
             <span className="mr-1 text-sm text-ink-subtle">{t(locale, 'mp_type')}</span>
-            {(['upload', 'link'] as const).map((k) => (
+            {(['upload', 'link', 'drive'] as const).map((k) => (
               <button
                 key={k}
                 type="button"
@@ -397,10 +405,20 @@ export function MemberPageClient({
                 onClick={() => setKind(k)}
                 className={`${CHIP} ${kind === k ? CHIP_STATE.on : CHIP_STATE.off}`}
               >
-                {t(locale, k === 'upload' ? 'mp_type_upload' : 'mp_type_link')}
+                {t(locale, k === 'upload' ? 'mp_type_upload' : k === 'link' ? 'mp_type_link' : 'mp_type_drive')}
               </button>
             ))}
           </div>
+          {kind === 'drive' ? (
+            <DriveConnect
+              locale={locale}
+              onConnected={(entry) => {
+                setDocs((d) => [...d, entry]);
+                router.refresh();
+              }}
+            />
+          ) : (
+            <>
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm text-ink-subtle">
               {t(locale, 'mp_title')}
@@ -438,6 +456,8 @@ export function MemberPageClient({
             )}
           </div>
           <p className="text-xs text-ink-muted">{t(locale, kind === 'link' ? 'mp_link_hint' : 'mp_upload_hint')}</p>
+            </>
+          )}
         </div>
       </section>
 

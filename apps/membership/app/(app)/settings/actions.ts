@@ -332,3 +332,46 @@ export async function declineGoogleAccount(id: string, reason: string): Promise<
     return { error: formatApiError(e) };
   }
 }
+
+// ── Google Drive folders on the member page (builder 4's routes, 2026-10-17)
+// Connecting is two steps, a proof of control: start (the API checks the
+// service account can see the folder and hands out a one-hour code), then
+// verify (the code must be in the folder's description). Every refusal keeps
+// the API's `code`, so the form can say what to do rather than show an error.
+export type DriveCode =
+  | 'bad_url'
+  | 'not_shared'
+  | 'bound_elsewhere'
+  | 'drive_not_configured'
+  | 'unavailable'
+  | 'code_missing'
+  | 'code_expired'
+  | 'failed';
+export type DriveStart = { folder_id: string; folder_name: string; code: string; expires_at: string; service_account: string };
+export type DriveEntry = { id: string; title: string; kind: 'drive'; folder_id: string; uploaded_at: string };
+type DriveResult<T> = { ok: true; data: T } | { ok: false; code: DriveCode; service_account?: string | null; message?: string };
+
+const DRIVE_CODES = new Set<DriveCode>(['bad_url', 'not_shared', 'bound_elsewhere', 'drive_not_configured', 'unavailable', 'code_missing', 'code_expired']);
+async function driveCall<T>(path: string, body?: unknown): Promise<DriveResult<T>> {
+  try {
+    const data = await apiFetch<T>(`/api/v1/membership/member-page/drive${path}`, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) });
+    return { ok: true, data };
+  } catch (e) {
+    const b = (e instanceof ApiError ? e.body : null) as { code?: string; service_account?: string | null; error?: unknown } | null;
+    const code = b?.code && DRIVE_CODES.has(b.code as DriveCode) ? (b.code as DriveCode) : 'failed';
+    return { ok: false, code, service_account: b?.service_account ?? null, message: typeof b?.error === 'string' ? b.error : undefined };
+  }
+}
+
+/** The address a folder must be shared with; null = Drive isn't set up on this stack. */
+export async function driveConfig(): Promise<DriveResult<{ service_account: string | null }>> {
+  return driveCall('/config');
+}
+export async function driveStart(folderUrl: string): Promise<DriveResult<DriveStart>> {
+  return driveCall('/start', { folder_url: folderUrl });
+}
+export async function driveVerify(folderId: string, title: string | null): Promise<DriveResult<DriveEntry>> {
+  const r = await driveCall<DriveEntry>('/verify', { folder_id: folderId, ...(title ? { title } : {}) });
+  if (r.ok) revalidatePath('/settings/member-page');
+  return r;
+}

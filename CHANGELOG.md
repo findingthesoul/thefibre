@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [1.267.0] — 2026-10-17
+
+### Google Drive folders: browse them in my.thread → Files, connect them in Members (my.thread 0.32.0, Members 1.20.0)
+
+- **The screens for builder 4's Drive slices 1–3** (v1.264.0–v1.266.0;
+  Sjoerd: "go Drive folders"). A community connects a Google Drive folder
+  to its member page, and members browse it inside my.thread without a
+  Google account.
+- **my.thread → Files** (and the community page, through the same shared
+  rows). A connected folder is a folder row that opens
+  `/files/drive/<community>/<entry>`:
+  - breadcrumbs from "All files", and each folder is its own address, so
+    back, a bookmark and a shared link land in the same place;
+  - folders first, then files with their size (or "PDF" for an exported
+    Google Doc/Sheet/Slides) and when they changed;
+  - a file that cannot be downloaded is shown with why: "Over 250 MB, too
+    large to download here" (the cap comes from the API's `limits`, never
+    hard-coded), or "Can't be downloaded";
+  - empty, not shared, Drive unavailable, not available to you and Drive not
+    set up are each said in words, never an empty list or an error page.
+  A download goes through this app's own route. It asks the API for a
+  one-minute address and redirects the browser to it, so the browser never
+  sees a Drive URL and nothing large passes through Vercel; the address is
+  passed through as given. A refusal comes back to the SAME subfolder with
+  a sentence, including "too large to turn into a PDF here (over 10 MB)" for
+  an export that hits Google's cap.
+- **Members → Settings → Member page → "Google Drive folder"**, a third type
+  beside upload and link. Paste the folder's link → Start → three steps with
+  copy buttons:
+  1. share the folder as Viewer with the community's Drive account;
+  2. put the code in the folder's description (both places Drive shows it
+     are named);
+  3. Verify.
+  Every refusal says what to do next: not a folder link, not shared yet
+  (with the address), connected elsewhere, the code not there yet, the code
+  expired, Drive unavailable, Drive not set up. Once connected, the folder
+  is one more row in the documents list, with the same "Shown to" picker
+  (`AudienceChips`, v1.263.1), drag order and remove as any document.
+- All strings in six languages (es/pt/de/fr MT, nl MT on the Members side).
+- **Verified:**
+  - both apps typecheck and their tests pass;
+  - both screens were rendered against a local stand-in answering EXACTLY
+    builder 4's frozen contract (every other call passed to the staging
+    API): browse, breadcrumbs, empty, not shared, too large and its return
+    to the subfolder, the phone layout; the connect form's bad link, the
+    three steps, code missing and connected;
+  - new e2e `drive-unconfigured` (staging, read-only) covers the one real
+    path today: with no service-account key, the Members form says Drive
+    isn't set up and offers no link field, and a my.thread Drive address
+    answers with a sentence, never "Application error". It runs after this
+    release.
+- **NOT verified: connect → browse → download against real Google Drive.**
+  That needs the staging service-account key and a shared test folder
+  (Sjoerd's to set). Until then every Drive call answers
+  `drive_not_configured`.
+
 ## [1.266.0] — 2026-10-17
 
 ### Drive folders, slice 3: open a file from a connected folder, streamed by the API (API)

@@ -2,14 +2,17 @@
 // community's page and Files (Sjoerd 2ij). Moved out of community-view.tsx
 // rather than forked, so a file opens the same way wherever it is listed.
 
-import { FileText, Image as ImageIcon, Link2 } from 'lucide-react';
+import { FileText, Folder, Image as ImageIcon, Link2 } from 'lucide-react';
 import { ROW_LIST } from '@thefibre/shared/ui/recipes';
 import { DEFAULT_TZ, fmtDate } from '@/lib/format';
 import type { Locale } from '@thefibre/shared/i18n';
 
 export type CommunityDocument =
   | { id: string; title: string; kind: 'file'; mime: string; bytes: number }
-  | { id: string; title: string; kind: 'link'; url: string };
+  | { id: string; title: string; kind: 'link'; url: string }
+  // A connected Google Drive folder (2026-10-17): opens this app's own folder
+  // browser; the folder's Drive id never reaches the browser.
+  | { id: string; title: string; kind: 'drive' };
 
 /** A community's own documents. A file opens through this app's own route,
  *  which checks the session and hands over a one-minute address; a link goes
@@ -19,7 +22,15 @@ export function CommunityDocumentList({ workspaceId, documents }: { workspaceId:
     <ul className={`mt-3 ${ROW_LIST}`}>
       {documents.map((d) => (
         <li key={d.id}>
-          {d.kind === 'link' ? (
+          {d.kind === 'drive' ? (
+            <a
+              href={`/files/drive/${workspaceId}/${d.id}`}
+              className="flex min-h-11 items-center gap-3 px-4 py-3 text-sm text-ink hover:bg-surface-sunken sm:px-5"
+            >
+              <Folder size={18} strokeWidth={1.75} className="shrink-0 text-ink-subtle" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{d.title}</span>
+            </a>
+          ) : d.kind === 'link' ? (
             // No opener — the page it opens cannot reach back into this one.
             // The API only stores http(s) addresses.
             <a

@@ -310,7 +310,10 @@ export type CommunityView = {
   /** The directory categories' sections this member holds, under the tier
    *  sections. Optional, like tier_sections. */
   category_sections?: { category_id: string; category_name: string; intro_html: string }[];
-  documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string })[];
+  /** `drive`: a Google Drive folder the community connected (additive,
+   *  2026-10-17). No folder id reaches the client; it is browsed by the
+   *  entry's own id (GET /me/portal/community/:ws/drive/:docId). */
+  documents: ({ id: string; title: string; kind: 'file'; mime: string; bytes: number } | { id: string; title: string; kind: 'link'; url: string } | { id: string; title: string; kind: 'drive' })[];
   thread_documents: { thread_title: string; items: { title: string; url: string | null; sent_at: string }[] }[];
   next: { title: string; starts_at: string; thread_title: string | null; url: string | null; kind: 'yours' | 'upcoming' } | null;
 };
@@ -972,5 +975,52 @@ export async function fetchShop(accessToken: string): Promise<ShopCommunity[] | 
     return ((await res.json()) as { communities: ShopCommunity[] }).communities;
   } catch {
     return null;
+  }
+}
+
+/** A Drive folder's contents (builder 4's contract, frozen 2026-10-17). */
+export type DriveItem = {
+  id: string;
+  name: string;
+  kind: 'folder' | 'file';
+  mime: string;
+  bytes: number | null;
+  modified_at: string;
+  export_as: 'pdf' | null;
+  downloadable: boolean;
+  /** Why it cannot be downloaded (null when it can). */
+  reason?: 'too_large' | 'not_exportable' | null;
+};
+export type DriveListing = {
+  folder: { id: string; name: string };
+  breadcrumbs: { id: string; name: string }[];
+  items: DriveItem[];
+  /** The download caps, so the page can say them in words (additive). An
+   *  exported Doc/Sheet/Slides can only hit its cap when it is opened. */
+  limits?: { max_download_bytes: number; max_export_bytes: number };
+};
+export type DriveError = 'not_found' | 'not_shared' | 'unavailable' | 'drive_not_configured' | 'failed';
+
+/** List one folder of a connected Drive entry. `folder` absent = its root.
+ *  Never throws: an error comes back as its code, so the page can say what
+ *  happened in words rather than show an empty folder. */
+export async function fetchDriveFolder(
+  accessToken: string,
+  workspaceId: string,
+  docId: string,
+  folder: string | null,
+): Promise<{ ok: true; listing: DriveListing } | { ok: false; code: DriveError }> {
+  try {
+    const q = folder ? `?folder=${encodeURIComponent(folder)}` : '';
+    const res = await fetch(`${baseUrl}/api/v1/me/portal/community/${encodeURIComponent(workspaceId)}/drive/${encodeURIComponent(docId)}${q}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (res.ok) return { ok: true, listing: (await res.json()) as DriveListing };
+    const body = (await res.json().catch(() => null)) as { code?: string } | null;
+    const code = body?.code;
+    return { ok: false, code: code === 'not_found' || code === 'not_shared' || code === 'unavailable' || code === 'drive_not_configured' ? code : res.status === 404 ? 'not_found' : 'failed' };
+  } catch {
+    return { ok: false, code: 'failed' };
   }
 }
